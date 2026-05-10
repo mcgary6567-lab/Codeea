@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- General -->
+    <dimen name="spacing_tiny">4dp</dimen>
+    <dimen name="spacing_small">8dp</dimen>
+    <dimen name="spacing_medium">16dp</dimen>
+    <dimen name="spacing_large">24dp</dimen>
+    <dimen name="spacing_xlarge">32dp</dimen>
+
+    <!-- Corner Radius -->
+    <dimen name="corner_small">4dp</dimen>
+    <dimen name="corner_medium">8dp</dimen>
+    <dimen name="corner_large">12dp</dimen>
+    <dimen name="corner_xlarge">16dp</dimen>
+    <dimen name="corner_round">50dp</dimen>
+
+    <!-- Timeline -->
+    <dimen name="timeline_height">140dp</dimen>
+    <dimen name="timeline_track_height">56dp</dimen>
+    <dimen name="timeline_audio_track_height">36dp</dimen>
+    <dimen name="timeline_thumb_width">56dp</dimen>
+    <dimen name="timeline_thumb_height">56dp</dimen>
+    <dimen name="timeline_trim_handle_width">16dp</dimen>
+    <dimen name="timeline_playhead_width">2dp</dimen>
+    <dimen name="timeline_padding_horizontal">160dp</dimen>
+
+    <!-- Editor Toolbar -->
+    <dimen name="editor_toolbar_height">56dp</dimen>
+    <dimen name="tool_item_size">64dp</dimen>
+    <dimen name="tool_icon_size">24dp</dimen>
+    <dimen name="tool_label_size">10sp</dimen>
+
+    <!-- Bottom Tools Bar -->
+    <dimen name="tools_bar_height">80dp</dimen>
+
+    <!-- Video Preview -->
+    <dimen name="preview_min_height">200dp</dimen>
+
+    <!-- Filter Items -->
+    <dimen name="filter_item_size">72dp</dimen>
+    <dimen name="filter_item_label_size">10sp</dimen>
+
+    <!-- Text Overlay -->
+    <dimen name="text_overlay_min_size">14sp</dimen>
+    <dimen name="text_overlay_max_size">72sp</dimen>
+
+    <!-- Icons -->
+    <dimen name="icon_small">16dp</dimen>
+    <dimen name="icon_medium">24dp</dimen>
+    <dimen name="icon_large">32dp</dimen>
+    <dimen name="icon_xlarge">48dp</dimen>
+
+    <!-- Project Card -->
+    <dimen name="project_card_height">140dp</dimen>
+    <dimen name="project_thumbnail_width">96dp</dimen>
+
+    <!-- FAB -->
+    <dimen name="fab_size">56dp</dimen>
+</resources>

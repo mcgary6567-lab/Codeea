@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark"
+    tools:context=".ui.editor.EditorActivity">
+
+    <!-- Top Toolbar -->
+    <LinearLayout
+        android:id="@+id/layoutTopBar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/editor_toolbar_height"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="@dimen/spacing_small"
+        android:background="@color/bg_dark">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_arrow_back"
+            android:tint="@color/text_primary"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back" />
+
+        <TextView
+            android:id="@+id/tvProjectName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Edit Video"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <ImageButton
+            android:id="@+id/btnUndo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_undo"
+            android:tint="@color/text_secondary"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Undo" />
+
+        <ImageButton
+            android:id="@+id/btnRedo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_redo"
+            android:tint="@color/text_secondary"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Redo"
+            android:layout_marginEnd="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnExport"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Export"
+            android:textColor="@color/text_on_primary"
+            android:textSize="13sp"
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="18dp"
+            android:paddingHorizontal="16dp" />
+
+    </LinearLayout>
+
+    <!-- Video Preview Area -->
+    <FrameLayout
+        android:id="@+id/layoutPreview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/bg_surface"
+        android:minHeight="@dimen/preview_min_height">
+
+        <!-- ExoPlayer PlayerView -->
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/playerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:use_controller="false"
+            app:resize_mode="fit" />
+
+        <!-- Text Overlay Canvas -->
+        <com.codeea.videoeditor.tools.TextOverlayView
+            android:id="@+id/textOverlayView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Play/Pause Button Overlay -->
+        <ImageView
+            android:id="@+id/ivPlayPause"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_circle"
+            android:tint="@color/text_on_primary"
+            android:alpha="0.9"
+            android:visibility="visible" />
+
+        <!-- Current Time Display -->
+        <TextView
+            android:id="@+id/tvCurrentTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="@dimen/spacing_small"
+            android:text="00:00"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:background="@drawable/bg_time_label"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp" />
+
+        <!-- Duration Display -->
+        <TextView
+            android:id="@+id/tvDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="@dimen/spacing_small"
+            android:text="00:00"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:background="@drawable/bg_time_label"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp" />
+
+    </FrameLayout>
+
+    <!-- Timeline Section -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/timeline_height"
+        android:background="@color/timeline_bg">
+
+        <com.codeea.videoeditor.timeline.TimelineView
+            android:id="@+id/timelineView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Playhead indicator (center line) -->
+        <View
+            android:id="@+id/viewPlayhead"
+            android:layout_width="@dimen/timeline_playhead_width"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:background="@color/timeline_playhead"
+            android:elevation="4dp" />
+
+    </FrameLayout>
+
+    <!-- Tool Options Panel (shown when a tool is active) -->
+    <FrameLayout
+        android:id="@+id/layoutToolOptions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        android:visibility="gone">
+
+        <!-- Speed Panel -->
+        <include
+            android:id="@+id/panelSpeed"
+            layout="@layout/panel_speed"
+            android:visibility="gone" />
+
+        <!-- Volume Panel -->
+        <include
+            android:id="@+id/panelVolume"
+            layout="@layout/panel_volume"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- Bottom Tools Bar -->
+    <LinearLayout
+        android:id="@+id/layoutToolsBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/bg_surface">
+
+        <!-- Tools Scroll -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/tools_bar_height"
+            android:scrollbars="none"
+            android:paddingVertical="@dimen/spacing_small">
+
+            <LinearLayout
+                android:id="@+id/layoutTools"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/spacing_medium"
+                android:gravity="center_vertical">
+
+                <!-- Cut Tool -->
+                <LinearLayout
+                    android:id="@+id/toolCut"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_content_cut"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Trim"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Split Tool -->
+                <LinearLayout
+                    android:id="@+id/toolSplit"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_split"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Split"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Music Tool -->
+                <LinearLayout
+                    android:id="@+id/toolMusic"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_music_note"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Music"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Text Tool -->
+                <LinearLayout
+                    android:id="@+id/toolText"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_text_fields"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Text"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Filter Tool -->
+                <LinearLayout
+                    android:id="@+id/toolFilter"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_filter"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Filter"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Speed Tool -->
+                <LinearLayout
+                    android:id="@+id/toolSpeed"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_speed"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Speed"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Volume Tool -->
+                <LinearLayout
+                    android:id="@+id/toolVolume"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_volume_up"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Volume"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+                <!-- Rotate Tool -->
+                <LinearLayout
+                    android:id="@+id/toolRotate"
+                    android:layout_width="@dimen/tool_item_size"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp">
+
+                    <ImageView
+                        android:layout_width="@dimen/tool_icon_size"
+                        android:layout_height="@dimen/tool_icon_size"
+                        android:src="@drawable/ic_rotate_right"
+                        android:tint="@color/tool_icon" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Rotate"
+                        android:textColor="@color/tool_icon"
+                        android:textSize="@dimen/tool_label_size"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Navigation bar spacer -->
+        <View
+            android:id="@+id/navBarSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
