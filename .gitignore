@@ -1,0 +1,15 @@
+# Debian packages
+*.deb
+
+# Android build artifacts
+*.apk
+*.aab
+*.aar
+build/
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
