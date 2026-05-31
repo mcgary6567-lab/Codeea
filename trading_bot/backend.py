@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Optional
 
 from config import LOG_FILE, MAX_REFRESH_FAILURES, POLL_INTERVAL, QUOTE_CURRENCY
-from exchange import ExchangeManager, Position, recompute_pnl
+from exchange import ExchangeManager, Position, normalize_symbol, recompute_pnl
 from pricefeed import PriceFeed
 
 
@@ -45,6 +45,9 @@ class Backend:
         self._last_positions: list[Position] = []
         self._last_balance: float = 0.0
         self._open_pairs: set = set()
+        # Symbol the user is eyeing in the manual-trade box; streamed even when
+        # there is no open position in it.
+        self._manual_symbol: str = ""
         self.price_feed: PriceFeed | None = None
 
         # Connection-health tracking for drop/rate-limit alerts.
@@ -118,6 +121,8 @@ class Backend:
                 self._do_trade(cmd)
             elif action == "refresh":
                 self._refresh()
+            elif action == "watch":
+                self._set_manual_symbol(cmd.get("symbol", ""))
         except Exception as exc:  # noqa: BLE001 - never kill the worker thread
             self.log(f"Error: {exc}", status="Error")
 
@@ -202,9 +207,8 @@ class Backend:
             for p in positions:
                 self._price_cache.setdefault(p.pair, p.current)
 
-        # Keep the price feed subscribed to exactly the symbols we hold.
-        if self.price_feed:
-            self.price_feed.set_symbols(list(new_pairs))
+        # Keep the price feed subscribed to held symbols + the manual symbol.
+        self._update_feed_symbols()
 
         self._emit_account()
 
@@ -213,6 +217,34 @@ class Backend:
         with self._lock:
             self._price_cache.update(prices)
         self._emit_account()
+        self._emit_manual_ticker()
+
+    def _set_manual_symbol(self, raw: str) -> None:
+        """The GUI's manual-trade symbol changed — stream its mark price."""
+        symbol = normalize_symbol(raw) if raw.strip() else ""
+        with self._lock:
+            self._manual_symbol = symbol
+        self._update_feed_symbols()
+        # Emit immediately so a cached price (if any) shows without waiting.
+        self._emit_manual_ticker()
+
+    def _update_feed_symbols(self) -> None:
+        """Subscribe the feed to held symbols plus the manual-trade symbol."""
+        if not self.price_feed:
+            return
+        with self._lock:
+            symbols = set(self._open_pairs)
+            if self._manual_symbol:
+                symbols.add(self._manual_symbol)
+        self.price_feed.set_symbols(list(symbols))
+
+    def _emit_manual_ticker(self) -> None:
+        """Push the manual symbol's latest price (or None) to the GUI."""
+        with self._lock:
+            symbol = self._manual_symbol
+            price = self._price_cache.get(symbol) if symbol else None
+        if symbol:
+            self._emit("ticker", symbol=symbol, price=price)
 
     def _emit_account(self) -> None:
         """Recompute PnL locally from cached prices and push to the GUI."""

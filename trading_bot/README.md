@@ -121,6 +121,10 @@ Once connected, the bot keeps the account view live:
 - **PnL** is recomputed locally on every tick — `(current − entry) × size`
   (reversed for shorts) — so the table and status bar move instantly without
   waiting for the next REST poll. Profit rows are green, losses red.
+- **Manual symbol mark price:** the symbol in the manual-trade box is streamed
+  too — its live **Mark** price shows next to it even when you hold no position
+  in it, so you can see the price before clicking BUY/SELL. The feed subscribes
+  to the union of held symbols and the manual symbol.
 - **Trade log sync:** when a position disappears between refreshes it is logged
   as **Closed**.
 - **Resilience:** keys are encrypted at rest; ticker requests use a keyless

@@ -191,7 +191,14 @@ class TradingBotGUI:
         top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         ttk.Label(top, text="Manual symbol:").pack(side="left")
         self.symbol_var = tk.StringVar(value="BTC/USDT")
-        ttk.Entry(top, textvariable=self.symbol_var, width=14).pack(side="left", padx=6)
+        sym_entry = ttk.Entry(top, textvariable=self.symbol_var, width=14)
+        sym_entry.pack(side="left", padx=6)
+        # Live mark price for the manual symbol (streamed even with no position).
+        self.mark_label = tk.Label(top, text="Mark: —", fg=GREY, font=("Segoe UI", 10, "bold"))
+        self.mark_label.pack(side="left", padx=4)
+        # Re-subscribe the feed whenever the symbol is edited/committed.
+        sym_entry.bind("<Return>", lambda e: self._watch_manual_symbol())
+        sym_entry.bind("<FocusOut>", lambda e: self._watch_manual_symbol())
         tk.Button(top, text="Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
         self.feed_label = tk.Label(top, text="feed: off", fg=GREY)
         self.feed_label.pack(side="right", padx=8)
@@ -394,6 +401,12 @@ class TradingBotGUI:
             # size omitted -> backend computes from fixed/risk settings
         })
 
+    def _watch_manual_symbol(self) -> None:
+        """Ask the backend to stream the mark price for the manual symbol."""
+        symbol = self.symbol_var.get().strip()
+        if symbol:
+            self.backend.submit({"cmd": "watch", "symbol": symbol})
+
     def _on_webhook_signal(self, signal: dict) -> None:
         """Called from the webhook server thread. Just enqueue a trade."""
         self.backend.submit({
@@ -467,8 +480,17 @@ class TradingBotGUI:
             if not msg.get("ok"):
                 # Surface rejected orders prominently.
                 self.bal_label.config(fg=RED)
+        elif kind == "ticker":
+            self._update_mark(msg)
         elif kind == "alert":
             self._handle_alert(msg)
+
+    def _update_mark(self, msg: dict) -> None:
+        price = msg.get("price")
+        if price is None:
+            self.mark_label.config(text="Mark: —", fg=GREY)
+        else:
+            self.mark_label.config(text=f"Mark: {price:,.4f}".rstrip("0").rstrip("."), fg="black")
 
     def _handle_alert(self, msg: dict) -> None:
         level = msg.get("level", "error")
@@ -494,6 +516,8 @@ class TradingBotGUI:
                 self.feed_label.config(text="feed: sim", fg=GREY)
             else:
                 self.feed_label.config(text="feed: live", fg=GREEN)
+                # Start streaming the manual symbol's mark price right away.
+                self._watch_manual_symbol()
         else:
             self.status_dot.config(fg=RED)
             self.conn_label.config(text="Disconnected")
