@@ -382,6 +382,13 @@ class TradingBotGUI:
         self.guardrail_status = tk.Label(gr, text="", fg=RED, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
 
+        ttk.Separator(f, orient="horizontal").grid(row=10, column=0, columnspan=2, sticky="ew", pady=6)
+        self.move_be_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            f, text="Move stop to breakeven on TP1 event (from indicator)",
+            variable=self.move_be_var, command=self._push_settings,
+        ).grid(row=11, column=0, columnspan=2, sticky="w", pady=2)
+
     def _build_alert_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
             row=0, column=0, columnspan=2, sticky="w"
@@ -451,6 +458,7 @@ class TradingBotGUI:
         self.leverage_var.set(str(s.get("leverage", DEFAULT_LEVERAGE)))
         mm = s.get("margin_mode", "")
         self.margin_mode_var.set(mm if mm in ("cross", "isolated") else "(default)")
+        self.move_be_var.set(s.get("move_be", False))
         self.max_open_var.set(str(s.get("max_open", 0)))
         self.daily_loss_var.set(str(s.get("daily_loss", 0)))
         self.cooldown_var.set(str(s.get("cooldown", 0)))
@@ -477,6 +485,7 @@ class TradingBotGUI:
             "limit_price": self.limit_price_var.get(),
             "leverage": int(self._float(self.leverage_var.get(), 0)),
             "margin_mode": self._margin_mode_value(),
+            "move_be": self.move_be_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
@@ -520,6 +529,7 @@ class TradingBotGUI:
             "order_type": self.order_type_var.get(),
             "leverage": int(self._float(self.leverage_var.get(), 0)),
             "margin_mode": self._margin_mode_value(),
+            "move_be": self.move_be_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
@@ -593,7 +603,21 @@ class TradingBotGUI:
             self.backend.submit({"cmd": "watch", "symbol": symbol})
 
     def _on_webhook_signal(self, signal: dict) -> None:
-        """Called from the webhook server thread. Enqueue a trade with bracket."""
+        """Called from the webhook server thread.
+
+        Entry alerts (action buy/sell) open a trade + bracket. Lifecycle events
+        (tp1_hit / tp2_hit / sl_hit / sl_after_partial) are routed to the event
+        handler — e.g. move stop to breakeven after TP1.
+        """
+        if signal.get("event"):
+            self.backend.submit({
+                "cmd": "signal_event",
+                "event": signal["event"],
+                "symbol": signal["ticker"],
+                "entry": signal.get("entry"),
+                "price": signal.get("price"),
+            })
+            return
         self.backend.submit({
             "cmd": "trade",
             "symbol": signal["ticker"],

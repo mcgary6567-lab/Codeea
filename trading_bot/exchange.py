@@ -392,6 +392,17 @@ class ExchangeManager:
         side = exit_side("buy" if position.side == "Long" else "sell")
         return self.place_market_order(position.pair, side, position.size, reduce_only=True)
 
+    def cancel_order(self, order_id: str, symbol: str) -> OrderResult:
+        """Cancel a single open order (used to move a stop). Best-effort."""
+        sym = normalize_symbol(symbol)
+        if self.safe_mode or not CCXT_AVAILABLE or not self.client or not order_id:
+            return OrderResult(True, f"SIMULATED cancel {order_id} {sym}", pair=sym, simulated=True)
+        try:
+            self.client.cancel_order(order_id, sym)
+            return OrderResult(True, f"Cancelled order {order_id} {sym}", pair=sym)
+        except Exception as exc:  # noqa: BLE001
+            return OrderResult(False, f"Cancel failed: {exc}", pair=sym)
+
     # -- simulation helpers -------------------------------------------------
     def _simulate_fill(self, symbol: str, side: str, amount: float) -> None:
         price = self._last_price(symbol) or 100.0

@@ -67,6 +67,9 @@ class Backend:
         self.order_type = DEFAULT_ORDER_TYPE
         self.leverage = DEFAULT_LEVERAGE
         self.margin_mode = ""
+        self.move_be = False                 # move stop to breakeven on TP1 event
+        self._sl_orders: dict = {}           # symbol -> stop-loss order id (for BE move)
+        self._entry_px: dict = {}            # symbol -> entry price (for BE move)
 
         self.guardrails = Guardrails()
         self.notifier = Notifier()
@@ -155,6 +158,7 @@ class Backend:
                 self.order_type = cmd.get("order_type", self.order_type)
                 self.leverage = int(cmd.get("leverage", self.leverage) or 0)
                 self.margin_mode = cmd.get("margin_mode", self.margin_mode)
+                self.move_be = cmd.get("move_be", self.move_be)
                 self.guardrails.configure(
                     max_open=cmd.get("max_open", self.guardrails.max_open_positions),
                     daily_loss=cmd.get("daily_loss", self.guardrails.daily_loss_limit),
@@ -171,6 +175,8 @@ class Backend:
             elif action == "reset_daily":
                 self.guardrails.reset_daily()
                 self.log("Daily loss limit reset — trading re-enabled", status="OK")
+            elif action == "signal_event":
+                self._do_signal_event(cmd)
             elif action == "trade":
                 self._do_trade(cmd)
             elif action == "refresh":
@@ -267,12 +273,59 @@ class Backend:
         )
         if result.ok:
             self.guardrails.record_entry(symbol)
+            self._entry_px[symbol] = entry or price  # for a later breakeven move
 
         # Place protective SL/TP from the alert payload.
         if result.ok and self.auto_bracket and (sl or tp1 or tp2):
             self._place_brackets(result.pair or symbol, side, size, sl, tp1, tp2, source)
 
         self._refresh()
+
+    def _do_signal_event(self, cmd: dict) -> None:
+        """Handle post-entry lifecycle events from the indicator.
+
+        The bot's own reduce-only SL/TP bracket already executes exits on the
+        exchange, so these events are mostly informational — except TP1, which
+        can optionally trail the stop to breakeven (something the static bracket
+        doesn't do on its own).
+        """
+        event = cmd.get("event", "")
+        symbol = normalize_symbol(cmd.get("symbol", ""))
+        nice = {
+            "tp1_hit": "TP1 hit", "tp2_hit": "TP2 hit",
+            "sl_hit": "SL hit", "sl_after_partial": "SL after partial",
+        }.get(event, event)
+        self.log(f"Indicator event: {nice}", signal=event.upper()[:6], pair=symbol,
+                 status="Event")
+        self.notifier.notify(f"{nice} {symbol}", f"Indicator reported {event}",
+                             level="ok" if event.startswith("tp") else "error")
+
+        if event == "tp1_hit" and self.move_be:
+            self._move_stop_to_breakeven(symbol, float(cmd.get("entry") or 0))
+
+    def _move_stop_to_breakeven(self, symbol: str, entry_hint: float) -> None:
+        """Cancel the existing stop and place a new reduce-only stop at entry."""
+        entry = entry_hint or self._entry_px.get(symbol, 0.0)
+        if entry <= 0:
+            self.log("Breakeven skipped — unknown entry price", pair=symbol, status="Skipped")
+            return
+        with self._lock:
+            pos = next((p for p in self._last_positions if p.pair == symbol), None)
+        if not pos:
+            self.log("Breakeven skipped — no open position", pair=symbol, status="Skipped")
+            return
+        # Cancel the old stop if we tracked it, then place a fresh one at entry.
+        old_id = self._sl_orders.get(symbol)
+        if old_id:
+            self.exchange.cancel_order(old_id, symbol)
+        ex_side = exit_side("buy" if pos.side == "Long" else "sell")
+        r = self.exchange.place_reduce_order(symbol, ex_side, pos.size, entry, "sl")
+        if r.ok and isinstance(r.raw, dict):
+            self._sl_orders[symbol] = r.raw.get("id")
+        self.log(f"Stop moved to breakeven @ {entry:g}: {r.message}",
+                 signal="BE", pair=symbol, status="OK" if r.ok else "Rejected")
+        self.notifier.notify(f"Breakeven {symbol}", f"Stop moved to {entry:g}",
+                             level="ok" if r.ok else "error")
 
     def _place_brackets(self, symbol, entry_side, size, sl, tp1, tp2, source) -> None:
         """Place reduce-only stop-loss and (scaled) take-profit orders."""
@@ -282,6 +335,9 @@ class Backend:
             self.log(r.message, signal="SL", pair=symbol, status="OK" if r.ok else "Rejected")
             history.record_trade(source, symbol, ex_side, "sl", size, sl,
                                  "Filled" if r.ok else "Rejected", message=r.message)
+            # Remember the SL order id so a TP1 event can move it to breakeven.
+            if r.ok and isinstance(r.raw, dict):
+                self._sl_orders[symbol] = r.raw.get("id")
         for price, qty in plan_take_profits(size, tp1, tp2, TP1_SCALE_OUT):
             r = self.exchange.place_reduce_order(symbol, ex_side, qty, price, "tp")
             self.log(r.message, signal="TP", pair=symbol, status="OK" if r.ok else "Rejected")

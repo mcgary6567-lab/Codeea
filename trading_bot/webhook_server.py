@@ -23,6 +23,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, Optional
 
+# Lifecycle events some indicators emit after entry (e.g. Gold Scalpers).
+KNOWN_EVENTS = {"tp1_hit", "tp2_hit", "sl_hit", "sl_after_partial"}
+
 
 class WebhookServer:
     def __init__(
@@ -93,8 +96,11 @@ class WebhookServer:
                     return
 
                 action = str(payload.get("action") or payload.get("side") or "").lower()
+                event = str(payload.get("event") or "").lower()
                 ticker = str(payload.get("ticker") or payload.get("symbol") or "")
-                if action not in ("buy", "sell") or not ticker:
+                valid_entry = action in ("buy", "sell")
+                valid_event = event in KNOWN_EVENTS
+                if not ticker or not (valid_entry or valid_event):
                     server.log(f"Webhook: invalid signal {payload!r}")
                     self._send(422, "invalid signal")
                     return
@@ -107,15 +113,17 @@ class WebhookServer:
 
                 signal = {
                     "action": action,
+                    "event": event,
                     "ticker": ticker,
                     "size": payload.get("size"),
                     "entry": _num("entry"),
                     "sl": _num("sl"),
                     "tp1": _num("tp1"),
                     "tp2": _num("tp2"),
+                    "price": _num("price"),
                     "source": "webhook",
                 }
-                server.log(f"Webhook signal: {action.upper()} {ticker}")
+                server.log(f"Webhook signal: {(event or action).upper()} {ticker}")
                 try:
                     server.on_signal(signal)
                 except Exception as exc:  # noqa: BLE001

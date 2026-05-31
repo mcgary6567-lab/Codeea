@@ -145,6 +145,14 @@ Dip2Green alert  →  TradingView webhook  →  this bot's receiver  →  exchan
    The bot reads `action` + `symbol`, sizes the order from your lot settings,
    and executes (or simulates, in Safe Mode).
 
+**Lifecycle events.** Indicators that also emit post-entry events (e.g. *Gold
+Scalpers* sends `{"event":"tp1_hit",...}`, `tp2_hit`, `sl_hit`,
+`sl_after_partial`) are recognised too: they're logged + notified, and with
+**"Move stop to breakeven on TP1"** enabled (Modes & Risk tab) a `tp1_hit`
+event trails the stop to your entry. SL/TP exits themselves are handled by the
+bot's own reduce-only bracket on the exchange, so these events never double-fire
+orders.
+
 > **Note:** TradingView webhooks require a **paid** TradingView plan.
 
 ---
