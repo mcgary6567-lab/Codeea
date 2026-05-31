@@ -7,7 +7,6 @@ name: Build Windows EXE
 on:
   push:
     branches: ["**"]
-    paths: ["trading_bot/**", ".github/workflows/build-windows.yml"]
     tags: ["v*"]
   workflow_dispatch: {}
 
