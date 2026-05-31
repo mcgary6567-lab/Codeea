@@ -9,7 +9,9 @@
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas, binaries, hiddenimports = [], [], []
-for pkg in ("ccxt", "certifi"):
+# Fully bundle ccxt (hundreds of exchange modules + data), certifi (CA bundle),
+# and cryptography (cffi-backed). collect_all pulls submodules, data, and libs.
+for pkg in ("ccxt", "certifi", "cryptography"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
@@ -18,6 +20,10 @@ for pkg in ("ccxt", "certifi"):
 # ccxt.pro (WebSocket) submodules + our own modules, to be safe.
 hiddenimports += collect_submodules("ccxt")
 hiddenimports += [
+    # cryptography uses cffi at runtime — PyInstaller often misses this, which
+    # makes the exe crash on launch with "No module named '_cffi_backend'".
+    "_cffi_backend", "cffi",
+    # our own flat modules
     "exchange", "backend", "pricefeed", "webhook_server", "guardrails",
     "history", "notifications", "security", "config", "gui", "login",
     "analytics_window",

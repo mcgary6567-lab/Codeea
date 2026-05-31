@@ -63,6 +63,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Windows compatibility
+
+The built `TradingBot.exe` runs on **Windows 10 / 11 and Server 2016+ (64-bit)**
+with **no Python required** on the machine. Windows 7/8 are **not** supported by
+the current Python + `cryptography` stack — building for those needs a pinned
+legacy toolchain (Python 3.8 + older libs); ask if you specifically need it.
+
 ### Build a standalone `TradingBot.exe`
 
 To get a single double-clickable executable (no Python needed to *run* it),
