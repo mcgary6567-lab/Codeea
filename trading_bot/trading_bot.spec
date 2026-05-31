@@ -54,5 +54,5 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,        # windowed app (no console window)
     disable_windowed_traceback=False,
-    icon=None,            # drop an icon.ico beside this file and set icon="icon.ico"
+    icon="icon.ico",
 )

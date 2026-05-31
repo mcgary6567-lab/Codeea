@@ -1,0 +1,51 @@
+name: Build Windows EXE
+
+# Builds trading_bot/dist/TradingBot.exe on a real Windows runner and uploads it
+# as a downloadable artifact. Pushing a tag like v1.0.0 also attaches the exe to
+# a GitHub Release.
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["trading_bot/**", ".github/workflows/build-windows.yml"]
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to create a Release on tag pushes
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: trading_bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build executable
+        run: pyinstaller --noconfirm --clean trading_bot.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TradingBot-windows
+          path: trading_bot/dist/TradingBot.exe
+          if-no-files-found: error
+
+      - name: Attach to release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: trading_bot/dist/TradingBot.exe
