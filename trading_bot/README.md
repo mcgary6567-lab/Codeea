@@ -9,7 +9,10 @@ Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 [`ccxt`](https://github.com/ccxt/ccxt) for exchange connectivity and
 `cryptography` for encrypted, PIN-protected key storage.
 
-![layout reference](../dip_indicator_docs)
+> **How it works (diagrams):** see [`ARCHITECTURE.md`](ARCHITECTURE.md) for the
+> data-flow, trade-lifecycle, and threading diagrams. Overview image:
+
+![architecture](architecture.png)
 
 ---
 
