@@ -21,8 +21,9 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from config import LOG_FILE, POLL_INTERVAL, QUOTE_CURRENCY
-from exchange import ExchangeManager
+from config import LOG_FILE, MAX_REFRESH_FAILURES, POLL_INTERVAL, QUOTE_CURRENCY
+from exchange import ExchangeManager, Position, recompute_pnl
+from pricefeed import PriceFeed
 
 
 class Backend:
@@ -38,12 +39,26 @@ class Backend:
         self.risk_based = False
         self.risk_percent = 1.0
 
+        # Real-time state shared with the price feed thread (guarded by _lock).
+        self._lock = threading.Lock()
+        self._price_cache: dict = {}
+        self._last_positions: list[Position] = []
+        self._last_balance: float = 0.0
+        self._open_pairs: set = set()
+        self.price_feed: PriceFeed | None = None
+
+        # Connection-health tracking for drop/rate-limit alerts.
+        self._fail_count = 0
+        self._alerted = False
+
     # -- lifecycle ----------------------------------------------------------
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
+        if self.price_feed:
+            self.price_feed.stop()
         self._stop.set()
 
     # -- public enqueue helpers --------------------------------------------
@@ -83,7 +98,14 @@ class Backend:
             if action == "connect":
                 self._do_connect(cmd)
             elif action == "disconnect":
+                if self.price_feed:
+                    self.price_feed.stop()
+                    self.price_feed = None
                 self.exchange.disconnect()
+                with self._lock:
+                    self._price_cache.clear()
+                    self._last_positions = []
+                    self._open_pairs = set()
                 self._emit("status", connected=False, exchange=self.exchange.exchange_id)
                 self.log("Disconnected from exchange")
             elif action == "settings":
@@ -112,6 +134,18 @@ class Backend:
         )
         self._emit("status", connected=True, exchange=cmd["exchange_id"])
         self.log(f"Connected to {cmd['exchange_id']}", status="Connected")
+        self._fail_count = 0
+        self._alerted = False
+
+        # Start the real-time price feed (skip in Safe Mode sim — no live data).
+        if not self.exchange.safe_mode and self.price_feed is None:
+            self.price_feed = PriceFeed(
+                exchange_id=cmd["exchange_id"],
+                on_prices=self._on_prices,
+                log=lambda m: self._emit("log", time="", message=m, signal="", pair="", status=""),
+            )
+            self.price_feed.start()
+
         self._refresh()
 
     def _do_trade(self, cmd: dict) -> None:
@@ -140,20 +174,80 @@ class Backend:
         self._refresh()
 
     def _refresh(self) -> None:
+        """Authoritative REST refresh of balance + positions (slow cadence)."""
         if not self.exchange.connected:
             return
         try:
             balance = self.exchange.fetch_balance()
             positions = self.exchange.fetch_positions()
-            pnl = self.exchange.total_pnl(positions)
-            self._emit(
-                "account",
-                balance=balance,
-                pnl=pnl,
-                positions=[p.__dict__ for p in positions],
-            )
         except Exception as exc:  # noqa: BLE001
-            self.log(f"Refresh failed: {exc}", status="Error")
+            self._note_failure(exc)
+            return
+
+        # Successful fetch — clear any connection-lost alert.
+        self._fail_count = 0
+        if self._alerted:
+            self._alerted = False
+            self._emit("alert", level="ok", message="Connection restored")
+
+        new_pairs = {p.pair for p in positions}
+        self._detect_closed_positions(new_pairs)
+
+        with self._lock:
+            self._last_balance = balance
+            self._last_positions = positions
+            self._open_pairs = new_pairs
+            # Seed the price cache with REST current prices so the first paint
+            # is correct even before the first websocket tick arrives.
+            for p in positions:
+                self._price_cache.setdefault(p.pair, p.current)
+
+        # Keep the price feed subscribed to exactly the symbols we hold.
+        if self.price_feed:
+            self.price_feed.set_symbols(list(new_pairs))
+
+        self._emit_account()
+
+    def _on_prices(self, prices: dict) -> None:
+        """Called from the price-feed thread on every tick/poll. No REST here."""
+        with self._lock:
+            self._price_cache.update(prices)
+        self._emit_account()
+
+    def _emit_account(self) -> None:
+        """Recompute PnL locally from cached prices and push to the GUI."""
+        with self._lock:
+            balance = self._last_balance
+            positions = list(self._last_positions)
+            prices = dict(self._price_cache)
+        recomputed = recompute_pnl(positions, prices)
+        total_pnl = sum(p.pnl for p in recomputed)
+        self._emit(
+            "account",
+            balance=balance,
+            pnl=total_pnl,
+            positions=[p.__dict__ for p in recomputed],
+        )
+
+    def _detect_closed_positions(self, new_pairs: set) -> None:
+        """Log a 'Closed' row for any position that vanished since last refresh."""
+        with self._lock:
+            closed = self._open_pairs - new_pairs
+        for pair in sorted(closed):
+            self.log(f"Position {pair} closed", signal="CLOSE", pair=pair, status="Closed")
+
+    def _note_failure(self, exc: Exception) -> None:
+        """Track consecutive REST failures; warn once when the link looks down."""
+        self._fail_count += 1
+        self.log(f"Refresh failed: {exc}", status="Error")
+        if self._fail_count >= MAX_REFRESH_FAILURES and not self._alerted:
+            self._alerted = True
+            self._emit(
+                "alert",
+                level="error",
+                message=f"Connection problem — {self._fail_count} consecutive "
+                f"failures. Check network / API keys / rate limits.",
+            )
 
     # -- trade log file -----------------------------------------------------
     def _append_log_file(self, ts, signal, pair, status, message) -> None:

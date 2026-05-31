@@ -111,6 +111,10 @@ class TradingBotGUI:
         self.pnl_label = tk.Label(bar, text="  |  PnL: $0.00", bg="#ecf0f1", font=("Segoe UI", 10, "bold"))
         self.pnl_label.pack(side="left")
 
+        # Connection / data-feed alerts surface on the right of the status bar.
+        self.alert_label = tk.Label(bar, text="", bg="#ecf0f1", fg=RED, font=("Segoe UI", 9, "bold"))
+        self.alert_label.pack(side="right", padx=10)
+
     def _build_api_panel(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="API Settings", padding=10)
         f.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
@@ -188,6 +192,9 @@ class TradingBotGUI:
         ttk.Label(top, text="Manual symbol:").pack(side="left")
         self.symbol_var = tk.StringVar(value="BTC/USDT")
         ttk.Entry(top, textvariable=self.symbol_var, width=14).pack(side="left", padx=6)
+        tk.Button(top, text="Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
+        self.feed_label = tk.Label(top, text="feed: off", fg=GREY)
+        self.feed_label.pack(side="right", padx=8)
 
         cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
         self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=7)
@@ -195,6 +202,9 @@ class TradingBotGUI:
         for c, h in zip(cols, headings):
             self.pos_tree.heading(c, text=h)
             self.pos_tree.column(c, width=80, anchor="center")
+        # Colour PnL rows: green for profit, red for loss.
+        self.pos_tree.tag_configure("pos", foreground=GREEN)
+        self.pos_tree.tag_configure("neg", foreground=RED)
         self.pos_tree.grid(row=1, column=0, sticky="nsew")
         sb = ttk.Scrollbar(f, orient="vertical", command=self.pos_tree.yview)
         self.pos_tree.configure(yscrollcommand=sb.set)
@@ -457,6 +467,19 @@ class TradingBotGUI:
             if not msg.get("ok"):
                 # Surface rejected orders prominently.
                 self.bal_label.config(fg=RED)
+        elif kind == "alert":
+            self._handle_alert(msg)
+
+    def _handle_alert(self, msg: dict) -> None:
+        level = msg.get("level", "error")
+        text = msg.get("message", "")
+        if level == "ok":
+            self.alert_label.config(text="")
+            self.status_dot.config(fg=GREEN if self.connected else RED)
+        else:
+            self.alert_label.config(text="⚠ " + text)
+            self.status_dot.config(fg="#e67e22")  # amber: connected but degraded
+            messagebox.showwarning("Connection alert", text)
 
     def _set_connected(self, connected: bool, exchange) -> None:
         self.connected = connected
@@ -467,12 +490,18 @@ class TradingBotGUI:
             self.connect_btn.config(state="disabled")
             self.disconnect_btn.config(state="normal")
             self.exchange_combo.config(state="disabled")
+            if self.safe_var.get():
+                self.feed_label.config(text="feed: sim", fg=GREY)
+            else:
+                self.feed_label.config(text="feed: live", fg=GREEN)
         else:
             self.status_dot.config(fg=RED)
             self.conn_label.config(text="Disconnected")
             self.connect_btn.config(state="normal")
             self.disconnect_btn.config(state="disabled")
             self.exchange_combo.config(state="readonly")
+            self.feed_label.config(text="feed: off", fg=GREY)
+            self.alert_label.config(text="")
 
     def _update_account(self, msg: dict) -> None:
         balance = msg.get("balance", 0.0)
@@ -485,12 +514,14 @@ class TradingBotGUI:
         for item in self.pos_tree.get_children():
             self.pos_tree.delete(item)
         for p in msg.get("positions", []):
+            tag = "pos" if p["pnl"] >= 0 else "neg"
             self.pos_tree.insert(
                 "", "end",
                 values=(
                     p["pair"], p["side"], p["size"],
-                    p["entry"], p["current"], f"{p['pnl']:+.2f}", p.get("status", "Active"),
+                    p["entry"], f"{p['current']:g}", f"{p['pnl']:+.2f}", p.get("status", "Active"),
                 ),
+                tags=(tag,),
             )
 
     def _add_log_row(self, msg: dict) -> None:

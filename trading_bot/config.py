@@ -48,8 +48,18 @@ WEBHOOK_PORT = 8723
 # but you should set one in Settings before exposing the port to the internet.
 DEFAULT_WEBHOOK_PASSPHRASE = ""
 
-# How often (seconds) the backend refreshes balance + open positions.
+# How often (seconds) the backend refreshes balance + open positions (REST).
 POLL_INTERVAL = 5
+
+# How often (seconds) the price feed refreshes "current" prices for open
+# symbols. WebSocket (ccxt.pro) pushes faster than this; this is the REST
+# fallback cadence. Kept short for a near real-time feel without hammering the
+# API (only open symbols are queried).
+PRICE_POLL_INTERVAL = 2
+
+# Consecutive REST refresh failures before we warn the user the connection
+# looks lost (handles dropped connections / rate-limit storms gracefully).
+MAX_REFRESH_FAILURES = 3
 
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.001          # in base asset, e.g. 0.001 BTC

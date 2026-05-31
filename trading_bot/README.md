@@ -24,6 +24,7 @@ Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 | **Account info** | Balance, PnL, and an Open Positions table (pair, side, size, entry, current, PnL, status) |
 | **Trade log** | Timestamped, scrollable log of every signal/execution; **Export** to CSV and **Clear** |
 | **Webhook** | Built-in HTTP receiver for TradingView alerts (auto-execution) |
+| **Real-time data** | WebSocket price feed (ccxt.pro) with REST fallback; live PnL recompute, green/red coloring, **Refresh Now**, and connection-drop alerts |
 | **Security** | Fernet-encrypted API keys, PIN/password gate, optional **Read-only** monitoring mode, and **Safe Mode** (simulate, no real orders) |
 
 ---
@@ -105,6 +106,35 @@ curl -X POST http://127.0.0.1:8723/ -H "Content-Type: application/json" ^
 
 ---
 
+## Real-time data workflow
+
+Once connected, the bot keeps the account view live:
+
+- **Positions (authoritative):** a background thread polls the exchange via
+  ccxt every few seconds — `fetch_positions` (Binance Futures `positionRisk`,
+  Bybit `/v5/position/list`, OKX `/account/positions`, etc.) for symbol, side,
+  size, entry, current and unrealized PnL.
+- **Prices (real-time):** `pricefeed.py` streams tickers for your open symbols
+  over **WebSocket** (`ccxt.pro`, `watch_tickers`) when available, falling back
+  to a fast **REST `fetch_tickers` poll** otherwise. Only held symbols are
+  subscribed, so it stays within rate limits.
+- **PnL** is recomputed locally on every tick — `(current − entry) × size`
+  (reversed for shorts) — so the table and status bar move instantly without
+  waiting for the next REST poll. Profit rows are green, losses red.
+- **Trade log sync:** when a position disappears between refreshes it is logged
+  as **Closed**.
+- **Resilience:** keys are encrypted at rest; ticker requests use a keyless
+  public client; repeated REST failures (dropped link / rate-limit storm)
+  raise a one-time **connection alert** and amber status, auto-clearing when the
+  feed recovers. A **Refresh Now** button forces an immediate update.
+
+All exchange I/O runs off the UI thread (single worker thread + a price-feed
+thread), and the GUI is updated from a thread-safe queue, so the window never
+freezes.
+
+> Real-time prices are only fetched in **live** connections. In **Safe Mode**
+> the feed is skipped and fills/positions are simulated locally.
+
 ## Security notes
 
 - Keys are stored **encrypted** (Fernet/AES) under a key derived from your PIN
@@ -124,7 +154,8 @@ curl -X POST http://127.0.0.1:8723/ -H "Content-Type: application/json" ^
 | `login.py` | PIN create/verify dialog |
 | `gui.py` | Tkinter frontend (the mockup layout) |
 | `backend.py` | Single worker thread; serializes all exchange I/O |
-| `exchange.py` | ccxt wrapper; the only place orders are placed |
+| `exchange.py` | ccxt wrapper; the only place orders are placed; pure `recompute_pnl` |
+| `pricefeed.py` | Real-time price feed (WebSocket + REST fallback) |
 | `webhook_server.py` | TradingView alert receiver |
 | `security.py` | Encryption + PIN |
 | `config.py` | Constants & storage paths |

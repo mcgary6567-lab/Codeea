@@ -64,6 +64,29 @@ def normalize_symbol(raw: str, default_quote: str = QUOTE_CURRENCY) -> str:
     return f"{s}/{default_quote}"
 
 
+def recompute_pnl(positions: List[Position], prices: dict) -> List[Position]:
+    """Return positions with ``current`` and ``pnl`` refreshed from ``prices``.
+
+    Pure function (no I/O) so it is trivially testable. PnL is computed as
+    ``(current - entry) * size`` for longs and ``(entry - current) * size`` for
+    shorts. Symbols missing from ``prices`` keep their existing current price.
+    """
+    updated: List[Position] = []
+    for p in positions:
+        current = float(prices.get(p.pair, p.current) or p.current)
+        if p.side == "Long":
+            pnl = (current - p.entry) * p.size
+        else:
+            pnl = (p.entry - current) * p.size
+        updated.append(
+            Position(
+                pair=p.pair, side=p.side, size=p.size, entry=p.entry,
+                current=current, pnl=pnl, status=p.status,
+            )
+        )
+    return updated
+
+
 class ExchangeManager:
     """Stateful wrapper around a single ccxt exchange client."""
 
