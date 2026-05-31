@@ -82,6 +82,22 @@ DEFAULT_AUTO_BRACKET = True
 # Fraction of the position closed at TP1 when both TP1 and TP2 are provided.
 TP1_SCALE_OUT = 0.5
 
+# ---------------------------------------------------------------------------
+# Execution: order type / leverage / margin.
+# ---------------------------------------------------------------------------
+ORDER_TYPES = ["market", "limit"]
+MARGIN_MODES = ["", "cross", "isolated"]      # "" = leave exchange default
+DEFAULT_ORDER_TYPE = "market"
+DEFAULT_LEVERAGE = 0                            # 0 = don't change exchange setting
+
+# ---------------------------------------------------------------------------
+# Risk guardrails. 0 disables the individual limit.
+# ---------------------------------------------------------------------------
+DEFAULT_MAX_OPEN_POSITIONS = 0                  # 0 = unlimited
+DEFAULT_DAILY_LOSS_LIMIT = 0.0                  # quote ccy; trip & block at -X
+DEFAULT_COOLDOWN_SECONDS = 0                    # min seconds between trades / symbol
+DEFAULT_DEDUPE_SECONDS = 0                      # drop identical signals within window
+
 # When True the bot simulates fills instead of sending real orders.
 # Per the user's choice the app starts LIVE (Safe Mode off), but the toggle
 # remains available in the UI.

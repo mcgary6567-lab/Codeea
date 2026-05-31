@@ -277,13 +277,53 @@ class ExchangeManager:
         except Exception:  # noqa: BLE001
             return 0.0
 
+    # -- leverage / margin --------------------------------------------------
+    def apply_leverage_margin(self, symbol: str, leverage: int, margin_mode: str) -> str:
+        """Best-effort set leverage and/or margin mode for ``symbol``.
+
+        Returns a short note for the log. No-op in Safe Mode / without ccxt.
+        Failures are swallowed (many spot markets / exchanges reject these).
+        """
+        if self.safe_mode or not CCXT_AVAILABLE or not self.client:
+            return ""
+        sym = normalize_symbol(symbol)
+        notes = []
+        if margin_mode in ("cross", "isolated"):
+            try:
+                self.client.set_margin_mode(margin_mode, sym)
+                notes.append(f"margin={margin_mode}")
+            except Exception as exc:  # noqa: BLE001
+                notes.append(f"margin set failed ({exc})")
+        if leverage and leverage > 0:
+            try:
+                self.client.set_leverage(leverage, sym)
+                notes.append(f"leverage={leverage}x")
+            except Exception as exc:  # noqa: BLE001
+                notes.append(f"leverage set failed ({exc})")
+        return "; ".join(notes)
+
     # -- order placement (the single choke point) ---------------------------
     def place_market_order(
         self, symbol: str, side: str, amount: float, reduce_only: bool = False
     ) -> OrderResult:
+        """Convenience wrapper kept for callers that only need market orders."""
+        return self.place_order(symbol, side, amount, "market", None, reduce_only)
+
+    def place_order(
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+        order_type: str = "market",
+        price: float | None = None,
+        reduce_only: bool = False,
+    ) -> OrderResult:
         side = side.lower()
+        order_type = (order_type or "market").lower()
         if side not in ("buy", "sell"):
             return OrderResult(False, f"Invalid side: {side}")
+        if order_type == "limit" and not price:
+            return OrderResult(False, "Limit order needs a price", pair=symbol, side=side)
 
         if self.read_only:
             return OrderResult(
@@ -293,27 +333,25 @@ class ExchangeManager:
             return OrderResult(False, "Not connected", pair=symbol, side=side)
 
         sym = normalize_symbol(symbol)
+        at = f" @ {price}" if order_type == "limit" else ""
 
         # Safe Mode / no-ccxt => simulate the fill and update sim state.
         if self.safe_mode or not CCXT_AVAILABLE:
             self._simulate_fill(sym, side, amount)
             return OrderResult(
                 True,
-                f"SIMULATED {side.upper()} {amount} {sym}",
-                pair=sym,
-                side=side,
-                simulated=True,
+                f"SIMULATED {order_type.upper()} {side.upper()} {amount} {sym}{at}",
+                pair=sym, side=side, order_type=order_type.capitalize(), simulated=True,
             )
 
         try:
             params = {"reduceOnly": True} if reduce_only else {}
-            order = self.client.create_order(sym, "market", side, amount, None, params)
+            order = self.client.create_order(sym, order_type, side, amount, price, params)
+            verb = "placed" if order_type == "limit" else "filled"
             return OrderResult(
                 True,
-                f"{side.upper()} {amount} {sym} filled",
-                pair=sym,
-                side=side,
-                raw=order,
+                f"{order_type.upper()} {side.upper()} {amount} {sym}{at} {verb}",
+                pair=sym, side=side, order_type=order_type.capitalize(), raw=order,
             )
         except Exception as exc:  # noqa: BLE001
             return OrderResult(False, f"Order rejected: {exc}", pair=sym, side=side)

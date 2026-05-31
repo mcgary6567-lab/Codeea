@@ -27,6 +27,8 @@ Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 | **Real-time data** | WebSocket price feed (ccxt.pro) with REST fallback; live PnL recompute, green/red coloring, **Refresh Now**, and connection-drop alerts |
 | **Auto SL/TP** | Reduce-only stop-loss + take-profit from the alert payload, with scale-out at TP1/TP2 |
 | **Risk sizing** | Fixed lot, risk-% of balance, or **risk-% per trade from the entry→stop distance** |
+| **Order types** | Market or **limit** orders, plus **leverage** and **margin-mode** (cross/isolated) control |
+| **Guardrails** | Daily loss limit (auto-halt), max open positions, per-symbol cooldown, duplicate-alert dedupe |
 | **Position control** | Close Selected, and a red **PANIC: Close All** to flatten everything |
 | **Analytics** | SQLite trade history, win rate / realized PnL / best-worst, and an equity curve |
 | **Notifications** | Sound on fills/signals + optional **Telegram** alerts |
@@ -163,6 +165,28 @@ uses them:
 Any missing field falls back safely (e.g. stop-based sizing reverts to the fixed
 lot if no stop is provided), so a trade is never sized to zero by accident.
 
+## Order types, leverage & guardrails
+
+Settings are organised into three tabs (Execution / Modes & Risk / Webhook & Alerts).
+
+**Execution tab:**
+- **Order type** — *market* or *limit*. For a limit order the price comes from
+  the Limit-px field (manual) or the alert's `entry` (webhook); falls back to the
+  current mark if neither is given.
+- **Leverage** (`0` = leave exchange setting) and **Margin mode**
+  (default / cross / isolated) are applied best-effort to the traded symbol
+  before each order. Spot markets / unsupported exchanges simply ignore them.
+
+**Modes & Risk tab — guardrails** (each `0` = disabled), checked on every new
+entry (closing is never blocked):
+- **Max open positions** — refuse to open a *new* symbol once the cap is hit.
+- **Daily loss limit** — once the day's realized PnL reaches `−limit` the bot
+  **halts new entries** and raises an alert; resets at midnight or via the
+  **Reset daily limit** button.
+- **Cooldown / symbol** — minimum seconds between trades on the same symbol.
+- **Dedupe window** — drop an identical (symbol, side) signal that repeats
+  within the window (protects against a webhook firing twice).
+
 ## Analytics & notifications
 
 - **Analytics** button opens a window with total/filled/rejected/closed counts,
@@ -192,7 +216,8 @@ lot if no stop is provided), so a trade is never sized to zero by accident.
 | `login.py` | PIN create/verify dialog |
 | `gui.py` | Tkinter frontend (the mockup layout) |
 | `backend.py` | Single worker thread; serializes all exchange I/O |
-| `exchange.py` | ccxt wrapper; orders + SL/TP; pure `recompute_pnl`/`size_order`/`plan_take_profits` |
+| `exchange.py` | ccxt wrapper; market/limit orders, SL/TP, leverage/margin; pure `recompute_pnl`/`size_order`/`plan_take_profits` |
+| `guardrails.py` | Pure entry-gate logic (daily loss, max open, cooldown, dedupe) |
 | `pricefeed.py` | Real-time price feed (WebSocket + REST fallback) |
 | `history.py` | SQLite trade history + analytics stats |
 | `notifications.py` | Sound + Telegram notifications |

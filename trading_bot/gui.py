@@ -26,10 +26,13 @@ from backend import Backend
 from config import (
     APP_VERSION,
     DEFAULT_AUTO_BRACKET,
+    DEFAULT_LEVERAGE,
+    DEFAULT_ORDER_TYPE,
     DEFAULT_RISK_PERCENT,
     DEFAULT_SAFE_MODE,
     DEFAULT_TRADE_SIZE,
     DEFAULT_WEBHOOK_PASSPHRASE,
+    ORDER_TYPES,
     QUOTE_CURRENCY,
     SIZING_MODE_LABELS,
     SIZING_MODES,
@@ -250,97 +253,162 @@ class TradingBotGUI:
         AnalyticsWindow(self.root, history)
 
     def _build_trade_settings(self, parent) -> None:
-        f = ttk.LabelFrame(parent, text="Trade Settings", padding=10)
-        f.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        f.columnconfigure(1, weight=1)
+        outer = ttk.LabelFrame(parent, text="Trade Settings", padding=8)
+        outer.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        outer.columnconfigure(0, weight=1)
 
-        ttk.Label(f, text="Trade Size:").grid(row=0, column=0, sticky="w", pady=4)
-        size_row = ttk.Frame(f)
-        size_row.grid(row=0, column=1, sticky="w", pady=4)
-        self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
-        ttk.Entry(size_row, textvariable=self.size_var, width=12).pack(side="left")
-        self.size_unit = ttk.Label(size_row, text="BTC (base)")
-        self.size_unit.pack(side="left", padx=6)
+        nb = ttk.Notebook(outer)
+        nb.grid(row=0, column=0, sticky="nsew")
+        exec_tab = ttk.Frame(nb, padding=8)
+        risk_tab = ttk.Frame(nb, padding=8)
+        alert_tab = ttk.Frame(nb, padding=8)
+        nb.add(exec_tab, text="Execution")
+        nb.add(risk_tab, text="Modes & Risk")
+        nb.add(alert_tab, text="Webhook & Alerts")
+        for t in (exec_tab, risk_tab, alert_tab):
+            t.columnconfigure(1, weight=1)
 
-        ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
-        self._mode_labels = [SIZING_MODE_LABELS[m] for m in SIZING_MODES]
-        self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS["fixed"])
-        ttk.Combobox(
-            f, textvariable=self.sizing_mode_var, values=self._mode_labels, state="readonly",
-        ).grid(row=1, column=1, sticky="ew", pady=4)
-        self.sizing_mode_var.trace_add("write", lambda *a: self._push_settings())
+        self._build_exec_tab(exec_tab)
+        self._build_risk_tab(risk_tab)
+        self._build_alert_tab(alert_tab)
 
-        rr = ttk.Frame(f)
-        rr.grid(row=2, column=0, columnspan=2, sticky="w", padx=(20, 0))
-        ttk.Label(rr, text="Risk %:").pack(side="left")
-        self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
-        ttk.Entry(rr, textvariable=self.risk_pct_var, width=6).pack(side="left", padx=6)
-        ttk.Label(rr, text="(for risk-based modes)").pack(side="left")
-
-        self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
-        ttk.Checkbutton(
-            f, text="Auto-place SL/TP from alerts (scale out at TP1/TP2)",
-            variable=self.auto_bracket_var, command=self._push_settings,
-        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
-
-        ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=8)
-
-        self.manual_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            f, text="Enable Manual Trading", variable=self.manual_var,
-            command=self._update_manual_state,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
-
-        self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
-        ttk.Checkbutton(
-            f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
-            command=self._push_settings,
-        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
-
-        self.readonly_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            f, text="Read-only monitoring (block all orders)", variable=self.readonly_var,
-            command=self._push_settings,
-        ).grid(row=7, column=0, columnspan=2, sticky="w", pady=2)
-
-        ttk.Separator(f, orient="horizontal").grid(row=8, column=0, columnspan=2, sticky="ew", pady=8)
-
-        ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
-            row=9, column=0, columnspan=2, sticky="w"
-        )
-        wr = ttk.Frame(f)
-        wr.grid(row=10, column=0, columnspan=2, sticky="ew", pady=4)
-        ttk.Label(wr, text="Passphrase:").pack(side="left")
-        self.webhook_pass_var = tk.StringVar(value=DEFAULT_WEBHOOK_PASSPHRASE)
-        ttk.Entry(wr, textvariable=self.webhook_pass_var, width=18).pack(side="left", padx=6)
-        self.webhook_btn = tk.Button(wr, text="Start Webhook", command=self._toggle_webhook)
-        self.webhook_btn.pack(side="left", padx=6)
-        self.webhook_status = tk.Label(wr, text="● off", fg=GREY)
-        self.webhook_status.pack(side="left")
-
-        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=8)
-
-        # Notifications.
-        self.sound_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            f, text="Sound on fills/signals", variable=self.sound_var,
-            command=self._push_settings,
-        ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
-        ttk.Label(f, text="Telegram bot token:").grid(row=13, column=0, sticky="w", pady=2)
-        self.tg_token_var = tk.StringVar()
-        ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=13, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Telegram chat id:").grid(row=14, column=0, sticky="w", pady=2)
-        self.tg_chat_var = tk.StringVar()
-        ttk.Entry(f, textvariable=self.tg_chat_var).grid(row=14, column=1, sticky="ew", pady=2)
-
-        btnrow = ttk.Frame(f)
-        btnrow.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        btnrow = ttk.Frame(outer)
+        btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         tk.Button(btnrow, text="Save Settings (encrypted)", command=self._save_all).pack(
             side="left", expand=True, fill="x", padx=2
         )
         tk.Button(btnrow, text="📊 Analytics", command=self._open_analytics).pack(
             side="left", expand=True, fill="x", padx=2
         )
+
+    def _build_exec_tab(self, f) -> None:
+        ttk.Label(f, text="Trade Size:").grid(row=0, column=0, sticky="w", pady=4)
+        size_row = ttk.Frame(f)
+        size_row.grid(row=0, column=1, sticky="w", pady=4)
+        self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
+        ttk.Entry(size_row, textvariable=self.size_var, width=12).pack(side="left")
+        ttk.Label(size_row, text="base (e.g. BTC)").pack(side="left", padx=6)
+
+        ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
+        self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS["fixed"])
+        ttk.Combobox(
+            f, textvariable=self.sizing_mode_var,
+            values=[SIZING_MODE_LABELS[m] for m in SIZING_MODES], state="readonly",
+        ).grid(row=1, column=1, sticky="ew", pady=4)
+        self.sizing_mode_var.trace_add("write", lambda *a: self._push_settings())
+
+        rr = ttk.Frame(f)
+        rr.grid(row=2, column=0, columnspan=2, sticky="w")
+        ttk.Label(rr, text="Risk %:").pack(side="left")
+        self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
+        ttk.Entry(rr, textvariable=self.risk_pct_var, width=6).pack(side="left", padx=6)
+        ttk.Label(rr, text="(risk-based modes)").pack(side="left")
+
+        self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
+        ttk.Checkbutton(
+            f, text="Auto-place SL/TP from alerts (scale out TP1/TP2)",
+            variable=self.auto_bracket_var, command=self._push_settings,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+
+        ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
+
+        ttk.Label(f, text="Order type:").grid(row=5, column=0, sticky="w", pady=4)
+        otr = ttk.Frame(f)
+        otr.grid(row=5, column=1, sticky="w", pady=4)
+        self.order_type_var = tk.StringVar(value=DEFAULT_ORDER_TYPE)
+        ttk.Combobox(
+            otr, textvariable=self.order_type_var, values=ORDER_TYPES, state="readonly", width=8,
+        ).pack(side="left")
+        ttk.Label(otr, text="Limit px:").pack(side="left", padx=(8, 2))
+        self.limit_price_var = tk.StringVar()
+        ttk.Entry(otr, textvariable=self.limit_price_var, width=12).pack(side="left")
+        self.order_type_var.trace_add("write", lambda *a: self._push_settings())
+
+        ttk.Label(f, text="Leverage (x):").grid(row=6, column=0, sticky="w", pady=4)
+        lvr = ttk.Frame(f)
+        lvr.grid(row=6, column=1, sticky="w", pady=4)
+        self.leverage_var = tk.StringVar(value=str(DEFAULT_LEVERAGE))
+        ttk.Entry(lvr, textvariable=self.leverage_var, width=6).pack(side="left")
+        ttk.Label(lvr, text="0 = leave as-is   Margin:").pack(side="left", padx=(6, 2))
+        self.margin_mode_var = tk.StringVar(value="")
+        ttk.Combobox(
+            lvr, textvariable=self.margin_mode_var,
+            values=["(default)", "cross", "isolated"], state="readonly", width=9,
+        ).pack(side="left")
+
+    def _build_risk_tab(self, f) -> None:
+        self.manual_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Enable Manual Trading", variable=self.manual_var,
+            command=self._update_manual_state,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
+        ttk.Checkbutton(
+            f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
+            command=self._push_settings,
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.readonly_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            f, text="Read-only monitoring (block all orders)", variable=self.readonly_var,
+            command=self._push_settings,
+        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
+
+        ttk.Separator(f, orient="horizontal").grid(row=3, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Label(f, text="Guardrails (0 = off):", font=("Segoe UI", 9, "bold")).grid(
+            row=4, column=0, columnspan=2, sticky="w"
+        )
+
+        self.max_open_var = tk.StringVar(value="0")
+        self.daily_loss_var = tk.StringVar(value="0")
+        self.cooldown_var = tk.StringVar(value="0")
+        self.dedupe_var = tk.StringVar(value="0")
+        rows = [
+            ("Max open positions:", self.max_open_var),
+            (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var),
+            ("Cooldown / symbol (s):", self.cooldown_var),
+            ("Dedupe window (s):", self.dedupe_var),
+        ]
+        for i, (text, var) in enumerate(rows, start=5):
+            ttk.Label(f, text=text).grid(row=i, column=0, sticky="w", pady=2)
+            e = ttk.Entry(f, textvariable=var, width=10)
+            e.grid(row=i, column=1, sticky="w", pady=2)
+            e.bind("<FocusOut>", lambda ev: self._push_settings())
+
+        gr = ttk.Frame(f)
+        gr.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        tk.Button(gr, text="Reset daily limit", command=self._reset_daily).pack(side="left")
+        self.guardrail_status = tk.Label(gr, text="", fg=RED, font=("Segoe UI", 9, "bold"))
+        self.guardrail_status.pack(side="left", padx=8)
+
+    def _build_alert_tab(self, f) -> None:
+        ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
+            row=0, column=0, columnspan=2, sticky="w"
+        )
+        wr = ttk.Frame(f)
+        wr.grid(row=1, column=0, columnspan=2, sticky="ew", pady=4)
+        ttk.Label(wr, text="Passphrase:").pack(side="left")
+        self.webhook_pass_var = tk.StringVar(value=DEFAULT_WEBHOOK_PASSPHRASE)
+        ttk.Entry(wr, textvariable=self.webhook_pass_var, width=16).pack(side="left", padx=6)
+        self.webhook_btn = tk.Button(wr, text="Start Webhook", command=self._toggle_webhook)
+        self.webhook_btn.pack(side="left", padx=6)
+        self.webhook_status = tk.Label(wr, text="● off", fg=GREY)
+        self.webhook_status.pack(side="left")
+
+        ttk.Separator(f, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", pady=6)
+
+        self.sound_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Sound on fills/signals", variable=self.sound_var,
+            command=self._push_settings,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(f, text="Telegram bot token:").grid(row=4, column=0, sticky="w", pady=2)
+        self.tg_token_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=4, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Telegram chat id:").grid(row=5, column=0, sticky="w", pady=2)
+        self.tg_chat_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.tg_chat_var).grid(row=5, column=1, sticky="ew", pady=2)
 
     def _build_trade_log(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
@@ -378,6 +446,15 @@ class TradingBotGUI:
         self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", "fixed"), SIZING_MODE_LABELS["fixed"]))
         self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
         self.auto_bracket_var.set(s.get("auto_bracket", DEFAULT_AUTO_BRACKET))
+        self.order_type_var.set(s.get("order_type", DEFAULT_ORDER_TYPE))
+        self.limit_price_var.set(str(s.get("limit_price", "")))
+        self.leverage_var.set(str(s.get("leverage", DEFAULT_LEVERAGE)))
+        mm = s.get("margin_mode", "")
+        self.margin_mode_var.set(mm if mm in ("cross", "isolated") else "(default)")
+        self.max_open_var.set(str(s.get("max_open", 0)))
+        self.daily_loss_var.set(str(s.get("daily_loss", 0)))
+        self.cooldown_var.set(str(s.get("cooldown", 0)))
+        self.dedupe_var.set(str(s.get("dedupe", 0)))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
@@ -396,6 +473,14 @@ class TradingBotGUI:
             "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
             "auto_bracket": self.auto_bracket_var.get(),
+            "order_type": self.order_type_var.get(),
+            "limit_price": self.limit_price_var.get(),
+            "leverage": int(self._float(self.leverage_var.get(), 0)),
+            "margin_mode": self._margin_mode_value(),
+            "max_open": int(self._float(self.max_open_var.get(), 0)),
+            "daily_loss": self._float(self.daily_loss_var.get(), 0),
+            "cooldown": int(self._float(self.cooldown_var.get(), 0)),
+            "dedupe": int(self._float(self.dedupe_var.get(), 0)),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
             "webhook_passphrase": self.webhook_pass_var.get(),
@@ -416,14 +501,29 @@ class TradingBotGUI:
                 return value
         return "fixed"
 
+    def _margin_mode_value(self) -> str:
+        m = self.margin_mode_var.get()
+        return m if m in ("cross", "isolated") else ""
+
+    def _reset_daily(self) -> None:
+        self.backend.submit({"cmd": "reset_daily"})
+        self.guardrail_status.config(text="")
+
     def _push_settings(self) -> None:
-        """Send current sizing/safety/notification settings to the backend."""
+        """Send current sizing/execution/guardrail/notification settings."""
         self.backend.submit({
             "cmd": "settings",
             "fixed_size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
             "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
             "auto_bracket": self.auto_bracket_var.get(),
+            "order_type": self.order_type_var.get(),
+            "leverage": int(self._float(self.leverage_var.get(), 0)),
+            "margin_mode": self._margin_mode_value(),
+            "max_open": int(self._float(self.max_open_var.get(), 0)),
+            "daily_loss": self._float(self.daily_loss_var.get(), 0),
+            "cooldown": int(self._float(self.cooldown_var.get(), 0)),
+            "dedupe": int(self._float(self.dedupe_var.get(), 0)),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
             "sound": self.sound_var.get(),
@@ -467,9 +567,12 @@ class TradingBotGUI:
         symbol = self.symbol_var.get().strip()
         size = self.size_var.get().strip()
         mode = "SIMULATED" if self.safe_var.get() else "LIVE"
+        otype = self.order_type_var.get()
+        limit_px = self.limit_price_var.get().strip()
+        order_desc = f"{otype.upper()}" + (f" @ {limit_px}" if otype == "limit" and limit_px else "")
         if not messagebox.askyesno(
             "Confirm order",
-            f"{mode} {side.upper()} {size} of {symbol} on "
+            f"{mode} {order_desc} {side.upper()} {size} of {symbol} on "
             f"{self.exchange_var.get().upper()}?\n\nProceed?",
         ):
             return
@@ -478,6 +581,8 @@ class TradingBotGUI:
             "symbol": symbol,
             "side": side,
             "source": "manual",
+            "order_type": otype,
+            "limit_price": self._float(limit_px, 0) or None,
             # size omitted -> backend computes from fixed/risk settings
         })
 
@@ -585,7 +690,9 @@ class TradingBotGUI:
         else:
             self.alert_label.config(text="⚠ " + text)
             self.status_dot.config(fg="#e67e22")  # amber: connected but degraded
-            messagebox.showwarning("Connection alert", text)
+            if "loss limit" in text.lower():
+                self.guardrail_status.config(text="⚠ HALTED — daily loss limit")
+            messagebox.showwarning("Alert", text)
 
     def _set_connected(self, connected: bool, exchange) -> None:
         self.connected = connected

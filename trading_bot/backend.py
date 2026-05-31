@@ -24,12 +24,15 @@ from typing import Optional
 import history
 from config import (
     DEFAULT_AUTO_BRACKET,
+    DEFAULT_LEVERAGE,
+    DEFAULT_ORDER_TYPE,
     LOG_FILE,
     MAX_REFRESH_FAILURES,
     POLL_INTERVAL,
     QUOTE_CURRENCY,
     TP1_SCALE_OUT,
 )
+from guardrails import Guardrails
 from exchange import (
     ExchangeManager,
     Position,
@@ -60,6 +63,12 @@ class Backend:
         self.risk_percent = 1.0
         self.auto_bracket = DEFAULT_AUTO_BRACKET
 
+        # Execution settings.
+        self.order_type = DEFAULT_ORDER_TYPE
+        self.leverage = DEFAULT_LEVERAGE
+        self.margin_mode = ""
+
+        self.guardrails = Guardrails()
         self.notifier = Notifier()
         history.init_db()
         self._last_equity_ts = 0.0
@@ -143,6 +152,15 @@ class Backend:
                 self.auto_bracket = cmd.get("auto_bracket", self.auto_bracket)
                 self.exchange.safe_mode = cmd.get("safe_mode", self.exchange.safe_mode)
                 self.exchange.read_only = cmd.get("read_only", self.exchange.read_only)
+                self.order_type = cmd.get("order_type", self.order_type)
+                self.leverage = int(cmd.get("leverage", self.leverage) or 0)
+                self.margin_mode = cmd.get("margin_mode", self.margin_mode)
+                self.guardrails.configure(
+                    max_open=cmd.get("max_open", self.guardrails.max_open_positions),
+                    daily_loss=cmd.get("daily_loss", self.guardrails.daily_loss_limit),
+                    cooldown=cmd.get("cooldown", self.guardrails.cooldown_seconds),
+                    dedupe=cmd.get("dedupe", self.guardrails.dedupe_seconds),
+                )
                 self.notifier.configure(
                     sound=cmd.get("sound", self.notifier.sound_enabled),
                     token=cmd.get("telegram_token", self.notifier.telegram_token),
@@ -150,6 +168,9 @@ class Backend:
                 )
             elif action == "close":
                 self._do_close(cmd.get("pair"))
+            elif action == "reset_daily":
+                self.guardrails.reset_daily()
+                self.log("Daily loss limit reset — trading re-enabled", status="OK")
             elif action == "trade":
                 self._do_trade(cmd)
             elif action == "refresh":
@@ -187,7 +208,7 @@ class Backend:
         self._refresh()
 
     def _do_trade(self, cmd: dict) -> None:
-        symbol = cmd["symbol"]
+        symbol = normalize_symbol(cmd["symbol"])
         side = cmd["side"]
         source = cmd.get("source", "manual")
         entry = float(cmd.get("entry") or 0)
@@ -195,19 +216,40 @@ class Backend:
         tp1 = float(cmd.get("tp1") or 0)
         tp2 = float(cmd.get("tp2") or 0)
 
+        # --- guardrail gate (the entry checkpoint) ---
+        self.guardrails.record_signal(symbol, side)
+        with self._lock:
+            open_pairs = set(self._open_pairs)
+        allowed, reason = self.guardrails.check_entry(symbol, side, open_pairs)
+        if not allowed:
+            self.log(f"Blocked: {reason}", signal=side.upper(), pair=symbol, status="Blocked")
+            self._emit("order", ok=False, source=source, message=f"Blocked: {reason}")
+            self.notifier.notify(f"Trade blocked {symbol}", reason, level="error")
+            return
+
         balance = self.exchange.fetch_balance()
         price = self._current_price(symbol)
 
         size = cmd.get("size")
         if size is None:
-            size, reason = size_order(
+            size, sreason = size_order(
                 self.sizing_mode, self.fixed_size, self.risk_percent,
                 balance, price, entry=entry, stop=sl,
             )
-            self.log(f"Sizing: {size:g} ({reason})", pair=symbol)
+            self.log(f"Sizing: {size:g} ({sreason})", pair=symbol)
         size = float(size)
 
-        result = self.exchange.place_market_order(symbol, side, size)
+        # --- leverage / margin mode (best-effort) ---
+        lm_note = self.exchange.apply_leverage_margin(symbol, self.leverage, self.margin_mode)
+        if lm_note:
+            self.log(lm_note, pair=symbol)
+
+        # --- order type / price ---
+        order_type = (cmd.get("order_type") or self.order_type).lower()
+        limit_price = cmd.get("limit_price")
+        if order_type == "limit" and not limit_price:
+            limit_price = entry or price  # use alert entry, else current mark
+        result = self.exchange.place_order(symbol, side, size, order_type, limit_price)
 
         status = "Filled" if result.ok else "Rejected"
         if result.simulated:
@@ -223,6 +265,8 @@ class Backend:
             f"{result.message} (size {size:g}, via {source})",
             level="ok" if result.ok else "error",
         )
+        if result.ok:
+            self.guardrails.record_entry(symbol)
 
         # Place protective SL/TP from the alert payload.
         if result.ok and self.auto_bracket and (sl or tp1 or tp2):
@@ -383,6 +427,15 @@ class Backend:
                                  "Closed", pnl=pnl, message="position closed")
             self.notifier.notify(f"Closed {pair}", f"Realized PnL {pnl:+.2f}",
                                  level="ok" if pnl >= 0 else "error")
+            # Feed the daily-loss guardrail; trip & halt if the limit is breached.
+            if self.guardrails.record_realized(pnl):
+                msg = (
+                    f"Daily loss limit hit ({self.guardrails.daily_realized:+.2f}). "
+                    "New entries halted — reset in Guardrails to resume."
+                )
+                self.log(msg, status="Halted")
+                self._emit("alert", level="error", message=msg)
+                self.notifier.notify("Daily loss limit", msg, level="error")
 
     def _note_failure(self, exc: Exception) -> None:
         """Track consecutive REST failures; warn once when the link looks down."""
