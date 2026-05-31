@@ -63,6 +63,19 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Build a standalone `TradingBot.exe`
+
+To get a single double-clickable executable (no Python needed to *run* it),
+build it **on a Windows PC** (a Windows `.exe` can only be built on Windows):
+
+1. Install Python 3.8+ (tick *Add to PATH*).
+2. Double-click **`build_exe.bat`** (or run `pyinstaller --noconfirm trading_bot.spec`).
+3. The result is **`dist\TradingBot.exe`** — copy it anywhere and run it.
+
+> The repo ships **source + a build kit**, not a prebuilt binary — never run a
+> trading `.exe` you didn't build yourself or can't inspect. Building from this
+> source means you can read exactly what it does first.
+
 On first launch you'll be asked to **create a PIN**. It encrypts your saved
 settings; there is no recovery if you forget it (by design).
 

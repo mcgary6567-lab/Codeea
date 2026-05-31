@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .venv/
 history.db
+build/
+dist/
+*.manifest
