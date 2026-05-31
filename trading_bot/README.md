@@ -14,6 +14,17 @@ Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 
 ![architecture](architecture.png)
 
+### GUI layout
+
+![gui mockup](gui_mockup.png)
+
+### Setup walkthrough
+
+![setup guide](setup_guide.png)
+
+_(Regenerate any image with `python make_diagram.py` / `make_mockup.py` /
+`make_setup_guide.py` — needs `matplotlib`.)_
+
 ---
 
 ## Features
