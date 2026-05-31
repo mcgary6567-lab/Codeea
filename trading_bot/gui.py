@@ -19,15 +19,20 @@ import csv
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import history
 import security
+from analytics_window import AnalyticsWindow
 from backend import Backend
 from config import (
     APP_VERSION,
+    DEFAULT_AUTO_BRACKET,
     DEFAULT_RISK_PERCENT,
     DEFAULT_SAFE_MODE,
     DEFAULT_TRADE_SIZE,
     DEFAULT_WEBHOOK_PASSPHRASE,
     QUOTE_CURRENCY,
+    SIZING_MODE_LABELS,
+    SIZING_MODES,
     SUPPORTED_EXCHANGES,
     WEBHOOK_HOST,
     WEBHOOK_PORT,
@@ -217,6 +222,33 @@ class TradingBotGUI:
         self.pos_tree.configure(yscrollcommand=sb.set)
         sb.grid(row=1, column=1, sticky="ns")
 
+        cbar = ttk.Frame(f)
+        cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        tk.Button(cbar, text="Close Selected", command=self._close_selected).pack(side="left", padx=4)
+        tk.Button(
+            cbar, text="⚠ PANIC: Close All", bg=RED, fg="white",
+            font=("Segoe UI", 9, "bold"), command=self._close_all,
+        ).pack(side="left", padx=4)
+
+    def _close_selected(self) -> None:
+        sel = self.pos_tree.selection()
+        if not sel:
+            messagebox.showinfo("Close", "Select a position row first.")
+            return
+        pair = self.pos_tree.item(sel[0])["values"][0]
+        if messagebox.askyesno("Close position", f"Close {pair} at market?"):
+            self.backend.submit({"cmd": "close", "pair": pair})
+
+    def _close_all(self) -> None:
+        if messagebox.askyesno(
+            "PANIC — Close All",
+            "Flatten ALL open positions at market right now?\n\nThis cannot be undone.",
+        ):
+            self.backend.submit({"cmd": "close", "pair": None})
+
+    def _open_analytics(self) -> None:
+        AnalyticsWindow(self.root, history)
+
     def _build_trade_settings(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Settings", padding=10)
         f.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
@@ -230,45 +262,54 @@ class TradingBotGUI:
         self.size_unit = ttk.Label(size_row, text="BTC (base)")
         self.size_unit.pack(side="left", padx=6)
 
-        self.risk_based_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            f, text="Risk-based lot (% of balance)", variable=self.risk_based_var,
-            command=self._push_settings,
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
+        self._mode_labels = [SIZING_MODE_LABELS[m] for m in SIZING_MODES]
+        self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS["fixed"])
+        ttk.Combobox(
+            f, textvariable=self.sizing_mode_var, values=self._mode_labels, state="readonly",
+        ).grid(row=1, column=1, sticky="ew", pady=4)
+        self.sizing_mode_var.trace_add("write", lambda *a: self._push_settings())
 
         rr = ttk.Frame(f)
         rr.grid(row=2, column=0, columnspan=2, sticky="w", padx=(20, 0))
         ttk.Label(rr, text="Risk %:").pack(side="left")
         self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
         ttk.Entry(rr, textvariable=self.risk_pct_var, width=6).pack(side="left", padx=6)
+        ttk.Label(rr, text="(for risk-based modes)").pack(side="left")
 
-        ttk.Separator(f, orient="horizontal").grid(row=3, column=0, columnspan=2, sticky="ew", pady=8)
+        self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
+        ttk.Checkbutton(
+            f, text="Auto-place SL/TP from alerts (scale out at TP1/TP2)",
+            variable=self.auto_bracket_var, command=self._push_settings,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+
+        ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=8)
 
         self.manual_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             f, text="Enable Manual Trading", variable=self.manual_var,
             command=self._update_manual_state,
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
 
         self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
         ttk.Checkbutton(
             f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
             command=self._push_settings,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
 
         self.readonly_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             f, text="Read-only monitoring (block all orders)", variable=self.readonly_var,
             command=self._push_settings,
-        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=7, column=0, columnspan=2, sticky="w", pady=2)
 
-        ttk.Separator(f, orient="horizontal").grid(row=7, column=0, columnspan=2, sticky="ew", pady=8)
+        ttk.Separator(f, orient="horizontal").grid(row=8, column=0, columnspan=2, sticky="ew", pady=8)
 
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
-            row=8, column=0, columnspan=2, sticky="w"
+            row=9, column=0, columnspan=2, sticky="w"
         )
         wr = ttk.Frame(f)
-        wr.grid(row=9, column=0, columnspan=2, sticky="ew", pady=4)
+        wr.grid(row=10, column=0, columnspan=2, sticky="ew", pady=4)
         ttk.Label(wr, text="Passphrase:").pack(side="left")
         self.webhook_pass_var = tk.StringVar(value=DEFAULT_WEBHOOK_PASSPHRASE)
         ttk.Entry(wr, textvariable=self.webhook_pass_var, width=18).pack(side="left", padx=6)
@@ -277,8 +318,28 @@ class TradingBotGUI:
         self.webhook_status = tk.Label(wr, text="● off", fg=GREY)
         self.webhook_status.pack(side="left")
 
-        tk.Button(f, text="Save Settings (encrypted)", command=self._save_all).grid(
-            row=10, column=0, columnspan=2, sticky="ew", pady=(10, 0)
+        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=8)
+
+        # Notifications.
+        self.sound_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Sound on fills/signals", variable=self.sound_var,
+            command=self._push_settings,
+        ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(f, text="Telegram bot token:").grid(row=13, column=0, sticky="w", pady=2)
+        self.tg_token_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=13, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Telegram chat id:").grid(row=14, column=0, sticky="w", pady=2)
+        self.tg_chat_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.tg_chat_var).grid(row=14, column=1, sticky="ew", pady=2)
+
+        btnrow = ttk.Frame(f)
+        btnrow.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        tk.Button(btnrow, text="Save Settings (encrypted)", command=self._save_all).pack(
+            side="left", expand=True, fill="x", padx=2
+        )
+        tk.Button(btnrow, text="📊 Analytics", command=self._open_analytics).pack(
+            side="left", expand=True, fill="x", padx=2
         )
 
     def _build_trade_log(self, parent) -> None:
@@ -314,11 +375,15 @@ class TradingBotGUI:
         self.api_secret_var.set(s.get("api_secret", ""))
         self.passphrase_var.set(s.get("passphrase", ""))
         self.size_var.set(str(s.get("size", DEFAULT_TRADE_SIZE)))
-        self.risk_based_var.set(s.get("risk_based", False))
+        self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", "fixed"), SIZING_MODE_LABELS["fixed"]))
         self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
+        self.auto_bracket_var.set(s.get("auto_bracket", DEFAULT_AUTO_BRACKET))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
+        self.sound_var.set(s.get("sound", True))
+        self.tg_token_var.set(s.get("telegram_token", ""))
+        self.tg_chat_var.set(s.get("telegram_chat_id", ""))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -328,11 +393,15 @@ class TradingBotGUI:
             "api_secret": self.api_secret_var.get(),
             "passphrase": self.passphrase_var.get(),
             "size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
-            "risk_based": self.risk_based_var.get(),
+            "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
+            "auto_bracket": self.auto_bracket_var.get(),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
             "webhook_passphrase": self.webhook_pass_var.get(),
+            "sound": self.sound_var.get(),
+            "telegram_token": self.tg_token_var.get(),
+            "telegram_chat_id": self.tg_chat_var.get(),
         }
 
     def _save_all(self) -> None:
@@ -340,15 +409,26 @@ class TradingBotGUI:
         self._push_settings()
         messagebox.showinfo("Saved", "Settings encrypted and saved.")
 
+    def _sizing_mode_value(self) -> str:
+        label = self.sizing_mode_var.get()
+        for value, lab in SIZING_MODE_LABELS.items():
+            if lab == label:
+                return value
+        return "fixed"
+
     def _push_settings(self) -> None:
-        """Send current sizing/safety toggles to the backend."""
+        """Send current sizing/safety/notification settings to the backend."""
         self.backend.submit({
             "cmd": "settings",
             "fixed_size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
-            "risk_based": self.risk_based_var.get(),
+            "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
+            "auto_bracket": self.auto_bracket_var.get(),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
+            "sound": self.sound_var.get(),
+            "telegram_token": self.tg_token_var.get(),
+            "telegram_chat_id": self.tg_chat_var.get(),
         })
 
     # ====================================================================
@@ -408,12 +488,16 @@ class TradingBotGUI:
             self.backend.submit({"cmd": "watch", "symbol": symbol})
 
     def _on_webhook_signal(self, signal: dict) -> None:
-        """Called from the webhook server thread. Just enqueue a trade."""
+        """Called from the webhook server thread. Enqueue a trade with bracket."""
         self.backend.submit({
             "cmd": "trade",
             "symbol": signal["ticker"],
             "side": signal["action"],
             "size": signal.get("size"),
+            "entry": signal.get("entry"),
+            "sl": signal.get("sl"),
+            "tp1": signal.get("tp1"),
+            "tp2": signal.get("tp2"),
             "source": "webhook",
         })
 

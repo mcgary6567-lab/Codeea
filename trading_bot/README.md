@@ -25,6 +25,11 @@ Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 | **Trade log** | Timestamped, scrollable log of every signal/execution; **Export** to CSV and **Clear** |
 | **Webhook** | Built-in HTTP receiver for TradingView alerts (auto-execution) |
 | **Real-time data** | WebSocket price feed (ccxt.pro) with REST fallback; live PnL recompute, green/red coloring, **Refresh Now**, and connection-drop alerts |
+| **Auto SL/TP** | Reduce-only stop-loss + take-profit from the alert payload, with scale-out at TP1/TP2 |
+| **Risk sizing** | Fixed lot, risk-% of balance, or **risk-% per trade from the entry→stop distance** |
+| **Position control** | Close Selected, and a red **PANIC: Close All** to flatten everything |
+| **Analytics** | SQLite trade history, win rate / realized PnL / best-worst, and an equity curve |
+| **Notifications** | Sound on fills/signals + optional **Telegram** alerts |
 | **Security** | Fernet-encrypted API keys, PIN/password gate, optional **Read-only** monitoring mode, and **Safe Mode** (simulate, no real orders) |
 
 ---
@@ -139,6 +144,35 @@ freezes.
 > Real-time prices are only fetched in **live** connections. In **Safe Mode**
 > the feed is skipped and fills/positions are simulated locally.
 
+## Auto SL/TP + risk-based sizing
+
+The Dip2Green alert payload carries `entry`, `sl`, `tp1`, `tp2`, `rr`. The bot
+uses them:
+
+- **Sizing mode** (Trade Settings):
+  - *Fixed lot* — use the lot size as entered.
+  - *Risk % of balance* — spend `risk%` of balance at the current price.
+  - *Risk % per trade (stop-based)* — size so that being stopped out at `sl`
+    loses exactly `risk%` of balance: `amount = (balance × risk%) ÷ |entry − sl|`.
+    This is the recommended model and the reason the indicator sends the stop.
+- **Auto-place SL/TP** — after the entry fills, the bot places a **reduce-only
+  stop-loss** at `sl` and **reduce-only take-profits**. With both TP1 and TP2 it
+  **scales out** (default 50% at TP1, the rest at TP2). Uses ccxt's unified
+  `stopLossPrice` / `takeProfitPrice` trigger params.
+
+Any missing field falls back safely (e.g. stop-based sizing reverts to the fixed
+lot if no stop is provided), so a trade is never sized to zero by accident.
+
+## Analytics & notifications
+
+- **Analytics** button opens a window with total/filled/rejected/closed counts,
+  **win rate**, **realized PnL** (estimated from each position's last mark at
+  close), best/worst trade, and an **equity curve** drawn from periodic balance
+  snapshots. All persisted in `history.db` (SQLite).
+- **Notifications**: a sound plays on fills/signals (Windows `winsound`).
+  Enter a **Telegram bot token + chat id** to also receive a message on every
+  entry, close, and connection alert. Leave them blank to disable.
+
 ## Security notes
 
 - Keys are stored **encrypted** (Fernet/AES) under a key derived from your PIN
@@ -158,8 +192,11 @@ freezes.
 | `login.py` | PIN create/verify dialog |
 | `gui.py` | Tkinter frontend (the mockup layout) |
 | `backend.py` | Single worker thread; serializes all exchange I/O |
-| `exchange.py` | ccxt wrapper; the only place orders are placed; pure `recompute_pnl` |
+| `exchange.py` | ccxt wrapper; orders + SL/TP; pure `recompute_pnl`/`size_order`/`plan_take_profits` |
 | `pricefeed.py` | Real-time price feed (WebSocket + REST fallback) |
+| `history.py` | SQLite trade history + analytics stats |
+| `notifications.py` | Sound + Telegram notifications |
+| `analytics_window.py` | Analytics window (stats + equity curve) |
 | `webhook_server.py` | TradingView alert receiver |
 | `security.py` | Encryption + PIN |
 | `config.py` | Constants & storage paths |

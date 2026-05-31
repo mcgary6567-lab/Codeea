@@ -99,10 +99,20 @@ class WebhookServer:
                     self._send(422, "invalid signal")
                     return
 
+                def _num(key):
+                    try:
+                        return float(payload[key])
+                    except (KeyError, TypeError, ValueError):
+                        return None
+
                 signal = {
                     "action": action,
                     "ticker": ticker,
                     "size": payload.get("size"),
+                    "entry": _num("entry"),
+                    "sl": _num("sl"),
+                    "tp1": _num("tp1"),
+                    "tp2": _num("tp2"),
                     "source": "webhook",
                 }
                 server.log(f"Webhook signal: {action.upper()} {ticker}")

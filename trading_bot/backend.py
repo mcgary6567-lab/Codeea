@@ -21,9 +21,29 @@ import time
 from datetime import datetime
 from typing import Optional
 
-from config import LOG_FILE, MAX_REFRESH_FAILURES, POLL_INTERVAL, QUOTE_CURRENCY
-from exchange import ExchangeManager, Position, normalize_symbol, recompute_pnl
+import history
+from config import (
+    DEFAULT_AUTO_BRACKET,
+    LOG_FILE,
+    MAX_REFRESH_FAILURES,
+    POLL_INTERVAL,
+    QUOTE_CURRENCY,
+    TP1_SCALE_OUT,
+)
+from exchange import (
+    ExchangeManager,
+    Position,
+    exit_side,
+    normalize_symbol,
+    plan_take_profits,
+    recompute_pnl,
+    size_order,
+)
+from notifications import Notifier
 from pricefeed import PriceFeed
+
+# Throttle equity-curve snapshots so the DB doesn't balloon.
+_EQUITY_SNAPSHOT_INTERVAL = 60.0
 
 
 class Backend:
@@ -36,8 +56,13 @@ class Backend:
 
         # Sizing settings, updated by the GUI via the "settings" command.
         self.fixed_size = 0.001
-        self.risk_based = False
+        self.sizing_mode = "fixed"
         self.risk_percent = 1.0
+        self.auto_bracket = DEFAULT_AUTO_BRACKET
+
+        self.notifier = Notifier()
+        history.init_db()
+        self._last_equity_ts = 0.0
 
         # Real-time state shared with the price feed thread (guarded by _lock).
         self._lock = threading.Lock()
@@ -113,10 +138,18 @@ class Backend:
                 self.log("Disconnected from exchange")
             elif action == "settings":
                 self.fixed_size = cmd.get("fixed_size", self.fixed_size)
-                self.risk_based = cmd.get("risk_based", self.risk_based)
+                self.sizing_mode = cmd.get("sizing_mode", self.sizing_mode)
                 self.risk_percent = cmd.get("risk_percent", self.risk_percent)
+                self.auto_bracket = cmd.get("auto_bracket", self.auto_bracket)
                 self.exchange.safe_mode = cmd.get("safe_mode", self.exchange.safe_mode)
                 self.exchange.read_only = cmd.get("read_only", self.exchange.read_only)
+                self.notifier.configure(
+                    sound=cmd.get("sound", self.notifier.sound_enabled),
+                    token=cmd.get("telegram_token", self.notifier.telegram_token),
+                    chat_id=cmd.get("telegram_chat_id", self.notifier.telegram_chat_id),
+                )
+            elif action == "close":
+                self._do_close(cmd.get("pair"))
             elif action == "trade":
                 self._do_trade(cmd)
             elif action == "refresh":
@@ -157,26 +190,82 @@ class Backend:
         symbol = cmd["symbol"]
         side = cmd["side"]
         source = cmd.get("source", "manual")
+        entry = float(cmd.get("entry") or 0)
+        sl = float(cmd.get("sl") or 0)
+        tp1 = float(cmd.get("tp1") or 0)
+        tp2 = float(cmd.get("tp2") or 0)
 
         balance = self.exchange.fetch_balance()
+        price = self._current_price(symbol)
+
         size = cmd.get("size")
         if size is None:
-            size = self.exchange.compute_amount(
-                symbol, self.fixed_size, self.risk_based, self.risk_percent, balance
+            size, reason = size_order(
+                self.sizing_mode, self.fixed_size, self.risk_percent,
+                balance, price, entry=entry, stop=sl,
             )
-        result = self.exchange.place_market_order(symbol, side, float(size))
+            self.log(f"Sizing: {size:g} ({reason})", pair=symbol)
+        size = float(size)
+
+        result = self.exchange.place_market_order(symbol, side, size)
 
         status = "Filled" if result.ok else "Rejected"
         if result.simulated:
             status = "Simulated"
-        self.log(
-            result.message,
-            signal=side.upper(),
-            pair=result.pair or symbol,
-            status=status,
+        self.log(result.message, signal=side.upper(), pair=result.pair or symbol, status=status)
+        history.record_trade(
+            source, result.pair or symbol, side, "entry", size,
+            price, status, message=result.message,
         )
         self._emit("order", ok=result.ok, source=source, message=result.message)
+        self.notifier.notify(
+            f"{side.upper()} {result.pair or symbol}",
+            f"{result.message} (size {size:g}, via {source})",
+            level="ok" if result.ok else "error",
+        )
+
+        # Place protective SL/TP from the alert payload.
+        if result.ok and self.auto_bracket and (sl or tp1 or tp2):
+            self._place_brackets(result.pair or symbol, side, size, sl, tp1, tp2, source)
+
         self._refresh()
+
+    def _place_brackets(self, symbol, entry_side, size, sl, tp1, tp2, source) -> None:
+        """Place reduce-only stop-loss and (scaled) take-profit orders."""
+        ex_side = exit_side(entry_side)
+        if sl > 0:
+            r = self.exchange.place_reduce_order(symbol, ex_side, size, sl, "sl")
+            self.log(r.message, signal="SL", pair=symbol, status="OK" if r.ok else "Rejected")
+            history.record_trade(source, symbol, ex_side, "sl", size, sl,
+                                 "Filled" if r.ok else "Rejected", message=r.message)
+        for price, qty in plan_take_profits(size, tp1, tp2, TP1_SCALE_OUT):
+            r = self.exchange.place_reduce_order(symbol, ex_side, qty, price, "tp")
+            self.log(r.message, signal="TP", pair=symbol, status="OK" if r.ok else "Rejected")
+            history.record_trade(source, symbol, ex_side, "tp", qty, price,
+                                 "Filled" if r.ok else "Rejected", message=r.message)
+
+    def _do_close(self, pair: str) -> None:
+        """Flatten a single open position by symbol (or all if pair is None)."""
+        with self._lock:
+            positions = list(self._last_positions)
+        targets = positions if not pair else [p for p in positions if p.pair == pair]
+        if not targets:
+            self.log(f"No open position to close: {pair}", status="Error")
+            return
+        for p in targets:
+            r = self.exchange.close_position(p)
+            self.log(r.message, signal="CLOSE", pair=p.pair, status="OK" if r.ok else "Rejected")
+            self.notifier.notify(f"Close {p.pair}", r.message, level="ok" if r.ok else "error")
+        self._refresh()
+
+    def _current_price(self, symbol: str) -> float:
+        """Best-available current price: cached feed price, else a REST tick."""
+        sym = normalize_symbol(symbol)
+        with self._lock:
+            cached = self._price_cache.get(sym)
+        if cached:
+            return float(cached)
+        return self.exchange._last_price(sym)
 
     def _refresh(self) -> None:
         """Authoritative REST refresh of balance + positions (slow cadence)."""
@@ -209,6 +298,15 @@ class Backend:
 
         # Keep the price feed subscribed to held symbols + the manual symbol.
         self._update_feed_symbols()
+
+        # Periodic equity-curve snapshot for the analytics view.
+        now = time.time()
+        if now - self._last_equity_ts >= _EQUITY_SNAPSHOT_INTERVAL:
+            self._last_equity_ts = now
+            open_pnl = sum(
+                p.pnl for p in recompute_pnl(positions, dict(self._price_cache))
+            )
+            history.record_equity(balance, open_pnl)
 
         self._emit_account()
 
@@ -262,11 +360,29 @@ class Backend:
         )
 
     def _detect_closed_positions(self, new_pairs: set) -> None:
-        """Log a 'Closed' row for any position that vanished since last refresh."""
+        """Log/record a 'Closed' entry (with realized PnL estimate) for any
+        position that vanished since the last refresh."""
         with self._lock:
             closed = self._open_pairs - new_pairs
+            # Snapshot of the just-closed positions (pre-overwrite) for PnL.
+            prev = {p.pair: p for p in self._last_positions}
+            prices = dict(self._price_cache)
         for pair in sorted(closed):
-            self.log(f"Position {pair} closed", signal="CLOSE", pair=pair, status="Closed")
+            p = prev.get(pair)
+            # Realized PnL estimate from the last known mark price.
+            pnl = 0.0
+            if p:
+                cur = float(prices.get(pair, p.current) or p.current)
+                pnl = (cur - p.entry) * p.size if p.side == "Long" else (p.entry - cur) * p.size
+            self.log(
+                f"Position {pair} closed (PnL {pnl:+.2f})",
+                signal="CLOSE", pair=pair, status="Closed",
+            )
+            history.record_trade("system", pair, p.side if p else "", "close",
+                                 p.size if p else 0.0, p.current if p else 0.0,
+                                 "Closed", pnl=pnl, message="position closed")
+            self.notifier.notify(f"Closed {pair}", f"Realized PnL {pnl:+.2f}",
+                                 level="ok" if pnl >= 0 else "error")
 
     def _note_failure(self, exc: Exception) -> None:
         """Track consecutive REST failures; warn once when the link looks down."""

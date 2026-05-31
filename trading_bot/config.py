@@ -27,6 +27,7 @@ CREDENTIALS_FILE = os.path.join(DATA_DIR, "credentials.enc")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 SALT_FILE = os.path.join(DATA_DIR, "salt.bin")
 LOG_FILE = os.path.join(DATA_DIR, "trade_log.csv")
+HISTORY_DB = os.path.join(DATA_DIR, "history.db")
 
 # ---------------------------------------------------------------------------
 # Exchanges exposed in the drop-down. The value is the ccxt id; if the exchange
@@ -64,6 +65,22 @@ MAX_REFRESH_FAILURES = 3
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.001          # in base asset, e.g. 0.001 BTC
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing
+
+# Sizing modes offered in the UI.
+#   fixed        -> use the fixed lot size as-is
+#   risk_balance -> spend risk% of balance (notional / current price)
+#   risk_stop    -> risk risk% of balance over the entry->stop distance
+SIZING_MODES = ["fixed", "risk_balance", "risk_stop"]
+SIZING_MODE_LABELS = {
+    "fixed": "Fixed lot",
+    "risk_balance": "Risk % of balance",
+    "risk_stop": "Risk % per trade (stop-based)",
+}
+
+# When True, place reduce-only SL/TP orders from alert payloads after entry.
+DEFAULT_AUTO_BRACKET = True
+# Fraction of the position closed at TP1 when both TP1 and TP2 are provided.
+TP1_SCALE_OUT = 0.5
 
 # When True the bot simulates fills instead of sending real orders.
 # Per the user's choice the app starts LIVE (Safe Mode off), but the toggle

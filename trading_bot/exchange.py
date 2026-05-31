@@ -87,6 +87,66 @@ def recompute_pnl(positions: List[Position], prices: dict) -> List[Position]:
     return updated
 
 
+def size_order(
+    mode: str,
+    fixed_size: float,
+    risk_percent: float,
+    balance: float,
+    price: float,
+    entry: float = 0.0,
+    stop: float = 0.0,
+) -> tuple:
+    """Pure sizing logic. Returns ``(amount, reason)``.
+
+    * ``fixed``        – the fixed lot, unchanged.
+    * ``risk_balance`` – spend ``risk_percent`` % of balance at ``price``.
+    * ``risk_stop``    – risk ``risk_percent`` % of balance across the
+      ``entry``→``stop`` distance: ``amount = risk_amount / |entry - stop|``.
+      This is the proper per-trade risk model and pairs with the indicator's SL.
+
+    Any mode falls back to the fixed lot when its required inputs are missing,
+    so a trade is never sized to zero by accident.
+    """
+    risk_amount = balance * (risk_percent / 100.0)
+    if mode == "risk_stop":
+        ref = entry if entry > 0 else price
+        dist = abs(ref - stop) if (ref > 0 and stop > 0) else 0.0
+        if dist > 0 and risk_amount > 0:
+            return round(risk_amount / dist, 8), f"risk {risk_percent}% / stop dist {dist:g}"
+        return fixed_size, "risk_stop: missing entry/stop — using fixed lot"
+    if mode == "risk_balance":
+        if price > 0 and risk_amount > 0:
+            return round(risk_amount / price, 8), f"risk {risk_percent}% of balance"
+        return fixed_size, "risk_balance: no price — using fixed lot"
+    return fixed_size, "fixed lot"
+
+
+def plan_take_profits(amount: float, tp1: float, tp2: float, tp1_fraction: float) -> list:
+    """Return a list of ``(price, qty)`` take-profit legs.
+
+    Both TPs -> scale out ``tp1_fraction`` at TP1 and the remainder at TP2.
+    One TP   -> the full amount at that level. None -> empty list.
+    """
+    legs = []
+    if tp1 > 0 and tp2 > 0:
+        q1 = round(amount * tp1_fraction, 8)
+        q2 = round(amount - q1, 8)
+        if q1 > 0:
+            legs.append((tp1, q1))
+        if q2 > 0:
+            legs.append((tp2, q2))
+    elif tp1 > 0:
+        legs.append((tp1, amount))
+    elif tp2 > 0:
+        legs.append((tp2, amount))
+    return legs
+
+
+def exit_side(entry_side: str) -> str:
+    """The side that reduces/closes a position opened with ``entry_side``."""
+    return "sell" if entry_side.lower() == "buy" else "buy"
+
+
 class ExchangeManager:
     """Stateful wrapper around a single ccxt exchange client."""
 
@@ -208,29 +268,7 @@ class ExchangeManager:
     def total_pnl(self, positions: List[Position]) -> float:
         return sum(p.pnl for p in positions)
 
-    # -- sizing -------------------------------------------------------------
-    def compute_amount(
-        self,
-        symbol: str,
-        fixed_size: float,
-        risk_based: bool,
-        risk_percent: float,
-        balance: float,
-    ) -> float:
-        """Return the base-asset quantity for an order.
-
-        Fixed: use ``fixed_size`` directly.
-        Risk-based: risk ``risk_percent`` % of balance, converted to base units
-        at the current price.
-        """
-        if not risk_based:
-            return fixed_size
-        price = self._last_price(symbol)
-        if price <= 0:
-            return fixed_size
-        quote_to_spend = balance * (risk_percent / 100.0)
-        return round(quote_to_spend / price, 8)
-
+    # -- pricing ------------------------------------------------------------
     def _last_price(self, symbol: str) -> float:
         if self.safe_mode or not CCXT_AVAILABLE or not self.client:
             return 0.0
@@ -279,6 +317,42 @@ class ExchangeManager:
             )
         except Exception as exc:  # noqa: BLE001
             return OrderResult(False, f"Order rejected: {exc}", pair=sym, side=side)
+
+    def place_reduce_order(
+        self, symbol: str, side: str, amount: float, trigger_price: float, kind: str
+    ) -> OrderResult:
+        """Place a reduce-only protective order. ``kind`` is 'sl' or 'tp'.
+
+        Uses ccxt's unified trigger params (``stopLossPrice`` /
+        ``takeProfitPrice``), supported by the five target exchanges in recent
+        ccxt. Exchange-specific quirks are caught and surfaced in the log.
+        """
+        if self.read_only:
+            return OrderResult(False, "Read-only — protective order blocked", pair=symbol)
+
+        sym = normalize_symbol(symbol)
+        label = "SL" if kind == "sl" else "TP"
+
+        if self.safe_mode or not CCXT_AVAILABLE or not self.client:
+            return OrderResult(
+                True, f"SIMULATED {label} {side} {amount} {sym} @ {trigger_price}",
+                pair=sym, side=side, order_type=label, simulated=True,
+            )
+        try:
+            params = {"reduceOnly": True}
+            params["stopLossPrice" if kind == "sl" else "takeProfitPrice"] = trigger_price
+            order = self.client.create_order(sym, "market", side, amount, None, params)
+            return OrderResult(
+                True, f"{label} set {amount} {sym} @ {trigger_price}",
+                pair=sym, side=side, order_type=label, raw=order,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return OrderResult(False, f"{label} failed: {exc}", pair=sym, side=side, order_type=label)
+
+    def close_position(self, position: Position) -> OrderResult:
+        """Flatten a position with a reduce-only market order on the exit side."""
+        side = exit_side("buy" if position.side == "Long" else "sell")
+        return self.place_market_order(position.pair, side, position.size, reduce_only=True)
 
     # -- simulation helpers -------------------------------------------------
     def _simulate_fill(self, symbol: str, side: str, amount: float) -> None:

@@ -6,3 +6,4 @@ trade_log.csv
 __pycache__/
 *.pyc
 .venv/
+history.db
