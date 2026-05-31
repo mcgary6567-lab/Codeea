@@ -1,0 +1,8 @@
+# Never commit local secrets, encrypted stores, or logs.
+*.enc
+salt.bin
+settings.json
+trade_log.csv
+__pycache__/
+*.pyc
+.venv/

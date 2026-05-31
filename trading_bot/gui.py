@@ -1,0 +1,519 @@
+"""Tkinter frontend — mirrors the supplied mockup.
+
+Layout:
+    +-------------------------------------------------------------+
+    | Status bar: connection | exchange | balance | PnL           |
+    +----------------------------+--------------------------------+
+    | API Settings               | Trade Settings                 |
+    | BUY / SELL                  | Trade Log (+ Export/Clear)     |
+    | Open Positions             |                                |
+    +----------------------------+--------------------------------+
+
+The GUI never touches the exchange directly; it submits commands to the Backend
+and drains UI updates from ``backend.ui_queue`` on the Tk event loop.
+"""
+
+from __future__ import annotations
+
+import csv
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
+import security
+from backend import Backend
+from config import (
+    APP_VERSION,
+    DEFAULT_RISK_PERCENT,
+    DEFAULT_SAFE_MODE,
+    DEFAULT_TRADE_SIZE,
+    DEFAULT_WEBHOOK_PASSPHRASE,
+    QUOTE_CURRENCY,
+    SUPPORTED_EXCHANGES,
+    WEBHOOK_HOST,
+    WEBHOOK_PORT,
+)
+from webhook_server import WebhookServer
+
+# Exchanges that need an API passphrase in addition to key/secret.
+PASSPHRASE_EXCHANGES = {"okx", "kucoin", "bitget"}
+
+GREEN = "#2e8b3d"
+RED = "#c0392b"
+GREY = "#7f8c8d"
+
+
+class TradingBotGUI:
+    def __init__(self, root: tk.Tk, pin: str, saved: dict) -> None:
+        self.root = root
+        self.pin = pin
+        self.saved = saved or {}
+
+        self.backend = Backend()
+        self.backend.start()
+
+        self.webhook = WebhookServer(
+            host=WEBHOOK_HOST,
+            port=WEBHOOK_PORT,
+            on_signal=self._on_webhook_signal,
+            get_passphrase=lambda: self.webhook_pass_var.get().strip(),
+            log=lambda m: self.backend.ui_queue.put(
+                {"kind": "log", "time": "", "message": m, "signal": "", "pair": "", "status": ""}
+            ),
+        )
+
+        self.connected = False
+        self._build_ui()
+        self._load_saved_into_ui()
+        self._push_settings()
+        self.root.after(150, self._drain_ui_queue)
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # ====================================================================
+    # UI construction
+    # ====================================================================
+    def _build_ui(self) -> None:
+        self.root.title(f"TradingView Trading Bot  v{APP_VERSION}")
+        self.root.geometry("1120x760")
+        self.root.minsize(980, 700)
+
+        self._build_status_bar()
+
+        body = ttk.Frame(self.root, padding=10)
+        body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1, uniform="col")
+        body.columnconfigure(1, weight=1, uniform="col")
+        body.rowconfigure(2, weight=1)
+
+        self._build_api_panel(body)
+        self._build_trade_buttons(body)
+        self._build_positions(body)
+        self._build_trade_settings(body)
+        self._build_trade_log(body)
+
+    def _build_status_bar(self) -> None:
+        bar = tk.Frame(self.root, bg="#ecf0f1", height=34)
+        bar.pack(fill="x", side="top")
+
+        self.status_dot = tk.Label(bar, text="●", fg=RED, bg="#ecf0f1", font=("Segoe UI", 12))
+        self.status_dot.pack(side="left", padx=(10, 2))
+
+        self.conn_label = tk.Label(
+            bar, text="Disconnected", bg="#ecf0f1", font=("Segoe UI", 10, "bold")
+        )
+        self.conn_label.pack(side="left")
+
+        self.exch_label = tk.Label(bar, text="  |  Exchange: —", bg="#ecf0f1", font=("Segoe UI", 10))
+        self.exch_label.pack(side="left")
+
+        self.bal_label = tk.Label(bar, text="  |  Balance: $0.00", bg="#ecf0f1", font=("Segoe UI", 10))
+        self.bal_label.pack(side="left")
+
+        self.pnl_label = tk.Label(bar, text="  |  PnL: $0.00", bg="#ecf0f1", font=("Segoe UI", 10, "bold"))
+        self.pnl_label.pack(side="left")
+
+    def _build_api_panel(self, parent) -> None:
+        f = ttk.LabelFrame(parent, text="API Settings", padding=10)
+        f.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        f.columnconfigure(1, weight=1)
+
+        ttk.Label(f, text="Select Exchange:").grid(row=0, column=0, sticky="w", pady=4)
+        self.exchange_var = tk.StringVar(value=SUPPORTED_EXCHANGES[0])
+        self.exchange_combo = ttk.Combobox(
+            f, textvariable=self.exchange_var, values=SUPPORTED_EXCHANGES, state="readonly"
+        )
+        self.exchange_combo.grid(row=0, column=1, sticky="ew", pady=4)
+        self.exchange_combo.bind("<<ComboboxSelected>>", lambda e: self._toggle_passphrase())
+
+        ttk.Label(f, text="API Key:").grid(row=1, column=0, sticky="w", pady=4)
+        self.api_key_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.api_key_var, show="•").grid(row=1, column=1, sticky="ew", pady=4)
+
+        ttk.Label(f, text="API Secret:").grid(row=2, column=0, sticky="w", pady=4)
+        self.api_secret_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.api_secret_var, show="•").grid(row=2, column=1, sticky="ew", pady=4)
+
+        self.pass_label = ttk.Label(f, text="API Passphrase:")
+        self.passphrase_var = tk.StringVar()
+        self.pass_entry = ttk.Entry(f, textvariable=self.passphrase_var, show="•")
+
+        btns = ttk.Frame(f)
+        btns.grid(row=4, column=0, columnspan=2, pady=(10, 0))
+        self.connect_btn = tk.Button(
+            btns, text="Connect", bg=GREEN, fg="white", font=("Segoe UI", 10, "bold"),
+            width=14, command=self._on_connect,
+        )
+        self.connect_btn.pack(side="left", padx=5)
+        self.disconnect_btn = tk.Button(
+            btns, text="Disconnect", bg=RED, fg="white", font=("Segoe UI", 10, "bold"),
+            width=14, command=self._on_disconnect, state="disabled",
+        )
+        self.disconnect_btn.pack(side="left", padx=5)
+
+        self._toggle_passphrase()
+
+    def _toggle_passphrase(self) -> None:
+        needs = self.exchange_var.get() in PASSPHRASE_EXCHANGES
+        if needs:
+            self.pass_label.grid(row=3, column=0, sticky="w", pady=4)
+            self.pass_entry.grid(row=3, column=1, sticky="ew", pady=4)
+        else:
+            self.pass_label.grid_remove()
+            self.pass_entry.grid_remove()
+
+    def _build_trade_buttons(self, parent) -> None:
+        f = ttk.Frame(parent, padding=(5, 0))
+        f.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+        f.columnconfigure(0, weight=1)
+        f.columnconfigure(1, weight=1)
+
+        self.buy_btn = tk.Button(
+            f, text="BUY", bg=GREEN, fg="white", font=("Segoe UI", 22, "bold"),
+            height=2, command=lambda: self._on_manual_trade("buy"),
+        )
+        self.buy_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.sell_btn = tk.Button(
+            f, text="SELL", bg=RED, fg="white", font=("Segoe UI", 22, "bold"),
+            height=2, command=lambda: self._on_manual_trade("sell"),
+        )
+        self.sell_btn.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+    def _build_positions(self, parent) -> None:
+        f = ttk.LabelFrame(parent, text="Open Positions", padding=8)
+        f.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+        f.rowconfigure(1, weight=1)
+        f.columnconfigure(0, weight=1)
+
+        top = ttk.Frame(f)
+        top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        ttk.Label(top, text="Manual symbol:").pack(side="left")
+        self.symbol_var = tk.StringVar(value="BTC/USDT")
+        ttk.Entry(top, textvariable=self.symbol_var, width=14).pack(side="left", padx=6)
+
+        cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
+        self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=7)
+        headings = ["Pair", "Type", "Size", "Entry", "Current", "PnL", "Status"]
+        for c, h in zip(cols, headings):
+            self.pos_tree.heading(c, text=h)
+            self.pos_tree.column(c, width=80, anchor="center")
+        self.pos_tree.grid(row=1, column=0, sticky="nsew")
+        sb = ttk.Scrollbar(f, orient="vertical", command=self.pos_tree.yview)
+        self.pos_tree.configure(yscrollcommand=sb.set)
+        sb.grid(row=1, column=1, sticky="ns")
+
+    def _build_trade_settings(self, parent) -> None:
+        f = ttk.LabelFrame(parent, text="Trade Settings", padding=10)
+        f.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        f.columnconfigure(1, weight=1)
+
+        ttk.Label(f, text="Trade Size:").grid(row=0, column=0, sticky="w", pady=4)
+        size_row = ttk.Frame(f)
+        size_row.grid(row=0, column=1, sticky="w", pady=4)
+        self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
+        ttk.Entry(size_row, textvariable=self.size_var, width=12).pack(side="left")
+        self.size_unit = ttk.Label(size_row, text="BTC (base)")
+        self.size_unit.pack(side="left", padx=6)
+
+        self.risk_based_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            f, text="Risk-based lot (% of balance)", variable=self.risk_based_var,
+            command=self._push_settings,
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
+
+        rr = ttk.Frame(f)
+        rr.grid(row=2, column=0, columnspan=2, sticky="w", padx=(20, 0))
+        ttk.Label(rr, text="Risk %:").pack(side="left")
+        self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
+        ttk.Entry(rr, textvariable=self.risk_pct_var, width=6).pack(side="left", padx=6)
+
+        ttk.Separator(f, orient="horizontal").grid(row=3, column=0, columnspan=2, sticky="ew", pady=8)
+
+        self.manual_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Enable Manual Trading", variable=self.manual_var,
+            command=self._update_manual_state,
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
+        ttk.Checkbutton(
+            f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
+            command=self._push_settings,
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.readonly_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            f, text="Read-only monitoring (block all orders)", variable=self.readonly_var,
+            command=self._push_settings,
+        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
+
+        ttk.Separator(f, orient="horizontal").grid(row=7, column=0, columnspan=2, sticky="ew", pady=8)
+
+        ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
+            row=8, column=0, columnspan=2, sticky="w"
+        )
+        wr = ttk.Frame(f)
+        wr.grid(row=9, column=0, columnspan=2, sticky="ew", pady=4)
+        ttk.Label(wr, text="Passphrase:").pack(side="left")
+        self.webhook_pass_var = tk.StringVar(value=DEFAULT_WEBHOOK_PASSPHRASE)
+        ttk.Entry(wr, textvariable=self.webhook_pass_var, width=18).pack(side="left", padx=6)
+        self.webhook_btn = tk.Button(wr, text="Start Webhook", command=self._toggle_webhook)
+        self.webhook_btn.pack(side="left", padx=6)
+        self.webhook_status = tk.Label(wr, text="● off", fg=GREY)
+        self.webhook_status.pack(side="left")
+
+        tk.Button(f, text="Save Settings (encrypted)", command=self._save_all).grid(
+            row=10, column=0, columnspan=2, sticky="ew", pady=(10, 0)
+        )
+
+    def _build_trade_log(self, parent) -> None:
+        f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
+        f.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
+        f.rowconfigure(0, weight=1)
+        f.columnconfigure(0, weight=1)
+
+        cols = ("time", "signal", "pair", "status", "message")
+        self.log_tree = ttk.Treeview(f, columns=cols, show="headings")
+        for c, w in zip(cols, (70, 60, 90, 80, 260)):
+            self.log_tree.heading(c, text=c.capitalize())
+            self.log_tree.column(c, width=w, anchor="w")
+        self.log_tree.grid(row=0, column=0, sticky="nsew")
+        sb = ttk.Scrollbar(f, orient="vertical", command=self.log_tree.yview)
+        self.log_tree.configure(yscrollcommand=sb.set)
+        sb.grid(row=0, column=1, sticky="ns")
+
+        bar = ttk.Frame(f)
+        bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        tk.Button(bar, text="Export Log", command=self._export_log).pack(side="left", padx=4)
+        tk.Button(bar, text="Clear Log", command=self._clear_log).pack(side="left", padx=4)
+
+    # ====================================================================
+    # Settings persistence / prefill
+    # ====================================================================
+    def _load_saved_into_ui(self) -> None:
+        s = self.saved
+        if not s:
+            return
+        self.exchange_var.set(s.get("exchange", SUPPORTED_EXCHANGES[0]))
+        self.api_key_var.set(s.get("api_key", ""))
+        self.api_secret_var.set(s.get("api_secret", ""))
+        self.passphrase_var.set(s.get("passphrase", ""))
+        self.size_var.set(str(s.get("size", DEFAULT_TRADE_SIZE)))
+        self.risk_based_var.set(s.get("risk_based", False))
+        self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
+        self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
+        self.readonly_var.set(s.get("read_only", False))
+        self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
+        self._toggle_passphrase()
+
+    def _collect_settings(self) -> dict:
+        return {
+            "exchange": self.exchange_var.get(),
+            "api_key": self.api_key_var.get(),
+            "api_secret": self.api_secret_var.get(),
+            "passphrase": self.passphrase_var.get(),
+            "size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
+            "risk_based": self.risk_based_var.get(),
+            "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
+            "safe_mode": self.safe_var.get(),
+            "read_only": self.readonly_var.get(),
+            "webhook_passphrase": self.webhook_pass_var.get(),
+        }
+
+    def _save_all(self) -> None:
+        security.save_credentials(self.pin, self._collect_settings())
+        self._push_settings()
+        messagebox.showinfo("Saved", "Settings encrypted and saved.")
+
+    def _push_settings(self) -> None:
+        """Send current sizing/safety toggles to the backend."""
+        self.backend.submit({
+            "cmd": "settings",
+            "fixed_size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
+            "risk_based": self.risk_based_var.get(),
+            "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
+            "safe_mode": self.safe_var.get(),
+            "read_only": self.readonly_var.get(),
+        })
+
+    # ====================================================================
+    # Actions
+    # ====================================================================
+    def _on_connect(self) -> None:
+        ex = self.exchange_var.get()
+        if not self.api_key_var.get() or not self.api_secret_var.get():
+            messagebox.showwarning("Missing keys", "Enter API key and secret first.")
+            return
+        if ex in PASSPHRASE_EXCHANGES and not self.passphrase_var.get():
+            messagebox.showwarning("Missing passphrase", f"{ex} requires an API passphrase.")
+            return
+        self._push_settings()
+        self.backend.submit({
+            "cmd": "connect",
+            "exchange_id": ex,
+            "api_key": self.api_key_var.get(),
+            "secret": self.api_secret_var.get(),
+            "password": self.passphrase_var.get(),
+            "testnet": False,
+            "read_only": self.readonly_var.get(),
+            "safe_mode": self.safe_var.get(),
+        })
+
+    def _on_disconnect(self) -> None:
+        self.backend.submit({"cmd": "disconnect"})
+
+    def _on_manual_trade(self, side: str) -> None:
+        if not self.manual_var.get():
+            messagebox.showinfo("Disabled", "Enable Manual Trading to use BUY/SELL.")
+            return
+        if not self.connected:
+            messagebox.showwarning("Not connected", "Connect to an exchange first.")
+            return
+        symbol = self.symbol_var.get().strip()
+        size = self.size_var.get().strip()
+        mode = "SIMULATED" if self.safe_var.get() else "LIVE"
+        if not messagebox.askyesno(
+            "Confirm order",
+            f"{mode} {side.upper()} {size} of {symbol} on "
+            f"{self.exchange_var.get().upper()}?\n\nProceed?",
+        ):
+            return
+        self.backend.submit({
+            "cmd": "trade",
+            "symbol": symbol,
+            "side": side,
+            "source": "manual",
+            # size omitted -> backend computes from fixed/risk settings
+        })
+
+    def _on_webhook_signal(self, signal: dict) -> None:
+        """Called from the webhook server thread. Just enqueue a trade."""
+        self.backend.submit({
+            "cmd": "trade",
+            "symbol": signal["ticker"],
+            "side": signal["action"],
+            "size": signal.get("size"),
+            "source": "webhook",
+        })
+
+    def _toggle_webhook(self) -> None:
+        if self.webhook.running:
+            self.webhook.stop()
+            self.webhook_btn.config(text="Start Webhook")
+            self.webhook_status.config(text="● off", fg=GREY)
+        else:
+            try:
+                self.webhook.start()
+                self.webhook_btn.config(text="Stop Webhook")
+                self.webhook_status.config(text="● listening", fg=GREEN)
+            except OSError as exc:
+                messagebox.showerror("Webhook", f"Could not start: {exc}")
+
+    def _update_manual_state(self) -> None:
+        state = "normal" if self.manual_var.get() else "disabled"
+        self.buy_btn.config(state=state)
+        self.sell_btn.config(state=state)
+
+    # ====================================================================
+    # Log buttons
+    # ====================================================================
+    def _export_log(self) -> None:
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv", filetypes=[("CSV", "*.csv")], title="Export trade log"
+        )
+        if not path:
+            return
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["time", "signal", "pair", "status", "message"])
+            for item in self.log_tree.get_children():
+                writer.writerow(self.log_tree.item(item)["values"])
+        messagebox.showinfo("Exported", f"Log exported to:\n{path}")
+
+    def _clear_log(self) -> None:
+        if messagebox.askyesno("Clear log", "Clear the on-screen trade log?"):
+            for item in self.log_tree.get_children():
+                self.log_tree.delete(item)
+
+    # ====================================================================
+    # UI queue draining (runs on Tk main loop)
+    # ====================================================================
+    def _drain_ui_queue(self) -> None:
+        try:
+            while True:
+                msg = self.backend.ui_queue.get_nowait()
+                self._apply_ui_event(msg)
+        except Exception:
+            pass
+        self.root.after(150, self._drain_ui_queue)
+
+    def _apply_ui_event(self, msg: dict) -> None:
+        kind = msg.get("kind")
+        if kind == "status":
+            self._set_connected(msg.get("connected", False), msg.get("exchange"))
+        elif kind == "account":
+            self._update_account(msg)
+        elif kind == "log":
+            self._add_log_row(msg)
+        elif kind == "order":
+            if not msg.get("ok"):
+                # Surface rejected orders prominently.
+                self.bal_label.config(fg=RED)
+
+    def _set_connected(self, connected: bool, exchange) -> None:
+        self.connected = connected
+        if connected:
+            self.status_dot.config(fg=GREEN)
+            self.conn_label.config(text="Connected")
+            self.exch_label.config(text=f"  |  Exchange: {str(exchange).upper()}")
+            self.connect_btn.config(state="disabled")
+            self.disconnect_btn.config(state="normal")
+            self.exchange_combo.config(state="disabled")
+        else:
+            self.status_dot.config(fg=RED)
+            self.conn_label.config(text="Disconnected")
+            self.connect_btn.config(state="normal")
+            self.disconnect_btn.config(state="disabled")
+            self.exchange_combo.config(state="readonly")
+
+    def _update_account(self, msg: dict) -> None:
+        balance = msg.get("balance", 0.0)
+        pnl = msg.get("pnl", 0.0)
+        self.bal_label.config(text=f"  |  Balance: ${balance:,.2f}", fg="black")
+        sign = "+" if pnl >= 0 else "-"
+        self.pnl_label.config(
+            text=f"  |  PnL: {sign}${abs(pnl):,.2f}", fg=(GREEN if pnl >= 0 else RED)
+        )
+        for item in self.pos_tree.get_children():
+            self.pos_tree.delete(item)
+        for p in msg.get("positions", []):
+            self.pos_tree.insert(
+                "", "end",
+                values=(
+                    p["pair"], p["side"], p["size"],
+                    p["entry"], p["current"], f"{p['pnl']:+.2f}", p.get("status", "Active"),
+                ),
+            )
+
+    def _add_log_row(self, msg: dict) -> None:
+        self.log_tree.insert(
+            "", 0,
+            values=(
+                msg.get("time", ""), msg.get("signal", ""), msg.get("pair", ""),
+                msg.get("status", ""), msg.get("message", ""),
+            ),
+        )
+
+    # ====================================================================
+    @staticmethod
+    def _float(value: str, fallback: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    def _on_close(self) -> None:
+        try:
+            if self.webhook.running:
+                self.webhook.stop()
+            self.backend.stop()
+        finally:
+            self.root.destroy()

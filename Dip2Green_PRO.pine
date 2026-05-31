@@ -280,13 +280,14 @@ gA = "Alerts"
 alertOnBar = input.string("Bar Close","Frequency",options=["Bar Close","Every Tick"],group=gA)
 alertHdr   = input.string("DIP2GREEN","Header tag",group=gA)
 emitJSON   = input.bool(true,"Emit JSON payload",group=gA)
+whSecret   = input.string("","Webhook passphrase (for trading bot)",group=gA)
 freq = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
 
 f_jsonLong() =>
-    "{\"action\":\"BUY\",\"symbol\":\"" + tickerStr + "\",\"tf\":\"" + timeframe.period + "\",\"entry\":" + str.tostring(longEntry, format.mintick) + ",\"sl\":" + str.tostring(longSL, format.mintick) + ",\"tp1\":" + str.tostring(longTP1, format.mintick) + ",\"tp2\":" + str.tostring(longTP2, format.mintick) + ",\"rr\":" + str.tostring(rrEff, "#.##") + ",\"score\":" + str.tostring(longScore, "#.#") + "}"
+    "{\"action\":\"BUY\",\"symbol\":\"" + tickerStr + "\",\"passphrase\":\"" + whSecret + "\",\"tf\":\"" + timeframe.period + "\",\"entry\":" + str.tostring(longEntry, format.mintick) + ",\"sl\":" + str.tostring(longSL, format.mintick) + ",\"tp1\":" + str.tostring(longTP1, format.mintick) + ",\"tp2\":" + str.tostring(longTP2, format.mintick) + ",\"rr\":" + str.tostring(rrEff, "#.##") + ",\"score\":" + str.tostring(longScore, "#.#") + "}"
 
 f_jsonShort() =>
-    "{\"action\":\"SELL\",\"symbol\":\"" + tickerStr + "\",\"tf\":\"" + timeframe.period + "\",\"entry\":" + str.tostring(shortEntry, format.mintick) + ",\"sl\":" + str.tostring(shortSL, format.mintick) + ",\"tp1\":" + str.tostring(shortTP1, format.mintick) + ",\"tp2\":" + str.tostring(shortTP2, format.mintick) + ",\"rr\":" + str.tostring(rrEff, "#.##") + ",\"score\":" + str.tostring(shortScore, "#.#") + "}"
+    "{\"action\":\"SELL\",\"symbol\":\"" + tickerStr + "\",\"passphrase\":\"" + whSecret + "\",\"tf\":\"" + timeframe.period + "\",\"entry\":" + str.tostring(shortEntry, format.mintick) + ",\"sl\":" + str.tostring(shortSL, format.mintick) + ",\"tp1\":" + str.tostring(shortTP1, format.mintick) + ",\"tp2\":" + str.tostring(shortTP2, format.mintick) + ",\"rr\":" + str.tostring(rrEff, "#.##") + ",\"score\":" + str.tostring(shortScore, "#.#") + "}"
 
 f_humanLong() =>
     ">>> " + alertHdr + " BUY <<< " + tickerStr + " | " + timeframe.period + " | " + eff + "\nScore: " + str.tostring(longScore, "#.#") + "/100  RSI: " + str.tostring(rsi, "#.##") + "\nEntry: " + str.tostring(longEntry, format.mintick) + "\nSL: " + str.tostring(longSL, format.mintick) + "\nTP1: " + str.tostring(longTP1, format.mintick) + "\nTP2: " + str.tostring(longTP2, format.mintick) + "\nRR(eff): 1:" + str.tostring(rrEff, "#.##")
