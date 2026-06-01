@@ -40,9 +40,29 @@ Multi-exchange (**Binance · Bybit · OKX · KuCoin · Bitget** via ccxt) · man
 BUY/SELL · webhook auto-execution · auto **TP1/TP2 scale-out** · market/limit
 orders · leverage & margin mode · risk-based sizing · **guardrails** (daily-loss
 auto-halt, max positions, cooldown, duplicate-alert dedupe) · Close / **PANIC**
-flatten · real-time prices & PnL · **analytics** (win rate, realized PnL, equity
-curve) · sound + **Telegram** alerts · encrypted keys + PIN + Read-only & Safe
-Mode.
+flatten · real-time prices & PnL · **online/offline indicator** · **analytics**
+(win rate, realized PnL, equity curve) · sound + **Telegram** alerts (incl.
+**daily P&L recap**) · encrypted keys + PIN + Read-only & Safe Mode.
+
+---
+
+## ✨ What's new (latest update)
+
+- 🛜 **Internet check** — a live **Online / No internet** light in the footer;
+  warns you the moment the connection drops (so you know trades are paused).
+- 📊 **Daily Telegram P&L recap** — one end-of-day summary (profit, win rate,
+  open trades, balance) at a time you pick. *Alerts tab.*
+- 🔕 **Less Telegram spam** — by default only the messages that matter (orders,
+  closes & PnL, halts, security) go to Telegram; everything still shows on your
+  desktop. Toggle it in the *Alerts* tab.
+- 🪵 **Support log** — a one-click **"Support Log"** button opens a small,
+  self-rotating log file you can attach to a help ticket.
+- 🛠️ **Reliability fixes** — fixed a bug where the duplicate-signal filter could
+  block *every* trade, and two switches (trailing-stop %, desktop alerts) that
+  weren't applying live. Capped the on-screen log so long sessions stay light.
+- ✅ **Auto-tested** — 29 built-in tests check the trade math, guardrails and
+  signal parsing on every update, so a bad change can't ship. Run them with
+  `cd trading_bot && python -m unittest`.
 
 ---
 
