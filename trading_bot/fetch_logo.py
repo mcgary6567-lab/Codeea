@@ -35,32 +35,31 @@ def _download(url: str):
 
 
 def main() -> int:
-    urls = [sys.argv[1]] if len(sys.argv) > 1 else [u for u in CANDIDATE_URLS if u]
     logo_path = os.path.join(HERE, "logo.png")
     ico_path = os.path.join(HERE, "icon.ico")
 
-    # 1) Try to download a logo from the candidate URLs (optional).
-    data = None
-    used = ""
+    # Download ONLY if a URL is explicitly given (arg or LOGO_URL env). By
+    # default we use whatever logo.png is committed in the repo — deterministic,
+    # no flaky favicon fetch overriding a good logo.
+    urls = []
+    if len(sys.argv) > 1:
+        urls = [sys.argv[1]]
+    elif os.environ.get("LOGO_URL"):
+        urls = [os.environ["LOGO_URL"]]
+
     for url in urls:
         try:
             data = _download(url)
-            used = url
+            with open(logo_path, "wb") as fh:
+                fh.write(data)
+            print(f"[fetch_logo] downloaded logo from {url}")
             break
         except Exception as exc:  # noqa: BLE001
             print(f"[fetch_logo] {url} -> failed ({exc})")
-    if data is not None:
-        try:
-            with open(logo_path, "wb") as fh:
-                fh.write(data)
-            print(f"[fetch_logo] downloaded logo from {used}")
-        except Exception as exc:  # noqa: BLE001
-            print(f"[fetch_logo] could not write logo.png: {exc}")
-    else:
-        print("[fetch_logo] no download; using the logo.png already in the repo")
+    if not urls:
+        print("[fetch_logo] using committed logo.png (no download requested)")
 
-    # 2) Always (re)generate icon.ico from whatever logo.png is present, so that
-    #    simply committing/uploading a real logo.png is enough for header + icon.
+    # Always (re)generate icon.ico from the current logo.png.
     try:
         from PIL import Image
 
