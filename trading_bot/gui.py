@@ -138,13 +138,25 @@ class TradingBotGUI:
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1, uniform="col")
         body.columnconfigure(1, weight=1, uniform="col")
-        body.rowconfigure(1, weight=1)
+        body.rowconfigure(0, weight=1)
 
-        self._build_api_panel(body)
-        self._build_trade_buttons(body)
-        self._build_positions(body)
-        self._build_trade_settings(body)
-        self._build_trade_log(body)
+        # Independent left/right columns so the tall Trade Settings panel on the
+        # right doesn't stretch the left column's rows.
+        left = ttk.Frame(body)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(1, weight=1)   # Open Positions fills the middle
+
+        right = ttk.Frame(body)
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(1, weight=1)  # Trade Log fills
+
+        self._build_api_panel(left)        # row 0 (top)
+        self._build_positions(left)        # row 1 (expands, ~10+ trades)
+        self._build_trade_buttons(left)    # row 2 (bottom)
+        self._build_trade_settings(right)  # row 0
+        self._build_trade_log(right)       # row 1 (expands)
 
     def _set_window_icon(self) -> None:
         try:
@@ -222,7 +234,7 @@ class TradingBotGUI:
 
     def _build_api_panel(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="API Settings", padding=10)
-        f.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        f.grid(row=0, column=0, sticky="new", padx=5, pady=5)   # hug top, natural height
         f.columnconfigure(1, weight=1)
 
         ttk.Label(f, text="Select Exchange:").grid(row=0, column=0, sticky="w", pady=4)
@@ -310,7 +322,7 @@ class TradingBotGUI:
         self.feed_label.pack(side="right", padx=8)
 
         cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
-        self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=7)
+        self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=12)
         headings = ["Pair", "Type", "Size", "Entry", "Current", "PnL", "Status"]
         for c, h in zip(cols, headings):
             self.pos_tree.heading(c, text=h)
@@ -352,7 +364,7 @@ class TradingBotGUI:
 
     def _build_trade_settings(self, parent) -> None:
         outer = ttk.LabelFrame(parent, text="Trade Settings", padding=8)
-        outer.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        outer.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         outer.columnconfigure(0, weight=1)
 
         nb = ttk.Notebook(outer)
@@ -559,7 +571,7 @@ class TradingBotGUI:
 
     def _build_trade_log(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
-        f.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
+        f.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         f.rowconfigure(0, weight=1)
         f.columnconfigure(0, weight=1)
 
