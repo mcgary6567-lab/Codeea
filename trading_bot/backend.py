@@ -407,10 +407,13 @@ class Backend:
         tp2 = float(cmd.get("tp2") or 0)
 
         # --- guardrail gate (the entry checkpoint) ---
-        self.guardrails.record_signal(symbol, side)
+        # Check BEFORE recording, so dedupe compares this signal against the
+        # PREVIOUS one (recording first would make every signal a "duplicate"
+        # of itself within the window). Record after, to seed the next compare.
         with self._lock:
             open_pairs = set(self._open_pairs)
         allowed, reason = self.guardrails.check_entry(symbol, side, open_pairs)
+        self.guardrails.record_signal(symbol, side)
         if not allowed:
             self.log(f"Blocked: {reason}", signal=side.upper(), pair=symbol, status="Blocked")
             self._emit("order", ok=False, source=source, message=f"Blocked: {reason}")

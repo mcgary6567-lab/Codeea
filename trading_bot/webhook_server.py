@@ -144,35 +144,16 @@ class WebhookServer:
                         self._send(200, "ignored")
                         return
 
-                action = str(payload.get("action") or payload.get("side") or "").lower()
-                event = str(payload.get("event") or "").lower()
-                ticker = str(payload.get("ticker") or payload.get("symbol") or "")
-                valid_entry = action in ("buy", "sell")
-                valid_event = event in KNOWN_EVENTS
-                if not ticker or not (valid_entry or valid_event):
+                # Single source of truth for normalising/validating the payload
+                # (shared with the cloud-relay client) so the two never drift.
+                signal = parse_payload(payload, "webhook")
+                if signal is None:
                     server.log(f"Webhook: invalid signal {payload!r}")
                     self._send(422, "invalid signal")
                     return
 
-                def _num(key):
-                    try:
-                        return float(payload[key])
-                    except (KeyError, TypeError, ValueError):
-                        return None
-
-                signal = {
-                    "action": action,
-                    "event": event,
-                    "ticker": ticker,
-                    "size": payload.get("size"),
-                    "entry": _num("entry"),
-                    "sl": _num("sl"),
-                    "tp1": _num("tp1"),
-                    "tp2": _num("tp2"),
-                    "price": _num("price"),
-                    "source": "webhook",
-                }
-                server.log(f"Webhook signal: {(event or action).upper()} {ticker}")
+                label = (signal["event"] or signal["action"]).upper()
+                server.log(f"Webhook signal: {label} {signal['ticker']}")
                 try:
                     server.on_signal(signal)
                 except Exception as exc:  # noqa: BLE001

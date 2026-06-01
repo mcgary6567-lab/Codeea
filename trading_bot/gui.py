@@ -16,11 +16,14 @@ and drains UI updates from ``backend.ui_queue`` on the Tk event loop.
 from __future__ import annotations
 
 import csv
+import queue
 import threading
+import time
 import webbrowser
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import applog
 import connectivity
 import history
 import security
@@ -109,6 +112,7 @@ class TradingBotGUI:
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
         self._online = None              # tri-state: None=unknown, True/False
+        self._net_check_running = False  # guards against overlapping probes
         self.root.after(150, self._drain_ui_queue)
         self.root.after(3000, self._check_update)
         self.root.after(800, self._check_internet)
@@ -117,7 +121,6 @@ class TradingBotGUI:
     def _check_update(self) -> None:
         """Background check for a newer version; notify if one is available."""
         import json
-        import threading
         import urllib.request
 
         def worker():
@@ -155,11 +158,19 @@ class TradingBotGUI:
     # ====================================================================
     def _check_internet(self) -> None:
         """Probe connectivity off-thread, then reschedule. Never blocks the GUI."""
-        def worker():
-            online = connectivity.has_internet(timeout=2.0)
-            self.root.after(0, lambda: self._apply_internet_state(online))
+        # Skip if a probe is still in flight (slow/captive networks) so worker
+        # threads can't pile up; just reschedule a check.
+        if not self._net_check_running:
+            self._net_check_running = True
 
-        threading.Thread(target=worker, daemon=True).start()
+            def worker():
+                try:
+                    online = connectivity.has_internet(timeout=2.0)
+                finally:
+                    self._net_check_running = False
+                self.root.after(0, lambda: self._apply_internet_state(online))
+
+            threading.Thread(target=worker, daemon=True).start()
         # Poll faster while offline so recovery shows quickly; relax when online.
         delay = 5000 if self._online else 3000
         self.root.after(delay, self._check_internet)
@@ -794,7 +805,6 @@ class TradingBotGUI:
 
     def _test_telegram(self) -> None:
         """Send a test Telegram message so the user can confirm it works."""
-        import threading
         token = self.tg_token_var.get().strip()
         chat = self.tg_chat_var.get().strip()
         if not token or not chat:
@@ -818,7 +828,6 @@ class TradingBotGUI:
 
     def _test_desktop(self) -> None:
         """Fire a test desktop toast so the user can confirm it shows."""
-        import threading
         self.desk_test_btn.config(text="…", state="disabled")
 
         def worker():
@@ -976,6 +985,8 @@ class TradingBotGUI:
             "leverage": int(self._float(self.leverage_var.get(), 0)),
             "margin_mode": self._margin_mode_value(),
             "move_be": self.move_be_var.get(),
+            "trailing_pct": self._float(self.trailing_var.get(), 0),
+            "desktop": self.desktop_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
             "daily_profit": self._float(self.daily_profit_var.get(), 0),
@@ -1185,12 +1196,20 @@ class TradingBotGUI:
     # UI queue draining (runs on Tk main loop)
     # ====================================================================
     def _drain_ui_queue(self) -> None:
-        try:
-            while True:
+        # Drain everything queued since the last tick. Empty is the normal exit;
+        # a handler error is surfaced (not silently swallowed) but never stops
+        # the loop, so one bad event can't freeze the UI.
+        while True:
+            try:
                 msg = self.backend.ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
                 self._apply_ui_event(msg)
-        except Exception:
-            pass
+            except Exception as exc:  # noqa: BLE001
+                applog.get_logger().exception("UI event failed: %s", msg.get("kind"))
+                self._add_log_row({"time": "", "signal": "", "pair": "",
+                                   "status": "Error", "message": f"UI error: {exc}"})
         self._update_relay_status()
         self.root.after(150, self._drain_ui_queue)
 
@@ -1211,7 +1230,6 @@ class TradingBotGUI:
             return
         if not self.relay.running:
             return  # _toggle_relay owns the off state
-        import time
         now = time.time()
         if not self.relay.last_poll_ts:
             self.relay_status.config(text="● connecting…", fg=GREY)
@@ -1310,6 +1328,9 @@ class TradingBotGUI:
                 tags=(tag,),
             )
 
+    # Cap on-screen log rows so a long-running session can't grow unbounded.
+    MAX_LOG_ROWS = 500
+
     def _add_log_row(self, msg: dict) -> None:
         self.log_tree.insert(
             "", 0,
@@ -1318,6 +1339,10 @@ class TradingBotGUI:
                 msg.get("status", ""), msg.get("message", ""),
             ),
         )
+        # Trim oldest rows (inserted at the bottom) past the cap.
+        children = self.log_tree.get_children()
+        if len(children) > self.MAX_LOG_ROWS:
+            self.log_tree.delete(*children[self.MAX_LOG_ROWS:])
 
     # ====================================================================
     @staticmethod
