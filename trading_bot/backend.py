@@ -22,12 +22,15 @@ import time
 from datetime import datetime
 from typing import Optional
 
+import applog
 import history
 from config import (
     STATE_FILE,
     DEFAULT_AUTO_BRACKET,
+    DEFAULT_DAILY_SUMMARY,
     DEFAULT_LEVERAGE,
     DEFAULT_ORDER_TYPE,
+    DEFAULT_SUMMARY_HOUR,
     LOG_FILE,
     MAX_REFRESH_FAILURES,
     POLL_INTERVAL,
@@ -83,6 +86,11 @@ class Backend:
         self.trailing_pct = 0.0
         self._peaks: dict = {}               # symbol -> peak price
 
+        # Daily Telegram P&L summary.
+        self.daily_summary = DEFAULT_DAILY_SUMMARY
+        self.summary_hour = DEFAULT_SUMMARY_HOUR
+        self._last_summary_day: Optional[str] = None
+
         self._load_state()                   # crash recovery
 
         self.guardrails = Guardrails()
@@ -126,10 +134,14 @@ class Backend:
         ts = datetime.now().strftime("%H:%M:%S")
         self._emit("log", time=ts, message=message, signal=signal, pair=pair, status=status)
         self._append_log_file(ts, signal, pair, status, message)
+        # Mirror into the rotating support log (status used as a coarse level).
+        applog.get_logger().info("%s | %s %s %s",
+                                 status or "-", signal or "", pair or "", message)
 
     # -- the worker loop ----------------------------------------------------
     def _run(self) -> None:
         last_poll = 0.0
+        last_summary_check = 0.0
         while not self._stop.is_set():
             try:
                 cmd = self.command_queue.get(timeout=0.5)
@@ -144,6 +156,11 @@ class Backend:
             if self.exchange.connected and (now - last_poll) >= POLL_INTERVAL:
                 last_poll = now
                 self._refresh()
+
+            # End-of-day Telegram recap (checked at most every 30s).
+            if (now - last_summary_check) >= 30:
+                last_summary_check = now
+                self._maybe_send_summary()
 
             # Auto-reconnect after the connection looks lost.
             if (self.auto_reconnect and self._alerted and self._connect_cmd
@@ -168,19 +185,60 @@ class Backend:
             self._entry_px = st.get("entry_px", {})
             self._sl_orders = st.get("sl_orders", {})
             self._peaks = st.get("peaks", {})
+            self._last_summary_day = st.get("last_summary_day")
         except Exception:  # noqa: BLE001 - first run / no state
             pass
 
     def _save_state(self) -> None:
         try:
             st = {"spot_entries": self.exchange._spot_entries, "entry_px": self._entry_px,
-                  "sl_orders": self._sl_orders, "peaks": self._peaks}
+                  "sl_orders": self._sl_orders, "peaks": self._peaks,
+                  "last_summary_day": self._last_summary_day}
             tmp = STATE_FILE + ".tmp"
             with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump(st, fh)
             os.replace(tmp, STATE_FILE)
         except Exception:  # noqa: BLE001 - best-effort
             pass
+
+    # -- daily Telegram summary ---------------------------------------------
+    def _maybe_send_summary(self) -> None:
+        """Send the end-of-day recap once, after the configured local hour."""
+        if not self.daily_summary or not self.notifier.telegram_ready():
+            return
+        now = datetime.now()
+        today = now.strftime("%Y-%m-%d")
+        if self._last_summary_day == today or now.hour < self.summary_hour:
+            return
+        try:
+            self._send_daily_summary(today)
+        except Exception as exc:  # noqa: BLE001 - summary must never kill the loop
+            self.log(f"Daily summary failed: {exc}", status="Error")
+        self._last_summary_day = today
+        self._save_state()
+
+    def _send_daily_summary(self, day: str) -> None:
+        s = history.summary_for_day(day)
+        with self._lock:
+            balance = self._last_balance
+            positions = list(self._last_positions)
+            prices = dict(self._price_cache)
+        open_pnl = sum(p.pnl for p in recompute_pnl(positions, prices))
+        wr = (s["wins"] / s["closed"] * 100.0) if s["closed"] else 0.0
+        emoji = "🟢" if s["realized"] >= 0 else "🔴"
+        lines = [
+            f"{emoji} *Prometheus — Daily Summary* ({day})",
+            f"Realized P&L: *{s['realized']:+.2f} {QUOTE_CURRENCY}*",
+            f"Trades: {s['entries']} opened · {s['closed']} closed "
+            f"(W {s['wins']} / L {s['losses']}, {wr:.0f}% win)",
+        ]
+        if s["closed"]:
+            lines.append(f"Best {s['best']:+.2f} · Worst {s['worst']:+.2f}")
+        lines.append(f"Open now: {len(positions)} (unrealized {open_pnl:+.2f})")
+        if balance:
+            lines.append(f"Balance: {balance:,.2f} {QUOTE_CURRENCY}")
+        self.notifier.send_message("\n".join(lines))
+        self.log("Daily P&L summary sent to Telegram", status="Summary")
 
     # -- trailing stop ------------------------------------------------------
     def _check_trailing(self, positions, prices) -> None:
@@ -270,6 +328,8 @@ class Backend:
                     chat_id=cmd.get("telegram_chat_id", self.notifier.telegram_chat_id),
                     desktop=cmd.get("desktop", self.notifier.desktop_enabled),
                 )
+                self.daily_summary = cmd.get("daily_summary", self.daily_summary)
+                self.summary_hour = int(cmd.get("summary_hour", self.summary_hour))
             elif action == "close":
                 self._do_close(cmd.get("pair"))
             elif action == "set_protection":
@@ -286,6 +346,7 @@ class Backend:
             elif action == "watch":
                 self._set_manual_symbol(cmd.get("symbol", ""))
         except Exception as exc:  # noqa: BLE001 - never kill the worker thread
+            applog.get_logger().exception("command failed: %s", cmd.get("cmd"))
             self.log(f"Error: {exc}", status="Error")
 
     def _do_connect(self, cmd: dict) -> None:

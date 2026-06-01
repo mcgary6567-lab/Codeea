@@ -104,6 +104,33 @@ def pnl_by_day(days: int = 30) -> list:
     return list(reversed([dict(r) for r in rows]))
 
 
+def summary_for_day(day: str) -> dict:
+    """Closed-trade summary for a local 'YYYY-MM-DD' day (for the daily recap)."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT pnl FROM trades WHERE kind='close' "
+            "AND strftime('%Y-%m-%d', ts, 'unixepoch', 'localtime')=?",
+            (day,),
+        ).fetchall()
+        entries = c.execute(
+            "SELECT COUNT(*) n FROM trades WHERE kind='entry' "
+            "AND strftime('%Y-%m-%d', ts, 'unixepoch', 'localtime')=?",
+            (day,),
+        ).fetchone()["n"]
+    pnls = [r["pnl"] for r in rows]
+    wins = sum(1 for p in pnls if p > 0)
+    return {
+        "day": day,
+        "entries": entries,
+        "closed": len(pnls),
+        "wins": wins,
+        "losses": len(pnls) - wins,
+        "realized": sum(pnls),
+        "best": max(pnls) if pnls else 0.0,
+        "worst": min(pnls) if pnls else 0.0,
+    }
+
+
 def stats() -> dict:
     """Aggregate analytics over recorded trades."""
     with _conn() as c:

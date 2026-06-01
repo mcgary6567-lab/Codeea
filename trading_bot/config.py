@@ -40,6 +40,16 @@ LOG_FILE = os.path.join(DATA_DIR, "trade_log.csv")
 HISTORY_DB = os.path.join(DATA_DIR, "history.db")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")   # crash-recovery state
 
+# Rotating debug/support log (separate from the human-readable trade-log CSV).
+# Capped + auto-rotated so it stays small enough to attach to a support ticket.
+DEBUG_LOG = os.path.join(DATA_DIR, "app.log")
+LOG_MAX_BYTES = 1_000_000          # 1 MB per file
+LOG_BACKUP_COUNT = 5               # keep 5 rotations (~6 MB total ceiling)
+
+# Daily Telegram P&L recap (end-of-day summary pushed via the Telegram bot).
+DEFAULT_DAILY_SUMMARY = False
+DEFAULT_SUMMARY_HOUR = 23          # local hour (0-23) to send the recap
+
 # Auto-update: a small JSON at this URL like {"version":"1.0.1","url":"..."}
 UPDATE_URL = "https://prometheusai.tech/version.json"
 

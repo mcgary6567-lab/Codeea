@@ -42,6 +42,12 @@ class Notifier:
     def telegram_ready(self) -> bool:
         return bool(self.telegram_token and self.telegram_chat_id)
 
+    def send_message(self, text: str) -> None:
+        """Best-effort async Telegram message (no sound/toast). Used for the
+        end-of-day P&L summary so it never blocks the caller."""
+        if self.telegram_ready():
+            threading.Thread(target=self._send_telegram, args=(text,), daemon=True).start()
+
     def test_telegram(self, token: str, chat_id: str):
         """Send a one-off test message. Returns ``(ok: bool, message: str)``."""
         token, chat_id = (token or "").strip(), (chat_id or "").strip()

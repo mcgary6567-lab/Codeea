@@ -16,10 +16,12 @@ and drains UI updates from ``backend.ui_queue`` on the Tk event loop.
 from __future__ import annotations
 
 import csv
+import threading
 import webbrowser
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import connectivity
 import history
 import security
 import theme
@@ -106,8 +108,10 @@ class TradingBotGUI:
         self._push_settings()
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
+        self._online = None              # tri-state: None=unknown, True/False
         self.root.after(150, self._drain_ui_queue)
         self.root.after(3000, self._check_update)
+        self.root.after(800, self._check_internet)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _check_update(self) -> None:
@@ -145,6 +149,44 @@ class TradingBotGUI:
             f"A newer version ({latest}) is available — you have {APP_VERSION}.\n\n"
             "Open the download page?"):
             self._open_url(url)
+
+    # ====================================================================
+    # Internet connectivity
+    # ====================================================================
+    def _check_internet(self) -> None:
+        """Probe connectivity off-thread, then reschedule. Never blocks the GUI."""
+        def worker():
+            online = connectivity.has_internet(timeout=2.0)
+            self.root.after(0, lambda: self._apply_internet_state(online))
+
+        threading.Thread(target=worker, daemon=True).start()
+        # Poll faster while offline so recovery shows quickly; relax when online.
+        delay = 5000 if self._online else 3000
+        self.root.after(delay, self._check_internet)
+
+    def _apply_internet_state(self, online: bool) -> None:
+        if not getattr(self, "net_label", None):
+            return
+        prev = self._online                 # None on the very first probe
+        self._online = online
+        if online:
+            self.net_dot.config(fg=GREEN)
+            self.net_label.config(text="Online", fg=TXT_DIM)
+        else:
+            self.net_dot.config(fg=RED)
+            self.net_label.config(text="No internet", fg=RED)
+        # Log on real transitions only (skip the first probe's None->state).
+        if prev is True and not online:
+            self.backend.ui_queue.put({
+                "kind": "log", "time": "", "signal": "", "pair": "", "status": "Offline",
+                "message": "⚠ Internet connection lost — orders, price feed and "
+                           "cloud signals are paused until it returns.",
+            })
+        elif prev is False and online:
+            self.backend.ui_queue.put({
+                "kind": "log", "time": "", "signal": "", "pair": "", "status": "Online",
+                "message": "✓ Internet connection restored.",
+            })
 
     # ====================================================================
     # UI construction
@@ -253,6 +295,16 @@ class TradingBotGUI:
 
         tk.Label(bar, text="© Prometheus AI", bg=HEADER, fg=TXT_DIM,
                  font=("Segoe UI", 8)).pack(side="left", padx=12)
+
+        # Internet connectivity indicator. Starts "checking" until the first
+        # probe completes (see _check_internet).
+        net = tk.Frame(bar, bg=HEADER)
+        net.pack(side="left", padx=4)
+        self.net_dot = tk.Label(net, text="●", bg=HEADER, fg=GREY, font=("Segoe UI", 9))
+        self.net_dot.pack(side="left", padx=(0, 3))
+        self.net_label = tk.Label(net, text="Checking internet…", bg=HEADER, fg=TXT_DIM,
+                                  font=("Segoe UI", 8))
+        self.net_label.pack(side="left")
 
         def link(parent, text, action):
             lbl = tk.Label(parent, text=text, bg=HEADER, fg=ACCENT, cursor="hand2",
@@ -684,22 +736,34 @@ class TradingBotGUI:
         theme.style_button(self.tg_test_btn, "accent")
         self.tg_test_btn.grid(row=0, column=1, padx=(6, 0))
 
-        ttk.Separator(f, orient="horizontal").grid(row=8, column=0, columnspan=2, sticky="ew", pady=6)
+        # Daily Telegram P&L recap (end-of-day, pushed via the Telegram bot).
+        sr = ttk.Frame(f)
+        sr.grid(row=8, column=0, columnspan=2, sticky="w", pady=2)
+        self.daily_summary_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(sr, text="Daily Telegram P&L summary at", variable=self.daily_summary_var,
+                        command=self._push_settings).pack(side="left")
+        self.summary_hour_var = tk.StringVar(value="23")
+        he = ttk.Entry(sr, textvariable=self.summary_hour_var, width=4)
+        he.pack(side="left", padx=4)
+        he.bind("<FocusOut>", lambda ev: self._push_settings())
+        ttk.Label(sr, text=":00 (local hour, 0–23)").pack(side="left")
+
+        ttk.Separator(f, orient="horizontal").grid(row=9, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
-                  font=("Segoe UI", 9, "bold")).grid(row=9, column=0, columnspan=2, sticky="w")
-        ttk.Label(f, text="Relay URL:").grid(row=10, column=0, sticky="w", pady=2)
+                  font=("Segoe UI", 9, "bold")).grid(row=10, column=0, columnspan=2, sticky="w")
+        ttk.Label(f, text="Relay URL:").grid(row=11, column=0, sticky="w", pady=2)
         self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
-        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=10, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Licence token:").grid(row=11, column=0, sticky="w", pady=2)
+        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=11, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Licence token:").grid(row=12, column=0, sticky="w", pady=2)
         tr = ttk.Frame(f)
-        tr.grid(row=11, column=1, sticky="ew", pady=2)
+        tr.grid(row=12, column=1, sticky="ew", pady=2)
         tr.columnconfigure(0, weight=1)
         self.relay_token_var = tk.StringVar()
         ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
         self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
         self.relay_btn.grid(row=0, column=1, padx=(6, 0))
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.relay_status.grid(row=12, column=0, columnspan=2, sticky="w")
+        self.relay_status.grid(row=13, column=0, columnspan=2, sticky="w")
 
     def _toggle_relay(self) -> None:
         if self.relay.running:
@@ -779,6 +843,7 @@ class TradingBotGUI:
         bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         tk.Button(bar, text="Export Log", command=self._export_log).pack(side="left", padx=4)
         tk.Button(bar, text="Clear Log", command=self._clear_log).pack(side="left", padx=4)
+        tk.Button(bar, text="Support Log", command=self._open_log_folder).pack(side="left", padx=4)
 
     # ====================================================================
     # Settings persistence / prefill
@@ -821,6 +886,8 @@ class TradingBotGUI:
         self.sound_var.set(s.get("sound", True))
         self.tg_token_var.set(s.get("telegram_token", ""))
         self.tg_chat_var.set(s.get("telegram_chat_id", ""))
+        self.daily_summary_var.set(s.get("daily_summary", False))
+        self.summary_hour_var.set(str(s.get("summary_hour", 23)))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -857,6 +924,8 @@ class TradingBotGUI:
             "sound": self.sound_var.get(),
             "telegram_token": self.tg_token_var.get(),
             "telegram_chat_id": self.tg_chat_var.get(),
+            "daily_summary": self.daily_summary_var.get(),
+            "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
             "live_ack": self._live_ack,
         }
 
@@ -904,6 +973,8 @@ class TradingBotGUI:
             "sound": self.sound_var.get(),
             "telegram_token": self.tg_token_var.get(),
             "telegram_chat_id": self.tg_chat_var.get(),
+            "daily_summary": self.daily_summary_var.get(),
+            "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
         })
 
     # ====================================================================
@@ -1077,6 +1148,24 @@ class TradingBotGUI:
         if messagebox.askyesno("Clear log", "Clear the on-screen trade log?"):
             for item in self.log_tree.get_children():
                 self.log_tree.delete(item)
+
+    def _open_log_folder(self) -> None:
+        """Open the data folder containing the rotating support log (app.log)."""
+        import os
+        import subprocess
+        import sys
+        from config import DATA_DIR, DEBUG_LOG
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(DATA_DIR)  # noqa: S606 - opens Explorer
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", DATA_DIR])
+            else:
+                subprocess.Popen(["xdg-open", DATA_DIR])
+        except Exception:  # noqa: BLE001
+            messagebox.showinfo(
+                "Support log",
+                f"Attach this file to your support ticket:\n\n{DEBUG_LOG}")
 
     # ====================================================================
     # UI queue draining (runs on Tk main loop)
