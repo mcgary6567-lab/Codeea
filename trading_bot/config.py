@@ -50,6 +50,10 @@ LOG_BACKUP_COUNT = 5               # keep 5 rotations (~6 MB total ceiling)
 DEFAULT_DAILY_SUMMARY = False
 DEFAULT_SUMMARY_HOUR = 23          # local hour (0-23) to send the recap
 
+# When True, only important events (entries, closes+PnL, halts, security) are
+# sent to Telegram; routine/noisy events still beep + toast locally.
+DEFAULT_TELEGRAM_IMPORTANT_ONLY = True
+
 # Auto-update: a small JSON at this URL like {"version":"1.0.1","url":"..."}
 UPDATE_URL = "https://prometheusai.tech/version.json"
 

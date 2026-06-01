@@ -736,9 +736,20 @@ class TradingBotGUI:
         theme.style_button(self.tg_test_btn, "accent")
         self.tg_test_btn.grid(row=0, column=1, padx=(6, 0))
 
+        # Telegram noise filter — important events only (entries, closes, halts).
+        self.tg_important_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Telegram: important events only (entries, closes & PnL, halts, security)",
+            variable=self.tg_important_var, command=self._push_settings,
+        ).grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        ttk.Label(f, text="Off = every event (trailing, blocked signals, indicator events…) "
+                          "also goes to Telegram. Desktop + sound always show everything.",
+                  style="Dim.TLabel", wraplength=380).grid(
+            row=9, column=0, columnspan=2, sticky="w")
+
         # Daily Telegram P&L recap (end-of-day, pushed via the Telegram bot).
         sr = ttk.Frame(f)
-        sr.grid(row=8, column=0, columnspan=2, sticky="w", pady=2)
+        sr.grid(row=10, column=0, columnspan=2, sticky="w", pady=2)
         self.daily_summary_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(sr, text="Daily Telegram P&L summary at", variable=self.daily_summary_var,
                         command=self._push_settings).pack(side="left")
@@ -748,22 +759,22 @@ class TradingBotGUI:
         he.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(sr, text=":00 (local hour, 0–23)").pack(side="left")
 
-        ttk.Separator(f, orient="horizontal").grid(row=9, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
-                  font=("Segoe UI", 9, "bold")).grid(row=10, column=0, columnspan=2, sticky="w")
-        ttk.Label(f, text="Relay URL:").grid(row=11, column=0, sticky="w", pady=2)
+                  font=("Segoe UI", 9, "bold")).grid(row=12, column=0, columnspan=2, sticky="w")
+        ttk.Label(f, text="Relay URL:").grid(row=13, column=0, sticky="w", pady=2)
         self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
-        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=11, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Licence token:").grid(row=12, column=0, sticky="w", pady=2)
+        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=13, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Licence token:").grid(row=14, column=0, sticky="w", pady=2)
         tr = ttk.Frame(f)
-        tr.grid(row=12, column=1, sticky="ew", pady=2)
+        tr.grid(row=14, column=1, sticky="ew", pady=2)
         tr.columnconfigure(0, weight=1)
         self.relay_token_var = tk.StringVar()
         ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
         self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
         self.relay_btn.grid(row=0, column=1, padx=(6, 0))
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.relay_status.grid(row=13, column=0, columnspan=2, sticky="w")
+        self.relay_status.grid(row=15, column=0, columnspan=2, sticky="w")
 
     def _toggle_relay(self) -> None:
         if self.relay.running:
@@ -888,6 +899,7 @@ class TradingBotGUI:
         self.tg_chat_var.set(s.get("telegram_chat_id", ""))
         self.daily_summary_var.set(s.get("daily_summary", False))
         self.summary_hour_var.set(str(s.get("summary_hour", 23)))
+        self.tg_important_var.set(s.get("telegram_important_only", True))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -926,6 +938,7 @@ class TradingBotGUI:
             "telegram_chat_id": self.tg_chat_var.get(),
             "daily_summary": self.daily_summary_var.get(),
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
+            "telegram_important_only": self.tg_important_var.get(),
             "live_ack": self._live_ack,
         }
 
@@ -975,6 +988,7 @@ class TradingBotGUI:
             "telegram_chat_id": self.tg_chat_var.get(),
             "daily_summary": self.daily_summary_var.get(),
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
+            "telegram_important_only": self.tg_important_var.get(),
         })
 
     # ====================================================================

@@ -32,12 +32,18 @@ class Notifier:
         self.desktop_enabled = True
         self.telegram_token = ""
         self.telegram_chat_id = ""
+        # When True, only events flagged important reach Telegram (entries,
+        # closes+PnL, halts, security). Routine/noisy events still beep and
+        # toast locally. Off = send every event to Telegram (legacy behaviour).
+        self.telegram_important_only = True
 
-    def configure(self, sound: bool, token: str, chat_id: str, desktop: bool = True) -> None:
+    def configure(self, sound: bool, token: str, chat_id: str, desktop: bool = True,
+                  telegram_important_only: bool = True) -> None:
         self.sound_enabled = sound
         self.desktop_enabled = desktop
         self.telegram_token = (token or "").strip()
         self.telegram_chat_id = (chat_id or "").strip()
+        self.telegram_important_only = telegram_important_only
 
     def telegram_ready(self) -> bool:
         return bool(self.telegram_token and self.telegram_chat_id)
@@ -70,12 +76,17 @@ class Notifier:
                            "and that the chat id is correct.")
 
     # -- public -------------------------------------------------------------
-    def notify(self, title: str, message: str, level: str = "info") -> None:
+    def notify(self, title: str, message: str, level: str = "info",
+               important: bool = False) -> None:
+        """Fire a notification. Sound + desktop toast always run (locally);
+        Telegram is sent only for ``important`` events when important-only mode
+        is on (default), so routine/noisy events don't spam your chat."""
         if self.sound_enabled:
             self._beep(level)
         if self.desktop_enabled and _IS_WINDOWS:
             threading.Thread(target=self._toast, args=(title, message), daemon=True).start()
-        if self.telegram_ready():
+        telegram_ok = important or not self.telegram_important_only
+        if telegram_ok and self.telegram_ready():
             threading.Thread(
                 target=self._send_telegram, args=(f"*{title}*\n{message}",), daemon=True
             ).start()

@@ -327,6 +327,8 @@ class Backend:
                     token=cmd.get("telegram_token", self.notifier.telegram_token),
                     chat_id=cmd.get("telegram_chat_id", self.notifier.telegram_chat_id),
                     desktop=cmd.get("desktop", self.notifier.desktop_enabled),
+                    telegram_important_only=cmd.get(
+                        "telegram_important_only", self.notifier.telegram_important_only),
                 )
                 self.daily_summary = cmd.get("daily_summary", self.daily_summary)
                 self.summary_hour = int(cmd.get("summary_hour", self.summary_hour))
@@ -373,7 +375,7 @@ class Backend:
         if warn:
             self.log(msg, status="WARNING")
             self._emit("alert", level="error", message=msg)
-            self.notifier.notify("API key warning", msg, level="error")
+            self.notifier.notify("API key warning", msg, level="error", important=True)
 
         # Populate the Symbol dropdown with the exchange's most-traded pairs.
         pairs = self.exchange.top_pairs()
@@ -451,7 +453,7 @@ class Backend:
         self.notifier.notify(
             f"{side.upper()} {result.pair or symbol}",
             f"{result.message} (size {size:g}, via {source})",
-            level="ok" if result.ok else "error",
+            level="ok" if result.ok else "error", important=True,
         )
         if result.ok:
             self.guardrails.record_entry(symbol)
@@ -671,7 +673,7 @@ class Backend:
                                  p.size if p else 0.0, p.current if p else 0.0,
                                  "Closed", pnl=pnl, message="position closed")
             self.notifier.notify(f"Closed {pair}", f"Realized PnL {pnl:+.2f}",
-                                 level="ok" if pnl >= 0 else "error")
+                                 level="ok" if pnl >= 0 else "error", important=True)
             # Feed the daily loss/profit guardrails; trip & halt if breached.
             if self.guardrails.record_realized(pnl):
                 profit = self.guardrails.trip_reason == "profit"
@@ -682,7 +684,8 @@ class Backend:
                 )
                 self.log(msg, status="Halted")
                 self._emit("alert", level="ok" if profit else "error", message=msg)
-                self.notifier.notify(f"Daily {what}", msg, level="ok" if profit else "error")
+                self.notifier.notify(f"Daily {what}", msg, level="ok" if profit else "error",
+                                     important=True)
 
     def _note_failure(self, exc: Exception) -> None:
         """Track consecutive REST failures; warn once when the link looks down."""
