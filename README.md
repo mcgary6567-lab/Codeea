@@ -29,7 +29,8 @@ an encrypted, PIN-protected vault for your API keys.
 2. **Run it**, create a PIN, **connect** your exchange (start in **Safe Mode**).
 3. **Add `Prometheus_AI_Crypto_Bot.pine`** to a crypto chart in TradingView,
    alert **Format = "Webhook JSON"**, point it at `http://YOUR_HOST:8723/`
-   (use `ngrok http 8723` to expose the port).
+   (use `ngrok http 8723` to expose the port). Full step-by-step (incl. the
+   "Any alert() function call" gotcha): **[`WEBHOOK_SETUP.md`](WEBHOOK_SETUP.md)**.
 4. In the app set **Strategy filter = `Prometheus`** so it only acts on this
    indicator. Verify in Safe Mode, then go live with small size.
 
