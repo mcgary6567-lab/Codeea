@@ -36,6 +36,10 @@ def _download(url: str):
 
 def main() -> int:
     urls = [sys.argv[1]] if len(sys.argv) > 1 else [u for u in CANDIDATE_URLS if u]
+    logo_path = os.path.join(HERE, "logo.png")
+    ico_path = os.path.join(HERE, "icon.ico")
+
+    # 1) Try to download a logo from the candidate URLs (optional).
     data = None
     used = ""
     for url in urls:
@@ -45,24 +49,26 @@ def main() -> int:
             break
         except Exception as exc:  # noqa: BLE001
             print(f"[fetch_logo] {url} -> failed ({exc})")
-    if data is None:
-        print("[fetch_logo] no logo fetched; keeping placeholder logo")
-        return 0
+    if data is not None:
+        try:
+            with open(logo_path, "wb") as fh:
+                fh.write(data)
+            print(f"[fetch_logo] downloaded logo from {used}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[fetch_logo] could not write logo.png: {exc}")
+    else:
+        print("[fetch_logo] no download; using the logo.png already in the repo")
 
+    # 2) Always (re)generate icon.ico from whatever logo.png is present, so that
+    #    simply committing/uploading a real logo.png is enough for header + icon.
     try:
         from PIL import Image
 
-        img = Image.open(io.BytesIO(data)).convert("RGBA")
-        img.save(os.path.join(HERE, "logo.png"))
-        img.save(os.path.join(HERE, "icon.ico"), sizes=ICO_SIZES)
-        print(f"[fetch_logo] installed real logo from {used} ({img.size[0]}x{img.size[1]})")
+        img = Image.open(logo_path).convert("RGBA")
+        img.save(ico_path, sizes=ICO_SIZES)
+        print(f"[fetch_logo] icon.ico regenerated from logo.png ({img.size[0]}x{img.size[1]})")
     except Exception as exc:  # noqa: BLE001
-        try:
-            with open(os.path.join(HERE, "logo.png"), "wb") as fh:
-                fh.write(data)
-            print(f"[fetch_logo] saved logo.png (no Pillow, icon.ico unchanged): {exc}")
-        except Exception as exc2:  # noqa: BLE001
-            print(f"[fetch_logo] could not write logo: {exc2}; keeping placeholder")
+        print(f"[fetch_logo] icon.ico not regenerated ({exc}); keeping existing icon")
     return 0
 
 
