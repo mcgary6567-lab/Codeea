@@ -460,7 +460,7 @@ class TradingBotGUI:
 
         # Strategy filter — only act on alerts whose comment/strategy matches.
         ttk.Label(f, text="Strategy filter:").grid(row=2, column=0, sticky="w", pady=2)
-        self.strategy_filter_var = tk.StringVar(value="GoldScalp")
+        self.strategy_filter_var = tk.StringVar(value="Prometheus")
         ttk.Entry(f, textvariable=self.strategy_filter_var).grid(row=2, column=1, sticky="ew", pady=2)
         ttk.Label(f, text="Only act on this indicator (matches its Order Comment). Blank = accept all.",
                   style="Dim.TLabel", wraplength=380).grid(row=3, column=0, columnspan=2, sticky="w")
@@ -529,7 +529,7 @@ class TradingBotGUI:
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
-        self.strategy_filter_var.set(s.get("strategy_filter", "GoldScalp"))
+        self.strategy_filter_var.set(s.get("strategy_filter", "Prometheus"))
         self.sound_var.set(s.get("sound", True))
         self.tg_token_var.set(s.get("telegram_token", ""))
         self.tg_chat_var.set(s.get("telegram_chat_id", ""))
