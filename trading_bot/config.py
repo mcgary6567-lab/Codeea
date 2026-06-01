@@ -97,7 +97,7 @@ MAX_REFRESH_FAILURES = 3
 # customer's app polls it for new signals — no ngrok / port-forwarding needed.
 # ---------------------------------------------------------------------------
 DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
-RELAY_POLL_INTERVAL = 1.5   # seconds between polls
+RELAY_POLL_INTERVAL = 1.0   # seconds between polls (lower = faster pickup, more requests)
 
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.03           # in base asset (e.g. 0.03 BTC)
