@@ -65,19 +65,19 @@ python main.py
 
 ### Windows compatibility
 
-The built `TradingBot.exe` runs on **Windows 10 / 11 and Server 2016+ (64-bit)**
+The built `PrometheusAICryptoBot.exe` runs on **Windows 10 / 11 and Server 2016+ (64-bit)**
 with **no Python required** on the machine. Windows 7/8 are **not** supported by
 the current Python + `cryptography` stack — building for those needs a pinned
 legacy toolchain (Python 3.8 + older libs); ask if you specifically need it.
 
-### Build a standalone `TradingBot.exe`
+### Build a standalone `PrometheusAICryptoBot.exe`
 
 To get a single double-clickable executable (no Python needed to *run* it),
 build it **on a Windows PC** (a Windows `.exe` can only be built on Windows):
 
 1. Install Python 3.8+ (tick *Add to PATH*).
 2. Double-click **`build_exe.bat`** (or run `pyinstaller --noconfirm trading_bot.spec`).
-3. The result is **`dist\TradingBot.exe`** — copy it anywhere and run it.
+3. The result is **`dist\PrometheusAICryptoBot.exe`** — copy it anywhere and run it.
 
 > The repo ships **source + a build kit**, not a prebuilt binary — never run a
 > trading `.exe` you didn't build yourself or can't inspect. Building from this
@@ -89,8 +89,8 @@ A GitHub Actions workflow (`.github/workflows/build-windows.yml`) builds the exe
 on a Windows runner automatically:
 
 - **Every push** to this branch → go to the repo's **Actions** tab → open the
-  latest *Build Windows EXE* run → download the **`TradingBot-windows`**
-  artifact (a zip containing `TradingBot.exe`).
+  latest *Build Windows EXE* run → download the **`PrometheusAICryptoBot-windows`**
+  artifact (a zip containing `PrometheusAICryptoBot.exe`).
 - **Tag a release** (`git tag v1.0.0 && git push --tags`) → the exe is attached
   to the GitHub **Release** as a direct download.
 
