@@ -198,6 +198,9 @@ Once connected, the bot keeps the account view live:
   over **WebSocket** (`ccxt.pro`, `watch_tickers`) when available, falling back
   to a fast **REST `fetch_tickers` poll** otherwise. Only held symbols are
   subscribed, so it stays within rate limits.
+  > **Note:** the **prebuilt exe is size-optimised** and ships *without* the
+  > ccxt WebSocket/async layer, so it uses the **REST poll (~2s)** path. Run
+  > from source with full `ccxt` installed to get live WebSocket ticks.
 - **PnL** is recomputed locally on every tick — `(current − entry) × size`
   (reversed for shorts) — so the table and status bar move instantly without
   waiting for the next REST poll. Profit rows are green, losses red.

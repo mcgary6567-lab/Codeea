@@ -1,24 +1,26 @@
-# PyInstaller spec for the TradingView Trading Bot.
+# PyInstaller spec for the Prometheus AI Crypto Bot.
 # Build on Windows with:  pyinstaller --noconfirm trading_bot.spec
-# Output: dist\TradingBot.exe  (single-file, windowed)
+# Output: dist\PrometheusAICryptoBot.exe  (single-file, windowed)
 #
-# ccxt ships hundreds of exchange submodules and bundles data files; certifi
-# provides the CA bundle used for HTTPS. We collect both fully so the frozen
-# exe can reach every supported exchange.
+# Size-optimised build: we bundle ccxt's SYNC layer only and drop the
+# WebSocket/async layer (ccxt.pro + ccxt.async_support) — that roughly halves
+# ccxt's footprint. The price feed degrades to REST polling automatically.
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all
 
 datas, binaries, hiddenimports = [], [], []
-# Fully bundle ccxt (hundreds of exchange modules + data), certifi (CA bundle),
-# and cryptography (cffi-backed). collect_all pulls submodules, data, and libs.
 for pkg in ("ccxt", "certifi", "cryptography"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
+    if pkg == "ccxt":
+        # Drop the async + websocket variants of every exchange (big saving).
+        h = [m for m in h if ".pro" not in m and ".async_support" not in m]
+        datas = [t for t in datas
+                 if "async_support" not in t[0].replace("\\", "/")
+                 and "/pro/" not in t[0].replace("\\", "/")]
     hiddenimports += h
 
-# ccxt.pro (WebSocket) submodules + our own modules, to be safe.
-hiddenimports += collect_submodules("ccxt")
 hiddenimports += [
     # cryptography uses cffi at runtime — PyInstaller often misses this, which
     # makes the exe crash on launch with "No module named '_cffi_backend'".
@@ -42,7 +44,14 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["matplotlib", "numpy"],  # only used by the diagram scripts, not the app
+    excludes=[
+        # WebSocket/async ccxt layer — pricefeed falls back to REST if absent.
+        "ccxt.pro", "ccxt.async_support",
+        # Only used by the diagram scripts, never by the app.
+        "matplotlib", "numpy", "PIL",
+        # Stdlib bloat we never touch.
+        "test", "lib2to3", "pydoc_data", "tkinter.test", "distutils",
+    ],
     cipher=block_cipher,
 )
 
