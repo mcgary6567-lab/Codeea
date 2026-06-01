@@ -135,43 +135,47 @@ entirely (monitoring only).
 
 ---
 
-## Auto-trading from TradingView (Gold Scalpers)
+## Auto-trading from TradingView (Prometheus indicator)
 
 The flow:
 
 ```
-Gold Scalpers alert  →  TradingView webhook  →  this bot's receiver  →  exchange order
+Prometheus alert  →  TradingView webhook  →  this bot's receiver  →  exchange order
 ```
 
 1. In the **Webhook & Alerts** tab, optionally set a **Webhook passphrase**, then
    click **Start Webhook**. The bot listens on port **8723**.
-2. Set the **Strategy filter** to **`GoldScalp`** (the default). The bot then
-   acts **only** on Gold Scalpers alerts — matched by the indicator's
-   *Order Comment* (`eaComment`, default `GoldScalp`) — and ignores any other
-   indicator (e.g. Dip2Green, which sends no `comment` tag). Leave the filter
-   blank to accept all alerts.
+2. Keep the **Strategy filter** at **`Prometheus`** (the default). The bot then
+   acts **only** on alerts whose `comment`/strategy tag matches the indicator's
+   **Strategy tag** (default `Prometheus`) and ignores everything else. Leave the
+   filter blank to accept all alerts.
 3. Expose port 8723 to TradingView (it only POSTs to public URLs):
    - run a tunnel (e.g. `ngrok http 8723`) and use the public URL, **or**
    - host on a VPS / forward the port on your router.
-4. In TradingView, add an alert on **Gold Scalpers**:
+4. Add `Prometheus_AI_Crypto_Bot.pine` to a **crypto** chart, then create an alert:
    - Condition: *Any alert() function call*; set **Alert Format = "Webhook JSON"**.
    - Webhook URL: `http://YOUR_PUBLIC_HOST:8723/`
-5. Gold Scalpers sends payloads like:
+5. The indicator sends payloads like (Entry + TP1 + TP2, **no stop-loss**):
 
    ```json
-   {"action":"buy","symbol":"BTCUSDT","entry":67500,"sl":67000,"tp1":68200,"tp2":69000,"comment":"GoldScalp"}
+   {"action":"buy","symbol":"BTCUSDT","passphrase":"","entry":67500,"tp1":68200,"tp2":69500,"comment":"Prometheus"}
    ```
 
-   The bot reads `action` + `symbol`, sizes the order from your lot settings,
-   and executes (or simulates, in Safe Mode).
+   The bot reads `action` + `symbol`, auto-fills the Manual symbol box with the
+   incoming pair, sizes the order from your **Sizing mode**, and places the entry
+   plus **TP1/TP2** (50/50 scale-out). With no SL in the payload the bot places
+   no protective stop — so use **Fixed lot** or **Risk % of balance** sizing
+   (stop-based sizing needs a stop).
 
-**Lifecycle events.** Gold Scalpers also emits post-entry events
-(`{"event":"tp1_hit",...}`, `tp2_hit`, `sl_hit`, `sl_after_partial`) — also
-tagged with the same `comment`, so the strategy filter passes them through.
-They're logged + notified, and with **"Move stop to breakeven on TP1"** enabled
-(Modes & Risk tab) a `tp1_hit` event trails the stop to your entry. SL/TP exits
-themselves are handled by the bot's own reduce-only bracket on the exchange, so
-these events never double-fire orders.
+**Lifecycle events.** The indicator also emits post-entry events
+(`{"event":"tp1_hit",...}`, `tp2_hit`) tagged with the same `comment`, so the
+strategy filter passes them through. They're logged + notified, and with
+**"Move stop to breakeven on TP1"** enabled (Modes & Risk tab) a `tp1_hit` event
+places a breakeven stop at entry. TP exits themselves are handled by the bot's
+own reduce-only TP orders on the exchange, so events never double-fire.
+
+> Earlier indicators (Gold Scalpers, Dip2Green) also work — just set the
+> **Strategy filter** to match their `comment` tag, or leave it blank.
 
 > **Note:** TradingView webhooks require a **paid** TradingView plan.
 
@@ -183,8 +187,12 @@ With the webhook running you can fire a test signal locally:
 
 ```bat
 curl -X POST http://127.0.0.1:8723/ -H "Content-Type: application/json" ^
-  -d "{\"action\":\"buy\",\"symbol\":\"BTC/USDT\",\"passphrase\":\"\"}"
+  -d "{\"action\":\"buy\",\"symbol\":\"BTC/USDT\",\"entry\":67500,\"tp1\":68200,\"tp2\":69500,\"comment\":\"Prometheus\"}"
 ```
+
+In **Safe Mode** you should see a `BUY` (Simulated) row plus two `TP` rows in the
+Trade Log, and the Manual symbol box auto-fill to `BTC/USDT`. If you instead see
+*"ignored (strategy … != Prometheus)"*, your **Strategy filter** doesn't match.
 
 ---
 
