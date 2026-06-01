@@ -25,6 +25,7 @@ import security
 import theme
 from analytics_window import AnalyticsWindow
 from backend import Backend
+from relay_client import RelayClient
 from config import (
     APP_TITLE,
     APP_VERSION,
@@ -38,6 +39,7 @@ from config import (
     DEFAULT_RISK_PERCENT,
     DEFAULT_SAFE_MODE,
     DEFAULT_TRADE_SIZE,
+    DEFAULT_RELAY_URL,
     DEFAULT_WEBHOOK_PASSPHRASE,
     ORDER_TYPES,
     QUOTE_CURRENCY,
@@ -86,12 +88,23 @@ class TradingBotGUI:
             ),
         )
 
+        # Cloud relay client (optional) — polls your relay for broadcast signals.
+        self.relay = RelayClient(
+            get_url=lambda: self.relay_url_var.get().strip(),
+            get_token=lambda: self.relay_token_var.get().strip(),
+            on_signal=self._on_webhook_signal,
+            log=lambda m: self.backend.ui_queue.put(
+                {"kind": "log", "time": "", "message": m, "signal": "", "pair": "", "status": ""}
+            ),
+        )
+
         self.connected = False
         self._live_ack = bool(self.saved.get("live_ack", False))
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
         self._autostart_webhook()       # ready to receive signals out of the box
+        self._autostart_relay()         # auto-connect cloud signals if licensed
         self.root.after(150, self._drain_ui_queue)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -511,6 +524,39 @@ class TradingBotGUI:
         self.tg_chat_var = tk.StringVar()
         ttk.Entry(f, textvariable=self.tg_chat_var).grid(row=7, column=1, sticky="ew", pady=2)
 
+        ttk.Separator(f, orient="horizontal").grid(row=8, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
+                  font=("Segoe UI", 9, "bold")).grid(row=9, column=0, columnspan=2, sticky="w")
+        ttk.Label(f, text="Relay URL:").grid(row=10, column=0, sticky="w", pady=2)
+        self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
+        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=10, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Licence token:").grid(row=11, column=0, sticky="w", pady=2)
+        tr = ttk.Frame(f)
+        tr.grid(row=11, column=1, sticky="ew", pady=2)
+        tr.columnconfigure(0, weight=1)
+        self.relay_token_var = tk.StringVar()
+        ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
+        self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
+        self.relay_btn.grid(row=0, column=1, padx=(6, 0))
+        self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
+        self.relay_status.grid(row=12, column=0, columnspan=2, sticky="w")
+
+    def _toggle_relay(self) -> None:
+        if self.relay.running:
+            self.relay.stop()
+            self.relay_btn.config(text="Connect")
+            self.relay_status.config(text="● off", fg=GREY)
+        else:
+            self.relay.start()
+            if self.relay.running:
+                self.relay_btn.config(text="Disconnect")
+                self.relay_status.config(text="● connected (cloud signals)", fg=GREEN)
+
+    def _autostart_relay(self) -> None:
+        """Auto-connect cloud signals if a licence token was saved."""
+        if self.relay_token_var.get().strip():
+            self._toggle_relay()
+
     def _build_trade_log(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
         f.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
@@ -563,6 +609,8 @@ class TradingBotGUI:
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
         self.strategy_filter_var.set(s.get("strategy_filter", "Prometheus"))
+        self.relay_url_var.set(s.get("relay_url", DEFAULT_RELAY_URL))
+        self.relay_token_var.set(s.get("relay_token", ""))
         self.sound_var.set(s.get("sound", True))
         self.tg_token_var.set(s.get("telegram_token", ""))
         self.tg_chat_var.set(s.get("telegram_chat_id", ""))
@@ -592,6 +640,8 @@ class TradingBotGUI:
             "read_only": self.readonly_var.get(),
             "webhook_passphrase": self.webhook_pass_var.get(),
             "strategy_filter": self.strategy_filter_var.get(),
+            "relay_url": self.relay_url_var.get(),
+            "relay_token": self.relay_token_var.get(),
             "sound": self.sound_var.get(),
             "telegram_token": self.tg_token_var.get(),
             "telegram_chat_id": self.tg_chat_var.get(),
@@ -757,7 +807,7 @@ class TradingBotGUI:
             "sl": signal.get("sl"),
             "tp1": signal.get("tp1"),
             "tp2": signal.get("tp2"),
-            "source": "webhook",
+            "source": signal.get("source", "webhook"),
         })
 
     def _toggle_webhook(self) -> None:
@@ -930,6 +980,8 @@ class TradingBotGUI:
         try:
             if self.webhook.running:
                 self.webhook.stop()
+            if self.relay.running:
+                self.relay.stop()
             self.backend.stop()
         finally:
             self.root.destroy()

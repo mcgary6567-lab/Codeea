@@ -28,7 +28,7 @@ hiddenimports += [
     # our own flat modules
     "exchange", "backend", "pricefeed", "webhook_server", "guardrails",
     "history", "notifications", "security", "config", "gui", "login",
-    "analytics_window", "theme",
+    "analytics_window", "theme", "relay_client",
 ]
 
 # Bundle brand assets so the frozen exe can show the logo + window icon.

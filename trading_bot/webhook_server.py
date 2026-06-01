@@ -27,6 +27,41 @@ from typing import Callable, Optional
 KNOWN_EVENTS = {"tp1_hit", "tp2_hit", "sl_hit", "sl_after_partial"}
 
 
+def parse_payload(payload: dict, source: str = "webhook"):
+    """Normalise an indicator JSON payload into the bot's signal dict.
+
+    Shared by the webhook server and the cloud-relay client. Returns ``None``
+    if the payload is not a valid entry (buy/sell) or known lifecycle event.
+    """
+    if not isinstance(payload, dict):
+        return None
+    action = str(payload.get("action") or payload.get("side") or "").lower()
+    event = str(payload.get("event") or "").lower()
+    ticker = str(payload.get("ticker") or payload.get("symbol") or "")
+    if not ticker or not (action in ("buy", "sell") or event in KNOWN_EVENTS):
+        return None
+
+    def _num(key):
+        try:
+            return float(payload[key])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    return {
+        "action": action,
+        "event": event,
+        "ticker": ticker,
+        "size": payload.get("size"),
+        "entry": _num("entry"),
+        "sl": _num("sl"),
+        "tp1": _num("tp1"),
+        "tp2": _num("tp2"),
+        "price": _num("price"),
+        "source": source,
+    }
+
+
+
 class WebhookServer:
     def __init__(
         self,

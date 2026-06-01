@@ -84,14 +84,20 @@ DEFAULT_WEBHOOK_PASSPHRASE = ""
 POLL_INTERVAL = 5
 
 # How often (seconds) the price feed refreshes "current" prices for open
-# symbols. WebSocket (ccxt.pro) pushes faster than this; this is the REST
-# fallback cadence. Kept short for a near real-time feel without hammering the
-# API (only open symbols are queried).
+# symbols. WebSocket (ccxt.pro) pushes faster; this is the REST fallback
+# cadence. Short for a near real-time feel without hammering the API.
 PRICE_POLL_INTERVAL = 2
 
 # Consecutive REST refresh failures before we warn the user the connection
 # looks lost (handles dropped connections / rate-limit storms gracefully).
 MAX_REFRESH_FAILURES = 3
+
+# ---------------------------------------------------------------------------
+# Cloud relay (optional). Your TradingView account posts to your relay; each
+# customer's app polls it for new signals — no ngrok / port-forwarding needed.
+# ---------------------------------------------------------------------------
+DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
+RELAY_POLL_INTERVAL = 1.5   # seconds between polls
 
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.001          # in base asset, e.g. 0.001 BTC
