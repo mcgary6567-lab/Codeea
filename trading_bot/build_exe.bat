@@ -10,9 +10,10 @@ where py >nul 2>&1 && (set "PYTHON=py -3") || (set "PYTHON=python")
 
 echo [1/3] Installing dependencies + PyInstaller...
 %PYTHON% -m pip install --upgrade --disable-pip-version-check pip
-%PYTHON% -m pip install --disable-pip-version-check -r requirements.txt pyinstaller
+%PYTHON% -m pip install --disable-pip-version-check -r requirements.txt pyinstaller pillow
 
-echo [2/3] Building the executable (this can take a few minutes)...
+echo [2/3] Fetching brand logo + building the executable...
+%PYTHON% fetch_logo.py
 %PYTHON% -m PyInstaller --noconfirm --clean trading_bot.spec
 
 echo [3/3] Done.
