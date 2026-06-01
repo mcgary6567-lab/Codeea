@@ -257,9 +257,15 @@ class ExchangeManager:
         if self.client is None:
             return self._sim_balance
         try:
-            bal = self.client.fetch_balance()
-            total = bal.get("total", {})
-            return float(total.get(QUOTE_CURRENCY, 0.0) or 0.0)
+            total = self.client.fetch_balance().get("total", {})
+            # Count cash held in any major stablecoin, not just USDT.
+            cash = 0.0
+            for a in ("USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "USD"):
+                try:
+                    cash += float(total.get(a, 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+            return cash
         except Exception as exc:  # noqa: BLE001
             raise ExchangeError(f"balance: {exc}") from exc
 
