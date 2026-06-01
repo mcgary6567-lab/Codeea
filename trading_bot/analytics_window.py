@@ -1,4 +1,4 @@
-"""Analytics window: trade stats + equity curve.
+"""Analytics window: trade stats + equity curve (dark, card-style).
 
 Pure Tkinter — the equity curve is drawn on a Canvas, so there are no charting
 dependencies. Reads everything from the SQLite history DB.
@@ -7,93 +7,138 @@ dependencies. Reads everything from the SQLite history DB.
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
 
-GREEN = "#2e8b3d"
-RED = "#c0392b"
+import theme
+
+BG = theme.BG
+PANEL = theme.PANEL
+ELEV = theme.ELEV
+BORDER = theme.BORDER
+TXT = theme.TXT
+DIM = theme.TXT_DIM
+ACCENT = theme.ACCENT
+GREEN = theme.GREEN_HL
+RED = theme.RED_HL
+
+# (label, stat-key, colour)  — colour "pnl" means green/red by sign.
+TILES = [
+    ("Total trades", "total", TXT),
+    ("Filled", "filled", GREEN),
+    ("Rejected", "rejected", RED),
+    ("Closed", "closed", TXT),
+    ("Win rate", "win_rate", ACCENT),
+    ("Wins", "wins", GREEN),
+    ("Losses", "losses", RED),
+    ("Realized PnL", "realized_pnl", "pnl"),
+    ("Best", "best", "pnl"),
+    ("Worst", "worst", "pnl"),
+]
+COLS = 5
 
 
 class AnalyticsWindow:
     def __init__(self, root: tk.Tk, history_module) -> None:
         self.history = history_module
         self.win = tk.Toplevel(root)
-        self.win.title("Analytics")
-        self.win.geometry("640x520")
+        self.win.title("Analytics — Prometheus AI Crypto Bot")
+        self.win.geometry("780x600")
+        self.win.minsize(660, 520)
+        self.win.configure(bg=BG)
 
-        self._build_stats()
-        self._build_chart()
+        self._vals: dict = {}      # key -> (value Label, colour rule)
+        self._last_points = []
+        self._build()
         self.refresh()
 
-    def _build_stats(self) -> None:
-        box = ttk.LabelFrame(self.win, text="Performance", padding=10)
-        box.pack(fill="x", padx=10, pady=10)
-        self.labels: dict = {}
-        rows = [
-            ("Total trades", "total"), ("Filled", "filled"), ("Rejected", "rejected"),
-            ("Closed", "closed"), ("Wins", "wins"), ("Losses", "losses"),
-            ("Win rate", "win_rate"), ("Realized PnL", "realized_pnl"),
-            ("Best", "best"), ("Worst", "worst"),
-        ]
-        for i, (text, key) in enumerate(rows):
-            r, c = divmod(i, 2)
-            cell = ttk.Frame(box)
-            cell.grid(row=r, column=c, sticky="w", padx=10, pady=3)
-            ttk.Label(cell, text=text + ":", width=14).pack(side="left")
-            lab = tk.Label(cell, text="—", font=("Segoe UI", 10, "bold"))
-            lab.pack(side="left")
-            self.labels[key] = lab
+    # -- layout -------------------------------------------------------------
+    def _build(self) -> None:
+        tk.Label(self.win, text="Performance", bg=BG, fg=ACCENT,
+                 font=("Segoe UI Semibold", 14)).pack(anchor="w", padx=16, pady=(14, 8))
 
-    def _build_chart(self) -> None:
-        box = ttk.LabelFrame(self.win, text="Equity curve (balance over time)", padding=8)
-        box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.canvas = tk.Canvas(box, bg="white", height=260, highlightthickness=1, highlightbackground="#ccc")
-        self.canvas.pack(fill="both", expand=True)
-        ttk.Button(self.win, text="Refresh", command=self.refresh).pack(pady=(0, 10))
+        grid = tk.Frame(self.win, bg=BG)
+        grid.pack(fill="x", padx=11)
+        for i in range(COLS):
+            grid.columnconfigure(i, weight=1, uniform="t")
 
+        for idx, (label, key, colour) in enumerate(TILES):
+            r, c = divmod(idx, COLS)
+            cell = tk.Frame(grid, bg=ELEV)
+            cell.grid(row=r, column=c, sticky="nsew", padx=5, pady=5)
+            tk.Label(cell, text=label.upper(), bg=ELEV, fg=DIM,
+                     font=("Segoe UI", 8)).pack(anchor="w", padx=12, pady=(9, 0))
+            val = tk.Label(cell, text="—", bg=ELEV,
+                           fg=(GREEN if colour == "pnl" else colour),
+                           font=("Segoe UI Semibold", 17))
+            val.pack(anchor="w", padx=12, pady=(0, 10))
+            self._vals[key] = (val, colour)
+
+        tk.Label(self.win, text="Equity curve  (balance over time)", bg=BG, fg=ACCENT,
+                 font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=16, pady=(14, 6))
+        wrap = tk.Frame(self.win, bg=BORDER)   # 1px border around the chart
+        wrap.pack(fill="both", expand=True, padx=14, pady=(0, 8))
+        self.canvas = tk.Canvas(wrap, bg=PANEL, highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True, padx=1, pady=1)
+        self.canvas.bind("<Configure>", lambda e: self._draw_curve(self._last_points))
+
+        bar = tk.Frame(self.win, bg=BG)
+        bar.pack(fill="x", padx=14, pady=(0, 12))
+        tk.Button(bar, text="Refresh", command=self.refresh, bg=ACCENT, fg="#1a1100",
+                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
+                  activebackground="#ffa057", padx=16, pady=5).pack(side="right")
+
+    # -- data ---------------------------------------------------------------
     def refresh(self) -> None:
         s = self.history.stats()
-        fmt = {
-            "win_rate": lambda v: f"{v:.1f}%",
-            "realized_pnl": lambda v: f"{v:+.2f}",
-            "best": lambda v: f"{v:+.2f}",
-            "worst": lambda v: f"{v:+.2f}",
-        }
-        for key, lab in self.labels.items():
-            val = s.get(key, 0)
-            lab.config(text=fmt.get(key, lambda v: str(v))(val))
-            if key in ("realized_pnl", "best", "worst"):
-                lab.config(fg=GREEN if val >= 0 else RED)
-        self._draw_curve(self.history.fetch_equity())
+        for key, (val_lbl, colour) in self._vals.items():
+            raw = s.get(key, 0)
+            if key == "win_rate":
+                val_lbl.config(text=f"{raw:.1f}%")
+            elif colour == "pnl":
+                val_lbl.config(text=f"{raw:+.2f}", fg=(GREEN if raw >= 0 else RED))
+            else:
+                val_lbl.config(text=str(raw))
+        self._last_points = self.history.fetch_equity()
+        self._draw_curve(self._last_points)
 
     def _draw_curve(self, points) -> None:
         c = self.canvas
         c.delete("all")
         c.update_idletasks()
-        w = c.winfo_width() or 600
-        h = c.winfo_height() or 260
-        pad = 30
-        if len(points) < 2:
-            c.create_text(w // 2, h // 2, text="Not enough data yet", fill="#999")
+        w = c.winfo_width() or 720
+        h = c.winfo_height() or 280
+        pad = 40
+        if not points or len(points) < 2:
+            c.create_text(w // 2, h // 2,
+                          text="No equity data yet — it plots as trades close",
+                          fill=DIM, font=("Segoe UI", 10))
             return
         ys = [p[1] for p in points]
         lo, hi = min(ys), max(ys)
-        span = (hi - lo) or 1.0
+        span = (hi - lo) or max(abs(hi), 1.0)
         n = len(points)
 
         def px(i):
             return pad + (w - 2 * pad) * i / (n - 1)
 
-        def py(val):
-            return h - pad - (h - 2 * pad) * (val - lo) / span
+        def py(v):
+            return h - pad - (h - 2 * pad) * (v - lo) / span
 
-        # Axes.
-        c.create_line(pad, h - pad, w - pad, h - pad, fill="#ccc")
-        c.create_line(pad, pad, pad, h - pad, fill="#ccc")
-        c.create_text(pad - 4, py(hi), text=f"{hi:,.0f}", anchor="e", fill="#666", font=("Segoe UI", 8))
-        c.create_text(pad - 4, py(lo), text=f"{lo:,.0f}", anchor="e", fill="#666", font=("Segoe UI", 8))
+        for frac in (0.0, 0.5, 1.0):
+            val = lo + span * frac
+            y = py(val)
+            c.create_line(pad, y, w - pad, y, fill=BORDER)
+            c.create_text(pad - 6, y, text=f"{val:,.0f}", anchor="e", fill=DIM,
+                          font=("Segoe UI", 8))
 
+        up = ys[-1] >= ys[0]
+        line = GREEN if up else RED
         coords = []
-        for i, (_, val) in enumerate(points):
-            coords += [px(i), py(val)]
-        color = GREEN if ys[-1] >= ys[0] else RED
-        c.create_line(*coords, fill=color, width=2, smooth=True)
+        for i, (_, v) in enumerate(points):
+            coords += [px(i), py(v)]
+        c.create_polygon(coords + [px(n - 1), h - pad, px(0), h - pad],
+                         fill=line, outline="", stipple="gray12")
+        c.create_line(*coords, fill=line, width=2, smooth=True)
+        c.create_oval(px(n - 1) - 3, py(ys[-1]) - 3, px(n - 1) + 3, py(ys[-1]) + 3,
+                      fill=line, outline="")
+        c.create_text(w - pad, py(ys[-1]) - 12, text=f"{ys[-1]:,.2f}", anchor="e",
+                      fill=line, font=("Segoe UI Semibold", 9))
