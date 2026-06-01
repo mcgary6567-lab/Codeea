@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import urllib.parse
 import urllib.request
 from typing import Callable, Optional
@@ -34,6 +35,8 @@ class RelayClient:
         self._thread: Optional[threading.Thread] = None
         self.running = False
         self._fail_count = 0
+        self.last_poll_ts = 0.0     # last successful poll (feed alive)
+        self.last_signal_ts = 0.0   # last signal received
 
     def start(self) -> None:
         if self.running:
@@ -80,7 +83,9 @@ class RelayClient:
             self._fail_count = 1
             return
 
+        self.last_poll_ts = time.time()   # feed is alive
         for payload in data.get("signals", []):
             signal = parse_payload(payload, source="relay")
             if signal:
+                self.last_signal_ts = time.time()
                 self.on_signal(signal)

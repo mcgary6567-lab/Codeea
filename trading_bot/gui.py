@@ -893,7 +893,40 @@ class TradingBotGUI:
                 self._apply_ui_event(msg)
         except Exception:
             pass
+        self._update_relay_status()
         self.root.after(150, self._drain_ui_queue)
+
+    @staticmethod
+    def _fmt_age(seconds: float) -> str:
+        s = int(seconds)
+        if s < 60:
+            return f"{s}s"
+        if s < 3600:
+            return f"{s // 60}m"
+        if s < 86400:
+            return f"{s // 3600}h"
+        return f"{s // 86400}d"
+
+    def _update_relay_status(self) -> None:
+        """Live freshness for the Cloud signals feed (last poll / last signal)."""
+        if not getattr(self, "relay", None) or not getattr(self, "relay_status", None):
+            return
+        if not self.relay.running:
+            return  # _toggle_relay owns the off state
+        import time
+        now = time.time()
+        if not self.relay.last_poll_ts:
+            self.relay_status.config(text="● connecting…", fg=GREY)
+            return
+        poll_age = now - self.relay.last_poll_ts
+        if poll_age > 6:   # ~6 polls missed -> feed looks stalled
+            self.relay_status.config(text=f"● stalled — no relay response ({self._fmt_age(poll_age)})", fg=RED)
+        elif self.relay.last_signal_ts:
+            self.relay_status.config(
+                text=f"● connected · last signal {self._fmt_age(now - self.relay.last_signal_ts)} ago",
+                fg=GREEN)
+        else:
+            self.relay_status.config(text="● connected · waiting for signals", fg=GREEN)
 
     def _apply_ui_event(self, msg: dict) -> None:
         kind = msg.get("kind")
