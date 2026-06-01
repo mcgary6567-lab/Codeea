@@ -75,28 +75,48 @@ class Notifier:
             ).start()
 
     # -- native Windows toast (PowerShell + WinRT, no extra dependency) ------
+    def _show_toast(self, title: str, message: str) -> int:
+        """Show a Windows toast; returns the PowerShell exit code (0 = ok)."""
+        title = title.replace('"', "'")[:80]
+        message = message.replace('"', "'")[:160]
+        ps = (
+            "[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,"
+            "ContentType=WindowsRuntime]>$null;"
+            "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
+            "[Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
+            "$x=$t.GetElementsByTagName('text');"
+            f"$x.Item(0).AppendChild($t.CreateTextNode(\"{title}\"))>$null;"
+            f"$x.Item(1).AppendChild($t.CreateTextNode(\"{message}\"))>$null;"
+            "$n=[Windows.UI.Notifications.ToastNotification]::new($t);"
+            "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
+            "'Prometheus AI Crypto Bot').Show($n);"
+        )
+        flags = 0x08000000  # CREATE_NO_WINDOW
+        return subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                              creationflags=flags, timeout=10,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+
     def _toast(self, title: str, message: str) -> None:
         try:
-            title = title.replace('"', "'")[:80]
-            message = message.replace('"', "'")[:160]
-            ps = (
-                "[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,"
-                "ContentType=WindowsRuntime]>$null;"
-                "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
-                "[Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
-                "$x=$t.GetElementsByTagName('text');"
-                f"$x.Item(0).AppendChild($t.CreateTextNode(\"{title}\"))>$null;"
-                f"$x.Item(1).AppendChild($t.CreateTextNode(\"{message}\"))>$null;"
-                "$n=[Windows.UI.Notifications.ToastNotification]::new($t);"
-                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("
-                "'Prometheus AI Crypto Bot').Show($n);"
-            )
-            flags = 0x08000000  # CREATE_NO_WINDOW
-            subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                           creationflags=flags, timeout=8,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._show_toast(title, message)
         except Exception:  # noqa: BLE001 - toast is best-effort
             pass
+
+    def test_desktop(self):
+        """Fire a test toast. Returns ``(ok: bool, message: str)``."""
+        if not _IS_WINDOWS:
+            return False, "Desktop toast notifications are only available on Windows."
+        try:
+            rc = self._show_toast("Prometheus AI Crypto Bot",
+                                  "Test notification — desktop alerts are working.")
+            if rc == 0:
+                return True, ("Test toast sent — check the bottom-right of your screen.\n\n"
+                              "If nothing appeared, allow notifications for the app in "
+                              "Windows Settings → System → Notifications.")
+            return False, (f"PowerShell exited with code {rc}. Toasts may be blocked in "
+                           "Windows notification settings (Focus Assist / Do Not Disturb).")
+        except Exception as exc:  # noqa: BLE001
+            return False, f"Could not show a toast: {exc}"
 
     # -- internals ----------------------------------------------------------
     def _beep(self, level: str) -> None:

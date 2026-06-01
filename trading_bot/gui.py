@@ -663,10 +663,14 @@ class TradingBotGUI:
             command=self._push_settings,
         ).grid(row=5, column=0, sticky="w", pady=2)
         self.desktop_var = tk.BooleanVar(value=True)
+        dr = ttk.Frame(f)
+        dr.grid(row=5, column=1, sticky="w", pady=2)
         ttk.Checkbutton(
-            f, text="Desktop notifications", variable=self.desktop_var,
+            dr, text="Desktop notifications", variable=self.desktop_var,
             command=self._push_settings,
-        ).grid(row=5, column=1, sticky="w", pady=2)
+        ).pack(side="left")
+        self.desk_test_btn = tk.Button(dr, text="Test", command=self._test_desktop)
+        self.desk_test_btn.pack(side="left", padx=6)
         ttk.Label(f, text="Telegram bot token:").grid(row=6, column=0, sticky="w", pady=2)
         self.tg_token_var = tk.StringVar()
         ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=6, column=1, sticky="ew", pady=2)
@@ -736,6 +740,24 @@ class TradingBotGUI:
             messagebox.showinfo("Telegram test", msg)
         else:
             messagebox.showerror("Telegram test failed", msg)
+
+    def _test_desktop(self) -> None:
+        """Fire a test desktop toast so the user can confirm it shows."""
+        import threading
+        self.desk_test_btn.config(text="…", state="disabled")
+
+        def worker():
+            ok, msg = self.backend.notifier.test_desktop()
+            self.root.after(0, lambda: self._desktop_test_done(ok, msg))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _desktop_test_done(self, ok: bool, msg: str) -> None:
+        self.desk_test_btn.config(text="Test", state="normal")
+        if ok:
+            messagebox.showinfo("Desktop notification test", msg)
+        else:
+            messagebox.showerror("Desktop notification test", msg)
 
     def _build_trade_log(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
