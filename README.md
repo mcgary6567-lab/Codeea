@@ -27,6 +27,7 @@ an encrypted, PIN-protected vault for your API keys.
    **Actions ▸ Build Windows EXE** artifact, or build locally with
    `trading_bot/build_exe.bat`. (A Windows `.exe` can only be built on Windows.)
 2. **Run it**, create a PIN, **connect** your exchange (start in **Safe Mode**).
+   Need an API key? Step-by-step per exchange: **[`API_SETUP.md`](API_SETUP.md)**.
 3. **Add `Prometheus_AI_Crypto_Bot.pine`** to a crypto chart in TradingView,
    alert **Format = "Webhook JSON"**, point it at `http://YOUR_HOST:8723/`
    (use `ngrok http 8723` to expose the port). Full step-by-step (incl. the
