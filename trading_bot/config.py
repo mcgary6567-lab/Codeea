@@ -9,6 +9,8 @@ import sys
 
 APP_NAME = "TradingBot"            # storage key (kept stable so saved PINs persist)
 APP_TITLE = "Prometheus AI Crypto Bot"
+WEBSITE_URL = "https://prometheusai.tech/"
+SUPPORT_EMAIL = "support@prometheusai.tech"
 
 
 def resource_path(name: str) -> str:

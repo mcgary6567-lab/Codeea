@@ -16,6 +16,7 @@ and drains UI updates from ``backend.ui_queue`` on the Tk event loop.
 from __future__ import annotations
 
 import csv
+import webbrowser
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -43,8 +44,10 @@ from config import (
     SIZING_MODE_LABELS,
     SIZING_MODES,
     SUPPORTED_EXCHANGES,
+    SUPPORT_EMAIL,
     WEBHOOK_HOST,
     WEBHOOK_PORT,
+    WEBSITE_URL,
 )
 from webhook_server import WebhookServer
 
@@ -115,6 +118,7 @@ class TradingBotGUI:
         self.root.option_add("*Button.padY", "4")
 
         self._build_header()
+        self._build_footer()
 
         body = ttk.Frame(self.root, padding=12)
         body.pack(fill="both", expand=True)
@@ -177,6 +181,30 @@ class TradingBotGUI:
         self.pnl_label = tk.Label(stat, text="  ·  PnL $0.00", bg=HEADER, fg=TXT,
                                   font=("Segoe UI Semibold", 10))
         self.pnl_label.pack(side="left")
+
+    def _build_footer(self) -> None:
+        bar = tk.Frame(self.root, bg=HEADER, height=26)
+        bar.pack(fill="x", side="bottom")
+        bar.pack_propagate(False)
+
+        tk.Label(bar, text="© Prometheus AI", bg=HEADER, fg=TXT_DIM,
+                 font=("Segoe UI", 8)).pack(side="left", padx=12)
+
+        def link(parent, text, action):
+            lbl = tk.Label(parent, text=text, bg=HEADER, fg=ACCENT, cursor="hand2",
+                           font=("Segoe UI", 9, "underline"))
+            lbl.pack(side="right", padx=10)
+            lbl.bind("<Button-1>", lambda e: action())
+            return lbl
+
+        link(bar, "Support: " + SUPPORT_EMAIL, lambda: self._open_url(f"mailto:{SUPPORT_EMAIL}"))
+        link(bar, "Website: prometheusai.tech", lambda: self._open_url(WEBSITE_URL))
+
+    def _open_url(self, url: str) -> None:
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            messagebox.showinfo("Link", url)
 
     def _build_api_panel(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="API Settings", padding=10)
