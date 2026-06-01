@@ -188,13 +188,22 @@ class ExchangeManager:
             "apiKey": api_key,
             "secret": secret,
             "enableRateLimit": True,
-            "options": {"defaultType": "swap"},  # prefer futures for positions
+            "options": {
+                "defaultType": "swap",          # prefer futures for positions
+                "adjustForTimeDifference": True,  # fixes Binance -1021 clock errors
+                "recvWindow": 10000,
+            },
         }
         # OKX / KuCoin / Bitget require an API passphrase.
         if password:
             params["password"] = password
 
         self.client = klass(params)
+        # Best-effort: sync local clock offset to the exchange server time.
+        try:
+            self.client.load_time_difference()
+        except Exception:  # noqa: BLE001 - not all exchanges expose it
+            pass
         if testnet:
             try:
                 self.client.set_sandbox_mode(True)
