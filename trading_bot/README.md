@@ -2,8 +2,8 @@
 
 A standalone Python desktop app that connects to a crypto exchange and executes
 trades **manually** (BUY/SELL buttons) or **automatically** from **TradingView
-webhook alerts** — designed to be driven by the `Dip2Green_PRO.pine` indicator
-in this repo.
+webhook alerts** — driven by the `Prometheus_AI_Crypto_Bot.pine` indicator in
+this repo (also compatible with Gold Scalpers / Dip2Green payloads).
 
 Built with **Tkinter** (ships with Python, runs on every Windows version) plus
 [`ccxt`](https://github.com/ccxt/ccxt) for exchange connectivity and
