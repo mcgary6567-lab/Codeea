@@ -38,6 +38,10 @@ SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 SALT_FILE = os.path.join(DATA_DIR, "salt.bin")
 LOG_FILE = os.path.join(DATA_DIR, "trade_log.csv")
 HISTORY_DB = os.path.join(DATA_DIR, "history.db")
+STATE_FILE = os.path.join(DATA_DIR, "state.json")   # crash-recovery state
+
+# Auto-update: a small JSON at this URL like {"version":"1.0.1","url":"..."}
+UPDATE_URL = "https://prometheusai.tech/version.json"
 
 # ---------------------------------------------------------------------------
 # Exchanges exposed in the drop-down. The value is the ccxt id; if the exchange

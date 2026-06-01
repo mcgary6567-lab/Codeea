@@ -107,7 +107,44 @@ class TradingBotGUI:
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
         self.root.after(150, self._drain_ui_queue)
+        self.root.after(3000, self._check_update)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _check_update(self) -> None:
+        """Background check for a newer version; notify if one is available."""
+        import json
+        import threading
+        import urllib.request
+
+        def worker():
+            try:
+                from config import UPDATE_URL
+                req = urllib.request.Request(UPDATE_URL, headers={"User-Agent": "PrometheusBot"})
+                info = json.loads(urllib.request.urlopen(req, timeout=8).read().decode("utf-8"))
+                latest = str(info.get("version", "")).strip()
+                url = info.get("url", WEBSITE_URL)
+                if latest and self._version_newer(latest, APP_VERSION):
+                    self.root.after(0, lambda: self._notify_update(latest, url))
+            except Exception:  # noqa: BLE001 - silent if offline / no version file
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    @staticmethod
+    def _version_newer(latest: str, current: str) -> bool:
+        def parts(v):
+            return [int(x) for x in v.split(".") if x.isdigit()]
+        try:
+            return parts(latest) > parts(current)
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _notify_update(self, latest: str, url: str) -> None:
+        if messagebox.askyesno(
+            "Update available",
+            f"A newer version ({latest}) is available — you have {APP_VERSION}.\n\n"
+            "Open the download page?"):
+            self._open_url(url)
 
     # ====================================================================
     # UI construction
@@ -345,10 +382,43 @@ class TradingBotGUI:
         cbar = ttk.Frame(f)
         cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         tk.Button(cbar, text="Close Selected", command=self._close_selected).pack(side="left", padx=4)
+        tk.Button(cbar, text="Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
         tk.Button(
             cbar, text="PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
             font=("Segoe UI", 9, "bold"), command=self._close_all,
         ).pack(side="left", padx=4)
+
+    def _set_protection(self) -> None:
+        sel = self.pos_tree.selection()
+        if not sel:
+            messagebox.showinfo("Set SL/TP", "Select a position row first.")
+            return
+        vals = self.pos_tree.item(sel[0])["values"]
+        pair = vals[0]
+        win = tk.Toplevel(self.root)
+        win.title(f"Set SL/TP — {pair}")
+        win.configure(bg=PANEL)
+        win.resizable(False, False)
+        tk.Label(win, text=f"{pair}", bg=PANEL, fg=ACCENT,
+                 font=("Segoe UI Semibold", 12)).grid(row=0, column=0, columnspan=2, padx=14, pady=(12, 8))
+        tk.Label(win, text="Stop-loss price:", bg=PANEL, fg=TXT).grid(row=1, column=0, sticky="w", padx=14, pady=4)
+        sl_v = tk.StringVar()
+        tk.Entry(win, textvariable=sl_v, bg=ELEV, fg=TXT, relief="flat",
+                 insertbackground=TXT).grid(row=1, column=1, padx=14, pady=4)
+        tk.Label(win, text="Take-profit price:", bg=PANEL, fg=TXT).grid(row=2, column=0, sticky="w", padx=14, pady=4)
+        tp_v = tk.StringVar()
+        tk.Entry(win, textvariable=tp_v, bg=ELEV, fg=TXT, relief="flat",
+                 insertbackground=TXT).grid(row=2, column=1, padx=14, pady=4)
+
+        def apply():
+            self.backend.submit({"cmd": "set_protection", "pair": pair, "symbol": pair,
+                                 "sl": self._float(sl_v.get(), 0) or None,
+                                 "tp": self._float(tp_v.get(), 0) or None})
+            win.destroy()
+
+        b = tk.Button(win, text="Place orders", command=apply)
+        theme.style_button(b, "accent")
+        b.grid(row=3, column=0, columnspan=2, padx=14, pady=12, sticky="ew")
 
     def _close_selected(self) -> None:
         sel = self.pos_tree.selection()
@@ -555,6 +625,14 @@ class TradingBotGUI:
             f, text="Auto-reconnect if the exchange connection drops",
             variable=self.auto_reconnect_var, command=self._push_settings,
         ).grid(row=13, column=0, columnspan=2, sticky="w", pady=2)
+        tr = ttk.Frame(f)
+        tr.grid(row=14, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(tr, text="Trailing stop %:").pack(side="left")
+        self.trailing_var = tk.StringVar(value="0")
+        e = ttk.Entry(tr, textvariable=self.trailing_var, width=6)
+        e.pack(side="left", padx=6)
+        e.bind("<FocusOut>", lambda ev: self._push_settings())
+        ttk.Label(tr, text="(0 = off; close if price falls X% from its peak)").pack(side="left")
 
     def _build_alert_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
@@ -583,7 +661,12 @@ class TradingBotGUI:
         ttk.Checkbutton(
             f, text="Sound on fills/signals", variable=self.sound_var,
             command=self._push_settings,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=5, column=0, sticky="w", pady=2)
+        self.desktop_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Desktop notifications", variable=self.desktop_var,
+            command=self._push_settings,
+        ).grid(row=5, column=1, sticky="w", pady=2)
         ttk.Label(f, text="Telegram bot token:").grid(row=6, column=0, sticky="w", pady=2)
         self.tg_token_var = tk.StringVar()
         ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=6, column=1, sticky="ew", pady=2)
@@ -664,6 +747,8 @@ class TradingBotGUI:
         self.auto_bracket_var.set(s.get("auto_bracket", DEFAULT_AUTO_BRACKET))
         self.tp1_scale_var.set(str(s.get("tp1_scale_pct", 50)))
         self.auto_reconnect_var.set(s.get("auto_reconnect", True))
+        self.trailing_var.set(str(s.get("trailing_pct", 0)))
+        self.desktop_var.set(s.get("desktop", True))
         self.order_type_var.set(s.get("order_type", DEFAULT_ORDER_TYPE))
         self.limit_price_var.set(str(s.get("limit_price", "")))
         self.leverage_var.set(str(s.get("leverage", DEFAULT_LEVERAGE)))
@@ -704,6 +789,8 @@ class TradingBotGUI:
             "leverage": int(self._float(self.leverage_var.get(), 0)),
             "margin_mode": self._margin_mode_value(),
             "move_be": self.move_be_var.get(),
+            "trailing_pct": self._float(self.trailing_var.get(), 0),
+            "desktop": self.desktop_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
             "daily_profit": self._float(self.daily_profit_var.get(), 0),

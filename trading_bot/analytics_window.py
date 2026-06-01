@@ -9,7 +9,7 @@ from __future__ import annotations
 import csv
 import time
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 import theme
 
@@ -75,6 +75,19 @@ class AnalyticsWindow:
             val.pack(anchor="w", padx=12, pady=(0, 10))
             self._vals[key] = (val, colour)
 
+        tk.Label(self.win, text="By symbol", bg=BG, fg=ACCENT,
+                 font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=16, pady=(14, 4))
+        symf = tk.Frame(self.win, bg=BORDER)
+        symf.pack(fill="x", padx=14)
+        cols = ("symbol", "trades", "wins", "realized")
+        self.sym_tree = ttk.Treeview(symf, columns=cols, show="headings", height=5)
+        for c, t, w in zip(cols, ("Symbol", "Trades", "Wins", "Realized PnL"), (140, 80, 80, 120)):
+            self.sym_tree.heading(c, text=t)
+            self.sym_tree.column(c, width=w, anchor="center")
+        self.sym_tree.tag_configure("pos", foreground=GREEN)
+        self.sym_tree.tag_configure("neg", foreground=RED)
+        self.sym_tree.pack(fill="x", padx=1, pady=1)
+
         tk.Label(self.win, text="Equity curve  (balance over time)", bg=BG, fg=ACCENT,
                  font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=16, pady=(14, 6))
         wrap = tk.Frame(self.win, bg=BORDER)   # 1px border around the chart
@@ -125,6 +138,16 @@ class AnalyticsWindow:
                 val_lbl.config(text=f"{raw:+.2f}", fg=(GREEN if raw >= 0 else RED))
             else:
                 val_lbl.config(text=str(raw))
+        for item in self.sym_tree.get_children():
+            self.sym_tree.delete(item)
+        for r in self.history.stats_by_symbol():
+            realized = r.get("realized") or 0.0
+            self.sym_tree.insert(
+                "", "end",
+                values=(r.get("symbol"), r.get("trades"), r.get("wins") or 0,
+                        f"{realized:+.2f}"),
+                tags=("pos" if realized >= 0 else "neg",))
+
         self._last_points = self.history.fetch_equity()
         self._draw_curve(self._last_points)
 

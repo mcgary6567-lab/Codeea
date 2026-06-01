@@ -14,6 +14,7 @@ updates always happen on the main thread.
 from __future__ import annotations
 
 import csv
+import json
 import os
 import queue
 import threading
@@ -23,6 +24,7 @@ from typing import Optional
 
 import history
 from config import (
+    STATE_FILE,
     DEFAULT_AUTO_BRACKET,
     DEFAULT_LEVERAGE,
     DEFAULT_ORDER_TYPE,
@@ -76,6 +78,12 @@ class Backend:
         self.auto_reconnect = True
         self._connect_cmd: Optional[dict] = None
         self._next_reconnect = 0.0
+
+        # Trailing stop (close when price falls X% from the peak since entry).
+        self.trailing_pct = 0.0
+        self._peaks: dict = {}               # symbol -> peak price
+
+        self._load_state()                   # crash recovery
 
         self.guardrails = Guardrails()
         self.notifier = Notifier()
@@ -151,6 +159,73 @@ class Backend:
         except Exception as exc:  # noqa: BLE001
             self.log(f"Reconnect failed: {exc} (retrying in 15s)", status="Error")
 
+    # -- crash recovery -----------------------------------------------------
+    def _load_state(self) -> None:
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as fh:
+                st = json.load(fh)
+            self.exchange._spot_entries = st.get("spot_entries", {})
+            self._entry_px = st.get("entry_px", {})
+            self._sl_orders = st.get("sl_orders", {})
+            self._peaks = st.get("peaks", {})
+        except Exception:  # noqa: BLE001 - first run / no state
+            pass
+
+    def _save_state(self) -> None:
+        try:
+            st = {"spot_entries": self.exchange._spot_entries, "entry_px": self._entry_px,
+                  "sl_orders": self._sl_orders, "peaks": self._peaks}
+            tmp = STATE_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(st, fh)
+            os.replace(tmp, STATE_FILE)
+        except Exception:  # noqa: BLE001 - best-effort
+            pass
+
+    # -- trailing stop ------------------------------------------------------
+    def _check_trailing(self, positions, prices) -> None:
+        if self.trailing_pct <= 0:
+            return
+        live = {p.pair for p in positions}
+        for sym in list(self._peaks):
+            if sym not in live:
+                self._peaks.pop(sym, None)   # position gone
+        for p in positions:
+            if p.side != "Long":
+                continue
+            cur = float(prices.get(p.pair, p.current) or p.current)
+            if cur <= 0:
+                continue
+            peak = max(self._peaks.get(p.pair, p.entry or cur), cur)
+            self._peaks[p.pair] = peak
+            if peak > 0 and cur <= peak * (1 - self.trailing_pct / 100.0):
+                self.log(f"Trailing stop hit on {p.pair} "
+                         f"({cur:g} <= peak {peak:g} -{self.trailing_pct:g}%) — closing",
+                         signal="TRAIL", pair=p.pair, status="Trailing")
+                self.notifier.notify(f"Trailing stop {p.pair}", f"Closed at {cur:g}", level="error")
+                self._do_close(p.pair)
+
+    # -- manual SL/TP -------------------------------------------------------
+    def _do_set_protection(self, cmd: dict) -> None:
+        symbol = normalize_symbol(cmd.get("symbol", ""))
+        sl = float(cmd.get("sl") or 0)
+        tp = float(cmd.get("tp") or 0)
+        with self._lock:
+            pos = next((p for p in self._last_positions if p.pair == symbol), None)
+        if not pos:
+            self.log(f"No open position for {symbol}", status="Error")
+            return
+        ex_side = exit_side("buy" if pos.side == "Long" else "sell")
+        if sl > 0:
+            r = self.exchange.place_reduce_order(symbol, ex_side, pos.size, sl, "sl")
+            self.log(r.message, signal="SL", pair=symbol, status="OK" if r.ok else "Rejected")
+            if r.ok and isinstance(r.raw, dict):
+                self._sl_orders[symbol] = r.raw.get("id")
+        if tp > 0:
+            r = self.exchange.place_reduce_order(symbol, ex_side, pos.size, tp, "tp")
+            self.log(r.message, signal="TP", pair=symbol, status="OK" if r.ok else "Rejected")
+        self._save_state()
+
     # -- command handling ---------------------------------------------------
     def _handle_command(self, cmd: dict) -> None:
         action = cmd.get("cmd")
@@ -181,6 +256,7 @@ class Backend:
                 self.leverage = int(cmd.get("leverage", self.leverage) or 0)
                 self.margin_mode = cmd.get("margin_mode", self.margin_mode)
                 self.move_be = cmd.get("move_be", self.move_be)
+                self.trailing_pct = float(cmd.get("trailing_pct", self.trailing_pct))
                 self.guardrails.configure(
                     max_open=cmd.get("max_open", self.guardrails.max_open_positions),
                     daily_loss=cmd.get("daily_loss", self.guardrails.daily_loss_limit),
@@ -192,9 +268,12 @@ class Backend:
                     sound=cmd.get("sound", self.notifier.sound_enabled),
                     token=cmd.get("telegram_token", self.notifier.telegram_token),
                     chat_id=cmd.get("telegram_chat_id", self.notifier.telegram_chat_id),
+                    desktop=cmd.get("desktop", self.notifier.desktop_enabled),
                 )
             elif action == "close":
                 self._do_close(cmd.get("pair"))
+            elif action == "set_protection":
+                self._do_set_protection(cmd)
             elif action == "reset_daily":
                 self.guardrails.reset_daily()
                 self.log("Daily loss limit reset — trading re-enabled", status="OK")
@@ -320,6 +399,8 @@ class Backend:
         # Place protective SL/TP from the alert payload.
         if result.ok and self.auto_bracket and (sl or tp1 or tp2):
             self._place_brackets(result.pair or symbol, side, size, sl, tp1, tp2, source)
+        if result.ok:
+            self._save_state()
 
         self._refresh()
 
@@ -442,6 +523,9 @@ class Backend:
 
         # Keep the price feed subscribed to held symbols + the manual symbol.
         self._update_feed_symbols()
+
+        # Trailing stop (close on drawdown from the peak since entry).
+        self._check_trailing(positions, dict(self._price_cache))
 
         # Periodic equity-curve snapshot for the analytics view.
         now = time.time()

@@ -80,6 +80,30 @@ def fetch_trades(limit: int = 5000) -> list:
     return [dict(r) for r in rows]
 
 
+def stats_by_symbol(limit: int = 12) -> list:
+    """Per-symbol breakdown: trades, wins, realized PnL (from 'close' rows)."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT symbol, COUNT(*) trades, "
+            "SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) wins, "
+            "SUM(pnl) realized "
+            "FROM trades WHERE kind='close' GROUP BY symbol "
+            "ORDER BY realized DESC LIMIT ?", (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def pnl_by_day(days: int = 30) -> list:
+    """Realized PnL per day (UTC) from closed trades, oldest first."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT strftime('%Y-%m-%d', ts, 'unixepoch') day, SUM(pnl) pnl "
+            "FROM trades WHERE kind='close' GROUP BY day ORDER BY day DESC LIMIT ?",
+            (days,),
+        ).fetchall()
+    return list(reversed([dict(r) for r in rows]))
+
+
 def stats() -> dict:
     """Aggregate analytics over recorded trades."""
     with _conn() as c:
