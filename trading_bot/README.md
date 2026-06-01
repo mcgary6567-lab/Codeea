@@ -42,7 +42,7 @@ _(Regenerate any image with `python make_diagram.py` / `make_mockup.py` /
 | **Auto SL/TP** | Reduce-only stop-loss + take-profit from the alert payload, with scale-out at TP1/TP2 |
 | **Risk sizing** | Fixed lot, risk-% of balance, or **risk-% per trade from the entry→stop distance** |
 | **Order types** | Market or **limit** orders, plus **leverage** and **margin-mode** (cross/isolated) control |
-| **Guardrails** | Daily loss limit (auto-halt), max open positions, per-symbol cooldown, duplicate-alert dedupe |
+| **Guardrails** | Daily loss + daily profit limit (auto-halt), max open positions, per-symbol cooldown, duplicate-alert dedupe |
 | **Position control** | Close Selected, and a red **PANIC: Close All** to flatten everything |
 | **Analytics** | SQLite trade history, win rate / realized PnL / best-worst, and an equity curve |
 | **Notifications** | Sound on fills/signals + optional **Telegram** alerts |

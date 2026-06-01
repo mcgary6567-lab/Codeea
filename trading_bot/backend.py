@@ -162,6 +162,7 @@ class Backend:
                 self.guardrails.configure(
                     max_open=cmd.get("max_open", self.guardrails.max_open_positions),
                     daily_loss=cmd.get("daily_loss", self.guardrails.daily_loss_limit),
+                    daily_profit=cmd.get("daily_profit", self.guardrails.daily_profit_limit),
                     cooldown=cmd.get("cooldown", self.guardrails.cooldown_seconds),
                     dedupe=cmd.get("dedupe", self.guardrails.dedupe_seconds),
                 )
@@ -217,6 +218,9 @@ class Backend:
         symbol = normalize_symbol(cmd["symbol"])
         side = cmd["side"]
         source = cmd.get("source", "manual")
+        # Surface the indicator's pair in the GUI (auto-fill manual symbol).
+        if source == "webhook":
+            self._emit("signal_symbol", symbol=symbol)
         entry = float(cmd.get("entry") or 0)
         sl = float(cmd.get("sl") or 0)
         tp1 = float(cmd.get("tp1") or 0)
@@ -291,6 +295,8 @@ class Backend:
         """
         event = cmd.get("event", "")
         symbol = normalize_symbol(cmd.get("symbol", ""))
+        if symbol:
+            self._emit("signal_symbol", symbol=symbol)
         nice = {
             "tp1_hit": "TP1 hit", "tp2_hit": "TP2 hit",
             "sl_hit": "SL hit", "sl_after_partial": "SL after partial",
@@ -483,15 +489,17 @@ class Backend:
                                  "Closed", pnl=pnl, message="position closed")
             self.notifier.notify(f"Closed {pair}", f"Realized PnL {pnl:+.2f}",
                                  level="ok" if pnl >= 0 else "error")
-            # Feed the daily-loss guardrail; trip & halt if the limit is breached.
+            # Feed the daily loss/profit guardrails; trip & halt if breached.
             if self.guardrails.record_realized(pnl):
+                profit = self.guardrails.trip_reason == "profit"
+                what = "profit target" if profit else "loss limit"
                 msg = (
-                    f"Daily loss limit hit ({self.guardrails.daily_realized:+.2f}). "
+                    f"Daily {what} hit ({self.guardrails.daily_realized:+.2f}). "
                     "New entries halted — reset in Guardrails to resume."
                 )
                 self.log(msg, status="Halted")
-                self._emit("alert", level="error", message=msg)
-                self.notifier.notify("Daily loss limit", msg, level="error")
+                self._emit("alert", level="ok" if profit else "error", message=msg)
+                self.notifier.notify(f"Daily {what}", msg, level="ok" if profit else "error")
 
     def _note_failure(self, exc: Exception) -> None:
         """Track consecutive REST failures; warn once when the link looks down."""

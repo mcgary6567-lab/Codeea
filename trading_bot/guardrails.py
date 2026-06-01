@@ -23,6 +23,7 @@ class Guardrails:
         self.enabled = True
         self.max_open_positions = 0
         self.daily_loss_limit = 0.0
+        self.daily_profit_limit = 0.0
         self.cooldown_seconds = 0
         self.dedupe_seconds = 0
 
@@ -30,12 +31,14 @@ class Guardrails:
         self._daily_realized = 0.0
         self._last_trade_ts: dict = {}      # symbol -> ts
         self._recent_signals: dict = {}     # (symbol, side) -> ts
-        self.tripped = False                # daily loss limit hit
+        self.tripped = False                # daily loss/profit limit hit
+        self.trip_reason = ""               # "loss" or "profit"
 
     # -- config -------------------------------------------------------------
-    def configure(self, max_open, daily_loss, cooldown, dedupe) -> None:
+    def configure(self, max_open, daily_loss, cooldown, dedupe, daily_profit=0.0) -> None:
         self.max_open_positions = int(max_open or 0)
         self.daily_loss_limit = float(daily_loss or 0.0)
+        self.daily_profit_limit = float(daily_profit or 0.0)
         self.cooldown_seconds = int(cooldown or 0)
         self.dedupe_seconds = int(dedupe or 0)
 
@@ -46,18 +49,26 @@ class Guardrails:
             self._day = today
             self._daily_realized = 0.0
             self.tripped = False
+            self.trip_reason = ""
 
     def record_realized(self, pnl: float, now: float | None = None) -> bool:
-        """Add a realized PnL amount; returns True if this *trips* the limit."""
+        """Add a realized PnL amount; returns True if this *trips* a daily limit.
+
+        Trips on either the loss limit (PnL <= -loss) or the profit target
+        (PnL >= +profit). ``trip_reason`` records which one fired.
+        """
         now = now if now is not None else time.time()
         self._roll_day(now)
         self._daily_realized += pnl
-        if (
-            self.daily_loss_limit > 0
-            and not self.tripped
-            and self._daily_realized <= -self.daily_loss_limit
-        ):
+        if self.tripped:
+            return False
+        if self.daily_loss_limit > 0 and self._daily_realized <= -self.daily_loss_limit:
             self.tripped = True
+            self.trip_reason = "loss"
+            return True
+        if self.daily_profit_limit > 0 and self._daily_realized >= self.daily_profit_limit:
+            self.tripped = True
+            self.trip_reason = "profit"
             return True
         return False
 
@@ -68,6 +79,7 @@ class Guardrails:
     def reset_daily(self) -> None:
         self._daily_realized = 0.0
         self.tripped = False
+        self.trip_reason = ""
 
     # -- the entry gate -----------------------------------------------------
     def check_entry(self, symbol: str, side: str, open_pairs: set, now: float | None = None):
@@ -77,10 +89,10 @@ class Guardrails:
         if not self.enabled:
             return True, "guardrails off"
 
-        if self.daily_loss_limit > 0 and self.tripped:
+        if self.tripped:
+            kind = "profit target" if self.trip_reason == "profit" else "loss limit"
             return False, (
-                f"daily loss limit hit ({self._daily_realized:+.2f} "
-                f"<= -{self.daily_loss_limit:g}) — trading halted"
+                f"daily {kind} hit ({self._daily_realized:+.2f}) — trading halted"
             )
 
         key = (symbol, side)

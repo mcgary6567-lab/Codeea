@@ -417,11 +417,13 @@ class TradingBotGUI:
 
         self.max_open_var = tk.StringVar(value="0")
         self.daily_loss_var = tk.StringVar(value="0")
+        self.daily_profit_var = tk.StringVar(value="0")
         self.cooldown_var = tk.StringVar(value="0")
         self.dedupe_var = tk.StringVar(value="0")
         rows = [
             ("Max open positions:", self.max_open_var),
             (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var),
+            (f"Daily profit limit ({QUOTE_CURRENCY}):", self.daily_profit_var),
             ("Cooldown / symbol (s):", self.cooldown_var),
             ("Dedupe window (s):", self.dedupe_var),
         ]
@@ -432,17 +434,17 @@ class TradingBotGUI:
             e.bind("<FocusOut>", lambda ev: self._push_settings())
 
         gr = ttk.Frame(f)
-        gr.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        gr.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         tk.Button(gr, text="Reset daily limit", command=self._reset_daily).pack(side="left")
         self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
 
-        ttk.Separator(f, orient="horizontal").grid(row=10, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
         self.move_be_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             f, text="Move stop to breakeven on TP1 event (from indicator)",
             variable=self.move_be_var, command=self._push_settings,
-        ).grid(row=11, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
 
     def _build_alert_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
@@ -524,6 +526,7 @@ class TradingBotGUI:
         self.move_be_var.set(s.get("move_be", False))
         self.max_open_var.set(str(s.get("max_open", 0)))
         self.daily_loss_var.set(str(s.get("daily_loss", 0)))
+        self.daily_profit_var.set(str(s.get("daily_profit", 0)))
         self.cooldown_var.set(str(s.get("cooldown", 0)))
         self.dedupe_var.set(str(s.get("dedupe", 0)))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
@@ -552,6 +555,7 @@ class TradingBotGUI:
             "move_be": self.move_be_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
+            "daily_profit": self._float(self.daily_profit_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
             "dedupe": int(self._float(self.dedupe_var.get(), 0)),
             "safe_mode": self.safe_var.get(),
@@ -597,6 +601,7 @@ class TradingBotGUI:
             "move_be": self.move_be_var.get(),
             "max_open": int(self._float(self.max_open_var.get(), 0)),
             "daily_loss": self._float(self.daily_loss_var.get(), 0),
+            "daily_profit": self._float(self.daily_profit_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
             "dedupe": int(self._float(self.dedupe_var.get(), 0)),
             "safe_mode": self.safe_var.get(),
@@ -667,6 +672,13 @@ class TradingBotGUI:
         symbol = self.symbol_var.get().strip()
         if symbol:
             self.backend.submit({"cmd": "watch", "symbol": symbol})
+
+    def _auto_fill_symbol(self, symbol: str) -> None:
+        """A pair arrived from the indicator — show it in the Manual box and
+        stream its live Mark price (so indicator pairs appear automatically)."""
+        if symbol and symbol != self.symbol_var.get().strip():
+            self.symbol_var.set(symbol)
+            self._watch_manual_symbol()
 
     def _on_webhook_signal(self, signal: dict) -> None:
         """Called from the webhook server thread.
@@ -761,6 +773,8 @@ class TradingBotGUI:
                 self.bal_label.config(fg=RED)
         elif kind == "ticker":
             self._update_mark(msg)
+        elif kind == "signal_symbol":
+            self._auto_fill_symbol(msg.get("symbol", ""))
         elif kind == "alert":
             self._handle_alert(msg)
 
