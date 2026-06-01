@@ -11,6 +11,11 @@ import tkinter as tk
 from tkinter import messagebox
 
 import security
+import theme
+from config import APP_TITLE, resource_path
+
+BG = theme.HEADER
+CARD = theme.PANEL
 
 
 class LoginDialog:
@@ -22,26 +27,44 @@ class LoginDialog:
         self.first_run = not security.is_initialised()
 
         self.win = tk.Toplevel(root)
-        self.win.title("Unlock Trading Bot")
-        self.win.geometry("360x200")
+        self.win.title(APP_TITLE)
+        self.win.geometry("380x300")
         self.win.resizable(False, False)
+        self.win.configure(bg=BG)
         self.win.grab_set()
         self.win.protocol("WM_DELETE_WINDOW", self._cancel)
 
-        title = "Create a PIN" if self.first_run else "Enter your PIN"
-        tk.Label(self.win, text=title, font=("Segoe UI", 13, "bold")).pack(pady=(18, 8))
+        # Logo.
+        try:
+            img = tk.PhotoImage(file=resource_path("logo.png"))
+            n = max(1, img.width() // 64)
+            self._logo = img.subsample(n, n)
+            tk.Label(self.win, image=self._logo, bg=BG).pack(pady=(20, 6))
+        except Exception:  # noqa: BLE001
+            pass
+
+        tk.Label(self.win, text=APP_TITLE, bg=BG, fg=theme.ACCENT,
+                 font=("Segoe UI Semibold", 13)).pack()
+        sub = "Create a PIN" if self.first_run else "Enter your PIN"
+        tk.Label(self.win, text=sub, bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 10)).pack(pady=(2, 10))
 
         self.pin_var = tk.StringVar()
-        e1 = tk.Entry(self.win, textvariable=self.pin_var, show="•", justify="center", font=("Segoe UI", 12))
-        e1.pack(pady=4)
+        e1 = tk.Entry(self.win, textvariable=self.pin_var, show="•", justify="center",
+                      font=("Segoe UI", 12), bg=theme.ELEV, fg=theme.TXT,
+                      insertbackground=theme.TXT, relief="flat")
+        e1.pack(pady=4, ipady=4, ipadx=10)
         e1.focus_set()
 
         self.confirm_var = tk.StringVar()
         if self.first_run:
-            tk.Label(self.win, text="Confirm PIN:").pack()
-            tk.Entry(self.win, textvariable=self.confirm_var, show="•", justify="center").pack(pady=4)
+            tk.Label(self.win, text="Confirm PIN:", bg=BG, fg=theme.TXT_DIM).pack(pady=(6, 0))
+            tk.Entry(self.win, textvariable=self.confirm_var, show="•", justify="center",
+                     bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT,
+                     relief="flat").pack(pady=4, ipady=4, ipadx=10)
 
-        tk.Button(self.win, text="Unlock", width=16, command=self._submit).pack(pady=12)
+        btn = tk.Button(self.win, text="Unlock", width=18, command=self._submit)
+        theme.style_button(btn, "accent")
+        btn.pack(pady=16)
         self.win.bind("<Return>", lambda e: self._submit())
 
     def _submit(self) -> None:

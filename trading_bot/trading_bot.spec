@@ -26,8 +26,11 @@ hiddenimports += [
     # our own flat modules
     "exchange", "backend", "pricefeed", "webhook_server", "guardrails",
     "history", "notifications", "security", "config", "gui", "login",
-    "analytics_window",
+    "analytics_window", "theme",
 ]
+
+# Bundle brand assets so the frozen exe can show the logo + window icon.
+datas += [("logo.png", "."), ("icon.ico", ".")]
 
 block_cipher = None
 
@@ -52,7 +55,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="TradingBot",
+    name="PrometheusAICryptoBot",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

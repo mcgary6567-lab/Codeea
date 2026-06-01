@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================
-REM  Build TradingBot.exe on Windows (run this ON your PC).
-REM  Produces dist\TradingBot.exe — a single, double-clickable file.
+REM  Build PrometheusAICryptoBot.exe on Windows (run this ON your PC).
+REM  Produces dist\PrometheusAICryptoBot.exe — a single, double-clickable file.
 REM ============================================================
 setlocal
 cd /d "%~dp0"
@@ -16,14 +16,14 @@ echo [2/3] Building the executable (this can take a few minutes)...
 %PYTHON% -m PyInstaller --noconfirm --clean trading_bot.spec
 
 echo [3/3] Done.
-if exist "dist\TradingBot.exe" (
+if exist "dist\PrometheusAICryptoBot.exe" (
     echo.
-    echo  SUCCESS  ->  dist\TradingBot.exe
+    echo  SUCCESS  ->  dist\PrometheusAICryptoBot.exe
     echo  Double-click it, or copy it anywhere. No Python needed to run it.
     echo.
 ) else (
     echo.
-    echo  Build did not produce dist\TradingBot.exe — see the output above.
+    echo  Build did not produce dist\PrometheusAICryptoBot.exe — see the output above.
     echo.
 )
 pause

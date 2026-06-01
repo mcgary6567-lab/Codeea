@@ -5,8 +5,16 @@ settings file. Secrets (API key/secret) are stored encrypted by ``security.py``.
 """
 
 import os
+import sys
 
-APP_NAME = "TradingBot"
+APP_NAME = "TradingBot"            # storage key (kept stable so saved PINs persist)
+APP_TITLE = "Prometheus AI Crypto Bot"
+
+
+def resource_path(name: str) -> str:
+    """Path to a bundled resource (logo/icon), works in dev and in a frozen exe."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, name)
 
 # ---------------------------------------------------------------------------
 # Storage locations. We keep state in %APPDATA%\TradingBot on Windows and in
@@ -35,6 +43,27 @@ HISTORY_DB = os.path.join(DATA_DIR, "history.db")
 # market type used for position fetching.
 # ---------------------------------------------------------------------------
 SUPPORTED_EXCHANGES = ["binance", "bybit", "okx", "kucoin", "bitget"]
+
+# Pretty (Title-case) display names. ccxt ids stay lowercase above; the UI shows
+# these and maps back to the id when connecting.
+EXCHANGE_LABELS = {
+    "binance": "Binance",
+    "bybit": "Bybit",
+    "okx": "OKX",
+    "kucoin": "KuCoin",
+    "bitget": "Bitget",
+}
+
+
+def exchange_label(ex_id: str) -> str:
+    return EXCHANGE_LABELS.get(ex_id, ex_id.title())
+
+
+def exchange_id(label: str) -> str:
+    for eid, lab in EXCHANGE_LABELS.items():
+        if lab == label:
+            return eid
+    return label.lower()
 
 # Quote currency used for balance display and risk-based sizing.
 QUOTE_CURRENCY = "USDT"

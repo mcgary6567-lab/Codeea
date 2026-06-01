@@ -1,4 +1,4 @@
-# TradingView Trading Bot (Windows)
+# Prometheus AI Crypto Bot (Windows)
 
 A standalone Python desktop app that connects to a crypto exchange and executes
 trades **manually** (BUY/SELL buttons) or **automatically** from **TradingView

@@ -39,8 +39,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TradingBot-windows
-          path: trading_bot/dist/TradingBot.exe
+          name: PrometheusAICryptoBot-windows
+          path: trading_bot/dist/PrometheusAICryptoBot.exe
           if-no-files-found: error
 
       - name: Attach to release (on tag)

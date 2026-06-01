@@ -21,10 +21,16 @@ from tkinter import filedialog, messagebox, ttk
 
 import history
 import security
+import theme
 from analytics_window import AnalyticsWindow
 from backend import Backend
 from config import (
+    APP_TITLE,
     APP_VERSION,
+    EXCHANGE_LABELS,
+    exchange_id,
+    exchange_label,
+    resource_path,
     DEFAULT_AUTO_BRACKET,
     DEFAULT_LEVERAGE,
     DEFAULT_ORDER_TYPE,
@@ -45,9 +51,16 @@ from webhook_server import WebhookServer
 # Exchanges that need an API passphrase in addition to key/secret.
 PASSPHRASE_EXCHANGES = {"okx", "kucoin", "bitget"}
 
-GREEN = "#2e8b3d"
-RED = "#c0392b"
-GREY = "#7f8c8d"
+# Colours come from the dark theme palette.
+GREEN = theme.GREEN_HL
+RED = theme.RED_HL
+GREY = theme.GREY
+ACCENT = theme.ACCENT
+PANEL = theme.PANEL
+ELEV = theme.ELEV
+TXT = theme.TXT
+TXT_DIM = theme.TXT_DIM
+HEADER = theme.HEADER
 
 
 class TradingBotGUI:
@@ -80,13 +93,28 @@ class TradingBotGUI:
     # UI construction
     # ====================================================================
     def _build_ui(self) -> None:
-        self.root.title(f"TradingView Trading Bot  v{APP_VERSION}")
-        self.root.geometry("1120x760")
-        self.root.minsize(980, 700)
+        theme.apply(self.root)
+        self.root.title(APP_TITLE)
+        self.root.geometry("1160x780")
+        self.root.minsize(1000, 720)
+        self._set_window_icon()
+        # Flat, modern tk.Buttons everywhere (set before widgets are built).
+        # Default is a dark "ghost" look; coloured buttons override their bg.
+        self.root.option_add("*Button.relief", "flat")
+        self.root.option_add("*Button.borderWidth", "0")
+        self.root.option_add("*Button.highlightThickness", "0")
+        self.root.option_add("*Button.cursor", "hand2")
+        self.root.option_add("*Button.background", ELEV)
+        self.root.option_add("*Button.foreground", TXT)
+        self.root.option_add("*Button.activeBackground", theme.BORDER)
+        self.root.option_add("*Button.activeForeground", TXT)
+        self.root.option_add("*Button.font", "{Segoe UI Semibold} 9")
+        self.root.option_add("*Button.padX", "10")
+        self.root.option_add("*Button.padY", "4")
 
-        self._build_status_bar()
+        self._build_header()
 
-        body = ttk.Frame(self.root, padding=10)
+        body = ttk.Frame(self.root, padding=12)
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1, uniform="col")
         body.columnconfigure(1, weight=1, uniform="col")
@@ -98,30 +126,55 @@ class TradingBotGUI:
         self._build_trade_settings(body)
         self._build_trade_log(body)
 
-    def _build_status_bar(self) -> None:
-        bar = tk.Frame(self.root, bg="#ecf0f1", height=34)
+    def _set_window_icon(self) -> None:
+        try:
+            self.root.iconbitmap(resource_path("icon.ico"))
+        except Exception:  # noqa: BLE001 - non-Windows / missing icon
+            try:
+                self._win_icon = tk.PhotoImage(file=resource_path("logo.png"))
+                self.root.iconphoto(True, self._win_icon)
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _build_header(self) -> None:
+        bar = tk.Frame(self.root, bg=HEADER, height=58)
         bar.pack(fill="x", side="top")
+        bar.pack_propagate(False)
 
-        self.status_dot = tk.Label(bar, text="●", fg=RED, bg="#ecf0f1", font=("Segoe UI", 12))
-        self.status_dot.pack(side="left", padx=(10, 2))
+        # Logo (kept as an attribute so it isn't garbage-collected).
+        try:
+            img = tk.PhotoImage(file=resource_path("logo.png"))
+            n = max(1, img.width() // 40)
+            self._logo_img = img.subsample(n, n)
+            tk.Label(bar, image=self._logo_img, bg=HEADER).pack(side="left", padx=(14, 8))
+        except Exception:  # noqa: BLE001
+            tk.Label(bar, text="🔥", bg=HEADER, fg=ACCENT, font=("Segoe UI", 18)).pack(side="left", padx=14)
 
-        self.conn_label = tk.Label(
-            bar, text="Disconnected", bg="#ecf0f1", font=("Segoe UI", 10, "bold")
-        )
+        title_box = tk.Frame(bar, bg=HEADER)
+        title_box.pack(side="left")
+        tk.Label(title_box, text=APP_TITLE, bg=HEADER, fg=TXT,
+                 font=("Segoe UI Semibold", 15)).pack(anchor="w")
+        tk.Label(title_box, text=f"v{APP_VERSION}", bg=HEADER, fg=TXT_DIM,
+                 font=("Segoe UI", 8)).pack(anchor="w")
+
+        # Live status on the right.
+        self.alert_label = tk.Label(bar, text="", bg=HEADER, fg=RED, font=("Segoe UI", 9, "bold"))
+        self.alert_label.pack(side="right", padx=14)
+
+        stat = tk.Frame(bar, bg=HEADER)
+        stat.pack(side="right", padx=10)
+        self.status_dot = tk.Label(stat, text="●", fg=RED, bg=HEADER, font=("Segoe UI", 12))
+        self.status_dot.pack(side="left", padx=(0, 4))
+        self.conn_label = tk.Label(stat, text="Disconnected", bg=HEADER, fg=TXT,
+                                   font=("Segoe UI Semibold", 10))
         self.conn_label.pack(side="left")
-
-        self.exch_label = tk.Label(bar, text="  |  Exchange: —", bg="#ecf0f1", font=("Segoe UI", 10))
+        self.exch_label = tk.Label(stat, text="  ·  —", bg=HEADER, fg=TXT_DIM, font=("Segoe UI", 10))
         self.exch_label.pack(side="left")
-
-        self.bal_label = tk.Label(bar, text="  |  Balance: $0.00", bg="#ecf0f1", font=("Segoe UI", 10))
+        self.bal_label = tk.Label(stat, text="  ·  $0.00", bg=HEADER, fg=TXT, font=("Segoe UI", 10))
         self.bal_label.pack(side="left")
-
-        self.pnl_label = tk.Label(bar, text="  |  PnL: $0.00", bg="#ecf0f1", font=("Segoe UI", 10, "bold"))
+        self.pnl_label = tk.Label(stat, text="  ·  PnL $0.00", bg=HEADER, fg=TXT,
+                                  font=("Segoe UI Semibold", 10))
         self.pnl_label.pack(side="left")
-
-        # Connection / data-feed alerts surface on the right of the status bar.
-        self.alert_label = tk.Label(bar, text="", bg="#ecf0f1", fg=RED, font=("Segoe UI", 9, "bold"))
-        self.alert_label.pack(side="right", padx=10)
 
     def _build_api_panel(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="API Settings", padding=10)
@@ -129,9 +182,10 @@ class TradingBotGUI:
         f.columnconfigure(1, weight=1)
 
         ttk.Label(f, text="Select Exchange:").grid(row=0, column=0, sticky="w", pady=4)
-        self.exchange_var = tk.StringVar(value=SUPPORTED_EXCHANGES[0])
+        self._exchange_labels = [EXCHANGE_LABELS[e] for e in SUPPORTED_EXCHANGES]
+        self.exchange_var = tk.StringVar(value=self._exchange_labels[0])
         self.exchange_combo = ttk.Combobox(
-            f, textvariable=self.exchange_var, values=SUPPORTED_EXCHANGES, state="readonly"
+            f, textvariable=self.exchange_var, values=self._exchange_labels, state="readonly"
         )
         self.exchange_combo.grid(row=0, column=1, sticky="ew", pady=4)
         self.exchange_combo.bind("<<ComboboxSelected>>", lambda e: self._toggle_passphrase())
@@ -150,21 +204,18 @@ class TradingBotGUI:
 
         btns = ttk.Frame(f)
         btns.grid(row=4, column=0, columnspan=2, pady=(10, 0))
-        self.connect_btn = tk.Button(
-            btns, text="Connect", bg=GREEN, fg="white", font=("Segoe UI", 10, "bold"),
-            width=14, command=self._on_connect,
-        )
+        self.connect_btn = tk.Button(btns, text="Connect", width=14, command=self._on_connect)
+        theme.style_button(self.connect_btn, "buy")
         self.connect_btn.pack(side="left", padx=5)
-        self.disconnect_btn = tk.Button(
-            btns, text="Disconnect", bg=RED, fg="white", font=("Segoe UI", 10, "bold"),
-            width=14, command=self._on_disconnect, state="disabled",
-        )
+        self.disconnect_btn = tk.Button(btns, text="Disconnect", width=14,
+                                        command=self._on_disconnect, state="disabled")
+        theme.style_button(self.disconnect_btn, "sell")
         self.disconnect_btn.pack(side="left", padx=5)
 
         self._toggle_passphrase()
 
     def _toggle_passphrase(self) -> None:
-        needs = self.exchange_var.get() in PASSPHRASE_EXCHANGES
+        needs = exchange_id(self.exchange_var.get()) in PASSPHRASE_EXCHANGES
         if needs:
             self.pass_label.grid(row=3, column=0, sticky="w", pady=4)
             self.pass_entry.grid(row=3, column=1, sticky="ew", pady=4)
@@ -179,13 +230,15 @@ class TradingBotGUI:
         f.columnconfigure(1, weight=1)
 
         self.buy_btn = tk.Button(
-            f, text="BUY", bg=GREEN, fg="white", font=("Segoe UI", 22, "bold"),
-            height=2, command=lambda: self._on_manual_trade("buy"),
+            f, text="BUY", bg=GREEN, fg="white", activebackground=GREEN,
+            font=("Segoe UI", 22, "bold"), height=2,
+            command=lambda: self._on_manual_trade("buy"),
         )
         self.buy_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self.sell_btn = tk.Button(
-            f, text="SELL", bg=RED, fg="white", font=("Segoe UI", 22, "bold"),
-            height=2, command=lambda: self._on_manual_trade("sell"),
+            f, text="SELL", bg=RED, fg="white", activebackground=RED,
+            font=("Segoe UI", 22, "bold"), height=2,
+            command=lambda: self._on_manual_trade("sell"),
         )
         self.sell_btn.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
@@ -202,13 +255,14 @@ class TradingBotGUI:
         sym_entry = ttk.Entry(top, textvariable=self.symbol_var, width=14)
         sym_entry.pack(side="left", padx=6)
         # Live mark price for the manual symbol (streamed even with no position).
-        self.mark_label = tk.Label(top, text="Mark: —", fg=GREY, font=("Segoe UI", 10, "bold"))
+        self.mark_label = tk.Label(top, text="Mark: —", fg=GREY, bg=PANEL,
+                                   font=("Segoe UI", 10, "bold"))
         self.mark_label.pack(side="left", padx=4)
         # Re-subscribe the feed whenever the symbol is edited/committed.
         sym_entry.bind("<Return>", lambda e: self._watch_manual_symbol())
         sym_entry.bind("<FocusOut>", lambda e: self._watch_manual_symbol())
         tk.Button(top, text="Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
-        self.feed_label = tk.Label(top, text="feed: off", fg=GREY)
+        self.feed_label = tk.Label(top, text="feed: off", fg=GREY, bg=PANEL)
         self.feed_label.pack(side="right", padx=8)
 
         cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
@@ -229,7 +283,7 @@ class TradingBotGUI:
         cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         tk.Button(cbar, text="Close Selected", command=self._close_selected).pack(side="left", padx=4)
         tk.Button(
-            cbar, text="⚠ PANIC: Close All", bg=RED, fg="white",
+            cbar, text="PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
             font=("Segoe UI", 9, "bold"), command=self._close_all,
         ).pack(side="left", padx=4)
 
@@ -277,9 +331,9 @@ class TradingBotGUI:
         tk.Button(btnrow, text="Save Settings (encrypted)", command=self._save_all).pack(
             side="left", expand=True, fill="x", padx=2
         )
-        tk.Button(btnrow, text="📊 Analytics", command=self._open_analytics).pack(
-            side="left", expand=True, fill="x", padx=2
-        )
+        analytics_btn = tk.Button(btnrow, text="Analytics", command=self._open_analytics)
+        theme.style_button(analytics_btn, "accent")
+        analytics_btn.pack(side="left", expand=True, fill="x", padx=2)
 
     def _build_exec_tab(self, f) -> None:
         ttk.Label(f, text="Trade Size:").grid(row=0, column=0, sticky="w", pady=4)
@@ -379,7 +433,7 @@ class TradingBotGUI:
         gr = ttk.Frame(f)
         gr.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         tk.Button(gr, text="Reset daily limit", command=self._reset_daily).pack(side="left")
-        self.guardrail_status = tk.Label(gr, text="", fg=RED, font=("Segoe UI", 9, "bold"))
+        self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
 
         ttk.Separator(f, orient="horizontal").grid(row=10, column=0, columnspan=2, sticky="ew", pady=6)
@@ -400,7 +454,7 @@ class TradingBotGUI:
         ttk.Entry(wr, textvariable=self.webhook_pass_var, width=16).pack(side="left", padx=6)
         self.webhook_btn = tk.Button(wr, text="Start Webhook", command=self._toggle_webhook)
         self.webhook_btn.pack(side="left", padx=6)
-        self.webhook_status = tk.Label(wr, text="● off", fg=GREY)
+        self.webhook_status = tk.Label(wr, text="● off", fg=GREY, bg=PANEL)
         self.webhook_status.pack(side="left")
 
         ttk.Separator(f, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", pady=6)
@@ -445,7 +499,8 @@ class TradingBotGUI:
         s = self.saved
         if not s:
             return
-        self.exchange_var.set(s.get("exchange", SUPPORTED_EXCHANGES[0]))
+        saved_ex = s.get("exchange", SUPPORTED_EXCHANGES[0])
+        self.exchange_var.set(EXCHANGE_LABELS.get(saved_ex, saved_ex))
         self.api_key_var.set(s.get("api_key", ""))
         self.api_secret_var.set(s.get("api_secret", ""))
         self.passphrase_var.set(s.get("passphrase", ""))
@@ -545,12 +600,13 @@ class TradingBotGUI:
     # Actions
     # ====================================================================
     def _on_connect(self) -> None:
-        ex = self.exchange_var.get()
+        ex = exchange_id(self.exchange_var.get())
         if not self.api_key_var.get() or not self.api_secret_var.get():
             messagebox.showwarning("Missing keys", "Enter API key and secret first.")
             return
         if ex in PASSPHRASE_EXCHANGES and not self.passphrase_var.get():
-            messagebox.showwarning("Missing passphrase", f"{ex} requires an API passphrase.")
+            messagebox.showwarning("Missing passphrase",
+                                   f"{exchange_label(ex)} requires an API passphrase.")
             return
         self._push_settings()
         self.backend.submit({
@@ -703,7 +759,7 @@ class TradingBotGUI:
         if price is None:
             self.mark_label.config(text="Mark: —", fg=GREY)
         else:
-            self.mark_label.config(text=f"Mark: {price:,.4f}".rstrip("0").rstrip("."), fg="black")
+            self.mark_label.config(text=f"Mark: {price:,.4f}".rstrip("0").rstrip("."), fg=ACCENT)
 
     def _handle_alert(self, msg: dict) -> None:
         level = msg.get("level", "error")
@@ -722,8 +778,8 @@ class TradingBotGUI:
         self.connected = connected
         if connected:
             self.status_dot.config(fg=GREEN)
-            self.conn_label.config(text="Connected")
-            self.exch_label.config(text=f"  |  Exchange: {str(exchange).upper()}")
+            self.conn_label.config(text="Connected", fg=GREEN)
+            self.exch_label.config(text=f"  ·  {exchange_label(str(exchange))}")
             self.connect_btn.config(state="disabled")
             self.disconnect_btn.config(state="normal")
             self.exchange_combo.config(state="disabled")
@@ -735,7 +791,7 @@ class TradingBotGUI:
                 self._watch_manual_symbol()
         else:
             self.status_dot.config(fg=RED)
-            self.conn_label.config(text="Disconnected")
+            self.conn_label.config(text="Disconnected", fg=TXT)
             self.connect_btn.config(state="normal")
             self.disconnect_btn.config(state="disabled")
             self.exchange_combo.config(state="readonly")
@@ -745,10 +801,10 @@ class TradingBotGUI:
     def _update_account(self, msg: dict) -> None:
         balance = msg.get("balance", 0.0)
         pnl = msg.get("pnl", 0.0)
-        self.bal_label.config(text=f"  |  Balance: ${balance:,.2f}", fg="black")
+        self.bal_label.config(text=f"  ·  ${balance:,.2f}", fg=TXT)
         sign = "+" if pnl >= 0 else "-"
         self.pnl_label.config(
-            text=f"  |  PnL: {sign}${abs(pnl):,.2f}", fg=(GREEN if pnl >= 0 else RED)
+            text=f"  ·  PnL {sign}${abs(pnl):,.2f}", fg=(GREEN if pnl >= 0 else RED)
         )
         for item in self.pos_tree.get_children():
             self.pos_tree.delete(item)

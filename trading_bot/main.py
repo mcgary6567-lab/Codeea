@@ -9,13 +9,17 @@ import sys
 import tkinter as tk
 from tkinter import messagebox
 
+import theme
+from config import APP_TITLE
 from gui import TradingBotGUI
 from login import LoginDialog
 
 
 def main() -> int:
     root = tk.Tk()
-    root.withdraw()  # hide until the user unlocks
+    root.title(APP_TITLE)
+    theme.apply(root)          # dark theme for the login dialog too
+    root.withdraw()            # hide until the user unlocks
 
     login = LoginDialog(root)
     root.wait_window(login.win)
