@@ -87,6 +87,7 @@ class TradingBotGUI:
         )
 
         self.connected = False
+        self._live_ack = bool(self.saved.get("live_ack", False))
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
@@ -594,6 +595,7 @@ class TradingBotGUI:
             "sound": self.sound_var.get(),
             "telegram_token": self.tg_token_var.get(),
             "telegram_chat_id": self.tg_chat_var.get(),
+            "live_ack": self._live_ack,
         }
 
     def _save_all(self) -> None:
@@ -652,6 +654,27 @@ class TradingBotGUI:
             messagebox.showwarning("Missing passphrase",
                                    f"{exchange_label(ex)} requires an API passphrase.")
             return
+
+        # One-time LIVE confirmation: Safe Mode is off by default, so warn once
+        # that real orders will be placed automatically on signals.
+        if not self.safe_var.get() and not self._live_ack:
+            go = messagebox.askyesno(
+                "Going LIVE",
+                "⚠  You are connecting in LIVE mode.\n\n"
+                "Real orders will be placed automatically on indicator signals "
+                "and on manual BUY / SELL — using real funds.\n\n"
+                "Tip: turn on Safe Mode (Modes & Risk) to simulate first.\n\n"
+                "Continue in LIVE mode?",
+                icon="warning",
+            )
+            if not go:
+                return
+            self._live_ack = True
+            try:
+                security.save_credentials(self.pin, self._collect_settings())
+            except Exception:  # noqa: BLE001 - persistence is best-effort
+                pass
+
         self._push_settings()
         self.backend.submit({
             "cmd": "connect",

@@ -8,11 +8,12 @@ store. Three failed attempts and the app exits.
 from __future__ import annotations
 
 import tkinter as tk
+import webbrowser
 from tkinter import messagebox
 
 import security
 import theme
-from config import APP_TITLE, resource_path
+from config import APP_TITLE, SUPPORT_EMAIL, WEBSITE_URL, resource_path
 
 BG = theme.HEADER
 CARD = theme.PANEL
@@ -28,7 +29,7 @@ class LoginDialog:
 
         self.win = tk.Toplevel(root)
         self.win.title(APP_TITLE)
-        self.win.geometry("380x300")
+        self.win.geometry("380x340")
         self.win.resizable(False, False)
         self.win.configure(bg=BG)
         self.win.grab_set()
@@ -66,6 +67,26 @@ class LoginDialog:
         theme.style_button(btn, "accent")
         btn.pack(pady=16)
         self.win.bind("<Return>", lambda e: self._submit())
+
+        # Website + support links.
+        links = tk.Frame(self.win, bg=BG)
+        links.pack(side="bottom", pady=8)
+        self._link(links, "prometheusai.tech", WEBSITE_URL)
+        tk.Label(links, text="  ·  ", bg=BG, fg=theme.TXT_DIM).pack(side="left")
+        self._link(links, SUPPORT_EMAIL, f"mailto:{SUPPORT_EMAIL}")
+
+    def _link(self, parent, text, url):
+        lbl = tk.Label(parent, text=text, bg=BG, fg=theme.ACCENT, cursor="hand2",
+                       font=("Segoe UI", 9, "underline"))
+        lbl.pack(side="left")
+        lbl.bind("<Button-1>", lambda e: self._open(url))
+
+    @staticmethod
+    def _open(url):
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _submit(self) -> None:
         pin = self.pin_var.get().strip()
