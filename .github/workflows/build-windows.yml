@@ -39,6 +39,25 @@ jobs:
       - name: Build executable
         run: pyinstaller --noconfirm --clean trading_bot.spec
 
+      - name: Code-sign executable (auto when a cert secret is present)
+        shell: pwsh
+        env:
+          WIN_CERT_BASE64: ${{ secrets.WIN_CERT_BASE64 }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          if (-not $env:WIN_CERT_BASE64) {
+            Write-Host "No WIN_CERT_BASE64 secret set - skipping signing (exe stays unsigned)."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CERT_BASE64))
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+                       Sort-Object FullName | Select-Object -Last 1).FullName
+          & $signtool sign /f $pfx /p $env:WIN_CERT_PASSWORD /fd SHA256 `
+            /tr http://timestamp.digicert.com /td SHA256 `
+            "dist\PrometheusAICryptoBot.exe"
+          & $signtool verify /pa "dist\PrometheusAICryptoBot.exe"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

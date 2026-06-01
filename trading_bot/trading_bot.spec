@@ -59,9 +59,10 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,            # UPX packing often trips AV heuristics; off = friendlier
     runtime_tmpdir=None,
     console=False,        # windowed app (no console window)
     disable_windowed_traceback=False,
     icon="icon.ico",
+    version="version_info.txt",   # embeds publisher/product metadata
 )

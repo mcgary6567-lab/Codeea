@@ -104,6 +104,24 @@ settings; there is no recovery if you forget it (by design).
 
 ---
 
+## "Windows protected your PC" (SmartScreen)
+
+This warning appears for any **new, unsigned** app — it's not a virus detection.
+
+- **To run it now:** click **More info → Run anyway** (one-time, per machine).
+- The exe embeds **publisher/product metadata** and uses **no UPX packing**,
+  which minimises antivirus false positives — but SmartScreen only fully
+  disappears once the exe is **code-signed**.
+- **Auto-signing is wired in:** add two repo secrets and every CI build is
+  signed automatically (no code change needed):
+  - `WIN_CERT_BASE64` — your code-signing `.pfx` certificate, base64-encoded.
+  - `WIN_CERT_PASSWORD` — the `.pfx` password.
+  Use an **EV code-signing certificate** for *instant* SmartScreen trust; a
+  standard OV cert removes "unknown publisher" but still builds reputation over
+  time.
+
+---
+
 ## Connecting an exchange
 
 1. Create **API keys** on your exchange. Enable *trading* but **disable
