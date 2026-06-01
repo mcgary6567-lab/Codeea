@@ -147,6 +147,10 @@ def exit_side(entry_side: str) -> str:
     return "sell" if entry_side.lower() == "buy" else "buy"
 
 
+# Quote / stablecoin assets that are not treated as spot "positions".
+STABLES = {"USDT", "USDC", "BUSD", "DAI", "TUSD", "FDUSD", "USD", "USDD"}
+
+
 class ExchangeManager:
     """Stateful wrapper around a single ccxt exchange client."""
 
@@ -156,9 +160,15 @@ class ExchangeManager:
         self.connected: bool = False
         self.read_only: bool = False
         self.safe_mode: bool = False
+        self.market_type: str = "spot"        # "spot" or "futures"
+        self._spot_entries: dict = {}          # asset -> entry price (bot buys)
         # Simulated state used when safe_mode is on or ccxt is missing.
         self._sim_balance: float = 10_000.0
         self._sim_positions: List[Position] = []
+
+    @property
+    def is_futures(self) -> bool:
+        return self.market_type == "futures"
 
     # -- connection ---------------------------------------------------------
     def connect(
@@ -170,10 +180,12 @@ class ExchangeManager:
         testnet: bool = False,
         read_only: bool = False,
         safe_mode: bool = False,
+        market_type: str = "spot",
     ) -> None:
         self.exchange_id = exchange_id
         self.read_only = read_only
         self.safe_mode = safe_mode
+        self.market_type = "futures" if market_type == "futures" else "spot"
 
         if not CCXT_AVAILABLE:
             # Demo/simulation mode: pretend we connected.
@@ -189,7 +201,7 @@ class ExchangeManager:
             "secret": secret,
             "enableRateLimit": True,
             "options": {
-                "defaultType": "swap",          # prefer futures for positions
+                "defaultType": "swap" if self.is_futures else "spot",
                 "adjustForTimeDifference": True,  # fixes Binance -1021 clock errors
                 "recvWindow": 10000,
             },
@@ -258,6 +270,8 @@ class ExchangeManager:
         # we're in pure simulation too.
         if self.safe_mode or self.client is None:
             return list(self._sim_positions)
+        if not self.is_futures:
+            return self._spot_positions()
         positions: List[Position] = []
         try:
             if self.client.has.get("fetchPositions"):
@@ -281,6 +295,35 @@ class ExchangeManager:
             pass
         return positions
 
+    def _spot_positions(self) -> List[Position]:
+        """Derive 'positions' from real spot balances (held base assets).
+
+        Entry price is taken from what the bot recorded when it bought; if
+        unknown (e.g. coins held before the bot), entry shows as the current
+        price (PnL 0). Dust under ~$1 is ignored.
+        """
+        out: List[Position] = []
+        try:
+            totals = self.client.fetch_balance().get("total", {})
+        except Exception:  # noqa: BLE001
+            return out
+        for asset, amt in totals.items():
+            try:
+                amt = float(amt or 0)
+            except (TypeError, ValueError):
+                continue
+            if amt <= 0 or asset.upper() in STABLES:
+                continue
+            sym = f"{asset}/{QUOTE_CURRENCY}"
+            price = self._last_price(sym)
+            if price <= 0 or amt * price < 1.0:   # no market / dust
+                continue
+            entry = float(self._spot_entries.get(asset, 0.0))
+            pnl = (price - entry) * amt if entry > 0 else 0.0
+            out.append(Position(pair=sym, side="Long", size=amt,
+                                entry=entry or price, current=price, pnl=pnl))
+        return out
+
     def total_pnl(self, positions: List[Position]) -> float:
         return sum(p.pnl for p in positions)
 
@@ -303,6 +346,8 @@ class ExchangeManager:
         """
         if self.safe_mode or not CCXT_AVAILABLE or not self.client:
             return ""
+        if not self.is_futures:
+            return ""   # leverage/margin are futures-only
         sym = normalize_symbol(symbol)
         notes = []
         if margin_mode in ("cross", "isolated"):
@@ -362,9 +407,13 @@ class ExchangeManager:
             )
 
         try:
-            params = {"reduceOnly": True} if reduce_only else {}
+            # reduceOnly is a futures concept; spot rejects it.
+            params = {"reduceOnly": True} if (reduce_only and self.is_futures) else {}
             order = self.client.create_order(sym, order_type, side, amount, price, params)
             verb = "placed" if order_type == "limit" else "filled"
+            # On spot, remember our entry price so positions show real PnL.
+            if not self.is_futures and side == "buy":
+                self._spot_entries[sym.split("/")[0]] = price or self._last_price(sym)
             return OrderResult(
                 True,
                 f"{order_type.upper()} {side.upper()} {amount} {sym}{at} {verb}",
@@ -393,6 +442,18 @@ class ExchangeManager:
                 True, f"SIMULATED {label} {side} {amount} {sym} @ {trigger_price}",
                 pair=sym, side=side, order_type=label, simulated=True,
             )
+        # Spot: no reduce-only / trigger orders. TP = a plain limit sell; a hard
+        # SL on spot would need a stop-limit (skipped — the strategy has no SL).
+        if not self.is_futures:
+            if kind == "sl":
+                return OrderResult(False, "SL not placed on spot (spot has no stop market)",
+                                   pair=sym, side=side, order_type=label)
+            try:
+                order = self.client.create_order(sym, "limit", side, amount, trigger_price)
+                return OrderResult(True, f"TP limit {side} {amount} {sym} @ {trigger_price}",
+                                   pair=sym, side=side, order_type=label, raw=order)
+            except Exception as exc:  # noqa: BLE001
+                return OrderResult(False, f"TP failed: {exc}", pair=sym, side=side, order_type=label)
         try:
             params = {"reduceOnly": True}
             params["stopLossPrice" if kind == "sl" else "takeProfitPrice"] = trigger_price

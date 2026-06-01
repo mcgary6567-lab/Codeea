@@ -197,9 +197,11 @@ class Backend:
             testnet=cmd.get("testnet", False),
             read_only=cmd.get("read_only", False),
             safe_mode=cmd.get("safe_mode", False),
+            market_type=cmd.get("market_type", "spot"),
         )
+        mt = self.exchange.market_type
         self._emit("status", connected=True, exchange=cmd["exchange_id"])
-        self.log(f"Connected to {cmd['exchange_id']}", status="Connected")
+        self.log(f"Connected to {cmd['exchange_id']} ({mt})", status="Connected")
         self._fail_count = 0
         self._alerted = False
 

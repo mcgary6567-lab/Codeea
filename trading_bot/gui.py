@@ -258,8 +258,13 @@ class TradingBotGUI:
         self.passphrase_var = tk.StringVar()
         self.pass_entry = ttk.Entry(f, textvariable=self.passphrase_var, show="•")
 
+        ttk.Label(f, text="Market:").grid(row=4, column=0, sticky="w", pady=4)
+        self.market_var = tk.StringVar(value="Spot")
+        ttk.Combobox(f, textvariable=self.market_var, values=["Spot", "Futures"],
+                     state="readonly").grid(row=4, column=1, sticky="ew", pady=4)
+
         btns = ttk.Frame(f)
-        btns.grid(row=4, column=0, columnspan=2, pady=(10, 0))
+        btns.grid(row=5, column=0, columnspan=2, pady=(10, 0))
         self.connect_btn = tk.Button(btns, text="Connect", width=14, command=self._on_connect)
         theme.style_button(self.connect_btn, "buy")
         self.connect_btn.pack(side="left", padx=5)
@@ -599,6 +604,7 @@ class TradingBotGUI:
             return
         saved_ex = s.get("exchange", SUPPORTED_EXCHANGES[0])
         self.exchange_var.set(EXCHANGE_LABELS.get(saved_ex, saved_ex))
+        self.market_var.set("Futures" if s.get("market_type") == "futures" else "Spot")
         self.api_key_var.set(s.get("api_key", ""))
         self.api_secret_var.set(s.get("api_secret", ""))
         self.passphrase_var.set(s.get("passphrase", ""))
@@ -631,6 +637,7 @@ class TradingBotGUI:
     def _collect_settings(self) -> dict:
         return {
             "exchange": self.exchange_var.get(),
+            "market_type": "futures" if self.market_var.get() == "Futures" else "spot",
             "api_key": self.api_key_var.get(),
             "api_secret": self.api_secret_var.get(),
             "passphrase": self.passphrase_var.get(),
@@ -747,6 +754,7 @@ class TradingBotGUI:
             "testnet": False,
             "read_only": self.readonly_var.get(),
             "safe_mode": self.safe_var.get(),
+            "market_type": "futures" if self.market_var.get() == "Futures" else "spot",
         })
 
     def _on_disconnect(self) -> None:
