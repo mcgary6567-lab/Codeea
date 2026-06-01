@@ -203,8 +203,9 @@ class Backend:
         self._fail_count = 0
         self._alerted = False
 
-        # Start the real-time price feed (skip in Safe Mode sim — no live data).
-        if not self.exchange.safe_mode and self.price_feed is None:
+        # Start the real-time price feed (real prices, read-only — runs in Safe
+        # Mode too so paper positions and the mark price are realistic).
+        if self.price_feed is None:
             self.price_feed = PriceFeed(
                 exchange_id=cmd["exchange_id"],
                 on_prices=self._on_prices,

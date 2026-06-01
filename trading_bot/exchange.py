@@ -225,10 +225,15 @@ class ExchangeManager:
 
     # -- account data -------------------------------------------------------
     def fetch_balance(self) -> float:
-        """Return total quote-currency balance (USDT)."""
+        """Return total quote-currency balance (USDT).
+
+        Uses the REAL exchange balance whenever there's a live client — even in
+        Safe Mode (read-only, no orders). Only falls back to a simulated balance
+        when there is no real connection at all (bad keys / offline / no ccxt).
+        """
         if not self.connected:
             return 0.0
-        if self.safe_mode or not CCXT_AVAILABLE:
+        if self.client is None:
             return self._sim_balance
         try:
             bal = self.client.fetch_balance()
@@ -240,7 +245,9 @@ class ExchangeManager:
     def fetch_positions(self) -> List[Position]:
         if not self.connected:
             return []
-        if self.safe_mode or not CCXT_AVAILABLE:
+        # Safe Mode shows your simulated (paper) positions; without a live client
+        # we're in pure simulation too.
+        if self.safe_mode or self.client is None:
             return list(self._sim_positions)
         positions: List[Position] = []
         try:
@@ -270,10 +277,11 @@ class ExchangeManager:
 
     # -- pricing ------------------------------------------------------------
     def _last_price(self, symbol: str) -> float:
-        if self.safe_mode or not CCXT_AVAILABLE or not self.client:
+        # Real price whenever a client exists (works in Safe Mode too).
+        if not self.client:
             return 0.0
         try:
-            return float(self.client.fetch_ticker(symbol)["last"])
+            return float(self.client.fetch_ticker(normalize_symbol(symbol))["last"])
         except Exception:  # noqa: BLE001
             return 0.0
 
