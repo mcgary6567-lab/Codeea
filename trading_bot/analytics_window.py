@@ -6,7 +6,10 @@ dependencies. Reads everything from the SQLite history DB.
 
 from __future__ import annotations
 
+import csv
+import time
 import tkinter as tk
+from tkinter import filedialog, messagebox
 
 import theme
 
@@ -85,6 +88,31 @@ class AnalyticsWindow:
         tk.Button(bar, text="Refresh", command=self.refresh, bg=ACCENT, fg="#1a1100",
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
                   activebackground="#ffa057", padx=16, pady=5).pack(side="right")
+        tk.Button(bar, text="Export CSV", command=self._export_csv, bg=ELEV, fg=TXT,
+                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
+                  activebackground=BORDER, padx=16, pady=5).pack(side="right", padx=8)
+
+    def _export_csv(self) -> None:
+        rows = self.history.fetch_trades()
+        if not rows:
+            messagebox.showinfo("Export", "No trades to export yet.", parent=self.win)
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv", filetypes=[("CSV", "*.csv")],
+            title="Export trade history (CSV)", parent=self.win)
+        if not path:
+            return
+        cols = ["time", "source", "symbol", "side", "kind", "size", "price",
+                "status", "pnl", "message"]
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(cols)
+            for r in rows:
+                t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.get("ts", 0)))
+                w.writerow([t, r.get("source"), r.get("symbol"), r.get("side"),
+                            r.get("kind"), r.get("size"), r.get("price"),
+                            r.get("status"), r.get("pnl"), r.get("message")])
+        messagebox.showinfo("Export", f"Exported {len(rows)} trades to:\n{path}", parent=self.win)
 
     # -- data ---------------------------------------------------------------
     def refresh(self) -> None:

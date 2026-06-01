@@ -70,6 +70,16 @@ def fetch_equity(limit: int = 1000) -> List[Tuple[float, float]]:
     return [(r["ts"], r["balance"]) for r in rows]
 
 
+def fetch_trades(limit: int = 5000) -> list:
+    """Return recorded trade rows (newest first) for CSV/tax export."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT ts, source, symbol, side, kind, size, price, status, pnl, message "
+            "FROM trades ORDER BY id DESC LIMIT ?", (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def stats() -> dict:
     """Aggregate analytics over recorded trades."""
     with _conn() as c:

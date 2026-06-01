@@ -62,6 +62,7 @@ class Backend:
         self.sizing_mode = "fixed"
         self.risk_percent = 1.0
         self.auto_bracket = DEFAULT_AUTO_BRACKET
+        self.tp1_scale = TP1_SCALE_OUT       # fraction closed at TP1 (rest at TP2)
 
         # Execution settings.
         self.order_type = DEFAULT_ORDER_TYPE
@@ -70,6 +71,11 @@ class Backend:
         self.move_be = False                 # move stop to breakeven on TP1 event
         self._sl_orders: dict = {}           # symbol -> stop-loss order id (for BE move)
         self._entry_px: dict = {}            # symbol -> entry price (for BE move)
+
+        # Auto-reconnect.
+        self.auto_reconnect = True
+        self._connect_cmd: Optional[dict] = None
+        self._next_reconnect = 0.0
 
         self.guardrails = Guardrails()
         self.notifier = Notifier()
@@ -131,6 +137,20 @@ class Backend:
                 last_poll = now
                 self._refresh()
 
+            # Auto-reconnect after the connection looks lost.
+            if (self.auto_reconnect and self._alerted and self._connect_cmd
+                    and now >= self._next_reconnect):
+                self._next_reconnect = now + 15.0
+                self._attempt_reconnect()
+
+    def _attempt_reconnect(self) -> None:
+        self.log("Connection lost — auto-reconnecting…", status="Reconnect")
+        try:
+            self.exchange.disconnect()
+            self._do_connect(self._connect_cmd)
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"Reconnect failed: {exc} (retrying in 15s)", status="Error")
+
     # -- command handling ---------------------------------------------------
     def _handle_command(self, cmd: dict) -> None:
         action = cmd.get("cmd")
@@ -153,6 +173,8 @@ class Backend:
                 self.sizing_mode = cmd.get("sizing_mode", self.sizing_mode)
                 self.risk_percent = cmd.get("risk_percent", self.risk_percent)
                 self.auto_bracket = cmd.get("auto_bracket", self.auto_bracket)
+                self.tp1_scale = float(cmd.get("tp1_scale", self.tp1_scale))
+                self.auto_reconnect = cmd.get("auto_reconnect", self.auto_reconnect)
                 self.exchange.safe_mode = cmd.get("safe_mode", self.exchange.safe_mode)
                 self.exchange.read_only = cmd.get("read_only", self.exchange.read_only)
                 self.order_type = cmd.get("order_type", self.order_type)
@@ -200,10 +222,18 @@ class Backend:
             market_type=cmd.get("market_type", "spot"),
         )
         mt = self.exchange.market_type
+        self._connect_cmd = dict(cmd)        # remember for auto-reconnect
         self._emit("status", connected=True, exchange=cmd["exchange_id"])
         self.log(f"Connected to {cmd['exchange_id']} ({mt})", status="Connected")
         self._fail_count = 0
         self._alerted = False
+
+        # Security check: warn if the API key can withdraw funds.
+        warn, msg = self.exchange.check_key_safety()
+        if warn:
+            self.log(msg, status="WARNING")
+            self._emit("alert", level="error", message=msg)
+            self.notifier.notify("API key warning", msg, level="error")
 
         # Populate the Symbol dropdown with the exchange's most-traded pairs.
         pairs = self.exchange.top_pairs()
@@ -352,7 +382,7 @@ class Backend:
             # Remember the SL order id so a TP1 event can move it to breakeven.
             if r.ok and isinstance(r.raw, dict):
                 self._sl_orders[symbol] = r.raw.get("id")
-        for price, qty in plan_take_profits(size, tp1, tp2, TP1_SCALE_OUT):
+        for price, qty in plan_take_profits(size, tp1, tp2, self.tp1_scale):
             r = self.exchange.place_reduce_order(symbol, ex_side, qty, price, "tp")
             self.log(r.message, signal="TP", pair=symbol, status="OK" if r.ok else "Rejected")
             history.record_trade(source, symbol, ex_side, "tp", qty, price,

@@ -45,6 +45,37 @@ def _derive_key(pin: str) -> bytes:
     return base64.urlsafe_b64encode(kdf.derive(pin.encode("utf-8")))
 
 
+def _derive_key_with_salt(pin: str, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt,
+                     iterations=_PBKDF2_ITERATIONS)
+    return base64.urlsafe_b64encode(kdf.derive(pin.encode("utf-8")))
+
+
+def export_portable(pin: str, path: str) -> None:
+    """Write a portable, PIN-encrypted backup of all settings (self-contained:
+    the salt is embedded, so it restores on any machine with the same PIN)."""
+    data = load_credentials(pin)
+    salt = os.urandom(16)
+    token = Fernet(_derive_key_with_salt(pin, salt)).encrypt(
+        json.dumps({"verify": base64.b64encode(_VERIFY_SENTINEL).decode(), "data": data}).encode())
+    blob = {"v": 1, "salt": base64.b64encode(salt).decode(),
+            "token": base64.b64encode(token).decode()}
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(blob, fh)
+
+
+def import_portable(pin: str, path: str) -> dict:
+    """Decrypt a portable backup. Raises InvalidToken on a wrong PIN/file."""
+    with open(path, "r", encoding="utf-8") as fh:
+        blob = json.load(fh)
+    salt = base64.b64decode(blob["salt"])
+    token = base64.b64decode(blob["token"])
+    inner = json.loads(Fernet(_derive_key_with_salt(pin, salt)).decrypt(token).decode())
+    if base64.b64decode(inner["verify"]) != _VERIFY_SENTINEL:
+        raise InvalidToken("sentinel mismatch")
+    return inner.get("data", {})
+
+
 def is_initialised() -> bool:
     """True if credentials have already been saved (i.e. a PIN exists)."""
     return os.path.exists(CREDENTIALS_FILE)

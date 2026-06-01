@@ -333,6 +333,24 @@ class ExchangeManager:
     def total_pnl(self, positions: List[Position]) -> float:
         return sum(p.pnl for p in positions)
 
+    def check_key_safety(self):
+        """Best-effort: warn if the API key has WITHDRAWAL permission enabled.
+
+        Returns ``(warn: bool, message: str)``. Only a few exchanges expose key
+        permissions via ccxt; for others we can't verify, so we don't warn.
+        """
+        if self.safe_mode or not self.client:
+            return False, ""
+        try:
+            if self.exchange_id == "binance" and hasattr(self.client, "sapiGetAccountApiRestrictions"):
+                r = self.client.sapiGetAccountApiRestrictions()
+                if r.get("enableWithdrawals"):
+                    return True, ("⚠ Your Binance API key has WITHDRAWAL permission "
+                                  "enabled. Disable it now — the bot never needs it.")
+        except Exception:  # noqa: BLE001 - non-fatal, best-effort
+            pass
+        return False, ""
+
     def top_pairs(self, limit: int = 20) -> List[str]:
         """The exchange's most-traded USDT pairs (by 24h volume) for the current
         market type. Returns 'BASE/USDT' strings, BTC & ETH first. Best-effort."""

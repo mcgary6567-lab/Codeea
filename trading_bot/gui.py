@@ -391,12 +391,46 @@ class TradingBotGUI:
 
         btnrow = ttk.Frame(outer)
         btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        tk.Button(btnrow, text="Save Settings (encrypted)", command=self._save_all).pack(
-            side="left", expand=True, fill="x", padx=2
-        )
+        tk.Button(btnrow, text="Save", command=self._save_all).pack(
+            side="left", expand=True, fill="x", padx=2)
+        tk.Button(btnrow, text="Backup", command=self._backup_settings).pack(
+            side="left", expand=True, fill="x", padx=2)
+        tk.Button(btnrow, text="Restore", command=self._restore_settings).pack(
+            side="left", expand=True, fill="x", padx=2)
         analytics_btn = tk.Button(btnrow, text="Analytics", command=self._open_analytics)
         theme.style_button(analytics_btn, "accent")
         analytics_btn.pack(side="left", expand=True, fill="x", padx=2)
+
+    def _backup_settings(self) -> None:
+        path = filedialog.asksaveasfilename(
+            defaultextension=".prom", filetypes=[("Prometheus backup", "*.prom")],
+            title="Backup encrypted settings")
+        if not path:
+            return
+        try:
+            security.save_credentials(self.pin, self._collect_settings())
+            security.export_portable(self.pin, path)
+            messagebox.showinfo("Backup", f"Encrypted backup saved:\n{path}")
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Backup failed", str(exc))
+
+    def _restore_settings(self) -> None:
+        path = filedialog.askopenfilename(
+            filetypes=[("Prometheus backup", "*.prom"), ("All files", "*.*")],
+            title="Restore settings backup")
+        if not path:
+            return
+        try:
+            data = security.import_portable(self.pin, path)
+        except Exception:  # noqa: BLE001
+            messagebox.showerror("Restore failed",
+                                 "Couldn't read the backup — wrong PIN or file.")
+            return
+        self.saved = data
+        self._load_saved_into_ui()
+        self._push_settings()
+        security.save_credentials(self.pin, self._collect_settings())
+        messagebox.showinfo("Restore", "Settings restored from backup.")
 
     def _build_exec_tab(self, f) -> None:
         ttk.Label(f, text="Trade Size:").grid(row=0, column=0, sticky="w", pady=4)
@@ -427,11 +461,20 @@ class TradingBotGUI:
             variable=self.auto_bracket_var, command=self._push_settings,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
 
-        ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
+        scr = ttk.Frame(f)
+        scr.grid(row=4, column=0, columnspan=2, sticky="w")
+        ttk.Label(scr, text="TP1 fill %:").pack(side="left")
+        self.tp1_scale_var = tk.StringVar(value="50")
+        e = ttk.Entry(scr, textvariable=self.tp1_scale_var, width=6)
+        e.pack(side="left", padx=6)
+        e.bind("<FocusOut>", lambda ev: self._push_settings())
+        ttk.Label(scr, text="(% closed at TP1, rest at TP2)").pack(side="left")
 
-        ttk.Label(f, text="Order type:").grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Separator(f, orient="horizontal").grid(row=5, column=0, columnspan=2, sticky="ew", pady=6)
+
+        ttk.Label(f, text="Order type:").grid(row=6, column=0, sticky="w", pady=4)
         otr = ttk.Frame(f)
-        otr.grid(row=5, column=1, sticky="w", pady=4)
+        otr.grid(row=6, column=1, sticky="w", pady=4)
         self.order_type_var = tk.StringVar(value=DEFAULT_ORDER_TYPE)
         ttk.Combobox(
             otr, textvariable=self.order_type_var, values=ORDER_TYPES, state="readonly", width=8,
@@ -441,9 +484,9 @@ class TradingBotGUI:
         ttk.Entry(otr, textvariable=self.limit_price_var, width=12).pack(side="left")
         self.order_type_var.trace_add("write", lambda *a: self._push_settings())
 
-        ttk.Label(f, text="Leverage (x):").grid(row=6, column=0, sticky="w", pady=4)
+        ttk.Label(f, text="Leverage (x):").grid(row=7, column=0, sticky="w", pady=4)
         lvr = ttk.Frame(f)
-        lvr.grid(row=6, column=1, sticky="w", pady=4)
+        lvr.grid(row=7, column=1, sticky="w", pady=4)
         self.leverage_var = tk.StringVar(value=str(DEFAULT_LEVERAGE))
         ttk.Entry(lvr, textvariable=self.leverage_var, width=6).pack(side="left")
         ttk.Label(lvr, text="0 = leave as-is   Margin:").pack(side="left", padx=(6, 2))
@@ -507,6 +550,11 @@ class TradingBotGUI:
             f, text="Move stop to breakeven on TP1 event (from indicator)",
             variable=self.move_be_var, command=self._push_settings,
         ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
+        self.auto_reconnect_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            f, text="Auto-reconnect if the exchange connection drops",
+            variable=self.auto_reconnect_var, command=self._push_settings,
+        ).grid(row=13, column=0, columnspan=2, sticky="w", pady=2)
 
     def _build_alert_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
@@ -614,6 +662,8 @@ class TradingBotGUI:
         self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", "fixed"), SIZING_MODE_LABELS["fixed"]))
         self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
         self.auto_bracket_var.set(s.get("auto_bracket", DEFAULT_AUTO_BRACKET))
+        self.tp1_scale_var.set(str(s.get("tp1_scale_pct", 50)))
+        self.auto_reconnect_var.set(s.get("auto_reconnect", True))
         self.order_type_var.set(s.get("order_type", DEFAULT_ORDER_TYPE))
         self.limit_price_var.set(str(s.get("limit_price", "")))
         self.leverage_var.set(str(s.get("leverage", DEFAULT_LEVERAGE)))
@@ -647,6 +697,8 @@ class TradingBotGUI:
             "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
             "auto_bracket": self.auto_bracket_var.get(),
+            "tp1_scale_pct": self._float(self.tp1_scale_var.get(), 50),
+            "auto_reconnect": self.auto_reconnect_var.get(),
             "order_type": self.order_type_var.get(),
             "limit_price": self.limit_price_var.get(),
             "leverage": int(self._float(self.leverage_var.get(), 0)),
@@ -697,6 +749,8 @@ class TradingBotGUI:
             "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
             "auto_bracket": self.auto_bracket_var.get(),
+            "tp1_scale": self._float(self.tp1_scale_var.get(), 50) / 100.0,
+            "auto_reconnect": self.auto_reconnect_var.get(),
             "order_type": self.order_type_var.get(),
             "leverage": int(self._float(self.leverage_var.get(), 0)),
             "margin_mode": self._margin_mode_value(),
