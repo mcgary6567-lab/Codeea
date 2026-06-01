@@ -138,7 +138,7 @@ class TradingBotGUI:
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1, uniform="col")
         body.columnconfigure(1, weight=1, uniform="col")
-        body.rowconfigure(2, weight=1)
+        body.rowconfigure(1, weight=1)
 
         self._build_api_panel(body)
         self._build_trade_buttons(body)
@@ -269,7 +269,7 @@ class TradingBotGUI:
 
     def _build_trade_buttons(self, parent) -> None:
         f = ttk.Frame(parent, padding=(5, 0))
-        f.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
+        f.grid(row=2, column=0, sticky="ew", padx=5, pady=5)   # bottom of left column
         f.columnconfigure(0, weight=1)
         f.columnconfigure(1, weight=1)
 
@@ -288,7 +288,7 @@ class TradingBotGUI:
 
     def _build_positions(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Open Positions", padding=8)
-        f.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+        f.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)   # fills the middle, expands
         f.rowconfigure(1, weight=1)
         f.columnconfigure(0, weight=1)
 
