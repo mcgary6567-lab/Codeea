@@ -42,6 +42,27 @@ class Notifier:
     def telegram_ready(self) -> bool:
         return bool(self.telegram_token and self.telegram_chat_id)
 
+    def test_telegram(self, token: str, chat_id: str):
+        """Send a one-off test message. Returns ``(ok: bool, message: str)``."""
+        token, chat_id = (token or "").strip(), (chat_id or "").strip()
+        if not token or not chat_id:
+            return False, "Enter both the bot token and chat id first."
+        try:
+            text = ("✅ *Prometheus AI Crypto Bot*\nTelegram test successful — "
+                    "your notifications are connected and working.")
+            data = urllib.parse.urlencode(
+                {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode()
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+            info = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8"))
+            if info.get("ok"):
+                return True, "Test message sent — check your Telegram chat."
+            return False, f"Telegram rejected it: {info.get('description', 'unknown error')}"
+        except Exception as exc:  # noqa: BLE001
+            return False, (f"Could not reach Telegram: {exc}\n\n"
+                           "Check the bot token, that you've messaged the bot once, "
+                           "and that the chat id is correct.")
+
     # -- public -------------------------------------------------------------
     def notify(self, title: str, message: str, level: str = "info") -> None:
         if self.sound_enabled:

@@ -672,7 +672,13 @@ class TradingBotGUI:
         ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=6, column=1, sticky="ew", pady=2)
         ttk.Label(f, text="Telegram chat id:").grid(row=7, column=0, sticky="w", pady=2)
         self.tg_chat_var = tk.StringVar()
-        ttk.Entry(f, textvariable=self.tg_chat_var).grid(row=7, column=1, sticky="ew", pady=2)
+        cr = ttk.Frame(f)
+        cr.grid(row=7, column=1, sticky="ew", pady=2)
+        cr.columnconfigure(0, weight=1)
+        ttk.Entry(cr, textvariable=self.tg_chat_var).grid(row=0, column=0, sticky="ew")
+        self.tg_test_btn = tk.Button(cr, text="Test", command=self._test_telegram)
+        theme.style_button(self.tg_test_btn, "accent")
+        self.tg_test_btn.grid(row=0, column=1, padx=(6, 0))
 
         ttk.Separator(f, orient="horizontal").grid(row=8, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
@@ -706,6 +712,30 @@ class TradingBotGUI:
         """Auto-connect cloud signals if a licence token was saved."""
         if self.relay_token_var.get().strip():
             self._toggle_relay()
+
+    def _test_telegram(self) -> None:
+        """Send a test Telegram message so the user can confirm it works."""
+        import threading
+        token = self.tg_token_var.get().strip()
+        chat = self.tg_chat_var.get().strip()
+        if not token or not chat:
+            messagebox.showwarning("Telegram test",
+                                   "Enter both the bot token and chat id first.")
+            return
+        self.tg_test_btn.config(text="Sending…", state="disabled")
+
+        def worker():
+            ok, msg = self.backend.notifier.test_telegram(token, chat)
+            self.root.after(0, lambda: self._telegram_test_done(ok, msg))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _telegram_test_done(self, ok: bool, msg: str) -> None:
+        self.tg_test_btn.config(text="Test", state="normal")
+        if ok:
+            messagebox.showinfo("Telegram test", msg)
+        else:
+            messagebox.showerror("Telegram test failed", msg)
 
     def _build_trade_log(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Trade Log", padding=8)
