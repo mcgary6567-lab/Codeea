@@ -13,7 +13,7 @@ from tkinter import messagebox
 
 import security
 import theme
-from config import APP_TITLE, WEBSITE_URL, resource_path
+from config import APP_TITLE, SUPPORT_EMAIL, WEBSITE_URL, resource_path
 
 BG = theme.HEADER
 CARD = theme.PANEL
@@ -68,10 +68,12 @@ class LoginDialog:
         btn.pack(pady=16)
         self.win.bind("<Return>", lambda e: self._submit())
 
-        # Website link.
+        # Website + email links.
         links = tk.Frame(self.win, bg=BG)
         links.pack(side="bottom", pady=8)
         self._link(links, "prometheusai.tech", WEBSITE_URL)
+        tk.Label(links, text="  ·  ", bg=BG, fg=theme.TXT_DIM).pack(side="left")
+        self._link(links, SUPPORT_EMAIL, f"mailto:{SUPPORT_EMAIL}")
 
     def _link(self, parent, text, url):
         lbl = tk.Label(parent, text=text, bg=BG, fg=theme.ACCENT, cursor="hand2",

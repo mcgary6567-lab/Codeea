@@ -46,6 +46,7 @@ from config import (
     SIZING_MODE_LABELS,
     SIZING_MODES,
     SUPPORTED_EXCHANGES,
+    SUPPORT_EMAIL,
     TOP_PAIRS,
     WEBHOOK_HOST,
     WEBHOOK_PORT,
@@ -223,6 +224,7 @@ class TradingBotGUI:
             lbl.bind("<Button-1>", lambda e: action())
             return lbl
 
+        link(bar, SUPPORT_EMAIL, lambda: self._open_url(f"mailto:{SUPPORT_EMAIL}"))
         link(bar, "Website: prometheusai.tech", lambda: self._open_url(WEBSITE_URL))
 
     def _open_url(self, url: str) -> None:
@@ -314,6 +316,7 @@ class TradingBotGUI:
         self.symbol_var = tk.StringVar(value=TOP_PAIRS[0])
         sym_box = ttk.Combobox(top, textvariable=self.symbol_var, values=TOP_PAIRS, width=13)
         sym_box.pack(side="left", padx=6)
+        self.symbol_box = sym_box
         # Live current price for the selected symbol (streamed even with no position).
         ttk.Label(top, text="Current Price:").pack(side="left", padx=(6, 2))
         self.mark_label = tk.Label(top, text="—", fg=ACCENT, bg=PANEL,
@@ -943,6 +946,10 @@ class TradingBotGUI:
             self._update_mark(msg)
         elif kind == "signal_symbol":
             self._auto_fill_symbol(msg.get("symbol", ""))
+        elif kind == "pairs":
+            pairs = msg.get("pairs", [])
+            if pairs:
+                self.symbol_box.config(values=pairs)
         elif kind == "alert":
             self._handle_alert(msg)
 

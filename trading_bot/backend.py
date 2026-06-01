@@ -205,6 +205,11 @@ class Backend:
         self._fail_count = 0
         self._alerted = False
 
+        # Populate the Symbol dropdown with the exchange's most-traded pairs.
+        pairs = self.exchange.top_pairs()
+        if pairs:
+            self._emit("pairs", pairs=pairs)
+
         # Start the real-time price feed (real prices, read-only — runs in Safe
         # Mode too so paper positions and the mark price are realistic).
         if self.price_feed is None:

@@ -333,6 +333,38 @@ class ExchangeManager:
     def total_pnl(self, positions: List[Position]) -> float:
         return sum(p.pnl for p in positions)
 
+    def top_pairs(self, limit: int = 20) -> List[str]:
+        """The exchange's most-traded USDT pairs (by 24h volume) for the current
+        market type. Returns 'BASE/USDT' strings, BTC & ETH first. Best-effort."""
+        if not self.client:
+            return []
+        want_type = "swap" if self.is_futures else "spot"
+        try:
+            tickers = self.client.fetch_tickers()
+        except Exception:  # noqa: BLE001
+            return []
+        rows = []
+        for sym, t in tickers.items():
+            m = self.client.markets.get(sym, {}) if hasattr(self.client, "markets") else {}
+            if m.get("quote") != QUOTE_CURRENCY or m.get("type") != want_type:
+                continue
+            if not m.get("active", True):
+                continue
+            base = m.get("base", sym.split("/")[0])
+            try:
+                vol = float(t.get("quoteVolume") or 0)
+            except (TypeError, ValueError):
+                vol = 0.0
+            rows.append((f"{base}/{QUOTE_CURRENCY}", vol))
+        rows.sort(key=lambda r: r[1], reverse=True)
+        ordered = [s for s, _ in rows][:limit]
+        # Keep BTC/ETH at the front if present.
+        for lead in (f"ETH/{QUOTE_CURRENCY}", f"BTC/{QUOTE_CURRENCY}"):
+            if lead in ordered:
+                ordered.remove(lead)
+                ordered.insert(0, lead)
+        return ordered
+
     # -- pricing ------------------------------------------------------------
     def _last_price(self, symbol: str) -> float:
         # Real price whenever a client exists (works in Safe Mode too).
