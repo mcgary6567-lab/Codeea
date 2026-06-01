@@ -229,15 +229,15 @@ class TradingBotGUI:
         f.columnconfigure(0, weight=1)
         f.columnconfigure(1, weight=1)
 
-        self.buy_btn = tk.Button(
-            f, text="BUY", bg=GREEN, fg="white", activebackground=GREEN,
-            font=("Segoe UI", 22, "bold"), height=2,
+        self.buy_btn = theme.RoundedButton(
+            f, text="BUY", bg=GREEN, active=theme.GREEN, fg="white",
+            radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("buy"),
         )
         self.buy_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        self.sell_btn = tk.Button(
-            f, text="SELL", bg=RED, fg="white", activebackground=RED,
-            font=("Segoe UI", 22, "bold"), height=2,
+        self.sell_btn = theme.RoundedButton(
+            f, text="SELL", bg=RED, active=theme.RED, fg="white",
+            radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("sell"),
         )
         self.sell_btn.grid(row=0, column=1, sticky="ew", padx=(5, 0))

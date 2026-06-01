@@ -83,9 +83,9 @@ field(2.0, 6.05, 3.9, "API Secret:", show=True)
 button(1.7, 5.6, 1.9, 0.36, "Connect", GREEN)
 button(3.9, 5.6, 1.9, 0.36, "Disconnect", RED)
 
-# BUY / SELL
-button(0.45, 4.65, 2.85, 0.66, "BUY", GREEN, fs=20)
-button(3.45, 4.65, 2.85, 0.66, "SELL", RED, fs=20)
+# BUY / SELL  (smaller, 5px-radius rounded corners)
+button(0.7, 4.78, 2.5, 0.46, "BUY", GREEN, fs=14)
+button(3.55, 4.78, 2.5, 0.46, "SELL", RED, fs=14)
 
 # Open positions
 panel(0.35, 0.4, 6.0, 4.05, title="Open Positions")

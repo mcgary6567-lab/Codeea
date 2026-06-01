@@ -101,6 +101,85 @@ def apply(root: tk.Tk) -> dict:
     }
 
 
+class RoundedButton(tk.Canvas):
+    """A flat button with rounded corners (tk.Button can't round corners).
+
+    Supports ``.config(state=...)`` / ``text=`` / ``bg=`` like a normal button
+    and redraws responsively when the widget is stretched by its geometry mgr.
+    """
+
+    def __init__(self, parent, text="", command=None, bg=ACCENT, fg="#ffffff",
+                 active=None, radius=5, width=120, height=42,
+                 font=("Segoe UI Semibold", 14), container_bg=PANEL):
+        super().__init__(parent, width=width, height=height, bg=container_bg,
+                         highlightthickness=0, bd=0)
+        self._text = text
+        self._bg = bg
+        self._fg = fg
+        self._active = active or bg
+        self._radius = radius
+        self._font = font
+        self._command = command
+        self._state = "normal"
+        self._cur = bg
+        self.bind("<Configure>", lambda e: self._draw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+        self._draw()
+
+    def _round_points(self, x1, y1, x2, y2, r):
+        return [
+            x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2,
+            x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1,
+        ]
+
+    def _draw(self):
+        self.delete("all")
+        w = self.winfo_width() or int(self["width"])
+        h = self.winfo_height() or int(self["height"])
+        r = self._radius
+        fill = "#3a3f4b" if self._state == "disabled" else self._cur
+        fg = TXT_DIM if self._state == "disabled" else self._fg
+        self.create_polygon(self._round_points(1, 1, w - 1, h - 1, r),
+                            smooth=True, splinesteps=12, fill=fill, outline=fill)
+        self.create_text(w / 2, h / 2, text=self._text, fill=fg, font=self._font)
+
+    def _on_enter(self, _):
+        if self._state == "normal":
+            self._cur = self._active
+            self._draw()
+
+    def _on_leave(self, _):
+        self._cur = self._bg
+        self._draw()
+
+    def _on_press(self, _):
+        if self._state == "normal":
+            self._cur = self._active
+            self._draw()
+
+    def _on_release(self, _):
+        if self._state == "normal" and self._command:
+            self._command()
+
+    def configure(self, **kw):  # noqa: A003 - mirror tk widget API
+        if "state" in kw:
+            self._state = kw.pop("state")
+        if "text" in kw:
+            self._text = kw.pop("text")
+        if "bg" in kw:
+            self._bg = self._cur = kw.pop("bg")
+        if "command" in kw:
+            self._command = kw.pop("command")
+        self._draw()
+        if kw:
+            super().configure(**kw)
+
+    config = configure
+
+
 def style_button(btn: tk.Button, kind: str = "default") -> None:
     """Flat, modern styling for plain tk.Buttons."""
     palette = {
