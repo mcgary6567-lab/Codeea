@@ -46,7 +46,7 @@ from config import (
     SIZING_MODE_LABELS,
     SIZING_MODES,
     SUPPORTED_EXCHANGES,
-    SUPPORT_EMAIL,
+    TOP_PAIRS,
     WEBHOOK_HOST,
     WEBHOOK_PORT,
     WEBSITE_URL,
@@ -223,7 +223,6 @@ class TradingBotGUI:
             lbl.bind("<Button-1>", lambda e: action())
             return lbl
 
-        link(bar, "Support: " + SUPPORT_EMAIL, lambda: self._open_url(f"mailto:{SUPPORT_EMAIL}"))
         link(bar, "Website: prometheusai.tech", lambda: self._open_url(WEBSITE_URL))
 
     def _open_url(self, url: str) -> None:
@@ -311,20 +310,20 @@ class TradingBotGUI:
 
         top = ttk.Frame(f)
         top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        ttk.Label(top, text="Manual symbol:").pack(side="left")
-        self.symbol_var = tk.StringVar(value="BTC/USDT")
-        sym_entry = ttk.Entry(top, textvariable=self.symbol_var, width=14)
-        sym_entry.pack(side="left", padx=6)
-        # Live mark price for the manual symbol (streamed even with no position).
-        self.mark_label = tk.Label(top, text="Mark: —", fg=GREY, bg=PANEL,
-                                   font=("Segoe UI", 10, "bold"))
-        self.mark_label.pack(side="left", padx=4)
-        # Re-subscribe the feed whenever the symbol is edited/committed.
-        sym_entry.bind("<Return>", lambda e: self._watch_manual_symbol())
-        sym_entry.bind("<FocusOut>", lambda e: self._watch_manual_symbol())
+        ttk.Label(top, text="Symbol:").pack(side="left")
+        self.symbol_var = tk.StringVar(value=TOP_PAIRS[0])
+        sym_box = ttk.Combobox(top, textvariable=self.symbol_var, values=TOP_PAIRS, width=13)
+        sym_box.pack(side="left", padx=6)
+        # Live current price for the selected symbol (streamed even with no position).
+        ttk.Label(top, text="Current Price:").pack(side="left", padx=(6, 2))
+        self.mark_label = tk.Label(top, text="—", fg=ACCENT, bg=PANEL,
+                                   font=("Segoe UI Semibold", 11))
+        self.mark_label.pack(side="left", padx=2)
+        # Re-subscribe the feed whenever the symbol is picked/typed.
+        sym_box.bind("<<ComboboxSelected>>", lambda e: self._watch_manual_symbol())
+        sym_box.bind("<Return>", lambda e: self._watch_manual_symbol())
+        sym_box.bind("<FocusOut>", lambda e: self._watch_manual_symbol())
         tk.Button(top, text="Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
-        self.feed_label = tk.Label(top, text="feed: off", fg=GREY, bg=PANEL)
-        self.feed_label.pack(side="right", padx=8)
 
         cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
         self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=12)
@@ -950,9 +949,9 @@ class TradingBotGUI:
     def _update_mark(self, msg: dict) -> None:
         price = msg.get("price")
         if price is None:
-            self.mark_label.config(text="Mark: —", fg=GREY)
+            self.mark_label.config(text="—", fg=GREY)
         else:
-            self.mark_label.config(text=f"Mark: {price:,.4f}".rstrip("0").rstrip("."), fg=ACCENT)
+            self.mark_label.config(text=f"{price:,.4f}".rstrip("0").rstrip("."), fg=ACCENT)
 
     def _handle_alert(self, msg: dict) -> None:
         level = msg.get("level", "error")
@@ -976,19 +975,15 @@ class TradingBotGUI:
             self.connect_btn.config(state="disabled")
             self.disconnect_btn.config(state="normal")
             self.exchange_combo.config(state="disabled")
-            if self.safe_var.get():
-                self.feed_label.config(text="feed: sim", fg=GREY)
-            else:
-                self.feed_label.config(text="feed: live", fg=GREEN)
-                # Start streaming the manual symbol's mark price right away.
-                self._watch_manual_symbol()
+            # Start streaming the symbol's current price right away.
+            self._watch_manual_symbol()
         else:
             self.status_dot.config(fg=RED)
             self.conn_label.config(text="Disconnected", fg=TXT)
             self.connect_btn.config(state="normal")
             self.disconnect_btn.config(state="disabled")
             self.exchange_combo.config(state="readonly")
-            self.feed_label.config(text="feed: off", fg=GREY)
+            self.mark_label.config(text="—", fg=GREY)
             self.alert_label.config(text="")
 
     def _update_account(self, msg: dict) -> None:

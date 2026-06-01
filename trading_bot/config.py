@@ -70,6 +70,12 @@ def exchange_id(label: str) -> str:
 # Quote currency used for balance display and risk-based sizing.
 QUOTE_CURRENCY = "USDT"
 
+# Most-traded crypto pairs offered in the Symbol dropdown (BTC & ETH first).
+TOP_PAIRS = [
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
+    "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "LINK/USDT", "MATIC/USDT",
+]
+
 # ---------------------------------------------------------------------------
 # Webhook receiver. TradingView alerts POST JSON here. Keep the port high so it
 # does not need admin rights to bind on Windows.
