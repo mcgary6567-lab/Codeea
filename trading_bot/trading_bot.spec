@@ -32,7 +32,12 @@ hiddenimports += [
 ]
 
 # Bundle brand assets so the frozen exe can show the logo + window icon.
-datas += [("logo.png", "."), ("icon.ico", ".")]
+# Bundle brand assets ONLY if present. fetch_logo.py downloads them from the
+# official URL before this spec runs; if that fails the build still succeeds and
+# the app falls back to no logo.
+import os
+datas += [(f, ".") for f in ("logo.png", "icon.ico") if os.path.exists(f)]
+_exe_icon = "icon.ico" if os.path.exists("icon.ico") else None
 
 block_cipher = None
 
@@ -72,6 +77,6 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,        # windowed app (no console window)
     disable_windowed_traceback=False,
-    icon="icon.ico",
+    icon=_exe_icon,
     version="version_info.txt",   # embeds publisher/product metadata
 )

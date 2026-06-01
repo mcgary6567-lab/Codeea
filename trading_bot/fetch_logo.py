@@ -1,10 +1,10 @@
-"""Download the official brand logo and produce logo.png + icon.ico.
+"""Download the brand logo from the official URL and produce logo.png + icon.ico.
 
-Run at build time (CI runner / your own PC — both have internet). This sandbox
-blocks outbound hosts, so the committed placeholder is used here; the real logo
-is baked in whenever the exe is actually built.
+Runs at build time (CI runner / your PC — both have internet). This sandbox
+blocks the host, so it can't fetch here; the real build does.
 
-Best-effort: on any failure it leaves the existing logo.png / icon.ico in place.
+The ONLY logo source is the URL below (override with LOGO_URL env or an arg).
+No placeholder is bundled — the build downloads the real logo every time.
 
 Usage:  python fetch_logo.py [url]
 """
@@ -15,59 +15,44 @@ import sys
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Candidate URLs tried in order; first that returns a valid image wins.
-# Override with:  python fetch_logo.py <url>   (or set LOGO_URL env var)
-CANDIDATE_URLS = [
-    os.environ.get("LOGO_URL", ""),
-    "https://prometheusai.tech/assets/favicon.png",
-    "https://hooks.prometheusai.tech/logo.png",
-    "https://prometheusai.tech/logo.png",
-]
+LOGO_PATH = os.path.join(HERE, "logo.png")
+ICO_PATH = os.path.join(HERE, "icon.ico")
+
+DEFAULT_URL = "https://prometheusai.tech/assets/favicon.png"
 ICO_SIZES = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 
 
-def _download(url: str):
+def _download(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     data = urllib.request.urlopen(req, timeout=30).read()
-    if len(data) < 100:
+    if len(data) < 64:
         raise ValueError(f"response too small ({len(data)} bytes)")
     return data
 
 
 def main() -> int:
-    logo_path = os.path.join(HERE, "logo.png")
-    ico_path = os.path.join(HERE, "icon.ico")
+    url = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("LOGO_URL", DEFAULT_URL)
+    try:
+        data = _download(url)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[fetch_logo] could not download {url}: {exc}")
+        return 0  # build continues; app falls back to no-logo gracefully
 
-    # Download ONLY if a URL is explicitly given (arg or LOGO_URL env). By
-    # default we use whatever logo.png is committed in the repo — deterministic,
-    # no flaky favicon fetch overriding a good logo.
-    urls = []
-    if len(sys.argv) > 1:
-        urls = [sys.argv[1]]
-    elif os.environ.get("LOGO_URL"):
-        urls = [os.environ["LOGO_URL"]]
-
-    for url in urls:
-        try:
-            data = _download(url)
-            with open(logo_path, "wb") as fh:
-                fh.write(data)
-            print(f"[fetch_logo] downloaded logo from {url}")
-            break
-        except Exception as exc:  # noqa: BLE001
-            print(f"[fetch_logo] {url} -> failed ({exc})")
-    if not urls:
-        print("[fetch_logo] using committed logo.png (no download requested)")
-
-    # Always (re)generate icon.ico from the current logo.png.
     try:
         from PIL import Image
 
-        img = Image.open(logo_path).convert("RGBA")
-        img.save(ico_path, sizes=ICO_SIZES)
-        print(f"[fetch_logo] icon.ico regenerated from logo.png ({img.size[0]}x{img.size[1]})")
+        img = Image.open(io.BytesIO(data)).convert("RGBA")
+        img.save(LOGO_PATH)
+        img.save(ICO_PATH, sizes=ICO_SIZES)
+        print(f"[fetch_logo] logo set from {url} ({img.size[0]}x{img.size[1]})")
     except Exception as exc:  # noqa: BLE001
-        print(f"[fetch_logo] icon.ico not regenerated ({exc}); keeping existing icon")
+        # No Pillow: at least write the raw bytes as the PNG logo.
+        try:
+            with open(LOGO_PATH, "wb") as fh:
+                fh.write(data)
+            print(f"[fetch_logo] saved logo.png raw (no Pillow for .ico): {exc}")
+        except Exception as exc2:  # noqa: BLE001
+            print(f"[fetch_logo] failed to write logo: {exc2}")
     return 0
 
 
