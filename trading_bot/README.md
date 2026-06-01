@@ -143,8 +143,8 @@ The flow:
 Prometheus alert  →  TradingView webhook  →  this bot's receiver  →  exchange order
 ```
 
-1. In the **Webhook & Alerts** tab, optionally set a **Webhook passphrase**, then
-   click **Start Webhook**. The bot listens on port **8723**.
+1. The **webhook auto-starts on launch** (port **8723**) — the Start/Stop button
+   just toggles it. Optionally set a **Webhook passphrase** for extra auth.
 2. Keep the **Strategy filter** at **`Prometheus`** (the default). The bot then
    acts **only** on alerts whose `comment`/strategy tag matches the indicator's
    **Strategy tag** (default `Prometheus`) and ignores everything else. Leave the

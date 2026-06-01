@@ -87,6 +87,7 @@ class TradingBotGUI:
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
+        self._autostart_webhook()       # ready to receive signals out of the box
         self.root.after(150, self._drain_ui_queue)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -720,6 +721,20 @@ class TradingBotGUI:
                 self.webhook_status.config(text="● listening", fg=GREEN)
             except OSError as exc:
                 messagebox.showerror("Webhook", f"Could not start: {exc}")
+
+    def _autostart_webhook(self) -> None:
+        """Start the webhook receiver on launch so the app is ready to receive
+        indicator signals as soon as the exchange is connected (plug-and-play)."""
+        try:
+            self.webhook.start()
+            self.webhook_btn.config(text="Stop Webhook")
+            self.webhook_status.config(text="● listening", fg=GREEN)
+        except OSError as exc:  # port busy etc. — leave it stopped, user can retry
+            self.webhook_status.config(text="● off (port busy)", fg=RED)
+            self.backend.ui_queue.put({
+                "kind": "log", "time": "", "signal": "", "pair": "", "status": "",
+                "message": f"Webhook auto-start failed: {exc} — click Start Webhook to retry",
+            })
 
     def _update_manual_state(self) -> None:
         state = "normal" if self.manual_var.get() else "disabled"
