@@ -35,12 +35,14 @@ class WebhookServer:
         on_signal: Callable[[dict], None],
         get_passphrase: Callable[[], str],
         log: Callable[[str], None],
+        get_strategy_filter: Callable[[], str] = lambda: "",
     ) -> None:
         self.host = host
         self.port = port
         self.on_signal = on_signal
         self.get_passphrase = get_passphrase
         self.log = log
+        self.get_strategy_filter = get_strategy_filter
         self._httpd: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
         self.running = False
@@ -94,6 +96,18 @@ class WebhookServer:
                     server.log("Webhook: passphrase mismatch — rejected")
                     self._send(401, "unauthorized")
                     return
+
+                # Strategy filter: only act on alerts whose strategy tag matches
+                # (e.g. "GoldScalp"). Lets you point one endpoint at a specific
+                # indicator and ignore everything else. Blank = accept all.
+                strat_filter = (server.get_strategy_filter() or "").strip()
+                if strat_filter:
+                    tag = str(payload.get("comment") or payload.get("strategy")
+                              or payload.get("header") or "")
+                    if strat_filter.lower() not in tag.lower():
+                        server.log(f"Webhook: ignored (strategy '{tag}' != '{strat_filter}')")
+                        self._send(200, "ignored")
+                        return
 
                 action = str(payload.get("action") or payload.get("side") or "").lower()
                 event = str(payload.get("event") or "").lower()

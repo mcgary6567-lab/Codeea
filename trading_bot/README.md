@@ -135,41 +135,43 @@ entirely (monitoring only).
 
 ---
 
-## Auto-trading from TradingView (`Dip2Green_PRO`)
+## Auto-trading from TradingView (Gold Scalpers)
 
 The flow:
 
 ```
-Dip2Green alert  →  TradingView webhook  →  this bot's receiver  →  exchange order
+Gold Scalpers alert  →  TradingView webhook  →  this bot's receiver  →  exchange order
 ```
 
-1. In **Trade Settings**, optionally set a **Webhook passphrase**, then click
-   **Start Webhook**. The bot listens on port **8723**.
-2. Expose that port to TradingView. TradingView only POSTs to public URLs, so
-   either:
+1. In the **Webhook & Alerts** tab, optionally set a **Webhook passphrase**, then
+   click **Start Webhook**. The bot listens on port **8723**.
+2. Set the **Strategy filter** to **`GoldScalp`** (the default). The bot then
+   acts **only** on Gold Scalpers alerts — matched by the indicator's
+   *Order Comment* (`eaComment`, default `GoldScalp`) — and ignores any other
+   indicator (e.g. Dip2Green, which sends no `comment` tag). Leave the filter
+   blank to accept all alerts.
+3. Expose port 8723 to TradingView (it only POSTs to public URLs):
    - run a tunnel (e.g. `ngrok http 8723`) and use the public URL, **or**
    - host on a VPS / forward the port on your router.
-3. In TradingView, add an alert on the **Dip2Green PRO** indicator:
-   - Condition: *Any alert() function call* (the indicator already emits JSON).
-   - In the indicator settings, set **"Webhook passphrase (for trading bot)"**
-     to the same value you put in the bot.
+4. In TradingView, add an alert on **Gold Scalpers**:
+   - Condition: *Any alert() function call*; set **Alert Format = "Webhook JSON"**.
    - Webhook URL: `http://YOUR_PUBLIC_HOST:8723/`
-4. The indicator sends payloads like:
+5. Gold Scalpers sends payloads like:
 
    ```json
-   {"action":"BUY","symbol":"BTCUSDT","passphrase":"yoursecret","entry":67500,"sl":67000,"tp1":68200,"tp2":69000}
+   {"action":"buy","symbol":"BTCUSDT","entry":67500,"sl":67000,"tp1":68200,"tp2":69000,"comment":"GoldScalp"}
    ```
 
    The bot reads `action` + `symbol`, sizes the order from your lot settings,
    and executes (or simulates, in Safe Mode).
 
-**Lifecycle events.** Indicators that also emit post-entry events (e.g. *Gold
-Scalpers* sends `{"event":"tp1_hit",...}`, `tp2_hit`, `sl_hit`,
-`sl_after_partial`) are recognised too: they're logged + notified, and with
-**"Move stop to breakeven on TP1"** enabled (Modes & Risk tab) a `tp1_hit`
-event trails the stop to your entry. SL/TP exits themselves are handled by the
-bot's own reduce-only bracket on the exchange, so these events never double-fire
-orders.
+**Lifecycle events.** Gold Scalpers also emits post-entry events
+(`{"event":"tp1_hit",...}`, `tp2_hit`, `sl_hit`, `sl_after_partial`) — also
+tagged with the same `comment`, so the strategy filter passes them through.
+They're logged + notified, and with **"Move stop to breakeven on TP1"** enabled
+(Modes & Risk tab) a `tp1_hit` event trails the stop to your entry. SL/TP exits
+themselves are handled by the bot's own reduce-only bracket on the exchange, so
+these events never double-fire orders.
 
 > **Note:** TradingView webhooks require a **paid** TradingView plan.
 
