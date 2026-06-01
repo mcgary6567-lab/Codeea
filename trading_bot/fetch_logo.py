@@ -19,9 +19,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Override with:  python fetch_logo.py <url>   (or set LOGO_URL env var)
 CANDIDATE_URLS = [
     os.environ.get("LOGO_URL", ""),
+    "https://prometheusai.tech/assets/favicon.png",
     "https://hooks.prometheusai.tech/logo.png",
     "https://prometheusai.tech/logo.png",
-    "https://prometheusai.tech/assets/favicon.png",
 ]
 ICO_SIZES = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 
