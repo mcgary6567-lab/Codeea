@@ -170,14 +170,19 @@ class AnalyticsWindow:
         self.refresh()
 
     def _clear(self) -> None:
+        since, until = self._range_bounds()
+        if since is None and until is None:
+            scope = "ALL trade history and the equity curve"
+        else:
+            scope = f"trade history in the selected range ({self.range_var.get()})"
         if not messagebox.askyesno(
             "Clear analytics",
-            "This permanently deletes ALL trade history and the equity curve.\n\n"
+            f"This permanently deletes {scope}.\n\n"
             "Tip: use Export CSV first if you want a copy.\n\nContinue?",
             icon="warning", parent=self.win):
             return
-        self.history.clear_all()
-        messagebox.showinfo("Cleared", "All analytics history has been cleared.", parent=self.win)
+        self.history.clear(since=since, until=until)
+        messagebox.showinfo("Cleared", "Analytics history has been cleared.", parent=self.win)
         self.refresh()
 
     def _export_csv(self) -> None:

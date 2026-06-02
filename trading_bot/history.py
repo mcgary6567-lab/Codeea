@@ -72,11 +72,21 @@ def _range_sql(since, until, col: str = "ts"):
     return clause, params
 
 
+def clear(since=None, until=None) -> None:
+    """Delete recorded trades + equity snapshots within an optional time range.
+
+    No range (since=until=None) clears everything; otherwise only rows whose
+    ``ts`` falls in [since, until) are removed.
+    """
+    clause, params = _range_sql(since, until)
+    with _conn() as c:
+        c.execute(f"DELETE FROM trades WHERE 1=1{clause}", params)
+        c.execute(f"DELETE FROM equity WHERE 1=1{clause}", params)
+
+
 def clear_all() -> None:
     """Permanently delete all recorded trades and equity snapshots."""
-    with _conn() as c:
-        c.execute("DELETE FROM trades")
-        c.execute("DELETE FROM equity")
+    clear()
 
 
 def fetch_equity(limit: int = 1000, since=None, until=None) -> List[Tuple[float, float]]:

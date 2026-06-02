@@ -280,6 +280,20 @@ class TestDailySummary(unittest.TestCase):
         self.assertEqual(h.stats()["total"], 0)
         self.assertEqual(h.fetch_equity(), [])
 
+    def test_clear_respects_range(self):
+        import sqlite3
+        h = self.history
+        recent = time.time()
+        with sqlite3.connect(h.HISTORY_DB) as c:
+            for ts, pnl in ((1000.0, 3.0), (recent, 7.0)):
+                c.execute("INSERT INTO trades (ts,source,symbol,side,kind,size,price,status,pnl,message)"
+                          " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                          (ts, "s", "BTC/USDT", "sell", "close", 1, 1, "Closed", pnl, ""))
+        self.assertEqual(h.stats()["closed"], 2)
+        h.clear(since=recent - 60)            # delete only the recent one
+        self.assertEqual(h.stats()["closed"], 1)
+        self.assertAlmostEqual(h.stats()["realized_pnl"], 3.0)  # old one remains
+
     def test_stats_respects_time_range(self):
         import sqlite3
         h = self.history
