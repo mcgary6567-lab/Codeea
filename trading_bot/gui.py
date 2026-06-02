@@ -620,6 +620,18 @@ class TradingBotGUI:
         self._build_webhook_tab(webhook_tab)
         self._build_alerts_tab(alerts_tab)
 
+        # Size the notebook to the SELECTED tab (not the tallest), so short tabs
+        # like Webhook/Alerts don't leave empty space — the buttons rise up and
+        # the Trade Log below grows to fill it.
+        def _fit_nb(_=None):
+            try:
+                cur = nb.nametowidget(nb.select())
+                nb.configure(height=max(cur.winfo_reqheight(), 1))
+            except Exception:  # noqa: BLE001
+                pass
+        nb.bind("<<NotebookTabChanged>>", lambda e: self.root.after_idle(_fit_nb))
+        self.root.after_idle(_fit_nb)
+
         btnrow = ttk.Frame(outer)
         btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         tk.Button(btnrow, text="Save", command=self._save_all).pack(
