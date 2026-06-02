@@ -270,7 +270,8 @@ class TradingBotGUI:
         # Logo (kept as an attribute so it isn't garbage-collected).
         try:
             img = tk.PhotoImage(file=resource_path("logo.png"))
-            n = max(1, img.width() // 40)
+            # Scale to fit the header bar height (works for portrait logos too).
+            n = max(1, img.height() // 40)
             self._logo_img = img.subsample(n, n)
             tk.Label(bar, image=self._logo_img, bg=HEADER).pack(side="left", padx=(14, 8))
         except Exception:  # noqa: BLE001
