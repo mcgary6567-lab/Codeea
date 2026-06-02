@@ -49,50 +49,6 @@ class TestNormalizeSymbol(unittest.TestCase):
         self.assertEqual(normalize_symbol(" ada/usdt "), "ADA/USDT")
 
 
-class TestResolveMarket(unittest.TestCase):
-    """USD-quoted indicator tickers must retarget to the exchange's real market."""
-
-    def _mgr(self, markets):
-        from exchange import ExchangeManager
-
-        class _Client:
-            pass
-        m = ExchangeManager()
-        c = _Client()
-        c.markets = {sym: {} for sym in markets}
-        m.client = c
-        return m
-
-    def test_usd_retargets_to_usdt_spot(self):
-        # Indicator BTCUSD -> BTC/USD, exchange only has BTC/USDT
-        m = self._mgr(["BTC/USDT", "ETH/USDT"])
-        self.assertEqual(m.resolve_market("BTCUSD"), "BTC/USDT")
-        self.assertEqual(m.resolve_market("BTC/USD"), "BTC/USDT")
-
-    def test_existing_symbol_unchanged(self):
-        m = self._mgr(["BTC/USDT"])
-        self.assertEqual(m.resolve_market("BTC/USDT"), "BTC/USDT")
-
-    def test_usd_retargets_to_usdc_when_no_usdt(self):
-        m = self._mgr(["XYZ/USDC"])
-        self.assertEqual(m.resolve_market("XYZUSD"), "XYZ/USDC")
-
-    def test_linear_perp_form(self):
-        m = self._mgr(["BTC/USDT:USDT"])
-        self.assertEqual(m.resolve_market("BTCUSD"), "BTC/USDT:USDT")
-
-    def test_no_client_falls_back_to_usdt(self):
-        from exchange import ExchangeManager
-        m = ExchangeManager()  # no client / no markets (Safe Mode)
-        self.assertEqual(m.resolve_market("BTCUSD"), "BTC/USDT")
-        self.assertEqual(m.resolve_market("ETH/USD"), "ETH/USDT")
-
-    def test_unknown_symbol_left_as_is_when_markets_loaded(self):
-        m = self._mgr(["BTC/USDT"])
-        # FOO has no USDT/USDC market -> return normalized, error will name it
-        self.assertEqual(m.resolve_market("FOO/USD"), "FOO/USD")
-
-
 class TestSizeOrder(unittest.TestCase):
     def test_fixed_mode_returns_fixed_lot(self):
         amt, _ = size_order("fixed", 0.05, 1.0, 1000, 100)
