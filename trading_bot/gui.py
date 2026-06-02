@@ -947,7 +947,9 @@ class TradingBotGUI:
         f.columnconfigure(0, weight=1)
 
         cols = ("time", "signal", "pair", "status", "message")
-        self.log_tree = ttk.Treeview(f, columns=cols, show="headings")
+        # height=14 asks for a tall log by default; it still expands with the
+        # window since this row is weighted in the right column.
+        self.log_tree = ttk.Treeview(f, columns=cols, show="headings", height=14)
         # stretch=False keeps the widths so long messages overflow and the
         # horizontal scrollbar can reach them; double-click shows the full text.
         for c, w in zip(cols, (70, 60, 90, 90, 460)):

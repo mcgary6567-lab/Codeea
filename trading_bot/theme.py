@@ -181,39 +181,30 @@ class RoundedButton(tk.Canvas):
 
 
 def make_check(parent, text: str = "", variable: tk.BooleanVar | None = None,
-               command=None, wraplength: int = 0) -> tk.Label:
-    """A dark-theme checkbox with unambiguous glyphs.
+               command=None, wraplength: int = 0) -> tk.Checkbutton:
+    """A dark-theme checkbox using the native indicator.
 
-    Renders ``☑ Label`` (green) when on and ``☐ Label`` (normal) when off, so
-    "checked" always reads as a positive tick rather than the theme's small
-    X-like mark. Bound to ``variable`` (a ``tk.BooleanVar``) exactly like a
-    ttk.Checkbutton: clicking toggles it and calls ``command``; programmatic
-    ``variable.set(...)`` (e.g. loading saved settings) updates the glyph too.
+    Uses a classic ``tk.Checkbutton`` so the on/off states are an unmistakable
+    ticked box vs. empty box on every Windows version — clicking reliably
+    toggles ``variable`` and fires ``command``. (The ttk/clam indicator drew a
+    small X-like mark, and a Unicode glyph couldn't show a clear empty box on
+    all systems — hence the native widget.)
 
-    Returns a ``tk.Label`` so callers can chain ``.grid(...)`` / ``.pack(...)``.
+    Returns a ``tk.Checkbutton`` so callers can chain ``.grid(...)`` / ``.pack(...)``.
     """
     if variable is None:
         variable = tk.BooleanVar(value=False)
-    lbl = tk.Label(parent, bg=PANEL, fg=TXT, font=("Segoe UI", 9),
-                   anchor="w", justify="left", cursor="hand2")
+    cb = tk.Checkbutton(
+        parent, text=text, variable=variable, command=command,
+        onvalue=True, offvalue=False,
+        bg=PANEL, fg=TXT, selectcolor=ELEV,
+        activebackground=PANEL, activeforeground=ACCENT,
+        anchor="w", justify="left", highlightthickness=0, bd=0,
+        font=("Segoe UI", 9), cursor="hand2",
+    )
     if wraplength:
-        lbl.configure(wraplength=wraplength)
-
-    def render(*_):
-        on = bool(variable.get())
-        lbl.configure(text=("☑  " if on else "☐  ") + text,
-                      fg=(GREEN_HL if on else TXT))
-
-    def toggle(_=None):
-        variable.set(not variable.get())   # trace fires render() synchronously
-        if command:
-            command()
-
-    lbl.bind("<Button-1>", toggle)
-    variable.trace_add("write", render)
-    lbl._check_var = variable  # keep a reference so the var isn't GC'd
-    render()
-    return lbl
+        cb.configure(wraplength=wraplength)
+    return cb
 
 
 def style_button(btn: tk.Button, kind: str = "default") -> None:
