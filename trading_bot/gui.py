@@ -113,6 +113,7 @@ class TradingBotGUI:
         self._autostart_relay()         # auto-connect cloud signals if licensed
         self._online = None              # tri-state: None=unknown, True/False
         self._net_check_running = False  # guards against overlapping probes
+        self._notify_ip_next = False     # alert public IP on the next connect
         self.root.after(150, self._drain_ui_queue)
         self.root.after(3000, self._check_update)
         self.root.after(800, self._check_internet)
@@ -423,23 +424,51 @@ class TradingBotGUI:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _show_my_ip_done(self, ip, manual: bool) -> None:
+    def _notify_ip_after_connect(self, exchange: str) -> None:
+        """After a user connect, push the public IP as a desktop + Telegram alert."""
+        def worker():
+            ip = connectivity.public_ip()
+            self.root.after(0, lambda: self._show_my_ip_done(ip, manual=False,
+                                                             notify_exchange=exchange))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_my_ip_done(self, ip, manual: bool, notify_exchange: str | None = None) -> None:
         self.ip_btn.config(text="Show my IP", state="normal")
         if not ip:
             if manual:
                 self.ip_value.set("unavailable (no internet?)")
+            if notify_exchange:
+                self.backend.notifier.notify(
+                    f"Connected · {exchange_label(notify_exchange)}",
+                    "Couldn't determine your public IP — verify your exchange API-key "
+                    "IP whitelist manually.", level="info", important=True)
             return
         self.ip_value.set(ip)
         self.ip_copy_btn.config(state="normal")
         # Warn if the public IP changed since the last saved one — a whitelisted
         # key will reject trades from a new IP until the whitelist is updated.
         prev = self.saved.get("last_ip", "")
-        if prev and prev != ip:
+        changed = bool(prev and prev != ip)
+        if changed:
             self.backend.ui_queue.put({
                 "kind": "log", "time": "", "signal": "", "pair": "", "status": "IP changed",
                 "message": f"⚠ Your public IP changed (was {prev}, now {ip}). "
                            "Update your exchange API-key IP whitelist or trades will be rejected.",
             })
+        # Desktop + Telegram alert on a user-initiated connect.
+        if notify_exchange:
+            if changed:
+                self.backend.notifier.notify(
+                    "⚠ Public IP changed",
+                    f"Your IP is now {ip} (was {prev}). Update your "
+                    f"{exchange_label(notify_exchange)} API-key IP whitelist or trades "
+                    "will be rejected.", level="error", important=True)
+            else:
+                self.backend.notifier.notify(
+                    f"Connected · {exchange_label(notify_exchange)}",
+                    f"Your public IP is {ip}. Make sure it's whitelisted on your "
+                    "exchange API key.", level="ok", important=True)
         self.saved["last_ip"] = ip   # persisted on next Save
 
     def _copy_my_ip(self) -> None:
@@ -1102,6 +1131,7 @@ class TradingBotGUI:
                 pass
 
         self._push_settings()
+        self._notify_ip_next = True   # send an IP alert once this connect lands
         self.backend.submit({
             "cmd": "connect",
             "exchange_id": ex,
@@ -1364,6 +1394,11 @@ class TradingBotGUI:
             self.exchange_combo.config(state="disabled")
             # Start streaming the symbol's current price right away.
             self._watch_manual_symbol()
+            # On a user-initiated connect, alert the public IP to whitelist
+            # (desktop + Telegram), not on silent auto-reconnects.
+            if getattr(self, "_notify_ip_next", False):
+                self._notify_ip_next = False
+                self._notify_ip_after_connect(str(exchange))
         else:
             self.status_dot.config(fg=RED)
             self.conn_label.config(text="Disconnected", fg=TXT)
