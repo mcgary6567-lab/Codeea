@@ -116,6 +116,7 @@ class TradingBotGUI:
         self.root.after(150, self._drain_ui_queue)
         self.root.after(3000, self._check_update)
         self.root.after(800, self._check_internet)
+        self.root.after(1200, self._auto_show_ip)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _check_update(self) -> None:
@@ -374,6 +375,24 @@ class TradingBotGUI:
         theme.style_button(self.disconnect_btn, "sell")
         self.disconnect_btn.pack(side="left", padx=5)
 
+        # Public-IP helper — paste this into the exchange API key's IP whitelist
+        # (Binance/others require a whitelist once any trading permission is on).
+        ipf = ttk.Frame(f)
+        ipf.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        self.ip_btn = tk.Button(ipf, text="Show my IP", command=self._show_my_ip)
+        theme.style_button(self.ip_btn, "ghost")
+        self.ip_btn.pack(side="left")
+        self.ip_value = tk.StringVar(value="—")
+        tk.Label(ipf, textvariable=self.ip_value, bg=PANEL, fg=ACCENT,
+                 font=("Segoe UI Semibold", 10)).pack(side="left", padx=8)
+        self.ip_copy_btn = tk.Button(ipf, text="Copy", command=self._copy_my_ip, state="disabled")
+        theme.style_button(self.ip_copy_btn, "ghost")
+        self.ip_copy_btn.pack(side="left")
+        ttk.Label(f, text="Your public IP — paste it into your exchange API key's IP whitelist "
+                          "(required once you enable trading).",
+                  style="Dim.TLabel", wraplength=380).grid(
+            row=7, column=0, columnspan=2, sticky="w", pady=(2, 0))
+
         self._toggle_passphrase()
 
     def _toggle_passphrase(self) -> None:
@@ -384,6 +403,52 @@ class TradingBotGUI:
         else:
             self.pass_label.grid_remove()
             self.pass_entry.grid_remove()
+
+    # -- public IP (for the exchange IP whitelist) --------------------------
+    def _show_my_ip(self) -> None:
+        """Fetch this machine's public IP off-thread and show it for copying."""
+        self.ip_btn.config(text="…", state="disabled")
+
+        def worker():
+            ip = connectivity.public_ip()
+            self.root.after(0, lambda: self._show_my_ip_done(ip, manual=True))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _auto_show_ip(self) -> None:
+        """Quietly fetch the public IP on launch so it's visible without a click."""
+        def worker():
+            ip = connectivity.public_ip()
+            self.root.after(0, lambda: self._show_my_ip_done(ip, manual=False))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_my_ip_done(self, ip, manual: bool) -> None:
+        self.ip_btn.config(text="Show my IP", state="normal")
+        if not ip:
+            if manual:
+                self.ip_value.set("unavailable (no internet?)")
+            return
+        self.ip_value.set(ip)
+        self.ip_copy_btn.config(state="normal")
+        # Warn if the public IP changed since the last saved one — a whitelisted
+        # key will reject trades from a new IP until the whitelist is updated.
+        prev = self.saved.get("last_ip", "")
+        if prev and prev != ip:
+            self.backend.ui_queue.put({
+                "kind": "log", "time": "", "signal": "", "pair": "", "status": "IP changed",
+                "message": f"⚠ Your public IP changed (was {prev}, now {ip}). "
+                           "Update your exchange API-key IP whitelist or trades will be rejected.",
+            })
+        self.saved["last_ip"] = ip   # persisted on next Save
+
+    def _copy_my_ip(self) -> None:
+        ip = self.ip_value.get()
+        if ip and ip[0].isdigit():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(ip)
+            self.ip_copy_btn.config(text="Copied")
+            self.root.after(1200, lambda: self.ip_copy_btn.config(text="Copy"))
 
     def _build_trade_buttons(self, parent) -> None:
         f = ttk.Frame(parent, padding=(5, 0))
@@ -949,6 +1014,7 @@ class TradingBotGUI:
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
             "telegram_important_only": self.tg_important_var.get(),
             "live_ack": self._live_ack,
+            "last_ip": self.saved.get("last_ip", ""),
         }
 
     def _save_all(self) -> None:

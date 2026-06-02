@@ -45,3 +45,35 @@ def host_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
             return True
     except OSError:
         return False
+
+
+# Public-IP echo services, tried in order. Each returns the caller's public IP
+# as plain text. We never send any data — just read the response.
+_IP_SERVICES = [
+    "https://api.ipify.org",
+    "https://ipv4.icanhazip.com",
+    "https://ifconfig.me/ip",
+    "https://checkip.amazonaws.com",
+]
+
+
+def public_ip(timeout: float = 5.0):
+    """Return this machine's public (outbound) IP as a string, or None.
+
+    This is the address the exchange sees — what you paste into an API key's
+    IP whitelist. It is NOT the LAN address (192.168.x.x). Best-effort: tries a
+    few reliable echo services and returns the first valid answer.
+    """
+    import ipaddress
+    import urllib.request
+
+    for url in _IP_SERVICES:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "PrometheusBot"})
+            ip = urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8").strip()
+            ipaddress.ip_address(ip)   # validates IPv4/IPv6; raises if junk
+            return ip
+        except Exception:  # noqa: BLE001 - try the next service
+            continue
+    return None
+
