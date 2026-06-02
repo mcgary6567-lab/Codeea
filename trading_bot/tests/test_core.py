@@ -49,6 +49,31 @@ class TestNormalizeSymbol(unittest.TestCase):
         self.assertEqual(normalize_symbol(" ada/usdt "), "ADA/USDT")
 
 
+class TestFriendlyError(unittest.TestCase):
+    def test_binance_451_points_to_binance_us(self):
+        from exchange import _friendly_error
+        exc = Exception("binance 451 Service unavailable from a restricted location "
+                        "according to 'b. Eligibility'")
+        msg = _friendly_error("binance", exc)
+        self.assertIn("Binance.US", msg)
+
+    def test_other_exchange_451_generic(self):
+        from exchange import _friendly_error
+        msg = _friendly_error("kucoin", Exception("HTTP 451 restricted location"))
+        self.assertIn("451", msg)
+        self.assertNotIn("Binance.US", msg)
+
+    def test_2015_explains_permissions(self):
+        from exchange import _friendly_error
+        msg = _friendly_error("binance", Exception("binance -2015 Invalid API-key, IP, or permissions"))
+        self.assertIn("whitelist", msg.lower())
+
+    def test_unknown_error_passthrough(self):
+        from exchange import _friendly_error
+        msg = _friendly_error("bybit", Exception("some random failure"))
+        self.assertEqual(msg, "some random failure")
+
+
 class TestSizeOrder(unittest.TestCase):
     def test_fixed_mode_returns_fixed_lot(self):
         amt, _ = size_order("fixed", 0.05, 1.0, 1000, 100)

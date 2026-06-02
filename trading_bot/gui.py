@@ -50,6 +50,7 @@ from config import (
     QUOTE_CURRENCY,
     SIZING_MODE_LABELS,
     SIZING_MODES,
+    SPOT_ONLY_EXCHANGES,
     SUPPORTED_EXCHANGES,
     SUPPORT_EMAIL,
     TOP_PAIRS,
@@ -1109,6 +1110,14 @@ class TradingBotGUI:
             messagebox.showwarning("Missing passphrase",
                                    f"{exchange_label(ex)} requires an API passphrase.")
             return
+
+        # Spot-only platforms (e.g. Binance.US) have no futures product line.
+        if ex in SPOT_ONLY_EXCHANGES and self.market_var.get() == "Futures":
+            messagebox.showinfo(
+                "Spot only",
+                f"{exchange_label(ex)} offers Spot trading only (no futures). "
+                "Switching to Spot.")
+            self.market_var.set("Spot")
 
         # One-time LIVE confirmation: Safe Mode is off by default, so warn once
         # that real orders will be placed automatically on signals.

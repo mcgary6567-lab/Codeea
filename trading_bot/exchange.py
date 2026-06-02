@@ -23,7 +23,25 @@ except ImportError:  # Allows the GUI to launch for a demo without ccxt.
     ccxt = None
     CCXT_AVAILABLE = False
 
-from config import QUOTE_CURRENCY
+from config import QUOTE_CURRENCY, SPOT_ONLY_EXCHANGES
+
+
+def _friendly_error(exchange_id: str, exc: Exception) -> str:
+    """Turn a raw ccxt error into actionable guidance for common cases."""
+    msg = str(exc)
+    low = msg.lower()
+    if "451" in msg or "restricted location" in low or "eligibility" in low:
+        if exchange_id == "binance":
+            return ("Binance.com is blocked in your region. If you're in the US, "
+                    "select 'Binance.US' in the exchange list; otherwise use Bybit, "
+                    "OKX, KuCoin or Bitget.\n\n(" + msg + ")")
+        return (f"{exchange_id} is blocked from your region/IP (HTTP 451). "
+                "Try a different exchange or disable any VPN.\n\n(" + msg + ")")
+    if "-2015" in msg or ("invalid api" in low and "permission" in low):
+        return ("Invalid API key, IP, or permissions. Enable Spot/Futures trading "
+                "on the key and add your IP to its whitelist (use 'Show my IP').\n\n("
+                + msg + ")")
+    return msg
 
 
 @dataclass
@@ -186,6 +204,9 @@ class ExchangeManager:
         self.read_only = read_only
         self.safe_mode = safe_mode
         self.market_type = "futures" if market_type == "futures" else "spot"
+        # Spot-only platforms (e.g. Binance.US) have no futures product line.
+        if exchange_id in SPOT_ONLY_EXCHANGES:
+            self.market_type = "spot"
 
         if not CCXT_AVAILABLE:
             # Demo/simulation mode: pretend we connected.
@@ -236,7 +257,7 @@ class ExchangeManager:
                 self.connected = True
                 return
             self.client = None
-            raise ExchangeError(str(exc)) from exc
+            raise ExchangeError(_friendly_error(exchange_id, exc)) from exc
 
         self.connected = True
 

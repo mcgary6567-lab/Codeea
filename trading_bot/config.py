@@ -62,17 +62,22 @@ UPDATE_URL = "https://prometheusai.tech/version.json"
 # offers a separate futures/swap product line via ccxt we note the default
 # market type used for position fetching.
 # ---------------------------------------------------------------------------
-SUPPORTED_EXCHANGES = ["binance", "bybit", "okx", "kucoin", "bitget"]
+SUPPORTED_EXCHANGES = ["binance", "binanceus", "bybit", "okx", "kucoin", "bitget"]
 
 # Pretty (Title-case) display names. ccxt ids stay lowercase above; the UI shows
 # these and maps back to the id when connecting.
 EXCHANGE_LABELS = {
     "binance": "Binance",
+    "binanceus": "Binance.US",
     "bybit": "Bybit",
     "okx": "OKX",
     "kucoin": "KuCoin",
     "bitget": "Bitget",
 }
+
+# Exchanges that offer spot only (no futures/derivatives product line). If the
+# user picks Futures on one of these, the app warns and falls back to Spot.
+SPOT_ONLY_EXCHANGES = {"binanceus"}
 
 
 def exchange_label(ex_id: str) -> str:
