@@ -606,16 +606,19 @@ class TradingBotGUI:
         nb.grid(row=0, column=0, sticky="nsew")
         exec_tab = ttk.Frame(nb, padding=8)
         risk_tab = ttk.Frame(nb, padding=8)
-        alert_tab = ttk.Frame(nb, padding=8)
+        webhook_tab = ttk.Frame(nb, padding=8)
+        alerts_tab = ttk.Frame(nb, padding=8)
         nb.add(exec_tab, text="Execution")
         nb.add(risk_tab, text="Modes & Risk")
-        nb.add(alert_tab, text="Webhook & Alerts")
-        for t in (exec_tab, risk_tab, alert_tab):
+        nb.add(webhook_tab, text="Webhook")
+        nb.add(alerts_tab, text="Alerts")
+        for t in (exec_tab, risk_tab, webhook_tab, alerts_tab):
             t.columnconfigure(1, weight=1)
 
         self._build_exec_tab(exec_tab)
         self._build_risk_tab(risk_tab)
-        self._build_alert_tab(alert_tab)
+        self._build_webhook_tab(webhook_tab)
+        self._build_alerts_tab(alerts_tab)
 
         btnrow = ttk.Frame(outer)
         btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
@@ -792,7 +795,7 @@ class TradingBotGUI:
         e.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(tr, text="(0 = off; close if price falls X% from its peak)").pack(side="left")
 
-    def _build_alert_tab(self, f) -> None:
+    def _build_webhook_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
             row=0, column=0, columnspan=2, sticky="w"
         )
@@ -814,28 +817,44 @@ class TradingBotGUI:
                   style="Dim.TLabel", wraplength=380).grid(row=3, column=0, columnspan=2, sticky="w")
 
         ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
+                  font=("Segoe UI", 9, "bold")).grid(row=5, column=0, columnspan=2, sticky="w")
+        ttk.Label(f, text="Relay URL:").grid(row=6, column=0, sticky="w", pady=2)
+        self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
+        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=6, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Licence token:").grid(row=7, column=0, sticky="w", pady=2)
+        tr = ttk.Frame(f)
+        tr.grid(row=7, column=1, sticky="ew", pady=2)
+        tr.columnconfigure(0, weight=1)
+        self.relay_token_var = tk.StringVar()
+        ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
+        self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
+        self.relay_btn.grid(row=0, column=1, padx=(6, 0))
+        self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
+        self.relay_status.grid(row=8, column=0, columnspan=2, sticky="w")
 
+    def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)
         theme.make_check(
             f, text="Sound on fills/signals", variable=self.sound_var,
             command=self._push_settings,
-        ).grid(row=5, column=0, sticky="w", pady=2)
+        ).grid(row=0, column=0, sticky="w", pady=2)
         self.desktop_var = tk.BooleanVar(value=True)
         dr = ttk.Frame(f)
-        dr.grid(row=5, column=1, sticky="w", pady=2)
+        dr.grid(row=0, column=1, sticky="w", pady=2)
         theme.make_check(
             dr, text="Desktop notifications", variable=self.desktop_var,
             command=self._push_settings,
         ).pack(side="left")
         self.desk_test_btn = tk.Button(dr, text="Test", command=self._test_desktop)
         self.desk_test_btn.pack(side="left", padx=6)
-        ttk.Label(f, text="Telegram bot token:").grid(row=6, column=0, sticky="w", pady=2)
+        ttk.Label(f, text="Telegram bot token:").grid(row=1, column=0, sticky="w", pady=2)
         self.tg_token_var = tk.StringVar()
-        ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=6, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Telegram chat id:").grid(row=7, column=0, sticky="w", pady=2)
+        ttk.Entry(f, textvariable=self.tg_token_var, show="•").grid(row=1, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Telegram chat id:").grid(row=2, column=0, sticky="w", pady=2)
         self.tg_chat_var = tk.StringVar()
         cr = ttk.Frame(f)
-        cr.grid(row=7, column=1, sticky="ew", pady=2)
+        cr.grid(row=2, column=1, sticky="ew", pady=2)
         cr.columnconfigure(0, weight=1)
         ttk.Entry(cr, textvariable=self.tg_chat_var).grid(row=0, column=0, sticky="ew")
         self.tg_test_btn = tk.Button(cr, text="Test", command=self._test_telegram)
@@ -847,15 +866,15 @@ class TradingBotGUI:
         theme.make_check(
             f, text="Telegram: important events only (entries, closes & PnL, halts, security)",
             variable=self.tg_important_var, command=self._push_settings,
-        ).grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(f, text="Off = every event (trailing, blocked signals, indicator events…) "
                           "also goes to Telegram. Desktop + sound always show everything.",
                   style="Dim.TLabel", wraplength=380).grid(
-            row=9, column=0, columnspan=2, sticky="w")
+            row=4, column=0, columnspan=2, sticky="w")
 
         # Daily Telegram P&L recap (end-of-day, pushed via the Telegram bot).
         sr = ttk.Frame(f)
-        sr.grid(row=10, column=0, columnspan=2, sticky="w", pady=2)
+        sr.grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
         self.daily_summary_var = tk.BooleanVar(value=False)
         theme.make_check(sr, text="Daily Telegram P&L summary at", variable=self.daily_summary_var,
                         command=self._push_settings).pack(side="left")
@@ -864,23 +883,6 @@ class TradingBotGUI:
         he.pack(side="left", padx=4)
         he.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(sr, text=":00 (local hour, 0–23)").pack(side="left")
-
-        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
-        ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
-                  font=("Segoe UI", 9, "bold")).grid(row=12, column=0, columnspan=2, sticky="w")
-        ttk.Label(f, text="Relay URL:").grid(row=13, column=0, sticky="w", pady=2)
-        self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
-        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=13, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Licence token:").grid(row=14, column=0, sticky="w", pady=2)
-        tr = ttk.Frame(f)
-        tr.grid(row=14, column=1, sticky="ew", pady=2)
-        tr.columnconfigure(0, weight=1)
-        self.relay_token_var = tk.StringVar()
-        ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
-        self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
-        self.relay_btn.grid(row=0, column=1, padx=(6, 0))
-        self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.relay_status.grid(row=15, column=0, columnspan=2, sticky="w")
 
     def _toggle_relay(self) -> None:
         if self.relay.running:
@@ -946,19 +948,74 @@ class TradingBotGUI:
 
         cols = ("time", "signal", "pair", "status", "message")
         self.log_tree = ttk.Treeview(f, columns=cols, show="headings")
-        for c, w in zip(cols, (70, 60, 90, 80, 260)):
+        # stretch=False keeps the widths so long messages overflow and the
+        # horizontal scrollbar can reach them; double-click shows the full text.
+        for c, w in zip(cols, (70, 60, 90, 90, 460)):
             self.log_tree.heading(c, text=c.capitalize())
-            self.log_tree.column(c, width=w, anchor="w")
+            self.log_tree.column(c, width=w, anchor="w", stretch=False)
+        # Status-based row colours so failures stand out at a glance.
+        self.log_tree.tag_configure("error", foreground=RED)
+        self.log_tree.tag_configure("ok", foreground=GREEN)
+        self.log_tree.tag_configure("warn", foreground="#e3a008")
+        self.log_tree.tag_configure("event", foreground=ACCENT)
         self.log_tree.grid(row=0, column=0, sticky="nsew")
-        sb = ttk.Scrollbar(f, orient="vertical", command=self.log_tree.yview)
-        self.log_tree.configure(yscrollcommand=sb.set)
-        sb.grid(row=0, column=1, sticky="ns")
+        self.log_tree.bind("<Double-1>", self._show_log_detail)
+
+        vsb = ttk.Scrollbar(f, orient="vertical", command=self.log_tree.yview)
+        hsb = ttk.Scrollbar(f, orient="horizontal", command=self.log_tree.xview)
+        self.log_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
 
         bar = ttk.Frame(f)
-        bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        bar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         tk.Button(bar, text="Export Log", command=self._export_log).pack(side="left", padx=4)
         tk.Button(bar, text="Clear Log", command=self._clear_log).pack(side="left", padx=4)
         tk.Button(bar, text="Support Log", command=self._open_log_folder).pack(side="left", padx=4)
+
+    # Map a log status to a colour tag (default = no tag / normal text).
+    _LOG_TAGS = {
+        "Rejected": "error", "Error": "error", "Blocked": "error",
+        "Halted": "error", "Offline": "error",
+        "Filled": "ok", "Simulated": "ok", "OK": "ok",
+        "Connected": "ok", "Online": "ok",
+        "WARNING": "warn", "IP changed": "warn", "Reconnect": "warn", "Trailing": "warn",
+        "Event": "event", "Summary": "event",
+    }
+
+    def _show_log_detail(self, _event=None) -> None:
+        """Double-click a row → show its full, copyable message in a popup."""
+        sel = self.log_tree.selection()
+        if not sel:
+            return
+        vals = self.log_tree.item(sel[0]).get("values", [])
+        if not vals:
+            return
+        time_, signal, pair, status, message = (list(vals) + [""] * 5)[:5]
+        win = tk.Toplevel(self.root)
+        win.title("Log entry")
+        win.configure(bg=PANEL)
+        win.geometry("520x240")
+        header = f"{time_}   {signal}   {pair}   [{status}]".strip()
+        tk.Label(win, text=header, bg=PANEL, fg=ACCENT, anchor="w",
+                 font=("Segoe UI Semibold", 10)).pack(fill="x", padx=12, pady=(12, 6))
+        txt = tk.Text(win, wrap="word", bg=ELEV, fg=TXT, relief="flat", bd=0,
+                      height=6, font=("Segoe UI", 10), padx=8, pady=8)
+        txt.insert("1.0", str(message))
+        txt.configure(state="disabled")
+        txt.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+        def copy_msg():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(str(message))
+        br = tk.Frame(win, bg=PANEL)
+        br.pack(fill="x", padx=12, pady=(0, 12))
+        cb = tk.Button(br, text="Copy message", command=copy_msg)
+        theme.style_button(cb, "accent")
+        cb.pack(side="right")
+        cl = tk.Button(br, text="Close", command=win.destroy)
+        theme.style_button(cl, "ghost")
+        cl.pack(side="right", padx=8)
 
     # ====================================================================
     # Settings persistence / prefill
@@ -1442,12 +1499,15 @@ class TradingBotGUI:
     MAX_LOG_ROWS = 500
 
     def _add_log_row(self, msg: dict) -> None:
+        status = msg.get("status", "")
+        tag = self._LOG_TAGS.get(status, "")
         self.log_tree.insert(
             "", 0,
             values=(
                 msg.get("time", ""), msg.get("signal", ""), msg.get("pair", ""),
-                msg.get("status", ""), msg.get("message", ""),
+                status, msg.get("message", ""),
             ),
+            tags=((tag,) if tag else ()),
         )
         # Trim oldest rows (inserted at the bottom) past the cap.
         children = self.log_tree.get_children()
