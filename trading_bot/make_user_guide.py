@@ -268,5 +268,110 @@ def build():
     print(f"[make_user_guide] wrote {os.path.abspath(OUT)}")
 
 
+# ---------------------------------------------------------------------------
+# One-page cheat sheet (dense quick reference).
+# ---------------------------------------------------------------------------
+OUT_CHEAT = os.path.join(HERE, "..", "PrometheusAI_CheatSheet.pdf")
+
+CH = ParagraphStyle("CH", fontName="Helvetica", fontSize=8.3, textColor=DARK, leading=11)
+CH_H = ParagraphStyle("CH_H", fontName="Helvetica-Bold", fontSize=10.5, textColor=ACCENT,
+                      spaceBefore=7, spaceAfter=3, leading=12)
+
+
+def _cbul(items):
+    return ListFlowable(
+        [ListItem(Paragraph(t, CH), value="square", leftIndent=10, bulletColor=ACCENT)
+         for t in items], bulletType="bullet", start="square")
+
+
+def _cstep(items):
+    return ListFlowable(
+        [ListItem(Paragraph(t, CH), leftIndent=12) for t in items],
+        bulletType="1", bulletFormat="%s.", bulletFontName="Helvetica-Bold", bulletColor=ACCENT)
+
+
+def build_cheatsheet():
+    doc = SimpleDocTemplate(
+        OUT_CHEAT, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
+        topMargin=12 * mm, bottomMargin=18 * mm,
+        title="Prometheus AI Crypto Bot - Cheat Sheet", author="Prometheus AI")
+    s = []
+    head = [[
+        Image(LOGO, width=12 * mm, height=12 * mm * 149 / 113) if os.path.exists(LOGO) else "",
+        [Paragraph("Prometheus AI Crypto Bot", ParagraphStyle(
+            "ct", fontName="Helvetica-Bold", fontSize=17, textColor=DARK, leading=19)),
+         Paragraph("One-Page Cheat Sheet", SUB)],
+    ]]
+    ht = Table(head, colWidths=[16 * mm, None], hAlign="LEFT")
+    ht.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("LEFTPADDING", (0, 0), (0, 0), 0)]))
+    s.append(ht)
+    s.append(HRFlowable(width="100%", thickness=1.1, color=ACCENT, spaceBefore=3, spaceAfter=2))
+
+    left = [
+        Paragraph("Connect in 5 steps", CH_H),
+        _cstep([
+            "Open app, set a <b>PIN</b>.",
+            "Create an exchange <b>API key</b> (trading on).",
+            "Paste Key + Secret, pick exchange + <b>Spot</b>.",
+            "Click <b>Connect</b> with <b>Safe Mode</b> ON.",
+            "Verify, then Safe Mode off + <b>small size</b>.",
+        ]),
+        Paragraph("API key - get this right", CH_H),
+        _cbul([
+            "Enable <b>Reading</b> + <b>Spot</b> (or Futures).",
+            "<b>Withdrawals OFF</b> - always.",
+            "<b>Whitelist your IP</b>: app's <b>Show my IP</b> -&gt; Copy -&gt; paste on exchange.",
+            "<b>Passphrase</b> needed: OKX, KuCoin, Bitget.",
+            "<b>USA</b>: use <b>Binance.US</b> (not binance.com).",
+        ]),
+        Paragraph("Cloud signals (licence)", CH_H),
+        _cbul([
+            "Webhook tab -&gt; paste <b>Relay URL</b> + <b>Licence token</b>.",
+            "Set <b>Strategy filter = Prometheus</b>.",
+            "No TradingView / ngrok needed.",
+        ]),
+    ]
+    right = [
+        Paragraph("Key settings", CH_H),
+        _cbul([
+            "<b>Trade Size</b> is in coins (0.006 BTC ~ $420), not $.",
+            "<b>Sizing</b>: Fixed lot or Risk % of balance.",
+            "<b>Auto TP1/TP2</b> scale-out on signals.",
+            "<b>Guardrails</b>: daily loss/profit halt, max positions, cooldown, dedupe.",
+            "<b>PANIC: Close All</b> flattens everything.",
+            "<b>Alerts</b>: Sound / Desktop / Telegram + daily P&amp;L.",
+        ]),
+        Paragraph("Fees rule of thumb", CH_H),
+        _cbul([
+            "~<b>0.1% per fill</b> (~0.2% round trip).",
+            "Keep <b>TP &gt; 0.25%</b> to beat fees.",
+            "Fewer, better trades &gt; many small ones.",
+        ]),
+        Paragraph("Quick fixes", CH_H),
+        _cbul([
+            "<b>Insufficient balance</b> -&gt; lower Trade Size.",
+            "<b>-2015 / invalid key</b> -&gt; enable trading + whitelist IP.",
+            "<b>451 restricted</b> -&gt; Binance.US / other / no VPN.",
+            "<b>$0 balance</b> -&gt; funds in wrong wallet (Spot vs Futures).",
+            "<b>no market symbol</b> -&gt; use BTCUSDT (not BTCUSD).",
+        ]),
+    ]
+    cols = Table([[left, right]], colWidths=[(A4[0] - 28 * mm) / 2] * 2, hAlign="LEFT")
+    cols.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                              ("LEFTPADDING", (0, 0), (0, 0), 0),
+                              ("LEFTPADDING", (1, 0), (1, 0), 8)]))
+    s.append(cols)
+    s.append(Spacer(1, 6))
+    s.append(HRFlowable(width="100%", thickness=0.8, color=LINE, spaceAfter=4))
+    s.append(Paragraph(
+        "<b>Safety:</b> withdrawals off - IP whitelisted - test in Safe Mode - trade small. "
+        "Real money when Safe Mode is off.", SMALL))
+    doc.build(s, onFirstPage=_footer, onLaterPages=_footer)
+    print(f"[make_user_guide] wrote {os.path.abspath(OUT_CHEAT)}")
+
+
 if __name__ == "__main__":
     build()
+    build_cheatsheet()
+
