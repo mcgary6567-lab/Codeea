@@ -589,7 +589,7 @@ class TradingBotGUI:
         ttk.Label(rr, text="(risk-based modes)").pack(side="left")
 
         self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Auto-place SL/TP from alerts (scale out TP1/TP2)",
             variable=self.auto_bracket_var, command=self._push_settings,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
@@ -631,19 +631,19 @@ class TradingBotGUI:
 
     def _build_risk_tab(self, f) -> None:
         self.manual_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Enable Manual Trading", variable=self.manual_var,
             command=self._update_manual_state,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=2)
 
         self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
             command=self._push_settings,
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
 
         self.readonly_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Read-only monitoring (block all orders)", variable=self.readonly_var,
             command=self._push_settings,
         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
@@ -679,12 +679,12 @@ class TradingBotGUI:
 
         ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
         self.move_be_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Move stop to breakeven on TP1 event (from indicator)",
             variable=self.move_be_var, command=self._push_settings,
         ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
         self.auto_reconnect_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Auto-reconnect if the exchange connection drops",
             variable=self.auto_reconnect_var, command=self._push_settings,
         ).grid(row=13, column=0, columnspan=2, sticky="w", pady=2)
@@ -721,14 +721,14 @@ class TradingBotGUI:
         ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
 
         self.sound_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Sound on fills/signals", variable=self.sound_var,
             command=self._push_settings,
         ).grid(row=5, column=0, sticky="w", pady=2)
         self.desktop_var = tk.BooleanVar(value=True)
         dr = ttk.Frame(f)
         dr.grid(row=5, column=1, sticky="w", pady=2)
-        ttk.Checkbutton(
+        theme.make_check(
             dr, text="Desktop notifications", variable=self.desktop_var,
             command=self._push_settings,
         ).pack(side="left")
@@ -749,7 +749,7 @@ class TradingBotGUI:
 
         # Telegram noise filter — important events only (entries, closes, halts).
         self.tg_important_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
+        theme.make_check(
             f, text="Telegram: important events only (entries, closes & PnL, halts, security)",
             variable=self.tg_important_var, command=self._push_settings,
         ).grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
@@ -762,7 +762,7 @@ class TradingBotGUI:
         sr = ttk.Frame(f)
         sr.grid(row=10, column=0, columnspan=2, sticky="w", pady=2)
         self.daily_summary_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(sr, text="Daily Telegram P&L summary at", variable=self.daily_summary_var,
+        theme.make_check(sr, text="Daily Telegram P&L summary at", variable=self.daily_summary_var,
                         command=self._push_settings).pack(side="left")
         self.summary_hour_var = tk.StringVar(value="23")
         he = ttk.Entry(sr, textvariable=self.summary_hour_var, width=4)

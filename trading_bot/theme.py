@@ -180,6 +180,42 @@ class RoundedButton(tk.Canvas):
     config = configure
 
 
+def make_check(parent, text: str = "", variable: tk.BooleanVar | None = None,
+               command=None, wraplength: int = 0) -> tk.Label:
+    """A dark-theme checkbox with unambiguous glyphs.
+
+    Renders ``☑ Label`` (green) when on and ``☐ Label`` (normal) when off, so
+    "checked" always reads as a positive tick rather than the theme's small
+    X-like mark. Bound to ``variable`` (a ``tk.BooleanVar``) exactly like a
+    ttk.Checkbutton: clicking toggles it and calls ``command``; programmatic
+    ``variable.set(...)`` (e.g. loading saved settings) updates the glyph too.
+
+    Returns a ``tk.Label`` so callers can chain ``.grid(...)`` / ``.pack(...)``.
+    """
+    if variable is None:
+        variable = tk.BooleanVar(value=False)
+    lbl = tk.Label(parent, bg=PANEL, fg=TXT, font=("Segoe UI", 9),
+                   anchor="w", justify="left", cursor="hand2")
+    if wraplength:
+        lbl.configure(wraplength=wraplength)
+
+    def render(*_):
+        on = bool(variable.get())
+        lbl.configure(text=("☑  " if on else "☐  ") + text,
+                      fg=(GREEN_HL if on else TXT))
+
+    def toggle(_=None):
+        variable.set(not variable.get())   # trace fires render() synchronously
+        if command:
+            command()
+
+    lbl.bind("<Button-1>", toggle)
+    variable.trace_add("write", render)
+    lbl._check_var = variable  # keep a reference so the var isn't GC'd
+    render()
+    return lbl
+
+
 def style_button(btn: tk.Button, kind: str = "default") -> None:
     """Flat, modern styling for plain tk.Buttons."""
     palette = {
