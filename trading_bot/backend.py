@@ -42,7 +42,6 @@ from exchange import (
     ExchangeManager,
     Position,
     exit_side,
-    normalize_symbol,
     plan_take_profits,
     recompute_pnl,
     size_order,
@@ -265,7 +264,7 @@ class Backend:
 
     # -- manual SL/TP -------------------------------------------------------
     def _do_set_protection(self, cmd: dict) -> None:
-        symbol = normalize_symbol(cmd.get("symbol", ""))
+        symbol = self.exchange.resolve_market(cmd.get("symbol", ""))
         sl = float(cmd.get("sl") or 0)
         tp = float(cmd.get("tp") or 0)
         with self._lock:
@@ -395,7 +394,9 @@ class Backend:
         self._refresh()
 
     def _do_trade(self, cmd: dict) -> None:
-        symbol = normalize_symbol(cmd["symbol"])
+        # Resolve to a market the exchange actually lists (e.g. BTC/USD ->
+        # BTC/USDT) so the order, guardrail keys and UI all use the real pair.
+        symbol = self.exchange.resolve_market(cmd["symbol"])
         side = cmd["side"]
         source = cmd.get("source", "manual")
         # Surface the indicator's pair in the GUI (auto-fill manual symbol).
@@ -479,7 +480,7 @@ class Backend:
         doesn't do on its own).
         """
         event = cmd.get("event", "")
-        symbol = normalize_symbol(cmd.get("symbol", ""))
+        symbol = self.exchange.resolve_market(cmd.get("symbol", ""))
         if symbol:
             self._emit("signal_symbol", symbol=symbol)
         nice = {
@@ -551,7 +552,7 @@ class Backend:
 
     def _current_price(self, symbol: str) -> float:
         """Best-available current price: cached feed price, else a REST tick."""
-        sym = normalize_symbol(symbol)
+        sym = self.exchange.resolve_market(symbol)
         with self._lock:
             cached = self._price_cache.get(sym)
         if cached:
@@ -613,7 +614,7 @@ class Backend:
 
     def _set_manual_symbol(self, raw: str) -> None:
         """The GUI's manual-trade symbol changed — stream its mark price."""
-        symbol = normalize_symbol(raw) if raw.strip() else ""
+        symbol = self.exchange.resolve_market(raw) if raw.strip() else ""
         with self._lock:
             self._manual_symbol = symbol
         self._update_feed_symbols()
