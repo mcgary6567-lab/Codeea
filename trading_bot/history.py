@@ -60,12 +60,33 @@ def record_equity(balance: float, pnl: float) -> None:
         )
 
 
-def fetch_equity(limit: int = 1000) -> List[Tuple[float, float]]:
+def _range_sql(since, until, col: str = "ts"):
+    """Build a ' AND ts >= ? AND ts < ?' clause + params for an optional range."""
+    clause, params = "", []
+    if since is not None:
+        clause += f" AND {col} >= ?"
+        params.append(since)
+    if until is not None:
+        clause += f" AND {col} < ?"
+        params.append(until)
+    return clause, params
+
+
+def clear_all() -> None:
+    """Permanently delete all recorded trades and equity snapshots."""
+    with _conn() as c:
+        c.execute("DELETE FROM trades")
+        c.execute("DELETE FROM equity")
+
+
+def fetch_equity(limit: int = 1000, since=None, until=None) -> List[Tuple[float, float]]:
     """Return [(ts, balance), ...] oldest-first for the equity curve."""
+    clause, params = _range_sql(since, until)
     with _conn() as c:
         rows = c.execute(
-            "SELECT ts, balance FROM (SELECT * FROM equity ORDER BY id DESC LIMIT ?) ORDER BY ts ASC",
-            (limit,),
+            f"SELECT ts, balance FROM (SELECT * FROM equity WHERE 1=1{clause} "
+            "ORDER BY id DESC LIMIT ?) ORDER BY ts ASC",
+            (*params, limit),
         ).fetchall()
     return [(r["ts"], r["balance"]) for r in rows]
 
@@ -80,15 +101,16 @@ def fetch_trades(limit: int = 5000) -> list:
     return [dict(r) for r in rows]
 
 
-def stats_by_symbol(limit: int = 12) -> list:
+def stats_by_symbol(limit: int = 12, since=None, until=None) -> list:
     """Per-symbol breakdown: trades, wins, realized PnL (from 'close' rows)."""
+    clause, params = _range_sql(since, until)
     with _conn() as c:
         rows = c.execute(
             "SELECT symbol, COUNT(*) trades, "
             "SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) wins, "
             "SUM(pnl) realized "
-            "FROM trades WHERE kind='close' GROUP BY symbol "
-            "ORDER BY realized DESC LIMIT ?", (limit,),
+            f"FROM trades WHERE kind='close'{clause} GROUP BY symbol "
+            "ORDER BY realized DESC LIMIT ?", (*params, limit),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -131,19 +153,23 @@ def summary_for_day(day: str) -> dict:
     }
 
 
-def stats() -> dict:
-    """Aggregate analytics over recorded trades."""
+def stats(since=None, until=None) -> dict:
+    """Aggregate analytics over recorded trades (optionally within a time range)."""
+    clause, params = _range_sql(since, until)
     with _conn() as c:
-        total = c.execute("SELECT COUNT(*) n FROM trades").fetchone()["n"]
+        total = c.execute(
+            f"SELECT COUNT(*) n FROM trades WHERE 1=1{clause}", params
+        ).fetchone()["n"]
         filled = c.execute(
-            "SELECT COUNT(*) n FROM trades WHERE status IN ('Filled','Simulated')"
+            f"SELECT COUNT(*) n FROM trades WHERE status IN ('Filled','Simulated'){clause}",
+            params,
         ).fetchone()["n"]
         rejected = c.execute(
-            "SELECT COUNT(*) n FROM trades WHERE status='Rejected'"
+            f"SELECT COUNT(*) n FROM trades WHERE status='Rejected'{clause}", params
         ).fetchone()["n"]
         # 'close' rows carry the realized PnL estimate for a position.
         closes = c.execute(
-            "SELECT pnl FROM trades WHERE kind='close'"
+            f"SELECT pnl FROM trades WHERE kind='close'{clause}", params
         ).fetchall()
     pnls = [r["pnl"] for r in closes]
     wins = sum(1 for p in pnls if p > 0)

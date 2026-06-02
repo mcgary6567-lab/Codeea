@@ -53,10 +53,64 @@ class AnalyticsWindow:
         self._build()
         self.refresh()
 
+    # -- time range ---------------------------------------------------------
+    def _range_bounds(self):
+        """Return (since, until) epoch seconds for the selected range, or None."""
+        sel = self.range_var.get()
+        now = time.time()
+        if sel == "Today":
+            t = time.localtime(now)
+            start = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1))
+            return start, None
+        if sel == "Last 7 days":
+            return now - 7 * 86400, None
+        if sel == "Last 30 days":
+            return now - 30 * 86400, None
+        if sel == "Custom":
+            since = self._parse_date(self.from_var.get(), end=False)
+            until = self._parse_date(self.to_var.get(), end=True)
+            return since, until
+        return None, None  # All
+
+    @staticmethod
+    def _parse_date(text: str, end: bool):
+        text = (text or "").strip()
+        if not text:
+            return None
+        try:
+            t = time.strptime(text, "%Y-%m-%d")
+            secs = time.mktime(t)
+            return secs + 86400 if end else secs   # 'to' is inclusive of that day
+        except ValueError:
+            return None
+
     # -- layout -------------------------------------------------------------
     def _build(self) -> None:
         tk.Label(self.win, text="Performance", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 14)).pack(anchor="w", padx=16, pady=(14, 8))
+                 font=("Segoe UI Semibold", 14)).pack(anchor="w", padx=16, pady=(14, 4))
+
+        # Date-range filter.
+        fr = tk.Frame(self.win, bg=BG)
+        fr.pack(fill="x", padx=16, pady=(0, 6))
+        tk.Label(fr, text="Range:", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        self.range_var = tk.StringVar(value="All")
+        rng = ttk.Combobox(fr, textvariable=self.range_var, width=14, state="readonly",
+                           values=["All", "Today", "Last 7 days", "Last 30 days", "Custom"])
+        rng.pack(side="left", padx=6)
+        rng.bind("<<ComboboxSelected>>", lambda e: self._on_range_change())
+        self.from_var = tk.StringVar()
+        self.to_var = tk.StringVar()
+        self._custom = tk.Frame(fr, bg=BG)   # shown only for Custom
+        tk.Label(self._custom, text="From", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        fe = ttk.Entry(self._custom, textvariable=self.from_var, width=11)
+        fe.pack(side="left", padx=(4, 8))
+        tk.Label(self._custom, text="To", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        te = ttk.Entry(self._custom, textvariable=self.to_var, width=11)
+        te.pack(side="left", padx=4)
+        tk.Label(self._custom, text="(YYYY-MM-DD)", bg=BG, fg=DIM,
+                 font=("Segoe UI", 8)).pack(side="left", padx=4)
+        for e in (fe, te):
+            e.bind("<Return>", lambda ev: self.refresh())
 
         grid = tk.Frame(self.win, bg=BG)
         grid.pack(fill="x", padx=11)
@@ -104,6 +158,27 @@ class AnalyticsWindow:
         tk.Button(bar, text="Export CSV", command=self._export_csv, bg=ELEV, fg=TXT,
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
                   activebackground=BORDER, padx=16, pady=5).pack(side="right", padx=8)
+        tk.Button(bar, text="Clear", command=self._clear, bg=ELEV, fg=RED,
+                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
+                  activebackground=RED, activeforeground="#ffffff", padx=16, pady=5).pack(side="left")
+
+    def _on_range_change(self) -> None:
+        if self.range_var.get() == "Custom":
+            self._custom.pack(side="left", padx=8)
+        else:
+            self._custom.pack_forget()
+        self.refresh()
+
+    def _clear(self) -> None:
+        if not messagebox.askyesno(
+            "Clear analytics",
+            "This permanently deletes ALL trade history and the equity curve.\n\n"
+            "Tip: use Export CSV first if you want a copy.\n\nContinue?",
+            icon="warning", parent=self.win):
+            return
+        self.history.clear_all()
+        messagebox.showinfo("Cleared", "All analytics history has been cleared.", parent=self.win)
+        self.refresh()
 
     def _export_csv(self) -> None:
         rows = self.history.fetch_trades()
@@ -129,7 +204,8 @@ class AnalyticsWindow:
 
     # -- data ---------------------------------------------------------------
     def refresh(self) -> None:
-        s = self.history.stats()
+        since, until = self._range_bounds()
+        s = self.history.stats(since=since, until=until)
         for key, (val_lbl, colour) in self._vals.items():
             raw = s.get(key, 0)
             if key == "win_rate":
@@ -140,7 +216,7 @@ class AnalyticsWindow:
                 val_lbl.config(text=str(raw))
         for item in self.sym_tree.get_children():
             self.sym_tree.delete(item)
-        for r in self.history.stats_by_symbol():
+        for r in self.history.stats_by_symbol(since=since, until=until):
             realized = r.get("realized") or 0.0
             self.sym_tree.insert(
                 "", "end",
@@ -148,7 +224,7 @@ class AnalyticsWindow:
                         f"{realized:+.2f}"),
                 tags=("pos" if realized >= 0 else "neg",))
 
-        self._last_points = self.history.fetch_equity()
+        self._last_points = self.history.fetch_equity(since=since, until=until)
         self._draw_curve(self._last_points)
 
     def _draw_curve(self, points) -> None:

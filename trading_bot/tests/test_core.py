@@ -271,6 +271,31 @@ class TestDailySummary(unittest.TestCase):
         self.assertAlmostEqual(s["best"], 5.0)
         self.assertAlmostEqual(s["worst"], -2.0)
 
+    def test_clear_all_empties_history(self):
+        h = self.history
+        h.record_trade("manual", "BTC/USDT", "buy", "entry", 0.1, 100, "Filled")
+        h.record_equity(1000.0, 0.0)
+        self.assertGreater(h.stats()["total"], 0)
+        h.clear_all()
+        self.assertEqual(h.stats()["total"], 0)
+        self.assertEqual(h.fetch_equity(), [])
+
+    def test_stats_respects_time_range(self):
+        import sqlite3
+        h = self.history
+        # Insert two closes at known timestamps (old vs now).
+        old, recent = 1000.0, time.time()
+        with sqlite3.connect(h.HISTORY_DB) as c:
+            c.execute("INSERT INTO trades (ts,source,symbol,side,kind,size,price,status,pnl,message)"
+                      " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (old, "s", "BTC/USDT", "sell", "close", 1, 1, "Closed", 3.0, ""))
+            c.execute("INSERT INTO trades (ts,source,symbol,side,kind,size,price,status,pnl,message)"
+                      " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (recent, "s", "BTC/USDT", "sell", "close", 1, 1, "Closed", 7.0, ""))
+        self.assertEqual(h.stats()["closed"], 2)                      # all
+        self.assertEqual(h.stats(since=recent - 60)["closed"], 1)     # only recent
+        self.assertAlmostEqual(h.stats(since=recent - 60)["realized_pnl"], 7.0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

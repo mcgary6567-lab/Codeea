@@ -129,7 +129,7 @@ DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
 RELAY_POLL_INTERVAL = 1.0   # seconds between polls (lower = faster pickup, more requests)
 
 # Default trade sizing.
-DEFAULT_TRADE_SIZE = 0.03           # in base asset (e.g. 0.03 BTC)
+DEFAULT_TRADE_SIZE = 0.003           # in base asset (e.g. 0.003 BTC)
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing
 
 # Sizing modes offered in the UI.
