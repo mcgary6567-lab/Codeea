@@ -26,7 +26,7 @@ emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma
 // ============ DIRECTION / TARGETS ============
 grpDir    = "Direction & Targets"
 allowLong = input.bool(true,  "Allow longs (BUY on bullish cross)", group=grpDir)
-allowShort= input.bool(false, "Allow shorts (SELL on bearish cross) - futures only", group=grpDir, tooltip="OFF = long only; a bearish cross CLOSES the long (exit). ON = open a short (needs futures).")
+allowShort= input.bool(true, "Allow shorts (SELL on bearish cross) - futures only", group=grpDir, tooltip="ON = open a SHORT on a bearish cross (needs a futures account). OFF = long only; a bearish cross CLOSES the long (exit).")
 useTP     = input.bool(true,  "Use TP1/TP2 targets", group=grpDir, tooltip="ON = send % take-profits like before (the opposite cross still closes as a backstop). OFF = exit only on the opposite cross.")
 tp1Pct    = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpDir)
 tp2Pct    = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpDir)
@@ -253,6 +253,9 @@ var label enLbl   = na
 var label tp1Lbl  = na
 var label tp2Lbl  = na
 var label sigLbl  = na
+var float curTp2  = na      // tp2 of the currently drawn levels
+var bool  curLong = true
+var bool  curDone = true     // true once those levels are cleared / completed
 
 drawLong  = showLevels and buySig
 drawShort = showLevels and sellSig and allowShort
@@ -268,12 +271,23 @@ if drawLong or drawShort
     enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                              color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    curTp2  := t2
+    curLong := drawLong
+    curDone := false
+
+// Clear the drawn levels once TP2 is reached (trade complete / WIN).
+if showLevels and not curDone and not na(curTp2)
+    if (curLong ? high >= curTp2 : low <= curTp2)
+        line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
+        label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+        curDone := true
 
 // On a long-only EXIT (close), clear the previous long's Entry/TP lines so they
 // don't linger above the exit and look like the sell's targets.
 if showLevels and sellSig and not allowShort
     line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
     label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    curDone := true
 
 if showLabels and buySig
     label.delete(sigLbl)
