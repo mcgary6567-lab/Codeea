@@ -277,9 +277,7 @@ if array.size(signals) > 0
                     sStr = f_px(rec.sl)
                     eSL  = f_px(rec.entry)
                     lSL  = f_pct(rec.sl, rec.entry)
-                    jsSL = '{"event":"sl_hit","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-                            '","price":' + sStr + ',"entry":' + eSL +
-                            ',"comment":"' + strategyTag + '","tf":"' + sigTf + '","time":"' + timeStr + '"}'
+                    jsSL = '{"event":"sl_hit","symbol":"' + tickerStr + '","passphrase":"' + whSecret + '","price":' + sStr + ',"entry":' + eSL + ',"comment":"' + strategyTag + '","tf":"' + sigTf + '","time":"' + timeStr + '"}'
                     rdSL = "[SL] " + alertHeader + " - " + tickerStr + "\nSL HIT: " + sStr + " (" + lSL + "%)\nEntry: " + eSL + "\n" + timeStr
                     tgSL = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(rdSL, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
                     cpSL = tickerStr + " SL HIT @ " + sStr + " | Entry " + eSL + " | " + lSL + "%"
