@@ -114,14 +114,12 @@ ema1 = ta.ema(emaSrc, emaLen1)
 ema2 = ta.ema(emaSrc, emaLen2)
 ema3 = ta.ema(emaSrc, emaLen3)
 
-// Bullish/bearish alignment = the three EMAs stacked in order. A SIGNAL fires
-// only at the moment they FLIP into that order (i.e. the EMAs cross each other),
-// not when price wanders across the ribbon.
-stackUp = ema1 > ema2 and ema2 > ema3
-stackDn = ema1 < ema2 and ema2 < ema3
-
-buyRaw  = stackUp and not stackUp[1]   // EMAs just crossed into bullish order
-sellRaw = stackDn and not stackDn[1]   // EMAs just crossed into bearish order
+// A SIGNAL fires when the FAST EMA actually crosses the SLOW EMA — i.e. the
+// fast cuts through the whole ribbon (a real regime change). This avoids the
+// noise from price wandering across the ribbon, and from the fast/mid EMAs
+// wiggling against each other while the slow EMA is flat and far away.
+buyRaw  = ta.crossover(ema1, ema3)    // fast (9) crosses ABOVE slow (50)
+sellRaw = ta.crossunder(ema1, ema3)   // fast (9) crosses BELOW slow (50)
 
 // ============ SIGNAL STATE ============
 var int lastSig = -1000
@@ -253,9 +251,6 @@ var label enLbl   = na
 var label tp1Lbl  = na
 var label tp2Lbl  = na
 var label sigLbl  = na
-var float curTp2  = na      // tp2 of the currently drawn levels
-var bool  curLong = true
-var bool  curDone = true     // true once those levels are cleared / completed
 
 drawLong  = showLevels and buySig
 drawShort = showLevels and sellSig and allowShort
@@ -271,16 +266,6 @@ if drawLong or drawShort
     enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                              color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    curTp2  := t2
-    curLong := drawLong
-    curDone := false
-
-// Clear the drawn levels once TP2 is reached (trade complete / WIN).
-if showLevels and not curDone and not na(curTp2)
-    if (curLong ? high >= curTp2 : low <= curTp2)
-        line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-        label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
-        curDone := true
 
 // On a long-only EXIT (close), clear the previous long's Entry/TP lines so they
 // don't linger above the exit and look like the sell's targets.
@@ -334,7 +319,7 @@ if showDash and barstate.islast
             rec    = array.get(displayList, i)
             rowIdx = 2 + i
             rowBg  = statusBg(rec.status)
-            sTxt   = statusText(rec.status) + (rec.isLong ? "" : " S")
+            sTxt   = statusText(rec.status) + (rec.isLong ? " L" : " S")
             tStr   = str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
             tp1Bg  = rec.tp1Hit ? color.new(color.orange, 50) : rowBg
             tp2Bg  = rec.tp2Hit ? color.new(color.aqua,   50) : rowBg
