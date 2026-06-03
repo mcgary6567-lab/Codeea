@@ -5,15 +5,20 @@ plot(na, "ghost", display=display.none)
 
 // ============ TYPES ============
 type SignalRec
-    int   barIdx
-    int   tstamp
-    float entry
-    float tp1
-    float tp2
-    int   status   // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
-    bool  tp1Hit
-    bool  tp2Hit
-    bool  isLong
+    int    barIdx
+    int    tstamp
+    float  entry
+    float  tp1
+    float  tp2
+    int    status     // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
+    bool   tp1Hit
+    bool   tp2Hit
+    bool   isLong
+    string strat = "A"
+
+// ============ STRATEGY SELECT ============
+grpStrat  = "Strategy"
+stratMode = input.string("B: EMA Pullback", "Active Strategy", options=["A: EMA Cross","B: EMA Pullback","Both"], group=grpStrat, tooltip="A = fast EMA crosses slow EMA. B = pullback to EMA21/9 in a stacked trend with a rejection candle (SL at EMA50).")
 
 // ============ EMA RIBBON ============
 grpEma    = "EMA Ribbon"
@@ -21,21 +26,31 @@ emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
 emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
 emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
 emaSrc    = input.source(close, "Source", group=grpEma)
-emaBuf    = input.float(0.05, "Cross buffer %", minval=0.0, step=0.01, group=grpEma, tooltip="The fast EMA must clear the slow EMA by at least this % to count as a cross. Filters tiny crosses when price hugs the slow EMA. 0 = exact cross.")
-emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma, tooltip="Minimum bars between signals to avoid clustering.")
+emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma)
 
-// ============ DIRECTION / TARGETS ============
+// ============ STRATEGY A: EMA CROSS ============
+grpA   = "Strategy A: EMA Cross"
+aBuf   = input.float(0.05, "A: Cross buffer %", minval=0.0, step=0.01, group=grpA, tooltip="Fast EMA must clear the slow EMA by this % to count. 0 = exact cross.")
+aTp1p  = input.float(1.0, "A: TP1 %", minval=0.1, step=0.1, group=grpA)
+aTp2p  = input.float(2.0, "A: TP2 %", minval=0.1, step=0.1, group=grpA)
+
+// ============ STRATEGY B: EMA PULLBACK ============
+grpB     = "Strategy B: EMA Pullback"
+bPullSel = input.string("EMA 21", "B: Pullback zone", options=["EMA 21","EMA 9"], group=grpB, tooltip="EMA 21 = safer pullback; EMA 9 = aggressive. Price must retrace to this EMA and close back with the trend (rejection candle).")
+bTp1R    = input.float(1.0, "B: TP1 (x risk)", minval=0.5, step=0.5, group=grpB, tooltip="Risk = entry-to-EMA50 distance. TP1 = entry + this x risk.")
+bTp2R    = input.float(2.0, "B: TP2 (x risk)", minval=0.5, step=0.5, group=grpB)
+bSendSL  = input.bool(true, "B: Send SL at EMA50", group=grpB, tooltip="Sends a stop-loss at EMA50 (placed on futures; spot has no stop market).")
+
+// ============ DIRECTION ============
 grpDir    = "Direction & Targets"
-allowLong = input.bool(true,  "Allow longs (BUY on bullish cross)", group=grpDir)
-allowShort= input.bool(true, "Allow shorts (SELL on bearish cross) - futures only", group=grpDir, tooltip="ON = open a SHORT on a bearish cross (needs a futures account). OFF = long only; a bearish cross CLOSES the long (exit).")
-useTP     = input.bool(true,  "Use TP1/TP2 targets", group=grpDir, tooltip="ON = send % take-profits like before (the opposite cross still closes as a backstop). OFF = exit only on the opposite cross.")
-tp1Pct    = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpDir)
-tp2Pct    = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpDir)
+allowLong = input.bool(true,  "Allow longs", group=grpDir)
+allowShort= input.bool(true,  "Allow shorts (futures only)", group=grpDir, tooltip="ON = open a SHORT on a bearish signal (needs futures). OFF = long only; a bearish signal CLOSES the long (exit).")
+useTP     = input.bool(true,  "Use TP1/TP2 targets", group=grpDir)
 
 // ============ VISUALS ============
 grpVis     = "Visuals"
 showRibbon = input.bool(true, "Show EMA ribbon", group=grpVis)
-showLevels = input.bool(true, "Draw Entry / TP levels", group=grpVis)
+showLevels = input.bool(true, "Draw Entry / TP / SL levels", group=grpVis)
 showLabels = input.bool(true, "Show BUY / SELL labels", group=grpVis)
 
 // ============ DASHBOARD ============
@@ -48,9 +63,9 @@ trackWindow = input.int(120, "Tracking Window (bars)", minval=20, group=grpDash)
 
 // ============ ALERTS ============
 grpAlert    = "Alerts"
-alertOnBar  = input.string("Bar Close", "Alert Mode",   options=["Bar Close","Every Tick"], tooltip="'Bar Close' = confirmed candles only (no repaint).", group=grpAlert)
+alertOnBar  = input.string("Bar Close", "Alert Mode", options=["Bar Close","Every Tick"], group=grpAlert)
 alertHeader = input.string("Prometheus AI Crypto Bot", "Alert Header", group=grpAlert)
-alertFmt    = input.string("Webhook JSON",  "Alert Format", options=["Telegram","Readable","Compact","Webhook JSON"], group=grpAlert)
+alertFmt    = input.string("Webhook JSON", "Alert Format", options=["Telegram","Readable","Compact","Webhook JSON"], group=grpAlert)
 alertOnTP   = input.bool(true, "Alert on TP Hit", group=grpAlert)
 
 // ============ TELEGRAM ============
@@ -60,7 +75,7 @@ tgChatId = input.string("", "Telegram Chat ID", group=grpTg)
 // ============ BOT / WEBHOOK ============
 grpBot      = "Bot / Webhook"
 strategyTag = input.string("Prometheus", "Strategy tag", group=grpBot, tooltip="Sent as 'comment' - set the bot's Strategy filter to the same value.")
-whSecret    = input.string("",           "Webhook passphrase", group=grpBot, tooltip="Must match the bot's Webhook passphrase. Leave blank if the bot has none.")
+whSecret    = input.string("",           "Webhook passphrase", group=grpBot)
 
 // ============ HELPERS ============
 f_px(x) => str.tostring(x, format.mintick)
@@ -115,29 +130,51 @@ ema1 = ta.ema(emaSrc, emaLen1)
 ema2 = ta.ema(emaSrc, emaLen2)
 ema3 = ta.ema(emaSrc, emaLen3)
 
-// A SIGNAL fires when the FAST EMA crosses the SLOW EMA by at least the buffer
-// band — i.e. the fast cleanly cuts through the whole ribbon (a real regime
-// change), not a micro-cross while price hugs the slow EMA.
-upThresh = ema3 * (1.0 + emaBuf / 100.0)
-dnThresh = ema3 * (1.0 - emaBuf / 100.0)
-buyRaw  = ema1 > upThresh and ema1[1] <= upThresh[1]   // fast clears slow +buffer
-sellRaw = ema1 < dnThresh and ema1[1] >= dnThresh[1]   // fast drops slow -buffer
+aOn = stratMode != "B: EMA Pullback"
+bOn = stratMode != "A: EMA Cross"
+
+bull = ema1 > ema2 and ema2 > ema3
+bear = ema1 < ema2 and ema2 < ema3
+
+// ---- Strategy A: fast EMA crosses slow EMA (+ buffer) ----
+upThresh = ema3 * (1.0 + aBuf / 100.0)
+dnThresh = ema3 * (1.0 - aBuf / 100.0)
+aBuyRaw  = ema1 > upThresh and ema1[1] <= upThresh[1]
+aSellRaw = ema1 < dnThresh and ema1[1] >= dnThresh[1]
+
+// ---- Strategy B: pullback to EMA21/9 in a stacked trend + rejection candle ----
+pullEma  = bPullSel == "EMA 9" ? ema1 : ema2
+bBuyRaw  = bull and low  <= pullEma and close > pullEma and close > open   // dip to EMA, close back above (bullish)
+bSellRaw = bear and high >= pullEma and close < pullEma and close < open   // pop to EMA, close back below (bearish)
 
 // ============ SIGNAL STATE ============
+buyFromB  = bOn and bBuyRaw
+sellFromB = bOn and bSellRaw
+buyRaw    = (aOn and aBuyRaw)  or buyFromB
+sellRaw   = (aOn and aSellRaw) or sellFromB
+
 var int lastSig = -1000
 ready   = barstate.isconfirmed and (bar_index - lastSig) >= emaCD
 buySig  = ready and buyRaw  and allowLong
-sellSig = ready and sellRaw and (allowShort or allowLong)   // long-only -> sell = exit
+sellSig = ready and sellRaw and (allowShort or allowLong)
 if buySig or sellSig
     lastSig := bar_index
 
-// ============ ENTRY / TARGETS ============
-entry   = close
-tp1Long = entry * (1.0 + tp1Pct / 100.0)
-tp2Long = entry * (1.0 + tp2Pct / 100.0)
-tp1Sh   = entry * (1.0 - tp1Pct / 100.0)
-tp2Sh   = entry * (1.0 - tp2Pct / 100.0)
-entryS  = f_px(entry)
+// ============ ENTRY / TARGETS / SL ============
+entry  = close
+entryS = f_px(entry)
+strat  = (buySig ? buyFromB : sellFromB) ? "B" : "A"
+
+// Risk = distance to EMA50 (Strategy B). Floor at ATR so it's never ~0.
+riskUp = math.max(entry - ema3, atr * 0.1)
+riskDn = math.max(ema3 - entry, atr * 0.1)
+
+buyTp1  = buyFromB ? entry + bTp1R * riskUp : entry * (1.0 + aTp1p / 100.0)
+buyTp2  = buyFromB ? entry + bTp2R * riskUp : entry * (1.0 + aTp2p / 100.0)
+buySL   = (buyFromB and bSendSL) ? ema3 : na
+sellTp1 = sellFromB ? entry - bTp1R * riskDn : entry * (1.0 - aTp1p / 100.0)
+sellTp2 = sellFromB ? entry - bTp2R * riskDn : entry * (1.0 - aTp2p / 100.0)
+sellSL  = (sellFromB and bSendSL) ? ema3 : na
 
 freq    = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
 timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
@@ -146,13 +183,12 @@ timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
 var array<SignalRec> signals = array.new<SignalRec>()
 TRACK_MAX = 50
 
-// Track long entries (and short entries when shorts are enabled).
 if buySig
-    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Long, tp2Long, 0, false, false, true))
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, buyTp1, buyTp2, 0, false, false, true, strat))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
 if sellSig and allowShort
-    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Sh, tp2Sh, 0, false, false, false))
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, sellTp1, sellTp2, 0, false, false, false, strat))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
 
@@ -164,7 +200,6 @@ if array.size(signals) > 0
             if barsIn > 0
                 hitTP2 = rec.isLong ? high >= rec.tp2 : low <= rec.tp2
                 hitTP1 = rec.isLong ? high >= rec.tp1 : low <= rec.tp1
-
                 tpEvent    = ""
                 tpPriceHit = 0.0
                 if hitTP2 and not rec.tp2Hit
@@ -176,14 +211,11 @@ if array.size(signals) > 0
                     rec.tp1Hit := true
                     tpEvent    := "tp1_hit"
                     tpPriceHit := rec.tp1
-
                 if rec.tp2Hit
                     rec.status := 1
                 else if barsIn >= trackWindow
                     rec.status := rec.tp1Hit ? 4 : 3
-
                 array.set(signals, i, rec)
-
                 if alertOnTP and tpEvent != ""
                     tpNum = tpEvent == "tp1_hit" ? "TP1" : "TP2"
                     pStr  = f_px(tpPriceHit)
@@ -201,38 +233,38 @@ if array.size(signals) > 0
                     alert(tpMsg, freq)
 
 // ============ ENTRY / EXIT ALERTS ============
-// BUY (long)
-buyTPjson = useTP ? (',"tp1":' + f_px(tp1Long) + ',"tp2":' + f_px(tp2Long)) : ''
+buySLj  = not na(buySL)  ? (',"sl":' + f_px(buySL))  : ''
+buyTPj  = useTP ? (',"tp1":' + f_px(buyTp1) + ',"tp2":' + f_px(buyTp2)) : ''
 jBuy = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-       '","entry":' + entryS + buyTPjson +
+       '","entry":' + entryS + buySLj + buyTPj +
        ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 
-// SELL: short entry (futures) OR exit/close the long (default)
-sellTPjson = useTP ? (',"tp1":' + f_px(tp1Sh) + ',"tp2":' + f_px(tp2Sh)) : ''
+sellSLj = not na(sellSL) ? (',"sl":' + f_px(sellSL)) : ''
+sellTPj = useTP ? (',"tp1":' + f_px(sellTp1) + ',"tp2":' + f_px(sellTp2)) : ''
 jShort = '{"action":"sell","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-         '","entry":' + entryS + sellTPjson +
+         '","entry":' + entryS + sellSLj + sellTPj +
          ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 jExit  = '{"event":"exit","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
          '","comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 jSell  = allowShort ? jShort : jExit
 
-buyTxt  = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\nEMA BUY @ " + entryS +
-          (useTP ? "\nTP1 " + f_px(tp1Long) + " | TP2 " + f_px(tp2Long) : "") + "\n" + timeStr
+buyTxt  = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" + strat + " BUY @ " + entryS +
+          (useTP ? "\nTP1 " + f_px(buyTp1) + " | TP2 " + f_px(buyTp2) : "") + (not na(buySL) ? "\nSL " + f_px(buySL) : "") + "\n" + timeStr
 sellTxt = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
-          (allowShort ? "EMA SELL/SHORT @ " : "EMA EXIT (close long) @ ") + entryS + "\n" + timeStr
+          (allowShort ? strat + " SELL/SHORT @ " : strat + " EXIT (close long) @ ") + entryS + "\n" + timeStr
 tgBuy  = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(buyTxt,  "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
 tgSell = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(sellTxt, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
 
-buyMsg  = alertFmt == "Webhook JSON" ? jBuy  : alertFmt == "Telegram" ? tgBuy  : alertFmt == "Compact" ? (tickerStr + " EMA BUY @ " + entryS) : buyTxt
-sellMsg = alertFmt == "Webhook JSON" ? jSell : alertFmt == "Telegram" ? tgSell : alertFmt == "Compact" ? (tickerStr + (allowShort ? " EMA SELL @ " : " EMA EXIT @ ") + entryS) : sellTxt
+buyMsg  = alertFmt == "Webhook JSON" ? jBuy  : alertFmt == "Telegram" ? tgBuy  : alertFmt == "Compact" ? (tickerStr + " " + strat + " BUY @ " + entryS) : buyTxt
+sellMsg = alertFmt == "Webhook JSON" ? jSell : alertFmt == "Telegram" ? tgSell : alertFmt == "Compact" ? (tickerStr + " " + strat + (allowShort ? " SELL @ " : " EXIT @ ") + entryS) : sellTxt
 
 if buySig
     alert(buyMsg, freq)
 if sellSig
     alert(sellMsg, freq)
 
-alertcondition(buySig,  title="Prometheus EMA BUY",  message="Prometheus EMA Ribbon - BUY")
-alertcondition(sellSig, title="Prometheus EMA SELL", message="Prometheus EMA Ribbon - SELL/EXIT")
+alertcondition(buySig,  title="Prometheus BUY",  message="Prometheus EMA - BUY")
+alertcondition(sellSig, title="Prometheus SELL", message="Prometheus EMA - SELL/EXIT")
 
 // ============ VISUALS ============
 plot(showRibbon ? ema1 : na, "EMA Fast", color=color.new(#26c281, 0), linewidth=1)
@@ -243,45 +275,48 @@ plotshape(buySig,  title="BUY",  style=shape.triangleup,   location=location.bel
 plotshape(sellSig, title="SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),   size=size.small, text="SELL", textcolor=color.white, force_overlay=true)
 bgcolor(buySig ? color.new(color.green, 85) : sellSig ? color.new(color.red, 85) : na, title="Signal BG")
 
-// ---- Entry / TP level lines + labels ----
-tp1str = str.tostring(tp1Pct, "#.##")
-tp2str = str.tostring(tp2Pct, "#.##")
+// ---- Entry / TP / SL level lines + labels ----
 var line  enLine  = na
 var line  tp1Line = na
 var line  tp2Line = na
+var line  slLine  = na
 var label enLbl   = na
 var label tp1Lbl  = na
 var label tp2Lbl  = na
+var label slLbl   = na
 var label sigLbl  = na
 
 drawLong  = showLevels and buySig
 drawShort = showLevels and sellSig and allowShort
 if drawLong or drawShort
-    t1  = drawLong ? tp1Long : tp1Sh
-    t2  = drawLong ? tp2Long : tp2Sh
-    sgn = drawLong ? "+" : "-"
-    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    t1  = drawLong ? buyTp1 : sellTp1
+    t2  = drawLong ? buyTp2 : sellTp2
+    sl  = drawLong ? buySL  : sellSL
+    p1  = f_pct(t1, entry)
+    p2  = f_pct(t2, entry)
+    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line), line.delete(slLine)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl), label.delete(slLbl)
     enLine  := line.new(bar_index, entry, bar_index + 30, entry, color=color.blue,   width=2, style=line.style_solid,  force_overlay=true)
     tp1Line := line.new(bar_index, t1,    bar_index + 30, t1,    color=color.orange, width=1, style=line.style_dashed, force_overlay=true)
     tp2Line := line.new(bar_index, t2,    bar_index + 30, t2,    color=color.aqua,   width=2, style=line.style_dashed, force_overlay=true)
-    enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                              color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                        color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + p1 + "%)",           color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + p2 + "%)",           color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    if not na(sl)
+        slLine := line.new(bar_index, sl, bar_index + 30, sl, color=color.red, width=1, style=line.style_dotted, force_overlay=true)
+        slLbl  := label.new(bar_index + 30, sl, "SL " + f_px(sl) + " (" + f_pct(sl, entry) + "%)", color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
 
-// On a long-only EXIT (close), clear the previous long's Entry/TP lines so they
-// don't linger above the exit and look like the sell's targets.
 if showLevels and sellSig and not allowShort
-    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line), line.delete(slLine)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl), label.delete(slLbl)
 
 if showLabels and buySig
     label.delete(sigLbl)
-    sigLbl := label.new(bar_index, low - atr, "BUY @ " + entryS, color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
+    sigLbl := label.new(bar_index, low - atr, strat + " BUY @ " + entryS, color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
 if showLabels and sellSig
     label.delete(sigLbl)
-    sellWord = allowShort ? "SELL @ " : "EXIT @ "
-    sigLbl := label.new(bar_index, high + atr, sellWord + entryS, color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_down, size=size.normal, textalign=text.align_center, force_overlay=true)
+    sellWord = allowShort ? " SELL @ " : " EXIT @ "
+    sigLbl := label.new(bar_index, high + atr, strat + sellWord + entryS, color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_down, size=size.normal, textalign=text.align_center, force_overlay=true)
 
 // ============ DASHBOARD ============
 var table dash = na
@@ -321,7 +356,7 @@ if showDash and barstate.islast
             rowIdx = 2 + i
             rowBg  = statusBg(rec.status)
             sTxt   = statusText(rec.status) + (rec.isLong ? " L" : " S")
-            tStr   = str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
+            tStr   = rec.strat + " " + str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
             tp1Bg  = rec.tp1Hit ? color.new(color.orange, 50) : rowBg
             tp2Bg  = rec.tp2Hit ? color.new(color.aqua,   50) : rowBg
             tp1Txt = rec.tp1Hit ? "HIT" : f_px(rec.tp1)
