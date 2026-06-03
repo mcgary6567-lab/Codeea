@@ -681,7 +681,10 @@ class TradingBotGUI:
         size_row = ttk.Frame(f)
         size_row.grid(row=0, column=1, sticky="w", pady=4)
         self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
-        ttk.Entry(size_row, textvariable=self.size_var, width=12).pack(side="left")
+        size_entry = ttk.Entry(size_row, textvariable=self.size_var, width=12)
+        size_entry.pack(side="left")
+        size_entry.bind("<FocusOut>", lambda ev: self._push_settings())
+        size_entry.bind("<Return>", lambda ev: self._push_settings())
         self.size_hint = ttk.Label(size_row, text="base (e.g. BTC)")
         self.size_hint.pack(side="left", padx=6)
 
@@ -697,7 +700,10 @@ class TradingBotGUI:
         rr.grid(row=2, column=0, columnspan=2, sticky="w")
         ttk.Label(rr, text="Risk %:").pack(side="left")
         self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
-        ttk.Entry(rr, textvariable=self.risk_pct_var, width=6).pack(side="left", padx=6)
+        risk_entry = ttk.Entry(rr, textvariable=self.risk_pct_var, width=6)
+        risk_entry.pack(side="left", padx=6)
+        risk_entry.bind("<FocusOut>", lambda ev: self._push_settings())
+        risk_entry.bind("<Return>", lambda ev: self._push_settings())
         ttk.Label(rr, text="(risk-based modes)").pack(side="left")
 
         self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
@@ -1250,6 +1256,7 @@ class TradingBotGUI:
         if not self.connected:
             messagebox.showwarning("Not connected", "Connect to an exchange first.")
             return
+        self._push_settings()   # ensure the latest typed size/mode is in effect
         symbol = self.symbol_var.get().strip()
         size = self.size_var.get().strip()
         sm = self._sizing_mode_value()
