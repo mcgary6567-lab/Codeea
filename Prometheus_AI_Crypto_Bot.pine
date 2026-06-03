@@ -34,8 +34,6 @@ grpInt = "Internal"
 rsiLen = input.int(14, "RSI Length", group=grpInt)
 atrLen = input.int(14, "ATR Length", group=grpInt)
 volLen = input.int(20, "Volume MA",  group=grpInt)
-sigTfSel = input.string("5 minutes", "Signal timeframe", options=["5 minutes"], group=grpInt, tooltip="This strategy is locked to the 5-minute timeframe.")
-sigTf  = "5"
 
 effOS   = eff == "Custom" ? custOS   : 30
 effATR  = eff == "Custom" ? custATR  : eff == "BTC" ? 0.8 : eff == "ETH" ? 0.9 : 1.0
@@ -154,77 +152,71 @@ passesFilter(st, f) =>
         ok := st == 1 or st == 4
     ok
 
-// ============ SIGNAL CALC (computed on the signal timeframe) ============
-f_calc() =>
-    rsi        = ta.rsi(close, rsiLen)
-    atr        = ta.atr(atrLen)
-    volAvg     = ta.sma(volume, volLen)
-    lowestN    = ta.lowest(low, effLook)
-    lowestFive = ta.lowest(low, 5)
-    hasVolume  = ta.cum(volume) > 0
-    volPass    = not hasVolume or volume >= volAvg * effVol
-    isRed      = close < open
-    isGreen    = close > open
-    candleRange    = high - low
-    bodyRatio      = candleRange > 0 ? math.abs(close - open) / candleRange : 0.0
-    isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
+// ============ CALCS (native chart timeframe — works on any TF) ============
+rsi        = ta.rsi(close, rsiLen)
+atr        = ta.atr(atrLen)
+volAvg     = ta.sma(volume, volLen)
+lowestN    = ta.lowest(low, effLook)
+lowestFive = ta.lowest(low, 5)
+hasVolume  = ta.cum(volume) > 0
+volPass    = not hasVolume or volume >= volAvg * effVol
+isRed      = close < open
+isGreen    = close > open
+candleRange    = high - low
+bodyRatio      = candleRange > 0 ? math.abs(close - open) / candleRange : 0.0
+isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
 
-    // Climactic (selling-climax) detection — fixed thresholds, marker only.
-    downMovePct  = close[10] > 0 ? (close[10] - low) / close[10] * 100.0 : 0.0
-    climVolOk    = not hasVolume or volume >= volAvg * 2.0
-    isSellClimax = isRed and (high - low >= atr * 2.0) and climVolOk and (downMovePct >= 1.5)
+// Climactic (selling-climax) detection — fixed thresholds, marker only.
+downMovePct  = close[10] > 0 ? (close[10] - low) / close[10] * 100.0 : 0.0
+climVolOk    = not hasVolume or volume >= volAvg * 2.0
+isSellClimax = isRed and (high - low >= atr * 2.0) and climVolOk and (downMovePct >= 1.5)
 
-    isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
+isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
 
-    // ---- state machine ----
-    var bool  dipActive     = false
-    var int   greenCount    = 0
-    var float dipLowVal     = na
-    var int   barsSinceDip  = 0
-    var int   lastSignalBar = -1000
-    if isDipRed
-        dipActive    := true
-        greenCount   := 0
-        dipLowVal    := low
-        barsSinceDip := 0
-    else
-        if dipActive
-            barsSinceDip := barsSinceDip + 1
-            if barsSinceDip > maxWait
-                dipActive  := false
-                greenCount := 0
+// ============ STATE MACHINE ============
+var bool  dipActive     = false
+var int   greenCount    = 0
+var float dipLowVal     = na
+var int   barsSinceDip  = 0
+var int   lastSignalBar = -1000
+if isDipRed
+    dipActive    := true
+    greenCount   := 0
+    dipLowVal    := low
+    barsSinceDip := 0
+else
+    if dipActive
+        barsSinceDip := barsSinceDip + 1
+        if barsSinceDip > maxWait
+            dipActive  := false
+            greenCount := 0
+        else
+            if isQualityGreen
+                greenCount := greenCount + 1
             else
-                if isQualityGreen
-                    greenCount := greenCount + 1
-                else
-                    greenCount := 0
-                    if low < dipLowVal
-                        dipActive := false
-    inCooldown = (bar_index - lastSignalBar) < cooldown
-    rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
-    sig = rawSignal and not inCooldown and barstate.isconfirmed
-    if sig
-        dipActive     := false
-        greenCount    := 0
-        lastSignalBar := bar_index
+                greenCount := 0
+                if low < dipLowVal
+                    dipActive := false
+inCooldown = (bar_index - lastSignalBar) < cooldown
+rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
+signal     = rawSignal and not inCooldown and barstate.isconfirmed
+if signal
+    dipActive     := false
+    greenCount    := 0
+    lastSignalBar := bar_index
 
-    // ---- entry / targets (no SL) ----
-    var float lockedDipLow = na
-    if isDipRed
-        lockedDipLow := low
-    entryP  = close
-    dipRef  = na(lockedDipLow) ? lowestFive : lockedDipLow
-    tpRange = math.max(entryP - dipRef, atr)
-    tp1     = entryP + tpRange * rrTP1
-    tp2     = entryP + tpRange * rrTP2
-    // SL below recent liquidity (lowest low over slLook, and below the dip low).
-    liqLow  = math.min(ta.lowest(low, slLook), dipRef)
-    slLvl   = useSL ? liqLow * (1.0 - slBuf / 100.0) : na
-    [sig, entryP, tp1, tp2, isDipRed, isSellClimax, rsi, atr, tpRange, slLvl]
-
-[sigRaw, entryPrice, tp1Price, tp2Price, isDipRed, isSellClimax, rsi, atr, tpRange, slPrice] = request.security(syminfo.tickerid, sigTf, f_calc(), lookahead=barmerge.lookahead_off)
-// Fire on the rising edge so it triggers once per signal even on a lower chart TF.
-signal = sigRaw and not sigRaw[1]
+// ============ ENTRY / TARGETS / SL ============
+var float lockedDipLow = na
+if isDipRed
+    lockedDipLow := low
+entryPrice = close
+dipRef     = na(lockedDipLow) ? lowestFive : lockedDipLow
+tpRange    = math.max(entryPrice - dipRef, atr)
+tp1Price   = entryPrice + tpRange * rrTP1
+tp2Price   = entryPrice + tpRange * rrTP2
+// SL below recent liquidity (lowest low over slLook, and below the dip low).
+liqLow     = math.min(ta.lowest(low, slLook), dipRef)
+slPrice    = useSL ? liqLow * (1.0 - slBuf / 100.0) : na
 
 // ============ SIGNAL TRACKING ============
 var array<SignalRec> signals = array.new<SignalRec>()
@@ -277,7 +269,7 @@ if array.size(signals) > 0
                     sStr = f_px(rec.sl)
                     eSL  = f_px(rec.entry)
                     lSL  = f_pct(rec.sl, rec.entry)
-                    jsSL = '{"event":"sl_hit","symbol":"' + tickerStr + '","passphrase":"' + whSecret + '","price":' + sStr + ',"entry":' + eSL + ',"comment":"' + strategyTag + '","tf":"' + sigTf + '","time":"' + timeStr + '"}'
+                    jsSL = '{"event":"sl_hit","symbol":"' + tickerStr + '","passphrase":"' + whSecret + '","price":' + sStr + ',"entry":' + eSL + ',"comment":"' + strategyTag + '","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
                     rdSL = "[SL] " + alertHeader + " - " + tickerStr + "\nSL HIT: " + sStr + " (" + lSL + "%)\nEntry: " + eSL + "\n" + timeStr
                     tgSL = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(rdSL, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
                     cpSL = tickerStr + " SL HIT @ " + sStr + " | Entry " + eSL + " | " + lSL + "%"
@@ -301,7 +293,7 @@ if array.size(signals) > 0
                                '","passphrase":"' + whSecret +
                                '","price":' + pStr + ',"entry":' + eStr +
                                ',"tp1":' + f_px(rec.tp1) + ',"tp2":' + f_px(rec.tp2) +
-                               ',"comment":"' + strategyTag + '","tf":"' + sigTf +
+                               ',"comment":"' + strategyTag + '","tf":"' + timeframe.period +
                                '","time":"' + timeStr + '"}'
                     tgTPEsc = str.replace_all(tgTP, "\n", "\\n")
                     tgTPMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTPEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
@@ -318,7 +310,7 @@ rsiStr   = str.tostring(rsi, "#.##")
 pct1     = f_pct(tp1Price, entryPrice)
 pct2     = f_pct(tp2Price, entryPrice)
 
-tgText = alertHeader + " - " + tickerStr + " (" + sigTf + ")\n" +
+tgText = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
          "---\n" +
          "ENTRY : " + entryStr + "\n" +
          "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
@@ -328,7 +320,7 @@ tgText = alertHeader + " - " + tickerStr + " (" + sigTf + ")\n" +
 tgTextEsc   = str.replace_all(tgText, "\n", "\\n")
 telegramMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTextEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
 
-readableMsg = alertHeader + " - " + tickerStr + " (" + sigTf + ")\n" +
+readableMsg = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
                "ENTRY : " + entryStr + "\n" +
                "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
                "TP2   : " + tp2Str   + " (+" + pct2 + "%)\n" +
@@ -338,7 +330,7 @@ compactMsg = tickerStr + " BUY @ " + entryStr + " | TP1 " + tp1Str + " | TP2 " +
 
 jsonMsg = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
            '","entry":' + entryStr + slJson + ',"tp1":' + tp1Str + ',"tp2":' + tp2Str +
-           ',"comment":"' + strategyTag + '","tf":"' + sigTf + '","time":"' + timeStr + '"}'
+           ',"comment":"' + strategyTag + '","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 
 alertMsg = alertFmt == "Telegram" ? telegramMsg : alertFmt == "Webhook JSON" ? jsonMsg : alertFmt == "Compact" ? compactMsg : readableMsg
 
@@ -359,7 +351,7 @@ if showBuyNow and signal
 var label infoLbl = na
 if showInfo and barstate.islast
     label.delete(infoLbl)
-    infoLbl := label.new(bar_index, high, "Preset: " + eff + "  TF: " + sigTf, color=color.new(color.gray, 70), textcolor=color.white, style=label.style_label_lower_right, size=size.small, force_overlay=true)
+    infoLbl := label.new(bar_index, high, "Preset: " + eff, color=color.new(color.gray, 70), textcolor=color.white, style=label.style_label_lower_right, size=size.small, force_overlay=true)
 
 // ---- Entry / TP level lines (no SL) ----
 var line  enLine  = na
@@ -404,7 +396,8 @@ if showDash and barstate.islast
     nRows     = array.size(displayList)
     totalRows = 2 + math.max(nRows, 1)
     filterLabel = dashFilter == "Wins + Open" ? "Active & Wins" : "Win Signals"
-    titleTxt    = "Prometheus AI - " + filterLabel + " | " + tickerStr + " " + sigTf + "M"
+    tfStr       = timeframe.isminutes ? timeframe.period + "M" : timeframe.isseconds ? timeframe.period + "S" : timeframe.period
+    titleTxt    = "Prometheus AI - " + filterLabel + " | " + tickerStr + " " + tfStr
 
     dash := table.new(posMap(dashPos), 5, totalRows, bgcolor=color.new(color.black, 10), border_width=1, border_color=color.new(color.gray, 60), frame_width=1, frame_color=color.new(color.gray, 30))
 
