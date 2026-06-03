@@ -87,6 +87,22 @@ grpBot      = "Bot / Webhook"
 strategyTag = input.string("Prometheus", "Strategy tag", group=grpBot, tooltip="Sent as 'comment' — set the bot's Strategy filter to the same value.")
 whSecret    = input.string("",           "Webhook passphrase", group=grpBot, tooltip="Must match the bot's Webhook passphrase. Leave blank if the bot has none.")
 
+// ============ STRATEGY SELECT ============
+grpStrat  = "Strategy"
+stratMode = input.string("Both", "Active Strategy", options=["A: Dip Buy","B: EMA Ribbon","Both"], group=grpStrat, tooltip="A = dip + green-sequence buy. B = triple-EMA ribbon crossover.")
+
+// ============ STRATEGY B: EMA RIBBON ============
+grpEma    = "Strategy B: EMA Ribbon"
+emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
+emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
+emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
+emaShorts = input.bool(false, "Allow shorts (futures only)", group=grpEma, tooltip="OFF = long only; a down-cross CLOSES the long. ON = a down-cross opens a SHORT (needs futures).")
+emaStack  = input.bool(false, "Require EMA alignment (fast>mid>slow)", group=grpEma, tooltip="ON = only trade when the EMAs are stacked in trend order (fewer, cleaner signals).")
+emaUseTP  = input.bool(false, "Use TP1/TP2 targets", group=grpEma, tooltip="OFF = exit only on the opposite cross (let trends run). ON = also send % take-profits.")
+emaTP1p   = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpEma)
+emaTP2p   = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpEma)
+emaCD     = input.int(3, "Cooldown bars", minval=0, group=grpEma)
+
 // ============ HELPERS ============
 f_px(x) => str.tostring(x, format.mintick)   // per-symbol precision (crypto-friendly)
 f_pct(target, base) => str.tostring((target - base) / base * 100.0, "#.##")
@@ -149,6 +165,17 @@ candleRange    = high - low
 bodyRatio      = candleRange > 0 ? candleBody / candleRange : 0.0
 isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
 
+// ---- Strategy B: triple-EMA ribbon ----
+ema1       = ta.ema(close, emaLen1)
+ema2       = ta.ema(close, emaLen2)
+ema3       = ta.ema(close, emaLen3)
+ribbonTop  = math.max(ema1, math.max(ema2, ema3))
+ribbonBot  = math.min(ema1, math.min(ema2, ema3))
+emaStackUp = ema1 > ema2 and ema2 > ema3
+emaStackDn = ema1 < ema2 and ema2 < ema3
+aOn        = stratMode != "B: EMA Ribbon"   // Strategy A active?
+bOn        = stratMode != "A: Dip Buy"      // Strategy B active?
+
 // Crypto trades 24/7 — no session filter. All symbols supported.
 isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
 
@@ -180,12 +207,22 @@ else
 
 inCooldown = (bar_index - lastSignalBar) < cooldown
 rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
-signal     = rawSignal and not inCooldown and barstate.isconfirmed
+signal     = rawSignal and not inCooldown and barstate.isconfirmed and aOn
 
 if signal
     dipActive     := false
     greenCount    := 0
     lastSignalBar := bar_index
+
+// ============ STRATEGY B STATE ============
+var int bLastSig = -1000
+bUpRaw = ta.crossover(close, ribbonTop)  and (not emaStack or emaStackUp)
+bDnRaw = ta.crossunder(close, ribbonBot) and (not emaStack or emaStackDn)
+bReady = bOn and barstate.isconfirmed and (bar_index - bLastSig) >= emaCD
+buyB   = bReady and bUpRaw      // price crossed up over ALL EMAs  -> long entry
+sellB  = bReady and bDnRaw      // price crossed down below ALL EMAs -> exit/short
+if buyB or sellB
+    bLastSig := bar_index
 
 // ============ ENTRY / TARGETS (no stop-loss) ============
 var float lockedDipLow = na
@@ -300,6 +337,58 @@ if signal
     alert(alertMsg, freq)
 
 alertcondition(signal, title="Prometheus BUY", message="Prometheus AI Crypto Bot - BUY signal")
+
+// ============ STRATEGY B ALERTS ============
+bEntry   = close
+bTp1Long = bEntry * (1.0 + emaTP1p / 100.0)
+bTp2Long = bEntry * (1.0 + emaTP2p / 100.0)
+bTp1Sh   = bEntry * (1.0 - emaTP1p / 100.0)
+bTp2Sh   = bEntry * (1.0 - emaTP2p / 100.0)
+bEntryS  = f_px(bEntry)
+
+// --- BUY (long entry) ---
+bTPjsonL = emaUseTP ? (',"tp1":' + f_px(bTp1Long) + ',"tp2":' + f_px(bTp2Long)) : ''
+jBuy = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
+       '","entry":' + bEntryS + bTPjsonL +
+       ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
+       '","time":"' + timeStr + '"}'
+
+// --- SELL: short entry (futures) OR exit/close the long (default) ---
+bTPjsonS = emaUseTP ? (',"tp1":' + f_px(bTp1Sh) + ',"tp2":' + f_px(bTp2Sh)) : ''
+jShort = '{"action":"sell","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
+         '","entry":' + bEntryS + bTPjsonS +
+         ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
+         '","time":"' + timeStr + '"}'
+jExit  = '{"event":"exit","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
+         '","comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
+         '","time":"' + timeStr + '"}'
+jSell  = emaShorts ? jShort : jExit
+
+// Text / Telegram variants
+bBuyTxt  = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\nEMA BUY @ " + bEntryS +
+           (emaUseTP ? "\nTP1 " + f_px(bTp1Long) + " | TP2 " + f_px(bTp2Long) : "") + "\n" + timeStr
+bSellTxt = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+           (emaShorts ? "EMA SELL/SHORT @ " : "EMA EXIT (close long) @ ") + bEntryS + "\n" + timeStr
+tgBuy  = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(bBuyTxt,  "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
+tgSell = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(bSellTxt, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
+
+bBuyMsg  = alertFmt == "Webhook JSON" ? jBuy  : alertFmt == "Telegram" ? tgBuy  : alertFmt == "Compact" ? (tickerStr + " EMA BUY @ " + bEntryS) : bBuyTxt
+bSellMsg = alertFmt == "Webhook JSON" ? jSell : alertFmt == "Telegram" ? tgSell : alertFmt == "Compact" ? (tickerStr + (emaShorts ? " EMA SELL @ " : " EMA EXIT @ ") + bEntryS) : bSellTxt
+
+if buyB
+    alert(bBuyMsg, freq)
+if sellB
+    alert(bSellMsg, freq)
+
+alertcondition(buyB,  title="Prometheus EMA BUY",  message="Prometheus EMA Ribbon - BUY")
+alertcondition(sellB, title="Prometheus EMA SELL", message="Prometheus EMA Ribbon - SELL/EXIT")
+
+// ============ STRATEGY B VISUALS ============
+plot(bOn ? ema1 : na, "EMA Fast",  color=color.new(#26c281, 0), linewidth=1)
+plot(bOn ? ema2 : na, "EMA Mid",   color=color.new(#f0883e, 0), linewidth=1)
+plot(bOn ? ema3 : na, "EMA Slow",  color=color.new(#8e7cff, 0), linewidth=2)
+plotshape(buyB,  title="EMA BUY",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.green, 0), size=size.small, text="B-BUY",  textcolor=color.white, force_overlay=true)
+plotshape(sellB, title="EMA SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),   size=size.small, text="B-SELL", textcolor=color.white, force_overlay=true)
 
 // ============ VISUALS ============
 plotshape(showDipMark and isDipRed, title="DIP", style=shape.diamond,   location=location.belowbar, color=color.new(color.yellow, 0), size=size.tiny,  force_overlay=true)

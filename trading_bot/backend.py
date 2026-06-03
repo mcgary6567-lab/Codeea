@@ -482,6 +482,15 @@ class Backend:
         symbol = normalize_symbol(cmd.get("symbol", ""))
         if symbol:
             self._emit("signal_symbol", symbol=symbol)
+
+        # 'exit' = the indicator says close the position (e.g. EMA opposite cross).
+        if event == "exit":
+            self.log(f"Indicator exit — closing {symbol}", signal="EXIT", pair=symbol,
+                     status="Event")
+            self.notifier.notify(f"Exit {symbol}", "Indicator signalled close", level="ok")
+            self._do_close(symbol)
+            return
+
         nice = {
             "tp1_hit": "TP1 hit", "tp2_hit": "TP2 hit",
             "sl_hit": "SL hit", "sl_after_partial": "SL after partial",

@@ -229,6 +229,13 @@ class TestParsePayload(unittest.TestCase):
         self.assertEqual(sig["event"], "tp1_hit")
         self.assertEqual(sig["entry"], 3000.0)
 
+    def test_exit_event(self):
+        # EMA-ribbon opposite-cross close (Strategy B, long-only mode)
+        sig = parse_payload({"event": "exit", "symbol": "BTCUSDT", "strategy": "ema"})
+        self.assertIsNotNone(sig)
+        self.assertEqual(sig["event"], "exit")
+        self.assertEqual(sig["ticker"], "BTCUSDT")
+
     def test_invalid_returns_none(self):
         self.assertIsNone(parse_payload({"foo": "bar"}))
         self.assertIsNone(parse_payload({"action": "buy"}))          # no ticker

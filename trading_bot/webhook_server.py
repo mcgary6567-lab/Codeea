@@ -23,8 +23,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, Optional
 
-# Lifecycle events some indicators emit after entry (e.g. Gold Scalpers).
-KNOWN_EVENTS = {"tp1_hit", "tp2_hit", "sl_hit", "sl_after_partial"}
+# Lifecycle events some indicators emit after entry (e.g. Gold Scalpers), plus
+# 'exit' = close the open position (e.g. EMA-ribbon opposite-cross in long-only).
+KNOWN_EVENTS = {"tp1_hit", "tp2_hit", "sl_hit", "sl_after_partial", "exit"}
 
 
 def parse_payload(payload: dict, source: str = "webhook"):
