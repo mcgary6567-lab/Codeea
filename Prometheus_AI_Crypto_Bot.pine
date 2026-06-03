@@ -274,7 +274,6 @@ if drawLong or drawShort
 if showLevels and sellSig and not allowShort
     line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
     label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
-    curDone := true
 
 if showLabels and buySig
     label.delete(sigLbl)
