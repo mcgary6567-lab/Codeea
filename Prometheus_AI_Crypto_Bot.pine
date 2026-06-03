@@ -5,64 +5,37 @@ plot(na, "ghost", display=display.none)
 
 // ============ TYPES ============
 type SignalRec
-    int    barIdx
-    int    tstamp
-    float  entry
-    float  tp1
-    float  tp2
-    int    status   // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
-    bool   tp1Hit
-    bool   tp2Hit
-    string strat = "A"   // "A" = Dip buy, "B" = EMA ribbon
+    int   barIdx
+    int   tstamp
+    float entry
+    float tp1
+    float tp2
+    int   status   // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
+    bool  tp1Hit
+    bool  tp2Hit
+    bool  isLong
 
-// ============ ASSET PRESET (crypto) ============
-preset      = input.string("Auto", "Asset Preset", options=["Auto","BTC","ETH","Crypto","Custom"], group="Asset Settings")
-tickerStr   = syminfo.ticker
-isBTC       = str.contains(tickerStr, "BTC") or str.contains(tickerStr, "XBT")
-isETH       = str.contains(tickerStr, "ETH")
-autoPreset  = isBTC ? "BTC" : isETH ? "ETH" : "Crypto"
-eff         = preset == "Auto" ? autoPreset : preset
+// ============ EMA RIBBON ============
+grpEma    = "EMA Ribbon"
+emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
+emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
+emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
+emaSrc    = input.source(close, "Source", group=grpEma)
+emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma, tooltip="Minimum bars between signals to avoid clustering.")
 
-// ============ CUSTOM OVERRIDES ============
-grpDip   = "Dip Detection (Custom mode only)"
-custOS   = input.int(30,    "Custom: RSI Oversold",  minval=10, maxval=50, group=grpDip)
-custATR  = input.float(0.9, "Custom: Range x ATR",   minval=0.2, step=0.1, group=grpDip)
-custVol  = input.float(1.0, "Custom: Volume x avg",  minval=0.3, step=0.1, group=grpDip)
-custLook = input.int(10,    "Custom: Low Lookback",   minval=2,             group=grpDip)
-
-grpInt = "Internal"
-rsiLen = input.int(14, "RSI Length", group=grpInt)
-atrLen = input.int(14, "ATR Length", group=grpInt)
-volLen = input.int(20, "Volume MA",  group=grpInt)
-
-effOS   = eff == "Custom" ? custOS   : 30
-effATR  = eff == "Custom" ? custATR  : eff == "BTC" ? 0.8 : eff == "ETH" ? 0.9 : 1.0
-effVol  = eff == "Custom" ? custVol  : 1.0
-effLook = eff == "Custom" ? custLook : 8
-
-// ============ GREEN SEQUENCE ============
-grpSeq   = "Green Sequence"
-greenN   = input.int(2,  "Required Greens",               minval=1, group=grpSeq)
-maxWait  = input.int(15, "Max Wait Bars",                 minval=2, group=grpSeq)
-cooldown = input.int(5,  "Cooldown Bars Between Signals", minval=0, group=grpSeq)
-
-// ============ QUALITY FILTERS ============
-grpQual          = "Quality Filters"
-requireBodyRatio = input.bool(true, "Require Strong Green Body", group=grpQual, tooltip="Each green confirmation candle's body (|close-open|) must be at least the minimum fraction of its range. Filters doji / weak 'fake greens'.")
-minBodyRatio     = input.float(0.3, "Min Green Body Ratio", minval=0.1, maxval=1.0, step=0.05, group=grpQual, tooltip="Body must be >= this fraction of the candle range. 0.3 for 1m, 0.4 for 5m, 0.5 for 15m+.")
-
-// ============ TARGETS ============
-grpTgt = "Targets"
-rrTP1  = input.float(1.0, "TP1 distance (x dip range)", minval=0.5, step=0.5, group=grpTgt, tooltip="TP1 = entry + this * (entry - dip low), floored by ATR. No stop-loss is used or sent.")
-rrTP2  = input.float(3.0, "TP2 distance (x dip range)", minval=1.0, step=0.5, group=grpTgt)
+// ============ DIRECTION / TARGETS ============
+grpDir    = "Direction & Targets"
+allowLong = input.bool(true,  "Allow longs (BUY on bullish cross)", group=grpDir)
+allowShort= input.bool(false, "Allow shorts (SELL on bearish cross) - futures only", group=grpDir, tooltip="OFF = long only; a bearish cross CLOSES the long (exit). ON = open a short (needs futures).")
+useTP     = input.bool(true,  "Use TP1/TP2 targets", group=grpDir, tooltip="ON = send % take-profits like before (the opposite cross still closes as a backstop). OFF = exit only on the opposite cross.")
+tp1Pct    = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpDir)
+tp2Pct    = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpDir)
 
 // ============ VISUALS ============
-grpVis        = "Visuals"
-showDipMark   = input.bool(true,  "Mark Dip Bar (yellow)",     group=grpVis)
-showLevels    = input.bool(true,  "Draw Entry / TP Levels",    group=grpVis)
-showInfo      = input.bool(false, "Show Active Preset Label",  group=grpVis)
-showBuyNow    = input.bool(true,  "Show 'Buy Now' Label",      group=grpVis)
-showEntryRule = input.bool(true,  "Show Entry Rule Hint",      group=grpVis, tooltip="Reminds you to enter only after a candle closes above the entry price.")
+grpVis     = "Visuals"
+showRibbon = input.bool(true, "Show EMA ribbon", group=grpVis)
+showLevels = input.bool(true, "Draw Entry / TP levels", group=grpVis)
+showLabels = input.bool(true, "Show BUY / SELL labels", group=grpVis)
 
 // ============ DASHBOARD ============
 grpDash     = "Dashboard"
@@ -74,8 +47,8 @@ trackWindow = input.int(120, "Tracking Window (bars)", minval=20, group=grpDash)
 
 // ============ ALERTS ============
 grpAlert    = "Alerts"
-alertOnBar  = input.string("Bar Close", "Alert Mode",   options=["Bar Close","Every Tick"],  tooltip="'Bar Close' = confirmed candles only (no repaint). 'Every Tick' may repaint.",  group=grpAlert)
-alertHeader = input.string("Prometheus AI Crypto Bot", "Alert Header",                                              group=grpAlert)
+alertOnBar  = input.string("Bar Close", "Alert Mode",   options=["Bar Close","Every Tick"], tooltip="'Bar Close' = confirmed candles only (no repaint).", group=grpAlert)
+alertHeader = input.string("Prometheus AI Crypto Bot", "Alert Header", group=grpAlert)
 alertFmt    = input.string("Webhook JSON",  "Alert Format", options=["Telegram","Readable","Compact","Webhook JSON"], group=grpAlert)
 alertOnTP   = input.bool(true, "Alert on TP Hit", group=grpAlert)
 
@@ -85,27 +58,11 @@ tgChatId = input.string("", "Telegram Chat ID", group=grpTg)
 
 // ============ BOT / WEBHOOK ============
 grpBot      = "Bot / Webhook"
-strategyTag = input.string("Prometheus", "Strategy tag", group=grpBot, tooltip="Sent as 'comment' — set the bot's Strategy filter to the same value.")
+strategyTag = input.string("Prometheus", "Strategy tag", group=grpBot, tooltip="Sent as 'comment' - set the bot's Strategy filter to the same value.")
 whSecret    = input.string("",           "Webhook passphrase", group=grpBot, tooltip="Must match the bot's Webhook passphrase. Leave blank if the bot has none.")
 
-// ============ STRATEGY SELECT ============
-grpStrat  = "Strategy"
-stratMode = input.string("Both", "Active Strategy", options=["A: Dip Buy","B: EMA Ribbon","Both"], group=grpStrat, tooltip="A = dip + green-sequence buy. B = triple-EMA ribbon crossover.")
-
-// ============ STRATEGY B: EMA RIBBON ============
-grpEma    = "Strategy B: EMA Ribbon"
-emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
-emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
-emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
-emaShorts = input.bool(false, "Allow shorts (futures only)", group=grpEma, tooltip="OFF = long only; a down-cross CLOSES the long. ON = a down-cross opens a SHORT (needs futures).")
-emaStack  = input.bool(false, "Require EMA alignment (fast>mid>slow)", group=grpEma, tooltip="ON = only trade when the EMAs are stacked in trend order (fewer, cleaner signals).")
-emaUseTP  = input.bool(true, "Use TP1/TP2 targets", group=grpEma, tooltip="ON = send % take-profits like Strategy A (the opposite cross still closes as a backstop). OFF = exit only on the opposite cross.")
-emaTP1p   = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpEma)
-emaTP2p   = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpEma)
-emaCD     = input.int(3, "Cooldown bars", minval=0, group=grpEma)
-
 // ============ HELPERS ============
-f_px(x) => str.tostring(x, format.mintick)   // per-symbol precision (crypto-friendly)
+f_px(x) => str.tostring(x, format.mintick)
 f_pct(target, base) => str.tostring((target - base) / base * 100.0, "#.##")
 
 posMap(s) =>
@@ -151,118 +108,53 @@ passesFilter(st, f) =>
     ok
 
 // ============ CALCS ============
-rsi        = ta.rsi(close, rsiLen)
-atr        = ta.atr(atrLen)
-volAvg     = ta.sma(volume, volLen)
-lowestN    = ta.lowest(low, effLook)
-lowestFive = ta.lowest(low, 5)
-hasVolume  = ta.cum(volume) > 0
-volPass    = not hasVolume or volume >= volAvg * effVol
-isRed      = close < open
-isGreen    = close > open
+tickerStr = syminfo.ticker
+atr  = ta.atr(14)
+ema1 = ta.ema(emaSrc, emaLen1)
+ema2 = ta.ema(emaSrc, emaLen2)
+ema3 = ta.ema(emaSrc, emaLen3)
 
-candleBody     = math.abs(close - open)
-candleRange    = high - low
-bodyRatio      = candleRange > 0 ? candleBody / candleRange : 0.0
-isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
+// Bullish/bearish alignment = the three EMAs stacked in order. A SIGNAL fires
+// only at the moment they FLIP into that order (i.e. the EMAs cross each other),
+// not when price wanders across the ribbon.
+stackUp = ema1 > ema2 and ema2 > ema3
+stackDn = ema1 < ema2 and ema2 < ema3
 
-// ---- Strategy B: triple-EMA ribbon ----
-ema1       = ta.ema(close, emaLen1)
-ema2       = ta.ema(close, emaLen2)
-ema3       = ta.ema(close, emaLen3)
-ribbonTop  = math.max(ema1, math.max(ema2, ema3))
-ribbonBot  = math.min(ema1, math.min(ema2, ema3))
-emaStackUp = ema1 > ema2 and ema2 > ema3
-emaStackDn = ema1 < ema2 and ema2 < ema3
-aOn        = stratMode != "B: EMA Ribbon"   // Strategy A active?
-bOn        = stratMode != "A: Dip Buy"      // Strategy B active?
+buyRaw  = stackUp and not stackUp[1]   // EMAs just crossed into bullish order
+sellRaw = stackDn and not stackDn[1]   // EMAs just crossed into bearish order
 
-// Crypto trades 24/7 — no session filter. All symbols supported.
-isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
+// ============ SIGNAL STATE ============
+var int lastSig = -1000
+ready   = barstate.isconfirmed and (bar_index - lastSig) >= emaCD
+buySig  = ready and buyRaw  and allowLong
+sellSig = ready and sellRaw and (allowShort or allowLong)   // long-only -> sell = exit
+if buySig or sellSig
+    lastSig := bar_index
 
-// ============ STATE MACHINE ============
-var bool  dipActive     = false
-var int   greenCount    = 0
-var float dipLowVal     = na
-var int   barsSinceDip  = 0
-var int   lastSignalBar = -1000
+// ============ ENTRY / TARGETS ============
+entry   = close
+tp1Long = entry * (1.0 + tp1Pct / 100.0)
+tp2Long = entry * (1.0 + tp2Pct / 100.0)
+tp1Sh   = entry * (1.0 - tp1Pct / 100.0)
+tp2Sh   = entry * (1.0 - tp2Pct / 100.0)
+entryS  = f_px(entry)
 
-if isDipRed
-    dipActive    := true
-    greenCount   := 0
-    dipLowVal    := low
-    barsSinceDip := 0
-else
-    if dipActive
-        barsSinceDip := barsSinceDip + 1
-        if barsSinceDip > maxWait
-            dipActive  := false
-            greenCount := 0
-        else
-            if isQualityGreen
-                greenCount := greenCount + 1
-            else
-                greenCount := 0
-                if low < dipLowVal
-                    dipActive := false
-
-inCooldown = (bar_index - lastSignalBar) < cooldown
-rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
-signal     = rawSignal and not inCooldown and barstate.isconfirmed and aOn
-
-if signal
-    dipActive     := false
-    greenCount    := 0
-    lastSignalBar := bar_index
-
-// ============ STRATEGY B STATE ============
-var int bLastSig = -1000
-bUpRaw = ta.crossover(close, ribbonTop)  and (not emaStack or emaStackUp)
-bDnRaw = ta.crossunder(close, ribbonBot) and (not emaStack or emaStackDn)
-bReady = bOn and barstate.isconfirmed and (bar_index - bLastSig) >= emaCD
-buyB   = bReady and bUpRaw      // price crossed up over ALL EMAs  -> long entry
-sellB  = bReady and bDnRaw      // price crossed down below ALL EMAs -> exit/short
-if buyB or sellB
-    bLastSig := bar_index
-
-// Strategy B entry + % targets (used by the tracker, alerts and level lines)
-bEntry   = close
-bTp1Long = bEntry * (1.0 + emaTP1p / 100.0)
-bTp2Long = bEntry * (1.0 + emaTP2p / 100.0)
-bTp1Sh   = bEntry * (1.0 - emaTP1p / 100.0)
-bTp2Sh   = bEntry * (1.0 - emaTP2p / 100.0)
-
-// ============ ENTRY / TARGETS (no stop-loss) ============
-var float lockedDipLow = na
-if isDipRed
-    lockedDipLow := low
-
-entryPrice = close
-dipRef     = na(lockedDipLow) ? lowestFive : lockedDipLow
-// internal distance only — floored by ATR so TPs are sane on volatile coins
-tpRange    = math.max(entryPrice - dipRef, atr)
-tp1Price   = entryPrice + tpRange * rrTP1
-tp2Price   = entryPrice + tpRange * rrTP2
+freq    = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
+timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
 
 // ============ SIGNAL TRACKING ============
 var array<SignalRec> signals = array.new<SignalRec>()
 TRACK_MAX = 50
 
-if signal
-    rec = SignalRec.new(bar_index, time, entryPrice, tp1Price, tp2Price, 0, false, false, "A")
-    array.unshift(signals, rec)
+// Track long entries (and short entries when shorts are enabled).
+if buySig
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Long, tp2Long, 0, false, false, true))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
-
-// Strategy B long entries are tracked the same way (TP1/TP2 win/part/exp).
-if buyB
-    brec = SignalRec.new(bar_index, time, bEntry, bTp1Long, bTp2Long, 0, false, false, "B")
-    array.unshift(signals, brec)
+if sellSig and allowShort
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Sh, tp2Sh, 0, false, false, false))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
-
-freq    = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
-timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
 
 if array.size(signals) > 0
     for i = 0 to array.size(signals) - 1
@@ -270,8 +162,8 @@ if array.size(signals) > 0
         if rec.status == 0
             barsIn = bar_index - rec.barIdx
             if barsIn > 0
-                hitTP2 = high >= rec.tp2
-                hitTP1 = high >= rec.tp1
+                hitTP2 = rec.isLong ? high >= rec.tp2 : low <= rec.tp2
+                hitTP1 = rec.isLong ? high >= rec.tp1 : low <= rec.tp1
 
                 tpEvent    = ""
                 tpPriceHit = 0.0
@@ -292,182 +184,98 @@ if array.size(signals) > 0
 
                 array.set(signals, i, rec)
 
-                // ---- TP hit alert ----
                 if alertOnTP and tpEvent != ""
-                    tpNum   = tpEvent == "tp1_hit" ? "TP1" : "TP2"
-                    tpEmoji = tpEvent == "tp2_hit" ? "[WIN]" : "[TP]"
-                    tpAct   = tpEvent == "tp1_hit" ? "Partial close - secure profit" : "Full close - trade complete"
-                    pStr    = f_px(tpPriceHit)
-                    eStr    = f_px(rec.entry)
-                    gStr    = f_pct(tpPriceHit, rec.entry)
-                    tgTP    = tpEmoji + " " + alertHeader + " - " + tickerStr + "\n" +
-                               tpNum + " HIT: " + pStr + " (+" + gStr + "%)\n" +
-                               "Entry: " + eStr + "\n" + tpAct + "\n" + timeStr
-                    rdTP    = tgTP
-                    cpTP    = tickerStr + " " + tpNum + " HIT @ " + pStr + " | Entry " + eStr + " | +" + gStr + "%"
-                    jsTP    = '{"event":"' + tpEvent + '","symbol":"' + tickerStr +
-                               '","passphrase":"' + whSecret +
-                               '","price":' + pStr + ',"entry":' + eStr +
-                               ',"tp1":' + f_px(rec.tp1) + ',"tp2":' + f_px(rec.tp2) +
-                               ',"comment":"' + strategyTag + '","tf":"' + timeframe.period +
-                               '","time":"' + timeStr + '"}'
-                    tgTPEsc = str.replace_all(tgTP, "\n", "\\n")
-                    tgTPMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTPEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
-                    tpMsg   = alertFmt == "Telegram" ? tgTPMsg : alertFmt == "Webhook JSON" ? jsTP : alertFmt == "Compact" ? cpTP : rdTP
+                    tpNum = tpEvent == "tp1_hit" ? "TP1" : "TP2"
+                    pStr  = f_px(tpPriceHit)
+                    eStr  = f_px(rec.entry)
+                    gStr  = f_pct(tpPriceHit, rec.entry)
+                    cpTP  = tickerStr + " " + tpNum + " HIT @ " + pStr + " | Entry " + eStr + " | " + gStr + "%"
+                    jsTP  = '{"event":"' + tpEvent + '","symbol":"' + tickerStr +
+                             '","passphrase":"' + whSecret + '","price":' + pStr + ',"entry":' + eStr +
+                             ',"tp1":' + f_px(rec.tp1) + ',"tp2":' + f_px(rec.tp2) +
+                             ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
+                             '","time":"' + timeStr + '"}'
+                    rdTP  = alertHeader + " - " + tickerStr + "\n" + tpNum + " HIT: " + pStr + " (" + gStr + "%)\nEntry: " + eStr + "\n" + timeStr
+                    tgTP  = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(rdTP, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
+                    tpMsg = alertFmt == "Telegram" ? tgTP : alertFmt == "Webhook JSON" ? jsTP : alertFmt == "Compact" ? cpTP : rdTP
                     alert(tpMsg, freq)
 
-// ============ ENTRY ALERT MESSAGE ============
-entryStr = f_px(entryPrice)
-tp1Str   = f_px(tp1Price)
-tp2Str   = f_px(tp2Price)
-rsiStr   = str.tostring(rsi, "#.##")
-pct1     = f_pct(tp1Price, entryPrice)
-pct2     = f_pct(tp2Price, entryPrice)
-
-tgText = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
-         "---\n" +
-         "ENTRY : " + entryStr + "\n" +
-         "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
-         "TP2   : " + tp2Str   + " (+" + pct2 + "%)\n" +
-         "---\nRSI " + rsiStr + " | " + timeStr
-
-tgTextEsc   = str.replace_all(tgText, "\n", "\\n")
-telegramMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTextEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
-
-readableMsg = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
-               "ENTRY : " + entryStr + "\n" +
-               "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
-               "TP2   : " + tp2Str   + " (+" + pct2 + "%)\n" +
-               "RSI " + rsiStr + " | " + timeStr
-
-compactMsg = tickerStr + " BUY @ " + entryStr + " | TP1 " + tp1Str + " | TP2 " + tp2Str
-
-jsonMsg = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-           '","entry":' + entryStr + ',"tp1":' + tp1Str + ',"tp2":' + tp2Str +
-           ',"comment":"' + strategyTag + '","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
-
-alertMsg = alertFmt == "Telegram" ? telegramMsg : alertFmt == "Webhook JSON" ? jsonMsg : alertFmt == "Compact" ? compactMsg : readableMsg
-
-if signal
-    alert(alertMsg, freq)
-
-alertcondition(signal, title="Prometheus BUY", message="Prometheus AI Crypto Bot - BUY signal")
-
-// ============ STRATEGY B ALERTS ============
-bEntryS  = f_px(bEntry)
-
-// --- BUY (long entry) ---
-bTPjsonL = emaUseTP ? (',"tp1":' + f_px(bTp1Long) + ',"tp2":' + f_px(bTp2Long)) : ''
+// ============ ENTRY / EXIT ALERTS ============
+// BUY (long)
+buyTPjson = useTP ? (',"tp1":' + f_px(tp1Long) + ',"tp2":' + f_px(tp2Long)) : ''
 jBuy = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-       '","entry":' + bEntryS + bTPjsonL +
-       ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
-       '","time":"' + timeStr + '"}'
+       '","entry":' + entryS + buyTPjson +
+       ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 
-// --- SELL: short entry (futures) OR exit/close the long (default) ---
-bTPjsonS = emaUseTP ? (',"tp1":' + f_px(bTp1Sh) + ',"tp2":' + f_px(bTp2Sh)) : ''
+// SELL: short entry (futures) OR exit/close the long (default)
+sellTPjson = useTP ? (',"tp1":' + f_px(tp1Sh) + ',"tp2":' + f_px(tp2Sh)) : ''
 jShort = '{"action":"sell","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-         '","entry":' + bEntryS + bTPjsonS +
-         ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
-         '","time":"' + timeStr + '"}'
+         '","entry":' + entryS + sellTPjson +
+         ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 jExit  = '{"event":"exit","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-         '","comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period +
-         '","time":"' + timeStr + '"}'
-jSell  = emaShorts ? jShort : jExit
+         '","comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
+jSell  = allowShort ? jShort : jExit
 
-// Text / Telegram variants
-bBuyTxt  = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\nEMA BUY @ " + bEntryS +
-           (emaUseTP ? "\nTP1 " + f_px(bTp1Long) + " | TP2 " + f_px(bTp2Long) : "") + "\n" + timeStr
-bSellTxt = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
-           (emaShorts ? "EMA SELL/SHORT @ " : "EMA EXIT (close long) @ ") + bEntryS + "\n" + timeStr
-tgBuy  = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(bBuyTxt,  "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
-tgSell = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(bSellTxt, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
+buyTxt  = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\nEMA BUY @ " + entryS +
+          (useTP ? "\nTP1 " + f_px(tp1Long) + " | TP2 " + f_px(tp2Long) : "") + "\n" + timeStr
+sellTxt = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+          (allowShort ? "EMA SELL/SHORT @ " : "EMA EXIT (close long) @ ") + entryS + "\n" + timeStr
+tgBuy  = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(buyTxt,  "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
+tgSell = '{"chat_id":"' + tgChatId + '","text":"' + str.replace_all(sellTxt, "\n", "\\n") + '","parse_mode":"HTML","disable_web_page_preview":true}'
 
-bBuyMsg  = alertFmt == "Webhook JSON" ? jBuy  : alertFmt == "Telegram" ? tgBuy  : alertFmt == "Compact" ? (tickerStr + " EMA BUY @ " + bEntryS) : bBuyTxt
-bSellMsg = alertFmt == "Webhook JSON" ? jSell : alertFmt == "Telegram" ? tgSell : alertFmt == "Compact" ? (tickerStr + (emaShorts ? " EMA SELL @ " : " EMA EXIT @ ") + bEntryS) : bSellTxt
+buyMsg  = alertFmt == "Webhook JSON" ? jBuy  : alertFmt == "Telegram" ? tgBuy  : alertFmt == "Compact" ? (tickerStr + " EMA BUY @ " + entryS) : buyTxt
+sellMsg = alertFmt == "Webhook JSON" ? jSell : alertFmt == "Telegram" ? tgSell : alertFmt == "Compact" ? (tickerStr + (allowShort ? " EMA SELL @ " : " EMA EXIT @ ") + entryS) : sellTxt
 
-if buyB
-    alert(bBuyMsg, freq)
-if sellB
-    alert(bSellMsg, freq)
+if buySig
+    alert(buyMsg, freq)
+if sellSig
+    alert(sellMsg, freq)
 
-alertcondition(buyB,  title="Prometheus EMA BUY",  message="Prometheus EMA Ribbon - BUY")
-alertcondition(sellB, title="Prometheus EMA SELL", message="Prometheus EMA Ribbon - SELL/EXIT")
-
-// ============ STRATEGY B VISUALS ============
-plot(bOn ? ema1 : na, "EMA Fast",  color=color.new(#26c281, 0), linewidth=1)
-plot(bOn ? ema2 : na, "EMA Mid",   color=color.new(#f0883e, 0), linewidth=1)
-plot(bOn ? ema3 : na, "EMA Slow",  color=color.new(#8e7cff, 0), linewidth=2)
-plotshape(buyB,  title="EMA BUY",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.green, 0), size=size.small, text="B-BUY",  textcolor=color.white, force_overlay=true)
-plotshape(sellB, title="EMA SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),   size=size.small, text="B-SELL", textcolor=color.white, force_overlay=true)
-bgcolor(buyB ? color.new(color.green, 85) : sellB ? color.new(color.red, 85) : na, title="EMA Signal BG")
-
-// ---- Strategy B entry / TP levels + labels (like Strategy A) ----
-emaTP1str = str.tostring(emaTP1p, "#.##")
-emaTP2str = str.tostring(emaTP2p, "#.##")
-var line  bEnLine  = na
-var line  bTp1Line = na
-var line  bTp2Line = na
-var label bEnLbl   = na
-var label bTp1Lbl  = na
-var label bTp2Lbl  = na
-var label bSigLbl  = na
-
-drawBLong  = showLevels and buyB
-drawBShort = showLevels and sellB and emaShorts
-if drawBLong or drawBShort
-    t1 = drawBLong ? bTp1Long : bTp1Sh
-    t2 = drawBLong ? bTp2Long : bTp2Sh
-    sgn = drawBLong ? "+" : "-"
-    line.delete(bEnLine), line.delete(bTp1Line), line.delete(bTp2Line)
-    label.delete(bEnLbl), label.delete(bTp1Lbl), label.delete(bTp2Lbl)
-    bEnLine  := line.new(bar_index, bEntry, bar_index + 30, bEntry, color=color.blue,   width=2, style=line.style_solid,  force_overlay=true)
-    bTp1Line := line.new(bar_index, t1,     bar_index + 30, t1,     color=color.orange, width=1, style=line.style_dashed, force_overlay=true)
-    bTp2Line := line.new(bar_index, t2,     bar_index + 30, t2,     color=color.aqua,   width=2, style=line.style_dashed, force_overlay=true)
-    bEnLbl   := label.new(bar_index + 30, bEntry, "ENTRY " + f_px(bEntry),                                  color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    bTp1Lbl  := label.new(bar_index + 30, t1,     "TP1 " + f_px(t1) + " (" + sgn + emaTP1str + "%)",        color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    bTp2Lbl  := label.new(bar_index + 30, t2,     "TP2 " + f_px(t2) + " (" + sgn + emaTP2str + "%)",        color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-
-if showBuyNow and buyB
-    label.delete(bSigLbl)
-    bSigLbl := label.new(bar_index, low - atr, "B-BUY @ " + f_px(bEntry), color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
-if showBuyNow and sellB
-    label.delete(bSigLbl)
-    bSellWord = emaShorts ? "B-SELL @ " : "B-EXIT @ "
-    bSigLbl := label.new(bar_index, high + atr, bSellWord + f_px(bEntry), color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_down, size=size.normal, textalign=text.align_center, force_overlay=true)
+alertcondition(buySig,  title="Prometheus EMA BUY",  message="Prometheus EMA Ribbon - BUY")
+alertcondition(sellSig, title="Prometheus EMA SELL", message="Prometheus EMA Ribbon - SELL/EXIT")
 
 // ============ VISUALS ============
-plotshape(showDipMark and isDipRed, title="DIP", style=shape.diamond,   location=location.belowbar, color=color.new(color.yellow, 0), size=size.tiny,  force_overlay=true)
-plotshape(signal,                   title="BUY", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0),   size=size.small, text="BUY", textcolor=color.white, force_overlay=true)
-bgcolor(signal ? color.new(color.lime, 80) : na, title="Signal BG")
+plot(showRibbon ? ema1 : na, "EMA Fast", color=color.new(#26c281, 0), linewidth=1)
+plot(showRibbon ? ema2 : na, "EMA Mid",  color=color.new(#f0883e, 0), linewidth=1)
+plot(showRibbon ? ema3 : na, "EMA Slow", color=color.new(#8e7cff, 0), linewidth=2)
 
-if showBuyNow and signal
-    label.new(bar_index, low - atr, "BUY @ " + f_px(entryPrice), color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
+plotshape(buySig,  title="BUY",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.green, 0), size=size.small, text="BUY",  textcolor=color.white, force_overlay=true)
+plotshape(sellSig, title="SELL", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),   size=size.small, text="SELL", textcolor=color.white, force_overlay=true)
+bgcolor(buySig ? color.new(color.green, 85) : sellSig ? color.new(color.red, 85) : na, title="Signal BG")
 
-var label infoLbl = na
-if showInfo and barstate.islast
-    label.delete(infoLbl)
-    infoLbl := label.new(bar_index, high, "Preset: " + eff, color=color.new(color.gray, 70), textcolor=color.white, style=label.style_label_lower_right, size=size.small, force_overlay=true)
-
-// ---- Entry / TP level lines (no SL) ----
+// ---- Entry / TP level lines + labels ----
+tp1str = str.tostring(tp1Pct, "#.##")
+tp2str = str.tostring(tp2Pct, "#.##")
 var line  enLine  = na
 var line  tp1Line = na
 var line  tp2Line = na
 var label enLbl   = na
 var label tp1Lbl  = na
 var label tp2Lbl  = na
-var label ruleLbl = na
+var label sigLbl  = na
 
-if showLevels and signal
+drawLong  = showLevels and buySig
+drawShort = showLevels and sellSig and allowShort
+if drawLong or drawShort
+    t1  = drawLong ? tp1Long : tp1Sh
+    t2  = drawLong ? tp2Long : tp2Sh
+    sgn = drawLong ? "+" : "-"
     line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl), label.delete(ruleLbl)
-    enLine  := line.new(bar_index, entryPrice, bar_index + 30, entryPrice, color=color.blue,   width=2, style=line.style_solid,  force_overlay=true)
-    tp1Line := line.new(bar_index, tp1Price,   bar_index + 30, tp1Price,   color=color.orange, width=1, style=line.style_dashed, force_overlay=true)
-    tp2Line := line.new(bar_index, tp2Price,   bar_index + 30, tp2Price,   color=color.aqua,   width=2, style=line.style_dashed, force_overlay=true)
-    enLbl   := label.new(bar_index + 30, entryPrice, "ENTRY " + f_px(entryPrice),                          color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    tp1Lbl  := label.new(bar_index + 30, tp1Price,   "TP1 "   + f_px(tp1Price) + " (+" + pct1 + "%)",       color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    tp2Lbl  := label.new(bar_index + 30, tp2Price,   "TP2 "   + f_px(tp2Price) + " (+" + pct2 + "%)",       color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
-    if showEntryRule
-        ruleLbl := label.new(bar_index + 30, entryPrice + tpRange * 0.5, "RULE: enter after a candle CLOSES above " + f_px(entryPrice), color=color.new(color.yellow, 0), textcolor=color.black, style=label.style_label_left, size=size.small, textalign=text.align_center, force_overlay=true)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    enLine  := line.new(bar_index, entry, bar_index + 30, entry, color=color.blue,   width=2, style=line.style_solid,  force_overlay=true)
+    tp1Line := line.new(bar_index, t1,    bar_index + 30, t1,    color=color.orange, width=1, style=line.style_dashed, force_overlay=true)
+    tp2Line := line.new(bar_index, t2,    bar_index + 30, t2,    color=color.aqua,   width=2, style=line.style_dashed, force_overlay=true)
+    enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                              color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+
+if showLabels and buySig
+    label.delete(sigLbl)
+    sigLbl := label.new(bar_index, low - atr, "BUY @ " + entryS, color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
+if showLabels and sellSig
+    label.delete(sigLbl)
+    sellWord = allowShort ? "SELL @ " : "EXIT @ "
+    sigLbl := label.new(bar_index, high + atr, sellWord + entryS, color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_down, size=size.normal, textalign=text.align_center, force_overlay=true)
 
 // ============ DASHBOARD ============
 var table dash = na
@@ -487,7 +295,7 @@ if showDash and barstate.islast
     totalRows = 2 + math.max(nRows, 1)
     filterLabel = dashFilter == "Wins + Open" ? "Active & Wins" : "Win Signals"
     tfStr       = timeframe.isminutes ? timeframe.period + "M" : timeframe.isseconds ? timeframe.period + "S" : timeframe.period
-    titleTxt    = "Prometheus AI - " + filterLabel + " | " + tickerStr + " " + tfStr
+    titleTxt    = "Prometheus EMA - " + filterLabel + " | " + tickerStr + " " + tfStr
 
     dash := table.new(posMap(dashPos), 5, totalRows, bgcolor=color.new(color.black, 10), border_width=1, border_color=color.new(color.gray, 60), frame_width=1, frame_color=color.new(color.gray, 30))
 
@@ -506,17 +314,17 @@ if showDash and barstate.islast
             rec    = array.get(displayList, i)
             rowIdx = 2 + i
             rowBg  = statusBg(rec.status)
-            sTxt   = statusText(rec.status)
-            tStr   = rec.strat + " " + str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
+            sTxt   = statusText(rec.status) + (rec.isLong ? "" : " S")
+            tStr   = str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
             tp1Bg  = rec.tp1Hit ? color.new(color.orange, 50) : rowBg
             tp2Bg  = rec.tp2Hit ? color.new(color.aqua,   50) : rowBg
             tp1Txt = rec.tp1Hit ? "HIT" : f_px(rec.tp1)
             tp2Txt = rec.tp2Hit ? "HIT" : f_px(rec.tp2)
-            table.cell(dash, 0, rowIdx, tStr,           bgcolor=rowBg, text_color=color.white, text_size=size.small)
+            table.cell(dash, 0, rowIdx, tStr,            bgcolor=rowBg, text_color=color.white, text_size=size.small)
             table.cell(dash, 1, rowIdx, f_px(rec.entry), bgcolor=rowBg, text_color=color.white, text_size=size.small)
-            table.cell(dash, 2, rowIdx, tp1Txt,         bgcolor=tp1Bg, text_color=color.white, text_size=size.small)
-            table.cell(dash, 3, rowIdx, tp2Txt,         bgcolor=tp2Bg, text_color=color.white, text_size=size.small)
-            table.cell(dash, 4, rowIdx, sTxt,           bgcolor=rowBg, text_color=color.white, text_size=size.small)
+            table.cell(dash, 2, rowIdx, tp1Txt,          bgcolor=tp1Bg, text_color=color.white, text_size=size.small)
+            table.cell(dash, 3, rowIdx, tp2Txt,          bgcolor=tp2Bg, text_color=color.white, text_size=size.small)
+            table.cell(dash, 4, rowIdx, sTxt,            bgcolor=rowBg, text_color=color.white, text_size=size.small)
     else
         table.cell(dash, 0, 2, "No " + filterLabel + " yet - waiting...", text_color=color.new(color.white, 40), bgcolor=color.new(color.gray, 90), text_size=size.small, text_halign=text.align_center)
         table.merge_cells(dash, 0, 2, 4, 2)
