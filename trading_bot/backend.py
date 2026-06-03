@@ -33,6 +33,7 @@ from config import (
     DEFAULT_SUMMARY_HOUR,
     LOG_FILE,
     MAX_REFRESH_FAILURES,
+    MIN_NOTIONAL,
     POLL_INTERVAL,
     QUOTE_CURRENCY,
     TP1_SCALE_OUT,
@@ -432,6 +433,16 @@ class Backend:
             self.log(f"Sizing: {size:g} ({sreason})", pair=symbol)
         size = float(size)
 
+        # --- minimum-order guard: avoid a cryptic exchange rejection on dust ---
+        notional = size * price if price > 0 else 0.0
+        if price > 0 and 0 < notional < MIN_NOTIONAL:
+            msg = (f"Order ~${notional:,.2f} is below the ~${MIN_NOTIONAL:g} minimum — "
+                   "increase Trade Size (USDT) or lot.")
+            self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
+            self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
+            self.notifier.notify(f"Order too small {symbol}", msg, level="error")
+            return
+
         # --- leverage / margin mode (best-effort) ---
         lm_note = self.exchange.apply_leverage_margin(symbol, self.leverage, self.margin_mode)
         if lm_note:
@@ -483,11 +494,16 @@ class Backend:
         if symbol:
             self._emit("signal_symbol", symbol=symbol)
 
-        # 'exit' = the indicator says close the position (e.g. EMA opposite cross).
-        if event == "exit":
-            self.log(f"Indicator exit — closing {symbol}", signal="EXIT", pair=symbol,
+        # 'exit' / 'sl_hit' = close the position. On futures the exchange's stop
+        # may already have closed it (then this is a harmless no-op); on spot —
+        # which has no stop-market order — the bot itself acts as the stop.
+        if event in ("exit", "sl_hit", "sl_after_partial"):
+            why = "Stop-loss hit" if event != "exit" else "Indicator signalled close"
+            self.log(f"{why} — closing {symbol}", signal=event.upper()[:6], pair=symbol,
                      status="Event")
-            self.notifier.notify(f"Exit {symbol}", "Indicator signalled close", level="ok")
+            self.notifier.notify(f"{why} {symbol}", "Closing position",
+                                 level="error" if event != "exit" else "ok",
+                                 important=event != "exit")
             self._do_close(symbol)
             return
 

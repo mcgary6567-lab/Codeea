@@ -132,6 +132,10 @@ RELAY_POLL_INTERVAL = 1.0   # seconds between polls (lower = faster pickup, more
 DEFAULT_TRADE_SIZE = 0.003           # in base asset (e.g. 0.003 BTC)
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing
 
+# Skip orders whose notional (size x price) is below this many USDT — avoids a
+# cryptic exchange "below minimum" rejection on dust-sized orders.
+MIN_NOTIONAL = 5.0
+
 # Sizing modes offered in the UI.
 #   fixed        -> use the fixed lot size as-is (in the base coin, e.g. BTC)
 #   fixed_quote  -> the size is a USDT amount; buy that many $ worth (size/price)
