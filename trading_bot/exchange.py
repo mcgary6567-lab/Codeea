@@ -492,7 +492,12 @@ class ExchangeManager:
         try:
             # reduceOnly is a futures concept; spot rejects it.
             params = {"reduceOnly": True} if (reduce_only and self.is_futures) else {}
-            order = self.client.create_order(sym, order_type, side, amount, price, params)
+            # Market orders: pass the current price so the exchange can compute the
+            # quote (USDT) cost. Bitget/Binance spot MARKET BUY require this
+            # ("requires the price argument for market buy orders"); for limit
+            # orders we use the given limit price. Market sells ignore it.
+            px = price if order_type == "limit" else self._last_price(sym)
+            order = self.client.create_order(sym, order_type, side, amount, px, params)
             verb = "placed" if order_type == "limit" else "filled"
             # On spot, remember our entry price so positions show real PnL.
             if not self.is_futures and side == "buy":
