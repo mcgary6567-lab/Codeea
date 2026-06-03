@@ -33,7 +33,8 @@ grpInt = "Internal"
 rsiLen = input.int(14, "RSI Length", group=grpInt)
 atrLen = input.int(14, "ATR Length", group=grpInt)
 volLen = input.int(20, "Volume MA",  group=grpInt)
-sigTf  = input.timeframe("5", "Signal timeframe", group=grpInt, tooltip="The whole strategy is computed on this timeframe (default 5M) regardless of the chart's timeframe. For non-repaint results, view it on the same chart timeframe.")
+sigTfSel = input.string("5 minutes", "Signal timeframe", options=["5 minutes"], group=grpInt, tooltip="This strategy is locked to the 5-minute timeframe.")
+sigTf  = "5"
 
 effOS   = eff == "Custom" ? custOS   : 30
 effATR  = eff == "Custom" ? custATR  : eff == "BTC" ? 0.8 : eff == "ETH" ? 0.9 : 1.0
