@@ -22,7 +22,7 @@ emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
 emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
 emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
 emaSrc    = input.source(close, "Source", group=grpEma)
-emaBuf    = input.float(0.05, "Cross buffer %", minval=0.0, step=0.01, group=grpEma, tooltip="The fast EMA must clear the slow EMA by at least this % to count as a cross. Filters tiny crosses when price hugs the slow EMA. 0 = exact cross.")
+emaBuf    = input.float(0.10, "Min ribbon width %", minval=0.0, step=0.01, group=grpEma, tooltip="The EMA9-to-EMA50 gap must be at least this % at the signal — skips flat / tangled EMAs (sideways). 0 = no width filter.")
 emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma, tooltip="Minimum bars between signals to avoid clustering.")
 
 // ============ DIRECTION / TARGETS ============
@@ -137,44 +137,52 @@ f_confirm(up, n, minBodyP) =>
         cnt += (dir and bodyP >= minBodyP) ? 1 : 0
     cnt == n
 
-// ============ CALCS ============
-tickerStr = syminfo.ticker
-atr  = ta.atr(14)
-ema1 = ta.ema(emaSrc, emaLen1)
-ema2 = ta.ema(emaSrc, emaLen2)
-ema3 = ta.ema(emaSrc, emaLen3)
+// ============ SIGNAL TIMEFRAME ============
+sigTf = input.timeframe("15", "Signal timeframe", group=grpEma, tooltip="The whole strategy (EMAs, cross, confirmation, liquidity SL) is computed on this timeframe. Default 15M. For non-repaint results, view it on the same chart timeframe.")
 
-// A SIGNAL fires when the FAST EMA crosses the SLOW EMA by at least the buffer
-// band — i.e. the fast cleanly cuts through the whole ribbon (a real regime
-// change), not a micro-cross while price hugs the slow EMA.
-upThresh = ema3 * (1.0 + emaBuf / 100.0)
-dnThresh = ema3 * (1.0 - emaBuf / 100.0)
-buyRaw  = ema1 > upThresh and ema1[1] <= upThresh[1]   // fast clears slow +buffer
-sellRaw = ema1 < dnThresh and ema1[1] >= dnThresh[1]   // fast drops slow -buffer
+// ============ CALCS (computed on the signal timeframe) ============
+tickerStr = syminfo.ticker
+
+f_calc() =>
+    e1 = ta.ema(emaSrc, emaLen1)
+    e2 = ta.ema(emaSrc, emaLen2)
+    e3 = ta.ema(emaSrc, emaLen3)
+    // BUY when the EMAs cross into bullish order (9 > 21 > 50); SELL into
+    // bearish order (9 < 21 < 50). The 9-21-50 crossover. Ribbon must be wide
+    // enough (>= Min ribbon width %) so we don't trade flat / tangled EMAs.
+    bull = e1 > e2 and e2 > e3
+    bear = e1 < e2 and e2 < e3
+    wide = e3 != 0 and math.abs(e1 - e3) / e3 * 100.0 >= emaBuf
+    bRaw = bull and not bull[1] and wide
+    sRaw = bear and not bear[1] and wide
+    bCf  = not useCf or f_confirm(true,  cfN, cfBodyP)
+    sCf  = not useCf or f_confirm(false, cfN, cfBodyP)
+    lH   = ta.highest(high, slLook)
+    lL   = ta.lowest(low,  slLook)
+    a    = ta.atr(14)
+    [e1, e2, e3, bRaw, sRaw, bCf, sCf, lH, lL, close, a]
+
+[ema1, ema2, ema3, buyRaw, sellRaw, buyConf, sellConf, liqHigh, liqLow, sigClose, atr] = request.security(syminfo.tickerid, sigTf, f_calc(), lookahead=barmerge.lookahead_off)
 
 // ============ SIGNAL STATE ============
 var int lastSig = -1000
 ready    = barstate.isconfirmed and (bar_index - lastSig) >= emaCD
-buyConf  = not useCf or f_confirm(true,  cfN, cfBodyP)   // last N strong green
-sellConf = not useCf or f_confirm(false, cfN, cfBodyP)   // last N strong red
 buySig   = ready and buyRaw  and allowLong and buyConf
 sellSig  = ready and sellRaw and (allowShort or allowLong) and sellConf   // long-only -> sell = exit
 if buySig or sellSig
     lastSig := bar_index
 
 // ============ ENTRY / TARGETS ============
-entry   = close
+entry   = sigClose
 tp1Long = entry * (1.0 + tp1Pct / 100.0)
 tp2Long = entry * (1.0 + tp2Pct / 100.0)
 tp1Sh   = entry * (1.0 - tp1Pct / 100.0)
 tp2Sh   = entry * (1.0 - tp2Pct / 100.0)
 entryS  = f_px(entry)
 
-// ---- Liquidity-based tight SL ----
+// ---- Liquidity-based tight SL (liqHigh/liqLow come from the signal TF) ----
 // Short: SL just ABOVE the recent swing high (liquidity above).
 // Long:  SL just BELOW the recent swing low  (liquidity below).
-liqHigh = ta.highest(high, slLook)
-liqLow  = ta.lowest(low,  slLook)
 buySL  = useSL ? math.min(liqLow,  entry) * (1.0 - slBuf / 100.0) : na
 sellSL = useSL ? math.max(liqHigh, entry) * (1.0 + slBuf / 100.0) : na
 
