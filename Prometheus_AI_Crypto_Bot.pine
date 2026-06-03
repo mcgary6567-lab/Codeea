@@ -39,6 +39,12 @@ useSL  = input.bool(true, "Send Stop Loss", group=grpSL, tooltip="Sends a stop-l
 slLook = input.int(5, "Liquidity lookback (bars)", minval=1, group=grpSL, tooltip="SL sits just beyond the recent swing HIGH (for shorts) / swing LOW (for longs) — the liquidity — over this many bars. Smaller = tighter SL.")
 slBuf  = input.float(0.05, "SL buffer %", minval=0.0, step=0.01, group=grpSL, tooltip="Extra % beyond the liquidity level so a stop-hunt wick doesn't clip it.")
 
+// ============ CANDLE CONFIRMATION ============
+grpCf    = "Confirmation"
+useCf    = input.bool(true, "Require confirmation candles", group=grpCf, tooltip="Only take a signal if the last N candles confirm direction with a strong body.")
+cfN      = input.int(2, "Confirmation candles", minval=1, maxval=5, group=grpCf, tooltip="How many candles in a row must be green (BUY) / red (SELL).")
+cfBodyP  = input.float(0.30, "Min body %", minval=0.0, step=0.05, group=grpCf, tooltip="Each confirmation candle's body |close-open| must be at least this % of price. Filters dojis / weak candles.")
+
 // ============ VISUALS ============
 grpVis     = "Visuals"
 showRibbon = input.bool(true, "Show EMA ribbon", group=grpVis)
@@ -50,7 +56,7 @@ grpDash     = "Dashboard"
 showDash    = input.bool(true, "Show Dashboard", group=grpDash)
 dashPos     = input.string("Top Right", "Position", options=["Top Right","Top Left","Bottom Right","Bottom Left","Middle Right"], group=grpDash)
 dashRows    = input.int(5,   "Max Rows",               minval=3, maxval=15, group=grpDash)
-dashFilter  = input.string("Wins + Open", "Show in Table", options=["Wins + Open","Wins Only"], group=grpDash)
+dashFilter  = input.string("Active + Results", "Show in Table", options=["Active + Results","Wins Only"], group=grpDash, tooltip="Active + Results shows open trades plus wins, losses (SL hit) and partials.")
 trackWindow = input.int(120, "Tracking Window (bars)", minval=20, group=grpDash)
 
 // ============ ALERTS ============
@@ -113,11 +119,23 @@ statusBg(st) =>
 
 passesFilter(st, f) =>
     var ok = false
-    if f == "Wins + Open"
-        ok := st == 0 or st == 1 or st == 4
-    else
+    if f == "Wins Only"
         ok := st == 1 or st == 4
+    else
+        ok := st == 0 or st == 1 or st == 2 or st == 4   // Active + Results (incl. LOSS)
     ok
+
+// True if the last `n` candles are all strong green (up) / strong red (down),
+// each with a body of at least `minBodyP` % of price.
+f_confirm(up, n, minBodyP) =>
+    cnt = 0
+    for k = 0 to n - 1
+        o = open[k]
+        c = close[k]
+        bodyP = o != 0 ? math.abs(c - o) / o * 100.0 : 0.0
+        dir = up ? c > o : o > c
+        cnt += (dir and bodyP >= minBodyP) ? 1 : 0
+    cnt == n
 
 // ============ CALCS ============
 tickerStr = syminfo.ticker
@@ -136,9 +154,11 @@ sellRaw = ema1 < dnThresh and ema1[1] >= dnThresh[1]   // fast drops slow -buffe
 
 // ============ SIGNAL STATE ============
 var int lastSig = -1000
-ready   = barstate.isconfirmed and (bar_index - lastSig) >= emaCD
-buySig  = ready and buyRaw  and allowLong
-sellSig = ready and sellRaw and (allowShort or allowLong)   // long-only -> sell = exit
+ready    = barstate.isconfirmed and (bar_index - lastSig) >= emaCD
+buyConf  = not useCf or f_confirm(true,  cfN, cfBodyP)   // last N strong green
+sellConf = not useCf or f_confirm(false, cfN, cfBodyP)   // last N strong red
+buySig   = ready and buyRaw  and allowLong and buyConf
+sellSig  = ready and sellRaw and (allowShort or allowLong) and sellConf   // long-only -> sell = exit
 if buySig or sellSig
     lastSig := bar_index
 
@@ -329,7 +349,7 @@ if showDash and barstate.islast
 
     nRows     = array.size(displayList)
     totalRows = 2 + math.max(nRows, 1)
-    filterLabel = dashFilter == "Wins + Open" ? "Active & Wins" : "Win Signals"
+    filterLabel = dashFilter == "Wins Only" ? "Win Signals" : "Active & Results"
     tfStr       = timeframe.isminutes ? timeframe.period + "M" : timeframe.isseconds ? timeframe.period + "S" : timeframe.period
     titleTxt    = "Prometheus EMA - " + filterLabel + " | " + tickerStr + " " + tfStr
 
