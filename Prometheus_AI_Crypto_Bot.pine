@@ -269,6 +269,12 @@ if drawLong or drawShort
     tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
 
+// On a long-only EXIT (close), clear the previous long's Entry/TP lines so they
+// don't linger above the exit and look like the sell's targets.
+if showLevels and sellSig and not allowShort
+    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+
 if showLabels and buySig
     label.delete(sigLbl)
     sigLbl := label.new(bar_index, low - atr, "BUY @ " + entryS, color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
