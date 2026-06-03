@@ -33,6 +33,7 @@ grpInt = "Internal"
 rsiLen = input.int(14, "RSI Length", group=grpInt)
 atrLen = input.int(14, "ATR Length", group=grpInt)
 volLen = input.int(20, "Volume MA",  group=grpInt)
+sigTf  = input.timeframe("5", "Signal timeframe", group=grpInt, tooltip="The whole strategy is computed on this timeframe (default 5M) regardless of the chart's timeframe. For non-repaint results, view it on the same chart timeframe.")
 
 effOS   = eff == "Custom" ? custOS   : 30
 effATR  = eff == "Custom" ? custATR  : eff == "BTC" ? 0.8 : eff == "ETH" ? 0.9 : 1.0
@@ -51,17 +52,11 @@ requireBodyRatio = input.bool(true, "Require Strong Green Body", group=grpQual, 
 minBodyRatio     = input.float(0.3, "Min Green Body Ratio", minval=0.1, maxval=1.0, step=0.05, group=grpQual, tooltip="Body must be >= this fraction of the candle range. 0.3 for 1m, 0.4 for 5m, 0.5 for 15m+.")
 
 // ============ CLIMACTIC BAR (exhaustion) ============
-// A climactic bar = wide-range + ultra-high-volume bar after an extended move.
-// It signals exhaustion -> imminent reversal / deep retrace. For this long/dip
-// strategy the relevant one is a SELLING climax (a capitulation down-bar): a
-// great place to look for a bounce.
-grpClim   = "Climactic Bar (exhaustion)"
-useClimax = input.bool(false, "Require climactic dip bar", group=grpClim, tooltip="When ON, only take a dip if its bar is a SELLING CLIMAX (wide range + ultra volume after an extended drop). Fewer, higher-quality signals.")
-climRng   = input.float(2.0, "Range x ATR",            minval=1.0, step=0.1, group=grpClim, tooltip="Bar range (high-low) must be >= this x ATR.")
-climVol   = input.float(2.0, "Volume x avg",           minval=1.0, step=0.1, group=grpClim, tooltip="Bar volume must be >= this x the average volume.")
-climLook  = input.int(10,    "Extended-move lookback", minval=3,             group=grpClim, tooltip="Bars back used to measure the prior down-move.")
-climMove  = input.float(1.5, "Min prior down-move %",  minval=0.1, step=0.1, group=grpClim, tooltip="Price must have fallen at least this % from 'lookback' bars ago into this bar's low.")
-showClim  = input.bool(true, "Mark climactic bars (CLX)", group=grpClim)
+// A climactic bar = wide-range + ultra-high-volume bar after an extended move
+// (selling climax = capitulation down-bar). Marked for context only — fixed,
+// sensible thresholds (range >= 2x ATR, volume >= 2x avg, fell >= 1.5% over 10 bars).
+grpClim  = "Climactic Bar (exhaustion)"
+showClim = input.bool(true, "Mark climactic bars (CLX)", group=grpClim)
 
 // ============ TARGETS ============
 grpTgt = "Targets"
@@ -146,78 +141,74 @@ passesFilter(st, f) =>
         ok := st == 1 or st == 4
     ok
 
-// ============ CALCS ============
-rsi        = ta.rsi(close, rsiLen)
-atr        = ta.atr(atrLen)
-volAvg     = ta.sma(volume, volLen)
-lowestN    = ta.lowest(low, effLook)
-lowestFive = ta.lowest(low, 5)
-hasVolume  = ta.cum(volume) > 0
-volPass    = not hasVolume or volume >= volAvg * effVol
-isRed      = close < open
-isGreen    = close > open
+// ============ SIGNAL CALC (computed on the signal timeframe) ============
+f_calc() =>
+    rsi        = ta.rsi(close, rsiLen)
+    atr        = ta.atr(atrLen)
+    volAvg     = ta.sma(volume, volLen)
+    lowestN    = ta.lowest(low, effLook)
+    lowestFive = ta.lowest(low, 5)
+    hasVolume  = ta.cum(volume) > 0
+    volPass    = not hasVolume or volume >= volAvg * effVol
+    isRed      = close < open
+    isGreen    = close > open
+    candleRange    = high - low
+    bodyRatio      = candleRange > 0 ? math.abs(close - open) / candleRange : 0.0
+    isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
 
-candleBody     = math.abs(close - open)
-candleRange    = high - low
-bodyRatio      = candleRange > 0 ? candleBody / candleRange : 0.0
-isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
+    // Climactic (selling-climax) detection — fixed thresholds, marker only.
+    downMovePct  = close[10] > 0 ? (close[10] - low) / close[10] * 100.0 : 0.0
+    climVolOk    = not hasVolume or volume >= volAvg * 2.0
+    isSellClimax = isRed and (high - low >= atr * 2.0) and climVolOk and (downMovePct >= 1.5)
 
-// ---- Climactic (selling-climax) detection ----
-// Wide range + ultra volume + after an extended down move = exhaustion.
-downMovePct  = close[climLook] > 0 ? (close[climLook] - low) / close[climLook] * 100.0 : 0.0
-climVolOk    = not hasVolume or volume >= volAvg * climVol
-isSellClimax = isRed and (high - low >= atr * climRng) and climVolOk and (downMovePct >= climMove)
+    isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
 
-// Crypto trades 24/7 — no session filter. All symbols supported.
-// When 'Require climactic dip bar' is ON, the dip bar must also be a selling climax.
-isDipRed = isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass and (not useClimax or isSellClimax)
-
-// ============ STATE MACHINE ============
-var bool  dipActive     = false
-var int   greenCount    = 0
-var float dipLowVal     = na
-var int   barsSinceDip  = 0
-var int   lastSignalBar = -1000
-
-if isDipRed
-    dipActive    := true
-    greenCount   := 0
-    dipLowVal    := low
-    barsSinceDip := 0
-else
-    if dipActive
-        barsSinceDip := barsSinceDip + 1
-        if barsSinceDip > maxWait
-            dipActive  := false
-            greenCount := 0
-        else
-            if isQualityGreen
-                greenCount := greenCount + 1
-            else
+    // ---- state machine ----
+    var bool  dipActive     = false
+    var int   greenCount    = 0
+    var float dipLowVal     = na
+    var int   barsSinceDip  = 0
+    var int   lastSignalBar = -1000
+    if isDipRed
+        dipActive    := true
+        greenCount   := 0
+        dipLowVal    := low
+        barsSinceDip := 0
+    else
+        if dipActive
+            barsSinceDip := barsSinceDip + 1
+            if barsSinceDip > maxWait
+                dipActive  := false
                 greenCount := 0
-                if low < dipLowVal
-                    dipActive := false
+            else
+                if isQualityGreen
+                    greenCount := greenCount + 1
+                else
+                    greenCount := 0
+                    if low < dipLowVal
+                        dipActive := false
+    inCooldown = (bar_index - lastSignalBar) < cooldown
+    rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
+    sig = rawSignal and not inCooldown and barstate.isconfirmed
+    if sig
+        dipActive     := false
+        greenCount    := 0
+        lastSignalBar := bar_index
 
-inCooldown = (bar_index - lastSignalBar) < cooldown
-rawSignal  = dipActive and isQualityGreen and greenCount >= greenN
-signal     = rawSignal and not inCooldown and barstate.isconfirmed
+    // ---- entry / targets (no SL) ----
+    var float lockedDipLow = na
+    if isDipRed
+        lockedDipLow := low
+    entryP  = close
+    dipRef  = na(lockedDipLow) ? lowestFive : lockedDipLow
+    tpRange = math.max(entryP - dipRef, atr)
+    tp1     = entryP + tpRange * rrTP1
+    tp2     = entryP + tpRange * rrTP2
+    [sig, entryP, tp1, tp2, isDipRed, isSellClimax, rsi, atr, tpRange]
 
-if signal
-    dipActive     := false
-    greenCount    := 0
-    lastSignalBar := bar_index
-
-// ============ ENTRY / TARGETS (no stop-loss) ============
-var float lockedDipLow = na
-if isDipRed
-    lockedDipLow := low
-
-entryPrice = close
-dipRef     = na(lockedDipLow) ? lowestFive : lockedDipLow
-// internal distance only — floored by ATR so TPs are sane on volatile coins
-tpRange    = math.max(entryPrice - dipRef, atr)
-tp1Price   = entryPrice + tpRange * rrTP1
-tp2Price   = entryPrice + tpRange * rrTP2
+[sigRaw, entryPrice, tp1Price, tp2Price, isDipRed, isSellClimax, rsi, atr, tpRange] = request.security(syminfo.tickerid, sigTf, f_calc(), lookahead=barmerge.lookahead_off)
+// Fire on the rising edge so it triggers once per signal even on a lower chart TF.
+signal = sigRaw and not sigRaw[1]
 
 // ============ SIGNAL TRACKING ============
 var array<SignalRec> signals = array.new<SignalRec>()
@@ -277,7 +268,7 @@ if array.size(signals) > 0
                                '","passphrase":"' + whSecret +
                                '","price":' + pStr + ',"entry":' + eStr +
                                ',"tp1":' + f_px(rec.tp1) + ',"tp2":' + f_px(rec.tp2) +
-                               ',"comment":"' + strategyTag + '","tf":"' + timeframe.period +
+                               ',"comment":"' + strategyTag + '","tf":"' + sigTf +
                                '","time":"' + timeStr + '"}'
                     tgTPEsc = str.replace_all(tgTP, "\n", "\\n")
                     tgTPMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTPEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
@@ -292,7 +283,7 @@ rsiStr   = str.tostring(rsi, "#.##")
 pct1     = f_pct(tp1Price, entryPrice)
 pct2     = f_pct(tp2Price, entryPrice)
 
-tgText = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+tgText = alertHeader + " - " + tickerStr + " (" + sigTf + ")\n" +
          "---\n" +
          "ENTRY : " + entryStr + "\n" +
          "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
@@ -302,7 +293,7 @@ tgText = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
 tgTextEsc   = str.replace_all(tgText, "\n", "\\n")
 telegramMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTextEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
 
-readableMsg = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+readableMsg = alertHeader + " - " + tickerStr + " (" + sigTf + ")\n" +
                "ENTRY : " + entryStr + "\n" +
                "TP1   : " + tp1Str   + " (+" + pct1 + "%)\n" +
                "TP2   : " + tp2Str   + " (+" + pct2 + "%)\n" +
@@ -312,7 +303,7 @@ compactMsg = tickerStr + " BUY @ " + entryStr + " | TP1 " + tp1Str + " | TP2 " +
 
 jsonMsg = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
            '","entry":' + entryStr + ',"tp1":' + tp1Str + ',"tp2":' + tp2Str +
-           ',"comment":"' + strategyTag + '","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
+           ',"comment":"' + strategyTag + '","tf":"' + sigTf + '","time":"' + timeStr + '"}'
 
 alertMsg = alertFmt == "Telegram" ? telegramMsg : alertFmt == "Webhook JSON" ? jsonMsg : alertFmt == "Compact" ? compactMsg : readableMsg
 
@@ -333,7 +324,7 @@ if showBuyNow and signal
 var label infoLbl = na
 if showInfo and barstate.islast
     label.delete(infoLbl)
-    infoLbl := label.new(bar_index, high, "Preset: " + eff, color=color.new(color.gray, 70), textcolor=color.white, style=label.style_label_lower_right, size=size.small, force_overlay=true)
+    infoLbl := label.new(bar_index, high, "Preset: " + eff + "  TF: " + sigTf, color=color.new(color.gray, 70), textcolor=color.white, style=label.style_label_lower_right, size=size.small, force_overlay=true)
 
 // ---- Entry / TP level lines (no SL) ----
 var line  enLine  = na
@@ -373,8 +364,7 @@ if showDash and barstate.islast
     nRows     = array.size(displayList)
     totalRows = 2 + math.max(nRows, 1)
     filterLabel = dashFilter == "Wins + Open" ? "Active & Wins" : "Win Signals"
-    tfStr       = timeframe.isminutes ? timeframe.period + "M" : timeframe.isseconds ? timeframe.period + "S" : timeframe.period
-    titleTxt    = "Prometheus AI - " + filterLabel + " | " + tickerStr + " " + tfStr
+    titleTxt    = "Prometheus AI - " + filterLabel + " | " + tickerStr + " " + sigTf + "M"
 
     dash := table.new(posMap(dashPos), 5, totalRows, bgcolor=color.new(color.black, 10), border_width=1, border_color=color.new(color.gray, 60), frame_width=1, frame_color=color.new(color.gray, 30))
 
