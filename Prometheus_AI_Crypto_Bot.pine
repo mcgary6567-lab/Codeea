@@ -21,6 +21,7 @@ emaLen1   = input.int(9,  "EMA Fast", minval=1, group=grpEma)
 emaLen2   = input.int(21, "EMA Mid",  minval=1, group=grpEma)
 emaLen3   = input.int(50, "EMA Slow", minval=1, group=grpEma)
 emaSrc    = input.source(close, "Source", group=grpEma)
+emaBuf    = input.float(0.05, "Cross buffer %", minval=0.0, step=0.01, group=grpEma, tooltip="The fast EMA must clear the slow EMA by at least this % to count as a cross. Filters tiny crosses when price hugs the slow EMA. 0 = exact cross.")
 emaCD     = input.int(3, "Cooldown bars between signals", minval=0, group=grpEma, tooltip="Minimum bars between signals to avoid clustering.")
 
 // ============ DIRECTION / TARGETS ============
@@ -114,12 +115,13 @@ ema1 = ta.ema(emaSrc, emaLen1)
 ema2 = ta.ema(emaSrc, emaLen2)
 ema3 = ta.ema(emaSrc, emaLen3)
 
-// A SIGNAL fires when the FAST EMA actually crosses the SLOW EMA — i.e. the
-// fast cuts through the whole ribbon (a real regime change). This avoids the
-// noise from price wandering across the ribbon, and from the fast/mid EMAs
-// wiggling against each other while the slow EMA is flat and far away.
-buyRaw  = ta.crossover(ema1, ema3)    // fast (9) crosses ABOVE slow (50)
-sellRaw = ta.crossunder(ema1, ema3)   // fast (9) crosses BELOW slow (50)
+// A SIGNAL fires when the FAST EMA crosses the SLOW EMA by at least the buffer
+// band — i.e. the fast cleanly cuts through the whole ribbon (a real regime
+// change), not a micro-cross while price hugs the slow EMA.
+upThresh = ema3 * (1.0 + emaBuf / 100.0)
+dnThresh = ema3 * (1.0 - emaBuf / 100.0)
+buyRaw  = ema1 > upThresh and ema1[1] <= upThresh[1]   // fast clears slow +buffer
+sellRaw = ema1 < dnThresh and ema1[1] >= dnThresh[1]   // fast drops slow -buffer
 
 // ============ SIGNAL STATE ============
 var int lastSig = -1000
