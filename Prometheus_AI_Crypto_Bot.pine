@@ -14,6 +14,7 @@ type SignalRec
     bool  tp1Hit
     bool  tp2Hit
     bool  isLong
+    float sl = na
 
 // ============ EMA RIBBON ============
 grpEma    = "EMA Ribbon"
@@ -31,6 +32,12 @@ allowShort= input.bool(true, "Allow shorts (SELL on bearish cross) - futures onl
 useTP     = input.bool(true,  "Use TP1/TP2 targets", group=grpDir, tooltip="ON = send % take-profits like before (the opposite cross still closes as a backstop). OFF = exit only on the opposite cross.")
 tp1Pct    = input.float(1.0, "TP1 %", minval=0.1, step=0.1, group=grpDir)
 tp2Pct    = input.float(2.0, "TP2 %", minval=0.1, step=0.1, group=grpDir)
+
+// ============ STOP LOSS (liquidity) ============
+grpSL  = "Stop Loss"
+useSL  = input.bool(true, "Send Stop Loss", group=grpSL, tooltip="Sends a stop-loss with the signal (placed on futures; spot has no stop market).")
+slLook = input.int(5, "Liquidity lookback (bars)", minval=1, group=grpSL, tooltip="SL sits just beyond the recent swing HIGH (for shorts) / swing LOW (for longs) — the liquidity — over this many bars. Smaller = tighter SL.")
+slBuf  = input.float(0.05, "SL buffer %", minval=0.0, step=0.01, group=grpSL, tooltip="Extra % beyond the liquidity level so a stop-hunt wick doesn't clip it.")
 
 // ============ VISUALS ============
 grpVis     = "Visuals"
@@ -84,6 +91,8 @@ statusText(st) =>
         t := "OPEN"
     else if st == 1
         t := "WIN"
+    else if st == 2
+        t := "LOSS"
     else if st == 3
         t := "EXP"
     else if st == 4
@@ -96,6 +105,8 @@ statusBg(st) =>
         c := color.new(color.yellow, 80)
     else if st == 1
         c := color.new(color.green, 80)
+    else if st == 2
+        c := color.new(color.red, 75)
     else if st == 4
         c := color.new(color.orange, 80)
     c
@@ -139,6 +150,14 @@ tp1Sh   = entry * (1.0 - tp1Pct / 100.0)
 tp2Sh   = entry * (1.0 - tp2Pct / 100.0)
 entryS  = f_px(entry)
 
+// ---- Liquidity-based tight SL ----
+// Short: SL just ABOVE the recent swing high (liquidity above).
+// Long:  SL just BELOW the recent swing low  (liquidity below).
+liqHigh = ta.highest(high, slLook)
+liqLow  = ta.lowest(low,  slLook)
+buySL  = useSL ? math.min(liqLow,  entry) * (1.0 - slBuf / 100.0) : na
+sellSL = useSL ? math.max(liqHigh, entry) * (1.0 + slBuf / 100.0) : na
+
 freq    = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
 timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
 
@@ -148,11 +167,11 @@ TRACK_MAX = 50
 
 // Track long entries (and short entries when shorts are enabled).
 if buySig
-    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Long, tp2Long, 0, false, false, true))
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Long, tp2Long, 0, false, false, true, buySL))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
 if sellSig and allowShort
-    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Sh, tp2Sh, 0, false, false, false))
+    array.unshift(signals, SignalRec.new(bar_index, time, entry, tp1Sh, tp2Sh, 0, false, false, false, sellSL))
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
 
@@ -177,8 +196,11 @@ if array.size(signals) > 0
                     tpEvent    := "tp1_hit"
                     tpPriceHit := rec.tp1
 
+                hitSL = not na(rec.sl) and (rec.isLong ? low <= rec.sl : high >= rec.sl)
                 if rec.tp2Hit
                     rec.status := 1
+                else if hitSL
+                    rec.status := rec.tp1Hit ? 4 : 2   // SL after TP1 = PART, else LOSS
                 else if barsIn >= trackWindow
                     rec.status := rec.tp1Hit ? 4 : 3
 
@@ -203,14 +225,16 @@ if array.size(signals) > 0
 // ============ ENTRY / EXIT ALERTS ============
 // BUY (long)
 buyTPjson = useTP ? (',"tp1":' + f_px(tp1Long) + ',"tp2":' + f_px(tp2Long)) : ''
+buySLjson = not na(buySL) ? (',"sl":' + f_px(buySL)) : ''
 jBuy = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-       '","entry":' + entryS + buyTPjson +
+       '","entry":' + entryS + buySLjson + buyTPjson +
        ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 
 // SELL: short entry (futures) OR exit/close the long (default)
 sellTPjson = useTP ? (',"tp1":' + f_px(tp1Sh) + ',"tp2":' + f_px(tp2Sh)) : ''
+sellSLjson = not na(sellSL) ? (',"sl":' + f_px(sellSL)) : ''
 jShort = '{"action":"sell","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
-         '","entry":' + entryS + sellTPjson +
+         '","entry":' + entryS + sellSLjson + sellTPjson +
          ',"comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
 jExit  = '{"event":"exit","symbol":"' + tickerStr + '","passphrase":"' + whSecret +
          '","comment":"' + strategyTag + '","strategy":"ema","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
@@ -249,9 +273,11 @@ tp2str = str.tostring(tp2Pct, "#.##")
 var line  enLine  = na
 var line  tp1Line = na
 var line  tp2Line = na
+var line  slLine  = na
 var label enLbl   = na
 var label tp1Lbl  = na
 var label tp2Lbl  = na
+var label slLbl   = na
 var label sigLbl  = na
 
 drawLong  = showLevels and buySig
@@ -259,21 +285,25 @@ drawShort = showLevels and sellSig and allowShort
 if drawLong or drawShort
     t1  = drawLong ? tp1Long : tp1Sh
     t2  = drawLong ? tp2Long : tp2Sh
+    sl  = drawLong ? buySL   : sellSL
     sgn = drawLong ? "+" : "-"
-    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line), line.delete(slLine)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl), label.delete(slLbl)
     enLine  := line.new(bar_index, entry, bar_index + 30, entry, color=color.blue,   width=2, style=line.style_solid,  force_overlay=true)
     tp1Line := line.new(bar_index, t1,    bar_index + 30, t1,    color=color.orange, width=1, style=line.style_dashed, force_overlay=true)
     tp2Line := line.new(bar_index, t2,    bar_index + 30, t2,    color=color.aqua,   width=2, style=line.style_dashed, force_overlay=true)
     enLbl   := label.new(bar_index + 30, entry, "ENTRY " + f_px(entry),                              color=color.new(color.blue,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp1Lbl  := label.new(bar_index + 30, t1,    "TP1 " + f_px(t1) + " (" + sgn + tp1str + "%)",      color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
     tp2Lbl  := label.new(bar_index + 30, t2,    "TP2 " + f_px(t2) + " (" + sgn + tp2str + "%)",      color=color.new(color.aqua,   0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
+    if not na(sl)
+        slLine := line.new(bar_index, sl, bar_index + 30, sl, color=color.red, width=1, style=line.style_dotted, force_overlay=true)
+        slLbl  := label.new(bar_index + 30, sl, "SL " + f_px(sl) + " (" + f_pct(sl, entry) + "%)", color=color.new(color.red, 0), textcolor=color.white, style=label.style_label_left, size=size.small, force_overlay=true)
 
 // On a long-only EXIT (close), clear the previous long's Entry/TP lines so they
 // don't linger above the exit and look like the sell's targets.
 if showLevels and sellSig and not allowShort
-    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line)
-    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl)
+    line.delete(enLine), line.delete(tp1Line), line.delete(tp2Line), line.delete(slLine)
+    label.delete(enLbl), label.delete(tp1Lbl), label.delete(tp2Lbl), label.delete(slLbl)
 
 if showLabels and buySig
     label.delete(sigLbl)
