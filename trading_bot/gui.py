@@ -682,7 +682,8 @@ class TradingBotGUI:
         size_row.grid(row=0, column=1, sticky="w", pady=4)
         self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
         ttk.Entry(size_row, textvariable=self.size_var, width=12).pack(side="left")
-        ttk.Label(size_row, text="base (e.g. BTC)").pack(side="left", padx=6)
+        self.size_hint = ttk.Label(size_row, text="base (e.g. BTC)")
+        self.size_hint.pack(side="left", padx=6)
 
         ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
         self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS["fixed"])
@@ -690,7 +691,7 @@ class TradingBotGUI:
             f, textvariable=self.sizing_mode_var,
             values=[SIZING_MODE_LABELS[m] for m in SIZING_MODES], state="readonly",
         ).grid(row=1, column=1, sticky="ew", pady=4)
-        self.sizing_mode_var.trace_add("write", lambda *a: self._push_settings())
+        self.sizing_mode_var.trace_add("write", lambda *a: self._on_sizing_mode_change())
 
         rr = ttk.Frame(f)
         rr.grid(row=2, column=0, columnspan=2, sticky="w")
@@ -1131,6 +1132,20 @@ class TradingBotGUI:
                 return value
         return "fixed"
 
+    def _update_size_hint(self) -> None:
+        """Show the unit of the Trade Size field for the selected sizing mode."""
+        hints = {
+            "fixed": "base coin (e.g. 0.006 BTC)",
+            "fixed_quote": "USDT $ (e.g. 100)",
+            "risk_balance": "(unused — risk % below)",
+            "risk_stop": "(unused — risk % below)",
+        }
+        self.size_hint.config(text=hints.get(self._sizing_mode_value(), "base coin"))
+
+    def _on_sizing_mode_change(self) -> None:
+        self._update_size_hint()
+        self._push_settings()
+
     def _margin_mode_value(self) -> str:
         m = self.margin_mode_var.get()
         return m if m in ("cross", "isolated") else ""
@@ -1237,13 +1252,17 @@ class TradingBotGUI:
             return
         symbol = self.symbol_var.get().strip()
         size = self.size_var.get().strip()
+        sm = self._sizing_mode_value()
+        size_desc = (f"${size} (USDT)" if sm == "fixed_quote"
+                     else f"{size} (coin)" if sm == "fixed"
+                     else "auto (risk %)")
         mode = "SIMULATED" if self.safe_var.get() else "LIVE"
         otype = self.order_type_var.get()
         limit_px = self.limit_price_var.get().strip()
         order_desc = f"{otype.upper()}" + (f" @ {limit_px}" if otype == "limit" and limit_px else "")
         if not messagebox.askyesno(
             "Confirm order",
-            f"{mode} {order_desc} {side.upper()} {size} of {symbol} on "
+            f"{mode} {order_desc} {side.upper()} {size_desc} of {symbol} on "
             f"{self.exchange_var.get().upper()}?\n\nProceed?",
         ):
             return

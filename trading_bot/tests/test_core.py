@@ -79,6 +79,19 @@ class TestSizeOrder(unittest.TestCase):
         amt, _ = size_order("fixed", 0.05, 1.0, 1000, 100)
         self.assertEqual(amt, 0.05)
 
+    def test_fixed_quote_usdt(self):
+        # $420 of BTC at price 70000 -> 0.006 BTC
+        amt, _ = size_order("fixed_quote", 420, 1.0, 1000, 70000)
+        self.assertAlmostEqual(amt, 0.006)
+        # $100 at 100 -> 1.0 unit
+        amt, _ = size_order("fixed_quote", 100, 1.0, 1000, 100)
+        self.assertAlmostEqual(amt, 1.0)
+
+    def test_fixed_quote_falls_back_without_price(self):
+        amt, reason = size_order("fixed_quote", 100, 1.0, 1000, 0)
+        self.assertEqual(amt, 100)
+        self.assertIn("no price", reason)
+
     def test_risk_balance(self):
         # 1% of 1000 = 10 spent at price 100 -> 0.1
         amt, _ = size_order("risk_balance", 0.05, 1.0, 1000, 100)

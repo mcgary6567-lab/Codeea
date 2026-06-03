@@ -133,12 +133,14 @@ DEFAULT_TRADE_SIZE = 0.003           # in base asset (e.g. 0.003 BTC)
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing
 
 # Sizing modes offered in the UI.
-#   fixed        -> use the fixed lot size as-is
+#   fixed        -> use the fixed lot size as-is (in the base coin, e.g. BTC)
+#   fixed_quote  -> the size is a USDT amount; buy that many $ worth (size/price)
 #   risk_balance -> spend risk% of balance (notional / current price)
 #   risk_stop    -> risk risk% of balance over the entry->stop distance
-SIZING_MODES = ["fixed", "risk_balance", "risk_stop"]
+SIZING_MODES = ["fixed", "fixed_quote", "risk_balance", "risk_stop"]
 SIZING_MODE_LABELS = {
-    "fixed": "Fixed lot",
+    "fixed": "Fixed lot (coin)",
+    "fixed_quote": "Fixed $ (USDT)",
     "risk_balance": "Risk % of balance",
     "risk_stop": "Risk % per trade (stop-based)",
 }

@@ -116,7 +116,9 @@ def size_order(
 ) -> tuple:
     """Pure sizing logic. Returns ``(amount, reason)``.
 
-    * ``fixed``        – the fixed lot, unchanged.
+    * ``fixed``        – the fixed lot (in the base coin), unchanged.
+    * ``fixed_quote``  – ``fixed_size`` is a USDT amount; buy that many dollars'
+      worth: ``amount = fixed_size / price``.
     * ``risk_balance`` – spend ``risk_percent`` % of balance at ``price``.
     * ``risk_stop``    – risk ``risk_percent`` % of balance across the
       ``entry``→``stop`` distance: ``amount = risk_amount / |entry - stop|``.
@@ -126,6 +128,10 @@ def size_order(
     so a trade is never sized to zero by accident.
     """
     risk_amount = balance * (risk_percent / 100.0)
+    if mode == "fixed_quote":
+        if price > 0 and fixed_size > 0:
+            return round(fixed_size / price, 8), f"${fixed_size:g} / price {price:g}"
+        return fixed_size, "fixed $: no price — using raw size"
     if mode == "risk_stop":
         ref = entry if entry > 0 else price
         dist = abs(ref - stop) if (ref > 0 and stop > 0) else 0.0
