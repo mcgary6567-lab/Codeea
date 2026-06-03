@@ -5,14 +5,15 @@ plot(na, "ghost", display=display.none)
 
 // ============ TYPES ============
 type SignalRec
-    int   barIdx
-    int   tstamp
-    float entry
-    float tp1
-    float tp2
-    int   status   // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
-    bool  tp1Hit
-    bool  tp2Hit
+    int    barIdx
+    int    tstamp
+    float  entry
+    float  tp1
+    float  tp2
+    int    status   // 0=open 1=win(TP2) 3=expired 4=partial(TP1)
+    bool   tp1Hit
+    bool   tp2Hit
+    string strat = "A"   // "A" = Dip buy, "B" = EMA ribbon
 
 // ============ ASSET PRESET (crypto) ============
 preset      = input.string("Auto", "Asset Preset", options=["Auto","BTC","ETH","Crypto","Custom"], group="Asset Settings")
@@ -224,6 +225,13 @@ sellB  = bReady and bDnRaw      // price crossed down below ALL EMAs -> exit/sho
 if buyB or sellB
     bLastSig := bar_index
 
+// Strategy B entry + % targets (used by the tracker, alerts and level lines)
+bEntry   = close
+bTp1Long = bEntry * (1.0 + emaTP1p / 100.0)
+bTp2Long = bEntry * (1.0 + emaTP2p / 100.0)
+bTp1Sh   = bEntry * (1.0 - emaTP1p / 100.0)
+bTp2Sh   = bEntry * (1.0 - emaTP2p / 100.0)
+
 // ============ ENTRY / TARGETS (no stop-loss) ============
 var float lockedDipLow = na
 if isDipRed
@@ -241,8 +249,15 @@ var array<SignalRec> signals = array.new<SignalRec>()
 TRACK_MAX = 50
 
 if signal
-    rec = SignalRec.new(bar_index, time, entryPrice, tp1Price, tp2Price, 0, false, false)
+    rec = SignalRec.new(bar_index, time, entryPrice, tp1Price, tp2Price, 0, false, false, "A")
     array.unshift(signals, rec)
+    while array.size(signals) > TRACK_MAX
+        array.pop(signals)
+
+// Strategy B long entries are tracked the same way (TP1/TP2 win/part/exp).
+if buyB
+    brec = SignalRec.new(bar_index, time, bEntry, bTp1Long, bTp2Long, 0, false, false, "B")
+    array.unshift(signals, brec)
     while array.size(signals) > TRACK_MAX
         array.pop(signals)
 
@@ -339,11 +354,6 @@ if signal
 alertcondition(signal, title="Prometheus BUY", message="Prometheus AI Crypto Bot - BUY signal")
 
 // ============ STRATEGY B ALERTS ============
-bEntry   = close
-bTp1Long = bEntry * (1.0 + emaTP1p / 100.0)
-bTp2Long = bEntry * (1.0 + emaTP2p / 100.0)
-bTp1Sh   = bEntry * (1.0 - emaTP1p / 100.0)
-bTp2Sh   = bEntry * (1.0 - emaTP2p / 100.0)
 bEntryS  = f_px(bEntry)
 
 // --- BUY (long entry) ---
@@ -497,7 +507,7 @@ if showDash and barstate.islast
             rowIdx = 2 + i
             rowBg  = statusBg(rec.status)
             sTxt   = statusText(rec.status)
-            tStr   = str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
+            tStr   = rec.strat + " " + str.format_time(rec.tstamp, "HH:mm:ss", syminfo.timezone)
             tp1Bg  = rec.tp1Hit ? color.new(color.orange, 50) : rowBg
             tp2Bg  = rec.tp2Hit ? color.new(color.aqua,   50) : rowBg
             tp1Txt = rec.tp1Hit ? "HIT" : f_px(rec.tp1)
