@@ -49,7 +49,7 @@ class LoginDialog:
 
         self.win = tk.Toplevel(root)
         self.win.title(APP_TITLE)
-        self.win.geometry("380x460" if self.first_run else "380x340")
+        self.win.geometry("380x540" if self.first_run else "380x340")
         self.win.resizable(False, False)
         self.win.configure(bg=BG)
         self.win.grab_set()
