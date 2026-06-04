@@ -82,6 +82,9 @@ class ChartWindow:
         self._candles: List[list] = []
         self._dips: List[int] = []
         self._signals: List = []
+        self._rsi: List = []
+        self._vol_sma: List = []
+        self._eff_os: float = 30
         self._geom: Optional[dict] = None
         self.view_count = DEFAULT_VIEW
         self.view_end: Optional[int] = None
@@ -179,7 +182,13 @@ class ChartWindow:
     def _load_worker(self) -> None:
         try:
             candles = self._fetch()
-            dips, signals = strategy.evaluate_all(candles, self.get_params(), ticker=self.symbol)
+            params = self.get_params()
+            dips, signals = strategy.evaluate_all(candles, params, ticker=self.symbol)
+            closes = [c[4] for c in candles]
+            volumes = [c[5] for c in candles]
+            rsi = strategy.rsi_series(closes, params.rsi_len)
+            vol_sma = strategy.sma_series(volumes, params.vol_len)
+            eff_os = strategy.effective_settings(params.preset, self.symbol, params)[1]
         except Exception as exc:  # noqa: BLE001 - surface, don't crash the window
             self._post(lambda: self.status.config(text=f"Error: {exc}"))
             return
@@ -188,6 +197,9 @@ class ChartWindow:
             self._candles = candles
             self._dips = dips
             self._signals = signals
+            self._rsi = rsi
+            self._vol_sma = vol_sma
+            self._eff_os = eff_os
             if self.view_end is None:
                 self.view_end = len(candles) - 1
             self.status.config(
@@ -291,6 +303,26 @@ class ChartWindow:
         start = end - vc + 1
         view = self._candles[start:end + 1]
 
+        # Vertical layout: price pane (top), volume pane, RSI pane (bottom).
+        total_h = h - padT - padB
+        gap = 8
+        rsi_h = max(54.0, total_h * 0.20)
+        vol_h = max(36.0, total_h * 0.16)
+        price_h = max(80.0, total_h - rsi_h - vol_h - 2 * gap)
+        price_top = padT
+        price_bot = price_top + price_h
+        vol_bot = price_bot + gap + vol_h
+        vol_top = vol_bot - vol_h
+        rsi_top = vol_bot + gap
+        rsi_bot = rsi_top + rsi_h
+
+        plot_w = w - padL - padR
+        cw = plot_w / vc
+
+        def X(k):
+            return padL + cw * (k + 0.5)
+
+        # --- price range (include the visible signal's levels so they stay on-screen) ---
         hi = max(x[2] for x in view)
         lo = min(x[3] for x in view)
         vis_sigs = [s for s in self._signals if start <= s.index <= end]
@@ -303,25 +335,19 @@ class ChartWindow:
         hi += span * 0.05
         lo -= span * 0.05
         span = hi - lo
-        plot_w = w - padL - padR
-        plot_h = h - padT - padB
-        cw = plot_w / vc
 
-        def X(k):
-            return padL + cw * (k + 0.5)
+        def Yp(p):
+            return price_top + price_h * (hi - p) / span
 
-        def Y(p):
-            return padT + plot_h * (hi - p) / span
-
-        # Horizontal gridlines + right-edge price labels.
+        # Price gridlines + right-edge labels.
         for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
             p = lo + span * frac
-            y = Y(p)
+            y = Yp(p)
             c.create_line(padL, y, w - padR, y, fill=BORDER)
             c.create_text(w - padR + 4, y, anchor="w", text=self._fmt(p), fill=DIM,
                           font=("Segoe UI", 8))
 
-        # Time labels along the bottom.
+        # Time labels along the very bottom.
         stepk = max(1, vc // 6)
         for k in range(0, vc, stepk):
             ts = view[k][0] / 1000.0
@@ -335,8 +361,8 @@ class ChartWindow:
             o, hh, ll, cc = cd[1], cd[2], cd[3], cd[4]
             x = X(k)
             col = GREEN if cc >= o else RED
-            c.create_line(x, Y(hh), x, Y(ll), fill=col)
-            y1, y2 = Y(max(o, cc)), Y(min(o, cc))
+            c.create_line(x, Yp(hh), x, Yp(ll), fill=col)
+            y1, y2 = Yp(max(o, cc)), Yp(min(o, cc))
             if y2 - y1 < 1:
                 y2 = y1 + 1
             c.create_rectangle(x - bw / 2, y1, x + bw / 2, y2, fill=col, outline=col)
@@ -345,14 +371,14 @@ class ChartWindow:
         for di in self._dips:
             if start <= di <= end:
                 k = di - start
-                x, y = X(k), Y(view[k][3]) + 9
+                x, y = X(k), Yp(view[k][3]) + 9
                 c.create_polygon(x, y - 4, x - 4, y, x, y + 4, x + 4, y,
                                  fill=DIP_COLOR, outline="")
 
         # BUY arrows.
         for s in vis_sigs:
             k = s.index - start
-            x, y = X(k), Y(view[k][3]) + 20
+            x, y = X(k), Yp(view[k][3]) + 20
             c.create_polygon(x, y - 7, x - 6, y + 5, x + 6, y + 5,
                              fill=BUY_COLOR, outline="")
             c.create_text(x, y + 13, text="BUY", fill=BUY_COLOR, font=("Segoe UI", 7))
@@ -360,17 +386,65 @@ class ChartWindow:
         # Level lines for the most recent visible signal.
         if vis_sigs:
             s = vis_sigs[-1]
-            self._level(c, Y, w, padL, padR, s.entry, ENTRY_COLOR, (), "ENTRY")
-            self._level(c, Y, w, padL, padR, s.tp1, TP1_COLOR, (4, 2),
+            self._level(c, Yp, w, padL, padR, s.entry, ENTRY_COLOR, (), "ENTRY")
+            self._level(c, Yp, w, padL, padR, s.tp1, TP1_COLOR, (4, 2),
                         f"TP1 +{self._pct(s.tp1, s.entry)}%")
-            self._level(c, Y, w, padL, padR, s.tp2, TP2_COLOR, (4, 2),
+            self._level(c, Yp, w, padL, padR, s.tp2, TP2_COLOR, (4, 2),
                         f"TP2 +{self._pct(s.tp2, s.entry)}%")
             if s.sl:
-                self._level(c, Y, w, padL, padR, s.sl, SL_COLOR, (2, 2),
+                self._level(c, Yp, w, padL, padR, s.sl, SL_COLOR, (2, 2),
                             f"SL {self._pct(s.sl, s.entry)}%")
 
+        # --- volume pane ---
+        maxv = max((x[5] for x in view), default=0.0) or 1.0
+        c.create_line(padL, vol_bot, w - padR, vol_bot, fill=BORDER)
+        c.create_text(padL + 2, vol_top + 6, anchor="w", text="Vol", fill=DIM,
+                      font=("Segoe UI", 7))
+        for k, cd in enumerate(view):
+            vh = vol_h * (cd[5] / maxv)
+            x = X(k)
+            col = GREEN if cd[4] >= cd[1] else RED
+            c.create_rectangle(x - bw / 2, vol_bot - vh, x + bw / 2, vol_bot,
+                               fill=col, outline="", stipple="gray50")
+        # Volume SMA — the average the strategy's volume filter compares against.
+        sma_pts = []
+        for k in range(vc):
+            sv = self._vol_sma[start + k] if start + k < len(self._vol_sma) else None
+            if sv is not None:
+                sma_pts += [X(k), vol_bot - vol_h * min(sv / maxv, 1.0)]
+        if len(sma_pts) >= 4:
+            c.create_line(*sma_pts, fill=ACCENT, width=1)
+
+        # --- RSI pane ---
+        c.create_rectangle(padL, rsi_top, w - padR, rsi_bot, outline=BORDER)
+        c.create_text(padL + 2, rsi_top + 6, anchor="w", text="RSI", fill=DIM,
+                      font=("Segoe UI", 7))
+
+        def Yr(r):
+            return rsi_bot - rsi_h * (max(0.0, min(100.0, r)) / 100.0)
+
+        for lvl in (70, 50, 30):
+            y = Yr(lvl)
+            c.create_line(padL, y, w - padR, y, fill=BORDER, dash=(2, 2))
+            c.create_text(w - padR + 4, y, anchor="w", text=str(lvl), fill=DIM,
+                          font=("Segoe UI", 7))
+        # The strategy's effective oversold threshold (the dip trigger), highlighted.
+        yos = Yr(self._eff_os)
+        c.create_line(padL, yos, w - padR, yos, fill=DIP_COLOR, dash=(3, 2))
+        c.create_text(w - padR + 4, yos, anchor="w", text=f"OS {self._eff_os:g}",
+                      fill=DIP_COLOR, font=("Segoe UI", 7))
+        rsi_pts = []
+        for k in range(vc):
+            idx = start + k
+            rv = self._rsi[idx] if idx < len(self._rsi) else None
+            if rv is not None:
+                rsi_pts += [X(k), Yr(rv)]
+        if len(rsi_pts) >= 4:
+            c.create_line(*rsi_pts, fill="#c792ea", width=1)
+
         self._geom = dict(padL=padL, padR=padR, padT=padT, padB=padB, w=w, h=h,
-                          cw=cw, vc=vc, hi=hi, span=span, plot_h=plot_h,
+                          cw=cw, vc=vc, hi=hi, span=span,
+                          price_top=price_top, price_h=price_h,
                           view=view, start=start)
 
     @staticmethod
@@ -378,6 +452,16 @@ class ChartWindow:
         if not base:
             return "0.00"
         return f"{(target - base) / base * 100.0:.2f}"
+
+    @staticmethod
+    def _vfmt(v: float) -> str:
+        if v >= 1e9:
+            return f"{v / 1e9:.2f}B"
+        if v >= 1e6:
+            return f"{v / 1e6:.2f}M"
+        if v >= 1e3:
+            return f"{v / 1e3:.1f}K"
+        return f"{v:.0f}"
 
     def _level(self, c, Y, w, padL, padR, price, color, dash, label) -> None:
         y = Y(price)
@@ -399,15 +483,22 @@ class ChartWindow:
         k = max(0, min(g["vc"] - 1, k))
         cd = g["view"][k]
         cx = g["padL"] + g["cw"] * (k + 0.5)
+        # Vertical line spans all three panes.
         c.create_line(cx, g["padT"], cx, g["h"] - g["padB"], fill=DIM, dash=(2, 2), tags="cross")
-        c.create_line(g["padL"], e.y, g["w"] - g["padR"], e.y, fill=DIM, dash=(2, 2), tags="cross")
-        price = g["hi"] - (e.y - g["padT"]) / g["plot_h"] * g["span"]
-        c.create_text(g["w"] - g["padR"] + 4, e.y, anchor="w", text=self._fmt(price),
-                      fill=TXT, font=("Segoe UI", 8), tags="cross")
+        # Horizontal line + price readout only within the price pane.
+        pt, ph = g["price_top"], g["price_h"]
+        if pt <= e.y <= pt + ph:
+            c.create_line(g["padL"], e.y, g["w"] - g["padR"], e.y, fill=DIM, dash=(2, 2), tags="cross")
+            price = g["hi"] - (e.y - pt) / ph * g["span"]
+            c.create_text(g["w"] - g["padR"] + 4, e.y, anchor="w", text=self._fmt(price),
+                          fill=TXT, font=("Segoe UI", 8), tags="cross")
+        idx = g["start"] + k
+        rv = self._rsi[idx] if idx < len(self._rsi) else None
+        rtxt = f"  RSI {rv:.1f}" if rv is not None else ""
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(cd[0] / 1000.0))
         info = (f"{when}   O {self._fmt(cd[1])}  H {self._fmt(cd[2])}  "
-                f"L {self._fmt(cd[3])}  C {self._fmt(cd[4])}")
-        c.create_rectangle(g["padL"] + 2, g["padT"] + 2, g["padL"] + 8 + len(info) * 6.2,
+                f"L {self._fmt(cd[3])}  C {self._fmt(cd[4])}  V {self._vfmt(cd[5])}{rtxt}")
+        c.create_rectangle(g["padL"] + 2, g["padT"] + 2, g["padL"] + 8 + len(info) * 6.0,
                            g["padT"] + 18, fill=ELEV, outline="", tags="cross")
         c.create_text(g["padL"] + 6, g["padT"] + 10, anchor="w", text=info,
                       fill=TXT, font=("Segoe UI", 8), tags="cross")
