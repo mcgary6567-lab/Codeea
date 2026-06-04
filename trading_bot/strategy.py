@@ -65,6 +65,7 @@ class StrategySignal:
     tp2: float
     rsi: float
     sl: Optional[float] = None
+    index: int = -1                  # bar index within the evaluated candle list
 
 
 # ---------------------------------------------------------------------------
@@ -179,10 +180,33 @@ def evaluate(candles, params: StrategyParams, ticker: str = "") -> Optional[Stra
     caller). Returns a :class:`StrategySignal` if — and only if — the *newest*
     closed candle is a confirmed BUY, else ``None``.
     """
+    _dips, signals = _replay(candles, params, ticker)
+    if signals and signals[-1].index == len(candles) - 1:
+        return signals[-1]
+    return None
+
+
+def evaluate_all(candles, params: StrategyParams, ticker: str = ""):
+    """Replay the engine and return *every* annotation for charting.
+
+    Returns ``(dips, signals)`` where ``dips`` is a list of bar indices flagged
+    as dip bars (yellow markers) and ``signals`` is a list of
+    :class:`StrategySignal` (lime BUY arrows + entry/TP/SL levels) — the same
+    visuals the Pine indicator draws, computed by the same logic the bot trades.
+    """
+    return _replay(candles, params, ticker)
+
+
+def _replay(candles, params: StrategyParams, ticker: str = ""):
+    """Core state-machine replay shared by ``evaluate`` / ``evaluate_all``.
+
+    Returns ``(dip_indices, signals)`` over the full candle list. Pure and
+    deterministic — see the module docstring for the parity notes.
+    """
     n = len(candles)
     need = max(params.rsi_len, params.atr_len, params.vol_len) + 2
     if n < need:
-        return None
+        return [], []
 
     ts = [int(c[0]) for c in candles]
     o = [float(c[1]) for c in candles]
@@ -208,7 +232,8 @@ def evaluate(candles, params: StrategyParams, ticker: str = "") -> Optional[Stra
     last_signal_bar = -1000
     locked_dip_low: Optional[float] = None
     cum_vol = 0.0
-    fired: Optional[StrategySignal] = None
+    dips: List[int] = []
+    signals: List[StrategySignal] = []
 
     for i in range(n):
         cum_vol += vol[i]
@@ -227,6 +252,7 @@ def evaluate(candles, params: StrategyParams, ticker: str = "") -> Optional[Stra
                       and low[i] <= lowest_n[i] and vol_pass)
 
         if is_dip_red:
+            dips.append(i)
             locked_dip_low = low[i]            # Pine's separate lockedDipLow block
             dip_active = True
             green_count = 0
@@ -261,10 +287,7 @@ def evaluate(candles, params: StrategyParams, ticker: str = "") -> Optional[Stra
             if params.use_sl:
                 liq_low = min(lowest_sl[i], dip_ref)
                 sl = liq_low * (1.0 - params.sl_buf / 100.0)
-            fired = StrategySignal(ts=ts[i], entry=entry, tp1=tp1, tp2=tp2,
-                                   rsi=float(rsi[i]), sl=sl)
+            signals.append(StrategySignal(ts=ts[i], entry=entry, tp1=tp1, tp2=tp2,
+                                          rsi=float(rsi[i]), sl=sl, index=i))
 
-    # Only act when the confirmed signal lands on the most recent closed candle.
-    if fired is not None and fired.ts == ts[-1]:
-        return fired
-    return None
+    return dips, signals

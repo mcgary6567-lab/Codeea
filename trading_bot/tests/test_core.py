@@ -38,6 +38,7 @@ from strategy import (  # noqa: E402
     StrategyParams,
     atr_series,
     evaluate,
+    evaluate_all,
     lowest_series,
     rsi_series,
     sma_series,
@@ -538,6 +539,42 @@ class TestStrategyEngine(unittest.TestCase):
     def test_too_few_candles_returns_none(self):
         p = StrategyParams(**LENIENT)
         self.assertIsNone(evaluate(_build(warmup=5), p, ticker="BTC/USDT"))
+
+
+class TestStrategyEvaluateAll(unittest.TestCase):
+    """evaluate_all powers the chart overlays: it must mark every dip + signal."""
+
+    def test_marks_dip_and_signal_with_index(self):
+        p = StrategyParams(green_n=2, cooldown=0, **LENIENT)
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),   # idx 40 — dip
+            _candle(0, 98.0, 99.0, 98.0, 99.0),     # idx 41 — green
+            _candle(0, 99.0, 100.0, 99.0, 100.0),   # idx 42 — signal
+        ])
+        dips, sigs = evaluate_all(candles, p, ticker="BTC/USDT")
+        self.assertIn(40, dips)
+        self.assertEqual(len(sigs), 1)
+        self.assertEqual(sigs[0].index, 42)
+        self.assertAlmostEqual(sigs[0].entry, 100.0)
+        self.assertAlmostEqual(sigs[0].tp2, 109.0)
+
+    def test_marks_multiple_signals(self):
+        p = StrategyParams(green_n=2, cooldown=0, **LENIENT)
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),   # 40 dip
+            _candle(0, 98.0, 99.0, 98.0, 99.0),     # 41 green
+            _candle(0, 99.0, 100.0, 99.0, 100.0),   # 42 signal
+            _candle(0, 100.0, 100.0, 96.0, 97.0),   # 43 dip (new low)
+            _candle(0, 97.0, 98.0, 97.0, 98.0),     # 44 green
+            _candle(0, 98.0, 99.0, 98.0, 99.0),     # 45 signal
+        ])
+        dips, sigs = evaluate_all(candles, p, ticker="BTC/USDT")
+        self.assertEqual([s.index for s in sigs], [42, 45])
+        self.assertTrue({40, 43}.issubset(set(dips)))
+
+    def test_empty_when_too_few_candles(self):
+        dips, sigs = evaluate_all(_build(warmup=5), StrategyParams(**LENIENT))
+        self.assertEqual((dips, sigs), ([], []))
 
 
 class TestLicence(unittest.TestCase):

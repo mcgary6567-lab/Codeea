@@ -34,6 +34,7 @@ import security
 import theme
 from analytics_window import AnalyticsWindow
 from backend import Backend
+from chart_window import ChartWindow
 from relay_client import RelayClient
 from strategy import StrategyParams
 from strategy_runner import StrategyRunner
@@ -965,6 +966,9 @@ class TradingBotGUI:
         theme.make_check(row, text="Enable built-in strategy (no TradingView needed)",
                          variable=self.strat_enabled_var,
                          command=self._push_strategy).pack(side="left")
+        chart_btn = tk.Button(row, text="📈 Chart", command=self._open_strategy_chart)
+        theme.style_button(chart_btn, "accent")
+        chart_btn.pack(side="right", padx=(8, 0))
         self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
                                      font=("Segoe UI", 9))
         self.strat_status.pack(side="right")
@@ -1114,6 +1118,23 @@ class TradingBotGUI:
         self.strat_status.config(
             text=f"● running · {n} symbol{'s' if n != 1 else ''} · {self.strat_tf_var.get()}",
             fg=GREEN)
+
+    def _open_strategy_chart(self) -> None:
+        """Open (or focus) the candlestick chart with the strategy's overlays."""
+        if getattr(self, "_chart_win", None) and self._chart_win.alive():
+            self._chart_win.focus()
+            return
+        symbols = [s.strip() for s in self.strat_symbols_var.get().split(",") if s.strip()]
+        symbol = symbols[0] if symbols else "BTC/USDT"
+        self._chart_win = ChartWindow(
+            self.root,
+            exchange_id=exchange_id(self.exchange_var.get()),
+            market_type="futures" if self.market_var.get() == "Futures" else "spot",
+            symbol=symbol,
+            timeframe=self.strat_tf_var.get(),
+            get_params=self._strategy_params,
+            symbols=symbols or [symbol],
+        )
 
     def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)

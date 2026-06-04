@@ -205,6 +205,14 @@ Exchange candles  →  strategy.py (Pine port)  →  this bot's pipeline  →  e
    on a confirmed BUY places the entry + TP1/TP2 (+ SL) through the same
    guardrail → sizing → bracket pipeline as a webhook signal.
 
+**See it on a chart.** The **📈 Chart** button (Strategy tab) opens a candlestick
+window that overlays the strategy's **own** signals — yellow dip diamonds, lime
+BUY arrows, and ENTRY / TP1 / TP2 / SL lines — exactly as the Pine indicator
+draws them, computed by the same engine on the same exchange candles. Hover for
+an OHLC crosshair, scroll to zoom, drag to pan; it auto-refreshes as candles
+close. It's a pure-Tkinter Canvas (no charting dependency), so the build stays
+light.
+
 **How it stays honest:**
 - **Non-repaint** — only *closed* candles are evaluated (the live forming candle
   is dropped), matching the indicator's "Bar Close" alert mode.
@@ -362,6 +370,7 @@ entry (closing is never blocked):
 | `strategy.py` | Pure port of the Prometheus indicator (dip→green engine) |
 | `strategy_runner.py` | Built-in strategy thread: candles → `strategy.evaluate` → trade |
 | `licence.py` | Licence verification (gates the built-in strategy via the relay) |
+| `chart_window.py` | Candlestick chart (Canvas) with the strategy's dip/BUY/TP/SL overlays |
 | `security.py` | Encryption + PIN |
 | `config.py` | Constants & storage paths |
 | `run.bat` | Windows launcher |
