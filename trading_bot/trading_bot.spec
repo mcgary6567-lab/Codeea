@@ -25,10 +25,12 @@ hiddenimports += [
     # cryptography uses cffi at runtime — PyInstaller often misses this, which
     # makes the exe crash on launch with "No module named '_cffi_backend'".
     "_cffi_backend", "cffi",
+    # system-tray (optional at runtime, but bundle so the exe supports it)
+    "pystray", "pystray._win32", "PIL", "PIL.Image",
     # our own flat modules
     "exchange", "backend", "pricefeed", "webhook_server", "guardrails",
     "history", "notifications", "security", "config", "gui", "login",
-    "analytics_window", "theme", "relay_client",
+    "analytics_window", "theme", "relay_client", "autostart", "tray",
 ]
 
 # Bundle brand assets so the frozen exe can show the logo + window icon.
@@ -53,7 +55,7 @@ a = Analysis(
         # WebSocket/async ccxt layer — pricefeed falls back to REST if absent.
         "ccxt.pro", "ccxt.async_support",
         # Only used by the diagram scripts, never by the app.
-        "matplotlib", "numpy", "PIL",
+        "matplotlib", "numpy",
         # Stdlib bloat we never touch.
         "test", "lib2to3", "pydoc_data", "tkinter.test", "distutils",
     ],

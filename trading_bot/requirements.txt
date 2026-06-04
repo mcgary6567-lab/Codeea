@@ -5,3 +5,5 @@
 
 ccxt>=4.0.0          # Unified API for Binance, Bybit, OKX, KuCoin, Bitget, ...
 cryptography>=41.0   # Fernet encryption for API-key storage + PIN protection
+pystray>=0.19        # Optional: minimize-to-system-tray for 24/7 running
+Pillow>=9.0          # Optional: tray icon image (required by pystray)

@@ -16,6 +16,7 @@ and drains UI updates from ``backend.ui_queue`` on the Tk event loop.
 from __future__ import annotations
 
 import csv
+import os
 import queue
 import threading
 import time
@@ -27,6 +28,7 @@ import applog
 import autostart
 import connectivity
 import history
+import tray as tray_helper
 import security
 import theme
 from analytics_window import AnalyticsWindow
@@ -113,6 +115,7 @@ class TradingBotGUI:
         self._push_settings()
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
+        self._tray = None                # lazy-created system-tray controller
         self._online = None              # tri-state: None=unknown, True/False
         self._net_check_running = False  # guards against overlapping probes
         self._notify_ip_next = False     # alert public IP on the next connect
@@ -872,6 +875,17 @@ class TradingBotGUI:
                   style="Dim.TLabel", wraplength=380).grid(
             row=22, column=0, columnspan=2, sticky="w")
 
+        self.tray_var = tk.BooleanVar(value=False)
+        tray_ok = tray_helper.available()
+        theme.make_check(
+            f, text="Minimize to system tray on close (keep trading in background)",
+            variable=self.tray_var, command=self._push_settings,
+        ).grid(row=23, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        if not tray_ok:
+            ttk.Label(f, text="(system-tray support not installed — closing the window will exit)",
+                      style="Dim.TLabel", wraplength=380).grid(
+                row=24, column=0, columnspan=2, sticky="w")
+
     def _build_webhook_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
             row=0, column=0, columnspan=2, sticky="w"
@@ -1150,6 +1164,7 @@ class TradingBotGUI:
         self.daily_summary_var.set(s.get("daily_summary", False))
         self.summary_hour_var.set(str(s.get("summary_hour", 23)))
         self.tg_important_var.set(s.get("telegram_important_only", True))
+        self.tray_var.set(s.get("minimize_to_tray", False))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -1196,6 +1211,7 @@ class TradingBotGUI:
             "daily_summary": self.daily_summary_var.get(),
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
             "telegram_important_only": self.tg_important_var.get(),
+            "minimize_to_tray": self.tray_var.get(),
             "live_ack": self._live_ack,
             "last_ip": self.saved.get("last_ip", ""),
         }
@@ -1709,7 +1725,35 @@ class TradingBotGUI:
             return fallback
 
     def _on_close(self) -> None:
+        # If the user opted in (and tray support is present), hide to the tray
+        # instead of quitting so the bot keeps trading unattended.
+        if getattr(self, "tray_var", None) and self.tray_var.get() and tray_helper.available():
+            self._hide_to_tray()
+            return
+        self._real_quit()
+
+    def _hide_to_tray(self) -> None:
+        if getattr(self, "_tray", None) is None:
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.png")
+            self._tray = tray_helper.TrayController(
+                self.root, on_show=self._restore_from_tray, on_quit=self._real_quit,
+                image_path=icon_path, title="Prometheus AI Crypto Bot")
+        if self._tray.start():
+            self.root.withdraw()
+        else:                       # tray failed to start — fall back to quitting
+            self._real_quit()
+
+    def _restore_from_tray(self) -> None:
+        if getattr(self, "_tray", None) is not None:
+            self._tray.stop()
+            self._tray = None
+        self.root.deiconify()
+        self.root.lift()
+
+    def _real_quit(self) -> None:
         try:
+            if getattr(self, "_tray", None) is not None:
+                self._tray.stop()
             if self.webhook.running:
                 self.webhook.stop()
             if self.relay.running:
