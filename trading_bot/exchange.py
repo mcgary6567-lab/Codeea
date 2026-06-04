@@ -411,12 +411,35 @@ class ExchangeManager:
         return ordered
 
     # -- pricing ------------------------------------------------------------
+    def _market_symbol(self, symbol: str) -> str:
+        """Resolve to the symbol the exchange actually lists.
+
+        Spot returns the plain ``BASE/QUOTE`` (e.g. ``BTC/USDT``). Futures prefers
+        the linear-perpetual unified form ``BASE/QUOTE:QUOTE`` (e.g.
+        ``BTC/USDT:USDT``), which is what ccxt expects for swap markets. Symbols
+        that already carry a ``:settle`` suffix are passed through unchanged.
+        """
+        sym = normalize_symbol(symbol)
+        if ":" in sym:                 # already a perp/settled symbol
+            return sym
+        if not self.is_futures:
+            return sym                 # spot — plain BASE/QUOTE (unchanged)
+        base, _, quote = sym.partition("/")
+        perp = f"{base}/{quote}:{quote}"
+        markets = getattr(self.client, "markets", None) if self.client else None
+        if markets:
+            if perp in markets:
+                return perp
+            if sym in markets:
+                return sym
+        return perp                    # best guess for a USDT-M perpetual
+
     def _last_price(self, symbol: str) -> float:
         # Real price whenever a client exists (works in Safe Mode too).
         if not self.client:
             return 0.0
         try:
-            return float(self.client.fetch_ticker(normalize_symbol(symbol))["last"])
+            return float(self.client.fetch_ticker(self._market_symbol(symbol))["last"])
         except Exception:  # noqa: BLE001
             return 0.0
 
@@ -431,7 +454,7 @@ class ExchangeManager:
             return ""
         if not self.is_futures:
             return ""   # leverage/margin are futures-only
-        sym = normalize_symbol(symbol)
+        sym = self._market_symbol(symbol)
         notes = []
         if margin_mode in ("cross", "isolated"):
             try:
@@ -477,7 +500,7 @@ class ExchangeManager:
         if not self.connected:
             return OrderResult(False, "Not connected", pair=symbol, side=side)
 
-        sym = normalize_symbol(symbol)
+        sym = self._market_symbol(symbol)
         at = f" @ {price}" if order_type == "limit" else ""
 
         # Safe Mode / no-ccxt => simulate the fill and update sim state.
@@ -522,7 +545,7 @@ class ExchangeManager:
         if self.read_only:
             return OrderResult(False, "Read-only — protective order blocked", pair=symbol)
 
-        sym = normalize_symbol(symbol)
+        sym = self._market_symbol(symbol)
         label = "SL" if kind == "sl" else "TP"
 
         if self.safe_mode or not CCXT_AVAILABLE or not self.client:
@@ -560,7 +583,7 @@ class ExchangeManager:
 
     def cancel_order(self, order_id: str, symbol: str) -> OrderResult:
         """Cancel a single open order (used to move a stop). Best-effort."""
-        sym = normalize_symbol(symbol)
+        sym = self._market_symbol(symbol)
         if self.safe_mode or not CCXT_AVAILABLE or not self.client or not order_id:
             return OrderResult(True, f"SIMULATED cancel {order_id} {sym}", pair=sym, simulated=True)
         try:
