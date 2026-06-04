@@ -136,7 +136,7 @@ class TradingBotGUI:
         self._push_strategy()            # apply built-in strategy config
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
-        self.after(2000, self._refresh_trial_status)  # trial/licence countdown strip
+        self.root.after(2000, self._refresh_trial_status)  # trial/licence countdown strip
         self._tray = None                # lazy-created system-tray controller
         self._online = None              # tri-state: None=unknown, True/False
         self._net_check_running = False  # guards against overlapping probes
@@ -1246,7 +1246,7 @@ class TradingBotGUI:
 
         def work():
             result = licence.start_trial(trial_url, email, machine)
-            self.after(0, lambda: self._trial_done(*result))
+            self.root.after(0, lambda: self._trial_done(*result))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1285,10 +1285,10 @@ class TradingBotGUI:
 
             def work():
                 st = licence.licence_status(vurl, token)
-                self.after(0, lambda: self._apply_trial_status(st))
+                self.root.after(0, lambda: self._apply_trial_status(st))
 
             threading.Thread(target=work, daemon=True).start()
-        self.after(300_000, self._refresh_trial_status)
+        self.root.after(300_000, self._refresh_trial_status)
 
     def _apply_trial_status(self, st: dict) -> None:
         if not getattr(self, "trial_status", None):
