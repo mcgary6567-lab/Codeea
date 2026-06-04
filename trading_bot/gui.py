@@ -373,7 +373,8 @@ class TradingBotGUI:
             f, textvariable=self.exchange_var, values=self._exchange_labels, state="readonly"
         )
         self.exchange_combo.grid(row=0, column=1, sticky="ew", pady=4)
-        self.exchange_combo.bind("<<ComboboxSelected>>", lambda e: self._toggle_passphrase())
+        self.exchange_combo.bind("<<ComboboxSelected>>",
+                                 lambda e: (self._toggle_passphrase(), self._sync_chart()))
 
         ttk.Label(f, text="API Key:").grid(row=1, column=0, sticky="w", pady=4)
         self.api_key_var = tk.StringVar()
@@ -389,8 +390,10 @@ class TradingBotGUI:
 
         ttk.Label(f, text="Market:").grid(row=4, column=0, sticky="w", pady=4)
         self.market_var = tk.StringVar(value="Spot")
-        ttk.Combobox(f, textvariable=self.market_var, values=["Spot", "Futures"],
-                     state="readonly").grid(row=4, column=1, sticky="ew", pady=4)
+        self.market_combo = ttk.Combobox(f, textvariable=self.market_var,
+                                         values=["Spot", "Futures"], state="readonly")
+        self.market_combo.grid(row=4, column=1, sticky="ew", pady=4)
+        self.market_combo.bind("<<ComboboxSelected>>", lambda e: self._sync_chart())
 
         btns = ttk.Frame(f)
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0))
@@ -1096,9 +1099,7 @@ class TradingBotGUI:
         elif not active and self.strategy_runner.running:
             self.strategy_runner.stop()
         self._update_strategy_status()
-        # Keep an open chart mirroring the live Strategy-tab settings.
-        if getattr(self, "_chart_win", None) and self._chart_win.alive():
-            self._chart_win.sync()
+        self._sync_chart()   # keep an open chart mirroring the live settings
 
     def _update_strategy_status(self) -> None:
         if not hasattr(self, "strat_status"):
@@ -1136,6 +1137,11 @@ class TradingBotGUI:
             get_exchange=lambda: exchange_id(self.exchange_var.get()),
             get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
         )
+
+    def _sync_chart(self) -> None:
+        """Push live settings to an open chart so it keeps mirroring the bot."""
+        if getattr(self, "_chart_win", None) and self._chart_win.alive():
+            self._chart_win.sync()
 
     def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)
