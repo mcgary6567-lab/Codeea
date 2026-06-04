@@ -24,6 +24,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import applog
+import autostart
 import connectivity
 import history
 import security
@@ -841,6 +842,17 @@ class TradingBotGUI:
         e.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(tr, text="(0 = off; close if price falls X% from its peak)").pack(side="left")
 
+        ttk.Separator(f, orient="horizontal").grid(row=20, column=0, columnspan=2, sticky="ew", pady=6)
+        self.autostart_var = tk.BooleanVar(value=autostart.is_enabled())
+        theme.make_check(
+            f, text="Run automatically when Windows starts (24/7)",
+            variable=self.autostart_var, command=self._on_autostart_toggle,
+        ).grid(row=21, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(f, text="Launches the app at login. Combine with Safe Mode off + a saved "
+                          "licence/webhook so it trades unattended.",
+                  style="Dim.TLabel", wraplength=380).grid(
+            row=22, column=0, columnspan=2, sticky="w")
+
     def _build_webhook_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
             row=0, column=0, columnspan=2, sticky="w"
@@ -1205,6 +1217,17 @@ class TradingBotGUI:
                 f"{lev}x is high — on crypto futures that means liquidation at "
                 f"roughly −{100.0/lev:.1f}% from entry, and crypto moves fast.\n\n"
                 "Consider 3–5x with Isolated margin and a stop-loss.")
+
+    def _on_autostart_toggle(self) -> None:
+        want = self.autostart_var.get()
+        result = autostart.set_enabled(want)
+        if result != want:
+            # Off Windows (or registry refused) — revert the checkbox and explain.
+            self.autostart_var.set(result)
+            if want:
+                messagebox.showinfo(
+                    "Run on startup",
+                    "Run-on-startup is only available on Windows.")
 
     def _margin_mode_value(self) -> str:
         m = self.margin_mode_var.get()
