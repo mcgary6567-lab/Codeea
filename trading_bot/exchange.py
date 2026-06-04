@@ -26,7 +26,7 @@ except ImportError:  # Allows the GUI to launch for a demo without ccxt.
 from config import QUOTE_CURRENCY, SPOT_ONLY_EXCHANGES
 
 
-def _friendly_error(exchange_id: str, exc: Exception) -> str:
+def _friendly_error(exchange_id: str, exc: Exception, is_futures: bool = False) -> str:
     """Turn a raw ccxt error into actionable guidance for common cases."""
     msg = str(exc)
     low = msg.lower()
@@ -38,6 +38,14 @@ def _friendly_error(exchange_id: str, exc: Exception) -> str:
         return (f"{exchange_id} is blocked from your region/IP (HTTP 451). "
                 "Try a different exchange or disable any VPN.\n\n(" + msg + ")")
     if "-2015" in msg or ("invalid api" in low and "permission" in low):
+        if is_futures:
+            return ("Futures rejected (code -2015). If Spot connects with this key, "
+                    "your key and IP are already fine — Futures needs its own setup:\n"
+                    "  1) Open a Futures account on the exchange (accept the agreement / "
+                    "quiz) — until you do, the key's Futures permission does nothing.\n"
+                    "  2) Enable the 'Futures' permission on the API key (re-create the "
+                    "key if you turned it on after creating it).\n"
+                    "  3) Make sure Futures is available in your region.\n\n(" + msg + ")")
         return ("Invalid API key, IP, or permissions. Enable Spot/Futures trading "
                 "on the key and add your IP to its whitelist (use 'Show my IP').\n\n("
                 + msg + ")")
@@ -223,12 +231,20 @@ class ExchangeManager:
             raise ExchangeError(f"Unknown exchange: {exchange_id}")
 
         klass = getattr(ccxt, exchange_id)
+        # ccxt keys USD-M futures differently per exchange: Binance uses
+        # "future" (fapi), while the unified-"swap" venues (Bybit/OKX/KuCoin/
+        # Bitget) use "swap". Sending the wrong one can land a futures request on
+        # the wrong wallet/endpoint and surface as a permissions error.
+        if self.is_futures:
+            default_type = "future" if exchange_id in ("binance", "binanceus") else "swap"
+        else:
+            default_type = "spot"
         params = {
             "apiKey": api_key,
             "secret": secret,
             "enableRateLimit": True,
             "options": {
-                "defaultType": "swap" if self.is_futures else "spot",
+                "defaultType": default_type,
                 "adjustForTimeDifference": True,  # fixes Binance -1021 clock errors
                 "recvWindow": 10000,
             },
@@ -263,7 +279,7 @@ class ExchangeManager:
                 self.connected = True
                 return
             self.client = None
-            raise ExchangeError(_friendly_error(exchange_id, exc)) from exc
+            raise ExchangeError(_friendly_error(exchange_id, exc, self.is_futures)) from exc
 
         self.connected = True
 
