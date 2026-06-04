@@ -939,35 +939,35 @@ class TradingBotGUI:
                   style="Dim.TLabel", wraplength=380).grid(row=3, column=0, columnspan=2, sticky="w")
 
         ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
-        ttk.Label(f, text="Cloud signals (licence) — no ngrok needed",
+        ttk.Label(f, text="License",
                   font=("Segoe UI", 9, "bold")).grid(row=5, column=0, columnspan=2, sticky="w")
-        ttk.Label(f, text="Relay URL:").grid(row=6, column=0, sticky="w", pady=2)
+        # Relay URL is fixed to our server — kept in a (hidden) var, not shown/edited.
         self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
-        ttk.Entry(f, textvariable=self.relay_url_var).grid(row=6, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Licence token:").grid(row=7, column=0, sticky="w", pady=2)
+        ttk.Label(f, text="License token:").grid(row=6, column=0, sticky="w", pady=2)
         tr = ttk.Frame(f)
-        tr.grid(row=7, column=1, sticky="ew", pady=2)
+        tr.grid(row=6, column=1, sticky="ew", pady=2)
         tr.columnconfigure(0, weight=1)
-        self.relay_token_var = tk.StringVar()
+        self.relay_token_var = tk.StringVar()          # empty until trial / purchase
         ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
         self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
         self.relay_btn.grid(row=0, column=1, padx=(6, 0))
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.relay_status.grid(row=8, column=0, columnspan=2, sticky="w")
+        self.relay_status.grid(row=7, column=0, columnspan=2, sticky="w")
 
         # --- Free trial / licence -------------------------------------------
         lf = ttk.Frame(f)
-        lf.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        ttk.Label(lf, text="No licence? Free 10-day trial:").pack(side="left")
+        lf.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        ttk.Label(lf, text="Free 10-day trial — email (optional):").pack(side="left")
         self.trial_email_var = tk.StringVar()
-        ttk.Entry(lf, textvariable=self.trial_email_var, width=20).pack(side="left", padx=6)
+        ttk.Entry(lf, textvariable=self.trial_email_var, width=18).pack(side="left", padx=6)
         self.trial_btn = tk.Button(lf, text="Start Free Trial", command=self._start_free_trial)
         theme.style_button(self.trial_btn, "accent")
         self.trial_btn.pack(side="left", padx=4)
         self.getlic_btn = tk.Button(lf, text="Get License", command=self._open_checkout)
+        theme.style_button(self.getlic_btn, "accent")
         self.getlic_btn.pack(side="left", padx=4)
         self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.trial_status.grid(row=10, column=0, columnspan=2, sticky="w", pady=(2, 0))
+        self.trial_status.grid(row=9, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
     def _build_strategy_tab(self, f) -> None:
         """Built-in strategy: trade the bot's own port of the indicator with no
@@ -1219,7 +1219,7 @@ class TradingBotGUI:
             self.relay.start()
             if self.relay.running:
                 self.relay_btn.config(text="Disconnect")
-                self.relay_status.config(text="● connected (cloud signals)", fg=GREEN)
+                self.relay_status.config(text="● License connected", fg=GREEN)
 
     def _autostart_relay(self) -> None:
         """Auto-connect cloud signals if a licence token was saved."""
@@ -1235,10 +1235,14 @@ class TradingBotGUI:
             messagebox.showinfo("Get License", CHECKOUT_URL)
 
     def _start_free_trial(self) -> None:
-        """Request a self-service 10-day trial and, on success, license the app."""
+        """Request a self-service 10-day trial and, on success, license the app.
+
+        Email is optional — if given it strengthens anti-abuse (machine + email)
+        and lets us reach the customer; if blank we key the trial on the machine
+        fingerprint alone."""
         email = self.trial_email_var.get().strip()
-        if "@" not in email or "." not in email.split("@")[-1]:
-            messagebox.showwarning("Free trial", "Enter a valid email to start your free trial.")
+        if email and ("@" not in email or "." not in email.split("@")[-1]):
+            messagebox.showwarning("Free trial", "That email looks invalid — fix it or leave it blank.")
             return
         self.trial_btn.config(state="disabled", text="Starting…")
         trial_url = licence.trial_url_from_relay(self.relay_url_var.get().strip())
@@ -1258,10 +1262,10 @@ class TradingBotGUI:
                 security.save_credentials(self.pin, self._collect_settings())
             except Exception:  # noqa: BLE001
                 pass
-            if not self.relay.running:   # connect cloud signals + unlock strategy
+            if not self.relay.running:   # connect signals + unlock strategy
                 self._toggle_relay()
             days = max(0, (expires_at - int(time.time())) // 86400) if expires_at else 0
-            self.trial_status.config(text=f"✓ Trial active — {days} day(s) left", fg=GREEN)
+            self.trial_status.config(text=f"✓ License active — {days} days left", fg=GREEN)
             messagebox.showinfo(
                 "Free trial started",
                 f"Your {days}-day free trial is active — full access unlocked.\n\n"
@@ -1276,10 +1280,10 @@ class TradingBotGUI:
             messagebox.showerror("Free trial", message)
 
     def _refresh_trial_status(self) -> None:
-        """Update the trial/licence countdown strip, then reschedule (5 min)."""
+        """Update the licence/trial countdown strip, then reschedule (5 min)."""
         token = self.relay_token_var.get().strip()
         if not token:
-            self.trial_status.config(text="No licence — start a free trial or Get License", fg=GREY)
+            self.trial_status.config(text="No license — start a free trial or Get License", fg=GREY)
         else:
             vurl = licence.verify_url_from_relay(self.relay_url_var.get().strip())
 
@@ -1295,17 +1299,16 @@ class TradingBotGUI:
             return
         if st["status"] == "ok":
             exp = st["expires_at"]
-            kind = "Trial" if st.get("trial") else "Licence"
             if not exp:
-                self.trial_status.config(text="✓ Licensed — no expiry", fg=GREEN)
+                self.trial_status.config(text="✓ License active — no expiry", fg=GREEN)
             else:
                 days = max(0, (exp - int(time.time())) // 86400)
                 colour = "#e67e22" if days <= 3 else GREEN
-                self.trial_status.config(text=f"✓ {kind} active — {days} day(s) left", fg=colour)
+                self.trial_status.config(text=f"✓ License active — {days} days left", fg=colour)
         elif st["status"] == "rejected":
-            self.trial_status.config(text="Licence expired/invalid — click Get License", fg=RED)
+            self.trial_status.config(text="License expired/invalid — click Get License", fg=RED)
         else:
-            self.trial_status.config(text="Licence: server unreachable (will retry)", fg=GREY)
+            self.trial_status.config(text="License: server unreachable (will retry)", fg=GREY)
 
     def _test_telegram(self) -> None:
         """Send a test Telegram message so the user can confirm it works."""
@@ -1469,7 +1472,9 @@ class TradingBotGUI:
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
         self.strategy_filter_var.set(s.get("strategy_filter", "Prometheus"))
-        self.relay_url_var.set(s.get("relay_url", DEFAULT_RELAY_URL))
+        # Relay URL is fixed (hidden field) — always pin to our server so a stale
+        # saved value can't strand a customer.
+        self.relay_url_var.set(DEFAULT_RELAY_URL)
         self.relay_token_var.set(s.get("relay_token", ""))
         self.sound_var.set(s.get("sound", True))
         self.tg_token_var.set(s.get("telegram_token", ""))

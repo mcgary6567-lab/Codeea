@@ -23,18 +23,30 @@ $machine = preg_replace('/[^A-Za-z0-9]/', '', $_REQUEST['machine'] ?? '');
 $email   = strtolower(trim((string)($_REQUEST['email'] ?? '')));
 $email   = substr($email, 0, 190);
 
-if (strlen($machine) < 8 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+// Machine fingerprint is required; email is OPTIONAL. If supplied it must be a
+// valid address (strengthens anti-abuse + lets us reach the customer).
+if (strlen($machine) < 8) {
     json_out(['ok' => false, 'code' => 'bad_request',
-              'error' => 'Enter a valid email to start your free trial.'], 400);
+              'error' => 'Could not identify this device. Please try again.'], 400);
+}
+if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    json_out(['ok' => false, 'code' => 'bad_request',
+              'error' => 'That email looks invalid — fix it or leave it blank.'], 400);
 }
 
 $pdo = db();
 ensure_extras($pdo);           // make sure the `note` column / extra tables exist
 $now = time();
 
-// Has this machine OR email already taken a trial?
-$q = $pdo->prepare("SELECT token FROM trials WHERE machine = ? OR email = ? ORDER BY created_at DESC LIMIT 1");
-$q->execute([$machine, $email]);
+// Has this machine (or, when given, this email) already taken a trial? Never
+// match on a blank email, or all email-less trials would collide.
+if ($email !== '') {
+    $q = $pdo->prepare("SELECT token FROM trials WHERE machine = ? OR email = ? ORDER BY created_at DESC LIMIT 1");
+    $q->execute([$machine, $email]);
+} else {
+    $q = $pdo->prepare("SELECT token FROM trials WHERE machine = ? ORDER BY created_at DESC LIMIT 1");
+    $q->execute([$machine]);
+}
 $prev = $q->fetch();
 
 if ($prev) {
