@@ -443,6 +443,16 @@ class ExchangeManager:
         except Exception:  # noqa: BLE001
             return 0.0
 
+    def fetch_ohlcv(self, symbol: str, timeframe: str = "5m", limit: int = 300) -> list:
+        """Return recent OHLCV candles ``[[ts, o, h, l, c, v], ...]`` (public
+        data; works in Safe Mode too). Empty list when there is no live client."""
+        if not self.client:
+            return []
+        try:
+            return self.client.fetch_ohlcv(self._market_symbol(symbol), timeframe, limit=limit)
+        except Exception:  # noqa: BLE001 - candles are best-effort
+            return []
+
     # -- leverage / margin --------------------------------------------------
     def apply_leverage_margin(self, symbol: str, leverage: int, margin_mode: str) -> str:
         """Best-effort set leverage and/or margin mode for ``symbol``.

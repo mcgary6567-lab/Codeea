@@ -409,7 +409,7 @@ class Backend:
         side = cmd["side"]
         source = cmd.get("source", "manual")
         # Surface the indicator's pair in the GUI (auto-fill manual symbol).
-        if source == "webhook":
+        if source in ("webhook", "relay", "strategy"):
             self._emit("signal_symbol", symbol=symbol)
         entry = float(cmd.get("entry") or 0)
         sl = float(cmd.get("sl") or 0)

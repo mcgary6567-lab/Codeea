@@ -128,6 +128,23 @@ MAX_REFRESH_FAILURES = 3
 DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
 RELAY_POLL_INTERVAL = 1.0   # seconds between polls (lower = faster pickup, more requests)
 
+# ---------------------------------------------------------------------------
+# Built-in strategy engine. Runs the bot's own port of the indicator over
+# exchange candles so it can trade with no TradingView account. It pulls
+# candles from a public (keyless) client on its own thread — like the price
+# feed — and feeds confirmed BUYs into the same trade pipeline as webhooks.
+# ---------------------------------------------------------------------------
+STRATEGY_TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"]
+DEFAULT_STRATEGY_TIMEFRAME = "5m"
+# How often (seconds) the runner checks for a freshly-closed candle. Lower =
+# faster pickup after a candle closes; one cheap OHLCV call per symbol per poll.
+STRATEGY_POLL_INTERVAL = 15.0
+# Candles fetched per evaluation. Plenty of history for the indicators to
+# converge (Wilder RSI/ATR warmup) while staying a single light request.
+STRATEGY_CANDLE_LIMIT = 300
+# Default symbols the built-in strategy watches (comma-separated in the UI).
+DEFAULT_STRATEGY_SYMBOLS = "BTC/USDT"
+
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.003           # in base asset (e.g. 0.003 BTC)
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing

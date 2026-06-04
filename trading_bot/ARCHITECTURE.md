@@ -13,6 +13,8 @@ flowchart TB
     subgraph SIGNALS["Signal sources"]
         IND["Dip2Green PRO<br/>indicator (Pine)"]
         ALERT["TradingView alert<br/>JSON webhook"]
+        RELAY["Cloud relay poll<br/>(licence token)"]
+        BUILTIN["Built-in strategy<br/>(Pine port, on candles)"]
         MANUAL["Manual BUY / SELL<br/>GUI buttons"]
         IND --> ALERT
     end
@@ -31,6 +33,8 @@ flowchart TB
     end
 
     WH -->|trade cmd| G
+    RELAY -->|trade cmd| G
+    BUILTIN -->|trade cmd| G
     MANUAL -->|trade cmd| G
 
     EX["Exchange via ccxt<br/>Binance · Bybit · OKX · KuCoin · Bitget"]
@@ -107,6 +111,13 @@ flowchart LR
 All exchange calls happen **only** on the worker thread, so the ccxt client is
 never touched concurrently. Other threads communicate via thread-safe queues;
 the GUI applies updates on the main thread from `ui_queue`.
+
+The **built-in strategy runner** (`strategy_runner.py`) follows the same rule as
+the price feed: it runs on its own daemon thread with its *own* public (keyless)
+ccxt client, so it never touches the backend's authenticated client. Each poll
+it fetches closed candles, replays `strategy.evaluate` (a pure port of the Pine
+indicator), and on a confirmed BUY enqueues a `trade` command — flowing through
+the exact same guardrail → sizing → order → bracket pipeline as a webhook.
 
 ---
 

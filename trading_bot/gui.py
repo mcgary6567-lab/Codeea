@@ -34,6 +34,8 @@ import theme
 from analytics_window import AnalyticsWindow
 from backend import Backend
 from relay_client import RelayClient
+from strategy import StrategyParams
+from strategy_runner import StrategyRunner
 from config import (
     APP_TITLE,
     APP_VERSION,
@@ -48,12 +50,15 @@ from config import (
     DEFAULT_SAFE_MODE,
     DEFAULT_TRADE_SIZE,
     DEFAULT_RELAY_URL,
+    DEFAULT_STRATEGY_SYMBOLS,
+    DEFAULT_STRATEGY_TIMEFRAME,
     DEFAULT_WEBHOOK_PASSPHRASE,
     ORDER_TYPES,
     QUOTE_CURRENCY,
     SIZING_MODE_LABELS,
     SIZING_MODES,
     SPOT_ONLY_EXCHANGES,
+    STRATEGY_TIMEFRAMES,
     SUPPORTED_EXCHANGES,
     SUPPORT_EMAIL,
     TOP_PAIRS,
@@ -108,11 +113,21 @@ class TradingBotGUI:
             ),
         )
 
+        # Built-in strategy engine (the bot's own port of the indicator) — runs
+        # off the same webhook handler, tagged source="strategy".
+        self.strategy_runner = StrategyRunner(
+            on_signal=self._on_webhook_signal,
+            log=lambda m: self.backend.ui_queue.put(
+                {"kind": "log", "time": "", "message": m, "signal": "", "pair": "", "status": ""}
+            ),
+        )
+
         self.connected = False
         self._live_ack = bool(self.saved.get("live_ack", False))
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
+        self._push_strategy()            # apply built-in strategy config
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
         self._tray = None                # lazy-created system-tray controller
@@ -631,17 +646,20 @@ class TradingBotGUI:
         exec_tab = ttk.Frame(nb, padding=8)
         risk_tab = ttk.Frame(nb, padding=8)
         webhook_tab = ttk.Frame(nb, padding=8)
+        strategy_tab = ttk.Frame(nb, padding=8)
         alerts_tab = ttk.Frame(nb, padding=8)
         nb.add(exec_tab, text="Execution")
         nb.add(risk_tab, text="Modes & Risk")
         nb.add(webhook_tab, text="Webhook")
+        nb.add(strategy_tab, text="Strategy")
         nb.add(alerts_tab, text="Alerts")
-        for t in (exec_tab, risk_tab, webhook_tab, alerts_tab):
+        for t in (exec_tab, risk_tab, webhook_tab, strategy_tab, alerts_tab):
             t.columnconfigure(1, weight=1)
 
         self._build_exec_tab(exec_tab)
         self._build_risk_tab(risk_tab)
         self._build_webhook_tab(webhook_tab)
+        self._build_strategy_tab(strategy_tab)
         self._build_alerts_tab(alerts_tab)
 
         # Size the notebook to the SELECTED tab (not the tallest), so short tabs
@@ -927,6 +945,162 @@ class TradingBotGUI:
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
         self.relay_status.grid(row=8, column=0, columnspan=2, sticky="w")
 
+    def _build_strategy_tab(self, f) -> None:
+        """Built-in strategy: trade the bot's own port of the indicator with no
+        TradingView account. Same dip→green-sequence logic, run on exchange
+        candles. Confirmed BUYs flow through the normal sizing/bracket pipeline."""
+        def num_entry(parent, var, width=7):
+            e = ttk.Entry(parent, textvariable=var, width=width)
+            e.bind("<FocusOut>", lambda ev: self._push_strategy())
+            e.bind("<Return>", lambda ev: self._push_strategy())
+            return e
+
+        row = ttk.Frame(f)
+        row.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+        self.strat_enabled_var = tk.BooleanVar(value=False)
+        theme.make_check(row, text="Enable built-in strategy (no TradingView needed)",
+                         variable=self.strat_enabled_var,
+                         command=self._push_strategy).pack(side="left")
+        self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
+                                     font=("Segoe UI", 9))
+        self.strat_status.pack(side="right")
+
+        ttk.Label(f, text="Symbols (comma-separated):").grid(row=1, column=0, sticky="w", pady=2)
+        self.strat_symbols_var = tk.StringVar(value=DEFAULT_STRATEGY_SYMBOLS)
+        num_entry(f, self.strat_symbols_var, width=24).grid(row=1, column=1, sticky="ew", pady=2)
+
+        sr = ttk.Frame(f)
+        sr.grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(sr, text="Timeframe:").pack(side="left")
+        self.strat_tf_var = tk.StringVar(value=DEFAULT_STRATEGY_TIMEFRAME)
+        tf_box = ttk.Combobox(sr, textvariable=self.strat_tf_var, values=STRATEGY_TIMEFRAMES,
+                              state="readonly", width=6)
+        tf_box.pack(side="left", padx=6)
+        ttk.Label(sr, text="Preset:").pack(side="left", padx=(10, 0))
+        self.strat_preset_var = tk.StringVar(value="Auto")
+        preset_box = ttk.Combobox(sr, textvariable=self.strat_preset_var,
+                                  values=["Auto", "BTC", "ETH", "Crypto", "Custom"],
+                                  state="readonly", width=8)
+        preset_box.pack(side="left", padx=6)
+        tf_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
+        preset_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
+
+        # Green sequence.
+        gs = ttk.Frame(f)
+        gs.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(gs, text="Greens:").pack(side="left")
+        self.strat_greens_var = tk.StringVar(value="2")
+        num_entry(gs, self.strat_greens_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(gs, text="Max wait:").pack(side="left")
+        self.strat_maxwait_var = tk.StringVar(value="15")
+        num_entry(gs, self.strat_maxwait_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(gs, text="Cooldown:").pack(side="left")
+        self.strat_cooldown_var = tk.StringVar(value="5")
+        num_entry(gs, self.strat_cooldown_var, 4).pack(side="left", padx=2)
+
+        # Custom dip thresholds (used only when Preset = Custom).
+        cr = ttk.Frame(f)
+        cr.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(cr, text="Custom: RSI≤").pack(side="left")
+        self.strat_os_var = tk.StringVar(value="30")
+        num_entry(cr, self.strat_os_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(cr, text="Range×ATR:").pack(side="left")
+        self.strat_atr_var = tk.StringVar(value="0.9")
+        num_entry(cr, self.strat_atr_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(cr, text="Vol×avg:").pack(side="left")
+        self.strat_vol_var = tk.StringVar(value="1.0")
+        num_entry(cr, self.strat_vol_var, 4).pack(side="left", padx=2)
+
+        # Quality filter.
+        qr = ttk.Frame(f)
+        qr.grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+        self.strat_reqbody_var = tk.BooleanVar(value=True)
+        theme.make_check(qr, text="Strong green body  ≥", variable=self.strat_reqbody_var,
+                         command=self._push_strategy).pack(side="left")
+        self.strat_body_var = tk.StringVar(value="0.3")
+        num_entry(qr, self.strat_body_var, 4).pack(side="left", padx=2)
+        ttk.Label(qr, text="of range").pack(side="left")
+
+        # Stop-loss + targets.
+        tr = ttk.Frame(f)
+        tr.grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
+        self.strat_sl_var = tk.BooleanVar(value=True)
+        theme.make_check(tr, text="SL", variable=self.strat_sl_var,
+                         command=self._push_strategy).pack(side="left")
+        ttk.Label(tr, text="look:").pack(side="left", padx=(6, 0))
+        self.strat_sllook_var = tk.StringVar(value="10")
+        num_entry(tr, self.strat_sllook_var, 4).pack(side="left", padx=2)
+        ttk.Label(tr, text="buf%:").pack(side="left")
+        self.strat_slbuf_var = tk.StringVar(value="0.10")
+        num_entry(tr, self.strat_slbuf_var, 5).pack(side="left", padx=(2, 8))
+        ttk.Label(tr, text="TP1×:").pack(side="left")
+        self.strat_tp1_var = tk.StringVar(value="1.0")
+        num_entry(tr, self.strat_tp1_var, 4).pack(side="left", padx=2)
+        ttk.Label(tr, text="TP2×:").pack(side="left")
+        self.strat_tp2_var = tk.StringVar(value="3.0")
+        num_entry(tr, self.strat_tp2_var, 4).pack(side="left", padx=2)
+
+        ttk.Label(f, text="Runs the bot's own copy of the indicator on exchange candles "
+                          "(closed bars only — non-repaint). Trades use the Execution & "
+                          "Risk settings. Requires a connection.",
+                  style="Dim.TLabel", wraplength=380).grid(
+            row=7, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+    def _strategy_params(self) -> StrategyParams:
+        return StrategyParams(
+            preset=self.strat_preset_var.get(),
+            cust_os=int(self._float(self.strat_os_var.get(), 30)),
+            cust_atr=self._float(self.strat_atr_var.get(), 0.9),
+            cust_vol=self._float(self.strat_vol_var.get(), 1.0),
+            green_n=max(1, int(self._float(self.strat_greens_var.get(), 2))),
+            max_wait=max(2, int(self._float(self.strat_maxwait_var.get(), 15))),
+            cooldown=max(0, int(self._float(self.strat_cooldown_var.get(), 5))),
+            require_body_ratio=self.strat_reqbody_var.get(),
+            min_body_ratio=self._float(self.strat_body_var.get(), 0.3),
+            use_sl=self.strat_sl_var.get(),
+            sl_look=max(2, int(self._float(self.strat_sllook_var.get(), 10))),
+            sl_buf=self._float(self.strat_slbuf_var.get(), 0.10),
+            rr_tp1=self._float(self.strat_tp1_var.get(), 1.0),
+            rr_tp2=self._float(self.strat_tp2_var.get(), 3.0),
+        )
+
+    def _push_strategy(self) -> None:
+        """Apply the built-in strategy config to the runner and start/stop it.
+
+        The runner only trades when enabled *and* connected (so signals don't
+        fire while the bot couldn't place an order anyway)."""
+        if not hasattr(self, "strategy_runner"):
+            return
+        enabled = self.strat_enabled_var.get()
+        symbols = [s.strip() for s in self.strat_symbols_var.get().split(",") if s.strip()]
+        active = enabled and self.connected
+        self.strategy_runner.configure(
+            enabled=active,
+            symbols=symbols,
+            timeframe=self.strat_tf_var.get(),
+            params=self._strategy_params(),
+            exchange_id=exchange_id(self.exchange_var.get()),
+            market_type="futures" if self.market_var.get() == "Futures" else "spot",
+        )
+        if active and not self.strategy_runner.running:
+            self.strategy_runner.start()
+        elif not active and self.strategy_runner.running:
+            self.strategy_runner.stop()
+        self._update_strategy_status()
+
+    def _update_strategy_status(self) -> None:
+        if not hasattr(self, "strat_status"):
+            return
+        if not self.strat_enabled_var.get():
+            self.strat_status.config(text="● off", fg=GREY)
+        elif not self.connected:
+            self.strat_status.config(text="● waiting for connection", fg="#e67e22")
+        else:
+            n = len([s for s in self.strat_symbols_var.get().split(",") if s.strip()])
+            self.strat_status.config(
+                text=f"● running · {n} symbol{'s' if n != 1 else ''} · {self.strat_tf_var.get()}",
+                fg=GREEN)
+
     def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)
         theme.make_check(
@@ -1165,6 +1339,24 @@ class TradingBotGUI:
         self.summary_hour_var.set(str(s.get("summary_hour", 23)))
         self.tg_important_var.set(s.get("telegram_important_only", True))
         self.tray_var.set(s.get("minimize_to_tray", False))
+        # Built-in strategy settings.
+        self.strat_enabled_var.set(s.get("strat_enabled", False))
+        self.strat_symbols_var.set(s.get("strat_symbols", DEFAULT_STRATEGY_SYMBOLS))
+        self.strat_tf_var.set(s.get("strat_timeframe", DEFAULT_STRATEGY_TIMEFRAME))
+        self.strat_preset_var.set(s.get("strat_preset", "Auto"))
+        self.strat_greens_var.set(str(s.get("strat_greens", 2)))
+        self.strat_maxwait_var.set(str(s.get("strat_max_wait", 15)))
+        self.strat_cooldown_var.set(str(s.get("strat_cooldown", 5)))
+        self.strat_os_var.set(str(s.get("strat_cust_os", 30)))
+        self.strat_atr_var.set(str(s.get("strat_cust_atr", 0.9)))
+        self.strat_vol_var.set(str(s.get("strat_cust_vol", 1.0)))
+        self.strat_reqbody_var.set(s.get("strat_require_body", True))
+        self.strat_body_var.set(str(s.get("strat_min_body", 0.3)))
+        self.strat_sl_var.set(s.get("strat_use_sl", True))
+        self.strat_sllook_var.set(str(s.get("strat_sl_look", 10)))
+        self.strat_slbuf_var.set(str(s.get("strat_sl_buf", 0.10)))
+        self.strat_tp1_var.set(str(s.get("strat_tp1", 1.0)))
+        self.strat_tp2_var.set(str(s.get("strat_tp2", 3.0)))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -1214,6 +1406,24 @@ class TradingBotGUI:
             "minimize_to_tray": self.tray_var.get(),
             "live_ack": self._live_ack,
             "last_ip": self.saved.get("last_ip", ""),
+            # Built-in strategy.
+            "strat_enabled": self.strat_enabled_var.get(),
+            "strat_symbols": self.strat_symbols_var.get(),
+            "strat_timeframe": self.strat_tf_var.get(),
+            "strat_preset": self.strat_preset_var.get(),
+            "strat_greens": int(self._float(self.strat_greens_var.get(), 2)),
+            "strat_max_wait": int(self._float(self.strat_maxwait_var.get(), 15)),
+            "strat_cooldown": int(self._float(self.strat_cooldown_var.get(), 5)),
+            "strat_cust_os": int(self._float(self.strat_os_var.get(), 30)),
+            "strat_cust_atr": self._float(self.strat_atr_var.get(), 0.9),
+            "strat_cust_vol": self._float(self.strat_vol_var.get(), 1.0),
+            "strat_require_body": self.strat_reqbody_var.get(),
+            "strat_min_body": self._float(self.strat_body_var.get(), 0.3),
+            "strat_use_sl": self.strat_sl_var.get(),
+            "strat_sl_look": int(self._float(self.strat_sllook_var.get(), 10)),
+            "strat_sl_buf": self._float(self.strat_slbuf_var.get(), 0.10),
+            "strat_tp1": self._float(self.strat_tp1_var.get(), 1.0),
+            "strat_tp2": self._float(self.strat_tp2_var.get(), 3.0),
         }
 
     def _save_all(self) -> None:
@@ -1653,6 +1863,8 @@ class TradingBotGUI:
 
     def _set_connected(self, connected: bool, exchange) -> None:
         self.connected = connected
+        # Activate/deactivate the built-in strategy with the connection.
+        self._push_strategy()
         if connected:
             self.status_dot.config(fg=GREEN)
             self.conn_label.config(text="Connected", fg=GREEN)
@@ -1758,6 +1970,8 @@ class TradingBotGUI:
                 self.webhook.stop()
             if self.relay.running:
                 self.relay.stop()
+            if getattr(self, "strategy_runner", None) and self.strategy_runner.running:
+                self.strategy_runner.stop()
             self.backend.stop()
         finally:
             self.root.destroy()

@@ -38,6 +38,7 @@ _(Regenerate any image with `python make_diagram.py` / `make_mockup.py` /
 | **Account info** | Balance, PnL, and an Open Positions table (pair, side, size, entry, current, PnL, status) |
 | **Trade log** | Timestamped, scrollable log of every signal/execution; **Export** to CSV and **Clear** |
 | **Webhook** | Built-in HTTP receiver for TradingView alerts (auto-execution) |
+| **Built-in strategy** | Runs the bot's own port of the Prometheus indicator on exchange candles — auto-trades with **no TradingView account** (Strategy tab) |
 | **Real-time data** | WebSocket price feed (ccxt.pro) with REST fallback; live PnL recompute, green/red coloring, **Refresh Now**, and connection-drop alerts |
 | **Auto SL/TP** | Reduce-only stop-loss + take-profit from the alert payload, with scale-out at TP1/TP2 |
 | **Risk sizing** | Fixed lot, risk-% of balance, or **risk-% per trade from the entry→stop distance** |
@@ -181,6 +182,45 @@ own reduce-only TP orders on the exchange, so events never double-fire.
 
 ---
 
+## Built-in strategy (no TradingView needed)
+
+The **Strategy** tab runs the bot's own port of the `Prometheus_AI_Crypto_Bot.pine`
+indicator directly on exchange candles — so it can auto-trade **without a
+TradingView account, webhook, or relay**. It's the *same* dip → green-sequence
+logic (`strategy.py`), re-implemented in Python and verified against unit-test
+fixtures.
+
+```
+Exchange candles  →  strategy.py (Pine port)  →  this bot's pipeline  →  exchange order
+```
+
+1. Connect to your exchange as usual.
+2. Open the **Strategy** tab, tick **Enable built-in strategy**, set the
+   **Symbols** (comma-separated, e.g. `BTC/USDT, ETH/USDT`) and **Timeframe**.
+3. Tune the dip/green/SL/TP parameters (they mirror the indicator's inputs) — or
+   leave the **Auto** preset, which picks BTC/ETH/crypto thresholds by symbol.
+4. The runner polls for freshly-**closed** candles, evaluates the strategy, and
+   on a confirmed BUY places the entry + TP1/TP2 (+ SL) through the same
+   guardrail → sizing → bracket pipeline as a webhook signal.
+
+**How it stays honest:**
+- **Non-repaint** — only *closed* candles are evaluated (the live forming candle
+  is dropped), matching the indicator's "Bar Close" alert mode.
+- **No double-firing** — each closed candle is evaluated once; on startup the
+  current candle is *primed* (not traded), so the bot never chases a signal that
+  closed before it launched.
+- **Crash-safe** — the engine is stateless and replays from candle history every
+  poll, so a restart mid-setup loses nothing.
+- **Parity** — the logic is identical to the chart; the only possible difference
+  is the candle *data* (exchange OHLCV vs TradingView aggregation), which is why
+  the runner pulls candles from the same exchange you trade on.
+
+> The built-in strategy and the TradingView webhook/relay can run **side by
+> side** — they all feed the same trade pipeline. Use whichever you prefer, or
+> both. The runner only trades while **enabled *and* connected**.
+
+---
+
 ## Manual webhook test
 
 With the webhook running you can fire a test signal locally:
@@ -309,6 +349,9 @@ entry (closing is never blocked):
 | `notifications.py` | Sound + Telegram notifications |
 | `analytics_window.py` | Analytics window (stats + equity curve) |
 | `webhook_server.py` | TradingView alert receiver |
+| `relay_client.py` | Cloud-relay poller (licence-token signals) |
+| `strategy.py` | Pure port of the Prometheus indicator (dip→green engine) |
+| `strategy_runner.py` | Built-in strategy thread: candles → `strategy.evaluate` → trade |
 | `security.py` | Encryption + PIN |
 | `config.py` | Constants & storage paths |
 | `run.bat` | Windows launcher |

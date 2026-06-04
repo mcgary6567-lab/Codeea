@@ -34,6 +34,14 @@ from exchange import (  # noqa: E402
 )
 from guardrails import Guardrails  # noqa: E402
 from webhook_server import parse_payload  # noqa: E402
+from strategy import (  # noqa: E402
+    StrategyParams,
+    atr_series,
+    evaluate,
+    lowest_series,
+    rsi_series,
+    sma_series,
+)
 
 
 class TestNormalizeSymbol(unittest.TestCase):
@@ -394,6 +402,142 @@ class TestDailySummary(unittest.TestCase):
         self.assertEqual(h.stats()["closed"], 2)                      # all
         self.assertEqual(h.stats(since=recent - 60)["closed"], 1)     # only recent
         self.assertAlmostEqual(h.stats(since=recent - 60)["realized_pnl"], 7.0)
+
+
+class TestStrategyIndicators(unittest.TestCase):
+    """The pure series helpers underpinning the built-in strategy engine."""
+
+    def test_sma_warmup_then_average(self):
+        out = sma_series([1, 2, 3, 4, 5], 3)
+        self.assertIsNone(out[0])
+        self.assertIsNone(out[1])
+        self.assertAlmostEqual(out[2], 2.0)   # (1+2+3)/3
+        self.assertAlmostEqual(out[3], 3.0)   # (2+3+4)/3
+        self.assertAlmostEqual(out[4], 4.0)   # (3+4+5)/3
+
+    def test_lowest_is_trailing_min_inclusive(self):
+        out = lowest_series([5, 4, 6, 3, 7], 3)
+        self.assertEqual(out[2], 4)           # min(5,4,6)
+        self.assertEqual(out[3], 3)           # min(4,6,3)
+        self.assertEqual(out[4], 3)           # min(6,3,7)
+
+    def test_rsi_converges_high_on_uptrend_low_on_downtrend(self):
+        up = rsi_series([float(x) for x in range(1, 60)], 14)
+        self.assertGreater(up[-1], 99.0)      # only gains -> RSI 100
+        down = rsi_series([float(60 - x) for x in range(1, 60)], 14)
+        self.assertLess(down[-1], 1.0)        # only losses -> RSI 0
+
+    def test_atr_warms_up_then_tracks_range(self):
+        n = 30
+        highs = [101.0] * n
+        lows = [99.0] * n
+        closes = [100.0] * n
+        atr = atr_series(highs, lows, closes, 14)
+        self.assertIsNone(atr[12])
+        # constant 2-wide range -> ATR converges to 2.0
+        self.assertAlmostEqual(atr[-1], 2.0, places=6)
+
+
+def _candle(ts, o, h, l, c, v=100.0):
+    return [ts, o, h, l, c, v]
+
+
+def _build(warmup=40, tail=None):
+    """A flat warmup (neutral candles, close==open) followed by ``tail`` candles.
+
+    Neutral warmup keeps RSI/ATR well-defined without creating spurious dips or
+    greens, so tests can drive the state machine deterministically."""
+    candles = []
+    for i in range(warmup):
+        candles.append(_candle(i * 60000, 100.0, 100.5, 99.5, 100.0))
+    base = warmup
+    for j, c in enumerate(tail or []):
+        c = list(c)
+        c[0] = (base + j) * 60000
+        candles.append(c)
+    return candles
+
+
+# Lenient custom thresholds so the *state machine* (not the RSI/ATR gating) is
+# what's under test: any red new-low bar is a dip; any green passes.
+LENIENT = dict(preset="Custom", cust_os=100, cust_atr=0.0, cust_vol=0.0,
+               cust_look=10, min_body_ratio=0.3)
+
+
+class TestStrategyEngine(unittest.TestCase):
+    def test_dip_then_two_greens_fires_buy_on_last_candle(self):
+        p = StrategyParams(green_n=2, max_wait=15, cooldown=5,
+                           use_sl=True, sl_look=10, sl_buf=0.10,
+                           rr_tp1=1.0, rr_tp2=3.0, **LENIENT)
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),   # dip: red, new low 97
+            _candle(0, 98.0, 99.0, 98.0, 99.0),     # green 1 (body=1, ratio 1.0)
+            _candle(0, 99.0, 100.0, 99.0, 100.0),   # green 2 -> fires here
+        ])
+        sig = evaluate(candles, p, ticker="BTC/USDT")
+        self.assertIsNotNone(sig)
+        self.assertAlmostEqual(sig.entry, 100.0)        # close of signal bar
+        # dipRef = locked dip low 97; tpRange = max(100-97, atr) = 3
+        self.assertAlmostEqual(sig.tp1, 103.0)          # 100 + 3*1.0
+        self.assertAlmostEqual(sig.tp2, 109.0)          # 100 + 3*3.0
+        self.assertAlmostEqual(sig.sl, 97.0 * (1 - 0.10 / 100.0))
+
+    def test_only_fires_on_the_newest_closed_candle(self):
+        """A signal that completed on an earlier bar is not re-emitted."""
+        p = StrategyParams(green_n=2, cooldown=5, **LENIENT)
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),
+            _candle(0, 98.0, 99.0, 98.0, 99.0),
+            _candle(0, 99.0, 100.0, 99.0, 100.0),   # signal bar...
+            _candle(0, 100.0, 100.5, 99.5, 100.0),  # ...followed by neutral bars
+            _candle(0, 100.0, 100.5, 99.5, 100.0),
+        ])
+        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
+
+    def test_insufficient_greens_does_not_fire(self):
+        p = StrategyParams(green_n=3, **LENIENT)   # needs 3, only 2 supplied
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),
+            _candle(0, 98.0, 99.0, 98.0, 99.0),
+            _candle(0, 99.0, 100.0, 99.0, 100.0),
+        ])
+        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
+
+    def test_weak_green_body_is_rejected(self):
+        """A doji-ish green (tiny body vs range) must not count as a confirmation."""
+        p = StrategyParams(green_n=2, require_body_ratio=True, **{
+            **LENIENT, "min_body_ratio": 0.5})
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),       # dip
+            _candle(0, 98.0, 99.0, 98.0, 99.0),         # strong green (ratio 1.0)
+            _candle(0, 99.0, 102.0, 98.0, 99.2),        # weak green: body .2 / range 4
+        ])
+        # The weak green resets the count, so no 2-green sequence completes.
+        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
+
+    def test_setup_expires_after_max_wait(self):
+        p = StrategyParams(green_n=2, max_wait=3, **LENIENT)
+        tail = [_candle(0, 100.0, 100.0, 97.0, 98.0)]      # dip
+        tail += [_candle(0, 100.0, 100.5, 99.5, 100.0)] * 4  # 4 neutral > max_wait 3
+        tail += [_candle(0, 98.0, 99.0, 98.0, 99.0),
+                 _candle(0, 99.0, 100.0, 99.0, 100.0)]       # greens come too late
+        candles = _build(tail=tail)
+        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
+
+    def test_no_sl_when_disabled(self):
+        p = StrategyParams(green_n=2, use_sl=False, **LENIENT)
+        candles = _build(tail=[
+            _candle(0, 100.0, 100.0, 97.0, 98.0),
+            _candle(0, 98.0, 99.0, 98.0, 99.0),
+            _candle(0, 99.0, 100.0, 99.0, 100.0),
+        ])
+        sig = evaluate(candles, p, ticker="BTC/USDT")
+        self.assertIsNotNone(sig)
+        self.assertIsNone(sig.sl)
+
+    def test_too_few_candles_returns_none(self):
+        p = StrategyParams(**LENIENT)
+        self.assertIsNone(evaluate(_build(warmup=5), p, ticker="BTC/USDT"))
 
 
 if __name__ == "__main__":
