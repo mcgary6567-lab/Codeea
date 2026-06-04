@@ -33,8 +33,9 @@ const PAGE_CSS = <<<CSS
   .on  { background:#16321f; color:#5ce08a; }
   .off { background:#3a1d1f; color:#ff8f8f; }
   .exp { background:#3a2e16; color:#f5d27a; }
-  input, button, textarea { font:inherit; border-radius:8px; border:1px solid #2a313e; }
-  input, textarea { background:#0c0e13; color:#e6e6e6; padding:7px 10px; }
+  input, button, textarea, select { font:inherit; border-radius:8px; border:1px solid #2a313e; }
+  input, textarea, select { background:#0c0e13; color:#e6e6e6; padding:7px 10px; }
+  select.dur { cursor:pointer; }
   button { background:#2d6cdf; color:#fff; border-color:#2d6cdf; padding:7px 12px; cursor:pointer; }
   button.ghost { background:transparent; color:#c6ccd6; border-color:#39414f; padding:5px 10px; }
   button.danger { background:transparent; color:#ff8f8f; border-color:#5a2a2e; padding:5px 10px; }
@@ -178,7 +179,13 @@ head('Prometheus — Licences');
     <form method="post" class="inline">
       <input type="hidden" name="action" value="create">
       <input type="email"  name="label" placeholder="Customer email" required>
-      <input type="number" name="days"  placeholder="Days (blank = never)" min="0">
+      <select name="days" class="dur">
+        <option value="0" selected>Lifetime (no expiry)</option>
+        <option value="7">7 days</option>
+        <option value="30">30 days</option>
+        <option value="90">90 days</option>
+        <option value="365">1 year</option>
+      </select>
       <button type="submit">+ Generate key</button>
     </form>
   </div>
