@@ -1680,6 +1680,20 @@ class TradingBotGUI:
                 "Switching to Spot.")
             self.market_var.set("Spot")
 
+        # Coinbase futures only exist on Coinbase International (institutional /
+        # non-US). Warn upfront so users aren't surprised; Spot works for everyone.
+        if ex == "coinbase" and self.market_var.get() == "Futures":
+            go = messagebox.askyesno(
+                "Coinbase futures",
+                "Coinbase futures run on Coinbase International Exchange — available "
+                "to eligible (non-US / institutional) accounts only, using a Coinbase "
+                "International API key.\n\nMost users should use Coinbase Spot, or "
+                "Kraken for futures.\n\nTry connecting Coinbase futures anyway?",
+                icon="warning",
+            )
+            if not go:
+                return
+
         # One-time LIVE confirmation: Safe Mode is off by default, so warn once
         # that real orders will be placed automatically on signals.
         if not self.safe_var.get() and not self._live_ack:

@@ -1,6 +1,6 @@
 """Exchange connectivity via ccxt.
 
-Wraps the five supported exchanges behind one interface so the GUI doesn't care
+Wraps every supported exchange behind one interface so the GUI doesn't care
 which is selected. All network calls are funnelled through a single backend
 worker thread (see ``backend.py``) so we never hit a ccxt client from two
 threads at once.
@@ -23,7 +23,12 @@ except ImportError:  # Allows the GUI to launch for a demo without ccxt.
     ccxt = None
     CCXT_AVAILABLE = False
 
-from config import QUOTE_CURRENCY, SPOT_ONLY_EXCHANGES
+from config import (
+    QUOTE_CURRENCY,
+    SPOT_ONLY_EXCHANGES,
+    futures_ccxt_id,
+    futures_quote,
+)
 
 
 def _friendly_error(exchange_id: str, exc: Exception, is_futures: bool = False) -> str:
@@ -49,6 +54,14 @@ def _friendly_error(exchange_id: str, exc: Exception, is_futures: bool = False) 
         return ("Invalid API key, IP, or permissions. Enable Spot/Futures trading "
                 "on the key and add your IP to its whitelist (use 'Show my IP').\n\n("
                 + msg + ")")
+    if exchange_id == "coinbase" and is_futures:
+        return ("Coinbase futures run on Coinbase International Exchange "
+                "(institutional / non-US). Use a Coinbase International API key, or "
+                "switch to Coinbase Spot / Kraken futures.\n\n(" + msg + ")")
+    if exchange_id == "kraken" and is_futures and ("auth" in low or "invalid" in low or "permission" in low):
+        return ("Kraken Futures uses a SEPARATE API key from Kraken Spot — create "
+                "one in the Kraken Futures dashboard (not the spot key) with trading "
+                "permission.\n\n(" + msg + ")")
     return msg
 
 
@@ -193,6 +206,7 @@ class ExchangeManager:
         self.read_only: bool = False
         self.safe_mode: bool = False
         self.market_type: str = "spot"        # "spot" or "futures"
+        self._fut_quote: str = QUOTE_CURRENCY  # futures margin/quote ccy (per venue)
         self._spot_entries: dict = {}          # asset -> entry price (bot buys)
         # Simulated state used when safe_mode is on or ccxt is missing.
         self._sim_balance: float = 10_000.0
@@ -221,6 +235,9 @@ class ExchangeManager:
         # Spot-only platforms (e.g. Binance.US) have no futures product line.
         if exchange_id in SPOT_ONLY_EXCHANGES:
             self.market_type = "spot"
+        # Margin/quote currency for this venue's linear futures (USDT-M default;
+        # Kraken=USD, Coinbase=USDC) — used to build perp symbols / filter pairs.
+        self._fut_quote = futures_quote(exchange_id)
 
         if not CCXT_AVAILABLE:
             # Demo/simulation mode: pretend we connected.
@@ -230,11 +247,23 @@ class ExchangeManager:
         if exchange_id not in ccxt.exchanges:
             raise ExchangeError(f"Unknown exchange: {exchange_id}")
 
-        klass = getattr(ccxt, exchange_id)
-        # ccxt keys USD-M futures differently per exchange: Binance uses
-        # "future" (fapi), while the unified-"swap" venues (Bybit/OKX/KuCoin/
-        # Bitget) use "swap". Sending the wrong one can land a futures request on
-        # the wrong wallet/endpoint and surface as a permissions error.
+        # Some venues run futures on a SEPARATE ccxt class (Kraken -> krakenfutures,
+        # Coinbase -> coinbaseinternational), not a defaultType switch on the spot
+        # class. Pick the right class for the chosen market type.
+        ccxt_id = futures_ccxt_id(exchange_id) if self.is_futures else exchange_id
+        if ccxt_id not in ccxt.exchanges:
+            if ccxt_id == "coinbaseinternational":
+                raise ExchangeError(
+                    "Coinbase futures need a Coinbase International Exchange account "
+                    "(institutional / non-US). It isn't available in this build or "
+                    "your region — use Coinbase Spot, or Kraken for futures.")
+            raise ExchangeError(
+                f"{exchange_id} futures are unavailable (no '{ccxt_id}' class in ccxt).")
+        klass = getattr(ccxt, ccxt_id)
+        self._ccxt_id = ccxt_id
+        # ccxt keys USD-M futures differently per exchange: Binance uses "future"
+        # (fapi); the unified-"swap" venues (Bybit/OKX/KuCoin/Bitget) and the
+        # dedicated futures classes (krakenfutures/coinbaseinternational) use "swap".
         if self.is_futures:
             default_type = "future" if exchange_id in ("binance", "binanceus") else "swap"
         else:
@@ -363,8 +392,14 @@ class ExchangeManager:
                 continue
             if amt <= 0 or asset.upper() in STABLES:
                 continue
-            sym = f"{asset}/{QUOTE_CURRENCY}"
-            price = self._last_price(sym)
+            # Price against whichever fiat-stable quote this venue lists (Kraken
+            # and Coinbase price many assets in USD/USDC, not USDT).
+            sym, price = "", 0.0
+            for q in (QUOTE_CURRENCY, "USD", "USDC"):
+                sym = f"{asset}/{q}"
+                price = self._last_price(sym)
+                if price > 0:
+                    break
             if price <= 0 or amt * price < 1.0:   # no market / dust
                 continue
             entry = float(self._spot_entries.get(asset, 0.0))
@@ -395,11 +430,16 @@ class ExchangeManager:
         return False, ""
 
     def top_pairs(self, limit: int = 20) -> List[str]:
-        """The exchange's most-traded USDT pairs (by 24h volume) for the current
-        market type. Returns 'BASE/USDT' strings, BTC & ETH first. Best-effort."""
+        """The exchange's most-traded pairs (by 24h volume) for the current market
+        type. Returns 'BASE/QUOTE' strings, BTC & ETH first. Best-effort.
+
+        Quote is venue-aware: futures use this venue's margin currency (USDT-M by
+        default, USD on Kraken, USDC on Coinbase); spot accepts the major fiat
+        stable quotes (USDT/USDC/USD) so non-USDT venues still populate."""
         if not self.client:
             return []
         want_type = "swap" if self.is_futures else "spot"
+        quotes = {self._fut_quote} if self.is_futures else {"USDT", "USDC", "USD"}
         try:
             tickers = self.client.fetch_tickers()
         except Exception:  # noqa: BLE001
@@ -407,23 +447,25 @@ class ExchangeManager:
         rows = []
         for sym, t in tickers.items():
             m = self.client.markets.get(sym, {}) if hasattr(self.client, "markets") else {}
-            if m.get("quote") != QUOTE_CURRENCY or m.get("type") != want_type:
+            if m.get("quote") not in quotes or m.get("type") != want_type:
                 continue
             if not m.get("active", True):
                 continue
             base = m.get("base", sym.split("/")[0])
+            quote = m.get("quote", QUOTE_CURRENCY)
             try:
                 vol = float(t.get("quoteVolume") or 0)
             except (TypeError, ValueError):
                 vol = 0.0
-            rows.append((f"{base}/{QUOTE_CURRENCY}", vol))
+            rows.append((f"{base}/{quote}", vol))
         rows.sort(key=lambda r: r[1], reverse=True)
         ordered = [s for s, _ in rows][:limit]
-        # Keep BTC/ETH at the front if present.
-        for lead in (f"ETH/{QUOTE_CURRENCY}", f"BTC/{QUOTE_CURRENCY}"):
-            if lead in ordered:
-                ordered.remove(lead)
-                ordered.insert(0, lead)
+        # Keep BTC/ETH at the front if present (whatever their quote).
+        for base in ("ETH", "BTC"):
+            for i, s in enumerate(ordered):
+                if s.startswith(base + "/"):
+                    ordered.insert(0, ordered.pop(i))
+                    break
         return ordered
 
     # -- pricing ------------------------------------------------------------
@@ -440,15 +482,24 @@ class ExchangeManager:
             return sym
         if not self.is_futures:
             return sym                 # spot — plain BASE/QUOTE (unchanged)
-        base, _, quote = sym.partition("/")
-        perp = f"{base}/{quote}:{quote}"
+        # Futures: build the venue's linear perp. Most venues are USDT-M, but
+        # Kraken futures are USD-margined and Coinbase perps USDC-margined, so we
+        # rebuild against this venue's futures quote rather than the spot quote.
+        base, _, _ = sym.partition("/")
+        fq = self._fut_quote
+        perp = f"{base}/{fq}:{fq}"
         markets = getattr(self.client, "markets", None) if self.client else None
         if markets:
             if perp in markets:
                 return perp
             if sym in markets:
                 return sym
-        return perp                    # best guess for a USDT-M perpetual
+            # Adaptive: any linear perpetual on this base, whatever it settles in.
+            for msym, m in markets.items():
+                if (m.get("base") == base and m.get("swap")
+                        and m.get("linear", True) and m.get("active", True)):
+                    return msym
+        return perp                    # best guess for a linear perpetual
 
     def _last_price(self, symbol: str) -> float:
         # Real price whenever a client exists (works in Safe Mode too).

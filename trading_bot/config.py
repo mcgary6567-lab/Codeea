@@ -62,7 +62,8 @@ UPDATE_URL = "https://prometheusai.tech/version.json"
 # offers a separate futures/swap product line via ccxt we note the default
 # market type used for position fetching.
 # ---------------------------------------------------------------------------
-SUPPORTED_EXCHANGES = ["binance", "binanceus", "bybit", "okx", "kucoin", "bitget"]
+SUPPORTED_EXCHANGES = ["binance", "binanceus", "bybit", "okx", "kucoin",
+                       "bitget", "kraken", "coinbase"]
 
 # Pretty (Title-case) display names. ccxt ids stay lowercase above; the UI shows
 # these and maps back to the id when connecting.
@@ -73,11 +74,38 @@ EXCHANGE_LABELS = {
     "okx": "OKX",
     "kucoin": "KuCoin",
     "bitget": "Bitget",
+    "kraken": "Kraken",
+    "coinbase": "Coinbase",
 }
 
 # Exchanges that offer spot only (no futures/derivatives product line). If the
 # user picks Futures on one of these, the app warns and falls back to Spot.
 SPOT_ONLY_EXCHANGES = {"binanceus"}
+
+# Some venues run futures on a SEPARATE ccxt class rather than a defaultType
+# switch on the spot class. When Futures is selected we connect to the class
+# below instead of the spot id.
+FUTURES_EXCHANGE_ID = {
+    "kraken": "krakenfutures",            # USD-margined perpetuals
+    "coinbase": "coinbaseinternational",  # USDC perps — eligible / non-US accounts only
+}
+
+# Margin/quote currency for a venue's linear futures (USDT-M is the default).
+# Kraken futures are USD-margined; Coinbase International perps are USDC-margined.
+FUTURES_QUOTE = {
+    "kraken": "USD",
+    "coinbase": "USDC",
+}
+
+
+def futures_ccxt_id(ex_id: str) -> str:
+    """ccxt class to use for this venue's futures (may differ from its spot id)."""
+    return FUTURES_EXCHANGE_ID.get(ex_id, ex_id)
+
+
+def futures_quote(ex_id: str) -> str:
+    """Margin/quote currency for this venue's linear futures (default USDT)."""
+    return FUTURES_QUOTE.get(ex_id, "USDT")
 
 
 def exchange_label(ex_id: str) -> str:

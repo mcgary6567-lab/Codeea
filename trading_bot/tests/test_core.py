@@ -718,6 +718,45 @@ class TestLicence(unittest.TestCase):
         self.assertEqual(st["expires_at"], 123)
 
 
+class TestExchangeVenues(unittest.TestCase):
+    """Kraken & Coinbase route futures to a separate ccxt class and a venue
+    margin currency (USD / USDC), not the default USDT-M."""
+
+    def test_futures_class_and_quote_mapping(self):
+        from config import futures_ccxt_id, futures_quote
+        self.assertEqual(futures_ccxt_id("kraken"), "krakenfutures")
+        self.assertEqual(futures_ccxt_id("coinbase"), "coinbaseinternational")
+        self.assertEqual(futures_ccxt_id("bybit"), "bybit")          # unchanged
+        self.assertEqual(futures_quote("kraken"), "USD")
+        self.assertEqual(futures_quote("coinbase"), "USDC")
+        self.assertEqual(futures_quote("binance"), "USDT")           # default
+
+    def test_new_exchanges_listed(self):
+        from config import SUPPORTED_EXCHANGES, EXCHANGE_LABELS, exchange_id
+        for e in ("kraken", "coinbase"):
+            self.assertIn(e, SUPPORTED_EXCHANGES)
+            self.assertIn(e, EXCHANGE_LABELS)
+        self.assertEqual(exchange_id("Kraken"), "kraken")
+        self.assertEqual(exchange_id("Coinbase"), "coinbase")
+
+    def _perp(self, ex_id: str) -> str:
+        from exchange import ExchangeManager
+        m = ExchangeManager()                       # ccxt absent -> demo connect
+        m.connect(ex_id, "k", "s", market_type="futures")
+        return m._market_symbol("BTC/USDT")
+
+    def test_futures_symbol_uses_venue_margin_currency(self):
+        self.assertEqual(self._perp("kraken"), "BTC/USD:USD")
+        self.assertEqual(self._perp("coinbase"), "BTC/USDC:USDC")
+        self.assertEqual(self._perp("bybit"), "BTC/USDT:USDT")       # unchanged
+
+    def test_spot_symbol_unchanged(self):
+        from exchange import ExchangeManager
+        m = ExchangeManager()
+        m.connect("kraken", "k", "s", market_type="spot")
+        self.assertEqual(m._market_symbol("BTC/USDT"), "BTC/USDT")
+
+
 class TestStrategyLicenceGate(unittest.TestCase):
     """The built-in strategy must not trade without a valid licence, and must
     tolerate a transient server outage within the grace window."""
