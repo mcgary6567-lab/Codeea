@@ -1,22 +1,42 @@
 """PIN/password gate shown before the main window.
 
-First run: the user creates a PIN (entered twice). Subsequent runs: the user
-must enter the correct PIN, which is verified by decrypting the credential
-store. Three failed attempts and the app exits.
+First run: the user starts their free trial by entering an **email** and
+creating a PIN (entered twice). The email is sent to the relay's ``trial.php``
+to issue a 10-day full-access licence; the PIN encrypts the local credential
+store (the licence token is saved into it). Subsequent runs: the user simply
+enters their PIN, which is verified by decrypting the credential store. Three
+failed attempts and the app exits.
+
+The PIN is still the vault's encryption key — first run just folds the trial
+sign-up into the same screen so a new user is licensed before the app opens.
 """
 
 from __future__ import annotations
 
+import threading
+import time
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox
 
+import licence
 import security
 import theme
-from config import APP_TITLE, SUPPORT_EMAIL, WEBSITE_URL, resource_path
+from config import (
+    APP_TITLE,
+    DEFAULT_RELAY_URL,
+    SUPPORT_EMAIL,
+    TRIAL_DAYS,
+    WEBSITE_URL,
+    resource_path,
+)
 
 BG = theme.HEADER
 CARD = theme.PANEL
+
+
+def _valid_email(email: str) -> bool:
+    return "@" in email and "." in email.split("@")[-1]
 
 
 class LoginDialog:
@@ -29,7 +49,7 @@ class LoginDialog:
 
         self.win = tk.Toplevel(root)
         self.win.title(APP_TITLE)
-        self.win.geometry("380x340")
+        self.win.geometry("380x460" if self.first_run else "380x340")
         self.win.resizable(False, False)
         self.win.configure(bg=BG)
         self.win.grab_set()
@@ -46,15 +66,30 @@ class LoginDialog:
 
         tk.Label(self.win, text=APP_TITLE, bg=BG, fg=theme.ACCENT,
                  font=("Segoe UI Semibold", 13)).pack()
-        sub = "Create a PIN" if self.first_run else "Enter your PIN"
+        sub = "Start your free trial" if self.first_run else "Enter your PIN"
         tk.Label(self.win, text=sub, bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 10)).pack(pady=(2, 10))
+
+        # First run: email field (required) ties the 10-day trial to the user.
+        self.email_var = tk.StringVar()
+        if self.first_run:
+            tk.Label(self.win, text="Email (starts your free trial):", bg=BG,
+                     fg=theme.TXT_DIM).pack()
+            em = tk.Entry(self.win, textvariable=self.email_var, justify="center",
+                          font=("Segoe UI", 11), bg=theme.ELEV, fg=theme.TXT,
+                          insertbackground=theme.TXT, relief="flat")
+            em.pack(pady=(2, 8), ipady=4, ipadx=10)
+            em.focus_set()
+
+            tk.Label(self.win, text="Create PIN (encrypts your keys):", bg=BG,
+                     fg=theme.TXT_DIM).pack()
 
         self.pin_var = tk.StringVar()
         e1 = tk.Entry(self.win, textvariable=self.pin_var, show="•", justify="center",
                       font=("Segoe UI", 12), bg=theme.ELEV, fg=theme.TXT,
                       insertbackground=theme.TXT, relief="flat")
         e1.pack(pady=4, ipady=4, ipadx=10)
-        e1.focus_set()
+        if not self.first_run:
+            e1.focus_set()
 
         self.confirm_var = tk.StringVar()
         if self.first_run:
@@ -63,9 +98,10 @@ class LoginDialog:
                      bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT,
                      relief="flat").pack(pady=4, ipady=4, ipadx=10)
 
-        btn = tk.Button(self.win, text="Unlock", width=18, command=self._submit)
-        theme.style_button(btn, "accent")
-        btn.pack(pady=16)
+        btn_text = f"Start {TRIAL_DAYS}-day free trial" if self.first_run else "Unlock"
+        self.btn = tk.Button(self.win, text=btn_text, width=22, command=self._submit)
+        theme.style_button(self.btn, "accent")
+        self.btn.pack(pady=16)
         self.win.bind("<Return>", lambda e: self._submit())
 
         # Website + email links.
@@ -95,14 +131,15 @@ class LoginDialog:
             return
 
         if self.first_run:
+            email = self.email_var.get().strip()
+            if not _valid_email(email):
+                messagebox.showwarning(
+                    "Free trial", "Enter a valid email to start your free trial.", parent=self.win)
+                return
             if pin != self.confirm_var.get().strip():
                 messagebox.showerror("Mismatch", "The two PINs do not match.", parent=self.win)
                 return
-            # Initialise an empty encrypted store under this PIN.
-            security.save_credentials(pin, {})
-            self.pin = pin
-            self.saved = {}
-            self.win.destroy()
+            self._start_trial(pin, email)
             return
 
         if security.verify_pin(pin):
@@ -118,6 +155,63 @@ class LoginDialog:
                 messagebox.showerror(
                     "Wrong PIN", f"Incorrect. {3 - self.attempts} attempt(s) left.", parent=self.win
                 )
+
+    # --- First-run trial sign-up -----------------------------------------
+    def _start_trial(self, pin: str, email: str) -> None:
+        """Request the 10-day trial off the UI thread, then finish on it."""
+        self.btn.config(state="disabled", text="Starting…")
+        trial_url = licence.trial_url_from_relay(DEFAULT_RELAY_URL)
+        machine = licence.machine_fingerprint()
+
+        def work():
+            result = licence.start_trial(trial_url, email, machine)
+            # Hop back to the Tk thread before touching widgets / the store.
+            self.win.after(0, lambda: self._trial_done(pin, email, *result))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _trial_done(self, pin: str, email: str, status: str, message: str,
+                    token: str, expires_at: int) -> None:
+        self.btn.config(state="normal", text=f"Start {TRIAL_DAYS}-day free trial")
+
+        if status == "ok" and token:
+            # Licensed: create the PIN vault with the trial token already in it,
+            # so the app auto-connects and unlocks the strategy on open.
+            self._finish(pin, {"relay_token": token, "trial_email": email})
+            days = max(0, (expires_at - int(time.time())) // 86400) if expires_at else TRIAL_DAYS
+            messagebox.showinfo(
+                "Free trial started",
+                f"Your {days}-day free trial is active — full access unlocked.\n\n"
+                "When it ends, open the License tab and click “Get License”.",
+                parent=self.root,
+            )
+            return
+
+        # Trial unavailable (already used, or the server was unreachable). Still
+        # create the PIN vault and let the user in — unlicensed — so they can
+        # paste a purchased key or retry the trial from the License tab.
+        if status == "used":
+            note = (message or "Your free trial has already been used.") + \
+                "\n\nOpen the License tab to enter a licence key or Get License."
+            title = "Free trial"
+        else:
+            note = "Couldn't reach the licence server.\n\nYour PIN is set — you can " \
+                "start your free trial later from the License tab."
+            title = "Free trial"
+        self._finish(pin, {"trial_email": email})
+        messagebox.showinfo(title, note, parent=self.root)
+
+    def _finish(self, pin: str, payload: dict) -> None:
+        """Persist the initial vault under ``pin`` and hand control to the app."""
+        try:
+            security.save_credentials(pin, payload)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Setup error", f"Could not save your settings:\n{exc}",
+                                 parent=self.win)
+            return
+        self.pin = pin
+        self.saved = payload
+        self.win.destroy()
 
     def _cancel(self) -> None:
         self.pin = None
