@@ -343,7 +343,7 @@ class Backend:
                 self.daily_summary = cmd.get("daily_summary", self.daily_summary)
                 self.summary_hour = int(cmd.get("summary_hour", self.summary_hour))
             elif action == "close":
-                self._do_close(cmd.get("pair"))
+                self._do_close(cmd.get("pair"), cmd.get("fraction", 1.0))
             elif action == "set_protection":
                 self._do_set_protection(cmd)
             elif action == "reset_daily":
@@ -585,17 +585,21 @@ class Backend:
             history.record_trade(source, symbol, ex_side, "tp", qty, price,
                                  "Filled" if r.ok else "Rejected", message=r.message)
 
-    def _do_close(self, pair: str) -> None:
-        """Flatten a single open position by symbol (or all if pair is None)."""
+    def _do_close(self, pair: str, fraction: float = 1.0) -> None:
+        """Flatten a single open position by symbol (or all if pair is None).
+
+        ``fraction`` in (0, 1) closes only that share of each target (partial
+        take-profit / de-risk); 1.0 flattens fully."""
         with self._lock:
             positions = list(self._last_positions)
         targets = positions if not pair else [p for p in positions if p.pair == pair]
         if not targets:
             self.log(f"No open position to close: {pair}", status="Error")
             return
+        verb = "CLOSE" if fraction >= 1.0 else f"CLOSE {fraction*100:.0f}%"
         for p in targets:
-            r = self.exchange.close_position(p)
-            self.log(r.message, signal="CLOSE", pair=p.pair, status="OK" if r.ok else "Rejected")
+            r = self.exchange.close_position(p, fraction)
+            self.log(r.message, signal=verb, pair=p.pair, status="OK" if r.ok else "Rejected")
             self.notifier.notify(f"Close {p.pair}", r.message, level="ok" if r.ok else "error")
         self._refresh()
 

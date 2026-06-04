@@ -24,6 +24,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from exchange import (  # noqa: E402
+    ExchangeManager,
     Position,
     exit_side,
     normalize_symbol,
@@ -116,6 +117,35 @@ class TestSizeOrder(unittest.TestCase):
         # zero balance / price must not raise and must not size to zero
         amt, _ = size_order("risk_balance", 0.05, 1.0, 0, 0)
         self.assertEqual(amt, 0.05)
+
+
+class TestPartialClose(unittest.TestCase):
+    def _sim_long(self, size=1.0):
+        ex = ExchangeManager()
+        ex.safe_mode = True
+        ex.connected = True
+        ex._sim_positions = [Position(pair="BTC/USDT", side="Long", size=size,
+                                      entry=100.0, current=100.0, pnl=0.0)]
+        return ex
+
+    def test_partial_close_reduces_size(self):
+        ex = self._sim_long(1.0)
+        r = ex.close_position(ex._sim_positions[0], fraction=0.25)
+        self.assertTrue(r.ok)
+        # 25% of 1.0 sold -> 0.75 remains, still Long
+        self.assertEqual(len(ex._sim_positions), 1)
+        self.assertAlmostEqual(ex._sim_positions[0].size, 0.75)
+        self.assertEqual(ex._sim_positions[0].side, "Long")
+
+    def test_full_close_flattens(self):
+        ex = self._sim_long(1.0)
+        ex.close_position(ex._sim_positions[0], fraction=1.0)
+        self.assertEqual(ex._sim_positions, [])
+
+    def test_fraction_out_of_range_treated_as_full(self):
+        ex = self._sim_long(2.0)
+        ex.close_position(ex._sim_positions[0], fraction=0)
+        self.assertEqual(ex._sim_positions, [])
 
 
 class TestPlanTakeProfits(unittest.TestCase):

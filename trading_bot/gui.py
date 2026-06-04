@@ -542,6 +542,11 @@ class TradingBotGUI:
         cbar = ttk.Frame(f)
         cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         tk.Button(cbar, text="Close Selected", command=self._close_selected).pack(side="left", padx=4)
+        tk.Button(cbar, text="Close %", command=self._close_partial).pack(side="left", padx=4)
+        self.close_pct_var = tk.StringVar(value="50")
+        ttk.Combobox(cbar, textvariable=self.close_pct_var, width=4,
+                     values=("25", "33", "50", "75"), state="normal").pack(side="left")
+        ttk.Label(cbar, text="%").pack(side="left", padx=(1, 4))
         tk.Button(cbar, text="Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
         tk.Button(
             cbar, text="PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
@@ -588,6 +593,20 @@ class TradingBotGUI:
         pair = self.pos_tree.item(sel[0])["values"][0]
         if messagebox.askyesno("Close position", f"Close {pair} at market?"):
             self.backend.submit({"cmd": "close", "pair": pair})
+
+    def _close_partial(self) -> None:
+        sel = self.pos_tree.selection()
+        if not sel:
+            messagebox.showinfo("Close %", "Select a position row first.")
+            return
+        pair = self.pos_tree.item(sel[0])["values"][0]
+        pct = self._float(self.close_pct_var.get(), 0)
+        if not 0 < pct < 100:
+            messagebox.showwarning("Close %", "Enter a percentage between 1 and 99.")
+            return
+        if messagebox.askyesno("Partial close",
+                               f"Close {pct:g}% of {pair} at market (reduce-only)?"):
+            self.backend.submit({"cmd": "close", "pair": pair, "fraction": pct / 100.0})
 
     def _close_all(self) -> None:
         if messagebox.askyesno(

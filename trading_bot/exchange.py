@@ -576,10 +576,13 @@ class ExchangeManager:
         except Exception as exc:  # noqa: BLE001
             return OrderResult(False, f"{label} failed: {exc}", pair=sym, side=side, order_type=label)
 
-    def close_position(self, position: Position) -> OrderResult:
-        """Flatten a position with a reduce-only market order on the exit side."""
+    def close_position(self, position: Position, fraction: float = 1.0) -> OrderResult:
+        """Flatten a position (or ``fraction`` of it) with a reduce-only market
+        order on the exit side. ``fraction`` in (0, 1] -> partial close."""
         side = exit_side("buy" if position.side == "Long" else "sell")
-        return self.place_market_order(position.pair, side, position.size, reduce_only=True)
+        frac = 1.0 if fraction >= 1.0 or fraction <= 0 else fraction
+        amount = round(position.size * frac, 8)
+        return self.place_market_order(position.pair, side, amount, reduce_only=True)
 
     def cancel_order(self, order_id: str, symbol: str) -> OrderResult:
         """Cancel a single open order (used to move a stop). Best-effort."""
