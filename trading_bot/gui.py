@@ -746,6 +746,22 @@ class TradingBotGUI:
             lvr, textvariable=self.margin_mode_var,
             values=["(default)", "cross", "isolated"], state="readonly", width=9,
         ).pack(side="left")
+        self.leverage_var.trace_add("write", lambda *a: self._on_leverage_change())
+
+        sl = ttk.Frame(f)
+        sl.grid(row=8, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Label(sl, text="Slippage guard %:").pack(side="left")
+        self.slippage_var = tk.StringVar(value="0")
+        se = ttk.Entry(sl, textvariable=self.slippage_var, width=6)
+        se.pack(side="left", padx=6)
+        se.bind("<FocusOut>", lambda ev: self._push_settings())
+        ttk.Label(sl, text="(0 = off; skip if price moved this far from the signal)").pack(side="left")
+
+        self.round_min_var = tk.BooleanVar(value=False)
+        theme.make_check(
+            f, text="Round small orders up to the exchange minimum (else block)",
+            variable=self.round_min_var, command=self._push_settings,
+        ).grid(row=9, column=0, columnspan=2, sticky="w", pady=2)
 
     def _build_risk_tab(self, f) -> None:
         self.manual_var = tk.BooleanVar(value=True)
@@ -776,12 +792,22 @@ class TradingBotGUI:
         self.daily_profit_var = tk.StringVar(value="0")
         self.cooldown_var = tk.StringVar(value="0")
         self.dedupe_var = tk.StringVar(value="0")
+        self.loss_streak_var = tk.StringVar(value="0")
+        self.streak_cd_var = tk.StringVar(value="0")
+        self.max_dd_var = tk.StringVar(value="0")
+        self.start_hour_var = tk.StringVar(value="0")
+        self.end_hour_var = tk.StringVar(value="0")
         rows = [
             ("Max open positions:", self.max_open_var),
             (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var),
             (f"Daily profit limit ({QUOTE_CURRENCY}):", self.daily_profit_var),
             ("Cooldown / symbol (s):", self.cooldown_var),
             ("Dedupe window (s):", self.dedupe_var),
+            ("Loss-streak limit (losses):", self.loss_streak_var),
+            ("Loss-streak pause (s):", self.streak_cd_var),
+            ("Max drawdown halt (%):", self.max_dd_var),
+            ("Trade start hour (0-23):", self.start_hour_var),
+            ("Trade end hour (0-23):", self.end_hour_var),
         ]
         for i, (text, var) in enumerate(rows, start=5):
             ttk.Label(f, text=text).grid(row=i, column=0, sticky="w", pady=2)
@@ -790,24 +816,24 @@ class TradingBotGUI:
             e.bind("<FocusOut>", lambda ev: self._push_settings())
 
         gr = ttk.Frame(f)
-        gr.grid(row=10, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        gr.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         tk.Button(gr, text="Reset daily limit", command=self._reset_daily).pack(side="left")
         self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
 
-        ttk.Separator(f, orient="horizontal").grid(row=11, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Separator(f, orient="horizontal").grid(row=16, column=0, columnspan=2, sticky="ew", pady=6)
         self.move_be_var = tk.BooleanVar(value=False)
         theme.make_check(
             f, text="Move stop to breakeven on TP1 event (from indicator)",
             variable=self.move_be_var, command=self._push_settings,
-        ).grid(row=12, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=17, column=0, columnspan=2, sticky="w", pady=2)
         self.auto_reconnect_var = tk.BooleanVar(value=True)
         theme.make_check(
             f, text="Auto-reconnect if the exchange connection drops",
             variable=self.auto_reconnect_var, command=self._push_settings,
-        ).grid(row=13, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=18, column=0, columnspan=2, sticky="w", pady=2)
         tr = ttk.Frame(f)
-        tr.grid(row=14, column=0, columnspan=2, sticky="w", pady=2)
+        tr.grid(row=19, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(tr, text="Trailing stop %:").pack(side="left")
         self.trailing_var = tk.StringVar(value="0")
         e = ttk.Entry(tr, textvariable=self.trailing_var, width=6)
@@ -828,6 +854,9 @@ class TradingBotGUI:
         self.webhook_btn.pack(side="left", padx=6)
         self.webhook_status = tk.Label(wr, text="● off", fg=GREY, bg=PANEL)
         self.webhook_status.pack(side="left")
+        self.test_signal_btn = tk.Button(wr, text="Test Signal", command=self._test_signal)
+        theme.style_button(self.test_signal_btn, "accent")
+        self.test_signal_btn.pack(side="right")
 
         # Strategy filter — only act on alerts whose comment/strategy matches.
         ttk.Label(f, text="Strategy filter:").grid(row=2, column=0, sticky="w", pady=2)
@@ -1071,6 +1100,13 @@ class TradingBotGUI:
         self.daily_profit_var.set(str(s.get("daily_profit", 0)))
         self.cooldown_var.set(str(s.get("cooldown", 0)))
         self.dedupe_var.set(str(s.get("dedupe", 0)))
+        self.loss_streak_var.set(str(s.get("loss_streak", 0)))
+        self.streak_cd_var.set(str(s.get("streak_cooldown", 0)))
+        self.max_dd_var.set(str(s.get("max_drawdown", 0)))
+        self.start_hour_var.set(str(s.get("start_hour", 0)))
+        self.end_hour_var.set(str(s.get("end_hour", 0)))
+        self.slippage_var.set(str(s.get("slippage_pct", 0)))
+        self.round_min_var.set(s.get("round_to_min", False))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
@@ -1110,6 +1146,13 @@ class TradingBotGUI:
             "daily_profit": self._float(self.daily_profit_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
             "dedupe": int(self._float(self.dedupe_var.get(), 0)),
+            "loss_streak": int(self._float(self.loss_streak_var.get(), 0)),
+            "streak_cooldown": int(self._float(self.streak_cd_var.get(), 0)),
+            "max_drawdown": self._float(self.max_dd_var.get(), 0),
+            "start_hour": int(self._float(self.start_hour_var.get(), 0)),
+            "end_hour": int(self._float(self.end_hour_var.get(), 0)),
+            "slippage_pct": self._float(self.slippage_var.get(), 0),
+            "round_to_min": self.round_min_var.get(),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
             "webhook_passphrase": self.webhook_pass_var.get(),
@@ -1152,6 +1195,17 @@ class TradingBotGUI:
         self._update_size_hint()
         self._push_settings()
 
+    def _on_leverage_change(self) -> None:
+        self._push_settings()
+        lev = int(self._float(self.leverage_var.get(), 0))
+        if lev > 10 and self.market_var.get() == "Futures" and not getattr(self, "_lev_warned", False):
+            self._lev_warned = True
+            messagebox.showwarning(
+                "High leverage",
+                f"{lev}x is high — on crypto futures that means liquidation at "
+                f"roughly −{100.0/lev:.1f}% from entry, and crypto moves fast.\n\n"
+                "Consider 3–5x with Isolated margin and a stop-loss.")
+
     def _margin_mode_value(self) -> str:
         m = self.margin_mode_var.get()
         return m if m in ("cross", "isolated") else ""
@@ -1181,6 +1235,13 @@ class TradingBotGUI:
             "daily_profit": self._float(self.daily_profit_var.get(), 0),
             "cooldown": int(self._float(self.cooldown_var.get(), 0)),
             "dedupe": int(self._float(self.dedupe_var.get(), 0)),
+            "loss_streak": int(self._float(self.loss_streak_var.get(), 0)),
+            "streak_cooldown": int(self._float(self.streak_cd_var.get(), 0)),
+            "max_drawdown": self._float(self.max_dd_var.get(), 0),
+            "start_hour": int(self._float(self.start_hour_var.get(), 0)),
+            "end_hour": int(self._float(self.end_hour_var.get(), 0)),
+            "slippage_pct": self._float(self.slippage_var.get(), 0),
+            "round_to_min": self.round_min_var.get(),
             "safe_mode": self.safe_var.get(),
             "read_only": self.readonly_var.get(),
             "sound": self.sound_var.get(),
@@ -1322,6 +1383,47 @@ class TradingBotGUI:
             "tp1": signal.get("tp1"),
             "tp2": signal.get("tp2"),
             "source": signal.get("source", "webhook"),
+        })
+
+    def _test_signal(self) -> None:
+        """Inject a synthetic BUY through the real signal pipeline so the user can
+        verify sizing → order → SL/TP end-to-end without waiting for the indicator.
+
+        It runs exactly like a webhook alert (guardrails, sizing, bracket). In
+        Safe Mode it is simulated; live mode places a real order, so we confirm.
+        """
+        if not self.connected:
+            messagebox.showwarning("Not connected", "Connect to an exchange first.")
+            return
+        symbol = self.symbol_var.get().strip()
+        if not symbol:
+            messagebox.showwarning("Test Signal", "Pick a symbol first.")
+            return
+        price = getattr(self, "_last_mark", None)
+        live = not self.safe_var.get()
+        if live and not messagebox.askyesno(
+            "Test Signal — LIVE",
+            f"Safe Mode is OFF. This will place a REAL test BUY on {symbol} "
+            f"({self.exchange_var.get().upper()}) with a stop/target bracket.\n\n"
+            "Turn on Safe Mode to simulate instead. Proceed with a real order?",
+        ):
+            return
+        # Build a bracket around the live price (≈1% stop, 1%/2% targets) when we
+        # have one; otherwise leave them blank and let the backend size/skip SL.
+        sig = {"ticker": symbol, "action": "buy", "source": "test",
+               "comment": self.strategy_filter_var.get().strip() or "Prometheus"}
+        if price:
+            sig["entry"] = price
+            sig["sl"] = round(price * 0.99, 8)
+            sig["tp1"] = round(price * 1.01, 8)
+            sig["tp2"] = round(price * 1.02, 8)
+        self._push_settings()
+        self._on_webhook_signal(sig)
+        self.backend.ui_queue.put({
+            "kind": "log", "time": "", "signal": "TEST", "pair": symbol,
+            "status": "simulated" if not live else "live",
+            "message": f"Test BUY signal injected for {symbol} "
+                       f"({'simulated' if not live else 'LIVE'}) — watch the log/positions.",
         })
 
     def _toggle_webhook(self) -> None:
@@ -1472,6 +1574,7 @@ class TradingBotGUI:
 
     def _update_mark(self, msg: dict) -> None:
         price = msg.get("price")
+        self._last_mark = price
         if price is None:
             self.mark_label.config(text="—", fg=GREY)
         else:
