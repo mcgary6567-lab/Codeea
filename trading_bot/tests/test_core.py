@@ -214,6 +214,41 @@ class TestGuardrails(unittest.TestCase):
         self.assertEqual(g.trip_reason, "profit")
         self.assertFalse(g.check_entry("BTC/USDT", "buy", set())[0])
 
+    def test_loss_streak_cooldown(self):
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0,
+                    loss_streak=3, streak_cooldown=60)
+        for _ in range(2):
+            g.record_realized(-1.0, now=0.0)
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set(), now=1.0)[0])  # 2 losses, ok
+        g.record_realized(-1.0, now=0.0)                                      # 3rd -> pause
+        self.assertFalse(g.check_entry("BTC/USDT", "buy", set(), now=10.0)[0])
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set(), now=61.0)[0])  # after cooldown
+        g.record_realized(2.0, now=62.0)                                      # a win resets streak
+
+    def test_drawdown_halt(self):
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, max_drawdown=10.0)
+        g.update_equity(1000.0, now=0.0)              # peak
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set(), now=0.0)[0])
+        g.update_equity(940.0, now=0.0)               # -6% -> ok
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set(), now=0.0)[0])
+        g.update_equity(890.0, now=0.0)               # -11% -> halt
+        allowed, reason = g.check_entry("BTC/USDT", "buy", set(), now=0.0)
+        self.assertFalse(allowed)
+        self.assertIn("drawdown", reason.lower())
+
+    def test_trading_hours_filter(self):
+        import time as _t
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, start_hour=8, end_hour=20)
+        # Build a timestamp at 03:00 and 12:00 local
+        def at(hour):
+            lt = _t.localtime()
+            return _t.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, hour, 0, 0, 0, 0, -1))
+        self.assertFalse(g.check_entry("BTC/USDT", "buy", set(), now=at(3))[0])   # outside
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set(), now=at(12))[0])   # inside
+
     def test_reset_clears_trip(self):
         g = Guardrails()
         g.configure(max_open=0, daily_loss=50, cooldown=0, dedupe=0)

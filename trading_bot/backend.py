@@ -74,6 +74,8 @@ class Backend:
         self.order_type = DEFAULT_ORDER_TYPE
         self.leverage = DEFAULT_LEVERAGE
         self.margin_mode = ""
+        self.slippage_pct = 0.0              # skip if price moved > this % from entry (0=off)
+        self.round_to_min = False            # bump dust orders up to the minimum notional
         self.move_be = False                 # move stop to breakeven on TP1 event
         self._sl_orders: dict = {}           # symbol -> stop-loss order id (for BE move)
         self._entry_px: dict = {}            # symbol -> entry price (for BE move)
@@ -312,6 +314,8 @@ class Backend:
                 self.exchange.safe_mode = cmd.get("safe_mode", self.exchange.safe_mode)
                 self.exchange.read_only = cmd.get("read_only", self.exchange.read_only)
                 self.order_type = cmd.get("order_type", self.order_type)
+                self.slippage_pct = float(cmd.get("slippage_pct", self.slippage_pct) or 0.0)
+                self.round_to_min = cmd.get("round_to_min", self.round_to_min)
                 self.leverage = int(cmd.get("leverage", self.leverage) or 0)
                 self.margin_mode = cmd.get("margin_mode", self.margin_mode)
                 self.move_be = cmd.get("move_be", self.move_be)
@@ -322,6 +326,11 @@ class Backend:
                     daily_profit=cmd.get("daily_profit", self.guardrails.daily_profit_limit),
                     cooldown=cmd.get("cooldown", self.guardrails.cooldown_seconds),
                     dedupe=cmd.get("dedupe", self.guardrails.dedupe_seconds),
+                    loss_streak=cmd.get("loss_streak", self.guardrails.loss_streak_limit),
+                    streak_cooldown=cmd.get("streak_cooldown", self.guardrails.streak_cooldown),
+                    start_hour=cmd.get("start_hour", self.guardrails.start_hour),
+                    end_hour=cmd.get("end_hour", self.guardrails.end_hour),
+                    max_drawdown=cmd.get("max_drawdown", self.guardrails.max_drawdown_pct),
                 )
                 self.notifier.configure(
                     sound=cmd.get("sound", self.notifier.sound_enabled),
@@ -424,6 +433,17 @@ class Backend:
         balance = self.exchange.fetch_balance()
         price = self._current_price(symbol)
 
+        # --- slippage guard: skip if price moved too far from the signal entry ---
+        if self.slippage_pct > 0 and entry > 0 and price > 0:
+            slip = abs(price - entry) / entry * 100.0
+            if slip > self.slippage_pct:
+                msg = (f"Slippage {slip:.2f}% > {self.slippage_pct:g}% "
+                       f"(entry {entry:g} vs now {price:g}) — skipped.")
+                self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
+                self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
+                self.notifier.notify(f"Slippage skip {symbol}", msg, level="error")
+                return
+
         size = cmd.get("size")
         if size is None:
             size, sreason = size_order(
@@ -433,15 +453,20 @@ class Backend:
             self.log(f"Sizing: {size:g} ({sreason})", pair=symbol)
         size = float(size)
 
-        # --- minimum-order guard: avoid a cryptic exchange rejection on dust ---
+        # --- minimum-order guard: round up to the minimum or block dust orders ---
         notional = size * price if price > 0 else 0.0
         if price > 0 and 0 < notional < MIN_NOTIONAL:
-            msg = (f"Order ~${notional:,.2f} is below the ~${MIN_NOTIONAL:g} minimum — "
-                   "increase Trade Size (USDT) or lot.")
-            self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
-            self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
-            self.notifier.notify(f"Order too small {symbol}", msg, level="error")
-            return
+            if self.round_to_min:
+                size = round(MIN_NOTIONAL / price, 8)
+                self.log(f"Order rounded up to the ~${MIN_NOTIONAL:g} minimum "
+                         f"({size:g})", pair=symbol)
+            else:
+                msg = (f"Order ~${notional:,.2f} is below the ~${MIN_NOTIONAL:g} minimum — "
+                       "increase Trade Size, or enable 'round up to minimum'.")
+                self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
+                self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
+                self.notifier.notify(f"Order too small {symbol}", msg, level="error")
+                return
 
         # --- leverage / margin mode (best-effort) ---
         lm_note = self.exchange.apply_leverage_margin(symbol, self.leverage, self.margin_mode)
@@ -614,6 +639,10 @@ class Backend:
 
         # Keep the price feed subscribed to held symbols + the manual symbol.
         self._update_feed_symbols()
+
+        # Feed equity (balance + open PnL) to the drawdown guardrail.
+        open_pnl_now = sum(p.pnl for p in recompute_pnl(positions, dict(self._price_cache)))
+        self.guardrails.update_equity(balance + open_pnl_now)
 
         # Trailing stop (close on drawdown from the peak since entry).
         self._check_trailing(positions, dict(self._price_cache))

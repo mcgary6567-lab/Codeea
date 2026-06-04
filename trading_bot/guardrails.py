@@ -26,6 +26,12 @@ class Guardrails:
         self.daily_profit_limit = 0.0
         self.cooldown_seconds = 0
         self.dedupe_seconds = 0
+        # Extended risk controls (0 = off).
+        self.loss_streak_limit = 0      # N consecutive losses -> pause
+        self.streak_cooldown = 0        # seconds to pause after a loss streak
+        self.start_hour = 0             # trading-hours window (local). 0==0 -> off
+        self.end_hour = 0
+        self.max_drawdown_pct = 0.0     # halt if equity falls this % from its peak
 
         self._day: date | None = None
         self._daily_realized = 0.0
@@ -33,14 +39,26 @@ class Guardrails:
         self._recent_signals: dict = {}     # (symbol, side) -> ts
         self.tripped = False                # daily loss/profit limit hit
         self.trip_reason = ""               # "loss" or "profit"
+        self._loss_streak = 0
+        self._streak_until = 0.0
+        self._equity = 0.0
+        self._peak_equity = 0.0
+        self._dd_tripped = False
 
     # -- config -------------------------------------------------------------
-    def configure(self, max_open, daily_loss, cooldown, dedupe, daily_profit=0.0) -> None:
+    def configure(self, max_open, daily_loss, cooldown, dedupe, daily_profit=0.0,
+                  loss_streak=0, streak_cooldown=0, start_hour=0, end_hour=0,
+                  max_drawdown=0.0) -> None:
         self.max_open_positions = int(max_open or 0)
         self.daily_loss_limit = float(daily_loss or 0.0)
         self.daily_profit_limit = float(daily_profit or 0.0)
         self.cooldown_seconds = int(cooldown or 0)
         self.dedupe_seconds = int(dedupe or 0)
+        self.loss_streak_limit = int(loss_streak or 0)
+        self.streak_cooldown = int(streak_cooldown or 0)
+        self.start_hour = int(start_hour or 0)
+        self.end_hour = int(end_hour or 0)
+        self.max_drawdown_pct = float(max_drawdown or 0.0)
 
     # -- daily PnL tracking -------------------------------------------------
     def _roll_day(self, now: float) -> None:
@@ -50,16 +68,29 @@ class Guardrails:
             self._daily_realized = 0.0
             self.tripped = False
             self.trip_reason = ""
+            self._loss_streak = 0
+            self._streak_until = 0.0
+            self._dd_tripped = False
+            self._peak_equity = self._equity   # fresh peak each day
 
     def record_realized(self, pnl: float, now: float | None = None) -> bool:
         """Add a realized PnL amount; returns True if this *trips* a daily limit.
 
         Trips on either the loss limit (PnL <= -loss) or the profit target
-        (PnL >= +profit). ``trip_reason`` records which one fired.
+        (PnL >= +profit). ``trip_reason`` records which one fired. Also tracks
+        the consecutive-loss streak for the loss-streak cooldown.
         """
         now = now if now is not None else time.time()
         self._roll_day(now)
         self._daily_realized += pnl
+        # consecutive-loss streak
+        if self.loss_streak_limit > 0:
+            if pnl <= 0:
+                self._loss_streak += 1
+                if self._loss_streak >= self.loss_streak_limit and self.streak_cooldown > 0:
+                    self._streak_until = now + self.streak_cooldown
+            else:
+                self._loss_streak = 0
         if self.tripped:
             return False
         if self.daily_loss_limit > 0 and self._daily_realized <= -self.daily_loss_limit:
@@ -72,6 +103,19 @@ class Guardrails:
             return True
         return False
 
+    def update_equity(self, equity: float, now: float | None = None) -> None:
+        """Feed the current account equity; trips the drawdown halt if it falls
+        ``max_drawdown_pct`` % below the running peak."""
+        now = now if now is not None else time.time()
+        self._roll_day(now)
+        self._equity = equity
+        if equity > self._peak_equity:
+            self._peak_equity = equity
+        if self.max_drawdown_pct > 0 and self._peak_equity > 0:
+            dd = (self._peak_equity - equity) / self._peak_equity * 100.0
+            if dd >= self.max_drawdown_pct:
+                self._dd_tripped = True
+
     @property
     def daily_realized(self) -> float:
         return self._daily_realized
@@ -80,6 +124,10 @@ class Guardrails:
         self._daily_realized = 0.0
         self.tripped = False
         self.trip_reason = ""
+        self._loss_streak = 0
+        self._streak_until = 0.0
+        self._dd_tripped = False
+        self._peak_equity = self._equity
 
     # -- the entry gate -----------------------------------------------------
     def check_entry(self, symbol: str, side: str, open_pairs: set, now: float | None = None):
@@ -94,6 +142,20 @@ class Guardrails:
             return False, (
                 f"daily {kind} hit ({self._daily_realized:+.2f}) — trading halted"
             )
+
+        if self._dd_tripped:
+            return False, f"equity drawdown limit ({self.max_drawdown_pct:g}%) hit — trading halted"
+
+        if self.streak_cooldown > 0 and now < self._streak_until:
+            return False, f"loss-streak cooldown ({self._loss_streak} losses) — paused"
+
+        if self.start_hour != self.end_hour:   # 0==0 disables the window
+            h = time.localtime(now).tm_hour
+            inside = (self.start_hour <= h < self.end_hour) if self.start_hour < self.end_hour \
+                else (h >= self.start_hour or h < self.end_hour)
+            if not inside:
+                return False, (f"outside trading hours "
+                               f"({self.start_hour:02d}:00-{self.end_hour:02d}:00)")
 
         key = (symbol, side)
         if self.dedupe_seconds > 0:
