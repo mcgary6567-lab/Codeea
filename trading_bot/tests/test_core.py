@@ -540,5 +540,77 @@ class TestStrategyEngine(unittest.TestCase):
         self.assertIsNone(evaluate(_build(warmup=5), p, ticker="BTC/USDT"))
 
 
+class TestLicence(unittest.TestCase):
+    def test_verify_url_derived_from_relay(self):
+        from licence import verify_url_from_relay
+        self.assertEqual(verify_url_from_relay("https://h.x/poll.php"),
+                         "https://h.x/verify.php")
+        self.assertEqual(verify_url_from_relay("https://h.x/sub/poll.php?token=z"),
+                         "https://h.x/sub/verify.php")
+        self.assertEqual(verify_url_from_relay("https://h.x"),
+                         "https://h.x/verify.php")
+
+    def test_empty_token_is_rejected_without_network(self):
+        import licence
+        status, _, _ = licence.verify("https://h.x/verify.php", "")
+        self.assertEqual(status, "rejected")
+
+
+class TestStrategyLicenceGate(unittest.TestCase):
+    """The built-in strategy must not trade without a valid licence, and must
+    tolerate a transient server outage within the grace window."""
+
+    def _runner(self):
+        import strategy_runner
+        return strategy_runner.StrategyRunner(
+            on_signal=lambda p: None, log=lambda m: None,
+            get_token=lambda: "tok", get_verify_url=lambda: "https://h.x/verify.php")
+
+    def _patch(self, result):
+        import licence
+        licence.verify = lambda url, token, timeout=10.0: result
+
+    def setUp(self):
+        import licence
+        self._orig = licence.verify
+
+    def tearDown(self):
+        import licence
+        licence.verify = self._orig
+
+    def test_valid_licence_allows_trading(self):
+        r = self._runner()
+        self._patch(("ok", "valid", 0))
+        self.assertTrue(r._ensure_licensed())
+        self.assertIs(r.licensed(), True)
+
+    def test_rejected_licence_blocks_trading(self):
+        r = self._runner()
+        self._patch(("rejected", "invalid token", 0))
+        self.assertFalse(r._ensure_licensed())
+        self.assertIs(r.licensed(), False)
+
+    def test_recovers_when_token_becomes_valid(self):
+        r = self._runner()
+        self._patch(("rejected", "invalid token", 0))
+        self.assertFalse(r._ensure_licensed())
+        self._patch(("ok", "valid", 0))
+        r._next_verify_ts = 0.0                 # force an immediate re-check
+        self.assertTrue(r._ensure_licensed())
+
+    def test_grace_period_tolerates_outage(self):
+        r = self._runner()
+        self._patch(("ok", "valid", 0))
+        self.assertTrue(r._ensure_licensed())   # establishes last-good time
+        self._patch(("error", "unreachable", 0))
+        r._next_verify_ts = 0.0
+        self.assertTrue(r._ensure_licensed())   # within grace -> still allowed
+
+    def test_outage_without_prior_success_is_denied(self):
+        r = self._runner()
+        self._patch(("error", "unreachable", 0))
+        self.assertFalse(r._ensure_licensed())  # never verified -> fail closed
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -28,6 +28,7 @@ import applog
 import autostart
 import connectivity
 import history
+import licence
 import tray as tray_helper
 import security
 import theme
@@ -114,12 +115,15 @@ class TradingBotGUI:
         )
 
         # Built-in strategy engine (the bot's own port of the indicator) — runs
-        # off the same webhook handler, tagged source="strategy".
+        # off the same webhook handler, tagged source="strategy". Gated by the
+        # same licence token as the cloud feed (verified against the relay).
         self.strategy_runner = StrategyRunner(
             on_signal=self._on_webhook_signal,
             log=lambda m: self.backend.ui_queue.put(
                 {"kind": "log", "time": "", "message": m, "signal": "", "pair": "", "status": ""}
             ),
+            get_token=lambda: self.relay_token_var.get().strip(),
+            get_verify_url=lambda: licence.verify_url_from_relay(self.relay_url_var.get().strip()),
         )
 
         self.connected = False
@@ -1042,7 +1046,8 @@ class TradingBotGUI:
 
         ttk.Label(f, text="Runs the bot's own copy of the indicator on exchange candles "
                           "(closed bars only — non-repaint). Trades use the Execution & "
-                          "Risk settings. Requires a connection.",
+                          "Risk settings. Requires a connection and a valid licence token "
+                          "(set in the Webhook tab).",
                   style="Dim.TLabel", wraplength=380).grid(
             row=7, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
@@ -1093,13 +1098,22 @@ class TradingBotGUI:
             return
         if not self.strat_enabled_var.get():
             self.strat_status.config(text="● off", fg=GREY)
-        elif not self.connected:
+            return
+        if not self.connected:
             self.strat_status.config(text="● waiting for connection", fg="#e67e22")
-        else:
-            n = len([s for s in self.strat_symbols_var.get().split(",") if s.strip()])
-            self.strat_status.config(
-                text=f"● running · {n} symbol{'s' if n != 1 else ''} · {self.strat_tf_var.get()}",
-                fg=GREEN)
+            return
+        # Reflect the licence gate (verified asynchronously by the runner).
+        licensed = self.strategy_runner.licensed() if hasattr(self, "strategy_runner") else None
+        if licensed is False:
+            self.strat_status.config(text="● blocked — licence invalid/expired", fg=RED)
+            return
+        if licensed is None:
+            self.strat_status.config(text="● verifying licence…", fg="#e67e22")
+            return
+        n = len([s for s in self.strat_symbols_var.get().split(",") if s.strip()])
+        self.strat_status.config(
+            text=f"● running · {n} symbol{'s' if n != 1 else ''} · {self.strat_tf_var.get()}",
+            fg=GREEN)
 
     def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)
@@ -1784,6 +1798,7 @@ class TradingBotGUI:
                 self._add_log_row({"time": "", "signal": "", "pair": "",
                                    "status": "Error", "message": f"UI error: {exc}"})
         self._update_relay_status()
+        self._update_strategy_status()
         self.root.after(150, self._drain_ui_queue)
 
     @staticmethod

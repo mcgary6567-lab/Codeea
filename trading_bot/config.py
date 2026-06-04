@@ -145,6 +145,14 @@ STRATEGY_CANDLE_LIMIT = 300
 # Default symbols the built-in strategy watches (comma-separated in the UI).
 DEFAULT_STRATEGY_SYMBOLS = "BTC/USDT"
 
+# Licence gate for the built-in strategy. It validates the same relay licence
+# token (one subscription per customer) against the relay's verify.php before
+# trading, then re-checks on this cadence. A transient server outage is
+# tolerated for the grace window so a legit user isn't stranded mid-session.
+LICENCE_RECHECK_INTERVAL = 6 * 3600.0      # re-verify a valid licence every 6h
+LICENCE_RETRY_INTERVAL = 300.0             # retry sooner after a server error
+LICENCE_GRACE_SECONDS = 24 * 3600.0        # keep trading this long through outages
+
 # Default trade sizing.
 DEFAULT_TRADE_SIZE = 0.003           # in base asset (e.g. 0.003 BTC)
 DEFAULT_RISK_PERCENT = 1.0          # % of balance risked when risk-based sizing

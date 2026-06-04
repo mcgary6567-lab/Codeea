@@ -7,7 +7,12 @@ licence token (no TradingView, no indicator, no ngrok).
 ```
 YOUR TradingView alert ──POST──► hooks.prometheusai.tech/hook.php?key=SELLER_KEY   (stores signal)
 Customer app ──GET poll.php?token=LICENCE every ~1.5s──►                           (gets new signals → trades)
+Customer app ──GET verify.php?token=LICENCE on startup──►                          (gates the built-in strategy)
 ```
+
+The same licence token also gates the app's **built-in strategy** (the bot's own
+copy of the indicator): the app calls `verify.php` before running it, so a
+revoked/expired token disables both the cloud feed *and* the built-in engine.
 
 ## Upload (one-time)
 
@@ -49,6 +54,7 @@ never expires; `revoke` instantly cuts off a customer.
 |------|--------------|---------|
 | `hook.php?key=…` | your TradingView | store an incoming signal |
 | `poll.php?token=…` | each customer app | fetch new signals since last poll |
+| `verify.php?token=…` | each customer app | validate a licence (read-only) to gate the built-in strategy |
 | `admin.php?key=…` | you | create / list / revoke / extend tokens |
 | `index.php` | — | "running" status page |
 

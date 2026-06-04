@@ -18,6 +18,7 @@ on first sight so the bot never chases a signal that closed before it started.
 from __future__ import annotations
 
 import threading
+import time
 from typing import Callable, Dict, List, Optional
 
 try:
@@ -28,8 +29,12 @@ except ImportError:
     ccxt = None
     CCXT_AVAILABLE = False
 
+import licence
 import strategy
 from config import (
+    LICENCE_GRACE_SECONDS,
+    LICENCE_RECHECK_INTERVAL,
+    LICENCE_RETRY_INTERVAL,
     QUOTE_CURRENCY,
     STRATEGY_CANDLE_LIMIT,
     STRATEGY_POLL_INTERVAL,
@@ -42,9 +47,18 @@ class StrategyRunner:
         self,
         on_signal: Callable[[dict], None],
         log: Callable[[str], None],
+        get_token: Callable[[], str] = lambda: "",
+        get_verify_url: Callable[[], str] = lambda: "",
     ) -> None:
         self.on_signal = on_signal
         self.log = log
+        # Licence gate: the built-in strategy only trades with a valid token
+        # (same subscription token as the cloud feed).
+        self.get_token = get_token
+        self.get_verify_url = get_verify_url
+        self._licensed: Optional[bool] = None     # tri-state: None/True/False
+        self._last_ok_ts = 0.0                     # last successful verification
+        self._next_verify_ts = 0.0                 # when to re-check
 
         self._lock = threading.Lock()
         self._cfg: dict = {
@@ -78,6 +92,8 @@ class StrategyRunner:
             if new_syms != old_syms or self._cfg.get("timeframe") != old_tf:
                 self._primed.clear()
                 self._last_ts.clear()
+        # A settings change may include a corrected token — re-verify promptly.
+        self._next_verify_ts = 0.0
 
     def _snapshot(self) -> dict:
         with self._lock:
@@ -92,6 +108,7 @@ class StrategyRunner:
             self.log("Built-in strategy: ccxt not available")
             return
         self._stop.clear()
+        self._next_verify_ts = 0.0        # verify the licence on the first cycle
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         self.running = True
@@ -109,18 +126,63 @@ class StrategyRunner:
         while not self._stop.is_set():
             cfg = self._snapshot()
             if cfg["enabled"] and cfg["symbols"] and cfg["exchange_id"]:
-                try:
-                    self._ensure_client(cfg["exchange_id"], cfg["market_type"])
-                    for sym in cfg["symbols"]:
-                        if self._stop.is_set():
-                            break
-                        self._step(sym, cfg)
-                    self._fail_count = 0
-                except Exception as exc:  # noqa: BLE001 - keep the loop alive
-                    self._fail_count += 1
-                    if self._fail_count in (1, 5, 20):   # log sparingly
-                        self.log(f"Built-in strategy: error ({exc})")
+                # Licence gate first — no valid token, no signals.
+                if self._ensure_licensed():
+                    try:
+                        self._ensure_client(cfg["exchange_id"], cfg["market_type"])
+                        for sym in cfg["symbols"]:
+                            if self._stop.is_set():
+                                break
+                            self._step(sym, cfg)
+                        self._fail_count = 0
+                    except Exception as exc:  # noqa: BLE001 - keep the loop alive
+                        self._fail_count += 1
+                        if self._fail_count in (1, 5, 20):   # log sparingly
+                            self.log(f"Built-in strategy: error ({exc})")
             self._stop.wait(STRATEGY_POLL_INTERVAL)
+
+    # -- licence gate -------------------------------------------------------
+    def licensed(self) -> Optional[bool]:
+        """Last known licence state (None until first verified) — for the GUI."""
+        return self._licensed
+
+    def _ensure_licensed(self) -> bool:
+        """Verify the licence on a schedule; return whether trading is allowed.
+
+        Between checks the cached decision is honoured. A server *rejection* is a
+        hard deny; a server *outage* is tolerated for ``LICENCE_GRACE_SECONDS``
+        after the last good check so a transient blip doesn't strand a paying
+        user mid-session."""
+        now = time.time()
+        if now >= self._next_verify_ts:
+            self._verify_licence(now)
+        return self._licensed is True
+
+    def _verify_licence(self, now: float) -> None:
+        prev = self._licensed
+        status, msg, expires_at = licence.verify(self.get_verify_url(), self.get_token())
+        if status == "ok":
+            self._licensed = True
+            self._last_ok_ts = now
+            self._next_verify_ts = now + LICENCE_RECHECK_INTERVAL
+            if prev is not True:
+                extra = ""
+                if expires_at:
+                    days = max(0, int((expires_at - now) / 86400))
+                    extra = f" (expires in ~{days}d)"
+                self.log(f"Built-in strategy: licence verified{extra}")
+        elif status == "error":
+            within_grace = self._last_ok_ts and (now - self._last_ok_ts) < LICENCE_GRACE_SECONDS
+            self._licensed = bool(within_grace)
+            self._next_verify_ts = now + LICENCE_RETRY_INTERVAL
+            if prev is True and not within_grace:
+                self.log(f"Built-in strategy: paused — {msg}")
+        else:  # rejected
+            self._licensed = False
+            # Re-check fairly soon so a fixed/renewed token resumes promptly.
+            self._next_verify_ts = now + LICENCE_RETRY_INTERVAL
+            if prev is not False:
+                self.log(f"Built-in strategy: disabled — {msg}")
 
     def _ensure_client(self, exchange_id: str, market_type: str) -> None:
         key = (exchange_id, market_type)

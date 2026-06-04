@@ -197,6 +197,8 @@ Exchange candles  →  strategy.py (Pine port)  →  this bot's pipeline  →  e
 1. Connect to your exchange as usual.
 2. Open the **Strategy** tab, tick **Enable built-in strategy**, set the
    **Symbols** (comma-separated, e.g. `BTC/USDT, ETH/USDT`) and **Timeframe**.
+   *(Requires a valid **licence token** — the same one used for cloud signals,
+   entered under Webhook → Cloud signals. See below.)*
 3. Tune the dip/green/SL/TP parameters (they mirror the indicator's inputs) — or
    leave the **Auto** preset, which picks BTC/ETH/crypto thresholds by symbol.
 4. The runner polls for freshly-**closed** candles, evaluates the strategy, and
@@ -215,9 +217,16 @@ Exchange candles  →  strategy.py (Pine port)  →  this bot's pipeline  →  e
   is the candle *data* (exchange OHLCV vs TradingView aggregation), which is why
   the runner pulls candles from the same exchange you trade on.
 
+**Licence gate.** The built-in engine is gated by the **same licence token** as
+the cloud feed. On startup (and every few hours) the app validates the token
+against the relay's `verify.php`; a missing, revoked, or expired token disables
+the engine (the Strategy tab shows *blocked — licence invalid/expired*). A
+transient relay outage is tolerated for a grace window so a paying user isn't
+stranded mid-session. Enter the token under **Webhook → Cloud signals**.
+
 > The built-in strategy and the TradingView webhook/relay can run **side by
 > side** — they all feed the same trade pipeline. Use whichever you prefer, or
-> both. The runner only trades while **enabled *and* connected**.
+> both. The runner only trades while **enabled, connected, and licensed**.
 
 ---
 
@@ -352,6 +361,7 @@ entry (closing is never blocked):
 | `relay_client.py` | Cloud-relay poller (licence-token signals) |
 | `strategy.py` | Pure port of the Prometheus indicator (dip→green engine) |
 | `strategy_runner.py` | Built-in strategy thread: candles → `strategy.evaluate` → trade |
+| `licence.py` | Licence verification (gates the built-in strategy via the relay) |
 | `security.py` | Encryption + PIN |
 | `config.py` | Constants & storage paths |
 | `run.bat` | Windows launcher |
