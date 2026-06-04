@@ -126,7 +126,8 @@ MAX_REFRESH_FAILURES = 3
 # customer's app polls it for new signals — no ngrok / port-forwarding needed.
 # ---------------------------------------------------------------------------
 DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
-RELAY_POLL_INTERVAL = 1.0   # seconds between polls (lower = faster pickup, more requests)
+RELAY_POLL_INTERVAL = 5.0   # seconds between polls (low enough for fast pickup,
+                            # high enough to avoid host/Cloudflare rate-limit 403s)
 
 # ---------------------------------------------------------------------------
 # Built-in strategy engine. Runs the bot's own port of the indicator over

@@ -64,7 +64,13 @@ class RelayClient:
                 self._fail_count += 1
                 if self._fail_count in (1, 5, 20):  # log sparingly
                     self.log(f"Cloud signals: poll error ({exc})")
-            self._stop.wait(RELAY_POLL_INTERVAL)
+            # Back off on repeated errors (e.g. a host/Cloudflare 403 from
+            # rate-limiting) so we stop hammering — up to 60s, reset on success.
+            if self._fail_count == 0:
+                wait = RELAY_POLL_INTERVAL
+            else:
+                wait = min(60.0, RELAY_POLL_INTERVAL * (2 ** min(self._fail_count, 5)))
+            self._stop.wait(wait)
 
     def _poll_once(self) -> None:
         token = self.get_token().strip()
