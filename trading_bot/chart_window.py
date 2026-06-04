@@ -56,9 +56,16 @@ ENTRY_COLOR = "#4a9eff"    # blue entry line
 TP1_COLOR = "#ffa057"      # orange TP1
 TP2_COLOR = "#33d6cf"      # aqua TP2
 SL_COLOR = "#ff5c5c"       # red SL
+MA_COLOR = "#5b8def"       # price moving-average line
+RSI_COLOR = "#c792ea"      # RSI line
 
 REFRESH_MS = 15000         # auto-refresh cadence
 DEFAULT_VIEW = 120         # visible candles on open
+MA_LEN = 20                # price moving-average length (overlay only)
+
+# Outcome status -> short tag + colour, shown next to each BUY arrow.
+STATUS_LETTER = {"win": "W", "loss": "L", "part": "P", "open": "O", "expired": "E"}
+STATUS_COLOR = {"win": GREEN, "loss": RED, "part": TP1_COLOR, "open": DIM, "expired": DIM}
 
 
 class ChartWindow:
@@ -82,8 +89,10 @@ class ChartWindow:
         self._candles: List[list] = []
         self._dips: List[int] = []
         self._signals: List = []
+        self._outcomes: List = []
         self._rsi: List = []
         self._vol_sma: List = []
+        self._price_ma: List = []
         self._eff_os: float = 30
         self._geom: Optional[dict] = None
         self.view_count = DEFAULT_VIEW
@@ -146,7 +155,8 @@ class ChartWindow:
         leg.pack(fill="x", padx=12, pady=(0, 4))
         for txt, col in (("◆ dip", DIP_COLOR), ("▲ BUY", BUY_COLOR),
                          ("— entry", ENTRY_COLOR), ("— TP1", TP1_COLOR),
-                         ("— TP2", TP2_COLOR), ("— SL", SL_COLOR)):
+                         ("— TP2", TP2_COLOR), ("— SL", SL_COLOR),
+                         (f"— MA{MA_LEN}", MA_COLOR)):
             tk.Label(leg, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
         tk.Label(leg, text="scroll = zoom · drag = pan", bg=BG, fg=DIM,
                  font=("Segoe UI", 8)).pack(side="right")
@@ -184,10 +194,12 @@ class ChartWindow:
             candles = self._fetch()
             params = self.get_params()
             dips, signals = strategy.evaluate_all(candles, params, ticker=self.symbol)
+            outcomes = strategy.track_outcomes(candles, signals)
             closes = [c[4] for c in candles]
             volumes = [c[5] for c in candles]
             rsi = strategy.rsi_series(closes, params.rsi_len)
             vol_sma = strategy.sma_series(volumes, params.vol_len)
+            price_ma = strategy.sma_series(closes, MA_LEN)
             eff_os = strategy.effective_settings(params.preset, self.symbol, params)[1]
         except Exception as exc:  # noqa: BLE001 - surface, don't crash the window
             self._post(lambda: self.status.config(text=f"Error: {exc}"))
@@ -197,8 +209,10 @@ class ChartWindow:
             self._candles = candles
             self._dips = dips
             self._signals = signals
+            self._outcomes = outcomes
             self._rsi = rsi
             self._vol_sma = vol_sma
+            self._price_ma = price_ma
             self._eff_os = eff_os
             if self.view_end is None:
                 self.view_end = len(candles) - 1
@@ -367,6 +381,15 @@ class ChartWindow:
                 y2 = y1 + 1
             c.create_rectangle(x - bw / 2, y1, x + bw / 2, y2, fill=col, outline=col)
 
+        # Price moving-average overlay.
+        ma_pts = []
+        for k in range(vc):
+            mv = self._price_ma[start + k] if start + k < len(self._price_ma) else None
+            if mv is not None:
+                ma_pts += [X(k), Yp(mv)]
+        if len(ma_pts) >= 4:
+            c.create_line(*ma_pts, fill=MA_COLOR, width=1)
+
         # Dip diamonds (below the bar).
         for di in self._dips:
             if start <= di <= end:
@@ -375,13 +398,35 @@ class ChartWindow:
                 c.create_polygon(x, y - 4, x - 4, y, x, y + 4, x + 4, y,
                                  fill=DIP_COLOR, outline="")
 
-        # BUY arrows.
+        # TP1 / TP2 / SL hit markers (where price later reached each level).
+        for oc in self._outcomes:
+            s = oc.signal
+            if oc.tp1_index is not None and start <= oc.tp1_index <= end:
+                x = X(oc.tp1_index - start)
+                c.create_oval(x - 3, Yp(s.tp1) - 3, x + 3, Yp(s.tp1) + 3,
+                              fill=TP1_COLOR, outline="")
+            if oc.tp2_index is not None and start <= oc.tp2_index <= end:
+                x = X(oc.tp2_index - start)
+                c.create_oval(x - 3, Yp(s.tp2) - 3, x + 3, Yp(s.tp2) + 3,
+                              fill=TP2_COLOR, outline="")
+            if oc.sl_index is not None and start <= oc.sl_index <= end:
+                x, y = X(oc.sl_index - start), Yp(s.sl)
+                c.create_line(x - 3, y - 3, x + 3, y + 3, fill=SL_COLOR)
+                c.create_line(x - 3, y + 3, x + 3, y - 3, fill=SL_COLOR)
+
+        # BUY arrows + outcome status tag.
+        oc_by_idx = {oc.signal.index: oc for oc in self._outcomes}
         for s in vis_sigs:
             k = s.index - start
             x, y = X(k), Yp(view[k][3]) + 20
             c.create_polygon(x, y - 7, x - 6, y + 5, x + 6, y + 5,
                              fill=BUY_COLOR, outline="")
             c.create_text(x, y + 13, text="BUY", fill=BUY_COLOR, font=("Segoe UI", 7))
+            oc = oc_by_idx.get(s.index)
+            if oc:
+                c.create_text(x, y + 24, text=STATUS_LETTER.get(oc.status, ""),
+                              fill=STATUS_COLOR.get(oc.status, DIM),
+                              font=("Segoe UI", 7, "bold"))
 
         # Level lines for the most recent visible signal.
         if vis_sigs:
@@ -423,6 +468,10 @@ class ChartWindow:
         def Yr(r):
             return rsi_bot - rsi_h * (max(0.0, min(100.0, r)) / 100.0)
 
+        # Shade the oversold zone (the dip trigger band): from the threshold to 0.
+        c.create_rectangle(padL, Yr(self._eff_os), w - padR, rsi_bot,
+                           fill=DIP_COLOR, outline="", stipple="gray12")
+
         for lvl in (70, 50, 30):
             y = Yr(lvl)
             c.create_line(padL, y, w - padR, y, fill=BORDER, dash=(2, 2))
@@ -440,7 +489,7 @@ class ChartWindow:
             if rv is not None:
                 rsi_pts += [X(k), Yr(rv)]
         if len(rsi_pts) >= 4:
-            c.create_line(*rsi_pts, fill="#c792ea", width=1)
+            c.create_line(*rsi_pts, fill=RSI_COLOR, width=1)
 
         self._geom = dict(padL=padL, padR=padR, padT=padT, padB=padB, w=w, h=h,
                           cw=cw, vc=vc, hi=hi, span=span,

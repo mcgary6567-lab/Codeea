@@ -68,6 +68,22 @@ class StrategySignal:
     index: int = -1                  # bar index within the evaluated candle list
 
 
+@dataclass
+class SignalOutcome:
+    """What happened to a signal after it fired — for charting / review.
+
+    Mirrors the Pine indicator's signal-tracking loop: scan forward from the
+    entry bar and record where price first reached TP1 / TP2 / SL.
+    ``status`` is ``open`` / ``win`` (TP2) / ``loss`` (SL, no TP1) /
+    ``part`` (SL or window after TP1) / ``expired`` (window, no TP1)."""
+
+    signal: StrategySignal
+    status: str = "open"
+    tp1_index: Optional[int] = None   # bar index where TP1 was first reached
+    tp2_index: Optional[int] = None
+    sl_index: Optional[int] = None
+
+
 # ---------------------------------------------------------------------------
 # Indicator helpers (pure series math; None during warmup where Pine is `na`).
 # ---------------------------------------------------------------------------
@@ -195,6 +211,51 @@ def evaluate_all(candles, params: StrategyParams, ticker: str = ""):
     visuals the Pine indicator draws, computed by the same logic the bot trades.
     """
     return _replay(candles, params, ticker)
+
+
+def track_outcomes(candles, signals, track_window: int = 120):
+    """Resolve each signal's fate by scanning forward (Pine lines 234-265).
+
+    Returns a list of :class:`SignalOutcome`, one per signal, recording the bar
+    where TP1 / TP2 / SL were first reached and the resulting status. Pure and
+    deterministic — TP2 takes priority over SL on the same bar, exactly as the
+    indicator marks it.
+    """
+    highs = [float(c[2]) for c in candles]
+    lows = [float(c[3]) for c in candles]
+    n = len(candles)
+    outcomes = []
+    for sig in signals:
+        oc = SignalOutcome(signal=sig)
+        tp1_hit = False
+        tp2_hit = False
+        for j in range(sig.index + 1, n):
+            bars_in = j - sig.index
+            hit_tp2 = highs[j] >= sig.tp2
+            hit_tp1 = highs[j] >= sig.tp1
+            hit_sl = sig.sl is not None and lows[j] <= sig.sl
+            if hit_tp2 and not tp2_hit:
+                tp2_hit = True
+                tp1_hit = True
+                oc.tp2_index = j
+                if oc.tp1_index is None:
+                    oc.tp1_index = j
+            elif hit_tp1 and not tp1_hit:
+                tp1_hit = True
+                oc.tp1_index = j
+
+            if tp2_hit:
+                oc.status = "win"
+                break
+            if hit_sl:
+                oc.status = "part" if tp1_hit else "loss"
+                oc.sl_index = j
+                break
+            if bars_in >= track_window:
+                oc.status = "part" if tp1_hit else "expired"
+                break
+        outcomes.append(oc)
+    return outcomes
 
 
 def _replay(candles, params: StrategyParams, ticker: str = ""):

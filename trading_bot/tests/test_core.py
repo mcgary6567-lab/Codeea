@@ -36,12 +36,14 @@ from guardrails import Guardrails  # noqa: E402
 from webhook_server import parse_payload  # noqa: E402
 from strategy import (  # noqa: E402
     StrategyParams,
+    StrategySignal,
     atr_series,
     evaluate,
     evaluate_all,
     lowest_series,
     rsi_series,
     sma_series,
+    track_outcomes,
 )
 
 
@@ -575,6 +577,61 @@ class TestStrategyEvaluateAll(unittest.TestCase):
     def test_empty_when_too_few_candles(self):
         dips, sigs = evaluate_all(_build(warmup=5), StrategyParams(**LENIENT))
         self.assertEqual((dips, sigs), ([], []))
+
+
+class TestTrackOutcomes(unittest.TestCase):
+    """Forward-scan that classifies each signal (WIN/LOSS/PART/OPEN/EXP) and
+    records where TP1/TP2/SL were hit — drives the chart's outcome markers."""
+
+    @staticmethod
+    def _c(high, low):
+        return [0, 100.0, high, low, 100.0, 100.0]   # only H/L matter here
+
+    def _sig(self, sl=96.0):
+        return StrategySignal(ts=0, entry=100.0, tp1=103.0, tp2=109.0, rsi=20.0,
+                              sl=sl, index=2)
+
+    def test_win_on_tp2(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(104, 100), self._c(110, 104)]
+        oc = track_outcomes(candles, [self._sig()])[0]
+        self.assertEqual(oc.status, "win")
+        self.assertEqual(oc.tp1_index, 3)
+        self.assertEqual(oc.tp2_index, 4)
+
+    def test_loss_on_sl_before_tp1(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(101, 95)]
+        oc = track_outcomes(candles, [self._sig(96.0)])[0]
+        self.assertEqual(oc.status, "loss")
+        self.assertEqual(oc.sl_index, 3)
+        self.assertIsNone(oc.tp1_index)
+
+    def test_part_when_sl_after_tp1(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(104, 100), self._c(101, 95)]
+        oc = track_outcomes(candles, [self._sig(96.0)])[0]
+        self.assertEqual(oc.status, "part")
+        self.assertEqual(oc.tp1_index, 3)
+        self.assertEqual(oc.sl_index, 4)
+
+    def test_open_when_nothing_hit(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(101, 99), self._c(102, 99)]
+        oc = track_outcomes(candles, [self._sig(96.0)])[0]
+        self.assertEqual(oc.status, "open")
+
+    def test_expired_after_window_without_tp1(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(101, 99), self._c(102, 99)]
+        oc = track_outcomes(candles, [self._sig(sl=None)], track_window=2)[0]
+        self.assertEqual(oc.status, "expired")
+
+    def test_tp2_takes_priority_over_sl_on_the_same_bar(self):
+        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
+                   self._c(110, 95)]
+        oc = track_outcomes(candles, [self._sig(96.0)])[0]
+        self.assertEqual(oc.status, "win")
 
 
 class TestLicence(unittest.TestCase):

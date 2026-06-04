@@ -208,12 +208,14 @@ Exchange candles  →  strategy.py (Pine port)  →  this bot's pipeline  →  e
 **See it on a chart.** The **📈 Chart** button (Strategy tab) opens a candlestick
 window that overlays the strategy's **own** signals — yellow dip diamonds, lime
 BUY arrows, and ENTRY / TP1 / TP2 / SL lines — exactly as the Pine indicator
-draws them, computed by the same engine on the same exchange candles. Below the
-price pane it adds a **volume** sub-pane (with the volume-average line the dip
-filter uses) and an **RSI** panel (with the strategy's oversold threshold
-marked). Hover for an OHLC + volume + RSI crosshair, scroll to zoom, drag to
-pan; it auto-refreshes as candles close. It's a pure-Tkinter Canvas (no charting
-dependency), so the build stays light.
+draws them, computed by the same engine on the same exchange candles. It also
+marks **outcomes** — where price later hit TP1/TP2 (dots) or SL (✗), plus a
+W/L/P status tag on each BUY — and overlays a price **moving average**. Below
+the price pane it adds a **volume** sub-pane (with the volume-average line the
+dip filter uses) and an **RSI** panel (oversold zone shaded, the strategy's
+threshold marked). Hover for an OHLC + volume + RSI crosshair, scroll to zoom,
+drag to pan; it auto-refreshes as candles close. It's a pure-Tkinter Canvas (no
+charting dependency), so the build stays light.
 
 **How it stays honest:**
 - **Non-repaint** — only *closed* candles are evaluated (the live forming candle
