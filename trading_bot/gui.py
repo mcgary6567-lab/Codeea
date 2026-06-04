@@ -660,7 +660,7 @@ class TradingBotGUI:
         alerts_tab = ttk.Frame(nb, padding=8)
         nb.add(exec_tab, text="Execution")
         nb.add(risk_tab, text="Modes & Risk")
-        nb.add(webhook_tab, text="Webhook")
+        nb.add(webhook_tab, text="License")
         nb.add(strategy_tab, text="Strategy")
         nb.add(alerts_tab, text="Alerts")
         for t in (exec_tab, risk_tab, webhook_tab, strategy_tab, alerts_tab):
@@ -931,11 +931,13 @@ class TradingBotGUI:
         theme.style_button(self.test_signal_btn, "accent")
         self.test_signal_btn.pack(side="right")
 
-        # Strategy filter — only act on alerts whose comment/strategy matches.
+        # Strategy filter — locked to the Prometheus indicator (read-only) so
+        # customers can't break signal matching.
         ttk.Label(f, text="Strategy filter:").grid(row=2, column=0, sticky="w", pady=2)
         self.strategy_filter_var = tk.StringVar(value="Prometheus")
-        ttk.Entry(f, textvariable=self.strategy_filter_var).grid(row=2, column=1, sticky="ew", pady=2)
-        ttk.Label(f, text="Only act on this indicator (matches its Order Comment). Blank = accept all.",
+        ttk.Entry(f, textvariable=self.strategy_filter_var,
+                  state="readonly").grid(row=2, column=1, sticky="ew", pady=2)
+        ttk.Label(f, text="Locked to the Prometheus indicator (matches its Order Comment).",
                   style="Dim.TLabel", wraplength=380).grid(row=3, column=0, columnspan=2, sticky="w")
 
         ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
