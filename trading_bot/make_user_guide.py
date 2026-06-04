@@ -195,14 +195,18 @@ def build():
 
     s.append(Paragraph("3. The settings tabs", H2))
     s.append(bullets([
-        "<b>Execution:</b> Trade Size (in the base coin, e.g. 0.006 BTC), Sizing mode "
-        "(Fixed lot or Risk % of balance), Auto-place SL/TP with TP1/TP2 scale-out, order "
-        "type, and (futures) leverage &amp; margin.",
-        "<b>Modes &amp; Risk:</b> Manual trading, <b>Safe Mode</b>, Read-only, and "
-        "<b>Guardrails</b> - daily loss/profit auto-halt, max open positions, per-symbol "
-        "cooldown, duplicate-signal filter, trailing stop, move-to-breakeven.",
+        "<b>Execution:</b> Trade Size - now in coin <i>or</i> <b>USDT ($)</b> - Sizing mode "
+        "(Fixed lot / Fixed $ / Risk %), Auto-place SL/TP with TP1/TP2 scale-out, order type, "
+        "a <b>Slippage guard</b>, a <b>round-up-to-minimum</b> toggle, and (futures) leverage "
+        "&amp; margin with a high-leverage warning.",
+        "<b>Modes &amp; Risk:</b> Manual trading, <b>Safe Mode</b>, Read-only, the full "
+        "<b>Guardrails</b> set (daily loss/profit halt, max positions, cooldown, dedupe, "
+        "<b>loss-streak pause</b>, <b>max-drawdown halt</b>, <b>trading-hours</b> window), "
+        "trailing stop, move-to-breakeven, plus <b>Run on Windows startup</b> and "
+        "<b>Minimize to tray</b> for 24/7 running (see page 5).",
         "<b>Webhook:</b> the TradingView webhook + <b>Strategy filter</b> (acts only on your "
-        "indicator), and <b>Cloud signals</b> - paste your Relay URL + Licence token.",
+        "indicator), a <b>Test Signal</b> button, and <b>Cloud signals</b> - paste your "
+        "Relay URL + Licence token.",
         "<b>Alerts:</b> Sound, Desktop and <b>Telegram</b> notifications (with Test buttons), "
         "an \"important events only\" filter, and an end-of-day <b>P&amp;L summary</b>.",
     ]))
@@ -212,8 +216,8 @@ def build():
         "<b>Manual:</b> pick a Symbol, set the size, press <b>BUY</b> or <b>SELL</b>.",
         "<b>Automatic:</b> signals arrive by webhook or cloud and the bot opens the trade "
         "plus its TP1/TP2 brackets for you.",
-        "<b>Open Positions:</b> Close Selected, Set SL/TP, or <b>PANIC: Close All</b> to "
-        "flatten everything instantly.",
+        "<b>Open Positions:</b> Close Selected, <b>Close %</b> (bank part of a winner - "
+        "25/33/50/75%), Set SL/TP, or <b>PANIC: Close All</b> to flatten everything instantly.",
         "<b>Analytics:</b> win rate, realized P&amp;L and an equity curve, with a date-range "
         "filter, Clear, and Export CSV for your records.",
     ]))
@@ -249,6 +253,56 @@ def build():
          Paragraph("Pair mismatch - use the exchange's pair (e.g. BTCUSDT, not BTCUSD).", CELL)],
     ], [44 * mm, None]))
 
+    # ---------------- Page 5 ----------------
+    s.append(Paragraph("5. Power tools &amp; running 24/7", H2))
+    s.append(Paragraph(
+        "These newer controls let you test safely, take profit smarter, cap your risk and "
+        "keep the bot trading around the clock. All are optional - defaults are off.", BODY))
+
+    s.append(Paragraph("Test &amp; take profit", H2))
+    s.append(bullets([
+        "<b>Test Signal</b> (Webhook tab): fires a fake BUY through the <i>real</i> pipeline - "
+        "sizing, order and SL/TP bracket - on your selected symbol. In <b>Safe Mode</b> it is "
+        "simulated (no real order); with Safe Mode off it asks before placing a real test "
+        "trade. Use it to prove your size and brackets are correct before going live.",
+        "<b>Close %</b> (Open Positions): select a position, pick <b>25/33/50/75%</b> and click "
+        "<b>Close %</b> to bank part of a winner (a reduce-only market order) while letting the "
+        "rest run. Click again to scale out further; <b>Close Selected</b> exits the remainder.",
+    ]))
+
+    s.append(Paragraph("Smarter execution (Execution tab)", H2))
+    s.append(bullets([
+        "<b>Slippage guard (%)</b>: skip a signal if price has already moved more than this "
+        "from the indicator's entry - stops you chasing a candle that ran. e.g. <b>0.5</b> = "
+        "skip if &gt;0.5% away. <b>0 = off</b>.",
+        "<b>Round small orders up to the minimum</b>: if your lot is below the exchange's "
+        "~$5 minimum, tick this to bump it up to the minimum instead of blocking the trade.",
+        "<b>Leverage warning</b>: choosing more than <b>10x</b> on Futures pops a reminder that "
+        "liquidation sits near -100/leverage % from entry. Lower leverage = more breathing room.",
+    ]))
+
+    s.append(Paragraph("Extra guardrails (Modes &amp; Risk tab)", H2))
+    s.append(bullets([
+        "<b>Loss-streak limit + pause</b>: after N losing trades in a row, pause new entries "
+        "for the set number of seconds - a circuit-breaker for a bad run.",
+        "<b>Max drawdown halt (%)</b>: if account equity falls this far from its high-water "
+        "mark, stop opening trades until you reset.",
+        "<b>Trading-hours window</b>: only trade between a start and end hour (your PC's local "
+        "time); set both to 0 to trade all day. Supports overnight windows (e.g. 22 -&gt; 6).",
+    ]))
+
+    s.append(Paragraph("Run 24/7 (Modes &amp; Risk tab)", H2))
+    s.append(bullets([
+        "<b>Run automatically when Windows starts</b>: launches the bot at login. Combine with "
+        "Safe Mode off + a saved Licence/Webhook so it trades unattended after a reboot.",
+        "<b>Minimize to system tray on close</b>: the window's X hides the app to the tray "
+        "(near the clock) instead of quitting - it keeps trading in the background. Click the "
+        "tray icon to <b>Show</b>, or right-click -&gt; <b>Quit</b> to fully exit.",
+        "For true 24/7, leave the PC on (or use a small always-on PC/VPS) and keep your "
+        "exchange IP whitelist updated.",
+    ]))
+
+    # ---------------- Page 6 ----------------
     s.append(Paragraph("Security checklist", H2))
     s.append(bullets([
         "Withdrawals <b>disabled</b> on the API key.",
@@ -335,12 +389,18 @@ def build_cheatsheet():
     right = [
         Paragraph("Key settings", CH_H),
         _cbul([
-            "<b>Trade Size</b> is in coins (0.006 BTC ~ $420), not $.",
-            "<b>Sizing</b>: Fixed lot or Risk % of balance.",
+            "<b>Trade Size</b> in coin <i>or</i> <b>USDT ($)</b>; Sizing: Fixed / Fixed $ / Risk %.",
             "<b>Auto TP1/TP2</b> scale-out on signals.",
-            "<b>Guardrails</b>: daily loss/profit halt, max positions, cooldown, dedupe.",
-            "<b>PANIC: Close All</b> flattens everything.",
+            "<b>Guardrails</b>: daily loss/profit halt, max positions, cooldown, dedupe, "
+            "<b>loss-streak pause</b>, <b>drawdown halt</b>, <b>trading hours</b>.",
+            "<b>Slippage guard</b> + round-up-to-min; &gt;10x futures warns.",
+            "<b>Close %</b> banks part of a winner; <b>PANIC: Close All</b> flattens.",
             "<b>Alerts</b>: Sound / Desktop / Telegram + daily P&amp;L.",
+        ]),
+        Paragraph("Test &amp; 24/7", CH_H),
+        _cbul([
+            "<b>Test Signal</b> (Webhook): fake BUY through the real pipeline (sim in Safe Mode).",
+            "<b>Run on Windows startup</b> + <b>Minimize to tray</b> = unattended 24/7.",
         ]),
         Paragraph("Fees rule of thumb", CH_H),
         _cbul([
