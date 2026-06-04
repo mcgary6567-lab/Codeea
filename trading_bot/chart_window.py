@@ -36,7 +36,7 @@ except ImportError:
 
 import strategy
 import theme
-from config import STRATEGY_CANDLE_LIMIT, STRATEGY_TIMEFRAMES
+from config import STRATEGY_CANDLE_LIMIT, STRATEGY_TIMEFRAMES, exchange_label
 from exchange import normalize_symbol
 
 BG = theme.BG
@@ -178,9 +178,13 @@ class ChartWindow:
         self.status = tk.Label(bar, text="Loading…", bg=BG, fg=DIM, font=("Segoe UI", 9))
         self.status.pack(side="right", padx=10)
 
-        # Legend.
+        # "What am I tracking?" banner + legend.
         leg = tk.Frame(self.win, bg=BG)
         leg.pack(fill="x", padx=12, pady=(0, 4))
+        self._track_lbl = tk.Label(leg, text="", bg=BG, fg=GREEN,
+                                   font=("Segoe UI Semibold", 9))
+        self._track_lbl.pack(side="left", padx=(0, 10))
+        self._update_track_label()
         for txt, col in (("◆ dip", DIP_COLOR), ("▲ BUY", BUY_COLOR),
                          ("— entry", ENTRY_COLOR), ("— TP1", TP1_COLOR),
                          ("— TP2", TP2_COLOR), ("— SL", SL_COLOR),
@@ -245,8 +249,9 @@ class ChartWindow:
             if self.view_end is None:
                 self.view_end = len(candles) - 1
             self.status.config(
-                text=f"{self.symbol} · {self.timeframe} · {len(candles)} candles · "
+                text=f"{len(candles)} candles · "
                      f"{len(signals)} signal{'s' if len(signals) != 1 else ''}")
+            self._update_track_label()
             self._redraw()
         self._post(apply)
 
@@ -281,6 +286,20 @@ class ChartWindow:
         self._pull_settings()       # follow the Strategy tab (no-op if unfollowed)
         self._load()
         self._schedule()
+
+    def _update_track_label(self) -> None:
+        """Refresh the banner so it's always obvious what the chart tracks."""
+        if not hasattr(self, "_track_lbl"):
+            return
+        following = self.follow.get()
+        dot = "● following" if following else "○ manual"
+        feed = f"{exchange_label(self.exchange_id)} {self.market_type}"
+        try:
+            self._track_lbl.config(
+                text=f"{dot} · {self.symbol} · {self.timeframe} · {feed}",
+                fg=(GREEN if following else DIM))
+        except tk.TclError:
+            pass
 
     # -- follow the Strategy tab -------------------------------------------
     def sync(self) -> None:
@@ -321,12 +340,14 @@ class ChartWindow:
         if changed:
             self.view_end = None
             self.view_count = DEFAULT_VIEW
+        self._update_track_label()
 
     def _on_follow_toggle(self) -> None:
         self._sync_controls_state()
         if self.follow.get():
             self._pull_settings()
             self._load()
+        self._update_track_label()
 
     def _sync_controls_state(self) -> None:
         """Lock the symbol/timeframe pickers while following the tab."""
@@ -345,12 +366,14 @@ class ChartWindow:
         self.symbol = self.symbol_var.get().strip() or self.symbol
         self.view_end = None
         self.view_count = DEFAULT_VIEW
+        self._update_track_label()
         self._load()
 
     def _on_tf_change(self) -> None:
         self.timeframe = self.tf_var.get()
         self.view_end = None
         self.view_count = DEFAULT_VIEW
+        self._update_track_label()
         self._load()
 
     def _on_wheel(self, e) -> None:
