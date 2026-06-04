@@ -28,6 +28,18 @@ if ((int)$client['expires_at'] > 0 && (int)$client['expires_at'] < time()) {
 
 $now = time();
 
+// Best-effort usage / IP tracking for the admin panel (key-sharing detection).
+// Wrapped so a missing table/column or DB hiccup never blocks signal delivery.
+try {
+    $ip = client_ip();
+    if ($ip !== '') {
+        $pdo->prepare("INSERT INTO client_ips (token, ip, last_seen, hits) VALUES (?,?,?,1)
+                       ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen), hits = hits + 1")
+            ->execute([$token, $ip, $now]);
+        $pdo->prepare("UPDATE clients SET last_ip=? WHERE token=?")->execute([$ip, $token]);
+    }
+} catch (Throwable $e) { /* extras not migrated yet — ignore */ }
+
 // First-ever poll: jump to the latest signal so we don't replay history.
 if ((int)$client['last_poll_at'] === 0) {
     $maxId = (int)$pdo->query("SELECT COALESCE(MAX(id),0) AS m FROM signals")->fetch()['m'];

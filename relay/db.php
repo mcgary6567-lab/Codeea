@@ -32,8 +32,57 @@ function db() {
             last_poll_at INT NOT NULL DEFAULT 0,
             created_at INT NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Per-token IPs (key-sharing detection). Created here too so poll.php can
+        // record from day one without the admin opening the panel first.
+        $pdo->exec("CREATE TABLE IF NOT EXISTS client_ips (
+            token VARCHAR(64) NOT NULL,
+            ip VARCHAR(45) NOT NULL,
+            last_seen INT NOT NULL,
+            hits BIGINT NOT NULL DEFAULT 0,
+            PRIMARY KEY (token, ip),
+            INDEX (last_seen)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     return $pdo;
+}
+
+// Optional extras (notes + IP / key-sharing tracking). Called by the admin
+// panel; kept out of the hot poll/verify path. Safe to call repeatedly.
+function ensure_extras($pdo) {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS client_ips (
+        token VARCHAR(64) NOT NULL,
+        ip VARCHAR(45) NOT NULL,
+        last_seen INT NOT NULL,
+        hits BIGINT NOT NULL DEFAULT 0,
+        PRIMARY KEY (token, ip),
+        INDEX (last_seen)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Additive columns for installs created before these existed.
+    foreach ([
+        'note'    => "ALTER TABLE clients ADD COLUMN note VARCHAR(255) NULL",
+        'last_ip' => "ALTER TABLE clients ADD COLUMN last_ip VARCHAR(45) NULL",
+    ] as $col => $sql) {
+        try {
+            $q = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns
+                                WHERE table_schema = DATABASE() AND table_name='clients'
+                                  AND column_name = ?");
+            $q->execute([$col]);
+            if (!(int)$q->fetchColumn()) {
+                $pdo->exec($sql);
+            }
+        } catch (Throwable $e) { /* lacking info_schema rights — skip silently */ }
+    }
+}
+
+// Best guess at the real client IP (honours Cloudflare / reverse proxies).
+function client_ip(): string {
+    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $h) {
+        if (!empty($_SERVER[$h])) {
+            $ip = trim(explode(',', $_SERVER[$h])[0]);
+            if ($ip !== '') return substr($ip, 0, 45);
+        }
+    }
+    return '';
 }
 
 function json_out($arr, $code = 200) {
