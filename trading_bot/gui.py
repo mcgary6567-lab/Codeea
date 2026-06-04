@@ -954,20 +954,26 @@ class TradingBotGUI:
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
         self.relay_status.grid(row=7, column=0, columnspan=2, sticky="w")
 
-        # --- Free trial / licence -------------------------------------------
-        lf = ttk.Frame(f)
-        lf.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        ttk.Label(lf, text="Free 10-day trial — email (optional):").pack(side="left")
+        # --- Free trial / licence (two rows so the buttons never clip) ------
+        er = ttk.Frame(f)
+        er.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        er.columnconfigure(1, weight=1)
+        ttk.Label(er, text="Free trial — Email (required):").grid(row=0, column=0, sticky="w")
         self.trial_email_var = tk.StringVar()
-        ttk.Entry(lf, textvariable=self.trial_email_var, width=18).pack(side="left", padx=6)
-        self.trial_btn = tk.Button(lf, text="Start Free Trial", command=self._start_free_trial)
+        ttk.Entry(er, textvariable=self.trial_email_var).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        bf = ttk.Frame(f)
+        bf.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+        self.trial_btn = tk.Button(bf, text="Start Free Trial", width=16,
+                                   command=self._start_free_trial)
         theme.style_button(self.trial_btn, "accent")
-        self.trial_btn.pack(side="left", padx=4)
-        self.getlic_btn = tk.Button(lf, text="Get License", command=self._open_checkout)
+        self.trial_btn.pack(side="left", padx=(0, 8))
+        self.getlic_btn = tk.Button(bf, text="Get License", width=16,
+                                    command=self._open_checkout)
         theme.style_button(self.getlic_btn, "accent")
-        self.getlic_btn.pack(side="left", padx=4)
+        self.getlic_btn.pack(side="left")
         self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
-        self.trial_status.grid(row=9, column=0, columnspan=2, sticky="w", pady=(2, 0))
+        self.trial_status.grid(row=10, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
     def _build_strategy_tab(self, f) -> None:
         """Built-in strategy: trade the bot's own port of the indicator with no
@@ -1237,12 +1243,11 @@ class TradingBotGUI:
     def _start_free_trial(self) -> None:
         """Request a self-service 10-day trial and, on success, license the app.
 
-        Email is optional — if given it strengthens anti-abuse (machine + email)
-        and lets us reach the customer; if blank we key the trial on the machine
-        fingerprint alone."""
+        Email is required: the relay validates it and ties the trial to it
+        (anti-abuse = machine + email)."""
         email = self.trial_email_var.get().strip()
-        if email and ("@" not in email or "." not in email.split("@")[-1]):
-            messagebox.showwarning("Free trial", "That email looks invalid — fix it or leave it blank.")
+        if "@" not in email or "." not in email.split("@")[-1]:
+            messagebox.showwarning("Free trial", "Enter a valid email to start your free trial.")
             return
         self.trial_btn.config(state="disabled", text="Starting…")
         trial_url = licence.trial_url_from_relay(self.relay_url_var.get().strip())
