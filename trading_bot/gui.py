@@ -1096,6 +1096,9 @@ class TradingBotGUI:
         elif not active and self.strategy_runner.running:
             self.strategy_runner.stop()
         self._update_strategy_status()
+        # Keep an open chart mirroring the live Strategy-tab settings.
+        if getattr(self, "_chart_win", None) and self._chart_win.alive():
+            self._chart_win.sync()
 
     def _update_strategy_status(self) -> None:
         if not hasattr(self, "strat_status"):
@@ -1124,16 +1127,14 @@ class TradingBotGUI:
         if getattr(self, "_chart_win", None) and self._chart_win.alive():
             self._chart_win.focus()
             return
-        symbols = [s.strip() for s in self.strat_symbols_var.get().split(",") if s.strip()]
-        symbol = symbols[0] if symbols else "BTC/USDT"
         self._chart_win = ChartWindow(
             self.root,
-            exchange_id=exchange_id(self.exchange_var.get()),
-            market_type="futures" if self.market_var.get() == "Futures" else "spot",
-            symbol=symbol,
-            timeframe=self.strat_tf_var.get(),
+            get_symbols=lambda: [s.strip() for s in self.strat_symbols_var.get().split(",")
+                                 if s.strip()],
+            get_timeframe=self.strat_tf_var.get,
             get_params=self._strategy_params,
-            symbols=symbols or [symbol],
+            get_exchange=lambda: exchange_id(self.exchange_var.get()),
+            get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
         )
 
     def _build_alerts_tab(self, f) -> None:

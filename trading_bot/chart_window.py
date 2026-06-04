@@ -72,18 +72,25 @@ class ChartWindow:
     def __init__(
         self,
         root: tk.Tk,
-        exchange_id: str,
-        market_type: str,
-        symbol: str,
-        timeframe: str,
+        get_symbols: Callable[[], List[str]],
+        get_timeframe: Callable[[], str],
         get_params: Callable[[], "strategy.StrategyParams"],
-        symbols: Optional[List[str]] = None,
+        get_exchange: Callable[[], str],
+        get_market: Callable[[], str],
     ) -> None:
-        self.exchange_id = exchange_id
-        self.market_type = market_type
-        self.symbol = symbol or "BTC/USDT"
-        self.timeframe = timeframe or "5m"
+        # Live getters into the Strategy/Execution tabs — the chart can follow
+        # them so it always mirrors what the strategy actually trades.
+        self.get_symbols = get_symbols
+        self.get_timeframe = get_timeframe
         self.get_params = get_params
+        self.get_exchange = get_exchange
+        self.get_market = get_market
+
+        syms = self._safe_symbols()
+        self.symbol = syms[0] if syms else "BTC/USDT"
+        self.timeframe = (self._safe(get_timeframe) or "5m")
+        self.exchange_id = self._safe(get_exchange) or "binance"
+        self.market_type = self._safe(get_market) or "spot"
 
         self._client = None
         self._candles: List[list] = []
@@ -100,6 +107,7 @@ class ChartWindow:
         self._drag = None
         self._alive = True
         self._after_id = None
+        self._reload_after_id = None
 
         self.win = tk.Toplevel(root)
         self.win.title("Strategy Chart — Prometheus AI Crypto Bot")
@@ -108,9 +116,22 @@ class ChartWindow:
         self.win.configure(bg=BG)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self._build(symbols or [self.symbol])
+        self.follow = tk.BooleanVar(value=True)   # mirror the Strategy tab live
+        self._build(syms or [self.symbol])
+        self._sync_controls_state()
         self._load()
         self._schedule()
+
+    # -- small safe getters -------------------------------------------------
+    @staticmethod
+    def _safe(fn):
+        try:
+            return fn()
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _safe_symbols(self) -> List[str]:
+        return [s for s in (self._safe(self.get_symbols) or []) if s]
 
     # -- public helpers (used by the GUI to reuse one window) ---------------
     def alive(self) -> bool:
@@ -129,20 +150,27 @@ class ChartWindow:
         bar = tk.Frame(self.win, bg=BG)
         bar.pack(fill="x", padx=12, pady=(10, 6))
 
+        self._follow_chk = tk.Checkbutton(
+            bar, text="Follow Strategy tab", variable=self.follow,
+            command=self._on_follow_toggle, bg=BG, fg=DIM, selectcolor=ELEV,
+            activebackground=BG, activeforeground=TXT, bd=0, highlightthickness=0,
+            font=("Segoe UI", 9), cursor="hand2")
+        self._follow_chk.pack(side="left", padx=(0, 12))
+
         tk.Label(bar, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
-        sym_box = ttk.Combobox(bar, textvariable=self.symbol_var, width=14,
-                               values=symbols)
-        sym_box.pack(side="left", padx=(4, 12))
-        sym_box.bind("<<ComboboxSelected>>", lambda e: self._on_symbol_change())
-        sym_box.bind("<Return>", lambda e: self._on_symbol_change())
+        self._sym_box = ttk.Combobox(bar, textvariable=self.symbol_var, width=14,
+                                     values=symbols)
+        self._sym_box.pack(side="left", padx=(4, 12))
+        self._sym_box.bind("<<ComboboxSelected>>", lambda e: self._on_symbol_change())
+        self._sym_box.bind("<Return>", lambda e: self._on_symbol_change())
 
         tk.Label(bar, text="Timeframe", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.tf_var = tk.StringVar(value=self.timeframe)
-        tf_box = ttk.Combobox(bar, textvariable=self.tf_var, width=6, state="readonly",
-                              values=STRATEGY_TIMEFRAMES)
-        tf_box.pack(side="left", padx=(4, 12))
-        tf_box.bind("<<ComboboxSelected>>", lambda e: self._on_tf_change())
+        self._tf_box = ttk.Combobox(bar, textvariable=self.tf_var, width=6, state="readonly",
+                                    values=STRATEGY_TIMEFRAMES)
+        self._tf_box.pack(side="left", padx=(4, 12))
+        self._tf_box.bind("<<ComboboxSelected>>", lambda e: self._on_tf_change())
 
         tk.Button(bar, text="Refresh", command=self._load, bg=ACCENT, fg="#1a1100",
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 9),
@@ -250,8 +278,67 @@ class ChartWindow:
     def _tick(self) -> None:
         if not self._alive:
             return
+        self._pull_settings()       # follow the Strategy tab (no-op if unfollowed)
         self._load()
         self._schedule()
+
+    # -- follow the Strategy tab -------------------------------------------
+    def sync(self) -> None:
+        """Called by the GUI when a Strategy/Execution setting changes.
+
+        Debounced so rapid edits (typing) coalesce into one reload."""
+        if not self._alive or not self.follow.get():
+            return
+        self._pull_settings()
+        if self._reload_after_id:
+            try:
+                self.win.after_cancel(self._reload_after_id)
+            except tk.TclError:
+                pass
+        self._reload_after_id = self.win.after(700, self._load)
+
+    def _pull_settings(self) -> None:
+        """Adopt the live Strategy/Execution settings (only while following)."""
+        if not self.follow.get():
+            return
+        syms = self._safe_symbols() or [self.symbol]
+        tf = self._safe(self.get_timeframe) or self.timeframe
+        ex = self._safe(self.get_exchange) or self.exchange_id
+        mk = self._safe(self.get_market) or self.market_type
+        new_symbol = self.symbol if self.symbol in syms else syms[0]
+        feed_changed = (ex != self.exchange_id or mk != self.market_type)
+        changed = (new_symbol != self.symbol or tf != self.timeframe or feed_changed)
+        self.exchange_id, self.market_type = ex, mk
+        if feed_changed:
+            self._client = None        # rebuild the ccxt client for the new feed
+        self.symbol, self.timeframe = new_symbol, tf
+        try:
+            self._sym_box.config(values=syms)
+            self.symbol_var.set(new_symbol)
+            self.tf_var.set(tf)
+        except tk.TclError:
+            pass
+        if changed:
+            self.view_end = None
+            self.view_count = DEFAULT_VIEW
+
+    def _on_follow_toggle(self) -> None:
+        self._sync_controls_state()
+        if self.follow.get():
+            self._pull_settings()
+            self._load()
+
+    def _sync_controls_state(self) -> None:
+        """Lock the symbol/timeframe pickers while following the tab."""
+        try:
+            if self.follow.get():
+                self._sym_box.config(state="disabled")
+                self._tf_box.config(state="disabled")
+            else:
+                self._sym_box.config(state="normal")
+                self._tf_box.config(state="readonly")
+        except tk.TclError:
+            pass
 
     # -- input handlers -----------------------------------------------------
     def _on_symbol_change(self) -> None:
@@ -555,9 +642,10 @@ class ChartWindow:
     # -- lifecycle ----------------------------------------------------------
     def _on_close(self) -> None:
         self._alive = False
-        if self._after_id:
-            try:
-                self.win.after_cancel(self._after_id)
-            except tk.TclError:
-                pass
+        for aid in (self._after_id, self._reload_after_id):
+            if aid:
+                try:
+                    self.win.after_cancel(aid)
+                except tk.TclError:
+                    pass
         self.win.destroy()

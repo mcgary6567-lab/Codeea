@@ -214,8 +214,11 @@ W/L/P status tag on each BUY — and overlays a price **moving average**. Below
 the price pane it adds a **volume** sub-pane (with the volume-average line the
 dip filter uses) and an **RSI** panel (oversold zone shaded, the strategy's
 threshold marked). Hover for an OHLC + volume + RSI crosshair, scroll to zoom,
-drag to pan; it auto-refreshes as candles close. It's a pure-Tkinter Canvas (no
-charting dependency), so the build stays light.
+drag to pan; it auto-refreshes as candles close. By default it **follows the
+Strategy tab** — symbol, timeframe, params and the exchange/market it trades on
+update live, so the chart always mirrors what the strategy actually does; untick
+*Follow Strategy tab* to browse another symbol without affecting trading. It's a
+pure-Tkinter Canvas (no charting dependency), so the build stays light.
 
 **How it stays honest:**
 - **Non-repaint** — only *closed* candles are evaluated (the live forming candle
