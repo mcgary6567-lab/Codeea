@@ -134,6 +134,18 @@ $result = $_SESSION['result'] ?? null; unset($_SESSION['result']);
 $rows   = $pdo->query("SELECT token,label,active,expires_at,last_poll_at,created_at FROM clients ORDER BY created_at DESC")->fetchAll();
 $now    = time();
 
+// Live usage, derived from last_poll_at (running bots poll every ~1s). No extra
+// query — computed from the rows we already fetched.
+const ONLINE_WINDOW = 60;       // polled within 60s = online now
+$online = $active24 = $activeLic = 0;
+foreach ($rows as $r) {
+    $lp  = (int)$r['last_poll_at'];
+    $exp = (int)$r['expires_at'];
+    if ($r['active'] && (!$exp || $exp >= $now)) $activeLic++;
+    if ($lp && $now - $lp <= ONLINE_WINDOW) $online++;
+    if ($lp && $now - $lp <= 86400)          $active24++;
+}
+
 function ago($ts) {
     if (!$ts) return '—';
     $d = time() - (int)$ts;
@@ -148,7 +160,13 @@ head('Prometheus — Licences');
   <div class="topbar">
     <div>
       <h1>Prometheus — Customer Licences</h1>
-      <p class="sub"><?= count($rows) ?> key<?= count($rows) === 1 ? '' : 's' ?> · each one = one paying customer's app.</p>
+      <p class="sub">
+        <span style="color:#5ce08a;font-weight:600">● <?= $online ?> online now</span>
+        · <?= $active24 ?> active (24h)
+        · <?= $activeLic ?> active licence<?= $activeLic === 1 ? '' : 's' ?>
+        · <?= count($rows) ?> total
+        <a href="panel.php" style="margin-left:8px;text-decoration:none">↻ refresh</a>
+      </p>
     </div>
     <a href="?logout=1" class="ghost" style="text-decoration:none"><button class="ghost" type="button">Log out</button></a>
   </div>
@@ -209,7 +227,10 @@ head('Prometheus — Licences');
           <td><?= htmlspecialchars((string)$r['label']) ?: '—' ?></td>
           <td><span class="pill <?= $cls ?>"><?= $lbl ?></span></td>
           <td><?= $exp ? date('Y-m-d', $exp) : 'never' ?></td>
-          <td><?= ago($r['last_poll_at']) ?></td>
+          <td><?php $lp = (int)$r['last_poll_at'];
+                 if ($lp && $now - $lp <= ONLINE_WINDOW): ?>
+                <span class="pill on">● online</span>
+              <?php else: ?><?= ago($lp) ?><?php endif; ?></td>
           <td><?= ago($r['created_at']) ?></td>
           <td><div class="row-actions">
             <button type="button" class="ghost" onclick="copyText('<?= $t ?>', this)">Copy</button>
