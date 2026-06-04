@@ -740,9 +740,14 @@ class TestExchangeVenues(unittest.TestCase):
         self.assertEqual(exchange_id("Coinbase"), "coinbase")
 
     def _perp(self, ex_id: str) -> str:
+        # Drive the symbol logic directly — no connect()/network/ccxt auth (CI
+        # has ccxt installed, so a real connect with dummy keys would raise).
         from exchange import ExchangeManager
-        m = ExchangeManager()                       # ccxt absent -> demo connect
-        m.connect(ex_id, "k", "s", market_type="futures")
+        from config import futures_quote
+        m = ExchangeManager()
+        m.market_type = "futures"
+        m._fut_quote = futures_quote(ex_id)
+        m.client = None
         return m._market_symbol("BTC/USDT")
 
     def test_futures_symbol_uses_venue_margin_currency(self):
@@ -753,7 +758,8 @@ class TestExchangeVenues(unittest.TestCase):
     def test_spot_symbol_unchanged(self):
         from exchange import ExchangeManager
         m = ExchangeManager()
-        m.connect("kraken", "k", "s", market_type="spot")
+        m.market_type = "spot"
+        m.client = None
         self.assertEqual(m._market_symbol("BTC/USDT"), "BTC/USDT")
 
 
