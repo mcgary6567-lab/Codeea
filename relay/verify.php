@@ -9,7 +9,7 @@
 // delivery. Same licence token as the cloud feed — one token per customer.
 //
 // Returns:
-//   { "ok": true,  "expires_at": <epoch|0>, "label": "...", "server_time": N }
+//   { "ok": true,  "expires_at": <epoch|0>, "label": "...", "trial": bool, "server_time": N }
 //   { "ok": false, "error": "invalid token" | "token disabled" | "token expired" }
 
 require_once __DIR__ . '/db.php';
@@ -20,7 +20,7 @@ if ($token === '') {
 }
 
 $pdo = db();
-$c = $pdo->prepare("SELECT token, label, active, expires_at FROM clients WHERE token = ?");
+$c = $pdo->prepare("SELECT * FROM clients WHERE token = ?");
 $c->execute([$token]);
 $client = $c->fetch();
 
@@ -38,5 +38,6 @@ json_out([
     'ok'          => true,
     'expires_at'  => (int)$client['expires_at'],
     'label'       => $client['label'],
+    'trial'       => (($client['note'] ?? '') === 'trial'),
     'server_time' => time(),
 ]);

@@ -41,6 +41,7 @@ from strategy_runner import StrategyRunner
 from config import (
     APP_TITLE,
     APP_VERSION,
+    CHECKOUT_URL,
     EXCHANGE_LABELS,
     exchange_id,
     exchange_label,
@@ -135,6 +136,7 @@ class TradingBotGUI:
         self._push_strategy()            # apply built-in strategy config
         self._autostart_webhook()       # ready to receive signals out of the box
         self._autostart_relay()         # auto-connect cloud signals if licensed
+        self.after(2000, self._refresh_trial_status)  # trial/licence countdown strip
         self._tray = None                # lazy-created system-tray controller
         self._online = None              # tri-state: None=unknown, True/False
         self._net_check_running = False  # guards against overlapping probes
@@ -953,6 +955,20 @@ class TradingBotGUI:
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
         self.relay_status.grid(row=8, column=0, columnspan=2, sticky="w")
 
+        # --- Free trial / licence -------------------------------------------
+        lf = ttk.Frame(f)
+        lf.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        ttk.Label(lf, text="No licence? Free 10-day trial:").pack(side="left")
+        self.trial_email_var = tk.StringVar()
+        ttk.Entry(lf, textvariable=self.trial_email_var, width=20).pack(side="left", padx=6)
+        self.trial_btn = tk.Button(lf, text="Start Free Trial", command=self._start_free_trial)
+        theme.style_button(self.trial_btn, "accent")
+        self.trial_btn.pack(side="left", padx=4)
+        self.getlic_btn = tk.Button(lf, text="Get License", command=self._open_checkout)
+        self.getlic_btn.pack(side="left", padx=4)
+        self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
+        self.trial_status.grid(row=10, column=0, columnspan=2, sticky="w", pady=(2, 0))
+
     def _build_strategy_tab(self, f) -> None:
         """Built-in strategy: trade the bot's own port of the indicator with no
         TradingView account. Same dip→green-sequence logic, run on exchange
@@ -1209,6 +1225,87 @@ class TradingBotGUI:
         """Auto-connect cloud signals if a licence token was saved."""
         if self.relay_token_var.get().strip():
             self._toggle_relay()
+
+    # --- Free trial / licence --------------------------------------------
+    def _open_checkout(self) -> None:
+        """Open the checkout page so the customer can buy a full licence."""
+        try:
+            webbrowser.open(CHECKOUT_URL)
+        except Exception:  # noqa: BLE001 - opening a browser must never crash the app
+            messagebox.showinfo("Get License", CHECKOUT_URL)
+
+    def _start_free_trial(self) -> None:
+        """Request a self-service 10-day trial and, on success, license the app."""
+        email = self.trial_email_var.get().strip()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            messagebox.showwarning("Free trial", "Enter a valid email to start your free trial.")
+            return
+        self.trial_btn.config(state="disabled", text="Starting…")
+        trial_url = licence.trial_url_from_relay(self.relay_url_var.get().strip())
+        machine = licence.machine_fingerprint()
+
+        def work():
+            result = licence.start_trial(trial_url, email, machine)
+            self.after(0, lambda: self._trial_done(*result))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _trial_done(self, status: str, message: str, token: str, expires_at: int) -> None:
+        self.trial_btn.config(state="normal", text="Start Free Trial")
+        if status == "ok" and token:
+            self.relay_token_var.set(token)
+            try:  # persist the new token silently
+                security.save_credentials(self.pin, self._collect_settings())
+            except Exception:  # noqa: BLE001
+                pass
+            if not self.relay.running:   # connect cloud signals + unlock strategy
+                self._toggle_relay()
+            days = max(0, (expires_at - int(time.time())) // 86400) if expires_at else 0
+            self.trial_status.config(text=f"✓ Trial active — {days} day(s) left", fg=GREEN)
+            messagebox.showinfo(
+                "Free trial started",
+                f"Your {days}-day free trial is active — full access unlocked.\n\n"
+                "When it ends, click “Get License” to continue.",
+            )
+        elif status == "used":
+            self.trial_status.config(text="Trial already used — click Get License", fg=RED)
+            if messagebox.askyesno("Free trial", message + "\n\nOpen the checkout page now?"):
+                self._open_checkout()
+        else:
+            self.trial_status.config(text="Couldn't start trial — try again", fg=RED)
+            messagebox.showerror("Free trial", message)
+
+    def _refresh_trial_status(self) -> None:
+        """Update the trial/licence countdown strip, then reschedule (5 min)."""
+        token = self.relay_token_var.get().strip()
+        if not token:
+            self.trial_status.config(text="No licence — start a free trial or Get License", fg=GREY)
+        else:
+            vurl = licence.verify_url_from_relay(self.relay_url_var.get().strip())
+
+            def work():
+                st = licence.licence_status(vurl, token)
+                self.after(0, lambda: self._apply_trial_status(st))
+
+            threading.Thread(target=work, daemon=True).start()
+        self.after(300_000, self._refresh_trial_status)
+
+    def _apply_trial_status(self, st: dict) -> None:
+        if not getattr(self, "trial_status", None):
+            return
+        if st["status"] == "ok":
+            exp = st["expires_at"]
+            kind = "Trial" if st.get("trial") else "Licence"
+            if not exp:
+                self.trial_status.config(text="✓ Licensed — no expiry", fg=GREEN)
+            else:
+                days = max(0, (exp - int(time.time())) // 86400)
+                colour = "#e67e22" if days <= 3 else GREEN
+                self.trial_status.config(text=f"✓ {kind} active — {days} day(s) left", fg=colour)
+        elif st["status"] == "rejected":
+            self.trial_status.config(text="Licence expired/invalid — click Get License", fg=RED)
+        else:
+            self.trial_status.config(text="Licence: server unreachable (will retry)", fg=GREY)
 
     def _test_telegram(self) -> None:
         """Send a test Telegram message so the user can confirm it works."""

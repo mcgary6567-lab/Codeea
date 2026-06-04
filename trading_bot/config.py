@@ -129,6 +129,13 @@ DEFAULT_RELAY_URL = "https://hooks.prometheusai.tech/poll.php"
 RELAY_POLL_INTERVAL = 5.0   # seconds between polls (low enough for fast pickup,
                             # high enough to avoid host/Cloudflare rate-limit 403s)
 
+# Self-service free trial. New users click "Start Free Trial" to get a 10-day
+# full-access licence (issued by the relay's trial.php). When it lapses the app
+# locks and the "Get License" button opens CHECKOUT_URL.
+TRIAL_DAYS = 10
+# >>> SET THIS to your real checkout link (Stripe Payment Link / Gumroad / etc.)
+CHECKOUT_URL = "https://prometheusai.tech/checkout"
+
 # ---------------------------------------------------------------------------
 # Built-in strategy engine. Runs the bot's own port of the indicator over
 # exchange candles so it can trade with no TradingView account. It pulls

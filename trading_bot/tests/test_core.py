@@ -13,6 +13,7 @@ Run from the project root:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -648,6 +649,73 @@ class TestLicence(unittest.TestCase):
         import licence
         status, _, _ = licence.verify("https://h.x/verify.php", "")
         self.assertEqual(status, "rejected")
+
+    def test_trial_url_derived_from_relay(self):
+        from licence import trial_url_from_relay
+        self.assertEqual(trial_url_from_relay("https://h.x/poll.php"),
+                         "https://h.x/trial.php")
+        self.assertEqual(trial_url_from_relay("https://h.x/sub/poll.php?t=z"),
+                         "https://h.x/sub/trial.php")
+
+    def test_machine_fingerprint_is_stable_hex(self):
+        import licence
+        a = licence.machine_fingerprint()
+        b = licence.machine_fingerprint()
+        self.assertEqual(a, b)                       # stable across calls
+        self.assertEqual(len(a), 64)                 # sha256 hex
+        int(a, 16)                                   # valid hex (raises otherwise)
+
+    @contextlib.contextmanager
+    def _fake_urlopen(self, payload, http_error_code=None):
+        """Patch licence.urllib.request.urlopen to return ``payload`` JSON,
+        optionally raising an HTTPError carrying that JSON body."""
+        import io
+        import json as _json
+        import urllib.error
+        import licence
+        body = _json.dumps(payload).encode("utf-8")
+
+        class _Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake(req, timeout=None):
+            if http_error_code is not None:
+                raise urllib.error.HTTPError(
+                    "u", http_error_code, "err", {}, io.BytesIO(body))
+            return _Resp(body)
+
+        orig = licence.urllib.request.urlopen
+        licence.urllib.request.urlopen = fake
+        try:
+            yield
+        finally:
+            licence.urllib.request.urlopen = orig
+
+    def test_start_trial_success_returns_token(self):
+        import licence
+        with self._fake_urlopen({"ok": True, "token": "abc123", "expires_at": 999, "trial": True}):
+            status, _, token, exp = licence.start_trial("https://h.x/trial.php", "a@b.com", "m" * 64)
+        self.assertEqual((status, token, exp), ("ok", "abc123", 999))
+
+    def test_start_trial_already_used_maps_to_used(self):
+        import licence
+        with self._fake_urlopen({"ok": False, "code": "used", "error": "already used"},
+                                http_error_code=403):
+            status, msg, token, _ = licence.start_trial("https://h.x/trial.php", "a@b.com", "m" * 64)
+        self.assertEqual(status, "used")
+        self.assertEqual(token, "")
+
+    def test_licence_status_reports_trial_flag(self):
+        import licence
+        with self._fake_urlopen({"ok": True, "expires_at": 123, "trial": True}):
+            st = licence.licence_status("https://h.x/verify.php", "tok")
+        self.assertEqual(st["status"], "ok")
+        self.assertTrue(st["trial"])
+        self.assertEqual(st["expires_at"], 123)
 
 
 class TestStrategyLicenceGate(unittest.TestCase):

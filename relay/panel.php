@@ -84,7 +84,7 @@ function ago($ts) {
 function plan_label($exp, $created) {
     if (!$exp) return 'Lifetime';
     $d = ((int)$exp - (int)$created) / 86400;
-    foreach ([7 => '7d', 30 => '30d', 90 => '90d', 365 => '1y'] as $n => $lab) {
+    foreach ([10 => 'Trial', 7 => '7d', 30 => '30d', 90 => '90d', 365 => '1y'] as $n => $lab) {
         if (abs($d - $n) <= 2) return $lab;
     }
     return 'custom';
@@ -335,6 +335,7 @@ head('Prometheus — Licences');
       <input type="text"  name="note"  placeholder="Note (plan, ref…) — optional">
       <select name="days" class="dur">
         <option value="0" selected>Lifetime (no expiry)</option>
+        <option value="10">Trial — 10 days</option>
         <option value="7">7 days</option>
         <option value="30">30 days</option>
         <option value="90">90 days</option>

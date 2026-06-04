@@ -42,6 +42,17 @@ function db() {
             PRIMARY KEY (token, ip),
             INDEX (last_seen)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Self-service free trials: one trial per machine fingerprint AND email,
+        // so reinstalling/relaunching can't farm unlimited trials.
+        $pdo->exec("CREATE TABLE IF NOT EXISTS trials (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            machine VARCHAR(64) NOT NULL,
+            email VARCHAR(190) NOT NULL,
+            token VARCHAR(64) NOT NULL,
+            created_at INT NOT NULL,
+            INDEX (machine),
+            INDEX (email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     return $pdo;
 }
