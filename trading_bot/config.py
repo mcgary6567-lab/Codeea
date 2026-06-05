@@ -54,7 +54,11 @@ DEFAULT_SUMMARY_HOUR = 23          # local hour (0-23) to send the recap
 # sent to Telegram; routine/noisy events still beep + toast locally.
 DEFAULT_TELEGRAM_IMPORTANT_ONLY = True
 
-# Auto-update: a small JSON at this URL like {"version":"1.0.1","url":"..."}
+# Auto-update: primary source is the GitHub Releases API for this repo (nothing
+# to hand-edit per release — tagging vX.Y.Z is enough). UPDATE_URL is a legacy
+# version.json fallback used only if the API is unreachable.
+UPDATE_REPO = "mcgary6567-lab/codeea"
+UPDATE_ASSET = "PrometheusAICryptoBot.exe"
 UPDATE_URL = "https://prometheusai.tech/version.json"
 
 # ---------------------------------------------------------------------------

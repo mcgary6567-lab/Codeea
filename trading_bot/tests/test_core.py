@@ -693,5 +693,65 @@ class TestStrategyLicenceGate(unittest.TestCase):
         self.assertFalse(r._ensure_licensed())  # never verified -> fail closed
 
 
+class TestUpdater(unittest.TestCase):
+    def setUp(self):
+        import updater
+        self.u = updater
+
+    def test_version_compare(self):
+        self.assertTrue(self.u.is_newer("1.0.1", "1.0.0"))
+        self.assertTrue(self.u.is_newer("v1.2.0", "1.1.9"))
+        self.assertTrue(self.u.is_newer("2.0.0", "1.9.9"))
+        self.assertFalse(self.u.is_newer("1.0.0", "1.0.0"))   # equal
+        self.assertFalse(self.u.is_newer("1.2", "1.2.0"))     # padded equal
+        self.assertFalse(self.u.is_newer("1.0.0", "1.0.1"))   # older
+        self.assertFalse(self.u.is_newer("", "1.0.0"))        # garbage
+
+    def test_parse_github_release(self):
+        data = {
+            "tag_name": "v1.4.0",
+            "body": "Fixes and a [REQUIRED] server change.",
+            "html_url": "https://github.com/x/y/releases/tag/v1.4.0",
+            "assets": [
+                {"name": "PrometheusAICryptoBot.exe",
+                 "browser_download_url": "https://example/app.exe"},
+                {"name": "PrometheusAICryptoBot.exe.sha256",
+                 "browser_download_url": "https://example/app.exe.sha256"},
+            ],
+        }
+        info = self.u.parse_github_release(data, asset_hint="PrometheusAICryptoBot.exe")
+        self.assertEqual(info["version"], "1.4.0")
+        self.assertEqual(info["url"], "https://example/app.exe")
+        self.assertEqual(info["sha256_url"], "https://example/app.exe.sha256")
+        self.assertTrue(info["required"])             # [REQUIRED] marker, case-insensitive
+
+    def test_parse_release_no_assets_falls_back_to_page(self):
+        info = self.u.parse_github_release(
+            {"tag_name": "v2.0.0", "html_url": "https://page", "assets": []})
+        self.assertEqual(info["version"], "2.0.0")
+        self.assertEqual(info["url"], "https://page")    # no exe -> page link
+        self.assertIsNone(info["sha256_url"])
+
+    def test_checksum_extract_and_verify(self):
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(b"hello world")
+            path = f.name
+        self.addCleanup(os.unlink, path)
+        digest = self.u.sha256_file(path)
+        # Tolerates the "<hex>  filename" sha256sum format and stray whitespace.
+        self.assertEqual(self.u.extract_sha256(f"{digest}  app.exe\n"), digest)
+        self.assertTrue(self.u.verify_sha256(path, digest.upper()))
+        self.assertFalse(self.u.verify_sha256(path, "0" * 64))
+        self.assertFalse(self.u.verify_sha256(path, ""))
+
+    def test_update_script_shape(self):
+        s = self.u.build_update_script(4242, r"C:\tmp\new.exe", r"C:\app\cur.exe")
+        self.assertIn("PID eq 4242", s)
+        self.assertIn(r'move /y "C:\tmp\new.exe" "C:\app\cur.exe"', s)
+        self.assertIn(r'start "" "C:\app\cur.exe"', s)
+        self.assertIn("goto trymove", s)               # retries while locked
+        self.assertIn('del "%~f0"', s)                 # self-cleanup
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

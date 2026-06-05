@@ -149,39 +149,100 @@ class TradingBotGUI:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _check_update(self) -> None:
-        """Background check for a newer version; notify if one is available."""
-        import json
-        import urllib.request
+        """Background check (GitHub Releases, version.json fallback); if a newer
+        build exists, offer a one-click in-app update."""
+        import updater
+        from config import UPDATE_REPO, UPDATE_URL, UPDATE_ASSET
 
         def worker():
             try:
-                from config import UPDATE_URL
-                req = urllib.request.Request(UPDATE_URL, headers={"User-Agent": "PrometheusBot"})
-                info = json.loads(urllib.request.urlopen(req, timeout=8).read().decode("utf-8"))
-                latest = str(info.get("version", "")).strip()
-                url = info.get("url", WEBSITE_URL)
-                if latest and self._version_newer(latest, APP_VERSION):
-                    self.root.after(0, lambda: self._notify_update(latest, url))
-            except Exception:  # noqa: BLE001 - silent if offline / no version file
-                pass
+                info = updater.check_latest(repo=UPDATE_REPO, fallback_url=UPDATE_URL,
+                                            asset_hint=UPDATE_ASSET)
+            except Exception:  # noqa: BLE001 - silent if offline
+                info = None
+            if info and updater.is_newer(info.get("version", ""), APP_VERSION):
+                self.root.after(0, lambda: self._notify_update(info))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    @staticmethod
-    def _version_newer(latest: str, current: str) -> bool:
-        def parts(v):
-            return [int(x) for x in v.split(".") if x.isdigit()]
-        try:
-            return parts(latest) > parts(current)
-        except Exception:  # noqa: BLE001
-            return False
+    def _notify_update(self, info: dict) -> None:
+        import updater
+        latest = info.get("version", "")
+        notes = (info.get("notes") or "").strip()
+        required = bool(info.get("required"))
+        # Can we self-update? Only from a frozen Windows build with a verifiable exe.
+        can_auto = (updater.frozen_exe_path() is not None and os.name == "nt"
+                    and bool(info.get("url")) and bool(info.get("sha256_url")))
+        body = f"A newer version ({latest}) is available — you have {APP_VERSION}."
+        if required:
+            body += "\n\nThis is a required update."
+        if notes:
+            clip = notes if len(notes) <= 600 else notes[:600] + "…"
+            body += f"\n\nWhat's new:\n{clip}"
 
-    def _notify_update(self, latest: str, url: str) -> None:
-        if messagebox.askyesno(
-            "Update available",
-            f"A newer version ({latest}) is available — you have {APP_VERSION}.\n\n"
-            "Open the download page?"):
-            self._open_url(url)
+        if can_auto:
+            body += "\n\nDownload and install it now? The app will restart."
+            if messagebox.askyesno("Update available", body):
+                self._do_self_update(info)
+        else:
+            # Source/dev run, or no checksum published → manual download.
+            body += "\n\nOpen the download page?"
+            if messagebox.askyesno("Update available", body):
+                self._open_url(info.get("page") or info.get("url") or WEBSITE_URL)
+
+    def _do_self_update(self, info: dict) -> None:
+        """Download the new exe, verify its SHA-256, then hand off to the swap-
+        and-relaunch helper and quit. Runs the download off the UI thread."""
+        import tempfile
+        import updater
+
+        prog = tk.Toplevel(self.root)
+        prog.title("Updating")
+        prog.transient(self.root)
+        prog.resizable(False, False)
+        lbl = tk.Label(prog, text="Downloading update…", padx=24, pady=12)
+        lbl.pack()
+        bar = ttk.Progressbar(prog, length=320, mode="determinate", maximum=100)
+        bar.pack(padx=24, pady=(0, 16))
+
+        def set_progress(done, total):
+            pct = (done * 100 // total) if total else 0
+            self.root.after(0, lambda: (bar.configure(value=pct),
+                                        lbl.configure(text=f"Downloading update… {pct}%")))
+
+        def fail(msg):
+            prog.destroy()
+            messagebox.showerror("Update failed",
+                                 f"{msg}\n\nYou can download it manually instead.")
+            self._open_url(info.get("page") or WEBSITE_URL)
+
+        def worker():
+            try:
+                dest = os.path.join(tempfile.gettempdir(), "PrometheusAICryptoBot_new.exe")
+                updater.download(info["url"], dest, progress=set_progress)
+                # Fetch + verify checksum.
+                import urllib.request
+                req = urllib.request.Request(info["sha256_url"],
+                                             headers={"User-Agent": "PrometheusBot"})
+                sha_body = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
+                expected = updater.extract_sha256(sha_body)
+                if not expected or not updater.verify_sha256(dest, expected):
+                    self.root.after(0, lambda: fail("Checksum verification failed — "
+                                                    "the download may be corrupt or tampered."))
+                    return
+                if not updater.apply_update(dest):
+                    self.root.after(0, lambda: fail("Couldn't start the installer."))
+                    return
+                self.root.after(0, self._quit_for_update)
+            except Exception as exc:  # noqa: BLE001
+                self.root.after(0, lambda: fail(str(exc)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _quit_for_update(self) -> None:
+        """Stop everything cleanly and exit so the helper can replace the exe and
+        relaunch it. Reuses the normal shutdown path (never hides to tray)."""
+        self._real_quit()
 
     # ====================================================================
     # Internet connectivity
