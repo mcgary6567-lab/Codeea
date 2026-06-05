@@ -263,13 +263,22 @@ class BacktestWindow:
             return
         self._post(lambda: self._done(result, len(candles)))
 
+    @staticmethod
+    def _f(val, default: float) -> float:
+        """Tolerant float parse so bad input (e.g. '1,000', '') never raises —
+        important because _load_opt_row calls this outside a try/except."""
+        try:
+            return float(str(val).replace(",", "").strip() or default)
+        except (ValueError, TypeError):
+            return default
+
     def _cfg_from_ui(self) -> "bt.BacktestConfig":
         return bt.BacktestConfig(
-            start_equity=float(self.equity_var.get() or 10000),
-            size_pct=float(self.size_var.get() or 100),
-            risk_pct=float(self.risk_var.get() or 0),
-            fee_pct=float(self.fee_var.get() or 0),
-            funding_pct_8h=float(self.fund_var.get() or 0),
+            start_equity=self._f(self.equity_var.get(), 10000),
+            size_pct=self._f(self.size_var.get(), 100),
+            risk_pct=self._f(self.risk_var.get(), 0),
+            fee_pct=self._f(self.fee_var.get(), 0),
+            funding_pct_8h=self._f(self.fund_var.get(), 0),
             apply_costs=self.costs_var.get(),
             bar_seconds=TF_SECONDS.get(self.timeframe, 3600),
             allow_short=(self.market_type == "futures"),

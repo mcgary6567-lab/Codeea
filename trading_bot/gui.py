@@ -136,6 +136,7 @@ class TradingBotGUI:
         self._skipped_version = str(self.saved.get("skipped_version", ""))
         self._build_ui()
         self._load_saved_into_ui()
+        self._update_manual_state()      # disabled until connected (+ manual toggle)
         self._push_settings()
         self._push_strategy()            # apply built-in strategy config
         self._autostart_webhook()       # ready to receive signals out of the box
@@ -200,10 +201,12 @@ class TradingBotGUI:
                                     f"You're up to date — v{APP_VERSION} is the latest.")
 
     def _show_required_banner(self, latest: str) -> None:
-        """Make the required-update state visible in the header alert area."""
+        """Make the required-update state visible and disable Connect."""
         if getattr(self, "alert_label", None):
             self.alert_label.config(
                 text=f"⚠ Required update v{latest} — connecting is disabled until you update")
+        if getattr(self, "connect_btn", None) and not self.connected:
+            self.connect_btn.config(state="disabled")
 
     def _schedule_update_recheck(self) -> None:
         """Re-check for updates periodically so a long-running (unattended) bot
@@ -1615,6 +1618,7 @@ class TradingBotGUI:
         self.api_key_var.set(s.get("api_key", ""))
         self.api_secret_var.set(s.get("api_secret", ""))
         self.passphrase_var.set(s.get("passphrase", ""))
+        self.manual_var.set(bool(s.get("manual_trading", True)))
         self.size_var.set(str(s.get("size", DEFAULT_TRADE_SIZE)))
         self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", "fixed"), SIZING_MODE_LABELS["fixed"]))
         self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
@@ -1680,6 +1684,7 @@ class TradingBotGUI:
             "api_key": self.api_key_var.get(),
             "api_secret": self.api_secret_var.get(),
             "passphrase": self.passphrase_var.get(),
+            "manual_trading": self.manual_var.get(),
             "size": self._float(self.size_var.get(), DEFAULT_TRADE_SIZE),
             "sizing_mode": self._sizing_mode_value(),
             "risk_percent": self._float(self.risk_pct_var.get(), DEFAULT_RISK_PERCENT),
@@ -2070,7 +2075,10 @@ class TradingBotGUI:
             })
 
     def _update_manual_state(self) -> None:
-        state = "normal" if self.manual_var.get() else "disabled"
+        # BUY/SELL require BOTH a live connection and the manual-trading toggle —
+        # so the buttons never advertise an action that would be refused.
+        enabled = self.manual_var.get() and getattr(self, "connected", False)
+        state = "normal" if enabled else "disabled"
         self.buy_btn.config(state=state)
         self.sell_btn.config(state=state)
 
@@ -2231,11 +2239,16 @@ class TradingBotGUI:
         else:
             self.status_dot.config(fg=RED)
             self.conn_label.config(text="Disconnected", fg=TXT)
-            self.connect_btn.config(state="normal")
+            # Keep Connect disabled while a required update is pending.
+            self.connect_btn.config(
+                state="disabled" if self._required_update else "normal")
             self.disconnect_btn.config(state="disabled")
             self.exchange_combo.config(state="readonly")
             self.mark_label.config(text="—", fg=GREY)
-            self.alert_label.config(text="")
+            if not self._required_update:
+                self.alert_label.config(text="")
+        # Sync the manual BUY/SELL buttons to the new connection state.
+        self._update_manual_state()
 
     def _update_account(self, msg: dict) -> None:
         balance = msg.get("balance", 0.0)
