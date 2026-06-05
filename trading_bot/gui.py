@@ -425,6 +425,12 @@ class TradingBotGUI:
                   style="Dim.TLabel", wraplength=380).grid(
             row=7, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
+        # Strategy chart — lives here so it's reachable from any Trade Settings
+        # tab. Visualises the built-in strategy's signals on exchange candles.
+        chart_btn = tk.Button(f, text="📈 Chart", command=self._open_strategy_chart)
+        theme.style_button(chart_btn, "accent")
+        chart_btn.grid(row=8, column=0, columnspan=2, sticky="w", pady=(10, 0))
+
         self._toggle_passphrase()
 
     def _toggle_passphrase(self) -> None:
@@ -993,9 +999,6 @@ class TradingBotGUI:
         theme.make_check(row, text="Enable built-in strategy (no TradingView needed)",
                          variable=self.strat_enabled_var,
                          command=self._push_strategy).pack(side="left")
-        chart_btn = tk.Button(row, text="📈 Chart", command=self._open_strategy_chart)
-        theme.style_button(chart_btn, "accent")
-        chart_btn.pack(side="right", padx=(8, 0))
         self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
                                      font=("Segoe UI", 9))
         self.strat_status.pack(side="right")
