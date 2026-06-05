@@ -767,7 +767,7 @@ class TradingBotGUI:
                  insertbackground=TXT).grid(row=2, column=1, padx=14, pady=4)
 
         def apply():
-            self.backend.submit({"cmd": "set_protection", "pair": pair, "symbol": pair,
+            self.backend.submit({"cmd": "set_protection", "symbol": pair,
                                  "sl": self._float(sl_v.get(), 0) or None,
                                  "tp": self._float(tp_v.get(), 0) or None})
             win.destroy()

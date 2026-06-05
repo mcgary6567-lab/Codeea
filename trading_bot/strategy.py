@@ -301,7 +301,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
                                    "entry": cl[i], "sl": sl, "ts": ts[i]}))
                 pos, scaled = "short", False
 
-        prev_ready, prev_long, prev_short = True, long_aligned, short_aligned
+        prev_ready = True
 
     return events
 
