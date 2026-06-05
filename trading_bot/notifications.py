@@ -44,6 +44,7 @@ class Notifier:
         self.telegram_token = (token or "").strip()
         self.telegram_chat_id = (chat_id or "").strip()
         self.telegram_important_only = telegram_important_only
+        self._tg_fail_logged = False     # settings changed → allow re-logging a failure
 
     def telegram_ready(self) -> bool:
         return bool(self.telegram_token and self.telegram_chat_id)
@@ -60,10 +61,9 @@ class Notifier:
         if not token or not chat_id:
             return False, "Enter both the bot token and chat id first."
         try:
-            text = ("✅ *Prometheus AI Crypto Bot*\nTelegram test successful — "
+            text = ("✅ Prometheus AI Crypto Bot\nTelegram test successful — "
                     "your notifications are connected and working.")
-            data = urllib.parse.urlencode(
-                {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode()
+            data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
             req = urllib.request.Request(
                 f"https://api.telegram.org/bot{token}/sendMessage", data=data)
             info = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8"))
@@ -88,7 +88,7 @@ class Notifier:
         telegram_ok = important or not self.telegram_important_only
         if telegram_ok and self.telegram_ready():
             threading.Thread(
-                target=self._send_telegram, args=(f"*{title}*\n{message}",), daemon=True
+                target=self._send_telegram, args=(f"{title}\n{message}",), daemon=True
             ).start()
 
     # -- native Windows toast (PowerShell + WinRT, no extra dependency) ------
@@ -153,11 +153,31 @@ class Notifier:
         return f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
 
     def _send_telegram(self, text: str) -> None:
+        # Plain text (no parse_mode): exchange/error strings frequently contain
+        # underscores, asterisks and brackets that break Telegram's Markdown
+        # parser, which would reject the message (HTTP 400) and the alert would be
+        # silently lost — exactly the important alerts we most need to deliver.
         try:
             data = urllib.parse.urlencode(
-                {"chat_id": self.telegram_chat_id, "text": text, "parse_mode": "Markdown"}
-            ).encode()
+                {"chat_id": self.telegram_chat_id, "text": text}).encode()
             req = urllib.request.Request(self._telegram_url(), data=data)
-            urllib.request.urlopen(req, timeout=10).read()
-        except Exception:  # noqa: BLE001 - notifications must never raise
+            resp = urllib.request.urlopen(req, timeout=10).read()
+            info = json.loads(resp.decode("utf-8"))
+            if info.get("ok"):
+                self._tg_fail_logged = False     # healthy again → re-arm logging
+            else:
+                self._log_tg_failure(info.get("description", "rejected"))
+        except Exception as exc:  # noqa: BLE001 - notifications must never raise
+            self._log_tg_failure(str(exc))
+
+    def _log_tg_failure(self, detail: str) -> None:
+        """Record the first Telegram failure to app.log so a silently-broken
+        notifier (expired token, bot blocked) is diagnosable from the support log."""
+        if getattr(self, "_tg_fail_logged", False):
+            return
+        self._tg_fail_logged = True
+        try:
+            import applog
+            applog.get_logger().warning("Telegram send failed: %s", detail)
+        except Exception:  # noqa: BLE001
             pass

@@ -115,6 +115,14 @@ class Backend:
         # Connection-health tracking for drop/rate-limit alerts.
         self._fail_count = 0
         self._alerted = False
+        # Why the bot is flattening a position (trailing/indicator/manual) so the
+        # single authoritative "Closed" alert can name the reason + realized PnL,
+        # instead of sending one message for the reason and another for the close.
+        self._close_reasons: dict = {}
+
+    @staticmethod
+    def _pair_key(s: str) -> str:
+        return normalize_symbol(str(s).split(":")[0])
 
     # -- lifecycle ----------------------------------------------------------
     def start(self) -> None:
@@ -274,8 +282,7 @@ class Backend:
                 self.log(f"Trailing stop hit on {p.pair} "
                          f"({cur:g} <= peak {peak:g} -{self.trailing_pct:g}%) — closing",
                          signal="TRAIL", pair=p.pair, status="Trailing")
-                self.notifier.notify(f"Trailing stop {p.pair}", f"Closed at {cur:g}",
-                                     level="error", important=True)
+                self._close_reasons[self._pair_key(p.pair)] = "Trailing stop"
                 self._do_close(p.pair)
 
     # -- manual SL/TP -------------------------------------------------------
@@ -353,7 +360,9 @@ class Backend:
                         "telegram_important_only", self.notifier.telegram_important_only),
                 )
                 self.daily_summary = cmd.get("daily_summary", self.daily_summary)
-                self.summary_hour = int(cmd.get("summary_hour", self.summary_hour))
+                # Clamp to a valid hour: a bad value like 25 would make the recap
+                # never fire (now.hour < 25 is always true).
+                self.summary_hour = max(0, min(23, int(cmd.get("summary_hour", self.summary_hour))))
             elif action == "close":
                 self._do_close(cmd.get("pair"), cmd.get("fraction", 1.0),
                                breakeven=cmd.get("breakeven", False))
@@ -540,9 +549,7 @@ class Backend:
             why = "Stop-loss hit" if event != "exit" else "Indicator signalled close"
             self.log(f"{why} — closing {symbol}", signal=event.upper()[:6], pair=symbol,
                      status="Event")
-            self.notifier.notify(f"{why} {symbol}", "Closing position",
-                                 level="error" if event != "exit" else "ok",
-                                 important=True)
+            self._close_reasons[self._pair_key(symbol)] = why
             self._do_close(symbol)
             return
 
@@ -579,8 +586,10 @@ class Backend:
             self._sl_orders[symbol] = r.raw.get("id")
         self.log(f"Stop moved to breakeven @ {entry:g}: {r.message}",
                  signal="BE", pair=symbol, status="OK" if r.ok else "Rejected")
+        # Routine position management — only reaches Telegram when the user turns
+        # off "important only" (makes that toggle actually do something).
         self.notifier.notify(f"Breakeven {symbol}", f"Stop moved to {entry:g}",
-                             level="ok" if r.ok else "error", important=True)
+                             level="ok" if r.ok else "error", important=False)
 
     def _place_brackets(self, symbol, entry_side, size, sl, tp1, tp2, source) -> None:
         """Place reduce-only stop-loss and (scaled) take-profit orders."""
@@ -622,8 +631,14 @@ class Backend:
         for p in targets:
             r = self.exchange.close_position(p, fraction)
             self.log(r.message, signal=verb, pair=p.pair, status="OK" if r.ok else "Rejected")
-            self.notifier.notify(f"Close {p.pair}", r.message,
-                                 level="ok" if r.ok else "error", important=True)
+            # A successful FULL close is announced (with realized PnL) by
+            # _detect_closed_positions on the refresh below — notifying here too
+            # would double-send. Only alert here for partial closes (which leave
+            # the position open, so detection won't fire) and for failures.
+            if fraction < 1.0 or not r.ok:
+                label = f"Scale out {p.pair}" if fraction < 1.0 else f"Close {p.pair}"
+                self.notifier.notify(label, r.message,
+                                     level="ok" if r.ok else "error", important=True)
             if r.ok:
                 closed_ok.append(p)
         # Lock in the de-risked runner: move the stop to breakeven (entry) on a
@@ -658,6 +673,8 @@ class Backend:
         if self._alerted:
             self._alerted = False
             self._emit("alert", level="ok", message="Connection restored")
+            self.notifier.notify("Connection restored", "Link to the exchange is back.",
+                                 level="ok", important=True)
 
         new_pairs = {p.pair for p in positions}
         self._detect_closed_positions(new_pairs)
@@ -763,7 +780,11 @@ class Backend:
             history.record_trade("system", pair, p.side if p else "", "close",
                                  p.size if p else 0.0, p.current if p else 0.0,
                                  "Closed", pnl=pnl, message="position closed")
-            self.notifier.notify(f"Closed {pair}", f"Realized PnL {pnl:+.2f}",
+            reason = self._close_reasons.pop(self._pair_key(pair), "")
+            body = f"Realized PnL {pnl:+.2f}"
+            if reason:
+                body = f"{reason} · {body}"
+            self.notifier.notify(f"Closed {pair}", body,
                                  level="ok" if pnl >= 0 else "error", important=True)
             # Feed the daily loss/profit guardrails; trip & halt if breached.
             if self.guardrails.record_realized(pnl):
@@ -784,12 +805,12 @@ class Backend:
         self.log(f"Refresh failed: {exc}", status="Error")
         if self._fail_count >= MAX_REFRESH_FAILURES and not self._alerted:
             self._alerted = True
-            self._emit(
-                "alert",
-                level="error",
-                message=f"Connection problem — {self._fail_count} consecutive "
-                f"failures. Check network / API keys / rate limits.",
-            )
+            msg = (f"Connection problem — {self._fail_count} consecutive "
+                   "failures. Check network / API keys / rate limits.")
+            self._emit("alert", level="error", message=msg)
+            # Telegram too — a dropped link is exactly what an unattended operator
+            # needs to know about (fires once, latched by _alerted).
+            self.notifier.notify("Connection problem", msg, level="error", important=True)
 
     # -- trade log file -----------------------------------------------------
     def _append_log_file(self, ts, signal, pair, status, message) -> None:
