@@ -1233,6 +1233,7 @@ class TradingBotGUI:
             get_params=self._strategy_params,
             get_exchange=lambda: exchange_id(self.exchange_var.get()),
             get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
+            get_strategy_type=self._strategy_type_value,
         )
 
     def _sync_chart(self) -> None:

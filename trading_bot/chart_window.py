@@ -58,6 +58,10 @@ TP2_COLOR = "#33d6cf"      # aqua TP2
 SL_COLOR = "#ff5c5c"       # red SL
 MA_COLOR = "#5b8def"       # price moving-average line
 RSI_COLOR = "#c792ea"      # RSI line
+LONG_COLOR = "#7CFF6B"     # Strategy B long entry arrow (up)
+SHORT_COLOR = "#ff5c5c"    # Strategy B short entry arrow (down)
+SCALE_COLOR = "#ffd54a"    # Strategy B RSI-extreme scale-out marker
+EXIT_COLOR = "#9aa4b2"     # Strategy B EMA-trail / stop exit marker
 
 REFRESH_MS = 15000         # auto-refresh cadence
 DEFAULT_VIEW = 120         # visible candles on open
@@ -77,6 +81,7 @@ class ChartWindow:
         get_params: Callable[[], "strategy.StrategyParams"],
         get_exchange: Callable[[], str],
         get_market: Callable[[], str],
+        get_strategy_type: Callable[[], str] = lambda: "prometheus",
     ) -> None:
         # Live getters into the Strategy/Execution tabs — the chart can follow
         # them so it always mirrors what the strategy actually trades.
@@ -85,21 +90,24 @@ class ChartWindow:
         self.get_params = get_params
         self.get_exchange = get_exchange
         self.get_market = get_market
+        self.get_strategy_type = get_strategy_type
 
         syms = self._safe_symbols()
         self.symbol = syms[0] if syms else "BTC/USDT"
         self.timeframe = (self._safe(get_timeframe) or "5m")
         self.exchange_id = self._safe(get_exchange) or "binance"
         self.market_type = self._safe(get_market) or "spot"
+        self.strategy_type = self._safe(get_strategy_type) or "prometheus"
 
         self._client = None
         self._candles: List[list] = []
         self._dips: List[int] = []
         self._signals: List = []
         self._outcomes: List = []
+        self._ma_events: List = []       # Strategy B: (index, event) instructions
         self._rsi: List = []
         self._vol_sma: List = []
-        self._price_ma: List = []
+        self._price_ma: List = []        # SMA20 (A) or EMA20 (B) — the MA overlay
         self._eff_os: float = 30
         self._geom: Optional[dict] = None
         self.view_count = DEFAULT_VIEW
@@ -185,13 +193,11 @@ class ChartWindow:
                                    font=("Segoe UI Semibold", 9))
         self._track_lbl.pack(side="left", padx=(0, 10))
         self._update_track_label()
-        for txt, col in (("◆ dip", DIP_COLOR), ("▲ BUY", BUY_COLOR),
-                         ("— entry", ENTRY_COLOR), ("— TP1", TP1_COLOR),
-                         ("— TP2", TP2_COLOR), ("— SL", SL_COLOR),
-                         (f"— MA{MA_LEN}", MA_COLOR)):
-            tk.Label(leg, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
         tk.Label(leg, text="scroll = zoom · drag = pan", bg=BG, fg=DIM,
                  font=("Segoe UI", 8)).pack(side="right")
+        self._legend_items = tk.Frame(leg, bg=BG)
+        self._legend_items.pack(side="left")
+        self._refresh_legend()
 
         wrap = tk.Frame(self.win, bg=BORDER)
         wrap.pack(fill="both", expand=True, padx=12, pady=(0, 12))
@@ -223,16 +229,24 @@ class ChartWindow:
 
     def _load_worker(self) -> None:
         try:
+            st = self._safe(self.get_strategy_type) or "prometheus"
             candles = self._fetch()
             params = self.get_params()
-            dips, signals = strategy.evaluate_all(candles, params, ticker=self.symbol)
-            outcomes = strategy.track_outcomes(candles, signals)
             closes = [c[4] for c in candles]
             volumes = [c[5] for c in candles]
             rsi = strategy.rsi_series(closes, params.rsi_len)
             vol_sma = strategy.sma_series(volumes, params.vol_len)
-            price_ma = strategy.sma_series(closes, MA_LEN)
-            eff_os = strategy.effective_settings(params.preset, self.symbol, params)[1]
+            if st == "ma":
+                # Strategy B: EMA20 overlay + the crossover instruction stream.
+                ma_events = strategy.evaluate_all_crossover(candles, params, ticker=self.symbol)
+                price_ma = strategy.ema_series(closes, params.ma_len)
+                dips, signals, outcomes, eff_os = [], [], [], 30
+            else:
+                dips, signals = strategy.evaluate_all(candles, params, ticker=self.symbol)
+                outcomes = strategy.track_outcomes(candles, signals)
+                price_ma = strategy.sma_series(closes, MA_LEN)
+                eff_os = strategy.effective_settings(params.preset, self.symbol, params)[1]
+                ma_events = []
         except Exception as exc:  # noqa: BLE001 - surface, don't crash the window
             self._post(lambda: self.status.config(text=f"Error: {exc}"))
             return
@@ -242,15 +256,21 @@ class ChartWindow:
             self._dips = dips
             self._signals = signals
             self._outcomes = outcomes
+            self._ma_events = ma_events
             self._rsi = rsi
             self._vol_sma = vol_sma
             self._price_ma = price_ma
             self._eff_os = eff_os
+            if self.strategy_type != st:           # strategy switched -> relabel
+                self.strategy_type = st
+                self._refresh_legend()
             if self.view_end is None:
                 self.view_end = len(candles) - 1
+            count = (sum(1 for _, e in ma_events if e["act"] == "enter") if st == "ma"
+                     else len(signals))
+            noun = "entry" if st == "ma" else "signal"
             self.status.config(
-                text=f"{len(candles)} candles · "
-                     f"{len(signals)} signal{'s' if len(signals) != 1 else ''}")
+                text=f"{len(candles)} candles · {count} {noun}{'s' if count != 1 else ''}")
             self._update_track_label()
             self._redraw()
         self._post(apply)
@@ -286,6 +306,26 @@ class ChartWindow:
         self._pull_settings()       # follow the Strategy tab (no-op if unfollowed)
         self._load()
         self._schedule()
+
+    def _refresh_legend(self) -> None:
+        """Rebuild the legend chips for the active strategy (A dip→green / B MA)."""
+        f = getattr(self, "_legend_items", None)
+        if f is None:
+            return
+        for ch in f.winfo_children():
+            ch.destroy()
+        if self.strategy_type == "ma":
+            items = (("▲ long", LONG_COLOR), ("▼ short", SHORT_COLOR),
+                     ("⊙ scale-out", SCALE_COLOR), ("✕ exit", EXIT_COLOR),
+                     ("— entry", ENTRY_COLOR), ("— SL", SL_COLOR),
+                     (f"— EMA{MA_LEN}", MA_COLOR))
+        else:
+            items = (("◆ dip", DIP_COLOR), ("▲ BUY", BUY_COLOR),
+                     ("— entry", ENTRY_COLOR), ("— TP1", TP1_COLOR),
+                     ("— TP2", TP2_COLOR), ("— SL", SL_COLOR),
+                     (f"— MA{MA_LEN}", MA_COLOR))
+        for txt, col in items:
+            tk.Label(f, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
 
     def _update_track_label(self) -> None:
         """Refresh the banner so it's always obvious what the chart tracks."""
@@ -449,12 +489,21 @@ class ChartWindow:
         # --- price range (include the visible signal's levels so they stay on-screen) ---
         hi = max(x[2] for x in view)
         lo = min(x[3] for x in view)
-        vis_sigs = [s for s in self._signals if start <= s.index <= end]
+        is_ma = self.strategy_type == "ma"
+        vis_sigs = [] if is_ma else [s for s in self._signals if start <= s.index <= end]
+        ma_in_view = [(i, e) for (i, e) in self._ma_events if start <= i <= end] if is_ma else []
         if vis_sigs:
             s = vis_sigs[-1]
             for lv in [s.entry, s.tp1, s.tp2] + ([s.sl] if s.sl else []):
                 hi = max(hi, lv)
                 lo = min(lo, lv)
+        if is_ma:
+            entries = [e for (_, e) in ma_in_view if e["act"] == "enter"]
+            if entries:
+                for lv in (entries[-1]["entry"], entries[-1].get("sl")):
+                    if lv:
+                        hi = max(hi, lv)
+                        lo = min(lo, lv)
         span = (hi - lo) or (abs(hi) * 0.01 or 1.0)
         hi += span * 0.05
         lo -= span * 0.05
@@ -499,6 +548,43 @@ class ChartWindow:
                 ma_pts += [X(k), Yp(mv)]
         if len(ma_pts) >= 4:
             c.create_line(*ma_pts, fill=MA_COLOR, width=1)
+
+        # --- Strategy B overlays: entries (▲/▼), scale-outs (⊙), exits (✕). ---
+        if is_ma:
+            last_entry = None
+            for i, e in ma_in_view:
+                k = i - start
+                x = X(k)
+                act = e["act"]
+                if act == "enter":
+                    last_entry = e
+                    if e["side"] == "long":
+                        y = Yp(view[k][3]) + 14            # below the low
+                        c.create_polygon(x, y - 7, x - 6, y + 5, x + 6, y + 5,
+                                         fill=LONG_COLOR, outline="")
+                        c.create_text(x, y + 13, text="LONG", fill=LONG_COLOR,
+                                      font=("Segoe UI", 7))
+                    else:
+                        y = Yp(view[k][2]) - 14            # above the high
+                        c.create_polygon(x, y + 7, x - 6, y - 5, x + 6, y - 5,
+                                         fill=SHORT_COLOR, outline="")
+                        c.create_text(x, y - 13, text="SHORT", fill=SHORT_COLOR,
+                                      font=("Segoe UI", 7))
+                elif act == "scale_out":
+                    above = e.get("side") == "long"
+                    y = Yp(view[k][2]) - 8 if above else Yp(view[k][3]) + 8
+                    c.create_oval(x - 4, y - 4, x + 4, y + 4, outline=SCALE_COLOR, width=2)
+                elif act == "exit":
+                    y = Yp(view[k][4])                     # at the close
+                    c.create_line(x - 4, y - 4, x + 4, y + 4, fill=EXIT_COLOR, width=2)
+                    c.create_line(x - 4, y + 4, x + 4, y - 4, fill=EXIT_COLOR, width=2)
+            # Entry + SL level lines for the most recent visible entry.
+            if last_entry is not None:
+                self._level(c, Yp, w, padL, padR, last_entry["entry"], ENTRY_COLOR, (),
+                            f"{last_entry['side'].upper()} ENTRY")
+                if last_entry.get("sl"):
+                    self._level(c, Yp, w, padL, padR, last_entry["sl"], SL_COLOR, (2, 2),
+                                f"SL {self._pct(last_entry['sl'], last_entry['entry'])}%")
 
         # Dip diamonds (below the bar).
         for di in self._dips:
@@ -578,20 +664,29 @@ class ChartWindow:
         def Yr(r):
             return rsi_bot - rsi_h * (max(0.0, min(100.0, r)) / 100.0)
 
-        # Shade the oversold zone (the dip trigger band): from the threshold to 0.
-        c.create_rectangle(padL, Yr(self._eff_os), w - padR, rsi_bot,
-                           fill=DIP_COLOR, outline="", stipple="gray12")
+        if is_ma:
+            # Strategy B: 70/30 are the scale-out zones; 50 is the entry centerline.
+            c.create_rectangle(padL, rsi_top, w - padR, Yr(70),
+                               fill=SCALE_COLOR, outline="", stipple="gray12")
+            c.create_rectangle(padL, Yr(30), w - padR, rsi_bot,
+                               fill=SCALE_COLOR, outline="", stipple="gray12")
+        else:
+            # Strategy A: shade the oversold dip-trigger band (threshold -> 0).
+            c.create_rectangle(padL, Yr(self._eff_os), w - padR, rsi_bot,
+                               fill=DIP_COLOR, outline="", stipple="gray12")
 
         for lvl in (70, 50, 30):
             y = Yr(lvl)
-            c.create_line(padL, y, w - padR, y, fill=BORDER, dash=(2, 2))
+            col = RSI_COLOR if (is_ma and lvl == 50) else BORDER
+            c.create_line(padL, y, w - padR, y, fill=col, dash=(2, 2))
             c.create_text(w - padR + 4, y, anchor="w", text=str(lvl), fill=DIM,
                           font=("Segoe UI", 7))
-        # The strategy's effective oversold threshold (the dip trigger), highlighted.
-        yos = Yr(self._eff_os)
-        c.create_line(padL, yos, w - padR, yos, fill=DIP_COLOR, dash=(3, 2))
-        c.create_text(w - padR + 4, yos, anchor="w", text=f"OS {self._eff_os:g}",
-                      fill=DIP_COLOR, font=("Segoe UI", 7))
+        if not is_ma:
+            # Strategy A's effective oversold threshold (the dip trigger), highlighted.
+            yos = Yr(self._eff_os)
+            c.create_line(padL, yos, w - padR, yos, fill=DIP_COLOR, dash=(3, 2))
+            c.create_text(w - padR + 4, yos, anchor="w", text=f"OS {self._eff_os:g}",
+                          fill=DIP_COLOR, font=("Segoe UI", 7))
         rsi_pts = []
         for k in range(vc):
             idx = start + k
