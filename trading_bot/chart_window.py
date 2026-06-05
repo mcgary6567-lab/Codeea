@@ -315,7 +315,7 @@ class ChartWindow:
         for ch in f.winfo_children():
             ch.destroy()
         if self.strategy_type == "ma":
-            items = (("▲ long", LONG_COLOR), ("▼ short", SHORT_COLOR),
+            items = (("▲ BUY", LONG_COLOR), ("▼ SELL", SHORT_COLOR),
                      ("⊙ scale-out", SCALE_COLOR), ("✕ exit", EXIT_COLOR),
                      ("— entry", ENTRY_COLOR), ("— SL", SL_COLOR),
                      (f"— EMA{MA_LEN}", MA_COLOR))
@@ -562,14 +562,14 @@ class ChartWindow:
                         y = Yp(view[k][3]) + 14            # below the low
                         c.create_polygon(x, y - 7, x - 6, y + 5, x + 6, y + 5,
                                          fill=LONG_COLOR, outline="")
-                        c.create_text(x, y + 13, text="LONG", fill=LONG_COLOR,
-                                      font=("Segoe UI", 7))
+                        c.create_text(x, y + 13, text="BUY", fill=LONG_COLOR,
+                                      font=("Segoe UI", 7, "bold"))
                     else:
                         y = Yp(view[k][2]) - 14            # above the high
                         c.create_polygon(x, y + 7, x - 6, y - 5, x + 6, y - 5,
                                          fill=SHORT_COLOR, outline="")
-                        c.create_text(x, y - 13, text="SHORT", fill=SHORT_COLOR,
-                                      font=("Segoe UI", 7))
+                        c.create_text(x, y - 13, text="SELL", fill=SHORT_COLOR,
+                                      font=("Segoe UI", 7, "bold"))
                 elif act == "scale_out":
                     above = e.get("side") == "long"
                     y = Yp(view[k][2]) - 8 if above else Yp(view[k][3]) + 8
@@ -580,8 +580,9 @@ class ChartWindow:
                     c.create_line(x - 4, y + 4, x + 4, y - 4, fill=EXIT_COLOR, width=2)
             # Entry + SL level lines for the most recent visible entry.
             if last_entry is not None:
+                verb = "BUY" if last_entry["side"] == "long" else "SELL"
                 self._level(c, Yp, w, padL, padR, last_entry["entry"], ENTRY_COLOR, (),
-                            f"{last_entry['side'].upper()} ENTRY")
+                            f"{verb} ENTRY")
                 if last_entry.get("sl"):
                     self._level(c, Yp, w, padL, padR, last_entry["sl"], SL_COLOR, (2, 2),
                                 f"SL {self._pct(last_entry['sl'], last_entry['entry'])}%")
