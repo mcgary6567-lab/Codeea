@@ -1051,9 +1051,22 @@ class TradingBotGUI:
         self.strat_ma_body_var = tk.StringVar(value="0.30")
         num_entry(maf2, self.strat_ma_body_var, 5).pack(side="left", padx=2)
 
+        # Trend filter (HTF-style) + optional ATR stop.
+        maf3 = ttk.Frame(f)
+        maf3.grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(maf3, text="Trend EMA (0=off):").pack(side="left")
+        self.strat_ma_trend_var = tk.StringVar(value="0")
+        num_entry(maf3, self.strat_ma_trend_var, 5).pack(side="left", padx=(2, 8))
+        ttk.Label(maf3, text="ATR stop × (0=swing):").pack(side="left")
+        self.strat_ma_atrmult_var = tk.StringVar(value="0")
+        num_entry(maf3, self.strat_ma_atrmult_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf3, text="ATR len:").pack(side="left")
+        self.strat_ma_atrlen_var = tk.StringVar(value="14")
+        num_entry(maf3, self.strat_ma_atrlen_var, 4).pack(side="left", padx=2)
+
         # Backtest launcher.
         bt = ttk.Frame(f)
-        bt.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        bt.grid(row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
         self.backtest_btn = tk.Button(bt, text="📊 Backtest", command=self._open_backtest)
         theme.style_button(self.backtest_btn, "accent")
         self.backtest_btn.pack(side="left")
@@ -1067,7 +1080,7 @@ class TradingBotGUI:
                     "a Trailing stop % in Modes & Risk to lock in more profit. Shorts need "
                     "a Futures market. Requires a connection and a valid licence token.",
             style="Dim.TLabel", wraplength=380).grid(
-            row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
+            row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
     def _strategy_params(self) -> StrategyParams:
         return StrategyParams(
@@ -1079,6 +1092,9 @@ class TradingBotGUI:
             ma_scale=max(0.0, min(1.0, self._float(self.strat_ma_scale_var.get(), 50) / 100.0)),
             ma_confirm=max(0, int(self._float(self.strat_ma_confirm_var.get(), 1))),
             ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.30)),
+            ma_trend_len=max(0, int(self._float(self.strat_ma_trend_var.get(), 0))),
+            ma_atr_len=max(2, int(self._float(self.strat_ma_atrlen_var.get(), 14))),
+            ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 0.0)),
         )
 
     def _push_strategy(self) -> None:
@@ -1499,6 +1515,9 @@ class TradingBotGUI:
         self.strat_ma_scale_var.set(str(s.get("strat_ma_scale", 50)))
         self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 1)))
         self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.30)))
+        self.strat_ma_trend_var.set(str(s.get("strat_ma_trend", 0)))
+        self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 0)))
+        self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -1560,6 +1579,9 @@ class TradingBotGUI:
             "strat_ma_scale": self.strat_ma_scale_var.get(),
             "strat_ma_confirm": self.strat_ma_confirm_var.get(),
             "strat_ma_body": self.strat_ma_body_var.get(),
+            "strat_ma_trend": self.strat_ma_trend_var.get(),
+            "strat_ma_atrmult": self.strat_ma_atrmult_var.get(),
+            "strat_ma_atrlen": self.strat_ma_atrlen_var.get(),
         }
 
     def _save_all(self) -> None:

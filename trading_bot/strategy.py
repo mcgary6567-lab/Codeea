@@ -37,6 +37,9 @@ class StrategyParams:
     ma_scale: float = 0.5            # fraction closed on the RSI-extreme scale-out
     ma_confirm: int = 1              # consecutive green(buy)/red(sell) candles to confirm
     ma_min_body: float = 0.30        # each confirming candle's body must be >= this of range
+    ma_trend_len: int = 0            # trend-filter EMA (HTF-style); 0 = off
+    ma_atr_len: int = 14             # ATR length for the optional ATR stop
+    ma_atr_mult: float = 0.0         # ATR stop multiple; 0 = use the swing low/high stop
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +124,28 @@ def ema_series(values: List[float], length: int) -> List[Optional[float]]:
     return out
 
 
+def atr_series(highs: List[float], lows: List[float], closes: List[float],
+               length: int) -> List[Optional[float]]:
+    """Average True Range (Wilder's smoothing). The first bar's true range is
+    ``high - low`` (no prior close), then alpha = 1/length smoothing."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    if length <= 0 or n < length:
+        return out
+    tr = [0.0] * n
+    tr[0] = highs[0] - lows[0]
+    for i in range(1, n):
+        pc = closes[i - 1]
+        tr[i] = max(highs[i] - lows[i], abs(highs[i] - pc), abs(lows[i] - pc))
+    seed = sum(tr[0:length]) / length
+    out[length - 1] = seed
+    prev = seed
+    for i in range(length, n):
+        prev = (prev * (length - 1) + tr[i]) / length
+        out[i] = prev
+    return out
+
+
 def highest_series(highs: List[float], length: int) -> List[float]:
     """Highest high over the trailing ``length`` bars, inclusive of the current
     bar (mirror of :func:`lowest_series`, used for short-side protective stops)."""
@@ -135,6 +160,54 @@ def highest_series(highs: List[float], length: int) -> List[float]:
 # ---------------------------------------------------------------------------
 # Strategy B — "MA": EMA20 + RSI-50 crossover (long + short, dynamic exits).
 # ---------------------------------------------------------------------------
+def crossover_need(params: StrategyParams) -> int:
+    """Minimum candles before the crossover engine can produce a signal."""
+    extra = [params.ma_len, params.rsi_len, params.ma_swing]
+    if params.ma_trend_len > 0:
+        extra.append(params.ma_trend_len)
+    if params.ma_atr_mult > 0:
+        extra.append(params.ma_atr_len)
+    return max(extra) + 2
+
+
+def crossover_arrays(candles, params: StrategyParams):
+    """Precompute every series the crossover engine/backtest need (shared, so the
+    live engine and the backtester stay byte-for-byte identical)."""
+    o = [float(c[1]) for c in candles]
+    h = [float(c[2]) for c in candles]
+    low = [float(c[3]) for c in candles]
+    cl = [float(c[4]) for c in candles]
+    ema = ema_series(cl, params.ma_len)
+    rsi = rsi_series(cl, params.rsi_len)
+    swing_low = lowest_series(low, params.ma_swing)
+    swing_high = highest_series(h, params.ma_swing)
+    trend = ema_series(cl, params.ma_trend_len) if params.ma_trend_len > 0 else None
+    atr = atr_series(h, low, cl, params.ma_atr_len) if params.ma_atr_mult > 0 else None
+    return o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr
+
+
+def trend_ok(side: str, i: int, cl, trend, params: StrategyParams) -> bool:
+    """Higher-timeframe-style filter: only allow entries aligned with the trend
+    EMA (when enabled). During the trend EMA's warmup, no entry is allowed."""
+    if params.ma_trend_len <= 0:
+        return True
+    tv = trend[i] if trend is not None else None
+    if tv is None:
+        return False
+    return cl[i] > tv if side == "long" else cl[i] < tv
+
+
+def crossover_stop(side: str, i: int, cl, swing_low, swing_high, atr,
+                   params: StrategyParams) -> float:
+    """Protective stop: ATR-based (entry ∓ ATR×mult) when enabled, else the
+    swing low/high ± buffer."""
+    if params.ma_atr_mult > 0 and atr is not None and atr[i] is not None:
+        d = atr[i] * params.ma_atr_mult
+        return cl[i] - d if side == "long" else cl[i] + d
+    buf = params.ma_sl_buf / 100.0
+    return swing_low[i] * (1.0 - buf) if side == "long" else swing_high[i] * (1.0 + buf)
+
+
 def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     """Replay the EMA20 + RSI-50 crossover state machine over CLOSED candles.
 
@@ -153,21 +226,11 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     keeping it non-repaint (only closed bars).
     """
     n = len(candles)
-    need = max(params.ma_len, params.rsi_len, params.ma_swing) + 2
-    if n < need:
+    if n < crossover_need(params):
         return []
 
     ts = [int(c[0]) for c in candles]
-    o = [float(c[1]) for c in candles]
-    h = [float(c[2]) for c in candles]
-    low = [float(c[3]) for c in candles]
-    cl = [float(c[4]) for c in candles]
-
-    ema = ema_series(cl, params.ma_len)
-    rsi = rsi_series(cl, params.rsi_len)
-    swing_low = lowest_series(low, params.ma_swing)
-    swing_high = highest_series(h, params.ma_swing)
-    buf = params.ma_sl_buf / 100.0
+    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr = crossover_arrays(candles, params)
     confirm = max(0, int(params.ma_confirm))   # in-direction candles to confirm an entry
     min_body = max(0.0, params.ma_min_body)    # each must have a body >= this of its range
 
@@ -200,9 +263,12 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
 
         long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
         short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
-        # Entry needs alignment AND `confirm` candles in the trade direction.
-        enter_long = prev_ready and long_aligned and green_run >= confirm
-        enter_short = prev_ready and short_aligned and red_run >= confirm
+        # Entry needs alignment AND `confirm` candles in the trade direction AND
+        # (when enabled) agreement with the higher-timeframe-style trend filter.
+        enter_long = (prev_ready and long_aligned and green_run >= confirm
+                      and trend_ok("long", i, cl, trend, params))
+        enter_short = (prev_ready and short_aligned and red_run >= confirm
+                       and trend_ok("short", i, cl, trend, params))
 
         # 1) Manage an open position first — exits/stops take priority.
         if pos == "long":
@@ -225,12 +291,12 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         # 2) Enter when flat (after a same-bar exit this is the reversal leg).
         if pos == "flat":
             if enter_long:
-                sl = swing_low[i] * (1.0 - buf)
+                sl = crossover_stop("long", i, cl, swing_low, swing_high, atr, params)
                 events.append((i, {"act": "enter", "side": "long",
                                    "entry": cl[i], "sl": sl, "ts": ts[i]}))
                 pos, scaled = "long", False
             elif enter_short:
-                sl = swing_high[i] * (1.0 + buf)
+                sl = crossover_stop("short", i, cl, swing_low, swing_high, atr, params)
                 events.append((i, {"act": "enter", "side": "short",
                                    "entry": cl[i], "sl": sl, "ts": ts[i]}))
                 pos, scaled = "short", False

@@ -157,6 +157,11 @@ class BacktestWindow:
         self.size_var = tk.StringVar(value="100")
         tk.Entry(r3, textvariable=self.size_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
+        tk.Label(r3, text="Risk % (0=off)", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(
+            side="left", padx=(10, 2))
+        self.risk_var = tk.StringVar(value="0")
+        tk.Entry(r3, textvariable=self.risk_var, width=6, bg=ELEV, fg=TXT,
+                 insertbackground=TXT, relief="flat").pack(side="left")
 
         # Row 4: run / export / status.
         r4 = tk.Frame(self.win, bg=BG)
@@ -205,6 +210,7 @@ class BacktestWindow:
             cfg = bt.BacktestConfig(
                 start_equity=float(self.equity_var.get() or 10000),
                 size_pct=float(self.size_var.get() or 100),
+                risk_pct=float(self.risk_var.get() or 0),
                 fee_pct=float(self.fee_var.get() or 0),
                 funding_pct_8h=float(self.fund_var.get() or 0),
                 apply_costs=self.costs_var.get(),

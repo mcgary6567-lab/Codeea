@@ -24,6 +24,7 @@ import strategy
 class BacktestConfig:
     start_equity: float = 10_000.0   # starting balance (quote currency)
     size_pct: float = 100.0          # position notional as % of equity (no leverage)
+    risk_pct: float = 0.0            # risk-% sizing off the stop distance (0 = use size_pct)
     fee_pct: float = 0.05            # taker fee % charged on each fill (entry/scale/exit)
     funding_pct_8h: float = 0.01     # futures funding % per 8h of holding (0 = off)
     apply_costs: bool = True         # master switch: False => gross (no fee/funding)
@@ -65,23 +66,15 @@ def run_backtest(candles, params: strategy.StrategyParams,
     """Replay the strategy over ``candles`` and return trades + equity + stats."""
     res = BacktestResult()
     n = len(candles)
-    need = max(params.ma_len, params.rsi_len, params.ma_swing) + 2
-    if n < need:
+    if n < strategy.crossover_need(params):
         res.stats = _summarise([], cfg.start_equity)
         res.equity = [(int(candles[0][0]) if candles else 0, cfg.start_equity)]
         return res
 
     ts = [int(c[0]) for c in candles]
-    o = [float(c[1]) for c in candles]
-    h = [float(c[2]) for c in candles]
-    low = [float(c[3]) for c in candles]
-    cl = [float(c[4]) for c in candles]
-
-    ema = strategy.ema_series(cl, params.ma_len)
-    rsi = strategy.rsi_series(cl, params.rsi_len)
-    swing_low = strategy.lowest_series(low, params.ma_swing)
-    swing_high = strategy.highest_series(h, params.ma_swing)
-    buf = params.ma_sl_buf / 100.0
+    # Shared arrays — identical to the live engine (trend filter + ATR stop included).
+    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr = strategy.crossover_arrays(
+        candles, params)
     confirm = max(0, int(params.ma_confirm))
     min_body = max(0.0, params.ma_min_body)
 
@@ -102,13 +95,13 @@ def run_backtest(candles, params: strategy.StrategyParams,
     def open_trade(side: str, i: int):
         nonlocal pos, entry, sl, qty, entry_i, init_risk, scaled, open_fees, realized_partial
         entry = cl[i]
-        if side == "long":
-            sl = swing_low[i] * (1.0 - buf)
-        else:
-            sl = swing_high[i] * (1.0 + buf)
-        notional = equity * (cfg.size_pct / 100.0)
-        qty = notional / entry if entry > 0 else 0.0
+        sl = strategy.crossover_stop(side, i, cl, swing_low, swing_high, atr, params)
         init_risk = abs(entry - sl)
+        if cfg.risk_pct > 0 and init_risk > 0:
+            qty = (equity * cfg.risk_pct / 100.0) / init_risk   # risk-% (ATR/swing) sizing
+        else:
+            qty = (equity * cfg.size_pct / 100.0) / entry if entry > 0 else 0.0
+        notional = qty * entry
         scaled = False
         open_fees = _fee(notional, cfg)
         realized_partial = 0.0
@@ -157,8 +150,10 @@ def run_backtest(candles, params: strategy.StrategyParams,
 
         long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
         short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
-        enter_long = prev_ready and long_aligned and green_run >= confirm
-        enter_short = prev_ready and short_aligned and red_run >= confirm and cfg.allow_short
+        enter_long = (prev_ready and long_aligned and green_run >= confirm
+                      and strategy.trend_ok("long", i, cl, trend, params))
+        enter_short = (prev_ready and short_aligned and red_run >= confirm and cfg.allow_short
+                       and strategy.trend_ok("short", i, cl, trend, params))
         prev_ready = True
 
         # --- manage the open position (exit / scale) ---
