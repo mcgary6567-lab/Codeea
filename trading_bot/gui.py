@@ -1030,8 +1030,7 @@ class TradingBotGUI:
                                 width=22,
                                 values=["Strategy A — Prometheus", "Strategy B — MA"])
         type_box.pack(side="left", padx=6)
-        type_box.bind("<<ComboboxSelected>>",
-                      lambda ev: (self._apply_strategy_visibility(), self._push_strategy()))
+        type_box.bind("<<ComboboxSelected>>", lambda ev: self._on_strategy_type_change())
 
         # Green sequence.
         gs = ttk.Frame(f)
@@ -1170,6 +1169,14 @@ class TradingBotGUI:
     def _strategy_type_value(self) -> str:
         """Map the dropdown label to the runner's strategy id."""
         return "ma" if self.strat_type_var.get().startswith("Strategy B") else "prometheus"
+
+    def _on_strategy_type_change(self) -> None:
+        """User switched strategy: Strategy B (EMA20+RSI) is tuned for 1h on
+        BTC/USDT, so default its timeframe to 1h (still user-editable)."""
+        if self._strategy_type_value() == "ma":
+            self.strat_tf_var.set("1h")
+        self._apply_strategy_visibility()
+        self._push_strategy()
 
     def _apply_strategy_visibility(self) -> None:
         """Show only the selected strategy's parameter rows + help text."""

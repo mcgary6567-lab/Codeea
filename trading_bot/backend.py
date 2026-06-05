@@ -263,7 +263,8 @@ class Backend:
                 self.log(f"Trailing stop hit on {p.pair} "
                          f"({cur:g} <= peak {peak:g} -{self.trailing_pct:g}%) — closing",
                          signal="TRAIL", pair=p.pair, status="Trailing")
-                self.notifier.notify(f"Trailing stop {p.pair}", f"Closed at {cur:g}", level="error")
+                self.notifier.notify(f"Trailing stop {p.pair}", f"Closed at {cur:g}",
+                                     level="error", important=True)
                 self._do_close(p.pair)
 
     # -- manual SL/TP -------------------------------------------------------
@@ -428,7 +429,7 @@ class Backend:
         if not allowed:
             self.log(f"Blocked: {reason}", signal=side.upper(), pair=symbol, status="Blocked")
             self._emit("order", ok=False, source=source, message=f"Blocked: {reason}")
-            self.notifier.notify(f"Trade blocked {symbol}", reason, level="error")
+            self.notifier.notify(f"Trade blocked {symbol}", reason, level="error", important=True)
             return
 
         balance = self.exchange.fetch_balance()
@@ -442,7 +443,7 @@ class Backend:
                        f"(entry {entry:g} vs now {price:g}) — skipped.")
                 self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
                 self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
-                self.notifier.notify(f"Slippage skip {symbol}", msg, level="error")
+                self.notifier.notify(f"Slippage skip {symbol}", msg, level="error", important=True)
                 return
 
         size = cmd.get("size")
@@ -466,7 +467,7 @@ class Backend:
                        "increase Trade Size, or enable 'round up to minimum'.")
                 self.log(f"Blocked: {msg}", signal=side.upper(), pair=symbol, status="Blocked")
                 self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
-                self.notifier.notify(f"Order too small {symbol}", msg, level="error")
+                self.notifier.notify(f"Order too small {symbol}", msg, level="error", important=True)
                 return
 
         # --- leverage / margin mode (best-effort) ---
@@ -529,7 +530,7 @@ class Backend:
                      status="Event")
             self.notifier.notify(f"{why} {symbol}", "Closing position",
                                  level="error" if event != "exit" else "ok",
-                                 important=event != "exit")
+                                 important=True)
             self._do_close(symbol)
             return
 
@@ -540,7 +541,7 @@ class Backend:
         self.log(f"Indicator event: {nice}", signal=event.upper()[:6], pair=symbol,
                  status="Event")
         self.notifier.notify(f"{nice} {symbol}", f"Indicator reported {event}",
-                             level="ok" if event.startswith("tp") else "error")
+                             level="ok" if event.startswith("tp") else "error", important=True)
 
         if event == "tp1_hit" and self.move_be:
             self._move_stop_to_breakeven(symbol, float(cmd.get("entry") or 0))
@@ -567,7 +568,7 @@ class Backend:
         self.log(f"Stop moved to breakeven @ {entry:g}: {r.message}",
                  signal="BE", pair=symbol, status="OK" if r.ok else "Rejected")
         self.notifier.notify(f"Breakeven {symbol}", f"Stop moved to {entry:g}",
-                             level="ok" if r.ok else "error")
+                             level="ok" if r.ok else "error", important=True)
 
     def _place_brackets(self, symbol, entry_side, size, sl, tp1, tp2, source) -> None:
         """Place reduce-only stop-loss and (scaled) take-profit orders."""
@@ -609,7 +610,8 @@ class Backend:
         for p in targets:
             r = self.exchange.close_position(p, fraction)
             self.log(r.message, signal=verb, pair=p.pair, status="OK" if r.ok else "Rejected")
-            self.notifier.notify(f"Close {p.pair}", r.message, level="ok" if r.ok else "error")
+            self.notifier.notify(f"Close {p.pair}", r.message,
+                                 level="ok" if r.ok else "error", important=True)
             if r.ok:
                 closed_ok.append(p)
         # Lock in the de-risked runner: move the stop to breakeven (entry) on a
