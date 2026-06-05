@@ -1023,6 +1023,16 @@ class TradingBotGUI:
         tf_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
         preset_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
 
+        # Strategy selector: A = Prometheus dip→green (default), B = EMA20+RSI "MA".
+        ttk.Label(sr, text="Strategy:").pack(side="left", padx=(10, 0))
+        self.strat_type_var = tk.StringVar(value="Strategy A — Prometheus")
+        type_box = ttk.Combobox(sr, textvariable=self.strat_type_var, state="readonly",
+                                width=22,
+                                values=["Strategy A — Prometheus", "Strategy B — MA"])
+        type_box.pack(side="left", padx=6)
+        type_box.bind("<<ComboboxSelected>>",
+                      lambda ev: (self._apply_strategy_visibility(), self._push_strategy()))
+
         # Green sequence.
         gs = ttk.Frame(f)
         gs.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
@@ -1078,12 +1088,46 @@ class TradingBotGUI:
         self.strat_tp2_var = tk.StringVar(value="3.0")
         num_entry(tr, self.strat_tp2_var, 4).pack(side="left", padx=2)
 
-        ttk.Label(f, text="Runs the bot's own copy of the indicator on exchange candles "
-                          "(closed bars only — non-repaint). Trades use the Execution & "
-                          "Risk settings. Requires a connection and a valid licence token "
-                          "(set in the Webhook tab).",
-                  style="Dim.TLabel", wraplength=380).grid(
-            row=7, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        # --- Strategy B ("MA") params — shown only when Strategy B is selected.
+        maf = ttk.Frame(f)
+        maf.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(maf, text="EMA:").pack(side="left")
+        self.strat_ma_len_var = tk.StringVar(value="20")
+        num_entry(maf, self.strat_ma_len_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf, text="RSI OB:").pack(side="left")
+        self.strat_ma_ob_var = tk.StringVar(value="70")
+        num_entry(maf, self.strat_ma_ob_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf, text="OS:").pack(side="left")
+        self.strat_ma_os_var = tk.StringVar(value="30")
+        num_entry(maf, self.strat_ma_os_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf, text="Swing:").pack(side="left")
+        self.strat_ma_swing_var = tk.StringVar(value="10")
+        num_entry(maf, self.strat_ma_swing_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf, text="SL buf%:").pack(side="left")
+        self.strat_ma_slbuf_var = tk.StringVar(value="0.10")
+        num_entry(maf, self.strat_ma_slbuf_var, 5).pack(side="left", padx=(2, 8))
+        ttk.Label(maf, text="Scale%:").pack(side="left")
+        self.strat_ma_scale_var = tk.StringVar(value="50")
+        num_entry(maf, self.strat_ma_scale_var, 4).pack(side="left", padx=2)
+
+        # Frames that belong to each strategy, toggled by the selector.
+        self._dip_frames = [gs, cr, qr, tr]
+        self._ma_frames = [maf]
+        self._ma_help = ttk.Label(
+            f, text="Strategy B: enter long when price closes above EMA20 and RSI>50 "
+                    "(mirror for shorts); scale out at RSI 70/30, trail/exit on the "
+                    "EMA. Shorts need a Futures market.",
+            style="Dim.TLabel", wraplength=380)
+        self._ma_help.grid(row=8, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        self._dip_help = ttk.Label(
+            f, text="Runs the bot's own copy of the indicator on exchange candles "
+                    "(closed bars only — non-repaint). Trades use the Execution & "
+                    "Risk settings. Requires a connection and a valid licence token "
+                    "(set in the License tab).",
+            style="Dim.TLabel", wraplength=380)
+        self._dip_help.grid(row=7, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self._apply_strategy_visibility()
 
     def _strategy_params(self) -> StrategyParams:
         return StrategyParams(
@@ -1101,7 +1145,32 @@ class TradingBotGUI:
             sl_buf=self._float(self.strat_slbuf_var.get(), 0.10),
             rr_tp1=self._float(self.strat_tp1_var.get(), 1.0),
             rr_tp2=self._float(self.strat_tp2_var.get(), 3.0),
+            # Strategy B ("MA") inputs (ignored when Strategy A is selected).
+            ma_len=max(2, int(self._float(self.strat_ma_len_var.get(), 20))),
+            ma_ob=self._float(self.strat_ma_ob_var.get(), 70.0),
+            ma_os=self._float(self.strat_ma_os_var.get(), 30.0),
+            ma_swing=max(2, int(self._float(self.strat_ma_swing_var.get(), 10))),
+            ma_sl_buf=self._float(self.strat_ma_slbuf_var.get(), 0.10),
+            ma_scale=max(0.0, min(1.0, self._float(self.strat_ma_scale_var.get(), 50) / 100.0)),
         )
+
+    def _strategy_type_value(self) -> str:
+        """Map the dropdown label to the runner's strategy id."""
+        return "ma" if self.strat_type_var.get().startswith("Strategy B") else "prometheus"
+
+    def _apply_strategy_visibility(self) -> None:
+        """Show only the selected strategy's parameter rows + help text."""
+        is_ma = self._strategy_type_value() == "ma"
+        for fr in self._dip_frames:
+            fr.grid_remove() if is_ma else fr.grid()
+        for fr in self._ma_frames:
+            fr.grid() if is_ma else fr.grid_remove()
+        if is_ma:
+            self._dip_help.grid_remove()
+            self._ma_help.grid()
+        else:
+            self._ma_help.grid_remove()
+            self._dip_help.grid()
 
     def _push_strategy(self) -> None:
         """Apply the built-in strategy config to the runner and start/stop it.
@@ -1120,6 +1189,7 @@ class TradingBotGUI:
             params=self._strategy_params(),
             exchange_id=exchange_id(self.exchange_var.get()),
             market_type="futures" if self.market_var.get() == "Futures" else "spot",
+            strategy_type=self._strategy_type_value(),
         )
         if active and not self.strategy_runner.running:
             self.strategy_runner.start()
@@ -1511,6 +1581,14 @@ class TradingBotGUI:
         self.strat_slbuf_var.set(str(s.get("strat_sl_buf", 0.10)))
         self.strat_tp1_var.set(str(s.get("strat_tp1", 1.0)))
         self.strat_tp2_var.set(str(s.get("strat_tp2", 3.0)))
+        self.strat_type_var.set(s.get("strat_type", "Strategy A — Prometheus"))
+        self.strat_ma_len_var.set(str(s.get("strat_ma_len", 20)))
+        self.strat_ma_ob_var.set(str(s.get("strat_ma_ob", 70)))
+        self.strat_ma_os_var.set(str(s.get("strat_ma_os", 30)))
+        self.strat_ma_swing_var.set(str(s.get("strat_ma_swing", 10)))
+        self.strat_ma_slbuf_var.set(str(s.get("strat_ma_slbuf", 0.10)))
+        self.strat_ma_scale_var.set(str(s.get("strat_ma_scale", 50)))
+        self._apply_strategy_visibility()
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -1578,6 +1656,13 @@ class TradingBotGUI:
             "strat_sl_buf": self._float(self.strat_slbuf_var.get(), 0.10),
             "strat_tp1": self._float(self.strat_tp1_var.get(), 1.0),
             "strat_tp2": self._float(self.strat_tp2_var.get(), 3.0),
+            "strat_type": self.strat_type_var.get(),
+            "strat_ma_len": self.strat_ma_len_var.get(),
+            "strat_ma_ob": self.strat_ma_ob_var.get(),
+            "strat_ma_os": self.strat_ma_os_var.get(),
+            "strat_ma_swing": self.strat_ma_swing_var.get(),
+            "strat_ma_slbuf": self.strat_ma_slbuf_var.get(),
+            "strat_ma_scale": self.strat_ma_scale_var.get(),
         }
 
     def _save_all(self) -> None:
@@ -1800,7 +1885,16 @@ class TradingBotGUI:
         (tp1_hit / tp2_hit / sl_hit / sl_after_partial) are routed to the event
         handler — e.g. move stop to breakeven after TP1.
         """
-        if signal.get("event"):
+        event = signal.get("event")
+        if event == "scale_out":
+            # Partial de-risk (Strategy B RSI-extreme scale-out): close a fraction.
+            self.backend.submit({
+                "cmd": "close",
+                "pair": signal["ticker"],
+                "fraction": float(signal.get("fraction") or 0.5),
+            })
+            return
+        if event:
             self.backend.submit({
                 "cmd": "signal_event",
                 "event": signal["event"],

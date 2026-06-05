@@ -53,6 +53,13 @@ class StrategyParams:
     # Targets (multiples of the dip range, floored by ATR).
     rr_tp1: float = 1.0
     rr_tp2: float = 3.0
+    # --- Strategy B ("MA"): EMA20 + RSI-50 crossover (long+short, dynamic exits).
+    ma_len: int = 20                 # EMA length for the trend filter
+    ma_ob: float = 70.0              # RSI level to scale a long out at
+    ma_os: float = 30.0              # RSI level to scale a short out at
+    ma_swing: int = 10               # swing lookback for the protective stop
+    ma_sl_buf: float = 0.10          # extra % beyond the swing for the stop
+    ma_scale: float = 0.5            # fraction closed on the RSI-extreme scale-out
 
 
 @dataclass
@@ -66,6 +73,7 @@ class StrategySignal:
     rsi: float
     sl: Optional[float] = None
     index: int = -1                  # bar index within the evaluated candle list
+    side: str = "long"               # "long" / "short" (Strategy B can short)
 
 
 @dataclass
@@ -171,6 +179,35 @@ def lowest_series(lows: List[float], length: int) -> List[float]:
     for i in range(n):
         start = max(0, i - length + 1)
         out[i] = min(lows[start:i + 1])
+    return out
+
+
+def ema_series(values: List[float], length: int) -> List[Optional[float]]:
+    """Exponential moving average (matches Pine ``ta.ema``): SMA-seeded over the
+    first ``length`` values, then smoothed with alpha = 2/(length+1). ``None``
+    until ``length`` values exist."""
+    n = len(values)
+    out: List[Optional[float]] = [None] * n
+    if length <= 0 or n < length:
+        return out
+    seed = sum(values[:length]) / length
+    out[length - 1] = seed
+    k = 2.0 / (length + 1.0)
+    prev = seed
+    for i in range(length, n):
+        prev = (values[i] - prev) * k + prev
+        out[i] = prev
+    return out
+
+
+def highest_series(highs: List[float], length: int) -> List[float]:
+    """Highest high over the trailing ``length`` bars, inclusive of the current
+    bar (mirror of :func:`lowest_series`, used for short-side protective stops)."""
+    n = len(highs)
+    out: List[float] = [0.0] * n
+    for i in range(n):
+        start = max(0, i - length + 1)
+        out[i] = max(highs[start:i + 1])
     return out
 
 
@@ -352,3 +389,107 @@ def _replay(candles, params: StrategyParams, ticker: str = ""):
                                           rsi=float(rsi[i]), sl=sl, index=i))
 
     return dips, signals
+
+
+# ---------------------------------------------------------------------------
+# Strategy B — "MA": EMA20 + RSI-50 crossover (long + short, dynamic exits).
+# ---------------------------------------------------------------------------
+def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
+    """Replay the EMA20 + RSI-50 crossover state machine over CLOSED candles.
+
+    Returns a list of ``(bar_index, event)`` instructions, where ``event`` is one
+    of:
+      * ``{"act":"enter","side":"long"|"short","entry":float,"sl":float,"ts":int}``
+      * ``{"act":"scale_out","fraction":float,"side":...}``  (RSI hit 70/30)
+      * ``{"act":"exit"}``                                   (close back across the
+        EMA, or the swing stop was breached)
+
+    Pure & deterministic: it simulates one position at a time, so a reversal
+    (long→short on the same bar) emits an ``exit`` immediately followed by an
+    ``enter``. Entries fire only on a *fresh* alignment (a genuine cross), never
+    on the first ready bar — non-repaint, mirroring the long-only engine.
+    """
+    n = len(candles)
+    need = max(params.ma_len, params.rsi_len, params.ma_swing) + 2
+    if n < need:
+        return []
+
+    ts = [int(c[0]) for c in candles]
+    h = [float(c[2]) for c in candles]
+    low = [float(c[3]) for c in candles]
+    cl = [float(c[4]) for c in candles]
+
+    ema = ema_series(cl, params.ma_len)
+    rsi = rsi_series(cl, params.rsi_len)
+    swing_low = lowest_series(low, params.ma_swing)
+    swing_high = highest_series(h, params.ma_swing)
+    buf = params.ma_sl_buf / 100.0
+
+    pos = "flat"            # flat / long / short
+    scaled = False          # has the one-shot RSI scale-out fired for this position?
+    sl: Optional[float] = None
+    prev_ready = False
+    prev_long = False
+    prev_short = False
+    events = []
+
+    for i in range(n):
+        ready = ema[i] is not None and rsi[i] is not None
+        if not ready:
+            prev_ready, prev_long, prev_short = False, False, False
+            continue
+
+        long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
+        short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
+        # Fresh cross only (the prior bar must have been ready and not aligned).
+        enter_long = prev_ready and long_aligned and not prev_long
+        enter_short = prev_ready and short_aligned and not prev_short
+
+        # 1) Manage an open position first — exits/stops take priority.
+        if pos == "long":
+            if (sl is not None and low[i] <= sl) or cl[i] < ema[i] or enter_short:
+                events.append((i, {"act": "exit"}))
+                pos, scaled, sl = "flat", False, None
+            elif not scaled and rsi[i] >= params.ma_ob:
+                events.append((i, {"act": "scale_out", "fraction": params.ma_scale,
+                                   "side": "long"}))
+                scaled = True
+        elif pos == "short":
+            if (sl is not None and h[i] >= sl) or cl[i] > ema[i] or enter_long:
+                events.append((i, {"act": "exit"}))
+                pos, scaled, sl = "flat", False, None
+            elif not scaled and rsi[i] <= params.ma_os:
+                events.append((i, {"act": "scale_out", "fraction": params.ma_scale,
+                                   "side": "short"}))
+                scaled = True
+
+        # 2) Enter when flat (after a same-bar exit this is the reversal leg).
+        if pos == "flat":
+            if enter_long:
+                sl = swing_low[i] * (1.0 - buf)
+                events.append((i, {"act": "enter", "side": "long",
+                                   "entry": cl[i], "sl": sl, "ts": ts[i]}))
+                pos, scaled = "long", False
+            elif enter_short:
+                sl = swing_high[i] * (1.0 + buf)
+                events.append((i, {"act": "enter", "side": "short",
+                                   "entry": cl[i], "sl": sl, "ts": ts[i]}))
+                pos, scaled = "short", False
+
+        prev_ready, prev_long, prev_short = True, long_aligned, short_aligned
+
+    return events
+
+
+def evaluate_crossover(candles, params: StrategyParams, ticker: str = ""):
+    """Instructions for the NEWEST closed candle only (runner contract).
+
+    Returns a list (possibly empty; two entries on a reversal) of the event
+    dicts described in :func:`_replay_crossover`."""
+    last = len(candles) - 1
+    return [ev for (i, ev) in _replay_crossover(candles, params, ticker) if i == last]
+
+
+def evaluate_all_crossover(candles, params: StrategyParams, ticker: str = ""):
+    """Every crossover instruction over the whole candle list (for charting)."""
+    return _replay_crossover(candles, params, ticker)

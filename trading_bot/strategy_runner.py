@@ -68,7 +68,9 @@ class StrategyRunner:
             "params": strategy.StrategyParams(),
             "exchange_id": None,
             "market_type": "spot",
+            "strategy_type": "prometheus",   # "prometheus" (A) or "ma" (B)
         }
+        self._warned_spot_short = False      # one-shot "shorts need futures" notice
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.running = False
@@ -224,6 +226,10 @@ class StrategyRunner:
             return
         self._last_ts[sym] = newest_ts
 
+        if cfg.get("strategy_type") == "ma":
+            self._emit_ma(closed, sym, cfg)
+            return
+
         sig = strategy.evaluate(closed, cfg["params"], ticker=sym)
         if sig is None:
             return
@@ -243,3 +249,39 @@ class StrategyRunner:
             "price": sig.entry,
             "source": "strategy",
         })
+
+    def _emit_ma(self, closed: List[list], sym: str, cfg: dict) -> None:
+        """Strategy B ("MA"): translate the newest candle's crossover instructions
+        into the same signal payloads a webhook would send.
+
+        Entries become buy/sell + a swing stop; an RSI-extreme scale-out becomes a
+        partial close; an EMA-trail/stop exit becomes a full close. Shorts need a
+        Futures market (spot can't short), so they're skipped on spot with a
+        one-shot notice."""
+        futures = cfg.get("market_type") == "futures"
+        for ev in strategy.evaluate_crossover(closed, cfg["params"], ticker=sym):
+            act = ev["act"]
+            if act == "enter":
+                side = ev["side"]
+                if side == "short" and not futures:
+                    if not self._warned_spot_short:
+                        self.log("MA strategy: short skipped — switch Market to "
+                                 "Futures to trade shorts.")
+                        self._warned_spot_short = True
+                    continue
+                action = "buy" if side == "long" else "sell"
+                self.log(f"MA strategy: {action.upper()} ({side}) {sym} "
+                         f"@ {ev['entry']:g}, SL {ev['sl']:g}")
+                self.on_signal({
+                    "action": action, "event": "", "ticker": sym, "size": None,
+                    "entry": ev["entry"], "sl": ev["sl"], "tp1": None, "tp2": None,
+                    "price": ev["entry"], "source": "strategy",
+                })
+            elif act == "scale_out":
+                self.log(f"MA strategy: scale out {int(ev['fraction'] * 100)}% {sym} "
+                         f"(RSI extreme)")
+                self.on_signal({"event": "scale_out", "ticker": sym,
+                                "fraction": ev["fraction"], "source": "strategy"})
+            elif act == "exit":
+                self.log(f"MA strategy: exit {sym} (EMA trail / stop)")
+                self.on_signal({"event": "exit", "ticker": sym, "source": "strategy"})
