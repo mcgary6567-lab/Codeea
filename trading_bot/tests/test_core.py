@@ -37,14 +37,13 @@ from guardrails import Guardrails  # noqa: E402
 from webhook_server import parse_payload  # noqa: E402
 from strategy import (  # noqa: E402
     StrategyParams,
-    StrategySignal,
-    atr_series,
-    evaluate,
-    evaluate_all,
+    ema_series,
+    evaluate_all_crossover,
+    evaluate_crossover,
+    highest_series,
     lowest_series,
     rsi_series,
     sma_series,
-    track_outcomes,
 )
 
 
@@ -431,208 +430,83 @@ class TestStrategyIndicators(unittest.TestCase):
         down = rsi_series([float(60 - x) for x in range(1, 60)], 14)
         self.assertLess(down[-1], 1.0)        # only losses -> RSI 0
 
-    def test_atr_warms_up_then_tracks_range(self):
-        n = 30
-        highs = [101.0] * n
-        lows = [99.0] * n
-        closes = [100.0] * n
-        atr = atr_series(highs, lows, closes, 14)
-        self.assertIsNone(atr[12])
-        # constant 2-wide range -> ATR converges to 2.0
-        self.assertAlmostEqual(atr[-1], 2.0, places=6)
-
-
 def _candle(ts, o, h, l, c, v=100.0):
     return [ts, o, h, l, c, v]
 
 
-def _build(warmup=40, tail=None):
-    """A flat warmup (neutral candles, close==open) followed by ``tail`` candles.
-
-    Neutral warmup keeps RSI/ATR well-defined without creating spurious dips or
-    greens, so tests can drive the state machine deterministically."""
-    candles = []
-    for i in range(warmup):
-        candles.append(_candle(i * 60000, 100.0, 100.5, 99.5, 100.0))
-    base = warmup
-    for j, c in enumerate(tail or []):
-        c = list(c)
-        c[0] = (base + j) * 60000
-        candles.append(c)
-    return candles
-
-
-# Lenient custom thresholds so the *state machine* (not the RSI/ATR gating) is
-# what's under test: any red new-low bar is a dip; any green passes.
-LENIENT = dict(preset="Custom", cust_os=100, cust_atr=0.0, cust_vol=0.0,
-               cust_look=10, min_body_ratio=0.3)
+def _trend_candles():
+    """Neutral preamble, then a clean rally and drop on BTC-like prices — enough
+    to fire a long (RSI>70 scale-out) then a short (RSI<30 scale-out)."""
+    closes = [100.0] * 40
+    p = 100.0
+    for _ in range(25):
+        p *= 1.012
+        closes.append(p)
+    for _ in range(25):
+        p *= 0.988
+        closes.append(p)
+    out, prev = [], closes[0]
+    for i, c in enumerate(closes):
+        out.append(_candle(i * 60000, prev, max(prev, c) * 1.0008,
+                           min(prev, c) * 0.9992, c))
+        prev = c
+    return out
 
 
-class TestStrategyEngine(unittest.TestCase):
-    def test_dip_then_two_greens_fires_buy_on_last_candle(self):
-        p = StrategyParams(green_n=2, max_wait=15, cooldown=5,
-                           use_sl=True, sl_look=10, sl_buf=0.10,
-                           rr_tp1=1.0, rr_tp2=3.0, **LENIENT)
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),   # dip: red, new low 97
-            _candle(0, 98.0, 99.0, 98.0, 99.0),     # green 1 (body=1, ratio 1.0)
-            _candle(0, 99.0, 100.0, 99.0, 100.0),   # green 2 -> fires here
-        ])
-        sig = evaluate(candles, p, ticker="BTC/USDT")
-        self.assertIsNotNone(sig)
-        self.assertAlmostEqual(sig.entry, 100.0)        # close of signal bar
-        # dipRef = locked dip low 97; tpRange = max(100-97, atr) = 3
-        self.assertAlmostEqual(sig.tp1, 103.0)          # 100 + 3*1.0
-        self.assertAlmostEqual(sig.tp2, 109.0)          # 100 + 3*3.0
-        self.assertAlmostEqual(sig.sl, 97.0 * (1 - 0.10 / 100.0))
-
-    def test_only_fires_on_the_newest_closed_candle(self):
-        """A signal that completed on an earlier bar is not re-emitted."""
-        p = StrategyParams(green_n=2, cooldown=5, **LENIENT)
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),
-            _candle(0, 98.0, 99.0, 98.0, 99.0),
-            _candle(0, 99.0, 100.0, 99.0, 100.0),   # signal bar...
-            _candle(0, 100.0, 100.5, 99.5, 100.0),  # ...followed by neutral bars
-            _candle(0, 100.0, 100.5, 99.5, 100.0),
-        ])
-        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
-
-    def test_insufficient_greens_does_not_fire(self):
-        p = StrategyParams(green_n=3, **LENIENT)   # needs 3, only 2 supplied
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),
-            _candle(0, 98.0, 99.0, 98.0, 99.0),
-            _candle(0, 99.0, 100.0, 99.0, 100.0),
-        ])
-        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
-
-    def test_weak_green_body_is_rejected(self):
-        """A doji-ish green (tiny body vs range) must not count as a confirmation."""
-        p = StrategyParams(green_n=2, require_body_ratio=True, **{
-            **LENIENT, "min_body_ratio": 0.5})
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),       # dip
-            _candle(0, 98.0, 99.0, 98.0, 99.0),         # strong green (ratio 1.0)
-            _candle(0, 99.0, 102.0, 98.0, 99.2),        # weak green: body .2 / range 4
-        ])
-        # The weak green resets the count, so no 2-green sequence completes.
-        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
-
-    def test_setup_expires_after_max_wait(self):
-        p = StrategyParams(green_n=2, max_wait=3, **LENIENT)
-        tail = [_candle(0, 100.0, 100.0, 97.0, 98.0)]      # dip
-        tail += [_candle(0, 100.0, 100.5, 99.5, 100.0)] * 4  # 4 neutral > max_wait 3
-        tail += [_candle(0, 98.0, 99.0, 98.0, 99.0),
-                 _candle(0, 99.0, 100.0, 99.0, 100.0)]       # greens come too late
-        candles = _build(tail=tail)
-        self.assertIsNone(evaluate(candles, p, ticker="BTC/USDT"))
-
-    def test_no_sl_when_disabled(self):
-        p = StrategyParams(green_n=2, use_sl=False, **LENIENT)
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),
-            _candle(0, 98.0, 99.0, 98.0, 99.0),
-            _candle(0, 99.0, 100.0, 99.0, 100.0),
-        ])
-        sig = evaluate(candles, p, ticker="BTC/USDT")
-        self.assertIsNotNone(sig)
-        self.assertIsNone(sig.sl)
-
-    def test_too_few_candles_returns_none(self):
-        p = StrategyParams(**LENIENT)
-        self.assertIsNone(evaluate(_build(warmup=5), p, ticker="BTC/USDT"))
+CROSS = dict(ma_len=20, rsi_len=14, ma_ob=70, ma_os=30, ma_swing=10,
+             ma_sl_buf=0.10, ma_scale=0.5, ma_confirm=1, ma_min_body=0.30)
 
 
-class TestStrategyEvaluateAll(unittest.TestCase):
-    """evaluate_all powers the chart overlays: it must mark every dip + signal."""
+class TestStrategyIndicatorsExtra(unittest.TestCase):
+    def test_ema_warmup_then_tracks(self):
+        e = ema_series([float(x) for x in range(1, 60)], 20)
+        self.assertIsNone(e[18])
+        self.assertIsNotNone(e[19])
+        self.assertLess(e[40], 41.0)        # EMA below price on a rising series
+        self.assertGreater(e[40], e[30])    # and rising
 
-    def test_marks_dip_and_signal_with_index(self):
-        p = StrategyParams(green_n=2, cooldown=0, **LENIENT)
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),   # idx 40 — dip
-            _candle(0, 98.0, 99.0, 98.0, 99.0),     # idx 41 — green
-            _candle(0, 99.0, 100.0, 99.0, 100.0),   # idx 42 — signal
-        ])
-        dips, sigs = evaluate_all(candles, p, ticker="BTC/USDT")
-        self.assertIn(40, dips)
-        self.assertEqual(len(sigs), 1)
-        self.assertEqual(sigs[0].index, 42)
-        self.assertAlmostEqual(sigs[0].entry, 100.0)
-        self.assertAlmostEqual(sigs[0].tp2, 109.0)
-
-    def test_marks_multiple_signals(self):
-        p = StrategyParams(green_n=2, cooldown=0, **LENIENT)
-        candles = _build(tail=[
-            _candle(0, 100.0, 100.0, 97.0, 98.0),   # 40 dip
-            _candle(0, 98.0, 99.0, 98.0, 99.0),     # 41 green
-            _candle(0, 99.0, 100.0, 99.0, 100.0),   # 42 signal
-            _candle(0, 100.0, 100.0, 96.0, 97.0),   # 43 dip (new low)
-            _candle(0, 97.0, 98.0, 97.0, 98.0),     # 44 green
-            _candle(0, 98.0, 99.0, 98.0, 99.0),     # 45 signal
-        ])
-        dips, sigs = evaluate_all(candles, p, ticker="BTC/USDT")
-        self.assertEqual([s.index for s in sigs], [42, 45])
-        self.assertTrue({40, 43}.issubset(set(dips)))
-
-    def test_empty_when_too_few_candles(self):
-        dips, sigs = evaluate_all(_build(warmup=5), StrategyParams(**LENIENT))
-        self.assertEqual((dips, sigs), ([], []))
+    def test_highest_is_trailing_max_inclusive(self):
+        out = highest_series([5, 7, 4, 9, 3], 3)
+        self.assertEqual(out[2], 7)
+        self.assertEqual(out[3], 9)
+        self.assertEqual(out[4], 9)
 
 
-class TestTrackOutcomes(unittest.TestCase):
-    """Forward-scan that classifies each signal (WIN/LOSS/PART/OPEN/EXP) and
-    records where TP1/TP2/SL were hit — drives the chart's outcome markers."""
+class TestStrategyCrossover(unittest.TestCase):
+    def test_full_lifecycle_long_then_short(self):
+        stream = [(i, e["act"], e.get("side"))
+                  for (i, e) in evaluate_all_crossover(_trend_candles(), StrategyParams(**CROSS))]
+        acts = [a for _, a, _ in stream]
+        enters = [s for (_, a, s) in stream if a == "enter"]
+        self.assertIn("long", enters)
+        self.assertIn("short", enters)
+        self.assertIn("scale_out", acts)
+        self.assertIn("exit", acts)
+        idxs = [i for i, _, _ in stream]
+        self.assertEqual(idxs, sorted(idxs))   # non-repaint: bar order
 
-    @staticmethod
-    def _c(high, low):
-        return [0, 100.0, high, low, 100.0, 100.0]   # only H/L matter here
+    def test_evaluate_returns_only_newest_bar(self):
+        candles = _trend_candles()
+        p = StrategyParams(**CROSS)
+        last = len(candles) - 1
+        self.assertEqual(evaluate_crossover(candles, p),
+                         [e for (i, e) in evaluate_all_crossover(candles, p) if i == last])
 
-    def _sig(self, sl=96.0):
-        return StrategySignal(ts=0, entry=100.0, tp1=103.0, tp2=109.0, rsi=20.0,
-                              sl=sl, index=2)
+    def test_stricter_confirmation_does_not_enter_earlier(self):
+        candles = _trend_candles()
+        loose = evaluate_all_crossover(candles, StrategyParams(**{**CROSS, "ma_confirm": 1}))
+        strict = evaluate_all_crossover(candles, StrategyParams(**{**CROSS, "ma_confirm": 3}))
+        b1 = next(i for i, e in loose if e["act"] == "enter" and e["side"] == "long")
+        b3 = next((i for i, e in strict if e["act"] == "enter" and e["side"] == "long"), 10**9)
+        self.assertGreaterEqual(b3, b1)
 
-    def test_win_on_tp2(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(104, 100), self._c(110, 104)]
-        oc = track_outcomes(candles, [self._sig()])[0]
-        self.assertEqual(oc.status, "win")
-        self.assertEqual(oc.tp1_index, 3)
-        self.assertEqual(oc.tp2_index, 4)
+    def test_body_filter_rejects_doji(self):
+        doji = [_candle(i * 60000, 100, 100.5, 99.5, 100) for i in range(60)]
+        self.assertEqual(evaluate_crossover(doji, StrategyParams(**CROSS)), [])
 
-    def test_loss_on_sl_before_tp1(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(101, 95)]
-        oc = track_outcomes(candles, [self._sig(96.0)])[0]
-        self.assertEqual(oc.status, "loss")
-        self.assertEqual(oc.sl_index, 3)
-        self.assertIsNone(oc.tp1_index)
-
-    def test_part_when_sl_after_tp1(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(104, 100), self._c(101, 95)]
-        oc = track_outcomes(candles, [self._sig(96.0)])[0]
-        self.assertEqual(oc.status, "part")
-        self.assertEqual(oc.tp1_index, 3)
-        self.assertEqual(oc.sl_index, 4)
-
-    def test_open_when_nothing_hit(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(101, 99), self._c(102, 99)]
-        oc = track_outcomes(candles, [self._sig(96.0)])[0]
-        self.assertEqual(oc.status, "open")
-
-    def test_expired_after_window_without_tp1(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(101, 99), self._c(102, 99)]
-        oc = track_outcomes(candles, [self._sig(sl=None)], track_window=2)[0]
-        self.assertEqual(oc.status, "expired")
-
-    def test_tp2_takes_priority_over_sl_on_the_same_bar(self):
-        candles = [self._c(101, 99), self._c(101, 99), self._c(100, 100),
-                   self._c(110, 95)]
-        oc = track_outcomes(candles, [self._sig(96.0)])[0]
-        self.assertEqual(oc.status, "win")
+    def test_too_few_candles_returns_empty(self):
+        self.assertEqual(
+            evaluate_crossover([_candle(0, 100, 101, 99, 100)] * 5, StrategyParams(**CROSS)), [])
 
 
 class TestLicence(unittest.TestCase):

@@ -4,10 +4,11 @@ Runs on its own daemon thread with a public (keyless) ccxt client, exactly like
 :class:`pricefeed.PriceFeed`, so it never touches the backend's authenticated
 client (the single-threaded-I/O rule in ``backend.py`` is preserved). Every
 poll it fetches recent candles for each watched symbol, drops the still-forming
-candle, replays :func:`strategy.evaluate`, and on a freshly-confirmed BUY calls
-``on_signal`` with the *same* normalised payload a TradingView webhook would
-produce (``source="strategy"``) — so the trade flows through the identical
-guardrail → sizing → order → bracket pipeline.
+candle, replays :func:`strategy.evaluate_crossover`, and emits the resulting
+entry / scale-out / exit instructions via ``on_signal`` with the *same*
+normalised payload a TradingView webhook would produce (``source="strategy"``)
+— so trades flow through the identical guardrail → sizing → order → bracket
+pipeline.
 
 State is rebuilt from candle history on every poll (the engine is pure), so a
 restart mid-setup loses nothing. A per-symbol "last seen candle" timestamp
@@ -68,7 +69,6 @@ class StrategyRunner:
             "params": strategy.StrategyParams(),
             "exchange_id": None,
             "market_type": "spot",
-            "strategy_type": "prometheus",   # "prometheus" (A) or "ma" (B)
         }
         self._warned_spot_short = False      # one-shot "shorts need futures" notice
         self._stop = threading.Event()
@@ -225,34 +225,11 @@ class StrategyRunner:
         if self._last_ts.get(sym, 0) >= newest_ts:
             return
         self._last_ts[sym] = newest_ts
-
-        if cfg.get("strategy_type") == "ma":
-            self._emit_ma(closed, sym, cfg)
-            return
-
-        sig = strategy.evaluate(closed, cfg["params"], ticker=sym)
-        if sig is None:
-            return
-
-        self.log(f"Built-in strategy: BUY {sym} @ {sig.entry:g} "
-                 f"(TP1 {sig.tp1:g} / TP2 {sig.tp2:g}"
-                 + (f", SL {sig.sl:g}" if sig.sl else "") + ")")
-        self.on_signal({
-            "action": "buy",
-            "event": "",
-            "ticker": sym,
-            "size": None,
-            "entry": sig.entry,
-            "sl": sig.sl,
-            "tp1": sig.tp1,
-            "tp2": sig.tp2,
-            "price": sig.entry,
-            "source": "strategy",
-        })
+        self._emit_ma(closed, sym, cfg)
 
     def _emit_ma(self, closed: List[list], sym: str, cfg: dict) -> None:
-        """Strategy B ("MA"): translate the newest candle's crossover instructions
-        into the same signal payloads a webhook would send.
+        """Translate the newest candle's crossover instructions into the same
+        signal payloads a webhook would send.
 
         Entries become buy/sell + a swing stop; an RSI-extreme scale-out becomes a
         partial close; an EMA-trail/stop exit becomes a full close. Shorts need a

@@ -1014,80 +1014,11 @@ class TradingBotGUI:
         tf_box = ttk.Combobox(sr, textvariable=self.strat_tf_var, values=STRATEGY_TIMEFRAMES,
                               state="readonly", width=6)
         tf_box.pack(side="left", padx=6)
-        ttk.Label(sr, text="Preset:").pack(side="left", padx=(10, 0))
-        self.strat_preset_var = tk.StringVar(value="Auto")
-        preset_box = ttk.Combobox(sr, textvariable=self.strat_preset_var,
-                                  values=["Auto", "BTC", "ETH", "Crypto", "Custom"],
-                                  state="readonly", width=8)
-        preset_box.pack(side="left", padx=6)
         tf_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
-        preset_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
+        ttk.Label(sr, text="  EMA20 + RSI-50 crossover (long + short)",
+                  style="Dim.TLabel").pack(side="left", padx=(10, 0))
 
-        # Strategy selector: A = Prometheus dip→green (default), B = EMA20+RSI "MA".
-        ttk.Label(sr, text="Strategy:").pack(side="left", padx=(10, 0))
-        self.strat_type_var = tk.StringVar(value="Strategy A — Prometheus")
-        type_box = ttk.Combobox(sr, textvariable=self.strat_type_var, state="readonly",
-                                width=22,
-                                values=["Strategy A — Prometheus", "Strategy B — MA"])
-        type_box.pack(side="left", padx=6)
-        type_box.bind("<<ComboboxSelected>>", lambda ev: self._on_strategy_type_change())
-
-        # Green sequence.
-        gs = ttk.Frame(f)
-        gs.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
-        ttk.Label(gs, text="Greens:").pack(side="left")
-        self.strat_greens_var = tk.StringVar(value="2")
-        num_entry(gs, self.strat_greens_var, 4).pack(side="left", padx=(2, 8))
-        ttk.Label(gs, text="Max wait:").pack(side="left")
-        self.strat_maxwait_var = tk.StringVar(value="15")
-        num_entry(gs, self.strat_maxwait_var, 4).pack(side="left", padx=(2, 8))
-        ttk.Label(gs, text="Cooldown:").pack(side="left")
-        self.strat_cooldown_var = tk.StringVar(value="5")
-        num_entry(gs, self.strat_cooldown_var, 4).pack(side="left", padx=2)
-
-        # Custom dip thresholds (used only when Preset = Custom).
-        cr = ttk.Frame(f)
-        cr.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
-        ttk.Label(cr, text="Custom: RSI≤").pack(side="left")
-        self.strat_os_var = tk.StringVar(value="30")
-        num_entry(cr, self.strat_os_var, 4).pack(side="left", padx=(2, 8))
-        ttk.Label(cr, text="Range×ATR:").pack(side="left")
-        self.strat_atr_var = tk.StringVar(value="0.9")
-        num_entry(cr, self.strat_atr_var, 4).pack(side="left", padx=(2, 8))
-        ttk.Label(cr, text="Vol×avg:").pack(side="left")
-        self.strat_vol_var = tk.StringVar(value="1.0")
-        num_entry(cr, self.strat_vol_var, 4).pack(side="left", padx=2)
-
-        # Quality filter.
-        qr = ttk.Frame(f)
-        qr.grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
-        self.strat_reqbody_var = tk.BooleanVar(value=True)
-        theme.make_check(qr, text="Strong green body  ≥", variable=self.strat_reqbody_var,
-                         command=self._push_strategy).pack(side="left")
-        self.strat_body_var = tk.StringVar(value="0.3")
-        num_entry(qr, self.strat_body_var, 4).pack(side="left", padx=2)
-        ttk.Label(qr, text="of range").pack(side="left")
-
-        # Stop-loss + targets.
-        tr = ttk.Frame(f)
-        tr.grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
-        self.strat_sl_var = tk.BooleanVar(value=True)
-        theme.make_check(tr, text="SL", variable=self.strat_sl_var,
-                         command=self._push_strategy).pack(side="left")
-        ttk.Label(tr, text="look:").pack(side="left", padx=(6, 0))
-        self.strat_sllook_var = tk.StringVar(value="10")
-        num_entry(tr, self.strat_sllook_var, 4).pack(side="left", padx=2)
-        ttk.Label(tr, text="buf%:").pack(side="left")
-        self.strat_slbuf_var = tk.StringVar(value="0.10")
-        num_entry(tr, self.strat_slbuf_var, 5).pack(side="left", padx=(2, 8))
-        ttk.Label(tr, text="TP1×:").pack(side="left")
-        self.strat_tp1_var = tk.StringVar(value="1.0")
-        num_entry(tr, self.strat_tp1_var, 4).pack(side="left", padx=2)
-        ttk.Label(tr, text="TP2×:").pack(side="left")
-        self.strat_tp2_var = tk.StringVar(value="3.0")
-        num_entry(tr, self.strat_tp2_var, 4).pack(side="left", padx=2)
-
-        # --- Strategy B ("MA") params — shown only when Strategy B is selected.
+        # EMA / RSI levels / swing-stop / scale-out.
         maf = ttk.Frame(f)
         maf.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf, text="EMA:").pack(side="left")
@@ -1119,43 +1050,26 @@ class TradingBotGUI:
         self.strat_ma_body_var = tk.StringVar(value="0.30")
         num_entry(maf2, self.strat_ma_body_var, 5).pack(side="left", padx=2)
 
-        # Frames that belong to each strategy, toggled by the selector.
-        self._dip_frames = [gs, cr, qr, tr]
-        self._ma_frames = [maf, maf2]
-        self._ma_help = ttk.Label(
-            f, text="Strategy B: enter long when price closes above EMA20 and RSI>50 "
-                    "(mirror for shorts); scale out at RSI 70/30 (stop then moves to "
-                    "breakeven), trail/exit on the EMA. Tip: set a Trailing stop % in "
-                    "Modes & Risk to lock in more profit. Shorts need a Futures market.",
-            style="Dim.TLabel", wraplength=380)
-        self._ma_help.grid(row=8, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        # Backtest launcher.
+        bt = ttk.Frame(f)
+        bt.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.backtest_btn = tk.Button(bt, text="📊 Backtest", command=self._open_backtest)
+        theme.style_button(self.backtest_btn, "accent")
+        self.backtest_btn.pack(side="left")
+        ttk.Label(bt, text="  replay this strategy over history (stats + equity + CSV)",
+                  style="Dim.TLabel").pack(side="left")
 
-        self._dip_help = ttk.Label(
-            f, text="Runs the bot's own copy of the indicator on exchange candles "
-                    "(closed bars only — non-repaint). Trades use the Execution & "
-                    "Risk settings. Requires a connection and a valid licence token "
-                    "(set in the License tab).",
-            style="Dim.TLabel", wraplength=380)
-        self._dip_help.grid(row=7, column=0, columnspan=2, sticky="w", pady=(4, 0))
-        self._apply_strategy_visibility()
+        ttk.Label(
+            f, text="Enter long when price closes above EMA20 and RSI>50 (mirror for "
+                    "shorts), confirmed by the green/red candles above; scale out at RSI "
+                    "70/30 (stop then moves to breakeven), trail/exit on the EMA. Tip: set "
+                    "a Trailing stop % in Modes & Risk to lock in more profit. Shorts need "
+                    "a Futures market. Requires a connection and a valid licence token.",
+            style="Dim.TLabel", wraplength=380).grid(
+            row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
     def _strategy_params(self) -> StrategyParams:
         return StrategyParams(
-            preset=self.strat_preset_var.get(),
-            cust_os=int(self._float(self.strat_os_var.get(), 30)),
-            cust_atr=self._float(self.strat_atr_var.get(), 0.9),
-            cust_vol=self._float(self.strat_vol_var.get(), 1.0),
-            green_n=max(1, int(self._float(self.strat_greens_var.get(), 2))),
-            max_wait=max(2, int(self._float(self.strat_maxwait_var.get(), 15))),
-            cooldown=max(0, int(self._float(self.strat_cooldown_var.get(), 5))),
-            require_body_ratio=self.strat_reqbody_var.get(),
-            min_body_ratio=self._float(self.strat_body_var.get(), 0.3),
-            use_sl=self.strat_sl_var.get(),
-            sl_look=max(2, int(self._float(self.strat_sllook_var.get(), 10))),
-            sl_buf=self._float(self.strat_slbuf_var.get(), 0.10),
-            rr_tp1=self._float(self.strat_tp1_var.get(), 1.0),
-            rr_tp2=self._float(self.strat_tp2_var.get(), 3.0),
-            # Strategy B ("MA") inputs (ignored when Strategy A is selected).
             ma_len=max(2, int(self._float(self.strat_ma_len_var.get(), 20))),
             ma_ob=self._float(self.strat_ma_ob_var.get(), 70.0),
             ma_os=self._float(self.strat_ma_os_var.get(), 30.0),
@@ -1165,32 +1079,6 @@ class TradingBotGUI:
             ma_confirm=max(0, int(self._float(self.strat_ma_confirm_var.get(), 1))),
             ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.30)),
         )
-
-    def _strategy_type_value(self) -> str:
-        """Map the dropdown label to the runner's strategy id."""
-        return "ma" if self.strat_type_var.get().startswith("Strategy B") else "prometheus"
-
-    def _on_strategy_type_change(self) -> None:
-        """User switched strategy: Strategy B (EMA20+RSI) is tuned for 1h on
-        BTC/USDT, so default its timeframe to 1h (still user-editable)."""
-        if self._strategy_type_value() == "ma":
-            self.strat_tf_var.set("1h")
-        self._apply_strategy_visibility()
-        self._push_strategy()
-
-    def _apply_strategy_visibility(self) -> None:
-        """Show only the selected strategy's parameter rows + help text."""
-        is_ma = self._strategy_type_value() == "ma"
-        for fr in self._dip_frames:
-            fr.grid_remove() if is_ma else fr.grid()
-        for fr in self._ma_frames:
-            fr.grid() if is_ma else fr.grid_remove()
-        if is_ma:
-            self._dip_help.grid_remove()
-            self._ma_help.grid()
-        else:
-            self._ma_help.grid_remove()
-            self._dip_help.grid()
 
     def _push_strategy(self) -> None:
         """Apply the built-in strategy config to the runner and start/stop it.
@@ -1209,7 +1097,6 @@ class TradingBotGUI:
             params=self._strategy_params(),
             exchange_id=exchange_id(self.exchange_var.get()),
             market_type="futures" if self.market_var.get() == "Futures" else "spot",
-            strategy_type=self._strategy_type_value(),
         )
         if active and not self.strategy_runner.running:
             self.strategy_runner.start()
@@ -1253,13 +1140,28 @@ class TradingBotGUI:
             get_params=self._strategy_params,
             get_exchange=lambda: exchange_id(self.exchange_var.get()),
             get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
-            get_strategy_type=self._strategy_type_value,
         )
 
     def _sync_chart(self) -> None:
         """Push live settings to an open chart so it keeps mirroring the bot."""
         if getattr(self, "_chart_win", None) and self._chart_win.alive():
             self._chart_win.sync()
+
+    def _open_backtest(self) -> None:
+        """Open (or focus) the historical backtester for the built-in strategy."""
+        from backtest_window import BacktestWindow
+        if getattr(self, "_bt_win", None) and self._bt_win.alive():
+            self._bt_win.focus()
+            return
+        self._bt_win = BacktestWindow(
+            self.root,
+            get_symbols=lambda: [s.strip() for s in self.strat_symbols_var.get().split(",")
+                                 if s.strip()],
+            get_timeframe=self.strat_tf_var.get,
+            get_params=self._strategy_params,
+            get_exchange=lambda: exchange_id(self.exchange_var.get()),
+            get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
+        )
 
     def _build_alerts_tab(self, f) -> None:
         self.sound_var = tk.BooleanVar(value=True)
@@ -1588,21 +1490,6 @@ class TradingBotGUI:
         self.strat_enabled_var.set(s.get("strat_enabled", False))
         self.strat_symbols_var.set(s.get("strat_symbols", DEFAULT_STRATEGY_SYMBOLS))
         self.strat_tf_var.set(s.get("strat_timeframe", DEFAULT_STRATEGY_TIMEFRAME))
-        self.strat_preset_var.set(s.get("strat_preset", "Auto"))
-        self.strat_greens_var.set(str(s.get("strat_greens", 2)))
-        self.strat_maxwait_var.set(str(s.get("strat_max_wait", 15)))
-        self.strat_cooldown_var.set(str(s.get("strat_cooldown", 5)))
-        self.strat_os_var.set(str(s.get("strat_cust_os", 30)))
-        self.strat_atr_var.set(str(s.get("strat_cust_atr", 0.9)))
-        self.strat_vol_var.set(str(s.get("strat_cust_vol", 1.0)))
-        self.strat_reqbody_var.set(s.get("strat_require_body", True))
-        self.strat_body_var.set(str(s.get("strat_min_body", 0.3)))
-        self.strat_sl_var.set(s.get("strat_use_sl", True))
-        self.strat_sllook_var.set(str(s.get("strat_sl_look", 10)))
-        self.strat_slbuf_var.set(str(s.get("strat_sl_buf", 0.10)))
-        self.strat_tp1_var.set(str(s.get("strat_tp1", 1.0)))
-        self.strat_tp2_var.set(str(s.get("strat_tp2", 3.0)))
-        self.strat_type_var.set(s.get("strat_type", "Strategy A — Prometheus"))
         self.strat_ma_len_var.set(str(s.get("strat_ma_len", 20)))
         self.strat_ma_ob_var.set(str(s.get("strat_ma_ob", 70)))
         self.strat_ma_os_var.set(str(s.get("strat_ma_os", 30)))
@@ -1611,7 +1498,6 @@ class TradingBotGUI:
         self.strat_ma_scale_var.set(str(s.get("strat_ma_scale", 50)))
         self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 1)))
         self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.30)))
-        self._apply_strategy_visibility()
         self._toggle_passphrase()
 
     def _collect_settings(self) -> dict:
@@ -1665,21 +1551,6 @@ class TradingBotGUI:
             "strat_enabled": self.strat_enabled_var.get(),
             "strat_symbols": self.strat_symbols_var.get(),
             "strat_timeframe": self.strat_tf_var.get(),
-            "strat_preset": self.strat_preset_var.get(),
-            "strat_greens": int(self._float(self.strat_greens_var.get(), 2)),
-            "strat_max_wait": int(self._float(self.strat_maxwait_var.get(), 15)),
-            "strat_cooldown": int(self._float(self.strat_cooldown_var.get(), 5)),
-            "strat_cust_os": int(self._float(self.strat_os_var.get(), 30)),
-            "strat_cust_atr": self._float(self.strat_atr_var.get(), 0.9),
-            "strat_cust_vol": self._float(self.strat_vol_var.get(), 1.0),
-            "strat_require_body": self.strat_reqbody_var.get(),
-            "strat_min_body": self._float(self.strat_body_var.get(), 0.3),
-            "strat_use_sl": self.strat_sl_var.get(),
-            "strat_sl_look": int(self._float(self.strat_sllook_var.get(), 10)),
-            "strat_sl_buf": self._float(self.strat_slbuf_var.get(), 0.10),
-            "strat_tp1": self._float(self.strat_tp1_var.get(), 1.0),
-            "strat_tp2": self._float(self.strat_tp2_var.get(), 3.0),
-            "strat_type": self.strat_type_var.get(),
             "strat_ma_len": self.strat_ma_len_var.get(),
             "strat_ma_ob": self.strat_ma_ob_var.get(),
             "strat_ma_os": self.strat_ma_os_var.get(),

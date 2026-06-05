@@ -171,7 +171,7 @@ CHECKOUT_URL = "https://prometheusai.tech/checkout"
 # feed — and feeds confirmed BUYs into the same trade pipeline as webhooks.
 # ---------------------------------------------------------------------------
 STRATEGY_TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"]
-DEFAULT_STRATEGY_TIMEFRAME = "5m"
+DEFAULT_STRATEGY_TIMEFRAME = "1h"   # built-in strategy (EMA20+RSI) is tuned for 1h
 # How often (seconds) the runner checks for a freshly-closed candle. Lower =
 # faster pickup after a candle closes; one cheap OHLCV call per symbol per poll.
 STRATEGY_POLL_INTERVAL = 15.0
