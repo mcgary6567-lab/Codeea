@@ -226,6 +226,36 @@ def _summarise(trades: List[BacktestTrade], start_equity: float,
     }
 
 
+def buy_hold_return(candles) -> float:
+    """Percent return of simply holding from the first to the last close."""
+    if len(candles) < 2:
+        return 0.0
+    first, last = float(candles[0][4]), float(candles[-1][4])
+    return (last / first - 1.0) * 100.0 if first else 0.0
+
+
+def optimize(candles, base: strategy.StrategyParams, cfg: BacktestConfig,
+             grid: dict, metric: str = "net_pnl", top: int = 30) -> List[dict]:
+    """Grid-search ``grid`` (param-name -> list of values) and return the top
+    combos ranked by ``metric`` (each: ``{"overrides":..., "stats":...}``)."""
+    import dataclasses
+    import itertools
+    keys = list(grid.keys())
+    results: List[dict] = []
+    for combo in itertools.product(*[grid[k] for k in keys]):
+        overrides = dict(zip(keys, combo))
+        r = run_backtest(candles, dataclasses.replace(base, **overrides), cfg)
+        if r.stats.get("trades", 0) == 0:
+            continue
+        results.append({"overrides": overrides, "stats": r.stats})
+
+    def key(x):
+        v = x["stats"].get(metric, 0.0)
+        return 1e18 if v == float("inf") else v
+    results.sort(key=key, reverse=True)
+    return results[:top]
+
+
 def trades_to_csv(trades: List[BacktestTrade]) -> str:
     """Render the trade list as CSV text (one row per closed trade)."""
     import csv

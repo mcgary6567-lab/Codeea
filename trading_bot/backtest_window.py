@@ -43,6 +43,7 @@ STAT_CARDS = [
     ("Net PnL", "net_pnl", "pnl"), ("Return %", "return_pct", "pnl"),
     ("Profit factor", "profit_factor", ACCENT), ("Avg R", "avg_r", "pnl"),
     ("Max DD %", "max_drawdown", RED), ("Longs / Shorts", "_ls", DIM),
+    ("Buy & hold %", "_bh", "pnl"), ("vs Buy&hold", "_vs", "pnl"),
     ("Best", "best", "pnl"), ("Worst", "worst", "pnl"),
     ("Fees", "fees", DIM), ("Funding", "funding", DIM),
 ]
@@ -68,6 +69,9 @@ class BacktestWindow:
         self.market_type = self._safe(get_market) or "spot"
 
         self._result: Optional[bt.BacktestResult] = None
+        self._candles: List[list] = []
+        self._buy_hold: float = 0.0
+        self._opt_results: List[dict] = []
         self._alive = True
 
         self.win = tk.Toplevel(root)
@@ -183,13 +187,57 @@ class BacktestWindow:
         self.grid = tk.Frame(self.win, bg=BG)
         self.grid.pack(fill="x", padx=12, pady=(4, 6))
 
-        tk.Label(self.win, text="Equity curve", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=12)
-        wrap = tk.Frame(self.win, bg=BORDER)
-        wrap.pack(fill="both", expand=True, padx=12, pady=(2, 12))
-        self.canvas = tk.Canvas(wrap, bg=PANEL, highlightthickness=0)
+        # Lower area: Equity curve / Trades table / Optimize, in a notebook.
+        nb = ttk.Notebook(self.win)
+        nb.pack(fill="both", expand=True, padx=12, pady=(2, 12))
+        eq_tab = tk.Frame(nb, bg=BORDER)
+        self.canvas = tk.Canvas(eq_tab, bg=PANEL, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True, padx=1, pady=1)
         self.canvas.bind("<Configure>", lambda e: self._draw_equity())
+        nb.add(eq_tab, text="Equity curve")
+
+        tr_tab = tk.Frame(nb, bg=PANEL)
+        self.trades_tree = ttk.Treeview(
+            tr_tab, show="headings", height=8,
+            columns=("n", "side", "entry", "exit", "pnl", "r", "reason"))
+        for col, txt, wdt in (("n", "#", 40), ("side", "side", 60), ("entry", "entry", 90),
+                              ("exit", "exit", 90), ("pnl", "pnl", 90), ("r", "R", 60),
+                              ("reason", "reason", 80)):
+            self.trades_tree.heading(col, text=txt)
+            self.trades_tree.column(col, width=wdt, anchor="center")
+        sb = ttk.Scrollbar(tr_tab, orient="vertical", command=self.trades_tree.yview)
+        self.trades_tree.configure(yscrollcommand=sb.set)
+        self.trades_tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        nb.add(tr_tab, text="Trades")
+
+        op_tab = tk.Frame(nb, bg=BG)
+        opbar = tk.Frame(op_tab, bg=BG)
+        opbar.pack(fill="x", pady=(6, 4))
+        self.opt_btn = tk.Button(opbar, text="Run optimize", command=self._optimize,
+                                 bg=ACCENT, fg="#1a1100", relief="flat", bd=0,
+                                 cursor="hand2", font=("Segoe UI Semibold", 9),
+                                 activebackground="#ffa057", padx=14, pady=4)
+        self.opt_btn.pack(side="left", padx=(0, 8))
+        tk.Label(opbar, text="rank by", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        self.opt_metric = tk.StringVar(value="net_pnl")
+        ttk.Combobox(opbar, textvariable=self.opt_metric, width=14, state="readonly",
+                     values=["net_pnl", "profit_factor", "win_rate", "avg_r"]).pack(
+            side="left", padx=4)
+        tk.Label(opbar, text="· double-click a row to load it", bg=BG, fg=DIM,
+                 font=("Segoe UI", 8)).pack(side="left", padx=8)
+        self.opt_tree = ttk.Treeview(
+            op_tab, show="headings", height=8,
+            columns=("ema", "conf", "swing", "trend", "atr", "trades", "win", "net", "pf", "dd"))
+        for col, txt, wdt in (("ema", "EMA", 50), ("conf", "Conf", 50), ("swing", "Swing", 55),
+                              ("trend", "Trend", 55), ("atr", "ATR×", 50), ("trades", "Trades", 60),
+                              ("win", "Win%", 55), ("net", "Net", 80), ("pf", "PF", 55),
+                              ("dd", "MaxDD%", 65)):
+            self.opt_tree.heading(col, text=txt)
+            self.opt_tree.column(col, width=wdt, anchor="center")
+        self.opt_tree.pack(fill="both", expand=True)
+        self.opt_tree.bind("<Double-1>", self._load_opt_row)
+        nb.add(op_tab, text="Optimize")
 
     # -- run ---------------------------------------------------------------
     def _run(self) -> None:
@@ -207,21 +255,25 @@ class BacktestWindow:
             candles = self._fetch()
             if len(candles) < 60:
                 raise RuntimeError(f"only {len(candles)} candles — widen the range")
-            cfg = bt.BacktestConfig(
-                start_equity=float(self.equity_var.get() or 10000),
-                size_pct=float(self.size_var.get() or 100),
-                risk_pct=float(self.risk_var.get() or 0),
-                fee_pct=float(self.fee_var.get() or 0),
-                funding_pct_8h=float(self.fund_var.get() or 0),
-                apply_costs=self.costs_var.get(),
-                bar_seconds=TF_SECONDS.get(self.timeframe, 3600),
-                allow_short=(self.market_type == "futures"),
-            )
-            result = bt.run_backtest(candles, self.get_params(), cfg)
+            self._candles = candles
+            result = bt.run_backtest(candles, self.get_params(), self._cfg_from_ui())
+            self._buy_hold = bt.buy_hold_return(candles)
         except Exception as exc:  # noqa: BLE001
             self._post(lambda: self._done_error(str(exc)))
             return
         self._post(lambda: self._done(result, len(candles)))
+
+    def _cfg_from_ui(self) -> "bt.BacktestConfig":
+        return bt.BacktestConfig(
+            start_equity=float(self.equity_var.get() or 10000),
+            size_pct=float(self.size_var.get() or 100),
+            risk_pct=float(self.risk_var.get() or 0),
+            fee_pct=float(self.fee_var.get() or 0),
+            funding_pct_8h=float(self.fund_var.get() or 0),
+            apply_costs=self.costs_var.get(),
+            bar_seconds=TF_SECONDS.get(self.timeframe, 3600),
+            allow_short=(self.market_type == "futures"),
+        )
 
     def _done_error(self, msg: str) -> None:
         self.run_btn.config(state="normal", text="Run backtest")
@@ -234,9 +286,81 @@ class BacktestWindow:
         s = result.stats
         self.status.config(
             text=f"{n_candles} candles · {s['trades']} trades · "
-                 f"{s['win_rate']:.0f}% win · net {s['net_pnl']:+.2f}")
+                 f"{s['win_rate']:.0f}% win · net {s['net_pnl']:+.2f} · "
+                 f"buy&hold {self._buy_hold:+.1f}%")
         self._render_stats(s)
+        self._populate_trades(result.trades)
         self._draw_equity()
+
+    def _populate_trades(self, trades) -> None:
+        self.trades_tree.delete(*self.trades_tree.get_children())
+        for k, t in enumerate(trades, 1):
+            self.trades_tree.insert(
+                "", "end", values=(k, t.side, f"{t.entry:.6g}", f"{t.exit:.6g}",
+                                   f"{t.pnl:+.2f}", f"{t.r:+.2f}", t.reason),
+                tags=("win" if t.pnl >= 0 else "loss",))
+        self.trades_tree.tag_configure("win", foreground=GREEN)
+        self.trades_tree.tag_configure("loss", foreground=RED)
+
+    # -- optimizer ---------------------------------------------------------
+    OPT_GRID = {
+        "ma_len": [20, 50],
+        "ma_confirm": [1, 2, 3],
+        "ma_swing": [10, 20],
+        "ma_trend_len": [0, 100, 200],
+        "ma_atr_mult": [0.0, 2.0],
+    }
+
+    def _optimize(self) -> None:
+        if not self._candles:
+            self.status.config(text="Run a backtest first (to load candles), then Optimize.")
+            return
+        self.opt_btn.config(state="disabled", text="Optimizing…")
+        threading.Thread(target=self._optimize_worker, daemon=True).start()
+
+    def _optimize_worker(self) -> None:
+        try:
+            results = bt.optimize(self._candles, self.get_params(), self._cfg_from_ui(),
+                                  self.OPT_GRID, metric=self.opt_metric.get(), top=40)
+        except Exception as exc:  # noqa: BLE001
+            self._post(lambda: self._opt_done_error(str(exc)))
+            return
+        self._post(lambda: self._render_opt(results))
+
+    def _opt_done_error(self, msg: str) -> None:
+        self.opt_btn.config(state="normal", text="Run optimize")
+        self.status.config(text=f"Optimize error: {msg}")
+
+    def _render_opt(self, results: List[dict]) -> None:
+        self._opt_results = results
+        self.opt_btn.config(state="normal", text="Run optimize")
+        self.opt_tree.delete(*self.opt_tree.get_children())
+        for r in results:
+            o, st = r["overrides"], r["stats"]
+            pf = "∞" if st["profit_factor"] == float("inf") else f"{st['profit_factor']:.2f}"
+            self.opt_tree.insert("", "end", values=(
+                o.get("ma_len"), o.get("ma_confirm"), o.get("ma_swing"),
+                o.get("ma_trend_len"), f"{o.get('ma_atr_mult'):g}", st["trades"],
+                f"{st['win_rate']:.0f}", f"{st['net_pnl']:+.0f}", pf,
+                f"{st['max_drawdown']:.1f}"))
+        self.status.config(text=f"Optimized {len(results)} combos — "
+                                f"best by {self.opt_metric.get()} on top.")
+
+    def _load_opt_row(self, _evt) -> None:
+        import dataclasses
+        sel = self.opt_tree.selection()
+        if not sel or not self._candles:
+            return
+        idx = self.opt_tree.index(sel[0])
+        if idx >= len(self._opt_results):
+            return
+        overrides = self._opt_results[idx]["overrides"]
+        params = dataclasses.replace(self.get_params(), **overrides)
+        result = bt.run_backtest(self._candles, params, self._cfg_from_ui())
+        self._buy_hold = bt.buy_hold_return(self._candles)
+        self._done(result, len(self._candles))
+        self.status.config(text="Loaded optimized combo: "
+                                + ", ".join(f"{k}={v}" for k, v in overrides.items()))
 
     # -- candle fetch (paged) ----------------------------------------------
     def _client(self):
@@ -309,6 +433,13 @@ class BacktestWindow:
             if key == "_ls":
                 val = f"{s.get('longs', 0)} / {s.get('shorts', 0)}"
                 fg = TXT
+            elif key == "_bh":
+                val = f"{self._buy_hold:+.1f}%"
+                fg = GREEN if self._buy_hold >= 0 else RED
+            elif key == "_vs":
+                diff = s.get("return_pct", 0.0) - self._buy_hold
+                val = f"{diff:+.1f}%"
+                fg = GREEN if diff >= 0 else RED
             else:
                 raw = s.get(key, 0.0)
                 if key in ("net_pnl", "best", "worst", "fees", "funding"):
