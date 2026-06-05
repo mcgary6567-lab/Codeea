@@ -412,6 +412,7 @@ class Backend:
                 exchange_id=cmd["exchange_id"],
                 on_prices=self._on_prices,
                 log=lambda m: self._emit("log", time="", message=m, signal="", pair="", status=""),
+                market_type=mt,   # resolved type (e.g. Binance.US forced to spot)
             )
             self.price_feed.start()
 

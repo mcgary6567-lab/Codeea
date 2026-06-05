@@ -116,6 +116,12 @@ def futures_quote(ex_id: str) -> str:
     return FUTURES_QUOTE.get(ex_id, "USDT")
 
 
+def futures_default_type(ex_id: str) -> str:
+    """ccxt ``defaultType`` for this venue's futures: Binance uses 'future' (fapi);
+    the unified-swap venues and dedicated futures classes use 'swap'."""
+    return "future" if ex_id in ("binance", "binanceus") else "swap"
+
+
 def exchange_label(ex_id: str) -> str:
     return EXCHANGE_LABELS.get(ex_id, ex_id.title())
 

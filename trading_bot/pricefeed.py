@@ -37,6 +37,7 @@ except Exception:  # noqa: BLE001 - any import/runtime issue => no websockets
     CCXTPRO_AVAILABLE = False
 
 from config import PRICE_POLL_INTERVAL
+from exchange import market_ccxt_spec
 
 
 class PriceFeed:
@@ -45,10 +46,14 @@ class PriceFeed:
         exchange_id: str,
         on_prices: Callable[[Dict[str, float]], None],
         log: Callable[[str], None],
+        market_type: str = "spot",
     ) -> None:
         self.exchange_id = exchange_id
         self.on_prices = on_prices
         self.log = log
+        # Build the data client for the right market so futures (swap) tickers
+        # resolve — and so Kraken/Coinbase use their dedicated futures class.
+        self._ccxt_id, self._default_type = market_ccxt_spec(exchange_id, market_type)
 
         self._symbols: List[str] = []
         self._lock = threading.Lock()
@@ -94,7 +99,8 @@ class PriceFeed:
 
     # -- REST fallback ------------------------------------------------------
     def _run_rest(self) -> None:
-        client = getattr(ccxt, self.exchange_id)({"enableRateLimit": True})
+        client = getattr(ccxt, self._ccxt_id)({
+            "enableRateLimit": True, "options": {"defaultType": self._default_type}})
         while not self._stop.is_set():
             symbols = self._current_symbols()
             if symbols:
@@ -126,7 +132,8 @@ class PriceFeed:
         import asyncio
 
         async def loop() -> None:
-            client = getattr(ccxtpro, self.exchange_id)({"enableRateLimit": True})
+            client = getattr(ccxtpro, self._ccxt_id)({
+                "enableRateLimit": True, "options": {"defaultType": self._default_type}})
             try:
                 while not self._stop.is_set():
                     symbols = self._current_symbols()

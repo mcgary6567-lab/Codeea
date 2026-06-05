@@ -37,7 +37,7 @@ except ImportError:
 import strategy
 import theme
 from config import STRATEGY_CANDLE_LIMIT, STRATEGY_TIMEFRAMES, exchange_label
-from exchange import normalize_symbol
+from exchange import market_ccxt_spec, resolve_market_symbol
 
 BG = theme.BG
 PANEL = theme.PANEL
@@ -239,18 +239,16 @@ class ChartWindow:
 
     def _client_obj(self):
         if self._client is None:
-            self._client = getattr(ccxt, self.exchange_id)({
+            ccxt_id, default_type = market_ccxt_spec(self.exchange_id, self.market_type)
+            self._client = getattr(ccxt, ccxt_id)({
                 "enableRateLimit": True,
-                "options": {"defaultType": "swap" if self.market_type == "futures" else "spot"},
+                "options": {"defaultType": default_type},
             })
         return self._client
 
     def _market_symbol(self) -> str:
-        sym = normalize_symbol(self.symbol)
-        if self.market_type != "futures" or ":" in sym:
-            return sym
-        base, _, quote = sym.partition("/")
-        return f"{base}/{quote}:{quote}"
+        return resolve_market_symbol(self._client_obj(), self.symbol,
+                                     self.market_type, self.exchange_id)
 
     def _fetch(self) -> List[list]:
         raw = self._client_obj().fetch_ohlcv(self._market_symbol(), self.timeframe,

@@ -27,7 +27,7 @@ import backtest as bt
 import strategy
 import theme
 from config import STRATEGY_TIMEFRAMES, exchange_label
-from exchange import normalize_symbol
+from exchange import market_ccxt_spec, normalize_symbol, resolve_market_symbol
 
 BG, PANEL, ELEV, BORDER = theme.BG, theme.PANEL, theme.ELEV, theme.BORDER
 TXT, DIM, ACCENT = theme.TXT, theme.TXT_DIM, theme.ACCENT
@@ -364,21 +364,15 @@ class BacktestWindow:
 
     # -- candle fetch (paged) ----------------------------------------------
     def _client(self):
-        return getattr(ccxt, self.exchange_id)({
+        ccxt_id, default_type = market_ccxt_spec(self.exchange_id, self.market_type)
+        return getattr(ccxt, ccxt_id)({
             "enableRateLimit": True,
-            "options": {"defaultType": "swap" if self.market_type == "futures" else "spot"},
+            "options": {"defaultType": default_type},
         })
-
-    def _market_symbol(self) -> str:
-        sym = normalize_symbol(self.symbol)
-        if self.market_type != "futures" or ":" in sym:
-            return sym
-        base, _, quote = sym.partition("/")
-        return f"{base}/{quote}:{quote}"
 
     def _fetch(self) -> List[list]:
         client = self._client()
-        sym = self._market_symbol()
+        sym = resolve_market_symbol(client, self.symbol, self.market_type, self.exchange_id)
         ms = int(TF_SECONDS.get(self.timeframe, 3600) * 1000)
         out: List[list] = []
         if self.depth_mode.get() == "range":

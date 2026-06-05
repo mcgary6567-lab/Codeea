@@ -27,6 +27,7 @@ from config import (
     QUOTE_CURRENCY,
     SPOT_ONLY_EXCHANGES,
     futures_ccxt_id,
+    futures_default_type,
     futures_quote,
 )
 
@@ -101,6 +102,57 @@ def normalize_symbol(raw: str, default_quote: str = QUOTE_CURRENCY) -> str:
         if s.endswith(quote) and len(s) > len(quote):
             return f"{s[:-len(quote)]}/{quote}"
     return f"{s}/{default_quote}"
+
+
+def market_ccxt_spec(exchange_id: str, market_type: str) -> tuple:
+    """``(ccxt_class_id, defaultType)`` for a data/order client on this venue and
+    market. Mirrors :class:`ExchangeManager` so charts, backtests, the strategy
+    candle feed and the price feed all use the correct futures class
+    (krakenfutures / coinbaseinternational) and the right ``defaultType`` instead
+    of naively assuming the spot class with ``swap``."""
+    futures = market_type == "futures" and exchange_id not in SPOT_ONLY_EXCHANGES
+    if futures:
+        cid = futures_ccxt_id(exchange_id)
+        if not CCXT_AVAILABLE or cid in getattr(ccxt, "exchanges", []):
+            return cid, futures_default_type(exchange_id)
+        # Futures class isn't in this ccxt build (e.g. coinbaseinternational) —
+        # degrade to spot data so callers don't crash.
+    return exchange_id, "spot"
+
+
+def perp_symbol(symbol: str, exchange_id: str) -> str:
+    """``BASE/QUOTE:QUOTE`` perpetual for this venue, using the venue's futures
+    quote (USDT default, Kraken=USD, Coinbase=USDC) — not the spot quote."""
+    sym = normalize_symbol(symbol)
+    if ":" in sym:
+        return sym
+    base = sym.partition("/")[0]
+    q = futures_quote(exchange_id)
+    return f"{base}/{q}:{q}"
+
+
+def resolve_market_symbol(client, symbol: str, market_type: str,
+                          exchange_id: str) -> str:
+    """The venue's real market symbol for ``symbol``: spot stays ``BASE/QUOTE``;
+    futures becomes the right perp, verified against loaded markets with a linear
+    fallback (same adaptive logic the main order path uses)."""
+    sym = normalize_symbol(symbol)
+    if market_type != "futures" or exchange_id in SPOT_ONLY_EXCHANGES:
+        return sym
+    candidate = perp_symbol(sym, exchange_id)
+    try:
+        markets = getattr(client, "markets", None) or client.load_markets()
+        if candidate in markets:
+            return candidate
+        base = sym.partition("/")[0]
+        quote = futures_quote(exchange_id)
+        for m in markets.values():
+            if ((m.get("swap") or m.get("future")) and m.get("linear", True)
+                    and m.get("base") == base and m.get("quote") == quote):
+                return m["symbol"]
+    except Exception:  # noqa: BLE001 - best effort; fall back to the candidate
+        pass
+    return candidate
 
 
 def recompute_pnl(positions: List[Position], prices: dict) -> List[Position]:

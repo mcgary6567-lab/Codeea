@@ -40,7 +40,7 @@ from config import (
     STRATEGY_CANDLE_LIMIT,
     STRATEGY_POLL_INTERVAL,
 )
-from exchange import normalize_symbol
+from exchange import market_ccxt_spec, normalize_symbol, resolve_market_symbol
 
 
 class StrategyRunner:
@@ -200,22 +200,18 @@ class StrategyRunner:
         key = (exchange_id, market_type)
         if self._client is not None and self._client_key == key:
             return
-        params = {
+        # Use the same class/defaultType resolution as the live order path so the
+        # candle feed works on Kraken/Coinbase futures and on Binance fapi.
+        ccxt_id, default_type = market_ccxt_spec(exchange_id, market_type)
+        self._client = getattr(ccxt, ccxt_id)({
             "enableRateLimit": True,
-            "options": {"defaultType": "swap" if market_type == "futures" else "spot"},
-        }
-        self._client = getattr(ccxt, exchange_id)(params)
+            "options": {"defaultType": default_type},
+        })
         self._client_key = key
 
-    def _market_symbol(self, symbol: str, market_type: str) -> str:
-        sym = normalize_symbol(symbol)
-        if market_type != "futures" or ":" in sym:
-            return sym
-        base, _, quote = sym.partition("/")
-        return f"{base}/{quote}:{quote}"
-
     def _step(self, sym: str, cfg: dict) -> None:
-        market_sym = self._market_symbol(sym, cfg["market_type"])
+        market_sym = resolve_market_symbol(self._client, sym, cfg["market_type"],
+                                           cfg["exchange_id"])
         ohlcv = self._client.fetch_ohlcv(market_sym, cfg["timeframe"],
                                          limit=STRATEGY_CANDLE_LIMIT)
         # Drop the still-forming candle so we only ever act on closed bars.
