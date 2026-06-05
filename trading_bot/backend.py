@@ -343,7 +343,8 @@ class Backend:
                 self.daily_summary = cmd.get("daily_summary", self.daily_summary)
                 self.summary_hour = int(cmd.get("summary_hour", self.summary_hour))
             elif action == "close":
-                self._do_close(cmd.get("pair"), cmd.get("fraction", 1.0))
+                self._do_close(cmd.get("pair"), cmd.get("fraction", 1.0),
+                               breakeven=cmd.get("breakeven", False))
             elif action == "set_protection":
                 self._do_set_protection(cmd)
             elif action == "reset_daily":
@@ -585,11 +586,13 @@ class Backend:
             history.record_trade(source, symbol, ex_side, "tp", qty, price,
                                  "Filled" if r.ok else "Rejected", message=r.message)
 
-    def _do_close(self, pair: str, fraction: float = 1.0) -> None:
+    def _do_close(self, pair: str, fraction: float = 1.0, breakeven: bool = False) -> None:
         """Flatten a single open position by symbol (or all if pair is None).
 
         ``fraction`` in (0, 1) closes only that share of each target (partial
-        take-profit / de-risk); 1.0 flattens fully."""
+        take-profit / de-risk); 1.0 flattens fully. When ``breakeven`` is set on a
+        partial close (Strategy B's scale-out), the remaining position's stop is
+        moved to its entry so the runner can no longer turn into a loss."""
         with self._lock:
             positions = list(self._last_positions)
         # Match the same market regardless of a futures settle suffix, so a close
@@ -602,10 +605,18 @@ class Backend:
             self.log(f"No open position to close: {pair}", status="Error")
             return
         verb = "CLOSE" if fraction >= 1.0 else f"CLOSE {fraction*100:.0f}%"
+        closed_ok = []
         for p in targets:
             r = self.exchange.close_position(p, fraction)
             self.log(r.message, signal=verb, pair=p.pair, status="OK" if r.ok else "Rejected")
             self.notifier.notify(f"Close {p.pair}", r.message, level="ok" if r.ok else "error")
+            if r.ok:
+                closed_ok.append(p)
+        # Lock in the de-risked runner: move the stop to breakeven (entry) on a
+        # partial close so the remaining position can't give the profit back.
+        if breakeven and fraction < 1.0:
+            for p in closed_ok:
+                self._move_stop_to_breakeven(p.pair, p.entry)
         self._refresh()
 
     def _current_price(self, symbol: str) -> float:

@@ -1125,8 +1125,9 @@ class TradingBotGUI:
         self._ma_frames = [maf, maf2]
         self._ma_help = ttk.Label(
             f, text="Strategy B: enter long when price closes above EMA20 and RSI>50 "
-                    "(mirror for shorts); scale out at RSI 70/30, trail/exit on the "
-                    "EMA. Shorts need a Futures market.",
+                    "(mirror for shorts); scale out at RSI 70/30 (stop then moves to "
+                    "breakeven), trail/exit on the EMA. Tip: set a Trailing stop % in "
+                    "Modes & Risk to lock in more profit. Shorts need a Futures market.",
             style="Dim.TLabel", wraplength=380)
         self._ma_help.grid(row=8, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
@@ -1904,11 +1905,13 @@ class TradingBotGUI:
         """
         event = signal.get("event")
         if event == "scale_out":
-            # Partial de-risk (Strategy B RSI-extreme scale-out): close a fraction.
+            # Partial de-risk (Strategy B RSI-extreme scale-out): close a fraction
+            # and move the stop to breakeven so the runner can't turn into a loss.
             self.backend.submit({
                 "cmd": "close",
                 "pair": signal["ticker"],
                 "fraction": float(signal.get("fraction") or 0.5),
+                "breakeven": True,
             })
             return
         if event:
