@@ -133,6 +133,7 @@ class TradingBotGUI:
         self._live_ack = bool(self.saved.get("live_ack", False))
         self._required_update = False     # a [required] update is pending → block connect
         self._latest_update = None        # last update info dict seen (for the prompt)
+        self._skipped_version = str(self.saved.get("skipped_version", ""))
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
@@ -146,6 +147,7 @@ class TradingBotGUI:
         self._notify_ip_next = False     # alert public IP on the next connect
         self.root.after(150, self._drain_ui_queue)
         self.root.after(3000, self._check_update)
+        self.root.after(3000, self._schedule_update_recheck)
         self.root.after(800, self._check_internet)
         self.root.after(1200, self._auto_show_ip)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -178,9 +180,14 @@ class TradingBotGUI:
         newer = bool(info) and updater.is_newer(info.get("version", ""), APP_VERSION)
         if newer:
             self._latest_update = info
+            version = info.get("version", "")
             if info.get("required"):
                 self._required_update = True
-                self._show_required_banner(info.get("version", ""))
+                self._show_required_banner(version)
+            # Auto checks respect a skipped (optional) version; required updates and
+            # the manual link always prompt.
+            elif not manual and version == self._skipped_version:
+                return
             self._notify_update(info, manual=manual)
         elif manual:
             if not ok:
@@ -198,6 +205,17 @@ class TradingBotGUI:
             self.alert_label.config(
                 text=f"⚠ Required update v{latest} — connecting is disabled until you update")
 
+    def _schedule_update_recheck(self) -> None:
+        """Re-check for updates periodically so a long-running (unattended) bot
+        eventually sees a new release without needing a restart."""
+        from config import UPDATE_RECHECK_HOURS
+        interval = max(1, int(UPDATE_RECHECK_HOURS)) * 3600 * 1000
+        self.root.after(interval, self._periodic_update_check)
+
+    def _periodic_update_check(self) -> None:
+        self._check_update(manual=False)
+        self._schedule_update_recheck()
+
     def _notify_update(self, info: dict, manual: bool = False) -> None:
         import updater
         latest = info.get("version", "")
@@ -206,22 +224,61 @@ class TradingBotGUI:
         # Can we self-update? Only from a frozen Windows build with a verifiable exe.
         can_auto = (updater.frozen_exe_path() is not None and os.name == "nt"
                     and bool(info.get("url")) and bool(info.get("sha256_url")))
-        body = f"A newer version ({latest}) is available — you have {APP_VERSION}."
-        if required:
-            body += "\n\nThis is a required update."
-        if notes:
-            clip = notes if len(notes) <= 600 else notes[:600] + "…"
-            body += f"\n\nWhat's new:\n{clip}"
-
-        if can_auto:
-            body += "\n\nDownload and install it now? The app will restart."
-            if messagebox.askyesno("Update available", body):
+        # Offer "Skip this version" for optional updates only (never for required).
+        action = self._update_dialog(latest, notes, required, can_auto,
+                                     allow_skip=not required)
+        if action == "install":
+            if can_auto:
                 self._do_self_update(info)
-        else:
-            # Source/dev run, or no checksum published → manual download.
-            body += "\n\nOpen the download page?"
-            if messagebox.askyesno("Update available", body):
+            else:
                 self._open_url(info.get("page") or info.get("url") or WEBSITE_URL)
+        elif action == "skip":
+            self._skipped_version = latest
+
+    def _update_dialog(self, latest, notes, required, can_auto, allow_skip) -> str:
+        """Modal update prompt. Returns 'install', 'skip', or 'later'."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Required update" if required else "Update available")
+        dlg.transient(self.root)
+        dlg.resizable(False, False)
+        dlg.configure(bg=theme.BG)
+        result = {"v": "later"}
+
+        head = f"Version {latest} is available — you have {APP_VERSION}."
+        tk.Label(dlg, text=head, bg=theme.BG, fg=theme.TXT, font=("Segoe UI Semibold", 11),
+                 wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(14, 4))
+        if required:
+            tk.Label(dlg, text="This is a required update — connecting is disabled until "
+                               "you install it.", bg=theme.BG, fg=RED, wraplength=420,
+                     justify="left").pack(anchor="w", padx=16, pady=(0, 4))
+        if notes:
+            box = tk.Text(dlg, height=min(10, max(3, notes.count(chr(10)) + 2)), width=54,
+                          bg=theme.ELEV, fg=theme.TXT, relief="flat", wrap="word",
+                          font=("Segoe UI", 9))
+            box.insert("1.0", notes)
+            box.configure(state="disabled")
+            box.pack(fill="both", padx=16, pady=6)
+
+        btns = tk.Frame(dlg, bg=theme.BG)
+        btns.pack(fill="x", padx=16, pady=(6, 14))
+
+        def choose(v):
+            result["v"] = v
+            dlg.destroy()
+
+        primary = "Install now" if can_auto else "Open download page"
+        b = tk.Button(btns, text=primary, command=lambda: choose("install"))
+        theme.style_button(b, "accent")
+        b.pack(side="right")
+        tk.Button(btns, text="Later", command=lambda: choose("later")).pack(side="right", padx=8)
+        if allow_skip:
+            tk.Button(btns, text="Skip this version",
+                      command=lambda: choose("skip")).pack(side="right")
+
+        dlg.protocol("WM_DELETE_WINDOW", lambda: choose("later"))
+        dlg.grab_set()
+        self.root.wait_window(dlg)
+        return result["v"]
 
     def _do_self_update(self, info: dict) -> None:
         """Download the new exe, verify its SHA-256, then hand off to the swap-
@@ -1663,6 +1720,7 @@ class TradingBotGUI:
             "minimize_to_tray": self.tray_var.get(),
             "live_ack": self._live_ack,
             "last_ip": self.saved.get("last_ip", ""),
+            "skipped_version": self._skipped_version,
             # Built-in strategy.
             "strat_enabled": self.strat_enabled_var.get(),
             "strat_symbols": self.strat_symbols_var.get(),

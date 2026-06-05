@@ -54,12 +54,16 @@ DEFAULT_SUMMARY_HOUR = 23          # local hour (0-23) to send the recap
 # sent to Telegram; routine/noisy events still beep + toast locally.
 DEFAULT_TELEGRAM_IMPORTANT_ONLY = True
 
-# Auto-update: primary source is the GitHub Releases API for this repo (nothing
-# to hand-edit per release — tagging vX.Y.Z is enough). UPDATE_URL is a legacy
-# version.json fallback used only if the API is unreachable.
-UPDATE_REPO = "mcgary6567-lab/codeea"
+# Auto-update: self-hosted. The app reads version.json from your own site; it
+# must contain at least {"version","url"} and, for one-click verified install,
+# also {"sha256_url"} (a .sha256 of the exe) and optionally {"notes","required"}.
+# UPDATE_REPO is left blank so the GitHub Releases API is skipped — set it to
+# "owner/name" only if you later switch to a public releases repo.
+UPDATE_REPO = ""
 UPDATE_ASSET = "PrometheusAICryptoBot.exe"
 UPDATE_URL = "https://prometheusai.tech/version.json"
+# How often to re-check for updates while the app stays open (long-running bots).
+UPDATE_RECHECK_HOURS = 24
 
 # ---------------------------------------------------------------------------
 # Exchanges exposed in the drop-down. The value is the ccxt id; if the exchange
