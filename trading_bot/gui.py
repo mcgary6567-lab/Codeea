@@ -849,15 +849,15 @@ class TradingBotGUI:
 
         btnrow = ttk.Frame(outer)
         btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        tk.Button(btnrow, text="Save", command=self._save_all).pack(
+        tk.Button(btnrow, text="💾 Save", command=self._save_all).pack(
             side="left", expand=True, fill="x", padx=2)
-        tk.Button(btnrow, text="Backup", command=self._backup_settings).pack(
+        tk.Button(btnrow, text="📦 Backup", command=self._backup_settings).pack(
             side="left", expand=True, fill="x", padx=2)
-        tk.Button(btnrow, text="Restore", command=self._restore_settings).pack(
+        tk.Button(btnrow, text="📂 Restore", command=self._restore_settings).pack(
             side="left", expand=True, fill="x", padx=2)
-        analytics_btn = tk.Button(btnrow, text="Analytics", command=self._open_analytics)
-        theme.style_button(analytics_btn, "accent")
-        analytics_btn.pack(side="left", expand=True, fill="x", padx=2)
+        reset_btn = tk.Button(btnrow, text="🔄 Reset", command=self._reset_all_defaults)
+        theme.style_button(reset_btn, "danger")
+        reset_btn.pack(side="left", expand=True, fill="x", padx=2)
 
     def _backup_settings(self) -> None:
         path = filedialog.asksaveasfilename(
@@ -1201,10 +1201,10 @@ class TradingBotGUI:
         maf2 = ttk.Frame(f)
         maf2.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf2, text="Confirm candles — Buy:green / Sell:red:").pack(side="left")
-        self.strat_ma_confirm_var = tk.StringVar(value="1")
+        self.strat_ma_confirm_var = tk.StringVar(value="3")
         num_entry(maf2, self.strat_ma_confirm_var, 4).pack(side="left", padx=(2, 8))
         ttk.Label(maf2, text="Body ≥ (of range):").pack(side="left")
-        self.strat_ma_body_var = tk.StringVar(value="0.30")
+        self.strat_ma_body_var = tk.StringVar(value="0.40")
         num_entry(maf2, self.strat_ma_body_var, 5).pack(side="left", padx=2)
 
         # Trend filter (HTF-style) + optional ATR stop.
@@ -1220,23 +1220,14 @@ class TradingBotGUI:
         self.strat_ma_atrlen_var = tk.StringVar(value="14")
         num_entry(maf3, self.strat_ma_atrlen_var, 4).pack(side="left", padx=2)
 
-        # Backtest launcher.
+        # Analysis tools: backtest + trade analytics, side by side.
         bt = ttk.Frame(f)
-        bt.grid(row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        bt.grid(row=6, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.backtest_btn = tk.Button(bt, text="📊 Backtest", command=self._open_backtest)
         theme.style_button(self.backtest_btn, "accent")
         self.backtest_btn.pack(side="left")
-        ttk.Label(bt, text="  replay this strategy over history (stats + equity + CSV)",
-                  style="Dim.TLabel").pack(side="left")
-
-        ttk.Label(
-            f, text="Enter long when price closes above EMA20 and RSI>50 (mirror for "
-                    "shorts), confirmed by the green/red candles above; scale out at RSI "
-                    "70/30 (stop then moves to breakeven), trail/exit on the EMA. Tip: set "
-                    "a Trailing stop % in Modes & Risk to lock in more profit. Shorts need "
-                    "a Futures market. Requires a connection and a valid licence token.",
-            style="Dim.TLabel", wraplength=380).grid(
-            row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.analytics_btn = tk.Button(bt, text="📈 Analytics", command=self._open_analytics)
+        self.analytics_btn.pack(side="left", padx=(6, 0))
 
     def _strategy_params(self) -> StrategyParams:
         return StrategyParams(
@@ -1246,8 +1237,8 @@ class TradingBotGUI:
             ma_swing=max(2, int(self._float(self.strat_ma_swing_var.get(), 10))),
             ma_sl_buf=self._float(self.strat_ma_slbuf_var.get(), 0.10),
             ma_scale=max(0.0, min(1.0, self._float(self.strat_ma_scale_var.get(), 50) / 100.0)),
-            ma_confirm=max(0, int(self._float(self.strat_ma_confirm_var.get(), 1))),
-            ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.30)),
+            ma_confirm=max(0, int(self._float(self.strat_ma_confirm_var.get(), 3))),
+            ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.40)),
             ma_trend_len=max(0, int(self._float(self.strat_ma_trend_var.get(), 0))),
             ma_atr_len=max(2, int(self._float(self.strat_ma_atrlen_var.get(), 14))),
             ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 0.0)),
@@ -1609,9 +1600,9 @@ class TradingBotGUI:
     # Settings persistence / prefill
     # ====================================================================
     def _load_saved_into_ui(self) -> None:
-        s = self.saved
-        if not s:
-            return
+        # An empty dict is valid: every field falls back to its default — this is
+        # exactly what the Reset button relies on to restore factory defaults.
+        s = self.saved or {}
         saved_ex = s.get("exchange", SUPPORTED_EXCHANGES[0])
         self.exchange_var.set(EXCHANGE_LABELS.get(saved_ex, saved_ex))
         self.market_var.set("Futures" if s.get("market_type") == "futures" else "Spot")
@@ -1670,8 +1661,8 @@ class TradingBotGUI:
         self.strat_ma_swing_var.set(str(s.get("strat_ma_swing", 10)))
         self.strat_ma_slbuf_var.set(str(s.get("strat_ma_slbuf", 0.10)))
         self.strat_ma_scale_var.set(str(s.get("strat_ma_scale", 50)))
-        self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 1)))
-        self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.30)))
+        self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 3)))
+        self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.40)))
         self.strat_ma_trend_var.set(str(s.get("strat_ma_trend", 0)))
         self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 0)))
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
@@ -1747,6 +1738,34 @@ class TradingBotGUI:
         security.save_credentials(self.pin, self._collect_settings())
         self._push_settings()
         messagebox.showinfo("Saved", "Settings encrypted and saved.")
+
+    def _reset_all_defaults(self) -> None:
+        """Factory-reset every field to its default — including API credentials and
+        the licence token (per the user's choice). Guarded by a confirmation; the
+        change is applied live but only persisted when the user clicks Save."""
+        if self.connected:
+            messagebox.showwarning(
+                "Disconnect first", "Disconnect before resetting all settings.",
+                parent=self.root)
+            return
+        if not messagebox.askyesno(
+                "Reset everything to defaults",
+                "This restores ALL settings to their defaults — including your API "
+                "key, secret, passphrase and licence token.\n\nThey'll be cleared "
+                "from the form (and saved only if you then click Save).\n\nContinue?",
+                icon="warning", parent=self.root):
+            return
+        # An empty vault means every field in _load_saved_into_ui takes its default.
+        self.saved = {}
+        self._live_ack = False
+        self._skipped_version = ""
+        self._load_saved_into_ui()
+        self._update_manual_state()
+        self._push_settings()
+        self._push_strategy()
+        messagebox.showinfo(
+            "Reset", "All settings reset to defaults. Click 💾 Save to keep them.",
+            parent=self.root)
 
     def _sizing_mode_value(self) -> str:
         label = self.sizing_mode_var.get()
