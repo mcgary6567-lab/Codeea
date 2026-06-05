@@ -592,12 +592,29 @@ class ExchangeManager:
             except Exception as exc:  # noqa: BLE001
                 notes.append(f"margin set failed ({exc})")
         if leverage and leverage > 0:
+            # OKX / Bitget / KuCoin apply leverage per margin bucket, so the
+            # margin mode must accompany the call or it lands in the wrong bucket.
+            lev_params = {}
+            if (margin_mode in ("cross", "isolated")
+                    and self.exchange_id in ("okx", "bitget", "kucoin")):
+                lev_params["marginMode"] = margin_mode
             try:
-                self.client.set_leverage(leverage, sym)
+                self.client.set_leverage(leverage, sym, lev_params)
                 notes.append(f"leverage={leverage}x")
             except Exception as exc:  # noqa: BLE001
                 notes.append(f"leverage set failed ({exc})")
         return "; ".join(notes)
+
+    def _supports_trigger_orders(self) -> bool:
+        """Whether this venue advertises reduce-only trigger (stop/take-profit)
+        orders in ccxt. Used to avoid sending a 'market' order with a trigger
+        param to a venue that would ignore it and fill immediately (closing the
+        position). Unknown capability → attempt (preserve prior behaviour)."""
+        has = getattr(self.client, "has", {}) or {}
+        keys = ("createStopMarketOrder", "createStopOrder", "createTriggerOrder",
+                "createStopLimitOrder", "createReduceOnlyOrder")
+        flags = [has.get(k) for k in keys if k in has]
+        return any(flags) if flags else True
 
     # -- order placement (the single choke point) ---------------------------
     def place_market_order(
@@ -694,6 +711,15 @@ class ExchangeManager:
                                    pair=sym, side=side, order_type=label, raw=order)
             except Exception as exc:  # noqa: BLE001
                 return OrderResult(False, f"TP failed: {exc}", pair=sym, side=side, order_type=label)
+        # Guard: if the venue doesn't support reduce-only trigger orders, do NOT
+        # send a market order with a trigger param — it could fill immediately and
+        # close the position. Warn instead so the user manages the stop manually.
+        if not self._supports_trigger_orders():
+            return OrderResult(
+                False,
+                f"{label} not auto-placed — {self.exchange_id} doesn't expose "
+                f"reduce-only trigger orders here; set the stop on the exchange.",
+                pair=sym, side=side, order_type=label)
         try:
             params = {"reduceOnly": True}
             params["stopLossPrice" if kind == "sl" else "takeProfitPrice"] = trigger_price

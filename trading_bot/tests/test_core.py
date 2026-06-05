@@ -693,6 +693,62 @@ class TestStrategyLicenceGate(unittest.TestCase):
         self.assertFalse(r._ensure_licensed())  # never verified -> fail closed
 
 
+class TestDailySummaryCatchup(unittest.TestCase):
+    def _backend(self, last):
+        from backend import Backend
+        b = Backend.__new__(Backend)
+        b.summary_hour = 23
+        b._last_summary_day = last
+        b._SUMMARY_BACKFILL_CAP = 7
+        return b
+
+    def test_first_run_only_today_after_hour(self):
+        from datetime import datetime
+        b = self._backend(None)
+        self.assertEqual(b._pending_summary_days(datetime(2026, 6, 5, 23, 30)), ["2026-06-05"])
+        self.assertEqual(b._pending_summary_days(datetime(2026, 6, 5, 10, 0)), [])
+
+    def test_missed_days_backfilled(self):
+        from datetime import datetime
+        b = self._backend("2026-06-02")
+        # past the hour → the two missed complete days + today
+        self.assertEqual(b._pending_summary_days(datetime(2026, 6, 5, 23, 30)),
+                         ["2026-06-03", "2026-06-04", "2026-06-05"])
+        # before the hour → only the complete missed days (today not due yet)
+        self.assertEqual(b._pending_summary_days(datetime(2026, 6, 5, 8, 0)),
+                         ["2026-06-03", "2026-06-04"])
+
+    def test_already_sent_today_is_empty(self):
+        from datetime import datetime
+        b = self._backend("2026-06-05")
+        self.assertEqual(b._pending_summary_days(datetime(2026, 6, 5, 23, 30)), [])
+
+    def test_long_absence_is_capped(self):
+        from datetime import datetime
+        b = self._backend("2026-01-01")
+        days = b._pending_summary_days(datetime(2026, 6, 5, 23, 30))
+        self.assertLessEqual(len(days), b._SUMMARY_BACKFILL_CAP + 1)
+        self.assertEqual(days[0], "2026-05-29")   # capped to the last 7 days
+
+
+class TestTriggerGuard(unittest.TestCase):
+    def _mgr(self, has):
+        m = ExchangeManager.__new__(ExchangeManager)
+        m.client = type("C", (), {"has": has})()
+        return m
+
+    def test_supported_when_advertised(self):
+        self.assertTrue(self._mgr({"createStopMarketOrder": True})._supports_trigger_orders())
+
+    def test_unsupported_when_explicitly_false(self):
+        self.assertFalse(self._mgr(
+            {"createStopMarketOrder": False, "createTriggerOrder": False}
+        )._supports_trigger_orders())
+
+    def test_unknown_capability_attempts(self):
+        self.assertTrue(self._mgr({})._supports_trigger_orders())   # preserve prior behaviour
+
+
 class TestUpdater(unittest.TestCase):
     def setUp(self):
         import updater

@@ -19,7 +19,7 @@ import os
 import queue
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import applog
@@ -224,43 +224,74 @@ class Backend:
             pass
 
     # -- daily Telegram summary ---------------------------------------------
+    # Don't backfill more than this many missed days at once (e.g. after the PC
+    # was off for a while) so a long absence can't flood the chat.
+    _SUMMARY_BACKFILL_CAP = 7
+
     def _maybe_send_summary(self) -> None:
-        """Send the end-of-day recap once, after the configured local hour."""
+        """Send the end-of-day recap once per day — including any day(s) missed
+        while the app/PC was off (reconstructed from the trade history)."""
         if not self.daily_summary or not self.notifier.telegram_ready():
             return
         now = datetime.now()
         today = now.strftime("%Y-%m-%d")
-        if self._last_summary_day == today or now.hour < self.summary_hour:
-            return
-        try:
-            self._send_daily_summary(today)
-        except Exception as exc:  # noqa: BLE001 - summary must never kill the loop
-            self.log(f"Daily summary failed: {exc}", status="Error")
-        self._last_summary_day = today
-        self._save_state()
+        for day in self._pending_summary_days(now):
+            try:
+                self._send_daily_summary(day, is_today=(day == today))
+            except Exception as exc:  # noqa: BLE001 - summary must never kill the loop
+                self.log(f"Daily summary failed: {exc}", status="Error")
+            self._last_summary_day = day      # advance even on an empty/failed day
+            self._save_state()
 
-    def _send_daily_summary(self, day: str) -> None:
+    def _pending_summary_days(self, now: datetime) -> list:
+        """Days still needing a recap: every complete day since the last one sent
+        (capped), plus today once past the configured hour."""
+        today = now.strftime("%Y-%m-%d")
+        today_d = now.date()
+        last = self._last_summary_day or ""
+        try:
+            start = datetime.strptime(last, "%Y-%m-%d").date() + timedelta(days=1)
+        except ValueError:
+            start = today_d        # never sent before → no deep backfill, just today
+        earliest = today_d - timedelta(days=self._SUMMARY_BACKFILL_CAP)
+        if start < earliest:
+            start = earliest
+        days = []
+        d = start
+        while d < today_d:         # complete past days are always due
+            days.append(d.strftime("%Y-%m-%d"))
+            d += timedelta(days=1)
+        if now.hour >= self.summary_hour and last != today:
+            days.append(today)     # today only after the trigger hour
+        return days
+
+    def _send_daily_summary(self, day: str, is_today: bool = True) -> None:
         s = history.summary_for_day(day)
-        with self._lock:
-            balance = self._last_balance
-            positions = list(self._last_positions)
-            prices = dict(self._price_cache)
-        open_pnl = sum(p.pnl for p in recompute_pnl(positions, prices))
+        if s["entries"] == 0 and s["closed"] == 0:
+            return                 # nothing happened that day — don't send a blank recap
         wr = (s["wins"] / s["closed"] * 100.0) if s["closed"] else 0.0
         emoji = "🟢" if s["realized"] >= 0 else "🔴"
+        title = "Daily Summary" if is_today else "Daily Summary (catch-up)"
         lines = [
-            f"{emoji} *Prometheus — Daily Summary* ({day})",
-            f"Realized P&L: *{s['realized']:+.2f} {QUOTE_CURRENCY}*",
+            f"{emoji} Prometheus — {title} ({day})",
+            f"Realized P&L: {s['realized']:+.2f} {QUOTE_CURRENCY}",
             f"Trades: {s['entries']} opened · {s['closed']} closed "
             f"(W {s['wins']} / L {s['losses']}, {wr:.0f}% win)",
         ]
         if s["closed"]:
             lines.append(f"Best {s['best']:+.2f} · Worst {s['worst']:+.2f}")
-        lines.append(f"Open now: {len(positions)} (unrealized {open_pnl:+.2f})")
-        if balance:
-            lines.append(f"Balance: {balance:,.2f} {QUOTE_CURRENCY}")
+        if is_today:
+            # Live open positions / balance only make sense for today's recap.
+            with self._lock:
+                balance = self._last_balance
+                positions = list(self._last_positions)
+                prices = dict(self._price_cache)
+            open_pnl = sum(p.pnl for p in recompute_pnl(positions, prices))
+            lines.append(f"Open now: {len(positions)} (unrealized {open_pnl:+.2f})")
+            if balance:
+                lines.append(f"Balance: {balance:,.2f} {QUOTE_CURRENCY}")
         self.notifier.send_message("\n".join(lines))
-        self.log("Daily P&L summary sent to Telegram", status="Summary")
+        self.log(f"Daily P&L summary sent to Telegram ({day})", status="Summary")
 
     # -- trailing stop ------------------------------------------------------
     def _check_trailing(self, positions, prices) -> None:
