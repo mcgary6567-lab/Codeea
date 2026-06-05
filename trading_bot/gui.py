@@ -131,6 +131,8 @@ class TradingBotGUI:
 
         self.connected = False
         self._live_ack = bool(self.saved.get("live_ack", False))
+        self._required_update = False     # a [required] update is pending → block connect
+        self._latest_update = None        # last update info dict seen (for the prompt)
         self._build_ui()
         self._load_saved_into_ui()
         self._push_settings()
@@ -148,24 +150,55 @@ class TradingBotGUI:
         self.root.after(1200, self._auto_show_ip)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _check_update(self) -> None:
-        """Background check (GitHub Releases, version.json fallback); if a newer
-        build exists, offer a one-click in-app update."""
+    def _check_update(self, manual: bool = False) -> None:
+        """Background check (GitHub Releases, version.json fallback). On startup
+        it's silent unless an update exists; ``manual=True`` (the footer link)
+        also reports 'up to date' / 'offline' so the click always has feedback."""
         import updater
         from config import UPDATE_REPO, UPDATE_URL, UPDATE_ASSET
+
+        if manual and getattr(self, "_update_link", None):
+            self._update_link.config(text="Checking…")
 
         def worker():
             try:
                 info = updater.check_latest(repo=UPDATE_REPO, fallback_url=UPDATE_URL,
                                             asset_hint=UPDATE_ASSET)
-            except Exception:  # noqa: BLE001 - silent if offline
-                info = None
-            if info and updater.is_newer(info.get("version", ""), APP_VERSION):
-                self.root.after(0, lambda: self._notify_update(info))
+                ok = True
+            except Exception:  # noqa: BLE001 - offline / rate-limited
+                info, ok = None, False
+            self.root.after(0, lambda: self._update_check_done(info, ok, manual))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _notify_update(self, info: dict) -> None:
+    def _update_check_done(self, info, ok: bool, manual: bool) -> None:
+        import updater
+        if getattr(self, "_update_link", None):
+            self._update_link.config(text="Check for updates")
+        newer = bool(info) and updater.is_newer(info.get("version", ""), APP_VERSION)
+        if newer:
+            self._latest_update = info
+            if info.get("required"):
+                self._required_update = True
+                self._show_required_banner(info.get("version", ""))
+            self._notify_update(info, manual=manual)
+        elif manual:
+            if not ok:
+                messagebox.showwarning(
+                    "Check for updates",
+                    "Couldn't reach the update server.\n\nCheck your internet "
+                    "connection and try again.")
+            else:
+                messagebox.showinfo("Check for updates",
+                                    f"You're up to date — v{APP_VERSION} is the latest.")
+
+    def _show_required_banner(self, latest: str) -> None:
+        """Make the required-update state visible in the header alert area."""
+        if getattr(self, "alert_label", None):
+            self.alert_label.config(
+                text=f"⚠ Required update v{latest} — connecting is disabled until you update")
+
+    def _notify_update(self, info: dict, manual: bool = False) -> None:
         import updater
         latest = info.get("version", "")
         notes = (info.get("notes") or "").strip()
@@ -418,6 +451,8 @@ class TradingBotGUI:
 
         link(bar, SUPPORT_EMAIL, lambda: self._open_url(f"mailto:{SUPPORT_EMAIL}"))
         link(bar, "Website: prometheusai.tech", lambda: self._open_url(WEBSITE_URL))
+        self._update_link = link(bar, "Check for updates",
+                                 lambda: self._check_update(manual=True))
 
     def _open_url(self, url: str) -> None:
         try:
@@ -1743,6 +1778,17 @@ class TradingBotGUI:
     # Actions
     # ====================================================================
     def _on_connect(self) -> None:
+        # A [required] update blocks connecting (trading) until the user updates —
+        # used for breaking server/strategy changes. Disconnecting is unaffected.
+        if self._required_update and not self.connected:
+            info = self._latest_update or {}
+            messagebox.showwarning(
+                "Update required",
+                f"A required update (v{info.get('version', '')}) must be installed "
+                "before you can connect and trade.\n\nInstall it now from the "
+                "update prompt, or use 'Check for updates' at the bottom.")
+            self._notify_update(info, manual=True)
+            return
         ex = exchange_id(self.exchange_var.get())
         if not self.api_key_var.get() or not self.api_secret_var.get():
             messagebox.showwarning("Missing keys", "Enter API key and secret first.")
