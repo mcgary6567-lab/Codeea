@@ -50,6 +50,7 @@ class StrategyRunner:
         log: Callable[[str], None],
         get_token: Callable[[], str] = lambda: "",
         get_verify_url: Callable[[], str] = lambda: "",
+        get_positions: Callable[[], dict] = lambda: {},
     ) -> None:
         self.on_signal = on_signal
         self.log = log
@@ -57,6 +58,13 @@ class StrategyRunner:
         # (same subscription token as the cloud feed).
         self.get_token = get_token
         self.get_verify_url = get_verify_url
+        # Live exchange positions {base-symbol: "long"/"short"} — used to keep the
+        # runner's intended state reconciled with reality (adopt existing positions
+        # on restart; drop ones closed externally by a stop).
+        self.get_positions = get_positions
+        self._intended: Dict[str, str] = {}   # symbol -> "flat"/"long"/"short"
+        self._absent: Dict[str, int] = {}     # consecutive polls a held position was unseen
+        self._ABSENT_DROP = 3                 # drop intent after this many absent polls
         self._licensed: Optional[bool] = None     # tri-state: None/True/False
         self._last_ok_ts = 0.0                     # last successful verification
         self._next_verify_ts = 0.0                 # when to re-check
@@ -132,9 +140,11 @@ class StrategyRunner:
                 if self._ensure_licensed():
                     try:
                         self._ensure_client(cfg["exchange_id"], cfg["market_type"])
+                        live = self._safe_positions()
                         for sym in cfg["symbols"]:
                             if self._stop.is_set():
                                 break
+                            self._reconcile(sym, live)
                             self._step(sym, cfg)
                         self._fail_count = 0
                     except Exception as exc:  # noqa: BLE001 - keep the loop alive
@@ -236,6 +246,7 @@ class StrategyRunner:
         Futures market (spot can't short), so they're skipped on spot with a
         one-shot notice."""
         futures = cfg.get("market_type") == "futures"
+        intended = self._intended.get(sym, "flat")
         for ev in strategy.evaluate_crossover(closed, cfg["params"], ticker=sym):
             act = ev["act"]
             if act == "enter":
@@ -246,6 +257,8 @@ class StrategyRunner:
                                  "Futures to trade shorts.")
                         self._warned_spot_short = True
                     continue
+                if intended != "flat":
+                    continue                 # already hold a position (reconciled) — don't stack
                 action = "buy" if side == "long" else "sell"
                 self.log(f"MA strategy: {action.upper()} ({side}) {sym} "
                          f"@ {ev['entry']:g}, SL {ev['sl']:g}")
@@ -254,11 +267,51 @@ class StrategyRunner:
                     "entry": ev["entry"], "sl": ev["sl"], "tp1": None, "tp2": None,
                     "price": ev["entry"], "source": "strategy",
                 })
+                intended = side
             elif act == "scale_out":
+                if intended == "flat":
+                    continue                 # nothing held to de-risk
                 self.log(f"MA strategy: scale out {int(ev['fraction'] * 100)}% {sym} "
                          f"(RSI extreme)")
                 self.on_signal({"event": "scale_out", "ticker": sym,
                                 "fraction": ev["fraction"], "source": "strategy"})
             elif act == "exit":
+                if intended == "flat":
+                    continue                 # nothing held to close
                 self.log(f"MA strategy: exit {sym} (EMA trail / stop)")
                 self.on_signal({"event": "exit", "ticker": sym, "source": "strategy"})
+                intended = "flat"
+        self._intended[sym] = intended
+
+    @staticmethod
+    def _poskey(sym: str) -> str:
+        return normalize_symbol(str(sym).split(":")[0])
+
+    def _safe_positions(self) -> dict:
+        try:
+            return self.get_positions() or {}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    def _reconcile(self, sym: str, live: dict) -> None:
+        """Keep the runner's intended state in sync with the real exchange.
+
+        *Adopt* an existing position immediately (e.g. after a restart, or one
+        opened manually) so the runner manages its exits. *Drop* one only after a
+        short grace window of absence — the backend reflects a freshly-opened
+        position a poll or two late, so we must not flatten our own new entry."""
+        actual = live.get(self._poskey(sym))     # "long" / "short" / None
+        cur = self._intended.get(sym, "flat")
+        if actual in ("long", "short"):
+            self._absent[sym] = 0
+            if cur == "flat":
+                self._intended[sym] = actual
+                self.log(f"MA strategy: adopted existing {actual} {sym} position")
+        elif cur != "flat":
+            self._absent[sym] = self._absent.get(sym, 0) + 1
+            if self._absent[sym] >= self._ABSENT_DROP:   # confirmed closed externally
+                self._intended[sym] = "flat"
+                self._absent[sym] = 0
+                self.log(f"MA strategy: {sym} position closed externally — reset")
+        else:
+            self._absent[sym] = 0

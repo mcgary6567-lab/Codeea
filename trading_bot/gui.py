@@ -126,6 +126,7 @@ class TradingBotGUI:
             ),
             get_token=lambda: self.relay_token_var.get().strip(),
             get_verify_url=lambda: licence.verify_url_from_relay(self.relay_url_var.get().strip()),
+            get_positions=self.backend.open_position_sides,
         )
 
         self.connected = False

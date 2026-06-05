@@ -130,6 +130,17 @@ class Backend:
     def submit(self, command: dict) -> None:
         self.command_queue.put(command)
 
+    def open_position_sides(self) -> dict:
+        """{normalised-symbol: "long"/"short"} for the live positions — lets the
+        strategy runner reconcile its intent with reality."""
+        with self._lock:
+            positions = list(self._last_positions)
+        out: dict = {}
+        for p in positions:
+            key = normalize_symbol(str(p.pair).split(":")[0])
+            out[key] = "long" if p.side == "Long" else "short"
+        return out
+
     def _emit(self, kind: str, **data) -> None:
         self.ui_queue.put({"kind": kind, **data})
 
