@@ -592,7 +592,12 @@ class Backend:
         take-profit / de-risk); 1.0 flattens fully."""
         with self._lock:
             positions = list(self._last_positions)
-        targets = positions if not pair else [p for p in positions if p.pair == pair]
+        # Match the same market regardless of a futures settle suffix, so a close
+        # keyed on "BTC/USDT" still finds a "BTC/USDT:USDT" futures position.
+        def _key(s: str) -> str:
+            return normalize_symbol(str(s).split(":")[0])
+        targets = (positions if not pair
+                   else [p for p in positions if _key(p.pair) == _key(pair)])
         if not targets:
             self.log(f"No open position to close: {pair}", status="Error")
             return

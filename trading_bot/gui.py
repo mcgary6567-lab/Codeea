@@ -1110,9 +1110,19 @@ class TradingBotGUI:
         self.strat_ma_scale_var = tk.StringVar(value="50")
         num_entry(maf, self.strat_ma_scale_var, 4).pack(side="left", padx=2)
 
+        # Entry confirmation: N strong green candles for a BUY / red for a SELL.
+        maf2 = ttk.Frame(f)
+        maf2.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(maf2, text="Confirm candles — Buy:green / Sell:red:").pack(side="left")
+        self.strat_ma_confirm_var = tk.StringVar(value="1")
+        num_entry(maf2, self.strat_ma_confirm_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf2, text="Body ≥ (of range):").pack(side="left")
+        self.strat_ma_body_var = tk.StringVar(value="0.30")
+        num_entry(maf2, self.strat_ma_body_var, 5).pack(side="left", padx=2)
+
         # Frames that belong to each strategy, toggled by the selector.
         self._dip_frames = [gs, cr, qr, tr]
-        self._ma_frames = [maf]
+        self._ma_frames = [maf, maf2]
         self._ma_help = ttk.Label(
             f, text="Strategy B: enter long when price closes above EMA20 and RSI>50 "
                     "(mirror for shorts); scale out at RSI 70/30, trail/exit on the "
@@ -1152,6 +1162,8 @@ class TradingBotGUI:
             ma_swing=max(2, int(self._float(self.strat_ma_swing_var.get(), 10))),
             ma_sl_buf=self._float(self.strat_ma_slbuf_var.get(), 0.10),
             ma_scale=max(0.0, min(1.0, self._float(self.strat_ma_scale_var.get(), 50) / 100.0)),
+            ma_confirm=max(0, int(self._float(self.strat_ma_confirm_var.get(), 1))),
+            ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.30)),
         )
 
     def _strategy_type_value(self) -> str:
@@ -1589,6 +1601,8 @@ class TradingBotGUI:
         self.strat_ma_swing_var.set(str(s.get("strat_ma_swing", 10)))
         self.strat_ma_slbuf_var.set(str(s.get("strat_ma_slbuf", 0.10)))
         self.strat_ma_scale_var.set(str(s.get("strat_ma_scale", 50)))
+        self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 1)))
+        self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.30)))
         self._apply_strategy_visibility()
         self._toggle_passphrase()
 
@@ -1664,6 +1678,8 @@ class TradingBotGUI:
             "strat_ma_swing": self.strat_ma_swing_var.get(),
             "strat_ma_slbuf": self.strat_ma_slbuf_var.get(),
             "strat_ma_scale": self.strat_ma_scale_var.get(),
+            "strat_ma_confirm": self.strat_ma_confirm_var.get(),
+            "strat_ma_body": self.strat_ma_body_var.get(),
         }
 
     def _save_all(self) -> None:

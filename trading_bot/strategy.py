@@ -60,6 +60,8 @@ class StrategyParams:
     ma_swing: int = 10               # swing lookback for the protective stop
     ma_sl_buf: float = 0.10          # extra % beyond the swing for the stop
     ma_scale: float = 0.5            # fraction closed on the RSI-extreme scale-out
+    ma_confirm: int = 1              # consecutive green(buy)/red(sell) candles to confirm
+    ma_min_body: float = 0.30        # each confirming candle's body must be >= this of range
 
 
 @dataclass
@@ -406,8 +408,10 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
 
     Pure & deterministic: it simulates one position at a time, so a reversal
     (long→short on the same bar) emits an ``exit`` immediately followed by an
-    ``enter``. Entries fire only on a *fresh* alignment (a genuine cross), never
-    on the first ready bar — non-repaint, mirroring the long-only engine.
+    ``enter``. A long needs the EMA/RSI alignment **plus** ``ma_confirm``
+    consecutive green candles to confirm the BUY (a short needs that many red
+    candles for the SELL) — mirroring Strategy A's green-sequence filter and
+    keeping it non-repaint (only closed bars).
     """
     n = len(candles)
     need = max(params.ma_len, params.rsi_len, params.ma_swing) + 2
@@ -415,6 +419,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         return []
 
     ts = [int(c[0]) for c in candles]
+    o = [float(c[1]) for c in candles]
     h = [float(c[2]) for c in candles]
     low = [float(c[3]) for c in candles]
     cl = [float(c[4]) for c in candles]
@@ -424,26 +429,41 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     swing_low = lowest_series(low, params.ma_swing)
     swing_high = highest_series(h, params.ma_swing)
     buf = params.ma_sl_buf / 100.0
+    confirm = max(0, int(params.ma_confirm))   # in-direction candles to confirm an entry
+    min_body = max(0.0, params.ma_min_body)    # each must have a body >= this of its range
 
     pos = "flat"            # flat / long / short
     scaled = False          # has the one-shot RSI scale-out fired for this position?
     sl: Optional[float] = None
     prev_ready = False
-    prev_long = False
-    prev_short = False
+    green_run = 0           # consecutive *quality* green / red candles (entry confirmation)
+    red_run = 0
     events = []
 
     for i in range(n):
+        # Confirmation counters: a candle only counts if it's the right colour AND
+        # has a strong enough body (|close-open| / range >= min_body), mirroring
+        # Strategy A's body filter. Any other candle resets the run.
+        rng = h[i] - low[i]
+        body = abs(cl[i] - o[i]) / rng if rng > 0 else 0.0
+        strong = body >= min_body
+        if cl[i] > o[i] and strong:
+            green_run, red_run = green_run + 1, 0
+        elif cl[i] < o[i] and strong:
+            green_run, red_run = 0, red_run + 1
+        else:
+            green_run, red_run = 0, 0
+
         ready = ema[i] is not None and rsi[i] is not None
         if not ready:
-            prev_ready, prev_long, prev_short = False, False, False
+            prev_ready = False
             continue
 
         long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
         short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
-        # Fresh cross only (the prior bar must have been ready and not aligned).
-        enter_long = prev_ready and long_aligned and not prev_long
-        enter_short = prev_ready and short_aligned and not prev_short
+        # Entry needs alignment AND `confirm` candles in the trade direction.
+        enter_long = prev_ready and long_aligned and green_run >= confirm
+        enter_short = prev_ready and short_aligned and red_run >= confirm
 
         # 1) Manage an open position first — exits/stops take priority.
         if pos == "long":
