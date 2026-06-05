@@ -80,7 +80,7 @@ class LoginDialog:
             em.pack(pady=(2, 8), ipady=4, ipadx=10)
             em.focus_set()
 
-            tk.Label(self.win, text="Create PIN (encrypts your keys):", bg=BG,
+            tk.Label(self.win, text="Create your 4-digit PIN (encrypts your keys):", bg=BG,
                      fg=theme.TXT_DIM).pack()
 
         self.pin_var = tk.StringVar()
@@ -93,7 +93,7 @@ class LoginDialog:
 
         self.confirm_var = tk.StringVar()
         if self.first_run:
-            tk.Label(self.win, text="Confirm PIN:", bg=BG, fg=theme.TXT_DIM).pack(pady=(6, 0))
+            tk.Label(self.win, text="Confirm your 4-digit PIN:", bg=BG, fg=theme.TXT_DIM).pack(pady=(6, 0))
             tk.Entry(self.win, textvariable=self.confirm_var, show="•", justify="center",
                      bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT,
                      relief="flat").pack(pady=4, ipady=4, ipadx=10)
@@ -158,20 +158,46 @@ class LoginDialog:
 
     # --- First-run trial sign-up -----------------------------------------
     def _start_trial(self, pin: str, email: str) -> None:
-        """Request the 10-day trial off the UI thread, then finish on it."""
+        """Request the 10-day trial off the UI thread, then finish on it.
+
+        A watchdog guarantees the UI never gets stuck on "Starting…": if the
+        licence server hangs (e.g. a DNS stall the socket timeout doesn't cover),
+        we proceed offline after a few seconds and let the user in so they can
+        retry the trial later from the License tab."""
         self.btn.config(state="disabled", text="Starting…")
+        self._trial_settled = False
         trial_url = licence.trial_url_from_relay(DEFAULT_RELAY_URL)
         machine = licence.machine_fingerprint()
 
         def work():
-            result = licence.start_trial(trial_url, email, machine)
-            # Hop back to the Tk thread before touching widgets / the store.
-            self.win.after(0, lambda: self._trial_done(pin, email, *result))
+            try:
+                result = licence.start_trial(trial_url, email, machine, timeout=12.0)
+            except Exception as exc:  # noqa: BLE001 - never let the thread die silently
+                result = ("error", f"trial error ({exc})", "", 0)
+            try:
+                self.win.after(0, lambda: self._trial_done(pin, email, *result))
+            except Exception:  # noqa: BLE001 - window already closed by the watchdog
+                pass
 
         threading.Thread(target=work, daemon=True).start()
+        # Hard cap: if no answer in time, stop waiting and continue offline.
+        self._trial_watchdog = self.win.after(
+            16000,
+            lambda: self._trial_done(pin, email, "error",
+                                     "the licence server didn't respond", "", 0))
 
     def _trial_done(self, pin: str, email: str, status: str, message: str,
                     token: str, expires_at: int) -> None:
+        # Only the first of (real result, watchdog) is allowed to finish.
+        if getattr(self, "_trial_settled", False):
+            return
+        self._trial_settled = True
+        if getattr(self, "_trial_watchdog", None):
+            try:
+                self.win.after_cancel(self._trial_watchdog)
+            except Exception:  # noqa: BLE001
+                pass
+            self._trial_watchdog = None
         self.btn.config(state="normal", text=f"Start {TRIAL_DAYS}-day free trial")
 
         if status == "ok" and token:
