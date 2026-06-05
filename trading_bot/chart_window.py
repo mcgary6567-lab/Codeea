@@ -164,7 +164,7 @@ class ChartWindow:
         self._tf_box.pack(side="left", padx=(4, 12))
         self._tf_box.bind("<<ComboboxSelected>>", lambda e: self._on_tf_change())
 
-        tk.Button(bar, text="Refresh", command=self._load, bg=ACCENT, fg="#1a1100",
+        tk.Button(bar, text="🔄 Refresh", command=self._load, bg=ACCENT, fg="#1a1100",
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 9),
                   activebackground="#ffa057", padx=14, pady=4).pack(side="right")
         self.status = tk.Label(bar, text="Loading…", bg=BG, fg=DIM, font=("Segoe UI", 9))

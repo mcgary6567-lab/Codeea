@@ -152,13 +152,13 @@ class AnalyticsWindow:
 
         bar = tk.Frame(self.win, bg=BG)
         bar.pack(fill="x", padx=14, pady=(0, 12))
-        tk.Button(bar, text="Refresh", command=self.refresh, bg=ACCENT, fg="#1a1100",
+        tk.Button(bar, text="🔄 Refresh", command=self.refresh, bg=ACCENT, fg="#1a1100",
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
                   activebackground="#ffa057", padx=16, pady=5).pack(side="right")
-        tk.Button(bar, text="Export CSV", command=self._export_csv, bg=ELEV, fg=TXT,
+        tk.Button(bar, text="📤 Export CSV", command=self._export_csv, bg=ELEV, fg=TXT,
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
                   activebackground=BORDER, padx=16, pady=5).pack(side="right", padx=8)
-        tk.Button(bar, text="Clear", command=self._clear, bg=ELEV, fg=RED,
+        tk.Button(bar, text="🗑 Clear", command=self._clear, bg=ELEV, fg=RED,
                   relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
                   activebackground=RED, activeforeground="#ffffff", padx=16, pady=5).pack(side="left")
 

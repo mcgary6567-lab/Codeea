@@ -170,12 +170,12 @@ class BacktestWindow:
         # Row 4: run / export / status.
         r4 = tk.Frame(self.win, bg=BG)
         r4.pack(fill="x", padx=12, pady=(10, 4))
-        self.run_btn = tk.Button(r4, text="Run backtest", command=self._run,
+        self.run_btn = tk.Button(r4, text="📊 Run backtest", command=self._run,
                                  bg=ACCENT, fg="#1a1100", relief="flat", bd=0,
                                  cursor="hand2", font=("Segoe UI Semibold", 9),
                                  activebackground="#ffa057", padx=16, pady=4)
         self.run_btn.pack(side="left")
-        self.export_btn = tk.Button(r4, text="Export CSV", command=self._export_csv,
+        self.export_btn = tk.Button(r4, text="📤 Export CSV", command=self._export_csv,
                                     bg=ELEV, fg=TXT, relief="flat", bd=0, cursor="hand2",
                                     font=("Segoe UI", 9), padx=12, pady=4, state="disabled")
         self.export_btn.pack(side="left", padx=8)
@@ -214,7 +214,7 @@ class BacktestWindow:
         op_tab = tk.Frame(nb, bg=BG)
         opbar = tk.Frame(op_tab, bg=BG)
         opbar.pack(fill="x", pady=(6, 4))
-        self.opt_btn = tk.Button(opbar, text="Run optimize", command=self._optimize,
+        self.opt_btn = tk.Button(opbar, text="⚙ Run optimize", command=self._optimize,
                                  bg=ACCENT, fg="#1a1100", relief="flat", bd=0,
                                  cursor="hand2", font=("Segoe UI Semibold", 9),
                                  activebackground="#ffa057", padx=14, pady=4)
@@ -285,12 +285,12 @@ class BacktestWindow:
         )
 
     def _done_error(self, msg: str) -> None:
-        self.run_btn.config(state="normal", text="Run backtest")
+        self.run_btn.config(state="normal", text="📊 Run backtest")
         self.status.config(text=f"Error: {msg}")
 
     def _done(self, result: bt.BacktestResult, n_candles: int) -> None:
         self._result = result
-        self.run_btn.config(state="normal", text="Run backtest")
+        self.run_btn.config(state="normal", text="📊 Run backtest")
         self.export_btn.config(state="normal" if result.trades else "disabled")
         s = result.stats
         self.status.config(
@@ -337,12 +337,12 @@ class BacktestWindow:
         self._post(lambda: self._render_opt(results))
 
     def _opt_done_error(self, msg: str) -> None:
-        self.opt_btn.config(state="normal", text="Run optimize")
+        self.opt_btn.config(state="normal", text="⚙ Run optimize")
         self.status.config(text=f"Optimize error: {msg}")
 
     def _render_opt(self, results: List[dict]) -> None:
         self._opt_results = results
-        self.opt_btn.config(state="normal", text="Run optimize")
+        self.opt_btn.config(state="normal", text="⚙ Run optimize")
         self.opt_tree.delete(*self.opt_tree.get_children())
         for r in results:
             o, st = r["overrides"], r["stats"]

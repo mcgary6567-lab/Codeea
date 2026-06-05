@@ -269,7 +269,7 @@ class TradingBotGUI:
             result["v"] = v
             dlg.destroy()
 
-        primary = "Install now" if can_auto else "Open download page"
+        primary = "⬇ Install now" if can_auto else "⬇ Open download page"
         b = tk.Button(btns, text=primary, command=lambda: choose("install"))
         theme.style_button(b, "accent")
         b.pack(side="right")
@@ -556,10 +556,10 @@ class TradingBotGUI:
 
         btns = ttk.Frame(f)
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0))
-        self.connect_btn = tk.Button(btns, text="Connect", width=14, command=self._on_connect)
+        self.connect_btn = tk.Button(btns, text="🔌 Connect", width=14, command=self._on_connect)
         theme.style_button(self.connect_btn, "buy")
         self.connect_btn.pack(side="left", padx=5)
-        self.disconnect_btn = tk.Button(btns, text="Disconnect", width=14,
+        self.disconnect_btn = tk.Button(btns, text="⛔ Disconnect", width=14,
                                         command=self._on_disconnect, state="disabled")
         theme.style_button(self.disconnect_btn, "sell")
         self.disconnect_btn.pack(side="left", padx=5)
@@ -568,13 +568,13 @@ class TradingBotGUI:
         # (Binance/others require a whitelist once any trading permission is on).
         ipf = ttk.Frame(f)
         ipf.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(10, 0))
-        self.ip_btn = tk.Button(ipf, text="Show my IP", command=self._show_my_ip)
+        self.ip_btn = tk.Button(ipf, text="🌐 Show my IP", command=self._show_my_ip)
         theme.style_button(self.ip_btn, "ghost")
         self.ip_btn.pack(side="left")
         self.ip_value = tk.StringVar(value="—")
         tk.Label(ipf, textvariable=self.ip_value, bg=PANEL, fg=ACCENT,
                  font=("Segoe UI Semibold", 10)).pack(side="left", padx=8)
-        self.ip_copy_btn = tk.Button(ipf, text="Copy", command=self._copy_my_ip, state="disabled")
+        self.ip_copy_btn = tk.Button(ipf, text="📋 Copy", command=self._copy_my_ip, state="disabled")
         theme.style_button(self.ip_copy_btn, "ghost")
         self.ip_copy_btn.pack(side="left")
         ttk.Label(f, text="Your public IP — paste it into your exchange API key's IP whitelist "
@@ -628,7 +628,7 @@ class TradingBotGUI:
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_my_ip_done(self, ip, manual: bool, notify_exchange: str | None = None) -> None:
-        self.ip_btn.config(text="Show my IP", state="normal")
+        self.ip_btn.config(text="🌐 Show my IP", state="normal")
         if not ip:
             if manual:
                 self.ip_value.set("unavailable (no internet?)")
@@ -670,8 +670,8 @@ class TradingBotGUI:
         if ip and ip[0].isdigit():
             self.root.clipboard_clear()
             self.root.clipboard_append(ip)
-            self.ip_copy_btn.config(text="Copied")
-            self.root.after(1200, lambda: self.ip_copy_btn.config(text="Copy"))
+            self.ip_copy_btn.config(text="✓ Copied")
+            self.root.after(1200, lambda: self.ip_copy_btn.config(text="📋 Copy"))
 
     def _build_trade_buttons(self, parent) -> None:
         f = ttk.Frame(parent, padding=(5, 0))
@@ -680,13 +680,13 @@ class TradingBotGUI:
         f.columnconfigure(1, weight=1)
 
         self.buy_btn = theme.RoundedButton(
-            f, text="BUY", bg=GREEN, active=theme.GREEN, fg="white",
+            f, text="▲ BUY", bg=GREEN, active=theme.GREEN, fg="white",
             radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("buy"),
         )
         self.buy_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self.sell_btn = theme.RoundedButton(
-            f, text="SELL", bg=RED, active=theme.RED, fg="white",
+            f, text="▼ SELL", bg=RED, active=theme.RED, fg="white",
             radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("sell"),
         )
@@ -714,7 +714,7 @@ class TradingBotGUI:
         sym_box.bind("<<ComboboxSelected>>", lambda e: self._watch_manual_symbol())
         sym_box.bind("<Return>", lambda e: self._watch_manual_symbol())
         sym_box.bind("<FocusOut>", lambda e: self._watch_manual_symbol())
-        tk.Button(top, text="Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
+        tk.Button(top, text="🔄 Refresh Now", command=lambda: self.backend.submit({"cmd": "refresh"})).pack(side="right")
 
         cols = ("pair", "side", "size", "entry", "current", "pnl", "status")
         self.pos_tree = ttk.Treeview(f, columns=cols, show="headings", height=12)
@@ -732,15 +732,15 @@ class TradingBotGUI:
 
         cbar = ttk.Frame(f)
         cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        tk.Button(cbar, text="Close Selected", command=self._close_selected).pack(side="left", padx=4)
-        tk.Button(cbar, text="Close %", command=self._close_partial).pack(side="left", padx=4)
+        tk.Button(cbar, text="✖ Close Selected", command=self._close_selected).pack(side="left", padx=4)
+        tk.Button(cbar, text="✂ Close %", command=self._close_partial).pack(side="left", padx=4)
         self.close_pct_var = tk.StringVar(value="50")
         ttk.Combobox(cbar, textvariable=self.close_pct_var, width=4,
                      values=("25", "33", "50", "75"), state="normal").pack(side="left")
         ttk.Label(cbar, text="%").pack(side="left", padx=(1, 4))
-        tk.Button(cbar, text="Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
+        tk.Button(cbar, text="🛡 Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
         tk.Button(
-            cbar, text="PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
+            cbar, text="🛑 PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
             font=("Segoe UI", 9, "bold"), command=self._close_all,
         ).pack(side="left", padx=4)
 
@@ -772,7 +772,7 @@ class TradingBotGUI:
                                  "tp": self._float(tp_v.get(), 0) or None})
             win.destroy()
 
-        b = tk.Button(win, text="Place orders", command=apply)
+        b = tk.Button(win, text="✅ Place orders", command=apply)
         theme.style_button(b, "accent")
         b.grid(row=3, column=0, columnspan=2, padx=14, pady=12, sticky="ew")
 
@@ -1031,7 +1031,7 @@ class TradingBotGUI:
 
         gr = ttk.Frame(f)
         gr.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        tk.Button(gr, text="Reset daily limit", command=self._reset_daily).pack(side="left")
+        tk.Button(gr, text="🔁 Reset daily limit", command=self._reset_daily).pack(side="left")
         self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
 
@@ -1086,11 +1086,11 @@ class TradingBotGUI:
         ttk.Label(wr, text="Passphrase:").pack(side="left")
         self.webhook_pass_var = tk.StringVar(value=DEFAULT_WEBHOOK_PASSPHRASE)
         ttk.Entry(wr, textvariable=self.webhook_pass_var, width=16).pack(side="left", padx=6)
-        self.webhook_btn = tk.Button(wr, text="Start Webhook", command=self._toggle_webhook)
+        self.webhook_btn = tk.Button(wr, text="▶ Start Webhook", command=self._toggle_webhook)
         self.webhook_btn.pack(side="left", padx=6)
         self.webhook_status = tk.Label(wr, text="● off", fg=GREY, bg=PANEL)
         self.webhook_status.pack(side="left")
-        self.test_signal_btn = tk.Button(wr, text="Test Signal", command=self._test_signal)
+        self.test_signal_btn = tk.Button(wr, text="🧪 Test Signal", command=self._test_signal)
         theme.style_button(self.test_signal_btn, "accent")
         self.test_signal_btn.pack(side="right")
 
@@ -1114,7 +1114,7 @@ class TradingBotGUI:
         tr.columnconfigure(0, weight=1)
         self.relay_token_var = tk.StringVar()          # empty until trial / purchase
         ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
-        self.relay_btn = tk.Button(tr, text="Connect", command=self._toggle_relay)
+        self.relay_btn = tk.Button(tr, text="🔗 Connect", command=self._toggle_relay)
         self.relay_btn.grid(row=0, column=1, padx=(6, 0))
         self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
         self.relay_status.grid(row=7, column=0, columnspan=2, sticky="w")
@@ -1129,11 +1129,11 @@ class TradingBotGUI:
 
         bf = ttk.Frame(f)
         bf.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-        self.trial_btn = tk.Button(bf, text="Start Free Trial", width=16,
+        self.trial_btn = tk.Button(bf, text="🎁 Start Free Trial", width=16,
                                    command=self._start_free_trial)
         theme.style_button(self.trial_btn, "accent")
         self.trial_btn.pack(side="left", padx=(0, 8))
-        self.getlic_btn = tk.Button(bf, text="Get License", width=16,
+        self.getlic_btn = tk.Button(bf, text="🔑 Get License", width=16,
                                     command=self._open_checkout)
         theme.style_button(self.getlic_btn, "accent")
         self.getlic_btn.pack(side="left")
@@ -1340,7 +1340,7 @@ class TradingBotGUI:
             dr, text="Desktop notifications", variable=self.desktop_var,
             command=self._push_settings,
         ).pack(side="left")
-        self.desk_test_btn = tk.Button(dr, text="Test", command=self._test_desktop)
+        self.desk_test_btn = tk.Button(dr, text="🔔 Test", command=self._test_desktop)
         self.desk_test_btn.pack(side="left", padx=6)
         ttk.Label(f, text="Telegram bot token:").grid(row=1, column=0, sticky="w", pady=2)
         self.tg_token_var = tk.StringVar()
@@ -1351,7 +1351,7 @@ class TradingBotGUI:
         cr.grid(row=2, column=1, sticky="ew", pady=2)
         cr.columnconfigure(0, weight=1)
         ttk.Entry(cr, textvariable=self.tg_chat_var).grid(row=0, column=0, sticky="ew")
-        self.tg_test_btn = tk.Button(cr, text="Test", command=self._test_telegram)
+        self.tg_test_btn = tk.Button(cr, text="✈ Test", command=self._test_telegram)
         theme.style_button(self.tg_test_btn, "accent")
         self.tg_test_btn.grid(row=0, column=1, padx=(6, 0))
 
@@ -1381,12 +1381,12 @@ class TradingBotGUI:
     def _toggle_relay(self) -> None:
         if self.relay.running:
             self.relay.stop()
-            self.relay_btn.config(text="Connect")
+            self.relay_btn.config(text="🔗 Connect")
             self.relay_status.config(text="● off", fg=GREY)
         else:
             self.relay.start()
             if self.relay.running:
-                self.relay_btn.config(text="Disconnect")
+                self.relay_btn.config(text="🔌 Disconnect")
                 self.relay_status.config(text="● License connected", fg=GREEN)
 
     def _autostart_relay(self) -> None:
@@ -1422,7 +1422,7 @@ class TradingBotGUI:
         threading.Thread(target=work, daemon=True).start()
 
     def _trial_done(self, status: str, message: str, token: str, expires_at: int) -> None:
-        self.trial_btn.config(state="normal", text="Start Free Trial")
+        self.trial_btn.config(state="normal", text="🎁 Start Free Trial")
         if status == "ok" and token:
             self.relay_token_var.set(token)
             try:  # persist the new token silently
@@ -1494,7 +1494,7 @@ class TradingBotGUI:
         threading.Thread(target=worker, daemon=True).start()
 
     def _telegram_test_done(self, ok: bool, msg: str) -> None:
-        self.tg_test_btn.config(text="Test", state="normal")
+        self.tg_test_btn.config(text="✈ Test", state="normal")
         if ok:
             messagebox.showinfo("Telegram test", msg)
         else:
@@ -1511,7 +1511,7 @@ class TradingBotGUI:
         threading.Thread(target=worker, daemon=True).start()
 
     def _desktop_test_done(self, ok: bool, msg: str) -> None:
-        self.desk_test_btn.config(text="Test", state="normal")
+        self.desk_test_btn.config(text="🔔 Test", state="normal")
         if ok:
             messagebox.showinfo("Desktop notification test", msg)
         else:
@@ -1548,9 +1548,9 @@ class TradingBotGUI:
 
         bar = ttk.Frame(f)
         bar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        tk.Button(bar, text="Export Log", command=self._export_log).pack(side="left", padx=4)
-        tk.Button(bar, text="Clear Log", command=self._clear_log).pack(side="left", padx=4)
-        tk.Button(bar, text="Support Log", command=self._open_log_folder).pack(side="left", padx=4)
+        tk.Button(bar, text="📤 Export Log", command=self._export_log).pack(side="left", padx=4)
+        tk.Button(bar, text="🗑 Clear Log", command=self._clear_log).pack(side="left", padx=4)
+        tk.Button(bar, text="📁 Support Log", command=self._open_log_folder).pack(side="left", padx=4)
 
     # Map a log status to a colour tag (default = no tag / normal text).
     _LOG_TAGS = {
@@ -1589,10 +1589,10 @@ class TradingBotGUI:
             self.root.clipboard_append(str(message))
         br = tk.Frame(win, bg=PANEL)
         br.pack(fill="x", padx=12, pady=(0, 12))
-        cb = tk.Button(br, text="Copy message", command=copy_msg)
+        cb = tk.Button(br, text="📋 Copy message", command=copy_msg)
         theme.style_button(cb, "accent")
         cb.pack(side="right")
-        cl = tk.Button(br, text="Close", command=win.destroy)
+        cl = tk.Button(br, text="✖ Close", command=win.destroy)
         theme.style_button(cl, "ghost")
         cl.pack(side="right", padx=8)
 
@@ -2069,12 +2069,12 @@ class TradingBotGUI:
     def _toggle_webhook(self) -> None:
         if self.webhook.running:
             self.webhook.stop()
-            self.webhook_btn.config(text="Start Webhook")
+            self.webhook_btn.config(text="▶ Start Webhook")
             self.webhook_status.config(text="● off", fg=GREY)
         else:
             try:
                 self.webhook.start()
-                self.webhook_btn.config(text="Stop Webhook")
+                self.webhook_btn.config(text="⏹ Stop Webhook")
                 self.webhook_status.config(text="● listening", fg=GREEN)
             except OSError as exc:
                 messagebox.showerror("Webhook", f"Could not start: {exc}")
@@ -2084,7 +2084,7 @@ class TradingBotGUI:
         indicator signals as soon as the exchange is connected (plug-and-play)."""
         try:
             self.webhook.start()
-            self.webhook_btn.config(text="Stop Webhook")
+            self.webhook_btn.config(text="⏹ Stop Webhook")
             self.webhook_status.config(text="● listening", fg=GREEN)
         except OSError as exc:  # port busy etc. — leave it stopped, user can retry
             self.webhook_status.config(text="● off (port busy)", fg=RED)

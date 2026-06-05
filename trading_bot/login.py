@@ -98,7 +98,7 @@ class LoginDialog:
                      bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT,
                      relief="flat").pack(pady=4, ipady=4, ipadx=10)
 
-        btn_text = f"Start {TRIAL_DAYS}-day free trial" if self.first_run else "Unlock"
+        btn_text = f"🎁 Start {TRIAL_DAYS}-day free trial" if self.first_run else "🔓 Unlock"
         self.btn = tk.Button(self.win, text=btn_text, width=22, command=self._submit)
         theme.style_button(self.btn, "accent")
         self.btn.pack(pady=16)
@@ -198,7 +198,7 @@ class LoginDialog:
             except Exception:  # noqa: BLE001
                 pass
             self._trial_watchdog = None
-        self.btn.config(state="normal", text=f"Start {TRIAL_DAYS}-day free trial")
+        self.btn.config(state="normal", text=f"🎁 Start {TRIAL_DAYS}-day free trial")
 
         if status == "ok" and token:
             # Licensed: create the PIN vault with the trial token already in it,
