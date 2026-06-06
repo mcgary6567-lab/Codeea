@@ -52,6 +52,7 @@ RED = theme.RED_HL
 # Overlay palette.
 ENTRY_COLOR = "#4a9eff"    # blue entry line
 SL_COLOR = "#ff5c5c"       # red SL
+TP_COLOR = "#26d07c"       # green take-profit (TP1/TP2 at 1R/2R)
 MA_COLOR = "#5b8def"       # EMA overlay line
 RSI_COLOR = "#c792ea"      # RSI line
 LONG_COLOR = "#7CFF6B"     # long entry arrow (BUY, up)
@@ -277,6 +278,7 @@ class ChartWindow:
         items = (("▲ BUY", LONG_COLOR), ("▼ SELL", SHORT_COLOR),
                  ("⊙ scale-out", SCALE_COLOR), ("✕ exit", EXIT_COLOR),
                  ("— entry", ENTRY_COLOR), ("— SL", SL_COLOR),
+                 ("— TP1/TP2", TP_COLOR),
                  (f"— EMA{MA_LEN}", MA_COLOR))
         for txt, col in items:
             tk.Label(f, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
@@ -446,7 +448,12 @@ class ChartWindow:
         ma_in_view = [(i, e) for (i, e) in self._ma_events if start <= i <= end]
         entries = [e for (_, e) in ma_in_view if e["act"] == "enter"]
         if entries:
-            for lv in (entries[-1]["entry"], entries[-1].get("sl")):
+            le = entries[-1]
+            levels = [le["entry"], le.get("sl")]
+            if le.get("sl"):                       # include TP1/TP2 (1R/2R) so they stay on-screen
+                risk = le["entry"] - le["sl"]
+                levels += [le["entry"] + risk, le["entry"] + 2 * risk]
+            for lv in levels:
                 if lv:
                     hi = max(hi, lv)
                     lo = min(lo, lv)
@@ -529,8 +536,18 @@ class ChartWindow:
             self._level(c, Yp, w, padL, padR, last_entry["entry"], ENTRY_COLOR, (),
                         f"{verb} ENTRY")
             if last_entry.get("sl"):
-                self._level(c, Yp, w, padL, padR, last_entry["sl"], SL_COLOR, (2, 2),
-                            f"SL {self._pct(last_entry['sl'], last_entry['entry'])}%")
+                entry = last_entry["entry"]
+                sl = last_entry["sl"]
+                self._level(c, Yp, w, padL, padR, sl, SL_COLOR, (2, 2),
+                            f"SL {self._pct(sl, entry)}%")
+                # The built-in strategy has no fixed target (it scales out at RSI
+                # extremes / trails the EMA), so project TP1/TP2 at 1R and 2R of
+                # the stop distance — the same direction as the trade.
+                risk = entry - sl                      # +ve for long, -ve for short
+                for mult, name in ((1.0, "TP1"), (2.0, "TP2")):
+                    tp = entry + risk * mult
+                    self._level(c, Yp, w, padL, padR, tp, TP_COLOR, (2, 2),
+                                f"{name} {self._pct(tp, entry)}%")
 
         # --- volume pane ---
         maxv = max((x[5] for x in view), default=0.0) or 1.0

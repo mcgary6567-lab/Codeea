@@ -1153,7 +1153,7 @@ class TradingBotGUI:
         row = ttk.Frame(f)
         row.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
         self.strat_enabled_var = tk.BooleanVar(value=False)
-        theme.make_check(row, text="Enable built-in strategy (no TradingView needed)",
+        theme.make_check(row, text="Enable built-in strategy",
                          variable=self.strat_enabled_var,
                          command=self._push_strategy).pack(side="left")
         self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
