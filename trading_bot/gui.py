@@ -137,6 +137,7 @@ class TradingBotGUI:
         self._live_ack = bool(self.saved.get("live_ack", False))
         self._required_update = False     # a [required] update is pending → block connect
         self._latest_update = None        # last update info dict seen (for the prompt)
+        self._pair_list = list(TOP_PAIRS)  # live exchange pairs; shared everywhere
         self._skipped_version = str(self.saved.get("skipped_version", ""))
         self._build_ui()
         self._load_saved_into_ui()
@@ -1178,7 +1179,17 @@ class TradingBotGUI:
 
         ttk.Label(f, text="Symbols (comma-separated):").grid(row=1, column=0, sticky="w", pady=2)
         self.strat_symbols_var = tk.StringVar(value=DEFAULT_STRATEGY_SYMBOLS)
-        num_entry(f, self.strat_symbols_var, width=24).grid(row=1, column=1, sticky="ew", pady=2)
+        # Editable combobox: type a comma list, or pick a pair from the live
+        # exchange list to APPEND it (so the multi-symbol field isn't overwritten).
+        self.strat_symbols_box = ttk.Combobox(f, textvariable=self.strat_symbols_var,
+                                              values=self._pair_list, width=24)
+        self.strat_symbols_box.grid(row=1, column=1, sticky="ew", pady=2)
+        self._strat_syms_before = self.strat_symbols_var.get()
+        self.strat_symbols_box.bind("<FocusIn>", lambda e: self._snap_strat_syms())
+        self.strat_symbols_box.bind("<KeyRelease>", lambda e: self._snap_strat_syms())
+        self.strat_symbols_box.bind("<<ComboboxSelected>>", lambda e: self._on_strat_symbol_pick())
+        self.strat_symbols_box.bind("<FocusOut>", lambda e: self._push_strategy())
+        self.strat_symbols_box.bind("<Return>", lambda e: self._push_strategy())
 
         sr = ttk.Frame(f)
         sr.grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
@@ -1260,6 +1271,21 @@ class TradingBotGUI:
             ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 2.5)),
         )
 
+    def _snap_strat_syms(self) -> None:
+        """Remember the typed symbol list before a dropdown pick (so the pick can
+        append rather than overwrite)."""
+        self._strat_syms_before = self.strat_symbols_var.get()
+
+    def _on_strat_symbol_pick(self) -> None:
+        picked = self.strat_symbols_box.get().strip()
+        syms = [x.strip() for x in self._strat_syms_before.split(",") if x.strip()]
+        if picked and picked not in syms:
+            syms.append(picked)
+        text = ", ".join(syms) if syms else picked
+        self.strat_symbols_var.set(text)
+        self._strat_syms_before = text
+        self._push_strategy()
+
     def _push_strategy(self) -> None:
         """Apply the built-in strategy config to the runner and start/stop it.
 
@@ -1320,6 +1346,7 @@ class TradingBotGUI:
             get_params=self._strategy_params,
             get_exchange=lambda: exchange_id(self.exchange_var.get()),
             get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
+            get_pairs=lambda: list(self._pair_list),
         )
 
     def _sync_chart(self) -> None:
@@ -1341,6 +1368,7 @@ class TradingBotGUI:
             get_params=self._strategy_params,
             get_exchange=lambda: exchange_id(self.exchange_var.get()),
             get_market=lambda: "futures" if self.market_var.get() == "Futures" else "spot",
+            get_pairs=lambda: list(self._pair_list),
         )
 
     def _build_alerts_tab(self, f) -> None:
@@ -2234,9 +2262,22 @@ class TradingBotGUI:
         elif kind == "pairs":
             pairs = msg.get("pairs", [])
             if pairs:
-                self.symbol_box.config(values=pairs)
+                self._set_pair_list(pairs)
         elif kind == "alert":
             self._handle_alert(msg)
+
+    def _set_pair_list(self, pairs: list) -> None:
+        """Store the exchange pair list and push it to every symbol picker — the
+        main Symbol box, the Strategy symbols dropdown, and any open Chart/Backtest
+        window."""
+        self._pair_list = list(pairs)
+        self.symbol_box.config(values=pairs)
+        if getattr(self, "strat_symbols_box", None):
+            self.strat_symbols_box.config(values=pairs)
+        for attr in ("_chart_win", "_bt_win"):
+            win = getattr(self, attr, None)
+            if win and win.alive():
+                win.set_pairs(pairs)
 
     def _update_mark(self, msg: dict) -> None:
         price = msg.get("price")

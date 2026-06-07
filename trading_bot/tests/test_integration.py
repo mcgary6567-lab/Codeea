@@ -148,6 +148,27 @@ class TestGuiWiring(unittest.TestCase):
                 except Exception:  # noqa: BLE001
                     pass
 
+    # -- pair list propagates to every symbol picker -----------------------
+    def test_pair_list_propagates_everywhere(self):
+        self.app._open_strategy_chart()
+        self.app._open_backtest()
+        self.root.update_idletasks()
+        pairs = ["BTC/USDT", "ETH/USDT", "FOO/USDT", "BAR/USDT"]
+        self.app._set_pair_list(pairs)
+        self.root.update_idletasks()
+        for box in (self.app.symbol_box, self.app.strat_symbols_box,
+                    self.app._chart_win._sym_box, self.app._bt_win._sym_box):
+            self.assertIn("FOO/USDT", box.cget("values"))
+        # picking a pair appends to the multi-symbol strategy field
+        self.app.strat_symbols_var.set("BTC/USDT")
+        self.app._snap_strat_syms()
+        self.app.strat_symbols_box.set("ETH/USDT")
+        self.app._on_strat_symbol_pick()
+        self.assertEqual(self.app.strat_symbols_var.get(), "BTC/USDT, ETH/USDT")
+        for w in list(self.root.winfo_children()):
+            if isinstance(w, tk.Toplevel):
+                w.destroy()
+
     # -- reset restores defaults -------------------------------------------
     def test_reset_restores_defaults(self):
         self.app.connected = False

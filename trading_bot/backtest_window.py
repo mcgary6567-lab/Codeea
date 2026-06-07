@@ -58,7 +58,10 @@ class BacktestWindow:
         get_params: Callable[[], "strategy.StrategyParams"],
         get_exchange: Callable[[], str],
         get_market: Callable[[], str],
+        get_pairs: Callable[[], List[str]] = lambda: [],
     ) -> None:
+        self.get_pairs = get_pairs
+        self.get_symbols = get_symbols
         self.get_params = get_params
         self.get_exchange = get_exchange
         self.get_market = get_market
@@ -98,6 +101,22 @@ class BacktestWindow:
         except tk.TclError:
             pass
 
+    def _symbol_values(self) -> List[str]:
+        """Dropdown options: the live exchange pair list (falling back to the
+        strategy symbols), always including the current symbol."""
+        pairs = [x for x in (self._safe(self.get_pairs) or []) if x]
+        if not pairs:
+            pairs = [x for x in (self._safe(self.get_symbols) or []) if x]
+        if self.symbol and self.symbol not in pairs:
+            pairs = [self.symbol] + list(pairs)
+        return pairs
+
+    def set_pairs(self, pairs: List[str]) -> None:
+        try:
+            self._sym_box.config(values=self._symbol_values())
+        except Exception:  # noqa: BLE001
+            pass
+
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
         tk.Label(self.win, text="Backtest", bg=BG, fg=ACCENT,
@@ -108,8 +127,9 @@ class BacktestWindow:
         r1.pack(fill="x", padx=12)
         tk.Label(r1, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
-        ttk.Combobox(r1, textvariable=self.symbol_var, width=14, values=symbols).pack(
-            side="left", padx=(4, 12))
+        self._sym_box = ttk.Combobox(r1, textvariable=self.symbol_var, width=14,
+                                     values=self._symbol_values())
+        self._sym_box.pack(side="left", padx=(4, 12))
         tk.Label(r1, text="Timeframe", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.tf_var = tk.StringVar(value=self.timeframe)
         ttk.Combobox(r1, textvariable=self.tf_var, width=6, state="readonly",

@@ -74,10 +74,12 @@ class ChartWindow:
         get_params: Callable[[], "strategy.StrategyParams"],
         get_exchange: Callable[[], str],
         get_market: Callable[[], str],
+        get_pairs: Callable[[], List[str]] = lambda: [],
     ) -> None:
         # Live getters into the Strategy/Execution tabs — the chart can follow
         # them so it always mirrors what the strategy actually trades.
         self.get_symbols = get_symbols
+        self.get_pairs = get_pairs
         self.get_timeframe = get_timeframe
         self.get_params = get_params
         self.get_exchange = get_exchange
@@ -138,6 +140,21 @@ class ChartWindow:
         except tk.TclError:
             pass
 
+    def _symbol_values(self) -> List[str]:
+        """Dropdown options: the live exchange pair list (falling back to the
+        strategy symbols), always including the current symbol."""
+        pairs = [x for x in (self._safe(self.get_pairs) or []) if x] or self._safe_symbols()
+        if self.symbol and self.symbol not in pairs:
+            pairs = [self.symbol] + list(pairs)
+        return pairs
+
+    def set_pairs(self, pairs: List[str]) -> None:
+        """Refresh the symbol dropdown when the GUI gets a new exchange pair list."""
+        try:
+            self._sym_box.config(values=self._symbol_values())
+        except Exception:  # noqa: BLE001
+            pass
+
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
         bar = tk.Frame(self.win, bg=BG)
@@ -153,7 +170,7 @@ class ChartWindow:
         tk.Label(bar, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
         self._sym_box = ttk.Combobox(bar, textvariable=self.symbol_var, width=14,
-                                     values=symbols)
+                                     values=self._symbol_values())
         self._sym_box.pack(side="left", padx=(4, 12))
         self._sym_box.bind("<<ComboboxSelected>>", lambda e: self._on_symbol_change())
         self._sym_box.bind("<Return>", lambda e: self._on_symbol_change())
