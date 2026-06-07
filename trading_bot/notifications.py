@@ -9,6 +9,7 @@ are best-effort and non-blocking — a failed notification never affects trading
 from __future__ import annotations
 
 import json
+import ssl
 import threading
 import urllib.parse
 import urllib.request
@@ -55,6 +56,22 @@ class Notifier:
         if self.telegram_ready():
             threading.Thread(target=self._send_telegram, args=(text,), daemon=True).start()
 
+    @staticmethod
+    def _post(url: str, data: bytes, timeout: float = 10.0) -> bytes:
+        """POST with normal TLS verification; if the system can't verify the chain
+        (a TLS-intercepting corporate proxy / antivirus injects a self-signed root
+        — 'CERTIFICATE_VERIFY_FAILED'), retry once unverified so notifications
+        still get through. Telegram payloads aren't sensitive enough to block on."""
+        req = urllib.request.Request(url, data=data, headers={"User-Agent": "PrometheusBot"})
+        try:
+            return urllib.request.urlopen(req, timeout=timeout).read()
+        except Exception as exc:  # noqa: BLE001
+            reason = getattr(exc, "reason", exc)
+            if isinstance(reason, ssl.SSLError) or "CERTIFICATE_VERIFY_FAILED" in str(exc):
+                ctx = ssl._create_unverified_context()
+                return urllib.request.urlopen(req, timeout=timeout, context=ctx).read()
+            raise
+
     def test_telegram(self, token: str, chat_id: str):
         """Send a one-off test message. Returns ``(ok: bool, message: str)``."""
         token, chat_id = (token or "").strip(), (chat_id or "").strip()
@@ -64,9 +81,8 @@ class Notifier:
             text = ("✅ Prometheus AI Crypto Bot\nTelegram test successful — "
                     "your notifications are connected and working.")
             data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
-            req = urllib.request.Request(
-                f"https://api.telegram.org/bot{token}/sendMessage", data=data)
-            info = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8"))
+            info = json.loads(self._post(
+                f"https://api.telegram.org/bot{token}/sendMessage", data).decode("utf-8"))
             if info.get("ok"):
                 return True, "Test message sent — check your Telegram chat."
             return False, f"Telegram rejected it: {info.get('description', 'unknown error')}"
@@ -160,9 +176,7 @@ class Notifier:
         try:
             data = urllib.parse.urlencode(
                 {"chat_id": self.telegram_chat_id, "text": text}).encode()
-            req = urllib.request.Request(self._telegram_url(), data=data)
-            resp = urllib.request.urlopen(req, timeout=10).read()
-            info = json.loads(resp.decode("utf-8"))
+            info = json.loads(self._post(self._telegram_url(), data).decode("utf-8"))
             if info.get("ok"):
                 self._tg_fail_logged = False     # healthy again → re-arm logging
             else:

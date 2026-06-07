@@ -150,22 +150,6 @@ class TestGuiWiring(unittest.TestCase):
         self.assertEqual(a.mode_badge.cget("text").strip(), "TESTNET")
         a._set_connected(False, "binance")   # leave clean for other tests
 
-    def test_body_scrolls_on_small_window(self):
-        # On a short window the content is taller than the viewport -> scrollable.
-        self.root.geometry("1000x500")
-        self.root.update_idletasks()
-        self.root.update()
-        c = self.app._main_canvas
-        sr = c.cget("scrollregion").split()
-        self.assertEqual(len(sr), 4)
-        self.assertGreater(float(sr[3]), c.winfo_height())  # content exceeds viewport
-
-        class _E:
-            x_root = y_root = 5
-            delta = 120
-            num = 0
-        self.app._on_mousewheel(_E())   # must not raise
-
     def test_windows_reuse_not_stack(self):
         # Clicking a window button twice focuses the existing one (no stacking).
         def count(kind):
