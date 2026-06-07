@@ -317,6 +317,11 @@ class BacktestWindow:
             return
         self.symbol = self.symbol_var.get().strip() or self.symbol
         self.timeframe = self.tf_var.get()
+        # Re-read exchange + market from the main window every run: the window is
+        # reused, so a Spot<->Futures switch made after it opened must take effect.
+        # Spot => long-only (allow_short False); Futures => long + short.
+        self.exchange_id = self._safe(self.get_exchange) or self.exchange_id
+        self.market_type = self._safe(self.get_market) or self.market_type
         self.run_btn.config(state="disabled", text="Running…")
         self.status.config(text="Fetching candles…")
         threading.Thread(target=self._run_worker, daemon=True).start()

@@ -799,6 +799,32 @@ class TestBacktestDefaults(unittest.TestCase):
         for key in ("ATR stop ×", "Confirm candles", "Trend EMA", "Full grid"):
             self.assertIn(key, BacktestWindow.OPT_PRESETS)
 
+    def test_spot_is_long_only_futures_allows_shorts(self):
+        """Spot wallets can't sell short, so allow_short=False must produce
+        long-only trades; futures (allow_short=True) must also open shorts."""
+        import backtest as bt
+        # rally, drop, then recover — so the short opens AND closes (a still-open
+        # position at the end of the data is never tallied into trades).
+        closes = [100.0] * 40
+        p0 = 100.0
+        for _ in range(25):
+            p0 *= 1.012; closes.append(p0)
+        for _ in range(25):
+            p0 *= 0.988; closes.append(p0)
+        for _ in range(25):
+            p0 *= 1.012; closes.append(p0)
+        cd, prev = [], closes[0]
+        for i, c in enumerate(closes):
+            cd.append(_candle(i * 60000, prev, max(prev, c) * 1.0008,
+                              min(prev, c) * 0.9992, c))
+            prev = c
+        p = StrategyParams(**CROSS)
+        spot = bt.run_backtest(cd, p, bt.BacktestConfig(apply_costs=False, allow_short=False))
+        fut = bt.run_backtest(cd, p, bt.BacktestConfig(apply_costs=False, allow_short=True))
+        self.assertEqual({t.side for t in spot.trades}, {"long"})
+        self.assertEqual(spot.stats["shorts"], 0)
+        self.assertIn("short", {t.side for t in fut.trades})
+
 
 class TestStrategyLicenceGate(unittest.TestCase):
     """The built-in strategy must not trade without a valid licence, and must
