@@ -407,11 +407,12 @@ head('Prometheus — Licences');
           <td><code><?= $t ?></code></td>
           <td>
             <?= $email ?: '—' ?>
-            <?php if ($shared): ?>
-              <button type="button" class="badge warn ipbtn" title="Click to see the IP addresses"
-                      onclick="showIps('ipd-<?= $t ?>')">⚠ <?= $share['n'] ?> IPs</button>
+            <?php if ($share): $n = (int)$share['n']; $lbl = $n . ' IP' . ($n === 1 ? '' : 's'); ?>
+              <button type="button" class="badge ipbtn<?= $shared ? ' warn' : '' ?>"
+                      title="Click to see the IP address<?= $n === 1 ? '' : 'es' ?>"
+                      onclick="showIps('ipd-<?= $t ?>')"><?= $shared ? '⚠ ' : '' ?><?= $lbl ?></button>
               <template id="ipd-<?= $t ?>">
-                <div class="ipmodal-head">⚠ <?= $share['n'] ?> IP addresses · <?= $email ?: 'no email' ?></div>
+                <div class="ipmodal-head"><?= $shared ? '⚠ ' : '' ?><?= $lbl ?> · <?= $email ?: 'no email' ?></div>
                 <table class="iptbl">
                   <tr><th>IP address</th><th>Last seen</th><th>Polls</th></tr>
                   <?php foreach (($ipdetail[$r['token']] ?? []) as $d): ?>
@@ -420,8 +421,12 @@ head('Prometheus — Licences');
                         <td><?= (int)$d['hits'] ?></td></tr>
                   <?php endforeach; ?>
                 </table>
-                <div class="muted">Several IPs on one key can mean key-sharing — or just
-                  the customer using it from home plus a VPS/phone (last 7 days).</div>
+                <?php if ($shared): ?>
+                  <div class="muted">Several IPs on one key can mean key-sharing — or just
+                    the customer using it from home plus a VPS/phone (last 7 days).</div>
+                <?php else: ?>
+                  <div class="muted">Single IP seen in the last 7 days.</div>
+                <?php endif; ?>
               </template>
             <?php endif; ?>
             <?php if ($note): ?><div class="muted"><?= $note ?></div><?php endif; ?>
