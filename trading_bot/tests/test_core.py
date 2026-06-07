@@ -509,6 +509,37 @@ class TestStrategyCrossover(unittest.TestCase):
             evaluate_crossover([_candle(0, 100, 101, 99, 100)] * 5, StrategyParams(**CROSS)), [])
 
 
+def _downtrend_candles():
+    """Oscillating price with a steady downward drift, so the EMA/RSI crossover
+    repeatedly flips bearish and confirms shorts (which a falling market needs)."""
+    import math
+    out = []
+    for i in range(800):
+        base = 60000.0 * (1 - 0.0008 * i)
+        c = base + base * 0.01 * math.sin(i / 6.0)
+        o = base + base * 0.01 * math.sin((i - 1) / 6.0)
+        hi, lo = max(o, c) * 1.0005, min(o, c) * 0.9995
+        out.append(_candle(i * 300000, o, hi, lo, c))
+    return out
+
+
+class TestBacktestAllowShort(unittest.TestCase):
+    """allow_short is the only gate on shorts: a futures backtest must open them,
+    a spot (long-only) one must not — guarding against the window freezing the
+    market to 'spot' and silently forcing long-only on a futures account."""
+
+    def _run(self, allow_short):
+        import backtest as bt
+        cfg = bt.BacktestConfig(allow_short=allow_short, apply_costs=False)
+        return bt.run_backtest(_downtrend_candles(), StrategyParams(**CROSS), cfg).stats
+
+    def test_futures_opens_shorts(self):
+        self.assertGreater(self._run(allow_short=True)["shorts"], 0)
+
+    def test_spot_is_long_only(self):
+        self.assertEqual(self._run(allow_short=False)["shorts"], 0)
+
+
 class TestLicence(unittest.TestCase):
     def test_verify_url_derived_from_relay(self):
         from licence import verify_url_from_relay

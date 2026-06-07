@@ -349,6 +349,9 @@ class BacktestWindow:
             return default
 
     def _cfg_from_ui(self) -> "bt.BacktestConfig":
+        # Derive shorts from the *live* market selection so an Optimize/load that
+        # runs without a fresh _run() still honours a futures switch.
+        market = self._safe(self.get_market) or self.market_type
         return bt.BacktestConfig(
             start_equity=self._f(self.equity_var.get(), 1000),
             size_pct=self._f(self.size_var.get(), 100),
@@ -357,7 +360,7 @@ class BacktestWindow:
             funding_pct_8h=self._f(self.fund_var.get(), 0),
             apply_costs=self.costs_var.get(),
             bar_seconds=TF_SECONDS.get(self.timeframe, 3600),
-            allow_short=(self.market_type == "futures"),
+            allow_short=(market == "futures"),
         )
 
     def _done_error(self, msg: str) -> None:
