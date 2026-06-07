@@ -88,13 +88,18 @@ def run_backtest(candles, params: strategy.StrategyParams,
     scaled = False
     open_fees = 0.0           # fees paid so far on the open trade (entry + scale)
     realized_partial = 0.0    # PnL already booked from the scale-out leg
+    peak = 0.0               # high/low watermark since entry (post-TP1 trail)
+    trail_sl = None
+    trail_mult = max(0.0, params.ma_trail_atr)
 
     prev_ready = False
     green_run = red_run = 0
 
     def open_trade(side: str, i: int):
         nonlocal pos, entry, sl, qty, entry_i, init_risk, scaled, open_fees, realized_partial
+        nonlocal peak, trail_sl
         entry = cl[i]
+        peak, trail_sl = cl[i], None
         sl = strategy.crossover_stop(side, i, cl, swing_low, swing_high, atr, params)
         init_risk = abs(entry - sl)
         if cfg.risk_pct > 0 and init_risk > 0:
@@ -160,13 +165,20 @@ def run_backtest(candles, params: strategy.StrategyParams,
         # --- manage the open position (exit / scale) --- (TP is close-based, to
         # mirror strategy._replay_crossover exactly)
         tp1_r, tp2_r = max(0.0, params.ma_tp1_r), max(0.0, params.ma_tp2_r)
+        trailing = trail_mult > 0 and atr is not None
         if pos == "long":
             sl_eff = entry if scaled else sl     # breakeven after the scale-out
-            tp2_hit = tp2_r > 0 and cl[i] >= entry + tp2_r * init_risk
+            peak = max(peak, cl[i])
+            if scaled and trailing and atr[i] is not None:
+                tl = peak - atr[i] * trail_mult
+                trail_sl = tl if trail_sl is None else max(trail_sl, tl)
+            tp2_hit = (not trailing) and tp2_r > 0 and cl[i] >= entry + tp2_r * init_risk
             if low[i] <= sl_eff:
                 close_trade(i, sl_eff, "sl")
             elif cl[i] < ema[i] or enter_short:
                 close_trade(i, cl[i], "reverse" if enter_short else "ema")
+            elif scaled and trailing and trail_sl is not None and cl[i] <= trail_sl:
+                close_trade(i, cl[i], "trail")
             elif tp2_hit:
                 close_trade(i, cl[i], "tp")
             elif not scaled and (rsi[i] >= params.ma_ob
@@ -176,11 +188,17 @@ def run_backtest(candles, params: strategy.StrategyParams,
                 scaled = True
         elif pos == "short":
             sl_eff = entry if scaled else sl
-            tp2_hit = tp2_r > 0 and cl[i] <= entry - tp2_r * init_risk
+            peak = min(peak, cl[i]) if peak else cl[i]
+            if scaled and trailing and atr[i] is not None:
+                tl = peak + atr[i] * trail_mult
+                trail_sl = tl if trail_sl is None else min(trail_sl, tl)
+            tp2_hit = (not trailing) and tp2_r > 0 and cl[i] <= entry - tp2_r * init_risk
             if h[i] >= sl_eff:
                 close_trade(i, sl_eff, "sl")
             elif cl[i] > ema[i] or enter_long:
                 close_trade(i, cl[i], "reverse" if enter_long else "ema")
+            elif scaled and trailing and trail_sl is not None and cl[i] >= trail_sl:
+                close_trade(i, cl[i], "trail")
             elif tp2_hit:
                 close_trade(i, cl[i], "tp")
             elif not scaled and (rsi[i] <= params.ma_os

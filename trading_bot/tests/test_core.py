@@ -701,6 +701,24 @@ class TestTakeProfit(unittest.TestCase):
         reasons = {t.reason for t in bt.run_backtest(cd, on, bt.BacktestConfig(apply_costs=False)).trades}
         self.assertIn("tp", reasons)
 
+    def test_trailing_replaces_tp2(self):
+        import backtest as bt
+        cl = [100.0] * 40
+        p = 100.0
+        for _ in range(30):
+            p *= 1.012; cl.append(p)
+        for _ in range(15):
+            p *= 0.985; cl.append(p)
+        cd, prev = [], cl[0]
+        for i, c in enumerate(cl):
+            cd.append([i * 3600000, prev, max(prev, c) * 1.001, min(prev, c) * 0.999, c, 1000.0])
+            prev = c
+        trail = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=2.0,
+                               ma_tp1_r=1.0, ma_tp2_r=2.0, ma_trail_atr=2.0)
+        reasons = {t.reason for t in bt.run_backtest(cd, trail, bt.BacktestConfig(apply_costs=False)).trades}
+        self.assertIn("trail", reasons)
+        self.assertNotIn("tp", reasons)   # trail replaces the fixed TP2
+
     def test_tp_off_has_no_tp_exits(self):
         import backtest as bt
         cd = self._uptrend()

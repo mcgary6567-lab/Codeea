@@ -1330,7 +1330,10 @@ class TradingBotGUI:
         ttk.Label(maf4, text="TP2 ×R (0=off):").pack(side="left")
         self.strat_ma_tp2_var = tk.StringVar(value="2.0")
         num_entry(maf4, self.strat_ma_tp2_var, 4).pack(side="left", padx=(2, 8))
-        ttk.Label(maf4, text="(TP1 banks Scale%, TP2 closes rest)",
+        ttk.Label(maf4, text="Trail ×ATR (0=off):").pack(side="left")
+        self.strat_ma_trail_var = tk.StringVar(value="0")
+        num_entry(maf4, self.strat_ma_trail_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf4, text="(Trail>0: after TP1, trail rest instead of TP2)",
                   style="Dim.TLabel").pack(side="left")
 
         # Trending-only filter (ADX): skip choppy ranges.
@@ -1369,6 +1372,7 @@ class TradingBotGUI:
             ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 2.5)),
             ma_tp1_r=max(0.0, self._float(self.strat_ma_tp1_var.get(), 1.0)),
             ma_tp2_r=max(0.0, self._float(self.strat_ma_tp2_var.get(), 2.0)),
+            ma_trail_atr=max(0.0, self._float(self.strat_ma_trail_var.get(), 0.0)),
             ma_adx_len=max(2, int(self._float(self.strat_ma_adxlen_var.get(), 14))),
             ma_adx_min=max(0.0, self._float(self.strat_ma_adxmin_var.get(), 0.0)),
         )
@@ -1820,6 +1824,7 @@ class TradingBotGUI:
         self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 2.5)))
         self.strat_ma_tp1_var.set(str(s.get("strat_ma_tp1", 1.0)))
         self.strat_ma_tp2_var.set(str(s.get("strat_ma_tp2", 2.0)))
+        self.strat_ma_trail_var.set(str(s.get("strat_ma_trail", 0)))
         self.strat_ma_adxmin_var.set(str(s.get("strat_ma_adxmin", 0)))
         self.strat_ma_adxlen_var.set(str(s.get("strat_ma_adxlen", 14)))
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
@@ -1895,6 +1900,7 @@ class TradingBotGUI:
             "strat_ma_atrmult": self.strat_ma_atrmult_var.get(),
             "strat_ma_tp1": self.strat_ma_tp1_var.get(),
             "strat_ma_tp2": self.strat_ma_tp2_var.get(),
+            "strat_ma_trail": self.strat_ma_trail_var.get(),
             "strat_ma_adxmin": self.strat_ma_adxmin_var.get(),
             "strat_ma_adxlen": self.strat_ma_adxlen_var.get(),
             "strat_ma_atrlen": self.strat_ma_atrlen_var.get(),
