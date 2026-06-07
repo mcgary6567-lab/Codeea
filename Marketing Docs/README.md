@@ -37,6 +37,12 @@ generator described at the bottom.
 - Both as **`.mp4`** (use this for ads/reels — H.264, ~1 MB) and **`.gif`** (quick web/preview loops).
 - ~7-second seamless loop with crossfades and a "Free trial →" call-to-action on the last scene.
 
+**Live-chart animation** (candles scroll in like a live feed, with the strategy's
+BUY/SELL/scale-out markers, EMAs, volume and RSI appearing as price moves):
+- `livechart_raw.*` — **1400×840** landscape (website / X / YouTube)
+- `livechart_reel.*` — **~9:16 vertical** branded (reels / stories) with caption + disclaimer
+- `.mp4` (H.264) for posting; `.gif` for quick previews.
+
 ### ⚠️ About the `flashy/` set
 A second, higher-numbers variant (large gains, ~80%+ win) for maximum
 scroll-stopping appeal. It carries a **stronger** disclaimer baked in
