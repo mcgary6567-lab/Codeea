@@ -1,0 +1,55 @@
+# Marketing Docs — Prometheus AI Crypto Bot
+
+Ready-to-post screenshots of every app window, sized for each platform and
+branded (wordmark + caption + disclaimer). Regenerate any time with the
+generator described at the bottom.
+
+> ⚠️ **Disclaimer (read before publishing).** All numbers shown in these images
+> are an **illustrative demo on simulated data** — not a real trading account.
+> They are **not financial advice**. Trading crypto is risky and you can lose
+> money. Backtested / simulated results do **not** guarantee future performance.
+> Keep this disclaimer visible wherever you publish these images (it is already
+> baked into every branded image).
+
+## What's inside
+
+| Folder | Size (px) | Use for |
+|---|---|---|
+| `raw/` | native HD | clean window captures (docs, website galleries, your own edits) |
+| `website/hero/` | 1920×1080 | website hero / banners |
+| `website/og/` | 1200×630 | Open-Graph link preview (the image shown when a link is shared) |
+| `instagram/square/` | 1080×1080 | Instagram feed post |
+| `instagram/story/` | 1080×1920 | Instagram / Facebook story & reel cover |
+| `x-twitter/` | 1600×900 | X (Twitter) post |
+| `facebook/` | 1200×630 | Facebook post / link |
+| `linkedin/` | 1200×627 | LinkedIn post |
+| `youtube/` | 1280×720 | YouTube thumbnail |
+| `cover_banner.png` | 1600×500 | generic cover / email header |
+
+Each platform folder contains one image per window:
+
+- **main** — main dashboard (live, positions in profit)
+- **chart** — strategy chart with BUY/SELL/scale-out markers, EMA/Trend/RSI/volume
+- **backtest** — backtest results + equity curve
+- **analytics** — performance dashboard + equity curve
+- **settings** — the ⚙ settings hub
+
+## The demo data
+
+Chosen to be **impressive but credible** (ad-policy friendly):
+
+- Open Positions all in profit (BTC/ETH/SOL long, BNB short), header balance up.
+- Backtest: ~**+11%**, profit factor **~2.0**, low drawdown — a believable edge.
+- Analytics: high win rate with a smooth rising equity curve.
+
+If you want different numbers (more conservative, or flashier with a stronger
+disclaimer), re-run the generator with adjusted values.
+
+## How to regenerate
+
+These are produced headlessly (no real exchange) by a script that renders each
+Tk window at high-DPI with demo data, then composites the branded canvases with
+ImageMagick. Requirements: `python3`, `xvfb`, `imagemagick`, DejaVu fonts.
+
+Ask the maintainer (or Claude) to re-run the marketing generator; it overwrites
+this folder in place.
