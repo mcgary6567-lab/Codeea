@@ -48,8 +48,12 @@ from config import (
     resource_path,
     DEFAULT_AUTO_BRACKET,
     DEFAULT_LEVERAGE,
+    DEFAULT_MARGIN_MODE,
+    DEFAULT_MAX_OPEN_POSITIONS,
     DEFAULT_ORDER_TYPE,
     DEFAULT_RISK_PERCENT,
+    DEFAULT_SIZING_MODE,
+    DEFAULT_SLIPPAGE_PCT,
     DEFAULT_SAFE_MODE,
     DEFAULT_TRADE_SIZE,
     DEFAULT_RELAY_URL,
@@ -903,7 +907,7 @@ class TradingBotGUI:
         self.size_hint.pack(side="left", padx=6)
 
         ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
-        self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS["fixed"])
+        self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS[DEFAULT_SIZING_MODE])
         ttk.Combobox(
             f, textvariable=self.sizing_mode_var,
             values=[SIZING_MODE_LABELS[m] for m in SIZING_MODES], state="readonly",
@@ -955,7 +959,7 @@ class TradingBotGUI:
         self.leverage_var = tk.StringVar(value=str(DEFAULT_LEVERAGE))
         ttk.Entry(lvr, textvariable=self.leverage_var, width=6).pack(side="left")
         ttk.Label(lvr, text="0 = leave as-is   Margin:").pack(side="left", padx=(6, 2))
-        self.margin_mode_var = tk.StringVar(value="")
+        self.margin_mode_var = tk.StringVar(value=DEFAULT_MARGIN_MODE)
         ttk.Combobox(
             lvr, textvariable=self.margin_mode_var,
             values=["(default)", "cross", "isolated"], state="readonly", width=9,
@@ -965,7 +969,7 @@ class TradingBotGUI:
         sl = ttk.Frame(f)
         sl.grid(row=8, column=0, columnspan=2, sticky="w", pady=4)
         ttk.Label(sl, text="Slippage guard %:").pack(side="left")
-        self.slippage_var = tk.StringVar(value="0")
+        self.slippage_var = tk.StringVar(value=str(DEFAULT_SLIPPAGE_PCT))
         se = ttk.Entry(sl, textvariable=self.slippage_var, width=6)
         se.pack(side="left", padx=6)
         se.bind("<FocusOut>", lambda ev: self._push_settings())
@@ -1001,7 +1005,7 @@ class TradingBotGUI:
             row=4, column=0, columnspan=2, sticky="w"
         )
 
-        self.max_open_var = tk.StringVar(value="0")
+        self.max_open_var = tk.StringVar(value=str(DEFAULT_MAX_OPEN_POSITIONS))
         self.daily_loss_var = tk.StringVar(value="0")
         self.daily_profit_var = tk.StringVar(value="0")
         self.cooldown_var = tk.StringVar(value="0")
@@ -1611,7 +1615,7 @@ class TradingBotGUI:
         self.passphrase_var.set(s.get("passphrase", ""))
         self.manual_var.set(bool(s.get("manual_trading", True)))
         self.size_var.set(str(s.get("size", DEFAULT_TRADE_SIZE)))
-        self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", "fixed"), SIZING_MODE_LABELS["fixed"]))
+        self.sizing_mode_var.set(SIZING_MODE_LABELS.get(s.get("sizing_mode", DEFAULT_SIZING_MODE), SIZING_MODE_LABELS[DEFAULT_SIZING_MODE]))
         self.risk_pct_var.set(str(s.get("risk_percent", DEFAULT_RISK_PERCENT)))
         self.auto_bracket_var.set(s.get("auto_bracket", DEFAULT_AUTO_BRACKET))
         self.tp1_scale_var.set(str(s.get("tp1_scale_pct", 50)))
@@ -1621,10 +1625,10 @@ class TradingBotGUI:
         self.order_type_var.set(s.get("order_type", DEFAULT_ORDER_TYPE))
         self.limit_price_var.set(str(s.get("limit_price", "")))
         self.leverage_var.set(str(s.get("leverage", DEFAULT_LEVERAGE)))
-        mm = s.get("margin_mode", "")
+        mm = s.get("margin_mode", DEFAULT_MARGIN_MODE)
         self.margin_mode_var.set(mm if mm in ("cross", "isolated") else "(default)")
         self.move_be_var.set(s.get("move_be", False))
-        self.max_open_var.set(str(s.get("max_open", 0)))
+        self.max_open_var.set(str(s.get("max_open", DEFAULT_MAX_OPEN_POSITIONS)))
         self.daily_loss_var.set(str(s.get("daily_loss", 0)))
         self.daily_profit_var.set(str(s.get("daily_profit", 0)))
         self.cooldown_var.set(str(s.get("cooldown", 0)))
@@ -1634,7 +1638,7 @@ class TradingBotGUI:
         self.max_dd_var.set(str(s.get("max_drawdown", 0)))
         self.start_hour_var.set(str(s.get("start_hour", 0)))
         self.end_hour_var.set(str(s.get("end_hour", 0)))
-        self.slippage_var.set(str(s.get("slippage_pct", 0)))
+        self.slippage_var.set(str(s.get("slippage_pct", DEFAULT_SLIPPAGE_PCT)))
         self.round_min_var.set(s.get("round_to_min", False))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
         self.readonly_var.set(s.get("read_only", False))

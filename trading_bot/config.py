@@ -223,6 +223,9 @@ SIZING_MODE_LABELS = {
     "risk_balance": "Risk % of balance",
     "risk_stop": "Risk % per trade (stop-based)",
 }
+# Default sizing: stop-based risk so position size adapts to the (ATR) stop width
+# and each trade risks a fixed % — the right pairing for the built-in strategy.
+DEFAULT_SIZING_MODE = "risk_stop"
 
 # When True, place reduce-only SL/TP orders from alert payloads after entry.
 DEFAULT_AUTO_BRACKET = True
@@ -235,12 +238,14 @@ TP1_SCALE_OUT = 0.5
 ORDER_TYPES = ["market", "limit"]
 MARGIN_MODES = ["", "cross", "isolated"]      # "" = leave exchange default
 DEFAULT_ORDER_TYPE = "market"
-DEFAULT_LEVERAGE = 0                            # 0 = don't change exchange setting
+DEFAULT_LEVERAGE = 5                            # futures headroom; 0 = leave as-is
+DEFAULT_MARGIN_MODE = "isolated"               # cap one trade's blast radius
+DEFAULT_SLIPPAGE_PCT = 0.4                     # skip entries if price ran > this % (0=off)
 
 # ---------------------------------------------------------------------------
 # Risk guardrails. 0 disables the individual limit.
 # ---------------------------------------------------------------------------
-DEFAULT_MAX_OPEN_POSITIONS = 0                  # 0 = unlimited
+DEFAULT_MAX_OPEN_POSITIONS = 4                  # cap simultaneous risk; 0 = unlimited
 DEFAULT_DAILY_LOSS_LIMIT = 0.0                  # quote ccy; trip & block at -X
 DEFAULT_COOLDOWN_SECONDS = 0                    # min seconds between trades / symbol
 DEFAULT_DEDUPE_SECONDS = 0                      # drop identical signals within window

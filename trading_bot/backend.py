@@ -29,7 +29,10 @@ from config import (
     DEFAULT_AUTO_BRACKET,
     DEFAULT_DAILY_SUMMARY,
     DEFAULT_LEVERAGE,
+    DEFAULT_MARGIN_MODE,
     DEFAULT_ORDER_TYPE,
+    DEFAULT_SIZING_MODE,
+    DEFAULT_SLIPPAGE_PCT,
     DEFAULT_SUMMARY_HOUR,
     LOG_FILE,
     MAX_REFRESH_FAILURES,
@@ -65,7 +68,7 @@ class Backend:
 
         # Sizing settings, updated by the GUI via the "settings" command.
         self.fixed_size = 0.001
-        self.sizing_mode = "fixed"
+        self.sizing_mode = DEFAULT_SIZING_MODE
         self.risk_percent = 1.0
         self.auto_bracket = DEFAULT_AUTO_BRACKET
         self.tp1_scale = TP1_SCALE_OUT       # fraction closed at TP1 (rest at TP2)
@@ -73,8 +76,8 @@ class Backend:
         # Execution settings.
         self.order_type = DEFAULT_ORDER_TYPE
         self.leverage = DEFAULT_LEVERAGE
-        self.margin_mode = ""
-        self.slippage_pct = 0.0              # skip if price moved > this % from entry (0=off)
+        self.margin_mode = DEFAULT_MARGIN_MODE
+        self.slippage_pct = DEFAULT_SLIPPAGE_PCT   # skip if price moved > this % from entry (0=off)
         self.round_to_min = False            # bump dust orders up to the minimum notional
         self.move_be = False                 # move stop to breakeven on TP1 event
         self._sl_orders: dict = {}           # symbol -> stop-loss order id (for BE move)
