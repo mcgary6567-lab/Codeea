@@ -25,6 +25,17 @@ generator described at the bottom.
 | `linkedin/` | 1200×627 | LinkedIn post |
 | `youtube/` | 1280×720 | YouTube thumbnail |
 | `cover_banner.png` | 1600×500 | generic cover / email header |
+| `carousel/` | 1080×1080 ×4 | Instagram/X swipe carousel: hook → strategy → backtest → results |
+| `mockups/` | 1920×1080 | browser-framed + laptop hero shots for the website |
+| `features/` | 1080×1080 ×6 | feature highlight tiles for a website features section |
+| `flashy/` | hero + square + X | higher-numbers variant with a **stronger** disclaimer (see note) |
+
+### ⚠️ About the `flashy/` set
+A second, higher-numbers variant (large gains, ~80%+ win) for maximum
+scroll-stopping appeal. It carries a **stronger** disclaimer baked in
+("Hypothetical simulated results… most traders lose money…"). Use with care:
+big-gain creatives are more likely to be rejected by Meta/Google ad review.
+The default credible set (root platform folders) is recommended for paid ads.
 
 Each platform folder contains one image per window:
 
