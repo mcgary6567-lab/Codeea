@@ -64,6 +64,21 @@ const PAGE_CSS = <<<CSS
   a.btn { text-decoration:none; }
   .login-wrap { display:flex; min-height:70vh; align-items:center; justify-content:center; }
   .login-card { width:340px; }
+  /* Clickable IP badge + popup */
+  .ipbtn { cursor:pointer; border:none; font-size:11px; padding:1px 7px; line-height:1.5; }
+  .ipbtn:hover { background:#4a3a1c; }
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+             align-items:center; justify-content:center; z-index:50; }
+  .modal { background:#161b22; border:1px solid #2a313e; border-radius:12px;
+           padding:18px 20px; min-width:340px; max-width:90vw; max-height:80vh;
+           overflow:auto; position:relative; }
+  .modalx { position:absolute; top:8px; right:10px; background:transparent; border:none;
+            color:#9fb0c8; font-size:16px; cursor:pointer; padding:2px 6px; }
+  .ipmodal-head { font-weight:600; margin-bottom:10px; color:#e6e6e6; padding-right:22px; }
+  .iptbl { border-collapse:collapse; width:100%; margin-bottom:8px; }
+  .iptbl th { text-align:left; color:#8a93a2; font-size:11px; text-transform:uppercase;
+              letter-spacing:.03em; padding:4px 14px 4px 0; }
+  .iptbl td { padding:5px 14px 5px 0; font-size:13px; border-top:1px solid #232936; vertical-align:top; }
 CSS;
 
 function head(string $title): void {
@@ -240,13 +255,19 @@ $rows   = $pdo->query("SELECT * FROM clients ORDER BY created_at DESC")->fetchAl
 $now    = time();
 
 // Key-sharing map: distinct IPs per token over the last 7 days.
-$ipmap = [];
+//   $ipmap[token]    = ['n'=>count, 'ips'=>'a, b']        (badge + tooltip)
+//   $ipdetail[token] = [ ['ip'=>, 'last_seen'=>, 'hits'=>], ... ]  (click popup)
+$ipmap = $ipdetail = [];
 try {
-    $st = $pdo->prepare("SELECT token, COUNT(*) n, GROUP_CONCAT(ip ORDER BY last_seen DESC SEPARATOR ', ') ips
-                         FROM client_ips WHERE last_seen >= ? GROUP BY token");
+    $st = $pdo->prepare("SELECT token, ip, last_seen, hits FROM client_ips
+                         WHERE last_seen >= ? ORDER BY last_seen DESC");
     $st->execute([$now - 7 * 86400]);
     foreach ($st->fetchAll() as $r) {
-        $ipmap[$r['token']] = ['n' => (int)$r['n'], 'ips' => (string)$r['ips']];
+        $ipdetail[$r['token']][] = $r;
+    }
+    foreach ($ipdetail as $tok => $list) {
+        $ipmap[$tok] = ['n' => count($list),
+                        'ips' => implode(', ', array_column($list, 'ip'))];
     }
 } catch (Throwable $e) { /* no IP data yet */ }
 
@@ -386,7 +407,23 @@ head('Prometheus — Licences');
           <td><code><?= $t ?></code></td>
           <td>
             <?= $email ?: '—' ?>
-            <?php if ($shared): ?><span class="badge warn" title="<?= htmlspecialchars($share['ips']) ?>">⚠ <?= $share['n'] ?> IPs</span><?php endif; ?>
+            <?php if ($shared): ?>
+              <button type="button" class="badge warn ipbtn" title="Click to see the IP addresses"
+                      onclick="showIps('ipd-<?= $t ?>')">⚠ <?= $share['n'] ?> IPs</button>
+              <template id="ipd-<?= $t ?>">
+                <div class="ipmodal-head">⚠ <?= $share['n'] ?> IP addresses · <?= $email ?: 'no email' ?></div>
+                <table class="iptbl">
+                  <tr><th>IP address</th><th>Last seen</th><th>Polls</th></tr>
+                  <?php foreach (($ipdetail[$r['token']] ?? []) as $d): ?>
+                    <tr><td><code><?= htmlspecialchars($d['ip']) ?></code></td>
+                        <td><?= ago((int)$d['last_seen']) ?></td>
+                        <td><?= (int)$d['hits'] ?></td></tr>
+                  <?php endforeach; ?>
+                </table>
+                <div class="muted">Several IPs on one key can mean key-sharing — or just
+                  the customer using it from home plus a VPS/phone (last 7 days).</div>
+              </template>
+            <?php endif; ?>
             <?php if ($note): ?><div class="muted"><?= $note ?></div><?php endif; ?>
           </td>
           <td><span class="badge"><?= plan_label($exp, $r['created_at']) ?></span></td>
@@ -467,7 +504,23 @@ head('Prometheus — Licences');
     </table>
   </div>
 
+  <div id="ipmodal" class="overlay" onclick="if(event.target===this)hideIps()">
+    <div class="modal">
+      <button type="button" class="modalx" onclick="hideIps()" title="Close">✕</button>
+      <div id="ipmodal-body"></div>
+    </div>
+  </div>
+
 <script>
+function showIps(id) {
+  const tpl = document.getElementById(id);
+  if (!tpl) return;
+  document.getElementById('ipmodal-body').innerHTML = tpl.innerHTML;
+  document.getElementById('ipmodal').style.display = 'flex';
+}
+function hideIps() { document.getElementById('ipmodal').style.display = 'none'; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideIps(); });
+
 function copyText(text, btn) {
   const done = () => { const o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = o, 1200); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
