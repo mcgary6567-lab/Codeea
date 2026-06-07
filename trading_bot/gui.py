@@ -1422,8 +1422,40 @@ class TradingBotGUI:
         self.strat_ma_tp2_var.set(p["tp2"])
         self.strat_ma_trail_var.set(p["trail"])
         self.strat_ma_adxmin_var.set(p["adxmin"])
-        self._strat_preset_var.set(name)
-        self._push_strategy()
+        self._push_strategy()           # applies live + refreshes the active highlight
+
+    def _current_strat_preset(self):
+        """Return the preset whose values match the current fields, else None
+        (i.e. the user has hand-tuned them into a 'Custom' config)."""
+        def f(v):
+            return self._float(v, 0)
+        cur = {
+            "confirm": f(self.strat_ma_confirm_var.get()),
+            "body": f(self.strat_ma_body_var.get()),
+            "trend": f(self.strat_ma_trend_var.get()),
+            "atrmult": f(self.strat_ma_atrmult_var.get()),
+            "tp1": f(self.strat_ma_tp1_var.get()),
+            "tp2": f(self.strat_ma_tp2_var.get()),
+            "trail": f(self.strat_ma_trail_var.get()),
+            "adxmin": f(self.strat_ma_adxmin_var.get()),
+        }
+        for name, p in self.STRAT_PRESETS.items():
+            if all(abs(cur[k] - float(p[k])) < 1e-9 for k in cur):
+                return name
+        return None
+
+    def _highlight_active_preset(self) -> None:
+        """Accent the active preset button (others stay ghost) and label it —
+        or show 'Custom' when the fields don't match any preset."""
+        if not getattr(self, "_strat_preset_btns", None):
+            return
+        name = self._current_strat_preset()
+        self._strat_preset_var.set(name or "Custom")
+        for n, btn in self._strat_preset_btns.items():
+            theme.style_button(btn, "accent" if n == name else "ghost")
+        if getattr(self, "_strat_preset_lbl", None):
+            self._strat_preset_lbl.config(
+                text=(f"✓ {name} active" if name else "✎ Custom"))
 
     def _toggle_strat_advanced(self) -> None:
         self._strat_adv_open = not getattr(self, "_strat_adv_open", False)
@@ -1492,6 +1524,7 @@ class TradingBotGUI:
         pr.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 2))
         ttk.Label(pr, text="Preset:").pack(side="left")
         self._strat_preset_var = tk.StringVar(value="Balanced")
+        self._strat_preset_btns = {}
         for name, tip in (
             ("Conservative", "Fewer, stricter trades: 3-candle confirm, trend + "
                              "ADX filters on, wider ATR stop."),
@@ -1504,6 +1537,11 @@ class TradingBotGUI:
             theme.style_button(b, "ghost")
             b.pack(side="left", padx=(6, 0))
             self._tip(b, tip)
+            self._strat_preset_btns[name] = b
+        # Shows which preset is currently in effect — or "Custom" once you hand-edit.
+        self._strat_preset_lbl = ttk.Label(pr, text="", style="Accent.TLabel",
+                                           font=("Segoe UI Semibold", 9))
+        self._strat_preset_lbl.pack(side="left", padx=(10, 0))
 
         # --- Advanced (collapsed by default) -------------------------------
         self._strat_adv_btn = tk.Button(f, text="⚙ Advanced settings ▾",
@@ -1671,6 +1709,7 @@ class TradingBotGUI:
             self.strategy_runner.stop()
         self._update_strategy_status()
         self._update_status_chips()
+        self._highlight_active_preset()
         self._refresh_dirty()
         self._sync_chart()   # keep an open chart mirroring the live settings
 
@@ -2088,6 +2127,7 @@ class TradingBotGUI:
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
         self._toggle_passphrase()
         self._update_size_hint()
+        self._highlight_active_preset()  # reflect which preset (if any) is loaded
         self._set_saved_baseline()       # loaded state == saved state (not dirty)
         self._update_status_chips()
         self._update_trade_preview()

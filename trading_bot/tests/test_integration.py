@@ -241,6 +241,24 @@ class TestGuiWiring(unittest.TestCase):
         self.assertGreater(p.ma_trail_atr, 0.0)
         self.app._apply_strat_preset("Balanced")   # leave defaults for other tests
 
+    def test_active_preset_highlights_and_custom(self):
+        import theme
+        self.app._apply_strat_preset("Conservative")
+        self.assertEqual(self.app._current_strat_preset(), "Conservative")
+        self.assertEqual(self.app._strat_preset_btns["Conservative"].cget("bg"),
+                         theme.ACCENT)
+        self.assertEqual(self.app._strat_preset_btns["Balanced"].cget("bg"),
+                         theme.ELEV)
+        self.assertIn("Conservative", self.app._strat_preset_lbl.cget("text"))
+        # Hand-editing a field drops it to "Custom" with nothing highlighted.
+        self.app.strat_ma_confirm_var.set("7")
+        self.app._push_strategy()
+        self.assertIsNone(self.app._current_strat_preset())
+        self.assertIn("Custom", self.app._strat_preset_lbl.cget("text"))
+        for b in self.app._strat_preset_btns.values():
+            self.assertEqual(b.cget("bg"), theme.ELEV)
+        self.app._apply_strat_preset("Balanced")   # restore for other tests
+
     def test_advanced_section_toggles(self):
         start = self.app._strat_adv_open
         self.app._toggle_strat_advanced()
