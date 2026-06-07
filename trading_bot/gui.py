@@ -1230,7 +1230,7 @@ class TradingBotGUI:
         self.strat_ma_trend_var = tk.StringVar(value="100")
         num_entry(maf3, self.strat_ma_trend_var, 5).pack(side="left", padx=(2, 8))
         ttk.Label(maf3, text="ATR stop × (0=swing):").pack(side="left")
-        self.strat_ma_atrmult_var = tk.StringVar(value="3.2")
+        self.strat_ma_atrmult_var = tk.StringVar(value="2.5")
         num_entry(maf3, self.strat_ma_atrmult_var, 4).pack(side="left", padx=(2, 8))
         ttk.Label(maf3, text="ATR len:").pack(side="left")
         self.strat_ma_atrlen_var = tk.StringVar(value="14")
@@ -1257,7 +1257,7 @@ class TradingBotGUI:
             ma_min_body=max(0.0, self._float(self.strat_ma_body_var.get(), 0.20)),
             ma_trend_len=max(0, int(self._float(self.strat_ma_trend_var.get(), 100))),
             ma_atr_len=max(2, int(self._float(self.strat_ma_atrlen_var.get(), 14))),
-            ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 3.2)),
+            ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 2.5)),
         )
 
     def _push_strategy(self) -> None:
@@ -1682,7 +1682,7 @@ class TradingBotGUI:
         self.strat_ma_confirm_var.set(str(s.get("strat_ma_confirm", 2)))
         self.strat_ma_body_var.set(str(s.get("strat_ma_body", 0.20)))
         self.strat_ma_trend_var.set(str(s.get("strat_ma_trend", 100)))
-        self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 3.2)))
+        self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 2.5)))
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
         self._toggle_passphrase()
 
