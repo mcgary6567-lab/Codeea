@@ -636,6 +636,32 @@ class TestExchangeVenues(unittest.TestCase):
         m.client = None
         self.assertEqual(m._market_symbol("BTC/USDT"), "BTC/USDT")
 
+    def test_shared_market_spec_for_aux_clients(self):
+        """The chart/backtest/strategy/price-feed clients all resolve class +
+        defaultType + perp quote through these shared helpers."""
+        from exchange import market_ccxt_spec, perp_symbol
+        self.assertEqual(market_ccxt_spec("binance", "futures"), ("binance", "future"))
+        self.assertEqual(market_ccxt_spec("bybit", "futures"), ("bybit", "swap"))
+        self.assertEqual(market_ccxt_spec("kraken", "futures")[0], "krakenfutures")
+        self.assertEqual(market_ccxt_spec("binanceus", "futures"), ("binanceus", "spot"))  # spot-only
+        self.assertEqual(market_ccxt_spec("binance", "spot"), ("binance", "spot"))
+        self.assertEqual(perp_symbol("BTC/USDT", "kraken"), "BTC/USD:USD")
+        self.assertEqual(perp_symbol("BTC/USDT", "coinbase"), "BTC/USDC:USDC")
+        self.assertEqual(perp_symbol("ETH/USDT", "okx"), "ETH/USDT:USDT")
+
+
+class TestBacktestDefaults(unittest.TestCase):
+    def test_start_equity_default(self):
+        import backtest as bt
+        self.assertEqual(bt.BacktestConfig().start_equity, 1000.0)
+
+    def test_optimizer_atr_preset(self):
+        from backtest_window import BacktestWindow
+        self.assertEqual(BacktestWindow.OPT_PRESETS["ATR stop ×"]["ma_atr_mult"],
+                         [2.0, 2.5, 3.0, 3.2])
+        for key in ("ATR stop ×", "Confirm candles", "Trend EMA", "Full grid"):
+            self.assertIn(key, BacktestWindow.OPT_PRESETS)
+
 
 class TestStrategyLicenceGate(unittest.TestCase):
     """The built-in strategy must not trade without a valid licence, and must
