@@ -37,6 +37,15 @@ TF_SECONDS = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
               "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 MAX_BARS = 50_000          # safety cap on a fetch
 
+# Quick look-back presets (seconds) → converted to bars for the chosen timeframe.
+QUICK_PERIODS = {
+    "Last day": 86_400,
+    "Last 7 days": 7 * 86_400,
+    "Last 15 days": 15 * 86_400,
+    "Last month": 30 * 86_400,
+    "Last 3 months": 90 * 86_400,
+}
+
 # (label, stat-key, "pnl" colour = green/red by sign)
 STAT_CARDS = [
     ("Trades", "trades", DIM), ("Win rate", "win_rate", ACCENT),
@@ -146,6 +155,12 @@ class BacktestWindow:
         self.tf_var = tk.StringVar(value=self.timeframe)
         ttk.Combobox(r1, textvariable=self.tf_var, width=6, state="readonly",
                      values=STRATEGY_TIMEFRAMES).pack(side="left", padx=(4, 12))
+        tk.Label(r1, text="Quick", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        self.quick_var = tk.StringVar(value="")
+        qb = ttk.Combobox(r1, textvariable=self.quick_var, width=13, state="readonly",
+                          values=list(QUICK_PERIODS.keys()))
+        qb.pack(side="left", padx=(4, 12))
+        qb.bind("<<ComboboxSelected>>", lambda e: self._on_quick_period())
 
         # Row 2: depth mode (last-N OR date range).
         r2 = tk.Frame(self.win, bg=BG)
@@ -278,6 +293,17 @@ class BacktestWindow:
         nb.add(op_tab, text="Optimize")
 
     # -- run ---------------------------------------------------------------
+    def _on_quick_period(self) -> None:
+        """A 'Quick' pick (Last day/7d/…) → bars for the current timeframe, then run."""
+        secs = QUICK_PERIODS.get(self.quick_var.get())
+        if not secs:
+            return
+        tf_s = TF_SECONDS.get(self.tf_var.get(), 3600)
+        bars = max(60, min(MAX_BARS, secs // tf_s + 5))
+        self.bars_var.set(str(int(bars)))
+        self.depth_mode.set("bars")
+        self._run()
+
     def _run(self) -> None:
         if not CCXT_AVAILABLE:
             self.status.config(text="ccxt not installed — can't fetch candles")
