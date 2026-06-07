@@ -22,7 +22,8 @@ class Guardrails:
     def __init__(self) -> None:
         self.enabled = True
         self.max_open_positions = 0
-        self.daily_loss_limit = 0.0
+        self.daily_loss_limit = 0.0     # absolute quote-ccy limit (USDT)
+        self.daily_loss_pct = 0.0       # % of the day's starting equity (overrides the absolute)
         self.daily_profit_limit = 0.0
         self.cooldown_seconds = 0
         self.dedupe_seconds = 0
@@ -43,14 +44,16 @@ class Guardrails:
         self._streak_until = 0.0
         self._equity = 0.0
         self._peak_equity = 0.0
+        self._day_start_equity = 0.0        # equity at the start of the trading day
         self._dd_tripped = False
 
     # -- config -------------------------------------------------------------
     def configure(self, max_open, daily_loss, cooldown, dedupe, daily_profit=0.0,
                   loss_streak=0, streak_cooldown=0, start_hour=0, end_hour=0,
-                  max_drawdown=0.0) -> None:
+                  max_drawdown=0.0, daily_loss_pct=0.0) -> None:
         self.max_open_positions = int(max_open or 0)
         self.daily_loss_limit = float(daily_loss or 0.0)
+        self.daily_loss_pct = float(daily_loss_pct or 0.0)
         self.daily_profit_limit = float(daily_profit or 0.0)
         self.cooldown_seconds = int(cooldown or 0)
         self.dedupe_seconds = int(dedupe or 0)
@@ -72,6 +75,14 @@ class Guardrails:
             self._streak_until = 0.0
             self._dd_tripped = False
             self._peak_equity = self._equity   # fresh peak each day
+            self._day_start_equity = self._equity   # base for the % daily-loss limit
+
+    def effective_loss_limit(self) -> float:
+        """The active daily-loss limit in quote ccy: a % of the day's starting
+        equity when ``daily_loss_pct`` is set, else the absolute amount."""
+        if self.daily_loss_pct > 0 and self._day_start_equity > 0:
+            return self._day_start_equity * self.daily_loss_pct / 100.0
+        return self.daily_loss_limit
 
     def record_realized(self, pnl: float, now: float | None = None) -> bool:
         """Add a realized PnL amount; returns True if this *trips* a daily limit.
@@ -93,7 +104,8 @@ class Guardrails:
                 self._loss_streak = 0
         if self.tripped:
             return False
-        if self.daily_loss_limit > 0 and self._daily_realized <= -self.daily_loss_limit:
+        loss_limit = self.effective_loss_limit()
+        if loss_limit > 0 and self._daily_realized <= -loss_limit:
             self.tripped = True
             self.trip_reason = "loss"
             return True
@@ -109,6 +121,8 @@ class Guardrails:
         now = now if now is not None else time.time()
         self._roll_day(now)
         self._equity = equity
+        if self._day_start_equity <= 0 and equity > 0:
+            self._day_start_equity = equity     # first valid reading seeds the day's base
         if equity > self._peak_equity:
             self._peak_equity = equity
         if self.max_drawdown_pct > 0 and self._peak_equity > 0:
@@ -128,6 +142,7 @@ class Guardrails:
         self._streak_until = 0.0
         self._dd_tripped = False
         self._peak_equity = self._equity
+        self._day_start_equity = self._equity
 
     # -- the entry gate -----------------------------------------------------
     def check_entry(self, symbol: str, side: str, open_pairs: set, now: float | None = None):

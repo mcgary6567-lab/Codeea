@@ -731,6 +731,38 @@ class TestDailySummaryCatchup(unittest.TestCase):
         self.assertEqual(days[0], "2026-05-29")   # capped to the last 7 days
 
 
+class TestDailyLossPercent(unittest.TestCase):
+    def _g(self, **kw):
+        from guardrails import Guardrails
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=kw.get("daily_loss", 0), cooldown=0,
+                    dedupe=0, daily_loss_pct=kw.get("pct", 0))
+        return g
+
+    def test_percent_of_starting_equity(self):
+        g = self._g(pct=5.0)
+        g.update_equity(1000.0)                 # day-start equity = 1000
+        self.assertEqual(g.effective_loss_limit(), 50.0)
+        self.assertFalse(g.record_realized(-49.0))   # within 5%
+        self.assertTrue(g.record_realized(-2.0))     # crosses -50 -> trip
+        self.assertEqual(g.trip_reason, "loss")
+
+    def test_absolute_used_when_pct_zero(self):
+        g = self._g(daily_loss=30, pct=0.0)
+        g.update_equity(1000.0)
+        self.assertEqual(g.effective_loss_limit(), 30.0)
+        self.assertTrue(g.record_realized(-31.0))
+
+    def test_pct_overrides_absolute(self):
+        g = self._g(daily_loss=999, pct=2.0)
+        g.update_equity(2000.0)
+        self.assertEqual(g.effective_loss_limit(), 40.0)   # 2% of 2000, not 999
+
+    def test_pct_inert_without_equity(self):
+        g = self._g(pct=5.0)                    # no equity reading yet
+        self.assertEqual(g.effective_loss_limit(), 0.0)    # can't compute -> off
+
+
 class TestTriggerGuard(unittest.TestCase):
     def _mgr(self, has):
         m = ExchangeManager.__new__(ExchangeManager)

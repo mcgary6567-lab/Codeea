@@ -376,6 +376,7 @@ class Backend:
                 self.guardrails.configure(
                     max_open=cmd.get("max_open", self.guardrails.max_open_positions),
                     daily_loss=cmd.get("daily_loss", self.guardrails.daily_loss_limit),
+                    daily_loss_pct=cmd.get("daily_loss_pct", self.guardrails.daily_loss_pct),
                     daily_profit=cmd.get("daily_profit", self.guardrails.daily_profit_limit),
                     cooldown=cmd.get("cooldown", self.guardrails.cooldown_seconds),
                     dedupe=cmd.get("dedupe", self.guardrails.dedupe_seconds),
