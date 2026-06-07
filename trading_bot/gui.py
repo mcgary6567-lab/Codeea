@@ -1040,11 +1040,20 @@ class TradingBotGUI:
             command=self._update_manual_state,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=2)
 
+        mode_row = ttk.Frame(f)
+        mode_row.grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
         self.safe_var = tk.BooleanVar(value=DEFAULT_SAFE_MODE)
         theme.make_check(
-            f, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
+            mode_row, text="Safe Mode (simulate, no real orders)", variable=self.safe_var,
             command=self._push_settings,
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
+        ).pack(side="left")
+        # Exchange testnet (paper exchange) — needs the exchange's TESTNET keys.
+        # Takes effect on the next Connect.
+        self.testnet_var = tk.BooleanVar(value=False)
+        theme.make_check(
+            mode_row, text="Use exchange testnet", variable=self.testnet_var,
+            command=self._push_settings,
+        ).pack(side="left", padx=(16, 0))
 
         self.readonly_var = tk.BooleanVar(value=False)
         theme.make_check(
@@ -1765,6 +1774,7 @@ class TradingBotGUI:
         self.slippage_var.set(str(s.get("slippage_pct", DEFAULT_SLIPPAGE_PCT)))
         self.round_min_var.set(s.get("round_to_min", False))
         self.safe_var.set(s.get("safe_mode", DEFAULT_SAFE_MODE))
+        self.testnet_var.set(s.get("testnet", False))
         self.readonly_var.set(s.get("read_only", False))
         self.webhook_pass_var.set(s.get("webhook_passphrase", DEFAULT_WEBHOOK_PASSPHRASE))
         self.strategy_filter_var.set(s.get("strategy_filter", "Prometheus"))
@@ -1836,6 +1846,7 @@ class TradingBotGUI:
             "slippage_pct": self._float(self.slippage_var.get(), 0),
             "round_to_min": self.round_min_var.get(),
             "safe_mode": self.safe_var.get(),
+            "testnet": self.testnet_var.get(),
             "read_only": self.readonly_var.get(),
             "webhook_passphrase": self.webhook_pass_var.get(),
             "strategy_filter": self.strategy_filter_var.get(),
@@ -2070,7 +2081,7 @@ class TradingBotGUI:
             "api_key": self.api_key_var.get(),
             "secret": self.api_secret_var.get(),
             "password": self.passphrase_var.get(),
-            "testnet": False,
+            "testnet": self.testnet_var.get(),
             "read_only": self.readonly_var.get(),
             "safe_mode": self.safe_var.get(),
             "market_type": "futures" if self.market_var.get() == "Futures" else "spot",
