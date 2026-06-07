@@ -22,7 +22,7 @@ import strategy
 
 @dataclass
 class BacktestConfig:
-    start_equity: float = 10_000.0   # starting balance (quote currency)
+    start_equity: float = 1_000.0    # starting balance (quote currency)
     size_pct: float = 100.0          # position notional as % of equity (no leverage)
     risk_pct: float = 0.0            # risk-% sizing off the stop distance (0 = use size_pct)
     fee_pct: float = 0.05            # taker fee % charged on each fill (entry/scale/exit)

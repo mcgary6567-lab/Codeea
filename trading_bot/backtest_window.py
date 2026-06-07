@@ -154,7 +154,7 @@ class BacktestWindow:
         tk.Entry(r3, textvariable=self.fund_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
         tk.Label(r3, text="Equity", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
-        self.equity_var = tk.StringVar(value="10000")
+        self.equity_var = tk.StringVar(value="1000")
         tk.Entry(r3, textvariable=self.equity_var, width=8, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
         tk.Label(r3, text="Size %", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
@@ -163,7 +163,7 @@ class BacktestWindow:
                  insertbackground=TXT, relief="flat").pack(side="left")
         tk.Label(r3, text="Risk % (0=off)", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(
             side="left", padx=(10, 2))
-        self.risk_var = tk.StringVar(value="0")
+        self.risk_var = tk.StringVar(value="1")
         tk.Entry(r3, textvariable=self.risk_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
 
@@ -274,7 +274,7 @@ class BacktestWindow:
 
     def _cfg_from_ui(self) -> "bt.BacktestConfig":
         return bt.BacktestConfig(
-            start_equity=self._f(self.equity_var.get(), 10000),
+            start_equity=self._f(self.equity_var.get(), 1000),
             size_pct=self._f(self.size_var.get(), 100),
             risk_pct=self._f(self.risk_var.get(), 0),
             fee_pct=self._f(self.fee_var.get(), 0),
