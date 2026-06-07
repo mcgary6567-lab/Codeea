@@ -597,9 +597,16 @@ class TradingBotGUI:
 
         # Strategy chart — lives here so it's reachable from any Trade Settings
         # tab. Visualises the built-in strategy's signals on exchange candles.
-        chart_btn = tk.Button(f, text="📈 Chart", command=self._open_strategy_chart)
+        toolsf = ttk.Frame(f)
+        toolsf.grid(row=8, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        chart_btn = tk.Button(toolsf, text="📈 Chart", command=self._open_strategy_chart)
         theme.style_button(chart_btn, "accent")
-        chart_btn.grid(row=8, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        chart_btn.pack(side="left")
+        self.backtest_btn = tk.Button(toolsf, text="📊 Backtest", command=self._open_backtest)
+        theme.style_button(self.backtest_btn, "accent")
+        self.backtest_btn.pack(side="left", padx=(6, 0))
+        self.analytics_btn = tk.Button(toolsf, text="📉 Analytics", command=self._open_analytics)
+        self.analytics_btn.pack(side="left", padx=(6, 0))
 
         self._toggle_passphrase()
 
@@ -1302,15 +1309,6 @@ class TradingBotGUI:
         num_entry(maf5, self.strat_ma_adxlen_var, 4).pack(side="left", padx=(2, 8))
         ttk.Label(maf5, text="(only trade when trending, e.g. 20-25)",
                   style="Dim.TLabel").pack(side="left")
-
-        # Analysis tools: backtest + trade analytics, side by side.
-        bt = ttk.Frame(f)
-        bt.grid(row=8, column=0, columnspan=2, sticky="w", pady=(8, 0))
-        self.backtest_btn = tk.Button(bt, text="📊 Backtest", command=self._open_backtest)
-        theme.style_button(self.backtest_btn, "accent")
-        self.backtest_btn.pack(side="left")
-        self.analytics_btn = tk.Button(bt, text="📈 Analytics", command=self._open_analytics)
-        self.analytics_btn.pack(side="left", padx=(6, 0))
 
     def _strategy_params(self) -> StrategyParams:
         return StrategyParams(
