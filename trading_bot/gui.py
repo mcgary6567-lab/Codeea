@@ -727,6 +727,7 @@ class TradingBotGUI:
         theme.style_button(self.backtest_btn, "accent")
         self.backtest_btn.pack(side="left", padx=(6, 0))
         self.analytics_btn = tk.Button(toolsf, text="📉 Analytics", command=self._open_analytics)
+        theme.style_button(self.analytics_btn, "accent")
         self.analytics_btn.pack(side="left", padx=(6, 0))
 
         self._toggle_passphrase()
@@ -959,6 +960,27 @@ class TradingBotGUI:
             return
         self._analytics_win = AnalyticsWindow(self.root, history)
 
+    def _scrollable_tab(self, parent):
+        """Wrap a notebook tab in a vertical-scroll canvas and return the inner
+        frame to build into. Used for tall tabs so their content is always
+        reachable without pushing the buttons below the notebook off-screen."""
+        canvas = tk.Canvas(parent, bg=PANEL, highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas, padding=8)
+        win = canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(win, width=e.width))
+        inner.bind("<Configure>",
+                   lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        # Mousewheel scroll only while the pointer is over this tab.
+        def _wheel(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)) or (-1 if e.delta > 0 else 1), "units")
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _wheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        return inner
+
     def _build_trade_settings(self, parent) -> None:
         outer = ttk.LabelFrame(parent, text="Trade Settings", padding=8)
         outer.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
@@ -967,7 +989,7 @@ class TradingBotGUI:
         nb = ttk.Notebook(outer)
         nb.grid(row=0, column=0, sticky="nsew")
         exec_tab = ttk.Frame(nb, padding=8)
-        risk_tab = ttk.Frame(nb, padding=8)
+        risk_tab = ttk.Frame(nb)                 # Modes & Risk: scrollable (it's tall)
         webhook_tab = ttk.Frame(nb, padding=8)
         strategy_tab = ttk.Frame(nb, padding=8)
         alerts_tab = ttk.Frame(nb, padding=8)
@@ -976,22 +998,30 @@ class TradingBotGUI:
         nb.add(strategy_tab, text="Strategy")
         nb.add(webhook_tab, text="Connect & License")
         nb.add(alerts_tab, text="Alerts")
-        for t in (exec_tab, risk_tab, webhook_tab, strategy_tab, alerts_tab):
+        # The Modes & Risk tab has many guardrails — give it its own scrollbar so
+        # it never pushes the Save/Backup/Restore/Reset row off the window.
+        risk_inner = self._scrollable_tab(risk_tab)
+        for t in (exec_tab, webhook_tab, strategy_tab, alerts_tab, risk_inner):
             t.columnconfigure(1, weight=1)
 
         self._build_exec_tab(exec_tab)
-        self._build_risk_tab(risk_tab)
+        self._build_risk_tab(risk_inner)
         self._build_webhook_tab(webhook_tab)
         self._build_strategy_tab(strategy_tab)
         self._build_alerts_tab(alerts_tab)
 
         # Size the notebook to the SELECTED tab (not the tallest), so short tabs
-        # like Webhook/Alerts don't leave empty space — the buttons rise up and
-        # the Trade Log below grows to fill it.
+        # like Alerts don't leave empty space. Cap the height to what the window
+        # can show so a tall tab keeps the Save row (and Trade Log) on screen —
+        # the capped tab scrolls (see _scrollable_tab).
         def _fit_nb(_=None):
             try:
                 cur = nb.nametowidget(nb.select())
-                nb.configure(height=max(cur.winfo_reqheight(), 1))
+                wh = self.root.winfo_height()
+                if wh < 200:
+                    wh = self.root.winfo_screenheight()
+                nb_max = max(220, wh - 360)   # reserve header/status/footer/buttons/log
+                nb.configure(height=max(1, min(cur.winfo_reqheight(), nb_max)))
             except Exception:  # noqa: BLE001
                 pass
         nb.bind("<<NotebookTabChanged>>", lambda e: self.root.after_idle(_fit_nb))
