@@ -415,8 +415,32 @@ class TradingBotGUI:
         self._build_header()
         self._build_footer()
 
-        body = ttk.Frame(self.root, padding=12)
-        body.pack(fill="both", expand=True)
+        # Scrollable body so the whole UI is reachable on small screens. The
+        # inner frame fills the viewport when the window is tall enough (so the
+        # grid weights still stretch), and scrolls when content is taller.
+        scroll_wrap = ttk.Frame(self.root)
+        scroll_wrap.pack(fill="both", expand=True)
+        canvas = tk.Canvas(scroll_wrap, highlightthickness=0, bg=theme.BG)
+        vsb = ttk.Scrollbar(scroll_wrap, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._main_canvas = canvas
+
+        body = ttk.Frame(canvas, padding=12)
+        body_id = canvas.create_window((0, 0), window=body, anchor="nw")
+
+        def _sync(_=None):
+            cw = canvas.winfo_width()
+            ch = canvas.winfo_height()
+            h = max(ch, body.winfo_reqheight())
+            canvas.itemconfigure(body_id, width=cw, height=h)
+            canvas.configure(scrollregion=(0, 0, cw, h))
+        canvas.bind("<Configure>", _sync)
+        body.bind("<Configure>", _sync)
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            self.root.bind_all(seq, self._on_mousewheel, add="+")
+
         body.columnconfigure(0, weight=1, uniform="col")
         body.columnconfigure(1, weight=1, uniform="col")
         body.rowconfigure(0, weight=1)
@@ -438,6 +462,27 @@ class TradingBotGUI:
         self._build_trade_buttons(left)    # row 2 (bottom)
         self._build_trade_settings(right)  # row 0
         self._build_trade_log(right)       # row 1 (expands)
+
+    def _on_mousewheel(self, event) -> None:
+        """Scroll the main body — but only when the pointer is over the main
+        window and NOT over a Treeview (so the positions/log trees and other
+        windows keep their own wheel scrolling)."""
+        canvas = getattr(self, "_main_canvas", None)
+        if canvas is None:
+            return
+        w = self.root.winfo_containing(event.x_root, event.y_root)
+        if w is None or w.winfo_toplevel() is not self.root:
+            return
+        node = w
+        while node is not None and node is not self.root:
+            if isinstance(node, ttk.Treeview):
+                return                       # let the tree scroll itself
+            node = getattr(node, "master", None)
+        up = getattr(event, "delta", 0) > 0 or getattr(event, "num", 0) == 4
+        try:
+            canvas.yview_scroll(-1 if up else 1, "units")
+        except tk.TclError:
+            pass
 
     def _set_window_icon(self) -> None:
         try:
