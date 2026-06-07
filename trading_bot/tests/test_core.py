@@ -1092,5 +1092,36 @@ class TestUpdater(unittest.TestCase):
         self.assertIn('del "%~f0"', s)                 # self-cleanup
 
 
+class TestSingleInstance(unittest.TestCase):
+    """One running copy per user: a second acquire on the same lock file must
+    fail while the first holds it, and succeed again once it's released."""
+
+    def _lock(self):
+        from single_instance import SingleInstance
+        fd, path = tempfile.mkstemp(suffix=".lock")
+        os.close(fd)
+        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        return SingleInstance, path
+
+    def test_second_instance_is_blocked(self):
+        SingleInstance, path = self._lock()
+        a = SingleInstance(path)
+        self.assertTrue(a.acquire())
+        self.addCleanup(a.release)
+        b = SingleInstance(path)
+        self.assertFalse(b.acquire())          # blocked while A holds it
+        self.assertFalse(b.locked)
+
+    def test_lock_frees_after_release(self):
+        SingleInstance, path = self._lock()
+        a = SingleInstance(path)
+        self.assertTrue(a.acquire())
+        a.release()
+        self.assertFalse(a.locked)
+        b = SingleInstance(path)               # now free for the next launch
+        self.assertTrue(b.acquire())
+        self.addCleanup(b.release)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
