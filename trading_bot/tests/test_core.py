@@ -650,6 +650,34 @@ class TestExchangeVenues(unittest.TestCase):
         self.assertEqual(perp_symbol("ETH/USDT", "okx"), "ETH/USDT:USDT")
 
 
+class TestEntryBlockReason(unittest.TestCase):
+    def _bounce(self):
+        # 100 high bars (keep EMA100 high) -> dip -> strong 3-green bounce that
+        # closes above EMA20 but still below EMA100.
+        closes = [100.0] * 100 + [98, 95, 92, 88, 84, 80, 80, 80] + [85, 90, 95]
+        cd, prev = [], closes[0]
+        for i, c in enumerate(closes):
+            cd.append([i * 3600000, prev, max(prev, c) * 1.0005,
+                       min(prev, c) * 0.9995, c, 1000.0])
+            prev = c
+        return cd
+
+    def test_trend_filter_block_reported(self):
+        from strategy import StrategyParams, entry_block_reason
+        cd = self._bounce()
+        reason = entry_block_reason(cd, StrategyParams(ma_confirm=2, ma_min_body=0.05,
+                                                       ma_trend_len=100, ma_atr_mult=0))
+        self.assertIn("trend filter", reason)
+        self.assertIn("EMA100", reason)
+
+    def test_no_block_when_filter_off(self):
+        from strategy import StrategyParams, entry_block_reason
+        cd = self._bounce()
+        self.assertEqual(
+            entry_block_reason(cd, StrategyParams(ma_confirm=2, ma_min_body=0.05,
+                                                  ma_trend_len=0)), "")
+
+
 class TestBacktestDefaults(unittest.TestCase):
     def test_start_equity_default(self):
         import backtest as bt

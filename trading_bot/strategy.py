@@ -318,3 +318,41 @@ def evaluate_crossover(candles, params: StrategyParams, ticker: str = ""):
 def evaluate_all_crossover(candles, params: StrategyParams, ticker: str = ""):
     """Every crossover instruction over the whole candle list (for charting)."""
     return _replay_crossover(candles, params, ticker)
+
+
+def entry_block_reason(candles, params: StrategyParams) -> str:
+    """If the NEWEST closed bar had EMA/RSI alignment + the confirming candles for
+    a direction but a *filter* vetoed the entry, return a short human reason;
+    else "". Lets the runner explain why an apparently-valid setup didn't fire."""
+    n = len(candles)
+    if n < crossover_need(params):
+        return ""
+    o, h, low, cl, ema, rsi, _sl, _sh, trend, _atr = crossover_arrays(candles, params)
+    i = n - 1
+    if ema[i] is None or rsi[i] is None:
+        return ""
+    confirm = max(0, int(params.ma_confirm))
+    min_body = max(0.0, params.ma_min_body)
+    green = red = 0
+    for j in range(n):
+        rng = h[j] - low[j]
+        body = abs(cl[j] - o[j]) / rng if rng > 0 else 0.0
+        strong = body >= min_body
+        if cl[j] > o[j] and strong:
+            green, red = green + 1, 0
+        elif cl[j] < o[j] and strong:
+            green, red = 0, red + 1
+        else:
+            green, red = 0, 0
+    long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
+    short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
+    for side, aligned, run in (("long", long_aligned, green), ("short", short_aligned, red)):
+        if aligned and run >= confirm and not trend_ok(side, i, cl, trend, params):
+            tv = trend[i] if trend is not None else None
+            verb = "BUY" if side == "long" else "SELL"
+            rel = "below" if side == "long" else "above"
+            if tv is None:
+                return f"{verb} held: trend EMA{params.ma_trend_len} still warming up"
+            return (f"{verb} held by trend filter — price {cl[i]:g} {rel} "
+                    f"EMA{params.ma_trend_len} {tv:g}")
+    return ""

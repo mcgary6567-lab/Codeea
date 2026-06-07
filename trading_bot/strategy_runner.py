@@ -65,6 +65,11 @@ class StrategyRunner:
         self._intended: Dict[str, str] = {}   # symbol -> "flat"/"long"/"short"
         self._absent: Dict[str, int] = {}     # consecutive polls a held position was unseen
         self._ABSENT_DROP = 3                 # drop intent after this many absent polls
+        # Never silently skip a bar: process every bar closed since the last poll.
+        # Entries older than this many bars are state-only (no stale order chasing);
+        # exits/scale-outs always fire so risk management catches up.
+        self._FRESH_ENTRY_BARS = 2
+        self._last_block: Dict[str, str] = {}   # last "entry blocked" reason logged per symbol
         self._licensed: Optional[bool] = None     # tri-state: None/True/False
         self._last_ok_ts = 0.0                     # last successful verification
         self._next_verify_ts = 0.0                 # when to re-check
@@ -227,23 +232,41 @@ class StrategyRunner:
             self._last_ts[sym] = newest_ts
             return
 
-        # Evaluate each freshly-closed candle exactly once.
-        if self._last_ts.get(sym, 0) >= newest_ts:
+        # Process EVERY bar closed since the last poll (not just the newest) so a
+        # sleep/outage spanning a bar boundary can't silently skip a signal.
+        prev_ts = self._last_ts.get(sym, 0)
+        if prev_ts >= newest_ts:
             return
+        entered_newest = self._emit_ma(closed, sym, cfg, since_ts=prev_ts)
         self._last_ts[sym] = newest_ts
-        self._emit_ma(closed, sym, cfg)
+        # If a valid-looking setup didn't fire, explain why (e.g. trend filter).
+        if not entered_newest and self._intended.get(sym, "flat") == "flat":
+            reason = strategy.entry_block_reason(closed, cfg["params"])
+            if reason and reason != self._last_block.get(sym):
+                self.log(f"MA strategy: {sym} — {reason}")
+            self._last_block[sym] = reason
 
-    def _emit_ma(self, closed: List[list], sym: str, cfg: dict) -> None:
-        """Translate the newest candle's crossover instructions into the same
-        signal payloads a webhook would send.
+    def _emit_ma(self, closed: List[list], sym: str, cfg: dict, since_ts: int = 0) -> bool:
+        """Emit signal payloads for every event on bars closed after ``since_ts``.
 
         Entries become buy/sell + a swing stop; an RSI-extreme scale-out becomes a
         partial close; an EMA-trail/stop exit becomes a full close. Shorts need a
-        Futures market (spot can't short), so they're skipped on spot with a
-        one-shot notice."""
+        Futures market (spot can't short), skipped on spot with a one-shot notice.
+
+        Robustness: exits/scale-outs always fire (so a missed bar can't strand a
+        position without its risk management), but an *entry* on a bar older than
+        ``_FRESH_ENTRY_BARS`` only updates the intended state — it doesn't chase a
+        stale order at the wrong price (reconciliation then squares up with the
+        exchange). Returns True if it emitted an entry on the newest bar."""
         futures = cfg.get("market_type") == "futures"
         intended = self._intended.get(sym, "flat")
-        for ev in strategy.evaluate_crossover(closed, cfg["params"], ticker=sym):
+        ts_list = [int(c[0]) for c in closed]
+        newest = len(closed) - 1
+        fresh_min = newest - (self._FRESH_ENTRY_BARS - 1)   # entries only for i >= this
+        entered_newest = False
+        for i, ev in strategy.evaluate_all_crossover(closed, cfg["params"], ticker=sym):
+            if ts_list[i] <= since_ts:
+                continue                     # already processed in an earlier poll
             act = ev["act"]
             if act == "enter":
                 side = ev["side"]
@@ -255,6 +278,9 @@ class StrategyRunner:
                     continue
                 if intended != "flat":
                     continue                 # already hold a position (reconciled) — don't stack
+                if i < fresh_min:
+                    intended = side          # too stale to chase — track state only
+                    continue
                 action = "buy" if side == "long" else "sell"
                 self.log(f"MA strategy: {action.upper()} ({side}) {sym} "
                          f"@ {ev['entry']:g}, SL {ev['sl']:g}")
@@ -264,6 +290,8 @@ class StrategyRunner:
                     "price": ev["entry"], "source": "strategy",
                 })
                 intended = side
+                if i == newest:
+                    entered_newest = True
             elif act == "scale_out":
                 if intended == "flat":
                     continue                 # nothing held to de-risk
@@ -278,6 +306,7 @@ class StrategyRunner:
                 self.on_signal({"event": "exit", "ticker": sym, "source": "strategy"})
                 intended = "flat"
         self._intended[sym] = intended
+        return entered_newest
 
     @staticmethod
     def _poskey(sym: str) -> str:

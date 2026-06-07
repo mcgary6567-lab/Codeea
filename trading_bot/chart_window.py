@@ -54,6 +54,7 @@ ENTRY_COLOR = "#4a9eff"    # blue entry line
 SL_COLOR = "#ff5c5c"       # red SL
 TP_COLOR = "#26d07c"       # green take-profit (TP1/TP2 at 1R/2R)
 MA_COLOR = "#5b8def"       # EMA overlay line
+TREND_COLOR = "#e0a458"    # trend-filter EMA (HTF) overlay line
 RSI_COLOR = "#c792ea"      # RSI line
 LONG_COLOR = "#7CFF6B"     # long entry arrow (BUY, up)
 SHORT_COLOR = "#ff5c5c"    # short entry arrow (SELL, down)
@@ -96,6 +97,8 @@ class ChartWindow:
         self._ma_events: List = []       # (index, event) crossover instructions
         self._rsi: List = []
         self._price_ma: List = []        # EMA20 overlay
+        self._trend_ma: List = []        # trend-filter EMA overlay (when enabled)
+        self._trend_len: int = 0         # current trend-EMA length (for the legend)
         self._geom: Optional[dict] = None
         self.view_count = DEFAULT_VIEW
         self.view_end: Optional[int] = None
@@ -250,6 +253,8 @@ class ChartWindow:
             rsi = strategy.rsi_series(closes, params.rsi_len)
             ma_events = strategy.evaluate_all_crossover(candles, params, ticker=self.symbol)
             price_ma = strategy.ema_series(closes, params.ma_len)
+            trend_len = int(params.ma_trend_len or 0)
+            trend_ma = strategy.ema_series(closes, trend_len) if trend_len > 0 else []
         except Exception as exc:  # noqa: BLE001 - surface, don't crash the window
             self._post(lambda: self.status.config(text=f"Error: {exc}"))
             return
@@ -259,6 +264,9 @@ class ChartWindow:
             self._ma_events = ma_events
             self._rsi = rsi
             self._price_ma = price_ma
+            self._trend_ma = trend_ma
+            self._trend_len = trend_len
+            self._refresh_legend()      # show/hide the trend-EMA legend entry
             if self.view_end is None:
                 self.view_end = len(candles) - 1
             count = sum(1 for _, e in ma_events if e["act"] == "enter")
@@ -305,11 +313,13 @@ class ChartWindow:
             return
         for ch in f.winfo_children():
             ch.destroy()
-        items = (("▲ BUY", LONG_COLOR), ("▼ SELL", SHORT_COLOR),
+        items = [("▲ BUY", LONG_COLOR), ("▼ SELL", SHORT_COLOR),
                  ("⊙ scale-out", SCALE_COLOR), ("✕ exit", EXIT_COLOR),
                  ("— entry", ENTRY_COLOR), ("— SL", SL_COLOR),
                  ("— TP1/TP2", TP_COLOR),
-                 (f"— EMA{MA_LEN}", MA_COLOR))
+                 (f"— EMA{MA_LEN}", MA_COLOR)]
+        if getattr(self, "_trend_len", 0) > 0:
+            items.append((f"— Trend EMA{self._trend_len}", TREND_COLOR))
         for txt, col in items:
             tk.Label(f, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
 
@@ -531,6 +541,15 @@ class ChartWindow:
                 ma_pts += [X(k), Yp(mv)]
         if len(ma_pts) >= 4:
             c.create_line(*ma_pts, fill=MA_COLOR, width=1)
+        # Trend-filter EMA (only longs above it / shorts below it can enter).
+        if self._trend_ma:
+            tr_pts = []
+            for k in range(vc):
+                tv = self._trend_ma[start + k] if start + k < len(self._trend_ma) else None
+                if tv is not None:
+                    tr_pts += [X(k), Yp(tv)]
+            if len(tr_pts) >= 4:
+                c.create_line(*tr_pts, fill=TREND_COLOR, width=1)
 
         # --- Entry/scale-out/exit overlays: BUY (▲), SELL (▼), ⊙ scale-out, ✕ exit ---
         last_entry = None
