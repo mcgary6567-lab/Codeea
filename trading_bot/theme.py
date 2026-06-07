@@ -54,6 +54,10 @@ def apply(root: tk.Tk) -> dict:
     style.configure("TEntry", fieldbackground=ELEV, foreground=TXT,
                     insertcolor=TXT, bordercolor=BORDER, padding=4)
     style.map("TEntry", bordercolor=[("focus", ACCENT)])
+    # Invalid-input variant: red field so a bad number is obvious at a glance.
+    style.configure("Invalid.TEntry", fieldbackground="#3a1d1d", foreground=TXT,
+                    insertcolor=TXT, bordercolor=RED, padding=4)
+    style.map("Invalid.TEntry", bordercolor=[("focus", RED), ("!focus", RED)])
     style.configure("TCombobox", fieldbackground=ELEV, background=ELEV,
                     foreground=TXT, arrowcolor=TXT, bordercolor=BORDER, padding=4)
     style.map("TCombobox", fieldbackground=[("readonly", ELEV)],
@@ -221,6 +225,64 @@ def style_button(btn: tk.Button, kind: str = "default") -> None:
     btn.configure(bg=bg, fg=fg, activebackground=active, activeforeground=fg,
                   relief="flat", bd=0, highlightthickness=0,
                   cursor="hand2", font=("Segoe UI Semibold", 10))
+
+
+class _Tooltip:
+    """A lightweight hover tooltip — a small dark popup that appears after a
+    short delay when the pointer rests on ``widget``. Lets the UI drop most of
+    its inline grey hint labels in favour of on-demand help."""
+
+    def __init__(self, widget, text: str, delay: int = 450):
+        self.widget = widget
+        self.text = text
+        self.delay = delay
+        self.tip = None
+        self._after = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _=None):
+        self._cancel()
+        self._after = self.widget.after(self.delay, self._show)
+
+    def _cancel(self):
+        if self._after:
+            try:
+                self.widget.after_cancel(self._after)
+            except Exception:  # noqa: BLE001
+                pass
+            self._after = None
+
+    def _show(self):
+        if self.tip or not self.text:
+            return
+        try:
+            x = self.widget.winfo_rootx() + 14
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        except tk.TclError:
+            return
+        self.tip = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=self.text, bg=ELEV, fg=TXT, justify="left",
+                 relief="solid", bd=1, padx=8, pady=5, wraplength=300,
+                 font=("Segoe UI", 9), highlightbackground=BORDER).pack()
+
+    def _hide(self, _=None):
+        self._cancel()
+        if self.tip:
+            try:
+                self.tip.destroy()
+            except tk.TclError:
+                pass
+            self.tip = None
+
+
+def add_tooltip(widget, text: str) -> _Tooltip:
+    """Attach a hover tooltip to ``widget``. Returns the controller (keep a ref
+    if you want to update ``.text`` later)."""
+    return _Tooltip(widget, text)
 
 
 def fit_window(win, w: int, h: int, min_w: int = 0, min_h: int = 0,

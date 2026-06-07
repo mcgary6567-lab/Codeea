@@ -414,6 +414,7 @@ class TradingBotGUI:
 
         self._build_header()
         self._build_footer()
+        self._build_status_strip()
 
         body = ttk.Frame(self.root, padding=12)
         body.pack(fill="both", expand=True)
@@ -530,6 +531,126 @@ class TradingBotGUI:
             webbrowser.open(url)
         except Exception:  # noqa: BLE001
             messagebox.showinfo("Link", url)
+
+    # ====================================================================
+    # Status / onboarding strip (under the header)
+    # ====================================================================
+    def _build_status_strip(self) -> None:
+        """A thin strip under the header that (a) walks new users through the 3
+        setup steps and (b) shows live system state at a glance, so the bot's
+        armed/idle status isn't buried across several settings tabs."""
+        bar = tk.Frame(self.root, bg=HEADER, height=30)
+        bar.pack(fill="x", side="top")
+        bar.pack_propagate(False)
+
+        # Left: getting-started steps. Each lights up green as it's completed.
+        steps = tk.Frame(bar, bg=HEADER)
+        steps.pack(side="left", padx=10)
+        tk.Label(steps, text="Setup:", bg=HEADER, fg=TXT_DIM,
+                 font=("Segoe UI", 8)).pack(side="left", padx=(0, 6))
+        self._step_lbls = {}
+        for key, text in (("connect", "① Connect"), ("license", "② Activate license"),
+                          ("running", "③ Start trading")):
+            lbl = tk.Label(steps, text=text, bg=ELEV, fg=TXT_DIM,
+                           font=("Segoe UI Semibold", 8), padx=8, pady=2)
+            lbl.pack(side="left", padx=3)
+            self._step_lbls[key] = lbl
+
+        # Right: live status chips for the subsystems.
+        chips = tk.Frame(bar, bg=HEADER)
+        chips.pack(side="right", padx=10)
+        self._status_chips = {}
+        for key, text in (("strategy", "Strategy"), ("webhook", "Webhook"),
+                          ("relay", "Cloud"), ("paused", "Paused")):
+            chip = tk.Label(chips, text=f"● {text}", bg=HEADER, fg=GREY,
+                            font=("Segoe UI Semibold", 8), padx=6)
+            chip.pack(side="left", padx=3)
+            self._status_chips[key] = chip
+
+    def _update_status_chips(self) -> None:
+        """Refresh the onboarding steps + live status chips from current state."""
+        if not getattr(self, "_status_chips", None):
+            return
+        connected = bool(getattr(self, "connected", False))
+        licensed = bool(self.relay_token_var.get().strip())
+        strat_running = bool(getattr(self, "strategy_runner", None)
+                             and self.strategy_runner.running)
+        webhook_on = bool(getattr(self, "webhook", None) and self.webhook.running)
+        relay_on = bool(getattr(self, "relay", None) and self.relay.running)
+        paused = bool(self.paused_var.get())
+
+        # Onboarding steps.
+        def step(key, done, active=False):
+            lbl = self._step_lbls.get(key)
+            if not lbl:
+                return
+            if done:
+                lbl.config(bg=GREEN, fg="white")
+            elif active:
+                lbl.config(bg=ACCENT, fg="#1a1100")
+            else:
+                lbl.config(bg=ELEV, fg=TXT_DIM)
+        running = connected and licensed and (strat_running or webhook_on or relay_on)
+        step("connect", connected, active=not connected)
+        step("license", licensed, active=connected and not licensed)
+        step("running", running, active=connected and licensed and not running)
+
+        # Live chips: green = on, grey = off, orange = paused/attention.
+        def chip(key, on, color=None):
+            c = self._status_chips.get(key)
+            if c:
+                c.config(fg=(color or (GREEN if on else GREY)))
+        chip("strategy", strat_running)
+        chip("webhook", webhook_on)
+        chip("relay", relay_on)
+        chip("paused", paused, color=("#e67e22" if paused else GREY))
+
+    # -- tooltip + numeric-validation helpers ------------------------------
+    def _tip(self, widget, text: str) -> None:
+        """Attach a hover tooltip (best-effort; never breaks the build)."""
+        try:
+            theme.add_tooltip(widget, text)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _validate_num(self, entry, allow_blank: bool = True) -> bool:
+        """Flag an entry red when its text isn't a valid number. Returns ok.
+
+        Logic still coerces bad input to a safe default elsewhere; this just makes
+        a typo *visible* instead of silently swallowed."""
+        try:
+            txt = entry.get().strip().replace(",", "")
+        except Exception:  # noqa: BLE001
+            return True
+        ok = True
+        if txt == "":
+            ok = allow_blank
+        else:
+            try:
+                float(txt)
+            except ValueError:
+                ok = False
+        try:
+            entry.configure(style="TEntry" if ok else "Invalid.TEntry")
+        except Exception:  # noqa: BLE001
+            pass
+        return ok
+
+    def _num_entry(self, parent, var, width=7, allow_blank=True, tip="", on_change=None):
+        """A numeric ttk.Entry that validates on edit (red when invalid) and
+        optionally fires ``on_change`` on commit. Used across the settings tabs."""
+        e = ttk.Entry(parent, textvariable=var, width=width)
+
+        def commit(_=None):
+            self._validate_num(e, allow_blank)
+            if on_change:
+                on_change()
+        e.bind("<FocusOut>", commit)
+        e.bind("<Return>", commit)
+        e.bind("<KeyRelease>", lambda ev: self._validate_num(e, allow_blank))
+        if tip:
+            self._tip(e, tip)
+        return e
 
     def _build_api_panel(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="API Settings", padding=10)
@@ -699,18 +820,24 @@ class TradingBotGUI:
         f.columnconfigure(0, weight=1)
         f.columnconfigure(1, weight=1)
 
+        # Order preview — what a BUY/SELL click will actually send, so there are
+        # no surprises about size/notional before committing.
+        self.trade_preview_lbl = tk.Label(
+            f, text="", bg=PANEL, fg=TXT_DIM, font=("Segoe UI", 9), anchor="center")
+        self.trade_preview_lbl.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+
         self.buy_btn = theme.RoundedButton(
             f, text="▲ BUY", bg=GREEN, active=theme.GREEN, fg="white",
             radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("buy"),
         )
-        self.buy_btn.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.buy_btn.grid(row=1, column=0, sticky="ew", padx=(0, 5))
         self.sell_btn = theme.RoundedButton(
             f, text="▼ SELL", bg=RED, active=theme.RED, fg="white",
             radius=5, height=40, font=("Segoe UI", 15, "bold"),
             command=lambda: self._on_manual_trade("sell"),
         )
-        self.sell_btn.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        self.sell_btn.grid(row=1, column=1, sticky="ew", padx=(5, 0))
 
     def _build_positions(self, parent) -> None:
         f = ttk.LabelFrame(parent, text="Open Positions", padding=8)
@@ -846,8 +973,8 @@ class TradingBotGUI:
         alerts_tab = ttk.Frame(nb, padding=8)
         nb.add(exec_tab, text="Execution")
         nb.add(risk_tab, text="Modes & Risk")
-        nb.add(webhook_tab, text="License")
         nb.add(strategy_tab, text="Strategy")
+        nb.add(webhook_tab, text="Connect & License")
         nb.add(alerts_tab, text="Alerts")
         for t in (exec_tab, risk_tab, webhook_tab, strategy_tab, alerts_tab):
             t.columnconfigure(1, weight=1)
@@ -869,11 +996,20 @@ class TradingBotGUI:
                 pass
         nb.bind("<<NotebookTabChanged>>", lambda e: self.root.after_idle(_fit_nb))
         self.root.after_idle(_fit_nb)
+        self._settings_nb = nb
+        self._fit_settings_nb = lambda: self.root.after_idle(_fit_nb)
+
+        # "Unsaved changes" marker — clarifies the mixed save model (most fields
+        # apply live, but Save is what persists them across restarts).
+        self.dirty_lbl = tk.Label(outer, text="", bg=PANEL, fg="#e67e22",
+                                  font=("Segoe UI", 8))
+        self.dirty_lbl.grid(row=1, column=0, sticky="e", pady=(2, 0))
 
         btnrow = ttk.Frame(outer)
-        btnrow.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        tk.Button(btnrow, text="💾 Save", command=self._save_all).pack(
-            side="left", expand=True, fill="x", padx=2)
+        btnrow.grid(row=2, column=0, sticky="ew", pady=(2, 0))
+        save_btn = tk.Button(btnrow, text="💾 Save", command=self._save_all)
+        theme.style_button(save_btn, "accent")        # primary action stands out
+        save_btn.pack(side="left", expand=True, fill="x", padx=2)
         tk.Button(btnrow, text="📦 Backup", command=self._backup_settings).pack(
             side="left", expand=True, fill="x", padx=2)
         tk.Button(btnrow, text="📂 Restore", command=self._restore_settings).pack(
@@ -881,6 +1017,28 @@ class TradingBotGUI:
         reset_btn = tk.Button(btnrow, text="🔄 Reset", command=self._reset_all_defaults)
         theme.style_button(reset_btn, "danger")
         reset_btn.pack(side="left", expand=True, fill="x", padx=2)
+
+    def _set_saved_baseline(self) -> None:
+        """Snapshot the current settings as the 'saved' baseline for dirty checks."""
+        try:
+            self._saved_snapshot = str(self._collect_settings())
+        except Exception:  # noqa: BLE001
+            self._saved_snapshot = None
+        self._refresh_dirty()
+
+    def _refresh_dirty(self) -> None:
+        """Show/hide the 'unsaved changes' marker by comparing live vs. saved."""
+        if not getattr(self, "dirty_lbl", None):
+            return
+        snap = getattr(self, "_saved_snapshot", None)
+        if snap is None:
+            self.dirty_lbl.config(text="")
+            return
+        try:
+            dirty = str(self._collect_settings()) != snap
+        except Exception:  # noqa: BLE001
+            dirty = False
+        self.dirty_lbl.config(text="● unsaved changes — click Save to keep them" if dirty else "")
 
     def _backup_settings(self) -> None:
         path = filedialog.asksaveasfilename(
@@ -918,29 +1076,35 @@ class TradingBotGUI:
         size_row = ttk.Frame(f)
         size_row.grid(row=0, column=1, sticky="w", pady=4)
         self.size_var = tk.StringVar(value=str(DEFAULT_TRADE_SIZE))
-        size_entry = ttk.Entry(size_row, textvariable=self.size_var, width=12)
+        size_entry = self._num_entry(
+            size_row, self.size_var, width=12, on_change=self._push_settings,
+            tip="Order size for Fixed modes: coins (Fixed lot) or USDT (Fixed $). "
+                "Ignored by risk-based modes, which size off the stop.")
         size_entry.pack(side="left")
-        size_entry.bind("<FocusOut>", lambda ev: self._push_settings())
-        size_entry.bind("<Return>", lambda ev: self._push_settings())
         self.size_hint = ttk.Label(size_row, text="base (e.g. BTC)")
         self.size_hint.pack(side="left", padx=6)
 
         ttk.Label(f, text="Sizing mode:").grid(row=1, column=0, sticky="w", pady=4)
         self.sizing_mode_var = tk.StringVar(value=SIZING_MODE_LABELS[DEFAULT_SIZING_MODE])
-        ttk.Combobox(
+        sizing_combo = ttk.Combobox(
             f, textvariable=self.sizing_mode_var,
             values=[SIZING_MODE_LABELS[m] for m in SIZING_MODES], state="readonly",
-        ).grid(row=1, column=1, sticky="ew", pady=4)
+        )
+        sizing_combo.grid(row=1, column=1, sticky="ew", pady=4)
+        self._tip(sizing_combo,
+                  "How position size is decided. Risk-based modes compute the size "
+                  "from your Risk % and the stop distance — recommended.")
         self.sizing_mode_var.trace_add("write", lambda *a: self._on_sizing_mode_change())
 
         rr = ttk.Frame(f)
         rr.grid(row=2, column=0, columnspan=2, sticky="w")
         ttk.Label(rr, text="Risk %:").pack(side="left")
         self.risk_pct_var = tk.StringVar(value=str(DEFAULT_RISK_PERCENT))
-        risk_entry = ttk.Entry(rr, textvariable=self.risk_pct_var, width=6)
+        risk_entry = self._num_entry(
+            rr, self.risk_pct_var, width=6, on_change=self._push_settings,
+            tip="With risk-based sizing, the % of balance risked per trade "
+                "(distance from entry to stop). 0.5–2% is typical.")
         risk_entry.pack(side="left", padx=6)
-        risk_entry.bind("<FocusOut>", lambda ev: self._push_settings())
-        risk_entry.bind("<Return>", lambda ev: self._push_settings())
         ttk.Label(rr, text="(risk-based modes)").pack(side="left")
 
         self.auto_bracket_var = tk.BooleanVar(value=DEFAULT_AUTO_BRACKET)
@@ -976,22 +1140,29 @@ class TradingBotGUI:
         lvr = ttk.Frame(f)
         lvr.grid(row=7, column=1, sticky="w", pady=4)
         self.leverage_var = tk.StringVar(value=str(DEFAULT_LEVERAGE))
-        ttk.Entry(lvr, textvariable=self.leverage_var, width=6).pack(side="left")
+        lev_e = self._num_entry(lvr, self.leverage_var, width=6,
+                                tip="Futures leverage. 0 leaves the exchange setting "
+                                    "as-is. Higher = closer liquidation; 3–5× is safer.")
+        lev_e.pack(side="left")
         ttk.Label(lvr, text="0 = leave as-is   Margin:").pack(side="left", padx=(6, 2))
         self.margin_mode_var = tk.StringVar(value=DEFAULT_MARGIN_MODE)
-        ttk.Combobox(
+        mm_combo = ttk.Combobox(
             lvr, textvariable=self.margin_mode_var,
             values=["(default)", "cross", "isolated"], state="readonly", width=9,
-        ).pack(side="left")
+        )
+        mm_combo.pack(side="left")
+        self._tip(mm_combo, "Isolated caps loss to the position's margin; cross uses "
+                            "the whole balance. Isolated is safer.")
         self.leverage_var.trace_add("write", lambda *a: self._on_leverage_change())
 
         sl = ttk.Frame(f)
         sl.grid(row=8, column=0, columnspan=2, sticky="w", pady=4)
         ttk.Label(sl, text="Slippage guard %:").pack(side="left")
         self.slippage_var = tk.StringVar(value=str(DEFAULT_SLIPPAGE_PCT))
-        se = ttk.Entry(sl, textvariable=self.slippage_var, width=6)
+        se = self._num_entry(sl, self.slippage_var, width=6, on_change=self._push_settings,
+                             tip="Skip a signal if price has already moved this far "
+                                 "from the signal price. 0 disables the guard.")
         se.pack(side="left", padx=6)
-        se.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(sl, text="(0 = off; skip if price moved this far from the signal)").pack(side="left")
 
         self.round_min_var = tk.BooleanVar(value=False)
@@ -1052,26 +1223,61 @@ class TradingBotGUI:
         self.max_dd_var = tk.StringVar(value="0")
         self.start_hour_var = tk.StringVar(value="0")
         self.end_hour_var = tk.StringVar(value="0")
-        rows = [
-            ("Max open positions:", self.max_open_var),
-            (f"Max total exposure ({QUOTE_CURRENCY}, 0=off):", self.max_exposure_var),
-            (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var),
-            ("Daily loss limit (% of balance):", self.daily_loss_pct_var),
-            (f"Daily profit limit ({QUOTE_CURRENCY}):", self.daily_profit_var),
-            ("Daily profit limit (% of balance):", self.daily_profit_pct_var),
-            ("Cooldown / symbol (s):", self.cooldown_var),
-            ("Dedupe window (s):", self.dedupe_var),
-            ("Loss-streak limit (losses):", self.loss_streak_var),
-            ("Loss-streak pause (s):", self.streak_cd_var),
-            ("Max drawdown halt (%):", self.max_dd_var),
-            ("Trade start hour (0-23):", self.start_hour_var),
-            ("Trade end hour (0-23):", self.end_hour_var),
+
+        # Guardrails grouped into labeled sections so the long list is scannable.
+        # Each row: (label, var, tooltip). A None entry renders a section header.
+        groups = [
+            ("Position limits", [
+                ("Max open positions:", self.max_open_var,
+                 "Most positions allowed open at once across all symbols."),
+                (f"Max total exposure ({QUOTE_CURRENCY}, 0=off):", self.max_exposure_var,
+                 "Cap on combined position notional. New entries that would exceed "
+                 "it are blocked."),
+            ]),
+            ("Daily limits", [
+                (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var,
+                 "Halt trading for the day after losing this many dollars."),
+                ("Daily loss limit (% of balance):", self.daily_loss_pct_var,
+                 "Same as above but as a % of the day's starting balance."),
+                (f"Daily profit limit ({QUOTE_CURRENCY}):", self.daily_profit_var,
+                 "Stop for the day once profit reaches this many dollars (lock in gains)."),
+                ("Daily profit limit (% of balance):", self.daily_profit_pct_var,
+                 "Same as above but as a % of the day's starting balance."),
+            ]),
+            ("Timing", [
+                ("Cooldown / symbol (s):", self.cooldown_var,
+                 "Minimum seconds between trades on the same symbol."),
+                ("Dedupe window (s):", self.dedupe_var,
+                 "Ignore duplicate signals for the same symbol within this window."),
+                ("Trade start hour (0-23):", self.start_hour_var,
+                 "Only trade from this local hour (start==end disables the window)."),
+                ("Trade end hour (0-23):", self.end_hour_var,
+                 "Stop trading at this local hour."),
+            ]),
+            ("Risk halts", [
+                ("Loss-streak limit (losses):", self.loss_streak_var,
+                 "Pause after this many consecutive losing trades."),
+                ("Loss-streak pause (s):", self.streak_cd_var,
+                 "How long to pause after hitting the loss streak."),
+                ("Max drawdown halt (%):", self.max_dd_var,
+                 "Halt the bot if equity falls this % below its peak."),
+            ]),
         ]
-        for i, (text, var) in enumerate(rows, start=5):
-            ttk.Label(f, text=text).grid(row=i, column=0, sticky="w", pady=2)
-            e = ttk.Entry(f, textvariable=var, width=10)
-            e.grid(row=i, column=1, sticky="w", pady=2)
-            e.bind("<FocusOut>", lambda ev: self._push_settings())
+        gf = ttk.Frame(f)
+        gf.grid(row=5, column=0, columnspan=2, sticky="ew")
+        gf.columnconfigure(1, weight=1)
+        gr_i = 0
+        for header, items in groups:
+            ttk.Label(gf, text=header, style="Accent.TLabel",
+                      font=("Segoe UI Semibold", 9)).grid(
+                row=gr_i, column=0, columnspan=2, sticky="w", pady=(6, 1))
+            gr_i += 1
+            for text, var, tip in items:
+                ttk.Label(gf, text=text).grid(row=gr_i, column=0, sticky="w", pady=2)
+                self._num_entry(gf, var, width=10, tip=tip,
+                                on_change=self._push_settings).grid(
+                    row=gr_i, column=1, sticky="w", pady=2)
+                gr_i += 1
 
         gr = ttk.Frame(f)
         gr.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(8, 0))
@@ -1192,15 +1398,53 @@ class TradingBotGUI:
         self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
         self.trial_status.grid(row=10, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
+    # One-click strategy presets. Most users never touch the raw fields below —
+    # these cover the common risk appetites. Only the "filter/exit" knobs vary;
+    # the core EMA/RSI/swing/scale stay at their defaults.
+    STRAT_PRESETS = {
+        "Conservative": dict(confirm="3", body="0.30", trend="200", atrmult="3.0",
+                             tp1="1.0", tp2="2.5", trail="0", adxmin="25"),
+        "Balanced":     dict(confirm="2", body="0.20", trend="100", atrmult="2.5",
+                             tp1="1.0", tp2="2.0", trail="0", adxmin="0"),
+        "Aggressive":   dict(confirm="1", body="0.10", trend="0", atrmult="2.0",
+                             tp1="1.0", tp2="2.0", trail="1.5", adxmin="0"),
+    }
+
+    def _apply_strat_preset(self, name: str) -> None:
+        p = self.STRAT_PRESETS.get(name)
+        if not p:
+            return
+        self.strat_ma_confirm_var.set(p["confirm"])
+        self.strat_ma_body_var.set(p["body"])
+        self.strat_ma_trend_var.set(p["trend"])
+        self.strat_ma_atrmult_var.set(p["atrmult"])
+        self.strat_ma_tp1_var.set(p["tp1"])
+        self.strat_ma_tp2_var.set(p["tp2"])
+        self.strat_ma_trail_var.set(p["trail"])
+        self.strat_ma_adxmin_var.set(p["adxmin"])
+        self._strat_preset_var.set(name)
+        self._push_strategy()
+
+    def _toggle_strat_advanced(self) -> None:
+        self._strat_adv_open = not getattr(self, "_strat_adv_open", False)
+        if self._strat_adv_open:
+            self._strat_adv.grid()
+            self._strat_adv_btn.config(text="⚙ Advanced settings ▴")
+        else:
+            self._strat_adv.grid_remove()
+            self._strat_adv_btn.config(text="⚙ Advanced settings ▾")
+        if getattr(self, "_fit_settings_nb", None):
+            self._fit_settings_nb()   # re-fit the notebook to the new height
+
     def _build_strategy_tab(self, f) -> None:
         """Built-in strategy: trade the bot's own port of the indicator with no
-        TradingView account. Same dip→green-sequence logic, run on exchange
-        candles. Confirmed BUYs flow through the normal sizing/bracket pipeline."""
-        def num_entry(parent, var, width=7):
-            e = ttk.Entry(parent, textvariable=var, width=width)
-            e.bind("<FocusOut>", lambda ev: self._push_strategy())
-            e.bind("<Return>", lambda ev: self._push_strategy())
-            return e
+        TradingView account. Same EMA/RSI crossover logic, run on exchange
+        candles. Confirmed entries flow through the normal sizing/bracket pipeline.
+
+        Most users only need a preset; the raw parameters live under "Advanced"."""
+        def num_entry(parent, var, width=7, tip=""):
+            return self._num_entry(parent, var, width=width, tip=tip,
+                                   on_change=self._push_strategy)
 
         row = ttk.Frame(f)
         row.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
@@ -1226,6 +1470,9 @@ class TradingBotGUI:
         self.strat_symbols_box.bind("<<ComboboxSelected>>", lambda e: self._on_strat_symbol_pick())
         self.strat_symbols_box.bind("<FocusOut>", lambda e: self._push_strategy())
         self.strat_symbols_box.bind("<Return>", lambda e: self._push_strategy())
+        self._tip(self.strat_symbols_box,
+                  "Which pairs the bot trades. Type a comma-separated list for "
+                  "multi-symbol, or pick one from the dropdown.")
 
         sr = ttk.Frame(f)
         sr.grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
@@ -1235,78 +1482,131 @@ class TradingBotGUI:
                               state="readonly", width=6)
         tf_box.pack(side="left", padx=6)
         tf_box.bind("<<ComboboxSelected>>", lambda ev: self._push_strategy())
+        self._tip(tf_box, "Candle size the strategy runs on (e.g. 1h). Higher = "
+                          "fewer, higher-quality signals.")
         ttk.Label(sr, text="  EMA20 + RSI-50 crossover (long + short)",
                   style="Dim.TLabel").pack(side="left", padx=(10, 0))
 
+        # --- Presets: the simple path most users want ----------------------
+        pr = ttk.Frame(f)
+        pr.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 2))
+        ttk.Label(pr, text="Preset:").pack(side="left")
+        self._strat_preset_var = tk.StringVar(value="Balanced")
+        for name, tip in (
+            ("Conservative", "Fewer, stricter trades: 3-candle confirm, trend + "
+                             "ADX filters on, wider ATR stop."),
+            ("Balanced", "The recommended default: 2-candle confirm, trend filter "
+                         "on, TP1/TP2 targets."),
+            ("Aggressive", "More trades: 1-candle confirm, no trend/ADX filter, "
+                           "trails the runner after TP1."),
+        ):
+            b = tk.Button(pr, text=name, command=lambda n=name: self._apply_strat_preset(n))
+            theme.style_button(b, "ghost")
+            b.pack(side="left", padx=(6, 0))
+            self._tip(b, tip)
+
+        # --- Advanced (collapsed by default) -------------------------------
+        self._strat_adv_btn = tk.Button(f, text="⚙ Advanced settings ▾",
+                                        command=self._toggle_strat_advanced)
+        theme.style_button(self._strat_adv_btn, "ghost")
+        self._strat_adv_btn.grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 2))
+
+        adv = ttk.Frame(f)
+        adv.grid(row=5, column=0, columnspan=2, sticky="ew")
+        adv.grid_remove()                       # hidden until "Advanced" is clicked
+        self._strat_adv = adv
+        self._strat_adv_open = False
+
         # EMA / RSI levels / swing-stop / scale-out.
-        maf = ttk.Frame(f)
-        maf.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+        maf = ttk.Frame(adv)
+        maf.grid(row=0, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf, text="EMA:").pack(side="left")
         self.strat_ma_len_var = tk.StringVar(value="20")
-        num_entry(maf, self.strat_ma_len_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf, self.strat_ma_len_var, 4,
+                  "Fast EMA length for the crossover (default 20).").pack(side="left", padx=(2, 8))
         ttk.Label(maf, text="RSI OB:").pack(side="left")
         self.strat_ma_ob_var = tk.StringVar(value="70")
-        num_entry(maf, self.strat_ma_ob_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf, self.strat_ma_ob_var, 4,
+                  "RSI overbought level — longs scale out here.").pack(side="left", padx=(2, 8))
         ttk.Label(maf, text="OS:").pack(side="left")
         self.strat_ma_os_var = tk.StringVar(value="30")
-        num_entry(maf, self.strat_ma_os_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf, self.strat_ma_os_var, 4,
+                  "RSI oversold level — shorts scale out here.").pack(side="left", padx=(2, 8))
         ttk.Label(maf, text="Swing:").pack(side="left")
         self.strat_ma_swing_var = tk.StringVar(value="10")
-        num_entry(maf, self.strat_ma_swing_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf, self.strat_ma_swing_var, 4,
+                  "Look-back bars for the swing high/low used as the stop.").pack(side="left", padx=(2, 8))
         ttk.Label(maf, text="SL buf%:").pack(side="left")
         self.strat_ma_slbuf_var = tk.StringVar(value="0.10")
-        num_entry(maf, self.strat_ma_slbuf_var, 5).pack(side="left", padx=(2, 8))
+        num_entry(maf, self.strat_ma_slbuf_var, 5,
+                  "Extra buffer below/above the swing stop, in %.").pack(side="left", padx=(2, 8))
         ttk.Label(maf, text="Scale%:").pack(side="left")
         self.strat_ma_scale_var = tk.StringVar(value="50")
-        num_entry(maf, self.strat_ma_scale_var, 4).pack(side="left", padx=2)
+        num_entry(maf, self.strat_ma_scale_var, 4,
+                  "Fraction of the position closed at the first take-profit.").pack(side="left", padx=2)
 
         # Entry confirmation: N strong green candles for a BUY / red for a SELL.
-        maf2 = ttk.Frame(f)
-        maf2.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+        maf2 = ttk.Frame(adv)
+        maf2.grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf2, text="Confirm candles — Buy:green / Sell:red:").pack(side="left")
         self.strat_ma_confirm_var = tk.StringVar(value="2")
-        num_entry(maf2, self.strat_ma_confirm_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf2, self.strat_ma_confirm_var, 4,
+                  "How many strong candles must confirm before entering. "
+                  "Higher = fewer false signals.").pack(side="left", padx=(2, 8))
         ttk.Label(maf2, text="Body ≥ (of range):").pack(side="left")
         self.strat_ma_body_var = tk.StringVar(value="0.20")
-        num_entry(maf2, self.strat_ma_body_var, 5).pack(side="left", padx=2)
+        num_entry(maf2, self.strat_ma_body_var, 5,
+                  "Minimum candle body as a fraction of its range (filters dojis).").pack(side="left", padx=2)
 
         # Trend filter (HTF-style) + optional ATR stop.
-        maf3 = ttk.Frame(f)
-        maf3.grid(row=5, column=0, columnspan=2, sticky="w", pady=2)
+        maf3 = ttk.Frame(adv)
+        maf3.grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf3, text="Trend EMA (0=off):").pack(side="left")
         self.strat_ma_trend_var = tk.StringVar(value="100")
-        num_entry(maf3, self.strat_ma_trend_var, 5).pack(side="left", padx=(2, 8))
+        num_entry(maf3, self.strat_ma_trend_var, 5,
+                  "Only take longs above / shorts below this slow EMA. 0 disables "
+                  "the trend filter.").pack(side="left", padx=(2, 8))
         ttk.Label(maf3, text="ATR stop × (0=swing):").pack(side="left")
         self.strat_ma_atrmult_var = tk.StringVar(value="2.5")
-        num_entry(maf3, self.strat_ma_atrmult_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf3, self.strat_ma_atrmult_var, 4,
+                  "Stop distance as a multiple of ATR. 0 uses the swing stop instead.").pack(side="left", padx=(2, 8))
         ttk.Label(maf3, text="ATR len:").pack(side="left")
         self.strat_ma_atrlen_var = tk.StringVar(value="14")
-        num_entry(maf3, self.strat_ma_atrlen_var, 4).pack(side="left", padx=2)
+        num_entry(maf3, self.strat_ma_atrlen_var, 4,
+                  "Look-back for the ATR (volatility) used by the stop/trail.").pack(side="left", padx=2)
 
         # Take-profit targets (R multiples of the stop distance; 0 = off).
-        maf4 = ttk.Frame(f)
-        maf4.grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
+        maf4 = ttk.Frame(adv)
+        maf4.grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf4, text="TP1 ×R (0=off):").pack(side="left")
         self.strat_ma_tp1_var = tk.StringVar(value="1.0")
-        num_entry(maf4, self.strat_ma_tp1_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf4, self.strat_ma_tp1_var, 4,
+                  "First take-profit at this multiple of risk (R). Scales out "
+                  "Scale% of the position.").pack(side="left", padx=(2, 8))
         ttk.Label(maf4, text="TP2 ×R (0=off):").pack(side="left")
         self.strat_ma_tp2_var = tk.StringVar(value="2.0")
-        num_entry(maf4, self.strat_ma_tp2_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf4, self.strat_ma_tp2_var, 4,
+                  "Second take-profit (closes the rest) at this multiple of risk.").pack(side="left", padx=(2, 8))
         ttk.Label(maf4, text="Trail ×ATR (0=off):").pack(side="left")
         self.strat_ma_trail_var = tk.StringVar(value="0")
-        num_entry(maf4, self.strat_ma_trail_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf4, self.strat_ma_trail_var, 4,
+                  "If >0, after TP1 the remainder trails by this ×ATR instead of "
+                  "targeting TP2.").pack(side="left", padx=(2, 8))
         ttk.Label(maf4, text="(Trail>0: after TP1, trail rest instead of TP2)",
                   style="Dim.TLabel").pack(side="left")
 
         # Trending-only filter (ADX): skip choppy ranges.
-        maf5 = ttk.Frame(f)
-        maf5.grid(row=7, column=0, columnspan=2, sticky="w", pady=2)
+        maf5 = ttk.Frame(adv)
+        maf5.grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(maf5, text="ADX min (0=off):").pack(side="left")
         self.strat_ma_adxmin_var = tk.StringVar(value="0")
-        num_entry(maf5, self.strat_ma_adxmin_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf5, self.strat_ma_adxmin_var, 4,
+                  "Only trade when ADX (trend strength) is above this. 20-25 skips "
+                  "choppy ranges. 0 disables it.").pack(side="left", padx=(2, 8))
         ttk.Label(maf5, text="ADX len:").pack(side="left")
         self.strat_ma_adxlen_var = tk.StringVar(value="14")
-        num_entry(maf5, self.strat_ma_adxlen_var, 4).pack(side="left", padx=(2, 8))
+        num_entry(maf5, self.strat_ma_adxlen_var, 4,
+                  "Look-back for the ADX calculation.").pack(side="left", padx=(2, 8))
         ttk.Label(maf5, text="(only trade when trending, e.g. 20-25)",
                   style="Dim.TLabel").pack(side="left")
 
@@ -1370,6 +1670,8 @@ class TradingBotGUI:
         elif not active and self.strategy_runner.running:
             self.strategy_runner.stop()
         self._update_strategy_status()
+        self._update_status_chips()
+        self._refresh_dirty()
         self._sync_chart()   # keep an open chart mirroring the live settings
 
     def _update_strategy_status(self) -> None:
@@ -1493,6 +1795,7 @@ class TradingBotGUI:
             if self.relay.running:
                 self.relay_btn.config(text="🔌 Disconnect")
                 self.relay_status.config(text="● License connected", fg=GREEN)
+        self._update_status_chips()
 
     def _autostart_relay(self) -> None:
         """Auto-connect cloud signals if a licence token was saved."""
@@ -1536,6 +1839,7 @@ class TradingBotGUI:
                 pass
             if not self.relay.running:   # connect signals + unlock strategy
                 self._toggle_relay()
+            self._update_status_chips()
             days = max(0, (expires_at - int(time.time())) // 86400) if expires_at else 0
             self.trial_status.config(text=f"✓ License active — {days} days left", fg=GREEN)
             messagebox.showinfo(
@@ -1569,6 +1873,7 @@ class TradingBotGUI:
     def _apply_trial_status(self, st: dict) -> None:
         if not getattr(self, "trial_status", None):
             return
+        self._update_status_chips()
         if st["status"] == "ok":
             exp = st["expires_at"]
             if not exp:
@@ -1782,6 +2087,10 @@ class TradingBotGUI:
         self.strat_ma_adxlen_var.set(str(s.get("strat_ma_adxlen", 14)))
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
         self._toggle_passphrase()
+        self._update_size_hint()
+        self._set_saved_baseline()       # loaded state == saved state (not dirty)
+        self._update_status_chips()
+        self._update_trade_preview()
 
     def _collect_settings(self) -> dict:
         return {
@@ -1862,6 +2171,7 @@ class TradingBotGUI:
     def _save_all(self) -> None:
         security.save_credentials(self.pin, self._collect_settings())
         self._push_settings()
+        self._set_saved_baseline()   # clears the "unsaved changes" marker
         messagebox.showinfo("Saved", "Settings encrypted and saved.")
 
     def _reset_all_defaults(self) -> None:
@@ -1909,9 +2219,38 @@ class TradingBotGUI:
         }
         self.size_hint.config(text=hints.get(self._sizing_mode_value(), "base coin"))
 
+    def _update_trade_preview(self) -> None:
+        """Show what a manual BUY/SELL click will send (size + notional), so the
+        order is never a surprise. Falls back gracefully without a live price."""
+        if not getattr(self, "trade_preview_lbl", None):
+            return
+        if not getattr(self, "connected", False):
+            self.trade_preview_lbl.config(text="Connect to enable manual BUY / SELL",
+                                          fg=TXT_DIM)
+            return
+        sm = self._sizing_mode_value()
+        sym = self.symbol_var.get().strip() or "—"
+        base = sym.split("/")[0] if "/" in sym else sym
+        mark = getattr(self, "_last_mark", None)
+        lev = int(self._float(self.leverage_var.get(), 0))
+        lev_txt = f" · {lev}×" if lev > 0 and self.market_var.get() == "Futures" else ""
+        if sm == "fixed":
+            qty = self._float(self.size_var.get(), 0)
+            notional = f" (≈ ${qty * mark:,.0f})" if mark else ""
+            txt = f"Order: {qty:g} {base}{notional}{lev_txt}"
+        elif sm == "fixed_quote":
+            amt = self._float(self.size_var.get(), 0)
+            qty = f" (≈ {amt / mark:g} {base})" if mark else ""
+            txt = f"Order: ${amt:,.0f} of {base}{qty}{lev_txt}"
+        else:   # risk-based modes: size is computed from the stop distance
+            risk = self._float(self.risk_pct_var.get(), 0)
+            txt = f"Order: auto-sized · risk {risk:g}% of balance per trade{lev_txt}"
+        self.trade_preview_lbl.config(text=txt, fg=ACCENT)
+
     def _on_sizing_mode_change(self) -> None:
         self._update_size_hint()
         self._push_settings()
+        self._update_trade_preview()
 
     def _on_leverage_change(self) -> None:
         self._push_settings()
@@ -1985,6 +2324,9 @@ class TradingBotGUI:
             "telegram_important_only": self.tg_important_var.get(),
         })
         self._update_mode_badge()   # safe-mode / read-only changes apply live
+        self._refresh_dirty()
+        self._update_status_chips()
+        self._update_trade_preview()
 
     # ====================================================================
     # Actions
@@ -2109,6 +2451,7 @@ class TradingBotGUI:
         symbol = self.symbol_var.get().strip()
         if symbol:
             self.backend.submit({"cmd": "watch", "symbol": symbol})
+        self._update_trade_preview()
 
     def _auto_fill_symbol(self, symbol: str) -> None:
         """A pair arrived from the indicator — show it in the Manual box and
@@ -2209,6 +2552,7 @@ class TradingBotGUI:
                 self.webhook_status.config(text="● listening", fg=GREEN)
             except OSError as exc:
                 messagebox.showerror("Webhook", f"Could not start: {exc}")
+        self._update_status_chips()
 
     def _autostart_webhook(self) -> None:
         """Start the webhook receiver on launch so the app is ready to receive
@@ -2217,8 +2561,10 @@ class TradingBotGUI:
             self.webhook.start()
             self.webhook_btn.config(text="⏹ Stop Webhook")
             self.webhook_status.config(text="● listening", fg=GREEN)
+            self._update_status_chips()
         except OSError as exc:  # port busy etc. — leave it stopped, user can retry
             self.webhook_status.config(text="● off (port busy)", fg=RED)
+            self._update_status_chips()
             self.backend.ui_queue.put({
                 "kind": "log", "time": "", "signal": "", "pair": "", "status": "",
                 "message": f"Webhook auto-start failed: {exc} — click Start Webhook to retry",
@@ -2397,6 +2743,7 @@ class TradingBotGUI:
             self.mark_label.config(text="—", fg=GREY)
         else:
             self.mark_label.config(text=f"{price:,.4f}".rstrip("0").rstrip("."), fg=ACCENT)
+        self._update_trade_preview()
 
     def _handle_alert(self, msg: dict) -> None:
         level = msg.get("level", "error")
@@ -2443,6 +2790,8 @@ class TradingBotGUI:
         # Sync the manual BUY/SELL buttons to the new connection state.
         self._update_manual_state()
         self._update_mode_badge()
+        self._update_status_chips()
+        self._update_trade_preview()
 
     def _update_mode_badge(self) -> None:
         """Header pill showing the live operating mode so it's never ambiguous."""

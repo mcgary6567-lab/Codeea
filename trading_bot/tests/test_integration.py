@@ -228,6 +228,69 @@ class TestGuiWiring(unittest.TestCase):
             ex.fetch_top_pairs = orig
             self.app.connected = False
 
+    # -- new UX: presets / advanced / preview / dirty / chips --------------
+    def test_strategy_preset_applies(self):
+        self.app._apply_strat_preset("Conservative")
+        p = self.app._strategy_params()
+        self.assertEqual(p.ma_confirm, 3)
+        self.assertEqual(p.ma_adx_min, 25.0)
+        self.app._apply_strat_preset("Aggressive")
+        p = self.app._strategy_params()
+        self.assertEqual(p.ma_confirm, 1)
+        self.assertEqual(p.ma_trend_len, 0)
+        self.assertGreater(p.ma_trail_atr, 0.0)
+        self.app._apply_strat_preset("Balanced")   # leave defaults for other tests
+
+    def test_advanced_section_toggles(self):
+        start = self.app._strat_adv_open
+        self.app._toggle_strat_advanced()
+        self.assertNotEqual(self.app._strat_adv_open, start)
+        self.app._toggle_strat_advanced()
+        self.assertEqual(self.app._strat_adv_open, start)
+
+    def test_trade_preview_reflects_sizing(self):
+        self.app.connected = True
+        self.app._last_mark = 50000.0
+        self.app.sizing_mode_var.set("Fixed lot (coin)")
+        self.app.size_var.set("0.01")
+        self.app._update_trade_preview()
+        txt = self.app.trade_preview_lbl.cget("text")
+        self.assertIn("0.01", txt)
+        self.assertIn("$500", txt)          # 0.01 * 50000
+        self.app.connected = False
+        self.app._update_trade_preview()
+        self.assertIn("Connect", self.app.trade_preview_lbl.cget("text"))
+
+    def test_dirty_marker_tracks_changes(self):
+        self.app._load_saved_into_ui()      # baseline == clean
+        self.assertEqual(self.app.dirty_lbl.cget("text"), "")
+        self.app.daily_loss_var.set("999")
+        self.app._refresh_dirty()
+        self.assertIn("unsaved", self.app.dirty_lbl.cget("text"))
+        self.app._set_saved_baseline()      # snapshot current -> clean again
+        self.assertEqual(self.app.dirty_lbl.cget("text"), "")
+
+    def test_status_chips_and_steps_exist(self):
+        import theme
+        for key in ("strategy", "webhook", "relay", "paused"):
+            self.assertIn(key, self.app._status_chips)
+        for key in ("connect", "license", "running"):
+            self.assertIn(key, self.app._step_lbls)
+        self.app.connected = False
+        self.app._update_status_chips()
+        # connect step not done when disconnected
+        self.assertNotEqual(self.app._step_lbls["connect"].cget("bg"), theme.GREEN_HL)
+
+    def test_invalid_number_flags_entry(self):
+        bad = tk.StringVar(value="abc")     # keep refs: a GC'd Var unsets its Tcl value
+        good = tk.StringVar(value="12.5")
+        e = self.app._num_entry(self.root, bad)
+        self.assertFalse(self.app._validate_num(e))
+        self.assertEqual(str(e.cget("style")), "Invalid.TEntry")
+        e2 = self.app._num_entry(self.root, good)
+        self.assertTrue(self.app._validate_num(e2))
+        e.destroy(); e2.destroy()
+
     # -- reset restores defaults -------------------------------------------
     def test_reset_restores_defaults(self):
         self.app.connected = False
