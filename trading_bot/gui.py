@@ -1042,6 +1042,14 @@ class TradingBotGUI:
         tk.Button(gr, text="🔁 Reset daily limit", command=self._reset_daily).pack(side="left")
         self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
+        # Shows the *resolved* daily limits in quote ccy (converts the % fields
+        # using the current balance) so it's unambiguous which limit is active.
+        self.daily_limit_lbl = tk.Label(gr, text="", fg=TXT_DIM, bg=PANEL, font=("Segoe UI", 9))
+        self.daily_limit_lbl.pack(side="left", padx=8)
+        for v in (self.daily_loss_var, self.daily_loss_pct_var,
+                  self.daily_profit_var, self.daily_profit_pct_var):
+            v.trace_add("write", lambda *a: self._refresh_daily_limit_status())
+        self._refresh_daily_limit_status()
 
         ttk.Separator(f, orient="horizontal").grid(row=18, column=0, columnspan=2, sticky="ew", pady=6)
         self.move_be_var = tk.BooleanVar(value=False)
@@ -2283,8 +2291,30 @@ class TradingBotGUI:
         # Sync the manual BUY/SELL buttons to the new connection state.
         self._update_manual_state()
 
+    def _refresh_daily_limit_status(self) -> None:
+        """Show the active daily stop/target in quote ccy (converting any % field
+        with the current balance) so it's clear which limit is in effect."""
+        if not getattr(self, "daily_limit_lbl", None):
+            return
+        bal = getattr(self, "_balance_val", 0.0)
+
+        def fmt(pct, absv, sign):
+            pct = self._float(pct, 0)
+            absv = self._float(absv, 0)
+            if pct > 0:
+                return f"{sign}${bal * pct / 100:,.0f} ({pct:g}%)" if bal > 0 else f"{pct:g}% of balance"
+            if absv > 0:
+                return f"{sign}${absv:,.0f}"
+            return "off"
+
+        stop = fmt(self.daily_loss_pct_var.get(), self.daily_loss_var.get(), "-")
+        target = fmt(self.daily_profit_pct_var.get(), self.daily_profit_var.get(), "+")
+        self.daily_limit_lbl.config(text=f"Active daily — stop {stop} · target {target}")
+
     def _update_account(self, msg: dict) -> None:
         balance = msg.get("balance", 0.0)
+        self._balance_val = balance
+        self._refresh_daily_limit_status()
         pnl = msg.get("pnl", 0.0)
         self.bal_label.config(text=f"  ·  ${balance:,.2f}", fg=TXT)
         sign = "+" if pnl >= 0 else "-"
