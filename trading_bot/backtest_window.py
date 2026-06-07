@@ -268,6 +268,11 @@ class BacktestWindow:
                                  cursor="hand2", font=("Segoe UI Semibold", 9),
                                  activebackground="#ffa057", padx=14, pady=4)
         self.opt_btn.pack(side="left", padx=(0, 8))
+        self.wf_btn = tk.Button(opbar, text="🔬 Walk-forward", command=self._walk_forward,
+                                bg=ELEV, fg=TXT, relief="flat", bd=0, cursor="hand2",
+                                font=("Segoe UI Semibold", 9), activebackground=BORDER,
+                                padx=12, pady=4)
+        self.wf_btn.pack(side="left", padx=(0, 8))
         tk.Label(opbar, text="sweep", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.opt_preset = tk.StringVar(value="ATR stop ×")
         ttk.Combobox(opbar, textvariable=self.opt_preset, width=14, state="readonly",
@@ -416,6 +421,53 @@ class BacktestWindow:
     def _opt_done_error(self, msg: str) -> None:
         self.opt_btn.config(state="normal", text="⚙ Run optimize")
         self.status.config(text=f"Optimize error: {msg}")
+
+    # -- walk-forward (in-sample optimize, out-of-sample verify) ------------
+    def _walk_forward(self) -> None:
+        if not self._candles:
+            self.status.config(text="Run a backtest first (to load candles), then Walk-forward.")
+            return
+        self.wf_btn.config(state="disabled", text="Working…")
+        threading.Thread(target=self._walk_forward_worker, daemon=True).start()
+
+    def _walk_forward_worker(self) -> None:
+        try:
+            grid = self.OPT_PRESETS.get(self.opt_preset.get(), self.OPT_PRESETS["Full grid"])
+            res = bt.walk_forward(self._candles, self.get_params(), self._cfg_from_ui(),
+                                  grid, metric=self.opt_metric.get(), split=0.7)
+        except Exception as exc:  # noqa: BLE001
+            self._post(lambda: self._wf_done(None, str(exc)))
+            return
+        self._post(lambda: self._wf_done(res, None))
+
+    def _wf_done(self, res, err) -> None:
+        from tkinter import messagebox
+        self.wf_btn.config(state="normal", text="🔬 Walk-forward")
+        if err or not res:
+            self.status.config(text=f"Walk-forward error: {err}")
+            return
+        i, o = res["in_sample"], res["out_sample"]
+        best = ", ".join(f"{k}={v:g}" if isinstance(v, float) else f"{k}={v}"
+                         for k, v in res["best"].items()) or "(base params)"
+
+        def pf(s):
+            return "∞" if s["profit_factor"] == float("inf") else f"{s['profit_factor']:.2f}"
+        # Verdict: does it hold up out-of-sample?
+        holds = (o["net_pnl"] > 0 and o["trades"] >= 3
+                 and o["profit_factor"] >= 0.9 * min(i["profit_factor"], 5))
+        verdict = ("✅ Holds up out-of-sample — params look robust."
+                   if holds else
+                   "⚠ Out-of-sample is weaker — likely overfit; prefer simpler params.")
+        self.status.config(text=f"Walk-forward 70/30 — OOS net {o['net_pnl']:+.0f}, "
+                                f"win {o['win_rate']:.0f}%, PF {pf(o)}")
+        messagebox.showinfo(
+            "Walk-forward (70% in-sample / 30% out-of-sample)",
+            f"Best on the sweep '{self.opt_preset.get()}':\n  {best}\n\n"
+            f"In-sample:      net {i['net_pnl']:+.0f}   win {i['win_rate']:.0f}%   "
+            f"PF {pf(i)}   trades {i['trades']}\n"
+            f"Out-of-sample:  net {o['net_pnl']:+.0f}   win {o['win_rate']:.0f}%   "
+            f"PF {pf(o)}   trades {o['trades']}\n\n{verdict}",
+            parent=self.win)
 
     def _render_opt(self, results: List[dict]) -> None:
         self._opt_results = results

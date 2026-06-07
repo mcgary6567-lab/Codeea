@@ -758,6 +758,22 @@ class TestBacktestDefaults(unittest.TestCase):
         import backtest as bt
         self.assertEqual(bt.BacktestConfig().start_equity, 1000.0)
 
+    def test_walk_forward_splits_and_reports(self):
+        import math
+        import backtest as bt
+        cl = [100 + 25 * math.sin(i / 18.0) + i * 0.04 for i in range(400)]
+        cd, prev = [], cl[0]
+        for i, c in enumerate(cl):
+            cd.append([i * 3600000, prev, max(prev, c) * 1.003, min(prev, c) * 0.997, c, 1000.0])
+            prev = c
+        res = bt.walk_forward(cd, StrategyParams(ma_confirm=1, ma_trend_len=0),
+                              bt.BacktestConfig(apply_costs=False),
+                              {"ma_atr_mult": [2.0, 2.5, 3.0]}, split=0.7)
+        self.assertIn("best", res)
+        self.assertIn("in_sample", res)
+        self.assertIn("out_sample", res)
+        self.assertIn("trades", res["out_sample"])
+
     def test_optimizer_atr_preset(self):
         from backtest_window import BacktestWindow
         self.assertEqual(BacktestWindow.OPT_PRESETS["ATR stop ×"]["ma_atr_mult"],

@@ -267,6 +267,29 @@ def optimize(candles, base: strategy.StrategyParams, cfg: BacktestConfig,
     return results[:top]
 
 
+def walk_forward(candles, base: strategy.StrategyParams, cfg: BacktestConfig,
+                 grid: dict, metric: str = "net_pnl", split: float = 0.7,
+                 top: int = 40) -> dict:
+    """Robustness check against curve-fitting: optimize on the first ``split`` of
+    the data (in-sample), then measure those best params on the held-out rest
+    (out-of-sample). Returns ``{best, in_sample, out_sample, split}`` where the
+    two are stats dicts. If the out-of-sample result collapses vs in-sample, the
+    optimized params are likely overfit."""
+    import dataclasses
+    n = len(candles)
+    k = max(1, int(n * split))
+    in_c, out_c = candles[:k], candles[k:]
+    results = optimize(in_c, base, cfg, grid, metric=metric, top=top)
+    best = results[0]["overrides"] if results else {}
+    bp = dataclasses.replace(base, **best)
+    return {
+        "best": best,
+        "in_sample": run_backtest(in_c, bp, cfg).stats,
+        "out_sample": run_backtest(out_c, bp, cfg).stats,
+        "split": split,
+    }
+
+
 def trades_to_csv(trades: List[BacktestTrade]) -> str:
     """Render the trade list as CSV text (one row per closed trade)."""
     import csv
