@@ -1171,10 +1171,14 @@ class TradingBotGUI:
 
         row = ttk.Frame(f)
         row.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
-        self.strat_enabled_var = tk.BooleanVar(value=False)
-        theme.make_check(row, text="Enable built-in strategy",
-                         variable=self.strat_enabled_var,
-                         command=self._push_strategy).pack(side="left")
+        # Always on and locked: the built-in strategy is a core feature, not an
+        # optional toggle (it still only trades with a valid licence + connection).
+        self.strat_enabled_var = tk.BooleanVar(value=True)
+        _strat_chk = theme.make_check(row, text="Enable built-in strategy",
+                                      variable=self.strat_enabled_var,
+                                      command=self._push_strategy)
+        _strat_chk.config(state="disabled", disabledforeground=TXT)   # locked, but readable
+        _strat_chk.pack(side="left")
         self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
                                      font=("Segoe UI", 9))
         self.strat_status.pack(side="right")
@@ -1699,7 +1703,7 @@ class TradingBotGUI:
         self.tg_important_var.set(s.get("telegram_important_only", True))
         self.tray_var.set(s.get("minimize_to_tray", False))
         # Built-in strategy settings.
-        self.strat_enabled_var.set(s.get("strat_enabled", False))
+        self.strat_enabled_var.set(True)   # locked on (see Strategy tab)
         self.strat_symbols_var.set(s.get("strat_symbols", DEFAULT_STRATEGY_SYMBOLS))
         self.strat_tf_var.set(s.get("strat_timeframe", DEFAULT_STRATEGY_TIMEFRAME))
         self.strat_ma_len_var.set(str(s.get("strat_ma_len", 20)))
