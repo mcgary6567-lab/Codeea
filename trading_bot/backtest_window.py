@@ -286,13 +286,13 @@ class BacktestWindow:
                  font=("Segoe UI", 8)).pack(side="left", padx=8)
         self.opt_tree = ttk.Treeview(
             op_tab, show="headings", height=8,
-            columns=("ema", "conf", "swing", "trend", "atr", "adx", "tp",
+            columns=("ema", "conf", "swing", "trend", "atr", "adx", "tp", "trl",
                      "trades", "win", "net", "pf", "dd"))
-        for col, txt, wdt in (("ema", "EMA", 48), ("conf", "Conf", 46), ("swing", "Swing", 50),
-                              ("trend", "Trend", 50), ("atr", "ATR×", 46), ("adx", "ADX", 44),
-                              ("tp", "TP R", 60), ("trades", "Trades", 56),
-                              ("win", "Win%", 50), ("net", "Net", 72), ("pf", "PF", 48),
-                              ("dd", "MaxDD%", 60)):
+        for col, txt, wdt in (("ema", "EMA", 44), ("conf", "Conf", 42), ("swing", "Swing", 46),
+                              ("trend", "Trend", 46), ("atr", "ATR×", 44), ("adx", "ADX", 42),
+                              ("tp", "TP R", 52), ("trl", "Trail", 44), ("trades", "Trades", 52),
+                              ("win", "Win%", 46), ("net", "Net", 66), ("pf", "PF", 44),
+                              ("dd", "MaxDD%", 56)):
             self.opt_tree.heading(col, text=txt)
             self.opt_tree.column(col, width=wdt, anchor="center")
         self.opt_tree.pack(fill="both", expand=True)
@@ -389,6 +389,7 @@ class BacktestWindow:
         "ATR stop ×": {"ma_atr_mult": [2.0, 2.5, 3.0, 3.2]},
         "ADX min": {"ma_adx_min": [0, 15, 20, 25, 30]},
         "Take-profit (R)": {"ma_tp1_r": [0.0, 1.0, 1.5], "ma_tp2_r": [2.0, 3.0, 4.0]},
+        "Trailing ×ATR": {"ma_trail_atr": [0.0, 1.5, 2.0, 3.0]},
         "Confirm candles": {"ma_confirm": [1, 2, 3, 4]},
         "Trend EMA": {"ma_trend_len": [0, 50, 100, 200]},
         "Full grid": {
@@ -481,7 +482,7 @@ class BacktestWindow:
             self.opt_tree.insert("", "end", values=(
                 g("ma_len"), g("ma_confirm"), g("ma_swing"),
                 g("ma_trend_len"), f"{g('ma_atr_mult'):g}", f"{g('ma_adx_min'):g}",
-                f"{g('ma_tp1_r'):g}/{g('ma_tp2_r'):g}", st["trades"],
+                f"{g('ma_tp1_r'):g}/{g('ma_tp2_r'):g}", f"{g('ma_trail_atr'):g}", st["trades"],
                 f"{st['win_rate']:.0f}", f"{st['net_pnl']:+.0f}", pf,
                 f"{st['max_drawdown']:.1f}"))
         self.status.config(text=f"Swept {self.opt_preset.get()} — {len(results)} runs, "
