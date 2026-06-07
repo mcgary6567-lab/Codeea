@@ -309,6 +309,26 @@ class TestGuiWiring(unittest.TestCase):
         self.assertTrue(self.app._validate_num(e2))
         e.destroy(); e2.destroy()
 
+    def test_settings_window_opens_and_reuses(self):
+        def count():
+            return sum(1 for w in self.root.winfo_children()
+                       if isinstance(w, tk.Toplevel) and "Settings" in w.title())
+        self.app._open_settings(); self.root.update_idletasks()
+        self.app._open_settings(); self.root.update_idletasks()
+        self.assertEqual(count(), 1, "Settings window should reuse, not stack")
+        # UI-scale preference applies without error and is collected.
+        self.app.ui_scale_var.set("Large")
+        self.app._apply_ui_scale()
+        self.assertEqual(self.app._collect_settings()["ui_scale"], "Large")
+        self.app.ui_scale_var.set("Normal"); self.app._apply_ui_scale()
+        self.app._settings_win.destroy()
+
+    def test_new_pref_defaults_round_trip(self):
+        s = self.app._collect_settings()
+        for k, v in (("ui_scale", "Normal"), ("start_minimized", False),
+                     ("auto_connect", False), ("auto_update_check", True)):
+            self.assertEqual(s[k], v)
+
     # -- reset restores defaults -------------------------------------------
     def test_reset_restores_defaults(self):
         self.app.connected = False

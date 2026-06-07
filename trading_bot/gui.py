@@ -18,6 +18,8 @@ from __future__ import annotations
 import csv
 import os
 import queue
+import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -42,6 +44,8 @@ from config import (
     APP_TITLE,
     APP_VERSION,
     CHECKOUT_URL,
+    DATA_DIR,
+    DEBUG_LOG,
     EXCHANGE_LABELS,
     exchange_id,
     exchange_label,
@@ -139,8 +143,15 @@ class TradingBotGUI:
         self._latest_update = None        # last update info dict seen (for the prompt)
         self._pair_list = list(TOP_PAIRS)  # live exchange pairs; shared everywhere
         self._skipped_version = str(self.saved.get("skipped_version", ""))
+        # App-level preferences (Settings gear). Created before the UI so the
+        # collect/load round-trip always sees them.
+        self.ui_scale_var = tk.StringVar(value="Normal")
+        self.start_min_var = tk.BooleanVar(value=False)
+        self.auto_connect_var = tk.BooleanVar(value=False)
+        self.auto_update_var = tk.BooleanVar(value=True)
         self._build_ui()
         self._load_saved_into_ui()
+        self._apply_ui_scale()           # apply saved text size
         self._update_manual_state()      # disabled until connected (+ manual toggle)
         self._push_settings()
         self._push_strategy()            # apply built-in strategy config
@@ -152,10 +163,13 @@ class TradingBotGUI:
         self._net_check_running = False  # guards against overlapping probes
         self._notify_ip_next = False     # alert public IP on the next connect
         self.root.after(150, self._drain_ui_queue)
-        self.root.after(3000, self._check_update)
-        self.root.after(3000, self._schedule_update_recheck)
+        if self.auto_update_var.get():
+            self.root.after(3000, self._check_update)
+            self.root.after(3000, self._schedule_update_recheck)
         self.root.after(800, self._check_internet)
         self.root.after(1200, self._auto_show_ip)
+        self.root.after(1600, self._maybe_autoconnect)     # opt-in connect on launch
+        self.root.after(400, self._maybe_start_minimized)  # opt-in start in tray
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _check_update(self, manual: bool = False) -> None:
@@ -221,6 +235,8 @@ class TradingBotGUI:
         self.root.after(interval, self._periodic_update_check)
 
     def _periodic_update_check(self) -> None:
+        if not self.auto_update_var.get():
+            return
         self._check_update(manual=False)
         self._schedule_update_recheck()
 
@@ -471,6 +487,14 @@ class TradingBotGUI:
                  font=("Segoe UI Semibold", 15)).pack(anchor="w")
         tk.Label(title_box, text=f"v{APP_VERSION}", bg=HEADER, fg=TXT_DIM,
                  font=("Segoe UI", 8)).pack(anchor="w")
+
+        # Settings gear (far right) — opens the app preferences hub.
+        self.gear_btn = tk.Button(bar, text="⚙", command=self._open_settings,
+                                  font=("Segoe UI", 14))
+        theme.style_button(self.gear_btn, "ghost")
+        self.gear_btn.configure(padx=10, pady=2)
+        self.gear_btn.pack(side="right", padx=(6, 12))
+        self._tip(self.gear_btn, "Settings & preferences")
 
         # Live status on the right.
         self.alert_label = tk.Label(bar, text="", bg=HEADER, fg=RED, font=("Segoe UI", 9, "bold"))
@@ -959,6 +983,275 @@ class TradingBotGUI:
             self._analytics_win.focus()
             return
         self._analytics_win = AnalyticsWindow(self.root, history)
+
+    # ====================================================================
+    # Settings hub (the header ⚙ gear)
+    # ====================================================================
+    def _open_settings(self) -> None:
+        """Open (or focus) the app-preferences window — the things a user sets
+        once and forgets, kept out of the trade-focused tabs."""
+        win = getattr(self, "_settings_win", None)
+        if win is not None and win.winfo_exists():
+            win.deiconify(); win.lift(); win.focus_force()
+            return
+        win = tk.Toplevel(self.root)
+        self._settings_win = win
+        win.title("Settings — Prometheus AI Crypto Bot")
+        win.configure(bg=PANEL)
+        theme.fit_window(win, 560, 640, min_w=440, min_h=420)
+        win.protocol("WM_DELETE_WINDOW", win.destroy)
+
+        body = self._scroll_container(win)
+        self._settings_security(body)
+        self._settings_appearance(body)
+        self._settings_data(body)
+        self._settings_startup(body)
+        self._settings_about(body)
+
+    def _scroll_container(self, parent):
+        """A vertical-scroll body for a popup window; returns the inner frame."""
+        canvas = tk.Canvas(parent, bg=PANEL, highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas, padding=14)
+        w = canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(w, width=e.width))
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Enter>", lambda e: canvas.bind_all(
+            "<MouseWheel>", lambda ev: canvas.yview_scroll(
+                int(-1 * (ev.delta / 120)) or (-1 if ev.delta > 0 else 1), "units")))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        inner.columnconfigure(0, weight=1)
+        return inner
+
+    def _settings_section(self, parent, title: str):
+        """A titled card inside the settings window; returns its inner frame."""
+        ttk.Label(parent, text=title, style="Accent.TLabel",
+                  font=("Segoe UI Semibold", 11)).pack(anchor="w", pady=(12, 2))
+        card = ttk.Frame(parent, padding=10)
+        card.pack(fill="x")
+        card.columnconfigure(1, weight=1)
+        return card
+
+    def _persist_quiet(self) -> None:
+        """Save settings silently (used by the gear toggles so app prefs stick
+        without needing the main Save button)."""
+        try:
+            security.save_credentials(self.pin, self._collect_settings())
+            self._set_saved_baseline()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # -- Security ----------------------------------------------------------
+    def _settings_security(self, parent) -> None:
+        c = self._settings_section(parent, "🔐 Security")
+        ttk.Label(c, text="Change PIN", font=("Segoe UI Semibold", 9)).grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        cur = tk.StringVar(); new = tk.StringVar(); conf = tk.StringVar()
+        for i, (lbl, var) in enumerate((("Current PIN", cur), ("New PIN", new),
+                                        ("Confirm new PIN", conf)), start=1):
+            ttk.Label(c, text=lbl + ":").grid(row=i, column=0, sticky="w", pady=2)
+            ttk.Entry(c, textvariable=var, show="•", width=16).grid(
+                row=i, column=1, sticky="w", pady=2)
+        status = tk.Label(c, text="", bg=PANEL, fg=TXT_DIM, font=("Segoe UI", 9))
+        status.grid(row=4, column=0, columnspan=2, sticky="w", pady=(2, 0))
+        bb = ttk.Frame(c); bb.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        b = tk.Button(bb, text="Update PIN",
+                      command=lambda: self._change_pin(cur, new, conf, status))
+        theme.style_button(b, "accent"); b.pack(side="left")
+        lk = tk.Button(bb, text="🔒 Lock now", command=self._lock_now)
+        theme.style_button(lk, "ghost"); lk.pack(side="left", padx=(8, 0))
+        self._tip(lk, "Hide the app and require your PIN to return (keeps trading "
+                      "if 'minimize to tray' is on).")
+
+    def _change_pin(self, cur, new, conf, status) -> None:
+        c, n, k = cur.get().strip(), new.get().strip(), conf.get().strip()
+        if not security.verify_pin(c):
+            status.config(text="✕ Current PIN is incorrect.", fg=RED); return
+        if len(n) < 4 or not n.isdigit():
+            status.config(text="✕ New PIN must be at least 4 digits.", fg=RED); return
+        if n != k:
+            status.config(text="✕ New PIN entries don't match.", fg=RED); return
+        try:
+            security.save_credentials(n, self._collect_settings())
+            self.pin = n
+            cur.set(""); new.set(""); conf.set("")
+            status.config(text="✓ PIN updated — use it next time you unlock.", fg=GREEN)
+        except Exception as exc:  # noqa: BLE001
+            status.config(text=f"✕ Couldn't update PIN: {exc}", fg=RED)
+
+    def _lock_now(self) -> None:
+        """Hide the app behind a PIN prompt without quitting."""
+        if getattr(self, "_lock_win", None) and self._lock_win.winfo_exists():
+            return
+        if getattr(self, "_settings_win", None) and self._settings_win.winfo_exists():
+            self._settings_win.destroy()
+        self.root.withdraw()
+        lw = tk.Toplevel(self.root); self._lock_win = lw
+        lw.title("Locked"); lw.configure(bg=PANEL)
+        theme.fit_window(lw, 320, 200, min_w=300, min_h=180)
+        lw.protocol("WM_DELETE_WINDOW", lambda: None)   # can't bypass by closing
+        tk.Label(lw, text="🔒  Locked", bg=PANEL, fg=TXT,
+                 font=("Segoe UI Semibold", 14)).pack(pady=(22, 6))
+        pin_var = tk.StringVar()
+        e = ttk.Entry(lw, textvariable=pin_var, show="•", width=18, justify="center")
+        e.pack(pady=4); e.focus_set()
+        st = tk.Label(lw, text="Enter your PIN to unlock", bg=PANEL, fg=TXT_DIM,
+                      font=("Segoe UI", 9)); st.pack(pady=2)
+
+        def unlock():
+            if security.verify_pin(pin_var.get().strip()):
+                lw.destroy(); self.root.deiconify(); self.root.lift()
+            else:
+                st.config(text="Wrong PIN — try again.", fg=RED); pin_var.set("")
+        bb = ttk.Frame(lw); bb.pack(pady=10)
+        u = tk.Button(bb, text="Unlock", command=unlock)
+        theme.style_button(u, "accent"); u.pack(side="left", padx=4)
+        q = tk.Button(bb, text="Quit app", command=self._real_quit)
+        theme.style_button(q, "danger"); q.pack(side="left", padx=4)
+        e.bind("<Return>", lambda ev: unlock())
+
+    # -- Appearance --------------------------------------------------------
+    def _settings_appearance(self, parent) -> None:
+        c = self._settings_section(parent, "🎨 Appearance")
+        ttk.Label(c, text="Text size:").grid(row=0, column=0, sticky="w", pady=2)
+        box = ttk.Combobox(c, textvariable=self.ui_scale_var, state="readonly",
+                           values=["Small", "Normal", "Large"], width=12)
+        box.grid(row=0, column=1, sticky="w", pady=2)
+        box.bind("<<ComboboxSelected>>",
+                 lambda e: (self._apply_ui_scale(), self._persist_quiet()))
+        ttk.Label(c, text="Adjusts the whole app's text size for readability.",
+                  style="Dim.TLabel", wraplength=420).grid(
+            row=1, column=0, columnspan=2, sticky="w")
+
+    def _apply_ui_scale(self) -> None:
+        if not hasattr(self, "_base_scaling"):
+            try:
+                self._base_scaling = float(self.root.tk.call("tk", "scaling"))
+            except Exception:  # noqa: BLE001
+                self._base_scaling = 1.333
+        mult = {"Small": 0.85, "Normal": 1.0, "Large": 1.3}.get(self.ui_scale_var.get(), 1.0)
+        try:
+            self.root.tk.call("tk", "scaling", self._base_scaling * mult)
+        except Exception:  # noqa: BLE001
+            pass
+
+    # -- Data & backup -----------------------------------------------------
+    def _settings_data(self, parent) -> None:
+        c = self._settings_section(parent, "🗂 Data & backup")
+        rows = [
+            ("📦 Backup settings…", self._backup_settings,
+             "Save an encrypted copy of all settings to a file."),
+            ("📂 Restore settings…", self._restore_settings,
+             "Load settings from an encrypted backup file."),
+            ("🗁 Open data folder", self._open_data_folder,
+             "Open the folder holding your encrypted settings, logs and history."),
+            ("📄 View log file", self._view_log,
+             "Open app.log — handy to attach to a support request."),
+            ("🧹 Clear trade history", self._clear_history_confirm,
+             "Erase the Analytics trade history + equity curve."),
+            ("🧽 Clear on-screen log", self._clear_log,
+             "Clear the Trade Log table in the main window (does not touch files)."),
+        ]
+        for i, (label, cmd, tip) in enumerate(rows):
+            b = tk.Button(c, text=label, command=cmd, anchor="w")
+            theme.style_button(b, "ghost")
+            b.grid(row=i, column=0, columnspan=2, sticky="ew", pady=2)
+            self._tip(b, tip)
+
+    def _open_path(self, path: str) -> None:
+        """Open a file/folder with the OS default handler (cross-platform)."""
+        try:
+            if os.name == "nt":
+                os.startfile(path)  # type: ignore[attr-defined]
+            elif sys.platform.startswith("darwin"):
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showinfo("Path", f"{path}\n\n({exc})")
+
+    def _open_data_folder(self) -> None:
+        self._open_path(DATA_DIR)
+
+    def _view_log(self) -> None:
+        if os.path.exists(DEBUG_LOG):
+            self._open_path(DEBUG_LOG)
+        else:
+            messagebox.showinfo("Log file", f"No log yet at:\n{DEBUG_LOG}")
+
+    def _clear_history_confirm(self) -> None:
+        if messagebox.askyesno("Clear trade history",
+                               "Erase all Analytics trade history and the equity "
+                               "curve?\n\nThis cannot be undone."):
+            try:
+                history.clear_all()
+                if getattr(self, "_analytics_win", None) and self._analytics_win.alive():
+                    self._analytics_win.refresh()
+                messagebox.showinfo("Cleared", "Trade history cleared.")
+            except Exception as exc:  # noqa: BLE001
+                messagebox.showerror("Clear history", str(exc))
+
+    def _clear_log(self) -> None:
+        try:
+            self.log_tree.delete(*self.log_tree.get_children())
+        except Exception:  # noqa: BLE001
+            pass
+
+    # -- Startup / Updates / About ----------------------------------------
+    def _settings_startup(self, parent) -> None:
+        c = self._settings_section(parent, "🖥 Startup & updates")
+        theme.make_check(c, text="Run automatically when Windows starts (24/7)",
+                         variable=self.autostart_var,
+                         command=self._on_autostart_toggle).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=2)
+        theme.make_check(c, text="Minimize to tray on close (keep trading)",
+                         variable=self.tray_var,
+                         command=lambda: (self._push_settings(), self._persist_quiet())).grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=2)
+        theme.make_check(c, text="Start minimized to the tray",
+                         variable=self.start_min_var,
+                         command=self._persist_quiet).grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=2)
+        theme.make_check(c, text="Auto-connect on launch (when keys are saved)",
+                         variable=self.auto_connect_var,
+                         command=self._persist_quiet).grid(
+            row=3, column=0, columnspan=2, sticky="w", pady=2)
+        theme.make_check(c, text="Check for updates on startup",
+                         variable=self.auto_update_var,
+                         command=self._persist_quiet).grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=2)
+        ub = ttk.Frame(c); ub.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        b = tk.Button(ub, text="⬆ Check for updates now",
+                      command=lambda: self._check_update(manual=True))
+        theme.style_button(b, "ghost"); b.pack(side="left")
+        ttk.Label(ub, text=f"v{APP_VERSION}", style="Dim.TLabel").pack(side="left", padx=8)
+
+    def _settings_about(self, parent) -> None:
+        c = self._settings_section(parent, "ℹ About")
+        ttk.Label(c, text=f"{APP_TITLE} · v{APP_VERSION}",
+                  font=("Segoe UI Semibold", 9)).grid(row=0, column=0, columnspan=2, sticky="w")
+        ab = ttk.Frame(c); ab.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        for label, action in (
+            ("🌐 Website", lambda: self._open_url(WEBSITE_URL)),
+            ("✉ Support", lambda: self._open_url(f"mailto:{SUPPORT_EMAIL}")),
+            ("🔑 Get License", self._open_checkout),
+        ):
+            b = tk.Button(ab, text=label, command=action)
+            theme.style_button(b, "ghost"); b.pack(side="left", padx=(0, 6))
+
+    # -- launch-time preference hooks --------------------------------------
+    def _maybe_autoconnect(self) -> None:
+        if (self.auto_connect_var.get() and not self.connected
+                and self.api_key_var.get().strip() and self.api_secret_var.get().strip()
+                and not self._required_update):
+            self._on_connect()
+
+    def _maybe_start_minimized(self) -> None:
+        if self.start_min_var.get() and tray_helper.available():
+            self._hide_to_tray()
 
     def _scrollable_tab(self, parent):
         """Wrap a notebook tab in a vertical-scroll canvas and return the inner
@@ -2135,6 +2428,10 @@ class TradingBotGUI:
         self.summary_hour_var.set(str(s.get("summary_hour", 23)))
         self.tg_important_var.set(s.get("telegram_important_only", True))
         self.tray_var.set(s.get("minimize_to_tray", False))
+        self.ui_scale_var.set(s.get("ui_scale", "Normal"))
+        self.start_min_var.set(s.get("start_minimized", False))
+        self.auto_connect_var.set(s.get("auto_connect", False))
+        self.auto_update_var.set(s.get("auto_update_check", True))
         # Built-in strategy settings.
         self.strat_enabled_var.set(True)   # locked on (see Strategy tab)
         self.strat_symbols_var.set(s.get("strat_symbols", DEFAULT_STRATEGY_SYMBOLS))
@@ -2213,6 +2510,10 @@ class TradingBotGUI:
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
             "telegram_important_only": self.tg_important_var.get(),
             "minimize_to_tray": self.tray_var.get(),
+            "ui_scale": self.ui_scale_var.get(),
+            "start_minimized": self.start_min_var.get(),
+            "auto_connect": self.auto_connect_var.get(),
+            "auto_update_check": self.auto_update_var.get(),
             "live_ack": self._live_ack,
             "last_ip": self.saved.get("last_ip", ""),
             "skipped_version": self._skipped_version,
