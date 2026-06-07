@@ -134,6 +134,22 @@ class TestGuiWiring(unittest.TestCase):
         self.assertIn("-$50", txt)
         self.assertIn("today", txt)
 
+    def test_mode_badge_reflects_state(self):
+        a = self.app
+        a._set_connected(False, "binance")
+        self.assertEqual(a.mode_badge.cget("text").strip(), "")
+        a.safe_var.set(False); a.readonly_var.set(False); a._conn_testnet = False
+        a._set_connected(True, "binance")
+        self.assertIn("LIVE", a.mode_badge.cget("text"))
+        a.safe_var.set(True); a._update_mode_badge()
+        self.assertEqual(a.mode_badge.cget("text").strip(), "SAFE MODE")
+        a.readonly_var.set(True); a._update_mode_badge()
+        self.assertEqual(a.mode_badge.cget("text").strip(), "READ-ONLY")
+        a.safe_var.set(False); a.readonly_var.set(False); a._conn_testnet = True
+        a._update_mode_badge()
+        self.assertEqual(a.mode_badge.cget("text").strip(), "TESTNET")
+        a._set_connected(False, "binance")   # leave clean for other tests
+
     def test_body_scrolls_on_small_window(self):
         # On a short window the content is taller than the viewport -> scrollable.
         self.root.geometry("1000x500")

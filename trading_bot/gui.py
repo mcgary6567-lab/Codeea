@@ -527,6 +527,11 @@ class TradingBotGUI:
         self.conn_label = tk.Label(stat, text="Disconnected", bg=HEADER, fg=TXT,
                                    font=("Segoe UI Semibold", 10))
         self.conn_label.pack(side="left")
+        # Mode badge: LIVE / TESTNET / SAFE / READ-ONLY so the operating mode is
+        # never ambiguous.
+        self.mode_badge = tk.Label(stat, text="", bg=HEADER, fg=HEADER,
+                                   font=("Segoe UI Semibold", 8), padx=6)
+        self.mode_badge.pack(side="left", padx=(8, 0))
         self.exch_label = tk.Label(stat, text="  ·  —", bg=HEADER, fg=TXT_DIM, font=("Segoe UI", 10))
         self.exch_label.pack(side="left")
         self.bal_label = tk.Label(stat, text="  ·  $0.00", bg=HEADER, fg=TXT, font=("Segoe UI", 10))
@@ -2006,6 +2011,7 @@ class TradingBotGUI:
             "summary_hour": int(self._float(self.summary_hour_var.get(), 23)),
             "telegram_important_only": self.tg_important_var.get(),
         })
+        self._update_mode_badge()   # safe-mode / read-only changes apply live
 
     # ====================================================================
     # Actions
@@ -2075,6 +2081,7 @@ class TradingBotGUI:
 
         self._push_settings()
         self._notify_ip_next = True   # send an IP alert once this connect lands
+        self._conn_testnet = self.testnet_var.get()   # mode badge reflects this connect
         self.backend.submit({
             "cmd": "connect",
             "exchange_id": ex,
@@ -2462,6 +2469,24 @@ class TradingBotGUI:
                 self.alert_label.config(text="")
         # Sync the manual BUY/SELL buttons to the new connection state.
         self._update_manual_state()
+        self._update_mode_badge()
+
+    def _update_mode_badge(self) -> None:
+        """Header pill showing the live operating mode so it's never ambiguous."""
+        if not getattr(self, "mode_badge", None):
+            return
+        if not self.connected:
+            self.mode_badge.config(text="", bg=HEADER, fg=HEADER)
+            return
+        if self.readonly_var.get():
+            txt, bg = "READ-ONLY", GREY
+        elif self.safe_var.get():
+            txt, bg = "SAFE MODE", "#3a78c2"          # blue — simulated, no real orders
+        elif getattr(self, "_conn_testnet", False):
+            txt, bg = "TESTNET", "#1f9e7a"            # teal — real orders, fake money
+        else:
+            txt, bg = "● LIVE", RED                   # red — real money
+        self.mode_badge.config(text=f" {txt} ", bg=bg, fg="white")
 
     def _on_daily_limit_edit(self) -> None:
         # User edited a limit field: drop the backend's exact figures so the label
