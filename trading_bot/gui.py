@@ -394,8 +394,9 @@ class TradingBotGUI:
     def _build_ui(self) -> None:
         theme.apply(self.root)
         self.root.title(APP_TITLE)
-        self.root.geometry("1160x780")
-        self.root.minsize(1000, 720)
+        # Fit the screen (laptops included) and center, instead of a fixed size
+        # that overflowed short screens.
+        theme.fit_window(self.root, 1160, 780, min_w=900, min_h=560)
         self._set_window_icon()
         # Flat, modern tk.Buttons everywhere (set before widgets are built).
         # Default is a dark "ghost" look; coloured buttons override their bg.
@@ -814,7 +815,10 @@ class TradingBotGUI:
             self.backend.submit({"cmd": "close", "pair": None})
 
     def _open_analytics(self) -> None:
-        AnalyticsWindow(self.root, history)
+        if getattr(self, "_analytics_win", None) and self._analytics_win.alive():
+            self._analytics_win.focus()
+            return
+        self._analytics_win = AnalyticsWindow(self.root, history)
 
     def _build_trade_settings(self, parent) -> None:
         outer = ttk.LabelFrame(parent, text="Trade Settings", padding=8)

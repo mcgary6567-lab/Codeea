@@ -88,8 +88,7 @@ class BacktestWindow:
 
         self.win = tk.Toplevel(root)
         self.win.title("Backtest — Prometheus AI Crypto Bot")
-        self.win.geometry("860x640")
-        self.win.minsize(720, 560)
+        theme.fit_window(self.win, 860, 640, min_w=700, min_h=520)
         self.win.configure(bg=BG)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
         self._build(syms or [self.symbol])
@@ -102,7 +101,10 @@ class BacktestWindow:
             return None
 
     def alive(self) -> bool:
-        return self._alive
+        try:
+            return self._alive and bool(self.win.winfo_exists())
+        except tk.TclError:
+            return False
 
     def focus(self) -> None:
         try:

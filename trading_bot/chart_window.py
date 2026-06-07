@@ -111,8 +111,7 @@ class ChartWindow:
 
         self.win = tk.Toplevel(root)
         self.win.title("Strategy Chart — Prometheus AI Crypto Bot")
-        self.win.geometry("960x600")
-        self.win.minsize(720, 460)
+        theme.fit_window(self.win, 960, 600, min_w=720, min_h=460)
         self.win.configure(bg=BG)
         self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -135,7 +134,10 @@ class ChartWindow:
 
     # -- public helpers (used by the GUI to reuse one window) ---------------
     def alive(self) -> bool:
-        return self._alive
+        try:
+            return self._alive and bool(self.win.winfo_exists())
+        except tk.TclError:
+            return False
 
     def focus(self) -> None:
         try:

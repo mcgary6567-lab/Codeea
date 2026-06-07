@@ -134,6 +134,21 @@ class TestGuiWiring(unittest.TestCase):
         self.assertIn("-$50", txt)
         self.assertIn("today", txt)
 
+    def test_windows_reuse_not_stack(self):
+        # Clicking a window button twice focuses the existing one (no stacking).
+        def count(kind):
+            return sum(1 for w in self.root.winfo_children()
+                       if isinstance(w, tk.Toplevel) and kind in w.title())
+        for opener, kind in ((self.app._open_analytics, "Analytics"),
+                             (self.app._open_strategy_chart, "Chart"),
+                             (self.app._open_backtest, "Backtest")):
+            opener(); self.root.update_idletasks()
+            opener(); self.root.update_idletasks()
+            self.assertEqual(count(kind), 1, f"{kind} should reuse one window")
+        for w in list(self.root.winfo_children()):
+            if isinstance(w, tk.Toplevel):
+                w.destroy()
+
     # -- secondary windows open without error ------------------------------
     def test_secondary_windows_open(self):
         for opener in (self.app._open_backtest, self.app._open_strategy_chart,

@@ -44,14 +44,35 @@ class AnalyticsWindow:
         self.history = history_module
         self.win = tk.Toplevel(root)
         self.win.title("Analytics — Prometheus AI Crypto Bot")
-        self.win.geometry("780x600")
-        self.win.minsize(660, 520)
+        theme.fit_window(self.win, 780, 600, min_w=660, min_h=480)
         self.win.configure(bg=BG)
+        self._alive = True
+        self.win.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._vals: dict = {}      # key -> (value Label, colour rule)
         self._last_points = []
         self._build()
         self.refresh()
+
+    # -- lifecycle (so the GUI reuses one window instead of stacking) --------
+    def alive(self) -> bool:
+        try:
+            return self._alive and bool(self.win.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def focus(self) -> None:
+        try:
+            self.win.deiconify(); self.win.lift(); self.win.focus_force()
+        except tk.TclError:
+            pass
+
+    def _on_close(self) -> None:
+        self._alive = False
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass
 
     # -- time range ---------------------------------------------------------
     def _range_bounds(self):

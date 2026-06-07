@@ -221,3 +221,24 @@ def style_button(btn: tk.Button, kind: str = "default") -> None:
     btn.configure(bg=bg, fg=fg, activebackground=active, activeforeground=fg,
                   relief="flat", bd=0, highlightthickness=0,
                   cursor="hand2", font=("Segoe UI Semibold", 10))
+
+
+def fit_window(win, w: int, h: int, min_w: int = 0, min_h: int = 0,
+               margin: int = 80) -> None:
+    """Size ``win`` to (w, h) but never larger than the screen, and center it.
+
+    Makes every window fit any monitor (small laptops included). ``min_w/min_h``
+    set the resize floor, themselves capped to the actual (possibly smaller)
+    window so the minimum can never exceed the screen."""
+    try:
+        win.update_idletasks()
+        sw = win.winfo_screenwidth() or w
+        sh = win.winfo_screenheight() or h
+        w = min(int(w), max(320, sw - margin))
+        h = min(int(h), max(240, sh - margin))
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2 - 20)        # a touch above center
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.minsize(min(min_w or w, w), min(min_h or h, h))
+    except Exception:  # noqa: BLE001 - never let sizing crash a window
+        win.geometry(f"{int(w)}x{int(h)}")
