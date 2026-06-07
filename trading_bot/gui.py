@@ -1262,9 +1262,21 @@ class TradingBotGUI:
         ttk.Label(maf4, text="(TP1 banks Scale%, TP2 closes rest)",
                   style="Dim.TLabel").pack(side="left")
 
+        # Trending-only filter (ADX): skip choppy ranges.
+        maf5 = ttk.Frame(f)
+        maf5.grid(row=7, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(maf5, text="ADX min (0=off):").pack(side="left")
+        self.strat_ma_adxmin_var = tk.StringVar(value="0")
+        num_entry(maf5, self.strat_ma_adxmin_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf5, text="ADX len:").pack(side="left")
+        self.strat_ma_adxlen_var = tk.StringVar(value="14")
+        num_entry(maf5, self.strat_ma_adxlen_var, 4).pack(side="left", padx=(2, 8))
+        ttk.Label(maf5, text="(only trade when trending, e.g. 20-25)",
+                  style="Dim.TLabel").pack(side="left")
+
         # Analysis tools: backtest + trade analytics, side by side.
         bt = ttk.Frame(f)
-        bt.grid(row=7, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        bt.grid(row=8, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.backtest_btn = tk.Button(bt, text="📊 Backtest", command=self._open_backtest)
         theme.style_button(self.backtest_btn, "accent")
         self.backtest_btn.pack(side="left")
@@ -1286,6 +1298,8 @@ class TradingBotGUI:
             ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 2.5)),
             ma_tp1_r=max(0.0, self._float(self.strat_ma_tp1_var.get(), 1.0)),
             ma_tp2_r=max(0.0, self._float(self.strat_ma_tp2_var.get(), 2.0)),
+            ma_adx_len=max(2, int(self._float(self.strat_ma_adxlen_var.get(), 14))),
+            ma_adx_min=max(0.0, self._float(self.strat_ma_adxmin_var.get(), 0.0)),
         )
 
     def _on_strat_symbol_pick(self) -> None:
@@ -1732,6 +1746,8 @@ class TradingBotGUI:
         self.strat_ma_atrmult_var.set(str(s.get("strat_ma_atrmult", 2.5)))
         self.strat_ma_tp1_var.set(str(s.get("strat_ma_tp1", 1.0)))
         self.strat_ma_tp2_var.set(str(s.get("strat_ma_tp2", 2.0)))
+        self.strat_ma_adxmin_var.set(str(s.get("strat_ma_adxmin", 0)))
+        self.strat_ma_adxlen_var.set(str(s.get("strat_ma_adxlen", 14)))
         self.strat_ma_atrlen_var.set(str(s.get("strat_ma_atrlen", 14)))
         self._toggle_passphrase()
 
@@ -1802,6 +1818,8 @@ class TradingBotGUI:
             "strat_ma_atrmult": self.strat_ma_atrmult_var.get(),
             "strat_ma_tp1": self.strat_ma_tp1_var.get(),
             "strat_ma_tp2": self.strat_ma_tp2_var.get(),
+            "strat_ma_adxmin": self.strat_ma_adxmin_var.get(),
+            "strat_ma_adxlen": self.strat_ma_adxlen_var.get(),
             "strat_ma_atrlen": self.strat_ma_atrlen_var.get(),
         }
 

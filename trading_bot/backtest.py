@@ -73,7 +73,7 @@ def run_backtest(candles, params: strategy.StrategyParams,
 
     ts = [int(c[0]) for c in candles]
     # Shared arrays — identical to the live engine (trend filter + ATR stop included).
-    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr = strategy.crossover_arrays(
+    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr, adx = strategy.crossover_arrays(
         candles, params)
     confirm = max(0, int(params.ma_confirm))
     min_body = max(0.0, params.ma_min_body)
@@ -150,10 +150,11 @@ def run_backtest(candles, params: strategy.StrategyParams,
 
         long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
         short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
+        trending = strategy.adx_ok(i, adx, params)
         enter_long = (prev_ready and long_aligned and green_run >= confirm
-                      and strategy.trend_ok("long", i, cl, trend, params))
+                      and strategy.trend_ok("long", i, cl, trend, params) and trending)
         enter_short = (prev_ready and short_aligned and red_run >= confirm and cfg.allow_short
-                       and strategy.trend_ok("short", i, cl, trend, params))
+                       and strategy.trend_ok("short", i, cl, trend, params) and trending)
         prev_ready = True
 
         # --- manage the open position (exit / scale) --- (TP is close-based, to

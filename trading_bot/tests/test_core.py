@@ -720,6 +720,39 @@ class TestTakeProfit(unittest.TestCase):
         self.assertTrue(bts <= eng)
 
 
+class TestAdxFilter(unittest.TestCase):
+    def _bars(self, cl, spread=0.004):
+        cd, prev = [], cl[0]
+        for i, c in enumerate(cl):
+            cd.append([i * 3600000, prev, max(prev, c) * (1 + spread),
+                       min(prev, c) * (1 - spread), c, 1000.0])
+            prev = c
+        return cd
+
+    def test_adx_high_in_trend_low_in_chop(self):
+        from strategy import adx_series
+        import math
+        up = [100 * (1.01 ** i) for i in range(60)]
+        chop = [100 + 3 * math.sin(i / 2.0) for i in range(60)]
+        au = adx_series([b[2] for b in self._bars(up)], [b[3] for b in self._bars(up)],
+                        [b[4] for b in self._bars(up)], 14)
+        ac = adx_series([b[2] for b in self._bars(chop)], [b[3] for b in self._bars(chop)],
+                        [b[4] for b in self._bars(chop)], 14)
+        self.assertGreater([x for x in au if x is not None][-1], 25)
+        self.assertLess([x for x in ac if x is not None][-1], 25)
+
+    def test_filter_cuts_choppy_entries(self):
+        import math
+        chop = [100 + 3 * math.sin(i / 2.0) + (1.5 if i % 2 else -1.5) for i in range(120)]
+        cd = self._bars(chop)
+        off = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=0, ma_adx_min=0)
+        on = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=0, ma_adx_min=25)
+        n_off = len([e for _i, e in evaluate_all_crossover(cd, off) if e["act"] == "enter"])
+        n_on = len([e for _i, e in evaluate_all_crossover(cd, on) if e["act"] == "enter"])
+        self.assertGreater(n_off, 0)
+        self.assertLess(n_on, n_off)
+
+
 class TestBacktestDefaults(unittest.TestCase):
     def test_start_equity_default(self):
         import backtest as bt

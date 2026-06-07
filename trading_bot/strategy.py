@@ -42,6 +42,8 @@ class StrategyParams:
     ma_atr_mult: float = 0.0         # ATR stop multiple; 0 = use the swing low/high stop
     ma_tp1_r: float = 1.0            # take-profit 1 at this R multiple (scale out); 0 = off
     ma_tp2_r: float = 2.0            # take-profit 2 at this R multiple (close rest); 0 = off
+    ma_adx_len: int = 14             # ADX length for the trending-only filter
+    ma_adx_min: float = 0.0          # only enter when ADX >= this (trend strength); 0 = off
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +150,57 @@ def atr_series(highs: List[float], lows: List[float], closes: List[float],
     return out
 
 
+def adx_series(highs: List[float], lows: List[float], closes: List[float],
+               length: int) -> List[Optional[float]]:
+    """Wilder's ADX (trend-strength, 0-100). High = trending, low (<~20) = chop.
+    Needs ~2*length bars of warmup; entries before then are None."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    if length <= 0 or n < 2 * length + 1:
+        return out
+    plus_dm = [0.0] * n
+    minus_dm = [0.0] * n
+    tr = [0.0] * n
+    for i in range(1, n):
+        up = highs[i] - highs[i - 1]
+        dn = lows[i - 1] - lows[i]
+        plus_dm[i] = up if (up > dn and up > 0) else 0.0
+        minus_dm[i] = dn if (dn > up and dn > 0) else 0.0
+        pc = closes[i - 1]
+        tr[i] = max(highs[i] - lows[i], abs(highs[i] - pc), abs(lows[i] - pc))
+
+    def _wilder(arr):
+        sm = [None] * n
+        seed = sum(arr[1:length + 1])
+        sm[length] = seed
+        prev = seed
+        for i in range(length + 1, n):
+            prev = prev - prev / length + arr[i]
+            sm[i] = prev
+        return sm
+
+    str_ = _wilder(tr)
+    pdm = _wilder(plus_dm)
+    mdm = _wilder(minus_dm)
+    dx = [None] * n
+    for i in range(length, n):
+        if str_[i]:
+            pdi = 100.0 * pdm[i] / str_[i]
+            mdi = 100.0 * mdm[i] / str_[i]
+            denom = pdi + mdi
+            dx[i] = 100.0 * abs(pdi - mdi) / denom if denom > 0 else 0.0
+    start = 2 * length
+    vals = [dx[i] for i in range(length + 1, start + 1) if dx[i] is not None]
+    if start < n and vals:
+        adx = sum(vals) / len(vals)
+        out[start] = adx
+        for i in range(start + 1, n):
+            if dx[i] is not None:
+                adx = (adx * (length - 1) + dx[i]) / length
+                out[i] = adx
+    return out
+
+
 def highest_series(highs: List[float], length: int) -> List[float]:
     """Highest high over the trailing ``length`` bars, inclusive of the current
     bar (mirror of :func:`lowest_series`, used for short-side protective stops)."""
@@ -169,6 +222,8 @@ def crossover_need(params: StrategyParams) -> int:
         extra.append(params.ma_trend_len)
     if params.ma_atr_mult > 0:
         extra.append(params.ma_atr_len)
+    if params.ma_adx_min > 0:
+        extra.append(2 * params.ma_adx_len)
     return max(extra) + 2
 
 
@@ -185,7 +240,17 @@ def crossover_arrays(candles, params: StrategyParams):
     swing_high = highest_series(h, params.ma_swing)
     trend = ema_series(cl, params.ma_trend_len) if params.ma_trend_len > 0 else None
     atr = atr_series(h, low, cl, params.ma_atr_len) if params.ma_atr_mult > 0 else None
-    return o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr
+    adx = adx_series(h, low, cl, params.ma_adx_len) if params.ma_adx_min > 0 else None
+    return o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr, adx
+
+
+def adx_ok(i: int, adx, params: StrategyParams) -> bool:
+    """Trending-only filter: allow entries only when ADX >= ma_adx_min (so the bot
+    sits out choppy ranges). During ADX warmup, no entry."""
+    if params.ma_adx_min <= 0:
+        return True
+    av = adx[i] if adx is not None else None
+    return av is not None and av >= params.ma_adx_min
 
 
 def trend_ok(side: str, i: int, cl, trend, params: StrategyParams) -> bool:
@@ -232,7 +297,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         return []
 
     ts = [int(c[0]) for c in candles]
-    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr = crossover_arrays(candles, params)
+    o, h, low, cl, ema, rsi, swing_low, swing_high, trend, atr, adx = crossover_arrays(candles, params)
     confirm = max(0, int(params.ma_confirm))   # in-direction candles to confirm an entry
     min_body = max(0.0, params.ma_min_body)    # each must have a body >= this of its range
 
@@ -271,10 +336,11 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
         # Entry needs alignment AND `confirm` candles in the trade direction AND
         # (when enabled) agreement with the higher-timeframe-style trend filter.
+        trending = adx_ok(i, adx, params)
         enter_long = (prev_ready and long_aligned and green_run >= confirm
-                      and trend_ok("long", i, cl, trend, params))
+                      and trend_ok("long", i, cl, trend, params) and trending)
         enter_short = (prev_ready and short_aligned and red_run >= confirm
-                       and trend_ok("short", i, cl, trend, params))
+                       and trend_ok("short", i, cl, trend, params) and trending)
 
         # 1) Manage an open position first — exits/stops take priority. Take-profit
         # is close-based (same as how the live bot sees bars): TP1 banks a partial
@@ -341,7 +407,7 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
     n = len(candles)
     if n < crossover_need(params):
         return ""
-    o, h, low, cl, ema, rsi, _sl, _sh, trend, _atr = crossover_arrays(candles, params)
+    o, h, low, cl, ema, rsi, _sl, _sh, trend, _atr, adx = crossover_arrays(candles, params)
     i = n - 1
     if ema[i] is None or rsi[i] is None:
         return ""
@@ -361,7 +427,9 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
     long_aligned = cl[i] > ema[i] and rsi[i] > 50.0
     short_aligned = cl[i] < ema[i] and rsi[i] < 50.0
     for side, aligned, run in (("long", long_aligned, green), ("short", short_aligned, red)):
-        if aligned and run >= confirm and not trend_ok(side, i, cl, trend, params):
+        if not (aligned and run >= confirm):
+            continue
+        if not trend_ok(side, i, cl, trend, params):
             tv = trend[i] if trend is not None else None
             verb = "BUY" if side == "long" else "SELL"
             rel = "below" if side == "long" else "above"
@@ -369,4 +437,11 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
                 return f"{verb} held: trend EMA{params.ma_trend_len} still warming up"
             return (f"{verb} held by trend filter — price {cl[i]:g} {rel} "
                     f"EMA{params.ma_trend_len} {tv:g}")
+        if not adx_ok(i, adx, params):
+            verb = "BUY" if side == "long" else "SELL"
+            av = adx[i] if adx is not None else None
+            if av is None:
+                return f"{verb} held: ADX still warming up"
+            return (f"{verb} held — market not trending (ADX {av:.0f} < "
+                    f"{params.ma_adx_min:g})")
     return ""
