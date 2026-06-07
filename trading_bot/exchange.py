@@ -155,6 +155,59 @@ def resolve_market_symbol(client, symbol: str, market_type: str,
     return candidate
 
 
+def _rank_pairs(client, want_type: str, quotes: set, limit: int) -> List[str]:
+    """Rank a client's pairs by 24h quote volume, keeping only ``want_type``
+    markets quoted in ``quotes``; BTC/ETH floated to the front. Best-effort."""
+    try:
+        tickers = client.fetch_tickers()
+    except Exception:  # noqa: BLE001
+        return []
+    rows = []
+    for sym, t in tickers.items():
+        m = client.markets.get(sym, {}) if hasattr(client, "markets") else {}
+        if m.get("quote") not in quotes or m.get("type") != want_type:
+            continue
+        if not m.get("active", True):
+            continue
+        base = m.get("base", sym.split("/")[0])
+        quote = m.get("quote", QUOTE_CURRENCY)
+        try:
+            vol = float(t.get("quoteVolume") or 0)
+        except (TypeError, ValueError):
+            vol = 0.0
+        rows.append((f"{base}/{quote}", vol))
+    rows.sort(key=lambda r: r[1], reverse=True)
+    ordered = [s for s, _ in rows][:limit]
+    for base in ("ETH", "BTC"):
+        for i, s in enumerate(ordered):
+            if s.startswith(base + "/"):
+                ordered.insert(0, ordered.pop(i))
+                break
+    return ordered
+
+
+def fetch_top_pairs(exchange_id: str, market_type: str = "spot", limit: int = 20) -> List[str]:
+    """Keyless top-pairs lookup: build a *public* data client for this venue and
+    market (right class/defaultType via market_ccxt_spec) and rank its pairs.
+    Used to populate the symbol dropdowns when the exchange is changed but not yet
+    connected. Returns [] on any failure (offline / class missing)."""
+    if not CCXT_AVAILABLE:
+        return []
+    ccxt_id, default_type = market_ccxt_spec(exchange_id, market_type)
+    if ccxt_id not in getattr(ccxt, "exchanges", []):
+        return []
+    futures = default_type != "spot"
+    quotes = {futures_quote(exchange_id)} if futures else {"USDT", "USDC", "USD"}
+    want_type = "swap" if futures else "spot"
+    try:
+        client = getattr(ccxt, ccxt_id)({
+            "enableRateLimit": True, "options": {"defaultType": default_type}})
+        client.load_markets()
+    except Exception:  # noqa: BLE001
+        return []
+    return _rank_pairs(client, want_type, quotes, limit)
+
+
 def recompute_pnl(positions: List[Position], prices: dict) -> List[Position]:
     """Return positions with ``current`` and ``pnl`` refreshed from ``prices``.
 
@@ -492,33 +545,7 @@ class ExchangeManager:
             return []
         want_type = "swap" if self.is_futures else "spot"
         quotes = {self._fut_quote} if self.is_futures else {"USDT", "USDC", "USD"}
-        try:
-            tickers = self.client.fetch_tickers()
-        except Exception:  # noqa: BLE001
-            return []
-        rows = []
-        for sym, t in tickers.items():
-            m = self.client.markets.get(sym, {}) if hasattr(self.client, "markets") else {}
-            if m.get("quote") not in quotes or m.get("type") != want_type:
-                continue
-            if not m.get("active", True):
-                continue
-            base = m.get("base", sym.split("/")[0])
-            quote = m.get("quote", QUOTE_CURRENCY)
-            try:
-                vol = float(t.get("quoteVolume") or 0)
-            except (TypeError, ValueError):
-                vol = 0.0
-            rows.append((f"{base}/{quote}", vol))
-        rows.sort(key=lambda r: r[1], reverse=True)
-        ordered = [s for s, _ in rows][:limit]
-        # Keep BTC/ETH at the front if present (whatever their quote).
-        for base in ("ETH", "BTC"):
-            for i, s in enumerate(ordered):
-                if s.startswith(base + "/"):
-                    ordered.insert(0, ordered.pop(i))
-                    break
-        return ordered
+        return _rank_pairs(self.client, want_type, quotes, limit)
 
     # -- pricing ------------------------------------------------------------
     def _market_symbol(self, symbol: str) -> str:

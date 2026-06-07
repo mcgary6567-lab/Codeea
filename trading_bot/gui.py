@@ -538,7 +538,8 @@ class TradingBotGUI:
         )
         self.exchange_combo.grid(row=0, column=1, sticky="ew", pady=4)
         self.exchange_combo.bind("<<ComboboxSelected>>",
-                                 lambda e: (self._toggle_passphrase(), self._sync_chart()))
+                                 lambda e: (self._toggle_passphrase(), self._sync_chart(),
+                                            self._refresh_pairs_for_selection()))
 
         ttk.Label(f, text="API Key:").grid(row=1, column=0, sticky="w", pady=4)
         self.api_key_var = tk.StringVar()
@@ -557,7 +558,8 @@ class TradingBotGUI:
         self.market_combo = ttk.Combobox(f, textvariable=self.market_var,
                                          values=["Spot", "Futures"], state="readonly")
         self.market_combo.grid(row=4, column=1, sticky="ew", pady=4)
-        self.market_combo.bind("<<ComboboxSelected>>", lambda e: self._sync_chart())
+        self.market_combo.bind("<<ComboboxSelected>>",
+                                lambda e: (self._sync_chart(), self._refresh_pairs_for_selection()))
 
         btns = ttk.Frame(f)
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0))
@@ -2265,6 +2267,36 @@ class TradingBotGUI:
                 self._set_pair_list(pairs)
         elif kind == "alert":
             self._handle_alert(msg)
+
+    def _refresh_pairs_for_selection(self) -> None:
+        """When the exchange/market dropdown changes (and we're not connected),
+        fetch that venue's top pairs keylessly off-thread and populate every
+        symbol picker. While connected, the live position feed already drives it."""
+        if self.connected:
+            return
+        import exchange as _ex
+        eid = exchange_id(self.exchange_var.get())
+        market = "futures" if self.market_var.get() == "Futures" else "spot"
+        self._pairs_token = getattr(self, "_pairs_token", 0) + 1
+        token = self._pairs_token
+        result: dict = {}
+
+        def worker():
+            result["pairs"] = _ex.fetch_top_pairs(eid, market)
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
+        # Poll the result from the MAIN thread (Tcl/after isn't thread-safe), and
+        # ignore a stale fetch if the selection changed again in the meantime.
+        def poll():
+            if t.is_alive():
+                self.root.after(150, poll)
+                return
+            if token == self._pairs_token and result.get("pairs"):
+                self._set_pair_list(result["pairs"])
+
+        self.root.after(150, poll)
 
     def _set_pair_list(self, pairs: list) -> None:
         """Store the exchange pair list and push it to every symbol picker — the

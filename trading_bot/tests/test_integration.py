@@ -169,6 +169,33 @@ class TestGuiWiring(unittest.TestCase):
             if isinstance(w, tk.Toplevel):
                 w.destroy()
 
+    def test_exchange_change_refreshes_pairs_keyless(self):
+        import time
+        import exchange as ex
+        orig = ex.fetch_top_pairs
+        ex.fetch_top_pairs = lambda eid, mkt, limit=20: [f"{eid.upper()}1/USDT", "BTC/USDT"]
+        try:
+            self.app.connected = False
+            self.app.exchange_var.set("Kraken")
+            self.app._refresh_pairs_for_selection()
+            for _ in range(40):
+                self.root.update()
+                time.sleep(0.02)
+                if "KRAKEN1/USDT" in self.app.symbol_box.cget("values"):
+                    break
+            self.assertIn("KRAKEN1/USDT", self.app.symbol_box.cget("values"))
+            # while connected the live feed owns it -> no keyless refetch
+            self.app.connected = True
+            self.app.exchange_var.set("OKX")
+            self.app._refresh_pairs_for_selection()
+            for _ in range(10):
+                self.root.update()
+                time.sleep(0.02)
+            self.assertNotIn("OKX1/USDT", self.app.symbol_box.cget("values"))
+        finally:
+            ex.fetch_top_pairs = orig
+            self.app.connected = False
+
     # -- reset restores defaults -------------------------------------------
     def test_reset_restores_defaults(self):
         self.app.connected = False
