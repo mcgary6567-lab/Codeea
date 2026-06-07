@@ -678,6 +678,48 @@ class TestEntryBlockReason(unittest.TestCase):
                                                   ma_trend_len=0)), "")
 
 
+class TestTakeProfit(unittest.TestCase):
+    def _uptrend(self):
+        closes = [100.0] * 40
+        p = 100.0
+        for _ in range(40):
+            p *= 1.01; closes.append(p)
+        cd, prev = [], closes[0]
+        for i, c in enumerate(closes):
+            cd.append([i * 3600000, prev, max(prev, c) * 1.001, min(prev, c) * 0.999, c, 1000.0])
+            prev = c
+        return cd
+
+    def test_tp_fires_scale_and_exit(self):
+        import backtest as bt
+        cd = self._uptrend()
+        on = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=2.0,
+                            ma_tp1_r=1.0, ma_tp2_r=2.0)
+        acts = [e["act"] for _i, e in evaluate_all_crossover(cd, on)]
+        self.assertIn("scale_out", acts)   # TP1 banks a partial
+        self.assertIn("exit", acts)        # TP2 closes the rest
+        reasons = {t.reason for t in bt.run_backtest(cd, on, bt.BacktestConfig(apply_costs=False)).trades}
+        self.assertIn("tp", reasons)
+
+    def test_tp_off_has_no_tp_exits(self):
+        import backtest as bt
+        cd = self._uptrend()
+        off = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=2.0,
+                             ma_tp1_r=0, ma_tp2_r=0)
+        reasons = {t.reason for t in bt.run_backtest(cd, off, bt.BacktestConfig(apply_costs=False)).trades}
+        self.assertNotIn("tp", reasons)
+
+    def test_tp_does_not_change_engine_backtest_agreement(self):
+        # For the SAME params, backtest entries stay a subset of engine entries.
+        import backtest as bt
+        cd = self._uptrend()
+        p = StrategyParams(ma_confirm=1, ma_trend_len=0, ma_atr_mult=2.0,
+                           ma_tp1_r=1.0, ma_tp2_r=2.0)
+        eng = {(i, e["side"]) for i, e in evaluate_all_crossover(cd, p) if e["act"] == "enter"}
+        bts = {(t.entry_i, t.side) for t in bt.run_backtest(cd, p, bt.BacktestConfig(apply_costs=False)).trades}
+        self.assertTrue(bts <= eng)
+
+
 class TestBacktestDefaults(unittest.TestCase):
     def test_start_equity_default(self):
         import backtest as bt

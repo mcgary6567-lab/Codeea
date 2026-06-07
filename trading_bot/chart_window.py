@@ -99,6 +99,8 @@ class ChartWindow:
         self._price_ma: List = []        # EMA20 overlay
         self._trend_ma: List = []        # trend-filter EMA overlay (when enabled)
         self._trend_len: int = 0         # current trend-EMA length (for the legend)
+        self._tp1_r: float = 1.0         # take-profit R multiples (0 = that TP off)
+        self._tp2_r: float = 2.0
         self._geom: Optional[dict] = None
         self.view_count = DEFAULT_VIEW
         self.view_end: Optional[int] = None
@@ -255,6 +257,7 @@ class ChartWindow:
             price_ma = strategy.ema_series(closes, params.ma_len)
             trend_len = int(params.ma_trend_len or 0)
             trend_ma = strategy.ema_series(closes, trend_len) if trend_len > 0 else []
+            tp1_r, tp2_r = max(0.0, params.ma_tp1_r), max(0.0, params.ma_tp2_r)
         except Exception as exc:  # noqa: BLE001 - surface, don't crash the window
             self._post(lambda: self.status.config(text=f"Error: {exc}"))
             return
@@ -266,6 +269,7 @@ class ChartWindow:
             self._price_ma = price_ma
             self._trend_ma = trend_ma
             self._trend_len = trend_len
+            self._tp1_r, self._tp2_r = tp1_r, tp2_r
             self._refresh_legend()      # show/hide the trend-EMA legend entry
             if self.view_end is None:
                 self.view_end = len(candles) - 1
@@ -490,9 +494,10 @@ class ChartWindow:
         if entries:
             le = entries[-1]
             levels = [le["entry"], le.get("sl")]
-            if le.get("sl"):                       # include TP1/TP2 (1R/2R) so they stay on-screen
+            if le.get("sl"):                       # include TP1/TP2 so they stay on-screen
                 risk = le["entry"] - le["sl"]
-                levels += [le["entry"] + risk, le["entry"] + 2 * risk]
+                levels += [le["entry"] + risk * m
+                           for m in (self._tp1_r, self._tp2_r) if m > 0]
             for lv in levels:
                 if lv:
                     hi = max(hi, lv)
@@ -589,11 +594,11 @@ class ChartWindow:
                 sl = last_entry["sl"]
                 self._level(c, Yp, w, padL, padR, sl, SL_COLOR, (2, 2),
                             f"SL {self._pct(sl, entry)}%")
-                # The built-in strategy has no fixed target (it scales out at RSI
-                # extremes / trails the EMA), so project TP1/TP2 at 1R and 2R of
-                # the stop distance — the same direction as the trade.
+                # TP1/TP2 at their configured R multiples (the engine acts on these).
                 risk = entry - sl                      # +ve for long, -ve for short
-                for mult, name in ((1.0, "TP1"), (2.0, "TP2")):
+                for mult, name in ((self._tp1_r, "TP1"), (self._tp2_r, "TP2")):
+                    if mult <= 0:
+                        continue
                     tp = entry + risk * mult
                     self._level(c, Yp, w, padL, padR, tp, TP_COLOR, (2, 2),
                                 f"{name} {self._pct(tp, entry)}%")

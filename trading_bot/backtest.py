@@ -156,24 +156,34 @@ def run_backtest(candles, params: strategy.StrategyParams,
                        and strategy.trend_ok("short", i, cl, trend, params))
         prev_ready = True
 
-        # --- manage the open position (exit / scale) ---
+        # --- manage the open position (exit / scale) --- (TP is close-based, to
+        # mirror strategy._replay_crossover exactly)
+        tp1_r, tp2_r = max(0.0, params.ma_tp1_r), max(0.0, params.ma_tp2_r)
         if pos == "long":
             sl_eff = entry if scaled else sl     # breakeven after the scale-out
+            tp2_hit = tp2_r > 0 and cl[i] >= entry + tp2_r * init_risk
             if low[i] <= sl_eff:
                 close_trade(i, sl_eff, "sl")
             elif cl[i] < ema[i] or enter_short:
                 close_trade(i, cl[i], "reverse" if enter_short else "ema")
-            elif not scaled and rsi[i] >= params.ma_ob:
+            elif tp2_hit:
+                close_trade(i, cl[i], "tp")
+            elif not scaled and (rsi[i] >= params.ma_ob
+                                 or (tp1_r > 0 and cl[i] >= entry + tp1_r * init_risk)):
                 part = qty * params.ma_scale
                 realized_partial += (cl[i] - entry) * part - _fee(part * cl[i], cfg)
                 scaled = True
         elif pos == "short":
             sl_eff = entry if scaled else sl
+            tp2_hit = tp2_r > 0 and cl[i] <= entry - tp2_r * init_risk
             if h[i] >= sl_eff:
                 close_trade(i, sl_eff, "sl")
             elif cl[i] > ema[i] or enter_long:
                 close_trade(i, cl[i], "reverse" if enter_long else "ema")
-            elif not scaled and rsi[i] <= params.ma_os:
+            elif tp2_hit:
+                close_trade(i, cl[i], "tp")
+            elif not scaled and (rsi[i] <= params.ma_os
+                                 or (tp1_r > 0 and cl[i] <= entry - tp1_r * init_risk)):
                 part = qty * params.ma_scale
                 realized_partial += (entry - cl[i]) * part - _fee(part * cl[i], cfg)
                 scaled = True

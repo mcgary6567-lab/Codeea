@@ -40,6 +40,8 @@ class StrategyParams:
     ma_trend_len: int = 0            # trend-filter EMA (HTF-style); 0 = off
     ma_atr_len: int = 14             # ATR length for the optional ATR stop
     ma_atr_mult: float = 0.0         # ATR stop multiple; 0 = use the swing low/high stop
+    ma_tp1_r: float = 1.0            # take-profit 1 at this R multiple (scale out); 0 = off
+    ma_tp2_r: float = 2.0            # take-profit 2 at this R multiple (close rest); 0 = off
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +239,10 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     pos = "flat"            # flat / long / short
     scaled = False          # has the one-shot RSI scale-out fired for this position?
     sl: Optional[float] = None
+    entry_px = 0.0          # entry price + initial risk, for R-multiple take-profits
+    init_risk = 0.0
+    tp1_r = max(0.0, params.ma_tp1_r)
+    tp2_r = max(0.0, params.ma_tp2_r)
     prev_ready = False
     green_run = 0           # consecutive *quality* green / red candles (entry confirmation)
     red_run = 0
@@ -270,20 +276,26 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         enter_short = (prev_ready and short_aligned and red_run >= confirm
                        and trend_ok("short", i, cl, trend, params))
 
-        # 1) Manage an open position first — exits/stops take priority.
+        # 1) Manage an open position first — exits/stops take priority. Take-profit
+        # is close-based (same as how the live bot sees bars): TP1 banks a partial
+        # (one-shot, like the RSI scale-out), TP2 closes the rest.
         if pos == "long":
-            if (sl is not None and low[i] <= sl) or cl[i] < ema[i] or enter_short:
+            tp2_hit = tp2_r > 0 and cl[i] >= entry_px + tp2_r * init_risk
+            if (sl is not None and low[i] <= sl) or cl[i] < ema[i] or enter_short or tp2_hit:
                 events.append((i, {"act": "exit"}))
                 pos, scaled, sl = "flat", False, None
-            elif not scaled and rsi[i] >= params.ma_ob:
+            elif not scaled and (rsi[i] >= params.ma_ob
+                                 or (tp1_r > 0 and cl[i] >= entry_px + tp1_r * init_risk)):
                 events.append((i, {"act": "scale_out", "fraction": params.ma_scale,
                                    "side": "long"}))
                 scaled = True
         elif pos == "short":
-            if (sl is not None and h[i] >= sl) or cl[i] > ema[i] or enter_long:
+            tp2_hit = tp2_r > 0 and cl[i] <= entry_px - tp2_r * init_risk
+            if (sl is not None and h[i] >= sl) or cl[i] > ema[i] or enter_long or tp2_hit:
                 events.append((i, {"act": "exit"}))
                 pos, scaled, sl = "flat", False, None
-            elif not scaled and rsi[i] <= params.ma_os:
+            elif not scaled and (rsi[i] <= params.ma_os
+                                 or (tp1_r > 0 and cl[i] <= entry_px - tp1_r * init_risk)):
                 events.append((i, {"act": "scale_out", "fraction": params.ma_scale,
                                    "side": "short"}))
                 scaled = True
@@ -292,11 +304,13 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         if pos == "flat":
             if enter_long:
                 sl = crossover_stop("long", i, cl, swing_low, swing_high, atr, params)
+                entry_px, init_risk = cl[i], abs(cl[i] - sl)
                 events.append((i, {"act": "enter", "side": "long",
                                    "entry": cl[i], "sl": sl, "ts": ts[i]}))
                 pos, scaled = "long", False
             elif enter_short:
                 sl = crossover_stop("short", i, cl, swing_low, swing_high, atr, params)
+                entry_px, init_risk = cl[i], abs(cl[i] - sl)
                 events.append((i, {"act": "enter", "side": "short",
                                    "entry": cl[i], "sl": sl, "ts": ts[i]}))
                 pos, scaled = "short", False
