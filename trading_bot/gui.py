@@ -1048,7 +1048,7 @@ class TradingBotGUI:
         self.daily_limit_lbl.pack(side="left", padx=8)
         for v in (self.daily_loss_var, self.daily_loss_pct_var,
                   self.daily_profit_var, self.daily_profit_pct_var):
-            v.trace_add("write", lambda *a: self._refresh_daily_limit_status())
+            v.trace_add("write", lambda *a: self._on_daily_limit_edit())
         self._refresh_daily_limit_status()
 
         ttk.Separator(f, orient="horizontal").grid(row=18, column=0, columnspan=2, sticky="ew", pady=6)
@@ -2291,11 +2291,32 @@ class TradingBotGUI:
         # Sync the manual BUY/SELL buttons to the new connection state.
         self._update_manual_state()
 
+    def _on_daily_limit_edit(self) -> None:
+        # User edited a limit field: drop the backend's exact figures so the label
+        # reflects the new value immediately (the next refresh restores exact).
+        self._eff_loss_limit = 0.0
+        self._eff_profit_limit = 0.0
+        self._refresh_daily_limit_status()
+
     def _refresh_daily_limit_status(self) -> None:
-        """Show the active daily stop/target in quote ccy (converting any % field
-        with the current balance) so it's clear which limit is in effect."""
+        """Show the active daily stop/target in quote ccy. When connected, use the
+        exact thresholds the backend resolved off the day's starting equity (and
+        the day's realized P&L so far); otherwise estimate the % off the balance."""
         if not getattr(self, "daily_limit_lbl", None):
             return
+
+        # Exact figures from the backend take precedence when present.
+        exact_stop = getattr(self, "_eff_loss_limit", 0.0)
+        exact_target = getattr(self, "_eff_profit_limit", 0.0)
+        realized = getattr(self, "_daily_realized", None)
+        if exact_stop > 0 or exact_target > 0:
+            stop = f"-${exact_stop:,.0f}" if exact_stop > 0 else "off"
+            target = f"+${exact_target:,.0f}" if exact_target > 0 else "off"
+            extra = f"  (today {realized:+,.0f})" if realized is not None else ""
+            self.daily_limit_lbl.config(text=f"Active daily — stop {stop} · target {target}{extra}")
+            return
+
+        # Not connected yet — estimate the % off the last known balance.
         bal = getattr(self, "_balance_val", 0.0)
 
         def fmt(pct, absv, sign):
@@ -2314,6 +2335,9 @@ class TradingBotGUI:
     def _update_account(self, msg: dict) -> None:
         balance = msg.get("balance", 0.0)
         self._balance_val = balance
+        self._eff_loss_limit = msg.get("daily_loss_limit", 0.0)
+        self._eff_profit_limit = msg.get("daily_profit_limit", 0.0)
+        self._daily_realized = msg.get("daily_realized")
         self._refresh_daily_limit_status()
         pnl = msg.get("pnl", 0.0)
         self.bal_label.config(text=f"  ·  ${balance:,.2f}", fg=TXT)

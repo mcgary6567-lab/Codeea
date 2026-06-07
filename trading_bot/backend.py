@@ -792,6 +792,11 @@ class Backend:
             balance=balance,
             pnl=total_pnl,
             positions=[p.__dict__ for p in recomputed],
+            # Resolved daily limits in quote ccy (off the day's starting equity),
+            # so the UI shows the exact trip thresholds — not a balance estimate.
+            daily_loss_limit=self.guardrails.effective_loss_limit(),
+            daily_profit_limit=self.guardrails.effective_profit_limit(),
+            daily_realized=self.guardrails.daily_realized,
         )
 
     def _detect_closed_positions(self, new_pairs: set) -> None:
