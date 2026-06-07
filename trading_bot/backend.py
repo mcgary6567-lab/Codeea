@@ -386,6 +386,8 @@ class Backend:
                     start_hour=cmd.get("start_hour", self.guardrails.start_hour),
                     end_hour=cmd.get("end_hour", self.guardrails.end_hour),
                     max_drawdown=cmd.get("max_drawdown", self.guardrails.max_drawdown_pct),
+                    paused=cmd.get("paused", self.guardrails.paused),
+                    max_exposure=cmd.get("max_exposure", self.guardrails.max_exposure),
                 )
                 self.notifier.configure(
                     sound=cmd.get("sound", self.notifier.sound_enabled),
@@ -526,6 +528,19 @@ class Backend:
                 self._emit("order", ok=False, source=source, message=f"Blocked: {msg}")
                 self.notifier.notify(f"Order too small {symbol}", msg, level="error", important=True)
                 return
+
+        # --- total-exposure cap: block if this order would push combined open
+        # notional past the limit ---
+        with self._lock:
+            positions = list(self._last_positions)
+        cur_notional = sum(abs(p.size) * (p.current or 0.0) for p in positions)
+        new_notional = size * price if price > 0 else 0.0
+        ok, ereason = self.guardrails.exposure_ok(cur_notional, new_notional)
+        if not ok:
+            self.log(f"Blocked: {ereason}", signal=side.upper(), pair=symbol, status="Blocked")
+            self._emit("order", ok=False, source=source, message=f"Blocked: {ereason}")
+            self.notifier.notify(f"Exposure cap {symbol}", ereason, level="error", important=True)
+            return
 
         # --- leverage / margin mode (best-effort) ---
         lm_note = self.exchange.apply_leverage_margin(symbol, self.leverage, self.margin_mode)

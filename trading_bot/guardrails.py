@@ -21,6 +21,8 @@ from datetime import date
 class Guardrails:
     def __init__(self) -> None:
         self.enabled = True
+        self.paused = False             # block all NEW entries; exits still flow
+        self.max_exposure = 0.0         # cap combined open notional (quote ccy); 0 = off
         self.max_open_positions = 0
         self.daily_loss_limit = 0.0     # absolute quote-ccy limit (USDT)
         self.daily_loss_pct = 0.0       # % of the day's starting equity (overrides the absolute)
@@ -51,7 +53,10 @@ class Guardrails:
     # -- config -------------------------------------------------------------
     def configure(self, max_open, daily_loss, cooldown, dedupe, daily_profit=0.0,
                   loss_streak=0, streak_cooldown=0, start_hour=0, end_hour=0,
-                  max_drawdown=0.0, daily_loss_pct=0.0, daily_profit_pct=0.0) -> None:
+                  max_drawdown=0.0, daily_loss_pct=0.0, daily_profit_pct=0.0,
+                  paused=False, max_exposure=0.0) -> None:
+        self.paused = bool(paused)
+        self.max_exposure = float(max_exposure or 0.0)
         self.max_open_positions = int(max_open or 0)
         self.daily_loss_limit = float(daily_loss or 0.0)
         self.daily_loss_pct = float(daily_loss_pct or 0.0)
@@ -162,6 +167,9 @@ class Guardrails:
         if not self.enabled:
             return True, "guardrails off"
 
+        if self.paused:
+            return False, "paused — new entries off (exits still run)"
+
         if self.tripped:
             kind = "profit target" if self.trip_reason == "profit" else "loss limit"
             return False, (
@@ -200,6 +208,17 @@ class Guardrails:
         ):
             return False, f"max open positions reached ({self.max_open_positions})"
 
+        return True, "ok"
+
+    def exposure_ok(self, current_notional: float, new_notional: float = 0.0):
+        """Whether opening ``new_notional`` keeps total open notional within the
+        cap. Returns ``(allowed, reason)``. 0 = off."""
+        if self.max_exposure <= 0:
+            return True, "ok"
+        total = abs(current_notional) + abs(new_notional)
+        if total > self.max_exposure:
+            return False, (f"exposure cap reached "
+                           f"({total:.0f} > {self.max_exposure:.0f})")
         return True, "ok"
 
     def record_signal(self, symbol: str, side: str, now: float | None = None) -> None:

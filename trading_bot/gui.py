@@ -1059,6 +1059,12 @@ class TradingBotGUI:
             mode_row, text="Use exchange testnet", variable=self.testnet_var,
             command=self._push_settings,
         ).pack(side="left", padx=(16, 0))
+        # Pause new entries (strategy + webhook) while still managing open trades.
+        self.paused_var = tk.BooleanVar(value=False)
+        theme.make_check(
+            mode_row, text="⏸ Pause new entries", variable=self.paused_var,
+            command=self._push_settings,
+        ).pack(side="left", padx=(16, 0))
 
         self.readonly_var = tk.BooleanVar(value=False)
         theme.make_check(
@@ -1072,6 +1078,7 @@ class TradingBotGUI:
         )
 
         self.max_open_var = tk.StringVar(value=str(DEFAULT_MAX_OPEN_POSITIONS))
+        self.max_exposure_var = tk.StringVar(value="0")
         self.daily_loss_var = tk.StringVar(value="0")
         self.daily_loss_pct_var = tk.StringVar(value="5")
         self.daily_profit_var = tk.StringVar(value="0")
@@ -1085,6 +1092,7 @@ class TradingBotGUI:
         self.end_hour_var = tk.StringVar(value="0")
         rows = [
             ("Max open positions:", self.max_open_var),
+            (f"Max total exposure ({QUOTE_CURRENCY}, 0=off):", self.max_exposure_var),
             (f"Daily loss limit ({QUOTE_CURRENCY}):", self.daily_loss_var),
             ("Daily loss limit (% of balance):", self.daily_loss_pct_var),
             (f"Daily profit limit ({QUOTE_CURRENCY}):", self.daily_profit_var),
@@ -1104,7 +1112,7 @@ class TradingBotGUI:
             e.bind("<FocusOut>", lambda ev: self._push_settings())
 
         gr = ttk.Frame(f)
-        gr.grid(row=17, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        gr.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         tk.Button(gr, text="🔁 Reset daily limit", command=self._reset_daily).pack(side="left")
         self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
@@ -1117,19 +1125,19 @@ class TradingBotGUI:
             v.trace_add("write", lambda *a: self._on_daily_limit_edit())
         self._refresh_daily_limit_status()
 
-        ttk.Separator(f, orient="horizontal").grid(row=18, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Separator(f, orient="horizontal").grid(row=19, column=0, columnspan=2, sticky="ew", pady=6)
         self.move_be_var = tk.BooleanVar(value=False)
         theme.make_check(
             f, text="Move stop to breakeven on TP1 event (from indicator)",
             variable=self.move_be_var, command=self._push_settings,
-        ).grid(row=20, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=21, column=0, columnspan=2, sticky="w", pady=2)
         self.auto_reconnect_var = tk.BooleanVar(value=True)
         theme.make_check(
             f, text="Auto-reconnect if the exchange connection drops",
             variable=self.auto_reconnect_var, command=self._push_settings,
-        ).grid(row=19, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=20, column=0, columnspan=2, sticky="w", pady=2)
         tr = ttk.Frame(f)
-        tr.grid(row=21, column=0, columnspan=2, sticky="w", pady=2)
+        tr.grid(row=22, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(tr, text="Trailing stop %:").pack(side="left")
         self.trailing_var = tk.StringVar(value="0")
         e = ttk.Entry(tr, textvariable=self.trailing_var, width=6)
@@ -1137,27 +1145,27 @@ class TradingBotGUI:
         e.bind("<FocusOut>", lambda ev: self._push_settings())
         ttk.Label(tr, text="(0 = off; close if price falls X% from its peak)").pack(side="left")
 
-        ttk.Separator(f, orient="horizontal").grid(row=22, column=0, columnspan=2, sticky="ew", pady=6)
+        ttk.Separator(f, orient="horizontal").grid(row=23, column=0, columnspan=2, sticky="ew", pady=6)
         self.autostart_var = tk.BooleanVar(value=autostart.is_enabled())
         theme.make_check(
             f, text="Run automatically when Windows starts (24/7)",
             variable=self.autostart_var, command=self._on_autostart_toggle,
-        ).grid(row=23, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=24, column=0, columnspan=2, sticky="w", pady=2)
         ttk.Label(f, text="Launches the app at login. Combine with Safe Mode off + a saved "
                           "licence/webhook so it trades unattended.",
                   style="Dim.TLabel", wraplength=380).grid(
-            row=24, column=0, columnspan=2, sticky="w")
+            row=25, column=0, columnspan=2, sticky="w")
 
         self.tray_var = tk.BooleanVar(value=False)
         tray_ok = tray_helper.available()
         theme.make_check(
             f, text="Minimize to system tray on close (keep trading in background)",
             variable=self.tray_var, command=self._push_settings,
-        ).grid(row=25, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ).grid(row=26, column=0, columnspan=2, sticky="w", pady=(4, 0))
         if not tray_ok:
             ttk.Label(f, text="(system-tray support not installed — closing the window will exit)",
                       style="Dim.TLabel", wraplength=380).grid(
-                row=26, column=0, columnspan=2, sticky="w")
+                row=27, column=0, columnspan=2, sticky="w")
 
     def _build_webhook_tab(self, f) -> None:
         ttk.Label(f, text=f"Webhook (TradingView) on port {WEBHOOK_PORT}:").grid(
@@ -1774,6 +1782,8 @@ class TradingBotGUI:
         self.loss_streak_var.set(str(s.get("loss_streak", 0)))
         self.streak_cd_var.set(str(s.get("streak_cooldown", 0)))
         self.max_dd_var.set(str(s.get("max_drawdown", 0)))
+        self.max_exposure_var.set(str(s.get("max_exposure", 0)))
+        self.paused_var.set(s.get("paused", False))
         self.start_hour_var.set(str(s.get("start_hour", 0)))
         self.end_hour_var.set(str(s.get("end_hour", 0)))
         self.slippage_var.set(str(s.get("slippage_pct", DEFAULT_SLIPPAGE_PCT)))
@@ -1846,6 +1856,8 @@ class TradingBotGUI:
             "loss_streak": int(self._float(self.loss_streak_var.get(), 0)),
             "streak_cooldown": int(self._float(self.streak_cd_var.get(), 0)),
             "max_drawdown": self._float(self.max_dd_var.get(), 0),
+            "paused": self.paused_var.get(),
+            "max_exposure": self._float(self.max_exposure_var.get(), 0),
             "start_hour": int(self._float(self.start_hour_var.get(), 0)),
             "end_hour": int(self._float(self.end_hour_var.get(), 0)),
             "slippage_pct": self._float(self.slippage_var.get(), 0),
@@ -1998,6 +2010,8 @@ class TradingBotGUI:
             "loss_streak": int(self._float(self.loss_streak_var.get(), 0)),
             "streak_cooldown": int(self._float(self.streak_cd_var.get(), 0)),
             "max_drawdown": self._float(self.max_dd_var.get(), 0),
+            "paused": self.paused_var.get(),
+            "max_exposure": self._float(self.max_exposure_var.get(), 0),
             "start_hour": int(self._float(self.start_hour_var.get(), 0)),
             "end_hour": int(self._float(self.end_hour_var.get(), 0)),
             "slippage_pct": self._float(self.slippage_var.get(), 0),

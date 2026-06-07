@@ -860,6 +860,27 @@ class TestDailySummaryCatchup(unittest.TestCase):
         self.assertEqual(days[0], "2026-05-29")   # capped to the last 7 days
 
 
+class TestPauseAndExposure(unittest.TestCase):
+    def test_paused_blocks_entries(self):
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, paused=True)
+        ok, reason = g.check_entry("BTC/USDT", "buy", set())
+        self.assertFalse(ok)
+        self.assertIn("paused", reason)
+        # un-pause -> allowed
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, paused=False)
+        self.assertTrue(g.check_entry("BTC/USDT", "buy", set())[0])
+
+    def test_exposure_cap(self):
+        g = Guardrails()
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, max_exposure=1000)
+        self.assertTrue(g.exposure_ok(600, 300)[0])      # 900 <= 1000
+        self.assertFalse(g.exposure_ok(600, 500)[0])     # 1100 > 1000
+        # off
+        g.configure(max_open=0, daily_loss=0, cooldown=0, dedupe=0, max_exposure=0)
+        self.assertTrue(g.exposure_ok(1e9, 1e9)[0])
+
+
 class TestDailyLossPercent(unittest.TestCase):
     def _g(self, **kw):
         from guardrails import Guardrails
