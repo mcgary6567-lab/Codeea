@@ -264,11 +264,13 @@ class BacktestWindow:
                  font=("Segoe UI", 8)).pack(side="left", padx=8)
         self.opt_tree = ttk.Treeview(
             op_tab, show="headings", height=8,
-            columns=("ema", "conf", "swing", "trend", "atr", "trades", "win", "net", "pf", "dd"))
-        for col, txt, wdt in (("ema", "EMA", 50), ("conf", "Conf", 50), ("swing", "Swing", 55),
-                              ("trend", "Trend", 55), ("atr", "ATR×", 50), ("trades", "Trades", 60),
-                              ("win", "Win%", 55), ("net", "Net", 80), ("pf", "PF", 55),
-                              ("dd", "MaxDD%", 65)):
+            columns=("ema", "conf", "swing", "trend", "atr", "adx", "tp",
+                     "trades", "win", "net", "pf", "dd"))
+        for col, txt, wdt in (("ema", "EMA", 48), ("conf", "Conf", 46), ("swing", "Swing", 50),
+                              ("trend", "Trend", 50), ("atr", "ATR×", 46), ("adx", "ADX", 44),
+                              ("tp", "TP R", 60), ("trades", "Trades", 56),
+                              ("win", "Win%", 50), ("net", "Net", 72), ("pf", "PF", 48),
+                              ("dd", "MaxDD%", 60)):
             self.opt_tree.heading(col, text=txt)
             self.opt_tree.column(col, width=wdt, anchor="center")
         self.opt_tree.pack(fill="both", expand=True)
@@ -352,6 +354,8 @@ class BacktestWindow:
     # settings) for a clean side-by-side, plus a broad "Full grid".
     OPT_PRESETS = {
         "ATR stop ×": {"ma_atr_mult": [2.0, 2.5, 3.0, 3.2]},
+        "ADX min": {"ma_adx_min": [0, 15, 20, 25, 30]},
+        "Take-profit (R)": {"ma_tp1_r": [0.0, 1.0, 1.5], "ma_tp2_r": [2.0, 3.0, 4.0]},
         "Confirm candles": {"ma_confirm": [1, 2, 3, 4]},
         "Trend EMA": {"ma_trend_len": [0, 50, 100, 200]},
         "Full grid": {
@@ -360,6 +364,7 @@ class BacktestWindow:
             "ma_swing": [10, 20],
             "ma_trend_len": [0, 100, 200],
             "ma_atr_mult": [2.0, 2.5, 3.0, 3.2],
+            "ma_adx_min": [0, 20],
         },
     }
 
@@ -395,7 +400,8 @@ class BacktestWindow:
             pf = "∞" if st["profit_factor"] == float("inf") else f"{st['profit_factor']:.2f}"
             self.opt_tree.insert("", "end", values=(
                 g("ma_len"), g("ma_confirm"), g("ma_swing"),
-                g("ma_trend_len"), f"{g('ma_atr_mult'):g}", st["trades"],
+                g("ma_trend_len"), f"{g('ma_atr_mult'):g}", f"{g('ma_adx_min'):g}",
+                f"{g('ma_tp1_r'):g}/{g('ma_tp2_r'):g}", st["trades"],
                 f"{st['win_rate']:.0f}", f"{st['net_pnl']:+.0f}", pf,
                 f"{st['max_drawdown']:.1f}"))
         self.status.config(text=f"Swept {self.opt_preset.get()} — {len(results)} runs, "
