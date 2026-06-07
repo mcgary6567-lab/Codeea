@@ -219,6 +219,10 @@ class BacktestWindow:
                                  cursor="hand2", font=("Segoe UI Semibold", 9),
                                  activebackground="#ffa057", padx=14, pady=4)
         self.opt_btn.pack(side="left", padx=(0, 8))
+        tk.Label(opbar, text="sweep", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        self.opt_preset = tk.StringVar(value="ATR stop ×")
+        ttk.Combobox(opbar, textvariable=self.opt_preset, width=14, state="readonly",
+                     values=list(self.OPT_PRESETS.keys())).pack(side="left", padx=4)
         tk.Label(opbar, text="rank by", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.opt_metric = tk.StringVar(value="net_pnl")
         ttk.Combobox(opbar, textvariable=self.opt_metric, width=14, state="readonly",
@@ -312,12 +316,19 @@ class BacktestWindow:
         self.trades_tree.tag_configure("loss", foreground=RED)
 
     # -- optimizer ---------------------------------------------------------
-    OPT_GRID = {
-        "ma_len": [20, 50],
-        "ma_confirm": [1, 2, 3],
-        "ma_swing": [10, 20],
-        "ma_trend_len": [0, 100, 200],
-        "ma_atr_mult": [0.0, 2.0],
+    # Each preset sweeps one knob (holding the rest at the current Strategy-tab
+    # settings) for a clean side-by-side, plus a broad "Full grid".
+    OPT_PRESETS = {
+        "ATR stop ×": {"ma_atr_mult": [2.0, 2.5, 3.0, 3.2]},
+        "Confirm candles": {"ma_confirm": [1, 2, 3, 4]},
+        "Trend EMA": {"ma_trend_len": [0, 50, 100, 200]},
+        "Full grid": {
+            "ma_len": [20, 50],
+            "ma_confirm": [1, 2, 3],
+            "ma_swing": [10, 20],
+            "ma_trend_len": [0, 100, 200],
+            "ma_atr_mult": [2.0, 2.5, 3.0, 3.2],
+        },
     }
 
     def _optimize(self) -> None:
@@ -329,8 +340,9 @@ class BacktestWindow:
 
     def _optimize_worker(self) -> None:
         try:
+            grid = self.OPT_PRESETS.get(self.opt_preset.get(), self.OPT_PRESETS["Full grid"])
             results = bt.optimize(self._candles, self.get_params(), self._cfg_from_ui(),
-                                  self.OPT_GRID, metric=self.opt_metric.get(), top=40)
+                                  grid, metric=self.opt_metric.get(), top=40)
         except Exception as exc:  # noqa: BLE001
             self._post(lambda: self._opt_done_error(str(exc)))
             return
@@ -344,15 +356,17 @@ class BacktestWindow:
         self._opt_results = results
         self.opt_btn.config(state="normal", text="⚙ Run optimize")
         self.opt_tree.delete(*self.opt_tree.get_children())
+        base = self.get_params()   # fill columns a preset didn't sweep with the live value
         for r in results:
             o, st = r["overrides"], r["stats"]
+            g = lambda k: o.get(k, getattr(base, k))
             pf = "∞" if st["profit_factor"] == float("inf") else f"{st['profit_factor']:.2f}"
             self.opt_tree.insert("", "end", values=(
-                o.get("ma_len"), o.get("ma_confirm"), o.get("ma_swing"),
-                o.get("ma_trend_len"), f"{o.get('ma_atr_mult'):g}", st["trades"],
+                g("ma_len"), g("ma_confirm"), g("ma_swing"),
+                g("ma_trend_len"), f"{g('ma_atr_mult'):g}", st["trades"],
                 f"{st['win_rate']:.0f}", f"{st['net_pnl']:+.0f}", pf,
                 f"{st['max_drawdown']:.1f}"))
-        self.status.config(text=f"Optimized {len(results)} combos — "
+        self.status.config(text=f"Swept {self.opt_preset.get()} — {len(results)} runs, "
                                 f"best by {self.opt_metric.get()} on top.")
 
     def _load_opt_row(self, _evt) -> None:
