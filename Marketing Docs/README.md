@@ -29,6 +29,13 @@ generator described at the bottom.
 | `mockups/` | 1920×1080 | browser-framed + laptop hero shots for the website |
 | `features/` | 1080×1080 ×6 | feature highlight tiles for a website features section |
 | `flashy/` | hero + square + X | higher-numbers variant with a **stronger** disclaimer (see note) |
+| `video/` | MP4 + GIF | ~7s looping showcase reel (hook → main → chart → backtest → analytics) |
+
+### `video/` — motion assets
+- `showcase_reel.*` — **1080×1920** (Instagram/TikTok reels & stories, YouTube Shorts)
+- `showcase_square.*` — **1080×1080** (feed video)
+- Both as **`.mp4`** (use this for ads/reels — H.264, ~1 MB) and **`.gif`** (quick web/preview loops).
+- ~7-second seamless loop with crossfades and a "Free trial →" call-to-action on the last scene.
 
 ### ⚠️ About the `flashy/` set
 A second, higher-numbers variant (large gains, ~80%+ win) for maximum
