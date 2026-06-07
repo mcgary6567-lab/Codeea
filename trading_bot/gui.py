@@ -1186,9 +1186,6 @@ class TradingBotGUI:
         self.strat_symbols_box = ttk.Combobox(f, textvariable=self.strat_symbols_var,
                                               values=self._pair_list, width=24)
         self.strat_symbols_box.grid(row=1, column=1, sticky="ew", pady=2)
-        self._strat_syms_before = self.strat_symbols_var.get()
-        self.strat_symbols_box.bind("<FocusIn>", lambda e: self._snap_strat_syms())
-        self.strat_symbols_box.bind("<KeyRelease>", lambda e: self._snap_strat_syms())
         self.strat_symbols_box.bind("<<ComboboxSelected>>", lambda e: self._on_strat_symbol_pick())
         self.strat_symbols_box.bind("<FocusOut>", lambda e: self._push_strategy())
         self.strat_symbols_box.bind("<Return>", lambda e: self._push_strategy())
@@ -1273,20 +1270,22 @@ class TradingBotGUI:
             ma_atr_mult=max(0.0, self._float(self.strat_ma_atrmult_var.get(), 2.5)),
         )
 
-    def _snap_strat_syms(self) -> None:
-        """Remember the typed symbol list before a dropdown pick (so the pick can
-        append rather than overwrite)."""
-        self._strat_syms_before = self.strat_symbols_var.get()
-
     def _on_strat_symbol_pick(self) -> None:
+        """Picking a pair from the dropdown sets it as THE active symbol and shows
+        it in the Chart/Backtest too. (Type a comma list manually for multi-symbol.)"""
         picked = self.strat_symbols_box.get().strip()
-        syms = [x.strip() for x in self._strat_syms_before.split(",") if x.strip()]
-        if picked and picked not in syms:
-            syms.append(picked)
-        text = ", ".join(syms) if syms else picked
-        self.strat_symbols_var.set(text)
-        self._strat_syms_before = text
-        self._push_strategy()
+        if not picked:
+            return
+        self.strat_symbols_var.set(picked)        # replace -> single active pair
+        self._push_strategy()                     # reconfigure runner + sync chart
+        self._show_pair_in_windows(picked)
+
+    def _show_pair_in_windows(self, sym: str) -> None:
+        """Mirror a picked pair into any open Chart / Backtest window."""
+        for attr in ("_chart_win", "_bt_win"):
+            win = getattr(self, attr, None)
+            if win and win.alive():
+                win.set_symbol(sym)
 
     def _push_strategy(self) -> None:
         """Apply the built-in strategy config to the runner and start/stop it.

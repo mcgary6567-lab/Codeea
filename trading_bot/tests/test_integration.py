@@ -159,12 +159,13 @@ class TestGuiWiring(unittest.TestCase):
         for box in (self.app.symbol_box, self.app.strat_symbols_box,
                     self.app._chart_win._sym_box, self.app._bt_win._sym_box):
             self.assertIn("FOO/USDT", box.cget("values"))
-        # picking a pair appends to the multi-symbol strategy field
+        # picking a pair REPLACES the field and mirrors into Chart + Backtest
         self.app.strat_symbols_var.set("BTC/USDT")
-        self.app._snap_strat_syms()
         self.app.strat_symbols_box.set("ETH/USDT")
         self.app._on_strat_symbol_pick()
-        self.assertEqual(self.app.strat_symbols_var.get(), "BTC/USDT, ETH/USDT")
+        self.assertEqual(self.app.strat_symbols_var.get(), "ETH/USDT")
+        self.assertEqual(self.app._chart_win.symbol, "ETH/USDT")
+        self.assertEqual(self.app._bt_win.symbol, "ETH/USDT")
         for w in list(self.root.winfo_children()):
             if isinstance(w, tk.Toplevel):
                 w.destroy()

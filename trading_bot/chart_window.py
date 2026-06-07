@@ -155,6 +155,19 @@ class ChartWindow:
         except Exception:  # noqa: BLE001
             pass
 
+    def set_symbol(self, sym: str) -> None:
+        """Switch the chart to ``sym`` (e.g. a pair picked on the Strategy tab)."""
+        if not sym or sym == self.symbol:
+            return
+        self.symbol = sym
+        try:
+            self._sym_box.config(values=self._symbol_values())
+            self.symbol_var.set(sym)
+        except tk.TclError:
+            pass
+        if not self.follow.get():   # following charts reload via sync()
+            self._load()
+
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
         bar = tk.Frame(self.win, bg=BG)
@@ -345,7 +358,7 @@ class ChartWindow:
             self._client = None        # rebuild the ccxt client for the new feed
         self.symbol, self.timeframe = new_symbol, tf
         try:
-            self._sym_box.config(values=syms)
+            self._sym_box.config(values=self._symbol_values())  # keep the full pair list
             self.symbol_var.set(new_symbol)
             self.tf_var.set(tf)
         except tk.TclError:

@@ -117,6 +117,18 @@ class BacktestWindow:
         except Exception:  # noqa: BLE001
             pass
 
+    def set_symbol(self, sym: str) -> None:
+        """Switch the backtest to ``sym`` (picked on the Strategy tab). On-demand:
+        updates the field; the user clicks Run to replay it."""
+        if not sym:
+            return
+        self.symbol = sym
+        try:
+            self._sym_box.config(values=self._symbol_values())
+            self.symbol_var.set(sym)
+        except Exception:  # noqa: BLE001
+            pass
+
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
         tk.Label(self.win, text="Backtest", bg=BG, fg=ACCENT,
