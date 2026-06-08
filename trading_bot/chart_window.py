@@ -60,6 +60,7 @@ LONG_COLOR = "#7CFF6B"     # long entry arrow (BUY, up)
 SHORT_COLOR = "#ff5c5c"    # short entry arrow (SELL, down)
 SCALE_COLOR = "#ffd54a"    # RSI-extreme scale-out marker
 EXIT_COLOR = "#9aa4b2"     # EMA-trail / stop exit marker
+GRID_FAINT = "#1b212c"     # faint vertical time gridlines
 
 REFRESH_MS = 15000         # auto-refresh cadence
 DEFAULT_VIEW = 120         # visible candles on open
@@ -535,10 +536,11 @@ class ChartWindow:
             c.create_text(w - padR + 4, y, anchor="w", text=self._fmt(p), fill=DIM,
                           font=("Segoe UI", 8))
 
-        # Time labels along the very bottom.
+        # Time labels along the very bottom + faint vertical gridlines for scanning.
         stepk = max(1, vc // 6)
         for k in range(0, vc, stepk):
             ts = view[k][0] / 1000.0
+            c.create_line(X(k), price_top, X(k), price_bot, fill=GRID_FAINT)
             c.create_text(X(k), h - padB + 11,
                           text=time.strftime("%m-%d %H:%M", time.localtime(ts)),
                           fill=DIM, font=("Segoe UI", 7))
@@ -659,6 +661,25 @@ class ChartWindow:
                 rsi_pts += [X(k), Yr(rv)]
         if len(rsi_pts) >= 4:
             c.create_line(*rsi_pts, fill=RSI_COLOR, width=1)
+
+        # --- last price: a dashed line across the price pane + a filled axis tag
+        # (TradingView-style) so the current price is unmistakable at a glance ---
+        last = view[-1]
+        last_close = last[4]
+        last_col = GREEN if last[4] >= last[1] else RED
+        yl = Yp(last_close)
+        if price_top - 1 <= yl <= price_bot + 1:
+            c.create_line(padL, yl, w - padR, yl, fill=last_col, dash=(3, 3))
+            c.create_rectangle(w - padR, yl - 8, w - 2, yl + 8, fill=last_col, outline=last_col)
+            c.create_text(w - padR + 3, yl, anchor="w", text=self._fmt(last_close),
+                          fill=BG, font=("Segoe UI Semibold", 8))
+
+        # --- persistent price + %-change header (since the first visible candle) ---
+        base = view[0][4]
+        chg = ((last_close - base) / base * 100.0) if base else 0.0
+        c.create_text(padL + 6, price_top + 10, anchor="w",
+                      text=f"{self.symbol}   {self._fmt(last_close)}   {chg:+.2f}%",
+                      fill=(GREEN if chg >= 0 else RED), font=("Segoe UI Semibold", 9))
 
         self._geom = dict(padL=padL, padR=padR, padT=padT, padB=padB, w=w, h=h,
                           cw=cw, vc=vc, hi=hi, span=span,
