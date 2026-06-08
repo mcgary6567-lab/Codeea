@@ -53,6 +53,10 @@ img { max-width: 100%; display: block; }
 }
 .btn--cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(245, 181, 10, 0.5); }
 .btn--lg { font-size: 1.15rem; padding: 18px 44px; }
+.btn--ghost { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+.btn--ghost:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+.downloads { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.downloads__note { margin-top: 8px; font-size: 0.82rem; color: #9aa4b2; text-align: center; }
 .btn--block { display: block; width: 100%; text-align: center; }
 
 /* ===== Top Bar / Countdown ===== */
