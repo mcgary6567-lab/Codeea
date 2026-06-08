@@ -19,14 +19,17 @@ def resource_path(name: str) -> str:
     return os.path.join(base, name)
 
 # ---------------------------------------------------------------------------
-# Storage locations. We keep state in %APPDATA%\TradingBot on Windows and in
-# ~/.trading_bot elsewhere so the app behaves on every Windows version while
-# still being testable on Linux/macOS during development.
+# Storage locations. Per-OS conventions: %APPDATA%\TradingBot on Windows,
+# ~/Library/Application Support/TradingBot on macOS, ~/.local/share/TradingBot
+# elsewhere. Same data, native home on each platform.
 # ---------------------------------------------------------------------------
 def _data_dir() -> str:
-    base = os.environ.get("APPDATA") or os.path.join(
-        os.path.expanduser("~"), ".local", "share"
-    )
+    if sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    else:
+        base = os.environ.get("APPDATA") or os.path.join(
+            os.path.expanduser("~"), ".local", "share"
+        )
     path = os.path.join(base, APP_NAME)
     os.makedirs(path, exist_ok=True)
     return path

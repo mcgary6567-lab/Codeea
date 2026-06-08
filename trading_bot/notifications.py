@@ -25,6 +25,7 @@ except ImportError:  # non-Windows / headless
     _HAS_SOUND = False
 
 _IS_WINDOWS = sys.platform.startswith("win")
+_IS_MAC = sys.platform == "darwin"
 
 
 class Notifier:
@@ -99,7 +100,7 @@ class Notifier:
         is on (default), so routine/noisy events don't spam your chat."""
         if self.sound_enabled:
             self._beep(level)
-        if self.desktop_enabled and _IS_WINDOWS:
+        if self.desktop_enabled and (_IS_WINDOWS or _IS_MAC):
             threading.Thread(target=self._toast, args=(title, message), daemon=True).start()
         telegram_ok = important or not self.telegram_important_only
         if telegram_ok and self.telegram_ready():
@@ -129,17 +130,39 @@ class Notifier:
                               creationflags=flags, timeout=10,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
 
+    def _show_toast_mac(self, title: str, message: str) -> int:
+        """Show a macOS notification via osascript. Returns the exit code."""
+        # Escape double quotes for the AppleScript string literals.
+        t = title.replace('"', "'")[:80]
+        m = message.replace('"', "'")[:160]
+        script = f'display notification "{m}" with title "{t}"'
+        return subprocess.run(["osascript", "-e", script], timeout=10,
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL).returncode
+
     def _toast(self, title: str, message: str) -> None:
         try:
-            self._show_toast(title, message)
+            if _IS_MAC:
+                self._show_toast_mac(title, message)
+            else:
+                self._show_toast(title, message)
         except Exception:  # noqa: BLE001 - toast is best-effort
             pass
 
     def test_desktop(self):
         """Fire a test toast. Returns ``(ok: bool, message: str)``."""
-        if not _IS_WINDOWS:
-            return False, "Desktop toast notifications are only available on Windows."
+        if not (_IS_WINDOWS or _IS_MAC):
+            return False, "Desktop notifications are only available on Windows and macOS."
         try:
+            if _IS_MAC:
+                rc = self._show_toast_mac("Prometheus AI Crypto Bot",
+                                          "Test notification — desktop alerts are working.")
+                if rc == 0:
+                    return True, ("Test notification sent — check the top-right of your screen.\n\n"
+                                  "If nothing appeared, allow notifications for the app in "
+                                  "System Settings → Notifications.")
+                return False, (f"osascript exited with code {rc}. Notifications may be blocked "
+                               "in System Settings → Notifications (or Do Not Disturb is on).")
             rc = self._show_toast("Prometheus AI Crypto Bot",
                                   "Test notification — desktop alerts are working.")
             if rc == 0:
@@ -153,6 +176,14 @@ class Notifier:
 
     # -- internals ----------------------------------------------------------
     def _beep(self, level: str) -> None:
+        if _IS_MAC:
+            # No winsound on macOS — use the system alert beep via osascript.
+            try:
+                subprocess.run(["osascript", "-e", "beep"], timeout=5,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:  # noqa: BLE001 - sound is best-effort
+                pass
+            return
         if not _HAS_SOUND:
             return
         try:

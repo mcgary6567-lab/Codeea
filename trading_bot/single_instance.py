@@ -20,6 +20,7 @@ testable on Linux/macOS during development too).
 from __future__ import annotations
 
 import os
+import sys
 from typing import Optional
 
 from config import DATA_DIR
@@ -102,11 +103,22 @@ class SingleInstance:
 
 
 def try_focus_existing(title: str) -> bool:
-    """Best-effort: bring the already-running window to the front (Windows only).
+    """Best-effort: bring the already-running window to the front (Windows + macOS).
 
     Returns True if a window was found and raised. A no-op (returns False) on
     other platforms or if anything goes wrong — purely a UX nicety on top of the
     hard guarantee provided by the lock."""
+    if sys.platform == "darwin":
+        # Activate the running app by title (works for a .app bundle or the
+        # python process running it). Best-effort — the lock is the guarantee.
+        try:
+            import subprocess
+            script = f'tell application "{title}" to activate'
+            return subprocess.run(["osascript", "-e", script], timeout=5,
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL).returncode == 0
+        except Exception:  # noqa: BLE001
+            return False
     if os.name != "nt":
         return False
     try:

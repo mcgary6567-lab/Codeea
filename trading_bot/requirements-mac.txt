@@ -1,0 +1,9 @@
+# macOS dependencies. Install with:
+#     pip install -r requirements-mac.txt
+#
+# Everything in the base requirements, plus PyObjC — which pystray's macOS
+# (menu-bar) backend needs for "minimize to tray" / 24-7 background running.
+-r requirements.txt
+
+pyobjc-framework-Cocoa>=9.0 ; sys_platform == "darwin"
+pyobjc-framework-Quartz>=9.0 ; sys_platform == "darwin"
