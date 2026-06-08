@@ -1001,6 +1001,8 @@ class TradingBotGUI:
         theme.fit_window(win, 560, 640, min_w=440, min_h=420)
         win.protocol("WM_DELETE_WINDOW", win.destroy)
 
+        theme.window_header(win, "Settings", f"App preferences · v{APP_VERSION}")
+        theme.bind_escape_close(win, win.destroy)
         body = self._scroll_container(win)
         self._settings_security(body)
         self._settings_appearance(body)
@@ -1027,11 +1029,10 @@ class TradingBotGUI:
         return inner
 
     def _settings_section(self, parent, title: str):
-        """A titled card inside the settings window; returns its inner frame."""
-        ttk.Label(parent, text=title, style="Accent.TLabel",
-                  font=("Segoe UI Semibold", 11)).pack(anchor="w", pady=(12, 2))
-        card = ttk.Frame(parent, padding=10)
-        card.pack(fill="x")
+        """A titled, bordered card inside the settings window (matches the main
+        window's Trade Settings cards); returns its inner content frame."""
+        card = ttk.LabelFrame(parent, text=title, padding=12)
+        card.pack(fill="x", pady=(10, 2))
         card.columnconfigure(1, weight=1)
         return card
 
