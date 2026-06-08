@@ -545,17 +545,21 @@ class ChartWindow:
                           text=time.strftime("%m-%d %H:%M", time.localtime(ts)),
                           fill=DIM, font=("Segoe UI", 7))
 
-        # Candles.
-        bw = max(1.0, cw * 0.62)
+        # Candles — TradingView-style: up candles are hollow (body filled with the
+        # background), down candles solid. Body width tracks zoom (scroll = zoom)
+        # but is capped so a few zoomed-in candles still read as candles, not bars.
+        bw = max(1.0, min(cw * 0.66, 16.0))
         for k, cd in enumerate(view):
             o, hh, ll, cc = cd[1], cd[2], cd[3], cd[4]
             x = X(k)
-            col = GREEN if cc >= o else RED
+            up = cc >= o
+            col = GREEN if up else RED
             c.create_line(x, Yp(hh), x, Yp(ll), fill=col)
             y1, y2 = Yp(max(o, cc)), Yp(min(o, cc))
             if y2 - y1 < 1:
                 y2 = y1 + 1
-            c.create_rectangle(x - bw / 2, y1, x + bw / 2, y2, fill=col, outline=col)
+            c.create_rectangle(x - bw / 2, y1, x + bw / 2, y2,
+                               fill=(BG if up else col), outline=col)
 
         # Price moving-average overlay.
         ma_pts = []
