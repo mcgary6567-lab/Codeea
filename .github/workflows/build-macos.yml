@@ -1,13 +1,16 @@
 name: Build macOS App
 
-# Builds trading_bot/dist/"Prometheus AI Crypto Bot.app", packages a .dmg on a
-# real macOS runner, and uploads it as a downloadable artifact. Pushing a tag
-# like v1.0.0 also attaches the .dmg (+ checksum) to a GitHub Release.
+# Builds the macOS .app on real macOS runners and packages a .dmg per
+# architecture, uploaded as artifacts. Pushing a tag like v1.0.0 also attaches
+# them to a GitHub Release.
 #
-# The build is UNSIGNED — users open it via right-click -> Open the first time
-# (see trading_bot/MAC_BUILD.md). Built on macos-13 = Intel (x86_64): runs
-# natively on Intel Macs AND on Apple Silicon via Rosetta 2, so a single .dmg
-# covers every Mac (min macOS 10.13).
+# Two builds (a matrix) so we're never blocked on one runner pool and every Mac
+# gets a native binary:
+#   * apple-silicon (arm64) on macos-latest — fast, plentiful runners
+#   * intel (x86_64) on macos-13 — also runs on Apple Silicon via Rosetta 2
+#     (Intel runners are scarcer and can queue a while — that's expected)
+# UNSIGNED build: first launch = right-click -> Open (see trading_bot/MAC_BUILD.md).
+# Minimum macOS 10.13 (11+ recommended).
 
 on:
   push:
@@ -48,7 +51,15 @@ jobs:
 
   build:
     needs: test
-    runs-on: macos-13   # Intel (x86_64) — runs on Intel + Apple Silicon (Rosetta)
+    strategy:
+      fail-fast: false   # a slow/queued Intel runner must not cancel the arm64 build
+      matrix:
+        include:
+          - runner: macos-latest   # Apple Silicon (arm64)
+            arch: apple-silicon
+          - runner: macos-13        # Intel (x86_64) — runs on Intel + Apple Silicon (Rosetta)
+            arch: intel
+    runs-on: ${{ matrix.runner }}
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     defaults:
@@ -80,20 +91,20 @@ jobs:
         run: |
           APP="dist/Prometheus AI Crypto Bot.app"
           test -d "$APP" || { echo "build failed: $APP missing"; exit 1; }
+          NAME="PrometheusAICryptoBot-${{ matrix.arch }}.dmg"
           hdiutil create -volname "Prometheus AI Crypto Bot" \
-            -srcfolder "$APP" -ov -format UDZO "dist/PrometheusAICryptoBot.dmg"
+            -srcfolder "$APP" -ov -format UDZO "dist/$NAME"
           cd dist
-          shasum -a 256 PrometheusAICryptoBot.dmg \
-            | awk '{print $1"  PrometheusAICryptoBot.dmg"}' > PrometheusAICryptoBot.dmg.sha256
-          cat PrometheusAICryptoBot.dmg.sha256
+          shasum -a 256 "$NAME" | awk -v f="$NAME" '{print $1"  "f}' > "$NAME.sha256"
+          cat "$NAME.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PrometheusAICryptoBot-macos
+          name: PrometheusAICryptoBot-macos-${{ matrix.arch }}
           path: |
-            trading_bot/dist/PrometheusAICryptoBot.dmg
-            trading_bot/dist/PrometheusAICryptoBot.dmg.sha256
+            trading_bot/dist/PrometheusAICryptoBot-${{ matrix.arch }}.dmg
+            trading_bot/dist/PrometheusAICryptoBot-${{ matrix.arch }}.dmg.sha256
           if-no-files-found: error
 
       - name: Attach to release (on tag)
@@ -101,5 +112,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            trading_bot/dist/PrometheusAICryptoBot.dmg
-            trading_bot/dist/PrometheusAICryptoBot.dmg.sha256
+            trading_bot/dist/PrometheusAICryptoBot-${{ matrix.arch }}.dmg
+            trading_bot/dist/PrometheusAICryptoBot-${{ matrix.arch }}.dmg.sha256
