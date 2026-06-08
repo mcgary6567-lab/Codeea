@@ -73,13 +73,14 @@ def apply(root: tk.Tk) -> dict:
               foreground=[("active", ACCENT)],
               indicatorcolor=[("selected", ACCENT), ("!selected", ELEV)])
 
-    # Notebook (tabs)
-    style.configure("TNotebook", background=PANEL, bordercolor=BORDER, tabmargins=(2, 4, 2, 0))
-    style.configure("TNotebook.Tab", background=PANEL, foreground=TXT_DIM,
-                    padding=(14, 6), font=("Segoe UI", 9))
+    # Notebook (tabs) — unselected tabs sit on the darker HEADER bar so the
+    # selected (ELEV) tab reads as raised; a hover state adds polish.
+    style.configure("TNotebook", background=PANEL, bordercolor=BORDER, tabmargins=(2, 5, 2, 0))
+    style.configure("TNotebook.Tab", background=HEADER, foreground=TXT_DIM,
+                    padding=(18, 8), font=("Segoe UI", 9), borderwidth=0)
     style.map("TNotebook.Tab",
-              background=[("selected", ELEV)],
-              foreground=[("selected", ACCENT)])
+              background=[("selected", ELEV), ("active", PANEL)],
+              foreground=[("selected", ACCENT), ("active", TXT)])
 
     # Treeview (tables)
     style.configure("Treeview", background=ELEV, fieldbackground=ELEV,

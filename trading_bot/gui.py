@@ -1334,13 +1334,20 @@ class TradingBotGUI:
         save_btn = tk.Button(btnrow, text="💾 Save", command=self._save_all)
         theme.style_button(save_btn, "accent")        # primary action stands out
         save_btn.pack(side="left", expand=True, fill="x", padx=2)
-        tk.Button(btnrow, text="📦 Backup", command=self._backup_settings).pack(
-            side="left", expand=True, fill="x", padx=2)
-        tk.Button(btnrow, text="📂 Restore", command=self._restore_settings).pack(
-            side="left", expand=True, fill="x", padx=2)
+        self._tip(save_btn, "Persist all settings so they survive a restart "
+                            "(most fields also apply live as you edit).")
+        backup_btn = tk.Button(btnrow, text="📦 Backup", command=self._backup_settings)
+        theme.style_button(backup_btn, "ghost")
+        backup_btn.pack(side="left", expand=True, fill="x", padx=2)
+        self._tip(backup_btn, "Save an encrypted copy of all settings to a file.")
+        restore_btn = tk.Button(btnrow, text="📂 Restore", command=self._restore_settings)
+        theme.style_button(restore_btn, "ghost")
+        restore_btn.pack(side="left", expand=True, fill="x", padx=2)
+        self._tip(restore_btn, "Load settings from an encrypted backup file.")
         reset_btn = tk.Button(btnrow, text="🔄 Reset", command=self._reset_all_defaults)
         theme.style_button(reset_btn, "danger")
         reset_btn.pack(side="left", expand=True, fill="x", padx=2)
+        self._tip(reset_btn, "Restore every setting to its default value.")
 
     def _set_saved_baseline(self) -> None:
         """Snapshot the current settings as the 'saved' baseline for dirty checks."""
@@ -1587,21 +1594,20 @@ class TradingBotGUI:
                  "Halt the bot if equity falls this % below its peak."),
             ]),
         ]
+        # Each guardrail group is its own bordered card so the long list reads as
+        # scannable sections instead of one flat wall of fields.
         gf = ttk.Frame(f)
         gf.grid(row=5, column=0, columnspan=2, sticky="ew")
-        gf.columnconfigure(1, weight=1)
-        gr_i = 0
+        gf.columnconfigure(0, weight=1)
         for header, items in groups:
-            ttk.Label(gf, text=header, style="Accent.TLabel",
-                      font=("Segoe UI Semibold", 9)).grid(
-                row=gr_i, column=0, columnspan=2, sticky="w", pady=(6, 1))
-            gr_i += 1
-            for text, var, tip in items:
-                ttk.Label(gf, text=text).grid(row=gr_i, column=0, sticky="w", pady=2)
-                self._num_entry(gf, var, width=10, tip=tip,
+            card = ttk.LabelFrame(gf, text=header, padding=8)
+            card.pack(fill="x", pady=(6, 0))
+            card.columnconfigure(1, weight=1)
+            for ri, (text, var, tip) in enumerate(items):
+                ttk.Label(card, text=text).grid(row=ri, column=0, sticky="w", pady=2)
+                self._num_entry(card, var, width=10, tip=tip,
                                 on_change=self._push_settings).grid(
-                    row=gr_i, column=1, sticky="w", pady=2)
-                gr_i += 1
+                    row=ri, column=1, sticky="w", pady=2)
 
         gr = ttk.Frame(f)
         gr.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(8, 0))
