@@ -93,7 +93,7 @@ app = BUNDLE(
         "CFBundleShortVersionString": "1.0.0",
         "CFBundleVersion": "1.0.0",
         "NSHighResolutionCapable": True,
-        "LSMinimumSystemVersion": "11.0",
+        "LSMinimumSystemVersion": "10.13",
         # Keep a normal Dock app (the tray/menu-bar is an extra, not the only UI).
         "LSUIElement": False,
     },

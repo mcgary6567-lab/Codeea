@@ -57,9 +57,18 @@ System Settings → Privacy & Security → "Open Anyway".)
 
 ## 4. Architecture (Apple Silicon vs Intel)
 
-PyInstaller builds for the Mac it runs on (arm64 on Apple Silicon, x86_64 on
-Intel). For a single app that runs on both, build on Apple Silicon with a
-`universal2` Python, or ship two builds. Most users on modern Macs are arm64.
+The CI workflow builds on **`macos-13` = Intel (x86_64)** on purpose: an Intel
+build runs **natively on Intel Macs** and **on Apple Silicon via Rosetta 2**, so
+a single `.dmg` covers every Mac. The bundle's minimum is **macOS 10.13**.
+(If you build locally on an Apple Silicon Mac you'll get an arm64 app that will
+*not* run on Intel Macs — use the CI `.dmg`, or build on an Intel Mac, for the
+widest compatibility. A native arm64 build is a future optimisation if you want
+maximum Apple-Silicon performance.)
+
+> **Very old macOS (10.14 Mojave and earlier):** Apple no longer supports these,
+> and even an Intel build may refuse to launch depending on the Python/Tk
+> toolchain. macOS **11 (Big Sur) or later is recommended**; 10.13–10.15 may
+> work but isn't guaranteed.
 
 ## 5. What's macOS-native in this build
 

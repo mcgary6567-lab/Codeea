@@ -5,7 +5,9 @@ name: Build macOS App
 # like v1.0.0 also attaches the .dmg (+ checksum) to a GitHub Release.
 #
 # The build is UNSIGNED — users open it via right-click -> Open the first time
-# (see trading_bot/MAC_BUILD.md). macos-latest is Apple Silicon (arm64).
+# (see trading_bot/MAC_BUILD.md). Built on macos-13 = Intel (x86_64): runs
+# natively on Intel Macs AND on Apple Silicon via Rosetta 2, so a single .dmg
+# covers every Mac (min macOS 10.13).
 
 on:
   push:
@@ -46,7 +48,9 @@ jobs:
 
   build:
     needs: test
-    runs-on: macos-latest
+    runs-on: macos-13   # Intel (x86_64) — runs on Intel + Apple Silicon (Rosetta)
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
     defaults:
       run:
         working-directory: trading_bot
