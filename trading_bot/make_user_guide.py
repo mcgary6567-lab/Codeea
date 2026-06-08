@@ -1,8 +1,11 @@
-"""Generate the customer Quick Start guide as a multi-page PDF.
+"""Generate the customer Quick Start guide + one-page cheat sheet as PDFs.
 
 Pure reportlab (no cryptography dependency). Run:
     python make_user_guide.py
-Outputs ../PrometheusAI_QuickStart.pdf
+Outputs ../PrometheusAI_QuickStart.pdf and ../PrometheusAI_CheatSheet.pdf
+
+This script is the single source of truth for both PDFs — edit the content here
+and re-run, rather than hand-editing the binaries.
 """
 
 from __future__ import annotations
@@ -111,7 +114,7 @@ def build():
         Image(LOGO, width=14 * mm, height=14 * mm * 149 / 113) if os.path.exists(LOGO) else "",
         [Paragraph("Prometheus AI Crypto Bot", H1),
          Paragraph("Quick Start Guide for Customers", SUB),
-         Paragraph("Auto-trade crypto from TradingView signals - secure, simple, yours.", SMALL)],
+         Paragraph("Auto-trade crypto - built-in strategy or your signals. Secure, simple, yours.", SMALL)],
     ]]
     ht = Table(head, colWidths=[18 * mm, None], hAlign="LEFT")
     ht.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -122,29 +125,35 @@ def build():
     s.append(HRFlowable(width="100%", thickness=1.2, color=ACCENT, spaceAfter=8))
 
     s.append(Paragraph(
-        "The Prometheus AI Crypto Bot runs on your Windows PC and places crypto trades "
-        "automatically from your indicator's signals (or manually), with automatic "
-        "take-profits, risk guardrails, live analytics, and bank-grade encrypted storage "
-        "for your API keys. Works with <b>Binance, Binance.US, Bybit, OKX, KuCoin and "
-        "Bitget</b>.", BODY))
+        "The Prometheus AI Crypto Bot runs on your Windows PC and trades crypto automatically - "
+        "from its built-in EMA + RSI strategy, from your TradingView signals, or manually. It "
+        "includes one-click strategy presets, a backtester, a live chart, risk guardrails, "
+        "analytics, Telegram alerts, and PIN-encrypted storage for your API keys. Works with "
+        "<b>Binance, Binance.US, Bybit, OKX, KuCoin, Bitget, Kraken and Coinbase</b>.", BODY))
 
     s.append(Paragraph("Get started in 5 steps", H2))
     s.append(steps([
         "Open the app and create a <b>PIN</b> (it encrypts your saved keys).",
         "Create an exchange <b>API key</b> with trading enabled (see page 2).",
-        "Paste your <b>API Key + Secret</b>, pick your exchange and <b>Spot</b>, then click "
+        "Paste your <b>API Key + Secret</b>, pick your exchange and <b>Spot/Futures</b>, then click "
         "<b>Connect</b> - keep <b>Safe Mode</b> on for your first run.",
-        "(Selling model) paste your <b>Licence token</b> under <b>Webhook -&gt; Cloud signals</b> "
-        "to receive signals automatically - no setup, no ngrok.",
-        "Watch it work in Safe Mode, then turn Safe Mode off and trade a <b>small size</b>.",
+        "Activate your licence: click <b>Start Free Trial</b> (enter your email) or paste a "
+        "<b>Licence token</b> under the <b>Connect &amp; License</b> tab.",
+        "Pick a strategy preset (<b>Balanced</b>), watch it in Safe Mode, then turn Safe Mode off "
+        "and trade a <b>small size</b>.",
     ]))
+    s.append(Paragraph(
+        "The setup strip under the top bar lights up as you go: "
+        "(1) Connect -&gt; (2) Activate license -&gt; (3) Start trading.", BODY))
 
     s.append(Paragraph("What the screen shows", H2))
     s.append(bullets([
-        "<b>Top bar:</b> connection status, exchange, balance and live P&amp;L.",
-        "<b>Left:</b> API Settings, your public IP (for whitelisting), Open Positions, "
-        "and BUY / SELL.",
-        "<b>Right:</b> Trade Settings (4 tabs) and the live Trade Log.",
+        "<b>Top bar:</b> connection status, a mode badge (LIVE / TESTNET / SAFE / READ-ONLY), "
+        "exchange, balance, live P&amp;L, and the gear for Settings.",
+        "<b>Status strip:</b> the setup checklist plus live chips - Strategy / Webhook / Cloud / Paused.",
+        "<b>Left:</b> API Settings, your public IP (for whitelisting), the Chart / Backtest / "
+        "Analytics buttons, Open Positions, and BUY / SELL (with a live order preview).",
+        "<b>Right:</b> Trade Settings (5 tabs) and the live Trade Log.",
     ]))
 
     # ---------------- Page 2 ----------------
@@ -162,150 +171,153 @@ def build():
          Paragraph("-", CELL), Paragraph("Place spot orders", CELL)],
         [Paragraph("Futures / Derivatives", CELL), Paragraph("-", CELL), Paragraph("Yes", CELL),
          Paragraph("Place futures orders", CELL)],
-        [Paragraph("<b>Withdrawals</b>", CELL),
-         Paragraph("<font color='#c1392b'><b>OFF</b></font>", CELL),
-         Paragraph("<font color='#c1392b'><b>OFF</b></font>", CELL),
-         Paragraph("Never needed - keep it disabled", CELL)],
         [Paragraph("IP whitelist", CELL), Paragraph("Yes", CELL), Paragraph("Yes", CELL),
          Paragraph("Required once trading is on", CELL)],
     ], [46 * mm, 16 * mm, 18 * mm, None]))
     s.append(Spacer(1, 6))
     s.append(bullets([
-        "<b>Disable Withdrawals - always.</b> The bot never withdraws; a leaked key with "
-        "withdrawals could drain funds.",
-        "<b>IP whitelist:</b> in the app click <b>Show my IP -&gt; Copy</b>, paste it into "
-        "your exchange's \"trusted IPs\" box. (Tip: if your home IP changes, the app warns "
-        "you to update it.)",
-        "<b>Passphrase:</b> OKX, KuCoin and Bitget give you a third secret - paste it into "
-        "the app's Passphrase field. Binance and Bybit do not use one.",
-        "<b>United States:</b> binance.com is blocked - choose <b>Binance.US</b> in the "
-        "exchange list (or Bybit / OKX / KuCoin / Bitget).",
+        "<b>IP whitelist:</b> click <b>Show my IP -&gt; Copy</b> and paste it into your exchange's "
+        "trusted-IPs box. The app warns you if your IP changes.",
+        "<b>Passphrase:</b> OKX, KuCoin and Bitget give a third secret - paste it into the app's "
+        "Passphrase field. Binance and Bybit do not use one.",
+        "<b>United States:</b> binance.com is blocked - choose <b>Binance.US</b> "
+        "(or Bybit / OKX / KuCoin / Bitget / Kraken / Coinbase).",
     ]))
 
-    # ---------------- Page 3 ----------------
+    # ---------------- Page 2 cont ----------------
     s.append(Paragraph("2. Connect (start in Safe Mode)", H2))
     s.append(steps([
         "Select your <b>Exchange</b> and <b>Market</b> (Spot is the safer default).",
         "Paste <b>API Key</b>, <b>Secret</b> (and <b>Passphrase</b> if shown).",
-        "Leave <b>Safe Mode</b> ON for the first run - real prices &amp; balance, but fills "
-        "are simulated, so you can verify everything risk-free.",
-        "Click <b>Connect</b>. The status light turns green and your balance appears.",
-        "Happy? Turn Safe Mode off (you'll confirm once) and trade small.",
+        "Leave <b>Safe Mode</b> ON for the first run - real prices &amp; balance, but fills are "
+        "simulated, so you can verify everything risk-free.",
+        "Click <b>Connect</b>. The status light turns green, the mode badge shows your mode, and "
+        "your balance appears.",
+        "Happy? Turn Safe Mode off (you'll confirm once) and trade small. (Prefer a paper exchange? "
+        "Tick <b>Use exchange testnet</b> and connect with testnet keys.)",
     ]))
 
     s.append(Paragraph("3. The settings tabs", H2))
     s.append(bullets([
-        "<b>Execution:</b> Trade Size - now in coin <i>or</i> <b>USDT ($)</b> - Sizing mode "
-        "(Fixed lot / Fixed $ / Risk %), Auto-place SL/TP with TP1/TP2 scale-out, order type, "
-        "a <b>Slippage guard</b>, a <b>round-up-to-minimum</b> toggle, and (futures) leverage "
-        "&amp; margin with a high-leverage warning.",
-        "<b>Modes &amp; Risk:</b> Manual trading, <b>Safe Mode</b>, Read-only, the full "
-        "<b>Guardrails</b> set (daily loss/profit halt, max positions, cooldown, dedupe, "
-        "<b>loss-streak pause</b>, <b>max-drawdown halt</b>, <b>trading-hours</b> window), "
-        "trailing stop, move-to-breakeven, plus <b>Run on Windows startup</b> and "
-        "<b>Minimize to tray</b> for 24/7 running (see page 5).",
-        "<b>Webhook:</b> the TradingView webhook + <b>Strategy filter</b> (acts only on your "
-        "indicator), a <b>Test Signal</b> button, and <b>Cloud signals</b> - paste your "
-        "Relay URL + Licence token.",
-        "<b>Alerts:</b> Sound, Desktop and <b>Telegram</b> notifications (with Test buttons), "
-        "an \"important events only\" filter, and an end-of-day <b>P&amp;L summary</b>.",
+        "<b>Execution:</b> Trade Size (coin or USDT $), Sizing mode (Fixed lot / Fixed $ / Risk %), "
+        "Auto-place SL/TP with TP1/TP2 scale-out, order type, a <b>Slippage guard</b>, "
+        "round-up-to-minimum, and (futures) leverage &amp; margin with a high-leverage warning. "
+        "Hover any field for a tooltip.",
+        "<b>Modes &amp; Risk</b> (scrollable): Manual trading, Safe Mode, testnet, Pause new entries, "
+        "Read-only, and the full <b>Guardrails</b> set - grouped into Position limits, Daily limits, "
+        "Timing and Risk halts - plus trailing stop, move-to-breakeven, Run on startup and Minimize to tray.",
+        "<b>Strategy:</b> the built-in EMA + RSI strategy with one-click presets and an Advanced section (page 3).",
+        "<b>Connect &amp; License:</b> the TradingView webhook + Strategy filter (acts only on your "
+        "indicator), a Test Signal button, your Licence token, and Start Free Trial / Get License.",
+        "<b>Alerts:</b> Sound, Desktop and Telegram notifications (with Test buttons), an "
+        "important-events-only filter, and an end-of-day P&amp;L summary.",
+    ]))
+    s.append(Paragraph(
+        "<b>Saving:</b> most fields apply live; click <b>Save</b> to keep them across restarts. "
+        "An \"unsaved changes\" marker appears when something hasn't been saved yet.", BODY))
+
+    s.append(Paragraph("4. The built-in strategy &amp; presets", H2))
+    s.append(bullets([
+        "On the <b>Strategy</b> tab the bot runs its own port of the indicator - an EMA20 + RSI-50 "
+        "crossover that trades both <b>long and short</b> - directly on exchange candles. "
+        "No TradingView account needed.",
+        "<b>Presets - one click:</b> <b>Conservative</b> (fewer, stricter trades), <b>Balanced</b> "
+        "(recommended), <b>Aggressive</b> (more trades, trails the runner). The active preset is "
+        "highlighted; hand-edit any field and it switches to Custom.",
+        "<b>Advanced</b> (optional): confirmation candles, body filter, Trend EMA filter, ATR stop, "
+        "TP1/TP2 targets, Trailing x ATR, and an ADX trend-strength filter.",
+        "<b>Symbols &amp; timeframe:</b> trade one or a comma-separated list of pairs on your chosen timeframe.",
+        "The strategy only trades when <b>enabled + connected + licensed</b> - and it respects every "
+        "guardrail and your sizing settings, exactly like signal trades.",
     ]))
 
-    s.append(Paragraph("4. Trading &amp; analytics", H2))
+    # ---------------- Page 3 ----------------
+    s.append(Paragraph("5. Chart, Backtest &amp; Analytics", H2))
+    s.append(Paragraph(
+        "Three buttons on the main window open the analysis tools. They follow your live Strategy "
+        "settings and pair list.", BODY))
     s.append(bullets([
-        "<b>Manual:</b> pick a Symbol, set the size, press <b>BUY</b> or <b>SELL</b>.",
-        "<b>Automatic:</b> signals arrive by webhook or cloud and the bot opens the trade "
-        "plus its TP1/TP2 brackets for you.",
-        "<b>Open Positions:</b> Close Selected, <b>Close %</b> (bank part of a winner - "
-        "25/33/50/75%), Set SL/TP, or <b>PANIC: Close All</b> to flatten everything instantly.",
-        "<b>Analytics:</b> win rate, realized P&amp;L and an equity curve, with a date-range "
-        "filter, Clear, and Export CSV for your records.",
+        "<b>Chart:</b> candlesticks with EMAs, RSI, volume and every BUY / SELL / scale-out / exit "
+        "marker, a live last-price line, plus entry, stop and TP lines.",
+        "<b>Backtest:</b> replay the strategy on real history. Spot is long-only; <b>Futures runs "
+        "long + short</b> (matching what you can actually trade). Includes an optimizer (parameter "
+        "sweeps), a walk-forward test to guard against curve-fitting, a buy-&amp;-hold benchmark, an "
+        "equity curve, and CSV export.",
+        "<b>Analytics:</b> win rate, profit factor, per-symbol stats and an equity curve, with a "
+        "date-range filter, Clear and Export CSV.",
     ]))
 
-    # ---------------- Page 4 ----------------
-    s.append(Paragraph("Fees &amp; sizing - read this", H2))
+    s.append(Paragraph("6. Trading &amp; open positions", H2))
     s.append(bullets([
-        "Spot fees are about <b>0.1% per fill (~0.2% per round trip)</b>. Keep your "
-        "take-profit above ~0.25% so wins clear the fee.",
-        "<b>More trades is not more profit</b> - frequent trading bleeds capital in fees. "
-        "Quality over quantity.",
-        "On a $500 balance, a 0.006 BTC lot (~$420) uses most of your funds, so you hold "
-        "one position at a time. Lower the size to run more, or add capital.",
+        "<b>Manual:</b> pick a Symbol, set the size, press <b>BUY</b> or <b>SELL</b>. The preview "
+        "above the buttons shows what will be sent.",
+        "<b>Automatic:</b> signals from the built-in strategy, your webhook or the cloud feed open "
+        "the trade plus its TP1/TP2 brackets for you.",
+        "<b>Open Positions:</b> Close Selected, <b>Close %</b> (bank part of a winner - 25/33/50/75%), "
+        "Set SL/TP, or <b>PANIC: Close All</b> to flatten everything instantly.",
+    ]))
+
+    s.append(Paragraph("7. Settings (the gear)", H2))
+    s.append(Paragraph("The gear in the top-right opens app preferences - the things you set once.", BODY))
+    s.append(bullets([
+        "<b>Security:</b> Change PIN, and <b>Lock now</b> (hide the app behind your PIN without quitting). "
+        "<b>Forgot your PIN?</b> Ask support to authorise a reset, then click <b>Forgot PIN?</b> on the "
+        "unlock screen, enter your email and set a new PIN - your licence is kept (you'll re-enter your "
+        "exchange keys). Only one copy of the app runs at a time, so you can't accidentally double-trade.",
+        "<b>Appearance:</b> Text size - Small / Normal / Large - for readability on any screen.",
+        "<b>Data &amp; backup:</b> Backup / Restore settings, Open data folder, View log file (handy for "
+        "support), and Clear history / log.",
+        "<b>Startup &amp; updates:</b> run on Windows startup, minimize to tray, start minimized, "
+        "auto-connect on launch, and check for updates.",
+    ]))
+
+    s.append(Paragraph("8. Fees &amp; sizing - read this", H2))
+    s.append(bullets([
+        "Spot fees are about <b>0.1% per fill (~0.2% round trip)</b>. Keep take-profits above ~0.25% "
+        "so wins clear the fee.",
+        "<b>More trades is not more profit</b> - frequent trading bleeds capital in fees. Quality over quantity.",
+        "<b>Risk-based sizing</b> (recommended) sizes each trade from your Risk % and the stop distance, "
+        "so position size scales with your balance.",
         "On Binance, holding <b>BNB</b> lowers fees by ~25%.",
     ]))
 
+    # ---------------- Page 4 ----------------
     s.append(Paragraph("Troubleshooting", H2))
     s.append(table([
         [Paragraph("Message", CELLB), Paragraph("What it means &amp; the fix", CELLB)],
         [Paragraph("Insufficient balance", CELL),
-         Paragraph("Your lot costs more than your balance (size is in coins, not $). "
-                   "Lower the Trade Size.", CELL)],
+         Paragraph("Your lot costs more than your balance (size is in coins, not $). Lower the Trade "
+                   "Size, or use Risk % sizing.", CELL)],
         [Paragraph("Invalid API-key / -2015", CELL),
-         Paragraph("Trading not enabled or IP not whitelisted. Enable Spot/Futures and add "
-                   "your IP (Show my IP).", CELL)],
+         Paragraph("Trading not enabled or IP not whitelisted. Enable Spot/Futures and add your IP "
+                   "(Show my IP).", CELL)],
+        [Paragraph("Futures rejected (-2015)", CELL),
+         Paragraph("Your key/account isn't enabled for Futures, or the IP isn't whitelisted for it. "
+                   "Enable Futures trading on the key and whitelist your IP.", CELL)],
         [Paragraph("Restricted location / 451", CELL),
-         Paragraph("Exchange blocked in your region. US: use Binance.US. Else: another "
-                   "exchange or turn off VPN.", CELL)],
+         Paragraph("Exchange blocked in your region. US: use Binance.US. Else: another exchange or "
+                   "turn off VPN.", CELL)],
         [Paragraph("Balance shows $0", CELL),
-         Paragraph("Funds are in the other wallet. Move USDT to Spot (Market=Spot) or "
-                   "Futures (Market=Futures).", CELL)],
+         Paragraph("Funds are in the other wallet. Move USDT to Spot (Market=Spot) or Futures "
+                   "(Market=Futures).", CELL)],
         [Paragraph("does not have market symbol", CELL),
-         Paragraph("Pair mismatch - use the exchange's pair (e.g. BTCUSDT, not BTCUSD).", CELL)],
+         Paragraph("Pair mismatch - pick the pair from the dropdown (the app lists your exchange's "
+                   "pairs).", CELL)],
+        [Paragraph("Telegram not arriving", CELL),
+         Paragraph("Open Alerts, click Test. Message your bot once, check the token &amp; chat id. "
+                   "The app falls back automatically behind strict firewalls.", CELL)],
     ], [44 * mm, None]))
 
-    # ---------------- Page 5 ----------------
-    s.append(Paragraph("5. Power tools &amp; running 24/7", H2))
-    s.append(Paragraph(
-        "These newer controls let you test safely, take profit smarter, cap your risk and "
-        "keep the bot trading around the clock. All are optional - defaults are off.", BODY))
-
-    s.append(Paragraph("Test &amp; take profit", H2))
+    s.append(Paragraph("Running 24/7", H2))
     s.append(bullets([
-        "<b>Test Signal</b> (Webhook tab): fires a fake BUY through the <i>real</i> pipeline - "
-        "sizing, order and SL/TP bracket - on your selected symbol. In <b>Safe Mode</b> it is "
-        "simulated (no real order); with Safe Mode off it asks before placing a real test "
-        "trade. Use it to prove your size and brackets are correct before going live.",
-        "<b>Close %</b> (Open Positions): select a position, pick <b>25/33/50/75%</b> and click "
-        "<b>Close %</b> to bank part of a winner (a reduce-only market order) while letting the "
-        "rest run. Click again to scale out further; <b>Close Selected</b> exits the remainder.",
+        "<b>Run automatically when Windows starts</b> + <b>Minimize to tray</b> (Modes &amp; Risk, or "
+        "the gear): the bot keeps trading in the background. Combine with Safe Mode off and a saved "
+        "licence so it runs unattended.",
+        "Leave the PC on (or use a small always-on PC / VPS) and keep your exchange IP whitelist updated.",
     ]))
 
-    s.append(Paragraph("Smarter execution (Execution tab)", H2))
-    s.append(bullets([
-        "<b>Slippage guard (%)</b>: skip a signal if price has already moved more than this "
-        "from the indicator's entry - stops you chasing a candle that ran. e.g. <b>0.5</b> = "
-        "skip if &gt;0.5% away. <b>0 = off</b>.",
-        "<b>Round small orders up to the minimum</b>: if your lot is below the exchange's "
-        "~$5 minimum, tick this to bump it up to the minimum instead of blocking the trade.",
-        "<b>Leverage warning</b>: choosing more than <b>10x</b> on Futures pops a reminder that "
-        "liquidation sits near -100/leverage % from entry. Lower leverage = more breathing room.",
-    ]))
-
-    s.append(Paragraph("Extra guardrails (Modes &amp; Risk tab)", H2))
-    s.append(bullets([
-        "<b>Loss-streak limit + pause</b>: after N losing trades in a row, pause new entries "
-        "for the set number of seconds - a circuit-breaker for a bad run.",
-        "<b>Max drawdown halt (%)</b>: if account equity falls this far from its high-water "
-        "mark, stop opening trades until you reset.",
-        "<b>Trading-hours window</b>: only trade between a start and end hour (your PC's local "
-        "time); set both to 0 to trade all day. Supports overnight windows (e.g. 22 -&gt; 6).",
-    ]))
-
-    s.append(Paragraph("Run 24/7 (Modes &amp; Risk tab)", H2))
-    s.append(bullets([
-        "<b>Run automatically when Windows starts</b>: launches the bot at login. Combine with "
-        "Safe Mode off + a saved Licence/Webhook so it trades unattended after a reboot.",
-        "<b>Minimize to system tray on close</b>: the window's X hides the app to the tray "
-        "(near the clock) instead of quitting - it keeps trading in the background. Click the "
-        "tray icon to <b>Show</b>, or right-click -&gt; <b>Quit</b> to fully exit.",
-        "For true 24/7, leave the PC on (or use a small always-on PC/VPS) and keep your "
-        "exchange IP whitelist updated.",
-    ]))
-
-    # ---------------- Page 6 ----------------
     s.append(Paragraph("Security checklist", H2))
     s.append(bullets([
-        "Withdrawals <b>disabled</b> on the API key.",
         "Your IP added to the key's whitelist.",
         "Tested in <b>Safe Mode</b> before going live.",
         "Trading a <b>small size</b> until you trust it.",
@@ -315,8 +327,8 @@ def build():
     s.append(HRFlowable(width="100%", thickness=0.8, color=LINE, spaceAfter=6))
     s.append(Paragraph(
         f"Need help? Email <b>{SUPPORT}</b> or visit <b>{SITE}</b>. "
-        "Trading places real orders with real money when Safe Mode is off - start small, "
-        "keep withdrawals off, and never risk funds you can't afford to lose.", SMALL))
+        "Trading places real orders with real money when Safe Mode is off - "
+        "start small and never risk funds you can't afford to lose.", SMALL))
 
     doc.build(s, onFirstPage=_footer, onLaterPages=_footer)
     print(f"[make_user_guide] wrote {os.path.abspath(OUT)}")
@@ -367,54 +379,64 @@ def build_cheatsheet():
         _cstep([
             "Open app, set a <b>PIN</b>.",
             "Create an exchange <b>API key</b> (trading on).",
-            "Paste Key + Secret, pick exchange + <b>Spot</b>.",
-            "Click <b>Connect</b> with <b>Safe Mode</b> ON.",
-            "Verify, then Safe Mode off + <b>small size</b>.",
+            "Paste Key + Secret, pick exchange + <b>Spot/Futures</b>.",
+            "Connect with <b>Safe Mode</b> ON.",
+            "Activate licence (Free Trial or token), pick a preset, go.",
         ]),
         Paragraph("API key - get this right", CH_H),
         _cbul([
             "Enable <b>Reading</b> + <b>Spot</b> (or Futures).",
-            "<b>Withdrawals OFF</b> - always.",
-            "<b>Whitelist your IP</b>: app's <b>Show my IP</b> -&gt; Copy -&gt; paste on exchange.",
+            "<b>Whitelist your IP</b>: Show my IP -&gt; Copy -&gt; paste on exchange.",
             "<b>Passphrase</b> needed: OKX, KuCoin, Bitget.",
             "<b>USA</b>: use <b>Binance.US</b> (not binance.com).",
         ]),
-        Paragraph("Cloud signals (licence)", CH_H),
+        Paragraph("Strategy &amp; presets", CH_H),
         _cbul([
-            "Webhook tab -&gt; paste <b>Relay URL</b> + <b>Licence token</b>.",
-            "Set <b>Strategy filter = Prometheus</b>.",
+            "EMA20 + RSI-50 crossover - trades <b>long + short</b>.",
+            "Presets: <b>Conservative / Balanced / Aggressive</b> (one click).",
+            "Advanced: trend EMA, ATR stop, TP1/TP2, trailing, ADX.",
+            "Set Symbols + Timeframe; trades only when licensed + connected.",
+        ]),
+        Paragraph("Connect &amp; License", CH_H),
+        _cbul([
+            "Connect &amp; License tab -&gt; <b>Start Free Trial</b> or paste token.",
+            "Optional webhook: Strategy filter = Prometheus.",
             "No TradingView / ngrok needed.",
         ]),
     ]
     right = [
+        Paragraph("Chart / Backtest / Analytics", CH_H),
+        _cbul([
+            "<b>Chart</b>: candles, EMAs, RSI, volume + BUY/SELL markers + last price.",
+            "<b>Backtest</b>: Spot = long-only, Futures = long + short; "
+            "optimizer + walk-forward; vs buy &amp; hold.",
+            "<b>Analytics</b>: win rate, profit factor, equity curve, CSV.",
+        ]),
         Paragraph("Key settings", CH_H),
         _cbul([
-            "<b>Trade Size</b> in coin <i>or</i> <b>USDT ($)</b>; Sizing: Fixed / Fixed $ / Risk %.",
-            "<b>Auto TP1/TP2</b> scale-out on signals.",
-            "<b>Guardrails</b>: daily loss/profit halt, max positions, cooldown, dedupe, "
-            "<b>loss-streak pause</b>, <b>drawdown halt</b>, <b>trading hours</b>.",
-            "<b>Slippage guard</b> + round-up-to-min; &gt;10x futures warns.",
-            "<b>Close %</b> banks part of a winner; <b>PANIC: Close All</b> flattens.",
-            "<b>Alerts</b>: Sound / Desktop / Telegram + daily P&amp;L.",
+            "<b>Trade Size</b> in coin or USDT ($); Sizing: Fixed / Fixed $ / Risk %.",
+            "<b>Auto TP1/TP2</b> scale-out; live order preview.",
+            "<b>Guardrails</b>: daily loss/profit, max positions, exposure cap, "
+            "cooldown, dedupe, loss-streak, drawdown, hours.",
+            "Pause new entries, trailing stop, slippage guard, &gt;10x warns.",
+            "<b>Close %</b> banks a winner; <b>PANIC: Close All</b> flattens.",
+            "Alerts: Sound / Desktop / Telegram + daily P&amp;L.",
         ]),
-        Paragraph("Test &amp; 24/7", CH_H),
+        Paragraph("Gear, test &amp; 24/7", CH_H),
         _cbul([
-            "<b>Test Signal</b> (Webhook): fake BUY through the real pipeline (sim in Safe Mode).",
-            "<b>Run on Windows startup</b> + <b>Minimize to tray</b> = unattended 24/7.",
+            "Gear: Change PIN, Lock, text size, open data folder / log.",
+            "<b>Forgot PIN?</b> support authorises -&gt; Forgot PIN? on unlock -&gt; set new PIN (licence kept).",
+            "Only one copy runs at a time (no double-trading).",
+            "<b>Test Signal</b>: fake BUY through the real pipeline (sim in Safe Mode).",
+            "Run on startup + Minimize to tray = unattended 24/7.",
         ]),
-        Paragraph("Fees rule of thumb", CH_H),
+        Paragraph("Fees &amp; quick fixes", CH_H),
         _cbul([
-            "~<b>0.1% per fill</b> (~0.2% round trip).",
-            "Keep <b>TP &gt; 0.25%</b> to beat fees.",
-            "Fewer, better trades &gt; many small ones.",
-        ]),
-        Paragraph("Quick fixes", CH_H),
-        _cbul([
-            "<b>Insufficient balance</b> -&gt; lower Trade Size.",
+            "~<b>0.1% per fill</b> (~0.2% round trip); keep <b>TP &gt; 0.25%</b>.",
+            "<b>Insufficient balance</b> -&gt; lower size / use Risk %.",
             "<b>-2015 / invalid key</b> -&gt; enable trading + whitelist IP.",
-            "<b>451 restricted</b> -&gt; Binance.US / other / no VPN.",
-            "<b>$0 balance</b> -&gt; funds in wrong wallet (Spot vs Futures).",
-            "<b>no market symbol</b> -&gt; use BTCUSDT (not BTCUSD).",
+            "<b>451</b> -&gt; Binance.US / other / no VPN.  <b>$0</b> -&gt; wrong wallet.",
+            "<b>no market symbol</b> -&gt; pick the pair from the dropdown.",
         ]),
     ]
     cols = Table([[left, right]], colWidths=[(A4[0] - 28 * mm) / 2] * 2, hAlign="LEFT")
@@ -425,7 +447,7 @@ def build_cheatsheet():
     s.append(Spacer(1, 6))
     s.append(HRFlowable(width="100%", thickness=0.8, color=LINE, spaceAfter=4))
     s.append(Paragraph(
-        "<b>Safety:</b> withdrawals off - IP whitelisted - test in Safe Mode - trade small. "
+        "<b>Safety:</b> IP whitelisted - test in Safe Mode - trade small. "
         "Real money when Safe Mode is off.", SMALL))
     doc.build(s, onFirstPage=_footer, onLaterPages=_footer)
     print(f"[make_user_guide] wrote {os.path.abspath(OUT_CHEAT)}")
@@ -434,4 +456,3 @@ def build_cheatsheet():
 if __name__ == "__main__":
     build()
     build_cheatsheet()
-
