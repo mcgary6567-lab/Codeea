@@ -269,7 +269,7 @@ class TradingBotGUI:
         result = {"v": "later"}
 
         head = f"Version {latest} is available — you have {APP_VERSION}."
-        tk.Label(dlg, text=head, bg=theme.BG, fg=theme.TXT, font=("Segoe UI Semibold", 11),
+        tk.Label(dlg, text=head, bg=theme.BG, fg=theme.TXT, font=(theme.UI_SB, 11),
                  wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(14, 4))
         if required:
             tk.Label(dlg, text="This is a required update — connecting is disabled until "
@@ -278,7 +278,7 @@ class TradingBotGUI:
         if notes:
             box = tk.Text(dlg, height=min(10, max(3, notes.count(chr(10)) + 2)), width=54,
                           bg=theme.ELEV, fg=theme.TXT, relief="flat", wrap="word",
-                          font=("Segoe UI", 9))
+                          font=(theme.UI, 9))
             box.insert("1.0", notes)
             box.configure(state="disabled")
             box.pack(fill="both", padx=16, pady=6)
@@ -424,7 +424,7 @@ class TradingBotGUI:
         self.root.option_add("*Button.foreground", TXT)
         self.root.option_add("*Button.activeBackground", theme.BORDER)
         self.root.option_add("*Button.activeForeground", TXT)
-        self.root.option_add("*Button.font", "{Segoe UI Semibold} 9")
+        self.root.option_add("*Button.font", f"{{{theme.UI_SB}}} 9")
         self.root.option_add("*Button.padX", "10")
         self.root.option_add("*Button.padY", "4")
 
@@ -479,45 +479,45 @@ class TradingBotGUI:
             self._logo_img = img.subsample(n, n)
             tk.Label(bar, image=self._logo_img, bg=HEADER).pack(side="left", padx=(14, 8))
         except Exception:  # noqa: BLE001
-            tk.Label(bar, text="🔥", bg=HEADER, fg=ACCENT, font=("Segoe UI", 18)).pack(side="left", padx=14)
+            tk.Label(bar, text="🔥", bg=HEADER, fg=ACCENT, font=(theme.UI, 18)).pack(side="left", padx=14)
 
         title_box = tk.Frame(bar, bg=HEADER)
         title_box.pack(side="left")
         tk.Label(title_box, text=APP_TITLE, bg=HEADER, fg=TXT,
-                 font=("Segoe UI Semibold", 15)).pack(anchor="w")
+                 font=(theme.UI_SB, 15)).pack(anchor="w")
         tk.Label(title_box, text=f"v{APP_VERSION}", bg=HEADER, fg=TXT_DIM,
-                 font=("Segoe UI", 8)).pack(anchor="w")
+                 font=(theme.UI, 8)).pack(anchor="w")
 
         # Settings gear (far right) — opens the app preferences hub.
         self.gear_btn = tk.Button(bar, text="⚙", command=self._open_settings,
-                                  font=("Segoe UI", 14))
+                                  font=(theme.UI, 14))
         theme.style_button(self.gear_btn, "ghost")
         self.gear_btn.configure(padx=10, pady=2)
         self.gear_btn.pack(side="right", padx=(6, 12))
         self._tip(self.gear_btn, "Settings & preferences")
 
         # Live status on the right.
-        self.alert_label = tk.Label(bar, text="", bg=HEADER, fg=RED, font=("Segoe UI", 9, "bold"))
+        self.alert_label = tk.Label(bar, text="", bg=HEADER, fg=RED, font=(theme.UI, 9, "bold"))
         self.alert_label.pack(side="right", padx=14)
 
         stat = tk.Frame(bar, bg=HEADER)
         stat.pack(side="right", padx=10)
-        self.status_dot = tk.Label(stat, text="●", fg=RED, bg=HEADER, font=("Segoe UI", 12))
+        self.status_dot = tk.Label(stat, text="●", fg=RED, bg=HEADER, font=(theme.UI, 12))
         self.status_dot.pack(side="left", padx=(0, 4))
         self.conn_label = tk.Label(stat, text="Disconnected", bg=HEADER, fg=TXT,
-                                   font=("Segoe UI Semibold", 10))
+                                   font=(theme.UI_SB, 10))
         self.conn_label.pack(side="left")
         # Mode badge: LIVE / TESTNET / SAFE / READ-ONLY so the operating mode is
         # never ambiguous.
         self.mode_badge = tk.Label(stat, text="", bg=HEADER, fg=HEADER,
-                                   font=("Segoe UI Semibold", 8), padx=6)
+                                   font=(theme.UI_SB, 8), padx=6)
         self.mode_badge.pack(side="left", padx=(8, 0))
-        self.exch_label = tk.Label(stat, text="  ·  —", bg=HEADER, fg=TXT_DIM, font=("Segoe UI", 10))
+        self.exch_label = tk.Label(stat, text="  ·  —", bg=HEADER, fg=TXT_DIM, font=(theme.UI, 10))
         self.exch_label.pack(side="left")
-        self.bal_label = tk.Label(stat, text="  ·  $0.00", bg=HEADER, fg=TXT, font=("Segoe UI", 10))
+        self.bal_label = tk.Label(stat, text="  ·  $0.00", bg=HEADER, fg=TXT, font=(theme.UI, 10))
         self.bal_label.pack(side="left")
         self.pnl_label = tk.Label(stat, text="  ·  PnL $0.00", bg=HEADER, fg=TXT,
-                                  font=("Segoe UI Semibold", 10))
+                                  font=(theme.UI_SB, 10))
         self.pnl_label.pack(side="left")
 
     def _build_footer(self) -> None:
@@ -526,21 +526,21 @@ class TradingBotGUI:
         bar.pack_propagate(False)
 
         tk.Label(bar, text="© Prometheus AI", bg=HEADER, fg=TXT_DIM,
-                 font=("Segoe UI", 8)).pack(side="left", padx=12)
+                 font=(theme.UI, 8)).pack(side="left", padx=12)
 
         # Internet connectivity indicator. Starts "checking" until the first
         # probe completes (see _check_internet).
         net = tk.Frame(bar, bg=HEADER)
         net.pack(side="left", padx=4)
-        self.net_dot = tk.Label(net, text="●", bg=HEADER, fg=GREY, font=("Segoe UI", 9))
+        self.net_dot = tk.Label(net, text="●", bg=HEADER, fg=GREY, font=(theme.UI, 9))
         self.net_dot.pack(side="left", padx=(0, 3))
         self.net_label = tk.Label(net, text="Checking internet…", bg=HEADER, fg=TXT_DIM,
-                                  font=("Segoe UI", 8))
+                                  font=(theme.UI, 8))
         self.net_label.pack(side="left")
 
         def link(parent, text, action):
             lbl = tk.Label(parent, text=text, bg=HEADER, fg=ACCENT, cursor="hand2",
-                           font=("Segoe UI", 9, "underline"))
+                           font=(theme.UI, 9, "underline"))
             lbl.pack(side="right", padx=10)
             lbl.bind("<Button-1>", lambda e: action())
             return lbl
@@ -571,12 +571,12 @@ class TradingBotGUI:
         steps = tk.Frame(bar, bg=HEADER)
         steps.pack(side="left", padx=10)
         tk.Label(steps, text="Setup:", bg=HEADER, fg=TXT_DIM,
-                 font=("Segoe UI", 8)).pack(side="left", padx=(0, 6))
+                 font=(theme.UI, 8)).pack(side="left", padx=(0, 6))
         self._step_lbls = {}
         for key, text in (("connect", "① Connect"), ("license", "② Activate license"),
                           ("running", "③ Start trading")):
             lbl = tk.Label(steps, text=text, bg=ELEV, fg=TXT_DIM,
-                           font=("Segoe UI Semibold", 8), padx=8, pady=2)
+                           font=(theme.UI_SB, 8), padx=8, pady=2)
             lbl.pack(side="left", padx=3)
             self._step_lbls[key] = lbl
 
@@ -587,7 +587,7 @@ class TradingBotGUI:
         for key, text in (("strategy", "Strategy"), ("webhook", "Webhook"),
                           ("relay", "Cloud"), ("paused", "Paused")):
             chip = tk.Label(chips, text=f"● {text}", bg=HEADER, fg=GREY,
-                            font=("Segoe UI Semibold", 8), padx=6)
+                            font=(theme.UI_SB, 8), padx=6)
             chip.pack(side="left", padx=3)
             self._status_chips[key] = chip
 
@@ -731,7 +731,7 @@ class TradingBotGUI:
         self.ip_btn.pack(side="left")
         self.ip_value = tk.StringVar(value="—")
         tk.Label(ipf, textvariable=self.ip_value, bg=PANEL, fg=ACCENT,
-                 font=("Segoe UI Semibold", 10)).pack(side="left", padx=8)
+                 font=(theme.UI_SB, 10)).pack(side="left", padx=8)
         self.ip_copy_btn = tk.Button(ipf, text="📋 Copy", command=self._copy_my_ip, state="disabled")
         theme.style_button(self.ip_copy_btn, "ghost")
         self.ip_copy_btn.pack(side="left")
@@ -848,18 +848,18 @@ class TradingBotGUI:
         # Order preview — what a BUY/SELL click will actually send, so there are
         # no surprises about size/notional before committing.
         self.trade_preview_lbl = tk.Label(
-            f, text="", bg=PANEL, fg=TXT_DIM, font=("Segoe UI", 9), anchor="center")
+            f, text="", bg=PANEL, fg=TXT_DIM, font=(theme.UI, 9), anchor="center")
         self.trade_preview_lbl.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
 
         self.buy_btn = theme.RoundedButton(
             f, text="▲ BUY", bg=GREEN, active=theme.GREEN, fg="white",
-            radius=5, height=40, font=("Segoe UI", 15, "bold"),
+            radius=5, height=40, font=(theme.UI, 15, "bold"),
             command=lambda: self._on_manual_trade("buy"),
         )
         self.buy_btn.grid(row=1, column=0, sticky="ew", padx=(0, 5))
         self.sell_btn = theme.RoundedButton(
             f, text="▼ SELL", bg=RED, active=theme.RED, fg="white",
-            radius=5, height=40, font=("Segoe UI", 15, "bold"),
+            radius=5, height=40, font=(theme.UI, 15, "bold"),
             command=lambda: self._on_manual_trade("sell"),
         )
         self.sell_btn.grid(row=1, column=1, sticky="ew", padx=(5, 0))
@@ -880,7 +880,7 @@ class TradingBotGUI:
         # Live current price for the selected symbol (streamed even with no position).
         ttk.Label(top, text="Current Price:").pack(side="left", padx=(6, 2))
         self.mark_label = tk.Label(top, text="—", fg=ACCENT, bg=PANEL,
-                                   font=("Segoe UI Semibold", 11))
+                                   font=(theme.UI_SB, 11))
         self.mark_label.pack(side="left", padx=2)
         # Re-subscribe the feed whenever the symbol is picked/typed.
         sym_box.bind("<<ComboboxSelected>>", lambda e: self._watch_manual_symbol())
@@ -913,7 +913,7 @@ class TradingBotGUI:
         tk.Button(cbar, text="🛡 Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
         tk.Button(
             cbar, text="🛑 PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
-            font=("Segoe UI", 9, "bold"), command=self._close_all,
+            font=(theme.UI, 9, "bold"), command=self._close_all,
         ).pack(side="left", padx=4)
 
     def _set_protection(self) -> None:
@@ -928,7 +928,7 @@ class TradingBotGUI:
         win.configure(bg=PANEL)
         win.resizable(False, False)
         tk.Label(win, text=f"{pair}", bg=PANEL, fg=ACCENT,
-                 font=("Segoe UI Semibold", 12)).grid(row=0, column=0, columnspan=2, padx=14, pady=(12, 8))
+                 font=(theme.UI_SB, 12)).grid(row=0, column=0, columnspan=2, padx=14, pady=(12, 8))
         tk.Label(win, text="Stop-loss price:", bg=PANEL, fg=TXT).grid(row=1, column=0, sticky="w", padx=14, pady=4)
         sl_v = tk.StringVar()
         tk.Entry(win, textvariable=sl_v, bg=ELEV, fg=TXT, relief="flat",
@@ -1048,7 +1048,7 @@ class TradingBotGUI:
     # -- Security ----------------------------------------------------------
     def _settings_security(self, parent) -> None:
         c = self._settings_section(parent, "🔐 Security")
-        ttk.Label(c, text="Change PIN", font=("Segoe UI Semibold", 9)).grid(
+        ttk.Label(c, text="Change PIN", font=(theme.UI_SB, 9)).grid(
             row=0, column=0, columnspan=2, sticky="w")
         cur = tk.StringVar(); new = tk.StringVar(); conf = tk.StringVar()
         for i, (lbl, var) in enumerate((("Current PIN", cur), ("New PIN", new),
@@ -1056,7 +1056,7 @@ class TradingBotGUI:
             ttk.Label(c, text=lbl + ":").grid(row=i, column=0, sticky="w", pady=2)
             ttk.Entry(c, textvariable=var, show="•", width=16).grid(
                 row=i, column=1, sticky="w", pady=2)
-        status = tk.Label(c, text="", bg=PANEL, fg=TXT_DIM, font=("Segoe UI", 9))
+        status = tk.Label(c, text="", bg=PANEL, fg=TXT_DIM, font=(theme.UI, 9))
         status.grid(row=4, column=0, columnspan=2, sticky="w", pady=(2, 0))
         bb = ttk.Frame(c); bb.grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
         b = tk.Button(bb, text="Update PIN",
@@ -1095,12 +1095,12 @@ class TradingBotGUI:
         theme.fit_window(lw, 320, 200, min_w=300, min_h=180)
         lw.protocol("WM_DELETE_WINDOW", lambda: None)   # can't bypass by closing
         tk.Label(lw, text="🔒  Locked", bg=PANEL, fg=TXT,
-                 font=("Segoe UI Semibold", 14)).pack(pady=(22, 6))
+                 font=(theme.UI_SB, 14)).pack(pady=(22, 6))
         pin_var = tk.StringVar()
         e = ttk.Entry(lw, textvariable=pin_var, show="•", width=18, justify="center")
         e.pack(pady=4); e.focus_set()
         st = tk.Label(lw, text="Enter your PIN to unlock", bg=PANEL, fg=TXT_DIM,
-                      font=("Segoe UI", 9)); st.pack(pady=2)
+                      font=(theme.UI, 9)); st.pack(pady=2)
 
         def unlock():
             if security.verify_pin(pin_var.get().strip()):
@@ -1233,7 +1233,7 @@ class TradingBotGUI:
     def _settings_about(self, parent) -> None:
         c = self._settings_section(parent, "ℹ About")
         ttk.Label(c, text=f"{APP_TITLE} · v{APP_VERSION}",
-                  font=("Segoe UI Semibold", 9)).grid(row=0, column=0, columnspan=2, sticky="w")
+                  font=(theme.UI_SB, 9)).grid(row=0, column=0, columnspan=2, sticky="w")
         ab = ttk.Frame(c); ab.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
         for label, action in (
             ("🌐 Website", lambda: self._open_url(WEBSITE_URL)),
@@ -1326,7 +1326,7 @@ class TradingBotGUI:
         # "Unsaved changes" marker — clarifies the mixed save model (most fields
         # apply live, but Save is what persists them across restarts).
         self.dirty_lbl = tk.Label(outer, text="", bg=PANEL, fg="#e67e22",
-                                  font=("Segoe UI", 8))
+                                  font=(theme.UI, 8))
         self.dirty_lbl.grid(row=1, column=0, sticky="e", pady=(2, 0))
 
         btnrow = ttk.Frame(outer)
@@ -1537,7 +1537,7 @@ class TradingBotGUI:
         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=2)
 
         ttk.Separator(f, orient="horizontal").grid(row=3, column=0, columnspan=2, sticky="ew", pady=6)
-        ttk.Label(f, text="Guardrails (0 = off):", font=("Segoe UI", 9, "bold")).grid(
+        ttk.Label(f, text="Guardrails (0 = off):", font=(theme.UI, 9, "bold")).grid(
             row=4, column=0, columnspan=2, sticky="w"
         )
 
@@ -1612,11 +1612,11 @@ class TradingBotGUI:
         gr = ttk.Frame(f)
         gr.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         tk.Button(gr, text="🔁 Reset daily limit", command=self._reset_daily).pack(side="left")
-        self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=("Segoe UI", 9, "bold"))
+        self.guardrail_status = tk.Label(gr, text="", fg=RED, bg=PANEL, font=(theme.UI, 9, "bold"))
         self.guardrail_status.pack(side="left", padx=8)
         # Shows the *resolved* daily limits in quote ccy (converts the % fields
         # using the current balance) so it's unambiguous which limit is active.
-        self.daily_limit_lbl = tk.Label(gr, text="", fg=TXT_DIM, bg=PANEL, font=("Segoe UI", 9))
+        self.daily_limit_lbl = tk.Label(gr, text="", fg=TXT_DIM, bg=PANEL, font=(theme.UI, 9))
         self.daily_limit_lbl.pack(side="left", padx=8)
         for v in (self.daily_loss_var, self.daily_loss_pct_var,
                   self.daily_profit_var, self.daily_profit_pct_var):
@@ -1693,7 +1693,7 @@ class TradingBotGUI:
 
         ttk.Separator(f, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=6)
         ttk.Label(f, text="License",
-                  font=("Segoe UI", 9, "bold")).grid(row=5, column=0, columnspan=2, sticky="w")
+                  font=(theme.UI, 9, "bold")).grid(row=5, column=0, columnspan=2, sticky="w")
         # Relay URL is fixed to our server — kept in a (hidden) var, not shown/edited.
         self.relay_url_var = tk.StringVar(value=DEFAULT_RELAY_URL)
         ttk.Label(f, text="License token:").grid(row=6, column=0, sticky="w", pady=2)
@@ -1704,7 +1704,7 @@ class TradingBotGUI:
         ttk.Entry(tr, textvariable=self.relay_token_var).grid(row=0, column=0, sticky="ew")
         self.relay_btn = tk.Button(tr, text="🔗 Connect", command=self._toggle_relay)
         self.relay_btn.grid(row=0, column=1, padx=(6, 0))
-        self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
+        self.relay_status = tk.Label(f, text="● off", fg=GREY, bg=PANEL, font=(theme.UI, 9))
         self.relay_status.grid(row=7, column=0, columnspan=2, sticky="w")
 
         # --- Free trial / licence (two rows so the buttons never clip) ------
@@ -1725,7 +1725,7 @@ class TradingBotGUI:
                                     command=self._open_checkout)
         theme.style_button(self.getlic_btn, "accent")
         self.getlic_btn.pack(side="left")
-        self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=("Segoe UI", 9))
+        self.trial_status = tk.Label(f, text="", fg=GREY, bg=PANEL, font=(theme.UI, 9))
         self.trial_status.grid(row=10, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
     # One-click strategy presets. Most users never touch the raw fields below —
@@ -1819,7 +1819,7 @@ class TradingBotGUI:
         _strat_chk.config(state="disabled", disabledforeground=TXT)   # locked, but readable
         _strat_chk.pack(side="left")
         self.strat_status = tk.Label(row, text="● off", fg=GREY, bg=PANEL,
-                                     font=("Segoe UI", 9))
+                                     font=(theme.UI, 9))
         self.strat_status.pack(side="right")
 
         ttk.Label(f, text="Symbols (comma-separated):").grid(row=1, column=0, sticky="w", pady=2)
@@ -1870,7 +1870,7 @@ class TradingBotGUI:
             self._strat_preset_btns[name] = b
         # Shows which preset is currently in effect — or "Custom" once you hand-edit.
         self._strat_preset_lbl = ttk.Label(pr, text="", style="Accent.TLabel",
-                                           font=("Segoe UI Semibold", 9))
+                                           font=(theme.UI_SB, 9))
         self._strat_preset_lbl.pack(side="left", padx=(10, 0))
 
         # --- Advanced (collapsed by default) -------------------------------
@@ -2356,9 +2356,9 @@ class TradingBotGUI:
         win.geometry("520x240")
         header = f"{time_}   {signal}   {pair}   [{status}]".strip()
         tk.Label(win, text=header, bg=PANEL, fg=ACCENT, anchor="w",
-                 font=("Segoe UI Semibold", 10)).pack(fill="x", padx=12, pady=(12, 6))
+                 font=(theme.UI_SB, 10)).pack(fill="x", padx=12, pady=(12, 6))
         txt = tk.Text(win, wrap="word", bg=ELEV, fg=TXT, relief="flat", bd=0,
-                      height=6, font=("Segoe UI", 10), padx=8, pady=8)
+                      height=6, font=(theme.UI, 10), padx=8, pady=8)
         txt.insert("1.0", str(message))
         txt.configure(state="disabled")
         txt.pack(fill="both", expand=True, padx=12, pady=(0, 8))

@@ -114,7 +114,7 @@ class AnalyticsWindow:
         # Date-range filter.
         fr = tk.Frame(self.win, bg=BG)
         fr.pack(fill="x", padx=16, pady=(10, 6))
-        tk.Label(fr, text="Range:", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(fr, text="Range:", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.range_var = tk.StringVar(value="All")
         rng = ttk.Combobox(fr, textvariable=self.range_var, width=14, state="readonly",
                            values=["All", "Today", "Last 7 days", "Last 30 days", "Custom"])
@@ -123,14 +123,14 @@ class AnalyticsWindow:
         self.from_var = tk.StringVar()
         self.to_var = tk.StringVar()
         self._custom = tk.Frame(fr, bg=BG)   # shown only for Custom
-        tk.Label(self._custom, text="From", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(self._custom, text="From", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         fe = ttk.Entry(self._custom, textvariable=self.from_var, width=11)
         fe.pack(side="left", padx=(4, 8))
-        tk.Label(self._custom, text="To", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(self._custom, text="To", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         te = ttk.Entry(self._custom, textvariable=self.to_var, width=11)
         te.pack(side="left", padx=4)
         tk.Label(self._custom, text="(YYYY-MM-DD)", bg=BG, fg=DIM,
-                 font=("Segoe UI", 8)).pack(side="left", padx=4)
+                 font=(theme.UI, 8)).pack(side="left", padx=4)
         for e in (fe, te):
             e.bind("<Return>", lambda ev: self.refresh())
 
@@ -144,10 +144,10 @@ class AnalyticsWindow:
             cell = tk.Frame(grid, bg=ELEV)
             cell.grid(row=r, column=c, sticky="nsew", padx=5, pady=5)
             tk.Label(cell, text=label.upper(), bg=ELEV, fg=DIM,
-                     font=("Segoe UI", 8)).pack(anchor="w", padx=12, pady=(9, 0))
+                     font=(theme.UI, 8)).pack(anchor="w", padx=12, pady=(9, 0))
             val = tk.Label(cell, text="—", bg=ELEV,
                            fg=(GREEN if colour == "pnl" else colour),
-                           font=("Segoe UI Semibold", 17))
+                           font=(theme.UI_SB, 17))
             val.pack(anchor="w", padx=12, pady=(0, 10))
             self._vals[key] = (val, colour)
 
@@ -270,7 +270,7 @@ class AnalyticsWindow:
         if not points or len(points) < 2:
             c.create_text(w // 2, h // 2,
                           text="No equity data yet — it plots as trades close",
-                          fill=DIM, font=("Segoe UI", 10))
+                          fill=DIM, font=(theme.UI, 10))
             return
         ys = [p[1] for p in points]
         lo, hi = min(ys), max(ys)
@@ -288,7 +288,7 @@ class AnalyticsWindow:
             y = py(val)
             c.create_line(pad, y, w - pad, y, fill=BORDER)
             c.create_text(pad - 6, y, text=f"{val:,.0f}", anchor="e", fill=DIM,
-                          font=("Segoe UI", 8))
+                          font=(theme.UI, 8))
 
         up = ys[-1] >= ys[0]
         line = GREEN if up else RED
@@ -301,4 +301,4 @@ class AnalyticsWindow:
         c.create_oval(px(n - 1) - 3, py(ys[-1]) - 3, px(n - 1) + 3, py(ys[-1]) + 3,
                       fill=line, outline="")
         c.create_text(w - pad, py(ys[-1]) - 12, text=f"{ys[-1]:,.2f}", anchor="e",
-                      fill=line, font=("Segoe UI Semibold", 9))
+                      fill=line, font=(theme.UI_SB, 9))

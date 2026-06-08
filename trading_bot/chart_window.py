@@ -189,12 +189,12 @@ class ChartWindow:
             bar, text="Follow Strategy tab", variable=self.follow,
             command=self._on_follow_toggle, bg=BG, fg=DIM, selectcolor=ELEV,
             activebackground=BG, activeforeground=TXT, bd=0, highlightthickness=0,
-            font=("Segoe UI", 9), cursor="hand2")
+            font=(theme.UI, 9), cursor="hand2")
         self._follow_chk.pack(side="left", padx=(0, 12))
         theme.add_tooltip(self._follow_chk,
                           "Mirror the Strategy tab's symbol/timeframe/feed automatically")
 
-        tk.Label(bar, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(bar, text="Symbol", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
         self._sym_box = ttk.Combobox(bar, textvariable=self.symbol_var, width=14,
                                      values=self._symbol_values())
@@ -202,7 +202,7 @@ class ChartWindow:
         self._sym_box.bind("<<ComboboxSelected>>", lambda e: self._on_symbol_change())
         self._sym_box.bind("<Return>", lambda e: self._on_symbol_change())
 
-        tk.Label(bar, text="Timeframe", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(bar, text="Timeframe", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.tf_var = tk.StringVar(value=self.timeframe)
         self._tf_box = ttk.Combobox(bar, textvariable=self.tf_var, width=6, state="readonly",
                                     values=STRATEGY_TIMEFRAMES)
@@ -215,18 +215,18 @@ class ChartWindow:
         theme.toolbar_button(bar, "⤢ Reset zoom", self._reset_zoom, "ghost",
                              tooltip="Reset pan/zoom to the latest candles"
                              ).pack(side="right", padx=8)
-        self.status = tk.Label(bar, text="Loading…", bg=BG, fg=DIM, font=("Segoe UI", 9))
+        self.status = tk.Label(bar, text="Loading…", bg=BG, fg=DIM, font=(theme.UI, 9))
         self.status.pack(side="right", padx=10)
 
         # "What am I tracking?" banner + legend.
         leg = tk.Frame(self.win, bg=BG)
         leg.pack(fill="x", padx=12, pady=(0, 4))
         self._track_lbl = tk.Label(leg, text="", bg=BG, fg=GREEN,
-                                   font=("Segoe UI Semibold", 9))
+                                   font=(theme.UI_SB, 9))
         self._track_lbl.pack(side="left", padx=(0, 10))
         self._update_track_label()
         tk.Label(leg, text="scroll = zoom · drag = pan", bg=BG, fg=DIM,
-                 font=("Segoe UI", 8)).pack(side="right")
+                 font=(theme.UI, 8)).pack(side="right")
         self._legend_items = tk.Frame(leg, bg=BG)
         self._legend_items.pack(side="left")
         self._refresh_legend()
@@ -337,7 +337,7 @@ class ChartWindow:
         if getattr(self, "_trend_len", 0) > 0:
             items.append((f"— Trend EMA{self._trend_len}", TREND_COLOR))
         for txt, col in items:
-            tk.Label(f, text=txt, bg=BG, fg=col, font=("Segoe UI", 8)).pack(side="left", padx=6)
+            tk.Label(f, text=txt, bg=BG, fg=col, font=(theme.UI, 8)).pack(side="left", padx=6)
 
     def _update_track_label(self) -> None:
         """Refresh the banner so it's always obvious what the chart tracks."""
@@ -474,7 +474,7 @@ class ChartWindow:
         h = c.winfo_height() or 520
         if not self._candles:
             c.create_text(w // 2, h // 2, text="No candles yet — Refresh to load",
-                          fill=DIM, font=("Segoe UI", 11))
+                          fill=DIM, font=(theme.UI, 11))
             return
 
         padL, padR, padT, padB = 8, 72, 10, 22
@@ -534,7 +534,7 @@ class ChartWindow:
             y = Yp(p)
             c.create_line(padL, y, w - padR, y, fill=BORDER)
             c.create_text(w - padR + 4, y, anchor="w", text=self._fmt(p), fill=DIM,
-                          font=("Segoe UI", 8))
+                          font=(theme.UI, 8))
 
         # Time labels along the very bottom + faint vertical gridlines for scanning.
         stepk = max(1, vc // 6)
@@ -543,7 +543,7 @@ class ChartWindow:
             c.create_line(X(k), price_top, X(k), price_bot, fill=GRID_FAINT)
             c.create_text(X(k), h - padB + 11,
                           text=time.strftime("%m-%d %H:%M", time.localtime(ts)),
-                          fill=DIM, font=("Segoe UI", 7))
+                          fill=DIM, font=(theme.UI, 7))
 
         # Candles — TradingView-style: up candles are hollow (body filled with the
         # background), down candles solid. Body width tracks zoom (scroll = zoom)
@@ -592,13 +592,13 @@ class ChartWindow:
                     c.create_polygon(x, y - 7, x - 6, y + 5, x + 6, y + 5,
                                      fill=LONG_COLOR, outline="")
                     c.create_text(x, y + 13, text="BUY", fill=LONG_COLOR,
-                                  font=("Segoe UI", 7, "bold"))
+                                  font=(theme.UI, 7, "bold"))
                 else:
                     y = Yp(view[k][2]) - 14            # above the high
                     c.create_polygon(x, y + 7, x - 6, y - 5, x + 6, y - 5,
                                      fill=SHORT_COLOR, outline="")
                     c.create_text(x, y - 13, text="SELL", fill=SHORT_COLOR,
-                                  font=("Segoe UI", 7, "bold"))
+                                  font=(theme.UI, 7, "bold"))
             elif act == "scale_out":
                 above = e.get("side") == "long"
                 y = Yp(view[k][2]) - 8 if above else Yp(view[k][3]) + 8
@@ -630,7 +630,7 @@ class ChartWindow:
         maxv = max((x[5] for x in view), default=0.0) or 1.0
         c.create_line(padL, vol_bot, w - padR, vol_bot, fill=BORDER)
         c.create_text(padL + 2, vol_top + 6, anchor="w", text="Vol", fill=DIM,
-                      font=("Segoe UI", 7))
+                      font=(theme.UI, 7))
         for k, cd in enumerate(view):
             vh = vol_h * (cd[5] / maxv)
             x = X(k)
@@ -641,7 +641,7 @@ class ChartWindow:
         # --- RSI pane ---
         c.create_rectangle(padL, rsi_top, w - padR, rsi_bot, outline=BORDER)
         c.create_text(padL + 2, rsi_top + 6, anchor="w", text="RSI", fill=DIM,
-                      font=("Segoe UI", 7))
+                      font=(theme.UI, 7))
 
         def Yr(r):
             return rsi_bot - rsi_h * (max(0.0, min(100.0, r)) / 100.0)
@@ -656,7 +656,7 @@ class ChartWindow:
             col = RSI_COLOR if lvl == 50 else BORDER
             c.create_line(padL, y, w - padR, y, fill=col, dash=(2, 2))
             c.create_text(w - padR + 4, y, anchor="w", text=str(lvl), fill=DIM,
-                          font=("Segoe UI", 7))
+                          font=(theme.UI, 7))
         rsi_pts = []
         for k in range(vc):
             idx = start + k
@@ -676,14 +676,14 @@ class ChartWindow:
             c.create_line(padL, yl, w - padR, yl, fill=last_col, dash=(3, 3))
             c.create_rectangle(w - padR, yl - 8, w - 2, yl + 8, fill=last_col, outline=last_col)
             c.create_text(w - padR + 3, yl, anchor="w", text=self._fmt(last_close),
-                          fill=BG, font=("Segoe UI Semibold", 8))
+                          fill=BG, font=(theme.UI_SB, 8))
 
         # --- persistent price + %-change header (since the first visible candle) ---
         base = view[0][4]
         chg = ((last_close - base) / base * 100.0) if base else 0.0
         c.create_text(padL + 6, price_top + 10, anchor="w",
                       text=f"{self.symbol}   {self._fmt(last_close)}   {chg:+.2f}%",
-                      fill=(GREEN if chg >= 0 else RED), font=("Segoe UI Semibold", 9))
+                      fill=(GREEN if chg >= 0 else RED), font=(theme.UI_SB, 9))
 
         self._geom = dict(padL=padL, padR=padR, padT=padT, padB=padB, w=w, h=h,
                           cw=cw, vc=vc, hi=hi, span=span,
@@ -713,7 +713,7 @@ class ChartWindow:
         else:
             c.create_line(padL, y, w - padR, y, fill=color)   # solid (no dash arg)
         c.create_text(w - padR + 4, y, anchor="w",
-                      text=f"{label} {self._fmt(price)}", fill=color, font=("Segoe UI", 7))
+                      text=f"{label} {self._fmt(price)}", fill=color, font=(theme.UI, 7))
 
     # -- crosshair + OHLC tooltip ------------------------------------------
     def _on_motion(self, e) -> None:
@@ -734,7 +734,7 @@ class ChartWindow:
             c.create_line(g["padL"], e.y, g["w"] - g["padR"], e.y, fill=DIM, dash=(2, 2), tags="cross")
             price = g["hi"] - (e.y - pt) / ph * g["span"]
             c.create_text(g["w"] - g["padR"] + 4, e.y, anchor="w", text=self._fmt(price),
-                          fill=TXT, font=("Segoe UI", 8), tags="cross")
+                          fill=TXT, font=(theme.UI, 8), tags="cross")
         idx = g["start"] + k
         rv = self._rsi[idx] if idx < len(self._rsi) else None
         rtxt = f"  RSI {rv:.1f}" if rv is not None else ""
@@ -744,7 +744,7 @@ class ChartWindow:
         c.create_rectangle(g["padL"] + 2, g["padT"] + 2, g["padL"] + 8 + len(info) * 6.0,
                            g["padT"] + 18, fill=ELEV, outline="", tags="cross")
         c.create_text(g["padL"] + 6, g["padT"] + 10, anchor="w", text=info,
-                      fill=TXT, font=("Segoe UI", 8), tags="cross")
+                      fill=TXT, font=(theme.UI, 8), tags="cross")
 
     # -- lifecycle ----------------------------------------------------------
     def _on_close(self) -> None:

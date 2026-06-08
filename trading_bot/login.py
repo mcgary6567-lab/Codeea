@@ -65,9 +65,9 @@ class LoginDialog:
             pass
 
         tk.Label(self.win, text=APP_TITLE, bg=BG, fg=theme.ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack()
+                 font=(theme.UI_SB, 13)).pack()
         sub = "Start your free trial" if self.first_run else "Enter your PIN"
-        tk.Label(self.win, text=sub, bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 10)).pack(pady=(2, 10))
+        tk.Label(self.win, text=sub, bg=BG, fg=theme.TXT_DIM, font=(theme.UI, 10)).pack(pady=(2, 10))
 
         # First run: email field (required) ties the 10-day trial to the user.
         self.email_var = tk.StringVar()
@@ -75,7 +75,7 @@ class LoginDialog:
             tk.Label(self.win, text="Email (starts your free trial):", bg=BG,
                      fg=theme.TXT_DIM).pack()
             em = tk.Entry(self.win, textvariable=self.email_var, justify="center",
-                          font=("Segoe UI", 11), bg=theme.ELEV, fg=theme.TXT,
+                          font=(theme.UI, 11), bg=theme.ELEV, fg=theme.TXT,
                           insertbackground=theme.TXT, relief="flat")
             em.pack(pady=(2, 8), ipady=4, ipadx=10)
             em.focus_set()
@@ -85,7 +85,7 @@ class LoginDialog:
 
         self.pin_var = tk.StringVar()
         e1 = tk.Entry(self.win, textvariable=self.pin_var, show="•", justify="center",
-                      font=("Segoe UI", 12), bg=theme.ELEV, fg=theme.TXT,
+                      font=(theme.UI, 12), bg=theme.ELEV, fg=theme.TXT,
                       insertbackground=theme.TXT, relief="flat")
         e1.pack(pady=4, ipady=4, ipadx=10)
         if not self.first_run:
@@ -108,7 +108,7 @@ class LoginDialog:
         # first in the licence panel). First-run users have no PIN to forget.
         if not self.first_run:
             forgot = tk.Label(self.win, text="Forgot PIN?", bg=BG, fg=theme.TXT_DIM,
-                              cursor="hand2", font=("Segoe UI", 9, "underline"))
+                              cursor="hand2", font=(theme.UI, 9, "underline"))
             forgot.pack()
             forgot.bind("<Button-1>", lambda e: self._forgot_pin())
 
@@ -121,7 +121,7 @@ class LoginDialog:
 
     def _link(self, parent, text, url):
         lbl = tk.Label(parent, text=text, bg=BG, fg=theme.ACCENT, cursor="hand2",
-                       font=("Segoe UI", 9, "underline"))
+                       font=(theme.UI, 9, "underline"))
         lbl.pack(side="left")
         lbl.bind("<Button-1>", lambda e: self._open(url))
 
@@ -260,16 +260,16 @@ class LoginDialog:
         self._forgot_clear()
         b = self._reset_body
         tk.Label(b, text="Reset your PIN", bg=BG, fg=theme.ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack(anchor="w")
+                 font=(theme.UI_SB, 13)).pack(anchor="w")
         tk.Label(b, text="Ask your admin to authorise a reset, then enter your\n"
                          "registered email below.", bg=BG, fg=theme.TXT_DIM,
-                 justify="left", font=("Segoe UI", 9)).pack(anchor="w", pady=(4, 10))
+                 justify="left", font=(theme.UI, 9)).pack(anchor="w", pady=(4, 10))
         self._reset_email_var = tk.StringVar(value=self.email_var.get())
-        e = tk.Entry(b, textvariable=self._reset_email_var, font=("Segoe UI", 11),
+        e = tk.Entry(b, textvariable=self._reset_email_var, font=(theme.UI, 11),
                      bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat")
         e.pack(fill="x", ipady=4)
         e.focus_set()
-        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 9))
+        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=(theme.UI, 9))
         self._reset_status.pack(anchor="w", pady=(8, 0))
         self._reset_btn = tk.Button(b, text="Continue", command=self._forgot_submit_email)
         theme.style_button(self._reset_btn, "accent")
@@ -312,23 +312,23 @@ class LoginDialog:
         self._forgot_clear()
         b = self._reset_body
         tk.Label(b, text="Create a new PIN", bg=BG, fg=theme.ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack(anchor="w")
+                 font=(theme.UI_SB, 13)).pack(anchor="w")
         tk.Label(b, text="Reset authorised. Your licence is kept; your saved\n"
                          "exchange API keys are cleared — re-enter them after.",
-                 bg=BG, fg=theme.TXT_DIM, justify="left", font=("Segoe UI", 9)).pack(
+                 bg=BG, fg=theme.TXT_DIM, justify="left", font=(theme.UI, 9)).pack(
             anchor="w", pady=(4, 10))
         self._reset_pin1 = tk.StringVar()
         self._reset_pin2 = tk.StringVar()
         tk.Label(b, text="New 4-digit PIN:", bg=BG, fg=theme.TXT_DIM).pack(anchor="w")
-        p1 = tk.Entry(b, textvariable=self._reset_pin1, show="•", font=("Segoe UI", 12),
+        p1 = tk.Entry(b, textvariable=self._reset_pin1, show="•", font=(theme.UI, 12),
                       bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat")
         p1.pack(fill="x", ipady=4, pady=(0, 6))
         p1.focus_set()
         tk.Label(b, text="Confirm new PIN:", bg=BG, fg=theme.TXT_DIM).pack(anchor="w")
-        tk.Entry(b, textvariable=self._reset_pin2, show="•", font=("Segoe UI", 12),
+        tk.Entry(b, textvariable=self._reset_pin2, show="•", font=(theme.UI, 12),
                  bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat").pack(
             fill="x", ipady=4)
-        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 9))
+        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=(theme.UI, 9))
         self._reset_status.pack(anchor="w", pady=(8, 0))
         sb = tk.Button(b, text="Set new PIN", command=lambda: self._forgot_set_pin(email, token))
         theme.style_button(sb, "accent")

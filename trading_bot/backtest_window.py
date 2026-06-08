@@ -149,16 +149,16 @@ class BacktestWindow:
         # Row 1: symbol / timeframe.
         r1 = tk.Frame(self.win, bg=BG)
         r1.pack(fill="x", padx=12, pady=(10, 0))
-        tk.Label(r1, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(r1, text="Symbol", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
         self._sym_box = ttk.Combobox(r1, textvariable=self.symbol_var, width=14,
                                      values=self._symbol_values())
         self._sym_box.pack(side="left", padx=(4, 12))
-        tk.Label(r1, text="Timeframe", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(r1, text="Timeframe", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.tf_var = tk.StringVar(value=self.timeframe)
         ttk.Combobox(r1, textvariable=self.tf_var, width=6, state="readonly",
                      values=STRATEGY_TIMEFRAMES).pack(side="left", padx=(4, 12))
-        tk.Label(r1, text="Quick", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(r1, text="Quick", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.quick_var = tk.StringVar(value="")
         qb = ttk.Combobox(r1, textvariable=self.quick_var, width=13, state="readonly",
                           values=list(QUICK_PERIODS.keys()))
@@ -171,14 +171,14 @@ class BacktestWindow:
         self.depth_mode = tk.StringVar(value="bars")
         tk.Radiobutton(r2, text="Last", variable=self.depth_mode, value="bars",
                        bg=BG, fg=TXT, selectcolor=ELEV, activebackground=BG,
-                       font=("Segoe UI", 9)).pack(side="left")
+                       font=(theme.UI, 9)).pack(side="left")
         self.bars_var = tk.StringVar(value="2000")
         tk.Entry(r2, textvariable=self.bars_var, width=7, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left", padx=4)
-        tk.Label(r2, text="bars      ", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(r2, text="bars      ", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         tk.Radiobutton(r2, text="Date range", variable=self.depth_mode, value="range",
                        bg=BG, fg=TXT, selectcolor=ELEV, activebackground=BG,
-                       font=("Segoe UI", 9)).pack(side="left")
+                       font=(theme.UI, 9)).pack(side="left")
         self.from_var = tk.StringVar()
         self.to_var = tk.StringVar()
         tk.Entry(r2, textvariable=self.from_var, width=11, bg=ELEV, fg=TXT,
@@ -186,7 +186,7 @@ class BacktestWindow:
         tk.Label(r2, text="→", bg=BG, fg=DIM).pack(side="left")
         tk.Entry(r2, textvariable=self.to_var, width=11, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left", padx=4)
-        tk.Label(r2, text="(YYYY-MM-DD)", bg=BG, fg=DIM, font=("Segoe UI", 8)).pack(side="left")
+        tk.Label(r2, text="(YYYY-MM-DD)", bg=BG, fg=DIM, font=(theme.UI, 8)).pack(side="left")
 
         # Row 3: costs + sizing.
         r3 = tk.Frame(self.win, bg=BG)
@@ -194,24 +194,24 @@ class BacktestWindow:
         self.costs_var = tk.BooleanVar(value=True)
         tk.Checkbutton(r3, text="Include fees & funding", variable=self.costs_var,
                        bg=BG, fg=TXT, selectcolor=ELEV, activebackground=BG,
-                       font=("Segoe UI", 9)).pack(side="left")
-        tk.Label(r3, text="Fee %", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
+                       font=(theme.UI, 9)).pack(side="left")
+        tk.Label(r3, text="Fee %", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left", padx=(10, 2))
         self.fee_var = tk.StringVar(value="0.05")
         tk.Entry(r3, textvariable=self.fee_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
-        tk.Label(r3, text="Funding %/8h", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
+        tk.Label(r3, text="Funding %/8h", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left", padx=(10, 2))
         self.fund_var = tk.StringVar(value="0.01")
         tk.Entry(r3, textvariable=self.fund_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
-        tk.Label(r3, text="Equity", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
+        tk.Label(r3, text="Equity", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left", padx=(10, 2))
         self.equity_var = tk.StringVar(value="1000")
         tk.Entry(r3, textvariable=self.equity_var, width=8, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
-        tk.Label(r3, text="Size %", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=(10, 2))
+        tk.Label(r3, text="Size %", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left", padx=(10, 2))
         self.size_var = tk.StringVar(value="100")
         tk.Entry(r3, textvariable=self.size_var, width=6, bg=ELEV, fg=TXT,
                  insertbackground=TXT, relief="flat").pack(side="left")
-        tk.Label(r3, text="Risk % (0=off)", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(
+        tk.Label(r3, text="Risk % (0=off)", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(
             side="left", padx=(10, 2))
         self.risk_var = tk.StringVar(value="1")
         tk.Entry(r3, textvariable=self.risk_var, width=6, bg=ELEV, fg=TXT,
@@ -230,7 +230,7 @@ class BacktestWindow:
         self.export_btn.configure(state="disabled")
         self.export_btn.pack(side="left", padx=8)
         self.status = tk.Label(r4, text="Set options, then Run.", bg=BG, fg=DIM,
-                               font=("Segoe UI", 9))
+                               font=(theme.UI, 9))
         self.status.pack(side="left", padx=10)
 
         # Stats grid.
@@ -272,17 +272,17 @@ class BacktestWindow:
             opbar, "🔬 Walk-forward", self._walk_forward, "ghost",
             tooltip="Optimize on a training window, then test out-of-sample")
         self.wf_btn.pack(side="left", padx=(0, 8))
-        tk.Label(opbar, text="sweep", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(opbar, text="sweep", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.opt_preset = tk.StringVar(value="ATR stop ×")
         ttk.Combobox(opbar, textvariable=self.opt_preset, width=14, state="readonly",
                      values=list(self.OPT_PRESETS.keys())).pack(side="left", padx=4)
-        tk.Label(opbar, text="rank by", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(opbar, text="rank by", bg=BG, fg=DIM, font=(theme.UI, 9)).pack(side="left")
         self.opt_metric = tk.StringVar(value="net_pnl")
         ttk.Combobox(opbar, textvariable=self.opt_metric, width=14, state="readonly",
                      values=["net_pnl", "profit_factor", "win_rate", "avg_r"]).pack(
             side="left", padx=4)
         tk.Label(opbar, text="· double-click a row to load it", bg=BG, fg=DIM,
-                 font=("Segoe UI", 8)).pack(side="left", padx=8)
+                 font=(theme.UI, 8)).pack(side="left", padx=8)
         self.opt_tree = ttk.Treeview(
             op_tab, show="headings", height=8,
             columns=("ema", "conf", "swing", "trend", "atr", "adx", "tp", "trl",
@@ -599,10 +599,10 @@ class BacktestWindow:
             card = tk.Frame(self.grid, bg=ELEV)
             card.grid(row=idx // cols, column=idx % cols, sticky="ew", padx=3, pady=3)
             self.grid.columnconfigure(idx % cols, weight=1)
-            tk.Label(card, text=label, bg=ELEV, fg=DIM, font=("Segoe UI", 8)).pack(
+            tk.Label(card, text=label, bg=ELEV, fg=DIM, font=(theme.UI, 8)).pack(
                 anchor="w", padx=8, pady=(5, 0))
             tk.Label(card, text=val, bg=ELEV, fg=fg,
-                     font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=8, pady=(0, 5))
+                     font=(theme.UI_SB, 13)).pack(anchor="w", padx=8, pady=(0, 5))
 
     def _draw_equity(self) -> None:
         c = self.canvas
@@ -613,7 +613,7 @@ class BacktestWindow:
         eq = self._result.equity if self._result else []
         if len(eq) < 2:
             c.create_text(w // 2, h // 2, text="Run a backtest to see the equity curve",
-                          fill=DIM, font=("Segoe UI", 11))
+                          fill=DIM, font=(theme.UI, 11))
             return
         padL, padR, padT, padB = 10, 64, 12, 22
         ys = [e for _, e in eq]
@@ -636,7 +636,7 @@ class BacktestWindow:
             y = Y(v)
             c.create_line(padL, y, w - padR, y, fill=BORDER)
             c.create_text(w - padR + 4, y, anchor="w", text=f"{v:,.0f}", fill=DIM,
-                          font=("Segoe UI", 8))
+                          font=(theme.UI, 8))
         start_eq = eq[0][1]
         c.create_line(padL, Y(start_eq), w - padR, Y(start_eq), fill=DIM, dash=(2, 2))
         pts = []

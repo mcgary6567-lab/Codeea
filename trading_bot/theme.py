@@ -7,8 +7,24 @@ A single ``apply(root)`` call restyles every ttk widget to a sleek dark look
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from tkinter import ttk
+
+# ---- platform UI font ----
+# Use each OS's native UI font so the app doesn't look foreign. Windows keeps
+# Segoe UI (incl. its real Semibold family); macOS uses Helvetica Neue (San-
+# Francisco-like, always present); other platforms use DejaVu Sans. Reference
+# theme.UI / theme.UI_SB instead of hardcoding a family.
+if sys.platform == "darwin":
+    UI = "Helvetica Neue"
+    UI_SB = "Helvetica Neue"
+elif sys.platform.startswith("win"):
+    UI = "Segoe UI"
+    UI_SB = "Segoe UI Semibold"
+else:
+    UI = "DejaVu Sans"
+    UI_SB = "DejaVu Sans"
 
 # ---- palette ----
 BG = "#0e1117"          # window background
@@ -48,7 +64,7 @@ def apply(root: tk.Tk) -> dict:
     style.configure("TLabelframe", background=PANEL, bordercolor=BORDER,
                     relief="solid", borderwidth=1)
     style.configure("TLabelframe.Label", background=PANEL, foreground=ACCENT,
-                    font=("Segoe UI Semibold", 10))
+                    font=(UI_SB, 10))
 
     # Inputs
     style.configure("TEntry", fieldbackground=ELEV, foreground=TXT,
@@ -77,7 +93,7 @@ def apply(root: tk.Tk) -> dict:
     # selected (ELEV) tab reads as raised; a hover state adds polish.
     style.configure("TNotebook", background=PANEL, bordercolor=BORDER, tabmargins=(2, 5, 2, 0))
     style.configure("TNotebook.Tab", background=HEADER, foreground=TXT_DIM,
-                    padding=(18, 8), font=("Segoe UI", 9), borderwidth=0)
+                    padding=(18, 8), font=(UI, 9), borderwidth=0)
     style.map("TNotebook.Tab",
               background=[("selected", ELEV), ("active", PANEL)],
               foreground=[("selected", ACCENT), ("active", TXT)])
@@ -86,7 +102,7 @@ def apply(root: tk.Tk) -> dict:
     style.configure("Treeview", background=ELEV, fieldbackground=ELEV,
                     foreground=TXT, bordercolor=BORDER, rowheight=24)
     style.configure("Treeview.Heading", background=HEADER, foreground=TXT_DIM,
-                    relief="flat", font=("Segoe UI Semibold", 9))
+                    relief="flat", font=(UI_SB, 9))
     style.map("Treeview.Heading", background=[("active", PANEL)])
     style.map("Treeview", background=[("selected", ACCENT)],
               foreground=[("selected", "#000000")])
@@ -115,7 +131,7 @@ class RoundedButton(tk.Canvas):
 
     def __init__(self, parent, text="", command=None, bg=ACCENT, fg="#ffffff",
                  active=None, radius=5, width=120, height=42,
-                 font=("Segoe UI Semibold", 14), container_bg=PANEL):
+                 font=(UI_SB, 14), container_bg=PANEL):
         super().__init__(parent, width=width, height=height, bg=container_bg,
                          highlightthickness=0, bd=0)
         self._text = text
@@ -205,7 +221,7 @@ def make_check(parent, text: str = "", variable: tk.BooleanVar | None = None,
         bg=PANEL, fg=TXT, selectcolor=ELEV,
         activebackground=PANEL, activeforeground=ACCENT,
         anchor="w", justify="left", highlightthickness=0, bd=0,
-        font=("Segoe UI", 9), cursor="hand2",
+        font=(UI, 9), cursor="hand2",
     )
     if wraplength:
         cb.configure(wraplength=wraplength)
@@ -225,7 +241,7 @@ def style_button(btn: tk.Button, kind: str = "default") -> None:
     bg, fg, active = palette.get(kind, palette["default"])
     btn.configure(bg=bg, fg=fg, activebackground=active, activeforeground=fg,
                   relief="flat", bd=0, highlightthickness=0,
-                  cursor="hand2", font=("Segoe UI Semibold", 10))
+                  cursor="hand2", font=(UI_SB, 10))
 
 
 class _Tooltip:
@@ -268,7 +284,7 @@ class _Tooltip:
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=self.text, bg=ELEV, fg=TXT, justify="left",
                  relief="solid", bd=1, padx=8, pady=5, wraplength=300,
-                 font=("Segoe UI", 9), highlightbackground=BORDER).pack()
+                 font=(UI, 9), highlightbackground=BORDER).pack()
 
     def _hide(self, _=None):
         self._cancel()
@@ -298,11 +314,11 @@ def window_header(parent, title: str, subtitle: str = "") -> dict:
     head.pack(fill="x", side="top")
     inner = tk.Frame(head, bg=HEADER)
     inner.pack(fill="x", padx=16, pady=(11, 9))
-    tk.Label(inner, text="🔥", bg=HEADER, fg=ACCENT, font=("Segoe UI", 13)).pack(side="left")
+    tk.Label(inner, text="🔥", bg=HEADER, fg=ACCENT, font=(UI, 13)).pack(side="left")
     title_lbl = tk.Label(inner, text=title, bg=HEADER, fg=TXT,
-                         font=("Segoe UI Semibold", 14))
+                         font=(UI_SB, 14))
     title_lbl.pack(side="left", padx=(8, 0))
-    sub_lbl = tk.Label(inner, text=subtitle, bg=HEADER, fg=TXT_DIM, font=("Segoe UI", 9))
+    sub_lbl = tk.Label(inner, text=subtitle, bg=HEADER, fg=TXT_DIM, font=(UI, 9))
     sub_lbl.pack(side="right")
     tk.Frame(head, bg=ACCENT, height=2).pack(fill="x")
     return {"frame": head, "title": title_lbl, "subtitle": sub_lbl}
@@ -310,7 +326,7 @@ def window_header(parent, title: str, subtitle: str = "") -> dict:
 
 def section_label(parent, text: str, bg: str = BG) -> tk.Label:
     """A consistent accent sub-heading used between panels."""
-    return tk.Label(parent, text=text, bg=bg, fg=ACCENT, font=("Segoe UI Semibold", 12))
+    return tk.Label(parent, text=text, bg=bg, fg=ACCENT, font=(UI_SB, 12))
 
 
 def toolbar_button(parent, text: str, command=None, kind: str = "default",
