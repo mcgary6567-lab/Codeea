@@ -1,0 +1,101 @@
+name: Build macOS App
+
+# Builds trading_bot/dist/"Prometheus AI Crypto Bot.app", packages a .dmg on a
+# real macOS runner, and uploads it as a downloadable artifact. Pushing a tag
+# like v1.0.0 also attaches the .dmg (+ checksum) to a GitHub Release.
+#
+# The build is UNSIGNED — users open it via right-click -> Open the first time
+# (see trading_bot/MAC_BUILD.md). macos-latest is Apple Silicon (arm64).
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to create a Release on tag pushes
+
+jobs:
+  # Fast logic checks (no GUI / no exchange) — gate the build on these so a
+  # broken trade-math / guardrail / parser change never ships an app.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trading_bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile all modules
+        run: python -m compileall -q .
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+  build:
+    needs: test
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: trading_bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-mac.txt pyinstaller pillow
+
+      - name: Fetch brand logo + build icon.icns
+        run: |
+          python fetch_logo.py || true
+          python make_icns.py || true
+
+      - name: Build .app
+        run: pyinstaller --noconfirm --clean trading_bot_mac.spec
+
+      - name: Package .dmg + checksum
+        run: |
+          APP="dist/Prometheus AI Crypto Bot.app"
+          test -d "$APP" || { echo "build failed: $APP missing"; exit 1; }
+          hdiutil create -volname "Prometheus AI Crypto Bot" \
+            -srcfolder "$APP" -ov -format UDZO "dist/PrometheusAICryptoBot.dmg"
+          cd dist
+          shasum -a 256 PrometheusAICryptoBot.dmg \
+            | awk '{print $1"  PrometheusAICryptoBot.dmg"}' > PrometheusAICryptoBot.dmg.sha256
+          cat PrometheusAICryptoBot.dmg.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrometheusAICryptoBot-macos
+          path: |
+            trading_bot/dist/PrometheusAICryptoBot.dmg
+            trading_bot/dist/PrometheusAICryptoBot.dmg.sha256
+          if-no-files-found: error
+
+      - name: Attach to release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            trading_bot/dist/PrometheusAICryptoBot.dmg
+            trading_bot/dist/PrometheusAICryptoBot.dmg.sha256
