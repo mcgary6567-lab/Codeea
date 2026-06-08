@@ -244,6 +244,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== '') {
         $pdo->prepare("DELETE FROM clients WHERE token=?")->execute([$token]);
         try { $pdo->prepare("DELETE FROM client_ips WHERE token=?")->execute([$token]); } catch (Throwable $e) {}
         $_SESSION['flash'] = "Deleted $token";
+    } elseif ($action === 'pin_reset' && $token !== '') {
+        // Authorise a one-time PIN reset: the customer's app (which can't open its
+        // PIN-locked vault) will, on the unlock screen's "Forgot PIN?", verify
+        // this against reset.php using their registered email, get their licence
+        // token back, and create a fresh PIN. Valid for a limited window.
+        $pdo->prepare("UPDATE clients SET pin_reset_at=? WHERE token=?")->execute([time(), $token]);
+        $row = $pdo->prepare("SELECT label FROM clients WHERE token=?");
+        $row->execute([$token]);
+        $em = $row->fetch()['label'] ?? '';
+        $_SESSION['flash'] = "PIN reset authorised for " . ($em !== '' ? $em : $token)
+            . " — valid 24h. Tell them to open the app, click “Forgot PIN?”, enter this email, and set a new PIN.";
     }
     header('Location: ' . purl());
     exit;
@@ -487,7 +498,12 @@ head('Prometheus — Licences');
                 </form>
                 <?php if ($share): ?><div class="muted">Seen from <?= $share['n'] ?> IP<?= $share['n']===1?'':'s' ?> (7d): <?= htmlspecialchars($share['ips']) ?></div><?php endif; ?>
                 <div class="muted">Created <?= ago($r['created_at']) ?><?= ($r['last_ip'] ?? '') ? ' · last IP ' . htmlspecialchars($r['last_ip']) : '' ?></div>
+                <div class="muted">PIN reset<?= !empty($r['pin_reset_at']) ? ' · pending since ' . ago((int)$r['pin_reset_at']) : '' ?></div>
                 <div class="row-actions">
+                  <form method="post" class="inline" onsubmit="return confirm('Authorise a PIN reset for this customer? They can then open the app, click \'Forgot PIN?\', enter their email, and set a new PIN. Their saved exchange API keys are cleared and must be re-entered; their licence is kept.')">
+                    <input type="hidden" name="action" value="pin_reset"><input type="hidden" name="token" value="<?= $t ?>">
+                    <button class="ghost sm" type="submit">🔑 Reset PIN</button>
+                  </form>
                   <form method="post" class="inline" onsubmit="return confirm('Rotate this key? A NEW key is issued and the current one stops working immediately. You must send the new key to the customer.')">
                     <input type="hidden" name="action" value="rotate"><input type="hidden" name="token" value="<?= $t ?>">
                     <button class="ghost sm" type="submit">🔁 Rotate key</button>

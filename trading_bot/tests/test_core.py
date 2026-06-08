@@ -1123,5 +1123,72 @@ class TestSingleInstance(unittest.TestCase):
         self.addCleanup(b.release)
 
 
+class TestPinReset(unittest.TestCase):
+    """Admin-authorised PIN reset: client-side claim parsing + local vault wipe."""
+
+    def _resp(self, payload):
+        import json as _j
+
+        class R:
+            def __enter__(s):
+                return s
+
+            def __exit__(s, *a):
+                return False
+
+            def read(s):
+                return _j.dumps(payload).encode()
+        return R()
+
+    def test_reset_url_derivation(self):
+        import licence
+        self.assertEqual(licence.reset_url_from_relay("https://h.tech/poll.php"),
+                         "https://h.tech/reset.php")
+
+    def test_request_ok_returns_token(self):
+        import licence
+        from unittest.mock import patch
+        with patch.object(licence.urllib.request, "urlopen",
+                          return_value=self._resp({"ok": True, "token": "abc", "expires_at": 42})):
+            st, _msg, tok, exp = licence.request_pin_reset("https://x/reset.php", "a@b.com", "m")
+        self.assertEqual((st, tok, exp), ("ok", "abc", 42))
+
+    def test_request_denied_when_not_authorised(self):
+        import licence
+        from unittest.mock import patch
+        with patch.object(licence.urllib.request, "urlopen",
+                          return_value=self._resp({"ok": False, "error": "no PIN reset authorised"})):
+            st, msg, tok, _exp = licence.request_pin_reset("https://x/reset.php", "a@b.com", "m")
+        self.assertEqual(st, "denied")
+        self.assertEqual(tok, "")
+        self.assertIn("authorised", msg)
+
+    def test_request_error_when_unreachable(self):
+        import licence
+        from unittest.mock import patch
+        with patch.object(licence.urllib.request, "urlopen", side_effect=OSError("down")):
+            st, _msg, tok, _exp = licence.request_pin_reset("https://x/reset.php", "a@b.com", "m")
+        self.assertEqual(st, "error")
+        self.assertEqual(tok, "")
+
+    def test_reset_local_vault_removes_files(self):
+        import security
+        import shutil
+        from unittest.mock import patch
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: os.path.isdir(d) and shutil.rmtree(d))
+        cred = os.path.join(d, "credentials.enc")
+        salt = os.path.join(d, "salt.bin")
+        with open(cred, "wb") as fh:
+            fh.write(b"x")
+        with open(salt, "wb") as fh:
+            fh.write(b"y")
+        with patch.object(security, "CREDENTIALS_FILE", cred), \
+                patch.object(security, "SALT_FILE", salt):
+            security.reset_local_vault()
+        self.assertFalse(os.path.exists(cred))
+        self.assertFalse(os.path.exists(salt))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

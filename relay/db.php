@@ -70,8 +70,11 @@ function ensure_extras($pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     // Additive columns for installs created before these existed.
     foreach ([
-        'note'    => "ALTER TABLE clients ADD COLUMN note VARCHAR(255) NULL",
-        'last_ip' => "ALTER TABLE clients ADD COLUMN last_ip VARCHAR(45) NULL",
+        'note'         => "ALTER TABLE clients ADD COLUMN note VARCHAR(255) NULL",
+        'last_ip'      => "ALTER TABLE clients ADD COLUMN last_ip VARCHAR(45) NULL",
+        // Admin-authorised PIN reset: epoch when the admin OK'd a reset for this
+        // licence (one-time, time-limited; consumed by reset.php). NULL = none.
+        'pin_reset_at' => "ALTER TABLE clients ADD COLUMN pin_reset_at INT NULL",
     ] as $col => $sql) {
         try {
             $q = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns

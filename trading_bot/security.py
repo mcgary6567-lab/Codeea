@@ -121,6 +121,22 @@ def load_credentials(pin: str) -> dict:
     return blob.get("data", {})
 
 
+def reset_local_vault() -> None:
+    """Delete the encrypted vault + salt so a forgotten PIN can be replaced.
+
+    Used by the admin-authorised PIN reset: the old PIN is unknown, so the
+    vault (and the salt its key was derived from) can't be decrypted and is
+    discarded. A fresh salt + vault are created when the new PIN is saved.
+    Exchange API keys are *not* recoverable; the caller restores the licence
+    token from the server."""
+    for path in (CREDENTIALS_FILE, SALT_FILE):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+
+
 def change_pin(old_pin: str, new_pin: str) -> bool:
     """Re-encrypt the stored payload under a new PIN. Returns success."""
     try:

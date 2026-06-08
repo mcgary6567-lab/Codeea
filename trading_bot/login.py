@@ -104,6 +104,14 @@ class LoginDialog:
         self.btn.pack(pady=16)
         self.win.bind("<Return>", lambda e: self._submit())
 
+        # Returning users who forgot their PIN: reset it (admin must authorise
+        # first in the licence panel). First-run users have no PIN to forget.
+        if not self.first_run:
+            forgot = tk.Label(self.win, text="Forgot PIN?", bg=BG, fg=theme.TXT_DIM,
+                              cursor="hand2", font=("Segoe UI", 9, "underline"))
+            forgot.pack()
+            forgot.bind("<Button-1>", lambda e: self._forgot_pin())
+
         # Website + email links.
         links = tk.Frame(self.win, bg=BG)
         links.pack(side="bottom", pady=8)
@@ -226,6 +234,130 @@ class LoginDialog:
             title = "Free trial"
         self._finish(pin, {"trial_email": email})
         messagebox.showinfo(title, note, parent=self.root)
+
+    # --- Forgot PIN: admin-authorised reset ------------------------------
+    def _forgot_pin(self) -> None:
+        """Two-step reset dialog: (1) verify an admin-authorised reset by email,
+        (2) create a new PIN. The local vault is wiped (saved API keys can't be
+        recovered) and the licence token is restored from the server."""
+        rw = tk.Toplevel(self.win)
+        self._reset_win = rw
+        rw.title("Reset PIN")
+        rw.configure(bg=BG)
+        rw.resizable(False, False)
+        rw.geometry("360x300")
+        rw.grab_set()
+        rw.protocol("WM_DELETE_WINDOW", rw.destroy)
+        self._reset_body = tk.Frame(rw, bg=BG)
+        self._reset_body.pack(fill="both", expand=True, padx=18, pady=16)
+        self._forgot_build_email_step()
+
+    def _forgot_clear(self) -> None:
+        for ch in self._reset_body.winfo_children():
+            ch.destroy()
+
+    def _forgot_build_email_step(self) -> None:
+        self._forgot_clear()
+        b = self._reset_body
+        tk.Label(b, text="Reset your PIN", bg=BG, fg=theme.ACCENT,
+                 font=("Segoe UI Semibold", 13)).pack(anchor="w")
+        tk.Label(b, text="Ask your admin to authorise a reset, then enter your\n"
+                         "registered email below.", bg=BG, fg=theme.TXT_DIM,
+                 justify="left", font=("Segoe UI", 9)).pack(anchor="w", pady=(4, 10))
+        self._reset_email_var = tk.StringVar(value=self.email_var.get())
+        e = tk.Entry(b, textvariable=self._reset_email_var, font=("Segoe UI", 11),
+                     bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat")
+        e.pack(fill="x", ipady=4)
+        e.focus_set()
+        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 9))
+        self._reset_status.pack(anchor="w", pady=(8, 0))
+        self._reset_btn = tk.Button(b, text="Continue", command=self._forgot_submit_email)
+        theme.style_button(self._reset_btn, "accent")
+        self._reset_btn.pack(pady=14)
+        self._reset_win.bind("<Return>", lambda e: self._forgot_submit_email())
+
+    def _forgot_submit_email(self) -> None:
+        email = self._reset_email_var.get().strip()
+        if not _valid_email(email):
+            self._reset_status.config(text="Enter a valid email.", fg=theme.RED)
+            return
+        self._reset_btn.config(state="disabled", text="Checking…")
+        self._reset_status.config(text="Contacting the licence server…", fg=theme.TXT_DIM)
+        reset_url = licence.reset_url_from_relay(DEFAULT_RELAY_URL)
+        machine = licence.machine_fingerprint()
+
+        def work():
+            res = licence.request_pin_reset(reset_url, email, machine, timeout=15.0)
+            try:
+                self._reset_win.after(0, lambda: self._forgot_email_done(email, *res))
+            except Exception:  # noqa: BLE001 - dialog already closed
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _forgot_email_done(self, email: str, status: str, message: str,
+                           token: str, expires_at: int) -> None:
+        if not getattr(self, "_reset_win", None) or not self._reset_win.winfo_exists():
+            return
+        if status == "ok" and token:
+            self._forgot_build_pin_step(email, token)
+            return
+        self._reset_btn.config(state="normal", text="Continue")
+        self._reset_status.config(
+            text=message or ("No reset authorised yet." if status == "denied"
+                             else "Couldn't reach the server."),
+            fg=theme.RED)
+
+    def _forgot_build_pin_step(self, email: str, token: str) -> None:
+        self._forgot_clear()
+        b = self._reset_body
+        tk.Label(b, text="Create a new PIN", bg=BG, fg=theme.ACCENT,
+                 font=("Segoe UI Semibold", 13)).pack(anchor="w")
+        tk.Label(b, text="Reset authorised. Your licence is kept; your saved\n"
+                         "exchange API keys are cleared — re-enter them after.",
+                 bg=BG, fg=theme.TXT_DIM, justify="left", font=("Segoe UI", 9)).pack(
+            anchor="w", pady=(4, 10))
+        self._reset_pin1 = tk.StringVar()
+        self._reset_pin2 = tk.StringVar()
+        tk.Label(b, text="New 4-digit PIN:", bg=BG, fg=theme.TXT_DIM).pack(anchor="w")
+        p1 = tk.Entry(b, textvariable=self._reset_pin1, show="•", font=("Segoe UI", 12),
+                      bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat")
+        p1.pack(fill="x", ipady=4, pady=(0, 6))
+        p1.focus_set()
+        tk.Label(b, text="Confirm new PIN:", bg=BG, fg=theme.TXT_DIM).pack(anchor="w")
+        tk.Entry(b, textvariable=self._reset_pin2, show="•", font=("Segoe UI", 12),
+                 bg=theme.ELEV, fg=theme.TXT, insertbackground=theme.TXT, relief="flat").pack(
+            fill="x", ipady=4)
+        self._reset_status = tk.Label(b, text="", bg=BG, fg=theme.TXT_DIM, font=("Segoe UI", 9))
+        self._reset_status.pack(anchor="w", pady=(8, 0))
+        sb = tk.Button(b, text="Set new PIN", command=lambda: self._forgot_set_pin(email, token))
+        theme.style_button(sb, "accent")
+        sb.pack(pady=12)
+        self._reset_win.bind("<Return>", lambda e: self._forgot_set_pin(email, token))
+
+    def _forgot_set_pin(self, email: str, token: str) -> None:
+        pin = self._reset_pin1.get().strip()
+        if len(pin) < 4:
+            self._reset_status.config(text="Use at least 4 characters.", fg=theme.RED)
+            return
+        if pin != self._reset_pin2.get().strip():
+            self._reset_status.config(text="The two PINs do not match.", fg=theme.RED)
+            return
+        try:
+            security.reset_local_vault()
+            security.save_credentials(pin, {"relay_token": token, "trial_email": email})
+        except Exception as exc:  # noqa: BLE001
+            self._reset_status.config(text=f"Couldn't save: {exc}", fg=theme.RED)
+            return
+        # Treat exactly like a successful unlock so the app opens with the
+        # restored licence (the user re-enters API keys in the app).
+        self.pin = pin
+        self.saved = {"relay_token": token, "trial_email": email}
+        try:
+            self._reset_win.destroy()
+        except Exception:  # noqa: BLE001
+            pass
+        self.win.destroy()
 
     def _finish(self, pin: str, payload: dict) -> None:
         """Persist the initial vault under ``pin`` and hand control to the app."""

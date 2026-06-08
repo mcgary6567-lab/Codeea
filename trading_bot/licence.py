@@ -51,6 +51,11 @@ def trial_url_from_relay(relay_url: str) -> str:
     return _sibling_endpoint(relay_url, "trial.php")
 
 
+def reset_url_from_relay(relay_url: str) -> str:
+    """Derive the ``reset.php`` (PIN-reset claim) URL from the relay (poll) URL."""
+    return _sibling_endpoint(relay_url, "reset.php")
+
+
 def machine_fingerprint() -> str:
     """Stable, privacy-preserving machine id (sha256 hex) for trial anti-abuse.
 
@@ -139,3 +144,35 @@ def start_trial(trial_url: str, email: str, machine: str,
         return "ok", "trial started", str(data.get("token") or ""), int(data.get("expires_at") or 0)
     status = "used" if str(data.get("code")) == "used" else "error"
     return status, str(data.get("error") or "trial request rejected"), "", 0
+
+
+def request_pin_reset(reset_url: str, email: str, machine: str,
+                      timeout: float = 15.0) -> Tuple[str, str, str, int]:
+    """Claim an admin-authorised PIN reset from ``reset.php``.
+
+    The admin authorises the reset in the panel; the app then proves identity
+    with the registered email and gets the licence token back so it can rebuild
+    its vault under a new PIN. Returns ``(status, message, token, expires_at)``
+    where status is ``"ok"`` / ``"denied"`` (no/expired authorisation, unknown
+    email) / ``"error"`` (server unreachable)."""
+    if not reset_url:
+        return "error", "no licence server configured", "", 0
+    body = urllib.parse.urlencode(
+        {"email": (email or "").strip(), "machine": machine}).encode("utf-8")
+    req = urllib.request.Request(reset_url, data=body, headers={"User-Agent": "PrometheusBot"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # The server answered with a reason (e.g. 403 not authorised) — surface it.
+        try:
+            data = json.loads(exc.read().decode("utf-8"))
+        except Exception:  # noqa: BLE001
+            return "error", f"reset request failed (HTTP {exc.code})", "", 0
+        return "denied", str(data.get("error") or "reset not authorised"), "", 0
+    except Exception as exc:  # noqa: BLE001 - network/parse problem = unreachable
+        return "error", f"reset server unreachable ({exc})", "", 0
+
+    if data.get("ok") and data.get("token"):
+        return "ok", "reset authorised", str(data.get("token")), int(data.get("expires_at") or 0)
+    return "denied", str(data.get("error") or "reset not authorised"), "", 0
