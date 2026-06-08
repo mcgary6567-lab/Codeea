@@ -285,6 +285,52 @@ def add_tooltip(widget, text: str) -> _Tooltip:
     return _Tooltip(widget, text)
 
 
+def window_header(parent, title: str, subtitle: str = "") -> dict:
+    """A polished, app-style header strip shared by the secondary windows.
+
+    A flame mark + bold title on a darker bar, an optional dim subtitle pinned
+    right, finished with a thin accent underline — so the Chart / Analytics /
+    Backtest windows read like the main window instead of a bare title label.
+    Returns ``{"frame", "title", "subtitle"}`` so callers can update the text
+    later (e.g. a live "last updated" subtitle)."""
+    head = tk.Frame(parent, bg=HEADER)
+    head.pack(fill="x", side="top")
+    inner = tk.Frame(head, bg=HEADER)
+    inner.pack(fill="x", padx=16, pady=(11, 9))
+    tk.Label(inner, text="🔥", bg=HEADER, fg=ACCENT, font=("Segoe UI", 13)).pack(side="left")
+    title_lbl = tk.Label(inner, text=title, bg=HEADER, fg=TXT,
+                         font=("Segoe UI Semibold", 14))
+    title_lbl.pack(side="left", padx=(8, 0))
+    sub_lbl = tk.Label(inner, text=subtitle, bg=HEADER, fg=TXT_DIM, font=("Segoe UI", 9))
+    sub_lbl.pack(side="right")
+    tk.Frame(head, bg=ACCENT, height=2).pack(fill="x")
+    return {"frame": head, "title": title_lbl, "subtitle": sub_lbl}
+
+
+def section_label(parent, text: str, bg: str = BG) -> tk.Label:
+    """A consistent accent sub-heading used between panels."""
+    return tk.Label(parent, text=text, bg=bg, fg=ACCENT, font=("Segoe UI Semibold", 12))
+
+
+def toolbar_button(parent, text: str, command=None, kind: str = "default",
+                   tooltip: str = "") -> tk.Button:
+    """A flat, theme-styled toolbar button (consistent padding + hover + optional
+    tooltip), so every window's buttons match instead of each rolling its own."""
+    btn = tk.Button(parent, text=text, command=command, padx=14, pady=5)
+    style_button(btn, kind)
+    if tooltip:
+        add_tooltip(btn, tooltip)
+    return btn
+
+
+def bind_escape_close(win, on_close) -> None:
+    """Let Esc close a window — a small pro touch users expect."""
+    try:
+        win.bind("<Escape>", lambda _e: on_close())
+    except tk.TclError:
+        pass
+
+
 def fit_window(win, w: int, h: int, min_w: int = 0, min_h: int = 0,
                margin: int = 80) -> None:
     """Size ``win`` to (w, h) but never larger than the screen, and center it.

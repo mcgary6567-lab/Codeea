@@ -177,6 +177,10 @@ class ChartWindow:
 
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
+        theme.window_header(self.win, "Strategy Chart",
+                            "Live candles · the bot's own signals")
+        theme.bind_escape_close(self.win, self._on_close)
+
         bar = tk.Frame(self.win, bg=BG)
         bar.pack(fill="x", padx=12, pady=(10, 6))
 
@@ -186,6 +190,8 @@ class ChartWindow:
             activebackground=BG, activeforeground=TXT, bd=0, highlightthickness=0,
             font=("Segoe UI", 9), cursor="hand2")
         self._follow_chk.pack(side="left", padx=(0, 12))
+        theme.add_tooltip(self._follow_chk,
+                          "Mirror the Strategy tab's symbol/timeframe/feed automatically")
 
         tk.Label(bar, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
@@ -202,9 +208,12 @@ class ChartWindow:
         self._tf_box.pack(side="left", padx=(4, 12))
         self._tf_box.bind("<<ComboboxSelected>>", lambda e: self._on_tf_change())
 
-        tk.Button(bar, text="🔄 Refresh", command=self._load, bg=ACCENT, fg="#1a1100",
-                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 9),
-                  activebackground="#ffa057", padx=14, pady=4).pack(side="right")
+        theme.toolbar_button(bar, "🔄 Refresh", self._load, "accent",
+                             tooltip="Reload candles and recompute signals now"
+                             ).pack(side="right")
+        theme.toolbar_button(bar, "⤢ Reset zoom", self._reset_zoom, "ghost",
+                             tooltip="Reset pan/zoom to the latest candles"
+                             ).pack(side="right", padx=8)
         self.status = tk.Label(bar, text="Loading…", bg=BG, fg=DIM, font=("Segoe UI", 9))
         self.status.pack(side="right", padx=10)
 
@@ -417,6 +426,12 @@ class ChartWindow:
         self.view_count = DEFAULT_VIEW
         self._update_track_label()
         self._load()
+
+    def _reset_zoom(self) -> None:
+        """Snap the view back to the most recent candles at the default zoom."""
+        self.view_count = DEFAULT_VIEW
+        self.view_end = None
+        self._redraw()
 
     def _on_wheel(self, e) -> None:
         delta = getattr(e, "delta", 0)

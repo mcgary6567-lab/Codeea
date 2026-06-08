@@ -142,12 +142,13 @@ class BacktestWindow:
 
     # -- layout -------------------------------------------------------------
     def _build(self, symbols: List[str]) -> None:
-        tk.Label(self.win, text="Backtest", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=12, pady=(10, 4))
+        theme.window_header(self.win, "Backtest",
+                            "Replay the built-in strategy over history")
+        theme.bind_escape_close(self.win, self._on_close)
 
         # Row 1: symbol / timeframe.
         r1 = tk.Frame(self.win, bg=BG)
-        r1.pack(fill="x", padx=12)
+        r1.pack(fill="x", padx=12, pady=(10, 0))
         tk.Label(r1, text="Symbol", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.symbol_var = tk.StringVar(value=self.symbol)
         self._sym_box = ttk.Combobox(r1, textvariable=self.symbol_var, width=14,
@@ -219,14 +220,14 @@ class BacktestWindow:
         # Row 4: run / export / status.
         r4 = tk.Frame(self.win, bg=BG)
         r4.pack(fill="x", padx=12, pady=(10, 4))
-        self.run_btn = tk.Button(r4, text="📊 Run backtest", command=self._run,
-                                 bg=ACCENT, fg="#1a1100", relief="flat", bd=0,
-                                 cursor="hand2", font=("Segoe UI Semibold", 9),
-                                 activebackground="#ffa057", padx=16, pady=4)
+        self.run_btn = theme.toolbar_button(
+            r4, "📊 Run backtest", self._run, "accent",
+            tooltip="Fetch candles for the chosen range and replay the strategy")
         self.run_btn.pack(side="left")
-        self.export_btn = tk.Button(r4, text="📤 Export CSV", command=self._export_csv,
-                                    bg=ELEV, fg=TXT, relief="flat", bd=0, cursor="hand2",
-                                    font=("Segoe UI", 9), padx=12, pady=4, state="disabled")
+        self.export_btn = theme.toolbar_button(
+            r4, "📤 Export CSV", self._export_csv, "ghost",
+            tooltip="Save every backtest trade to a CSV file")
+        self.export_btn.configure(state="disabled")
         self.export_btn.pack(side="left", padx=8)
         self.status = tk.Label(r4, text="Set options, then Run.", bg=BG, fg=DIM,
                                font=("Segoe UI", 9))
@@ -263,15 +264,13 @@ class BacktestWindow:
         op_tab = tk.Frame(nb, bg=BG)
         opbar = tk.Frame(op_tab, bg=BG)
         opbar.pack(fill="x", pady=(6, 4))
-        self.opt_btn = tk.Button(opbar, text="⚙ Run optimize", command=self._optimize,
-                                 bg=ACCENT, fg="#1a1100", relief="flat", bd=0,
-                                 cursor="hand2", font=("Segoe UI Semibold", 9),
-                                 activebackground="#ffa057", padx=14, pady=4)
+        self.opt_btn = theme.toolbar_button(
+            opbar, "⚙ Run optimize", self._optimize, "accent",
+            tooltip="Sweep the selected knob and rank the results")
         self.opt_btn.pack(side="left", padx=(0, 8))
-        self.wf_btn = tk.Button(opbar, text="🔬 Walk-forward", command=self._walk_forward,
-                                bg=ELEV, fg=TXT, relief="flat", bd=0, cursor="hand2",
-                                font=("Segoe UI Semibold", 9), activebackground=BORDER,
-                                padx=12, pady=4)
+        self.wf_btn = theme.toolbar_button(
+            opbar, "🔬 Walk-forward", self._walk_forward, "ghost",
+            tooltip="Optimize on a training window, then test out-of-sample")
         self.wf_btn.pack(side="left", padx=(0, 8))
         tk.Label(opbar, text="sweep", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.opt_preset = tk.StringVar(value="ATR stop ×")

@@ -107,12 +107,13 @@ class AnalyticsWindow:
 
     # -- layout -------------------------------------------------------------
     def _build(self) -> None:
-        tk.Label(self.win, text="Performance", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 14)).pack(anchor="w", padx=16, pady=(14, 4))
+        self._header = theme.window_header(
+            self.win, "Performance", "Trade stats · equity curve")
+        theme.bind_escape_close(self.win, self._on_close)
 
         # Date-range filter.
         fr = tk.Frame(self.win, bg=BG)
-        fr.pack(fill="x", padx=16, pady=(0, 6))
+        fr.pack(fill="x", padx=16, pady=(10, 6))
         tk.Label(fr, text="Range:", bg=BG, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
         self.range_var = tk.StringVar(value="All")
         rng = ttk.Combobox(fr, textvariable=self.range_var, width=14, state="readonly",
@@ -150,8 +151,7 @@ class AnalyticsWindow:
             val.pack(anchor="w", padx=12, pady=(0, 10))
             self._vals[key] = (val, colour)
 
-        tk.Label(self.win, text="By symbol", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=16, pady=(14, 4))
+        theme.section_label(self.win, "By symbol").pack(anchor="w", padx=16, pady=(14, 4))
         symf = tk.Frame(self.win, bg=BORDER)
         symf.pack(fill="x", padx=14)
         cols = ("symbol", "trades", "wins", "realized")
@@ -163,8 +163,8 @@ class AnalyticsWindow:
         self.sym_tree.tag_configure("neg", foreground=RED)
         self.sym_tree.pack(fill="x", padx=1, pady=1)
 
-        tk.Label(self.win, text="Equity curve  (balance over time)", bg=BG, fg=ACCENT,
-                 font=("Segoe UI Semibold", 13)).pack(anchor="w", padx=16, pady=(14, 6))
+        theme.section_label(self.win, "Equity curve  (balance over time)").pack(
+            anchor="w", padx=16, pady=(14, 6))
         wrap = tk.Frame(self.win, bg=BORDER)   # 1px border around the chart
         wrap.pack(fill="both", expand=True, padx=14, pady=(0, 8))
         self.canvas = tk.Canvas(wrap, bg=PANEL, highlightthickness=0)
@@ -173,15 +173,16 @@ class AnalyticsWindow:
 
         bar = tk.Frame(self.win, bg=BG)
         bar.pack(fill="x", padx=14, pady=(0, 12))
-        tk.Button(bar, text="🔄 Refresh", command=self.refresh, bg=ACCENT, fg="#1a1100",
-                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
-                  activebackground="#ffa057", padx=16, pady=5).pack(side="right")
-        tk.Button(bar, text="📤 Export CSV", command=self._export_csv, bg=ELEV, fg=TXT,
-                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
-                  activebackground=BORDER, padx=16, pady=5).pack(side="right", padx=8)
-        tk.Button(bar, text="🗑 Clear", command=self._clear, bg=ELEV, fg=RED,
-                  relief="flat", bd=0, cursor="hand2", font=("Segoe UI Semibold", 10),
-                  activebackground=RED, activeforeground="#ffffff", padx=16, pady=5).pack(side="left")
+        theme.toolbar_button(bar, "🔄 Refresh", self.refresh, "accent",
+                             tooltip="Recompute stats and the equity curve for the selected range"
+                             ).pack(side="right")
+        theme.toolbar_button(bar, "📤 Export CSV", self._export_csv, "ghost",
+                             tooltip="Save every trade in history to a CSV file"
+                             ).pack(side="right", padx=8)
+        clr = theme.toolbar_button(bar, "🗑 Clear", self._clear, "ghost",
+                                   tooltip="Permanently delete trade history in the selected range")
+        clr.configure(fg=RED)
+        clr.pack(side="left")
 
     def _on_range_change(self) -> None:
         if self.range_var.get() == "Custom":
@@ -232,6 +233,12 @@ class AnalyticsWindow:
     def refresh(self) -> None:
         since, until = self._range_bounds()
         s = self.history.stats(since=since, until=until)
+        try:
+            self._header["subtitle"].config(
+                text=f"{self.range_var.get()} · {s.get('total', 0)} trades · "
+                     f"updated {time.strftime('%H:%M:%S')}")
+        except (tk.TclError, KeyError, AttributeError):
+            pass
         for key, (val_lbl, colour) in self._vals.items():
             raw = s.get(key, 0)
             if key == "win_rate":
