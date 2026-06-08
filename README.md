@@ -1,8 +1,9 @@
 # 🔥 Prometheus AI Crypto Bot
 
-A Windows desktop app that executes crypto trades from **TradingView indicator
-alerts** (or manually), with auto take-profits, risk guardrails, analytics, and
-an encrypted, PIN-protected vault for your API keys.
+A **Windows & macOS** desktop app that executes crypto trades from its built-in
+strategy or **TradingView indicator alerts** (or manually), with auto
+take-profits, risk guardrails, analytics, and an encrypted, PIN-protected vault
+for your API keys.
 
 **Signal → TradingView webhook → bot → exchange order.**
 
@@ -15,7 +16,7 @@ an encrypted, PIN-protected vault for your API keys.
 
 | Path | What it is |
 |------|------------|
-| **`trading_bot/`** | The Windows app (Python/Tkinter + ccxt). Full docs: [`trading_bot/README.md`](trading_bot/README.md) · diagrams: [`trading_bot/ARCHITECTURE.md`](trading_bot/ARCHITECTURE.md) |
+| **`trading_bot/`** | The desktop app — Windows & macOS (Python/Tkinter + ccxt). Full docs: [`trading_bot/README.md`](trading_bot/README.md) · diagrams: [`trading_bot/ARCHITECTURE.md`](trading_bot/ARCHITECTURE.md) · macOS build: [`trading_bot/MAC_BUILD.md`](trading_bot/MAC_BUILD.md) |
 | **`Prometheus_AI_Crypto_Bot.pine`** | The current indicator — crypto, **Entry + TP1 + TP2** (no stop-loss), `Webhook JSON` alerts tagged `Prometheus` |
 | `Gold_Scalpers.pine` | Earlier Gold Scalpers indicator with the crypto patch applied |
 | `Gold_Scalpers_crypto_patch.md` | Find/replace edits to run Gold Scalpers on crypto |
@@ -23,9 +24,13 @@ an encrypted, PIN-protected vault for your API keys.
 
 ## Quick start
 
-1. **Get the app:** download `PrometheusAICryptoBot.exe` from the repo's
-   **Actions ▸ Build Windows EXE** artifact, or build locally with
-   `trading_bot/build_exe.bat`. (A Windows `.exe` can only be built on Windows.)
+1. **Get the app:**
+   - **Windows:** download `PrometheusAICryptoBot.exe` from the repo's
+     **Actions ▸ Build Windows EXE** artifact, or build locally with
+     `trading_bot/build_exe.bat`. (A Windows `.exe` can only be built on Windows.)
+   - **macOS:** build the `.app`/`.dmg` with `trading_bot/build_mac.sh` — see
+     [`trading_bot/MAC_BUILD.md`](trading_bot/MAC_BUILD.md). (The unsigned build
+     opens via right-click ▸ Open the first time.)
 2. **Run it**, create a PIN, **connect** your exchange (start in **Safe Mode**).
    Need an API key? Step-by-step per exchange: **[`API_SETUP.md`](API_SETUP.md)**.
 3. **Add `Prometheus_AI_Crypto_Bot.pine`** to a crypto chart in TradingView,
@@ -91,6 +96,7 @@ flatten · real-time prices & PnL · **online/offline indicator** · **analytics
 
 **Build & distribution**
 - Windows **exe build** via GitHub Actions and `build_exe.bat`.
+- macOS **.app/.dmg build** via `build_mac.sh` (see `MAC_BUILD.md`).
 - **SmartScreen/AV-friendlier**: embedded publisher metadata, no UPX packing,
   and **optional auto code-signing** (add `WIN_CERT_BASE64` + `WIN_CERT_PASSWORD`
   secrets).
