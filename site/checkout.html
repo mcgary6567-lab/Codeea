@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout | Prometheus — Lifetime Access</title>
+  <meta name="description" content="Complete your Prometheus order — one-time payment, lifetime access. Pay by card, PayPal, Google Pay, or crypto." />
+  <meta name="robots" content="noindex, follow" />
+  <link rel="canonical" href="https://prometheusai.tech/checkout" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Prometheus" />
+  <meta property="og:title" content="Get Prometheus — Lifetime Access" />
+  <meta property="og:description" content="Lifetime access — one-time $297, or $267 with crypto (save $30). 90-day money-back guarantee." />
+  <meta property="og:url" content="https://prometheusai.tech/checkout" />
+  <meta property="og:image" content="https://prometheusai.tech/assets/og-prometheus.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Prometheus AI Crypto Trading Bot" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Get Prometheus — Lifetime Access" />
+  <meta name="twitter:description" content="Lifetime access — one-time $297, or $267 with crypto (save $30). 90-day money-back guarantee." />
+  <meta name="twitter:image" content="https://prometheusai.tech/assets/og-prometheus.jpg" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a href="/" class="logo" aria-label="Prometheus home"><img src="assets/img-01.png" alt="Prometheus" height="30" /></a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/#how">How It Works</a>
+        <a href="/#features">Features</a>
+        <a href="/#testimonials">Reviews</a>
+        <a href="/#bonuses">Bonuses</a>
+        <a href="/#guarantee">Guarantee</a>
+      </nav>
+      <span class="checkout-secure">&#128274; Secure Checkout</span>
+    </div>
+  </header>
+
+  <main class="legal">
+    <div class="container">
+      <div class="legal__head">
+        <h1>Complete Your Order</h1>
+        <p class="legal__updated">One-time payment &middot; Lifetime access &middot; 90-day money-back guarantee</p>
+      </div>
+
+      <!-- Payment options -->
+      <div class="pay-options">
+        <!-- Card / PayPal -->
+        <div class="pay-opt pay-opt--card">
+          <div class="pay-opt__chips">
+            <span class="chip">Visa</span>
+            <span class="chip">Mastercard</span>
+            <span class="chip">PayPal</span>
+            <span class="chip">G Pay</span>
+          </div>
+          <h2 class="pay-opt__title">Card &middot; PayPal &middot; Google Pay</h2>
+          <p class="pay-opt__sub">Secure checkout via Hotmart. Your license unlocks on screen the moment payment clears.</p>
+          <ul class="pay-check">
+            <li>Instant license delivery</li>
+            <li>Apple / Google Pay supported</li>
+            <li>Multi-currency (USD, EUR, GBP, INR…)</li>
+            <li>Powered by Hotmart (PCI-DSS Level 1)</li>
+          </ul>
+          <a class="pay-btn pay-btn--card" href="https://pay.hotmart.com/A105159839V" id="payCard">Pay $297 securely →</a>
+        </div>
+
+        <!-- Crypto (Fastest) -->
+        <div class="pay-opt pay-opt--crypto">
+          <span class="pay-opt__flag">&#9889; Fastest</span>
+          <span class="pay-opt__save">SAVE $30</span>
+          <div class="pay-opt__chips">
+            <span class="chip chip--btc">&#8383; Bitcoin</span>
+            <span class="chip chip--usdt">USDT</span>
+            <span class="chip chip--eth">&#9670; Ethereum</span>
+          </div>
+          <h2 class="pay-opt__title">Pay with crypto</h2>
+          <div class="crypto-price">
+            <span class="crypto-price__old">$297</span>
+            <span class="crypto-price__new">$267</span>
+            <span class="crypto-price__tag">−$30 OFF</span>
+          </div>
+          <p class="pay-opt__sub">Pay with crypto and instantly knock <strong>$30 off</strong> — just $267 in BTC, USDT (TRC-20), or ETH. Approval typically within a minute.</p>
+          <ul class="pay-check">
+            <li><strong>$30 cheaper than card</strong></li>
+            <li>Lower fees than card</li>
+            <li>No KYC required</li>
+            <li>Approved within a minute</li>
+          </ul>
+          <a class="pay-btn pay-btn--crypto" href="https://nowpayments.io/payment/?iid=5774448917">Pay $267 with crypto →</a>
+        </div>
+      </div>
+
+      <!-- Crypto wallets -->
+      <div class="crypto-pay" id="wallets">
+        <span class="crypto-pay__pill">&#9679; Crypto Payment</span>
+        <h2 class="crypto-pay__title">Send <span class="hl-orange">$267</span> to any one wallet</h2>
+        <div class="wallets">
+          <div class="wallet">
+            <div class="wallet__head">
+              <span class="wallet__icon wallet__icon--btc">&#8383;</span>
+              <div><strong>Bitcoin (BTC)</strong><span>Native BTC network</span></div>
+            </div>
+            <code class="wallet__addr" id="addr-btc">3DuSmU2S77nRUm4nSnQLwgVn5weSYjn8KA</code>
+            <button class="wallet__copy" type="button" data-copy="addr-btc"><svg class="copy-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy address</button>
+          </div>
+          <div class="wallet">
+            <div class="wallet__head">
+              <span class="wallet__icon wallet__icon--usdt">&#8366;</span>
+              <div><strong>USDT (TRC-20)</strong><span>Tron network · low fees</span></div>
+            </div>
+            <code class="wallet__addr" id="addr-usdt">TRoQXkFXwWjpif2Gz8jjEM8Toz5NX6xEdC</code>
+            <button class="wallet__copy" type="button" data-copy="addr-usdt"><svg class="copy-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy address</button>
+          </div>
+          <div class="wallet">
+            <div class="wallet__head">
+              <span class="wallet__icon wallet__icon--eth">&#9670;</span>
+              <div><strong>Ethereum (ETH · ERC-20)</strong><span>Ethereum network</span></div>
+            </div>
+            <code class="wallet__addr" id="addr-eth">0xd08b66c2b9952ed71970d1741a1032ed55fc0485</code>
+            <button class="wallet__copy" type="button" data-copy="addr-eth"><svg class="copy-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy address</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- How to -->
+      <div class="howto">
+        <h3>How to complete a crypto payment:</h3>
+        <ol>
+          <li>Send <strong>$267</strong> worth of BTC, USDT, or ETH to one of the wallets above.</li>
+          <li>Take a screenshot of the transaction (must show amount + destination address).</li>
+          <li>Email the screenshot to <strong>support@prometheusai.tech</strong> with the subject "Crypto Payment".</li>
+          <li>You'll be approved and receive your license within a minute (typically faster during business hours).</li>
+        </ol>
+        <p class="howto__warn">&#9888; Only send the asset that matches the network — sending USDT to the BTC address, or ETH to the TRC-20 address, will result in lost funds.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <a href="/" class="logo logo--footer" aria-label="Prometheus home"><img src="assets/img-01.png" alt="Prometheus" height="26" /></a>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/blog">Blog</a>
+        <a href="/contact">Contact</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/refund">Refund Policy</a>
+      </nav>
+      <div class="social">
+        <a href="https://www.facebook.com/prometheusaisystem" aria-label="Facebook" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.3l.4-2.7h-2.7V9.5c0-.8.2-1.3 1.3-1.3h1.4V5.8c-.2 0-1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v1.9H8.5V14h2v7h3z"/></svg>
+        </a>
+        <a href="https://wa.me/19259005848" aria-label="WhatsApp" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3-1.3-5-4.4-5.1-4.6-.2-.2-1.3-1.7-1.3-3.2s.8-2.3 1.1-2.6c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.2.2-.4.4-.2.7.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.4.1.2.1.9-.1 1.6z"/></svg>
+        </a>
+        <a href="https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw" aria-label="YouTube" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7.5a3 3 0 0 0-2.1-2.1C19 5 12 5 12 5s-7 0-8.9.4A3 3 0 0 0 1 7.5 31 31 0 0 0 .6 12 31 31 0 0 0 1 16.5a3 3 0 0 0 2.1 2.1C5 19 12 19 12 19s7 0 8.9-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23.4 12 31 31 0 0 0 23 7.5zM9.8 15.3V8.7l5.7 3.3z"/></svg>
+        </a>
+        <a href="https://www.tiktok.com/@prometheusaisystem" aria-label="TikTok" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 5.6a4.7 4.7 0 0 1-1.1-3.1h-3v12.6a2.7 2.7 0 1 1-2.7-2.7c.3 0 .6 0 .8.1V9.4a5.7 5.7 0 1 0 4.9 5.6V8.3a7.7 7.7 0 0 0 4.4 1.4V6.6a4.7 4.7 0 0 1-3.3-1z"/></svg>
+        </a>
+      </div>
+      <p class="site-footer__copy">&copy; <span id="year"></span> Prometheus. All rights reserved.</p>
+    </div>
+  </footer>
+  <script src="js/main.js"></script>
+  <script src="js/checkout.js"></script>
+  <!-- ===== Crypto savings popup ===== -->
+  <div class="cpop-overlay" id="cryptoPop" hidden>
+    <div class="cpop" role="dialog" aria-modal="true" aria-labelledby="cpopTitle">
+      <button class="cpop__close" id="cpopClose" aria-label="Close">&times;</button>
+      <span class="cpop__badge">&#128154; Crypto Bonus</span>
+      <h2 class="cpop__title" id="cpopTitle">Pay With Crypto &amp; <b>Save $30</b> Instantly</h2>
+      <p class="cpop__sub">Skip the card fees — pay in BTC, USDT, or ETH and your total drops from <s>$297</s> to just <b>$267</b>. Approved within a minute, no KYC.</p>
+      <a class="cpop__btn" href="#wallets" id="cpopCta">Grab my $30 discount →</a>
+      <a class="cpop__wa" href="https://wa.me/19259005848" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3-1.3-5-4.4-5.1-4.6-.2-.2-1.3-1.7-1.3-3.2s.8-2.3 1.1-2.6c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.2.2-.4.4-.2.7.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.4.1.2.1.9-.1 1.6z"/></svg>
+        Questions? Chat with Jono on WhatsApp
+      </a>
+      <p class="cpop__note">Real person, friendly help — message us any time before you pay.</p>
+    </div>
+  </div>
+
+  <!--Start of Tawk.to Script-->
+  <script type="text/javascript">
+  var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+  (function(){
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/620b78561ffac05b1d79f0e4/1frucs5hg';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+  })();
+  </script>
+  <!--End of Tawk.to Script-->
+</body>
+</html>
