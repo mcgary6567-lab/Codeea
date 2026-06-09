@@ -273,9 +273,11 @@ def _scene_safe(ax, cfg):
                                 boxstyle="round,pad=2,rounding_size=28", fc=PANEL, ec=BORDER, lw=2, zorder=3))
     _img(ax, "gui_mockup_safe.png", (W / 2, cy), 0.46)
 
+    feats = []
     for f, fy in zip(cfg["features"], (792, 720, 648)):
-        ax.text(168, fy, "✓", color=GREEN, fontsize=27, fontweight="bold", va="center", ha="left", zorder=6)
-        ax.text(214, fy, f, color=TXT, fontsize=24, va="center", ha="left", zorder=6)
+        chk = ax.text(168, fy, "✓", color=GREEN, fontsize=27, fontweight="bold", va="center", ha="left", zorder=6)
+        lbl = ax.text(214, fy, f, color=TXT, fontsize=24, va="center", ha="left", zorder=6)
+        feats.append((chk, lbl))
 
     ax.add_patch(FancyBboxPatch((150, 360), W - 300, 96,
                                 boxstyle="round,pad=2,rounding_size=48", fc=ACCENT, ec="none", zorder=6))
@@ -288,6 +290,7 @@ def _scene_safe(ax, cfg):
     ax.text(W / 2, 120, "Demo / Safe Mode shown. Crypto trading involves risk of loss —\n"
             "results are not guaranteed. Not financial advice.",
             ha="center", va="center", color=DIM, fontsize=18, zorder=6)
+    return feats
 
 
 def build_safe(out, cfg):
@@ -297,6 +300,30 @@ def build_safe(out, cfg):
     fig.savefig(out, dpi=100, facecolor=BG, pad_inches=0)
     plt.close(fig)
     print(f"wrote {out}")
+
+
+def build_safe_video(out, cfg, seconds=6, fps=30):
+    """Animated ad-safe reel: the ✓ feature lines reveal one-by-one (no profit
+    ticker, nothing that implies returns)."""
+    if not _HAS_FFMPEG:
+        print("ffmpeg unavailable — skipping mp4")
+        return
+    fig, ax = plt.subplots(figsize=(10.8, 19.2), dpi=100)
+    fig.patch.set_facecolor(BG)
+    feats = _scene_safe(ax, cfg)
+    n = seconds * fps
+
+    def update(i):
+        for p, (chk, lbl) in enumerate(feats):
+            on = i >= int((0.28 + 0.17 * p) * n)
+            chk.set_alpha(1.0 if on else 0.0)
+            lbl.set_alpha(1.0 if on else 0.0)
+        return [a for pair in feats for a in pair]
+
+    anim = animation.FuncAnimation(fig, update, frames=n, interval=1000 / fps, blit=False)
+    anim.save(out, writer=animation.FFMpegWriter(fps=fps, bitrate=4000), dpi=100)
+    plt.close(fig)
+    print(f"wrote {out}  (1080x1920 · {seconds}s)")
 
 
 # Paid-ads-safe set: feature/benefit copy, NO profit figures, demo visuals.
@@ -335,3 +362,6 @@ if __name__ == "__main__":
         build_card(os.path.join(SOCIAL, f"reel_{i:02d}.png"), cfg)
     for i, cfg in enumerate(CFGS_SAFE, 1):
         build_safe(os.path.join(SOCIAL, f"reel_safe_{i:02d}.png"), cfg)
+    # Ad-safe MP4 reels (9:16 works for both TikTok and Facebook/IG Reels).
+    build_safe_video(os.path.join(SOCIAL, "tiktok_reel_safe.mp4"), CFGS_SAFE[0])
+    build_safe_video(os.path.join(SOCIAL, "facebook_reel_safe.mp4"), CFGS_SAFE[1])
