@@ -252,7 +252,77 @@ CFGS = [
 ]
 
 
+def _scene_safe(ax, cfg):
+    """Paid-ads-SAFE 1080x1920 frame: feature-led, no profit figures, demo
+    mockup, strong risk disclaimer. cfg keys: hook, sub, features (3)."""
+    W, H = 1080, 1920
+    ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), W, H, boxstyle="square,pad=0", fc=BG, ec="none", zorder=0))
+    ax.add_patch(plt.Circle((300, 1700), 540, color="#241a12", zorder=0))
+
+    _pill(ax, W / 2, 1864, "● DEMO / SAFE MODE SHOWN", ELEV, ACCENT, 22)
+    _img(ax, "logo.png", (W / 2, 1788), 0.30, z=6)
+    ax.text(W / 2, 1710, "PROMETHEUS AI", ha="center", va="center", color=TXT,
+            fontsize=30, fontweight="bold", zorder=6)
+    ax.text(W / 2, 1612, cfg["hook"], ha="center", va="center", color=ACCENT,
+            fontsize=33, fontweight="bold", zorder=6, linespacing=1.05)
+    ax.text(W / 2, 1505, cfg["sub"], ha="center", va="center", color=TXT, fontsize=23, zorder=6)
+
+    cy = 1120
+    ax.add_patch(FancyBboxPatch((54, cy - 280), W - 108, 560,
+                                boxstyle="round,pad=2,rounding_size=28", fc=PANEL, ec=BORDER, lw=2, zorder=3))
+    _img(ax, "gui_mockup_safe.png", (W / 2, cy), 0.46)
+
+    for f, fy in zip(cfg["features"], (792, 720, 648)):
+        ax.text(168, fy, "✓", color=GREEN, fontsize=27, fontweight="bold", va="center", ha="left", zorder=6)
+        ax.text(214, fy, f, color=TXT, fontsize=24, va="center", ha="left", zorder=6)
+
+    ax.add_patch(FancyBboxPatch((150, 360), W - 300, 96,
+                                boxstyle="round,pad=2,rounding_size=48", fc=ACCENT, ec="none", zorder=6))
+    ax.text(W / 2, 408, "↓  TRY IT FREE", ha="center", va="center", color="#1a1100",
+            fontsize=37, fontweight="bold", zorder=7)
+    ax.text(W / 2, 300, "Windows & macOS · free trial · prometheusai.tech",
+            ha="center", va="center", color=TXT, fontsize=25, zorder=6)
+    ax.text(W / 2, 252, "Binance · Bybit · OKX · KuCoin · Bitget · Kraken · Coinbase",
+            ha="center", va="center", color=DIM, fontsize=19, zorder=6)
+    ax.text(W / 2, 120, "Demo / Safe Mode shown. Crypto trading involves risk of loss —\n"
+            "results are not guaranteed. Not financial advice.",
+            ha="center", va="center", color=DIM, fontsize=18, zorder=6)
+
+
+def build_safe(out, cfg):
+    fig, ax = plt.subplots(figsize=(10.8, 19.2), dpi=100)
+    fig.patch.set_facecolor(BG)
+    _scene_safe(ax, cfg)
+    fig.savefig(out, dpi=100, facecolor=BG, pad_inches=0)
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
+# Paid-ads-safe set: feature/benefit copy, NO profit figures, demo visuals.
+CFGS_SAFE = [
+    {"hook": "Automate your crypto\nstrategy — 24/7", "sub": "Connect your exchange. The bot handles execution.",
+     "features": ["Runs 24/7 while you're away", "One-click strategy presets", "Long & short on futures"]},
+    {"hook": "Test before you\nrisk real money", "sub": "Built-in demo mode + historical backtester.",
+     "features": ["Paper-trade in Safe Mode", "Backtest on real history", "Optimize before you go live"]},
+    {"hook": "Your keys.\nYour exchange.", "sub": "Non-custodial — funds never leave your account.",
+     "features": ["Connect via API (no withdrawals)", "Keys encrypted behind a PIN", "You stay in full control"]},
+    {"hook": "Built-in risk\nguardrails", "sub": "Protect your account automatically.",
+     "features": ["Daily-loss & max-drawdown halts", "Cooldowns & position caps", "Trailing stops + auto SL/TP"]},
+    {"hook": "Beginner-friendly\nautomation", "sub": "Guided setup — no experience needed.",
+     "features": ["Step-by-step setup", "Learn first in demo mode", "Presets: Conservative → Aggressive"]},
+    {"hook": "Backtest. Optimize.\nAutomate.", "sub": "See how a strategy behaved before going live.",
+     "features": ["Equity curve & win-rate stats", "Walk-forward testing", "Export results to CSV"]},
+    {"hook": "One app,\n8 exchanges", "sub": "Trade your venue of choice.",
+     "features": ["Binance · Bybit · OKX · KuCoin", "Bitget · Kraken · Coinbase", "Spot & futures markets"]},
+    {"hook": "Set it once.\nRuns 24/7.", "sub": "Hands-free crypto automation on your PC.",
+     "features": ["Windows & macOS", "Optional run-at-startup", "Telegram & desktop alerts"]},
+]
+
+
 if __name__ == "__main__":
+    import make_mockup
+    make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
     build(os.path.join(SOCIAL, "tiktok_reel.png"),
           "POV: your bot trades crypto while you sleep")
     build(os.path.join(SOCIAL, "facebook_reel.png"),
@@ -263,3 +333,5 @@ if __name__ == "__main__":
                 "Let AI trade crypto for you — 24/7")
     for i, cfg in enumerate(CFGS, 1):
         build_card(os.path.join(SOCIAL, f"reel_{i:02d}.png"), cfg)
+    for i, cfg in enumerate(CFGS_SAFE, 1):
+        build_safe(os.path.join(SOCIAL, f"reel_safe_{i:02d}.png"), cfg)
