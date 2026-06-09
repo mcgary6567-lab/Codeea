@@ -35,19 +35,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SOCIAL = os.path.join(HERE, "..", "Marketing Docs", "social")
 # Organised subfolders (see Marketing Docs/social/README.md). Organic reels are
 # grouped by the app window they show, for easy identification.
-ORG = os.path.join(SOCIAL, "organic")
+# By purpose: reels/ (vertical 9:16 — TikTok + FB/IG Reels) and posts/ (feed).
+REELS = os.path.join(SOCIAL, "reels")
+PAID_IMG = os.path.join(REELS, "ads-safe", "images")
+PAID_VID = os.path.join(REELS, "ads-safe", "video")
+ORG = os.path.join(REELS, "organic")
 ORG_MAIN = os.path.join(ORG, "main-window")
 ORG_CHART = os.path.join(ORG, "strategy-chart")
 ORG_BT = os.path.join(ORG, "backtest")
 ORG_AN = os.path.join(ORG, "analytics")
-ORG_POST = os.path.join(ORG, "posters")
 ORG_VID = os.path.join(ORG, "video")
-PAID_IMG = os.path.join(SOCIAL, "paid-ads-safe", "images")
-PAID_VID = os.path.join(SOCIAL, "paid-ads-safe", "video")
-# Which folder a creative lands in, by the embedded app window.
+POST_SQUARE = os.path.join(SOCIAL, "posts", "square")       # 1080x1080 FB/IG feed
+POST_VERT = os.path.join(SOCIAL, "posts", "vertical")       # 1080x1920 image posts
+# Which folder a reel lands in, by the embedded app window.
 WINDOW_DIR = {"gui_mockup.png": ORG_MAIN, "gui_chart.png": ORG_CHART,
               "gui_backtest.png": ORG_BT, "gui_analytics.png": ORG_AN}
-for _d in (ORG_MAIN, ORG_CHART, ORG_BT, ORG_AN, ORG_POST, ORG_VID, PAID_IMG, PAID_VID):
+for _d in (ORG_MAIN, ORG_CHART, ORG_BT, ORG_AN, ORG_VID, PAID_IMG, PAID_VID,
+           POST_SQUARE, POST_VERT):
     os.makedirs(_d, exist_ok=True)
 
 
@@ -418,13 +422,14 @@ if __name__ == "__main__":
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
     make_mockup.render_chart(); make_mockup.render_backtest(); make_mockup.render_analytics()
 
-    # --- organic (profit-led): grouped by app window, named after the hook ---
-    build(os.path.join(ORG_POST, "tiktok-hero.png"),
+    # --- posts (feed) ---
+    build(os.path.join(POST_VERT, "tiktok-hero.png"),
           "POV: your bot trades crypto while you sleep")
-    build(os.path.join(ORG_POST, "facebook-hero.png"),
+    build(os.path.join(POST_VERT, "facebook-hero.png"),
           "Let AI trade crypto for you — 24/7")
-    build_square(os.path.join(ORG_POST, "square-post.png"),
+    build_square(os.path.join(POST_SQUARE, "square-post.png"),
                  "Let AI trade crypto for you — 24/7")
+    # --- organic reels (profit-led): grouped by app window, named after the hook ---
     build_video(os.path.join(ORG_VID, "profit-reel.mp4"),
                 "Let AI trade crypto for you — 24/7")
     counters = {}
