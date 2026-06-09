@@ -12,7 +12,7 @@ social/
 │   ├── images/  reel_safe_01–08.png      feature-led, NO profit claims, demo UI
 │   └── video/   reel_safe_01–08.mp4      1080×1920 · 6s · TikTok/IG safe-zone
 └── organic/                    ⚠️ organic posts only (profit-led — don't boost)
-    ├── images/  reel_01–10.png, tiktok_reel.png, facebook_reel.png, square_post.png
+    ├── images/  reel_01–25.png, tiktok_reel.png, facebook_reel.png, square_post.png
     └── video/   reel.mp4                 1080×1920 · 5s · profit ticker
 ```
 

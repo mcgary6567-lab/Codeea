@@ -193,7 +193,7 @@ def _scene_card(ax, cfg):
     _img(ax, "logo.png", (W / 2, 1788), 0.30, z=6)
     ax.text(W / 2, 1710, "PROMETHEUS AI", ha="center", va="center", color=TXT,
             fontsize=30, fontweight="bold", zorder=6)
-    ax.text(W / 2, 1612, cfg["hook"], ha="center", va="center", color=ACCENT,
+    ax.text(W / 2, 1612, cfg["hook"], ha="center", va="center", color=cfg.get("color", ACCENT),
             fontsize=31, fontweight="bold", zorder=6, linespacing=1.05)
     ax.text(W / 2, 1505, cfg["sub"], ha="center", va="center", color=TXT,
             fontsize=23, zorder=6)
@@ -202,7 +202,7 @@ def _scene_card(ax, cfg):
     ax.add_patch(FancyBboxPatch((54, cy - 280), W - 108, 560,
                                 boxstyle="round,pad=2,rounding_size=28",
                                 fc=PANEL, ec=BORDER, lw=2, zorder=3))
-    _img(ax, "gui_mockup.png", (W / 2, cy), 0.46)
+    _img(ax, cfg.get("window", "gui_mockup.png"), (W / 2, cy), 0.46)
 
     ax.text(W / 2, 792, cfg["extra"], ha="center", va="center", color=GREEN,
             fontsize=22, fontweight="bold", zorder=6)
@@ -366,9 +366,31 @@ CFGS_SAFE = [
 ]
 
 
+# 15 more profit-led variants — varied accent color + app window + caption.
+# windows: gui_mockup (main) / gui_chart / gui_backtest / gui_analytics.
+CFGS_15 = [
+    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "Wake up to\ngreen trades", "sub": "The bot traded all night — hands-free.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"color": "#4a9eff", "window": "gui_analytics.png", "hook": "5 coins.\nAll in profit.", "sub": "Your performance, at a glance.", "big": "68%", "label": "win rate*", "extra": "Realized P&L +$842 across 142 trades*"},
+    {"color": "#3fb950", "window": "gui_chart.png", "hook": "It catches\nevery move", "sub": "Buy low, sell high — automatically.", "big": "+$214", "label": "this trade*", "extra": "long & short signals, executed for you"},
+    {"color": "#c792ea", "window": "gui_backtest.png", "hook": "Backtested before\na single cent", "sub": "See how it performed on real history.", "big": "+84%", "label": "in backtest*", "extra": "68% win · 2.1 profit factor · 142 trades*"},
+    {"color": "#ffd54a", "window": "gui_mockup.png", "hook": "Your portfolio\non autopilot", "sub": "Set your risk once. It does the rest.", "big": "+$755", "label": "today*", "extra": "5 coins green: BTC ETH SOL XRP ADA"},
+    {"color": "#2dd4bf", "window": "gui_chart.png", "hook": "Signal to profit\nin seconds", "sub": "EMA + RSI crossover, auto-executed.", "big": "+$188", "label": "on ETH*", "extra": "entry · TP1 · TP2 placed automatically"},
+    {"color": "#ff6fb5", "window": "gui_analytics.png", "hook": "The numbers\ndon't lie", "sub": "68% win rate. +$842 realized.", "big": "+$842", "label": "realized*", "extra": "142 trades · profit factor 2.1*"},
+    {"color": "#38bdf8", "window": "gui_backtest.png", "hook": "Proven,\nnot promised", "sub": "Walk-forward tested before going live.", "big": "2.1", "label": "profit factor*", "extra": "equity +84% over 3 months (backtest)*"},
+    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "Profits while\nyou sleep", "sub": "24/7 automation on your own PC.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152"},
+    {"color": "#a3e635", "window": "gui_chart.png", "hook": "Long AND short —\nboth directions", "sub": "Profit in up and down markets.", "big": "+$152", "label": "on SOL*", "extra": "futures: long + short, automatically"},
+    {"color": "#4a9eff", "window": "gui_mockup.png", "hook": "Set it. Forget it.\nStack it.", "sub": "One-click presets, then walk away.", "big": "+$100+", "label": "per trade*", "extra": "5 coins green today · +$755 total*"},
+    {"color": "#c792ea", "window": "gui_analytics.png", "hook": "Every position\ngreen today", "sub": "Live P&L across your portfolio.", "big": "+$842", "label": "realized*", "extra": "win rate 68% · best +$96 · 142 trades"},
+    {"color": "#ffd54a", "window": "gui_backtest.png", "hook": "68% win rate,\nhands-free", "sub": "The backtest the bot actually trades.", "big": "68%", "label": "win rate*", "extra": "net +$842 · profit factor 2.1*"},
+    {"color": "#2dd4bf", "window": "gui_chart.png", "hook": "Turn volatility\ninto gains", "sub": "It trades the swings for you.", "big": "+$214", "label": "on BTC*", "extra": "BUY / SELL signals fired automatically"},
+    {"color": "#ff6fb5", "window": "gui_mockup.png", "hook": "This is\nautomated crypto", "sub": "Multi-coin. Multi-exchange. 24/7.", "big": "+$755", "label": "today*", "extra": "BTC ETH SOL XRP ADA — all in profit"},
+]
+
+
 if __name__ == "__main__":
     import make_mockup
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
+    make_mockup.render_chart(); make_mockup.render_backtest(); make_mockup.render_analytics()
     # --- organic (profit-led) ---
     build(os.path.join(ORG_IMG, "tiktok_reel.png"),
           "POV: your bot trades crypto while you sleep")
@@ -379,6 +401,8 @@ if __name__ == "__main__":
     build_video(os.path.join(ORG_VID, "reel.mp4"),
                 "Let AI trade crypto for you — 24/7")
     for i, cfg in enumerate(CFGS, 1):
+        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
+    for i, cfg in enumerate(CFGS_15, 11):   # reel_11..reel_25 (varied window + color)
         build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
     # --- paid-ads-safe (feature-led, no profit claims) ---
     for i, cfg in enumerate(CFGS_SAFE, 1):
