@@ -387,6 +387,16 @@ CFGS_15 = [
 ]
 
 
+# 5 more — the realistic Strategy Chart window, varied colours + captions.
+CFGS_CHART = [
+    {"color": "#3fb950", "window": "gui_chart.png", "hook": "Watch it\ntrade live", "sub": "BUY ▲ and SELL ▼ — fired automatically.", "big": "+$214", "label": "on BTC today*", "extra": "38 entries today · long + short"},
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Catch the swing\nevery time", "sub": "EMA20 + RSI crossover, executed for you.", "big": "+$188", "label": "on ETH*", "extra": "entry · SL · TP1 · TP2 placed for you"},
+    {"color": "#ffd54a", "window": "gui_chart.png", "hook": "Up or down —\nit profits", "sub": "Long & short on Bitget futures.", "big": "+$152", "label": "on SOL*", "extra": "BTC +$214 · ETH +$188 · SOL +$152"},
+    {"color": "#ff6fb5", "window": "gui_chart.png", "hook": "Never miss\na setup", "sub": "The bot watches the charts 24/7.", "big": "+$755", "label": "today*", "extra": "5 coins green: BTC ETH SOL XRP ADA"},
+    {"color": "#38bdf8", "window": "gui_chart.png", "hook": "Pro signals,\nautomated", "sub": "Scale-outs, breakeven & exits — handled.", "big": "+$104", "label": "on XRP*", "extra": "299 candles scanned · 38 entries"},
+]
+
+
 if __name__ == "__main__":
     import make_mockup
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
@@ -403,6 +413,8 @@ if __name__ == "__main__":
     for i, cfg in enumerate(CFGS, 1):
         build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
     for i, cfg in enumerate(CFGS_15, 11):   # reel_11..reel_25 (varied window + color)
+        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
+    for i, cfg in enumerate(CFGS_CHART, 26):  # reel_26..reel_30 (Strategy Chart)
         build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
     # --- paid-ads-safe (feature-led, no profit claims) ---
     for i, cfg in enumerate(CFGS_SAFE, 1):

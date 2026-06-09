@@ -247,73 +247,110 @@ def _btn(ax, x, y, w, h, text, fc, tc="white", fs=11):
 
 
 def render_chart(out=None):
+    """Faithful Strategy Chart window: toolbar + legend, candles with EMA20 and
+    BUY/SELL markers, entry/SL/TP1/TP2 level lines + right price axis, a volume
+    pane, and an RSI pane with shaded overbought/oversold bands."""
     import numpy as np
     out = out or os.path.join(HERE, "gui_chart.png")
+    BLUE = "#4a9eff"; EMAB = "#5b8def"; SLC = "#f0883e"; TPC = "#26d07c"; RSIC = "#c792ea"
     fig, ax = _new_ax()
-    _hdr(ax, "Strategy Chart — BTC/USDT · 1h")
-    ax.text(11.0, 8.13, "67,540  ", color=GREEN, fontsize=11, fontweight="bold", ha="right", va="center", zorder=5)
+    _hdr(ax, "Strategy Chart — Prometheus AI Crypto Bot", right="")
 
-    # right control rail
-    _panel(ax, 10.7, 0.4, 1.95, 7.0)
-    _btn(ax, 10.85, 6.55, 1.65, 0.5, "▲ BUY", GREEN, fs=13)
-    _btn(ax, 10.85, 5.95, 1.65, 0.5, "▼ SELL", RED, fs=13)
-    for i, (lab, val) in enumerate([("Entry", "67,000"), ("TP1", "68,200"), ("TP2", "69,000"),
-                                    ("Stop", "66,500"), ("RSI", "61.4")]):
-        ax.text(10.9, 5.4 - i * 0.42, lab, fontsize=8.5, color=DIM, va="center", zorder=4)
-        ax.text(12.45, 5.4 - i * 0.42, val, fontsize=8.5, color=TXT, fontweight="bold", ha="right", va="center", zorder=4)
-    ax.text(11.67, 2.9, "● Following", color=GREEN, fontsize=8.5, fontweight="bold", ha="center", zorder=4)
+    # --- toolbar row ---
+    ax.text(0.45, 7.62, "☑ Follow Strategy tab", fontsize=8.3, color=TXT, va="center", zorder=5)
+    ax.text(2.9, 7.62, "Symbol", fontsize=8.3, color=DIM, va="center", zorder=5)
+    ax.add_patch(Rectangle((3.55, 7.46), 1.3, 0.3, fc=ELEV, ec=BORDER, lw=1, zorder=3))
+    ax.text(3.66, 7.62, "BTC/USDT ▾", fontsize=8, color=TXT, va="center", zorder=4)
+    ax.text(5.1, 7.62, "Timeframe", fontsize=8.3, color=DIM, va="center", zorder=5)
+    ax.add_patch(Rectangle((6.0, 7.46), 0.75, 0.3, fc=ELEV, ec=BORDER, lw=1, zorder=3))
+    ax.text(6.1, 7.62, "15m ▾", fontsize=8, color=TXT, va="center", zorder=4)
+    ax.text(9.95, 7.62, "299 candles · 38 entries", fontsize=8.2, color=DIM, ha="right", va="center", zorder=5)
+    _btn(ax, 10.15, 7.45, 1.05, 0.32, "↻ Refresh", ACCENT, "#1a1100", fs=8.5)
 
-    # price + rsi panes
-    _panel(ax, 0.35, 0.4, 10.1, 7.0)
-    px0, px1, py0, py1 = 0.75, 10.1, 3.0, 7.1     # price pane
-    ry0, ry1 = 1.0, 2.5                           # rsi pane
-    n = 44
-    rng = np.random.default_rng(11)
-    drift = np.linspace(0, 18, n)
-    noise = np.cumsum(rng.normal(0, 1.1, n))
-    base = 100 + drift + noise
-    op = base + rng.normal(0, 0.5, n)
-    cl = base + rng.normal(0.5, 0.6, n)
-    hi = np.maximum(op, cl) + np.abs(rng.normal(0, 0.5, n))
-    lo = np.minimum(op, cl) - np.abs(rng.normal(0, 0.5, n))
-    pmin, pmax = lo.min(), hi.max()
+    # --- legend row ---
+    ax.text(0.45, 7.22, "● following · BTC/USDT · 15m · Bitget futures",
+            fontsize=8, color=GREEN, fontweight="bold", va="center", zorder=5)
+    leg = [("▲ BUY", GREEN), ("▼ SELL", RED), ("⊙ scale-out", "#ffd54a"), ("✕ exit", DIM),
+           ("— entry", BLUE), ("— SL", SLC), ("— TP1/TP2", TPC), ("— EMA20", EMAB)]
+    lx = 4.7
+    for t, c in leg:
+        ax.text(lx, 7.22, t, fontsize=7.2, color=c, va="center", zorder=5)
+        lx += 0.18 + 0.052 * len(t)
+    ax.text(12.5, 7.22, "scroll = zoom · drag = pan", fontsize=7.2, color=DIM, ha="right", va="center", zorder=5)
+
+    px0, px1 = 0.35, 11.9        # plot left/right (right margin = axis labels)
+    py0, py1 = 4.05, 7.0         # price pane
+    vy0, vy1 = 2.95, 3.85        # volume pane
+    ry0, ry1 = 0.45, 2.6         # rsi pane
+
+    # --- synth candles: rise, fall, then sideways (like the screenshot) ---
+    n = 78
+    rng = np.random.default_rng(7)
+    seg = np.concatenate([np.linspace(0, 11, 26), np.linspace(11, -2, 28), np.linspace(-2, 0.5, n - 54)])
+    base = 62900 + seg * 100 + np.cumsum(rng.normal(0, 28, n))
+    op = base + rng.normal(0, 35, n)
+    cl = base + rng.normal(0, 45, n)
+    hi = np.maximum(op, cl) + np.abs(rng.normal(40, 30, n))
+    lo = np.minimum(op, cl) - np.abs(rng.normal(40, 30, n))
+    pmin, pmax = 61897, 64288     # match the screenshot's axis
 
     def X(i): return px0 + (px1 - px0) * i / (n - 1)
-    def Y(p): return py0 + (py1 - py0) * (p - pmin) / (pmax - pmin)
+    def Yp(p): return py0 + (py1 - py0) * (p - pmin) / (pmax - pmin)
 
-    # gridlines
-    for f in (0, .25, .5, .75, 1):
-        ax.plot([px0, px1], [py0 + (py1 - py0) * f] * 2, color=BORDER, lw=0.6, zorder=2)
-    bw = (px1 - px0) / n * 0.6
+    # price gridlines + right axis labels
+    for p in (64287.65, 63690.08, 63092.50, 62494.93, 61897.35):
+        ax.plot([px0, px1], [Yp(p)] * 2, color=BORDER, lw=0.6, zorder=2)
+        ax.text(px1 + 0.05, Yp(p), f"{p:,.2f}", fontsize=7, color=DIM, va="center", zorder=4)
+    bw = (px1 - px0) / n * 0.62
     for i in range(n):
-        up = cl[i] >= op[i]
-        col = GREEN if up else RED
-        ax.plot([X(i), X(i)], [Y(lo[i]), Y(hi[i])], color=col, lw=0.8, zorder=3)
-        y1, y2 = Y(min(op[i], cl[i])), Y(max(op[i], cl[i]))
-        ax.add_patch(Rectangle((X(i) - bw / 2, y1), bw, max(0.02, y2 - y1),
-                               fc=(BG if up else col), ec=col, lw=0.8, zorder=3))
-    # EMA
-    ema = np.convolve(cl, np.ones(6) / 6, mode="same")
-    ax.plot([X(i) for i in range(3, n - 3)], [Y(ema[i]) for i in range(3, n - 3)],
-            color="#5b8def", lw=1.4, zorder=4)
-    # BUY/SELL markers
-    for i, kind in [(10, "B"), (19, "S"), (27, "B"), (38, "B")]:
-        if kind == "B":
-            ax.scatter(X(i), Y(lo[i]) - 0.22, marker="^", s=90, color=GREEN, zorder=5)
-            ax.text(X(i), Y(lo[i]) - 0.5, "BUY", color=GREEN, fontsize=7, fontweight="bold", ha="center", zorder=5)
-        else:
-            ax.scatter(X(i), Y(hi[i]) + 0.22, marker="v", s=90, color=RED, zorder=5)
-            ax.text(X(i), Y(hi[i]) + 0.5, "SELL", color=RED, fontsize=7, fontweight="bold", ha="center", zorder=5)
-    # last price line + tag
-    ax.plot([px0, px1], [Y(cl[-1])] * 2, color=GREEN, lw=1, ls=(0, (3, 3)), zorder=4)
-    ax.add_patch(Rectangle((px1 - 0.02, Y(cl[-1]) - 0.13), 0.45, 0.26, fc=GREEN, ec="none", zorder=5))
-    ax.text(px1 + 0.2, Y(cl[-1]), "67,540", color=BG, fontsize=7.5, fontweight="bold", ha="center", va="center", zorder=6)
-    # RSI pane
-    ax.add_patch(Rectangle((px0, ry0), px1 - px0, ry1 - ry0, fc=ELEV, ec=BORDER, lw=0.8, zorder=2))
-    ax.text(px0 + 0.05, ry1 - 0.12, "RSI", fontsize=7.5, color=DIM, va="center", zorder=4)
-    rsi = 50 + 22 * np.sin(np.linspace(0, 6, n)) + rng.normal(0, 4, n)
-    ax.plot([X(i) for i in range(n)], [ry0 + (ry1 - ry0) * np.clip(rsi[i], 0, 100) / 100 for i in range(n)],
-            color="#c792ea", lw=1.2, zorder=4)
+        up = cl[i] >= op[i]; col = GREEN if up else RED
+        ax.plot([X(i), X(i)], [Yp(lo[i]), Yp(hi[i])], color=col, lw=0.7, zorder=3)
+        y1, y2 = Yp(min(op[i], cl[i])), Yp(max(op[i], cl[i]))
+        ax.add_patch(Rectangle((X(i) - bw / 2, y1), bw, max(0.015, y2 - y1),
+                               fc=(BG if up else col), ec=col, lw=0.7, zorder=3))
+    ema = np.convolve(cl, np.ones(9) / 9, mode="same")
+    ax.plot([X(i) for i in range(4, n - 4)], [Yp(ema[i]) for i in range(4, n - 4)], color=EMAB, lw=1.4, zorder=4)
+
+    # level lines + right labels
+    for price, col, dash, lab in [(63344, SLC, (0, (4, 3)), "SL 0.71% 63,344"),
+                                  (62890, BLUE, None, "SELL ENTRY 62,890"),
+                                  (62454, TPC, (0, (4, 3)), "TP1 -0.71% 62,454"),
+                                  (62000, TPC, (0, (4, 3)), "TP2 -1.42% 62,000")]:
+        ax.plot([px0, px1], [Yp(price)] * 2, color=col, lw=1.1, ls=(dash or "-"), zorder=4)
+        ax.text(px1 + 0.05, Yp(price), lab, fontsize=6.6, color=col, va="center", zorder=5)
+
+    # BUY/SELL markers at swing points
+    buys = [3, 9, 12, 16, 22, 41, 50, 60, 71]
+    sells = [6, 18, 21, 25, 30, 47, 66, 68]
+    for i in buys:
+        ax.scatter(X(i), Yp(lo[i]) - 0.12, marker="^", s=55, color=GREEN, zorder=5)
+        ax.text(X(i), Yp(lo[i]) - 0.27, "BUY", color=GREEN, fontsize=5.6, fontweight="bold", ha="center", zorder=5)
+    for i in sells:
+        ax.scatter(X(i), Yp(hi[i]) + 0.12, marker="v", s=55, color=RED, zorder=5)
+        ax.text(X(i), Yp(hi[i]) + 0.27, "SELL", color=RED, fontsize=5.6, fontweight="bold", ha="center", zorder=5)
+    # a scale-out ring near the lows
+    ax.scatter(X(36), Yp(lo[36]) - 0.35, marker="o", s=70, facecolors="none", edgecolors="#ffd54a", lw=1.5, zorder=5)
+
+    # --- volume pane ---
+    ax.text(px0 + 0.04, vy1 - 0.06, "Vol", fontsize=7, color=DIM, va="center", zorder=4)
+    vmax = np.abs(cl - op).max() + 60
+    for i in range(n):
+        vh = (vy1 - vy0) * (abs(cl[i] - op[i]) + rng.uniform(10, 60)) / vmax
+        col = GREEN if cl[i] >= op[i] else RED
+        ax.add_patch(Rectangle((X(i) - bw / 2, vy0), bw, vh, fc=col, ec="none", alpha=0.55, zorder=3))
+
+    # --- RSI pane with shaded OB/OS bands ---
+    ax.add_patch(Rectangle((px0, ry0), px1 - px0, ry1 - ry0, fc="#12161e", ec=BORDER, lw=0.8, zorder=2))
+
+    def Yr(v): return ry0 + (ry1 - ry0) * np.clip(v, 0, 100) / 100
+    ax.add_patch(Rectangle((px0, Yr(70)), px1 - px0, ry1 - Yr(70), fc=SLC, ec="none", alpha=0.18, zorder=2))
+    ax.add_patch(Rectangle((px0, ry0), px1 - px0, Yr(30) - ry0, fc=SLC, ec="none", alpha=0.18, zorder=2))
+    for lv in (70, 50, 30):
+        ax.plot([px0, px1], [Yr(lv)] * 2, color=BORDER, lw=0.6, ls=(0, (3, 3)), zorder=3)
+        ax.text(px1 + 0.05, Yr(lv), str(lv), fontsize=7, color=DIM, va="center", zorder=4)
+    rsi = 52 + 16 * np.sin(np.linspace(0.5, 7, n)) + rng.normal(0, 3.5, n)
+    ax.plot([X(i) for i in range(n)], [Yr(rsi[i]) for i in range(n)], color=RSIC, lw=1.2, zorder=4)
+
     fig.savefig(out, dpi=130, bbox_inches="tight", facecolor=BG); plt.close(fig)
     print(f"wrote {out}")
 
