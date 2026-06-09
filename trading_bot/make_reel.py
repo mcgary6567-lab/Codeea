@@ -252,44 +252,57 @@ CFGS = [
 ]
 
 
-def _scene_safe(ax, cfg):
+def _scene_safe(ax, cfg, sz=False):
     """Paid-ads-SAFE 1080x1920 frame: feature-led, no profit figures, demo
-    mockup, strong risk disclaimer. cfg keys: hook, sub, features (3)."""
+    mockup, strong risk disclaimer. cfg keys: hook, sub, features (3).
+
+    sz=True lifts all critical content (CTA + disclaimer) out of the bottom ~430px
+    and keeps side margins clear, so TikTok/IG Reels UI doesn't cover it."""
     W, H = 1080, 1920
     ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
     ax.add_patch(FancyBboxPatch((0, 0), W, H, boxstyle="square,pad=0", fc=BG, ec="none", zorder=0))
     ax.add_patch(plt.Circle((300, 1700), 540, color="#241a12", zorder=0))
 
-    _pill(ax, W / 2, 1864, "● DEMO / SAFE MODE SHOWN", ELEV, ACCENT, 22)
-    _img(ax, "logo.png", (W / 2, 1788), 0.30, z=6)
-    ax.text(W / 2, 1710, "PROMETHEUS AI", ha="center", va="center", color=TXT,
-            fontsize=30, fontweight="bold", zorder=6)
-    ax.text(W / 2, 1612, cfg["hook"], ha="center", va="center", color=ACCENT,
-            fontsize=33, fontweight="bold", zorder=6, linespacing=1.05)
-    ax.text(W / 2, 1505, cfg["sub"], ha="center", va="center", color=TXT, fontsize=23, zorder=6)
+    # y-coordinate layout: full-frame vs safe-zone (content pulled up).
+    L = dict(chip=1864, logo=1788, brand=1710, hook=1612, sub=1505, cy=1120, ch=560,
+             zoom=0.46, feat=(792, 720, 648), cta_y=360, cta_h=96, cta_t=408,
+             plat=300, exch=252, disc=120, mw=300, fts=24, hks=33)
+    if sz:
+        L = dict(chip=1764, logo=1692, brand=1624, hook=1534, sub=1436, cy=1082, ch=460,
+                 zoom=0.40, feat=(806, 743, 680), cta_y=556, cta_h=92, cta_t=602,
+                 plat=510, exch=474, disc=430, mw=340, fts=23, hks=31)
 
-    cy = 1120
-    ax.add_patch(FancyBboxPatch((54, cy - 280), W - 108, 560,
+    _pill(ax, W / 2, L["chip"], "● DEMO / SAFE MODE SHOWN", ELEV, ACCENT, 22)
+    _img(ax, "logo.png", (W / 2, L["logo"]), 0.30, z=6)
+    ax.text(W / 2, L["brand"], "PROMETHEUS AI", ha="center", va="center", color=TXT,
+            fontsize=30, fontweight="bold", zorder=6)
+    ax.text(W / 2, L["hook"], cfg["hook"], ha="center", va="center", color=ACCENT,
+            fontsize=L["hks"], fontweight="bold", zorder=6, linespacing=1.05)
+    ax.text(W / 2, L["sub"], cfg["sub"], ha="center", va="center", color=TXT, fontsize=23, zorder=6)
+
+    cy, ch = L["cy"], L["ch"]
+    ax.add_patch(FancyBboxPatch((54, cy - ch / 2), W - 108, ch,
                                 boxstyle="round,pad=2,rounding_size=28", fc=PANEL, ec=BORDER, lw=2, zorder=3))
-    _img(ax, "gui_mockup_safe.png", (W / 2, cy), 0.46)
+    _img(ax, "gui_mockup_safe.png", (W / 2, cy), L["zoom"])
 
     feats = []
-    for f, fy in zip(cfg["features"], (792, 720, 648)):
+    for f, fy in zip(cfg["features"], L["feat"]):
         chk = ax.text(168, fy, "✓", color=GREEN, fontsize=27, fontweight="bold", va="center", ha="left", zorder=6)
-        lbl = ax.text(214, fy, f, color=TXT, fontsize=24, va="center", ha="left", zorder=6)
+        lbl = ax.text(214, fy, f, color=TXT, fontsize=L["fts"], va="center", ha="left", zorder=6)
         feats.append((chk, lbl))
 
-    ax.add_patch(FancyBboxPatch((150, 360), W - 300, 96,
-                                boxstyle="round,pad=2,rounding_size=48", fc=ACCENT, ec="none", zorder=6))
-    ax.text(W / 2, 408, "↓  TRY IT FREE", ha="center", va="center", color="#1a1100",
-            fontsize=37, fontweight="bold", zorder=7)
-    ax.text(W / 2, 300, "Windows & macOS · free trial · prometheusai.tech",
-            ha="center", va="center", color=TXT, fontsize=25, zorder=6)
-    ax.text(W / 2, 252, "Binance · Bybit · OKX · KuCoin · Bitget · Kraken · Coinbase",
-            ha="center", va="center", color=DIM, fontsize=19, zorder=6)
-    ax.text(W / 2, 120, "Demo / Safe Mode shown. Crypto trading involves risk of loss —\n"
-            "results are not guaranteed. Not financial advice.",
+    margin = 170 if sz else 150
+    ax.add_patch(FancyBboxPatch((margin, L["cta_y"]), W - 2 * margin, L["cta_h"],
+                                boxstyle="round,pad=2,rounding_size=46", fc=ACCENT, ec="none", zorder=6))
+    ax.text(W / 2, L["cta_t"], "↓  TRY IT FREE", ha="center", va="center", color="#1a1100",
+            fontsize=36, fontweight="bold", zorder=7)
+    ax.text(W / 2, L["plat"], "Windows & macOS · free trial · prometheusai.tech",
+            ha="center", va="center", color=TXT, fontsize=24, zorder=6)
+    ax.text(W / 2, L["exch"], "Binance · Bybit · OKX · KuCoin · Bitget · Kraken · Coinbase",
             ha="center", va="center", color=DIM, fontsize=18, zorder=6)
+    ax.text(W / 2, L["disc"], "Demo / Safe Mode shown. Crypto trading involves risk of loss —\n"
+            "results are not guaranteed. Not financial advice.",
+            ha="center", va="center", color=DIM, fontsize=17, zorder=6)
     return feats
 
 
@@ -310,7 +323,7 @@ def build_safe_video(out, cfg, seconds=6, fps=30):
         return
     fig, ax = plt.subplots(figsize=(10.8, 19.2), dpi=100)
     fig.patch.set_facecolor(BG)
-    feats = _scene_safe(ax, cfg)
+    feats = _scene_safe(ax, cfg, sz=True)   # TikTok/IG safe-zone layout
     n = seconds * fps
 
     def update(i):
@@ -362,6 +375,6 @@ if __name__ == "__main__":
         build_card(os.path.join(SOCIAL, f"reel_{i:02d}.png"), cfg)
     for i, cfg in enumerate(CFGS_SAFE, 1):
         build_safe(os.path.join(SOCIAL, f"reel_safe_{i:02d}.png"), cfg)
-    # Ad-safe MP4 reels (9:16 works for both TikTok and Facebook/IG Reels).
-    build_safe_video(os.path.join(SOCIAL, "tiktok_reel_safe.mp4"), CFGS_SAFE[0])
-    build_safe_video(os.path.join(SOCIAL, "facebook_reel_safe.mp4"), CFGS_SAFE[1])
+    # Ad-safe MP4 reels — safe-zone layout, 9:16 (works for TikTok + FB/IG Reels).
+    for i, cfg in enumerate(CFGS_SAFE, 1):
+        build_safe_video(os.path.join(SOCIAL, f"reel_safe_{i:02d}.mp4"), cfg)
