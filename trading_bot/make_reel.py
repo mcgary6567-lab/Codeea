@@ -175,6 +175,83 @@ def build_video(out, hook, seconds=5, fps=30):
     print(f"wrote {out}  (1080x1920 · {seconds}s)")
 
 
+def _scene_card(ax, cfg):
+    """Richer copy-driven 1080x1920 frame: hook + caption + multi-coin profit
+    line + big number, around the app card. cfg keys: hook, sub, big, label, extra."""
+    W, H = 1080, 1920
+    ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), W, H, boxstyle="square,pad=0", fc=BG, ec="none", zorder=0))
+    ax.add_patch(plt.Circle((300, 1700), 540, color="#241a12", zorder=0))
+
+    _pill(ax, W / 2, 1864, "● LIVE · AUTO-TRADING 24/7", ELEV, GREEN, 23)
+    _img(ax, "logo.png", (W / 2, 1788), 0.30, z=6)
+    ax.text(W / 2, 1710, "PROMETHEUS AI", ha="center", va="center", color=TXT,
+            fontsize=30, fontweight="bold", zorder=6)
+    ax.text(W / 2, 1612, cfg["hook"], ha="center", va="center", color=ACCENT,
+            fontsize=31, fontweight="bold", zorder=6, linespacing=1.05)
+    ax.text(W / 2, 1505, cfg["sub"], ha="center", va="center", color=TXT,
+            fontsize=23, zorder=6)
+
+    cy = 1115
+    ax.add_patch(FancyBboxPatch((54, cy - 280), W - 108, 560,
+                                boxstyle="round,pad=2,rounding_size=28",
+                                fc=PANEL, ec=BORDER, lw=2, zorder=3))
+    _img(ax, "gui_mockup.png", (W / 2, cy), 0.46)
+
+    ax.text(W / 2, 792, cfg["extra"], ha="center", va="center", color=GREEN,
+            fontsize=22, fontweight="bold", zorder=6)
+    ax.text(W / 2, 690, cfg["big"], ha="center", va="center", color=GREEN,
+            fontsize=88, fontweight="bold", zorder=6)
+    ax.text(W / 2, 612, cfg["label"], ha="center", va="center", color=TXT,
+            fontsize=33, fontweight="bold", zorder=6)
+
+    ax.add_patch(FancyBboxPatch((150, 360), W - 300, 96,
+                                boxstyle="round,pad=2,rounding_size=48", fc=ACCENT, ec="none", zorder=6))
+    ax.text(W / 2, 408, cfg.get("cta", "↓  DOWNLOAD FREE"), ha="center", va="center",
+            color="#1a1100", fontsize=37, fontweight="bold", zorder=7)
+    ax.text(W / 2, 300, "Windows & macOS · free trial · prometheusai.tech",
+            ha="center", va="center", color=TXT, fontsize=25, zorder=6)
+    ax.text(W / 2, 252, "Binance · Bybit · OKX · KuCoin · Bitget · Kraken · Coinbase",
+            ha="center", va="center", color=DIM, fontsize=19, zorder=6)
+    ax.text(W / 2, 120, "*Illustrative example, not a profit guarantee. Crypto trading is high-risk —\n"
+            "you can lose money. Not financial advice.",
+            ha="center", va="center", color=DIM, fontsize=18, zorder=6)
+
+
+def build_card(out, cfg):
+    fig, ax = plt.subplots(figsize=(10.8, 19.2), dpi=100)
+    fig.patch.set_facecolor(BG)
+    _scene_card(ax, cfg)
+    fig.savefig(out, dpi=100, facecolor=BG, pad_inches=0)
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
+# 10 high-converting variants — varied hooks/captions, multi-coin profit, big P&L.
+CFGS = [
+    {"hook": "Your money should work\nwhile you sleep", "sub": "Set it once — the AI trades 24/7.",
+     "big": "+$755", "label": "while you slept*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"hook": "5 trades today.\n5 in profit.", "sub": "Multi-coin. Hands-free. Fully automated.",
+     "big": "+$100+", "label": "per trade*", "extra": "+$755 banked today across 5 coins*"},
+    {"hook": "Stop watching charts.\nStart banking gains.", "sub": "The bot executes — you keep your keys.",
+     "big": "+$214", "label": "on BTC today*", "extra": "ETH +$188 · SOL +$152 · XRP +$104 · ADA +$96"},
+    {"hook": "Start with $100.\nLet the AI do the rest.", "sub": "Beginner-friendly — no experience needed.",
+     "big": "+$100+", "label": "per trade*", "extra": "5 coins in profit · +$755 today*"},
+    {"hook": "Up AND down markets —\nthe bot profits both.", "sub": "Goes long and short on futures.",
+     "big": "+$755", "label": "today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"hook": "While you were at work…", "sub": "…your bot closed 5 green trades.",
+     "big": "+$755", "label": "today*", "extra": "every position green — BTC · ETH · SOL · XRP · ADA"},
+    {"hook": "Crypto on autopilot", "sub": "Backtested. Automated. Running 24/7.",
+     "big": "+$100+", "label": "per trade*", "extra": "5 coins running in profit right now*"},
+    {"hook": "Your funds never leave\nyour own exchange", "sub": "Non-custodial · PIN-encrypted · you stay in control.",
+     "big": "+$755", "label": "today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"hook": "This is what a green\nportfolio looks like", "sub": "5 coins. All in profit. One afternoon.",
+     "big": "+$755", "label": "total today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"hook": "Trade like a pro —\nwithout being one", "sub": "Presets do the setup. The AI does the trading.",
+     "big": "+$100+", "label": "per trade*", "extra": "+$755 across 5 coins today*"},
+]
+
+
 if __name__ == "__main__":
     build(os.path.join(SOCIAL, "tiktok_reel.png"),
           "POV: your bot trades crypto while you sleep")
@@ -184,3 +261,5 @@ if __name__ == "__main__":
                  "Let AI trade crypto for you — 24/7")
     build_video(os.path.join(SOCIAL, "reel.mp4"),
                 "Let AI trade crypto for you — 24/7")
+    for i, cfg in enumerate(CFGS, 1):
+        build_card(os.path.join(SOCIAL, f"reel_{i:02d}.png"), cfg)
