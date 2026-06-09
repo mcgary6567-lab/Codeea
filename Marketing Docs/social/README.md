@@ -21,8 +21,10 @@ social/
 │       └── analytics/      NN-<hook>.png      performance dashboard
 │
 └── posts/                           Feed posts
-    ├── square/     square-post.png  1080×1080 — Facebook / Instagram feed
-    └── vertical/   tiktok-hero.png · facebook-hero.png   1080×1920 image posts
+    ├── square/     square-post.png    1080×1080 — Facebook / Instagram feed
+    ├── vertical/   tiktok-hero.png · facebook-hero.png   1080×1920 image posts
+    ├── instagram/  NN-<hook>.png      1080×1350 — Instagram feed (portrait, profit-led)
+    └── linkedin/   NN-<hook>.png      1200×1200 — LinkedIn feed (square, professional tone)
 ```
 
 ## Where each goes
@@ -32,6 +34,8 @@ social/
 | **Reel cover / static vertical** | `reels/*/images/` or `reels/organic/<window>/` |
 | **Facebook / Instagram feed (square)** | `posts/square/` |
 | **Facebook / IG portrait image post** | `posts/vertical/` |
+| **Instagram feed (portrait 4:5)** | `posts/instagram/` (10 profit-led, varied colours) |
+| **LinkedIn feed (square)** | `posts/linkedin/` (10 professional, backtest-framed) |
 
 ## Paid vs organic
 - **Paid ads (TikTok/Meta):** use **`reels/ads-safe/`** only — feature-led, no "$

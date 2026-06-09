@@ -47,11 +47,13 @@ ORG_AN = os.path.join(ORG, "analytics")
 ORG_VID = os.path.join(ORG, "video")
 POST_SQUARE = os.path.join(SOCIAL, "posts", "square")       # 1080x1080 FB/IG feed
 POST_VERT = os.path.join(SOCIAL, "posts", "vertical")       # 1080x1920 image posts
+POST_IG = os.path.join(SOCIAL, "posts", "instagram")        # 1080x1350 IG feed
+POST_LI = os.path.join(SOCIAL, "posts", "linkedin")         # 1200x1200 LinkedIn
 # Which folder a reel lands in, by the embedded app window.
 WINDOW_DIR = {"gui_mockup.png": ORG_MAIN, "gui_chart.png": ORG_CHART,
               "gui_backtest.png": ORG_BT, "gui_analytics.png": ORG_AN}
 for _d in (ORG_MAIN, ORG_CHART, ORG_BT, ORG_AN, ORG_VID, PAID_IMG, PAID_VID,
-           POST_SQUARE, POST_VERT):
+           POST_SQUARE, POST_VERT, POST_IG, POST_LI):
     os.makedirs(_d, exist_ok=True)
 
 
@@ -417,6 +419,110 @@ CFGS_CHART = [
 ]
 
 
+def build_post(out, cfg, shape):
+    """Feed post for Instagram (1080x1350 portrait) / LinkedIn (1200x1200 square).
+
+    cfg keys: hook, sub, big, label, extra, color, window.
+    shape: "ig" → 1080x1350 portrait, punchy CTA;
+           "li" → 1200x1200 square, professional CTA.
+    Layout is fully explicit (no formula collisions): the app-window card is
+    sized to the embedded screenshot, and the profit block sits clear of the CTA."""
+    if shape == "ig":
+        # ih = target on-canvas screenshot height in px (see zoom note below).
+        L = dict(W=1080, H=1350, chip=1306, logo=1238, brand=1176, hook=1086,
+                 hookfs=33, sub=996, cy=735, ih=400, extra=478, big=388, bigfs=76,
+                 label=296, cta_y=124, cta_h=86, cta_t=167, foot=80, disc=38,
+                 cta=cfg.get("cta", "↓  DOWNLOAD FREE"))
+    else:  # li — square, a touch more compact vertically
+        L = dict(W=1200, H=1200, chip=1158, logo=1092, brand=1035, hook=946,
+                 hookfs=31, sub=854, cy=648, ih=320, extra=424, big=332, bigfs=72,
+                 label=244, cta_y=108, cta_h=84, cta_t=150, foot=78, disc=38,
+                 cta=cfg.get("cta", "Learn more  →"))
+    W, H = L["W"], L["H"]
+    color = cfg.get("color", ACCENT)
+    fig, ax = plt.subplots(figsize=(W / 100, H / 100), dpi=100)
+    fig.patch.set_facecolor(BG)
+    ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), W, H, boxstyle="square,pad=0", fc=BG, ec="none", zorder=0))
+    ax.add_patch(plt.Circle((W * 0.26, H * 0.84), W * 0.46, color="#241a12", zorder=0))
+
+    # --- header ---
+    _pill(ax, W / 2, L["chip"], "● LIVE · AUTO-TRADING 24/7", ELEV, GREEN, 22, h=52)
+    _img(ax, "logo.png", (W / 2, L["logo"]), 0.26, z=6)
+    ax.text(W / 2, L["brand"], "PROMETHEUS AI", ha="center", va="center", color=TXT,
+            fontsize=28, fontweight="bold", zorder=6)
+    ax.text(W / 2, L["hook"], cfg["hook"], ha="center", va="center", color=color,
+            fontsize=L["hookfs"], fontweight="bold", zorder=6, linespacing=1.05)
+    ax.text(W / 2, L["sub"], cfg["sub"], ha="center", va="center", color=TXT,
+            fontsize=22, zorder=6)
+
+    # --- app-window card (sized to the screenshot) ---
+    # OffsetImage zoom renders at native_px * zoom * dpi/72; solve for a target
+    # on-canvas height so the card never overlaps the surrounding text.
+    z = L["ih"] / (886 * 100 / 72.0)
+    iw, ih = 1340 * z * 100 / 72.0, L["ih"]   # on-canvas screenshot size
+    cw, ch = iw + 46, ih + 46
+    cy = L["cy"]
+    ax.add_patch(FancyBboxPatch(((W - cw) / 2, cy - ch / 2), cw, ch,
+                                boxstyle="round,pad=2,rounding_size=26",
+                                fc=PANEL, ec=BORDER, lw=2, zorder=3))
+    _img(ax, cfg.get("window", "gui_mockup.png"), (W / 2, cy), z)
+
+    # --- profit block ---
+    ax.text(W / 2, L["extra"], cfg["extra"], ha="center", va="center", color=GREEN,
+            fontsize=21, fontweight="bold", zorder=6)
+    ax.text(W / 2, L["big"], cfg["big"], ha="center", va="center", color=GREEN,
+            fontsize=L["bigfs"], fontweight="bold", zorder=6)
+    ax.text(W / 2, L["label"], cfg["label"], ha="center", va="center", color=TXT,
+            fontsize=30, fontweight="bold", zorder=6)
+
+    # --- CTA + footer ---
+    cta_w = W * 0.60
+    ax.add_patch(FancyBboxPatch(((W - cta_w) / 2, L["cta_y"]), cta_w, L["cta_h"],
+                                boxstyle="round,pad=2,rounding_size=43", fc=color, ec="none", zorder=6))
+    ax.text(W / 2, L["cta_t"], L["cta"], ha="center", va="center", color="#0a0a0a",
+            fontsize=30, fontweight="bold", zorder=7)
+    ax.text(W / 2, L["foot"], "Windows & macOS · free trial · prometheusai.tech",
+            ha="center", va="center", color=TXT, fontsize=21, zorder=6)
+    ax.text(W / 2, L["disc"], "*Illustrative example, not a profit guarantee. Crypto trading is high-risk — not financial advice.",
+            ha="center", va="center", color=DIM, fontsize=15, zorder=6)
+    fig.savefig(out, dpi=100, facecolor=BG, pad_inches=0)
+    plt.close(fig)
+    print(f"wrote {out}  ({W}x{H})")
+
+
+# 10 Instagram posts (1080x1350) — punchy, profit-led, varied font colours,
+# alternating main-dashboard / strategy-chart windows, multi-coin profit lines.
+CFGS_IG = [
+    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "5 coins.\nAll in profit.", "sub": "Your portfolio, fully automated.", "big": "+$755", "label": "banked today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "It catches\nevery move", "sub": "BUY ▲ / SELL ▼ — fired automatically.", "big": "+$214", "label": "on BTC today*", "extra": "long & short signals, executed for you"},
+    {"color": "#3fb950", "window": "gui_mockup.png", "hook": "Wake up to\ngreen trades", "sub": "The bot traded all night — hands-free.", "big": "+$755", "label": "overnight*", "extra": "5 coins green: BTC ETH SOL XRP ADA"},
+    {"color": "#ffd54a", "window": "gui_chart.png", "hook": "Stop watching.\nStart banking.", "sub": "It watches the charts 24/7 so you don't.", "big": "+$188", "label": "on ETH*", "extra": "entry · SL · TP1 · TP2 placed for you"},
+    {"color": "#ff6fb5", "window": "gui_mockup.png", "hook": "Your money,\nworking 24/7", "sub": "Set your risk once. It does the rest.", "big": "+$100+", "label": "per trade*", "extra": "5 coins in profit · +$755 today*"},
+    {"color": "#38bdf8", "window": "gui_chart.png", "hook": "Up OR down —\nit profits both", "sub": "Goes long and short on futures.", "big": "+$152", "label": "on SOL*", "extra": "BTC +$214 · ETH +$188 · SOL +$152"},
+    {"color": "#a3e635", "window": "gui_mockup.png", "hook": "This is a green\nportfolio", "sub": "Multi-coin. Multi-exchange. 24/7.", "big": "+$755", "label": "total today*", "extra": "every position green across 5 coins"},
+    {"color": "#c792ea", "window": "gui_chart.png", "hook": "Signal to profit\nin seconds", "sub": "EMA20 + RSI crossover, auto-executed.", "big": "+$214", "label": "this trade*", "extra": "38 entries today · long + short"},
+    {"color": "#2dd4bf", "window": "gui_mockup.png", "hook": "Start with $100.\nLet AI do the rest.", "sub": "Beginner-friendly — no experience needed.", "big": "+$100+", "label": "per trade*", "extra": "5 coins running in profit right now*"},
+    {"color": "#f0883e", "window": "gui_chart.png", "hook": "Never miss\na setup again", "sub": "The bot trades the swings for you.", "big": "+$104", "label": "on XRP*", "extra": "299 candles scanned · 38 entries"},
+]
+
+
+# 10 LinkedIn posts (1200x1200) — professional, credible tone; same windows +
+# varied font colours; sample/backtest-framed numbers (no per-trade hype).
+CFGS_LI = [
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Automate your\ncrypto strategy", "sub": "Rules-based execution, running 24/7.", "big": "68%", "label": "win rate (sample)*", "extra": "142 trades · profit factor 2.1 · backtested"},
+    {"color": "#3fb950", "window": "gui_backtest.png" if os.path.exists(os.path.join(HERE, "gui_backtest.png")) else "gui_chart.png", "hook": "Backtested first,\nthen automated", "sub": "Validate on real history before going live.", "big": "+84%", "label": "equity (backtest)*", "extra": "3-month walk-forward · 142 trades*"},
+    {"color": "#38bdf8", "window": "gui_mockup.png", "hook": "Systematic,\nrules-based trading", "sub": "Remove emotion. Follow the strategy.", "big": "24/7", "label": "hands-free execution", "extra": "multi-coin · spot & futures · 8 exchanges"},
+    {"color": "#f0883e", "window": "gui_chart.png", "hook": "Risk-managed\nby design", "sub": "Daily-loss limits, drawdown halts, auto stops.", "big": "100%", "label": "rules enforced*", "extra": "every trade carries SL · TP1 · TP2"},
+    {"color": "#c792ea", "window": "gui_mockup.png", "hook": "Your keys.\nYour exchange.", "sub": "Non-custodial — connects by API only.", "big": "0", "label": "withdrawal access", "extra": "keys PIN-encrypted · you stay in control"},
+    {"color": "#ffd54a", "window": "gui_chart.png", "hook": "Discipline,\nautomated", "sub": "EMA + RSI signals executed without hesitation.", "big": "2.1", "label": "profit factor (sample)*", "extra": "68% win rate over 142 backtested trades*"},
+    {"color": "#2dd4bf", "window": "gui_mockup.png", "hook": "Test. Optimize.\nThen deploy.", "sub": "A full workflow — not a black box.", "big": "+84%", "label": "in backtest*", "extra": "equity curve · win-rate · exportable stats"},
+    {"color": "#a3e635", "window": "gui_chart.png", "hook": "One platform,\neight exchanges", "sub": "Binance · Bybit · OKX · Kraken · Coinbase + more.", "big": "8", "label": "exchanges, one app", "extra": "spot & futures · long and short"},
+    {"color": "#ff6fb5", "window": "gui_mockup.png", "hook": "Strategy execution,\nperfected", "sub": "The bot trades exactly what you backtested.", "big": "24/7", "label": "consistent execution", "extra": "no missed entries · no emotional exits"},
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Data before\nyou trade", "sub": "Backtest on real history with full stats.", "big": "142", "label": "trades analyzed*", "extra": "win rate 68% · profit factor 2.1 (sample)*"},
+]
+
+
 if __name__ == "__main__":
     import make_mockup
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
@@ -437,6 +543,12 @@ if __name__ == "__main__":
         folder = WINDOW_DIR.get(cfg.get("window", "gui_mockup.png"), ORG_MAIN)
         counters[folder] = counters.get(folder, 0) + 1
         build_card(os.path.join(folder, f"{counters[folder]:02d}-{slug(cfg['hook'])}.png"), cfg)
+
+    # --- feed posts: Instagram (1080x1350) + LinkedIn (1200x1200) ---
+    for i, cfg in enumerate(CFGS_IG, 1):
+        build_post(os.path.join(POST_IG, f"{i:02d}-{slug(cfg['hook'])}.png"), cfg, "ig")
+    for i, cfg in enumerate(CFGS_LI, 1):
+        build_post(os.path.join(POST_LI, f"{i:02d}-{slug(cfg['hook'])}.png"), cfg, "li")
 
     # --- paid-ads-safe (feature-led, no profit claims) ---
     for i, cfg in enumerate(CFGS_SAFE, 1):
