@@ -1,7 +1,8 @@
 # Prometheus AI — Paid Ad Copy, Headlines & Voiceover
 
-Copy to pair with the **ad-safe** creatives (`reel_safe_01–08.png/.mp4`) for
-TikTok Ads Manager and Meta (Facebook/Instagram) Ads Manager.
+Copy to pair with the **ad-safe** creatives in `paid-ads-safe/images/` and
+`paid-ads-safe/video/` (`reel_safe_01–08`) for TikTok Ads Manager and Meta
+(Facebook/Instagram) Ads Manager. Folder map: see `README.md`.
 
 ---
 

@@ -33,7 +33,13 @@ except Exception:  # noqa: BLE001
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOCIAL = os.path.join(HERE, "..", "Marketing Docs", "social")
-os.makedirs(SOCIAL, exist_ok=True)
+# Organised subfolders (see Marketing Docs/social/README.md).
+ORG_IMG = os.path.join(SOCIAL, "organic", "images")
+ORG_VID = os.path.join(SOCIAL, "organic", "video")
+PAID_IMG = os.path.join(SOCIAL, "paid-ads-safe", "images")
+PAID_VID = os.path.join(SOCIAL, "paid-ads-safe", "video")
+for _d in (ORG_IMG, ORG_VID, PAID_IMG, PAID_VID):
+    os.makedirs(_d, exist_ok=True)
 
 BG = "#0e1117"
 PANEL = "#161b22"
@@ -363,18 +369,20 @@ CFGS_SAFE = [
 if __name__ == "__main__":
     import make_mockup
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
-    build(os.path.join(SOCIAL, "tiktok_reel.png"),
+    # --- organic (profit-led) ---
+    build(os.path.join(ORG_IMG, "tiktok_reel.png"),
           "POV: your bot trades crypto while you sleep")
-    build(os.path.join(SOCIAL, "facebook_reel.png"),
+    build(os.path.join(ORG_IMG, "facebook_reel.png"),
           "Let AI trade crypto for you — 24/7")
-    build_square(os.path.join(SOCIAL, "square_post.png"),
+    build_square(os.path.join(ORG_IMG, "square_post.png"),
                  "Let AI trade crypto for you — 24/7")
-    build_video(os.path.join(SOCIAL, "reel.mp4"),
+    build_video(os.path.join(ORG_VID, "reel.mp4"),
                 "Let AI trade crypto for you — 24/7")
     for i, cfg in enumerate(CFGS, 1):
-        build_card(os.path.join(SOCIAL, f"reel_{i:02d}.png"), cfg)
+        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
+    # --- paid-ads-safe (feature-led, no profit claims) ---
     for i, cfg in enumerate(CFGS_SAFE, 1):
-        build_safe(os.path.join(SOCIAL, f"reel_safe_{i:02d}.png"), cfg)
+        build_safe(os.path.join(PAID_IMG, f"reel_safe_{i:02d}.png"), cfg)
     # Ad-safe MP4 reels — safe-zone layout, 9:16 (works for TikTok + FB/IG Reels).
     for i, cfg in enumerate(CFGS_SAFE, 1):
-        build_safe_video(os.path.join(SOCIAL, f"reel_safe_{i:02d}.mp4"), cfg)
+        build_safe_video(os.path.join(PAID_VID, f"reel_safe_{i:02d}.mp4"), cfg)
