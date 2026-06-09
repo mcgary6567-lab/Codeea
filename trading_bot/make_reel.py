@@ -33,13 +33,29 @@ except Exception:  # noqa: BLE001
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOCIAL = os.path.join(HERE, "..", "Marketing Docs", "social")
-# Organised subfolders (see Marketing Docs/social/README.md).
-ORG_IMG = os.path.join(SOCIAL, "organic", "images")
-ORG_VID = os.path.join(SOCIAL, "organic", "video")
+# Organised subfolders (see Marketing Docs/social/README.md). Organic reels are
+# grouped by the app window they show, for easy identification.
+ORG = os.path.join(SOCIAL, "organic")
+ORG_MAIN = os.path.join(ORG, "main-window")
+ORG_CHART = os.path.join(ORG, "strategy-chart")
+ORG_BT = os.path.join(ORG, "backtest")
+ORG_AN = os.path.join(ORG, "analytics")
+ORG_POST = os.path.join(ORG, "posters")
+ORG_VID = os.path.join(ORG, "video")
 PAID_IMG = os.path.join(SOCIAL, "paid-ads-safe", "images")
 PAID_VID = os.path.join(SOCIAL, "paid-ads-safe", "video")
-for _d in (ORG_IMG, ORG_VID, PAID_IMG, PAID_VID):
+# Which folder a creative lands in, by the embedded app window.
+WINDOW_DIR = {"gui_mockup.png": ORG_MAIN, "gui_chart.png": ORG_CHART,
+              "gui_backtest.png": ORG_BT, "gui_analytics.png": ORG_AN}
+for _d in (ORG_MAIN, ORG_CHART, ORG_BT, ORG_AN, ORG_POST, ORG_VID, PAID_IMG, PAID_VID):
     os.makedirs(_d, exist_ok=True)
+
+
+def slug(text, maxlen=34):
+    """Short kebab-case identifier derived from a hook line, for filenames."""
+    import re
+    s = re.sub(r"[^a-z0-9]+", "-", text.replace("\n", " ").lower()).strip("-")
+    return s[:maxlen].strip("-")
 
 BG = "#0e1117"
 PANEL = "#161b22"
@@ -401,24 +417,24 @@ if __name__ == "__main__":
     import make_mockup
     make_mockup.render(os.path.join(HERE, "gui_mockup_safe.png"), safe=True)
     make_mockup.render_chart(); make_mockup.render_backtest(); make_mockup.render_analytics()
-    # --- organic (profit-led) ---
-    build(os.path.join(ORG_IMG, "tiktok_reel.png"),
+
+    # --- organic (profit-led): grouped by app window, named after the hook ---
+    build(os.path.join(ORG_POST, "tiktok-hero.png"),
           "POV: your bot trades crypto while you sleep")
-    build(os.path.join(ORG_IMG, "facebook_reel.png"),
+    build(os.path.join(ORG_POST, "facebook-hero.png"),
           "Let AI trade crypto for you — 24/7")
-    build_square(os.path.join(ORG_IMG, "square_post.png"),
+    build_square(os.path.join(ORG_POST, "square-post.png"),
                  "Let AI trade crypto for you — 24/7")
-    build_video(os.path.join(ORG_VID, "reel.mp4"),
+    build_video(os.path.join(ORG_VID, "profit-reel.mp4"),
                 "Let AI trade crypto for you — 24/7")
-    for i, cfg in enumerate(CFGS, 1):
-        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
-    for i, cfg in enumerate(CFGS_15, 11):   # reel_11..reel_25 (varied window + color)
-        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
-    for i, cfg in enumerate(CFGS_CHART, 26):  # reel_26..reel_30 (Strategy Chart)
-        build_card(os.path.join(ORG_IMG, f"reel_{i:02d}.png"), cfg)
+    counters = {}
+    for cfg in (CFGS + CFGS_15 + CFGS_CHART):
+        folder = WINDOW_DIR.get(cfg.get("window", "gui_mockup.png"), ORG_MAIN)
+        counters[folder] = counters.get(folder, 0) + 1
+        build_card(os.path.join(folder, f"{counters[folder]:02d}-{slug(cfg['hook'])}.png"), cfg)
+
     # --- paid-ads-safe (feature-led, no profit claims) ---
     for i, cfg in enumerate(CFGS_SAFE, 1):
-        build_safe(os.path.join(PAID_IMG, f"reel_safe_{i:02d}.png"), cfg)
-    # Ad-safe MP4 reels — safe-zone layout, 9:16 (works for TikTok + FB/IG Reels).
-    for i, cfg in enumerate(CFGS_SAFE, 1):
-        build_safe_video(os.path.join(PAID_VID, f"reel_safe_{i:02d}.mp4"), cfg)
+        name = f"{i:02d}-{slug(cfg['hook'])}"
+        build_safe(os.path.join(PAID_IMG, name + ".png"), cfg)
+        build_safe_video(os.path.join(PAID_VID, name + ".mp4"), cfg)
