@@ -84,24 +84,20 @@ def build(out, hook):
     except Exception:
         pass
 
-    # --- example profit callouts on the card ---
-    _pill(ax, 250, cy + 300, "+$127.40", GREEN, "#08240f", 30)
-    _pill(ax, 830, cy + 250, "+$214.00", GREEN, "#08240f", 30)
-    _pill(ax, 760, cy - 300, "+$152.10", GREEN, "#08240f", 28)
 
     # --- big claim ---
-    ax.text(W / 2, 660, "+$100+", ha="center", va="center", color=GREEN,
-            fontsize=110, fontweight="bold", zorder=6)
-    ax.text(W / 2, 572, "per trade*", ha="center", va="center", color=TXT,
+    ax.text(W / 2, 668, "+$100+", ha="center", va="center", color=GREEN,
+            fontsize=108, fontweight="bold", zorder=6)
+    ax.text(W / 2, 582, "per trade*", ha="center", va="center", color=TXT,
             fontsize=40, fontweight="bold", zorder=6)
-    ax.text(W / 2, 520, "AI runs the strategy — you keep the keys.", ha="center",
-            va="center", color=DIM, fontsize=24, zorder=6)
+    ax.text(W / 2, 530, "5 coins in profit today  ·  +$755 total*", ha="center",
+            va="center", color=GREEN, fontsize=24, fontweight="bold", zorder=6)
 
     # --- CTA ---
     ax.add_patch(FancyBboxPatch((140, 360), W - 280, 96,
                                 boxstyle="round,pad=2,rounding_size=48",
                                 fc=ACCENT, ec="none", zorder=6))
-    ax.text(W / 2, 408, "⬇  DOWNLOAD FREE", ha="center", va="center", color="#1a1100",
+    ax.text(W / 2, 408, "↓  DOWNLOAD FREE", ha="center", va="center", color="#1a1100",
             fontsize=38, fontweight="bold", zorder=7)
     ax.text(W / 2, 300, "Windows & macOS · free trial · prometheusai.tech", ha="center",
             va="center", color=TXT, fontsize=26, zorder=6)

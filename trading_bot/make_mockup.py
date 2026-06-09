@@ -84,7 +84,7 @@ ax.text(0.9, 7.92, "v1.0.0", fontsize=8, color=DIM, va="center", zorder=5)
 # right side: connected + LIVE badge + balance + gear
 ax.text(6.5, 8.13, "● Connected", color=GREEN, fontsize=9.5, fontweight="bold", va="center", zorder=5)
 button(7.85, 8.0, 0.62, 0.26, "LIVE", RED, fs=7.5)
-ax.text(8.7, 8.13, "Bitget  ·  $12,504.23  ·  PnL +$320.45", color=TXT, fontsize=8.6, va="center", zorder=5)
+ax.text(8.7, 8.13, "Bitget  ·  $12,504.23  ·  PnL +$755.50", color=GREEN, fontsize=8.6, fontweight="bold", va="center", zorder=5)
 ax.text(12.62, 8.13, "⚙", color=DIM, fontsize=14, ha="right", va="center", zorder=5)
 
 # ===== setup / status strip =====
@@ -108,9 +108,9 @@ ax.text(4.0, 5.5, "Show my IP", fontsize=8, color=ACCENT, va="center", zorder=4)
 button(1.7, 4.92, 1.9, 0.34, "Connect", GREEN, fs=9.5)
 button(3.75, 4.92, 1.9, 0.34, "Disconnect", RED, fs=9.5)
 # analysis tools
-button(0.5, 4.56, 1.85, 0.3, "📈 Chart", ACCENT, "#1a1100", fs=8)
-button(2.45, 4.56, 1.85, 0.3, "📊 Backtest", ACCENT, "#1a1100", fs=8)
-button(4.4, 4.56, 1.85, 0.3, "📉 Analytics", ACCENT, "#1a1100", fs=8)
+button(0.5, 4.56, 1.85, 0.3, "↗ Chart", ACCENT, "#1a1100", fs=8)
+button(2.45, 4.56, 1.85, 0.3, "Backtest", ACCENT, "#1a1100", fs=8)
+button(4.4, 4.56, 1.85, 0.3, "Analytics", ACCENT, "#1a1100", fs=8)
 
 # BUY / SELL
 button(0.7, 3.95, 2.6, 0.42, "▲ BUY", GREEN, fs=13)
@@ -122,17 +122,18 @@ ax.text(0.55, 3.36, "Symbol:", fontsize=8.3, color=DIM, va="center")
 ax.add_patch(Rectangle((1.25, 3.21), 1.2, 0.3, fc=ELEV, ec=BORDER, lw=1, zorder=3))
 ax.text(1.35, 3.36, "BTC/USDT", fontsize=8, va="center", color=TXT, zorder=4)
 ax.text(2.7, 3.36, "Current: 67,512.0", fontsize=8.6, fontweight="bold", color=ACCENT, va="center", zorder=4)
-button(5.05, 3.21, 1.15, 0.3, "🔄 Refresh", ELEV, TXT, fs=7.5)
+button(5.05, 3.21, 1.15, 0.3, "↻ Refresh", ELEV, TXT, fs=7.5)
 cols = ["Pair", "Type", "Size", "Entry", "Current", "PnL", "Status"]
 cx = [0.55, 1.7, 2.5, 3.2, 4.0, 4.9, 5.5]
 ax.add_patch(Rectangle((0.45, 2.78), 5.8, 0.3, fc=HEADER, ec=BORDER, lw=1, zorder=3))
 for c, x in zip(cols, cx):
     ax.text(x, 2.93, c, fontsize=7.6, fontweight="bold", color=DIM, va="center", zorder=4)
 rows = [
-    ("BTC/USDT", "Long", "0.001", "67,500", "68,200", "+7.00", "Active", GREEN),
-    ("ETH/USDT", "Short", "0.05", "3,200", "3,150", "+2.50", "Active", GREEN),
-    ("ADA/USDT", "Long", "100", "0.45", "0.47", "+2.00", "Active", GREEN),
-    ("SOL/USDT", "Long", "2", "150", "146", "-8.00", "Active", RED),
+    ("BTC/USDT", "Long", "0.01", "67,500", "70,640", "+214.00", "Active", GREEN),
+    ("ETH/USDT", "Long", "0.6", "3,200", "3,520", "+188.40", "Active", GREEN),
+    ("SOL/USDT", "Long", "8", "146", "165", "+152.10", "Active", GREEN),
+    ("XRP/USDT", "Long", "900", "0.52", "0.63", "+104.20", "Active", GREEN),
+    ("ADA/USDT", "Long", "1,400", "0.45", "0.52", "+96.80", "Active", GREEN),
 ]
 for i, row in enumerate(rows):
     yy = 2.46 - i * 0.3
@@ -169,10 +170,10 @@ ax.text(10.6, 5.2, "x  · isolated", fontsize=8.3, color=DIM, va="center")
 ax.plot([6.78, 12.4], [4.78, 4.78], color=BORDER, lw=1, zorder=3)
 # unsaved marker + Save / Backup / Restore / Reset
 ax.text(12.4, 4.55, "● unsaved changes", fontsize=7.5, color=ACCENT, ha="right", va="center", zorder=4)
-button(6.75, 4.08, 1.55, 0.32, "💾 Save", ACCENT, "#1a1100", fs=8.5)
-button(8.4, 4.08, 1.45, 0.32, "📦 Backup", ELEV, TXT, fs=8)
-button(9.95, 4.08, 1.45, 0.32, "📂 Restore", ELEV, TXT, fs=8)
-button(11.5, 4.08, 0.95, 0.32, "🔄 Reset", RED, fs=8)
+button(6.75, 4.08, 1.55, 0.32, "Save", ACCENT, "#1a1100", fs=8.5)
+button(8.4, 4.08, 1.45, 0.32, "Backup", ELEV, TXT, fs=8)
+button(9.95, 4.08, 1.45, 0.32, "Restore", ELEV, TXT, fs=8)
+button(11.5, 4.08, 0.95, 0.32, "↻ Reset", RED, fs=8)
 
 # ===== RIGHT: trade log =====
 panel(6.55, 0.4, 6.05, 3.35, title="Trade Log")
@@ -193,8 +194,8 @@ for i, row in enumerate(logs):
     yy = 2.84 - i * 0.32
     for j, (val, x) in enumerate(zip(row[:5], lx)):
         ax.text(x, yy, val, fontsize=7.1, color=(row[5] if j in (1, 3) else TXT), va="center", zorder=4)
-button(6.75, 0.55, 1.3, 0.3, "📤 Export Log", ELEV, TXT, fs=7.5)
-button(8.2, 0.55, 1.2, 0.3, "🧽 Clear Log", ELEV, TXT, fs=7.5)
+button(6.75, 0.55, 1.3, 0.3, "Export Log", ELEV, TXT, fs=7.5)
+button(8.2, 0.55, 1.2, 0.3, "Clear Log", ELEV, TXT, fs=7.5)
 
 fig.savefig(OUT, dpi=130, bbox_inches="tight", facecolor=BG)
 print(f"wrote {OUT}")
