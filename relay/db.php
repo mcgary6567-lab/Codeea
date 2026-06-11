@@ -4,15 +4,44 @@
 
 require_once __DIR__ . '/config.php';
 
+// Emit a clear, credential-free error and stop, instead of a blank HTTP 500.
+// JSON for API callers (the desktop app), plain text for a browser.
+function db_fail(string $msg): void {
+    http_response_code(503);
+    $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+    if (strpos($accept, 'application/json') !== false || PHP_SAPI === 'cli') {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => $msg]);
+    } else {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "Prometheus relay error\n\n" . $msg . "\n";
+    }
+    exit;
+}
+
 function db() {
     static $pdo = null;
     if ($pdo === null) {
-        $pdo = new PDO(
-            'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-            DB_USER, DB_PASS,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-        );
+        // Guard against an un-configured deploy (e.g. the folder was re-uploaded
+        // and clobbered config.local.php). Without this the PDO connect throws a
+        // raw, uninformative HTTP 500.
+        if (DB_NAME === 'CHANGE_ME_dbname' || DB_USER === 'CHANGE_ME_dbuser') {
+            db_fail('Relay is not configured: copy config.local.sample.php to '
+                  . 'config.local.php and fill in your MySQL DB name / user / '
+                  . 'password (and the SELLER_KEY / ADMIN_KEY secrets).');
+        }
+        try {
+            $pdo = new PDO(
+                'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+            );
+        } catch (Throwable $e) {
+            // Don't leak credentials, but say enough to fix it fast.
+            db_fail('Database connection failed — check DB_HOST/DB_NAME/DB_USER/'
+                  . 'DB_PASS in config.local.php (and that the MySQL DB/user exist).');
+        }
         // Broadcast feed: one row per signal from YOUR TradingView.
         $pdo->exec("CREATE TABLE IF NOT EXISTS signals (
             id BIGINT AUTO_INCREMENT PRIMARY KEY,
