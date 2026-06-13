@@ -32,7 +32,7 @@ except Exception:  # noqa: BLE001
     _HAS_FFMPEG = animation.writers.is_available("ffmpeg")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SOCIAL = os.path.join(HERE, "..", "Marketing Docs", "social")
+SOCIAL = os.path.join(HERE, "..", "Trevolto Marketing", "social")
 # Organised subfolders (see Marketing Docs/social/README.md). Organic reels are
 # grouped by the app window they show, for easy identification.
 # By purpose: reels/ (vertical 9:16 — TikTok + FB/IG Reels) and posts/ (feed).
@@ -69,7 +69,7 @@ ELEV = "#1c2331"
 BORDER = "#2a2f3a"
 TXT = "#e6edf3"
 DIM = "#8b949e"
-ACCENT = "#f0883e"
+ACCENT = "#4a9eff"
 GREEN = "#3fb950"
 
 TOTAL = 755   # illustrative portfolio P&L for the day
@@ -391,7 +391,7 @@ CFGS_SAFE = [
 # 15 more profit-led variants — varied accent color + app window + caption.
 # windows: gui_mockup (main) / gui_chart / gui_backtest / gui_analytics.
 CFGS_15 = [
-    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "Wake up to\ngreen trades", "sub": "The bot traded all night — hands-free.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"color": "#4a9eff", "window": "gui_mockup.png", "hook": "Wake up to\ngreen trades", "sub": "The bot traded all night — hands-free.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
     {"color": "#4a9eff", "window": "gui_analytics.png", "hook": "5 coins.\nAll in profit.", "sub": "Your performance, at a glance.", "big": "68%", "label": "win rate*", "extra": "Realized P&L +$842 across 142 trades*"},
     {"color": "#3fb950", "window": "gui_chart.png", "hook": "It catches\nevery move", "sub": "Buy low, sell high — automatically.", "big": "+$214", "label": "this trade*", "extra": "long & short signals, executed for you"},
     {"color": "#c792ea", "window": "gui_backtest.png", "hook": "Backtested before\na single cent", "sub": "See how it performed on real history.", "big": "+84%", "label": "in backtest*", "extra": "68% win · 2.1 profit factor · 142 trades*"},
@@ -399,7 +399,7 @@ CFGS_15 = [
     {"color": "#2dd4bf", "window": "gui_chart.png", "hook": "Signal to profit\nin seconds", "sub": "EMA + RSI crossover, auto-executed.", "big": "+$188", "label": "on ETH*", "extra": "entry · TP1 · TP2 placed automatically"},
     {"color": "#ff6fb5", "window": "gui_analytics.png", "hook": "The numbers\ndon't lie", "sub": "68% win rate. +$842 realized.", "big": "+$842", "label": "realized*", "extra": "142 trades · profit factor 2.1*"},
     {"color": "#38bdf8", "window": "gui_backtest.png", "hook": "Proven,\nnot promised", "sub": "Walk-forward tested before going live.", "big": "2.1", "label": "profit factor*", "extra": "equity +84% over 3 months (backtest)*"},
-    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "Profits while\nyou sleep", "sub": "24/7 automation on your own PC.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152"},
+    {"color": "#4a9eff", "window": "gui_mockup.png", "hook": "Profits while\nyou sleep", "sub": "24/7 automation on your own PC.", "big": "+$755", "label": "overnight*", "extra": "BTC +$214 · ETH +$188 · SOL +$152"},
     {"color": "#a3e635", "window": "gui_chart.png", "hook": "Long AND short —\nboth directions", "sub": "Profit in up and down markets.", "big": "+$152", "label": "on SOL*", "extra": "futures: long + short, automatically"},
     {"color": "#4a9eff", "window": "gui_mockup.png", "hook": "Set it. Forget it.\nStack it.", "sub": "One-click presets, then walk away.", "big": "+$100+", "label": "per trade*", "extra": "5 coins green today · +$755 total*"},
     {"color": "#c792ea", "window": "gui_analytics.png", "hook": "Every position\ngreen today", "sub": "Live P&L across your portfolio.", "big": "+$842", "label": "realized*", "extra": "win rate 68% · best +$96 · 142 trades"},
@@ -494,7 +494,7 @@ def build_post(out, cfg, shape):
 # 10 Instagram posts (1080x1350) — punchy, profit-led, varied font colours,
 # alternating main-dashboard / strategy-chart windows, multi-coin profit lines.
 CFGS_IG = [
-    {"color": "#f0883e", "window": "gui_mockup.png", "hook": "5 coins.\nAll in profit.", "sub": "Your portfolio, fully automated.", "big": "+$755", "label": "banked today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
+    {"color": "#4a9eff", "window": "gui_mockup.png", "hook": "5 coins.\nAll in profit.", "sub": "Your portfolio, fully automated.", "big": "+$755", "label": "banked today*", "extra": "BTC +$214 · ETH +$188 · SOL +$152 · XRP +$104"},
     {"color": "#4a9eff", "window": "gui_chart.png", "hook": "It catches\nevery move", "sub": "BUY ▲ / SELL ▼ — fired automatically.", "big": "+$214", "label": "on BTC today*", "extra": "long & short signals, executed for you"},
     {"color": "#3fb950", "window": "gui_mockup.png", "hook": "Wake up to\ngreen trades", "sub": "The bot traded all night — hands-free.", "big": "+$755", "label": "overnight*", "extra": "5 coins green: BTC ETH SOL XRP ADA"},
     {"color": "#ffd54a", "window": "gui_chart.png", "hook": "Stop watching.\nStart banking.", "sub": "It watches the charts 24/7 so you don't.", "big": "+$188", "label": "on ETH*", "extra": "entry · SL · TP1 · TP2 placed for you"},
@@ -503,7 +503,7 @@ CFGS_IG = [
     {"color": "#a3e635", "window": "gui_mockup.png", "hook": "This is a green\nportfolio", "sub": "Multi-coin. Multi-exchange. 24/7.", "big": "+$755", "label": "total today*", "extra": "every position green across 5 coins"},
     {"color": "#c792ea", "window": "gui_chart.png", "hook": "Signal to profit\nin seconds", "sub": "EMA20 + RSI crossover, auto-executed.", "big": "+$214", "label": "this trade*", "extra": "38 entries today · long + short"},
     {"color": "#2dd4bf", "window": "gui_mockup.png", "hook": "Start with $100.\nLet AI do the rest.", "sub": "Beginner-friendly — no experience needed.", "big": "+$100+", "label": "per trade*", "extra": "5 coins running in profit right now*"},
-    {"color": "#f0883e", "window": "gui_chart.png", "hook": "Never miss\na setup again", "sub": "The bot trades the swings for you.", "big": "+$104", "label": "on XRP*", "extra": "299 candles scanned · 38 entries"},
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Never miss\na setup again", "sub": "The bot trades the swings for you.", "big": "+$104", "label": "on XRP*", "extra": "299 candles scanned · 38 entries"},
 ]
 
 
@@ -513,7 +513,7 @@ CFGS_LI = [
     {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Automate your\ncrypto strategy", "sub": "Rules-based execution, running 24/7.", "big": "68%", "label": "win rate (sample)*", "extra": "142 trades · profit factor 2.1 · backtested"},
     {"color": "#3fb950", "window": "gui_backtest.png" if os.path.exists(os.path.join(HERE, "gui_backtest.png")) else "gui_chart.png", "hook": "Backtested first,\nthen automated", "sub": "Validate on real history before going live.", "big": "+84%", "label": "equity (backtest)*", "extra": "3-month walk-forward · 142 trades*"},
     {"color": "#38bdf8", "window": "gui_mockup.png", "hook": "Systematic,\nrules-based trading", "sub": "Remove emotion. Follow the strategy.", "big": "24/7", "label": "hands-free execution", "extra": "multi-coin · spot & futures · 8 exchanges"},
-    {"color": "#f0883e", "window": "gui_chart.png", "hook": "Risk-managed\nby design", "sub": "Daily-loss limits, drawdown halts, auto stops.", "big": "100%", "label": "rules enforced*", "extra": "every trade carries SL · TP1 · TP2"},
+    {"color": "#4a9eff", "window": "gui_chart.png", "hook": "Risk-managed\nby design", "sub": "Daily-loss limits, drawdown halts, auto stops.", "big": "100%", "label": "rules enforced*", "extra": "every trade carries SL · TP1 · TP2"},
     {"color": "#c792ea", "window": "gui_mockup.png", "hook": "Your keys.\nYour exchange.", "sub": "Non-custodial — connects by API only.", "big": "0", "label": "withdrawal access", "extra": "keys PIN-encrypted · you stay in control"},
     {"color": "#ffd54a", "window": "gui_chart.png", "hook": "Discipline,\nautomated", "sub": "EMA + RSI signals executed without hesitation.", "big": "2.1", "label": "profit factor (sample)*", "extra": "68% win rate over 142 backtested trades*"},
     {"color": "#2dd4bf", "window": "gui_mockup.png", "hook": "Test. Optimize.\nThen deploy.", "sub": "A full workflow — not a black box.", "big": "+84%", "label": "in backtest*", "extra": "equity curve · win-rate · exportable stats"},

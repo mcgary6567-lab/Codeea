@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "Trevolto_QuickStart.pdf")
 LOGO = os.path.join(HERE, "logo.png")
 
-ACCENT = colors.HexColor("#e8821e")
+ACCENT = colors.HexColor("#2f7fe0")
 DARK = colors.HexColor("#1d2128")
 GREY = colors.HexColor("#5b626b")
 LINE = colors.HexColor("#d7dbe0")

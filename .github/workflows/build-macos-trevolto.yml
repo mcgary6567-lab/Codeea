@@ -1,0 +1,114 @@
+name: Build macOS App (Trevolto)
+
+# Builds the Trevolto macOS .app on real macOS runners and packages a .dmg per
+# architecture, uploaded as artifacts. Pushing a tag like trevolto-v1.0.0 also
+# attaches them to a GitHub Release. The Prometheus build lives in
+# build-macos.yml and is unaffected.
+#
+# Two builds (a matrix) so we're never blocked on one runner pool and every Mac
+# gets a native binary:
+#   * apple-silicon (arm64) on macos-latest — fast, plentiful runners
+#   * intel (x86_64) on macos-13 — also runs on Apple Silicon via Rosetta 2
+# UNSIGNED build: first launch = right-click -> Open (see trevolto/MAC_BUILD.md).
+# Minimum macOS 10.13 (11+ recommended).
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["trevolto-v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to create a Release on tag pushes
+
+jobs:
+  # Fast logic checks (no GUI / no exchange) — gate the build on these so a
+  # broken trade-math / guardrail / parser change never ships an app.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trevolto
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile all modules
+        run: python -m compileall -q .
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false   # a slow/queued Intel runner must not cancel the arm64 build
+      matrix:
+        include:
+          - runner: macos-latest   # Apple Silicon (arm64)
+            arch: apple-silicon
+          - runner: macos-13        # Intel (x86_64) — runs on Intel + Apple Silicon (Rosetta)
+            arch: intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+    defaults:
+      run:
+        working-directory: trevolto
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-mac.txt pyinstaller pillow
+
+      - name: Build app icon from logo
+        run: python make_icns.py || true
+
+      - name: Build .app
+        run: pyinstaller --noconfirm --clean trading_bot_mac.spec
+
+      - name: Package .dmg + checksum
+        run: |
+          APP="dist/Trevolto.app"
+          test -d "$APP" || { echo "build failed: $APP missing"; exit 1; }
+          NAME="Trevolto-${{ matrix.arch }}.dmg"
+          hdiutil create -volname "Trevolto" \
+            -srcfolder "$APP" -ov -format UDZO "dist/$NAME"
+          cd dist
+          shasum -a 256 "$NAME" | awk -v f="$NAME" '{print $1"  "f}' > "$NAME.sha256"
+          cat "$NAME.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trevolto-macos-${{ matrix.arch }}
+          path: |
+            trevolto/dist/Trevolto-${{ matrix.arch }}.dmg
+            trevolto/dist/Trevolto-${{ matrix.arch }}.dmg.sha256
+          if-no-files-found: error
+
+      - name: Attach to release (on tag)
+        if: startsWith(github.ref, 'refs/tags/trevolto-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            trevolto/dist/Trevolto-${{ matrix.arch }}.dmg
+            trevolto/dist/Trevolto-${{ matrix.arch }}.dmg.sha256

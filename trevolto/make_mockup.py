@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "gui_mockup.png")
 
 BG = "#0e1117"; PANEL = "#161b22"; ELEV = "#1c2331"; HEADER = "#0b0e14"
-BORDER = "#2a2f3a"; TXT = "#e6edf3"; DIM = "#8b949e"; ACCENT = "#f0883e"
+BORDER = "#2a2f3a"; TXT = "#e6edf3"; DIM = "#8b949e"; ACCENT = "#4a9eff"
 GREEN = "#3fb950"; RED = "#f85149"
 
 
@@ -252,7 +252,7 @@ def render_chart(out=None):
     pane, and an RSI pane with shaded overbought/oversold bands."""
     import numpy as np
     out = out or os.path.join(HERE, "gui_chart.png")
-    BLUE = "#4a9eff"; EMAB = "#5b8def"; SLC = "#f0883e"; TPC = "#26d07c"; RSIC = "#c792ea"
+    BLUE = "#4a9eff"; EMAB = "#5b8def"; SLC = "#4a9eff"; TPC = "#26d07c"; RSIC = "#c792ea"
     fig, ax = _new_ax()
     _hdr(ax, "Strategy Chart — Trevolto", right="")
 
