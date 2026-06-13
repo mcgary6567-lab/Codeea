@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ===== SEO META ===== -->
+  <title>Trevolto | AI-Powered Crypto Trading Bot</title>
+  <meta name="description" content="Trevolto is an AI-powered crypto trading bot. Automate your strategy 24/7 with demo mode and beginner-friendly setup. Start from $100. Trading involves risk." />
+  <meta name="keywords" content="crypto trading bot, AI trading, automated crypto, passive crypto, Trevolto bot, demo trading" />
+  <meta name="author" content="Trevolto" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://trevolto.com/" />
+
+  <!-- ===== Open Graph / Social ===== -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Trevolto" />
+  <meta property="og:title" content="Trade Smarter with Trevolto" />
+  <meta property="og:description" content="Start With Just $100 — No Experience Needed. Lifetime access $297 (or $267 with crypto) · 90-day money-back guarantee." />
+  <meta property="og:url" content="https://trevolto.com/" />
+  <meta property="og:image" content="https://trevolto.com/assets/og-trevolto.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Trevolto Crypto Trading Bot" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Trade Smarter with Trevolto" />
+  <meta name="twitter:description" content="Start With Just $100 — No Experience Needed. Lifetime access $297 (or $267 with crypto) · 90-day money-back guarantee." />
+  <meta name="twitter:image" content="https://trevolto.com/assets/og-trevolto.jpg" />
+
+  <!-- ===== Structured Data (JSON-LD) ===== -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Trevolto Trading Bot",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Windows, macOS",
+    "description": "An AI-powered crypto trading bot with demo mode and automated grid strategies. Connects to your own exchange via API; your funds stay in your account.",
+    "image": "https://trevolto.com/assets/og-trevolto.jpg",
+    "url": "https://trevolto.com/",
+    "publisher": { "@type": "Organization", "name": "Trevolto" },
+    "offers": {
+      "@type": "Offer",
+      "priceCurrency": "USD",
+      "price": "297",
+      "availability": "https://schema.org/InStock",
+      "url": "https://trevolto.com/checkout"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Trevolto",
+    "url": "https://trevolto.com/",
+    "logo": "https://trevolto.com/assets/img-01.png",
+    "sameAs": [
+      "https://www.facebook.com/trevoltosystem",
+      "https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw",
+      "https://www.tiktok.com/@trevoltosystem"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What is Trevolto?", "acceptedAnswer": { "@type": "Answer", "text": "Trevolto is an automated crypto trading bot platform. You configure a strategy once, connect your exchange, and the bot handles execution for you — 24/7, hands-free." } },
+      { "@type": "Question", "name": "Do I need trading experience to use it?", "acceptedAnswer": { "@type": "Answer", "text": "No. Trevolto is built for beginners, with guided setup and ready-made strategy presets. You can also start in demo mode to learn the platform before going live." } },
+      { "@type": "Question", "name": "How does it connect to my exchange?", "acceptedAnswer": { "@type": "Answer", "text": "You link your exchange account through a secure API key. Your funds stay in your own exchange account the entire time — the bot can place trades but cannot withdraw your money." } },
+      { "@type": "Question", "name": "Which operating systems does it run on?", "acceptedAnswer": { "@type": "Answer", "text": "Trevolto is a desktop app for Windows and macOS. Your licence works on either — install it on whichever you use." } },
+      { "@type": "Question", "name": "Which exchanges are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Popular exchanges including Binance, Coinbase, Kraken, KuCoin, OKX, Bitget, Gate, HTX and Crypto.com." } },
+      { "@type": "Question", "name": "Is there a demo mode?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Demo (paper) mode lets you test strategies in a simulated environment with no real funds at risk before activating a live account." } },
+      { "@type": "Question", "name": "How long does setup take?", "acceptedAnswer": { "@type": "Answer", "text": "Most users are up and running in around 10 minutes, and a Done-For-You setup call is included to configure everything with you." } },
+      { "@type": "Question", "name": "Is there a refund policy?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — a 90-day money-back guarantee on your purchase. Full terms are on the Refund Policy page." } }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to start trading with the Trevolto crypto Bot",
+    "description": "Get set up with the Trevolto crypto trading Bot in four steps.",
+    "totalTime": "PT10M",
+    "step": [
+      { "@type": "HowToStep", "position": 1, "name": "Purchase", "text": "Get instant access to Trevolto and create your account in a couple of clicks." },
+      { "@type": "HowToStep", "position": 2, "name": "Connect your exchange", "text": "Securely link your exchange account via API. Your funds always stay in your own account." },
+      { "@type": "HowToStep", "position": 3, "name": "Launch your Bot", "text": "Pick a strategy, choose demo or live mode, and switch your Bot on." },
+      { "@type": "HowToStep", "position": 4, "name": "Track your results", "text": "Follow your Bot's activity in real time from one dashboard, and fine-tune anytime." }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="image" href="assets/img-03.webp" type="image/webp" fetchpriority="high" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== Announcement / Countdown Bar ===== -->
+  <div class="topbar" role="region" aria-label="Limited time offer">
+    <span class="topbar__text">Limited Enrollment Closes In:</span>
+    <span class="countdown" id="countdown" aria-live="polite">
+      <span><b id="cd-h">00</b>h</span>
+      <span><b id="cd-m">00</b>m</span>
+      <span><b id="cd-s">00</b>s</span>
+    </span>
+    <span class="topbar__price">Just <b>$297</b> <s>$497</s></span>
+  </div>
+
+  <!-- ===== Header ===== -->
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a href="/" class="logo" aria-label="Trevolto home"><img src="assets/img-01.png" alt="Trevolto" height="30" /></a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#tools">Pro Tools</a>
+        <a href="#how">How It Works</a>
+        <a href="#features">Features</a>
+        <a href="#testimonials">Reviews</a>
+        <a href="#bonuses">Bonuses</a>
+        <a href="#guarantee">Guarantee</a>
+      </nav>
+      <a class="btn btn--cta nav__cta" href="/checkout">Yes I Want In!</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===== Hero ===== -->
+    <section class="hero">
+      <div class="container">
+        <div class="reviewbar reviewbar--hero" aria-label="Customer rating">
+          <div class="reviewbar__inner">
+            <span class="reviewbar__label">Great</span>
+            <span class="reviewbar__stars" aria-hidden="true">
+              <span class="star"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg></span>
+              <span class="star"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg></span>
+              <span class="star"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg></span>
+              <span class="star star--half"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg></span>
+              <span class="star star--empty"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg></span>
+            </span>
+            <span class="reviewbar__text"><b>3.9</b> out of 5 based on <b>649 reviews</b></span>
+            <span class="reviewbar__tp">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00b67a" d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.8 5.8 21.5l1.6-7L2 9.8l7.1-.6z"/></svg>
+              Trustpilot
+            </span>
+          </div>
+        </div>
+        <h1 class="hero__title">
+          Trade Smarter with <a class="hl" href="https://trevolto.com/" target="_blank" rel="noopener">Trevolto</a> AI-Powered Bot
+        </h1>
+        <p class="hero__sub">
+          <strong class="hero__sub-lead">Start With Just $100 — No Experience Needed</strong>
+          You don't need to be a trader. Trevolto runs a strategy for you, 24/7 — hands-free.
+        </p>
+        <div class="hero__banner">For Beginners | For Investors | For Passive Income Seekers</div>
+        <div class="hero__cta">
+          <a class="btn btn--cta btn--lg" href="/checkout">Get Started — Save $30 With Crypto</a>
+          <p class="hero__trust">✓ Windows &amp; macOS &nbsp;·&nbsp; ✓ 90-day money-back guarantee &nbsp;·&nbsp; ✓ Your funds stay in your own account &nbsp;·&nbsp; ✓ No experience needed</p>
+          <div class="downloads">
+            <a class="btn btn--ghost" href="https://github.com/mcgary6567-lab/Codeea/releases/latest/download/Trevolto.exe">⬇ Windows</a>
+            <a class="btn btn--ghost" href="https://github.com/mcgary6567-lab/Codeea/releases/latest/download/Trevolto-apple-silicon.dmg">⬇ macOS (Apple Silicon)</a>
+            <a class="btn btn--ghost" href="https://github.com/mcgary6567-lab/Codeea/releases/latest/download/Trevolto-intel.dmg">⬇ macOS (Intel)</a>
+          </div>
+          <p class="downloads__note">Free to install — start your free trial in-app. Apple Silicon = M1/M2/M3+; Intel = older Macs. macOS: on first launch, right-click the app → Open.</p>
+        </div>
+        <img class="hero__media" src="assets/img-03.webp" alt="Trevolto trading bot dashboard preview" loading="lazy" />
+      </div>
+    </section>
+
+    <!-- ===== Value / price stack ===== -->
+    <section class="section">
+      <div class="container">
+        <div class="vstack">
+          <div class="vstack__left">
+            <h2>Everything You Get</h2>
+            <ul class="vstack__list">
+              <li><b>Lifetime access</b> — one-time payment, no subscriptions</li>
+              <li><b>Built-in backtester &amp; optimizer</b> — test on real history first</li>
+              <li><b>Live signal chart + analytics</b> — see exactly what the bot does</li>
+              <li>One-click presets &amp; built-in risk guardrails</li>
+              <li>All 3 strategy trainings — short-term, monthly &amp; long-term</li>
+              <li>Done-For-You setup call + Quickstart guide</li>
+              <li>Risk-free demo mode to learn before you go live</li>
+              <li><b>Non-custodial</b> — your funds never leave your own exchange</li>
+              <li>90-day money-back guarantee</li>
+            </ul>
+          </div>
+          <div class="vstack__right">
+            <img class="vstack__logo" src="assets/img-01.png" alt="Trevolto" />
+            <span class="vstack__flag">One-Time Payment · Lifetime</span>
+            <div class="vstack__price"><span class="vstack__old">$497</span><span class="vstack__new">$297</span></div>
+            <p class="vstack__crypto">or <b>$267</b> with crypto — save $30</p>
+            <a class="btn btn--cta btn--block btn--lg" href="/checkout">Yes I Want In!</a>
+            <p class="vstack__note">Card, PayPal &amp; crypto accepted · Secure checkout</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Platform in action ===== -->
+    <section class="section section--dark showcase">
+      <div class="container">
+        <h2 class="section__title">See The Platform <span class="hl">In Action</span></h2>
+        <p class="section__lead">Watch a quick walkthrough of how the Trevolto platform works.</p>
+        <div class="yt-facade" data-yt="V9OWflDWK8g" role="button" tabindex="0" aria-label="Play Trevolto video on YouTube">
+          <img class="yt-facade__thumb" src="https://i.ytimg.com/vi/V9OWflDWK8g/maxresdefault.jpg" alt="Trevolto platform video" loading="lazy"
+               onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/V9OWflDWK8g/hqdefault.jpg';" />
+          <span class="yt-facade__play" aria-hidden="true">
+            <svg viewBox="0 0 68 48"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg>
+          </span>
+          <span class="yt-facade__badge">
+            <svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg>
+            Watch on YouTube
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Pro Tools, Built In ===== -->
+    <section class="section" id="tools">
+      <div class="container">
+        <h2 class="section__title">Pro Tools, <span class="hl">Built In</span></h2>
+        <p class="section__lead">
+          Trevolto isn't a black box. Test your strategy on real history, watch its
+          signals live, and review every result — all inside the app.
+        </p>
+        <div class="grid grid--3">
+          <article class="card">
+            <h3>Live Signal Chart</h3>
+            <p>A TradingView-style candle chart with the bot's own BUY / SELL, scale-out and exit
+               markers, EMA &amp; RSI overlays and a live price line — so you see exactly what it's doing.</p>
+            <span class="imgwm"><img class="card__img" src="assets/feat-chart.webp" alt="Live candle chart with the bot's buy and sell signals" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+          <article class="card">
+            <h3>Backtest &amp; Optimizer</h3>
+            <p>Replay the built-in strategy over months of history in seconds — equity curve, win rate,
+               profit factor and drawdown. Run the optimizer or walk-forward test to find solid settings.</p>
+            <span class="imgwm"><img class="card__img" src="assets/feat-backtest.webp" alt="Backtest results with equity curve and statistics" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+          <article class="card">
+            <h3>Performance Analytics</h3>
+            <p>A clean dashboard of your real results: trades, win rate, realized P&amp;L, best/worst,
+               per-symbol breakdown and an equity curve over any date range — export to CSV anytime.</p>
+            <span class="imgwm"><img class="card__img" src="assets/feat-analytics.webp" alt="Performance analytics dashboard with equity curve" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+        </div>
+        <div class="grid grid--2" style="margin-top:28px">
+          <article class="feature">
+            <h3>One-Click Strategy Presets</h3>
+            <p>Pick <b>Conservative</b>, <b>Balanced</b> or <b>Aggressive</b> and the bot configures itself —
+               or fine-tune every setting under Advanced when you're ready.</p>
+          </article>
+          <article class="feature">
+            <h3>Profit in Up <em>and</em> Down Markets</h3>
+            <p>On futures, Trevolto goes <b>long and short</b>, so a falling market is an opportunity
+               instead of a loss.</p>
+          </article>
+          <article class="feature">
+            <h3>Built-In Risk Guardrails</h3>
+            <p>Daily loss limit, max-drawdown halt, trade cooldowns and open-position caps protect your
+               account automatically — set them once and the bot enforces them.</p>
+          </article>
+          <article class="feature">
+            <h3>Safe by Design</h3>
+            <p>Your API keys are encrypted behind a local PIN, only one copy runs at a time, and your
+               funds never leave your own exchange.</p>
+          </article>
+        </div>
+        <h3 style="text-align:center;margin:44px 0 4px">Set Up In <span class="hl">Minutes</span></h3>
+        <p class="section__lead">Pick a preset, set your risk once, and the bot runs it for you — every control in one place.</p>
+        <img class="hero__media" src="assets/feat-settings.webp" alt="Trevolto settings — strategy presets and risk controls in one place" loading="lazy" />
+      </div>
+    </section>
+
+    <!-- ===== Value Proposition ===== -->
+    <section class="section section--dark" id="how">
+      <div class="container">
+        <h2 class="section__title">Profit from Every <span class="hl">Price Movement</span></h2>
+        <p class="section__lead">
+          Unlock the full potential of your trading strategy with the advanced features of
+          Trevolto GRID crypto bot, and achieve maximum trading performance and profits.
+        </p>
+        <div class="grid grid--3">
+          <article class="card">
+            <h3>Real-Time Execution</h3>
+            <p>Your Bot executes trades automatically based on your configured strategy, without manual clicking.</p>
+            <span class="imgwm"><img class="card__img" src="assets/chart-strategies.webp" alt="Live trading chart with pre-made strategies and active Bot" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+          <article class="card">
+            <h3>Artificial Intelligence Powered</h3>
+            <p>Strategy logic adapts to market signals so you don't have to watch charts all day.</p>
+            <span class="imgwm"><img class="card__img" src="assets/aistep.svg" alt="AI bot strategy configuration" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+          <article class="card">
+            <h3>Works 24/7</h3>
+            <p>Crypto markets never sleep — and neither do your automated strategies.</p>
+            <span class="imgwm"><img class="card__img" src="assets/step24.svg" alt="Bot running 24/7 automated trading" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Connect Exchanges ===== -->
+    <section class="section" id="exchanges">
+      <div class="container">
+        <h2 class="section__title">Connect All Your Exchanges in <span class="hl">Seconds</span></h2>
+        <p class="section__lead">
+          Trevolto connects to your own exchange or broker account through a secure API —
+          your funds stay in your account the whole time. Link a supported exchange and your
+          bot is ready to run in minutes.
+        </p>
+        <div class="ex-grid">
+          <div class="ex-card"><img src="assets/exchanges/binance.png" alt="Binance logo" loading="lazy" /><span>Binance</span></div>
+          <div class="ex-card"><img src="assets/exchanges/bitmart.png" alt="BitMart logo" loading="lazy" /><span>BitMart</span></div>
+          <div class="ex-card"><img src="assets/exchanges/coinbase.png" alt="Coinbase logo" loading="lazy" /><span>Coinbase</span></div>
+          <div class="ex-card"><img src="assets/exchanges/htx.png" alt="HTX logo" loading="lazy" /><span>HTX</span></div>
+          <div class="ex-card"><img src="assets/exchanges/okx.png" alt="OKX logo" loading="lazy" /><span>OKX</span></div>
+          <div class="ex-card"><img src="assets/exchanges/gate.png" alt="Gate logo" loading="lazy" /><span>Gate</span></div>
+          <div class="ex-card"><img src="assets/exchanges/bitget.png" alt="Bitget logo" loading="lazy" /><span>Bitget</span></div>
+          <div class="ex-card"><img src="assets/exchanges/kraken.png" alt="Kraken logo" loading="lazy" /><span>Kraken</span></div>
+          <div class="ex-card"><img src="assets/exchanges/kucoin.png" alt="KuCoin logo" loading="lazy" /><span>KuCoin</span></div>
+          <div class="ex-card"><img src="assets/exchanges/cryptocom.png" alt="Crypto.com logo" loading="lazy" /><span>Crypto.com</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Features ===== -->
+    <section class="section section--dark" id="features">
+      <div class="container">
+        <h2 class="section__title">Real. Automated. <span class="hl">Results.</span></h2>
+        <div class="grid grid--2">
+          <article class="feature">
+            <h3>Beginners Welcome — No Experience Needed</h3>
+            <p>You don't need prior trading knowledge. The setup walks you through every step.</p>
+          </article>
+          <article class="feature">
+            <h3>Start Big Or Small &amp; Scale On Your Schedule</h3>
+            <p>Begin with a modest amount and adjust as you grow comfortable with the platform.</p>
+          </article>
+          <article class="feature">
+            <h3>Risk-Aware Demo Learning Mode</h3>
+            <p>Test strategies in a simulated environment before activating a live account.</p>
+          </article>
+          <article class="feature">
+            <h3>Transparent Guarantee Terms</h3>
+            <p>Our refund policy is spelled out clearly so you know exactly what's covered.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Get Started in 4 Steps ===== -->
+    <section class="section" id="steps">
+      <div class="container">
+        <h2 class="section__title">Get Started in <span class="hl">4 Simple Steps</span></h2>
+        <img class="section-logo" src="assets/img-01.png" alt="Trevolto" />
+        <p class="section__lead">From sign-up to your first running bot — the whole setup takes just a few minutes.</p>
+        <div class="steps">
+          <article class="step">
+            <span class="step__num">1</span>
+            <div class="step__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.1a1 1 0 0 0 1 .9h9.7a1 1 0 0 0 1-.8L21 7H6"/></svg>
+            </div>
+            <h3>Purchase</h3>
+            <p>Get instant access to Trevolto and create your account in a couple of clicks.</p>
+          </article>
+          <article class="step">
+            <span class="step__num">2</span>
+            <div class="step__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 15l6-6"/><path d="M11 6l1-1a4 4 0 0 1 6 6l-1 1"/><path d="M13 18l-1 1a4 4 0 0 1-6-6l1-1"/></svg>
+            </div>
+            <h3>Connect Exchange</h3>
+            <p>Securely link your exchange via API. Your funds always stay in your own account.</p>
+          </article>
+          <article class="step">
+            <span class="step__num">3</span>
+            <div class="step__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13c-1.5 1.3-2 5-2 5s3.7-.5 5-2"/><path d="M12 15l-3-3a11 11 0 0 1 8-8 1 1 0 0 1 1 1 11 11 0 0 1-8 8z"/><circle cx="15" cy="9" r="1"/></svg>
+            </div>
+            <h3>Launch Bot</h3>
+            <p>Pick a strategy, choose demo or live mode, and switch your bot on.</p>
+          </article>
+          <article class="step">
+            <span class="step__num">4</span>
+            <div class="step__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+            </div>
+            <h3>Track Your Results</h3>
+            <p>Follow your bot's activity in real time from one dashboard, and fine-tune anytime.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 3-in-1 Training ===== -->
+    <section class="section section--light">
+      <div class="container">
+        <p class="training__eyebrow">Triple Your Earning Power</p>
+        <h2 class="training__title">TREVOLTO <span class="dark">3-IN-1 TRAINING</span></h2>
+        <div class="grid grid--3">
+          <article class="train-card">
+            <span class="imgwm"><img class="train-card__img" src="assets/img-21.webp" alt="Short term high gains strategy chart" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+            <p class="train-card__label">Short Term</p>
+            <h3>HIGH GAINS Strategy</h3>
+            <p>A configuration focused on shorter-horizon, higher-activity trades.</p>
+          </article>
+          <article class="train-card">
+            <span class="imgwm"><img class="train-card__img" src="assets/img-22.webp" alt="Passive monthly income strategy" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+            <p class="train-card__label">Passive Monthly</p>
+            <h3>Income Strategy</h3>
+            <p>How to set up your Bot for steadier, lower-touch monthly activity.</p>
+          </article>
+          <article class="train-card">
+            <span class="imgwm"><img class="train-card__img" src="assets/img-23.webp" alt="Long term wealth generation strategy" loading="lazy" /><span class="imgwm__tag"><img src="assets/img-01.png" alt="Trevolto" /></span></span>
+            <p class="train-card__label">Advanced Compounding &amp;</p>
+            <h3>Long Term Wealth Generation</h3>
+            <p>An advanced, hands-free approach to reinvesting over a longer time horizon.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Bonuses ===== -->
+    <section class="section" id="bonuses">
+      <div class="container">
+        <h2 class="section__title">Join Now And You Also Get These <span class="hl">Powerful Bonuses</span></h2>
+        <div class="grid grid--3">
+          <article class="bonus">
+            <img class="bonus__img" src="assets/bonus-1.webp" alt="Done-For-You Setup bonus" loading="lazy" />
+            <span class="bonus__value">$500 Value</span>
+            <h3>Done-For-You Setup</h3>
+            <p>An expert setup call to get your account configured correctly the first time.</p>
+          </article>
+          <article class="bonus">
+            <img class="bonus__img" src="assets/bonus-2.webp" alt="Weekly Live Q&amp;A Sessions bonus" loading="lazy" />
+            <span class="bonus__value">Priceless</span>
+            <h3>Weekly Live Q&amp;A Sessions</h3>
+            <p>Live group sessions to answer your questions and share best practices.</p>
+          </article>
+          <article class="bonus">
+            <img class="bonus__img" src="assets/bonus-3.webp" alt="Trevolto Quickstart bonus" loading="lazy" />
+            <span class="bonus__value">$200 Value</span>
+            <h3>Trevolto Quickstart</h3>
+            <p>A short activation guide to get you up and running fast.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Testimonials ===== -->
+    <section class="section section--dark" id="testimonials">
+      <div class="container">
+        <p class="section__eyebrow">Wondering If It Works For Beginners?</p>
+        <h2 class="section__title center">Hear From Members Who Were <span class="hl">New Too</span></h2>
+        <div class="testimonial-grid">
+          <div class="yt-facade" data-yt="fyuU3vrsnlg" role="button" tabindex="0" aria-label="Play member testimonial on YouTube">
+            <img class="yt-facade__thumb" src="https://i.ytimg.com/vi/fyuU3vrsnlg/maxresdefault.jpg" alt="Trevolto member testimonial" loading="lazy" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/fyuU3vrsnlg/hqdefault.jpg';" />
+            <span class="yt-facade__play" aria-hidden="true"><svg viewBox="0 0 68 48"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg></span>
+            <span class="yt-facade__badge"><svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg> Watch on YouTube</span>
+          </div>
+          <div class="yt-facade" data-yt="77Lqh-qewWo" role="button" tabindex="0" aria-label="Play member testimonial on YouTube">
+            <img class="yt-facade__thumb" src="https://i.ytimg.com/vi/77Lqh-qewWo/maxresdefault.jpg" alt="Trevolto member testimonial" loading="lazy" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/77Lqh-qewWo/hqdefault.jpg';" />
+            <span class="yt-facade__play" aria-hidden="true"><svg viewBox="0 0 68 48"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg></span>
+            <span class="yt-facade__badge"><svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg> Watch on YouTube</span>
+          </div>
+          <div class="yt-facade" data-yt="VMuRKD-PCwA" role="button" tabindex="0" aria-label="Play member testimonial on YouTube">
+            <img class="yt-facade__thumb" src="https://i.ytimg.com/vi/VMuRKD-PCwA/maxresdefault.jpg" alt="Trevolto member testimonial" loading="lazy" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/VMuRKD-PCwA/hqdefault.jpg';" />
+            <span class="yt-facade__play" aria-hidden="true"><svg viewBox="0 0 68 48"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg></span>
+            <span class="yt-facade__badge"><svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg> Watch on YouTube</span>
+          </div>
+          <div class="yt-facade" data-yt="96GZDD8UjEk" role="button" tabindex="0" aria-label="Play member testimonial on YouTube">
+            <img class="yt-facade__thumb" src="https://i.ytimg.com/vi/96GZDD8UjEk/maxresdefault.jpg" alt="Trevolto member testimonial" loading="lazy" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/96GZDD8UjEk/hqdefault.jpg';" />
+            <span class="yt-facade__play" aria-hidden="true"><svg viewBox="0 0 68 48"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg></span>
+            <span class="yt-facade__badge"><svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.5 7.7a8 8 0 0 0-5.6-5.6C56 .8 34 .8 34 .8s-22 0-26.9 1.3A8 8 0 0 0 1.5 7.7 83 83 0 0 0 .2 24a83 83 0 0 0 1.3 16.3 8 8 0 0 0 5.6 5.6C12 47.2 34 47.2 34 47.2s22 0 26.9-1.3a8 8 0 0 0 5.6-5.6A83 83 0 0 0 67.8 24a83 83 0 0 0-1.3-16.3z" fill="#f00"/><path d="M27 34l18-10-18-10z" fill="#fff"/></svg> Watch on YouTube</span>
+          </div>
+        </div>
+
+        <!-- Written quotes — REPLACE the placeholder text/names with real customer testimonials -->
+        <div class="quotes">
+          <article class="quote">
+            <div class="quote__stars">★★★★★</div>
+            <p>"The setup was far easier than I expected — I followed the steps and had my first bot running in minutes."<span class="quote__ph"></span></p>          </article>
+          <article class="quote">
+            <div class="quote__stars">★★★★★</div>
+            <p>"I tested everything in demo mode first, so by the time I went live I actually knew what I was doing."<span class="quote__ph"></span></p>          </article>
+          <article class="quote">
+            <div class="quote__stars">★★★★★</div>
+            <p>"The weekly Q&amp;A sessions made a big difference for me — any time I got stuck, I had somewhere to ask."<span class="quote__ph"></span></p>          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Get Trevolto Now (buy box) ===== -->
+    <section class="buybox" id="get">
+      <div class="container">
+        <h2 class="buybox__title">Get Trevolto Now</h2>
+        <div class="buybox__grid">
+          <div class="buybox__product">
+            <img src="assets/img-14.webp" alt="Trevolto product package" loading="lazy" />
+          </div>
+          <div class="buybox__card">
+            <p class="buybox__card-title">Exclusive Offer Closing In</p>
+            <div class="cd-circles" aria-live="polite">
+              <div class="cd-unit"><div class="cd-ring" id="cd2-h">00</div><div class="cd-cap">Hours</div></div>
+              <div class="cd-unit"><div class="cd-ring" id="cd2-m">00</div><div class="cd-cap">Minutes</div></div>
+              <div class="cd-unit"><div class="cd-ring" id="cd2-s">00</div><div class="cd-cap">Seconds</div></div>
+            </div>
+            <a class="btn--red" href="/checkout"><span class="arrow">&#10148;</span> Yes I Want In !</a>
+            <img class="buybox__pay" src="assets/img-05.png" alt="Accepted payments and 90 day money back guarantee" loading="lazy" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Guarantee ===== -->
+    <section class="section section--accent" id="guarantee">
+      <div class="container container--narrow center">
+        <img class="guarantee-img" src="assets/moneyback.webp" alt="100% Satisfaction Guarantee" loading="lazy" />
+        <h2 class="section__title">90-Day Guarantee</h2>
+        <div class="guarantee-promise">
+          <h3>Try Trevolto 100% Risk-Free for 90 Days</h3>
+          <p>We're confident you'll love the platform. If it's not right for you, request a full refund of your purchase within 90 days under our refund policy — simple as that. A minimum investment and proof of setup are all that's needed to qualify.</p>
+        </div>
+        <img class="guarantee-strip" src="assets/guarantee-badge.png" alt="Accepted payments and 30-day warranty" loading="lazy" />
+        <img class="section-logo" src="assets/img-01.png" alt="Trevolto" />
+      </div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section class="section section--dark" id="faq">
+      <div class="container">
+        <h2 class="section__title">Frequently Asked <span class="hl">Questions</span></h2>
+        <div class="faq">
+          <details class="faq__item">
+            <summary>What is Trevolto?</summary>
+            <div class="faq__answer">Trevolto is an automated crypto trading bot platform. You configure a strategy once, connect your exchange, and the bot handles execution for you — 24/7, hands-free.</div>
+          </details>
+          <details class="faq__item">
+            <summary>Do I need trading experience to use it?</summary>
+            <div class="faq__answer">No. Trevolto is built for beginners, with guided setup and ready-made strategy presets. You can also start in demo mode to learn the platform before going live.</div>
+          </details>
+          <details class="faq__item">
+            <summary>How does it connect to my exchange?</summary>
+            <div class="faq__answer">You link your exchange account through a secure API key. Your funds stay in your own exchange account the entire time — the bot can place trades but cannot withdraw your money.</div>
+          </details>
+          <details class="faq__item">
+            <summary>Which exchanges are supported?</summary>
+            <div class="faq__answer">Popular exchanges including Binance, Coinbase, Kraken, KuCoin, OKX, Bitget, Gate, HTX, Crypto.com and more. See the full list in the "Connect All Your Exchanges" section above.</div>
+          </details>
+          <details class="faq__item">
+            <summary>Which operating systems does it run on?</summary>
+            <div class="faq__answer">Trevolto is a desktop app for <b>Windows and macOS</b>. Your licence works on either — install it on whichever computer you use.</div>
+          </details>
+          <details class="faq__item">
+            <summary>Is there a demo mode?</summary>
+            <div class="faq__answer">Yes. Demo (paper) mode lets you test strategies in a simulated environment with no real funds at risk, so you can get comfortable before activating a live account.</div>
+          </details>
+          <details class="faq__item">
+            <summary>How long does setup take?</summary>
+            <div class="faq__answer">Most users are up and running in around 10 minutes. If you'd like help, the Done-For-You setup bonus includes an expert call to configure everything with you.</div>
+          </details>
+          <details class="faq__item">
+            <summary>Is there a refund policy?</summary>
+            <div class="faq__answer">Yes — a 90-day money-back guarantee on your purchase. Full terms are on our <a class="hl" href="/refund">Refund Policy</a> page.</div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Risk Disclaimer (compact) ===== -->
+    <section class="disclaimer">
+      <div class="container container--narrow">
+        <p><strong>Risk disclaimer:</strong> Trading crypto is risky — you could lose some or all of your capital. Figures shown are illustrative, not guarantees, and nothing here is financial advice.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <a href="/" class="logo logo--footer" aria-label="Trevolto home"><img src="assets/img-01.png" alt="Trevolto" height="26" /></a>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/blog">Blog</a>
+        <a href="/contact">Contact</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/refund">Refund Policy</a>
+      </nav>
+      <div class="social">
+        <a href="https://www.facebook.com/trevoltosystem" aria-label="Facebook" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-7h2.3l.4-2.7h-2.7V9.5c0-.8.2-1.3 1.3-1.3h1.4V5.8c-.2 0-1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v1.9H8.5V14h2v7h3z"/></svg>
+        </a>
+        <a href="https://wa.me/19259005848" aria-label="WhatsApp" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3-1.3-5-4.4-5.1-4.6-.2-.2-1.3-1.7-1.3-3.2s.8-2.3 1.1-2.6c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.2.2-.4.4-.2.7.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.4.1.2.1.9-.1 1.6z"/></svg>
+        </a>
+        <a href="https://www.youtube.com/channel/UCKXDzlnd74YXm7m7UY4nAcw" aria-label="YouTube" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7.5a3 3 0 0 0-2.1-2.1C19 5 12 5 12 5s-7 0-8.9.4A3 3 0 0 0 1 7.5 31 31 0 0 0 .6 12 31 31 0 0 0 1 16.5a3 3 0 0 0 2.1 2.1C5 19 12 19 12 19s7 0 8.9-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23.4 12 31 31 0 0 0 23 7.5zM9.8 15.3V8.7l5.7 3.3z"/></svg>
+        </a>
+        <a href="https://www.tiktok.com/@trevoltosystem" aria-label="TikTok" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 5.6a4.7 4.7 0 0 1-1.1-3.1h-3v12.6a2.7 2.7 0 1 1-2.7-2.7c.3 0 .6 0 .8.1V9.4a5.7 5.7 0 1 0 4.9 5.6V8.3a7.7 7.7 0 0 0 4.4 1.4V6.6a4.7 4.7 0 0 1-3.3-1z"/></svg>
+        </a>
+      </div>
+      <p class="site-footer__copy">&copy; <span id="year"></span> Trevolto. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Sticky mobile CTA -->
+  <a class="sticky-cta" href="/checkout">Yes I Want In!</a>
+
+  <!-- ===== Promo popup ===== -->
+  <div class="promo-overlay" id="promoOverlay" hidden>
+    <div class="promo" role="dialog" aria-modal="true" aria-labelledby="promoTitle">
+      <button class="promo__close" id="promoClose" aria-label="Close offer">&times;</button>
+      <div class="promo__body">
+        <span class="promo__flag">&#9989; 90-Day Guarantee</span>
+        <h2 class="promo__title" id="promoTitle">Try Trevolto 100% Risk-Free for 90 Days</h2>
+        <p class="promo__sub">Not happy? Request a full refund of your purchase within 90 days under our refund policy.</p>
+        <div class="promo__price">
+          <span class="promo__old">$497</span>
+          <span class="promo__new">$297</span>
+        </div>
+        <span class="promo__save">You save $200 today</span>
+        <p class="promo__terms">One-time payment &middot; Lifetime access &middot; No subscriptions, ever</p>
+        <a class="btn btn--cta btn--lg promo__cta" href="/checkout" id="promoCta">Yes! Claim My $200 Discount</a>
+        <a class="promo__wa" href="https://wa.me/19259005848" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3-1.3-5-4.4-5.1-4.6-.2-.2-1.3-1.7-1.3-3.2s.8-2.3 1.1-2.6c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l.9 2.1c.1.2.1.4 0 .6l-.4.6c-.2.2-.4.4-.2.7.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.8-1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.4.1.2.1.9-.1 1.6z"/></svg>
+          Questions? Chat with Jono on WhatsApp
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+  <!--Start of Tawk.to Script-->
+  <script type="text/javascript">
+  var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+  (function(){
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/620b78561ffac05b1d79f0e4/1frucs5hg';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+  })();
+  </script>
+  <!--End of Tawk.to Script-->
+</body>
+</html>

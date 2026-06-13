@@ -1,0 +1,11 @@
+# Hide directory listings and block direct access to non-endpoint files.
+Options -Indexes
+
+<FilesMatch "\.(sql|md)$">
+    Require all denied
+</FilesMatch>
+
+# config.php / db.php are PHP (executed, never served as text), but deny anyway.
+<FilesMatch "^(config|db)\.php$">
+    Require all denied
+</FilesMatch>
