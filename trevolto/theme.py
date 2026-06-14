@@ -27,20 +27,21 @@ else:
     UI_SB = "DejaVu Sans"
 
 # ---- palette ----
-BG = "#0e1117"          # window background
-PANEL = "#161b22"       # cards / panels
-ELEV = "#1c2331"        # inputs, elevated rows
-BORDER = "#2a2f3a"
+BG = "#1b1f24"          # window background (smoke gray)
+PANEL = "#23282e"       # cards / panels
+ELEV = "#2c323a"        # inputs, elevated rows
+BORDER = "#3a424b"
 TXT = "#e6edf3"
-TXT_DIM = "#8b949e"
-ACCENT = "#4a9eff"      # Trevolto signal blue
-ACCENT_DK = "#2f7fe0"
+TXT_DIM = "#9aa4af"
+ACCENT = "#2dd4bf"      # Trevolto teal/cyan
+ACCENT_DK = "#22b3a0"
+ACCENT_TX = "#04231d"   # dark text for readability on teal buttons
 GREEN = "#2ea043"
 GREEN_HL = "#3fb950"
 RED = "#da3633"
 RED_HL = "#f85149"
 GREY = "#6e7681"
-HEADER = "#0b0e14"
+HEADER = "#15181c"
 
 
 def apply(root: tk.Tk) -> dict:
@@ -83,6 +84,18 @@ def apply(root: tk.Tk) -> dict:
     root.option_add("*TCombobox*Listbox.selectBackground", ACCENT)
     root.option_add("*TCombobox*Listbox.selectForeground", "#000000")
 
+    # Every classic tk.Button defaults to teal/cyan (the brand primary) so the
+    # whole app is consistent without styling each call site. Buttons that set
+    # their own colour win — BUY (green), SELL/PANIC (red), or anything routed
+    # through style_button below.
+    root.option_add("*Button.background", ACCENT)
+    root.option_add("*Button.foreground", ACCENT_TX)
+    root.option_add("*Button.activeBackground", ACCENT_DK)
+    root.option_add("*Button.activeForeground", ACCENT_TX)
+    root.option_add("*Button.relief", "flat")
+    root.option_add("*Button.borderWidth", 0)
+    root.option_add("*Button.highlightThickness", 0)
+
     # Checkbutton
     style.configure("TCheckbutton", background=PANEL, foreground=TXT)
     style.map("TCheckbutton", background=[("active", PANEL)],
@@ -111,9 +124,11 @@ def apply(root: tk.Tk) -> dict:
     style.configure("TScrollbar", background=PANEL, troughcolor=BG,
                     bordercolor=BG, arrowcolor=TXT_DIM)
     style.configure("TSeparator", background=BORDER)
-    style.configure("TButton", background=ELEV, foreground=TXT, bordercolor=BORDER,
+    # All standard buttons are teal/cyan (primary brand colour); BUY/SELL/PANIC
+    # keep their trading colours via style_button below.
+    style.configure("TButton", background=ACCENT, foreground=ACCENT_TX, bordercolor=ACCENT,
                     relief="flat", padding=6)
-    style.map("TButton", background=[("active", BORDER)])
+    style.map("TButton", background=[("active", ACCENT_DK)])
 
     return {
         "BG": BG, "PANEL": PANEL, "ELEV": ELEV, "BORDER": BORDER, "TXT": TXT,
@@ -230,13 +245,15 @@ def make_check(parent, text: str = "", variable: tk.BooleanVar | None = None,
 
 def style_button(btn: tk.Button, kind: str = "default") -> None:
     """Flat, modern styling for plain tk.Buttons."""
+    # Teal/cyan is the primary button colour everywhere; only the directional /
+    # destructive trading actions keep green & red.
     palette = {
         "buy": (GREEN, "#ffffff", GREEN_HL),
         "sell": (RED, "#ffffff", RED_HL),
-        "accent": (ACCENT, "#1a1100", "#ffa057"),
+        "accent": (ACCENT, ACCENT_TX, ACCENT_DK),
         "danger": (RED, "#ffffff", RED_HL),
-        "ghost": (ELEV, TXT, BORDER),
-        "default": (ELEV, TXT, BORDER),
+        "ghost": (ACCENT, ACCENT_TX, ACCENT_DK),
+        "default": (ACCENT, ACCENT_TX, ACCENT_DK),
     }
     bg, fg, active = palette.get(kind, palette["default"])
     btn.configure(bg=bg, fg=fg, activebackground=active, activeforeground=fg,

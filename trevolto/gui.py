@@ -715,11 +715,11 @@ class TradingBotGUI:
         btns = ttk.Frame(f)
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0))
         self.connect_btn = tk.Button(btns, text="🔌 Connect", width=14, command=self._on_connect)
-        theme.style_button(self.connect_btn, "buy")
+        theme.style_button(self.connect_btn, "accent")
         self.connect_btn.pack(side="left", padx=5)
         self.disconnect_btn = tk.Button(btns, text="⛔ Disconnect", width=14,
                                         command=self._on_disconnect, state="disabled")
-        theme.style_button(self.disconnect_btn, "sell")
+        theme.style_button(self.disconnect_btn, "accent")
         self.disconnect_btn.pack(side="left", padx=5)
 
         # Public-IP helper — paste this into the exchange API key's IP whitelist
@@ -904,13 +904,16 @@ class TradingBotGUI:
 
         cbar = ttk.Frame(f)
         cbar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        tk.Button(cbar, text="✖ Close Selected", command=self._close_selected).pack(side="left", padx=4)
-        tk.Button(cbar, text="✂ Close %", command=self._close_partial).pack(side="left", padx=4)
+        _csel = tk.Button(cbar, text="✖ Close Selected", command=self._close_selected)
+        theme.style_button(_csel, "ghost"); _csel.pack(side="left", padx=4)
+        _cpct = tk.Button(cbar, text="✂ Close %", command=self._close_partial)
+        theme.style_button(_cpct, "ghost"); _cpct.pack(side="left", padx=4)
         self.close_pct_var = tk.StringVar(value="50")
         ttk.Combobox(cbar, textvariable=self.close_pct_var, width=4,
                      values=("25", "33", "50", "75"), state="normal").pack(side="left")
         ttk.Label(cbar, text="%").pack(side="left", padx=(1, 4))
-        tk.Button(cbar, text="🛡 Set SL/TP", command=self._set_protection).pack(side="left", padx=4)
+        _sltp = tk.Button(cbar, text="🛡 Set SL/TP", command=self._set_protection)
+        theme.style_button(_sltp, "ghost"); _sltp.pack(side="left", padx=4)
         tk.Button(
             cbar, text="🛑 PANIC: Close All", bg=RED, fg="white", activebackground=theme.RED,
             font=(theme.UI, 9, "bold"), command=self._close_all,

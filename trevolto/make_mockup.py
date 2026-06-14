@@ -18,8 +18,8 @@ from matplotlib.patches import FancyBboxPatch, Rectangle
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "gui_mockup.png")
 
-BG = "#0e1117"; PANEL = "#161b22"; ELEV = "#1c2331"; HEADER = "#0b0e14"
-BORDER = "#2a2f3a"; TXT = "#e6edf3"; DIM = "#8b949e"; ACCENT = "#4a9eff"
+BG = "#1b1f24"; PANEL = "#23282e"; ELEV = "#2c323a"; HEADER = "#15181c"
+BORDER = "#3a424b"; TXT = "#e6edf3"; DIM = "#9aa4af"; ACCENT = "#2dd4bf"
 GREEN = "#3fb950"; RED = "#f85149"
 
 
@@ -42,6 +42,8 @@ def render(out=OUT, safe=False):
                 va="center", ha="left", color=TXT, zorder=4)
 
     def button(x, y, w, h, text, fc, tc="white", fs=10):
+        if fc == ACCENT:           # dark text for readability on teal/cyan
+            tc = "#04231d"
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.05",
                                     fc=fc, ec="none", zorder=3))
         ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", color=tc,
@@ -60,19 +62,19 @@ def render(out=OUT, safe=False):
     # ===== header =====
     ax.add_patch(Rectangle((0.12, 7.78), 12.76, 0.7, fc=HEADER, ec="none", zorder=2))
     try:
-        ax.add_artist(AnnotationBbox(OffsetImage(plt.imread(os.path.join(HERE, "logo.png")), zoom=0.15),
-                                     (0.5, 8.13), frameon=False, zorder=5))
+        _wm = os.path.join(HERE, "..", "site-trevolto", "assets", "img-01.png")
+        ax.add_artist(AnnotationBbox(OffsetImage(plt.imread(_wm), zoom=0.92),
+                                     (1.55, 8.15), frameon=False, box_alignment=(0.5, 0.5), zorder=5))
     except Exception:
         pass
-    ax.text(0.88, 8.2, "Trevolto", fontsize=14, fontweight="bold", color=TXT, va="center", zorder=5)
-    ax.text(0.9, 7.92, "v1.0.0", fontsize=8, color=DIM, va="center", zorder=5)
+    ax.text(3.25, 8.13, "v1.0.0", fontsize=8, color=DIM, va="center", zorder=5)
     ax.text(6.5, 8.13, "● Connected", color=GREEN, fontsize=9.5, fontweight="bold", va="center", zorder=5)
     if safe:
         button(7.85, 8.0, 1.05, 0.26, "SAFE MODE", ACCENT, "#1a1100", fs=7.5)
         ax.text(9.1, 8.13, "Bitget  ·  demo balance $1,000.00  ·  paper trading",
                 color=DIM, fontsize=8.6, va="center", zorder=5)
     else:
-        button(7.85, 8.0, 0.62, 0.26, "LIVE", RED, fs=7.5)
+        button(7.85, 8.0, 0.62, 0.26, "LIVE", ACCENT, fs=7.5)
         ax.text(8.7, 8.13, "Bitget  ·  $12,504.23  ·  PnL +$755.50", color=GREEN,
                 fontsize=8.6, fontweight="bold", va="center", zorder=5)
     ax.text(12.62, 8.13, "⚙", color=DIM, fontsize=14, ha="right", va="center", zorder=5)
@@ -97,8 +99,8 @@ def render(out=OUT, safe=False):
     field(2.0, 5.70, 3.9, "Passphrase:", show=True)
     field(2.0, 5.34, 1.7, "Market:", "Futures ▾")
     ax.text(4.0, 5.5, "Show my IP", fontsize=8, color=ACCENT, va="center", zorder=4)
-    button(1.7, 4.92, 1.9, 0.34, "Connect", GREEN, fs=9.5)
-    button(3.75, 4.92, 1.9, 0.34, "Disconnect", RED, fs=9.5)
+    button(1.7, 4.92, 1.9, 0.34, "Connect", ACCENT, fs=9.5)
+    button(3.75, 4.92, 1.9, 0.34, "Disconnect", ACCENT, fs=9.5)
     button(0.5, 4.56, 1.85, 0.3, "↗ Chart", ACCENT, "#1a1100", fs=8)
     button(2.45, 4.56, 1.85, 0.3, "Backtest", ACCENT, "#1a1100", fs=8)
     button(4.4, 4.56, 1.85, 0.3, "Analytics", ACCENT, "#1a1100", fs=8)
@@ -113,7 +115,7 @@ def render(out=OUT, safe=False):
     ax.add_patch(Rectangle((1.25, 3.21), 1.2, 0.3, fc=ELEV, ec=BORDER, lw=1, zorder=3))
     ax.text(1.35, 3.36, "BTC/USDT", fontsize=8, va="center", color=TXT, zorder=4)
     ax.text(2.7, 3.36, "Current: 67,512.0", fontsize=8.6, fontweight="bold", color=ACCENT, va="center", zorder=4)
-    button(5.05, 3.21, 1.15, 0.3, "↻ Refresh", ELEV, TXT, fs=7.5)
+    button(5.05, 3.21, 1.15, 0.3, "↻ Refresh", ACCENT, fs=7.5)
     cols = ["Pair", "Type", "Size", "Entry", "Current", "PnL", "Status"]
     cx = [0.55, 1.7, 2.5, 3.2, 4.0, 4.9, 5.5]
     ax.add_patch(Rectangle((0.45, 2.78), 5.8, 0.3, fc=HEADER, ec=BORDER, lw=1, zorder=3))
@@ -138,8 +140,8 @@ def render(out=OUT, safe=False):
         for j, (val, x) in enumerate(zip(row[:7], cx)):
             ax.text(x, yy, val, fontsize=7.4, color=(row[7] if j == 5 else TXT), va="center", zorder=4,
                     fontweight="bold" if j == 5 else "normal")
-    button(0.5, 0.55, 1.55, 0.32, "Close Selected", ELEV, TXT, fs=7.5)
-    button(2.15, 0.55, 1.05, 0.32, "Close %", ELEV, TXT, fs=7.5)
+    button(0.5, 0.55, 1.55, 0.32, "Close Selected", ACCENT, fs=7.5)
+    button(2.15, 0.55, 1.05, 0.32, "Close %", ACCENT, fs=7.5)
     button(3.3, 0.55, 1.95, 0.32, "PANIC: Close All", RED, fs=8)
 
     # ===== RIGHT: Trade Settings (5 tabs) =====
@@ -168,9 +170,9 @@ def render(out=OUT, safe=False):
     ax.plot([6.78, 12.4], [4.78, 4.78], color=BORDER, lw=1, zorder=3)
     ax.text(12.4, 4.55, "● unsaved changes", fontsize=7.5, color=ACCENT, ha="right", va="center", zorder=4)
     button(6.75, 4.08, 1.55, 0.32, "Save", ACCENT, "#1a1100", fs=8.5)
-    button(8.4, 4.08, 1.45, 0.32, "Backup", ELEV, TXT, fs=8)
-    button(9.95, 4.08, 1.45, 0.32, "Restore", ELEV, TXT, fs=8)
-    button(11.5, 4.08, 0.95, 0.32, "↻ Reset", RED, fs=8)
+    button(8.4, 4.08, 1.45, 0.32, "Backup", ACCENT, fs=8)
+    button(9.95, 4.08, 1.45, 0.32, "Restore", ACCENT, fs=8)
+    button(11.5, 4.08, 0.95, 0.32, "↻ Reset", ACCENT, fs=8)
 
     # ===== RIGHT: trade log =====
     panel(6.55, 0.4, 6.05, 3.35, title="Trade Log")
