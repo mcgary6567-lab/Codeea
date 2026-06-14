@@ -7,6 +7,8 @@ from matplotlib.patches import Polygon
 
 C1, C2, C3 = "#2dd4bf", "#4a9eff", "#a855f7"   # teal -> blue -> violet
 TXT, DIM = "#e6edf3", "#8b949e"
+NAME = "#4a9eff"   # wordmark "TREVOLTO" — signal blue
+TAG = "#4ade80"    # tagline — light green
 
 
 def chevrons(ax, cx, cy, scale=1.0, gap=0.55):
@@ -29,9 +31,10 @@ def save_wordmark(path):
     fig, ax = plt.subplots(figsize=(12, 3.4), dpi=120)
     fig.patch.set_alpha(0)
     ax.set_xlim(-3, 13); ax.set_ylim(-2, 2); ax.axis("off")
-    chevrons(ax, -1.4, -0.05, scale=0.92)
-    ax.text(0.4, 0.35, "TREVOLTO", color=TXT, fontsize=44, fontweight="bold", va="center", ha="left")
-    ax.text(0.5, -0.85, "Automated Crypto Trading", color=DIM, fontsize=16, va="center", ha="left")
+    # mark vertically centred against the full text block (name + tagline)
+    chevrons(ax, -1.45, -0.45, scale=0.92)
+    ax.text(0.35, 0.5, "TREVOLTO", color=NAME, fontsize=46, fontweight="bold", va="center", ha="left")
+    ax.text(0.40, -0.72, "Automated Crypto Trading", color=TAG, fontsize=16.5, va="center", ha="left")
     fig.savefig(path, dpi=120, transparent=True, bbox_inches="tight", pad_inches=0.2)
     plt.close(fig); print("wrote", path)
 
