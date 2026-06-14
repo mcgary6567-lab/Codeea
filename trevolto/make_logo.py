@@ -7,7 +7,7 @@ from matplotlib.patches import Polygon
 
 C1, C2, C3 = "#2dd4bf", "#4a9eff", "#a855f7"   # teal -> blue -> violet
 TXT, DIM = "#e6edf3", "#8b949e"
-NAME = "#4a9eff"   # wordmark "TREVOLTO" — signal blue
+NAME = "#2dd4bf"   # wordmark "TREVOLTO" — teal/cyan
 TAG = "#4ade80"    # tagline — light green
 
 
