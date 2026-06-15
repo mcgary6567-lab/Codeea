@@ -117,7 +117,7 @@ def render(out=OUT, safe=False):
     ax.text(2.7, 3.36, "Current: 67,512.0", fontsize=8.6, fontweight="bold", color=ACCENT, va="center", zorder=4)
     button(5.05, 3.21, 1.15, 0.3, "↻ Refresh", ACCENT, fs=7.5)
     cols = ["Pair", "Type", "Size", "Entry", "Current", "PnL", "Status"]
-    cx = [0.55, 1.7, 2.5, 3.2, 4.0, 4.9, 5.5]
+    cx = [0.5, 1.5, 2.3, 3.05, 3.85, 4.75, 5.75]
     ax.add_patch(Rectangle((0.45, 2.78), 5.8, 0.3, fc=HEADER, ec=BORDER, lw=1, zorder=3))
     for c, x in zip(cols, cx):
         ax.text(x, 2.93, c, fontsize=7.6, fontweight="bold", color=DIM, va="center", zorder=4)
