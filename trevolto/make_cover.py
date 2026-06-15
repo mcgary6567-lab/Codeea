@@ -1,0 +1,49 @@
+"""Trevolto cover / hero image: logo + app mockup on the teal/smoke brand.
+Run with --sample for cover_sample.png; no args writes the final into branding/."""
+import os, sys
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUTDIR = os.path.join(HERE, "..", "Trevolto Marketing", "social", "branding")
+SMOKE=(27,31,36); TEAL=(45,212,191); LGREEN=(74,222,128); TXT=(230,237,243); DIM=(154,164,175)
+FONTS=os.path.join(os.path.dirname(__import__("matplotlib").__file__),"mpl-data","fonts","ttf")
+def font(sz,bold=True): return ImageFont.truetype(os.path.join(FONTS,"DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"),sz)
+def trim(im): return im.crop(im.getbbox())
+
+def glow(size,center,radius,color,alpha=70):
+    g=Image.new("RGBA",size,(0,0,0,0))
+    ImageDraw.Draw(g).ellipse([center[0]-radius,center[1]-radius,center[0]+radius,center[1]+radius],fill=color+(alpha,))
+    return g.filter(ImageFilter.GaussianBlur(radius*0.5))
+
+def rounded_shadow(size, box, rad, blur, alpha):
+    s=Image.new("RGBA",size,(0,0,0,0))
+    ImageDraw.Draw(s).rounded_rectangle(box,rad,fill=(0,0,0,alpha))
+    return s.filter(ImageFilter.GaussianBlur(blur))
+
+def cover(path, W=1920, H=1080):
+    im=Image.new("RGBA",(W,H),SMOKE+(255,))
+    im=Image.alpha_composite(im,glow((W,H),(int(W*0.66),int(H*0.42)),int(H*0.72),TEAL,60))
+    # device (app window) on the right with a soft shadow
+    dev=Image.open(os.path.join(HERE,"gui_mockup.png")).convert("RGBA")
+    dw=980; dev=dev.resize((dw,int(dev.height*dw/dev.width)),Image.LANCZOS)
+    dx=W-dw-70; dy=(H-dev.height)//2
+    im=Image.alpha_composite(im,rounded_shadow((W,H),[dx+18,dy+30,dx+dw+18,dy+dev.height+30],24,34,150))
+    im.alpha_composite(dev,(dx,dy))
+    # left text column
+    d=ImageDraw.Draw(im)
+    wm=trim(Image.open(os.path.join(HERE,"trevolto_logo.png")).convert("RGBA"))
+    ww=440; wm=wm.resize((ww,int(wm.height*ww/wm.width)),Image.LANCZOS)
+    x=110; im.alpha_composite(wm,(x,150))
+    d.text((x+4,330),"Automated crypto",font=font(70),fill=TXT)
+    d.text((x+4,410),"trading, on autopilot",font=font(70),fill=TEAL)
+    d.text((x+6,540),"Set your risk once — the bot trades 24/7,",font=font(30,False),fill=DIM)
+    d.text((x+6,582),"hands-free, on your own PC.",font=font(30,False),fill=DIM)
+    d.text((x+6,672),"● Windows & macOS   ·   start your free trial",font=font(28,False),fill=LGREEN)
+    # tiny disclaimer
+    d.text((x+6,H-70),"Illustrative UI. Crypto trading carries risk.",font=font(20,False),fill=DIM)
+    im.convert("RGB").save(path,quality=92); print("wrote",os.path.basename(path),im.size)
+
+if __name__=="__main__":
+    if "--sample" in sys.argv: cover(os.path.join(HERE,"cover_sample.png"))
+    else:
+        os.makedirs(OUTDIR,exist_ok=True); cover(os.path.join(OUTDIR,"cover-1920x1080.png"))
