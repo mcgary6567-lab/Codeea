@@ -66,9 +66,31 @@ def fb_cover(path, W=1920, H=731):
     im.convert("RGB").save(path,quality=94); print("wrote",os.path.basename(path),im.size)
 
 
+def hero(path, W=1920, H=1080):
+    """Website hero: the app window on a TRANSPARENT background (just a soft
+    shadow), rendered with full-white text. For the site's own hero section."""
+    import make_mockup as m
+    old=(m.TXT, m.DIM); m.TXT="#ffffff"; m.DIM="#ffffff"
+    tmp=os.path.join(HERE,"_mock_white_tmp.png")
+    try:
+        m.render(tmp, safe=False)
+    finally:
+        m.TXT, m.DIM = old
+    im=Image.new("RGBA",(W,H),(0,0,0,0))
+    dev=Image.open(tmp).convert("RGBA")
+    dw=1480; dev=dev.resize((dw,int(dev.height*dw/dev.width)),Image.LANCZOS)
+    dx=(W-dw)//2; dy=(H-dev.height)//2
+    im=Image.alpha_composite(im,rounded_shadow((W,H),[dx+22,dy+40,dx+dw+22,dy+dev.height+40],26,46,150))
+    im.alpha_composite(dev,(dx,dy))
+    im.save(path); os.remove(tmp)
+    print("wrote",os.path.basename(path),im.size)
+
+
 if __name__=="__main__":
+    os.makedirs(OUTDIR,exist_ok=True)
     if "--sample" in sys.argv:
         cover(os.path.join(HERE,"cover_sample.png"))
-    else:
-        os.makedirs(OUTDIR,exist_ok=True)
+    elif "--fb" in sys.argv:
         fb_cover(os.path.join(OUTDIR,"facebook-cover.png"))
+    else:
+        hero(os.path.join(OUTDIR,"website-hero.png"))
