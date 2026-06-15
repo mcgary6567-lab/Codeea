@@ -93,4 +93,10 @@ if __name__=="__main__":
     elif "--fb" in sys.argv:
         fb_cover(os.path.join(OUTDIR,"facebook-cover.png"))
     else:
-        hero(os.path.join(OUTDIR,"website-hero.png"))
+        base=os.path.join(OUTDIR,"website-hero.png")
+        hero(base)                                  # 1920x1080 master (also serves as 2x retina)
+        master=Image.open(base)
+        for w in (1280, 960):                       # lighter responsive sizes for fast page load
+            h=int(master.height*w/master.width)
+            master.resize((w, h), Image.LANCZOS).save(os.path.join(OUTDIR, f"website-hero-{w}.png"))
+            print("wrote", f"website-hero-{w}.png", (w, h))
