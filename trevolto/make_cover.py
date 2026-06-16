@@ -4,7 +4,9 @@ import os, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUTDIR = os.path.join(HERE, "..", "Trevolto Marketing", "social", "branding")
+MKT = os.path.join(HERE, "..", "Trevolto Marketing")
+COVDIR = os.path.join(MKT, "covers")     # facebook cover etc.
+HERODIR = os.path.join(MKT, "hero")      # website hero (responsive)
 SMOKE=(27,31,36); TEAL=(45,212,191); LGREEN=(74,222,128); TXT=(230,237,243); DIM=(154,164,175)
 FONTS=os.path.join(os.path.dirname(__import__("matplotlib").__file__),"mpl-data","fonts","ttf")
 def font(sz,bold=True): return ImageFont.truetype(os.path.join(FONTS,"DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"),sz)
@@ -87,16 +89,16 @@ def hero(path, W=1920, H=1080):
 
 
 if __name__=="__main__":
-    os.makedirs(OUTDIR,exist_ok=True)
+    os.makedirs(COVDIR,exist_ok=True); os.makedirs(HERODIR,exist_ok=True)
     if "--sample" in sys.argv:
         cover(os.path.join(HERE,"cover_sample.png"))
     elif "--fb" in sys.argv:
-        fb_cover(os.path.join(OUTDIR,"facebook-cover.png"))
+        fb_cover(os.path.join(COVDIR,"facebook-cover.png"))
     else:
-        base=os.path.join(OUTDIR,"website-hero.png")
+        base=os.path.join(HERODIR,"website-hero.png")
         hero(base)                                  # 1920x1080 master (also serves as 2x retina)
         master=Image.open(base)
         for w in (1280, 960):                       # lighter responsive sizes for fast page load
             h=int(master.height*w/master.width)
-            master.resize((w, h), Image.LANCZOS).save(os.path.join(OUTDIR, f"website-hero-{w}.png"))
+            master.resize((w, h), Image.LANCZOS).save(os.path.join(HERODIR, f"website-hero-{w}.png"))
             print("wrote", f"website-hero-{w}.png", (w, h))

@@ -1,8 +1,9 @@
-"""Trevolto one-page brand guidelines sheet (visual). -> ../Trevolto Marketing/brand-guidelines.png"""
+"""Trevolto one-page brand guidelines sheet (visual). -> ../Trevolto Marketing/brand/brand-guidelines.png"""
 import os
 from PIL import Image, ImageDraw, ImageFont
 HERE=os.path.dirname(os.path.abspath(__file__))
-OUT=os.path.join(HERE,"..","Trevolto Marketing","brand-guidelines.png")
+OUT=os.path.join(HERE,"..","Trevolto Marketing","brand","brand-guidelines.png")
+os.makedirs(os.path.dirname(OUT),exist_ok=True)
 FONTS=os.path.join(os.path.dirname(__import__("matplotlib").__file__),"mpl-data","fonts","ttf")
 B=lambda s:ImageFont.truetype(os.path.join(FONTS,"DejaVuSans-Bold.ttf"),s)
 R=lambda s:ImageFont.truetype(os.path.join(FONTS,"DejaVuSans.ttf"),s)

@@ -32,7 +32,7 @@ except Exception:  # noqa: BLE001
     _HAS_FFMPEG = animation.writers.is_available("ffmpeg")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SOCIAL = os.path.join(HERE, "..", "Trevolto Marketing", "social")
+SOCIAL = os.path.join(HERE, "..", "Trevolto Marketing", "creatives")
 # Organised subfolders (see Marketing Docs/social/README.md). Organic reels are
 # grouped by the app window they show, for easy identification.
 # By purpose: reels/ (vertical 9:16 — TikTok + FB/IG Reels) and posts/ (feed).

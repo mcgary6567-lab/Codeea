@@ -5,7 +5,9 @@ import os, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUTDIR = os.path.join(HERE, "..", "Trevolto Marketing", "social", "branding")
+MKT = os.path.join(HERE, "..", "Trevolto Marketing")
+AVDIR = os.path.join(MKT, "logos", "avatars")    # profile pictures
+COVDIR = os.path.join(MKT, "covers")             # platform covers / banners
 SMOKE = (27, 31, 36)            # #1b1f24
 TEAL = (45, 212, 191)
 LGREEN = (74, 222, 128)
@@ -69,20 +71,20 @@ def banner(path, W, H, wm_frac=0.62, tagline=True):
 
 
 if __name__ == "__main__":
-    os.makedirs(OUTDIR, exist_ok=True)
+    os.makedirs(AVDIR, exist_ok=True); os.makedirs(COVDIR, exist_ok=True)
     if "--sample" in sys.argv:
         avatar(os.path.join(HERE, "sample_avatar.png"), 1024)
         banner(os.path.join(HERE, "sample_banner.png"), 1500, 500)
     else:
-        # Square avatars / profile pictures (same art, per-platform sizes)
-        avatar(os.path.join(OUTDIR, "avatar-master-1024.png"), 1024)
+        # Square avatars / profile pictures (same art, per-platform sizes) -> logos/avatars
+        avatar(os.path.join(AVDIR, "avatar-master-1024.png"), 1024)
         profiles = [
             ("whatsapp", 640),     # WhatsApp profile (circle crop)
             ("facebook", 500),     # Facebook profile (recommended 320+, 500 = crisp)
             ("tiktok", 400),       # TikTok profile (recommended 200+, 400 = crisp)
         ]
         for name, s in profiles:
-            avatar(os.path.join(OUTDIR, f"profile-{name}-{s}.png"), s, with_text=True)
+            avatar(os.path.join(AVDIR, f"profile-{name}-{s}.png"), s, with_text=True)
         # Covers / banners — (name, width, height, wordmark width fraction)
         banners = [
             ("x-1500x500", 1500, 500, 0.60),                 # X / Twitter header
@@ -93,4 +95,4 @@ if __name__ == "__main__":
             ("discord-1920x480", 1920, 480, 0.58),           # Discord / generic
         ]
         for name, W, H, fr in banners:
-            banner(os.path.join(OUTDIR, f"banner-{name}.png"), W, H, wm_frac=fr)
+            banner(os.path.join(COVDIR, f"banner-{name}.png"), W, H, wm_frac=fr)
