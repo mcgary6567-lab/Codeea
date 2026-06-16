@@ -19,27 +19,25 @@ def build(path=OUT):
     im = Image.new("RGBA", (W, H), SMOKE + (255,))
     im = Image.alpha_composite(im, mc.glow((W, H), (int(W * 0.70), int(H * 0.46)), int(H * 0.85), TEAL, 55))
     d = ImageDraw.Draw(im)
-    # LEFT: chevron icon + headline + subline (anchored to the top)
+    # LEFT: chevron icon + headline + subline (pulled to the very top, white text)
     x = 120
     ic = trim(Image.open(os.path.join(HERE, "logo.png")).convert("RGBA"))
-    ih = 170; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
-    im.alpha_composite(ic, (x, 90)); d = ImageDraw.Draw(im)
-    d.text((x + 4, 320), "Stop watching charts.", font=mc.font(72), fill=TXT)
-    d.text((x + 4, 410), "Let it trade for you.", font=mc.font(72), fill=TEAL)
-    d.text((x + 6, 532), "Automated crypto trading · Windows & macOS", font=mc.font(34, False), fill=DIM)
+    ih = 168; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
+    im.alpha_composite(ic, (x, 70)); d = ImageDraw.Draw(im)
+    d.text((x + 4, 286), "Stop watching charts.", font=mc.font(74), fill=TXT)
+    d.text((x + 4, 380), "Let it trade for you.", font=mc.font(74), fill=TXT)
+    d.text((x + 6, 504), "Professional automated crypto trading — Windows & macOS",
+           font=mc.font(32, False), fill=(208, 215, 222))
     # RIGHT: money-back badge + CTA (aligned with the headline, near the top)
-    rx, rw = 1170, 690
-    byy, bh = 318, 92
+    rx, rw = 1170, 700
+    byy, bh = 286, 92
     d.rounded_rectangle([rx, byy, rx + rw, byy + bh], bh // 2, outline=LGREEN, width=4)
     t = "✓  14-DAY MONEY-BACK GUARANTEE"; f = mc.font(29)
     d.text((rx + (rw - d.textlength(t, font=f)) // 2, byy + bh // 2 - 18), t, font=f, fill=LGREEN)
     cy, ch = byy + bh + 44, 132
     d.rounded_rectangle([rx, cy, rx + rw, cy + ch], ch // 2, fill=TEAL)
-    cta = "Download → trevolto.com"; f = mc.font(40)
+    cta = "Get Instant Access Now  →"; f = mc.font(40)
     d.text((rx + (rw - d.textlength(cta, font=f)) // 2, cy + ch // 2 - 26), cta, font=f, fill="#04231d")
-    # disclaimer
-    t = "Crypto trading carries risk — you can lose money. Not financial advice."
-    d.text(((W - d.textlength(t, font=mc.font(22, False))) // 2, H - 60), t, font=mc.font(22, False), fill=DIM)
     im.convert("RGB").save(path, quality=94)
     print("wrote", os.path.normpath(path), im.size)
 
