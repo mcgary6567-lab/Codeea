@@ -19,17 +19,17 @@ def build(path=OUT):
     im = Image.new("RGBA", (W, H), SMOKE + (255,))
     im = Image.alpha_composite(im, mc.glow((W, H), (int(W * 0.70), int(H * 0.46)), int(H * 0.85), TEAL, 55))
     d = ImageDraw.Draw(im)
-    # LEFT: chevron icon + headline + subline
+    # LEFT: chevron icon + headline + subline (anchored to the top)
     x = 120
     ic = trim(Image.open(os.path.join(HERE, "logo.png")).convert("RGBA"))
-    ih = 180; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
-    im.alpha_composite(ic, (x, 265)); d = ImageDraw.Draw(im)
-    d.text((x + 4, 545), "Stop watching charts.", font=mc.font(74), fill=TXT)
-    d.text((x + 4, 637), "Let it trade for you.", font=mc.font(74), fill=TEAL)
-    d.text((x + 6, 765), "Automated crypto trading · Windows & macOS", font=mc.font(34, False), fill=DIM)
-    # RIGHT: money-back badge + CTA
+    ih = 170; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
+    im.alpha_composite(ic, (x, 90)); d = ImageDraw.Draw(im)
+    d.text((x + 4, 320), "Stop watching charts.", font=mc.font(72), fill=TXT)
+    d.text((x + 4, 410), "Let it trade for you.", font=mc.font(72), fill=TEAL)
+    d.text((x + 6, 532), "Automated crypto trading · Windows & macOS", font=mc.font(34, False), fill=DIM)
+    # RIGHT: money-back badge + CTA (aligned with the headline, near the top)
     rx, rw = 1170, 690
-    byy, bh = 545, 92
+    byy, bh = 318, 92
     d.rounded_rectangle([rx, byy, rx + rw, byy + bh], bh // 2, outline=LGREEN, width=4)
     t = "✓  14-DAY MONEY-BACK GUARANTEE"; f = mc.font(29)
     d.text((rx + (rw - d.textlength(t, font=f)) // 2, byy + bh // 2 - 18), t, font=f, fill=LGREEN)
