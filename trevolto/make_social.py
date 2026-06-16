@@ -63,8 +63,14 @@ if __name__ == "__main__":
         banner(os.path.join(HERE, "sample_banner.png"), 1500, 500)
     else:
         # Square avatars / profile pictures (same art, per-platform sizes)
-        for s in (1024, 800, 400, 320):
-            avatar(os.path.join(OUTDIR, f"avatar-{s}.png"), s)
+        avatar(os.path.join(OUTDIR, "avatar-master-1024.png"), 1024)
+        profiles = [
+            ("whatsapp", 640),     # WhatsApp profile (circle crop)
+            ("facebook", 500),     # Facebook profile (recommended 320+, 500 = crisp)
+            ("tiktok", 400),       # TikTok profile (recommended 200+, 400 = crisp)
+        ]
+        for name, s in profiles:
+            avatar(os.path.join(OUTDIR, f"profile-{name}-{s}.png"), s)
         # Covers / banners — (name, width, height, wordmark width fraction)
         banners = [
             ("x-1500x500", 1500, 500, 0.60),                 # X / Twitter header
