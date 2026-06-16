@@ -1,13 +1,13 @@
-"""Trevolto WhatsApp cover (clean): chevron icon + headline + 14-day money-back
-guarantee + CTA, no mockup. -> ../Trevolto Marketing/covers/whatsapp-cover.png
-Run: python make_whatsapp.py"""
+"""Trevolto WhatsApp cover (clean, horizontal): chevron icon + headline +
+14-day money-back guarantee + CTA, no mockup.
+-> ../Trevolto Marketing/covers/whatsapp-cover.png   Run: python make_whatsapp.py"""
 import os
 import make_cover as mc
 from PIL import Image, ImageDraw
 
 HERE = mc.HERE
 OUT = os.path.join(HERE, "..", "Trevolto Marketing", "covers", "whatsapp-cover.png")
-W, H = 1080, 1920
+W, H = 1920, 1080
 SMOKE = mc.SMOKE; TEAL = mc.TEAL; LGREEN = mc.LGREEN; TXT = (240, 243, 247); DIM = mc.DIM
 
 
@@ -15,34 +15,31 @@ def trim(im):
     return im.crop(im.getbbox())
 
 
-def ctext(d, y, t, f, fill):
-    d.text(((W - d.textlength(t, font=f)) // 2, y), t, font=f, fill=fill)
-
-
 def build(path=OUT):
     im = Image.new("RGBA", (W, H), SMOKE + (255,))
-    im = Image.alpha_composite(im, mc.glow((W, H), (W // 2, int(H * 0.30)), int(W * 0.78), TEAL, 60))
+    im = Image.alpha_composite(im, mc.glow((W, H), (int(W * 0.70), int(H * 0.46)), int(H * 0.85), TEAL, 55))
     d = ImageDraw.Draw(im)
-    # chevron icon (hero — no mockup)
+    # LEFT: chevron icon + headline + subline
+    x = 120
     ic = trim(Image.open(os.path.join(HERE, "logo.png")).convert("RGBA"))
-    ih = 320; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
-    im.alpha_composite(ic, ((W - ic.width) // 2, 360))
-    # headline
-    ctext(d, 800, "Stop watching charts.", mc.font(72), TXT)
-    ctext(d, 892, "Let it trade for you.", mc.font(72), TEAL)
-    ctext(d, 1018, "Automated crypto trading · Windows & macOS", mc.font(34, False), DIM)
-    # 14-day money-back guarantee badge
-    bw, bh = 740, 88; bx = (W - bw) // 2; byy = 1170
-    d.rounded_rectangle([bx, byy, bx + bw, byy + bh], bh // 2, outline=LGREEN, width=4)
-    ctext(d, byy + bh // 2 - 22, "✓  14-DAY MONEY-BACK GUARANTEE", mc.font(34), LGREEN)
-    # CTA
-    cy = 1340; cw, ch = 780, 120; cxp = (W - cw) // 2
-    d.rounded_rectangle([cxp, cy, cxp + cw, cy + ch], 60, fill=TEAL)
-    f = mc.font(42); cta = "Download  →  trevolto.com"
-    d.text(((W - d.textlength(cta, font=f)) // 2, cy + ch // 2 - 27), cta, font=f, fill="#04231d")
+    ih = 180; ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
+    im.alpha_composite(ic, (x, 265)); d = ImageDraw.Draw(im)
+    d.text((x + 4, 545), "Stop watching charts.", font=mc.font(74), fill=TXT)
+    d.text((x + 4, 637), "Let it trade for you.", font=mc.font(74), fill=TEAL)
+    d.text((x + 6, 765), "Automated crypto trading · Windows & macOS", font=mc.font(34, False), fill=DIM)
+    # RIGHT: money-back badge + CTA
+    rx, rw = 1170, 690
+    byy, bh = 545, 92
+    d.rounded_rectangle([rx, byy, rx + rw, byy + bh], bh // 2, outline=LGREEN, width=4)
+    t = "✓  14-DAY MONEY-BACK GUARANTEE"; f = mc.font(29)
+    d.text((rx + (rw - d.textlength(t, font=f)) // 2, byy + bh // 2 - 18), t, font=f, fill=LGREEN)
+    cy, ch = byy + bh + 44, 132
+    d.rounded_rectangle([rx, cy, rx + rw, cy + ch], ch // 2, fill=TEAL)
+    cta = "Download → trevolto.com"; f = mc.font(40)
+    d.text((rx + (rw - d.textlength(cta, font=f)) // 2, cy + ch // 2 - 26), cta, font=f, fill="#04231d")
     # disclaimer
-    ctext(d, H - 72, "Crypto trading carries risk — you can lose money. Not financial advice.",
-          mc.font(23, False), DIM)
+    t = "Crypto trading carries risk — you can lose money. Not financial advice."
+    d.text(((W - d.textlength(t, font=mc.font(22, False))) // 2, H - 60), t, font=mc.font(22, False), fill=DIM)
     im.convert("RGB").save(path, quality=94)
     print("wrote", os.path.normpath(path), im.size)
 
