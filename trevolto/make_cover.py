@@ -46,25 +46,31 @@ def cover(path, W=1920, H=1080):
     im.convert("RGB").save(path,quality=92); print("wrote",os.path.basename(path),im.size)
 
 def fb_cover(path, W=1920, H=731):
-    """Facebook cover (full-HD width at FB's 820:312 ratio): logo + headline +
-    a large, crisp app mockup. Key content kept clear of the bottom-left where
-    the Page profile picture overlaps."""
+    """Facebook page cover (full-HD width at FB's 820:312 ratio): chevron icon +
+    white headline (left) and money-back badge + CTA (right). No mockup, content
+    kept to the top so the Page profile picture (bottom-left) never collides."""
     im=Image.new("RGBA",(W,H),SMOKE+(255,))
-    im=Image.alpha_composite(im,glow((W,H),(int(W*0.64),int(H*0.46)),int(H*0.95),TEAL,60))
-    dev=Image.open(os.path.join(HERE,"gui_mockup.png")).convert("RGBA")
-    dw=1020; dev=dev.resize((dw,int(dev.height*dw/dev.width)),Image.LANCZOS)
-    dx=W-dw-60; dy=(H-dev.height)//2
-    im=Image.alpha_composite(im,rounded_shadow((W,H),[dx+18,dy+26,dx+dw+18,dy+dev.height+26],22,34,150))
-    im.alpha_composite(dev,(dx,dy))
+    im=Image.alpha_composite(im,glow((W,H),(int(W*0.70),int(H*0.46)),int(H*0.95),TEAL,55))
     d=ImageDraw.Draw(im)
-    wm=trim(Image.open(os.path.join(HERE,"trevolto_logo.png")).convert("RGBA"))
-    ww=360; wm=wm.resize((ww,int(wm.height*ww/wm.width)),Image.LANCZOS)
-    x=95; im.alpha_composite(wm,(x,78))
-    d.text((x+4,250),"Crypto trading,",font=font(50),fill=TXT)
-    d.text((x+4,308),"on autopilot",font=font(50),fill=TEAL)
-    d.text((x+6,410),"The bot trades 24/7, hands-free.",font=font(24,False),fill=DIM)
-    d.text((x+6,468),"● Windows & macOS",font=font(24,False),fill=LGREEN)
-    d.text((x+6,H-48),"Illustrative UI. Crypto trading carries risk.",font=font(18,False),fill=DIM)
+    # LEFT: icon + headline + subline
+    x=110
+    ic=trim(Image.open(os.path.join(HERE,"logo.png")).convert("RGBA"))
+    ih=150; ic=ic.resize((int(ic.width*ih/ic.height),ih),Image.LANCZOS)
+    im.alpha_composite(ic,(x,60)); d=ImageDraw.Draw(im)
+    d.text((x+4,250),"Stop watching charts.",font=font(60),fill=TXT)
+    d.text((x+4,326),"Let it trade for you.",font=font(60),fill=TXT)
+    d.text((x+6,440),"Professional automated crypto trading — Windows & macOS",
+           font=font(28,False),fill=(208,215,222))
+    # RIGHT: money-back badge + CTA
+    rx,rw=1180,640
+    byy,bh=250,80
+    d.rounded_rectangle([rx,byy,rx+rw,byy+bh],bh//2,outline=LGREEN,width=4)
+    t="✓  14-DAY MONEY-BACK GUARANTEE"; f=font(26)
+    d.text((rx+(rw-d.textlength(t,font=f))//2,byy+bh//2-16),t,font=f,fill=LGREEN)
+    cy,ch=byy+bh+34,116
+    d.rounded_rectangle([rx,cy,rx+rw,cy+ch],ch//2,fill=TEAL)
+    cta="Get Instant Access Now  →"; f=font(34)
+    d.text((rx+(rw-d.textlength(cta,font=f))//2,cy+ch//2-22),cta,font=f,fill="#04231d")
     im.convert("RGB").save(path,quality=94); print("wrote",os.path.basename(path),im.size)
 
 
