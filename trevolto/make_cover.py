@@ -94,12 +94,78 @@ def hero(path, W=1920, H=1080):
     print("wrote",os.path.basename(path),im.size)
 
 
+HEAD = ["Stop watching charts.", "Let it trade for you."]
+SUB = "Professional automated crypto trading — Windows & macOS"
+BADGE = "✓  14-DAY MONEY-BACK GUARANTEE"
+CTA = "Get Instant Access Now  →"
+
+
+def _pill(d, x, y, w, h, fill=None, outline=None):
+    d.rounded_rectangle([x, y, x + w, y + h], h // 2, fill=fill, outline=outline, width=4)
+
+
+def _centred(d, cx, y, t, f, fill):
+    d.text((cx - d.textlength(t, font=f) // 2, y), t, font=f, fill=fill)
+
+
+def promo(path, W, H, mode="split"):
+    """Platform cover in the Trevolto promo style (icon + white headline +
+    money-back badge + 'Get Instant Access Now' CTA). 'split' = icon/headline
+    left, badge/CTA right (wide banners). 'center' = centred stack (YouTube)."""
+    im = Image.new("RGBA", (W, H), SMOKE + (255,))
+    gx = int(W * 0.70) if mode == "split" else W // 2
+    im = Image.alpha_composite(im, glow((W, H), (gx, int(H * 0.46)), int(H * 0.9), TEAL, 55))
+    d = ImageDraw.Draw(im)
+    ic = trim(Image.open(os.path.join(HERE, "logo.png")).convert("RGBA"))
+
+    if mode == "center":                       # YouTube — fit inside the TV-safe centre
+        cx = W // 2
+        hf = font(64); bf = font(30); cf = font(40)
+        lh = 76; bh = 72; ch = 104
+        block = lh * 2 + 28 + bh + 24 + ch     # ~380px, fits the 423-tall safe zone
+        y = H // 2 - block // 2
+        _centred(d, cx, y, HEAD[0], hf, TXT); y += lh
+        _centred(d, cx, y, HEAD[1], hf, TXT); y += lh + 28
+        bw = 760; _pill(d, cx - bw // 2, y, bw, bh, outline=LGREEN)
+        _centred(d, cx, y + bh // 2 - 18, BADGE, bf, LGREEN); y += bh + 24
+        cw = 760; _pill(d, cx - cw // 2, y, cw, ch, fill=TEAL)
+        _centred(d, cx, y + ch // 2 - 25, CTA, cf, "#04231d")
+        im.convert("RGB").save(path, quality=94); print("wrote", os.path.basename(path), im.size); return
+
+    k = H / 731.0                              # split layout, auto-scaled to height
+    x = int(W * 0.055)
+    ih = int(150 * k); ic = ic.resize((int(ic.width * ih / ic.height), ih), Image.LANCZOS)
+    im.alpha_composite(ic, (x, int(58 * k))); d = ImageDraw.Draw(im)
+    hf = font(int(60 * k))
+    y1 = int(248 * k)
+    d.text((x + 4, y1), HEAD[0], font=hf, fill=TXT)
+    d.text((x + 4, y1 + int(60 * k) + int(16 * k)), HEAD[1], font=hf, fill=TXT)
+    d.text((x + 6, int(452 * k)), SUB, font=font(int(27 * k), False), fill=(208, 215, 222))
+    rx, rw = int(W * 0.60), int(W * 0.345)
+    bh = int(80 * k); byy = int(250 * k)
+    _pill(d, rx, byy, rw, bh, outline=LGREEN)
+    _centred(d, rx + rw // 2, byy + bh // 2 - int(15 * k), BADGE, font(int(25 * k)), LGREEN)
+    ch = int(116 * k); cy = byy + bh + int(34 * k)
+    _pill(d, rx, cy, rw, ch, fill=TEAL)
+    _centred(d, rx + rw // 2, cy + ch // 2 - int(20 * k), CTA, font(int(33 * k)), "#04231d")
+    im.convert("RGB").save(path, quality=94); print("wrote", os.path.basename(path), im.size)
+
+
 if __name__=="__main__":
     os.makedirs(COVDIR,exist_ok=True); os.makedirs(HERODIR,exist_ok=True)
     if "--sample" in sys.argv:
         cover(os.path.join(HERE,"cover_sample.png"))
     elif "--fb" in sys.argv:
         fb_cover(os.path.join(COVDIR,"facebook-cover.png"))
+    elif "--banners" in sys.argv:
+        for name, W, H, mode in [
+            ("banner-x-1500x500", 1500, 500, "split"),
+            ("banner-linkedin-personal-1584x396", 1584, 396, "split"),
+            ("banner-linkedin-page-1536x768", 1536, 768, "split"),
+            ("banner-discord-1920x480", 1920, 480, "split"),
+            ("banner-youtube-2560x1440", 2560, 1440, "center"),
+        ]:
+            promo(os.path.join(COVDIR, f"{name}.png"), W, H, mode)
     else:
         base=os.path.join(HERODIR,"website-hero.png")
         hero(base)                                  # 1920x1080 master (also serves as 2x retina)
