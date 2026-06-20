@@ -1,0 +1,114 @@
+name: Build Windows EXE
+
+# Builds trading_bot/dist/TradingBot.exe on a real Windows runner and uploads it
+# as a downloadable artifact. Pushing a tag like v1.0.0 also attaches the exe to
+# a GitHub Release.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to create a Release on tag pushes
+
+jobs:
+  # Fast logic checks (no GUI / no exchange) — gate the build on these so a
+  # broken trade-math / guardrail / parser change never ships an exe.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trading_bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile all modules
+        run: python -m compileall -q .
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: trading_bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller pillow
+
+      - name: Fetch brand logo
+        run: python fetch_logo.py
+
+      - name: Build executable
+        run: pyinstaller --noconfirm --clean trading_bot.spec
+
+      - name: Code-sign executable (auto when a cert secret is present)
+        shell: pwsh
+        env:
+          WIN_CERT_BASE64: ${{ secrets.WIN_CERT_BASE64 }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          if (-not $env:WIN_CERT_BASE64) {
+            Write-Host "No WIN_CERT_BASE64 secret set - skipping signing (exe stays unsigned)."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CERT_BASE64))
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+                       Sort-Object FullName | Select-Object -Last 1).FullName
+          & $signtool sign /f $pfx /p $env:WIN_CERT_PASSWORD /fd SHA256 `
+            /tr http://timestamp.digicert.com /td SHA256 `
+            "dist\PrometheusAICryptoBot.exe"
+          & $signtool verify /pa "dist\PrometheusAICryptoBot.exe"
+
+      - name: Compute SHA-256 checksum
+        shell: pwsh
+        run: |
+          $exe = "dist\PrometheusAICryptoBot.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  PrometheusAICryptoBot.exe" | Out-File -Encoding ascii "$exe.sha256"
+          Write-Host "SHA-256: $hash"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrometheusAICryptoBot-windows
+          path: |
+            trading_bot/dist/PrometheusAICryptoBot.exe
+            trading_bot/dist/PrometheusAICryptoBot.exe.sha256
+          if-no-files-found: error
+
+      - name: Attach to release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          # The exe + its checksum become release assets; the app's auto-updater
+          # downloads both and verifies the exe before installing.
+          files: |
+            trading_bot/dist/PrometheusAICryptoBot.exe
+            trading_bot/dist/PrometheusAICryptoBot.exe.sha256

@@ -1,0 +1,430 @@
+//@version=6
+indicator("Gold Scalpers", "GoldScalp", overlay=true, max_labels_count=500, max_lines_count=500)
+
+plot(na, "ghost", display=display.none)
+
+// ============ TYPES ============
+type SignalRec
+    int   barIdx
+    int   tstamp
+    float entry
+    float sl
+    float tp1
+    float tp2
+    int   status   // 0=open 1=full win 2=loss 3=expired 4=partial
+    float r
+    bool  tp1Hit
+    bool  tp2Hit
+
+// ============ ASSET PRESET ============
+preset      = input.string("Auto", "Asset Preset", options=["Auto","XAUUSD","USDJPY","GBPJPY","Crypto","Custom"], group="Asset Settings")
+tickerStr   = syminfo.ticker
+isGold      = str.contains(tickerStr, "XAU") or str.contains(tickerStr, "GOLD")
+isUSDJPY    = str.contains(tickerStr, "USDJPY")
+isGBPJPY    = str.contains(tickerStr, "GBPJPY")
+isCrypto    = syminfo.type == "crypto"
+autoPreset  = isGold ? "XAUUSD" : isGBPJPY ? "GBPJPY" : isUSDJPY ? "USDJPY" : isCrypto ? "Crypto" : "Unsupported"
+eff         = preset == "Auto" ? autoPreset : preset
+isSupported = eff == "XAUUSD" or eff == "USDJPY" or eff == "GBPJPY" or eff == "Crypto" or eff == "Custom"
+priceDec    = eff == "XAUUSD" ? "0.00" : eff == "Crypto" ? "0.00000000" : "0.000"
+
+// ============ CUSTOM OVERRIDES ============
+grpDip   = "Dip Detection (Custom mode only)"
+custOS   = input.int(30,    "Custom: RSI Oversold",  minval=10, maxval=50, group=grpDip)
+custATR  = input.float(0.8, "Custom: Range x ATR",   minval=0.2, step=0.1, group=grpDip)
+custVol  = input.float(1.0, "Custom: Volume x avg",  minval=0.3, step=0.1, group=grpDip)
+custLook = input.int(10,    "Custom: Low Lookback",   minval=2,              group=grpDip)
+
+grpInt = "Internal"
+rsiLen = input.int(14, "RSI Length", group=grpInt)
+atrLen = input.int(14, "ATR Length", group=grpInt)
+volLen = input.int(20, "Volume MA",  group=grpInt)
+
+effOS   = eff == "Custom" ? custOS   : eff == "XAUUSD" ? 32  : eff == "USDJPY" ? 30  : eff == "GBPJPY" ? 30  : eff == "Crypto" ? 30  : 30
+effATR  = eff == "Custom" ? custATR  : eff == "XAUUSD" ? 0.6 : eff == "USDJPY" ? 0.7 : eff == "GBPJPY" ? 0.8 : eff == "Crypto" ? 0.8 : 0.6
+effVol  = eff == "Custom" ? custVol  : eff == "XAUUSD" ? 0.8 : eff == "USDJPY" ? 0.9 : eff == "GBPJPY" ? 0.9 : eff == "Crypto" ? 1.0 : 0.8
+effLook = eff == "Custom" ? custLook : eff == "XAUUSD" ? 8   : eff == "USDJPY" ? 10  : eff == "GBPJPY" ? 10  : eff == "Crypto" ? 8   : 8
+
+// ============ GREEN SEQUENCE ============
+grpSeq   = "Green Sequence"
+greenN   = input.int(2,  "Required Greens",               minval=1, group=grpSeq)
+maxWait  = input.int(15, "Max Wait Bars",                 minval=2, group=grpSeq)
+cooldown = input.int(5,  "Cooldown Bars Between Signals", minval=0, group=grpSeq)
+
+// ============ QUALITY FILTERS ============
+grpQual          = "Quality Filters"
+requireBodyRatio = input.bool(true, "Require Strong Green Body", group=grpQual, tooltip="When ON: each green candle in the confirmation sequence must have a body (|close - open|) that is at least the minimum % of its total range (high - low). Filters out doji and weak-bodied 'fake greens' that often precede failed reversals. When OFF: any green candle counts as confirmation.")
+minBodyRatio     = input.float(0.3, "Min Green Body Ratio", minval=0.1, maxval=1.0, step=0.05, group=grpQual, tooltip="Confirmation green candle's body must be at least this fraction of its total range. M1-tuned: 0.3 (30%). M1 candles are naturally wickier so 0.4+ rejects too many valid signals. Use 0.4 for M5, 0.5 for M15+. Doji candles have ratios under 0.1.")
+
+// ============ SESSION FILTER ============
+grpSess     = "Session Filter"
+blockSydney = input.bool(true, "Block Sydney Open (21:00-00:30 UTC)", group=grpSess, tooltip="Blocks signal generation during the FIRST 3.5 HOURS of Sydney session (21:00 UTC to 00:30 UTC). FX/Gold oriented. For 24/7 crypto, turn this OFF.")
+
+// ============ VISUALS ============
+grpVis      = "Visuals"
+showDipMark = input.bool(true,  "Mark Dip Bar (yellow)",   group=grpVis)
+showLevels  = input.bool(true,  "Draw SL / TP Levels",     group=grpVis)
+showInfo    = input.bool(false, "Show Active Preset Label", group=grpVis)
+showBuyNow  = input.bool(true,  "Show 'Buy Now' Label",    group=grpVis)
+showEntryRule = input.bool(true, "Show Entry Rule Hint",   group=grpVis, tooltip="Displays a label on the entry line reminding the user to enter only after a candle confirms by closing above the entry price.")
+rrTP1       = input.float(1.0,  "TP1 R:R (1:1)", minval=0.5, step=0.5, group=grpVis)
+rrTP2       = input.float(3.0,  "TP2 R:R",       minval=1.0, step=0.5, group=grpVis)
+
+// ============ DASHBOARD ============
+grpDash     = "Dashboard"
+showDash    = input.bool(true, "Show Dashboard", group=grpDash)
+dashPos     = input.string("Top Right", "Position", options=["Top Right","Top Left","Bottom Right","Bottom Left","Middle Right"], group=grpDash)
+dashRows    = input.int(5,   "Max Rows",               minval=3, maxval=15, group=grpDash)
+dashFilter  = input.string("Wins + Open", "Show in Table", options=["Wins + Open","Wins Only"], group=grpDash, tooltip="Wins + Open = active trades + wins + partials\nWins Only = closed wins and partial wins only (no open trades)")
+trackWindow = input.int(120, "Tracking Window (bars)", minval=20, group=grpDash)
+
+// ============ ALERTS ============
+grpAlert    = "Alerts"
+alertOnBar  = input.string("Bar Close", "Alert Mode",   options=["Bar Close","Every Tick"],  tooltip="'Bar Close' fires only on confirmed candles (no repaint). 'Every Tick' fires on live bars and may repaint — not recommended for live trading.",  group=grpAlert)
+alertHeader = input.string("Gold Scalpers", "Alert Header",                                                        group=grpAlert)
+alertFmt    = input.string("Telegram",  "Alert Format", options=["Telegram","Readable","Compact","Webhook JSON"], group=grpAlert)
+alertOnTP   = input.bool(true, "Alert on TP Hit", group=grpAlert)
+alertOnSL   = input.bool(true, "Alert on SL Hit", group=grpAlert)
+
+// ============ TELEGRAM ============
+grpTg    = "Telegram"
+tgChatId = input.string("", "Telegram Chat ID", group=grpTg)
+
+// ============ EA / WEBHOOK ============
+grpEA     = "EA / Webhook"
+eaLotSize = input.float(0.10,          "Lot Size",      minval=0.0, step=0.01, group=grpEA, tooltip="Position size sent to EA. Set 0 to let EA decide.")
+eaMagic   = input.int(20240101,        "Magic Number",  minval=0,               group=grpEA, tooltip="Unique ID for this EA instance. Prevents order conflicts.")
+eaComment = input.string("GoldScalp",  "Order Comment",                         group=grpEA, tooltip="Label visible in MT4/MT5 terminal AND used as the strategy tag by the trading bot's Strategy filter.")
+whSecret  = input.string("",           "Webhook passphrase (for trading bot)",  group=grpEA, tooltip="Must match the bot's Webhook passphrase. Leave blank if the bot has none.")
+
+// ============ HELPER FUNCTIONS ============
+posMap(s) =>
+    var r = position.top_right
+    if s == "Top Left"
+        r := position.top_left
+    else if s == "Bottom Right"
+        r := position.bottom_right
+    else if s == "Bottom Left"
+        r := position.bottom_left
+    else if s == "Middle Right"
+        r := position.middle_right
+    r
+
+statusText(st) =>
+    var t = ""
+    if st == 0
+        t := "OPEN"
+    else if st == 1
+        t := "WIN"
+    else if st == 2
+        t := "LOSS"
+    else if st == 3
+        t := "EXP"
+    else if st == 4
+        t := "PART"
+    t
+
+statusBg(st) =>
+    var c = color.new(color.gray, 80)
+    if st == 0
+        c := color.new(color.yellow, 80)
+    else if st == 1
+        c := color.new(color.green, 80)
+    else if st == 2
+        c := color.new(color.red, 80)
+    else if st == 4
+        c := color.new(color.orange, 80)
+    c
+
+passesFilter(st, f) =>
+    var ok = false
+    if f == "Wins + Open"
+        ok := st == 0 or st == 1 or st == 4
+    else
+        ok := st == 1 or st == 4
+    ok
+
+// ============ CALCS ============
+rsi        = ta.rsi(close, rsiLen)
+atr        = ta.atr(atrLen)
+volAvg     = ta.sma(volume, volLen)
+lowestN    = ta.lowest(low, effLook)   // used in dip detection
+lowestFive = ta.lowest(low, 5)         // CW10002 fix: pre-calc outside ternary
+hasVolume  = ta.cum(volume) > 0
+volPass    = not hasVolume or volume >= volAvg * effVol
+isRed      = close < open
+isGreen    = close > open
+
+// ---- Candle body quality (Quality Filter: filters out doji / weak-bodied greens) ----
+candleBody     = math.abs(close - open)
+candleRange    = high - low
+bodyRatio      = candleRange > 0 ? candleBody / candleRange : 0.0
+isQualityGreen = isGreen and (not requireBodyRatio or bodyRatio >= minBodyRatio)
+
+isDipRed   = isSupported and isRed and (rsi <= effOS) and (high - low >= atr * effATR) and (low <= lowestN) and volPass
+
+// ---- Sydney open block (21:00-00:30 UTC = first 3.5 hours) ----
+minsUTC  = hour(time, "UTC") * 60 + minute(time, "UTC")
+inSydney = blockSydney and (minsUTC >= 1260 or minsUTC < 30)
+
+// ============ STATE MACHINE ============
+var bool  dipActive     = false
+var int   greenCount    = 0
+var float dipLowVal     = na
+var int   barsSinceDip  = 0
+var int   lastSignalBar = -1000
+
+if isDipRed
+    dipActive    := true
+    greenCount   := 0
+    dipLowVal    := low
+    barsSinceDip := 0
+else
+    if dipActive
+        barsSinceDip := barsSinceDip + 1
+        if barsSinceDip > maxWait
+            dipActive  := false
+            greenCount := 0
+        else
+            if isQualityGreen
+                greenCount := greenCount + 1
+            else
+                greenCount := 0
+                if low < dipLowVal
+                    dipActive := false
+
+inCooldown = (bar_index - lastSignalBar) < cooldown
+rawSignal  = isSupported and dipActive and isQualityGreen and greenCount >= greenN
+signal     = rawSignal and not inCooldown and not inSydney and barstate.isconfirmed
+
+if signal
+    dipActive     := false
+    greenCount    := 0
+    lastSignalBar := bar_index
+
+// ============ SL / TP ============
+var float lockedDipLow = na
+if isDipRed
+    lockedDipLow := low
+
+entryPrice = close
+slPrice    = na(lockedDipLow) ? lowestFive : lockedDipLow   // lowestFive avoids CW10002
+risk       = entryPrice - slPrice
+tp1Price   = entryPrice + risk * rrTP1
+tp2Price   = entryPrice + risk * rrTP2
+
+riskPips   = risk                    / syminfo.mintick / 10
+rewPips1   = (tp1Price - entryPrice) / syminfo.mintick / 10
+rewPips2   = (tp2Price - entryPrice) / syminfo.mintick / 10
+
+// ============ SIGNAL TRACKING ============
+var array<SignalRec> signals = array.new<SignalRec>()
+TRACK_MAX = 50
+
+if signal
+    rec = SignalRec.new(bar_index, time, entryPrice, slPrice, tp1Price, tp2Price, 0, 0.0, false, false)
+    array.unshift(signals, rec)
+    while array.size(signals) > TRACK_MAX
+        array.pop(signals)
+
+freq    = alertOnBar == "Bar Close" ? alert.freq_once_per_bar_close : alert.freq_once_per_bar
+timeStr = str.format_time(time, "yyyy-MM-dd HH:mm:ss", syminfo.timezone)
+lotStr  = str.tostring(eaLotSize, "#.##")
+magStr  = str.tostring(eaMagic)
+
+if array.size(signals) > 0
+    for i = 0 to array.size(signals) - 1
+        rec = array.get(signals, i)
+        if rec.status == 0
+            barsIn = bar_index - rec.barIdx
+            if barsIn > 0
+                hitTP2 = high >= rec.tp2
+                hitTP1 = high >= rec.tp1
+                hitSL  = low  <= rec.sl
+
+                // ---- detect TP transitions ----
+                tpEvent    = ""
+                tpPriceHit = 0.0
+
+                if hitTP2 and not rec.tp2Hit
+                    rec.tp2Hit := true
+                    rec.tp1Hit := true
+                    rec.r      := rrTP2
+                    tpEvent    := "tp2_hit"
+                    tpPriceHit := rec.tp2
+                else if hitTP1 and not rec.tp1Hit
+                    rec.tp1Hit := true
+                    rec.r      := rrTP1
+                    tpEvent    := "tp1_hit"
+                    tpPriceHit := rec.tp1
+
+                // ---- resolve final status ----
+                slEvent = ""
+                if rec.tp2Hit
+                    rec.status := 1
+                else if hitSL
+                    if rec.tp1Hit
+                        rec.status := 4
+                        slEvent    := "sl_after_partial"
+                    else
+                        rec.status := 2
+                        rec.r      := -1.0
+                        slEvent    := "sl_hit"
+                else if barsIn >= trackWindow
+                    if rec.tp1Hit
+                        rec.status := 4
+                    else
+                        rec.status := 3
+                        rec.r      := 0.0
+
+                array.set(signals, i, rec)
+
+                // ---- TP hit alert ----
+                if alertOnTP and tpEvent != ""
+                    tpNum  = tpEvent == "tp1_hit" ? "TP1" : "TP2"
+                    tpEmoji = tpEvent == "tp2_hit" ? "[WIN]" : "[TP]"
+                    tpAct  = tpEvent == "tp1_hit" ? "Partial close - move SL to breakeven" : "Full close - trade complete"
+                    rStr   = str.tostring(rec.r, "+0.0;-0.0") + "R"
+                    pStr   = str.tostring(tpPriceHit, priceDec)
+                    eStr   = str.tostring(rec.entry,  priceDec)
+                    tgTP   = tpEmoji + " " + alertHeader + " - " + tickerStr + "\n" +
+                              tpNum + " HIT: " + pStr + " (" + rStr + ")\n" +
+                              "Entry: " + eStr + "\n" +
+                              tpAct + "\n" + timeStr
+                    rdTP   = tgTP
+                    cpTP   = tickerStr + " " + tpNum + " HIT @ " + pStr + " | Entry " + eStr + " | " + rStr
+                    jsTP   = '{"event":"' + tpEvent + '","symbol":"' + tickerStr +
+                              '","passphrase":"' + whSecret +
+                              '","price":' + pStr + ',"entry":' + eStr +
+                              ',"sl":' + str.tostring(rec.sl, priceDec) +
+                              ',"tp1":' + str.tostring(rec.tp1, priceDec) +
+                              ',"tp2":' + str.tostring(rec.tp2, priceDec) +
+                              ',"lotSize":' + lotStr + ',"magic":' + magStr +
+                              ',"comment":"' + eaComment + '","tf":"' + timeframe.period +
+                              '","time":"' + timeStr + '"}'
+                    tgTPEsc = str.replace_all(tgTP, "\n", "\\n")
+                    tgTPMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTPEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
+                    tpMsg   = alertFmt == "Telegram" ? tgTPMsg : alertFmt == "Webhook JSON" ? jsTP : alertFmt == "Compact" ? cpTP : rdTP
+                    alert(tpMsg, freq)
+
+                // ---- SL hit alert ----
+                if alertOnSL and slEvent != ""
+                    pStr    = str.tostring(rec.sl,    priceDec)
+                    eStr    = str.tostring(rec.entry, priceDec)
+                    isLoss  = slEvent == "sl_hit"
+                    banked  = str.tostring(rec.r, "+0.0") + "R"
+                    slHead  = isLoss ? "SL HIT: " + pStr + " (-1R)" : "SL AFTER PARTIAL: " + pStr + " (banked " + banked + ")"
+                    slHeadC = isLoss ? tickerStr + " SL HIT @ " + pStr + " | -1R" : tickerStr + " PARTIAL CLOSE @ SL | +" + str.tostring(rec.r, "0.0") + "R"
+                    tgSL    = (isLoss ? "[LOSS]" : "[PART]") + " " + alertHeader + " - " + tickerStr + "\n" +
+                               slHead + "\nEntry: " + eStr + "\n" + timeStr
+                    jsSL    = '{"event":"' + slEvent + '","symbol":"' + tickerStr +
+                               '","passphrase":"' + whSecret +
+                               '","price":' + pStr + ',"entry":' + eStr + ',"sl":' + pStr +
+                               ',"tp1":' + str.tostring(rec.tp1, priceDec) +
+                               ',"tp2":' + str.tostring(rec.tp2, priceDec) +
+                               ',"lotSize":' + lotStr + ',"magic":' + magStr +
+                               ',"comment":"' + eaComment + '","tf":"' + timeframe.period +
+                               '","time":"' + timeStr + '"}'
+                    tgSLEsc = str.replace_all(tgSL, "\n", "\\n")
+                    tgSLMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgSLEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
+                    slMsg   = alertFmt == "Telegram" ? tgSLMsg : alertFmt == "Webhook JSON" ? jsSL : alertFmt == "Compact" ? slHeadC : tgSL
+                    alert(slMsg, freq)
+
+// ============ ENTRY ALERT MESSAGE ============
+entryStr = str.tostring(entryPrice, priceDec)
+slStr    = str.tostring(slPrice,    priceDec)
+tp1Str   = str.tostring(tp1Price,   priceDec)
+tp2Str   = str.tostring(tp2Price,   priceDec)
+rrTP1Str = str.tostring(rrTP1, "#.#")
+rrTP2Str = str.tostring(rrTP2, "#.#")
+rsiStr   = str.tostring(rsi,   "#.##")
+pipsRisk = str.tostring(riskPips, "#.#")
+pipsRew1 = str.tostring(rewPips1, "#.#")
+pipsRew2 = str.tostring(rewPips2, "#.#")
+
+tgText = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+         "---\n" +
+         "ENTRY : " + entryStr + "\n" +
+         "SL    : " + slStr    + " (-"  + pipsRisk + " pips)\n" +
+         "TP1   : " + tp1Str   + " (+"  + pipsRew1 + " pips) 1:" + rrTP1Str + "\n" +
+         "TP2   : " + tp2Str   + " (+"  + pipsRew2 + " pips) 1:" + rrTP2Str + "\n" +
+         "---\nRSI " + rsiStr + " | " + timeStr
+
+tgTextEsc   = str.replace_all(tgText, "\n", "\\n")
+telegramMsg = '{"chat_id":"' + tgChatId + '","text":"' + tgTextEsc + '","parse_mode":"HTML","disable_web_page_preview":true}'
+
+readableMsg = alertHeader + " - " + tickerStr + " (" + timeframe.period + ")\n" +
+               "ENTRY : " + entryStr + "\n" +
+               "SL    : " + slStr    + " (-"  + pipsRisk + " pips)\n" +
+               "TP1   : " + tp1Str   + " (+"  + pipsRew1 + " pips)\n" +
+               "TP2   : " + tp2Str   + " (+"  + pipsRew2 + " pips)\n" +
+               "RSI " + rsiStr + " | " + timeStr
+
+compactMsg = tickerStr + " BUY @ " + entryStr + " | SL " + slStr + " | TP1 " + tp1Str + " | TP2 " + tp2Str
+
+jsonMsg = '{"action":"buy","symbol":"' + tickerStr + '","passphrase":"' + whSecret + '","entry":' + entryStr +
+           ',"sl":' + slStr + ',"tp1":' + tp1Str + ',"tp2":' + tp2Str +
+           ',"rr1":' + rrTP1Str + ',"rr2":' + rrTP2Str +
+           ',"lotSize":' + lotStr + ',"magic":' + magStr +
+           ',"comment":"' + eaComment + '","tf":"' + timeframe.period + '","time":"' + timeStr + '"}'
+
+alertMsg = alertFmt == "Telegram" ? telegramMsg : alertFmt == "Webhook JSON" ? jsonMsg : alertFmt == "Compact" ? compactMsg : readableMsg
+
+if signal
+    alert(alertMsg, freq)
+
+alertcondition(signal, title="Gold Scalpers BUY", message="Gold Scalpers - BUY signal")
+
+// ============ VISUALS ============
+plotshape(showDipMark and isDipRed, title="DIP", style=shape.diamond, location=location.belowbar, color=color.new(color.yellow, 0), size=size.tiny,  force_overlay=true)
+plotshape(signal,                   title="BUY", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BUY", textcolor=color.white, force_overlay=true)
+bgcolor(signal ? color.new(color.lime, 80) : na, title="Signal BG")
+
+if showBuyNow and signal
+    label.new(bar_index, low - atr, "BUY @ " + str.tostring(entryPrice, priceDec), color=color.new(color.lime, 0), textcolor=color.black, style=label.style_label_up, size=size.normal, textalign=text.align_center, force_overlay=true)
+
+// ---- SL / TP level lines for the latest signal ----
+if showLevels and signal
+    line.new(bar_index, slPrice,  bar_index + 8, slPrice,  color=color.new(color.red, 0),    width=1, force_overlay=true)
+    line.new(bar_index, tp1Price, bar_index + 8, tp1Price, color=color.new(color.green, 0),  width=1, force_overlay=true)
+    line.new(bar_index, tp2Price, bar_index + 8, tp2Price, color=color.new(color.green, 40), width=1, force_overlay=true)
+    if showEntryRule
+        label.new(bar_index + 8, entryPrice, "Enter only after a candle closes above entry", style=label.style_label_left, color=color.new(color.blue, 70), textcolor=color.white, size=size.small, force_overlay=true)
+
+// ---- Active preset label ----
+var label infoLbl = na
+if showInfo and barstate.islast
+    label.delete(infoLbl)
+    infoTxt  = isSupported ? "Preset: " + eff : "Unsupported. Use XAUUSD / USDJPY / GBPJPY / Crypto / Custom"
+    infoCl   = isSupported ? color.new(color.gray, 70) : color.new(color.red, 30)
+    infoLbl := label.new(bar_index, high, infoTxt, color=infoCl, textcolor=color.white, style=label.style_label_down, size=size.small, force_overlay=true)
+
+// ============ DASHBOARD (reconstructed — verify against your original) ============
+var table dash = na
+if showDash and barstate.islast
+    if not na(dash)
+        table.delete(dash)
+    dash := table.new(posMap(dashPos), 7, dashRows + 1, border_width=1, frame_color=color.new(color.gray, 50), frame_width=1)
+    hdrBg = color.new(color.black, 20)
+    table.cell(dash, 0, 0, "Time",   text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 1, 0, "Entry",  text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 2, 0, "SL",     text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 3, 0, "TP1",    text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 4, 0, "TP2",    text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 5, 0, "R",      text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+    table.cell(dash, 6, 0, "Stat",   text_color=color.white, text_size=size.tiny, bgcolor=hdrBg)
+
+    int rowOut = 1
+    if array.size(signals) > 0
+        for i = 0 to array.size(signals) - 1
+            rec = array.get(signals, i)
+            if rowOut <= dashRows and (bar_index - rec.barIdx) <= trackWindow and passesFilter(rec.status, dashFilter)
+                bg = statusBg(rec.status)
+                table.cell(dash, 0, rowOut, str.format_time(rec.tstamp, "HH:mm", syminfo.timezone), text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 1, rowOut, str.tostring(rec.entry, priceDec), text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 2, rowOut, str.tostring(rec.sl,    priceDec), text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 3, rowOut, str.tostring(rec.tp1,   priceDec), text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 4, rowOut, str.tostring(rec.tp2,   priceDec), text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 5, rowOut, str.tostring(rec.r, "0.0"),        text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                table.cell(dash, 6, rowOut, statusText(rec.status),            text_color=color.white, text_size=size.tiny, bgcolor=bg)
+                rowOut := rowOut + 1

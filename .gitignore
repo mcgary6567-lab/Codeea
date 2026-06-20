@@ -1,0 +1,5 @@
+# generated artifacts
+*.zip
+
+# Relay live secrets (never commit; survives folder re-uploads)
+relay/config.local.php
