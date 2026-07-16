@@ -1,6 +1,6 @@
 # Fly.io config for Prometheus Web.
 # Rename `app` to something unique, then:  fly launch --no-deploy   (or `fly deploy`)
-app = "prometheus-web"
+app = "prometheus-web-mcgary6567"
 
 # Put the app NEAR YOUR EXCHANGE for the lowest order latency:
 #   Binance/Bybit/OKX run on AWS Tokyo  -> "nrt"
@@ -12,7 +12,7 @@ primary_region = "nrt"
 
 [env]
   PROMETHEUS_DATA_DIR = "/data"
-  PROMETHEUS_PUBLIC_URL = "https://app.prometheus.com"
+  PROMETHEUS_PUBLIC_URL = "https://prometheus-web-mcgary6567.fly.dev"
   PROMETHEUS_TRIAL_DAYS = "10"
   # PROMETHEUS_ADMIN_EMAIL is set via `fly secrets set` (see DEPLOY.md)
 
