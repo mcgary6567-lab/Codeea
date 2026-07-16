@@ -17,8 +17,8 @@ from . import security
 
 _LOCK = threading.RLock()
 
-TRIAL_DAYS = float(__import__("os").environ.get("TREVOLTO_TRIAL_DAYS", "10"))
-ADMIN_EMAIL = __import__("os").environ.get("TREVOLTO_ADMIN_EMAIL", "").strip().lower()
+TRIAL_DAYS = float(__import__("os").environ.get("PROMETHEUS_TRIAL_DAYS", "10"))
+ADMIN_EMAIL = __import__("os").environ.get("PROMETHEUS_ADMIN_EMAIL", "").strip().lower()
 
 
 def _conn() -> sqlite3.Connection:

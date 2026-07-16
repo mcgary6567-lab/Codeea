@@ -62,7 +62,7 @@ DEFAULT_SETTINGS = {
     "webhook_passphrase": "",
     "telegram_token": "",
     "telegram_chat": "",
-    "strategy_filter": "Trevolto",
+    "strategy_filter": "Prometheus",
     "strategy_symbols": "BTC/USDT",
     "strategy_timeframe": "1h",
     "strategy_params": {},           # overrides StrategyParams fields
@@ -109,7 +109,7 @@ class TraderSession:
     def _tg_send(token: str, chat: str, msg: str) -> None:
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
-            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🟦 Trevolto\n{msg}"}).encode()
+            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🟦 Prometheus\n{msg}"}).encode()
             urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
         except Exception:
             pass
@@ -428,7 +428,7 @@ class TraderSession:
             tp1 = entry + (params.ma_tp1_r * risk if side == "buy" else -params.ma_tp1_r * risk) if params.ma_tp1_r else 0
             tp2 = entry + (params.ma_tp2_r * risk if side == "buy" else -params.ma_tp2_r * risk) if params.ma_tp2_r else 0
             self.handle_signal({"action": side, "symbol": symbol, "entry": entry,
-                                "sl": sl, "tp1": tp1, "tp2": tp2, "comment": "Trevolto"},
+                                "sl": sl, "tp1": tp1, "tp2": tp2, "comment": "Prometheus"},
                                source="strategy")
 
     # -- snapshot for the UI -------------------------------------------------

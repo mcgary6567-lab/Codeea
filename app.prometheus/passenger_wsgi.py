@@ -1,6 +1,6 @@
 """cPanel / Passenger entry point.
 
-cPanel's "Setup Python App" runs a WSGI app via Passenger, but Trevolto is an
+cPanel's "Setup Python App" runs a WSGI app via Passenger, but Prometheus is an
 ASGI (FastAPI) app, so we wrap it with a2wsgi. Passenger looks for a module-level
 `application` object in this file.
 

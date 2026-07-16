@@ -1,5 +1,5 @@
-// Trevolto Web — dashboard client
-let TOKEN = localStorage.getItem("trevolto_token") || "";
+// Prometheus Web — dashboard client
+let TOKEN = localStorage.getItem("prometheus_token") || "";
 let authMode = "login";
 let markDirty = false, ws = null, lastState = null;
 
@@ -28,12 +28,12 @@ async function doAuth() {
   try {
     const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST",
       { email: $("au-email").value.trim(), password: $("au-pass").value });
-    TOKEN = d.token; localStorage.setItem("trevolto_token", TOKEN);
+    TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN);
     enterApp();
   } catch (e) { $("au-err").textContent = e.message; }
 }
 function logout() {
-  localStorage.removeItem("trevolto_token"); TOKEN = "";
+  localStorage.removeItem("prometheus_token"); TOKEN = "";
   if (ws) ws.close();
   $("app").classList.add("hidden"); $("landing").classList.remove("hidden");
 }
@@ -115,7 +115,7 @@ function render(s) {
 
   // settings + webhook (only overwrite fields when user isn't editing)
   applySettings(s.settings || {});
-  $("wh-url").value = s.webhook_url || "(set TREVOLTO_PUBLIC_URL)";
+  $("wh-url").value = s.webhook_url || "(set PROMETHEUS_PUBLIC_URL)";
   $("tr-mode").textContent = (s.settings || {}).sizing_mode || "—";
 }
 

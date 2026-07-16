@@ -1,8 +1,8 @@
 """Auth, password hashing, JWT, and API-key encryption for the web app.
 
-Desktop Trevolto protects keys with a local PIN + Fernet. The web version keeps
+Desktop Prometheus protects keys with a local PIN + Fernet. The web version keeps
 the same Fernet-at-rest model but the master key lives on the server (set
-``TREVOLTO_SECRET_KEY`` — in production back it with a KMS/secret manager), and
+``PROMETHEUS_SECRET_KEY`` — in production back it with a KMS/secret manager), and
 user identity is an email + password (PBKDF2) issuing short-lived JWTs.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ _TOKEN_TTL = 7 * 24 * 3600  # 7 days
 
 def _load_master_key() -> bytes:
     """Fernet master key from env, else a persisted per-install key (dev)."""
-    env = os.environ.get("TREVOLTO_SECRET_KEY")
+    env = os.environ.get("PROMETHEUS_SECRET_KEY")
     if env:
         # Accept either a raw Fernet key or any string (hashed to 32 bytes).
         try:

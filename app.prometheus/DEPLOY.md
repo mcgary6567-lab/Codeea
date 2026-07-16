@@ -1,6 +1,6 @@
-# Deploying Trevolto Web on `app.trevolto.com`
+# Deploying Prometheus Web on `app.prometheus.com`
 
-> **Read this first.** Trevolto Web is a **running Python app**, not static
+> **Read this first.** Prometheus Web is a **running Python app**, not static
 > files. Your marketing site (plain HTML/PHP) can be dragged into a subdomain
 > folder — this **cannot**. It needs a Python process running `uvicorn` (or
 > Passenger). Pick one of the three paths below. All end with your subdomain
@@ -24,15 +24,15 @@
 | `data/` (created at runtime) | **The database lives here** | ❌ never upload/commit |
 
 ### The database
-There is **no MySQL to create.** Trevolto Web uses **SQLite** — a single file
-`trevolto_web.db` auto-created inside `TREVOLTO_DATA_DIR`, plus a `master.key`.
+There is **no MySQL to create.** Prometheus Web uses **SQLite** — a single file
+`prometheus_web.db` auto-created inside `PROMETHEUS_DATA_DIR`, plus a `master.key`.
 It holds customers, their **encrypted** API keys, settings, trades and equity.
-Keep `TREVOLTO_DATA_DIR` **outside the web root** and back it up — losing
+Keep `PROMETHEUS_DATA_DIR` **outside the web root** and back it up — losing
 `master.key` makes stored API keys unreadable.
 
 ### Settings you must provide (see `.env.example`)
-`TREVOLTO_SECRET_KEY` (required), `TREVOLTO_PUBLIC_URL` (your subdomain),
-`TREVOLTO_DATA_DIR`, `TREVOLTO_TRIAL_DAYS`, `TREVOLTO_ADMIN_EMAIL`.
+`PROMETHEUS_SECRET_KEY` (required), `PROMETHEUS_PUBLIC_URL` (your subdomain),
+`PROMETHEUS_DATA_DIR`, `PROMETHEUS_TRIAL_DAYS`, `PROMETHEUS_ADMIN_EMAIL`.
 
 ---
 
@@ -43,22 +43,22 @@ Passenger doesn't proxy WebSockets, so the dashboard uses **3-second polling**
 instead of live push (everything still works).
 
 1. **Create the subdomain**: cPanel → **Domains / Subdomains** →
-   `app` . `trevolto.com`. Note the document root it makes
-   (e.g. `/home/youruser/app.trevolto.com`).
+   `app` . `prometheus.com`. Note the document root it makes
+   (e.g. `/home/youruser/app.prometheus.com`).
 2. **Upload** the contents of this folder into that document root (File Manager
    → Upload, or Git Version Control → clone this repo and point it there).
 3. cPanel → **Setup Python App** → **Create Application**:
    - Python version **3.10+**
    - Application root = the folder you uploaded to
-   - Application URL = `app.trevolto.com`
+   - Application URL = `app.prometheus.com`
    - Application startup file = `passenger_wsgi.py`
    - Application Entry point = `application`
 4. In the same screen, add **Environment variables** from `.env.example`
-   (`TREVOLTO_SECRET_KEY`, `TREVOLTO_PUBLIC_URL=https://app.trevolto.com`,
-   `TREVOLTO_DATA_DIR=/home/youruser/trevolto-data`, etc.).
+   (`PROMETHEUS_SECRET_KEY`, `PROMETHEUS_PUBLIC_URL=https://app.prometheus.com`,
+   `PROMETHEUS_DATA_DIR=/home/youruser/prometheus-data`, etc.).
 5. Click **Run pip install** with `requirements.txt` (or open the venv terminal
    it shows and run `pip install -r requirements.txt`).
-6. **Restart** the app. Visit `https://app.trevolto.com` — you should see the
+6. **Restart** the app. Visit `https://app.prometheus.com` — you should see the
    landing page. Enable **AutoSSL** (cPanel → SSL/TLS Status) for HTTPS.
 
 ---
@@ -70,7 +70,7 @@ live WebSocket updates and full control.
 
 ```bash
 # on the server
-git clone <your-repo> && cd app.trevolto
+git clone <your-repo> && cd app.prometheus
 cp .env.example .env && nano .env          # fill in your values
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -78,12 +78,12 @@ pip install -r requirements.txt
 uvicorn server.main:app --host 127.0.0.1 --port 8000
 ```
 
-Put **Caddy** in front for automatic HTTPS (point `app.trevolto.com`'s DNS
+Put **Caddy** in front for automatic HTTPS (point `app.prometheus.com`'s DNS
 A-record at the VPS IP first):
 
 ```
 # /etc/caddy/Caddyfile
-app.trevolto.com {
+app.prometheus.com {
     reverse_proxy 127.0.0.1:8000
 }
 ```
@@ -105,25 +105,25 @@ curl -L https://fly.io/install.sh | sh
 fly auth login
 
 # 2. From inside this folder — create the app (don't deploy yet)
-cd app.trevolto
+cd app.prometheus
 fly launch --no-deploy            # keep the app name unique; it reads fly.toml
 
 # 3. Create the persistent disk for the SQLite DB (same region as the app!)
-fly volumes create trevolto_data --size 1 --region nrt
+fly volumes create prometheus_data --size 1 --region nrt
 
 # 4. Set your secrets (NOT in fly.toml)
 fly secrets set \
-  TREVOLTO_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
-  TREVOLTO_ADMIN_EMAIL="you@youremail.com"
-#   (edit TREVOLTO_PUBLIC_URL in fly.toml to your real subdomain first)
+  PROMETHEUS_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+  PROMETHEUS_ADMIN_EMAIL="you@youremail.com"
+#   (edit PROMETHEUS_PUBLIC_URL in fly.toml to your real subdomain first)
 
 # 5. Deploy
 fly deploy
 
 # 6. Attach your subdomain
-fly certs add app.trevolto.com
+fly certs add app.prometheus.com
 #   Then add the DNS records Fly prints (an A + AAAA, or a CNAME) at your
-#   domain registrar. `fly certs show app.trevolto.com` confirms once issued.
+#   domain registrar. `fly certs show app.prometheus.com` confirms once issued.
 ```
 
 **Important Fly settings (already in `fly.toml`):** `auto_stop_machines = false`
@@ -142,11 +142,11 @@ lives only as an encrypted GitHub secret.
 dashboard — CI can deploy but can't create the app/volume/secrets for you):
 
 ```bash
-cd app.trevolto
+cd app.prometheus
 fly launch --no-deploy                        # creates the Fly app from fly.toml
-fly volumes create trevolto_data --size 1 --region nrt
-fly secrets set TREVOLTO_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
-               TREVOLTO_ADMIN_EMAIL="you@youremail.com"
+fly volumes create prometheus_data --size 1 --region nrt
+fly secrets set PROMETHEUS_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+               PROMETHEUS_ADMIN_EMAIL="you@youremail.com"
 ```
 
 **Then wire CI:**
@@ -157,13 +157,13 @@ fly tokens create deploy -x 999999h           # a deploy-only token (least privi
 
 - Copy that token → GitHub repo → **Settings → Secrets and variables → Actions
   → New repository secret** → name it **`FLY_API_TOKEN`**, paste the value.
-- Now every push that touches `app.trevolto/**` deploys automatically, or click
-  **Actions → Deploy Trevolto Web to Fly.io → Run workflow**.
+- Now every push that touches `app.prometheus/**` deploys automatically, or click
+  **Actions → Deploy Prometheus Web to Fly.io → Run workflow**.
 - The token is deploy-scoped and revocable any time (`fly tokens revoke`).
 
 ### Railway / Render (alternative push-button)
-Same idea: new project from the repo (root `app.trevolto`), set the env vars,
-add a volume at `/data` with `TREVOLTO_DATA_DIR=/data`, keep it always-on
+Same idea: new project from the repo (root `app.prometheus`), set the env vars,
+add a volume at `/data` with `PROMETHEUS_DATA_DIR=/data`, keep it always-on
 (disable scale-to-zero), then CNAME the subdomain.
 
 ---
@@ -182,7 +182,7 @@ TradingView alert ──(webhook)──► your Fly app ──(REST)──► ex
   ~1 second, outside anyone's control) and the **exchange API round-trip**.
 - You cut the exchange round-trip by running Fly in the **same region as the
   exchange** (`primary_region = "nrt"` for Binance/Bybit/OKX on AWS Tokyo).
-- Because the Trevolto strategy fires on **bar close**, a sub-second vs
+- Because the Prometheus strategy fires on **bar close**, a sub-second vs
   two-second fill is not meaningful to its edge — it's not scalping ticks.
 
 If you ever wanted true low-latency (co-located, no TradingView hop), you'd use
@@ -195,7 +195,7 @@ exchange's region — which this app already supports.
 
 - **cPanel (Path A):** the subdomain is created for you — nothing extra.
 - **VPS (Path B):** add an **A record** `app` → your server's IP.
-- **Fly.io (Path C):** run `fly certs add app.trevolto.com`, then add the
+- **Fly.io (Path C):** run `fly certs add app.prometheus.com`, then add the
   **A + AAAA** (or CNAME) records Fly gives you at your registrar.
 - **Railway/Render:** add a **CNAME** `app` → the host's target domain.
 
@@ -205,13 +205,13 @@ TLS/HTTPS is **required** — TradingView only posts webhooks to `https://` URLs
 
 ## First run checklist
 
-1. Open `https://app.trevolto.com` → **Register**. The **first account** (or the
-   `TREVOLTO_ADMIN_EMAIL` you set) is the **admin**.
-2. Go to `https://app.trevolto.com/admin` — you should see the customer panel.
+1. Open `https://app.prometheus.com` → **Register**. The **first account** (or the
+   `PROMETHEUS_ADMIN_EMAIL` you set) is the **admin**.
+2. Go to `https://app.prometheus.com/admin` — you should see the customer panel.
 3. Register a second test account → it gets a **trial**; suspend/licence it from
    the admin panel to confirm gating works.
 4. In a customer account: **Trade → Save & Connect** (keep **Safe Mode** on),
    then **Webhook** tab → copy the URL into a TradingView alert.
 
-Your marketing site stays on its own domain/subdomain (e.g. `trevolto.com`) and
-just links **"Login / Dashboard"** to `https://app.trevolto.com`.
+Your marketing site stays on its own domain/subdomain (e.g. `prometheus.com`) and
+just links **"Login / Dashboard"** to `https://app.prometheus.com`.

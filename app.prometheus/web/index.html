@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Trevolto Web — AI Crypto Trading</title>
+<title>Prometheus Web — AI Crypto Trading</title>
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
@@ -12,9 +12,9 @@
 <div id="landing">
   <div class="land-hero">
     <div class="land-copy">
-      <div class="brand" style="font-size:22px;font-weight:800">Trevolto</div>
+      <div class="brand" style="font-size:22px;font-weight:800">Prometheus</div>
       <h1>Automate your crypto strategy — right in your browser.</h1>
-      <p class="lead">Connect your own exchange account, point TradingView (or the built-in strategy) at Trevolto, and it executes entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
+      <p class="lead">Connect your own exchange account, point TradingView (or the built-in strategy) at Prometheus, and it executes entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
       <ul class="land-feats">
         <li>🔑 <b>Your keys, your exchange</b> — Binance, Bybit, OKX, KuCoin, Bitget, Kraken, Coinbase. Trade-only, encrypted.</li>
         <li>⚡ <b>TradingView webhooks</b> → live orders with auto SL + TP1/TP2 scale-out.</li>
@@ -240,7 +240,7 @@
   <!-- WEBHOOK -->
   <section id="v-webhook" class="hidden">
     <div class="card"><h3>TradingView webhook</h3>
-      <div class="warnbox">TradingView only POSTs to public HTTPS URLs on port 443. Host this app behind TLS (set <span class="mono">TREVOLTO_PUBLIC_URL</span>) so the URL below is reachable.</div>
+      <div class="warnbox">TradingView only POSTs to public HTTPS URLs on port 443. Host this app behind TLS (set <span class="mono">PROMETHEUS_PUBLIC_URL</span>) so the URL below is reachable.</div>
       <label>Your webhook URL</label>
       <input id="wh-url" readonly/>
       <div class="copy" onclick="copyWh()">📋 Copy</div>
@@ -250,7 +250,7 @@
       <input id="wh-filter"/>
       <button class="btn" style="margin-top:12px" onclick="saveWebhook()">Save</button>
       <h3 style="margin-top:20px">Alert JSON your indicator should send</h3>
-      <div class="log mono" style="height:auto">{"action":"buy","symbol":"BTCUSDT","entry":67500,"sl":66800,"tp1":68200,"tp2":69500,"comment":"Trevolto","passphrase":""}</div>
+      <div class="log mono" style="height:auto">{"action":"buy","symbol":"BTCUSDT","entry":67500,"sl":66800,"tp1":68200,"tp2":69500,"comment":"Prometheus","passphrase":""}</div>
     </div>
     <div class="card"><h3>Telegram notifications</h3>
       <div class="row">

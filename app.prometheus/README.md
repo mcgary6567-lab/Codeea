@@ -1,7 +1,7 @@
-# Trevolto Web
+# Prometheus Web
 
-A **web version of the Trevolto desktop trading app** — same engine, in the
-browser, multi-user. It reuses Trevolto's trading core (`exchange.py`,
+A **web version of the Prometheus desktop trading app** — same engine, in the
+browser, multi-user. It reuses Prometheus's trading core (`exchange.py`,
 `strategy.py`, `guardrails.py`, `backtest.py`) unchanged and wraps it in a
 FastAPI backend + a dashboard, so one server hosts many users.
 
@@ -13,7 +13,7 @@ Built-in strategy  ─┘        (guardrails → sizing → order → SL/TP brac
 
 > ⚠️ **Trading risk & custody.** This is a full SaaS build: users' exchange API
 > keys are stored **encrypted server-side** and the server trades on their
-> behalf. That makes the operator a custodian — protect `TREVOLTO_SECRET_KEY`
+> behalf. That makes the operator a custodian — protect `PROMETHEUS_SECRET_KEY`
 > with a real secret manager/KMS, require trade-only keys (withdrawals off),
 > and keep users in **Safe Mode** until validated. Provided as-is, no warranty.
 
@@ -43,7 +43,7 @@ The web build is a **standalone product** — no link to the desktop/Mac apps.
 Customers sign up, enter **their own** exchange API keys, and TradingView hooks
 hit their per-user webhook URL. Access is gated:
 
-- **Free trial** on signup (default 10 days, `TREVOLTO_TRIAL_DAYS`). Trial users
+- **Free trial** on signup (default 10 days, `PROMETHEUS_TRIAL_DAYS`). Trial users
   can connect and trade immediately.
 - When the trial ends, connecting/trading/webhooks are blocked (HTTP 402) until
   you grant a **licence**.
@@ -52,17 +52,17 @@ hit their per-user webhook URL. Access is gated:
   licences** (extend N days). Suspending stops a customer's trading instantly —
   including any running strategy loop and incoming webhooks.
 - The **first registered user** becomes admin automatically; or set
-  `TREVOLTO_ADMIN_EMAIL` so a specific email is admin on signup.
+  `PROMETHEUS_ADMIN_EMAIL` so a specific email is admin on signup.
 
 | Env | Purpose |
 |---|---|
-| `TREVOLTO_TRIAL_DAYS` | Free-trial length in days (default 10) |
-| `TREVOLTO_ADMIN_EMAIL` | Email that becomes admin on registration |
+| `PROMETHEUS_TRIAL_DAYS` | Free-trial length in days (default 10) |
+| `PROMETHEUS_ADMIN_EMAIL` | Email that becomes admin on registration |
 
 ## Run (dev)
 
 ```bash
-cd app.trevolto
+cd app.prometheus
 ./run.sh                 # installs deps, generates a dev secret, serves :8000
 ```
 
@@ -76,12 +76,12 @@ real keys or funds.
 Quick Docker version:
 
 ```bash
-docker build -t trevolto-web .
-docker run -p 8000:8000 -v trevolto-data:/data \
-  -e TREVOLTO_SECRET_KEY="$(your-kms-fetch)" \
-  -e TREVOLTO_PUBLIC_URL="https://app.trevolto.com" \
-  -e TREVOLTO_DATA_DIR=/data \
-  trevolto-web
+docker build -t prometheus-web .
+docker run -p 8000:8000 -v prometheus-data:/data \
+  -e PROMETHEUS_SECRET_KEY="$(your-kms-fetch)" \
+  -e PROMETHEUS_PUBLIC_URL="https://app.prometheus.com" \
+  -e PROMETHEUS_DATA_DIR=/data \
+  prometheus-web
 ```
 
 Put it behind TLS (Caddy/Nginx) — TradingView webhooks require HTTPS on 443.
@@ -92,10 +92,10 @@ current build keeps `TraderSession`s in-process (one worker) — see Limitations
 
 | Var | Purpose |
 |---|---|
-| `TREVOLTO_SECRET_KEY` | Master key for Fernet key-encryption + JWT signing. **Back with KMS.** |
-| `TREVOLTO_PUBLIC_URL` | Public base URL advertised in each user's webhook URL |
-| `TREVOLTO_DATA_DIR` | Where SQLite + master key live (default `./data`) |
-| `TREVOLTO_POLL_INTERVAL` | Per-user account refresh cadence (s) |
+| `PROMETHEUS_SECRET_KEY` | Master key for Fernet key-encryption + JWT signing. **Back with KMS.** |
+| `PROMETHEUS_PUBLIC_URL` | Public base URL advertised in each user's webhook URL |
+| `PROMETHEUS_DATA_DIR` | Where SQLite + master key live (default `./data`) |
+| `PROMETHEUS_POLL_INTERVAL` | Per-user account refresh cadence (s) |
 
 ## Connect TradingView
 
@@ -122,7 +122,7 @@ server/
   store.py       SQLite: users, encrypted keys, settings, trades, equity
   security.py    password hash, JWT, Fernet key encryption
   config_web.py  server settings/paths
-  engine/        Trevolto trading core (reused): exchange, strategy, guardrails, backtest, config
+  engine/        Prometheus trading core (reused): exchange, strategy, guardrails, backtest, config
 web/             index.html (landing+dashboard) · admin.html · style.css · app.js · admin.js
 ```
 

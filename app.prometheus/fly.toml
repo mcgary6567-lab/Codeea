@@ -1,6 +1,6 @@
-# Fly.io config for Trevolto Web.
+# Fly.io config for Prometheus Web.
 # Rename `app` to something unique, then:  fly launch --no-deploy   (or `fly deploy`)
-app = "trevolto-web"
+app = "prometheus-web"
 
 # Put the app NEAR YOUR EXCHANGE for the lowest order latency:
 #   Binance/Bybit/OKX run on AWS Tokyo  -> "nrt"
@@ -11,14 +11,14 @@ primary_region = "nrt"
 [build]
 
 [env]
-  TREVOLTO_DATA_DIR = "/data"
-  TREVOLTO_PUBLIC_URL = "https://app.trevolto.com"
-  TREVOLTO_TRIAL_DAYS = "10"
-  # TREVOLTO_ADMIN_EMAIL is set via `fly secrets set` (see DEPLOY.md)
+  PROMETHEUS_DATA_DIR = "/data"
+  PROMETHEUS_PUBLIC_URL = "https://app.prometheus.com"
+  PROMETHEUS_TRIAL_DAYS = "10"
+  # PROMETHEUS_ADMIN_EMAIL is set via `fly secrets set` (see DEPLOY.md)
 
 # Persistent disk for the SQLite DB + master.key (survives redeploys/restarts).
 [[mounts]]
-  source = "trevolto_data"
+  source = "prometheus_data"
   destination = "/data"
 
 [http_service]

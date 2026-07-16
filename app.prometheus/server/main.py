@@ -1,4 +1,4 @@
-"""Trevolto Web — FastAPI backend.
+"""Prometheus Web — FastAPI backend.
 
 Exposes the desktop app's capabilities over HTTP + WebSocket: auth, exchange
 connect, manual trading, positions, settings, guardrails, TradingView webhooks,
@@ -26,7 +26,7 @@ from .config_web import PUBLIC_URL
 from .session import get_session, public_ohlcv
 
 store.init_db()
-app = FastAPI(title="Trevolto Web", version="1.0.0")
+app = FastAPI(title="Prometheus Web", version="1.0.0")
 
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 

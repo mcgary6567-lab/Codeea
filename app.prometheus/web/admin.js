@@ -1,5 +1,5 @@
-// Trevolto Web — admin panel
-let TOKEN = localStorage.getItem("trevolto_token") || "";
+// Prometheus Web — admin panel
+let TOKEN = localStorage.getItem("prometheus_token") || "";
 const $ = id => document.getElementById(id);
 
 async function api(path, method = "GET", bodyObj) {
@@ -11,13 +11,13 @@ async function api(path, method = "GET", bodyObj) {
   if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
   return d;
 }
-function logout() { localStorage.removeItem("trevolto_token"); TOKEN = ""; location.reload(); }
+function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; location.reload(); }
 
 async function adminLogin() {
   $("g-err").textContent = "";
   try {
     const d = await api("/api/login", "POST", { email: $("g-email").value.trim(), password: $("g-pass").value });
-    TOKEN = d.token; localStorage.setItem("trevolto_token", TOKEN); boot();
+    TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); boot();
   } catch (e) { $("g-err").textContent = e.message; }
 }
 

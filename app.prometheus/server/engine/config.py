@@ -7,10 +7,10 @@ settings file. Secrets (API key/secret) are stored encrypted by ``security.py``.
 import os
 import sys
 
-APP_NAME = "Trevolto"              # storage key (own data dir — separate from any other build)
-APP_TITLE = "Trevolto"
-WEBSITE_URL = "https://trevolto.com/"
-SUPPORT_EMAIL = "support@trevolto.com"
+APP_NAME = "Prometheus"              # storage key (own data dir — separate from any other build)
+APP_TITLE = "Prometheus"
+WEBSITE_URL = "https://prometheus.com/"
+SUPPORT_EMAIL = "support@prometheus.com"
 
 
 def resource_path(name: str) -> str:
@@ -24,7 +24,7 @@ def resource_path(name: str) -> str:
 # elsewhere. Same data, native home on each platform.
 # ---------------------------------------------------------------------------
 def _data_dir() -> str:
-    _env = os.environ.get("TREVOLTO_DATA_DIR")
+    _env = os.environ.get("PROMETHEUS_DATA_DIR")
     if _env:
         os.makedirs(_env, exist_ok=True)
         return _env
@@ -67,8 +67,8 @@ DEFAULT_TELEGRAM_IMPORTANT_ONLY = True
 # UPDATE_REPO is left blank so the GitHub Releases API is skipped — set it to
 # "owner/name" only if you later switch to a public releases repo.
 UPDATE_REPO = ""
-UPDATE_ASSET = "Trevolto.exe"
-UPDATE_URL = "https://trevolto.com/version.json"
+UPDATE_ASSET = "Prometheus.exe"
+UPDATE_URL = "https://prometheus.com/version.json"
 # How often to re-check for updates while the app stays open (long-running bots).
 UPDATE_RECHECK_HOURS = 24
 
@@ -174,7 +174,7 @@ MAX_REFRESH_FAILURES = 3
 # Cloud relay (optional). Your TradingView account posts to your relay; each
 # customer's app polls it for new signals — no ngrok / port-forwarding needed.
 # ---------------------------------------------------------------------------
-DEFAULT_RELAY_URL = "https://hooks.trevolto.com/poll.php"
+DEFAULT_RELAY_URL = "https://hooks.prometheus.com/poll.php"
 RELAY_POLL_INTERVAL = 5.0   # seconds between polls (low enough for fast pickup,
                             # high enough to avoid host/Cloudflare rate-limit 403s)
 
@@ -183,7 +183,7 @@ RELAY_POLL_INTERVAL = 5.0   # seconds between polls (low enough for fast pickup,
 # locks and the "Get License" button opens CHECKOUT_URL.
 TRIAL_DAYS = 10
 # >>> SET THIS to your real checkout link (Stripe Payment Link / Gumroad / etc.)
-CHECKOUT_URL = "https://trevolto.com/checkout"
+CHECKOUT_URL = "https://prometheus.com/checkout"
 
 # ---------------------------------------------------------------------------
 # Built-in strategy engine. Runs the bot's own port of the indicator over
