@@ -177,6 +177,17 @@ def user_by_webhook(token: str) -> Optional[dict]:
         return dict(r) if r else None
 
 
+def update_email(user_id: int, email: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET email=? WHERE id=?", (email.strip().lower(), user_id))
+
+
+def update_password(user_id: int, password: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET pw_hash=? WHERE id=?",
+                  (security.hash_password(password), user_id))
+
+
 def save_settings(user_id: int, settings: dict) -> None:
     with _LOCK, _conn() as c:
         c.execute("UPDATE users SET settings=? WHERE id=?", (json.dumps(settings), user_id))

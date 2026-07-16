@@ -92,8 +92,9 @@ def _webhook_url(user: dict) -> str:
     return f"{base}/webhook/{user['webhook_token']}"
 
 
-@app.get("/api/state")
-def state(user: dict = Depends(current_user)):
+def full_state(user: dict) -> dict:
+    """Snapshot + per-user fields — used by BOTH /api/state and the WebSocket so
+    live updates never drop the licence/access status (fixes the stale banner)."""
     s = get_session(user["id"])
     snap = s.snapshot()
     snap["email"] = user["email"]
@@ -102,6 +103,30 @@ def state(user: dict = Depends(current_user)):
     snap["has_keys"] = store.load_keys(user["id"]) is not None
     snap["access"] = store.entitlement(user)
     return snap
+
+
+@app.get("/api/state")
+def state(user: dict = Depends(current_user)):
+    return full_state(user)
+
+
+@app.post("/api/account")
+async def account(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    if not security.verify_password(d.get("current_password", ""), user["pw_hash"]):
+        raise HTTPException(400, "current password is incorrect")
+    new_email = (d.get("new_email") or "").strip().lower()
+    new_password = d.get("new_password") or ""
+    if new_email and new_email != user["email"]:
+        if store.get_user_by_email(new_email):
+            raise HTTPException(400, "that email is already in use")
+        store.update_email(user["id"], new_email)
+    if new_password:
+        if len(new_password) < 6:
+            raise HTTPException(400, "new password must be 6+ characters")
+        store.update_password(user["id"], new_password)
+    u = store.get_user(user["id"])
+    return {"ok": True, "token": security.make_token(u["id"], u["email"]), "email": u["email"]}
 
 
 @app.post("/api/keys")
@@ -203,10 +228,19 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
     params = strat.StrategyParams()
     for k, v in (d.get("params") or {}).items():
         if hasattr(params, k):
-            setattr(params, k, v)
+            try:
+                setattr(params, k, type(getattr(params, k))(v))
+            except (TypeError, ValueError):
+                setattr(params, k, v)
     cfg = bt.BacktestConfig()
     if d.get("start_equity"):
         cfg.start_equity = float(d["start_equity"])
+    if d.get("fee_pct") is not None:
+        cfg.fee_pct = float(d["fee_pct"])
+    if d.get("risk_pct") is not None:
+        cfg.risk_pct = float(d["risk_pct"])
+    if d.get("allow_short") is not None:
+        cfg.allow_short = bool(d["allow_short"])
     result = bt.run_backtest(candles, params, cfg)
     summary = {k: (round(v, 4) if isinstance(v, float) and v not in (float("inf"), float("-inf")) else v)
                for k, v in result.stats.items()}
@@ -215,7 +249,7 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         "start_equity": cfg.start_equity,
         "buy_hold_pct": round(bt.buy_hold_return(candles), 2),
         "summary": summary,
-        "trades": [_bt_trade(t) for t in result.trades[-100:]],
+        "trades": [_bt_trade(t) for t in result.trades],
         "equity": [[int(ts), round(eq, 2)] for ts, eq in result.equity],
     }
 
@@ -310,11 +344,15 @@ async def ws(websocket: WebSocket):
     if not data:
         await websocket.close(code=4401)
         return
-    s = get_session(int(data["sub"]))
+    uid = int(data["sub"])
     try:
         while True:
-            snap = s.snapshot()
-            await websocket.send_text(json.dumps(snap, default=str))
+            user = store.get_user(uid)
+            if not user:
+                await websocket.close(code=4401)
+                return
+            # Full state (incl. live access/licence) so the client never loses it.
+            await websocket.send_text(json.dumps(full_state(user), default=str))
             await asyncio.sleep(1.5)
     except WebSocketDisconnect:
         return
