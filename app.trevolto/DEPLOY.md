@@ -132,6 +132,35 @@ suspends the machine, background trades and the strategy loop stop. Keep **one**
 machine (the app holds sessions in memory), and pick `primary_region` closest to
 your exchange (`nrt` = Tokyo for Binance/Bybit/OKX).
 
+### Auto-deploy from GitHub (no credentials shared with anyone)
+
+A workflow at `.github/workflows/deploy-fly.yml` deploys for you on every push
+(or on demand from the Actions tab). You never paste a token into a chat — it
+lives only as an encrypted GitHub secret.
+
+**One-time bootstrap** (do this once, from your own terminal or the Fly
+dashboard — CI can deploy but can't create the app/volume/secrets for you):
+
+```bash
+cd app.trevolto
+fly launch --no-deploy                        # creates the Fly app from fly.toml
+fly volumes create trevolto_data --size 1 --region nrt
+fly secrets set TREVOLTO_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+               TREVOLTO_ADMIN_EMAIL="you@youremail.com"
+```
+
+**Then wire CI:**
+
+```bash
+fly tokens create deploy -x 999999h           # a deploy-only token (least privilege)
+```
+
+- Copy that token → GitHub repo → **Settings → Secrets and variables → Actions
+  → New repository secret** → name it **`FLY_API_TOKEN`**, paste the value.
+- Now every push that touches `app.trevolto/**` deploys automatically, or click
+  **Actions → Deploy Trevolto Web to Fly.io → Run workflow**.
+- The token is deploy-scoped and revocable any time (`fly tokens revoke`).
+
 ### Railway / Render (alternative push-button)
 Same idea: new project from the repo (root `app.trevolto`), set the env vars,
 add a volume at `/data` with `TREVOLTO_DATA_DIR=/data`, keep it always-on

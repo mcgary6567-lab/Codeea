@@ -1,0 +1,27 @@
+name: Deploy Trevolto Web to Fly.io
+
+# Runs the deploy for you — no credentials ever leave GitHub.
+# Trigger it manually from the Actions tab ("Run workflow"), or automatically
+# on any push that touches the app.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app.trevolto/**"
+      - ".github/workflows/deploy-fly.yml"
+
+jobs:
+  deploy:
+    name: fly deploy
+    runs-on: ubuntu-latest
+    # Requires a repo secret FLY_API_TOKEN (see app.trevolto/DEPLOY.md).
+    concurrency: deploy-trevolto-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        working-directory: app.trevolto
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
