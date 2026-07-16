@@ -17,7 +17,8 @@
 | `web/` | The dashboard + admin UI (HTML/CSS/JS) | ✅ yes |
 | `requirements.txt` | Python dependencies to install | ✅ yes |
 | `passenger_wsgi.py` | Entry point for cPanel "Setup Python App" | ✅ (cPanel path) |
-| `Dockerfile` | For container hosts (Railway/Render/Fly/VPS) | ✅ (Docker path) |
+| `Dockerfile` | For container hosts (Fly/Railway/Render/VPS) | ✅ (Docker path) |
+| `fly.toml` | Ready Fly.io config (region, volume, always-on) | ✅ (Fly path) |
 | `run.sh` | Local/VPS dev launcher | ✅ |
 | `.env.example` | The settings you must fill in | ✅ (copy to `.env`) |
 | `data/` (created at runtime) | **The database lives here** | ❌ never upload/commit |
@@ -92,15 +93,72 @@ Keep it running with systemd (`uvicorn ... --workers 1`) or `pm2`. Use
 
 ---
 
-## Path C — Push-button host (Railway / Render / Fly.io)
+## Path C — Fly.io (recommended cloud option)
 
-Zero server admin. This folder already has a `Dockerfile`.
+Fly runs the included `Dockerfile`, supports **WebSockets** (full real-time
+dashboard), and lets you run **next to your exchange** for low order latency.
+This folder ships a ready [`fly.toml`](fly.toml).
 
-1. Create a new project from your repo, root = `app.trevolto`.
-2. Set the environment variables from `.env.example` in the host's dashboard.
-3. Add a persistent **volume** mounted at `/data` and set
-   `TREVOLTO_DATA_DIR=/data` (so the SQLite DB survives redeploys).
-4. Deploy, then point `app.trevolto.com` (CNAME) at the URL the host gives you.
+```bash
+# 1. Install flyctl and log in
+curl -L https://fly.io/install.sh | sh
+fly auth login
+
+# 2. From inside this folder — create the app (don't deploy yet)
+cd app.trevolto
+fly launch --no-deploy            # keep the app name unique; it reads fly.toml
+
+# 3. Create the persistent disk for the SQLite DB (same region as the app!)
+fly volumes create trevolto_data --size 1 --region nrt
+
+# 4. Set your secrets (NOT in fly.toml)
+fly secrets set \
+  TREVOLTO_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+  TREVOLTO_ADMIN_EMAIL="you@youremail.com"
+#   (edit TREVOLTO_PUBLIC_URL in fly.toml to your real subdomain first)
+
+# 5. Deploy
+fly deploy
+
+# 6. Attach your subdomain
+fly certs add app.trevolto.com
+#   Then add the DNS records Fly prints (an A + AAAA, or a CNAME) at your
+#   domain registrar. `fly certs show app.trevolto.com` confirms once issued.
+```
+
+**Important Fly settings (already in `fly.toml`):** `auto_stop_machines = false`
+and `min_machines_running = 1`. A trading bot must stay awake 24/7 — if Fly
+suspends the machine, background trades and the strategy loop stop. Keep **one**
+machine (the app holds sessions in memory), and pick `primary_region` closest to
+your exchange (`nrt` = Tokyo for Binance/Bybit/OKX).
+
+### Railway / Render (alternative push-button)
+Same idea: new project from the repo (root `app.trevolto`), set the env vars,
+add a volume at `/data` with `TREVOLTO_DATA_DIR=/data`, keep it always-on
+(disable scale-to-zero), then CNAME the subdomain.
+
+---
+
+## How fast does it execute trades?
+
+Fast enough — this is a **signal/swing** bot, not high-frequency. The path is:
+
+```
+TradingView alert ──(webhook)──► your Fly app ──(REST)──► exchange
+     ~0.5–2 s dispatch              ~5–20 ms proc          ~30–150 ms round-trip
+```
+
+- **Your app adds only a few milliseconds** (parse → guardrails → size → send).
+- The two things that dominate are **TradingView's webhook dispatch** (typically
+  ~1 second, outside anyone's control) and the **exchange API round-trip**.
+- You cut the exchange round-trip by running Fly in the **same region as the
+  exchange** (`primary_region = "nrt"` for Binance/Bybit/OKX on AWS Tokyo).
+- Because the Trevolto strategy fires on **bar close**, a sub-second vs
+  two-second fill is not meaningful to its edge — it's not scalping ticks.
+
+If you ever wanted true low-latency (co-located, no TradingView hop), you'd use
+the **built-in strategy** (candles → order, no webhook) on a machine in the
+exchange's region — which this app already supports.
 
 ---
 
@@ -108,7 +166,9 @@ Zero server admin. This folder already has a `Dockerfile`.
 
 - **cPanel (Path A):** the subdomain is created for you — nothing extra.
 - **VPS (Path B):** add an **A record** `app` → your server's IP.
-- **Managed host (Path C):** add a **CNAME** `app` → the host's target domain.
+- **Fly.io (Path C):** run `fly certs add app.trevolto.com`, then add the
+  **A + AAAA** (or CNAME) records Fly gives you at your registrar.
+- **Railway/Render:** add a **CNAME** `app` → the host's target domain.
 
 TLS/HTTPS is **required** — TradingView only posts webhooks to `https://` URLs.
 
