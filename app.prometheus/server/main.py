@@ -206,12 +206,14 @@ async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
         s.set_settings(patch)
     if d.get("enable") is True:
         require_entitled(user)
+        s.set_settings({"strategy_enabled": True})   # persist so it auto-starts on connect
         if not s.connected:
             raise HTTPException(400, "connect an exchange first")
         s.start_strategy()
     elif d.get("enable") is False:
+        s.set_settings({"strategy_enabled": False})
         s.stop_strategy()
-    return {"ok": True, "strategy_on": s.strategy_on}
+    return {"ok": True, "strategy_on": s.strategy_on, "strategy_enabled": s.settings.get("strategy_enabled")}
 
 
 # --- backtest ---------------------------------------------------------------

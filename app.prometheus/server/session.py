@@ -63,7 +63,8 @@ DEFAULT_SETTINGS = {
     "telegram_token": "",
     "telegram_chat": "",
     "strategy_filter": "Prometheus",
-    "strategy_symbols": "BTC/USDT",
+    "strategy_enabled": True,        # built-in strategy ON by default
+    "strategy_symbols": "BTC/USDT, ETH/USDT",
     "strategy_timeframe": "1h",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,
@@ -161,6 +162,9 @@ class TraderSession:
                     + (" — SAFE MODE" if self.settings.get("safe_mode") else ""))
         self._ensure_poll()
         self.refresh()
+        # Built-in strategy is ON by default — auto-start it once connected.
+        if self.settings.get("strategy_enabled", True):
+            self.start_strategy()
         return "connected"
 
     def disconnect(self) -> None:
@@ -442,6 +446,7 @@ class TraderSession:
             "balance": round(self.balance, 2),
             "pnl": round(self.pnl, 2),
             "strategy_on": self.strategy_on,
+            "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,
             "positions": [
                 {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,

@@ -81,9 +81,10 @@ function render(s) {
   const pnl = $("t-pnl"); pnl.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); pnl.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
   $("t-access").textContent = lbl;
   $("t-accessd").textContent = ac.days_left != null ? `${ac.days_left} days left` : (ac.status || "");
-  $("t-strat").textContent = s.strategy_on ? "Running" : "Off";
-  $("t-strat").className = "v " + (s.strategy_on ? "pos" : "");
-  $("strat-state").textContent = s.strategy_on ? "running" : "off";
+  const stratTxt = s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off");
+  $("t-strat").textContent = stratTxt;
+  $("t-strat").className = "v " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
+  $("strat-state").textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");
   $("tr-mode").textContent = (s.settings || {}).sizing_mode || "—";
 
   // positions
@@ -131,6 +132,28 @@ function applySettings(s, email) {
   set("sg-sym", s.strategy_symbols); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat);
   set("ac-email", email);
+  const p = s.strategy_params || {};
+  for (const k in SPARAMS) set("p-" + k, p[k] !== undefined ? p[k] : SPARAMS[k]);
+}
+
+// Full strategy parameter set (matches the desktop app's StrategyParams).
+const SPARAMS = {
+  rsi_len: 14, ma_len: 20, ma_confirm: 1, ma_min_body: 0.30, ma_trend_len: 0,
+  ma_adx_len: 14, ma_adx_min: 0, ma_swing: 10, ma_sl_buf: 0.10, ma_atr_len: 14,
+  ma_atr_mult: 0, ma_scale: 0.5, ma_ob: 70, ma_os: 30, ma_tp1_r: 1.0, ma_tp2_r: 2.0, ma_trail_atr: 0
+};
+const INTP = new Set(["rsi_len", "ma_len", "ma_confirm", "ma_trend_len", "ma_adx_len", "ma_swing", "ma_atr_len", "ma_ob", "ma_os"]);
+async function saveStrategy() {
+  const params = {};
+  for (const k in SPARAMS) {
+    const el = $("p-" + k); if (!el) continue;
+    let v = parseFloat(el.value); if (isNaN(v)) v = SPARAMS[k];
+    params[k] = INTP.has(k) ? Math.round(v) : v;
+  }
+  try {
+    await api("/api/strategy", "POST", { params, symbols: $("sg-sym").value, timeframe: $("sg-tf").value });
+    toast("Strategy saved"); refresh();
+  } catch (e) { alert(e.message); }
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;

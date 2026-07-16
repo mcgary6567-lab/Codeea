@@ -146,25 +146,67 @@
       <!-- STRATEGY -->
       <section id="v-strategy" class="hidden">
         <div class="card">
-          <h3>Built-in strategy <span class="chip" id="strat-state">off</span></h3>
-          <div class="hint">Runs the EMA + RSI engine on live exchange candles and trades through the guardrail → sizing → SL/TP pipeline. No TradingView needed.</div>
+          <h3>Built-in strategy <span class="chip" id="strat-state">on</span></h3>
+          <div class="hint">EMA + RSI crossover engine on live exchange candles → guardrails → sizing → SL/TP. <b>ON by default</b> — it auto-starts when you connect an exchange. Tune every input below and save.</div>
           <div class="row" style="margin-top:12px">
             <div class="col"><label>Symbols (comma-separated)</label><input id="sg-sym" list="symbols" value="BTC/USDT, ETH/USDT"/></div>
             <div class="col"><label>Timeframe</label>
               <select id="sg-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
           </div>
-          <div class="btnrow big">
-            <button class="btn green" onclick="strategy(true)">Enable strategy</button>
-            <button class="btn ghost" onclick="strategy(false)">Disable</button>
-          </div>
           <div class="chips" style="margin-top:10px">
-            <span class="chip pick" onclick="addSym('BTC/USDT')">BTC</span><span class="chip pick" onclick="addSym('ETH/USDT')">ETH</span>
-            <span class="chip pick" onclick="addSym('SOL/USDT')">SOL</span><span class="chip pick" onclick="addSym('BNB/USDT')">BNB</span>
-            <span class="chip pick" onclick="addSym('XRP/USDT')">XRP</span><span class="chip pick" onclick="addSym('DOGE/USDT')">DOGE</span>
-            <span class="chip pick" onclick="addSym('ADA/USDT')">ADA</span><span class="chip pick" onclick="addSym('AVAX/USDT')">AVAX</span>
-            <span class="chip pick" onclick="addSym('LINK/USDT')">LINK</span><span class="chip pick" onclick="addSym('TON/USDT')">TON</span>
-            <span class="chip pick" onclick="addSym('TRX/USDT')">TRX</span>
+            <span class="chip pick" onclick="addSym('BTC/USDT')">+BTC</span><span class="chip pick" onclick="addSym('ETH/USDT')">+ETH</span>
+            <span class="chip pick" onclick="addSym('SOL/USDT')">+SOL</span><span class="chip pick" onclick="addSym('BNB/USDT')">+BNB</span>
+            <span class="chip pick" onclick="addSym('XRP/USDT')">+XRP</span><span class="chip pick" onclick="addSym('DOGE/USDT')">+DOGE</span>
+            <span class="chip pick" onclick="addSym('ADA/USDT')">+ADA</span><span class="chip pick" onclick="addSym('AVAX/USDT')">+AVAX</span>
+            <span class="chip pick" onclick="addSym('LINK/USDT')">+LINK</span><span class="chip pick" onclick="addSym('TON/USDT')">+TON</span>
+            <span class="chip pick" onclick="addSym('TRX/USDT')">+TRX</span>
           </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card"><h3>Entry &amp; trend filters</h3>
+            <div class="row">
+              <div class="col"><label>RSI length</label><input id="p-rsi_len" type="number"/></div>
+              <div class="col"><label>EMA length</label><input id="p-ma_len" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Confirm candles</label><input id="p-ma_confirm" type="number"/></div>
+              <div class="col"><label>Min body (0–1)</label><input id="p-ma_min_body" type="number" step="0.05"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Trend EMA <span class="k">(0=off)</span></label><input id="p-ma_trend_len" type="number"/></div>
+              <div class="col"><label>ADX length</label><input id="p-ma_adx_len" type="number"/></div>
+              <div class="col"><label>Min ADX <span class="k">(0=off)</span></label><input id="p-ma_adx_min" type="number" step="0.5"/></div>
+            </div>
+          </div>
+          <div class="card"><h3>Stops &amp; exits</h3>
+            <div class="row">
+              <div class="col"><label>Swing lookback (stop)</label><input id="p-ma_swing" type="number"/></div>
+              <div class="col"><label>SL buffer % (0–1)</label><input id="p-ma_sl_buf" type="number" step="0.05"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>ATR length</label><input id="p-ma_atr_len" type="number"/></div>
+              <div class="col"><label>ATR stop mult <span class="k">(0=swing)</span></label><input id="p-ma_atr_mult" type="number" step="0.1"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Scale-out frac (0–1)</label><input id="p-ma_scale" type="number" step="0.1"/></div>
+              <div class="col"><label>RSI exit OB</label><input id="p-ma_ob" type="number"/></div>
+              <div class="col"><label>RSI exit OS</label><input id="p-ma_os" type="number"/></div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><h3>Targets</h3>
+          <div class="row">
+            <div class="col"><label>TP1 (R multiple, 0=off)</label><input id="p-ma_tp1_r" type="number" step="0.1"/></div>
+            <div class="col"><label>TP2 (R multiple, 0=off)</label><input id="p-ma_tp2_r" type="number" step="0.1"/></div>
+            <div class="col"><label>Trail ATR after TP1 <span class="k">(0=off)</span></label><input id="p-ma_trail_atr" type="number" step="0.1"/></div>
+          </div>
+        </div>
+
+        <div class="btnrow big">
+          <button class="btn" onclick="saveStrategy()">💾 Save strategy settings</button>
+          <button class="btn green" onclick="strategy(true)">Enable / Start</button>
+          <button class="btn ghost" onclick="strategy(false)">Disable</button>
         </div>
       </section>
 
