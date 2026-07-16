@@ -132,34 +132,33 @@ suspends the machine, background trades and the strategy loop stop. Keep **one**
 machine (the app holds sessions in memory), and pick `primary_region` closest to
 your exchange (`nrt` = Tokyo for Binance/Bybit/OKX).
 
-### Auto-deploy from GitHub (no credentials shared with anyone)
+### Auto-deploy from GitHub — NO terminal needed (browser only)
 
-A workflow at `.github/workflows/deploy-fly.yml` deploys for you on every push
-(or on demand from the Actions tab). You never paste a token into a chat — it
-lives only as an encrypted GitHub secret.
+The workflow at `.github/workflows/deploy-fly.yml` is **self-bootstrapping**: on
+GitHub's runners (which *can* reach Fly) it creates the app, creates the data
+volume, sets the secrets, and deploys. You only add repo secrets in the browser.
 
-**One-time bootstrap** (do this once, from your own terminal or the Fly
-dashboard — CI can deploy but can't create the app/volume/secrets for you):
+**Steps (all in the browser):**
 
-```bash
-cd app.prometheus
-fly launch --no-deploy                        # creates the Fly app from fly.toml
-fly volumes create prometheus_data --size 1 --region nrt
-fly secrets set PROMETHEUS_SECRET_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
-               PROMETHEUS_ADMIN_EMAIL="you@youremail.com"
-```
+1. **Pick a globally-unique app name.** Fly app names are shared across all Fly
+   users, so `prometheus-web` may be taken. Edit `app.prometheus/fly.toml` line
+   `app = "…"` to something unique (e.g. `prometheus-web-yourname`). Commit it.
+2. **Create a Fly deploy token:** Fly dashboard → **Tokens** (or
+   <https://fly.io/user/personal_access_tokens>) → create a token → copy it.
+3. **Add GitHub repo secrets:** your repo → **Settings → Secrets and variables →
+   Actions → New repository secret**. Add:
+   - `FLY_API_TOKEN` = the token from step 2
+   - `PROMETHEUS_SECRET_KEY` = a long random string (e.g. from
+     <https://generate-secret.vercel.app/32> or any password generator)
+   - `PROMETHEUS_ADMIN_EMAIL` = your email *(optional — makes you admin)*
+4. **Run it:** repo → **Actions → Deploy Prometheus Web to Fly.io → Run
+   workflow**. Watch it create everything and deploy. (It also runs on every
+   push to `main` that touches the app.)
+5. **Attach your subdomain** in the Fly dashboard (Certificates) or once, via
+   `fly certs add app.prometheus.com`, then add the DNS records Fly shows.
 
-**Then wire CI:**
-
-```bash
-fly tokens create deploy -x 999999h           # a deploy-only token (least privilege)
-```
-
-- Copy that token → GitHub repo → **Settings → Secrets and variables → Actions
-  → New repository secret** → name it **`FLY_API_TOKEN`**, paste the value.
-- Now every push that touches `app.prometheus/**` deploys automatically, or click
-  **Actions → Deploy Prometheus Web to Fly.io → Run workflow**.
-- The token is deploy-scoped and revocable any time (`fly tokens revoke`).
+The token is revocable any time from the Fly dashboard. The `--ha=false` deploy
+keeps it to a single always-on machine (correct for this app).
 
 ### Railway / Render (alternative push-button)
 Same idea: new project from the repo (root `app.prometheus`), set the env vars,
