@@ -62,7 +62,7 @@ hit their per-user webhook URL. Access is gated:
 ## Run (dev)
 
 ```bash
-cd trevolto-web
+cd app.trevolto
 ./run.sh                 # installs deps, generates a dev secret, serves :8000
 ```
 
@@ -72,11 +72,15 @@ real keys or funds.
 
 ## Run (production)
 
+**Full subdomain setup (cPanel / VPS / Railway) → see [`DEPLOY.md`](DEPLOY.md).**
+Quick Docker version:
+
 ```bash
 docker build -t trevolto-web .
 docker run -p 8000:8000 -v trevolto-data:/data \
   -e TREVOLTO_SECRET_KEY="$(your-kms-fetch)" \
-  -e TREVOLTO_PUBLIC_URL="https://app.yourdomain.com" \
+  -e TREVOLTO_PUBLIC_URL="https://app.trevolto.com" \
+  -e TREVOLTO_DATA_DIR=/data \
   trevolto-web
 ```
 
