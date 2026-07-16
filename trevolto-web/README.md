@@ -33,8 +33,31 @@ Built-in strategy  ─┘        (guardrails → sizing → order → SL/TP brac
 | Backtester | ✅ (`/api/backtest`) |
 | Analytics (win rate, realized PnL, equity curve) | ✅ |
 | Safe Mode / Read-only | ✅ |
-| Telegram/sound notifications | ⏳ not ported (browser notifications TODO) |
-| Candlestick chart overlays | ⏳ equity charts only so far |
+| Telegram notifications | ✅ (per-user bot token + chat id; entry/close/connect) |
+| Candlestick chart + strategy overlays | ✅ (Chart tab: candles, EMA, RSI sub-pane, BUY/SELL markers + SL) |
+| Sound notifications | ⏳ browser notifications TODO |
+
+## Customer management (SaaS access control)
+
+The web build is a **standalone product** — no link to the desktop/Mac apps.
+Customers sign up, enter **their own** exchange API keys, and TradingView hooks
+hit their per-user webhook URL. Access is gated:
+
+- **Free trial** on signup (default 10 days, `TREVOLTO_TRIAL_DAYS`). Trial users
+  can connect and trade immediately.
+- When the trial ends, connecting/trading/webhooks are blocked (HTTP 402) until
+  you grant a **licence**.
+- **Admin panel** at `/admin` (admin-only): view every customer, their status,
+  whether they've added keys, last-seen; **suspend/activate**, **grant/revoke
+  licences** (extend N days). Suspending stops a customer's trading instantly —
+  including any running strategy loop and incoming webhooks.
+- The **first registered user** becomes admin automatically; or set
+  `TREVOLTO_ADMIN_EMAIL` so a specific email is admin on signup.
+
+| Env | Purpose |
+|---|---|
+| `TREVOLTO_TRIAL_DAYS` | Free-trial length in days (default 10) |
+| `TREVOLTO_ADMIN_EMAIL` | Email that becomes admin on registration |
 
 ## Run (dev)
 
@@ -83,7 +106,8 @@ current build keeps `TraderSession`s in-process (one worker) — see Limitations
 `POST /api/register` · `POST /api/login` · `GET /api/state` · `POST /api/keys` ·
 `POST /api/connect` · `POST /api/disconnect` · `POST /api/trade` · `POST /api/close` ·
 `POST /api/close_all` · `POST /api/settings` · `POST /api/strategy` ·
-`POST /api/backtest` · `GET /api/analytics` · `POST /webhook/{token}` · `WS /ws`
+`POST /api/backtest` · `GET /api/analytics` · `GET /api/candles` · `POST /webhook/{token}` · `WS /ws`
+Admin (admin JWT): `GET /api/admin/users` · `POST /api/admin/action` (suspend/activate/grant/revoke/make_admin)
 
 ## Layout
 
@@ -95,7 +119,7 @@ server/
   security.py    password hash, JWT, Fernet key encryption
   config_web.py  server settings/paths
   engine/        Trevolto trading core (reused): exchange, strategy, guardrails, backtest, config
-web/             index.html · style.css · app.js  (dashboard SPA)
+web/             index.html (landing+dashboard) · admin.html · style.css · app.js · admin.js
 ```
 
 ## Limitations / next steps
@@ -104,5 +128,6 @@ web/             index.html · style.css · app.js  (dashboard SPA)
   uvicorn worker (or add Redis + a shared worker registry to scale out).
 - **Custody.** Server-side keys = you are a custodian; consider the desktop app
   or a per-user agent for users who won't trust server-side keys.
-- Telegram/sound notifications and the candlestick overlay chart aren't ported
-  yet (the desktop app has them).
+- **Billing** is not automated — the admin grants licences manually. Wire a
+  Stripe/crypto checkout to `grant_licence()` for self-serve upgrades.
+- Sound notifications aren't ported (Telegram is).

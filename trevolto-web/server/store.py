@@ -17,6 +17,9 @@ from . import security
 
 _LOCK = threading.RLock()
 
+TRIAL_DAYS = float(__import__("os").environ.get("TREVOLTO_TRIAL_DAYS", "10"))
+ADMIN_EMAIL = __import__("os").environ.get("TREVOLTO_ADMIN_EMAIL", "").strip().lower()
+
 
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH, timeout=30)
@@ -36,7 +39,13 @@ def init_db() -> None:
                 webhook_token TEXT NOT NULL,
                 settings TEXT NOT NULL DEFAULT '{}',
                 keys_blob TEXT,
-                created REAL NOT NULL
+                created REAL NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1,
+                plan TEXT NOT NULL DEFAULT 'trial',
+                trial_ends REAL NOT NULL DEFAULT 0,
+                licence_until REAL NOT NULL DEFAULT 0,
+                last_seen REAL NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS trades(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +62,18 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS ix_equity_user ON equity(user_id, ts);
             """
         )
+        # Lightweight migration for DBs created before access-control columns.
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        for name, ddl in {
+            "is_admin": "INTEGER NOT NULL DEFAULT 0",
+            "active": "INTEGER NOT NULL DEFAULT 1",
+            "plan": "TEXT NOT NULL DEFAULT 'trial'",
+            "trial_ends": "REAL NOT NULL DEFAULT 0",
+            "licence_until": "REAL NOT NULL DEFAULT 0",
+            "last_seen": "REAL NOT NULL DEFAULT 0",
+        }.items():
+            if name not in cols:
+                c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
 
 
 # --- users ------------------------------------------------------------------
@@ -62,13 +83,80 @@ def create_user(email: str, password: str) -> dict:
         if c.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
             raise ValueError("email already registered")
         token = secrets.token_urlsafe(24)
+        now = time.time()
+        # First-ever user, or the configured admin email, becomes an admin.
+        first = c.execute("SELECT COUNT(*) n FROM users").fetchone()["n"] == 0
+        is_admin = 1 if (first or (ADMIN_EMAIL and email == ADMIN_EMAIL)) else 0
         cur = c.execute(
-            "INSERT INTO users(email, pw_hash, webhook_token, created) VALUES(?,?,?,?)",
-            (email, security.hash_password(password), token, time.time()),
+            "INSERT INTO users(email, pw_hash, webhook_token, created, is_admin, trial_ends)"
+            " VALUES(?,?,?,?,?,?)",
+            (email, security.hash_password(password), token, now, is_admin,
+             now + TRIAL_DAYS * 86400),
         )
         uid = cur.lastrowid
     # Read after the transaction commits (get_user uses its own connection).
     return get_user(uid)
+
+
+# --- access control ---------------------------------------------------------
+def entitlement(user: dict) -> dict:
+    """Whether this user may trade, and why. Admins always may."""
+    now = time.time()
+    if user.get("is_admin"):
+        return {"ok": True, "status": "admin", "days_left": None}
+    if not user.get("active", 1):
+        return {"ok": False, "status": "suspended", "days_left": 0}
+    lic = user.get("licence_until") or 0
+    if lic > now:
+        return {"ok": True, "status": "licensed", "days_left": int((lic - now) / 86400) + 1}
+    trial = user.get("trial_ends") or 0
+    if trial > now:
+        return {"ok": True, "status": "trial", "days_left": int((trial - now) / 86400) + 1}
+    return {"ok": False, "status": "expired", "days_left": 0}
+
+
+def touch(user_id: int) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET last_seen=? WHERE id=?", (time.time(), user_id))
+
+
+# --- admin ------------------------------------------------------------------
+def list_users() -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute(
+            "SELECT id,email,is_admin,active,plan,trial_ends,licence_until,created,last_seen,"
+            "(keys_blob IS NOT NULL) AS has_keys FROM users ORDER BY id"
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["entitlement"] = entitlement(d)
+        out.append(d)
+    return out
+
+
+def set_active(user_id: int, active: bool) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET active=? WHERE id=?", (1 if active else 0, user_id))
+
+
+def set_admin(user_id: int, is_admin: bool) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET is_admin=? WHERE id=?", (1 if is_admin else 0, user_id))
+
+
+def grant_licence(user_id: int, days: float) -> None:
+    """Extend the licence by ``days`` from max(now, current expiry)."""
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT licence_until FROM users WHERE id=?", (user_id,)).fetchone()
+        base = max(time.time(), (r["licence_until"] or 0) if r else 0)
+        c.execute("UPDATE users SET licence_until=?, plan='paid' WHERE id=?",
+                  (base + days * 86400, user_id))
+
+
+def revoke_licence(user_id: int) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET licence_until=0, plan='trial' WHERE id=?", (user_id,))
 
 
 def get_user(user_id: int) -> Optional[dict]:

@@ -7,8 +7,11 @@ same guardrail -> sizing -> order -> bracket pipeline, exactly like the app.
 """
 from __future__ import annotations
 
+import json
 import threading
 import time
+import urllib.parse
+import urllib.request
 from collections import deque
 
 import exchange as ex          # engine module (on sys.path)
@@ -57,6 +60,8 @@ DEFAULT_SETTINGS = {
     "cooldown": 0,
     "dedupe": 5,
     "webhook_passphrase": "",
+    "telegram_token": "",
+    "telegram_chat": "",
     "strategy_filter": "Trevolto",
     "strategy_symbols": "BTC/USDT",
     "strategy_timeframe": "1h",
@@ -88,9 +93,26 @@ class TraderSession:
         self._strat_primed: dict = {}
         self._apply_guardrails()
 
-    # -- logging -------------------------------------------------------------
+    # -- logging + notifications --------------------------------------------
     def log(self, msg: str, level: str = "info") -> None:
         self.log_ring.appendleft({"ts": time.time(), "level": level, "msg": msg})
+
+    def notify(self, msg: str) -> None:
+        """Best-effort Telegram push (per-user bot token + chat id)."""
+        token = self.settings.get("telegram_token", "").strip()
+        chat = self.settings.get("telegram_chat", "").strip()
+        if not token or not chat:
+            return
+        threading.Thread(target=self._tg_send, args=(token, chat, msg), daemon=True).start()
+
+    @staticmethod
+    def _tg_send(token: str, chat: str, msg: str) -> None:
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🟦 Trevolto\n{msg}"}).encode()
+            urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
+        except Exception:
+            pass
 
     # -- settings ------------------------------------------------------------
     def _apply_guardrails(self) -> None:
@@ -135,6 +157,8 @@ class TraderSession:
             self.market_type = keys.get("market_type", "spot")
         self.log(f"Connected to {self.exchange_id} ({self.market_type})"
                  + (" — SAFE MODE" if self.settings.get("safe_mode") else ""), "ok")
+        self.notify(f"Connected to {self.exchange_id} ({self.market_type})"
+                    + (" — SAFE MODE" if self.settings.get("safe_mode") else ""))
         self._ensure_poll()
         self.refresh()
         return "connected"
@@ -279,6 +303,8 @@ class TraderSession:
         if not res.ok:
             return {"ok": False, "message": res.message}
 
+        self.notify(f"{side.upper()} {symbol} x{amount} @ ~{price:g}"
+                    + (f" | SL {sl:g}" if sl else "") + (f" TP {tp1:g}/{tp2:g}" if tp1 else ""))
         self.guard.record_entry(symbol)
 
         # bracket: reduce-only SL + scaled TP legs
@@ -302,6 +328,7 @@ class TraderSession:
                                    amount=p.size * fraction, price=p.current, pnl=p.pnl,
                                    note=res.message)
                 self.log(f"Close {p.pair}: {res.message}", "ok" if res.ok else "error")
+                self.notify(f"Closed {p.pair} | PnL {p.pnl:+.4f}")
                 self.refresh()
                 return {"ok": res.ok, "message": res.message}
         return {"ok": False, "message": "position not found"}
@@ -313,6 +340,33 @@ class TraderSession:
             n += 1 if r.get("ok") else 0
         self.log(f"PANIC close-all: {n} position(s) closed", "warn")
         return {"ok": True, "message": f"closed {n}"}
+
+    # -- chart data (candles + strategy overlays) ----------------------------
+    def chart_data(self, symbol: str, tf: str, limit: int = 300) -> dict:
+        raw = self.em.fetch_ohlcv(symbol, tf, limit) or public_ohlcv(
+            self.exchange_id or "binance", ex.normalize_symbol(symbol), tf, limit)
+        if len(raw) < 40:
+            return {"candles": [], "ema": [], "rsi": [], "markers": []}
+        closed = raw[:-1]
+        params = self._params()
+        o, h, low, cl, ema, rsi, sl_s, sh_s, trend, atr, adx = strat.crossover_arrays(closed, params)
+        markers = []
+        for i, ev in strat.evaluate_all_crossover(closed, params, symbol):
+            act = ev.get("act")
+            if act == "enter":
+                markers.append({"i": i, "type": "enter", "side": ev["side"],
+                                "price": ev.get("entry"), "sl": ev.get("sl")})
+            elif act == "exit":
+                markers.append({"i": i, "type": "exit", "side": ev.get("side"),
+                                "price": cl[i], "reason": ev.get("reason", "")})
+        return {
+            "symbol": symbol, "timeframe": tf,
+            "candles": [[int(c[0]), c[1], c[2], c[3], c[4], c[5]] for c in closed],
+            "ema": [None if v is None else round(v, 6) for v in ema],
+            "rsi": [None if v is None else round(v, 2) for v in rsi],
+            "ma_len": params.ma_len, "rsi_len": params.rsi_len,
+            "markers": markers,
+        }
 
     # -- built-in strategy ---------------------------------------------------
     def start_strategy(self) -> None:
@@ -331,6 +385,12 @@ class TraderSession:
 
     def _strategy_loop(self) -> None:
         while self.strategy_on and self.connected:
+            # Stop trading if the licence/trial lapsed mid-session.
+            ent = store.entitlement(store.get_user(self.user_id) or {})
+            if not ent["ok"]:
+                self.log(f"Strategy stopped — access {ent['status']}", "warn")
+                self.strategy_on = False
+                break
             symbols = [s.strip() for s in str(self.settings.get("strategy_symbols", "")).split(",") if s.strip()]
             tf = self.settings.get("strategy_timeframe", "1h")
             params = self._params()

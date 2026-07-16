@@ -40,6 +40,19 @@ def current_user(authorization: str = Header(default="")) -> dict:
     user = store.get_user(int(data["sub"]))
     if not user:
         raise HTTPException(401, "user not found")
+    store.touch(user["id"])
+    return user
+
+
+def require_entitled(user: dict) -> None:
+    ent = store.entitlement(user)
+    if not ent["ok"]:
+        raise HTTPException(402, f"access {ent['status']} — an active licence is required")
+
+
+def require_admin(user: dict = Depends(current_user)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(403, "admin only")
     return user
 
 
@@ -84,8 +97,10 @@ def state(user: dict = Depends(current_user)):
     s = get_session(user["id"])
     snap = s.snapshot()
     snap["email"] = user["email"]
+    snap["is_admin"] = bool(user.get("is_admin"))
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
+    snap["access"] = store.entitlement(user)
     return snap
 
 
@@ -103,6 +118,7 @@ async def save_keys(request: Request, user: dict = Depends(current_user)):
 
 @app.post("/api/connect")
 def connect(user: dict = Depends(current_user)):
+    require_entitled(user)
     s = get_session(user["id"])
     try:
         s.connect()
@@ -124,6 +140,7 @@ async def trade(request: Request, user: dict = Depends(current_user)):
     side = d.get("side", "").lower()
     if side not in ("buy", "sell"):
         raise HTTPException(400, "side must be buy/sell")
+    require_entitled(user)
     s = get_session(user["id"])
     if not s.connected:
         raise HTTPException(400, "not connected")
@@ -163,6 +180,7 @@ async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
             patch["strategy_params"] = d["params"]
         s.set_settings(patch)
     if d.get("enable") is True:
+        require_entitled(user)
         if not s.connected:
             raise HTTPException(400, "connect an exchange first")
         s.start_strategy()
@@ -206,6 +224,48 @@ def _bt_trade(t) -> dict:
     return {k: (round(v, 6) if isinstance(v, float) else v) for k, v in vars(t).items()}
 
 
+# --- chart ------------------------------------------------------------------
+@app.get("/api/candles")
+def candles(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 300,
+            user: dict = Depends(current_user)):
+    s = get_session(user["id"])
+    data = s.chart_data(symbol, timeframe, min(int(limit), 500))
+    if not data["candles"]:
+        raise HTTPException(400, "no candle data (needs ccxt + connectivity)")
+    return data
+
+
+# --- admin ------------------------------------------------------------------
+@app.get("/api/admin/users")
+def admin_users(admin: dict = Depends(require_admin)):
+    return {"users": store.list_users()}
+
+
+@app.post("/api/admin/action")
+async def admin_action(request: Request, admin: dict = Depends(require_admin)):
+    d = await body(request)
+    uid = int(d.get("user_id", 0))
+    action = d.get("action", "")
+    if not store.get_user(uid):
+        raise HTTPException(404, "user not found")
+    if action == "suspend":
+        store.set_active(uid, False)
+    elif action == "activate":
+        store.set_active(uid, True)
+    elif action == "grant":
+        store.grant_licence(uid, float(d.get("days", 30)))
+    elif action == "revoke":
+        store.revoke_licence(uid)
+    elif action == "make_admin":
+        store.set_admin(uid, True)
+    elif action == "remove_admin":
+        store.set_admin(uid, False)
+    else:
+        raise HTTPException(400, "unknown action")
+    return {"ok": True, "user": {k: v for k, v in store.get_user(uid).items()
+                                 if k not in ("pw_hash", "keys_blob")}}
+
+
 # --- analytics --------------------------------------------------------------
 @app.get("/api/analytics")
 def analytics(user: dict = Depends(current_user)):
@@ -230,6 +290,10 @@ async def webhook(token: str, request: Request):
             payload = json.loads(raw)
         except Exception:
             raise HTTPException(400, "body is not JSON")
+    ent = store.entitlement(user)
+    if not ent["ok"]:
+        get_session(user["id"]).log(f"Webhook ignored — access {ent['status']}", "warn")
+        return {"ok": False, "message": f"access {ent['status']}"}
     s = get_session(user["id"])
     if not s.connected:
         s.log("Webhook received but not connected — ignored", "warn")
@@ -262,6 +326,11 @@ async def ws(websocket: WebSocket):
 @app.get("/")
 def index():
     return FileResponse(os.path.join(WEB_DIR, "index.html"))
+
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(os.path.join(WEB_DIR, "admin.html"))
 
 
 @app.get("/healthz")

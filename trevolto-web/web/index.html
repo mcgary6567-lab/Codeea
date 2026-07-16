@@ -8,21 +8,36 @@
 </head>
 <body>
 
-<!-- ============ AUTH ============ -->
-<div id="auth">
-  <h1><span class="brand">Trevolto</span> Web</h1>
-  <div class="sub">AI-powered crypto trading — in your browser.</div>
-  <div class="tabsw">
-    <button id="tab-login" class="on" onclick="authTab('login')">Log in</button>
-    <button id="tab-reg" onclick="authTab('reg')">Register</button>
+<!-- ============ LANDING + AUTH ============ -->
+<div id="landing">
+  <div class="land-hero">
+    <div class="land-copy">
+      <div class="brand" style="font-size:22px;font-weight:800">Trevolto</div>
+      <h1>Automate your crypto strategy — right in your browser.</h1>
+      <p class="lead">Connect your own exchange account, point TradingView (or the built-in strategy) at Trevolto, and it executes entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
+      <ul class="land-feats">
+        <li>🔑 <b>Your keys, your exchange</b> — Binance, Bybit, OKX, KuCoin, Bitget, Kraken, Coinbase. Trade-only, encrypted.</li>
+        <li>⚡ <b>TradingView webhooks</b> → live orders with auto SL + TP1/TP2 scale-out.</li>
+        <li>🤖 <b>Built-in strategy</b> — trade with no TradingView account needed.</li>
+        <li>🛡️ <b>Guardrails</b> — daily loss limit, max positions, cooldowns, Safe Mode.</li>
+        <li>📊 <b>Backtest &amp; analytics</b> before you risk a cent.</li>
+      </ul>
+      <div class="hint">Trading involves risk. Start in Safe Mode. Provided as-is, no warranty.</div>
+    </div>
+    <div id="auth">
+      <div class="tabsw">
+        <button id="tab-login" class="on" onclick="authTab('login')">Log in</button>
+        <button id="tab-reg" onclick="authTab('reg')">Start free trial</button>
+      </div>
+      <label>Email</label>
+      <input id="au-email" type="email" placeholder="you@email.com"/>
+      <label>Password</label>
+      <input id="au-pass" type="password" placeholder="••••••••"/>
+      <div class="err" id="au-err"></div>
+      <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
+      <div class="hint" id="au-note">New accounts get a free trial — no card required.</div>
+    </div>
   </div>
-  <label>Email</label>
-  <input id="au-email" type="email" placeholder="you@email.com"/>
-  <label>Password</label>
-  <input id="au-pass" type="password" placeholder="••••••••"/>
-  <div class="err" id="au-err"></div>
-  <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
-  <div class="hint">Trading involves risk. Start in Safe Mode. Provided as-is, no warranty.</div>
 </div>
 
 <!-- ============ APP ============ -->
@@ -33,15 +48,20 @@
     <span class="badge safe hidden" id="st-safe">SAFE MODE</span>
     <span class="badge warn hidden" id="st-ro">READ-ONLY</span>
     <span class="badge warn hidden" id="st-halt">HALTED</span>
+    <span class="badge" id="st-access">—</span>
     <span class="sp"></span>
     <span class="k">Balance</span> <span class="stat mono" id="st-bal">—</span>
     <span class="k">PnL</span> <span class="stat mono" id="st-pnl">—</span>
     <span class="badge" id="st-email">—</span>
+    <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
     <button class="btn ghost sm" onclick="logout()">Logout</button>
   </div>
 
+  <div class="warnbox hidden" id="access-warn"></div>
+
   <div class="nav">
     <button class="on" onclick="show('trade',this)">Trade</button>
+    <button onclick="show('chart',this)">Chart</button>
     <button onclick="show('settings',this)">Settings</button>
     <button onclick="show('strategy',this)">Strategy</button>
     <button onclick="show('backtest',this)">Backtest</button>
@@ -108,6 +128,22 @@
     </div>
 
     <div class="card"><h3>Trade log</h3><div class="log" id="log"></div></div>
+  </section>
+
+  <!-- CHART -->
+  <section id="v-chart" class="hidden">
+    <div class="card">
+      <h3>Strategy chart <span class="badge" id="ch-info">—</span></h3>
+      <div class="row">
+        <div class="col"><label>Symbol</label><input id="ch-sym" value="BTC/USDT"/></div>
+        <div class="col"><label>Timeframe</label>
+          <select id="ch-tf"><option>15m</option><option>30m</option><option selected>1h</option><option>4h</option><option>1d</option></select></div>
+        <div class="col" style="display:flex;align-items:end"><button class="btn" onclick="loadChart()">Load</button></div>
+      </div>
+      <canvas id="ch-price" style="height:320px;margin-top:12px"></canvas>
+      <canvas id="ch-rsi" style="height:110px;margin-top:8px"></canvas>
+      <div class="hint">Candles + EMA overlay, RSI sub-pane, and the built-in strategy's BUY/SELL markers &amp; SL lines — the same engine that trades.</div>
+    </div>
   </section>
 
   <!-- SETTINGS -->
@@ -215,6 +251,14 @@
       <button class="btn" style="margin-top:12px" onclick="saveWebhook()">Save</button>
       <h3 style="margin-top:20px">Alert JSON your indicator should send</h3>
       <div class="log mono" style="height:auto">{"action":"buy","symbol":"BTCUSDT","entry":67500,"sl":66800,"tp1":68200,"tp2":69500,"comment":"Trevolto","passphrase":""}</div>
+    </div>
+    <div class="card"><h3>Telegram notifications</h3>
+      <div class="row">
+        <div class="col"><label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/></div>
+        <div class="col"><label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/></div>
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="saveTelegram()">Save Telegram</button>
+      <div class="hint">Create a bot with @BotFather, get your chat id from @userinfobot. You'll get a message on every entry, close and connect.</div>
     </div>
   </section>
 </div>

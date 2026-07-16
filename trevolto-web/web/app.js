@@ -35,21 +35,22 @@ async function doAuth() {
 function logout() {
   localStorage.removeItem("trevolto_token"); TOKEN = "";
   if (ws) ws.close();
-  $("app").classList.add("hidden"); $("auth").classList.remove("hidden");
+  $("app").classList.add("hidden"); $("landing").classList.remove("hidden");
 }
 
 function enterApp() {
-  $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
+  $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
   refresh(); openWs();
 }
 
 // ---- views ----
 function show(v, btn) {
-  ["trade", "settings", "strategy", "backtest", "analytics", "webhook"].forEach(x =>
+  ["trade", "chart", "settings", "strategy", "backtest", "analytics", "webhook"].forEach(x =>
     $("v-" + x).classList.toggle("hidden", x !== v));
   document.querySelectorAll(".nav button").forEach(b => b.classList.remove("on"));
   if (btn) btn.classList.add("on");
   if (v === "analytics") loadAnalytics();
+  if (v === "chart") loadChart();
 }
 
 // ---- live state ----
@@ -79,6 +80,22 @@ function render(s) {
   pnl.className = "stat mono " + (s.pnl >= 0 ? "pos" : "neg");
   $("st-email").textContent = s.email || "";
   $("strat-state").textContent = s.strategy_on ? "running" : "off";
+
+  // access / licence
+  const ac = s.access || {};
+  const badge = $("st-access");
+  const label = { admin: "ADMIN", licensed: "LICENSED", trial: "TRIAL", suspended: "SUSPENDED", expired: "EXPIRED" }[ac.status] || "—";
+  badge.textContent = ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")
+    ? `${label} · ${ac.days_left}d` : label;
+  badge.className = "badge " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "warn");
+  $("st-admin").classList.toggle("hidden", !s.is_admin);
+  const warn = $("access-warn");
+  if (!ac.ok) {
+    warn.classList.remove("hidden");
+    warn.textContent = ac.status === "suspended"
+      ? "Your account is suspended. Contact support."
+      : "Your trial has ended. A licence is required to connect and trade — contact support to activate.";
+  } else warn.classList.add("hidden");
 
   // positions
   const tb = $("pos-body");
@@ -145,6 +162,11 @@ function applySettings(s) {
   set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   set("sg-sym", s.strategy_symbols); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("wh-pass", s.webhook_passphrase); set("wh-filter", s.strategy_filter);
+  set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat);
+}
+async function saveTelegram() {
+  await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() });
+  flash("Telegram saved");
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
@@ -222,6 +244,67 @@ function drawEquity(id, series) {
   series.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)));
   ctx.stroke();
   ctx.fillStyle = "rgba(59,130,246,.12)"; ctx.lineTo(x(series.length - 1), h - 8); ctx.lineTo(x(0), h - 8); ctx.closePath(); ctx.fill();
+}
+
+// ---- candlestick chart with strategy overlays ----
+async function loadChart() {
+  $("ch-info").textContent = "loading…";
+  try {
+    const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=300`);
+    $("ch-info").textContent = `${d.candles.length} candles · ${d.markers.length} signals`;
+    drawCandles(d);
+    drawRsi(d);
+  } catch (e) { $("ch-info").textContent = "no data — connect an exchange"; }
+}
+function drawCandles(d) {
+  const cv = $("ch-price"), ctx = cv.getContext("2d");
+  const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  const c = d.candles; if (!c.length) return;
+  const lo = Math.min(...c.map(x => x[3])), hi = Math.max(...c.map(x => x[2])), rng = (hi - lo) || 1;
+  const padL = 8, padR = 56, plotW = w - padL - padR;
+  const x = i => padL + i * plotW / (c.length - 1);
+  const y = v => 6 + (hi - v) / rng * (h - 12);
+  const cw = Math.max(1, plotW / c.length * 0.6);
+  c.forEach((k, i) => {
+    const [, o, hg, l, cl] = k, up = cl >= o;
+    ctx.strokeStyle = up ? "#22c55e" : "#ef4444"; ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(x(i), y(hg)); ctx.lineTo(x(i), y(l)); ctx.stroke();
+    const yt = y(Math.max(o, cl)), yb = y(Math.min(o, cl));
+    ctx.fillRect(x(i) - cw / 2, yt, cw, Math.max(1, yb - yt));
+  });
+  // EMA overlay
+  ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1.5; ctx.beginPath(); let started = false;
+  d.ema.forEach((v, i) => { if (v == null) return; const px = x(i), py = y(v); started ? ctx.lineTo(px, py) : ctx.moveTo(px, py); started = true; });
+  ctx.stroke(); ctx.lineWidth = 1;
+  // price axis labels
+  ctx.fillStyle = "#8a97ab"; ctx.font = "11px monospace";
+  for (let g = 0; g <= 4; g++) { const v = lo + rng * g / 4; ctx.fillText(v.toFixed(2), w - padR + 4, y(v) + 3); }
+  // markers
+  d.markers.forEach(m => {
+    const px = x(m.i);
+    if (m.type === "enter") {
+      const buy = m.side === "long"; ctx.fillStyle = buy ? "#22c55e" : "#ef4444";
+      const py = y(m.price); ctx.beginPath();
+      if (buy) { ctx.moveTo(px, py + 12); ctx.lineTo(px - 5, py + 22); ctx.lineTo(px + 5, py + 22); }
+      else { ctx.moveTo(px, py - 12); ctx.lineTo(px - 5, py - 22); ctx.lineTo(px + 5, py - 22); }
+      ctx.closePath(); ctx.fill();
+      if (m.sl) { ctx.strokeStyle = "rgba(239,68,68,.5)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(px, y(m.sl)); ctx.lineTo(Math.min(px + 40, w - padR), y(m.sl)); ctx.stroke(); ctx.setLineDash([]); }
+    } else { ctx.fillStyle = "#8a97ab"; ctx.fillRect(px - 2, y(m.price) - 2, 4, 4); }
+  });
+}
+function drawRsi(d) {
+  const cv = $("ch-rsi"), ctx = cv.getContext("2d");
+  const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  const r = d.rsi; if (!r.length) return;
+  const padR = 56, plotW = w - 8 - padR, x = i => 8 + i * plotW / (r.length - 1), y = v => 4 + (100 - v) / 100 * (h - 8);
+  ctx.fillStyle = "rgba(59,130,246,.08)"; ctx.fillRect(8, y(70), plotW, y(30) - y(70));
+  ctx.strokeStyle = "#232c3d"; [30, 50, 70].forEach(v => { ctx.beginPath(); ctx.moveTo(8, y(v)); ctx.lineTo(8 + plotW, y(v)); ctx.stroke(); });
+  ctx.strokeStyle = "#3b82f6"; ctx.beginPath(); let st = false;
+  r.forEach((v, i) => { if (v == null) return; const px = x(i), py = y(v); st ? ctx.lineTo(px, py) : ctx.moveTo(px, py); st = true; });
+  ctx.stroke();
+  ctx.fillStyle = "#8a97ab"; ctx.font = "10px monospace";[30, 50, 70].forEach(v => ctx.fillText(v, w - padR + 4, y(v) + 3));
 }
 
 function flash(msg) {

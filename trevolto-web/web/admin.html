@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trevolto Web — Admin</title>
+<link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+<div id="app" style="max-width:1150px">
+  <div class="status">
+    <span class="brand" style="font-size:18px;font-weight:800">Trevolto</span>
+    <span class="badge">Admin · customer panel</span>
+    <span class="sp"></span>
+    <span class="k" id="ad-me">—</span>
+    <a class="btn ghost sm" href="/">← Dashboard</a>
+    <button class="btn ghost sm" onclick="logout()">Logout</button>
+  </div>
+
+  <div id="gate" class="card hidden">
+    <h3>Admin sign-in</h3>
+    <label>Email</label><input id="g-email" type="email"/>
+    <label>Password</label><input id="g-pass" type="password"/>
+    <div class="err" id="g-err"></div>
+    <button class="btn" style="margin-top:10px" onclick="adminLogin()">Sign in</button>
+  </div>
+
+  <div id="panel" class="hidden">
+    <div class="row" style="margin-bottom:14px">
+      <div class="card col"><div class="k">Customers</div><div class="big" id="m-total">—</div></div>
+      <div class="card col"><div class="k">Active trials</div><div class="big" id="m-trial">—</div></div>
+      <div class="card col"><div class="k">Licensed</div><div class="big" id="m-lic">—</div></div>
+      <div class="card col"><div class="k">Suspended / expired</div><div class="big" id="m-off">—</div></div>
+    </div>
+    <div class="card">
+      <h3>Customers <button class="btn ghost sm" style="float:right" onclick="loadUsers()">Refresh</button></h3>
+      <table><thead><tr>
+        <th>ID</th><th>Email</th><th>Status</th><th>Plan</th><th>Days left</th>
+        <th>Keys</th><th>Last seen</th><th>Actions</th></tr></thead>
+        <tbody id="u-body"></tbody></table>
+    </div>
+  </div>
+</div>
+<script src="/static/admin.js"></script>
+</body>
+</html>

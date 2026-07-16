@@ -20,12 +20,18 @@ label{display:block;font-size:12px;color:var(--mut);margin:8px 0 4px}
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .col{flex:1;min-width:220px}
 
-/* auth */
-#auth{max-width:400px;margin:8vh auto;padding:28px;background:var(--panel);
-  border:1px solid var(--line);border-radius:14px}
-#auth h1{margin:0 0 4px;font-size:26px}
-#auth .sub{color:var(--mut);margin-bottom:18px}
+/* landing */
 .brand{color:var(--accent);font-weight:800}
+.land-hero{max-width:1100px;margin:6vh auto;padding:0 20px;display:flex;gap:48px;align-items:center;flex-wrap:wrap}
+.land-copy{flex:1;min-width:320px}
+.land-copy h1{font-size:38px;line-height:1.1;margin:12px 0}
+.land-copy .lead{color:var(--mut);font-size:16px;max-width:560px}
+.land-feats{list-style:none;padding:0;margin:20px 0}
+.land-feats li{padding:7px 0;color:var(--txt)}
+.land-feats b{color:var(--txt)}
+/* auth card */
+#auth{width:360px;max-width:100%;padding:26px;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
 .tabsw{display:flex;gap:8px;margin-bottom:14px}
 .tabsw button{flex:1;background:var(--chip);border:1px solid var(--line);color:var(--mut);
   padding:8px;border-radius:8px}
