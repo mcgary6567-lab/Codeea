@@ -231,14 +231,19 @@ async function runBacktest() {
       ["Fees paid $", fmt(s.fees), "neg"],
     ];
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
-    const eq = d.equity.map(e => e[1]); drawLine("bt-eqc", eq, "#f97316", true);
-    let peak = -1e9; drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("");
     const p = d.period || {};
     $("bt-period-info").textContent = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
     $("bt-csv").disabled = !d.trades.length;
+    // Un-hide the results BEFORE drawing so the canvases have real dimensions.
     $("bt-out").classList.remove("hidden");
+    const eq = d.equity.map(e => e[1]);
+    requestAnimationFrame(() => {
+      drawLine("bt-eqc", eq, "#f97316", true);
+      let peak = -1e9;
+      drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
+    });
   } catch (e) { alert("Backtest: " + e.message); }
   finally { btn.disabled = false; btn.textContent = "▶ Run backtest"; }
 }
@@ -274,7 +279,7 @@ async function loadAnalytics() {
 
 // ---- line chart ----
 function drawLine(id, series, color, fill) {
-  const cv = $(id); if (!cv) return; const ctx = cv.getContext("2d");
+  const cv = $(id); if (!cv || cv.clientWidth < 20) return; const ctx = cv.getContext("2d");
   const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
   if (!series || series.length < 2) { ctx.fillStyle = "#8a97ab"; ctx.font = "12px sans-serif"; ctx.fillText("No data yet", 12, 22); return; }
   const min = Math.min(...series), max = Math.max(...series), rng = (max - min) || 1;
@@ -302,7 +307,7 @@ function chZoom(f) { if (!CH) return; const n = CH.d.candles.length; let c = Mat
 function chPan(dCandles) { if (!CH) return; const n = CH.d.candles.length, c = CH.i1 - CH.i0; let i0 = Math.max(0, Math.min(n - c, chDrag.i0 + dCandles)); CH.i0 = i0; CH.i1 = i0 + c; drawChart(); }
 function drawChart() {
   if (!CH) return;
-  const cv = $("ch-price"), ctx = cv.getContext("2d");
+  const cv = $("ch-price"); if (cv.clientWidth < 20) return; const ctx = cv.getContext("2d");
   const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
   const d = CH.d, i0 = Math.max(0, Math.floor(CH.i0)), i1 = Math.min(d.candles.length, Math.ceil(CH.i1));
   const view = d.candles.slice(i0, i1); if (view.length < 2) return;
@@ -369,6 +374,18 @@ function chSetup() {
   cv.addEventListener("touchend", () => { chDrag = null; chPinch = null; });
 }
 function tdist(e) { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+
+function btRedraw() {
+  if (!BT || $("bt-out").classList.contains("hidden")) return;
+  const eq = BT.equity.map(e => e[1]); drawLine("bt-eqc", eq, "#f97316", true);
+  let peak = -1e9; drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
+}
+// Redraw canvases when the tab becomes visible again (Chrome memory-saver can
+// discard canvas contents while a tab is frozen).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  requestAnimationFrame(() => { if (CH) drawChart(); btRedraw(); });
+});
 
 function toast(msg) { const e = $("st-email"); e.textContent = "✓ " + msg; setTimeout(() => { if (lastState) e.textContent = "👋 " + (lastState.name || (lastState.email || "").split("@")[0]); }, 1500); }
 window.addEventListener("load", chSetup);
