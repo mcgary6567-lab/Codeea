@@ -153,3 +153,9 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .brand{display:inline-flex;align-items:center;gap:8px}
 .logo-img{height:26px;width:auto;display:block;border-radius:6px}
 .logo-img.big{height:34px}
+
+/* ---- landing conversion copy ---- */
+.land-feats li{padding:9px 0;font-size:14.5px;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04)}
+.land-feats li b{color:var(--txt)}
+.cta-line{margin:18px 0 6px;padding:12px 14px;background:linear-gradient(90deg,rgba(249,115,22,.14),transparent);
+  border:1px solid var(--accent);border-radius:10px;font-size:15px;color:var(--txt)}
