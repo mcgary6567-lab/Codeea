@@ -1,5 +1,5 @@
 // Prometheus Web — dashboard client
-const CHECKOUT_URL = "https://prometheusai.tech/checkout.php";
+const CHECKOUT_URL = "https://prometheusai.tech/checkout";
 let TOKEN = localStorage.getItem("prometheus_token") || "";
 let authMode = "login";
 let ws = null, lastState = null;
