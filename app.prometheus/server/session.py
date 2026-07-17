@@ -143,6 +143,7 @@ DEFAULT_SETTINGS = {
     "webhook_passphrase": "",
     "telegram_token": "",
     "telegram_chat": "",
+    "daily_summary": True,           # daily PnL recap via Telegram/email
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT",

@@ -26,10 +26,37 @@ async function doAuth() {
   try {
     const body = { email: $("au-email").value.trim(), password: $("au-pass").value };
     if (authMode === "reg") { body.first_name = $("au-first").value.trim(); body.last_name = $("au-last").value.trim(); }
+    const totp = $("au-totp").value.trim(); if (totp) body.totp = totp;
     const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST", body);
+    if (d.need_2fa) { $("tfa-field").classList.remove("hidden"); $("au-err").textContent = "Enter your 6-digit 2FA code."; $("au-totp").focus(); return; }
     TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); enterApp();
   } catch (e) { $("au-err").textContent = e.message; }
 }
+async function forgotPassword() {
+  const email = ($("au-email").value || "").trim() || prompt("Enter your account email:");
+  if (!email) return;
+  try { await api("/api/forgot", "POST", { email }); notify("If that email is registered, a reset link has been sent.", "ok"); }
+  catch (e) { notify(e.message, "error"); }
+}
+let RESET_TOKEN = null;
+function checkResetUrl() {
+  const t = new URLSearchParams(location.search).get("reset");
+  if (t) { RESET_TOKEN = t; $("login-panel").classList.add("hidden"); $("reset-panel").classList.remove("hidden"); const tw = document.querySelector(".tabsw"); if (tw) tw.classList.add("hidden"); }
+}
+async function doReset() {
+  $("rs-err").textContent = "";
+  const pw = $("rs-pass").value; if (pw.length < 6) { $("rs-err").textContent = "6+ characters."; return; }
+  try {
+    const d = await api("/api/reset", "POST", { token: RESET_TOKEN, password: pw });
+    TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN);
+    history.replaceState({}, "", location.pathname);
+    notify("Password reset ✓", "ok"); enterApp();
+  } catch (e) { $("rs-err").textContent = e.message; }
+}
+// ---- 2FA settings ----
+async function twofaSetup() { try { const d = await api("/api/2fa/setup", "POST"); $("tfa-secret").textContent = d.secret; $("tfa-setup").classList.remove("hidden"); } catch (e) { notify(e.message, "error"); } }
+async function twofaEnable() { try { await api("/api/2fa/enable", "POST", { code: $("tfa-code").value.trim() }); notify("2FA enabled ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
+async function twofaDisable() { try { await api("/api/2fa/disable", "POST", { password: $("tfa-pass").value }); notify("2FA disabled", "warn"); $("tfa-pass").value = ""; refresh(); } catch (e) { notify(e.message, "error"); } }
 function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
 function enterApp() {
   $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
@@ -93,6 +120,7 @@ function render(s) {
   $("st-admin").classList.toggle("hidden", !s.is_admin);
   const setIf = (id, v) => { if ($(id) && !(document.activeElement && document.activeElement.id === id)) $(id).value = v || ""; };
   setIf("ac-first", s.first_name); setIf("ac-last", s.last_name);
+  if ($("tfa-on")) { $("tfa-on").classList.toggle("hidden", !s.totp_enabled); $("tfa-off").classList.toggle("hidden", !!s.totp_enabled); }
 
   const ac = s.access || {};
   const lbl = { admin: "ADMIN", licensed: "LICENSED", trial: "TRIAL", suspended: "SUSPENDED", expired: "EXPIRED" }[ac.status] || "—";
@@ -213,6 +241,7 @@ function applySettings(s, email) {
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
+  chk("s-summary", s.daily_summary);
   const p = s.strategy_params || {};
   for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (BOOLP.has(k)) set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
 }
@@ -224,7 +253,7 @@ async function saveSettings() {
   } catch (e) { notify(e.message, "error"); }
 }
 async function saveTelegram() {
-  try { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); notify("Telegram settings saved ✓", "ok"); }
+  try { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim(), daily_summary: $("s-summary").checked }); notify("Telegram settings saved ✓", "ok"); }
   catch (e) { notify(e.message, "error"); }
 }
 async function tgTest() {
@@ -496,4 +525,5 @@ function notify(msg, type = "ok") {
 }
 function toast(msg) { notify(msg, "ok"); }
 window.addEventListener("load", chSetup);
-if (TOKEN) enterApp();
+checkResetUrl();
+if (TOKEN && !RESET_TOKEN) enterApp();

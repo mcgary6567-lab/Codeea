@@ -85,3 +85,58 @@ def encrypt_secret(obj: dict) -> str:
 
 def decrypt_secret(blob: str) -> dict:
     return json.loads(_FERNET.decrypt(blob.encode()).decode())
+
+
+# --- password-reset tokens --------------------------------------------------
+def new_reset_token() -> tuple:
+    """Return (raw_token, sha256_hash). Store the hash, email the raw token."""
+    raw = os.urandom(24).hex()
+    return raw, hashlib.sha256(raw.encode()).hexdigest()
+
+
+def hash_token(raw: str) -> str:
+    return hashlib.sha256((raw or "").encode()).hexdigest()
+
+
+# --- TOTP (RFC 6238, SHA1, 6 digits, 30s) -----------------------------------
+_B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+
+
+def new_totp_secret(length: int = 20) -> str:
+    raw = os.urandom(length)
+    bits = "".join(f"{b:08b}" for b in raw)
+    out = ""
+    for i in range(0, len(bits) - 4, 5):
+        out += _B32[int(bits[i:i + 5], 2)]
+    return out
+
+
+def _b32decode(secret: str) -> bytes:
+    secret = secret.strip().replace(" ", "").upper()
+    bits = "".join(f"{_B32.index(c):05b}" for c in secret if c in _B32)
+    return bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits) - 7, 8))
+
+
+def totp_at(secret: str, counter: int) -> str:
+    key = _b32decode(secret)
+    msg = counter.to_bytes(8, "big")
+    h = hmac.new(key, msg, hashlib.sha1).digest()
+    off = h[-1] & 0x0F
+    code = ((h[off] & 0x7F) << 24) | (h[off + 1] << 16) | (h[off + 2] << 8) | h[off + 3]
+    return f"{code % 1_000_000:06d}"
+
+
+def verify_totp(secret: str, code: str, window: int = 1) -> bool:
+    if not secret or not code:
+        return False
+    code = code.strip().replace(" ", "")
+    counter = int(time.time()) // 30
+    for w in range(-window, window + 1):
+        if hmac.compare_digest(totp_at(secret, counter + w), code):
+            return True
+    return False
+
+
+def totp_uri(secret: str, email: str, issuer: str = "Prometheus") -> str:
+    from urllib.parse import quote
+    return f"otpauth://totp/{quote(issuer)}:{quote(email)}?secret={secret}&issuer={quote(issuer)}"

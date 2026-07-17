@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 
 # Put the trading engine (flat-import modules) on the path BEFORE importing it.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "engine"))
@@ -90,7 +91,72 @@ async def login(request: Request):
     user = store.get_user_by_email(d.get("email", ""))
     if not user or not security.verify_password(d.get("password", ""), user["pw_hash"]):
         raise HTTPException(401, "bad credentials")
+    if user.get("totp_enabled"):
+        code = str(d.get("totp", "")).strip()
+        if not code:
+            return {"need_2fa": True}
+        if not security.verify_totp(user.get("totp_secret", ""), code):
+            raise HTTPException(401, "invalid 2FA code")
     return {"token": security.make_token(user["id"], user["email"]), "email": user["email"]}
+
+
+# --- password reset ---------------------------------------------------------
+@app.post("/api/forgot")
+async def forgot(request: Request):
+    from . import mailer
+    d = await body(request)
+    user = store.get_user_by_email(d.get("email", ""))
+    # Always return ok (don't reveal whether an email is registered).
+    if user:
+        raw = store.create_reset(user["id"])
+        link = f"{PUBLIC_URL or ''}/?reset={raw}"
+        ok, msg = mailer.send_email(
+            user["email"], "Reset your Prometheus password",
+            f"Reset your password (valid 1 hour):\n\n{link}\n\nIf you didn't request this, ignore this email.")
+        if not ok:
+            return {"ok": True, "note": "email not configured on the server — contact support"}
+    return {"ok": True}
+
+
+@app.post("/api/reset")
+async def reset(request: Request):
+    d = await body(request)
+    pw = d.get("password", "")
+    if len(pw) < 6:
+        raise HTTPException(400, "password must be 6+ characters")
+    uid = store.consume_reset(d.get("token", ""))
+    if not uid:
+        raise HTTPException(400, "invalid or expired reset link")
+    store.update_password(uid, pw)
+    u = store.get_user(uid)
+    return {"token": security.make_token(u["id"], u["email"]), "email": u["email"]}
+
+
+# --- 2FA (TOTP) -------------------------------------------------------------
+@app.post("/api/2fa/setup")
+def twofa_setup(user: dict = Depends(current_user)):
+    secret = security.new_totp_secret()
+    store.set_totp_secret(user["id"], secret)          # stored, not yet enabled
+    return {"secret": secret, "uri": security.totp_uri(secret, user["email"])}
+
+
+@app.post("/api/2fa/enable")
+async def twofa_enable(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    if not security.verify_totp(user.get("totp_secret", ""), str(d.get("code", ""))):
+        raise HTTPException(400, "wrong code — re-scan and try again")
+    store.set_totp_enabled(user["id"], True)
+    return {"ok": True}
+
+
+@app.post("/api/2fa/disable")
+async def twofa_disable(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    if not security.verify_password(d.get("password", ""), user["pw_hash"]):
+        raise HTTPException(400, "wrong password")
+    store.set_totp_enabled(user["id"], False)
+    store.set_totp_secret(user["id"], "")
+    return {"ok": True}
 
 
 # --- state ------------------------------------------------------------------
@@ -109,6 +175,7 @@ def full_state(user: dict) -> dict:
     snap["last_name"] = user.get("last_name", "")
     snap["name"] = (f"{user.get('first_name', '')} {user.get('last_name', '')}").strip() or user["email"].split("@")[0]
     snap["is_admin"] = bool(user.get("is_admin"))
+    snap["totp_enabled"] = bool(user.get("totp_enabled"))
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
     snap["access"] = store.entitlement(user)
@@ -446,3 +513,38 @@ def healthz():
 
 if os.path.isdir(WEB_DIR):
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+
+# --- daily PnL summary scheduler (Telegram + optional email) ----------------
+def _summary_loop():
+    import threading  # noqa: F401
+    from . import mailer
+    from .session import TraderSession
+    while True:
+        try:
+            now = time.gmtime()
+            today = time.strftime("%Y-%m-%d", now)
+            hour = int(os.environ.get("PROMETHEUS_SUMMARY_HOUR", "23"))
+            if now.tm_hour >= hour:
+                for u in store.all_users():
+                    if u.get("last_summary") == today:
+                        continue
+                    s = json.loads(u["settings"] or "{}")
+                    if s.get("daily_summary", True):
+                        pnl, n, wins = store.realized_pnl_since(u["id"], time.time() - 86400)
+                        if n > 0:
+                            msg = (f"📊 Daily recap — {n} trade(s), {wins} win(s), "
+                                   f"realized PnL {pnl:+.2f} USDT")
+                            tok, chat = s.get("telegram_token", ""), s.get("telegram_chat", "")
+                            if tok and chat:
+                                TraderSession._tg_send(tok, chat, msg)
+                            if mailer.configured():
+                                mailer.send_email(u["email"], "Your Prometheus daily recap", msg)
+                    store.mark_summary(u["id"], today)
+        except Exception:
+            pass
+        time.sleep(900)   # re-check every 15 minutes
+
+
+import threading as _threading  # noqa: E402
+_threading.Thread(target=_summary_loop, daemon=True).start()

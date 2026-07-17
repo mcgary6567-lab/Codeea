@@ -63,8 +63,21 @@ def init_db() -> None:
                 ts REAL NOT NULL, balance REAL, pnl REAL
             );
             CREATE INDEX IF NOT EXISTS ix_equity_user ON equity(user_id, ts);
+            CREATE TABLE IF NOT EXISTS resets(
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires REAL NOT NULL
+            );
             """
         )
+        for name, ddl in {
+            "totp_secret": "TEXT NOT NULL DEFAULT ''",
+            "totp_enabled": "INTEGER NOT NULL DEFAULT 0",
+            "last_summary": "TEXT NOT NULL DEFAULT ''",
+        }.items():
+            ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+            if name not in ucols:
+                c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
         # Lightweight migration for DBs created before access-control columns.
         tcols = {r["name"] for r in c.execute("PRAGMA table_info(trades)")}
         if "mode" not in tcols:
@@ -194,6 +207,59 @@ def update_password(user_id: int, password: str) -> None:
     with _LOCK, _conn() as c:
         c.execute("UPDATE users SET pw_hash=? WHERE id=?",
                   (security.hash_password(password), user_id))
+
+
+# --- password reset ---------------------------------------------------------
+def create_reset(user_id: int, ttl_seconds: int = 3600) -> str:
+    raw, h = security.new_reset_token()
+    with _LOCK, _conn() as c:
+        c.execute("DELETE FROM resets WHERE user_id=?", (user_id,))
+        c.execute("INSERT INTO resets(token_hash,user_id,expires) VALUES(?,?,?)",
+                  (h, user_id, time.time() + ttl_seconds))
+    return raw
+
+
+def consume_reset(raw_token: str) -> int | None:
+    h = security.hash_token(raw_token)
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT user_id,expires FROM resets WHERE token_hash=?", (h,)).fetchone()
+        if not r:
+            return None
+        c.execute("DELETE FROM resets WHERE token_hash=?", (h,))
+        if r["expires"] < time.time():
+            return None
+        return r["user_id"]
+
+
+# --- 2FA (TOTP) -------------------------------------------------------------
+def set_totp_secret(user_id: int, secret: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET totp_secret=? WHERE id=?", (secret, user_id))
+
+
+def set_totp_enabled(user_id: int, enabled: bool) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET totp_enabled=? WHERE id=?", (1 if enabled else 0, user_id))
+
+
+# --- daily summary bookkeeping ----------------------------------------------
+def all_users() -> list:
+    with _LOCK, _conn() as c:
+        return [dict(r) for r in c.execute("SELECT * FROM users").fetchall()]
+
+
+def mark_summary(user_id: int, day: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET last_summary=? WHERE id=?", (day, user_id))
+
+
+def realized_pnl_since(user_id: int, since_ts: float) -> tuple:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT pnl FROM trades WHERE user_id=? AND kind='close' AND ts>=?",
+                         (user_id, since_ts)).fetchall()
+    pnls = [r["pnl"] or 0.0 for r in rows]
+    wins = sum(1 for p in pnls if p > 0)
+    return round(sum(pnls), 4), len(pnls), wins
 
 
 def update_name(user_id: int, first_name: str, last_name: str) -> None:

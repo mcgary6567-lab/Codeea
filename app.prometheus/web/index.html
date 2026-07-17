@@ -43,11 +43,20 @@
           <div class="col"><label>Last name</label><input id="au-last" placeholder="Doe"/></div>
         </div>
       </div>
-      <label>Email</label><input id="au-email" type="email" placeholder="you@email.com"/>
-      <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
-      <div class="err" id="au-err"></div>
-      <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
-      <div class="hint">New accounts get a free trial — no card required.</div>
+      <div id="login-panel">
+        <label>Email</label><input id="au-email" type="email" placeholder="you@email.com"/>
+        <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
+        <div id="tfa-field" class="hidden"><label>2FA code</label><input id="au-totp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"/></div>
+        <div class="err" id="au-err"></div>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
+        <div class="hint"><a onclick="forgotPassword()" style="cursor:pointer">Forgot password?</a> · New accounts get a free trial.</div>
+      </div>
+      <div id="reset-panel" class="hidden">
+        <h3 style="margin:0 0 10px">Set a new password</h3>
+        <label>New password</label><input id="rs-pass" type="password" placeholder="••••••••"/>
+        <div class="err" id="rs-err"></div>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doReset()">Reset password</button>
+      </div>
     </div>
   </div>
 </div>
@@ -381,12 +390,32 @@
           <div class="card"><h3>Telegram notifications</h3>
             <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
             <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
+            <label class="chkline"><input type="checkbox" id="s-summary"/> 📊 Daily PnL recap (Telegram + email)</label>
             <div class="btnrow">
               <button class="btn" onclick="saveTelegram()">Save Telegram</button>
               <button class="btn ghost" id="tg-test" onclick="tgTest()">✈️ Send test</button>
             </div>
             <div class="err" id="tg-result"></div>
             <div class="hint">Alerts on every entry, close and connect.</div>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>🔐 Security — Two-factor authentication</h3>
+            <div id="tfa-off">
+              <div class="hint">Add an extra layer with an authenticator app (Google Authenticator, Authy). Strongly recommended — your account controls real funds.</div>
+              <button class="btn" style="margin-top:10px" onclick="twofaSetup()">Enable 2FA</button>
+              <div id="tfa-setup" class="hidden" style="margin-top:12px">
+                <div class="hint">In your authenticator app choose "enter a setup key" and paste this secret (account: your email), then type the 6-digit code:</div>
+                <div class="mono" id="tfa-secret" style="margin:8px 0;padding:8px;background:var(--chip);border-radius:8px;word-break:break-all"></div>
+                <input id="tfa-code" inputmode="numeric" placeholder="123456"/>
+                <button class="btn" style="margin-top:8px" onclick="twofaEnable()">Confirm &amp; turn on</button>
+              </div>
+            </div>
+            <div id="tfa-on" class="hidden">
+              <div class="hint">✅ 2FA is <b>ON</b> — you'll enter a code at login.</div>
+              <label>Password (to disable)</label><input id="tfa-pass" type="password" placeholder="••••••••"/>
+              <button class="btn red" style="margin-top:8px" onclick="twofaDisable()">Disable 2FA</button>
+            </div>
           </div>
         </div>
       </section>
