@@ -20,7 +20,16 @@ async function api(path, method = "GET", bodyObj) {
 }
 
 // ---- auth ----
-function authTab(m) { authMode = m; $("tab-login").classList.toggle("on", m === "login"); $("tab-reg").classList.toggle("on", m === "reg"); $("reg-fields").classList.toggle("hidden", m !== "reg"); }
+function authTab(m) {
+  authMode = m;
+  $("tab-login").classList.toggle("on", m === "login");
+  $("tab-reg").classList.toggle("on", m === "reg");
+  $("reg-fields").classList.toggle("hidden", m !== "reg");
+  if ($("auth-title")) {
+    $("auth-title").textContent = m === "reg" ? "Start your free trial" : "Welcome back";
+    $("auth-sub").textContent = m === "reg" ? "10 days free — no card required" : "Sign in to your trading dashboard";
+  }
+}
 async function doAuth() {
   $("au-err").textContent = "";
   try {
@@ -84,7 +93,9 @@ function syncChartToStrategy(forceLoad) {
 }
 
 // ---- views ----
-const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings"];
+const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
+function goCheckout() { window.open(CHECKOUT_URL, "_blank", "noopener"); }
+function qNav(v) { return document.querySelector('.side button[data-v="' + v + '"]'); }
 function show(v, btn) {
   VIEWS.forEach(x => $("v-" + x).classList.toggle("hidden", x !== v));
   document.querySelectorAll(".side button").forEach(b => b.classList.toggle("on", b === btn));
@@ -130,7 +141,7 @@ function render(s) {
   const buyable = ac.status === "trial" || ac.status === "expired";
   $("st-access").style.cursor = buyable ? "pointer" : "default";
   $("st-access").title = buyable ? "Buy / renew licence" : "";
-  $("st-access").onclick = buyable ? () => window.open(CHECKOUT_URL, "_blank") : null;
+  if ($("st-buy")) { $("st-buy").classList.toggle("hidden", !buyable); $("st-buy").href = CHECKOUT_URL; }
   const warn = $("access-warn");
   const buyBtn = `<a class="btn" href="${CHECKOUT_URL}" target="_blank" rel="noopener" style="margin-left:12px">🔓 Buy licence</a>`;
   const NUDGE_DAYS = 2;

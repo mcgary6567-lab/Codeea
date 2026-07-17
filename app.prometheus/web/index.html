@@ -36,6 +36,11 @@
       <div class="hint">Trading involves risk and can lose money. Past/backtested performance is not a guarantee of future results. Provided as-is, no warranty.</div>
     </div>
     <div id="auth">
+      <div class="auth-head">
+        <div class="brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/></div>
+        <h2 id="auth-title">Welcome back</h2>
+        <p id="auth-sub" class="auth-sub">Sign in to your trading dashboard</p>
+      </div>
       <div class="tabsw">
         <button id="tab-login" class="on" onclick="authTab('login')">Log in</button>
         <button id="tab-reg" onclick="authTab('reg')">Start free trial</button>
@@ -62,6 +67,17 @@
       </div>
     </div>
   </div>
+  <footer class="site-footer">
+    <div class="foot-inner">
+      <div class="foot-brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> <b>Prometheus</b></div>
+      <div class="foot-links">
+        <a href="https://www.prometheusai.tech/support" target="_blank" rel="noopener">Contact us</a>
+        <span class="foot-sep">·</span>
+        <a href="#" onclick="goCheckout();return false">Get licence</a>
+      </div>
+      <div class="foot-copy">© 2026 Prometheus. All rights reserved.</div>
+    </div>
+  </footer>
 </div>
 
 <!-- ============ APP ============ -->
@@ -75,7 +91,8 @@
     <span class="chip danger hidden" id="st-halt">HALTED</span>
     <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
-    <span class="chip" id="st-access">—</span>
+    <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
+    <a class="btn sm hidden" id="st-buy" href="#" target="_blank" rel="noopener">✨ Get licence</a>
     <span class="chip hide-sm" id="st-email">—</span>
     <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
     <button class="btn ghost sm" onclick="logout()">Logout</button>
@@ -90,6 +107,7 @@
       <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
       <button data-v="log" onclick="show('log',this)">📜 Log</button>
       <button data-v="settings" onclick="show('settings',this)">⚙️ Settings</button>
+      <button data-v="guide" onclick="show('guide',this)">📖 How to use</button>
     </nav>
 
     <main class="content">
@@ -422,8 +440,114 @@
           </div>
         </div>
       </section>
+
+      <!-- HOW TO USE -->
+      <section id="v-guide" class="hidden">
+        <div class="guide-hero card">
+          <h2>📖 How to use Prometheus</h2>
+          <p class="guide-lead">A 5-step walkthrough of every screen. Follow it top-to-bottom the first time and you'll be trading live in a few minutes.</p>
+          <div class="guide-steps">
+            <span class="gstep" onclick="show('exchange',qNav('exchange'))">① Connect</span>
+            <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Strategy</span>
+            <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Backtest</span>
+            <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
+            <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">1</div>
+          <div class="gbody">
+            <h3>🔌 Connect your exchange</h3>
+            <p>Open <b>Exchange</b> in the menu. Pick your exchange and market (Spot or Futures), paste an <b>API key + secret</b> created with <b>trade permission but withdrawals disabled</b>, then <b>Save &amp; Connect</b>. Keys are encrypted server-side — we never see or move your funds.</p>
+            <div class="gshot">
+              <div class="gs-topbar"><span class="gs-dot on"></span> Connected · Binance · Spot</div>
+              <div class="gs-field"><span>Exchange</span><i>Binance ▾</i></div>
+              <div class="gs-field"><span>API key</span><i>••••••••••••7f2a</i></div>
+              <div class="gs-field"><span>API secret</span><i>••••••••••••••••</i></div>
+              <div class="gs-btnrow"><b class="gs-btn">Save &amp; Connect</b><b class="gs-btn ghost">Disconnect</b></div>
+            </div>
+            <p class="gtip">💡 Tip: turn on <b>Read-only</b> first if you just want to watch without any orders being placed.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">2</div>
+          <div class="gbody">
+            <h3>🤖 Set your strategy</h3>
+            <p>Open <b>Strategy</b>. The built-in <b>EMA 9/21 cross + 100-EMA trend filter</b> is <b>ON by default</b>. Choose the <b>timeframe</b> and one or more <b>symbols</b> (each pair trades independently). Tune confirmation candles, swing stop, partial target and trailing if you like — or leave the proven defaults and hit <b>Save strategy</b>.</p>
+            <div class="gshot">
+              <div class="gs-row"><div class="gs-field"><span>Timeframe</span><i>15m ▾</i></div><div class="gs-field"><span>Symbols</span><i>BTC/USDT, ETH/USDT ▾</i></div></div>
+              <div class="gs-row"><div class="gs-field"><span>Fast EMA</span><i>9</i></div><div class="gs-field"><span>Slow EMA</span><i>21</i></div><div class="gs-field"><span>Trend EMA</span><i>100</i></div></div>
+              <div class="gs-row"><div class="gs-field"><span>Confirm candles</span><i>2</i></div><div class="gs-field"><span>Partial R:R</span><i>1.0</i></div></div>
+              <div class="gs-btnrow"><b class="gs-btn">💾 Save strategy</b><b class="gs-btn green">Enable / Start</b></div>
+            </div>
+            <p class="gtip">💡 Sizing &amp; risk guardrails live just below — set <b>Risk % per trade</b>, <b>Max open positions</b> and daily loss/profit limits. Flip <b>📝 Paper trading</b> ON to simulate fills with zero real risk.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">3</div>
+          <div class="gbody">
+            <h3>🧪 Backtest before you risk a cent</h3>
+            <p>Open <b>Backtest</b>. Pick a symbol, timeframe and period, then <b>Run backtest</b> — it replays the <i>exact</i> live strategy on real market history and shows an equity curve, drawdown, win-rate and every trade. Export to CSV to dig deeper.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Net PnL</span><b class="pos">+18.4%</b></div><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Max DD</span><b class="neg">-6.1%</b></div></div>
+              <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,38 25,34 50,36 75,26 100,28 125,18 150,20 175,10 200,6" fill="none" stroke="#22c55e" stroke-width="2"/></svg></div>
+            </div>
+            <p class="gtip">💡 The backtester uses your <b>saved</b> strategy parameters — tune in Strategy, then re-run here to compare.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">4</div>
+          <div class="gbody">
+            <h3>📊 Go live &amp; watch the dashboard</h3>
+            <p>The <b>Dashboard</b> is home base: live prices for your coins, balance and unrealized PnL tiles, a live chart with <b>▲BUY / ▼SELL</b> markers and SL/TP lines, plus an <b>Order panel</b> for manual trades and <b>Open positions</b> with one-click <b>Close All</b>. When your strategy fires, entries and exits appear here automatically.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Balance</span><b>1,000.00</b></div><div class="gs-tile"><span>Unreal. PnL</span><b class="pos">+24.10</b></div><div class="gs-tile"><span>Access</span><b>Licensed</b></div><div class="gs-tile"><span>Strategy</span><b class="pos">On</b></div></div>
+              <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,30 20,28 40,32 60,22 80,26 100,16 120,20 140,12 160,18 180,8 200,12" fill="none" stroke="#f97316" stroke-width="2"/><circle cx="60" cy="22" r="3" fill="#22c55e"/><circle cx="140" cy="12" r="3" fill="#ef4444"/></svg></div>
+            </div>
+            <p class="gtip">💡 The <b>Paper vs Live</b> card compares simulated and real realized PnL — a confidence check before you turn Paper off.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">5</div>
+          <div class="gbody">
+            <h3>📅 Track performance &amp; get alerts</h3>
+            <p><b>Analytics</b> breaks down win-rate, realized PnL, best/worst trades and per-coin results over any date range. <b>Log</b> is the full activity feed. In <b>Settings</b> add your <b>Telegram</b> bot for entry/close alerts + a <b>daily PnL recap</b>, manage your <b>account</b>, and turn on <b>2FA</b> — strongly recommended since your account controls real funds.</p>
+            <div class="gshot">
+              <div class="gs-tiles"><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Realized</span><b class="pos">+184.20</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Best</span><b class="pos">+41.0</b></div></div>
+              <div class="gs-field"><span>✈️ Telegram</span><i>Daily recap ON</i></div>
+              <div class="gs-field"><span>🔐 Two-factor auth</span><i>Enabled</i></div>
+            </div>
+            <p class="gtip">💡 Trial user? Hit <b>✨ Get licence</b> in the top bar any time to unlock unlimited live trading.</p>
+          </div>
+        </div>
+
+        <div class="card gfaq">
+          <h3>❓ Quick answers</h3>
+          <div class="gq"><b>Is my money safe?</b> Yes — Prometheus only places trades through your API keys. With withdrawals disabled on the key, funds can never leave your exchange.</div>
+          <div class="gq"><b>Will an update wipe my data?</b> No. Your account, keys, trade history and licence live in a persistent database that survives every deploy. Only unsaved draft edits aren't kept.</div>
+          <div class="gq"><b>Paper vs live?</b> Paper simulates fills so you can watch the strategy risk-free. Flip it off in Strategy → Execution when you're ready for real orders.</div>
+          <div class="gq"><b>Forgot my password?</b> Use <b>Forgot password?</b> on the login screen — you'll get a secure reset link by email.</div>
+        </div>
+      </section>
     </main>
   </div>
+
+  <footer class="site-footer">
+    <div class="foot-inner">
+      <div class="foot-brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> <b>Prometheus</b></div>
+      <div class="foot-links">
+        <a href="https://www.prometheusai.tech/support" target="_blank" rel="noopener">Contact us</a>
+        <span class="foot-sep">·</span>
+        <a href="#" onclick="goCheckout();return false">Get licence</a>
+      </div>
+      <div class="foot-copy">© 2026 Prometheus. All rights reserved.</div>
+    </div>
+  </footer>
 </div>
 
 <script src="/static/app.js"></script>
