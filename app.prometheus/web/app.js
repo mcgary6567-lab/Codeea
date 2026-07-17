@@ -1,4 +1,5 @@
 // Prometheus Web — dashboard client
+const CHECKOUT_URL = "https://prometheusai.tech/checkout.php";
 let TOKEN = localStorage.getItem("prometheus_token") || "";
 let authMode = "login";
 let ws = null, lastState = null;
@@ -98,9 +99,20 @@ function render(s) {
   const suf = (ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")) ? ` · ${ac.days_left}d` : "";
   $("st-access").textContent = lbl + suf;
   $("st-access").className = "chip " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "danger");
+  const buyable = ac.status === "trial" || ac.status === "expired";
+  $("st-access").style.cursor = buyable ? "pointer" : "default";
+  $("st-access").title = buyable ? "Buy / renew licence" : "";
+  $("st-access").onclick = buyable ? () => window.open(CHECKOUT_URL, "_blank") : null;
   const warn = $("access-warn");
-  if (ac.status && !ac.ok) { warn.classList.remove("hidden"); warn.textContent = ac.status === "suspended" ? "Your account is suspended. Contact support." : "Your trial has ended. A licence is required to connect and trade — contact support."; }
-  else warn.classList.add("hidden");
+  if (ac.status && !ac.ok) {
+    warn.classList.remove("hidden");
+    if (ac.status === "suspended") {
+      warn.innerHTML = "⛔ Your account is suspended — trading is stopped. Please contact support.";
+    } else {   // expired / trial ended
+      warn.innerHTML = `⏳ <b>Your free trial has ended</b> — the bot has stopped trading. Buy a licence to reactivate.
+        <a class="btn" href="${CHECKOUT_URL}" target="_blank" rel="noopener" style="margin-left:12px">🔓 Buy licence</a>`;
+    }
+  } else warn.classList.add("hidden");
 
   $("t-bal").textContent = fmt(s.balance);
   const pnl = $("t-pnl"); pnl.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); pnl.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");

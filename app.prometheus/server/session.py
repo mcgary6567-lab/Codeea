@@ -526,7 +526,10 @@ class TraderSession:
             # Stop trading if the licence/trial lapsed mid-session.
             ent = store.entitlement(store.get_user(self.user_id) or {})
             if not ent["ok"]:
-                self.log(f"Strategy stopped — access {ent['status']}", "warn")
+                msg = ("Trial ended — trading stopped. Buy a licence to reactivate."
+                       if ent["status"] == "expired" else f"Trading stopped — access {ent['status']}.")
+                self.log(msg, "warn")
+                self.notify(msg)
                 self.strategy_on = False
                 break
             symbols = [s.strip() for s in str(self.settings.get("strategy_symbols", "")).split(",") if s.strip()]
