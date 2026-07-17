@@ -104,14 +104,17 @@ function render(s) {
   $("st-access").title = buyable ? "Buy / renew licence" : "";
   $("st-access").onclick = buyable ? () => window.open(CHECKOUT_URL, "_blank") : null;
   const warn = $("access-warn");
+  const buyBtn = `<a class="btn" href="${CHECKOUT_URL}" target="_blank" rel="noopener" style="margin-left:12px">🔓 Buy licence</a>`;
+  const NUDGE_DAYS = 2;
   if (ac.status && !ac.ok) {
     warn.classList.remove("hidden");
-    if (ac.status === "suspended") {
-      warn.innerHTML = "⛔ Your account is suspended — trading is stopped. Please contact support.";
-    } else {   // expired / trial ended
-      warn.innerHTML = `⏳ <b>Your free trial has ended</b> — the bot has stopped trading. Buy a licence to reactivate.
-        <a class="btn" href="${CHECKOUT_URL}" target="_blank" rel="noopener" style="margin-left:12px">🔓 Buy licence</a>`;
-    }
+    warn.innerHTML = ac.status === "suspended"
+      ? "⛔ Your account is suspended — trading is stopped. Please contact support."
+      : `⏳ <b>Your free trial has ended</b> — the bot has stopped trading. Buy a licence to reactivate.${buyBtn}`;
+  } else if (ac.status === "trial" && ac.days_left != null && ac.days_left <= NUDGE_DAYS) {
+    // pre-expiry nudge — still trading, but remind them to upgrade
+    warn.classList.remove("hidden");
+    warn.innerHTML = `⏳ Your free trial ends in <b>${ac.days_left} day${ac.days_left === 1 ? "" : "s"}</b> — buy a licence now to keep the bot trading without interruption.${buyBtn}`;
   } else warn.classList.add("hidden");
 
   $("t-bal").textContent = fmt(s.balance);
