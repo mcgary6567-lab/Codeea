@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
 <title>Prometheus — AI Crypto Trading</title>
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
@@ -21,14 +21,14 @@
     <div class="land-copy">
       <div class="brand" style="font-size:22px;font-weight:800">🔥 Prometheus</div>
       <h1>Automate your crypto strategy — right in your browser.</h1>
-      <p class="lead">Connect your own exchange account and let the built-in AI strategy execute entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
+      <p class="lead">Connect your own exchange account and let the built-in EMA 9/21 strategy execute entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
       <ul class="land-feats">
         <li>🔑 <b>Your keys, your exchange</b> — Binance, Bybit, OKX, KuCoin, Bitget, Kraken, Coinbase.</li>
-        <li>🤖 <b>Built-in strategy</b> — EMA + RSI engine, auto SL + TP1/TP2 scale-out.</li>
-        <li>🛡️ <b>Guardrails</b> — daily loss limit, max positions, cooldowns, Safe Mode.</li>
-        <li>📊 <b>Pro backtester & analytics</b> before you risk a cent.</li>
+        <li>🤖 <b>EMA 9/21 crossover engine</b> with a 50-EMA trend filter + swing stop.</li>
+        <li>🛡️ <b>Guardrails</b> — daily loss limit, max positions, cooldowns.</li>
+        <li>📊 <b>Pro backtester, live chart & analytics.</b></li>
       </ul>
-      <div class="hint">Trading involves risk. Start in Safe Mode. Provided as-is, no warranty.</div>
+      <div class="hint">Trading involves risk and can lose money. Provided as-is, no warranty.</div>
     </div>
     <div id="auth">
       <div class="tabsw">
@@ -39,7 +39,7 @@
       <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
       <div class="err" id="au-err"></div>
       <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
-      <div class="hint" id="au-note">New accounts get a free trial — no card required.</div>
+      <div class="hint">New accounts get a free trial — no card required.</div>
     </div>
   </div>
 </div>
@@ -47,15 +47,15 @@
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
   <header class="topbar">
+    <button class="hamb" onclick="document.querySelector('.side').classList.toggle('open')">☰</button>
     <div class="brand">🔥 Prometheus</div>
     <span class="dot" id="st-dot"></span><b id="st-conn" class="conn">Disconnected</b>
-    <span class="chip" id="st-ex">—</span>
-    <span class="chip safe hidden" id="st-safe">SAFE MODE</span>
+    <span class="chip hide-sm" id="st-ex">—</span>
     <span class="chip warn hidden" id="st-ro">READ-ONLY</span>
     <span class="chip danger hidden" id="st-halt">HALTED</span>
     <span class="grow"></span>
     <span class="chip" id="st-access">—</span>
-    <span class="chip" id="st-email">—</span>
+    <span class="chip hide-sm" id="st-email">—</span>
     <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
     <button class="btn ghost sm" onclick="logout()">Logout</button>
   </header>
@@ -63,7 +63,7 @@
   <div class="shell">
     <nav class="side">
       <button class="on" data-v="home" onclick="show('home',this)">📊 Dashboard</button>
-      <button data-v="chart" onclick="show('chart',this)">📈 Chart</button>
+      <button data-v="exchange" onclick="show('exchange',this)">🔌 Exchange</button>
       <button data-v="strategy" onclick="show('strategy',this)">🤖 Strategy</button>
       <button data-v="backtest" onclick="show('backtest',this)">🧪 Backtest</button>
       <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
@@ -76,135 +76,130 @@
 
       <!-- DASHBOARD -->
       <section id="v-home">
+        <div class="pricestrip" id="pricestrip"></div>
+
         <div class="tiles">
           <div class="tile"><div class="k">Balance</div><div class="v mono" id="t-bal">—</div><div class="k">USDT</div></div>
           <div class="tile"><div class="k">Unrealized PnL</div><div class="v mono" id="t-pnl">—</div><div class="k">open positions</div></div>
           <div class="tile"><div class="k">Access</div><div class="v" id="t-access">—</div><div class="k" id="t-accessd">—</div></div>
-          <div class="tile"><div class="k">Strategy</div><div class="v" id="t-strat">Off</div><div class="k">built-in engine</div></div>
+          <div class="tile"><div class="k">Strategy</div><div class="v" id="t-strat">Off</div><div class="k">EMA 9/21 engine</div></div>
+        </div>
+
+        <div class="card">
+          <div class="chart-head">
+            <h3 style="margin:0">Live chart</h3>
+            <input id="ch-sym" list="symbols" value="BTC/USDT" style="width:130px"/>
+            <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+            <button class="btn ghost sm" onclick="loadChart()">Load</button>
+            <span class="grow"></span>
+            <button class="btn ghost sm" onclick="chZoom(0.8)">＋</button>
+            <button class="btn ghost sm" onclick="chZoom(1.25)">－</button>
+            <button class="btn ghost sm" onclick="chReset()">Reset</button>
+          </div>
+          <div class="chlegend" id="ch-legend"></div>
+          <canvas id="ch-price" class="chart" style="height:380px;margin-top:8px;touch-action:none"></canvas>
+          <div class="hint">Scroll / pinch to zoom, drag to pan. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> red / <span style="color:var(--green)">TP</span> green.</div>
         </div>
 
         <div class="grid2">
           <div class="card">
-            <h3>Exchange connection</h3>
-            <div class="row">
-              <div class="col"><label>Exchange</label>
-                <select id="cx-ex">
-                  <option value="binance">Binance</option><option value="bybit">Bybit</option>
-                  <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
-                  <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
-                  <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
-                </select></div>
-              <div class="col"><label>Market</label>
-                <select id="cx-mkt"><option value="spot">Spot</option><option value="futures">Futures</option></select></div>
-            </div>
-            <label>API key</label><input id="cx-key" placeholder="key"/>
-            <label>API secret</label><input id="cx-sec" type="password" placeholder="secret"/>
-            <label>Passphrase <span class="k">(OKX / KuCoin / Bitget)</span></label><input id="cx-pass" placeholder="optional"/>
-            <div class="btnrow">
-              <button class="btn" onclick="saveConnect()">Save &amp; Connect</button>
-              <button class="btn ghost" onclick="api('/api/disconnect','POST').then(refresh)">Disconnect</button>
-            </div>
-            <div class="hint">Keys are stored <b>encrypted</b> server-side. Use trade-only keys, withdrawals disabled.</div>
-          </div>
-
-          <div class="card">
-            <h3>Manual trade</h3>
+            <h3>Order panel</h3>
             <label>Symbol</label><input id="tr-sym" list="symbols" value="BTC/USDT"/>
-            <label>Size <span class="k">(blank = use sizing mode)</span></label><input id="tr-size" placeholder="auto"/>
+            <div class="row">
+              <div class="col"><label>Mark</label><input id="tr-mark" readonly value="—"/></div>
+              <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>
+            </div>
             <div class="btnrow big">
               <button class="btn green" onclick="trade('buy')">BUY</button>
               <button class="btn red" onclick="trade('sell')">SELL</button>
             </div>
-            <div class="hint">Sizing mode: <b id="tr-mode">—</b> · Safe Mode simulates fills.</div>
+            <div class="hint">⚡ <b>Live trading</b> — orders are real. Sizing: <b id="tr-mode">—</b></div>
           </div>
-        </div>
-
-        <div class="card">
-          <h3>Open positions
-            <button class="btn red sm" style="float:right" onclick="panic()">PANIC: Close All</button></h3>
-          <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Current</th><th>PnL</th><th></th></tr></thead>
-            <tbody id="pos-body"><tr><td colspan="7" class="k">No open positions.</td></tr></tbody></table></div>
+          <div class="card">
+            <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">Close All</button></h3>
+            <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th><th></th></tr></thead>
+              <tbody id="pos-body"><tr><td colspan="6" class="k">No open positions.</td></tr></tbody></table></div>
+          </div>
         </div>
       </section>
 
-      <!-- CHART -->
-      <section id="v-chart" class="hidden">
+      <!-- EXCHANGE -->
+      <section id="v-exchange" class="hidden">
         <div class="card">
-          <h3>Strategy chart <span class="chip" id="ch-info">—</span></h3>
+          <h3>Exchange connection <span class="chip" id="ex-state">—</span></h3>
           <div class="row">
-            <div class="col"><label>Symbol</label><input id="ch-sym" list="symbols" value="BTC/USDT"/></div>
-            <div class="col"><label>Timeframe</label>
-              <select id="ch-tf"><option>15m</option><option>30m</option><option selected>1h</option><option>4h</option><option>1d</option></select></div>
-            <div class="col end"><button class="btn" onclick="loadChart()">Load</button></div>
+            <div class="col"><label>Exchange</label>
+              <select id="cx-ex">
+                <option value="binance">Binance</option><option value="bybit">Bybit</option>
+                <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
+                <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
+                <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
+              </select></div>
+            <div class="col"><label>Market</label>
+              <select id="cx-mkt"><option value="spot">Spot</option><option value="futures">Futures</option></select></div>
           </div>
-          <canvas id="ch-price" class="chart" style="height:340px;margin-top:12px"></canvas>
-          <canvas id="ch-rsi" class="chart" style="height:110px;margin-top:8px"></canvas>
-          <div class="hint">Candles + EMA, RSI sub-pane, and the strategy's <b>BUY/SELL arrows &amp; labels</b> with SL lines.</div>
+          <label>API key</label><input id="cx-key" placeholder="key"/>
+          <label>API secret</label><input id="cx-sec" type="password" placeholder="secret"/>
+          <label>Passphrase <span class="k">(OKX / KuCoin / Bitget)</span></label><input id="cx-pass" placeholder="optional"/>
+          <div class="btnrow big">
+            <button class="btn" onclick="saveConnect()">Save &amp; Connect</button>
+            <button class="btn ghost" onclick="api('/api/disconnect','POST').then(refresh)">Disconnect</button>
+          </div>
+          <label class="chkline"><input type="checkbox" id="s-ro"/> Read-only (monitor only, block all orders)</label>
+          <div class="warnbox" style="margin-top:12px">⚡ This is <b>live trading</b>. Use API keys with <b>trade permission but withdrawals disabled</b>, and IP-whitelist where possible. Keys are stored encrypted server-side.</div>
         </div>
       </section>
 
       <!-- STRATEGY -->
       <section id="v-strategy" class="hidden">
         <div class="card">
-          <h3>Built-in strategy <span class="chip" id="strat-state">on</span></h3>
-          <div class="hint">EMA + RSI crossover engine on live exchange candles → guardrails → sizing → SL/TP. <b>ON by default</b> — it auto-starts when you connect an exchange. Tune every input below and save.</div>
+          <h3>Built-in strategy — EMA 9 / 21 cross <span class="chip" id="strat-state">on</span></h3>
+          <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
           <div class="row" style="margin-top:12px">
+            <div class="col"><label>Timeframe the strategy trades on</label>
+              <select id="sg-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
             <div class="col"><label>Symbols (comma-separated)</label><input id="sg-sym" list="symbols" value="BTC/USDT, ETH/USDT"/></div>
-            <div class="col"><label>Timeframe</label>
-              <select id="sg-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
           </div>
           <div class="chips" style="margin-top:10px">
             <span class="chip pick" onclick="addSym('BTC/USDT')">+BTC</span><span class="chip pick" onclick="addSym('ETH/USDT')">+ETH</span>
             <span class="chip pick" onclick="addSym('SOL/USDT')">+SOL</span><span class="chip pick" onclick="addSym('BNB/USDT')">+BNB</span>
             <span class="chip pick" onclick="addSym('XRP/USDT')">+XRP</span><span class="chip pick" onclick="addSym('DOGE/USDT')">+DOGE</span>
-            <span class="chip pick" onclick="addSym('ADA/USDT')">+ADA</span><span class="chip pick" onclick="addSym('AVAX/USDT')">+AVAX</span>
-            <span class="chip pick" onclick="addSym('LINK/USDT')">+LINK</span><span class="chip pick" onclick="addSym('TON/USDT')">+TON</span>
-            <span class="chip pick" onclick="addSym('TRX/USDT')">+TRX</span>
+            <span class="chip pick" onclick="addSym('AVAX/USDT')">+AVAX</span><span class="chip pick" onclick="addSym('LINK/USDT')">+LINK</span>
           </div>
         </div>
-
         <div class="grid2">
-          <div class="card"><h3>Entry &amp; trend filters</h3>
+          <div class="card"><h3>EMA cross &amp; trend</h3>
             <div class="row">
-              <div class="col"><label>RSI length</label><input id="p-rsi_len" type="number"/></div>
-              <div class="col"><label>EMA length</label><input id="p-ma_len" type="number"/></div>
+              <div class="col"><label>Fast EMA period</label><input id="p-fast_ema" type="number"/></div>
+              <div class="col"><label>Slow EMA period</label><input id="p-slow_ema" type="number"/></div>
             </div>
             <div class="row">
-              <div class="col"><label>Confirm candles</label><input id="p-ma_confirm" type="number"/></div>
-              <div class="col"><label>Min body (0–1)</label><input id="p-ma_min_body" type="number" step="0.05"/></div>
+              <div class="col"><label>Trend EMA (directional filter)</label><input id="p-trend_ema" type="number"/></div>
+              <div class="col"><label>Only BUY above / SELL below trend EMA</label>
+                <select id="p-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
             </div>
             <div class="row">
-              <div class="col"><label>Trend EMA <span class="k">(0=off)</span></label><input id="p-ma_trend_len" type="number"/></div>
-              <div class="col"><label>ADX length</label><input id="p-ma_adx_len" type="number"/></div>
-              <div class="col"><label>Min ADX <span class="k">(0=off)</span></label><input id="p-ma_adx_min" type="number" step="0.5"/></div>
-            </div>
-          </div>
-          <div class="card"><h3>Stops &amp; exits</h3>
-            <div class="row">
-              <div class="col"><label>Swing lookback (stop)</label><input id="p-ma_swing" type="number"/></div>
-              <div class="col"><label>SL buffer % (0–1)</label><input id="p-ma_sl_buf" type="number" step="0.05"/></div>
-            </div>
-            <div class="row">
-              <div class="col"><label>ATR length</label><input id="p-ma_atr_len" type="number"/></div>
-              <div class="col"><label>ATR stop mult <span class="k">(0=swing)</span></label><input id="p-ma_atr_mult" type="number" step="0.1"/></div>
-            </div>
-            <div class="row">
-              <div class="col"><label>Scale-out frac (0–1)</label><input id="p-ma_scale" type="number" step="0.1"/></div>
-              <div class="col"><label>RSI exit OB</label><input id="p-ma_ob" type="number"/></div>
-              <div class="col"><label>RSI exit OS</label><input id="p-ma_os" type="number"/></div>
+              <div class="col"><label>Confirmation candles after cross <span class="k">(0=on cross)</span></label><input id="p-confirm" type="number"/></div>
+              <div class="col"><label>Min body-to-range ratio</label><input id="p-min_body" type="number" step="0.05"/></div>
             </div>
           </div>
-        </div>
-        <div class="card"><h3>Targets</h3>
-          <div class="row">
-            <div class="col"><label>TP1 (R multiple, 0=off)</label><input id="p-ma_tp1_r" type="number" step="0.1"/></div>
-            <div class="col"><label>TP2 (R multiple, 0=off)</label><input id="p-ma_tp2_r" type="number" step="0.1"/></div>
-            <div class="col"><label>Trail ATR after TP1 <span class="k">(0=off)</span></label><input id="p-ma_trail_atr" type="number" step="0.1"/></div>
+          <div class="card"><h3>Stop-loss (swing) &amp; targets</h3>
+            <div class="row">
+              <div class="col"><label>SL buffer beyond swing (%)</label><input id="p-sl_buffer_pct" type="number" step="0.01"/></div>
+              <div class="col"><label>Bars each side of a swing point</label><input id="p-swing_bars" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Max bars to look back for swing</label><input id="p-swing_lookback" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>TP1 (R multiple, 0=off)</label><input id="p-tp1_r" type="number" step="0.1"/></div>
+              <div class="col"><label>TP2 (R multiple, 0=off)</label><input id="p-tp2_r" type="number" step="0.1"/></div>
+            </div>
+            <div class="hint">SL "pips" from the desktop app → % here so it works across all coins.</div>
           </div>
         </div>
-
         <div class="btnrow big">
-          <button class="btn" onclick="saveStrategy()">💾 Save strategy settings</button>
+          <button class="btn" onclick="saveStrategy()">💾 Save strategy</button>
           <button class="btn green" onclick="strategy(true)">Enable / Start</button>
           <button class="btn ghost" onclick="strategy(false)">Disable</button>
         </div>
@@ -215,24 +210,15 @@
         <div class="card">
           <h3>Backtest <span class="chip">pro</span></h3>
           <div class="row">
-            <div class="col"><label>Exchange</label><input id="bt-ex" value="binance"/></div>
             <div class="col"><label>Symbol</label><input id="bt-sym" list="symbols" value="BTC/USDT"/></div>
-            <div class="col"><label>Timeframe</label><input id="bt-tf" value="1h"/></div>
+            <div class="col"><label>Timeframe</label><input id="bt-tf" value="15m"/></div>
             <div class="col"><label>Candles</label><input id="bt-limit" type="number" value="1000"/></div>
-          </div>
-          <div class="row">
             <div class="col"><label>Start equity</label><input id="bt-eq" type="number" value="1000"/></div>
             <div class="col"><label>Fee %</label><input id="bt-fee" type="number" step="0.01" value="0.05"/></div>
-            <div class="col"><label>RSI length</label><input id="bt-rsi" type="number" value="14"/></div>
-            <div class="col"><label>EMA length</label><input id="bt-ema" type="number" value="20"/></div>
-          </div>
-          <div class="row">
-            <div class="col"><label>TP1 (R)</label><input id="bt-tp1" type="number" step="0.1" value="1"/></div>
-            <div class="col"><label>TP2 (R)</label><input id="bt-tp2" type="number" step="0.1" value="2"/></div>
-            <div class="col"><label>Confirm candles</label><input id="bt-conf" type="number" value="1"/></div>
             <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
-            <div class="col end"><button class="btn" onclick="runBacktest()">▶ Run backtest</button></div>
           </div>
+          <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Run to see stats, equity, drawdown and every trade.</div>
+          <div class="btnrow"><button class="btn" onclick="runBacktest()">▶ Run backtest</button></div>
         </div>
         <div id="bt-out" class="hidden">
           <div class="tiles" id="bt-tiles"></div>
@@ -248,13 +234,29 @@
 
       <!-- ANALYTICS -->
       <section id="v-analytics" class="hidden">
+        <div class="card">
+          <div class="chart-head">
+            <h3 style="margin:0">Performance</h3>
+            <label style="margin:0">From</label><input id="an-from" type="date" style="width:auto"/>
+            <label style="margin:0">To</label><input id="an-to" type="date" style="width:auto"/>
+            <button class="btn ghost sm" onclick="loadAnalytics()">Apply</button>
+            <button class="btn ghost sm" onclick="anRange(7)">7d</button>
+            <button class="btn ghost sm" onclick="anRange(30)">30d</button>
+            <button class="btn ghost sm" onclick="anRange(0)">All</button>
+          </div>
+        </div>
         <div class="tiles">
           <div class="tile"><div class="k">Win rate</div><div class="v" id="an-wr">—</div></div>
           <div class="tile"><div class="k">Realized PnL</div><div class="v" id="an-pnl">—</div></div>
           <div class="tile"><div class="k">Trades</div><div class="v" id="an-n">—</div></div>
           <div class="tile"><div class="k">Best / Worst</div><div class="v" id="an-bw">—</div></div>
         </div>
-        <div class="card"><h3>Equity over time</h3><canvas id="an-chart" class="chart" style="height:240px"></canvas></div>
+        <div class="grid2">
+          <div class="card"><h3>Equity over time</h3><canvas id="an-chart" class="chart" style="height:240px"></canvas></div>
+          <div class="card"><h3>By coin</h3>
+            <div class="tablewrap"><table><thead><tr><th>Coin</th><th>Trades</th><th>Win %</th><th>PnL</th></tr></thead>
+              <tbody id="an-coins"><tr><td colspan="4" class="k">No closed trades yet.</td></tr></tbody></table></div></div>
+        </div>
       </section>
 
       <!-- LOG -->
@@ -268,8 +270,8 @@
         <div class="grid2">
           <div class="card"><h3>Account</h3>
             <label>Email</label><input id="ac-email" type="email"/>
-            <label>New password <span class="k">(leave blank to keep)</span></label><input id="ac-newpass" type="password" placeholder="••••••••"/>
-            <label>Current password <span class="k">(required to save)</span></label><input id="ac-cur" type="password" placeholder="••••••••"/>
+            <label>New password <span class="k">(blank = keep)</span></label><input id="ac-newpass" type="password" placeholder="••••••••"/>
+            <label>Current password <span class="k">(required)</span></label><input id="ac-cur" type="password" placeholder="••••••••"/>
             <div class="err" id="ac-err"></div>
             <button class="btn" style="margin-top:10px" onclick="saveAccount()">Update account</button>
           </div>
@@ -277,7 +279,7 @@
             <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
             <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
             <button class="btn" style="margin-top:10px" onclick="saveTelegram()">Save Telegram</button>
-            <div class="hint">Create a bot via @BotFather, get your chat id from @userinfobot. Alerts on every entry, close and connect.</div>
+            <div class="hint">Alerts on every entry, close and connect.</div>
           </div>
         </div>
         <div class="grid2">
@@ -299,9 +301,7 @@
               <div class="col end"><label class="chkline"><input type="checkbox" id="s-bracket"/> Auto SL/TP</label></div>
             </div>
           </div>
-          <div class="card"><h3>Modes &amp; guardrails</h3>
-            <label class="chkline"><input type="checkbox" id="s-safe"/> Safe Mode (simulate, no real orders)</label>
-            <label class="chkline"><input type="checkbox" id="s-ro"/> Read-only (block all orders)</label>
+          <div class="card"><h3>Guardrails</h3>
             <div class="row">
               <div class="col"><label>Max open positions</label><input id="s-maxopen" type="number"/></div>
               <div class="col"><label>Daily loss limit ($)</label><input id="s-dloss" type="number"/></div>

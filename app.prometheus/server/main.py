@@ -23,7 +23,7 @@ import strategy as strat
 
 from . import security, store
 from .config_web import PUBLIC_URL
-from .session import get_session, public_ohlcv
+from .session import get_session, public_ohlcv, public_prices
 
 store.init_db()
 app = FastAPI(title="Prometheus Web", version="1.0.0")
@@ -302,13 +302,26 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
                                  if k not in ("pw_hash", "keys_blob")}}
 
 
+# --- live prices (dashboard strip) -----------------------------------------
+POPULAR = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"]
+
+
+@app.get("/api/prices")
+def prices(symbols: str = "", user: dict = Depends(current_user)):
+    syms = [s.strip() for s in symbols.split(",") if s.strip()] or POPULAR
+    s = get_session(user["id"])
+    return public_prices(s.exchange_id or "binance", syms)
+
+
 # --- analytics --------------------------------------------------------------
 @app.get("/api/analytics")
-def analytics(user: dict = Depends(current_user)):
+def analytics(since: float = 0, until: float = 0, user: dict = Depends(current_user)):
+    sv = since or None
+    uv = until or None
     return {
-        "stats": store.analytics(user["id"]),
+        "stats": store.analytics(user["id"], sv, uv),
         "equity": store.equity_curve(user["id"]),
-        "trades": store.recent_trades(user["id"], 200),
+        "trades": store.recent_trades(user["id"], 500),
     }
 
 

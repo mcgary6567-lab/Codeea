@@ -42,6 +42,37 @@ def public_ohlcv(exchange_id: str, symbol: str, timeframe: str, limit: int = 300
         return []
 
 
+# Cached public ticker prices (per exchange) to power the dashboard price strip.
+_PRICE_CACHE: dict = {}
+
+
+def public_prices(exchange_id: str, symbols: list) -> dict:
+    """Last price + 24h % change for a few symbols (cached ~8s)."""
+    import time as _t
+    key = exchange_id or "binance"
+    now = _t.time()
+    cached = _PRICE_CACHE.get(key)
+    if cached and now - cached["t"] < 8:
+        base = cached["data"]
+    else:
+        base = {}
+        if ex.CCXT_AVAILABLE:
+            try:
+                client = _PUBLIC.get(key)
+                if client is None:
+                    import ccxt
+                    if key in ccxt.exchanges:
+                        client = getattr(ccxt, key)({"enableRateLimit": True})
+                        _PUBLIC[key] = client
+                if client is not None:
+                    for s, t in (client.fetch_tickers(symbols) or {}).items():
+                        base[s] = {"price": t.get("last"), "pct": t.get("percentage")}
+            except Exception:
+                base = {}
+        _PRICE_CACHE[key] = {"t": now, "data": base}
+    return {s: base.get(s, base.get(ex.normalize_symbol(s), {})) for s in symbols}
+
+
 DEFAULT_SETTINGS = {
     "sizing_mode": "risk_stop",      # fixed | fixed_quote | risk_balance | risk_stop
     "fixed_size": 0.003,
@@ -52,7 +83,7 @@ DEFAULT_SETTINGS = {
     "margin_mode": "",               # "" | cross | isolated
     "tp1_fraction": 0.5,
     "auto_bracket": True,
-    "safe_mode": True,               # start safe
+    "safe_mode": False,              # LIVE trading by default
     "read_only": False,
     "max_open": 4,
     "daily_loss": 0.0,
@@ -65,7 +96,7 @@ DEFAULT_SETTINGS = {
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT, ETH/USDT",
-    "strategy_timeframe": "1h",
+    "strategy_timeframe": "15m",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,
 }
@@ -129,7 +160,8 @@ class TraderSession:
             self.settings.update(patch or {})
             store.save_settings(self.user_id, self.settings)
             self._apply_guardrails()
-            self.em.safe_mode = bool(self.settings.get("safe_mode", True))
+            self.settings["safe_mode"] = False
+            self.em.safe_mode = False
             self.em.read_only = bool(self.settings.get("read_only", False))
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
@@ -145,11 +177,12 @@ class TraderSession:
         keys = store.load_keys(self.user_id)
         if not keys:
             raise ValueError("no API keys saved")
+        self.settings["safe_mode"] = False   # live trading only (safe mode removed)
         with self._lock:
             self.em.connect(
                 keys["exchange"], keys.get("api_key", ""), keys.get("api_secret", ""),
                 password=keys.get("password", ""),
-                safe_mode=bool(self.settings.get("safe_mode", True)),
+                safe_mode=False,
                 read_only=bool(self.settings.get("read_only", False)),
                 market_type=keys.get("market_type", "spot"),
             )
@@ -350,25 +383,30 @@ class TraderSession:
         raw = self.em.fetch_ohlcv(symbol, tf, limit) or public_ohlcv(
             self.exchange_id or "binance", ex.normalize_symbol(symbol), tf, limit)
         if len(raw) < 40:
-            return {"candles": [], "ema": [], "rsi": [], "markers": []}
+            return {"candles": [], "fast": [], "slow": [], "trend": [], "markers": []}
         closed = raw[:-1]
         params = self._params()
-        o, h, low, cl, ema, rsi, sl_s, sh_s, trend, atr, adx = strat.crossover_arrays(closed, params)
+        o, h, low, cl, fast, slow, trend = strat.crossover_arrays(closed, params)
+        rnd = lambda arr: [None if v is None else round(v, 6) for v in arr]
         markers = []
         for i, ev in strat.evaluate_all_crossover(closed, params, symbol):
-            act = ev.get("act")
-            if act == "enter":
-                markers.append({"i": i, "type": "enter", "side": ev["side"],
-                                "price": ev.get("entry"), "sl": ev.get("sl")})
-            elif act == "exit":
+            if ev.get("act") == "enter":
+                entry, sl = float(ev["entry"]), float(ev["sl"])
+                risk = abs(entry - sl)
+                sign = 1 if ev["side"] == "long" else -1
+                markers.append({
+                    "i": i, "type": "enter", "side": ev["side"], "price": entry, "sl": sl,
+                    "tp1": entry + sign * risk * params.tp1_r if params.tp1_r else None,
+                    "tp2": entry + sign * risk * params.tp2_r if params.tp2_r else None,
+                })
+            else:
                 markers.append({"i": i, "type": "exit", "side": ev.get("side"),
                                 "price": cl[i], "reason": ev.get("reason", "")})
         return {
             "symbol": symbol, "timeframe": tf,
             "candles": [[int(c[0]), c[1], c[2], c[3], c[4], c[5]] for c in closed],
-            "ema": [None if v is None else round(v, 6) for v in ema],
-            "rsi": [None if v is None else round(v, 2) for v in rsi],
-            "ma_len": params.ma_len, "rsi_len": params.rsi_len,
+            "fast": rnd(fast), "slow": rnd(slow), "trend": rnd(trend),
+            "fast_ema": params.fast_ema, "slow_ema": params.slow_ema, "trend_ema": params.trend_ema,
             "markers": markers,
         }
 
@@ -429,8 +467,9 @@ class TraderSession:
             entry = float(evt.get("entry", 0))
             sl = float(evt.get("sl", 0))
             risk = abs(entry - sl)
-            tp1 = entry + (params.ma_tp1_r * risk if side == "buy" else -params.ma_tp1_r * risk) if params.ma_tp1_r else 0
-            tp2 = entry + (params.ma_tp2_r * risk if side == "buy" else -params.ma_tp2_r * risk) if params.ma_tp2_r else 0
+            sign = 1 if side == "buy" else -1
+            tp1 = entry + sign * params.tp1_r * risk if params.tp1_r else 0
+            tp2 = entry + sign * params.tp2_r * risk if params.tp2_r else 0
             self.handle_signal({"action": side, "symbol": symbol, "entry": entry,
                                 "sl": sl, "tp1": tp1, "tp2": tp2, "comment": "Prometheus"},
                                source="strategy")

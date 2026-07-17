@@ -89,3 +89,30 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .log .ok{color:var(--green)} .log .warn{color:var(--amber)} .log .error{color:var(--red)}
 .log .t{color:var(--mut)}
 .warnbox{background:#2a1a0a;border:1px solid var(--amber);color:#f2c98b;padding:11px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}
+
+/* ---- v3: price strip, chart header, mobile ---- */
+.pricestrip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.psym{font-weight:700}
+.pprice{font-size:20px;font-weight:800;margin:2px 0}
+.pchg{font-size:12px}
+.chart-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chlegend{font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
+.lg-fast{color:#eab308}.lg-slow{color:#3b82f6}.lg-trend{color:#a855f7}
+.hamb{display:none;background:transparent;border:none;color:var(--txt);font-size:20px;padding:2px 8px}
+
+@media(max-width:900px){
+  .pricestrip{grid-template-columns:repeat(2,1fr)}
+  .hamb{display:block}
+  .hide-sm{display:none}
+  .shell{flex-direction:column;padding:12px}
+  .side{position:fixed;top:0;left:0;bottom:0;width:220px;background:var(--panel);
+    border-right:1px solid var(--line);flex-direction:column;z-index:50;padding:60px 10px 10px;
+    transform:translateX(-100%);transition:transform .2s;box-shadow:0 0 40px rgba(0,0,0,.6)}
+  .side.open{transform:translateX(0)}
+  .side button{font-size:15px;padding:13px 14px}
+  .content{width:100%}
+  .land-copy h1{font-size:28px}
+  .btnrow.big button{font-size:15px;padding:12px}
+}
+@media(max-width:520px){ .tiles{grid-template-columns:1fr 1fr}.pricestrip{grid-template-columns:1fr 1fr} }

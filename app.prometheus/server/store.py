@@ -255,24 +255,35 @@ def equity_curve(user_id: int, limit: int = 1000) -> list:
         return [dict(r) for r in reversed(rows)]
 
 
-def analytics(user_id: int) -> dict:
+def analytics(user_id: int, since: float | None = None, until: float | None = None) -> dict:
+    q = "SELECT symbol,pnl,ts FROM trades WHERE user_id=? AND kind='close'"
+    args: list = [user_id]
+    if since:
+        q += " AND ts>=?"; args.append(since)
+    if until:
+        q += " AND ts<=?"; args.append(until)
     with _LOCK, _conn() as c:
-        rows = c.execute(
-            "SELECT status,pnl FROM trades WHERE user_id=? AND kind IN ('close','tp','sl')",
-            (user_id,),
-        ).fetchall()
-    closed = [r["pnl"] or 0.0 for r in rows]
-    wins = [p for p in closed if p > 0]
-    losses = [p for p in closed if p < 0]
-    n = len(closed)
+        rows = c.execute(q, args).fetchall()
+    closed = [(r["symbol"] or "?", r["pnl"] or 0.0) for r in rows]
+    pnls = [p for _, p in closed]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+    n = len(pnls)
+    by: dict = {}
+    for sym, p in closed:
+        d = by.setdefault(sym, {"symbol": sym, "trades": 0, "pnl": 0.0, "wins": 0})
+        d["trades"] += 1
+        d["pnl"] = round(d["pnl"] + p, 4)
+        d["wins"] += 1 if p > 0 else 0
+    for d in by.values():
+        d["win_rate"] = round(100 * d["wins"] / d["trades"], 1) if d["trades"] else 0.0
     return {
-        "trades": n,
-        "wins": len(wins),
-        "losses": len(losses),
+        "trades": n, "wins": len(wins), "losses": len(losses),
         "win_rate": round(100 * len(wins) / n, 1) if n else 0.0,
-        "realized_pnl": round(sum(closed), 4),
-        "best": round(max(closed), 4) if closed else 0.0,
-        "worst": round(min(closed), 4) if closed else 0.0,
+        "realized_pnl": round(sum(pnls), 4),
+        "best": round(max(pnls), 4) if pnls else 0.0,
+        "worst": round(min(pnls), 4) if pnls else 0.0,
         "avg_win": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "avg_loss": round(sum(losses) / len(losses), 4) if losses else 0.0,
+        "by_symbol": sorted(by.values(), key=lambda x: -x["pnl"]),
     }

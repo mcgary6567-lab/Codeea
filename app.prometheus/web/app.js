@@ -23,21 +23,21 @@ function authTab(m) { authMode = m; $("tab-login").classList.toggle("on", m === 
 async function doAuth() {
   $("au-err").textContent = "";
   try {
-    const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST",
-      { email: $("au-email").value.trim(), password: $("au-pass").value });
+    const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST", { email: $("au-email").value.trim(), password: $("au-pass").value });
     TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); enterApp();
   } catch (e) { $("au-err").textContent = e.message; }
 }
 function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
-function enterApp() { $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); openWs(); }
+function enterApp() { $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); openWs(); loadChart(); pollPrices(); }
 
 // ---- views ----
-const VIEWS = ["home", "chart", "strategy", "backtest", "analytics", "log", "settings"];
+const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings"];
 function show(v, btn) {
   VIEWS.forEach(x => $("v-" + x).classList.toggle("hidden", x !== v));
   document.querySelectorAll(".side button").forEach(b => b.classList.toggle("on", b === btn));
+  document.querySelector(".side").classList.remove("open");
   if (v === "analytics") loadAnalytics();
-  if (v === "chart") loadChart();
+  if (v === "home") loadChart();
 }
 
 // ---- live state ----
@@ -57,63 +57,66 @@ function render(s) {
   $("st-dot").classList.toggle("on", s.connected);
   $("st-conn").textContent = s.connected ? "Connected" : "Disconnected";
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";
-  $("st-safe").classList.toggle("hidden", !s.safe_mode);
+  $("ex-state").textContent = s.connected ? "connected" : "not connected";
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   $("st-email").textContent = s.email || "";
   $("st-admin").classList.toggle("hidden", !s.is_admin);
 
-  // access (fixed: WS now carries it too)
   const ac = s.access || {};
   const lbl = { admin: "ADMIN", licensed: "LICENSED", trial: "TRIAL", suspended: "SUSPENDED", expired: "EXPIRED" }[ac.status] || "—";
-  const daySuffix = (ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")) ? ` · ${ac.days_left}d` : "";
-  $("st-access").textContent = lbl + daySuffix;
+  const suf = (ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")) ? ` · ${ac.days_left}d` : "";
+  $("st-access").textContent = lbl + suf;
   $("st-access").className = "chip " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "danger");
   const warn = $("access-warn");
-  if (ac.status && !ac.ok) {
-    warn.classList.remove("hidden");
-    warn.textContent = ac.status === "suspended" ? "Your account is suspended. Contact support."
-      : "Your trial has ended. A licence is required to connect and trade — contact support to activate.";
-  } else warn.classList.add("hidden");
+  if (ac.status && !ac.ok) { warn.classList.remove("hidden"); warn.textContent = ac.status === "suspended" ? "Your account is suspended. Contact support." : "Your trial has ended. A licence is required to connect and trade — contact support."; }
+  else warn.classList.add("hidden");
 
-  // tiles
   $("t-bal").textContent = fmt(s.balance);
   const pnl = $("t-pnl"); pnl.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); pnl.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
-  $("t-access").textContent = lbl;
-  $("t-accessd").textContent = ac.days_left != null ? `${ac.days_left} days left` : (ac.status || "");
-  const stratTxt = s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off");
-  $("t-strat").textContent = stratTxt;
+  $("t-access").textContent = lbl; $("t-accessd").textContent = ac.days_left != null ? `${ac.days_left} days left` : (ac.status || "");
+  $("t-strat").textContent = s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off");
   $("t-strat").className = "v " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
   $("strat-state").textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");
   $("tr-mode").textContent = (s.settings || {}).sizing_mode || "—";
 
-  // positions
   const tb = $("pos-body");
-  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="7" class="k">No open positions.</td></tr>`;
+  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="6" class="k">No open positions.</td></tr>`;
   else tb.innerHTML = s.positions.map(p => `<tr>
     <td class="mono">${p.pair}</td><td class="${p.side === 'Long' ? 'pos' : 'neg'}">${p.side}</td>
-    <td class="mono">${fmt(p.size, 6)}</td><td class="mono">${fmt(p.entry, 4)}</td><td class="mono">${fmt(p.current, 4)}</td>
+    <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
     <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
     <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">Close</button></td></tr>`).join("");
 
-  // log
-  $("log").innerHTML = (s.log || []).map(l => {
-    const t = new Date(l.ts * 1000).toLocaleTimeString();
-    return `<div class="l"><span class="t">${t}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`;
-  }).join("");
-
+  $("log").innerHTML = (s.log || []).map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("");
   applySettings(s.settings || {}, s.email);
+}
+
+// ---- live price strip ----
+async function pollPrices() {
+  if (!TOKEN) return;
+  try {
+    const d = await api("/api/prices");
+    $("pricestrip").innerHTML = Object.entries(d).map(([sym, t]) => {
+      const pct = t && t.pct != null ? t.pct : 0;
+      return `<div class="pcard"><div class="psym">${sym.replace('/USDT', '')}<span class="k">/USDT</span></div>
+        <div class="pprice mono">${t && t.price != null ? fmt(t.price, t.price < 10 ? 5 : 2) : '—'}</div>
+        <div class="pchg ${pct >= 0 ? 'pos' : 'neg'}">${pct >= 0 ? '▲' : '▼'} ${fmt(Math.abs(pct), 2)}%</div></div>`;
+    }).join("");
+  } catch (e) { }
+  setTimeout(pollPrices, 10000);
 }
 
 // ---- connect / trade ----
 async function saveConnect() {
   try {
     await api("/api/keys", "POST", { exchange: $("cx-ex").value, market_type: $("cx-mkt").value, api_key: $("cx-key").value.trim(), api_secret: $("cx-sec").value.trim(), password: $("cx-pass").value.trim() });
-    await api("/api/connect", "POST"); refresh();
+    await api("/api/connect", "POST"); refresh(); show('home', document.querySelector('.side button'));
   } catch (e) { alert("Connect failed: " + e.message); }
 }
 async function trade(side) {
   const size = parseFloat($("tr-size").value);
+  if (!confirm(`${side.toUpperCase()} ${$("tr-sym").value} — LIVE order. Continue?`)) return;
   try { const r = await api("/api/trade", "POST", { side, symbol: $("tr-sym").value, size: isNaN(size) ? null : size }); if (!r.ok) alert(r.message); refresh(); }
   catch (e) { alert(e.message); }
 }
@@ -127,195 +130,169 @@ function applySettings(s, email) {
   const chk = (id, v) => { if ($(id) != null) $(id).checked = !!v; };
   set("s-sizing", s.sizing_mode); set("s-fixed", s.fixed_size); set("s-fixedq", s.fixed_quote); set("s-risk", s.risk_percent);
   set("s-otype", s.order_type); set("s-lev", s.leverage); set("s-margin", s.margin_mode); set("s-tp1f", s.tp1_fraction);
-  chk("s-bracket", s.auto_bracket); chk("s-safe", s.safe_mode); chk("s-ro", s.read_only);
+  chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only);
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   set("sg-sym", s.strategy_symbols); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
-  set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat);
-  set("ac-email", email);
+  set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   const p = s.strategy_params || {};
-  for (const k in SPARAMS) set("p-" + k, p[k] !== undefined ? p[k] : SPARAMS[k]);
-}
-
-// Full strategy parameter set (matches the desktop app's StrategyParams).
-const SPARAMS = {
-  rsi_len: 14, ma_len: 20, ma_confirm: 1, ma_min_body: 0.30, ma_trend_len: 0,
-  ma_adx_len: 14, ma_adx_min: 0, ma_swing: 10, ma_sl_buf: 0.10, ma_atr_len: 14,
-  ma_atr_mult: 0, ma_scale: 0.5, ma_ob: 70, ma_os: 30, ma_tp1_r: 1.0, ma_tp2_r: 2.0, ma_trail_atr: 0
-};
-const INTP = new Set(["rsi_len", "ma_len", "ma_confirm", "ma_trend_len", "ma_adx_len", "ma_swing", "ma_atr_len", "ma_ob", "ma_os"]);
-async function saveStrategy() {
-  const params = {};
-  for (const k in SPARAMS) {
-    const el = $("p-" + k); if (!el) continue;
-    let v = parseFloat(el.value); if (isNaN(v)) v = SPARAMS[k];
-    params[k] = INTP.has(k) ? Math.round(v) : v;
-  }
-  try {
-    await api("/api/strategy", "POST", { params, symbols: $("sg-sym").value, timeframe: $("sg-tf").value });
-    toast("Strategy saved"); refresh();
-  } catch (e) { alert(e.message); }
+  for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (k === "use_trend_filter") set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
-  await api("/api/settings", "POST", {
-    sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"),
-    order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"),
-    auto_bracket: $("s-bracket").checked, safe_mode: $("s-safe").checked, read_only: $("s-ro").checked,
-    max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe")
-  });
+  await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
   refresh(); toast("Settings saved");
 }
-async function saveTelegram() {
-  await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() });
-  toast("Telegram saved");
-}
+async function saveTelegram() { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); toast("Telegram saved"); }
 async function saveAccount() {
   $("ac-err").textContent = "";
-  const body = { current_password: $("ac-cur").value, new_email: $("ac-email").value.trim(), new_password: $("ac-newpass").value };
-  if (!body.current_password) { $("ac-err").textContent = "Enter your current password to save."; return; }
-  try {
-    const d = await api("/api/account", "POST", body);
-    TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN);
-    $("ac-newpass").value = ""; $("ac-cur").value = ""; toast("Account updated"); refresh();
-  } catch (e) { $("ac-err").textContent = e.message; }
+  const b = { current_password: $("ac-cur").value, new_email: $("ac-email").value.trim(), new_password: $("ac-newpass").value };
+  if (!b.current_password) { $("ac-err").textContent = "Enter your current password."; return; }
+  try { const d = await api("/api/account", "POST", b); TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); $("ac-newpass").value = ""; $("ac-cur").value = ""; toast("Account updated"); refresh(); }
+  catch (e) { $("ac-err").textContent = e.message; }
 }
-function addSym(sym) {
-  const el = $("sg-sym");
-  const list = el.value.split(",").map(x => x.trim()).filter(Boolean);
-  if (!list.includes(sym)) list.push(sym);
-  el.value = list.join(", ");
-}
+function addSym(sym) { const el = $("sg-sym"); const l = el.value.split(",").map(x => x.trim()).filter(Boolean); if (!l.includes(sym)) l.push(sym); el.value = l.join(", "); }
 
-// ---- strategy ----
-async function strategy(enable) {
-  try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); refresh(); }
-  catch (e) { alert(e.message); }
+// ---- strategy params (EMA 9/21 model) ----
+const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 50, use_trend_filter: 1, confirm: 1, min_body: 0.4, sl_buffer_pct: 0.05, swing_bars: 2, swing_lookback: 40, tp1_r: 1.0, tp2_r: 2.0 };
+const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "confirm", "swing_bars", "swing_lookback"]);
+function collectParams() {
+  const p = {};
+  for (const k in SPARAMS) {
+    const el = $("p-" + k); if (!el) continue;
+    if (k === "use_trend_filter") { p[k] = el.value === "1"; continue; }
+    let v = parseFloat(el.value); if (isNaN(v)) v = SPARAMS[k];
+    p[k] = INTP.has(k) ? Math.round(v) : v;
+  }
+  return p;
 }
+async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); refresh(); } catch (e) { alert(e.message); } }
+async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); toast("Strategy saved"); refresh(); } catch (e) { alert(e.message); } }
 
-// ---- backtest (pro) ----
+// ---- backtest ----
 async function runBacktest() {
   $("bt-out").classList.add("hidden");
   try {
-    const d = await api("/api/backtest", "POST", {
-      exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, limit: parseInt($("bt-limit").value) || 1000,
-      start_equity: parseFloat($("bt-eq").value) || 1000, fee_pct: parseFloat($("bt-fee").value),
-      allow_short: $("bt-short").value === "1",
-      params: {
-        rsi_len: parseInt($("bt-rsi").value) || 14, ma_len: parseInt($("bt-ema").value) || 20,
-        ma_tp1_r: parseFloat($("bt-tp1").value), ma_tp2_r: parseFloat($("bt-tp2").value), ma_confirm: parseInt($("bt-conf").value)
-      }
-    });
+    const d = await api("/api/backtest", "POST", { exchange: "binance", symbol: $("bt-sym").value, timeframe: $("bt-tf").value, limit: parseInt($("bt-limit").value) || 1000, start_equity: parseFloat($("bt-eq").value) || 1000, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() });
     const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct;
-    const tiles = [
-      ["Return", (ret >= 0 ? "+" : "") + fmt(ret) + "%", ret >= 0 ? "pos" : "neg"],
-      ["vs Buy & Hold", (vs >= 0 ? "+" : "") + fmt(vs) + "%", vs >= 0 ? "pos" : "neg"],
-      ["Net PnL", fmt(s.net_pnl), s.net_pnl >= 0 ? "pos" : "neg"],
-      ["Win rate", fmt(s.win_rate) + "%", ""],
-      ["Profit factor", (s.profit_factor > 999 ? "∞" : fmt(s.profit_factor)), ""],
-      ["Max drawdown", "-" + fmt(s.max_drawdown) + "%", "neg"],
-      ["Trades", s.trades + ` (${s.longs}L/${s.shorts}S)`, ""],
-      ["Avg R", fmt(s.avg_r), s.avg_r >= 0 ? "pos" : "neg"],
-    ];
+    const tiles = [["Return", (ret >= 0 ? "+" : "") + fmt(ret) + "%", ret >= 0 ? "pos" : "neg"], ["vs Buy & Hold", (vs >= 0 ? "+" : "") + fmt(vs) + "%", vs >= 0 ? "pos" : "neg"], ["Net PnL", fmt(s.net_pnl), s.net_pnl >= 0 ? "pos" : "neg"], ["Win rate", fmt(s.win_rate) + "%", ""], ["Profit factor", (s.profit_factor > 999 ? "∞" : fmt(s.profit_factor)), ""], ["Max drawdown", "-" + fmt(s.max_drawdown) + "%", "neg"], ["Trades", s.trades + ` (${s.longs}L/${s.shorts}S)`, ""], ["Avg R", fmt(s.avg_r), s.avg_r >= 0 ? "pos" : "neg"]];
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:19px">${v}</div></div>`).join("");
-    const eq = d.equity.map(e => e[1]);
-    drawLine("bt-eqc", eq, "#f97316", true);
-    // drawdown %
-    let peak = -1e9; const dd = eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; });
-    drawLine("bt-ddc", dd, "#ef4444", true);
+    const eq = d.equity.map(e => e[1]); drawLine("bt-eqc", eq, "#f97316", true);
+    let peak = -1e9; drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
     $("bt-ntr").textContent = d.trades.length;
-    $("bt-trades").innerHTML = d.trades.slice().reverse().map((t, i) => `<tr>
-      <td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td>
-      <td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td>
-      <td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td>
-      <td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("");
+    $("bt-trades").innerHTML = d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("");
     $("bt-out").classList.remove("hidden");
   } catch (e) { alert("Backtest: " + e.message); }
 }
 
 // ---- analytics ----
+function anRange(days) {
+  if (!days) { $("an-from").value = ""; $("an-to").value = ""; }
+  else { const to = new Date(), from = new Date(Date.now() - days * 864e5); $("an-to").value = to.toISOString().slice(0, 10); $("an-from").value = from.toISOString().slice(0, 10); }
+  loadAnalytics();
+}
 async function loadAnalytics() {
+  const since = $("an-from").value ? Math.floor(new Date($("an-from").value).getTime() / 1000) : 0;
+  const until = $("an-to").value ? Math.floor(new Date($("an-to").value).getTime() / 1000) + 86400 : 0;
   try {
-    const d = await api("/api/analytics"); const s = d.stats;
+    const d = await api(`/api/analytics?since=${since}&until=${until}`); const s = d.stats;
     $("an-wr").textContent = fmt(s.win_rate) + "%";
     const p = $("an-pnl"); p.textContent = (s.realized_pnl >= 0 ? "+" : "") + fmt(s.realized_pnl); p.className = "v " + (s.realized_pnl >= 0 ? "pos" : "neg");
     $("an-n").textContent = s.trades; $("an-bw").textContent = fmt(s.best) + " / " + fmt(s.worst);
     drawLine("an-chart", (d.equity || []).map(e => e.balance + e.pnl), "#f97316", true);
+    const cs = s.by_symbol || [];
+    $("an-coins").innerHTML = cs.length ? cs.map(c => `<tr><td class="mono">${c.symbol}</td><td>${c.trades}</td><td>${fmt(c.win_rate)}%</td><td class="mono ${c.pnl >= 0 ? 'pos' : 'neg'}">${(c.pnl >= 0 ? '+' : '') + fmt(c.pnl, 2)}</td></tr>`).join("") : `<tr><td colspan="4" class="k">No closed trades in range.</td></tr>`;
   } catch (e) { }
 }
 
-// ---- charts ----
+// ---- line chart ----
 function drawLine(id, series, color, fill) {
   const cv = $(id); if (!cv) return; const ctx = cv.getContext("2d");
   const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
   if (!series || series.length < 2) { ctx.fillStyle = "#8a97ab"; ctx.font = "12px sans-serif"; ctx.fillText("No data yet", 12, 22); return; }
   const min = Math.min(...series), max = Math.max(...series), rng = (max - min) || 1;
   const x = i => 8 + i * (w - 16) / (series.length - 1), y = v => h - 8 - (v - min) / rng * (h - 16);
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-  series.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); series.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))); ctx.stroke();
   if (fill) { ctx.fillStyle = color + "22"; ctx.lineTo(x(series.length - 1), h - 8); ctx.lineTo(x(0), h - 8); ctx.closePath(); ctx.fill(); }
 }
 
+// ================= ADVANCED CANDLE CHART (zoom / pan / SL-TP) =================
+let CH = null;            // {d, i0, i1}
+let chDrag = null;        // {x, i0, i1} while dragging
+let chPinch = null;
 async function loadChart() {
-  $("ch-info").textContent = "loading…";
+  const info = $("ch-price"); if (!info) return;
   try {
-    const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=300`);
-    $("ch-info").textContent = `${d.candles.length} candles · ${d.markers.length} signals`;
-    drawCandles(d); drawRsi(d);
-  } catch (e) { $("ch-info").textContent = "no data — connect an exchange"; }
+    const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=400`);
+    CH = { d, i0: 0, i1: d.candles.length }; chReset();
+    $("ch-legend").innerHTML = `<span>${d.symbol} · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="k">${d.markers.length} signals</span>`;
+  } catch (e) { const ctx = $("ch-price").getContext("2d"); ctx.clearRect(0, 0, 2000, 500); ctx.fillStyle = "#8a97ab"; ctx.font = "13px sans-serif"; ctx.fillText("No chart data — check connectivity", 14, 26); }
 }
-function drawCandles(d) {
+function chReset() { if (!CH) return; const n = CH.d.candles.length; CH.i1 = n; CH.i0 = Math.max(0, n - 140); drawChart(); }
+function chZoom(f) { if (!CH) return; const n = CH.d.candles.length; let c = Math.round((CH.i1 - CH.i0) * f); c = Math.max(20, Math.min(n, c)); const mid = (CH.i0 + CH.i1) / 2; CH.i1 = Math.min(n, Math.round(mid + c / 2)); CH.i0 = Math.max(0, CH.i1 - c); drawChart(); }
+function chPan(dCandles) { if (!CH) return; const n = CH.d.candles.length, c = CH.i1 - CH.i0; let i0 = Math.max(0, Math.min(n - c, chDrag.i0 + dCandles)); CH.i0 = i0; CH.i1 = i0 + c; drawChart(); }
+function drawChart() {
+  if (!CH) return;
   const cv = $("ch-price"), ctx = cv.getContext("2d");
   const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
-  const c = d.candles; if (!c.length) return;
-  const lo = Math.min(...c.map(x => x[3])), hi = Math.max(...c.map(x => x[2])), rng = (hi - lo) || 1;
-  const padL = 8, padR = 58, plotW = w - padL - padR;
-  const x = i => padL + i * plotW / (c.length - 1), y = v => 6 + (hi - v) / rng * (h - 12);
-  const cw = Math.max(1, plotW / c.length * 0.6);
-  c.forEach((k, i) => {
-    const [, o, hg, l, cl] = k, up = cl >= o; ctx.strokeStyle = up ? "#22c55e" : "#ef4444"; ctx.fillStyle = ctx.strokeStyle;
+  const d = CH.d, i0 = Math.max(0, Math.floor(CH.i0)), i1 = Math.min(d.candles.length, Math.ceil(CH.i1));
+  const view = d.candles.slice(i0, i1); if (view.length < 2) return;
+  let lo = Math.min(...view.map(c => c[3])), hi = Math.max(...view.map(c => c[2]));
+  // include SL/TP of visible markers in range so lines are on-screen
+  d.markers.forEach(m => { if (m.i >= i0 && m.i < i1 && m.type === "enter") {[m.sl, m.tp1, m.tp2].forEach(v => { if (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); } });
+  const rng = (hi - lo) || 1, padR = 62, plotW = w - 8 - padR;
+  const N = i1 - i0, cw = Math.max(1.5, plotW / N * 0.7);
+  const x = i => 8 + (i - i0) * plotW / (N - 1);
+  const y = v => 6 + (hi - v) / rng * (h - 12);
+  // grid + price axis
+  ctx.fillStyle = "#8a97ab"; ctx.font = "10px monospace"; ctx.strokeStyle = "#1c2534";
+  for (let g = 0; g <= 4; g++) { const v = lo + rng * g / 4, yy = y(v); ctx.beginPath(); ctx.moveTo(8, yy); ctx.lineTo(8 + plotW, yy); ctx.stroke(); ctx.fillText(v.toFixed(v < 10 ? 4 : 2), w - padR + 5, yy + 3); }
+  // candles
+  view.forEach((k, idx) => {
+    const i = i0 + idx, [, o, hg, l, c] = k, up = c >= o; ctx.strokeStyle = up ? "#22c55e" : "#ef4444"; ctx.fillStyle = ctx.strokeStyle;
     ctx.beginPath(); ctx.moveTo(x(i), y(hg)); ctx.lineTo(x(i), y(l)); ctx.stroke();
-    const yt = y(Math.max(o, cl)), yb = y(Math.min(o, cl)); ctx.fillRect(x(i) - cw / 2, yt, cw, Math.max(1, yb - yt));
+    const yt = y(Math.max(o, c)), yb = y(Math.min(o, c)); ctx.fillRect(x(i) - cw / 2, yt, cw, Math.max(1, yb - yt));
   });
-  ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1.5; ctx.beginPath(); let started = false;
-  d.ema.forEach((v, i) => { if (v == null) return; const px = x(i), py = y(v); started ? ctx.lineTo(px, py) : ctx.moveTo(px, py); started = true; });
-  ctx.stroke(); ctx.lineWidth = 1;
-  ctx.fillStyle = "#8a97ab"; ctx.font = "11px monospace";
-  for (let g = 0; g <= 4; g++) { const v = lo + rng * g / 4; ctx.fillText(v.toFixed(2), w - padR + 5, y(v) + 3); }
-  // BUY/SELL arrows + labels
+  // EMA overlays
+  const line = (arr, col) => { ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath(); let st = false; for (let i = i0; i < i1; i++) { const v = arr[i]; if (v == null) continue; const px = x(i), py = y(v); st ? ctx.lineTo(px, py) : ctx.moveTo(px, py); st = true; } ctx.stroke(); ctx.lineWidth = 1; };
+  line(d.fast, "#eab308"); line(d.slow, "#3b82f6"); line(d.trend, "#a855f7");
+  // markers + SL/TP lines
   ctx.font = "bold 11px sans-serif";
   d.markers.forEach(m => {
-    const px = x(m.i);
+    if (m.i < i0 || m.i >= i1) return; const px = x(m.i);
     if (m.type === "enter") {
-      const buy = m.side === "long"; const col = buy ? "#22c55e" : "#ef4444"; ctx.fillStyle = col; ctx.strokeStyle = col;
-      const py = y(m.price);
-      ctx.beginPath();
-      if (buy) { ctx.moveTo(px, py + 14); ctx.lineTo(px - 6, py + 26); ctx.lineTo(px + 6, py + 26); }
-      else { ctx.moveTo(px, py - 14); ctx.lineTo(px - 6, py - 26); ctx.lineTo(px + 6, py - 26); }
+      const buy = m.side === "long", col = buy ? "#22c55e" : "#ef4444"; const py = y(m.price);
+      ctx.fillStyle = col; ctx.beginPath();
+      if (buy) { ctx.moveTo(px, py + 14); ctx.lineTo(px - 6, py + 26); ctx.lineTo(px + 6, py + 26); } else { ctx.moveTo(px, py - 14); ctx.lineTo(px - 6, py - 26); ctx.lineTo(px + 6, py - 26); }
       ctx.closePath(); ctx.fill();
-      const label = buy ? "BUY" : "SELL"; const tw = ctx.measureText(label).width;
-      const ly = buy ? py + 40 : py - 32, lx = Math.min(Math.max(px - tw / 2 - 4, 2), w - padR - tw - 8);
-      ctx.fillStyle = col; roundRect(ctx, lx, ly - 12, tw + 8, 16, 4); ctx.fill();
-      ctx.fillStyle = "#0a0d13"; ctx.fillText(label, lx + 4, ly);
-      if (m.sl) { ctx.strokeStyle = "rgba(239,68,68,.5)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(px, y(m.sl)); ctx.lineTo(Math.min(px + 45, w - padR), y(m.sl)); ctx.stroke(); ctx.setLineDash([]); }
+      const lab = buy ? "BUY" : "SELL", tw = ctx.measureText(lab).width, ly = buy ? py + 40 : py - 32, lx = Math.min(Math.max(px - tw / 2 - 4, 2), w - padR - tw - 8);
+      ctx.fillStyle = col; rr(ctx, lx, ly - 12, tw + 8, 16, 4); ctx.fill(); ctx.fillStyle = "#0a0d13"; ctx.fillText(lab, lx + 4, ly);
+      const seg = Math.min(px + 60, w - padR);
+      if (m.sl) hline(ctx, px, seg, y(m.sl), "#ef4444");
+      if (m.tp1) hline(ctx, px, seg, y(m.tp1), "#22c55e");
+      if (m.tp2) hline(ctx, px, seg, y(m.tp2), "#16a34a");
     } else { ctx.fillStyle = "#8a97ab"; ctx.fillRect(px - 2, y(m.price) - 2, 4, 4); }
   });
 }
-function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
-function drawRsi(d) {
-  const cv = $("ch-rsi"), ctx = cv.getContext("2d");
-  const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
-  const r = d.rsi; if (!r.length) return;
-  const padR = 58, plotW = w - 8 - padR, x = i => 8 + i * plotW / (r.length - 1), y = v => 4 + (100 - v) / 100 * (h - 8);
-  ctx.fillStyle = "rgba(59,130,246,.08)"; ctx.fillRect(8, y(70), plotW, y(30) - y(70));
-  ctx.strokeStyle = "#242d3e";[30, 50, 70].forEach(v => { ctx.beginPath(); ctx.moveTo(8, y(v)); ctx.lineTo(8 + plotW, y(v)); ctx.stroke(); });
-  ctx.strokeStyle = "#3b82f6"; ctx.beginPath(); let st = false;
-  r.forEach((v, i) => { if (v == null) return; const px = x(i), py = y(v); st ? ctx.lineTo(px, py) : ctx.moveTo(px, py); st = true; });
-  ctx.stroke(); ctx.fillStyle = "#8a97ab"; ctx.font = "10px monospace";[30, 50, 70].forEach(v => ctx.fillText(v, w - padR + 5, y(v) + 3));
-}
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function hline(ctx, x1, x2, yy, col) { ctx.strokeStyle = col; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, yy); ctx.lineTo(x2, yy); ctx.stroke(); ctx.setLineDash([]); }
 
-function toast(msg) {
-  const e = $("st-email"); const old = e.textContent; e.textContent = "✓ " + msg;
-  setTimeout(() => { if (lastState) e.textContent = lastState.email; }, 1500);
+// chart interaction
+function chSetup() {
+  const cv = $("ch-price"); if (!cv || cv._wired) return; cv._wired = true;
+  const candleW = () => { const N = (CH ? CH.i1 - CH.i0 : 1); return (cv.clientWidth - 70) / Math.max(1, N); };
+  cv.addEventListener("wheel", e => { e.preventDefault(); chZoom(e.deltaY > 0 ? 1.15 : 0.87); }, { passive: false });
+  cv.addEventListener("mousedown", e => { if (CH) chDrag = { x: e.clientX, i0: CH.i0 }; });
+  window.addEventListener("mousemove", e => { if (chDrag) chPan(Math.round((chDrag.x - e.clientX) / candleW())); });
+  window.addEventListener("mouseup", () => chDrag = null);
+  cv.addEventListener("touchstart", e => { if (e.touches.length === 1 && CH) chDrag = { x: e.touches[0].clientX, i0: CH.i0 }; else if (e.touches.length === 2 && CH) chPinch = { dist: tdist(e), c: CH.i1 - CH.i0, mid: (CH.i0 + CH.i1) / 2 }; }, { passive: true });
+  cv.addEventListener("touchmove", e => {
+    if (e.touches.length === 2 && chPinch) { const nd = tdist(e); let c = Math.round(chPinch.c * chPinch.dist / (nd || 1)); c = Math.max(20, Math.min(CH.d.candles.length, c)); CH.i1 = Math.min(CH.d.candles.length, Math.round(chPinch.mid + c / 2)); CH.i0 = Math.max(0, CH.i1 - c); drawChart(); }
+    else if (e.touches.length === 1 && chDrag) { chPan(Math.round((chDrag.x - e.touches[0].clientX) / candleW())); }
+  }, { passive: true });
+  cv.addEventListener("touchend", () => { chDrag = null; chPinch = null; });
 }
+function tdist(e) { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
 
+function toast(msg) { const e = $("st-email"); e.textContent = "✓ " + msg; setTimeout(() => { if (lastState) e.textContent = lastState.email; }, 1500); }
+window.addEventListener("load", chSetup);
 if (TOKEN) enterApp();
