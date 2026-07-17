@@ -133,7 +133,7 @@ function applySettings(s, email) {
   set("s-otype", s.order_type); set("s-lev", s.leverage); set("s-margin", s.margin_mode); set("s-tp1f", s.tp1_fraction);
   chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only);
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
-  set("sg-sym", (s.strategy_symbols || "BTC/USDT").split(",")[0].trim()); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
+  mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   const p = s.strategy_params || {};
   for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (k === "use_trend_filter") set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
@@ -151,7 +151,25 @@ async function saveAccount() {
   try { const d = await api("/api/account", "POST", b); TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); $("ac-newpass").value = ""; $("ac-cur").value = ""; toast("Account updated"); refresh(); }
   catch (e) { $("ac-err").textContent = e.message; }
 }
-function addSym(sym) { const el = $("sg-sym"); const l = el.value.split(",").map(x => x.trim()).filter(Boolean); if (!l.includes(sym)) l.push(sym); el.value = l.join(", "); }
+// multi-select symbol dropdown (checkbox panel) -> hidden #sg-sym comma list
+const POP = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", "DOGE/USDT", "ADA/USDT", "AVAX/USDT", "LINK/USDT", "TON/USDT", "TRX/USDT", "PEPE/USDT"];
+function mselBuild() {
+  const panel = $("sg-panel"); if (!panel || panel._built) return; panel._built = true;
+  panel.innerHTML = POP.map(s => `<label class="msel-opt"><input type="checkbox" value="${s}" onchange="mselSync()"/> ${s}</label>`).join("");
+}
+function mselSync() {
+  const sel = [...$("sg-panel").querySelectorAll("input:checked")].map(i => i.value);
+  $("sg-sym").value = sel.join(", ");
+  $("sg-label").textContent = sel.length ? (sel.length <= 2 ? sel.join(", ") : `${sel.length} pairs selected`) : "Select…";
+}
+function mselSet(csv) {
+  mselBuild();
+  const set = new Set((csv || "").split(",").map(x => x.trim()).filter(Boolean));
+  $("sg-panel").querySelectorAll("input").forEach(i => i.checked = set.has(i.value));
+  mselSync();
+}
+function mselToggle() { mselBuild(); $("sg-panel").classList.toggle("hidden"); }
+document.addEventListener("click", e => { const m = document.querySelector(".msel"); if (m && !m.contains(e.target) && $("sg-panel")) $("sg-panel").classList.add("hidden"); });
 
 // ---- strategy params (EMA 9/21 model) ----
 const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 50, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_buffer_pct: 0.05, swing_bars: 2, swing_lookback: 40, tp1_r: 1.0, tp2_r: 2.0 };

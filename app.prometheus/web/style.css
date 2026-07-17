@@ -116,3 +116,15 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
   .btnrow.big button{font-size:15px;padding:12px}
 }
 @media(max-width:520px){ .tiles{grid-template-columns:1fr 1fr}.pricestrip{grid-template-columns:1fr 1fr} }
+
+/* ---- multi-select symbol dropdown ---- */
+.msel{position:relative}
+.msel-head{background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:9px 11px;
+  display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px}
+.msel-head:hover{border-color:var(--accent)}
+.msel-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;background:var(--panel2);
+  border:1px solid var(--line);border-radius:10px;padding:6px;max-height:230px;overflow:auto;
+  box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.msel-opt{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;color:var(--txt);font-size:13px;cursor:pointer}
+.msel-opt:hover{background:var(--panel)}
+.msel-opt input{width:auto}

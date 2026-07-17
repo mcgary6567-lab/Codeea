@@ -164,14 +164,15 @@
           <div class="row" style="margin-top:12px">
             <div class="col"><label>Timeframe the strategy trades on</label>
               <select id="sg-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
-            <div class="col"><label>Symbol</label>
-              <select id="sg-sym">
-                <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
-                <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
-                <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
-                <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
-              </select></div>
+            <div class="col"><label>Symbols (pick one or more)</label>
+              <div class="msel">
+                <div class="msel-head" onclick="mselToggle()"><span id="sg-label">BTC/USDT</span><span class="k">▾</span></div>
+                <div class="msel-panel hidden" id="sg-panel"></div>
+              </div>
+              <input type="hidden" id="sg-sym" value="BTC/USDT"/>
+            </div>
           </div>
+          <div class="hint">Each selected pair runs the strategy independently. Concurrent open trades are capped by <b>Max open positions</b> (Settings → Guardrails).</div>
         </div>
         <div class="grid2">
           <div class="card"><h3>EMA cross &amp; trend</h3>
