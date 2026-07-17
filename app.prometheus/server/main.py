@@ -362,6 +362,11 @@ def prices(symbols: str = "", user: dict = Depends(current_user)):
 
 
 # --- analytics --------------------------------------------------------------
+@app.get("/api/pnl_modes")
+def pnl_modes(user: dict = Depends(current_user)):
+    return store.pnl_by_mode(user["id"])
+
+
 @app.get("/api/analytics")
 def analytics(since: float = 0, until: float = 0, user: dict = Depends(current_user)):
     sv = since or None

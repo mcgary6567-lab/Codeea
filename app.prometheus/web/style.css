@@ -130,3 +130,9 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .msel-opt input{width:auto}
 
 .welcome{font-size:20px;font-weight:800;margin:2px 0 16px}
+
+/* ---- paper vs live comparison ---- */
+.pcompare{background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:14px}
+.pcompare.live{border-left:3px solid var(--green)}
+.pcompare.paper{border-left:3px solid var(--amber)}
+.pcompare .v{font-size:22px;font-weight:800;margin:4px 0}

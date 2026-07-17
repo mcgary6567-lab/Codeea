@@ -93,6 +93,19 @@
           <div class="tile"><div class="k">Strategy</div><div class="v" id="t-strat">Off</div><div class="k">EMA 9/21 engine</div></div>
         </div>
 
+        <div class="card" id="pnl-compare-card" style="display:none">
+          <h3>Paper vs Live — realized PnL</h3>
+          <div class="grid2">
+            <div class="pcompare live"><div class="k">🟢 LIVE</div>
+              <div class="v mono" id="pc-live-pnl">—</div>
+              <div class="k"><span id="pc-live-tr">0</span> trades · <span id="pc-live-wr">0</span>% win</div></div>
+            <div class="pcompare paper"><div class="k">📝 PAPER</div>
+              <div class="v mono" id="pc-paper-pnl">—</div>
+              <div class="k"><span id="pc-paper-tr">0</span> trades · <span id="pc-paper-wr">0</span>% win</div></div>
+          </div>
+          <div class="hint">Simulated (paper) vs real (live) realized PnL from closed trades — compare before you flip Paper off.</div>
+        </div>
+
         <div class="card">
           <div class="chart-head">
             <h3 style="margin:0">Live chart</h3>

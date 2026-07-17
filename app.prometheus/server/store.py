@@ -54,7 +54,8 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL,
                 ts REAL NOT NULL,
                 symbol TEXT, side TEXT, kind TEXT, status TEXT,
-                amount REAL, price REAL, pnl REAL, note TEXT
+                amount REAL, price REAL, pnl REAL, note TEXT,
+                mode TEXT NOT NULL DEFAULT 'live'
             );
             CREATE INDEX IF NOT EXISTS ix_trades_user ON trades(user_id, ts);
             CREATE TABLE IF NOT EXISTS equity(
@@ -65,6 +66,9 @@ def init_db() -> None:
             """
         )
         # Lightweight migration for DBs created before access-control columns.
+        tcols = {r["name"] for r in c.execute("PRAGMA table_info(trades)")}
+        if "mode" not in tcols:
+            c.execute("ALTER TABLE trades ADD COLUMN mode TEXT NOT NULL DEFAULT 'live'")
         cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
         for name, ddl in {
             "is_admin": "INTEGER NOT NULL DEFAULT 0",
@@ -232,13 +236,32 @@ def clear_keys(user_id: int) -> None:
 
 # --- trades / equity --------------------------------------------------------
 def record_trade(user_id: int, *, symbol="", side="", kind="", status="",
-                 amount=0.0, price=0.0, pnl=0.0, note="") -> None:
+                 amount=0.0, price=0.0, pnl=0.0, note="", mode="live") -> None:
     with _LOCK, _conn() as c:
         c.execute(
-            "INSERT INTO trades(user_id,ts,symbol,side,kind,status,amount,price,pnl,note)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?)",
-            (user_id, time.time(), symbol, side, kind, status, amount, price, pnl, note),
+            "INSERT INTO trades(user_id,ts,symbol,side,kind,status,amount,price,pnl,note,mode)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (user_id, time.time(), symbol, side, kind, status, amount, price, pnl, note, mode),
         )
+
+
+def pnl_by_mode(user_id: int) -> dict:
+    """Realized PnL + trade/win counts split by paper vs live (closed trades)."""
+    out = {m: {"trades": 0, "wins": 0, "pnl": 0.0} for m in ("live", "paper")}
+    with _LOCK, _conn() as c:
+        rows = c.execute(
+            "SELECT mode, pnl FROM trades WHERE user_id=? AND kind='close'", (user_id,)
+        ).fetchall()
+    for r in rows:
+        m = r["mode"] if r["mode"] in out else "live"
+        p = r["pnl"] or 0.0
+        out[m]["trades"] += 1
+        out[m]["wins"] += 1 if p > 0 else 0
+        out[m]["pnl"] = round(out[m]["pnl"] + p, 4)
+    for m in out:
+        t = out[m]["trades"]
+        out[m]["win_rate"] = round(100 * out[m]["wins"] / t, 1) if t else 0.0
+    return out
 
 
 def record_equity(user_id: int, balance: float, pnl: float) -> None:

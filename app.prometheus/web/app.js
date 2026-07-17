@@ -135,8 +135,22 @@ async function pollPrices() {
         <div class="pchg ${pct >= 0 ? 'pos' : 'neg'}">${pct >= 0 ? '▲' : '▼'} ${fmt(Math.abs(pct), 2)}%</div></div>`;
     }).join("");
   } catch (e) { }
-  markTick();
+  markTick(); loadPnlModes();
   setTimeout(pollPrices, 10000);
+}
+async function loadPnlModes() {
+  if (!TOKEN) return;
+  try {
+    const d = await api("/api/pnl_modes");
+    const any = (d.live.trades + d.paper.trades) > 0;
+    $("pnl-compare-card").style.display = any ? "" : "none";
+    const fill = (m, o) => {
+      const el = $("pc-" + m + "-pnl"); el.textContent = (o.pnl >= 0 ? "+" : "") + fmt(o.pnl);
+      el.className = "v mono " + (o.pnl >= 0 ? "pos" : "neg");
+      $("pc-" + m + "-tr").textContent = o.trades; $("pc-" + m + "-wr").textContent = fmt(o.win_rate);
+    };
+    fill("live", d.live); fill("paper", d.paper);
+  } catch (e) { }
 }
 
 // ---- connect / trade ----

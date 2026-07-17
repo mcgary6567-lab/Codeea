@@ -186,6 +186,9 @@ class TraderSession:
         self._apply_guardrails()
 
     # -- logging + notifications --------------------------------------------
+    def _mode(self) -> str:
+        return "paper" if self.settings.get("paper_mode") else "live"
+
     def log(self, msg: str, level: str = "info") -> None:
         self.log_ring.appendleft({"ts": time.time(), "level": level, "msg": msg})
 
@@ -369,7 +372,7 @@ class TraderSession:
         res = self.em.place_order(symbol, side, amount, order_type, limit_px)
         store.record_trade(self.user_id, symbol=symbol, side=side, kind="manual",
                            status="filled" if res.ok else "rejected",
-                           amount=amount, price=price, note=res.message)
+                           amount=amount, price=price, note=res.message, mode=self._mode())
         self.log(f"Manual {side.upper()} {symbol}: {res.message} [{reason}]",
                  "ok" if res.ok else "error")
         self.refresh()
@@ -408,7 +411,7 @@ class TraderSession:
         if not allowed:
             self.log(f"Blocked {side.upper()} {symbol}: {reason}", "warn")
             store.record_trade(self.user_id, symbol=symbol, side=side, kind="signal",
-                               status="blocked", note=reason)
+                               status="blocked", note=reason, mode=self._mode())
             return {"ok": False, "message": f"blocked: {reason}"}
 
         price = entry if entry > 0 else self.get_price(symbol)
@@ -422,7 +425,7 @@ class TraderSession:
         res = self.em.place_order(symbol, side, amount, order_type, limit_px)
         store.record_trade(self.user_id, symbol=symbol, side=side, kind="entry",
                            status="filled" if res.ok else "rejected",
-                           amount=amount, price=price, note=f"{source}: {res.message}")
+                           amount=amount, price=price, note=f"{source}: {res.message}", mode=self._mode())
         self.log(f"{source} {side.upper()} {symbol} x{amount}: {res.message} [{reason}]",
                  "ok" if res.ok else "error")
         if not res.ok:
@@ -458,7 +461,7 @@ class TraderSession:
                 store.record_trade(self.user_id, symbol=p.pair, side="close", kind="close",
                                    status="filled" if res.ok else "rejected",
                                    amount=p.size * fraction, price=p.current, pnl=p.pnl,
-                                   note=res.message)
+                                   note=res.message, mode=self._mode())
                 self.log(f"Close {p.pair}: {res.message}", "ok" if res.ok else "error")
                 self.notify(f"Closed {p.pair} | PnL {p.pnl:+.4f}")
                 self.refresh()
