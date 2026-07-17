@@ -156,6 +156,15 @@ class TraderSession:
         self.em = ex.ExchangeManager()
         self.guard = Guardrails()
         self.settings = {**DEFAULT_SETTINGS, **(store.load_settings(user_id) or {})}
+        # One-time migration: the strategy was rewritten (EMA100 filter, new
+        # params). Drop strategy params saved under the old schema so users pick
+        # up the new correct defaults (trend EMA 100, 1:2 partial, etc.).
+        if self.settings.get("strat_schema") != 3:
+            self.settings["strategy_params"] = {}
+            self.settings["strat_schema"] = 3
+            if self.settings.get("strategy_timeframe") in (None, "15m"):
+                self.settings["strategy_timeframe"] = "1h"
+            store.save_settings(user_id, self.settings)
         self.positions: list = []
         self.balance = 0.0
         self.pnl = 0.0

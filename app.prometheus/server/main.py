@@ -268,8 +268,17 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         "from": int(candles[0][0]), "to": int(candles[-1][0]),
         "days": round((candles[-1][0] - candles[0][0]) / 86_400_000, 1),
     }
-    summary = {k: (round(v, 4) if isinstance(v, float) and v not in (float("inf"), float("-inf")) else v)
-               for k, v in result.stats.items()}
+    import math
+
+    def _finite(v):
+        if isinstance(v, float):
+            if math.isinf(v):
+                return 999999.0 if v > 0 else -999999.0   # JSON has no Infinity -> 500
+            if math.isnan(v):
+                return 0.0
+            return round(v, 4)
+        return v
+    summary = {k: _finite(v) for k, v in result.stats.items()}
     return {
         "symbol": symbol, "timeframe": tf, "exchange": exch, "candles": len(candles),
         "start_equity": cfg.start_equity, "period": period,
