@@ -144,7 +144,7 @@ DEFAULT_SETTINGS = {
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT",
-    "strategy_timeframe": "15m",
+    "strategy_timeframe": "1h",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,
 }
@@ -361,6 +361,7 @@ class TraderSession:
         sl = float(payload.get("sl", 0) or 0)
         tp1 = float(payload.get("tp1", 0) or 0)
         tp2 = float(payload.get("tp2", 0) or 0)
+        tp_partial = float(payload.get("tp_partial", 0) or 0)   # fraction closed at tp1 only
         side = action
 
         allowed, reason = self.guard.check_entry(symbol, side, self._open_pairs())
@@ -398,9 +399,16 @@ class TraderSession:
             if sl > 0:
                 r = self.em.place_reduce_order(symbol, xside, amount, sl, "sl")
                 self.log(f"SL {symbol} @ {sl}: {r.message}", "ok" if r.ok else "warn")
-            for px, qty in ex.plan_take_profits(amount, tp1, tp2, float(self.settings.get("tp1_fraction", 0.5))):
-                r = self.em.place_reduce_order(symbol, xside, qty, px, "tp")
-                self.log(f"TP {symbol} {qty} @ {px}: {r.message}", "ok" if r.ok else "warn")
+            if tp_partial > 0 and tp1 > 0:
+                # strategy: reduce-only TP for a fraction at the 2R target; the rest
+                # is held for the runner's counter-cross / trail exit.
+                qty = round(amount * tp_partial, 8)
+                r = self.em.place_reduce_order(symbol, xside, qty, tp1, "tp")
+                self.log(f"TP {symbol} {qty} @ {tp1} ({int(tp_partial * 100)}%): {r.message}", "ok" if r.ok else "warn")
+            else:
+                for px, qty in ex.plan_take_profits(amount, tp1, tp2, float(self.settings.get("tp1_fraction", 0.5))):
+                    r = self.em.place_reduce_order(symbol, xside, qty, px, "tp")
+                    self.log(f"TP {symbol} {qty} @ {px}: {r.message}", "ok" if r.ok else "warn")
         self.refresh()
         return {"ok": True, "message": res.message, "amount": amount}
 
@@ -438,18 +446,16 @@ class TraderSession:
         rnd = lambda arr: [None if v is None else round(v, 6) for v in arr]
         markers = []
         for i, ev in strat.evaluate_all_crossover(closed, params, symbol):
-            if ev.get("act") == "enter":
-                entry, sl = float(ev["entry"]), float(ev["sl"])
-                risk = abs(entry - sl)
-                sign = 1 if ev["side"] == "long" else -1
-                markers.append({
-                    "i": i, "type": "enter", "side": ev["side"], "price": entry, "sl": sl,
-                    "tp1": entry + sign * risk * params.tp1_r if params.tp1_r else None,
-                    "tp2": entry + sign * risk * params.tp2_r if params.tp2_r else None,
-                })
-            else:
+            act = ev.get("act")
+            if act == "enter":
+                markers.append({"i": i, "type": "enter", "side": ev["side"],
+                                "price": float(ev["entry"]), "sl": float(ev["sl"]),
+                                "tp1": float(ev["tp"]), "tp2": None})
+            elif act == "exit":
                 markers.append({"i": i, "type": "exit", "side": ev.get("side"),
-                                "price": cl[i], "reason": ev.get("reason", "")})
+                                "price": float(ev.get("price", cl[i])), "reason": ev.get("reason", "")})
+            else:  # partial
+                markers.append({"i": i, "type": "partial", "price": float(ev.get("price", cl[i]))})
         return {
             "symbol": symbol, "timeframe": tf,
             "candles": [[int(c[0]), c[1], c[2], c[3], c[4], c[5]] for c in closed],
@@ -509,18 +515,18 @@ class TraderSession:
             return                               # no new closed candle yet
         self._strat_primed[symbol] = last_ts
         for evt in strat.evaluate_crossover(closed, params, symbol):
-            if evt.get("act") != "enter":
-                continue
-            side = "buy" if evt["side"] == "long" else "sell"
-            entry = float(evt.get("entry", 0))
-            sl = float(evt.get("sl", 0))
-            risk = abs(entry - sl)
-            sign = 1 if side == "buy" else -1
-            tp1 = entry + sign * params.tp1_r * risk if params.tp1_r else 0
-            tp2 = entry + sign * params.tp2_r * risk if params.tp2_r else 0
-            self.handle_signal({"action": side, "symbol": symbol, "entry": entry,
-                                "sl": sl, "tp1": tp1, "tp2": tp2, "comment": "Prometheus"},
-                               source="strategy")
+            act = evt.get("act")
+            if act == "enter":
+                side = "buy" if evt["side"] == "long" else "sell"
+                self.handle_signal({"action": side, "symbol": symbol,
+                                    "entry": float(evt["entry"]), "sl": float(evt["sl"]),
+                                    "tp1": float(evt["tp"]), "tp2": 0,
+                                    "tp_partial": params.partial_pct, "comment": "Prometheus"},
+                                   source="strategy")
+            elif act == "exit":
+                # counter-cross / trail / stop on the closed candle -> flatten the rest
+                self.log(f"Strategy exit {symbol} — {evt.get('reason', 'exit')}", "ok")
+                self.close_position(symbol)
 
     # -- snapshot for the UI -------------------------------------------------
     def snapshot(self) -> dict:

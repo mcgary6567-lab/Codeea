@@ -142,7 +142,7 @@ function applySettings(s, email) {
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   const p = s.strategy_params || {};
-  for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (k === "use_trend_filter") set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
+  for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (BOOLP.has(k)) set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
@@ -178,13 +178,14 @@ function mselToggle() { mselBuild(); $("sg-panel").classList.toggle("hidden"); }
 document.addEventListener("click", e => { const m = document.querySelector(".msel"); if (m && !m.contains(e.target) && $("sg-panel")) $("sg-panel").classList.add("hidden"); });
 
 // ---- strategy params (EMA 9/21 model) ----
-const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 50, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_buffer_pct: 0.05, swing_bars: 2, swing_lookback: 40, tp1_r: 1.0, tp2_r: 2.0 };
-const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "confirm", "swing_bars", "swing_lookback"]);
+const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 2.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
+const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "swing_lookback", "whipsaw_max_crosses", "whipsaw_window"]);
+const BOOLP = new Set(["use_trend_filter", "avoid_daily_close"]);
 function collectParams() {
   const p = {};
   for (const k in SPARAMS) {
     const el = $("p-" + k); if (!el) continue;
-    if (k === "use_trend_filter") { p[k] = el.value === "1"; continue; }
+    if (BOOLP.has(k)) { p[k] = el.value === "1"; continue; }
     let v = parseFloat(el.value); if (isNaN(v)) v = SPARAMS[k];
     p[k] = INTP.has(k) ? Math.round(v) : v;
   }

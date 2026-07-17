@@ -58,6 +58,7 @@ def _fee(notional: float, cfg: BacktestConfig) -> float:
 
 
 def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) -> BacktestResult:
+    """Tally the engine's own enter/partial/exit events into trades + equity."""
     res = BacktestResult()
     n = len(candles)
     if n < strategy.crossover_need(params):
@@ -66,95 +67,53 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
         return res
 
     ts = [int(c[0]) for c in candles]
-    o = [float(c[1]) for c in candles]; h = [float(c[2]) for c in candles]
-    low = [float(c[3]) for c in candles]; cl = [float(c[4]) for c in candles]
-
-    ev_by_bar: dict = {}
-    for i, ev in strategy.evaluate_all_crossover(candles, params):
-        ev_by_bar.setdefault(i, []).append(ev)
-
     equity = cfg.start_equity
     res.equity = [(ts[0], equity)]
-    pos = "flat"
-    entry = sl = qty = 0.0
-    entry_i = 0
-    init_risk = 0.0
-    scaled = False
-    open_fees = 0.0
-    realized_partial = 0.0
-    tp1_r, tp2_r = max(0.0, params.tp1_r), max(0.0, params.tp2_r)
+    cur: dict = {}
 
-    def funding_cost(exit_i: int) -> float:
+    def funding(entry_i: int, exit_i: int, notional: float) -> float:
         if not cfg.apply_costs or cfg.funding_pct_8h <= 0:
             return 0.0
         periods = ((exit_i - entry_i) * cfg.bar_seconds) / (8.0 * 3600.0)
-        return abs(qty * entry) * (cfg.funding_pct_8h / 100.0) * periods
+        return abs(notional) * (cfg.funding_pct_8h / 100.0) * periods
 
-    def open_trade(side: str, i: int, slv: float, px: float):
-        nonlocal pos, entry, sl, qty, entry_i, init_risk, scaled, open_fees, realized_partial
-        entry, sl = px, slv
-        init_risk = abs(entry - sl)
-        if cfg.risk_pct > 0 and init_risk > 0:
-            qty = (equity * cfg.risk_pct / 100.0) / init_risk
-        else:
-            qty = (equity * cfg.size_pct / 100.0) / entry if entry > 0 else 0.0
-        scaled = False
-        open_fees = _fee(qty * entry, cfg)
-        realized_partial = 0.0
-        entry_i = i
-        pos = side
-
-    def close_trade(i: int, price: float, reason: str):
-        nonlocal pos, equity
-        rem = qty * (1.0 - (SCALE if scaled else 0.0))
-        gross = (price - entry) * rem if pos == "long" else (entry - price) * rem
-        fees = open_fees + _fee(rem * price, cfg)
-        fund = funding_cost(i)
-        net = realized_partial + gross - fees - fund
-        equity += net
-        res.trades.append(BacktestTrade(
-            side=pos, entry_i=entry_i, exit_i=i, entry_ts=ts[entry_i], exit_ts=ts[i],
-            entry=entry, exit=price, qty=qty, pnl=net, fees=fees, funding=fund,
-            r=(net / (init_risk * qty)) if init_risk > 0 and qty > 0 else 0.0,
-            reason=reason, scaled=scaled))
-        res.equity.append((ts[i], equity))
-        pos = "flat"
-
-    for i in range(n):
-        # 1) manage the open position against this bar's range (SL, TP2, TP1 scale)
-        if pos == "long":
-            sl_eff = entry if scaled else sl
-            tp1 = entry + tp1_r * init_risk
-            tp2 = entry + tp2_r * init_risk
-            if low[i] <= sl_eff:
-                close_trade(i, sl_eff, "sl")
-            elif tp2_r > 0 and h[i] >= tp2:
-                close_trade(i, tp2, "tp")
-            elif not scaled and tp1_r > 0 and h[i] >= tp1:
-                part = qty * SCALE
-                realized_partial += (tp1 - entry) * part - _fee(part * tp1, cfg)
-                scaled = True
-        elif pos == "short":
-            sl_eff = entry if scaled else sl
-            tp1 = entry - tp1_r * init_risk
-            tp2 = entry - tp2_r * init_risk
-            if h[i] >= sl_eff:
-                close_trade(i, sl_eff, "sl")
-            elif tp2_r > 0 and low[i] <= tp2:
-                close_trade(i, tp2, "tp")
-            elif not scaled and tp1_r > 0 and low[i] <= tp1:
-                part = qty * SCALE
-                realized_partial += (entry - tp1) * part - _fee(part * tp1, cfg)
-                scaled = True
-
-        # 2) apply the engine's events at this bar (exit closes, enter opens)
-        for ev in ev_by_bar.get(i, []):
-            if ev["act"] == "exit" and pos != "flat":
-                close_trade(i, cl[i], ev.get("reason", "cross"))
-            elif ev["act"] == "enter" and pos == "flat":
-                if ev["side"] == "short" and not cfg.allow_short:
-                    continue
-                open_trade(ev["side"], i, float(ev["sl"]), float(ev["entry"]))
+    for i, ev in strategy.evaluate_all_crossover(candles, params):
+        act = ev["act"]
+        if act == "enter":
+            if ev["side"] == "short" and not cfg.allow_short:
+                cur = {}
+                continue
+            entry, sl = float(ev["entry"]), float(ev["sl"])
+            risk = abs(entry - sl)
+            if cfg.risk_pct > 0 and risk > 0:
+                qty = (equity * cfg.risk_pct / 100.0) / risk
+            else:
+                qty = (equity * cfg.size_pct / 100.0) / entry if entry > 0 else 0.0
+            cur = {"side": ev["side"], "entry": entry, "entry_i": i, "qty": qty, "rem": qty,
+                   "init_risk": risk, "realized": 0.0, "fees": _fee(qty * entry, cfg), "scaled": False}
+        elif act == "partial" and cur:
+            part = cur["qty"] * float(ev.get("fraction", 0.5))
+            px = float(ev["price"])
+            gross = (px - cur["entry"]) * part if cur["side"] == "long" else (cur["entry"] - px) * part
+            cur["realized"] += gross - _fee(part * px, cfg)
+            cur["fees"] += _fee(part * px, cfg)
+            cur["rem"] -= part
+            cur["scaled"] = True
+        elif act == "exit" and cur:
+            px = float(ev["price"]); rem = cur["rem"]
+            gross = (px - cur["entry"]) * rem if cur["side"] == "long" else (cur["entry"] - px) * rem
+            fees = cur["fees"] + _fee(rem * px, cfg)
+            fund = funding(cur["entry_i"], i, cur["qty"] * cur["entry"])
+            net = cur["realized"] + gross - fees - fund
+            equity += net
+            res.trades.append(BacktestTrade(
+                side=cur["side"], entry_i=cur["entry_i"], exit_i=i,
+                entry_ts=ts[cur["entry_i"]], exit_ts=ts[i], entry=cur["entry"], exit=px,
+                qty=cur["qty"], pnl=net, fees=fees, funding=fund,
+                r=(net / (cur["init_risk"] * cur["qty"])) if cur["init_risk"] > 0 and cur["qty"] > 0 else 0.0,
+                reason=ev.get("reason", "exit"), scaled=cur["scaled"]))
+            res.equity.append((ts[i], equity))
+            cur = {}
 
     res.stats = _summarise(res.trades, cfg.start_equity, res.equity)
     return res

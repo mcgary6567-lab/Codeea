@@ -1,21 +1,23 @@
-"""Built-in strategy engine — EMA fast/slow crossover with a trend filter.
+"""Built-in strategy engine — H1 9/21 EMA crossover with a 100-EMA trend filter.
 
-Faithful port of the "STRATEGY (EMA 9 / 21 cross)" indicator:
+Production port of the spec:
 
-  * **Cross**   — Fast EMA (9) crossing the Slow EMA (21) is the trigger.
-  * **Trend**   — Trend EMA (50) directional filter: only BUY above it / SELL
-    below it (toggle with ``use_trend_filter``).
-  * **Confirm** — ``confirm`` candles after the cross, each a strong candle in
-    the trade direction (body-to-range ≥ ``min_body``). ``0`` = enter on the
-    cross bar itself.
-  * **Stop**    — the recent swing low (long) / swing high (short) — a pivot with
-    ``swing_bars`` bars each side, searched up to ``swing_lookback`` bars back —
-    plus a ``sl_buffer_pct`` buffer beyond it.
-  * **Exit**    — opposite EMA cross (reverse). Take-profits (``tp1_r``/``tp2_r``
-    R-multiples) and the stop are managed by the trading pipeline / backtester.
+  * **Trend filter** — price must be *completely* above the EMA100 for longs
+    (candle low > EMA100) / completely below for shorts (candle high < EMA100).
+  * **Trigger** — EMA9 crosses EMA21 on a *closed* candle; entry is taken at the
+    OPEN of the next candle (no intra-candle execution).
+  * **Stop** — long: the lower of {EMA21 − 0.2%} and the recent swing low;
+    short: the higher of {EMA21 + 0.2%} and the recent swing high.
+  * **Target** — a 1:2 R:R partial: close ``partial_pct`` (50%) at 2R.
+  * **Trail** — after the partial, trail the remainder on the EMA21 (ratchet),
+    and close everything on a counter-cross (EMA9 back across EMA21) at close.
+  * **Guardrails** — whipsaw filter (>N crosses in a window suspends new entries
+    for M hours) and a daily-close time filter (no new entries 23:30–00:30 UTC).
 
-No RSI. Pure & deterministic over CLOSED candles only (non-repaint): the caller
-drops the live forming candle, so signals never repaint.
+Pure & deterministic over CLOSED candles (non-repaint). ``_replay_crossover`` is
+the single source of truth: it simulates the whole lifecycle over OHLCV and emits
+``enter`` / ``partial`` / ``exit`` events, which both the backtester and the live
+runner consume.
 """
 from __future__ import annotations
 
@@ -25,24 +27,24 @@ from typing import List, Optional
 
 @dataclass
 class StrategyParams:
-    fast_ema: int = 9            # Fast EMA period
-    slow_ema: int = 21          # Slow EMA period
-    trend_ema: int = 50         # Trend EMA period (directional filter)
-    use_trend_filter: bool = True  # only BUY above / SELL below the trend EMA
-    confirm: int = 2            # confirmation candles after the cross (0 = enter on cross)
-    min_body: float = 0.4       # min body-to-range ratio of a valid confirmation candle
-    sl_buffer_pct: float = 0.05  # stop-loss buffer beyond the swing point (% of price)
-    swing_bars: int = 2         # bars each side that define a swing point
-    swing_lookback: int = 40    # max bars to look back for the swing point
-    tp1_r: float = 1.0          # take-profit 1 as an R multiple (0 = off)
-    tp2_r: float = 2.0          # take-profit 2 as an R multiple (0 = off)
+    fast_ema: int = 9              # Fast EMA
+    slow_ema: int = 21            # Slow EMA
+    trend_ema: int = 100          # Master trend filter EMA
+    use_trend_filter: bool = True  # require price completely above/below EMA100
+    sl_ema_buffer_pct: float = 0.2  # stop 0.2% beyond the EMA21
+    swing_lookback: int = 10      # bars for the recent swing low/high
+    tp_r: float = 2.0             # partial take-profit R multiple (1:2)
+    partial_pct: float = 0.5      # fraction closed at the target (50%)
+    whipsaw_max_crosses: int = 2  # > this many crosses in the window suspends entries
+    whipsaw_window: int = 5       # candles in the whipsaw window
+    whipsaw_suspend_hours: float = 12.0
+    avoid_daily_close: bool = True  # no new entries 23:30–00:30 UTC
 
 
 # ---------------------------------------------------------------------------
-# Series helpers (pure; None during warmup where the value isn't defined yet).
+# Series helpers
 # ---------------------------------------------------------------------------
 def ema_series(values: List[float], length: int) -> List[Optional[float]]:
-    """EMA seeded with an SMA of the first ``length`` values (matches Pine)."""
     n = len(values)
     out: List[Optional[float]] = [None] * n
     if length <= 0 or n < length:
@@ -57,35 +59,12 @@ def ema_series(values: List[float], length: int) -> List[Optional[float]]:
     return out
 
 
-def _pivot_low(lows: List[float], i: int, bars: int, lookback: int) -> Optional[float]:
-    """Most recent confirmed swing low at or before bar ``i`` (a bar that is the
-    lowest of the ``bars`` on each side), searched back up to ``lookback`` bars."""
-    bars = max(1, bars)
-    start = max(bars, i - lookback)
-    for j in range(i - bars, start - 1, -1):
-        seg = lows[j - bars:j + bars + 1]
-        if len(seg) == 2 * bars + 1 and lows[j] == min(seg):
-            return lows[j]
-    return None
-
-
-def _pivot_high(highs: List[float], i: int, bars: int, lookback: int) -> Optional[float]:
-    bars = max(1, bars)
-    start = max(bars, i - lookback)
-    for j in range(i - bars, start - 1, -1):
-        seg = highs[j - bars:j + bars + 1]
-        if len(seg) == 2 * bars + 1 and highs[j] == max(seg):
-            return highs[j]
-    return None
-
-
 def crossover_need(params: StrategyParams) -> int:
-    """Minimum candles before the engine can produce a signal."""
-    return max(params.slow_ema, params.trend_ema) + params.confirm + 2
+    return params.trend_ema + 3
 
 
 def crossover_arrays(candles, params: StrategyParams):
-    """Precompute the series the engine + backtester share: OHLC + the three EMAs."""
+    """OHLC + the three EMAs (fast/slow/trend). Shared by engine, chart, backtest."""
     o = [float(c[1]) for c in candles]
     h = [float(c[2]) for c in candles]
     low = [float(c[3]) for c in candles]
@@ -96,121 +75,140 @@ def crossover_arrays(candles, params: StrategyParams):
     return o, h, low, cl, fast, slow, trend
 
 
+def _in_daily_close_window(ts_ms: int, params: StrategyParams) -> bool:
+    if not params.avoid_daily_close:
+        return False
+    minutes = int(ts_ms // 60000) % 1440
+    return minutes >= 23 * 60 + 30 or minutes < 30   # 23:30 .. 00:30 UTC
+
+
 # ---------------------------------------------------------------------------
-# State machine
+# Full lifecycle simulation
 # ---------------------------------------------------------------------------
 def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
-    """Replay the EMA-cross state machine over CLOSED candles.
-
-    Returns ``[(bar_index, event), ...]`` where event is one of:
-      * ``{"act":"enter","side":"long"|"short","entry":float,"sl":float,"ts":int}``
-      * ``{"act":"exit","side":...,"reason":"cross"|"reverse","ts":int}``
+    """Simulate the strategy over CLOSED candles. Returns ``[(i, event), ...]``:
+      * ``{"act":"enter","side","entry","sl","tp","ts"}``   (filled at bar open)
+      * ``{"act":"partial","fraction","price","ts"}``       (2R hit, 50% out)
+      * ``{"act":"exit","side","reason","price","ts"}``     (sl/trail/counter_cross)
     """
     n = len(candles)
-    if n < 3:
+    if n < params.trend_ema + 3:
         return []
     ts = [int(c[0]) for c in candles]
     o, h, low, cl, fast, slow, trend = crossover_arrays(candles, params)
-    confirm = max(0, int(params.confirm))
-    min_body = max(0.0, float(params.min_body))
-    buf = max(0.0, float(params.sl_buffer_pct)) / 100.0
+    buf = max(0.0, params.sl_ema_buffer_pct) / 100.0
+    look = max(1, int(params.swing_lookback))
 
-    pos = "flat"                      # flat / long / short
-    pending: Optional[dict] = None    # {"side","count","bar"} awaiting confirmation
-    events = []
+    events: list = []
+    pos: Optional[dict] = None       # open position
+    pending: Optional[dict] = None   # {"side","cross_i"} awaiting next-open fill
+    cross_bars: list = []            # indices where EMA9/21 crossed
+    suspend_until = 0                # ms; whipsaw suspension of new entries
 
     for i in range(1, n):
-        if None in (fast[i], slow[i], fast[i - 1], slow[i - 1]):
+        if None in (fast[i], slow[i], trend[i], fast[i - 1], slow[i - 1]):
             continue
-        cu = fast[i - 1] <= slow[i - 1] and fast[i] > slow[i]   # bullish cross
-        cd = fast[i - 1] >= slow[i - 1] and fast[i] < slow[i]   # bearish cross
+        cu = fast[i - 1] <= slow[i - 1] and fast[i] > slow[i]
+        cd = fast[i - 1] >= slow[i - 1] and fast[i] < slow[i]
+        if cu or cd:
+            cross_bars.append(i)
 
-        # 1) exit an open position on the opposite cross
-        if pos == "long" and cd:
-            events.append((i, {"act": "exit", "side": "long", "reason": "cross", "ts": ts[i]}))
-            pos = "flat"
-        elif pos == "short" and cu:
-            events.append((i, {"act": "exit", "side": "short", "reason": "cross", "ts": ts[i]}))
-            pos = "flat"
+        # 1) fill a pending entry at THIS bar's open
+        if pending is not None and pos is None:
+            side = pending["side"]; ci = pending["cross_i"]
+            entry = o[i]
+            if side == "long":
+                ema_stop = slow[ci] * (1 - buf)
+                swing = min(low[max(0, ci - look):ci + 1])
+                sl = min(ema_stop, swing)
+                risk = entry - sl
+                tp = entry + params.tp_r * risk
+            else:
+                ema_stop = slow[ci] * (1 + buf)
+                swing = max(h[max(0, ci - look):ci + 1])
+                sl = max(ema_stop, swing)
+                risk = sl - entry
+                tp = entry - params.tp_r * risk
+            if risk > 0:
+                pos = {"side": side, "entry": entry, "sl": sl, "tp": tp,
+                       "scaled": False, "trail": None}
+                events.append((i, {"act": "enter", "side": side, "entry": entry,
+                                   "sl": sl, "tp": tp, "ts": ts[i]}))
+            pending = None
 
-        # 2) a fresh cross arms a confirmation window
-        if cu:
-            pending = {"side": "long", "count": 0, "bar": i}
-        elif cd:
-            pending = {"side": "short", "count": 0, "bar": i}
-
-        # 3) evaluate the pending setup
-        if pending is not None:
-            side = pending["side"]
-            # Keep the setup armed only while the EMA regime still agrees; cancel
-            # only when the cross flips back (NOT on a single opposite candle — that
-            # was over-suppressing longs in recoveries).
-            regime = (fast[i] > slow[i]) if side == "long" else (fast[i] < slow[i])
-            if not regime:
-                pending = None
-        if pending is not None:
-            side = pending["side"]
-            rng = h[i] - low[i]
-            body = abs(cl[i] - o[i]) / rng if rng > 0 else 0.0
-            strong = body >= min_body
-            dir_ok = (cl[i] > o[i]) if side == "long" else (cl[i] < o[i])
-            trend_ok = (not params.use_trend_filter) or (
-                trend[i] is not None and (cl[i] > trend[i] if side == "long" else cl[i] < trend[i]))
-
-            fire = False
-            if confirm == 0 and pending["bar"] == i:
-                fire = trend_ok                      # enter on the cross bar
-            elif i > pending["bar"]:
-                if strong and dir_ok:
-                    pending["count"] += 1
-                    if pending["count"] >= confirm:
-                        fire = trend_ok
+        # 2) manage the open position against THIS bar
+        if pos is not None:
+            side = pos["side"]
+            stop = pos["trail"] if pos["trail"] is not None else pos["sl"]
+            reason = "trail" if pos["trail"] is not None else "sl"
+            if side == "long":
+                if low[i] <= stop:
+                    events.append((i, {"act": "exit", "side": side, "reason": reason,
+                                       "price": stop, "ts": ts[i]})); pos = None
                 else:
-                    pending["count"] = 0             # streak broke; keep waiting
+                    if not pos["scaled"] and h[i] >= pos["tp"]:
+                        events.append((i, {"act": "partial", "fraction": params.partial_pct,
+                                           "price": pos["tp"], "ts": ts[i]}))
+                        pos["scaled"] = True
+                        pos["trail"] = slow[i]
+                    if pos is not None and cd:            # counter-cross closes the rest
+                        events.append((i, {"act": "exit", "side": side, "reason": "counter_cross",
+                                           "price": cl[i], "ts": ts[i]})); pos = None
+                    if pos is not None and pos["scaled"] and slow[i] is not None:
+                        pos["trail"] = max(pos["trail"], slow[i])
+            else:
+                if h[i] >= stop:
+                    events.append((i, {"act": "exit", "side": side, "reason": reason,
+                                       "price": stop, "ts": ts[i]})); pos = None
+                else:
+                    if not pos["scaled"] and low[i] <= pos["tp"]:
+                        events.append((i, {"act": "partial", "fraction": params.partial_pct,
+                                           "price": pos["tp"], "ts": ts[i]}))
+                        pos["scaled"] = True
+                        pos["trail"] = slow[i]
+                    if pos is not None and cu:
+                        events.append((i, {"act": "exit", "side": side, "reason": "counter_cross",
+                                           "price": cl[i], "ts": ts[i]})); pos = None
+                    if pos is not None and pos["scaled"] and slow[i] is not None:
+                        pos["trail"] = min(pos["trail"], slow[i])
 
-            if fire:
-                if pos != "flat" and pos != side:    # reverse
-                    events.append((i, {"act": "exit", "side": pos, "reason": "reverse", "ts": ts[i]}))
-                    pos = "flat"
-                if pos == "flat":
-                    if side == "long":
-                        sw = _pivot_low(low, i, params.swing_bars, params.swing_lookback)
-                        base = sw if sw is not None else min(low[max(0, i - 5):i + 1])
-                        sl = base * (1 - buf)
-                    else:
-                        sw = _pivot_high(h, i, params.swing_bars, params.swing_lookback)
-                        base = sw if sw is not None else max(h[max(0, i - 5):i + 1])
-                        sl = base * (1 + buf)
-                    events.append((i, {"act": "enter", "side": side, "entry": cl[i],
-                                       "sl": sl, "ts": ts[i]}))
-                    pos = side
-                    pending = None
+        # 3) detect a fresh signal at THIS close -> schedule a next-open fill
+        if pos is None and pending is None:
+            now = ts[i]
+            recent = [x for x in cross_bars if x > i - params.whipsaw_window]
+            if len(recent) > params.whipsaw_max_crosses:
+                suspend_until = now + int(params.whipsaw_suspend_hours * 3600 * 1000)
+            elif now >= suspend_until and not _in_daily_close_window(now, params):
+                above = (not params.use_trend_filter) or low[i] > trend[i]
+                below = (not params.use_trend_filter) or h[i] < trend[i]
+                if cu and above:
+                    pending = {"side": "long", "cross_i": i}
+                elif cd and below:
+                    pending = {"side": "short", "cross_i": i}
     return events
 
 
 def evaluate_crossover(candles, params: StrategyParams, ticker: str = ""):
-    """Instructions for the NEWEST closed candle only (runner contract)."""
+    """Events on the NEWEST closed candle only (the live runner acts on these)."""
     last = len(candles) - 1
     return [ev for (i, ev) in _replay_crossover(candles, params, ticker) if i == last]
 
 
 def evaluate_all_crossover(candles, params: StrategyParams, ticker: str = ""):
-    """Every instruction over the whole candle list (for charting / backtests)."""
     return _replay_crossover(candles, params, ticker)
 
 
 def entry_block_reason(candles, params: StrategyParams) -> str:
-    """Short human reason the newest bar didn't enter (best-effort)."""
     n = len(candles)
     if n < crossover_need(params):
         return "warming up"
     o, h, low, cl, fast, slow, trend = crossover_arrays(candles, params)
     i = n - 1
-    if fast[i] is None or slow[i] is None:
+    if fast[i] is None or slow[i] is None or trend[i] is None:
         return "EMAs warming up"
-    if params.use_trend_filter and trend[i] is not None and slow[i] is not None:
-        if fast[i] > slow[i] and cl[i] < trend[i]:
-            return f"BUY held — price below trend EMA{params.trend_ema}"
-        if fast[i] < slow[i] and cl[i] > trend[i]:
-            return f"SELL held — price above trend EMA{params.trend_ema}"
+    if params.use_trend_filter:
+        if fast[i] > slow[i] and low[i] <= trend[i]:
+            return f"BUY held — price not fully above EMA{params.trend_ema}"
+        if fast[i] < slow[i] and h[i] >= trend[i]:
+            return f"SELL held — price not fully below EMA{params.trend_ema}"
     return ""

@@ -24,7 +24,7 @@
       <p class="lead">Connect your own exchange account and let the built-in EMA 9/21 strategy execute entries, stop-losses and take-profits for you — 24/7, with risk guardrails.</p>
       <ul class="land-feats">
         <li>🔑 <b>Your keys, your exchange</b> — Binance, Bybit, OKX, KuCoin, Bitget, Kraken, Coinbase.</li>
-        <li>🤖 <b>EMA 9/21 crossover engine</b> with a 50-EMA trend filter + swing stop.</li>
+        <li>🤖 <b>EMA 9/21 crossover engine</b> with a 100-EMA trend filter + swing stop.</li>
         <li>🛡️ <b>Guardrails</b> — daily loss limit, max positions, cooldowns.</li>
         <li>📊 <b>Pro backtester, live chart & analytics.</b></li>
       </ul>
@@ -170,7 +170,7 @@
           <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
           <div class="row" style="margin-top:12px">
             <div class="col"><label>Timeframe the strategy trades on</label>
-              <select id="sg-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+              <select id="sg-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
             <div class="col"><label>Symbols (pick one or more)</label>
               <div class="msel">
                 <div class="msel-head" onclick="mselToggle()"><span id="sg-label">BTC/USDT</span><span class="k">▾</span></div>
@@ -188,29 +188,33 @@
               <div class="col"><label>Slow EMA period</label><input id="p-slow_ema" type="number"/></div>
             </div>
             <div class="row">
-              <div class="col"><label>Trend EMA (directional filter)</label><input id="p-trend_ema" type="number"/></div>
-              <div class="col"><label>Only BUY above / SELL below trend EMA</label>
+              <div class="col"><label>Trend EMA (master filter)</label><input id="p-trend_ema" type="number"/></div>
+              <div class="col"><label>Only trade with price fully past trend EMA</label>
                 <select id="p-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
             </div>
-            <div class="row">
-              <div class="col"><label>Confirmation candles after cross <span class="k">(0=on cross)</span></label><input id="p-confirm" type="number"/></div>
-              <div class="col"><label>Min body-to-range ratio</label><input id="p-min_body" type="number" step="0.05"/></div>
-            </div>
+            <div class="hint">Long only when the candle is <b>completely above</b> the trend EMA and EMA fast crosses above slow; short is the mirror. Entry at the next candle's open.</div>
           </div>
-          <div class="card"><h3>Stop-loss (swing) &amp; targets</h3>
+          <div class="card"><h3>Stop-loss &amp; target</h3>
             <div class="row">
-              <div class="col"><label>SL buffer beyond swing (%)</label><input id="p-sl_buffer_pct" type="number" step="0.01"/></div>
-              <div class="col"><label>Bars each side of a swing point</label><input id="p-swing_bars" type="number"/></div>
+              <div class="col"><label>SL buffer beyond EMA21 (%)</label><input id="p-sl_ema_buffer_pct" type="number" step="0.05"/></div>
+              <div class="col"><label>Swing lookback (bars)</label><input id="p-swing_lookback" type="number"/></div>
             </div>
             <div class="row">
-              <div class="col"><label>Max bars to look back for swing</label><input id="p-swing_lookback" type="number"/></div>
+              <div class="col"><label>Partial target R:R</label><input id="p-tp_r" type="number" step="0.1"/></div>
+              <div class="col"><label>Partial close fraction (0–1)</label><input id="p-partial_pct" type="number" step="0.05"/></div>
             </div>
-            <div class="row">
-              <div class="col"><label>TP1 (R multiple, 0=off)</label><input id="p-tp1_r" type="number" step="0.1"/></div>
-              <div class="col"><label>TP2 (R multiple, 0=off)</label><input id="p-tp2_r" type="number" step="0.1"/></div>
-            </div>
-            <div class="hint">SL "pips" from the desktop app → % here so it works across all coins.</div>
+            <div class="hint">Stop = the <b>lower of</b> {EMA21 − buffer%} and the recent swing low (mirror for shorts). Close the partial at the R:R target; trail the rest on EMA21 and exit fully on a counter-cross.</div>
           </div>
+        </div>
+        <div class="card"><h3>Safety guardrails (whipsaw &amp; time)</h3>
+          <div class="row">
+            <div class="col"><label>Whipsaw: max crosses…</label><input id="p-whipsaw_max_crosses" type="number"/></div>
+            <div class="col"><label>…within N candles</label><input id="p-whipsaw_window" type="number"/></div>
+            <div class="col"><label>Suspend entries (hours)</label><input id="p-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+            <div class="col"><label>Avoid daily close window</label>
+              <select id="p-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
+          </div>
+          <div class="hint">If EMA9/21 cross more than <i>max crosses</i> within the window, new entries pause for the suspend hours (chop protection). <i>Avoid daily close</i> blocks new entries 23:30–00:30 UTC (existing trades keep their stops).</div>
         </div>
         <div class="btnrow big">
           <button class="btn" onclick="saveStrategy()">💾 Save strategy</button>
