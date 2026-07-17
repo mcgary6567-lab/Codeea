@@ -104,7 +104,13 @@
         <div class="grid2">
           <div class="card">
             <h3>Order panel</h3>
-            <label>Symbol</label><input id="tr-sym" list="symbols" value="BTC/USDT"/>
+            <label>Symbol</label>
+            <select id="tr-sym" onchange="markTick()">
+              <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
+              <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
+              <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
+              <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
+            </select>
             <div class="row">
               <div class="col"><label>Mark</label><input id="tr-mark" readonly value="—"/></div>
               <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>

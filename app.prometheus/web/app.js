@@ -104,6 +104,7 @@ async function pollPrices() {
         <div class="pchg ${pct >= 0 ? 'pos' : 'neg'}">${pct >= 0 ? '▲' : '▼'} ${fmt(Math.abs(pct), 2)}%</div></div>`;
     }).join("");
   } catch (e) { }
+  markTick();
   setTimeout(pollPrices, 10000);
 }
 
@@ -224,7 +225,9 @@ async function loadChart() {
   try {
     const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=400`);
     CH = { d, i0: 0, i1: d.candles.length }; chReset();
-    $("ch-legend").innerHTML = `<span>${d.symbol} · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="k">${d.markers.length} signals</span>`;
+    const buys = d.markers.filter(m => m.type === "enter" && m.side === "long").length;
+    const sells = d.markers.filter(m => m.type === "enter" && m.side === "short").length;
+    $("ch-legend").innerHTML = `<span>${d.symbol} · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos">▲ ${buys} BUY</span> <span class="neg">▼ ${sells} SELL</span>`;
   } catch (e) { const ctx = $("ch-price").getContext("2d"); ctx.clearRect(0, 0, 2000, 500); ctx.fillStyle = "#8a97ab"; ctx.font = "13px sans-serif"; ctx.fillText("No chart data — check connectivity", 14, 26); }
 }
 function chReset() { if (!CH) return; const n = CH.d.candles.length; CH.i1 = n; CH.i0 = Math.max(0, n - 140); drawChart(); }
@@ -266,15 +269,22 @@ function drawChart() {
       ctx.closePath(); ctx.fill();
       const lab = buy ? "BUY" : "SELL", tw = ctx.measureText(lab).width, ly = buy ? py + 40 : py - 32, lx = Math.min(Math.max(px - tw / 2 - 4, 2), w - padR - tw - 8);
       ctx.fillStyle = col; rr(ctx, lx, ly - 12, tw + 8, 16, 4); ctx.fill(); ctx.fillStyle = "#0a0d13"; ctx.fillText(lab, lx + 4, ly);
-      const seg = Math.min(px + 60, w - padR);
-      if (m.sl) hline(ctx, px, seg, y(m.sl), "#ef4444");
-      if (m.tp1) hline(ctx, px, seg, y(m.tp1), "#22c55e");
-      if (m.tp2) hline(ctx, px, seg, y(m.tp2), "#16a34a");
+      const seg = Math.min(px + 64, w - padR);
+      if (m.sl) { hline(ctx, px, seg, y(m.sl), "#ef4444"); chlabel(ctx, seg, y(m.sl), "SL", "#ef4444"); }
+      if (m.tp1) { hline(ctx, px, seg, y(m.tp1), "#22c55e"); chlabel(ctx, seg, y(m.tp1), "TP1", "#22c55e"); }
+      if (m.tp2) { hline(ctx, px, seg, y(m.tp2), "#16a34a"); chlabel(ctx, seg, y(m.tp2), "TP2", "#16a34a"); }
     } else { ctx.fillStyle = "#8a97ab"; ctx.fillRect(px - 2, y(m.price) - 2, 4, 4); }
   });
 }
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function hline(ctx, x1, x2, yy, col) { ctx.strokeStyle = col; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, yy); ctx.lineTo(x2, yy); ctx.stroke(); ctx.setLineDash([]); }
+function chlabel(ctx, x, yy, text, col) { ctx.font = "bold 9px sans-serif"; const tw = ctx.measureText(text).width; ctx.fillStyle = col; rr(ctx, x + 2, yy - 7, tw + 6, 13, 3); ctx.fill(); ctx.fillStyle = "#0a0d13"; ctx.fillText(text, x + 5, yy + 3); }
+
+// order-panel mark price for the selected symbol
+async function markTick() {
+  const el = $("tr-sym"); if (!el) return; const sym = el.value;
+  try { const d = await api("/api/prices?symbols=" + encodeURIComponent(sym)); const t = d[sym]; if ($("tr-mark")) $("tr-mark").value = t && t.price != null ? fmt(t.price, t.price < 10 ? 5 : 2) : "—"; } catch (e) { }
+}
 
 // chart interaction
 function chSetup() {

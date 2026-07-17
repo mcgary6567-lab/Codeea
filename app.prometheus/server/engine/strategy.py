@@ -142,6 +142,14 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         # 3) evaluate the pending setup
         if pending is not None:
             side = pending["side"]
+            # Keep the setup armed only while the EMA regime still agrees; cancel
+            # only when the cross flips back (NOT on a single opposite candle — that
+            # was over-suppressing longs in recoveries).
+            regime = (fast[i] > slow[i]) if side == "long" else (fast[i] < slow[i])
+            if not regime:
+                pending = None
+        if pending is not None:
+            side = pending["side"]
             rng = h[i] - low[i]
             body = abs(cl[i] - o[i]) / rng if rng > 0 else 0.0
             strong = body >= min_body
@@ -152,15 +160,15 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
             fire = False
             if confirm == 0 and pending["bar"] == i:
                 fire = trend_ok                      # enter on the cross bar
-            elif confirm > 0 and i > pending["bar"]:
+            elif i > pending["bar"]:
                 if strong and dir_ok:
                     pending["count"] += 1
                     if pending["count"] >= confirm:
                         fire = trend_ok
-                elif strong and not dir_ok:
-                    pending = None                   # opposite strong candle cancels
+                else:
+                    pending["count"] = 0             # streak broke; keep waiting
 
-            if fire and pending is not None:
+            if fire:
                 if pos != "flat" and pos != side:    # reverse
                     events.append((i, {"act": "exit", "side": pos, "reason": "reverse", "ts": ts[i]}))
                     pos = "flat"
