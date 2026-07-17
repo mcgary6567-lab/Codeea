@@ -30,7 +30,30 @@ async function doAuth() {
   } catch (e) { $("au-err").textContent = e.message; }
 }
 function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
-function enterApp() { $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); openWs(); loadChart(); pollPrices(); }
+function enterApp() {
+  $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
+  const foll = localStorage.getItem("ch_follow") === "1";
+  $("ch-follow").checked = foll; $("ch-sym").disabled = foll; $("ch-tf").disabled = foll;
+  refresh(); openWs(); loadChart(); pollPrices();
+}
+
+// Chart "Follow strategy": lock the chart symbol + timeframe to the strategy's.
+function chFollowToggle() {
+  const on = $("ch-follow").checked;
+  localStorage.setItem("ch_follow", on ? "1" : "0");
+  $("ch-sym").disabled = on; $("ch-tf").disabled = on;
+  if (on) syncChartToStrategy(true);
+}
+function syncChartToStrategy(forceLoad) {
+  if (!lastState) return;
+  const s = lastState.settings || {};
+  const sym = (s.strategy_symbols || "BTC/USDT").split(",")[0].trim();
+  const tf = s.strategy_timeframe || "1h";
+  let changed = false;
+  if ($("ch-sym").value !== sym) { $("ch-sym").value = sym; changed = true; }
+  if ($("ch-tf").value !== tf) { $("ch-tf").value = tf; changed = true; }
+  if (forceLoad || changed) loadChart();
+}
 
 // ---- views ----
 const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings"];
@@ -96,6 +119,7 @@ function render(s) {
 
   $("log").innerHTML = (s.log || []).map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("");
   applySettings(s.settings || {}, s.email);
+  if ($("ch-follow") && $("ch-follow").checked) syncChartToStrategy(false);
 }
 
 // ---- live price strip ----
