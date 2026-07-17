@@ -157,17 +157,35 @@ async function loadPnlModes() {
 async function saveConnect() {
   try {
     await api("/api/keys", "POST", { exchange: $("cx-ex").value, market_type: $("cx-mkt").value, api_key: $("cx-key").value.trim(), api_secret: $("cx-sec").value.trim(), password: $("cx-pass").value.trim() });
-    await api("/api/connect", "POST"); refresh(); show('home', document.querySelector('.side button'));
-  } catch (e) { alert("Connect failed: " + e.message); }
+    await api("/api/connect", "POST");
+    notify("Connected to " + $("cx-ex").value + " ✓", "ok");
+    refresh(); show('home', document.querySelector('.side button'));
+  } catch (e) { notify("Connect failed: " + e.message, "error"); }
+}
+async function disconnect() {
+  try { await api("/api/disconnect", "POST"); notify("Exchange disconnected", "warn"); refresh(); }
+  catch (e) { notify(e.message, "error"); }
 }
 async function trade(side) {
   const size = parseFloat($("tr-size").value);
   if (!confirm(`${side.toUpperCase()} ${$("tr-sym").value} — LIVE order. Continue?`)) return;
-  try { const r = await api("/api/trade", "POST", { side, symbol: $("tr-sym").value, size: isNaN(size) ? null : size }); if (!r.ok) alert(r.message); refresh(); }
-  catch (e) { alert(e.message); }
+  try {
+    const r = await api("/api/trade", "POST", { side, symbol: $("tr-sym").value, size: isNaN(size) ? null : size });
+    if (r.ok) notify(`${side.toUpperCase()} ${$("tr-sym").value} — ${r.message || "order placed"}`, "ok");
+    else notify(r.message || "Order rejected", "error");
+    refresh();
+  } catch (e) { notify(e.message, "error"); }
 }
-async function closePos(sym) { if (!confirm("Close " + sym + "?")) return; await api("/api/close", "POST", { symbol: sym }); refresh(); }
-async function panic() { if (!confirm("Close ALL positions now?")) return; await api("/api/close_all", "POST"); refresh(); }
+async function closePos(sym) {
+  if (!confirm("Close " + sym + "?")) return;
+  try { const r = await api("/api/close", "POST", { symbol: sym }); notify(r.ok ? `Closed ${sym}` : (r.message || "Close failed"), r.ok ? "ok" : "error"); refresh(); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function panic() {
+  if (!confirm("Close ALL positions now?")) return;
+  try { const r = await api("/api/close_all", "POST"); notify(r.message || "All positions closed", "warn"); refresh(); }
+  catch (e) { notify(e.message, "error"); }
+}
 
 // ---- settings ----
 function applySettings(s, email) {
@@ -185,10 +203,15 @@ function applySettings(s, email) {
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
-  await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
-  refresh(); toast("Settings saved");
+  try {
+    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
+    refresh(); notify("Settings saved ✓", "ok");
+  } catch (e) { notify(e.message, "error"); }
 }
-async function saveTelegram() { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); toast("Telegram saved"); }
+async function saveTelegram() {
+  try { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); notify("Telegram settings saved ✓", "ok"); }
+  catch (e) { notify(e.message, "error"); }
+}
 async function tgTest() {
   const btn = $("tg-test"), res = $("tg-result");
   btn.disabled = true; btn.textContent = "Sending…"; res.textContent = ""; res.style.color = "";
@@ -240,8 +263,8 @@ function collectParams() {
   }
   return p;
 }
-async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); refresh(); } catch (e) { alert(e.message); } }
-async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); toast("Strategy saved"); refresh(); } catch (e) { alert(e.message); } }
+async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); notify(enable ? "Strategy enabled ✓" : "Strategy disabled", enable ? "ok" : "warn"); refresh(); } catch (e) { notify(e.message, "error"); } }
+async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); notify("Strategy saved ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
 
 // ---- backtest (pro) ----
 let BT = null;   // last result for CSV export
@@ -288,13 +311,14 @@ async function runBacktest() {
     $("bt-csv").disabled = !d.trades.length;
     // Un-hide the results BEFORE drawing so the canvases have real dimensions.
     $("bt-out").classList.remove("hidden");
+    notify(`Backtest done — ${d.summary.trades} trades, ${fmt(d.summary.return_pct)}% return`, "ok");
     const eq = d.equity.map(e => e[1]);
     requestAnimationFrame(() => {
       drawLine("bt-eqc", eq, "#f97316", true);
       let peak = -1e9;
       drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
     });
-  } catch (e) { alert("Backtest: " + e.message); }
+  } catch (e) { notify("Backtest: " + e.message, "error"); }
   finally { btn.disabled = false; btn.textContent = "▶ Run backtest"; }
 }
 function btCsv() {
@@ -437,6 +461,17 @@ document.addEventListener("visibilitychange", () => {
   requestAnimationFrame(() => { if (CH) drawChart(); btRedraw(); });
 });
 
-function toast(msg) { const e = $("st-email"); e.textContent = "✓ " + msg; setTimeout(() => { if (lastState) e.textContent = "👋 " + (lastState.name || (lastState.email || "").split("@")[0]); }, 1500); }
+// unified toast notifications for every action
+function notify(msg, type = "ok") {
+  const wrap = $("toasts"); if (!wrap) { console.log(type + ": " + msg); return; }
+  const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.innerHTML = `<span>${icon}</span><span class="tx">${esc(msg)}</span>`;
+  el.onclick = () => el.remove();
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateX(24px)"; setTimeout(() => el.remove(), 320); }, 3400);
+}
+function toast(msg) { notify(msg, "ok"); }
 window.addEventListener("load", chSetup);
 if (TOKEN) enterApp();

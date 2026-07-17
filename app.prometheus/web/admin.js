@@ -33,7 +33,7 @@ async function boot() {
 }
 function showGate() { $("gate").classList.remove("hidden"); $("panel").classList.add("hidden"); }
 
-async function loadUsers() { try { render((await api("/api/admin/users")).users); } catch (e) { alert(e.message); } }
+async function loadUsers() { try { render((await api("/api/admin/users")).users); } catch (e) { notify(e.message, "error"); } }
 
 function render(users) {
   let trial = 0, lic = 0, off = 0;
@@ -58,15 +58,25 @@ function render(users) {
   $("m-trial").textContent = trial; $("m-lic").textContent = lic; $("m-off").textContent = off;
 }
 
+function notify(msg, type = "ok") {
+  const wrap = $("toasts"); if (!wrap) { alert(msg); return; }
+  const icon = type === "error" ? "⚠️" : "✅";
+  const el = document.createElement("div"); el.className = "toast " + type;
+  el.innerHTML = `<span>${icon}</span><span class="tx">${String(msg).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</span>`;
+  el.onclick = () => el.remove(); wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 320); }, 3400);
+}
+const ACTMSG = { suspend: "Customer suspended", activate: "Customer activated", revoke: "Licence revoked" };
 async function act(uid, action) {
   if (action === "suspend" && !confirm("Suspend this customer? Their trading stops immediately.")) return;
-  try { await api("/api/admin/action", "POST", { user_id: uid, action }); loadUsers(); } catch (e) { alert(e.message); }
+  try { await api("/api/admin/action", "POST", { user_id: uid, action }); notify(ACTMSG[action] || "Done", action === "suspend" ? "error" : "ok"); loadUsers(); }
+  catch (e) { notify(e.message, "error"); }
 }
 async function grant(uid) {
   const days = prompt("Grant licence for how many days?", "30");
   if (!days) return;
-  try { await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) }); loadUsers(); }
-  catch (e) { alert(e.message); }
+  try { await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) }); notify(`Licence granted (${days} days) ✓`, "ok"); loadUsers(); }
+  catch (e) { notify(e.message, "error"); }
 }
 
 if (TOKEN) boot(); else showGate();

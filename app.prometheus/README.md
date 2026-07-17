@@ -135,3 +135,18 @@ web/             index.html (landing+dashboard) · admin.html · style.css · ap
 - **Billing** is not automated — the admin grants licences manually. Wire a
   Stripe/crypto checkout to `grant_licence()` for self-serve upgrades.
 - Sound notifications aren't ported (Telegram is).
+
+## UI convention — action feedback (keep for all future buttons)
+
+Every action button MUST give the user visible feedback via the shared toast
+system, never a raw `alert()`:
+
+- Success → `notify("… ✓", "ok")`  (green)
+- Warning / destructive result → `notify("…", "warn")`  (amber)
+- Failure → `notify(err.message, "error")`  (red, from the `catch`)
+
+`notify(msg, type)` lives in `web/app.js` (and `web/admin.js`); toasts render in
+`#toasts` and auto-dismiss. Wrap every handler in `try/catch` so failures always
+surface. Examples already wired: save settings/strategy/telegram/account,
+connect/disconnect, buy/sell, close/close-all, enable/disable strategy, run
+backtest, admin suspend/activate/grant/revoke.
