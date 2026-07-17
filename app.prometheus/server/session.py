@@ -95,7 +95,7 @@ DEFAULT_SETTINGS = {
     "telegram_chat": "",
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
-    "strategy_symbols": "BTC/USDT, ETH/USDT",
+    "strategy_symbols": "BTC/USDT",
     "strategy_timeframe": "15m",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,

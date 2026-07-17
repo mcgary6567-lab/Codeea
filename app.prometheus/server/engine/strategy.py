@@ -29,7 +29,7 @@ class StrategyParams:
     slow_ema: int = 21          # Slow EMA period
     trend_ema: int = 50         # Trend EMA period (directional filter)
     use_trend_filter: bool = True  # only BUY above / SELL below the trend EMA
-    confirm: int = 1            # confirmation candles after the cross (0 = enter on cross)
+    confirm: int = 2            # confirmation candles after the cross (0 = enter on cross)
     min_body: float = 0.4       # min body-to-range ratio of a valid confirmation candle
     sl_buffer_pct: float = 0.05  # stop-loss buffer beyond the swing point (% of price)
     swing_bars: int = 2         # bars each side that define a swing point
