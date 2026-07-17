@@ -31,6 +31,8 @@ class StrategyParams:
     slow_ema: int = 21            # Slow EMA
     trend_ema: int = 100          # Master trend filter EMA
     use_trend_filter: bool = True  # require price completely above/below EMA100
+    confirm: int = 1              # confirming candles required after the cross (0 = off)
+    min_body: float = 0.4        # min body-to-range ratio of a confirming candle
     sl_ema_buffer_pct: float = 0.2  # stop 0.2% beyond the EMA21
     swing_lookback: int = 10      # bars for the recent swing low/high
     tp_r: float = 2.0             # partial take-profit R multiple (1:2)
@@ -98,6 +100,8 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     o, h, low, cl, fast, slow, trend = crossover_arrays(candles, params)
     buf = max(0.0, params.sl_ema_buffer_pct) / 100.0
     look = max(1, int(params.swing_lookback))
+    confirm = max(0, int(params.confirm))
+    min_body = max(0.0, float(params.min_body))
 
     events: list = []
     pos: Optional[dict] = None       # open position
@@ -113,8 +117,8 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         if cu or cd:
             cross_bars.append(i)
 
-        # 1) fill a pending entry at THIS bar's open
-        if pending is not None and pos is None:
+        # 1) fill a CONFIRMED pending entry at THIS bar's open
+        if pending is not None and pending.get("armed") and pos is None:
             side = pending["side"]; ci = pending["cross_i"]
             entry = o[i]
             if side == "long":
@@ -172,7 +176,24 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
                     if pos is not None and pos["scaled"] and slow[i] is not None:
                         pos["trail"] = min(pos["trail"], slow[i])
 
-        # 3) detect a fresh signal at THIS close -> schedule a next-open fill
+        # 2b) advance the confirmation window (N green/red candles with a strong body)
+        if pending is not None and not pending.get("armed") and pos is None:
+            side = pending["side"]
+            regime = fast[i] > slow[i] if side == "long" else fast[i] < slow[i]
+            if not regime:                      # the cross flipped back before confirming
+                pending = None
+            else:
+                rng = h[i] - low[i]
+                body = abs(cl[i] - o[i]) / rng if rng > 0 else 0.0
+                dir_ok = (cl[i] > o[i]) if side == "long" else (cl[i] < o[i])
+                if dir_ok and body >= min_body:
+                    pending["count"] += 1
+                    if pending["count"] >= confirm:
+                        pending["armed"] = True
+                else:
+                    pending["count"] = 0        # confirming candles must be consecutive
+
+        # 3) detect a fresh signal at THIS close -> start a pending (confirm then fill)
         if pos is None and pending is None:
             now = ts[i]
             recent = [x for x in cross_bars if x > i - params.whipsaw_window]
@@ -182,9 +203,9 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
                 above = (not params.use_trend_filter) or low[i] > trend[i]
                 below = (not params.use_trend_filter) or h[i] < trend[i]
                 if cu and above:
-                    pending = {"side": "long", "cross_i": i}
+                    pending = {"side": "long", "cross_i": i, "count": 0, "armed": confirm == 0}
                 elif cd and below:
-                    pending = {"side": "short", "cross_i": i}
+                    pending = {"side": "short", "cross_i": i, "count": 0, "armed": confirm == 0}
     return events
 
 
