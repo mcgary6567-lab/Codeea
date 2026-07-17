@@ -111,7 +111,7 @@
           <div class="chart-head">
             <h3 style="margin:0">Live chart</h3>
             <input id="ch-sym" list="symbols" value="BTC/USDT" style="width:130px"/>
-            <select id="ch-tf" style="width:auto"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>4h</option><option>1d</option></select>
+            <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
             <button class="btn ghost sm" onclick="loadChart()">Load</button>
             <label class="chkline" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
             <span class="grow"></span>
@@ -186,7 +186,7 @@
           <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
           <div class="row" style="margin-top:12px">
             <div class="col"><label>Timeframe the strategy trades on</label>
-              <select id="sg-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+              <select id="sg-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
             <div class="col"><label>Symbols (pick one or more)</label>
               <div class="msel">
                 <div class="msel-head" onclick="mselToggle()"><span id="sg-label">BTC/USDT</span><span class="k">▾</span></div>
@@ -294,7 +294,7 @@
               </select></div>
             <div class="col"><label>Symbol</label><input id="bt-sym" list="symbols" value="BTC/USDT"/></div>
             <div class="col"><label>Timeframe</label>
-              <select id="bt-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+              <select id="bt-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
             <div class="col"><label>Period</label>
               <select id="bt-period" onchange="btPeriodChange()">
                 <option value="1">Last 1 day</option><option value="7" selected>Last 7 days</option>

@@ -146,7 +146,7 @@ DEFAULT_SETTINGS = {
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT",
-    "strategy_timeframe": "1h",
+    "strategy_timeframe": "15m",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,
 }
@@ -161,11 +161,10 @@ class TraderSession:
         # One-time migration: the strategy was rewritten (EMA100 filter, new
         # params). Drop strategy params saved under the old schema so users pick
         # up the new correct defaults (trend EMA 100, 1:2 partial, etc.).
-        if self.settings.get("strat_schema") != 3:
-            self.settings["strategy_params"] = {}
-            self.settings["strat_schema"] = 3
-            if self.settings.get("strategy_timeframe") in (None, "15m"):
-                self.settings["strategy_timeframe"] = "1h"
+        if self.settings.get("strat_schema") != 4:
+            self.settings["strategy_params"] = {}      # -> new StrategyParams defaults
+            self.settings["strategy_timeframe"] = "15m"
+            self.settings["strat_schema"] = 4
             store.save_settings(user_id, self.settings)
         self.positions: list = []
         self.balance = 0.0

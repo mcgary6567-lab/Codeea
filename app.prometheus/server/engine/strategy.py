@@ -31,7 +31,7 @@ class StrategyParams:
     slow_ema: int = 21            # Slow EMA
     trend_ema: int = 100          # Master trend filter EMA
     use_trend_filter: bool = True  # require price completely above/below EMA100
-    confirm: int = 1              # confirming candles required after the cross (0 = off)
+    confirm: int = 2              # confirming candles required after the cross (0 = off)
     min_body: float = 0.4        # min body-to-range ratio of a confirming candle
     sl_ema_buffer_pct: float = 0.2  # stop 0.2% beyond the EMA21
     swing_lookback: int = 10      # bars for the recent swing low/high
