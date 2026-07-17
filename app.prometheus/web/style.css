@@ -148,3 +148,8 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .toast .tx{flex:1;line-height:1.4;word-break:break-word}
 @keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 @media(max-width:520px){.toasts{left:12px;right:12px;bottom:12px;max-width:none}}
+
+/* ---- brand logo ---- */
+.brand{display:inline-flex;align-items:center;gap:8px}
+.logo-img{height:26px;width:auto;display:block;border-radius:6px}
+.logo-img.big{height:34px}

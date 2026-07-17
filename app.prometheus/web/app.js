@@ -32,7 +32,7 @@ async function doAuth() {
 function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
 function enterApp() {
   $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
-  const foll = localStorage.getItem("ch_follow") === "1";
+  const foll = localStorage.getItem("ch_follow") !== "0";   // ON by default
   $("ch-follow").checked = foll; $("ch-sym").disabled = foll; $("ch-tf").disabled = foll;
   refresh(); openWs(); loadChart(); pollPrices();
 }
@@ -250,7 +250,7 @@ function mselToggle() { mselBuild(); $("sg-panel").classList.toggle("hidden"); }
 document.addEventListener("click", e => { const m = document.querySelector(".msel"); if (m && !m.contains(e.target) && $("sg-panel")) $("sg-panel").classList.add("hidden"); });
 
 // ---- strategy params (EMA 9/21 model) ----
-const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 2.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
+const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 20, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
 const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "confirm", "swing_lookback", "whipsaw_max_crosses", "whipsaw_window"]);
 const BOOLP = new Set(["use_trend_filter", "avoid_daily_close"]);
 function collectParams() {
@@ -265,6 +265,13 @@ function collectParams() {
 }
 async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); notify(enable ? "Strategy enabled ✓" : "Strategy disabled", enable ? "ok" : "warn"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); notify("Strategy saved ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
+async function resetStrategy() {
+  if (!confirm("Reset all strategy parameters to their defaults?")) return;
+  for (const k in SPARAMS) { const el = $("p-" + k); if (!el) continue; el.value = BOOLP.has(k) ? (SPARAMS[k] ? "1" : "0") : SPARAMS[k]; }
+  $("sg-tf").value = "15m";
+  try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: "15m" }); notify("Strategy reset to defaults ✓", "ok"); refresh(); }
+  catch (e) { notify(e.message, "error"); }
+}
 
 // ---- backtest (pro) ----
 let BT = null;   // last result for CSV export
