@@ -85,6 +85,7 @@ function render(s) {
   $("ex-state").textContent = s.connected ? "connected" : "not connected";
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
+  $("st-paper").classList.toggle("hidden", !s.paper_mode);
   const name = s.name || (s.email || "").split("@")[0];
   $("st-email").textContent = "👋 " + name;
   $("welcome").textContent = "Welcome back, " + name + " 👋";
@@ -161,7 +162,7 @@ function applySettings(s, email) {
   const chk = (id, v) => { if ($(id) != null) $(id).checked = !!v; };
   set("s-sizing", s.sizing_mode); set("s-fixed", s.fixed_size); set("s-fixedq", s.fixed_quote); set("s-risk", s.risk_percent);
   set("s-otype", s.order_type); set("s-lev", s.leverage); set("s-margin", s.margin_mode); set("s-tp1f", s.tp1_fraction);
-  chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only);
+  chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only); chk("s-paper", s.paper_mode);
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
@@ -170,10 +171,20 @@ function applySettings(s, email) {
 }
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
-  await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
+  await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
   refresh(); toast("Settings saved");
 }
 async function saveTelegram() { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); toast("Telegram saved"); }
+async function tgTest() {
+  const btn = $("tg-test"), res = $("tg-result");
+  btn.disabled = true; btn.textContent = "Sending…"; res.textContent = ""; res.style.color = "";
+  try {
+    const d = await api("/api/telegram/test", "POST", { token: $("tg-token").value.trim(), chat: $("tg-chat").value.trim() });
+    res.style.color = d.ok ? "var(--green)" : "var(--red)";
+    res.textContent = (d.ok ? "✅ " : "⚠️ ") + d.message;
+  } catch (e) { res.style.color = "var(--red)"; res.textContent = "⚠️ " + e.message; }
+  finally { btn.disabled = false; btn.textContent = "✈️ Send test"; }
+}
 async function saveAccount() {
   $("ac-err").textContent = "";
   const b = { current_password: $("ac-cur").value, new_email: $("ac-email").value.trim(), new_password: $("ac-newpass").value, first_name: $("ac-first").value.trim(), last_name: $("ac-last").value.trim() };

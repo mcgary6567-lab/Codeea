@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import deque
@@ -132,6 +133,7 @@ DEFAULT_SETTINGS = {
     "tp1_fraction": 0.5,
     "auto_bracket": True,
     "safe_mode": False,              # LIVE trading by default
+    "paper_mode": False,             # paper/dry-run: simulate orders, no real fills
     "read_only": False,
     "max_open": 4,
     "daily_loss": 0.0,
@@ -180,6 +182,7 @@ class TraderSession:
         self.strategy_on = False
         self._strat: threading.Thread | None = None
         self._strat_primed: dict = {}
+        self._strat_hold: dict = {}      # last logged "why held" reason per symbol
         self._apply_guardrails()
 
     # -- logging + notifications --------------------------------------------
@@ -198,10 +201,36 @@ class TraderSession:
     def _tg_send(token: str, chat: str, msg: str) -> None:
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
-            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🟦 Prometheus\n{msg}"}).encode()
+            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🔥 Prometheus\n{msg}"}).encode()
             urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
         except Exception:
             pass
+
+    @staticmethod
+    def telegram_test(token: str, chat: str) -> tuple:
+        """Synchronous test send — returns (ok, message) so the UI can report."""
+        token, chat = (token or "").strip(), (chat or "").strip()
+        if not token or not chat:
+            return False, "Enter both a bot token and a chat id."
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            data = urllib.parse.urlencode({
+                "chat_id": chat,
+                "text": "🔥 Prometheus — test message. Your Telegram alerts are working ✅",
+            }).encode()
+            with urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=10) as r:
+                body = json.loads(r.read().decode())
+            if body.get("ok"):
+                return True, "Test message sent — check your Telegram."
+            return False, f"Telegram error: {body.get('description', 'unknown')}"
+        except urllib.error.HTTPError as e:
+            try:
+                desc = json.loads(e.read().decode()).get("description", str(e))
+            except Exception:
+                desc = str(e)
+            return False, f"Telegram rejected it: {desc}"
+        except Exception as e:  # noqa: BLE001
+            return False, f"Could not reach Telegram: {e}"
 
     # -- settings ------------------------------------------------------------
     def _apply_guardrails(self) -> None:
@@ -217,8 +246,9 @@ class TraderSession:
             self.settings.update(patch or {})
             store.save_settings(self.user_id, self.settings)
             self._apply_guardrails()
-            self.settings["safe_mode"] = False
-            self.em.safe_mode = False
+            paper = bool(self.settings.get("paper_mode", False))
+            self.settings["safe_mode"] = paper
+            self.em.safe_mode = paper
             self.em.read_only = bool(self.settings.get("read_only", False))
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
@@ -234,22 +264,22 @@ class TraderSession:
         keys = store.load_keys(self.user_id)
         if not keys:
             raise ValueError("no API keys saved")
-        self.settings["safe_mode"] = False   # live trading only (safe mode removed)
+        paper = bool(self.settings.get("paper_mode", False))
+        self.settings["safe_mode"] = paper
         with self._lock:
             self.em.connect(
                 keys["exchange"], keys.get("api_key", ""), keys.get("api_secret", ""),
                 password=keys.get("password", ""),
-                safe_mode=False,
+                safe_mode=paper,
                 read_only=bool(self.settings.get("read_only", False)),
                 market_type=keys.get("market_type", "spot"),
             )
             self.connected = self.em.connected
             self.exchange_id = keys["exchange"]
             self.market_type = keys.get("market_type", "spot")
-        self.log(f"Connected to {self.exchange_id} ({self.market_type})"
-                 + (" — SAFE MODE" if self.settings.get("safe_mode") else ""), "ok")
-        self.notify(f"Connected to {self.exchange_id} ({self.market_type})"
-                    + (" — SAFE MODE" if self.settings.get("safe_mode") else ""))
+        tag = " — PAPER MODE (simulated)" if paper else " — LIVE"
+        self.log(f"Connected to {self.exchange_id} ({self.market_type}){tag}", "ok")
+        self.notify(f"Connected to {self.exchange_id} ({self.market_type}){tag}")
         self._ensure_poll()
         self.refresh()
         # Built-in strategy is ON by default — auto-start it once connected.
@@ -479,6 +509,7 @@ class TraderSession:
             return
         self.strategy_on = True
         self._strat_primed = {}
+        self._strat_hold = {}
         self._strat = threading.Thread(target=self._strategy_loop, daemon=True)
         self._strat.start()
         self.log("Built-in strategy ENABLED", "ok")
@@ -523,19 +554,31 @@ class TraderSession:
         if last_ts == primed:
             return                               # no new closed candle yet
         self._strat_primed[symbol] = last_ts
+        acted = False
         for evt in strat.evaluate_crossover(closed, params, symbol):
             act = evt.get("act")
             if act == "enter":
+                acted = True
                 side = "buy" if evt["side"] == "long" else "sell"
+                self.log(f"Signal {symbol} {side.upper()} — entry {float(evt['entry']):g}, "
+                         f"SL {float(evt['sl']):g}, TP {float(evt['tp']):g} "
+                         f"({int(params.partial_pct * 100)}% partial, rest trails EMA{params.slow_ema})")
                 self.handle_signal({"action": side, "symbol": symbol,
                                     "entry": float(evt["entry"]), "sl": float(evt["sl"]),
                                     "tp1": float(evt["tp"]), "tp2": 0,
                                     "tp_partial": params.partial_pct, "comment": "Prometheus"},
                                    source="strategy")
             elif act == "exit":
-                # counter-cross / trail / stop on the closed candle -> flatten the rest
+                acted = True
                 self.log(f"Strategy exit {symbol} — {evt.get('reason', 'exit')}", "ok")
                 self.close_position(symbol)
+        # Decision "why" line: when nothing fired, surface the reason it's holding
+        # (throttled: only log when the reason changes for this symbol).
+        if not acted:
+            reason = strat.entry_block_reason(closed, params)
+            if reason and self._strat_hold.get(symbol) != reason:
+                self.log(f"{symbol}: no entry — {reason}", "warn")
+            self._strat_hold[symbol] = reason
 
     # -- snapshot for the UI -------------------------------------------------
     def snapshot(self) -> dict:
@@ -543,7 +586,8 @@ class TraderSession:
             "connected": self.connected,
             "exchange": self.exchange_id,
             "market_type": self.market_type,
-            "safe_mode": bool(self.settings.get("safe_mode", True)),
+            "safe_mode": bool(self.settings.get("safe_mode", False)),
+            "paper_mode": bool(self.settings.get("paper_mode", False)),
             "read_only": bool(self.settings.get("read_only", False)),
             "balance": round(self.balance, 2),
             "pnl": round(self.pnl, 2),

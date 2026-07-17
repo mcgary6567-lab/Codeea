@@ -59,6 +59,7 @@
     <span class="chip hide-sm" id="st-ex">—</span>
     <span class="chip warn hidden" id="st-ro">READ-ONLY</span>
     <span class="chip danger hidden" id="st-halt">HALTED</span>
+    <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
     <span class="chip" id="st-access">—</span>
     <span class="chip hide-sm" id="st-email">—</span>
@@ -246,6 +247,8 @@
               <div class="col"><label>TP1 fraction</label><input id="s-tp1f" type="number" step="0.1"/></div>
               <div class="col end"><label class="chkline"><input type="checkbox" id="s-bracket"/> Auto SL/TP</label></div>
             </div>
+            <label class="chkline"><input type="checkbox" id="s-paper"/> 📝 Paper trading (simulate orders — no real fills)</label>
+            <div class="hint">Turn Paper on to watch the strategy trade with simulated fills before risking real funds. Reconnect the exchange after changing it.</div>
           </div>
           <div class="card"><h3>Risk guardrails</h3>
             <div class="row">
@@ -362,7 +365,11 @@
           <div class="card"><h3>Telegram notifications</h3>
             <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
             <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
-            <button class="btn" style="margin-top:10px" onclick="saveTelegram()">Save Telegram</button>
+            <div class="btnrow">
+              <button class="btn" onclick="saveTelegram()">Save Telegram</button>
+              <button class="btn ghost" id="tg-test" onclick="tgTest()">✈️ Send test</button>
+            </div>
+            <div class="err" id="tg-result"></div>
             <div class="hint">Alerts on every entry, close and connect.</div>
           </div>
         </div>

@@ -204,6 +204,17 @@ async def settings(request: Request, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+@app.post("/api/telegram/test")
+async def telegram_test(request: Request, user: dict = Depends(current_user)):
+    from .session import TraderSession
+    d = await body(request)
+    s = get_session(user["id"])
+    token = d.get("token") or s.settings.get("telegram_token", "")
+    chat = d.get("chat") or s.settings.get("telegram_chat", "")
+    ok, msg = TraderSession.telegram_test(token, chat)
+    return {"ok": ok, "message": msg}
+
+
 @app.post("/api/strategy")
 async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
