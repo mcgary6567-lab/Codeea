@@ -243,13 +243,17 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         candles = public_ohlcv(exch, symbol, tf, min(int(d.get("limit", 1000)), 1500))
     if len(candles) < 60:
         raise HTTPException(400, "not enough candle data (need ccxt + connectivity, or a longer range)")
+    # Base the backtest on the user's SAVED strategy params (so it reflects the
+    # real strategy), then let any params in the request override them.
     params = strat.StrategyParams()
-    for k, v in (d.get("params") or {}).items():
-        if hasattr(params, k):
-            try:
-                setattr(params, k, type(getattr(params, k))(v))
-            except (TypeError, ValueError):
-                setattr(params, k, v)
+    saved = get_session(user["id"]).settings.get("strategy_params") or {}
+    for src in (saved, d.get("params") or {}):
+        for k, v in src.items():
+            if hasattr(params, k):
+                try:
+                    setattr(params, k, type(getattr(params, k))(v))
+                except (TypeError, ValueError):
+                    setattr(params, k, v)
     cfg = bt.BacktestConfig()
     if d.get("start_equity"):
         cfg.start_equity = float(d["start_equity"])
