@@ -161,10 +161,10 @@ class TraderSession:
         # One-time migration: the strategy was rewritten (EMA100 filter, new
         # params). Drop strategy params saved under the old schema so users pick
         # up the new correct defaults (trend EMA 100, 1:2 partial, etc.).
-        if self.settings.get("strat_schema") != 5:
+        if self.settings.get("strat_schema") != 6:
             self.settings["strategy_params"] = {}      # -> new StrategyParams defaults
             self.settings["strategy_timeframe"] = "15m"
-            self.settings["strat_schema"] = 5
+            self.settings["strat_schema"] = 6
             store.save_settings(user_id, self.settings)
         self.positions: list = []
         self.balance = 0.0

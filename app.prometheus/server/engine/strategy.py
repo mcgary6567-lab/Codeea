@@ -34,7 +34,7 @@ class StrategyParams:
     confirm: int = 2              # confirming candles required after the cross (0 = off)
     min_body: float = 0.4        # min body-to-range ratio of a confirming candle
     sl_ema_buffer_pct: float = 0.2  # stop 0.2% beyond the EMA21
-    swing_lookback: int = 20      # bars for the recent swing low/high
+    swing_lookback: int = 10      # bars for the recent swing low/high
     tp_r: float = 1.0             # partial take-profit R multiple
     partial_pct: float = 0.5      # fraction closed at the target (50%)
     whipsaw_max_crosses: int = 2  # > this many crosses in the window suspends entries
