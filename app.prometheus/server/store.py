@@ -45,7 +45,9 @@ def init_db() -> None:
                 plan TEXT NOT NULL DEFAULT 'trial',
                 trial_ends REAL NOT NULL DEFAULT 0,
                 licence_until REAL NOT NULL DEFAULT 0,
-                last_seen REAL NOT NULL DEFAULT 0
+                last_seen REAL NOT NULL DEFAULT 0,
+                first_name TEXT NOT NULL DEFAULT '',
+                last_name TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS trades(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,13 +73,15 @@ def init_db() -> None:
             "trial_ends": "REAL NOT NULL DEFAULT 0",
             "licence_until": "REAL NOT NULL DEFAULT 0",
             "last_seen": "REAL NOT NULL DEFAULT 0",
+            "first_name": "TEXT NOT NULL DEFAULT ''",
+            "last_name": "TEXT NOT NULL DEFAULT ''",
         }.items():
             if name not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
 
 
 # --- users ------------------------------------------------------------------
-def create_user(email: str, password: str) -> dict:
+def create_user(email: str, password: str, first_name: str = "", last_name: str = "") -> dict:
     email = email.strip().lower()
     with _LOCK, _conn() as c:
         if c.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
@@ -88,10 +92,10 @@ def create_user(email: str, password: str) -> dict:
         first = c.execute("SELECT COUNT(*) n FROM users").fetchone()["n"] == 0
         is_admin = 1 if (first or (ADMIN_EMAIL and email == ADMIN_EMAIL)) else 0
         cur = c.execute(
-            "INSERT INTO users(email, pw_hash, webhook_token, created, is_admin, trial_ends)"
-            " VALUES(?,?,?,?,?,?)",
+            "INSERT INTO users(email, pw_hash, webhook_token, created, is_admin, trial_ends,"
+            " first_name, last_name) VALUES(?,?,?,?,?,?,?,?)",
             (email, security.hash_password(password), token, now, is_admin,
-             now + TRIAL_DAYS * 86400),
+             now + TRIAL_DAYS * 86400, first_name.strip(), last_name.strip()),
         )
         uid = cur.lastrowid
     # Read after the transaction commits (get_user uses its own connection).
@@ -186,6 +190,12 @@ def update_password(user_id: int, password: str) -> None:
     with _LOCK, _conn() as c:
         c.execute("UPDATE users SET pw_hash=? WHERE id=?",
                   (security.hash_password(password), user_id))
+
+
+def update_name(user_id: int, first_name: str, last_name: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET first_name=?, last_name=? WHERE id=?",
+                  (first_name.strip(), last_name.strip(), user_id))
 
 
 def save_settings(user_id: int, settings: dict) -> None:

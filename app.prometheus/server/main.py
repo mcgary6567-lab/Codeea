@@ -78,7 +78,7 @@ async def register(request: Request):
     if not email or len(pw) < 6:
         raise HTTPException(400, "email and a 6+ char password required")
     try:
-        user = store.create_user(email, pw)
+        user = store.create_user(email, pw, d.get("first_name", ""), d.get("last_name", ""))
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"token": security.make_token(user["id"], user["email"]), "email": user["email"]}
@@ -105,6 +105,9 @@ def full_state(user: dict) -> dict:
     s = get_session(user["id"])
     snap = s.snapshot()
     snap["email"] = user["email"]
+    snap["first_name"] = user.get("first_name", "")
+    snap["last_name"] = user.get("last_name", "")
+    snap["name"] = (f"{user.get('first_name', '')} {user.get('last_name', '')}").strip() or user["email"].split("@")[0]
     snap["is_admin"] = bool(user.get("is_admin"))
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
@@ -122,6 +125,9 @@ async def account(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
     if not security.verify_password(d.get("current_password", ""), user["pw_hash"]):
         raise HTTPException(400, "current password is incorrect")
+    if d.get("first_name") is not None or d.get("last_name") is not None:
+        store.update_name(user["id"], d.get("first_name", user.get("first_name", "")),
+                          d.get("last_name", user.get("last_name", "")))
     new_email = (d.get("new_email") or "").strip().lower()
     new_password = d.get("new_password") or ""
     if new_email and new_email != user["email"]:

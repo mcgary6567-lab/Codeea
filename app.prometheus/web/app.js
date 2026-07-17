@@ -19,11 +19,13 @@ async function api(path, method = "GET", bodyObj) {
 }
 
 // ---- auth ----
-function authTab(m) { authMode = m; $("tab-login").classList.toggle("on", m === "login"); $("tab-reg").classList.toggle("on", m === "reg"); }
+function authTab(m) { authMode = m; $("tab-login").classList.toggle("on", m === "login"); $("tab-reg").classList.toggle("on", m === "reg"); $("reg-fields").classList.toggle("hidden", m !== "reg"); }
 async function doAuth() {
   $("au-err").textContent = "";
   try {
-    const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST", { email: $("au-email").value.trim(), password: $("au-pass").value });
+    const body = { email: $("au-email").value.trim(), password: $("au-pass").value };
+    if (authMode === "reg") { body.first_name = $("au-first").value.trim(); body.last_name = $("au-last").value.trim(); }
+    const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST", body);
     TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); enterApp();
   } catch (e) { $("au-err").textContent = e.message; }
 }
@@ -60,8 +62,12 @@ function render(s) {
   $("ex-state").textContent = s.connected ? "connected" : "not connected";
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
-  $("st-email").textContent = s.email || "";
+  const name = s.name || (s.email || "").split("@")[0];
+  $("st-email").textContent = "👋 " + name;
+  $("welcome").textContent = "Welcome back, " + name + " 👋";
   $("st-admin").classList.toggle("hidden", !s.is_admin);
+  const setIf = (id, v) => { if ($(id) && !(document.activeElement && document.activeElement.id === id)) $(id).value = v || ""; };
+  setIf("ac-first", s.first_name); setIf("ac-last", s.last_name);
 
   const ac = s.access || {};
   const lbl = { admin: "ADMIN", licensed: "LICENSED", trial: "TRIAL", suspended: "SUSPENDED", expired: "EXPIRED" }[ac.status] || "—";
@@ -146,7 +152,7 @@ async function saveSettings() {
 async function saveTelegram() { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim() }); toast("Telegram saved"); }
 async function saveAccount() {
   $("ac-err").textContent = "";
-  const b = { current_password: $("ac-cur").value, new_email: $("ac-email").value.trim(), new_password: $("ac-newpass").value };
+  const b = { current_password: $("ac-cur").value, new_email: $("ac-email").value.trim(), new_password: $("ac-newpass").value, first_name: $("ac-first").value.trim(), last_name: $("ac-last").value.trim() };
   if (!b.current_password) { $("ac-err").textContent = "Enter your current password."; return; }
   try { const d = await api("/api/account", "POST", b); TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); $("ac-newpass").value = ""; $("ac-cur").value = ""; toast("Account updated"); refresh(); }
   catch (e) { $("ac-err").textContent = e.message; }
@@ -364,6 +370,6 @@ function chSetup() {
 }
 function tdist(e) { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
 
-function toast(msg) { const e = $("st-email"); e.textContent = "✓ " + msg; setTimeout(() => { if (lastState) e.textContent = lastState.email; }, 1500); }
+function toast(msg) { const e = $("st-email"); e.textContent = "✓ " + msg; setTimeout(() => { if (lastState) e.textContent = "👋 " + (lastState.name || (lastState.email || "").split("@")[0]); }, 1500); }
 window.addEventListener("load", chSetup);
 if (TOKEN) enterApp();

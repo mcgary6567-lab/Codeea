@@ -35,6 +35,12 @@
         <button id="tab-login" class="on" onclick="authTab('login')">Log in</button>
         <button id="tab-reg" onclick="authTab('reg')">Start free trial</button>
       </div>
+      <div id="reg-fields" class="hidden">
+        <div class="row">
+          <div class="col"><label>First name</label><input id="au-first" placeholder="Jane"/></div>
+          <div class="col"><label>Last name</label><input id="au-last" placeholder="Doe"/></div>
+        </div>
+      </div>
       <label>Email</label><input id="au-email" type="email" placeholder="you@email.com"/>
       <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
       <div class="err" id="au-err"></div>
@@ -76,6 +82,7 @@
 
       <!-- DASHBOARD -->
       <section id="v-home">
+        <div class="welcome" id="welcome">Welcome back 👋</div>
         <div class="pricestrip" id="pricestrip"></div>
 
         <div class="tiles">
@@ -210,6 +217,41 @@
           <button class="btn green" onclick="strategy(true)">Enable / Start</button>
           <button class="btn ghost" onclick="strategy(false)">Disable</button>
         </div>
+
+        <h3 style="margin:22px 0 12px">Execution, sizing &amp; risk guardrails</h3>
+        <div class="grid2">
+          <div class="card"><h3>Execution &amp; sizing</h3>
+            <label>Sizing mode</label>
+            <select id="s-sizing"><option value="fixed">Fixed lot (base coin)</option><option value="fixed_quote">Fixed $ (quote)</option><option value="risk_balance">Risk % of balance</option><option value="risk_stop">Risk % per trade (stop-based)</option></select>
+            <div class="row">
+              <div class="col"><label>Fixed lot</label><input id="s-fixed" type="number" step="0.0001"/></div>
+              <div class="col"><label>Fixed $</label><input id="s-fixedq" type="number"/></div>
+              <div class="col"><label>Risk %</label><input id="s-risk" type="number" step="0.1"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Order type</label><select id="s-otype"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+              <div class="col"><label>Leverage</label><input id="s-lev" type="number"/></div>
+              <div class="col"><label>Margin</label><select id="s-margin"><option value="">Default</option><option value="cross">Cross</option><option value="isolated">Isolated</option></select></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>TP1 fraction</label><input id="s-tp1f" type="number" step="0.1"/></div>
+              <div class="col end"><label class="chkline"><input type="checkbox" id="s-bracket"/> Auto SL/TP</label></div>
+            </div>
+          </div>
+          <div class="card"><h3>Risk guardrails</h3>
+            <div class="row">
+              <div class="col"><label>Max open positions</label><input id="s-maxopen" type="number"/></div>
+              <div class="col"><label>Daily loss limit ($)</label><input id="s-dloss" type="number"/></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Daily profit limit ($)</label><input id="s-dprofit" type="number"/></div>
+              <div class="col"><label>Cooldown (s)</label><input id="s-cool" type="number"/></div>
+              <div class="col"><label>Dedupe (s)</label><input id="s-dedupe" type="number"/></div>
+            </div>
+            <div class="hint">Each 0 = disabled. Closing is never blocked, only new entries. Max open positions caps concurrent trades across all your pairs.</div>
+          </div>
+        </div>
+        <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
       </section>
 
       <!-- BACKTEST -->
@@ -298,6 +340,10 @@
       <section id="v-settings" class="hidden">
         <div class="grid2">
           <div class="card"><h3>Account</h3>
+            <div class="row">
+              <div class="col"><label>First name</label><input id="ac-first"/></div>
+              <div class="col"><label>Last name</label><input id="ac-last"/></div>
+            </div>
             <label>Email</label><input id="ac-email" type="email"/>
             <label>New password <span class="k">(blank = keep)</span></label><input id="ac-newpass" type="password" placeholder="••••••••"/>
             <label>Current password <span class="k">(required)</span></label><input id="ac-cur" type="password" placeholder="••••••••"/>
@@ -311,39 +357,6 @@
             <div class="hint">Alerts on every entry, close and connect.</div>
           </div>
         </div>
-        <div class="grid2">
-          <div class="card"><h3>Execution &amp; sizing</h3>
-            <label>Sizing mode</label>
-            <select id="s-sizing"><option value="fixed">Fixed lot (base coin)</option><option value="fixed_quote">Fixed $ (quote)</option><option value="risk_balance">Risk % of balance</option><option value="risk_stop">Risk % per trade (stop-based)</option></select>
-            <div class="row">
-              <div class="col"><label>Fixed lot</label><input id="s-fixed" type="number" step="0.0001"/></div>
-              <div class="col"><label>Fixed $</label><input id="s-fixedq" type="number"/></div>
-              <div class="col"><label>Risk %</label><input id="s-risk" type="number" step="0.1"/></div>
-            </div>
-            <div class="row">
-              <div class="col"><label>Order type</label><select id="s-otype"><option value="market">Market</option><option value="limit">Limit</option></select></div>
-              <div class="col"><label>Leverage</label><input id="s-lev" type="number"/></div>
-              <div class="col"><label>Margin</label><select id="s-margin"><option value="">Default</option><option value="cross">Cross</option><option value="isolated">Isolated</option></select></div>
-            </div>
-            <div class="row">
-              <div class="col"><label>TP1 fraction</label><input id="s-tp1f" type="number" step="0.1"/></div>
-              <div class="col end"><label class="chkline"><input type="checkbox" id="s-bracket"/> Auto SL/TP</label></div>
-            </div>
-          </div>
-          <div class="card"><h3>Guardrails</h3>
-            <div class="row">
-              <div class="col"><label>Max open positions</label><input id="s-maxopen" type="number"/></div>
-              <div class="col"><label>Daily loss limit ($)</label><input id="s-dloss" type="number"/></div>
-            </div>
-            <div class="row">
-              <div class="col"><label>Daily profit limit ($)</label><input id="s-dprofit" type="number"/></div>
-              <div class="col"><label>Cooldown (s)</label><input id="s-cool" type="number"/></div>
-              <div class="col"><label>Dedupe (s)</label><input id="s-dedupe" type="number"/></div>
-            </div>
-            <div class="hint">Each 0 = disabled. Closing is never blocked, only new entries.</div>
-          </div>
-        </div>
-        <button class="btn" onclick="saveSettings()">Save trading settings</button>
       </section>
     </main>
   </div>

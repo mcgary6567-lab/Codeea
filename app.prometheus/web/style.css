@@ -128,3 +128,5 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .msel-opt{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;color:var(--txt);font-size:13px;cursor:pointer}
 .msel-opt:hover{background:var(--panel)}
 .msel-opt input{width:auto}
+
+.welcome{font-size:20px;font-weight:800;margin:2px 0 16px}
