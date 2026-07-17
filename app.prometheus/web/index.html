@@ -217,15 +217,37 @@
         <div class="card">
           <h3>Backtest <span class="chip">pro</span></h3>
           <div class="row">
+            <div class="col"><label>Exchange</label>
+              <select id="bt-ex">
+                <option value="binance">Binance</option><option value="bybit">Bybit</option>
+                <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
+                <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
+                <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
+              </select></div>
             <div class="col"><label>Symbol</label><input id="bt-sym" list="symbols" value="BTC/USDT"/></div>
-            <div class="col"><label>Timeframe</label><input id="bt-tf" value="15m"/></div>
-            <div class="col"><label>Candles</label><input id="bt-limit" type="number" value="1000"/></div>
-            <div class="col"><label>Start equity</label><input id="bt-eq" type="number" value="1000"/></div>
+            <div class="col"><label>Timeframe</label>
+              <select id="bt-tf"><option>5m</option><option>15m</option><option>30m</option><option selected>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+            <div class="col"><label>Period</label>
+              <select id="bt-period" onchange="btPeriodChange()">
+                <option value="1">Last 1 day</option><option value="7" selected>Last 7 days</option>
+                <option value="14">Last 14 days</option><option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option><option value="180">Last 180 days</option>
+                <option value="365">Last 1 year</option><option value="0">Max (by candles)</option>
+              </select></div>
+          </div>
+          <div class="row">
+            <div class="col"><label>Start equity ($)</label><input id="bt-eq" type="number" value="1000"/></div>
+            <div class="col"><label>Risk % per trade <span class="k">(0 = full balance)</span></label><input id="bt-risk" type="number" step="0.1" value="1"/></div>
             <div class="col"><label>Fee %</label><input id="bt-fee" type="number" step="0.01" value="0.05"/></div>
             <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
+            <div class="col" id="bt-limit-wrap" style="display:none"><label>Max candles</label><input id="bt-limit" type="number" value="1000"/></div>
           </div>
-          <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Run to see stats, equity, drawdown and every trade.</div>
-          <div class="btnrow"><button class="btn" onclick="runBacktest()">▶ Run backtest</button></div>
+          <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
+          <div class="btnrow">
+            <button class="btn" id="bt-run" onclick="runBacktest()">▶ Run backtest</button>
+            <button class="btn ghost" id="bt-csv" onclick="btCsv()" disabled>⬇ Export CSV</button>
+          </div>
+          <div class="hint" id="bt-period-info"></div>
         </div>
         <div id="bt-out" class="hidden">
           <div class="tiles" id="bt-tiles"></div>
@@ -233,7 +255,7 @@
             <canvas id="bt-eqc" class="chart" style="height:240px"></canvas>
             <canvas id="bt-ddc" class="chart" style="height:90px;margin-top:6px"></canvas></div>
           <div class="card"><h3>Trades <span class="chip" id="bt-ntr">0</span></h3>
-            <div class="tablewrap" style="max-height:340px;overflow:auto">
+            <div class="tablewrap" style="max-height:360px;overflow:auto">
               <table><thead><tr><th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>R</th><th>Reason</th></tr></thead>
                 <tbody id="bt-trades"></tbody></table></div></div>
         </div>

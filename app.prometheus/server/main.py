@@ -23,7 +23,14 @@ import strategy as strat
 
 from . import security, store
 from .config_web import PUBLIC_URL
-from .session import get_session, public_ohlcv, public_prices
+from .session import get_session, public_ohlcv, public_ohlcv_days, public_prices
+
+_TF_SECONDS = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
+               "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200, "1d": 86400}
+
+
+def _public_client_tf_seconds(tf: str) -> int:
+    return _TF_SECONDS.get(tf, 3600)
 
 store.init_db()
 app = FastAPI(title="Prometheus Web", version="1.0.0")
@@ -223,10 +230,13 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
     exch = d.get("exchange", "binance")
     symbol = d.get("symbol", "BTC/USDT")
     tf = d.get("timeframe", "1h")
-    limit = min(int(d.get("limit", 1000)), 1500)
-    candles = public_ohlcv(exch, symbol, tf, limit)
+    days = float(d.get("days", 0) or 0)
+    if days > 0:
+        candles = public_ohlcv_days(exch, symbol, tf, days)
+    else:
+        candles = public_ohlcv(exch, symbol, tf, min(int(d.get("limit", 1000)), 1500))
     if len(candles) < 60:
-        raise HTTPException(400, "not enough candle data (need ccxt + connectivity)")
+        raise HTTPException(400, "not enough candle data (need ccxt + connectivity, or a longer range)")
     params = strat.StrategyParams()
     for k, v in (d.get("params") or {}).items():
         if hasattr(params, k):
@@ -243,12 +253,20 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         cfg.risk_pct = float(d["risk_pct"])
     if d.get("allow_short") is not None:
         cfg.allow_short = bool(d["allow_short"])
+    try:
+        cfg.bar_seconds = float(_public_client_tf_seconds(tf))
+    except Exception:
+        pass
     result = bt.run_backtest(candles, params, cfg)
+    period = {
+        "from": int(candles[0][0]), "to": int(candles[-1][0]),
+        "days": round((candles[-1][0] - candles[0][0]) / 86_400_000, 1),
+    }
     summary = {k: (round(v, 4) if isinstance(v, float) and v not in (float("inf"), float("-inf")) else v)
                for k, v in result.stats.items()}
     return {
-        "symbol": symbol, "timeframe": tf, "candles": len(candles),
-        "start_equity": cfg.start_equity,
+        "symbol": symbol, "timeframe": tf, "exchange": exch, "candles": len(candles),
+        "start_equity": cfg.start_equity, "period": period,
         "buy_hold_pct": round(bt.buy_hold_return(candles), 2),
         "summary": summary,
         "trades": [_bt_trade(t) for t in result.trades],

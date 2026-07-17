@@ -42,6 +42,54 @@ def public_ohlcv(exchange_id: str, symbol: str, timeframe: str, limit: int = 300
         return []
 
 
+def _public_client(exchange_id: str):
+    if not ex.CCXT_AVAILABLE:
+        return None
+    client = _PUBLIC.get(exchange_id)
+    if client is None:
+        import ccxt
+        if exchange_id not in ccxt.exchanges:
+            return None
+        client = getattr(ccxt, exchange_id)({"enableRateLimit": True})
+        _PUBLIC[exchange_id] = client
+    return client
+
+
+def public_ohlcv_days(exchange_id: str, symbol: str, timeframe: str, days: float,
+                      max_candles: int = 8000) -> list:
+    """Paginated candle history for the last ``days`` — walks ``since`` forward so
+    date-range backtests aren't limited to one exchange page (~1000 candles)."""
+    import time as _t
+    client = _public_client(exchange_id)
+    if client is None:
+        return []
+    try:
+        tf_ms = client.parse_timeframe(timeframe) * 1000
+    except Exception:
+        tf_ms = 60_000
+    now_ms = int(_t.time() * 1000)
+    since = now_ms - int(days * 86_400_000)
+    out: list = []
+    for _ in range(40):                      # hard cap on requests
+        try:
+            batch = client.fetch_ohlcv(symbol, timeframe, since=since, limit=1000)
+        except Exception:
+            break
+        if not batch:
+            break
+        out.extend(batch)
+        nxt = batch[-1][0] + tf_ms
+        if nxt <= since or nxt >= now_ms or len(batch) < 1000 or len(out) >= max_candles:
+            break
+        since = nxt
+    # de-dupe by timestamp (pagination overlaps can repeat the boundary candle)
+    seen = set(); uniq = []
+    for c in out:
+        if c[0] not in seen:
+            seen.add(c[0]); uniq.append(c)
+    return uniq[:max_candles]
+
+
 # Cached public ticker prices (per exchange) to power the dashboard price strip.
 _PRICE_CACHE: dict = {}
 

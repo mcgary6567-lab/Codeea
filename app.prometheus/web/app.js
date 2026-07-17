@@ -187,20 +187,63 @@ function collectParams() {
 async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); refresh(); } catch (e) { alert(e.message); } }
 async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); toast("Strategy saved"); refresh(); } catch (e) { alert(e.message); } }
 
-// ---- backtest ----
+// ---- backtest (pro) ----
+let BT = null;   // last result for CSV export
+function btPeriodChange() { $("bt-limit-wrap").style.display = $("bt-period").value === "0" ? "" : "none"; }
+function streaks(trades) {
+  let win = 0, loss = 0, cw = 0, cl = 0;
+  for (const t of trades) { if (t.pnl > 0) { cw++; cl = 0; } else if (t.pnl < 0) { cl++; cw = 0; } win = Math.max(win, cw); loss = Math.max(loss, cl); }
+  return { win, loss };
+}
 async function runBacktest() {
-  $("bt-out").classList.add("hidden");
+  const btn = $("bt-run"); btn.disabled = true; btn.textContent = "Running…"; $("bt-out").classList.add("hidden");
   try {
-    const d = await api("/api/backtest", "POST", { exchange: "binance", symbol: $("bt-sym").value, timeframe: $("bt-tf").value, limit: parseInt($("bt-limit").value) || 1000, start_equity: parseFloat($("bt-eq").value) || 1000, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() });
-    const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct;
-    const tiles = [["Return", (ret >= 0 ? "+" : "") + fmt(ret) + "%", ret >= 0 ? "pos" : "neg"], ["vs Buy & Hold", (vs >= 0 ? "+" : "") + fmt(vs) + "%", vs >= 0 ? "pos" : "neg"], ["Net PnL", fmt(s.net_pnl), s.net_pnl >= 0 ? "pos" : "neg"], ["Win rate", fmt(s.win_rate) + "%", ""], ["Profit factor", (s.profit_factor > 999 ? "∞" : fmt(s.profit_factor)), ""], ["Max drawdown", "-" + fmt(s.max_drawdown) + "%", "neg"], ["Trades", s.trades + ` (${s.longs}L/${s.shorts}S)`, ""], ["Avg R", fmt(s.avg_r), s.avg_r >= 0 ? "pos" : "neg"]];
-    $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:19px">${v}</div></div>`).join("");
+    const days = parseFloat($("bt-period").value);
+    const req = { exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, start_equity: parseFloat($("bt-eq").value) || 1000, risk_pct: parseFloat($("bt-risk").value) || 0, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() };
+    if (days > 0) req.days = days; else req.limit = parseInt($("bt-limit").value) || 1000;
+    const d = await api("/api/backtest", "POST", req); BT = d;
+    const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct, st = streaks(d.trades);
+    const wins = d.trades.filter(t => t.pnl > 0), losses = d.trades.filter(t => t.pnl < 0);
+    const avgWin = wins.length ? wins.reduce((a, t) => a + t.pnl, 0) / wins.length : 0;
+    const avgLoss = losses.length ? losses.reduce((a, t) => a + t.pnl, 0) / losses.length : 0;
+    const payoff = avgLoss ? Math.abs(avgWin / avgLoss) : 0;
+    const expectancy = d.trades.length ? s.net_pnl / d.trades.length : 0;
+    const tiles = [
+      ["Return", (ret >= 0 ? "+" : "") + fmt(ret) + "%", ret >= 0 ? "pos" : "neg"],
+      ["vs Buy & Hold", (vs >= 0 ? "+" : "") + fmt(vs) + "%", vs >= 0 ? "pos" : "neg"],
+      ["Net PnL $", fmt(s.net_pnl), s.net_pnl >= 0 ? "pos" : "neg"],
+      ["Final equity", fmt(s.end_equity), ""],
+      ["Win rate", fmt(s.win_rate) + "%", ""],
+      ["Profit factor", (s.profit_factor > 999 ? "∞" : fmt(s.profit_factor)), ""],
+      ["Max drawdown", "-" + fmt(s.max_drawdown) + "%", "neg"],
+      ["Trades", `${s.trades} (${s.longs}L/${s.shorts}S)`, ""],
+      ["Avg R", fmt(s.avg_r), s.avg_r >= 0 ? "pos" : "neg"],
+      ["Expectancy $/trade", fmt(expectancy), expectancy >= 0 ? "pos" : "neg"],
+      ["Payoff (win/loss)", fmt(payoff), ""],
+      ["Win/Loss streak", `${st.win} / ${st.loss}`, ""],
+      ["Best / Worst $", `${fmt(s.best)} / ${fmt(s.worst)}`, ""],
+      ["Fees paid $", fmt(s.fees), "neg"],
+    ];
+    $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     const eq = d.equity.map(e => e[1]); drawLine("bt-eqc", eq, "#f97316", true);
     let peak = -1e9; drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("");
+    const p = d.period || {};
+    $("bt-period-info").textContent = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
+    $("bt-csv").disabled = !d.trades.length;
     $("bt-out").classList.remove("hidden");
   } catch (e) { alert("Backtest: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "▶ Run backtest"; }
+}
+function btCsv() {
+  if (!BT || !BT.trades.length) return;
+  const head = ["#", "side", "entry_ts", "exit_ts", "entry", "exit", "qty", "pnl", "R", "reason"];
+  const rows = BT.trades.map((t, i) => [i + 1, t.side, t.entry_ts, t.exit_ts, t.entry, t.exit, t.qty, t.pnl, t.r, t.reason]);
+  const csv = [head, ...rows].map(r => r.join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `backtest_${BT.symbol.replace('/', '')}_${BT.timeframe}.csv`; a.click();
 }
 
 // ---- analytics ----
