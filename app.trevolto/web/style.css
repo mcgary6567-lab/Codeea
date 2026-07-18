@@ -166,8 +166,15 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .logo-img.big{height:34px}
 
 /* ---- landing conversion copy ---- */
-.land-feats li{padding:9px 0;font-size:14.5px;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04)}
+.land-feats li{display:flex;gap:12px;align-items:flex-start;padding:11px 13px;margin-bottom:8px;font-size:14px;line-height:1.5;
+  border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.02);transition:border-color .15s,background .15s}
+.land-feats li:hover{border-color:var(--accent);background:rgba(249,115,22,.06)}
 .land-feats li b{color:var(--txt)}
+.land-feats .lf-ic{font-size:18px;line-height:1.4;flex-shrink:0}
+.glist{list-style:none;padding:0;margin:12px 0}
+.glist li{padding:9px 12px;margin-bottom:8px;border-left:3px solid var(--accent);background:rgba(255,255,255,.02);
+  border-radius:8px;font-size:13.5px;line-height:1.55;color:var(--mut)}
+.glist li b{color:var(--txt)}
 .cta-line{margin:18px 0 6px;padding:12px 14px;background:linear-gradient(90deg,rgba(249,115,22,.14),transparent);
   border:1px solid var(--accent);border-radius:10px;font-size:15px;color:var(--txt)}
 

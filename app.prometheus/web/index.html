@@ -27,12 +27,13 @@
       <h1>Crypto trading on autopilot.</h1>
       <p class="lead"><b>How it works:</b> connect your exchange, pick your coins, and the bot trades the entries, stop-losses and take-profits for you — 24/7.</p>
       <ul class="land-feats">
-        <li>📱 <b>Trade &amp; track on the go</b> — no VPS, no PC left running. It runs in the cloud; check your profit from your phone, anywhere.</li>
-        <li>🔒 <b>We never touch your funds</b> — no wallet access. Trade-only API keys with withdrawals disabled. Your money never leaves your exchange.</li>
-        <li>🧪 <b>Backtest before you risk a cent</b> — run the exact strategy on real market history, any pair, any timeframe.</li>
-        <li>🤖 <b>One transparent, proven strategy</b> — EMA 9/21 + 100-EMA trend filter &amp; swing stops. No black box — verify the results yourself in the backtester.</li>
-        <li>⚡ <b>5-minute setup, then forget it</b> — connect keys, hit start. Locked out? One-click password reset.</li>
-        <li>🎁 <b>10 days free — no card</b>. Watch it trade in paper mode, then flip to live when you're convinced.</li>
+        <li><span class="lf-ic">🤖</span><span><b>Proven auto-strategy, 24/7</b> — EMA 9/21 + 100-EMA trend filter &amp; swing stops handle every entry, stop-loss and take-profit for you.</span></li>
+        <li><span class="lf-ic">🔒</span><span><b>Your funds never leave your exchange</b> — non-custodial, trade-only keys. We even warn you if a key can withdraw.</span></li>
+        <li><span class="lf-ic">📈</span><span><b>Profit Simulator</b> — replay the exact strategy on real market history before you risk a cent.</span></li>
+        <li><span class="lf-ic">🎮</span><span><b>Control it from Telegram</b> — check status, pause, resume or close everything with a quick message.</span></li>
+        <li><span class="lf-ic">🔔</span><span><b>Never miss a trade</b> — instant Telegram, browser &amp; push alerts. Install it as an app and get notified even when it's closed.</span></li>
+        <li><span class="lf-ic">🛡️</span><span><b>Bank-grade security</b> — 2FA, encrypted keys, login history and one-click sign-out on every device.</span></li>
+        <li><span class="lf-ic">🎁</span><span><b>10 days free — no card</b> — watch it trade in paper mode, then flip to live when you're convinced.</span></li>
       </ul>
       <div class="cta-line">Start free — <b>upgrade only when the results speak for themselves.</b></div>
       <div class="hint">Trading involves risk and can lose money. Past/backtested performance is not a guarantee of future results. Provided as-is, no warranty.</div>
@@ -463,13 +464,14 @@
       <section id="v-guide" class="hidden">
         <div class="guide-hero card">
           <h2>📖 How to use Prometheus</h2>
-          <p class="guide-lead">A 5-step walkthrough of every screen. Follow it top-to-bottom the first time and you'll be trading live in a few minutes.</p>
+          <p class="guide-lead">A quick walkthrough of every screen — including the new alerts, remote control &amp; security tools. Follow it top-to-bottom the first time and you'll be trading in a few minutes.</p>
           <div class="guide-steps">
             <span class="gstep" onclick="show('exchange',qNav('exchange'))">① Connect</span>
-            <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Strategy</span>
+            <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Bot Setting</span>
             <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Profit Simulator</span>
             <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
+            <span class="gstep" onclick="show('settings',qNav('settings'))">⑥ Alerts &amp; security</span>
           </div>
         </div>
 
@@ -544,12 +546,36 @@
           </div>
         </div>
 
+        <div class="card gcard">
+          <div class="gnum">6</div>
+          <div class="gbody">
+            <h3>🔔 Alerts, remote control &amp; security</h3>
+            <p>Run the bot hands-off and keep your account safe — all set up in <b>Settings</b>. Here's what we just added:</p>
+            <ul class="glist">
+              <li><b>🎮 Two-way Telegram control</b> — after you add your Telegram bot token + chat ID, message the bot <b>/status</b>, <b>/pnl</b>, <b>/positions</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> to run it from your phone. Only your own linked chat can send commands.</li>
+              <li><b>📲 Install as an app + push notifications</b> — use your browser's “Install / Add to Home Screen” option, then tap <b>Enable browser notifications</b> in Settings → Telegram. You'll get an alert on every entry &amp; close — <b>even when the app is closed</b>.</li>
+              <li><b>⏭️ Skipped-signal alerts</b> — optionally get pinged when a signal is blocked by a guardrail (daily loss limit, max positions, cooldown), so you always know why the bot held.</li>
+              <li><b>🖥️ Sessions &amp; login history</b> — see recent sign-ins (time, IP, device) and <b>sign out of all other devices</b> in one click if anything looks off.</li>
+              <li><b>⚠️ Withdrawal-key warning</b> — if the API key you connect can withdraw funds, we flag it right away so you can switch to a safer trade-only key.</li>
+            </ul>
+            <div class="gshot">
+              <div class="gs-field"><span>✈️ Telegram bot</span><i>token + chat ID · Send test</i></div>
+              <div class="gs-field"><span>🔔 Notifications</span><i>Enable browser / push</i></div>
+              <div class="gs-field"><span>🔐 Two-factor auth</span><i>Enabled</i></div>
+              <div class="gs-field"><span>🖥️ Sessions</span><i>Sign out all devices</i></div>
+            </div>
+            <p class="gtip">💡 Set Telegram once, tap <b>✈️ Send test</b> to confirm, enable notifications, and you're covered on every device.</p>
+          </div>
+        </div>
+
         <div class="card gfaq">
           <h3>❓ Quick answers</h3>
           <div class="gq"><b>Is my money safe?</b> Yes — Prometheus only places trades through your API keys. With withdrawals disabled on the key, funds can never leave your exchange.</div>
           <div class="gq"><b>Will an update wipe my data?</b> No. Your account, keys, trade history and licence live in a persistent database that survives every deploy. Only unsaved draft edits aren't kept.</div>
           <div class="gq"><b>Paper vs live?</b> Paper simulates fills so you can watch the strategy risk-free. Flip it off in Strategy → Execution when you're ready for real orders.</div>
           <div class="gq"><b>Forgot my password?</b> Use <b>Forgot password?</b> on the login screen — you'll get a secure reset link by email.</div>
+          <div class="gq"><b>Can I control the bot from my phone?</b> Yes — connect Telegram in Settings, then message your bot <b>/status</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> from anywhere.</div>
+          <div class="gq"><b>Do alerts work when the app is closed?</b> Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div>
         </div>
       </section>
     </main>
