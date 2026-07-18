@@ -94,6 +94,13 @@
     <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
     <a class="btn sm hidden" id="st-buy" href="#" target="_blank" rel="noopener">✨ Get licence</a>
     <span class="chip hide-sm" id="st-email">—</span>
+    <div class="bell-wrap">
+      <button class="bell-btn" id="bell-btn" onclick="toggleBell()">🔔<span class="bell-badge hidden" id="bell-badge">0</span></button>
+      <div class="bell-panel hidden" id="bell-panel">
+        <div class="bell-head">Alerts</div>
+        <div class="bell-list" id="bell-list"><div class="bell-empty">No alerts yet.</div></div>
+      </div>
+    </div>
     <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
     <button class="btn ghost sm" onclick="logout()">Logout</button>
   </header>
