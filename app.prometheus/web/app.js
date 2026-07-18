@@ -595,7 +595,7 @@ async function subscribePush() {
 // ---- security: login history + sign out everywhere ----
 async function loadServerIP() {
   const el = $("srv-ip"); if (!el) return;
-  try { const d = await api("/api/server_ip"); el.value = d.ip || "Unavailable \u2014 IP restriction not needed"; }
+  try { const d = await api("/api/server_ip"); el.value = d.ip || "Not detected \u2014 IP whitelist is optional"; }
   catch (e) { el.value = "Unavailable"; }
 }
 function copyServerIP() {

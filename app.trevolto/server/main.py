@@ -547,27 +547,65 @@ async def ws(websocket: WebSocket):
 _SERVER_IP = {"ip": "", "t": 0.0}
 
 
-def _server_ip() -> str:
-    import urllib.request as _u, time as _t
-    now = _t.time()
-    if _SERVER_IP["ip"] and now - _SERVER_IP["t"] < 3600:
-        return _SERVER_IP["ip"]
-    for url in ("https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"):
+def _fetch_public_ip() -> str:
+    import urllib.request as _u
+    for url in ("https://checkip.amazonaws.com", "https://api.ipify.org",
+                "https://ifconfig.me/ip", "https://icanhazip.com"):
         try:
-            with _u.urlopen(url, timeout=5) as r:
+            req = _u.Request(url, headers={"User-Agent": "curl/8"})
+            with _u.urlopen(req, timeout=4) as r:
                 ip = r.read().decode().strip()
-            if ip and 6 <= len(ip) <= 45:
-                _SERVER_IP["ip"] = ip
-                _SERVER_IP["t"] = now
+            if ip and 6 <= len(ip) <= 45 and " " not in ip and "\n" not in ip:
                 return ip
         except Exception:
             continue
+    return ""
+
+
+def _server_ip() -> str:
+    now = time.time()
+    if _SERVER_IP["ip"] and now - _SERVER_IP["t"] < 3600:
+        return _SERVER_IP["ip"]
+    ip = _fetch_public_ip()
+    if ip:
+        _SERVER_IP["ip"] = ip
+        _SERVER_IP["t"] = now
     return _SERVER_IP["ip"]
+
+
+def _warm_server_ip():
+    ip = _fetch_public_ip()
+    if ip:
+        _SERVER_IP["ip"] = ip
+        _SERVER_IP["t"] = time.time()
+
+
+import threading as _threading
+_threading.Thread(target=_warm_server_ip, daemon=True).start()
 
 
 @app.get("/api/server_ip")
 def server_ip(user: dict = Depends(current_user)):
     return {"ip": _server_ip()}
+
+
+# --- no-cache for app JS/CSS so deploys always load fresh code --------------
+@app.get("/static/app.js")
+def _static_app_js():
+    return FileResponse(os.path.join(WEB_DIR, "app.js"), media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/static/style.css")
+def _static_style_css():
+    return FileResponse(os.path.join(WEB_DIR, "style.css"), media_type="text/css",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/static/admin.js")
+def _static_admin_js():
+    return FileResponse(os.path.join(WEB_DIR, "admin.js"), media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 # --- security: login history + logout everywhere ----------------------------
