@@ -120,20 +120,31 @@ def create_user(email: str, password: str, first_name: str = "", last_name: str 
 
 
 # --- access control ---------------------------------------------------------
+# A lifetime licence is stored as a far-future expiry (year ~3000). Any licence
+# expiring past year 2100 is treated as "never expires" — this needs no extra
+# column, so it is fully backward-compatible with existing databases.
+LIFETIME_TS = 32503680000.0        # ~ 3000-01-01, the sentinel we write
+LIFETIME_THRESHOLD = 4102444800.0  # ~ 2100-01-01, anything beyond = lifetime
+
+
 def entitlement(user: dict) -> dict:
     """Whether this user may trade, and why. Admins always may."""
     now = time.time()
     if user.get("is_admin"):
-        return {"ok": True, "status": "admin", "days_left": None}
+        return {"ok": True, "status": "admin", "days_left": None, "lifetime": False}
     if not user.get("active", 1):
-        return {"ok": False, "status": "suspended", "days_left": 0}
+        return {"ok": False, "status": "suspended", "days_left": 0, "lifetime": False}
     lic = user.get("licence_until") or 0
     if lic > now:
-        return {"ok": True, "status": "licensed", "days_left": int((lic - now) / 86400) + 1}
+        if lic >= LIFETIME_THRESHOLD:
+            return {"ok": True, "status": "licensed", "days_left": None, "lifetime": True}
+        return {"ok": True, "status": "licensed",
+                "days_left": int((lic - now) / 86400) + 1, "lifetime": False}
     trial = user.get("trial_ends") or 0
     if trial > now:
-        return {"ok": True, "status": "trial", "days_left": int((trial - now) / 86400) + 1}
-    return {"ok": False, "status": "expired", "days_left": 0}
+        return {"ok": True, "status": "trial",
+                "days_left": int((trial - now) / 86400) + 1, "lifetime": False}
+    return {"ok": False, "status": "expired", "days_left": 0, "lifetime": False}
 
 
 def touch(user_id: int) -> None:
@@ -195,7 +206,7 @@ def platform_stats(licence_price: float = 0.0) -> dict:
             expired += 1
         elif st == "suspended":
             suspended += 1
-        if u["plan"] in ("paid", "licensed") or (u["licence_until"] or 0) > 0:
+        if u["plan"] in ("paid", "licensed", "lifetime") or (u["licence_until"] or 0) > 0:
             ever_paid += 1
         created = u["created"] or 0
         age = now - created
@@ -276,11 +287,24 @@ def set_admin(user_id: int, is_admin: bool) -> None:
         c.execute("UPDATE users SET is_admin=? WHERE id=?", (1 if is_admin else 0, user_id))
 
 
-def grant_licence(user_id: int, days: float) -> None:
-    """Extend the licence by ``days`` from max(now, current expiry)."""
+def grant_licence(user_id: int, days: float = 0.0, lifetime: bool = False) -> None:
+    """Grant or extend a licence.
+
+    ``lifetime=True`` (the admin default) grants a permanent, never-expiring
+    licence. Otherwise the licence is extended by ``days`` from
+    max(now, current expiry).
+    """
     with _LOCK, _conn() as c:
+        if lifetime:
+            c.execute("UPDATE users SET licence_until=?, plan='lifetime' WHERE id=?",
+                      (LIFETIME_TS, user_id))
+            return
         r = c.execute("SELECT licence_until FROM users WHERE id=?", (user_id,)).fetchone()
-        base = max(time.time(), (r["licence_until"] or 0) if r else 0)
+        cur = (r["licence_until"] or 0) if r else 0
+        # If they already hold a lifetime licence, a day-grant must not shorten it.
+        if cur >= LIFETIME_THRESHOLD:
+            return
+        base = max(time.time(), cur)
         c.execute("UPDATE users SET licence_until=?, plan='paid' WHERE id=?",
                   (base + days * 86400, user_id))
 

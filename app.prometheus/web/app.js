@@ -135,7 +135,7 @@ function render(s) {
 
   const ac = s.access || {};
   const lbl = { admin: "ADMIN", licensed: "LICENSED", trial: "TRIAL", suspended: "SUSPENDED", expired: "EXPIRED" }[ac.status] || "—";
-  const suf = (ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")) ? ` · ${ac.days_left}d` : "";
+  const suf = ac.lifetime ? " · ∞" : ((ac.days_left != null && (ac.status === "trial" || ac.status === "licensed")) ? ` · ${ac.days_left}d` : "");
   $("st-access").textContent = lbl + suf;
   $("st-access").className = "chip " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "danger");
   const buyable = ac.status === "trial" || ac.status === "expired";
@@ -158,7 +158,7 @@ function render(s) {
 
   $("t-bal").textContent = fmt(s.balance);
   const pnl = $("t-pnl"); pnl.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); pnl.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
-  $("t-access").textContent = lbl; $("t-accessd").textContent = ac.days_left != null ? `${ac.days_left} days left` : (ac.status || "");
+  $("t-access").textContent = lbl; $("t-accessd").textContent = ac.lifetime ? "Lifetime access" : (ac.days_left != null ? `${ac.days_left} days left` : (ac.status || ""));
   $("t-strat").textContent = s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off");
   $("t-strat").className = "v " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
   $("strat-state").textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");

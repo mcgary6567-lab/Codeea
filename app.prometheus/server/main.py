@@ -427,7 +427,10 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
     elif action == "activate":
         store.set_active(uid, True)
     elif action == "grant":
-        store.grant_licence(uid, float(d.get("days", 30)))
+        if d.get("lifetime"):
+            store.grant_licence(uid, lifetime=True)
+        else:
+            store.grant_licence(uid, days=float(d.get("days", 30)))
     elif action == "extend_trial":
         store.extend_trial(uid, float(d.get("days", 7)))
     elif action == "revoke":

@@ -169,7 +169,7 @@ function renderRows(rows) {
       <td>${u.id}</td>
       <td><div>${nm ? esc(nm) : "<span class='k'>—</span>"}</div><div class="k mono">${esc(u.email)}</div></td>
       <td><span class="chip ${PILL[st] || ""}">${st}</span>${u.is_admin ? ' <span class="chip safe">admin</span>' : ""}</td>
-      <td class="mono">${e.days_left == null ? "—" : e.days_left + "d"}</td>
+      <td class="mono">${e.lifetime ? "♾ <span class='pos'>Lifetime</span>" : (e.days_left == null ? "—" : e.days_left + "d")}</td>
       <td>${u.has_keys ? "✓" : "—"}</td>
       <td>${dot}${lv.strategy_on ? ' <span class="pos" title="strategy running">▶</span>' : ""}</td>
       <td class="k">${ago(u.last_seen)}</td>
@@ -182,7 +182,7 @@ function actionBtns(u) {
   return `${u.active
     ? `<button class="btn ghost sm" onclick="act(${u.id},'suspend')">Suspend</button>`
     : `<button class="btn green sm" onclick="act(${u.id},'activate')">Activate</button>`}
-    <button class="btn sm" onclick="grant(${u.id})">+Licence</button>
+    <button class="btn sm" onclick="grantLifetime(${u.id})">+Licence</button>
     <button class="btn ghost sm" onclick="openDrawer(${u.id})">Details</button>`;
 }
 
@@ -215,7 +215,7 @@ function renderDrawer(d) {
       ${live && live.paper_mode ? '<span class="chip warn">paper</span>' : ""}
     </div>
     <div class="dw-grid">
-      <div class="dw-stat"><span>Access</span><b>${st}${e.days_left != null ? " · " + e.days_left + "d" : ""}</b></div>
+      <div class="dw-stat"><span>Access</span><b>${st}${e.lifetime ? " · ♾ lifetime" : (e.days_left != null ? " · " + e.days_left + "d" : "")}</b></div>
       <div class="dw-stat"><span>Plan</span><b>${esc(d.plan)}</b></div>
       <div class="dw-stat"><span>Joined</span><b>${dshort(d.created)}</b></div>
       <div class="dw-stat"><span>Last seen</span><b>${ago(d.last_seen)}</b></div>
@@ -239,7 +239,8 @@ function renderDrawer(d) {
     <h4 class="dw-h">Actions</h4>
     <div class="dw-actions">
       ${d.active ? `<button class="btn ghost sm" onclick="act(${d.id},'suspend',1)">⛔ Suspend</button>` : `<button class="btn green sm" onclick="act(${d.id},'activate',1)">✅ Activate</button>`}
-      <button class="btn sm" onclick="grant(${d.id},1)">+ Grant licence</button>
+      <button class="btn sm" onclick="grantLifetime(${d.id},1)">♾ Lifetime licence</button>
+      <button class="btn ghost sm" onclick="grantDays(${d.id})">Grant N days…</button>
       <button class="btn ghost sm" onclick="extendTrial(${d.id})">+ Extend trial</button>
       <button class="btn ghost sm" onclick="act(${d.id},'revoke',1)">Revoke licence</button>
       <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
@@ -260,12 +261,19 @@ async function act(uid, action, fromDrawer) {
     if (fromDrawer) openDrawer(uid);
   } catch (e) { notify(e.message, "error"); }
 }
-async function grant(uid, fromDrawer) {
-  const days = prompt("Grant / extend licence for how many days?", "30");
+async function grantLifetime(uid, fromDrawer) {
+  if (!confirm("Grant a LIFETIME (never-expiring) licence to this customer?")) return;
+  try {
+    await api("/api/admin/action", "POST", { user_id: uid, action: "grant", lifetime: true });
+    notify("♾ Lifetime licence granted ✓", "ok"); await reloadAll(); if (fromDrawer) openDrawer(uid);
+  } catch (e) { notify(e.message, "error"); }
+}
+async function grantDays(uid) {
+  const days = prompt("Grant a time-limited licence for how many days?\n(Leave blank to cancel — use “+Licence” for a lifetime licence.)", "30");
   if (!days) return;
   try {
     await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) });
-    notify(`Licence granted (${days} days) ✓`, "ok"); await reloadAll(); if (fromDrawer) openDrawer(uid);
+    notify(`Licence granted (${days} days) ✓`, "ok"); await reloadAll(); openDrawer(uid);
   } catch (e) { notify(e.message, "error"); }
 }
 async function extendTrial(uid) {
