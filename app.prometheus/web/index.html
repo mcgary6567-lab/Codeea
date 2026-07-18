@@ -103,7 +103,7 @@
       <button class="on" data-v="home" onclick="show('home',this)">📊 Dashboard</button>
       <button data-v="exchange" onclick="show('exchange',this)">🔌 Exchange</button>
       <button data-v="strategy" onclick="show('strategy',this)">🤖 Bot Setting</button>
-      <button data-v="backtest" onclick="show('backtest',this)">🧪 Backtest</button>
+      <button data-v="backtest" onclick="show('backtest',this)">📈 Profit Simulator</button>
       <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
       <button data-v="log" onclick="show('log',this)">📜 Log</button>
       <button data-v="settings" onclick="show('settings',this)">⚙️ Settings</button>
@@ -315,7 +315,7 @@
       <!-- BACKTEST -->
       <section id="v-backtest" class="hidden">
         <div class="card">
-          <h3>Backtest <span class="chip">pro</span></h3>
+          <h3>Profit Simulator <span class="chip">pro</span></h3>
           <div class="row">
             <div class="col"><label>Exchange</label>
               <select id="bt-ex">
@@ -344,7 +344,7 @@
           </div>
           <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
           <div class="btnrow">
-            <button class="btn" id="bt-run" onclick="runBacktest()">▶ Run backtest</button>
+            <button class="btn" id="bt-run" onclick="runBacktest()">▶ Run simulation</button>
             <button class="btn ghost" id="bt-csv" onclick="btCsv()" disabled>⬇ Export CSV</button>
           </div>
           <div class="hint" id="bt-period-info"></div>
@@ -449,7 +449,7 @@
           <div class="guide-steps">
             <span class="gstep" onclick="show('exchange',qNav('exchange'))">① Connect</span>
             <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Strategy</span>
-            <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Backtest</span>
+            <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Profit Simulator</span>
             <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
           </div>
@@ -489,13 +489,13 @@
         <div class="card gcard">
           <div class="gnum">3</div>
           <div class="gbody">
-            <h3>🧪 Backtest before you risk a cent</h3>
-            <p>Open <b>Backtest</b>. Pick a symbol, timeframe and period, then <b>Run backtest</b> — it replays the <i>exact</i> live strategy on real market history and shows an equity curve, drawdown, win-rate and every trade. Export to CSV to dig deeper.</p>
+            <h3>🧪 Profit Simulator — see returns before you risk a cent</h3>
+            <p>Open <b>Profit Simulator</b>. Pick a symbol, timeframe and period, then <b>Run simulation</b> — it replays the <i>exact</i> live strategy on real market history and shows an equity curve, drawdown, win-rate and every trade. Export to CSV to dig deeper.</p>
             <div class="gshot">
               <div class="gs-tiles"><div class="gs-tile"><span>Net PnL</span><b class="pos">+18.4%</b></div><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Max DD</span><b class="neg">-6.1%</b></div></div>
               <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,38 25,34 50,36 75,26 100,28 125,18 150,20 175,10 200,6" fill="none" stroke="#22c55e" stroke-width="2"/></svg></div>
             </div>
-            <p class="gtip">💡 The backtester uses your <b>saved</b> strategy parameters — tune in Strategy, then re-run here to compare.</p>
+            <p class="gtip">💡 The Profit Simulator uses your <b>saved</b> strategy parameters — tune in Strategy, then re-run here to compare.</p>
           </div>
         </div>
 
