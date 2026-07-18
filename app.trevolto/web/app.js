@@ -71,8 +71,34 @@ function enterApp() {
   $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
   const foll = localStorage.getItem("ch_follow") !== "0";   // ON by default
   $("ch-follow").checked = foll; $("ch-sym").disabled = foll; $("ch-tf").disabled = foll;
-  refresh(); openWs(); loadChart(); pollPrices();
+  refresh(); openWs(); loadChart(); pollPrices(); updateNotifBtn();
 }
+
+// ---- browser / system notifications ----
+let lastAlertTs = 0, alertInit = false;
+function notifIcon() { const i = document.querySelector('.brand img'); return i ? i.src : ""; }
+function notifTitle() { const i = document.querySelector('.brand img'); return (i && i.alt) || "Alert"; }
+function browserNotifyOn() { return localStorage.getItem("notif") === "1" && "Notification" in window && Notification.permission === "granted"; }
+function updateNotifBtn() { const b = $("notif-btn"); if (b) b.textContent = browserNotifyOn() ? "\uD83D\uDD14 Notifications ON \u2014 click to turn off" : "\uD83D\uDD14 Enable browser notifications"; }
+function toggleNotif() {
+  if (!("Notification" in window)) { notify("This browser doesn't support notifications", "warn"); return; }
+  if (browserNotifyOn()) { localStorage.setItem("notif", "0"); updateNotifBtn(); notify("Browser notifications off", "warn"); return; }
+  Notification.requestPermission().then(p => {
+    if (p === "granted") { localStorage.setItem("notif", "1"); updateNotifBtn(); try { new Notification(notifTitle(), { body: "Notifications enabled \u2014 you'll be alerted on trades.", icon: notifIcon() }); } catch (e) { } }
+    else notify("Notifications are blocked in your browser settings", "warn");
+  });
+}
+function processAlerts(s) {
+  const a = s.alerts || []; if (!a.length) return;
+  const newestTs = a[0].ts;
+  if (!alertInit) { lastAlertTs = newestTs; alertInit = true; return; }   // don't replay history on first load
+  if (newestTs <= lastAlertTs) return;
+  const fresh = a.filter(x => x.ts > lastAlertTs).sort((x, y) => x.ts - y.ts);
+  lastAlertTs = newestTs;
+  if (!browserNotifyOn()) return;
+  fresh.forEach(x => { try { new Notification(notifTitle(), { body: x.msg, icon: notifIcon() }); } catch (e) { } });
+}
+
 
 // Chart "Follow strategy": lock the chart symbol + timeframe to the strategy's.
 function chFollowToggle() {
@@ -118,6 +144,7 @@ setInterval(() => { if (TOKEN && !ws) refresh(); }, 3000);
 
 function render(s) {
   lastState = s;
+  processAlerts(s);
   $("st-dot").classList.toggle("on", s.connected);
   $("st-conn").textContent = s.connected ? "Connected" : "Disconnected";
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";

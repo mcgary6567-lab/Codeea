@@ -175,6 +175,7 @@ class TraderSession:
         self.exchange_id = ""
         self.market_type = "spot"
         self.log_ring: deque = deque(maxlen=400)
+        self.alert_ring: deque = deque(maxlen=50)   # in-app/browser alert feed
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._poll: threading.Thread | None = None
@@ -194,7 +195,8 @@ class TraderSession:
         self.log_ring.appendleft({"ts": time.time(), "level": level, "msg": msg})
 
     def notify(self, msg: str) -> None:
-        """Best-effort Telegram push (per-user bot token + chat id)."""
+        """Push an alert to the in-app feed, then best-effort Telegram."""
+        self.alert_ring.appendleft({"ts": time.time(), "msg": msg})
         token = self.settings.get("telegram_token", "").strip()
         chat = self.settings.get("telegram_chat", "").strip()
         if not token or not chat:
@@ -622,6 +624,7 @@ class TraderSession:
                 for p in self.positions
             ],
             "log": list(self.log_ring)[:120],
+            "alerts": list(self.alert_ring)[:30],
             "settings": self.settings,
         }
 

@@ -413,6 +413,7 @@
             <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
             <label class="chkline"><input type="checkbox" id="s-summary"/> 📊 Daily PnL recap (Telegram + email)</label>
             <label class="chkline"><input type="checkbox" id="s-alert-skips"/> ⏭️ Alert on skipped signals (blocked by guardrails)</label>
+            <div style="margin-top:6px"><button class="btn ghost sm" id="notif-btn" onclick="toggleNotif()">🔔 Enable browser notifications</button></div>
             <div class="btnrow">
               <button class="btn" onclick="saveTelegram()">Save Telegram</button>
               <button class="btn ghost" id="tg-test" onclick="tgTest()">✈️ Send test</button>
