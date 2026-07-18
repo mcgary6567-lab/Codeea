@@ -143,16 +143,21 @@
             <h3 style="margin:0">Live chart</h3>
             <input id="ch-sym" list="symbols" value="BTC/USDT" style="width:130px"/>
             <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
-            <button class="btn ghost sm" onclick="loadChart()">Load</button>
-            <label class="chkline" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
+            <button class="btn ghost sm" onclick="chartLoad()">Load</button>
+            <span class="chmode">
+              <button id="chm-strat" class="btn sm" onclick="chartMode('strat')">Strategy</button>
+              <button id="chm-tv" class="btn sm ghost" onclick="chartMode('tv')">TradingView</button>
+            </span>
+            <label class="chkline strat-only" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
             <span class="grow"></span>
-            <button class="btn ghost sm" onclick="chZoom(0.8)">＋</button>
-            <button class="btn ghost sm" onclick="chZoom(1.25)">－</button>
-            <button class="btn ghost sm" onclick="chReset()">Reset</button>
+            <button class="btn ghost sm strat-only" onclick="chZoom(0.8)">＋</button>
+            <button class="btn ghost sm strat-only" onclick="chZoom(1.25)">－</button>
+            <button class="btn ghost sm strat-only" onclick="chReset()">Reset</button>
           </div>
-          <div class="chlegend" id="ch-legend"></div>
-          <canvas id="ch-price" class="chart" style="height:380px;margin-top:8px;touch-action:none"></canvas>
-          <div class="hint">Scroll / pinch to zoom, drag to pan. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> red / <span style="color:var(--green)">TP</span> green.</div>
+          <div class="chlegend strat-only" id="ch-legend"></div>
+          <canvas id="ch-price" class="chart strat-only" style="height:380px;margin-top:8px;touch-action:none"></canvas>
+          <div id="tv-chart" class="chart hidden" style="height:460px;margin-top:8px"></div>
+          <div class="hint"><span class="strat-only">Scroll / pinch to zoom, drag to pan. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> red / <span style="color:var(--green)">TP</span> green.</span><span class="tv-only hidden">Full TradingView charting with EMA 9/21/100 preloaded. The bot's own BUY/SELL &amp; SL/TP markers live in the <b>Strategy</b> view.</span></div>
         </div>
 
         <div class="grid2">
