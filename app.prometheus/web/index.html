@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
 <title>Prometheus — AI Crypto Trading</title>
 <link rel="icon" href="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="theme-color" content="#0a0d13"/>
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
@@ -119,6 +121,7 @@
 
     <main class="content">
       <div class="warnbox hidden" id="access-warn"></div>
+      <div class="warnbox hidden" id="withdraw-warn"></div>
 
       <!-- DASHBOARD -->
       <section id="v-home">
@@ -446,6 +449,12 @@
               <label>Password (to disable)</label><input id="tfa-pass" type="password" placeholder="••••••••"/>
               <button class="btn red" style="margin-top:8px" onclick="twofaDisable()">Disable 2FA</button>
             </div>
+          </div>
+          <div class="card"><h3>🖥️ Sessions &amp; login history</h3>
+            <div class="hint">Recent sign-ins to your account. If anything looks unfamiliar, change your password and sign out everywhere.</div>
+            <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>When</th><th>IP</th><th>Device</th></tr></thead>
+              <tbody id="login-rows"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
+            <button class="btn red" style="margin-top:12px" onclick="logoutAll()">Sign out all other devices</button>
           </div>
         </div>
       </section>

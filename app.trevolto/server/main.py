@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 import backtest as bt
 import strategy as strat
 
-from . import security, store
+from . import security, store, webpush
 from .config_web import PUBLIC_URL, LICENCE_PRICE
 from .session import (get_session, public_ohlcv, public_ohlcv_days, public_prices,
                       live_stats, session_snapshot_if_live)
@@ -49,6 +49,8 @@ def current_user(authorization: str = Header(default="")) -> dict:
     user = store.get_user(int(data["sub"]))
     if not user:
         raise HTTPException(401, "user not found")
+    if int(data.get("tv", 0)) != int(user.get("token_version", 0) or 0):
+        raise HTTPException(401, "session expired \u2014 please sign in again")
     store.touch(user["id"])
     return user
 
@@ -72,6 +74,11 @@ async def body(request: Request) -> dict:
         return {}
 
 
+def _ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "")
+
+
 # --- auth routes ------------------------------------------------------------
 @app.post("/api/register")
 async def register(request: Request):
@@ -83,7 +90,8 @@ async def register(request: Request):
         user = store.create_user(email, pw, d.get("first_name", ""), d.get("last_name", ""))
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return {"token": security.make_token(user["id"], user["email"]), "email": user["email"]}
+    store.record_login(user["id"], _ip(request), request.headers.get("user-agent", ""))
+    return {"token": security.make_token(user["id"], user["email"], user.get("token_version", 0)), "email": user["email"]}
 
 
 @app.post("/api/login")
@@ -98,7 +106,8 @@ async def login(request: Request):
             return {"need_2fa": True}
         if not security.verify_totp(user.get("totp_secret", ""), code):
             raise HTTPException(401, "invalid 2FA code")
-    return {"token": security.make_token(user["id"], user["email"]), "email": user["email"]}
+    store.record_login(user["id"], _ip(request), request.headers.get("user-agent", ""))
+    return {"token": security.make_token(user["id"], user["email"], user.get("token_version", 0)), "email": user["email"]}
 
 
 # --- password reset ---------------------------------------------------------
@@ -130,7 +139,7 @@ async def reset(request: Request):
         raise HTTPException(400, "invalid or expired reset link")
     store.update_password(uid, pw)
     u = store.get_user(uid)
-    return {"token": security.make_token(u["id"], u["email"]), "email": u["email"]}
+    return {"token": security.make_token(u["id"], u["email"], u.get("token_version", 0)), "email": u["email"]}
 
 
 # --- 2FA (TOTP) -------------------------------------------------------------
@@ -207,7 +216,7 @@ async def account(request: Request, user: dict = Depends(current_user)):
             raise HTTPException(400, "new password must be 6+ characters")
         store.update_password(user["id"], new_password)
     u = store.get_user(user["id"])
-    return {"ok": True, "token": security.make_token(u["id"], u["email"]), "email": u["email"]}
+    return {"ok": True, "token": security.make_token(u["id"], u["email"], u.get("token_version", 0)), "email": u["email"]}
 
 
 @app.post("/api/keys")
@@ -532,6 +541,55 @@ async def ws(websocket: WebSocket):
         return
     except Exception:
         return
+
+
+# --- security: login history + logout everywhere ----------------------------
+@app.get("/api/security/logins")
+def security_logins(user: dict = Depends(current_user)):
+    return {"logins": store.recent_logins(user["id"], 10)}
+
+
+@app.post("/api/security/logout_all")
+def security_logout_all(user: dict = Depends(current_user)):
+    tv = store.bump_token_version(user["id"])
+    return {"ok": True, "token": security.make_token(user["id"], user["email"], tv)}
+
+
+# --- web push ---------------------------------------------------------------
+@app.get("/api/push/vapid")
+def push_vapid(user: dict = Depends(current_user)):
+    return {"key": webpush.public_key()}
+
+
+@app.post("/api/push/subscribe")
+async def push_subscribe(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    sub = d.get("subscription") or d
+    ep = (sub or {}).get("endpoint")
+    if not ep:
+        raise HTTPException(400, "no endpoint")
+    store.add_push_sub(user["id"], ep, json.dumps(sub))
+    return {"ok": True}
+
+
+@app.post("/api/push/unsubscribe")
+async def push_unsubscribe(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    ep = d.get("endpoint")
+    if ep:
+        store.remove_push_sub(ep)
+    return {"ok": True}
+
+
+# --- service worker (served at root so its scope is the whole app) ----------
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(os.path.join(WEB_DIR, "sw.js"), media_type="application/javascript")
+
+
+@app.get("/manifest.webmanifest")
+def web_manifest():
+    return FileResponse(os.path.join(WEB_DIR, "manifest.webmanifest"), media_type="application/manifest+json")
 
 
 # --- static frontend --------------------------------------------------------

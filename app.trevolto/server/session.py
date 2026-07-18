@@ -19,7 +19,7 @@ import exchange as ex          # engine module (on sys.path)
 import strategy as strat
 from guardrails import Guardrails
 
-from . import store
+from . import store, webpush
 from .config_web import POLL_INTERVAL
 
 # Keyless public ccxt clients for candle data (backtest / built-in strategy),
@@ -186,6 +186,10 @@ class TraderSession:
         self._strat_primed: dict = {}
         self._strat_hold: dict = {}      # last logged "why held" reason per symbol
         self._apply_guardrails()
+        self.key_withdraw_warn = False
+        self._tg_offset = 0
+        self._tg_thread = threading.Thread(target=self._tg_cmd_loop, daemon=True)
+        self._tg_thread.start()
 
     # -- logging + notifications --------------------------------------------
     def _mode(self) -> str:
@@ -197,6 +201,7 @@ class TraderSession:
     def notify(self, msg: str) -> None:
         """Push an alert to the in-app feed, then best-effort Telegram."""
         self.alert_ring.appendleft({"ts": time.time(), "msg": msg})
+        webpush.push_to_user(self.user_id, msg)
         token = self.settings.get("telegram_token", "").strip()
         chat = self.settings.get("telegram_chat", "").strip()
         if not token or not chat:
@@ -288,6 +293,7 @@ class TraderSession:
         self.notify(f"Connected to {self.exchange_id} ({self.market_type}){tag}")
         self._ensure_poll()
         self.refresh()
+        self._check_key_perms()
         # Built-in strategy is ON by default — auto-start it once connected.
         if self.settings.get("strategy_enabled", True):
             self.start_strategy()
@@ -605,6 +611,91 @@ class TraderSession:
             self._strat_hold[symbol] = reason
 
     # -- snapshot for the UI -------------------------------------------------
+    # -- API-key safety check -----------------------------------------------
+    def _check_key_perms(self) -> None:
+        """Best-effort: warn if the connected API key can withdraw (Binance-family)."""
+        self.key_withdraw_warn = False
+        try:
+            client = getattr(self.em, "client", None)
+            fn = getattr(client, "sapi_get_account_apirestrictions", None) or \
+                getattr(client, "sapiGetAccountApiRestrictions", None)
+            if fn:
+                r = fn() or {}
+                if r.get("enableWithdrawals"):
+                    self.key_withdraw_warn = True
+                    self.log("\u26a0\ufe0f This API key has WITHDRAWALS enabled \u2014 use a trade-only key.", "warn")
+                    self.notify("\u26a0\ufe0f Security: your API key has withdrawals enabled. "
+                                "For safety, use a trade-only key with withdrawals disabled.")
+        except Exception:
+            self.key_withdraw_warn = False
+
+    # -- two-way Telegram control -------------------------------------------
+    def _tg_cmd_loop(self) -> None:
+        while not self._stop.is_set():
+            token = self.settings.get("telegram_token", "").strip()
+            chat = str(self.settings.get("telegram_chat", "")).strip()
+            if not token or not chat:
+                self._stop.wait(20); continue
+            try:
+                url = (f"https://api.telegram.org/bot{token}/getUpdates"
+                       f"?timeout=20&offset={self._tg_offset}")
+                with urllib.request.urlopen(urllib.request.Request(url), timeout=30) as r:
+                    data = json.loads(r.read().decode())
+                for upd in data.get("result", []):
+                    self._tg_offset = upd["update_id"] + 1
+                    m = upd.get("message") or upd.get("edited_message") or {}
+                    text = (m.get("text") or "").strip()
+                    frm = str((m.get("chat") or {}).get("id", ""))
+                    if text.startswith("/") and frm == chat:
+                        reply = self._tg_command(text)
+                        if reply:
+                            self._tg_send(token, chat, reply)
+            except Exception:
+                self._stop.wait(10)
+
+    def _tg_command(self, text: str) -> str:
+        cmd = text.split()[0].lstrip("/").split("@")[0].lower()
+        if cmd in ("start", "help"):
+            return ("Commands:\n/status \u2014 connection & strategy\n/pnl \u2014 realized PnL\n"
+                    "/positions \u2014 open trades\n/pause \u2014 stop strategy\n"
+                    "/resume \u2014 start strategy\n/closeall \u2014 close all positions")
+        if cmd == "status":
+            ent = store.entitlement(store.get_user(self.user_id) or {})
+            strat_s = "running" if self.strategy_on else ("on (idle)" if self.settings.get("strategy_enabled") else "off")
+            head = "\U0001F7E2 Connected" if self.connected else "\U0001F534 Disconnected"
+            return (f"{head} {self.exchange_id or ''}\nStrategy: {strat_s}\n"
+                    f"Balance: {self.balance:.2f} \u00b7 uPnL: {self.pnl:+.2f}\n"
+                    f"Open: {len(self.positions)} \u00b7 {self._mode()} \u00b7 {ent['status']}")
+        if cmd == "pnl":
+            try:
+                pnl, ntr, _w = store.realized_pnl_since(self.user_id, time.time() - 86400)
+                pm = store.pnl_by_mode(self.user_id)
+                return (f"Realized PnL (24h): {pnl:+.2f} over {ntr} trades\n"
+                        f"Live all-time: {pm['live']['pnl']:+.2f} \u00b7 {pm['live']['win_rate']}% win")
+            except Exception:
+                return "PnL unavailable right now."
+        if cmd == "positions":
+            if not self.positions:
+                return "No open positions."
+            return "\n".join(f"{p.pair} {p.side} {p.size:g} @ {p.entry:g} \u00b7 PnL {p.pnl:+.4f}"
+                             for p in self.positions)
+        if cmd == "pause":
+            self.stop_strategy()
+            self.settings["strategy_enabled"] = False
+            store.save_settings(self.user_id, self.settings)
+            return "\u23f8\ufe0f Strategy paused."
+        if cmd == "resume":
+            self.settings["strategy_enabled"] = True
+            store.save_settings(self.user_id, self.settings)
+            if self.connected:
+                self.start_strategy()
+                return "\u25b6\ufe0f Strategy resumed."
+            return "\u25b6\ufe0f Strategy enabled \u2014 connect your exchange to run it."
+        if cmd == "closeall":
+            r = self.close_all()
+            return f"\U0001F9F9 {r.get('message', 'done')}"
+        return "Unknown command. Send /help."
+
     def snapshot(self) -> dict:
         return {
             "connected": self.connected,
@@ -625,6 +716,7 @@ class TraderSession:
             ],
             "log": list(self.log_ring)[:120],
             "alerts": list(self.alert_ring)[:30],
+            "key_withdraw_warn": getattr(self, "key_withdraw_warn", False),
             "settings": self.settings,
         }
 

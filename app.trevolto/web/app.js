@@ -71,7 +71,7 @@ function enterApp() {
   $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
   const foll = localStorage.getItem("ch_follow") !== "0";   // ON by default
   $("ch-follow").checked = foll; $("ch-sym").disabled = foll; $("ch-tf").disabled = foll;
-  refresh(); openWs(); loadChart(); pollPrices(); updateNotifBtn();
+  refresh(); openWs(); loadChart(); pollPrices(); updateNotifBtn(); registerSW(); if (browserNotifyOn()) subscribePush();
 }
 
 // ---- browser / system notifications ----
@@ -84,7 +84,7 @@ function toggleNotif() {
   if (!("Notification" in window)) { notify("This browser doesn't support notifications", "warn"); return; }
   if (browserNotifyOn()) { localStorage.setItem("notif", "0"); updateNotifBtn(); notify("Browser notifications off", "warn"); return; }
   Notification.requestPermission().then(p => {
-    if (p === "granted") { localStorage.setItem("notif", "1"); updateNotifBtn(); try { new Notification(notifTitle(), { body: "Notifications enabled \u2014 you'll be alerted on trades.", icon: notifIcon() }); } catch (e) { } }
+    if (p === "granted") { localStorage.setItem("notif", "1"); updateNotifBtn(); subscribePush(); try { new Notification(notifTitle(), { body: "Notifications enabled \u2014 you'll be alerted on trades.", icon: notifIcon() }); } catch (e) { } }
     else notify("Notifications are blocked in your browser settings", "warn");
   });
 }
@@ -100,7 +100,7 @@ function processAlerts(s) {
   fresh.forEach(x => {
     const t = x.msg.indexOf("\u274C") >= 0 ? "error" : (x.msg.indexOf("\u23ED") >= 0 ? "warn" : "ok");
     notify(x.msg.split("\n").join(" \u00b7 "), t);                              // in-app toast
-    if (browserNotifyOn()) { try { new Notification(notifTitle(), { body: x.msg, icon: notifIcon() }); } catch (e) { } }
+    if (browserNotifyOn() && !pushActive) { try { new Notification(notifTitle(), { body: x.msg, icon: notifIcon() }); } catch (e) { } }
     unread++;
   });
   updateBadge();
@@ -144,6 +144,7 @@ function show(v, btn) {
   document.querySelector(".side").classList.remove("open");
   if (v === "analytics") loadAnalytics();
   if (v === "home") loadChart();
+  if (v === "settings") loadLogins();
 }
 
 // ---- live state ----
@@ -168,6 +169,7 @@ function render(s) {
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
+  { const ww = $("withdraw-warn"); if (ww) { ww.classList.toggle("hidden", !s.key_withdraw_warn); if (s.key_withdraw_warn) ww.innerHTML = "\u26a0\ufe0f <b>Your API key has withdrawals enabled.</b> For safety, replace it with a trade-only key (withdrawals disabled) on your exchange."; } }
   const name = s.name || (s.email || "").split("@")[0];
   $("st-email").textContent = "👋 " + name;
   $("welcome").textContent = "Welcome back, " + name + " 👋";
@@ -567,6 +569,45 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // unified toast notifications for every action
+// ---- PWA + web push ----
+let pushActive = false;
+function urlB64ToUint8(base64) {
+  const pad = "=".repeat((4 - base64.length % 4) % 4);
+  const b = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b); const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+function registerSW() { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => { }); }
+async function subscribePush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const v = await api("/api/push/vapid");
+    if (!v.key) return;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(v.key) });
+    await api("/api/push/subscribe", "POST", { subscription: sub.toJSON() });
+    pushActive = true;
+  } catch (e) { }
+}
+// ---- security: login history + sign out everywhere ----
+async function loadLogins() {
+  try {
+    const d = await api("/api/security/logins"); const rows = d.logins || [];
+    $("login-rows").innerHTML = rows.length ? rows.map(r =>
+      `<tr><td class="k">${new Date(r.ts * 1000).toLocaleString()}</td><td class="mono">${esc(r.ip || "\u2014")}</td><td class="k">${esc((r.ua || "").slice(0, 42))}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="k">No sign-ins recorded yet.</td></tr>`;
+  } catch (e) { }
+}
+async function logoutAll() {
+  if (!confirm("Sign out of all other devices? You'll stay signed in here.")) return;
+  try {
+    const d = await api("/api/security/logout_all", "POST");
+    if (d.token) { TOKEN = d.token; localStorage.setItem("trevolto_token", TOKEN); }
+    notify("Signed out all other devices \u2713", "ok");
+  } catch (e) { notify(e.message, "error"); }
+}
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { console.log(type + ": " + msg); return; }
   const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";

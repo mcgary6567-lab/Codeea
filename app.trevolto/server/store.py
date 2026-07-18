@@ -68,12 +68,24 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL,
                 expires REAL NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS logins(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL, ts REAL NOT NULL,
+                ip TEXT NOT NULL DEFAULT '', ua TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS ix_logins_user ON logins(user_id, ts);
+            CREATE TABLE IF NOT EXISTS push_subs(
+                endpoint TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL, sub TEXT NOT NULL, created REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT NOT NULL);
             """
         )
         for name, ddl in {
             "totp_secret": "TEXT NOT NULL DEFAULT ''",
             "totp_enabled": "INTEGER NOT NULL DEFAULT 0",
             "last_summary": "TEXT NOT NULL DEFAULT ''",
+            "token_version": "INTEGER NOT NULL DEFAULT 0",
         }.items():
             ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
             if name not in ucols:
@@ -528,3 +540,56 @@ def analytics(user_id: int, since: float | None = None, until: float | None = No
         "avg_loss": round(sum(losses) / len(losses), 4) if losses else 0.0,
         "by_symbol": sorted(by.values(), key=lambda x: -x["pnl"]),
     }
+
+
+# --- security: token versioning, login history ------------------------------
+def bump_token_version(user_id: int) -> int:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET token_version = token_version + 1 WHERE id=?", (user_id,))
+        r = c.execute("SELECT token_version FROM users WHERE id=?", (user_id,)).fetchone()
+        return int(r["token_version"]) if r else 0
+
+
+def record_login(user_id: int, ip: str = "", ua: str = "") -> None:
+    with _LOCK, _conn() as c:
+        c.execute("INSERT INTO logins(user_id, ts, ip, ua) VALUES(?,?,?,?)",
+                  (user_id, time.time(), (ip or "")[:64], (ua or "")[:300]))
+        c.execute("DELETE FROM logins WHERE user_id=? AND id NOT IN "
+                  "(SELECT id FROM logins WHERE user_id=? ORDER BY ts DESC LIMIT 30)",
+                  (user_id, user_id))
+
+
+def recent_logins(user_id: int, limit: int = 10) -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT ts, ip, ua FROM logins WHERE user_id=? ORDER BY ts DESC LIMIT ?",
+                         (user_id, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+
+# --- web-push subscriptions + kv store --------------------------------------
+def add_push_sub(user_id: int, endpoint: str, sub_json: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("INSERT OR REPLACE INTO push_subs(endpoint, user_id, sub, created) VALUES(?,?,?,?)",
+                  (endpoint, user_id, sub_json, time.time()))
+
+
+def push_subs_for(user_id: int) -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT endpoint, sub FROM push_subs WHERE user_id=?", (user_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def remove_push_sub(endpoint: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("DELETE FROM push_subs WHERE endpoint=?", (endpoint,))
+
+
+def kv_get(key: str):
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT v FROM kv WHERE k=?", (key,)).fetchone()
+        return r["v"] if r else None
+
+
+def kv_set(key: str, value: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)", (key, value))

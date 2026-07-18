@@ -65,9 +65,9 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 # --- JWT --------------------------------------------------------------------
-def make_token(user_id: int, email: str) -> str:
+def make_token(user_id: int, email: str, token_version: int = 0) -> str:
     now = int(time.time())
-    payload = {"sub": str(user_id), "email": email, "iat": now, "exp": now + _TOKEN_TTL}
+    payload = {"sub": str(user_id), "email": email, "tv": int(token_version), "iat": now, "exp": now + _TOKEN_TTL}
     return jwt.encode(payload, _JWT_SECRET, algorithm=_ALG)
 
 
