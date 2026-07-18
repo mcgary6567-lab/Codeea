@@ -73,7 +73,7 @@
       { "@type": "Question", "name": "How does it connect to my exchange?", "acceptedAnswer": { "@type": "Answer", "text": "You link your exchange account through a secure API key. Your funds stay in your own exchange account the entire time — the bot can place trades but cannot withdraw your money." } },
       { "@type": "Question", "name": "Which exchanges are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Popular exchanges including Binance, Coinbase, Kraken, KuCoin, OKX, Bitget, Gate, HTX and Crypto.com." } },
       { "@type": "Question", "name": "Is there a demo mode?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The platform includes a built-in demo (paper trading) mode so you can simulate strategies on live market data without risking real capital." } },
-      { "@type": "Question", "name": "Which devices does the app run on?", "acceptedAnswer": { "@type": "Answer", "text": "Trevolto runs as a desktop app on both Windows (10 and 11) and macOS — download whichever you need. You connect your exchange securely by API, so your funds always stay in your own account." } },
+      { "@type": "Question", "name": "Which devices does it run on?", "acceptedAnswer": { "@type": "Answer", "text": "Trevolto is a web app — there's nothing to download or install. It runs 24/7 in the cloud and you access your dashboard from any modern browser on your phone, tablet or computer. You connect your exchange securely by API, so your funds always stay in your own account." } },
       { "@type": "Question", "name": "How long does setup take?", "acceptedAnswer": { "@type": "Answer", "text": "Most users are up and running in around 10 minutes, and a Done-For-You setup call is included to configure everything with you." } },
       { "@type": "Question", "name": "What if it's not for me? Is there a guarantee?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — every purchase is backed by our 14-day money-back guarantee and 60-day profit guarantee. If it isn't right for you, request a refund within 14 days — no hassle. Full terms are on the Refund Policy page." } }
     ]
@@ -97,9 +97,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" as="image" href="assets/img-03.png" fetchpriority="high" />
+  <link rel="preload" as="image" href="assets/hero-webapp.svg" fetchpriority="high" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=22" />
+  <link rel="stylesheet" href="css/style.css?v=23" />
 </head>
 <body>
 
@@ -126,7 +126,9 @@
         <a href="#features">Features</a>
         <a href="#testimonials">Reviews</a>
         <a href="#guarantee">Guarantee</a>
+        <a href="https://trevolto-bot.fly.dev/" target="_blank" rel="noopener">Log in</a>
       </nav>
+      <a class="btn btn--try nav__cta" href="https://trevolto-bot.fly.dev/" target="_blank" rel="noopener">🚀 Try FREE</a>
       <a class="btn btn--cta nav__cta" href="/checkout">Get Instant Access</a>
     </div>
   </header>
@@ -154,9 +156,10 @@
               <span class="token token--chip">BEAT</span>
             </div>
             <div class="hero__cta">
+              <a class="btn btn--try btn--lg" href="https://trevolto-bot.fly.dev/" target="_blank" rel="noopener">🚀 Try The Bot FREE</a>
               <a class="btn btn--cta btn--lg" href="/checkout">Get Instant Access</a>
               <div class="hero__trust">
-                <span class="hero__trust-item">🛡️ 14-Day Refund</span>
+                <span class="hero__trust-item">🎁 10-Day Free Trial</span>
                 <span class="hero__trust-item">📈 60-Day Profit</span>
                 <span class="hero__trust-item">🔒 Funds Stay Yours</span>
               </div>
@@ -165,11 +168,11 @@
 
           <!-- Right: software mockup -->
           <div class="hero__mockup">
-            <span class="hero__mockup-label">Live Trading Dashboard</span>
+            <span class="hero__mockup-label">Live Web Dashboard</span>
             <div class="hero__mockup-frame">
-              <img src="assets/website-hero.png" alt="Trevolto AI crypto trading bot live dashboard — API settings, trade log, open positions and real-time P&L" loading="eager" />
+              <img class="appshot" src="assets/hero-webapp.svg" alt="Trevolto web dashboard — live BTC/USDT chart with EMA overlays, buy &amp; sell signals, SL/TP lines and an open trade up +$247.10 (+4.2%)" loading="eager" width="1280" height="752" />
             </div>
-            <p class="hero__mockup-caption">Real-time P&amp;L tracking · One-click bot controls · Multi-exchange support</p>
+            <p class="hero__mockup-caption">Open trade in profit · Buy/sell signals on the chart · Runs 24/7 in the cloud</p>
           </div>
 
         </div>
@@ -184,12 +187,12 @@
             <h2>Everything Included — One Price, Forever</h2>
             <ul class="vstack__list">
               <li><b>Lifetime access</b> — one payment, zero monthly fees</li>
-              <li>3 built-in profit modes — short-term, passive &amp; long-term, ready to run</li>
+              <li><b>Web app — nothing to install</b>, runs 24/7 in the cloud</li>
+              <li>Proven EMA 9/21 strategy — trade any timeframe, short or long</li>
               <li>Done-For-You setup call + step-by-step Quickstart guide</li>
-              <li>Built-in demo mode — simulate before you go live</li>
+              <li>Built-in paper (demo) mode — simulate before you go live</li>
               <li><b>Non-custodial</b> — funds stay on your own exchange, always</li>
               <li>Runs on Binance, Bybit, OKX, KuCoin &amp; more</li>
-              <li>Setup in under 10 minutes</li>
               <li>14-day money-back + 60-day profit guarantee</li>
             </ul>
           </div>
@@ -285,9 +288,9 @@
             <p>Connect with trade-only permissions. Withdrawal access is never required — and you should never grant it to any bot.</p>
           </article>
           <article class="feature">
-            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-            <h3>Runs on Your Device</h3>
-            <p>The app runs locally on your own computer behind a PIN lock. Your keys stay with you — not on our servers.</p>
+            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1.5"/></svg></div>
+            <h3>Bank-Grade Encrypted Keys</h3>
+            <p>Your API keys are encrypted at rest and used only to place trades — never to withdraw. Add two-factor authentication for an extra lock on your account.</p>
           </article>
         </div>
         <p class="security__note">What Trevolto <b>isn't</b>: it's not a fund, a pool, or a "send us your crypto" scheme. You keep full control of your money, always.</p>
@@ -298,16 +301,17 @@
     <section class="section section--dark" id="features">
       <div class="container">
         <h2 class="section__title">Everything the Bot <span class="hl">Does for You</span></h2>
+        <p class="section__lead">Trevolto is a <b>web app</b> — nothing to download or install. It runs 24/7 in the cloud and you check it from any browser, on your phone or laptop. Here's what's inside.</p>
         <div class="grid grid--3">
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></div>
             <h3>Connect Any Major Exchange</h3>
-            <p>Link Binance, Bitget, Bybit, OKX, KuCoin, Kraken &amp; more via secure API — your funds stay in your own account.</p>
+            <p>Link Binance, Bitget, Bybit, OKX, KuCoin, Kraken, Coinbase &amp; Binance.US via secure API — your funds stay in your own account.</p>
           </article>
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
-            <h3>Built-In Strategy + Presets</h3>
-            <p>A ready-made EMA + RSI strategy that trades long and short, with Conservative, Balanced &amp; Aggressive presets.</p>
+            <h3>Proven EMA 9/21 Strategy</h3>
+            <p>A built-in EMA 9/21 crossover with a 100-EMA trend filter, confirmation candles and swing-based stops — ON by default, and fully tunable to your risk.</p>
           </article>
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg></div>
@@ -315,9 +319,9 @@
             <p>Test any strategy on historical data — win rate, profit factor, drawdown and equity curve, fees &amp; funding included.</p>
           </article>
           <article class="feature">
-            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
-            <h3>Strategy Optimizer &amp; Walk-Forward</h3>
-            <p>Auto-sweep settings to find what works, then validate it with walk-forward testing.</p>
+            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 6h6a3 3 0 0 1 0 0M8.5 7.5 15 11M8.5 16.5 15 13"/></svg></div>
+            <h3>Trade Multiple Pairs at Once</h3>
+            <p>Run the strategy on BTC, ETH, SOL and more at the same time — each pair trades independently, capped by your max-open-positions limit.</p>
           </article>
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
@@ -326,23 +330,23 @@
           </article>
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7 16h10"/></svg></div>
-            <h3>Practice in Safe / Demo Mode</h3>
-            <p>Simulate trades with no real orders, or use exchange testnet, before you ever go live.</p>
+            <h3>Paper (Demo) Trading</h3>
+            <p>Watch the strategy trade with simulated fills on live market data — zero risk — then flip to live the moment you're convinced.</p>
           </article>
           <article class="feature">
-            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></div>
-            <h3>Manual Trading + Panic Button</h3>
-            <p>Place your own buy and sell orders, set SL/TP, and close everything instantly with one click.</p>
+            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg></div>
+            <h3>Live Chart with Buy/Sell Signals</h3>
+            <p>Every entry, exit, stop-loss and take-profit is plotted live on the chart with EMA overlays — plus a manual order panel and one-click Close All.</p>
           </article>
           <article class="feature">
-            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><polyline points="13 11 9 17 13 17 11 22"/></svg></div>
-            <h3>Webhook &amp; Cloud Signals</h3>
-            <p>Trade automatically from TradingView-style alerts and cloud signals — 24/7, hands-free.</p>
+            <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></div>
+            <h3>Telegram Alerts + Daily Recap</h3>
+            <p>Get a ping on every entry, close and connection, plus a daily profit-and-loss recap by Telegram and email — stay in the loop 24/7.</p>
           </article>
           <article class="feature">
             <div class="feature__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-            <h3>PIN Lock &amp; Local Security</h3>
-            <p>PIN-protected app, your API keys stay on your own device, with one-click backup &amp; restore.</p>
+            <h3>2FA &amp; Encrypted Keys</h3>
+            <p>Two-factor authentication on your account and bank-grade encryption for your API keys — stored as trade-only, never with withdrawal access.</p>
           </article>
         </div>
       </div>
@@ -540,8 +544,8 @@
             <div class="faq__answer">Yes. Demo (paper) mode lets you test strategies in a simulated environment with no real funds at risk, so you can get comfortable before activating a live account.</div>
           </details>
           <details class="faq__item">
-            <summary>Which devices does the app run on?</summary>
-            <div class="faq__answer">Trevolto runs as a desktop app on both Windows (10 and 11) and macOS — download whichever you need. You connect your exchange securely by API, so your funds always stay in your own account.</div>
+            <summary>Which devices does it run on? Do I need to install anything?</summary>
+            <div class="faq__answer">No download, no install. Trevolto is a <strong>web app</strong> that runs 24/7 in the cloud — you just log in from any modern browser on your phone, tablet or computer. Because it runs in the cloud, it keeps trading even when your own device is off. You connect your exchange securely by API, so your funds always stay in your own account.</div>
           </details>
           <details class="faq__item">
             <summary>How long does setup take?</summary>
@@ -560,30 +564,30 @@
       <div class="container container--narrow center">
         <h2 class="section__title">Learn More on the <span class="hl">Trevolto Blog</span></h2>
         <p class="section__lead">Guides, strategy breakdowns, and honest answers about AI crypto trading — written for beginners and experienced traders alike.</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:24px 0;text-align:left;">
-          <a href="/blog/what-is-an-ai-trading-bot" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">Beginner Guide</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">What Is an AI Trading Bot?</p>
+        <div class="teaser-grid">
+          <a class="teaser-card" href="/blog/what-is-an-ai-trading-bot">
+            <img src="assets/blog/what-is-an-ai-trading-bot.svg" alt="What Is an AI Trading Bot?" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">Beginner Guide</span><p>What Is an AI Trading Bot?</p></div>
           </a>
-          <a href="/blog/are-ai-trading-bots-safe" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">Safety</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">Are AI Trading Bots Safe?</p>
+          <a class="teaser-card" href="/blog/are-ai-trading-bots-safe">
+            <img src="assets/blog/are-ai-trading-bots-safe.svg" alt="Are AI Trading Bots Safe?" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">Safety</span><p>Are AI Trading Bots Safe?</p></div>
           </a>
-          <a href="/blog/bitcoin-bot-strategies-explained" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">Strategy</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">DCA, Grid &amp; AI Signal Strategies</p>
+          <a class="teaser-card" href="/blog/bitcoin-bot-strategies-explained">
+            <img src="assets/blog/bitcoin-bot-strategies-explained.svg" alt="Bitcoin bot strategies explained" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">Strategy</span><p>DCA, Grid &amp; AI Signal Strategies</p></div>
           </a>
-          <a href="/blog/can-ai-bots-make-you-rich" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">Expectations</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">Can AI Bots Make You Rich?</p>
+          <a class="teaser-card" href="/blog/can-ai-bots-make-you-rich">
+            <img src="assets/blog/can-ai-bots-make-you-rich.svg" alt="Can AI bots make you rich?" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">Expectations</span><p>Can AI Bots Make You Rich?</p></div>
           </a>
-          <a href="/blog/setup-ai-trading-bot-10-minutes" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">How-To</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">Set Up in 10 Minutes</p>
+          <a class="teaser-card" href="/blog/setup-ai-trading-bot-10-minutes">
+            <img src="assets/blog/setup-ai-trading-bot-10-minutes.svg" alt="Set up in 10 minutes" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">How-To</span><p>Set Up in 10 Minutes</p></div>
           </a>
-          <a href="/blog/crypto-trading-mistakes-bots-fix" style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:18px;text-decoration:none;color:inherit;">
-            <span style="font-size:.75rem;font-weight:700;color:#7c5cfc;text-transform:uppercase;letter-spacing:.06em;">Tips</span>
-            <p style="margin:6px 0 0;font-weight:600;font-size:.95rem;color:#0d0f14;">7 Mistakes Bots Help You Avoid</p>
+          <a class="teaser-card" href="/blog/crypto-trading-mistakes-bots-fix">
+            <img src="assets/blog/crypto-trading-mistakes-bots-fix.svg" alt="7 mistakes bots help you avoid" loading="lazy" />
+            <div class="teaser-card__body"><span class="teaser-card__tag">Tips</span><p>7 Mistakes Bots Help You Avoid</p></div>
           </a>
         </div>
         <a href="/blog" class="btn btn--cta">View All Articles →</a>

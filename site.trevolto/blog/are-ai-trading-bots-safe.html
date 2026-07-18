@@ -49,7 +49,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../css/style.css?v=22" />
+  <link rel="stylesheet" href="../css/style.css?v=23" />
   <style>
     .article-hero{background:var(--dark,#0d0f14);padding:60px 0 40px;text-align:center}
     .article-hero .tag{display:inline-block;background:#00c2b5;color:#fff;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:16px}
@@ -104,6 +104,8 @@
     </div>
   </div>
 
+  <div class="article-cover-wrap"><img class="article-cover" src="../assets/blog/are-ai-trading-bots-safe.svg" alt="Are AI Trading Bots Safe? The Truth About API Keys, Custody & Risk" width="1200" height="630" /></div>
+
   <main>
     <article class="article-body">
       <nav aria-label="Breadcrumb" style="font-size:.85rem;color:#888;margin-bottom:2rem">
@@ -146,7 +148,7 @@
       <h2>What Is a "Non-Custodial" Bot?</h2>
       <p>A non-custodial bot is one that never takes possession of your funds. Your crypto stays in your exchange account the entire time. The bot is just software that sends trade instructions to your exchange on your behalf.</p>
       <p>Contrast this with custodial schemes — often disguised as "investment platforms" or "managed bot accounts" — where you send your crypto to the company and they trade on your behalf. These carry the full counterparty risk of the company. If they disappear (and many do), your funds are gone.</p>
-      <p><a href="/">Trevolto</a> is non-custodial by design. The desktop app runs on your own computer. Your API keys are stored locally on your device, protected by your PIN. Trevolto's servers never see your funds.</p>
+      <p><a href="/">Trevolto</a> is non-custodial by design. It runs in the cloud and connects to your exchange with a <strong>trade-only</strong> API key that is encrypted at rest. The key can place trades but can <strong>never</strong> withdraw or move your funds — your money never leaves your own exchange account.</p>
 
       <h2>How to Spot a Bot Scam</h2>
       <p>The crypto bot space is unfortunately full of fraudulent platforms. Here are the red flags:</p>
@@ -180,8 +182,8 @@
       <h2>The Trevolto Security Model</h2>
       <p>Trevolto is built with security-first design:</p>
       <ul>
-        <li><strong>Local app:</strong> Runs on your own computer — your API keys never leave your device.</li>
-        <li><strong>PIN protection:</strong> The app locks behind a PIN so others can't access it on your computer.</li>
+        <li><strong>Encrypted keys:</strong> Your API keys are encrypted at rest and used only to place trades — never to withdraw.</li>
+        <li><strong>Two-factor authentication:</strong> Lock your account with 2FA so only you can sign in.</li>
         <li><strong>Trade-only API:</strong> The setup guide explicitly walks you through creating an API key with no withdrawal permission.</li>
         <li><strong>Non-custodial:</strong> Trevolto has no access to your exchange funds at any point.</li>
         <li><strong>Backup &amp; restore:</strong> Your settings and API connections can be backed up securely in case you change devices.</li>
