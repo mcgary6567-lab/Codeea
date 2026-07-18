@@ -21,3 +21,7 @@ PUBLIC_URL = os.environ.get("PROMETHEUS_PUBLIC_URL", "").rstrip("/")
 
 # Background refresh cadence (seconds) for the per-user poll loop.
 POLL_INTERVAL = float(os.environ.get("PROMETHEUS_POLL_INTERVAL", "3"))
+
+# Assumed licence price (per active licence, per period) used only to *estimate*
+# MRR on the admin dashboard. Purely informational — the app does not bill.
+LICENCE_PRICE = float(os.environ.get("PROMETHEUS_LICENCE_PRICE", "49"))

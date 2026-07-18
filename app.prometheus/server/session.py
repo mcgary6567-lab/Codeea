@@ -622,3 +622,32 @@ def get_session(user_id: int) -> TraderSession:
             s = TraderSession(user_id)
             _SESSIONS[user_id] = s
         return s
+
+
+def live_stats() -> dict:
+    """Real-time counts across all in-memory sessions (admin dashboard)."""
+    online = trading = 0
+    per_user: dict = {}
+    with _REG_LOCK:
+        sessions = list(_SESSIONS.items())
+    for uid, s in sessions:
+        connected = bool(getattr(s, "connected", False))
+        strat = bool(getattr(s, "strategy_on", False))
+        if connected:
+            online += 1
+        if strat:
+            trading += 1
+        per_user[uid] = {
+            "connected": connected,
+            "strategy_on": strat,
+            "exchange": getattr(s, "exchange_id", None),
+            "open_positions": len(getattr(s, "positions", []) or []),
+        }
+    return {"online": online, "trading": trading, "per_user": per_user}
+
+
+def session_snapshot_if_live(user_id: int):
+    """Live snapshot for a user only if a session already exists (no spin-up)."""
+    with _REG_LOCK:
+        s = _SESSIONS.get(user_id)
+    return s.snapshot() if s is not None else None

@@ -3,52 +3,106 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Prometheus Web — Admin</title>
+<title>Prometheus — Admin console</title>
 <link rel="stylesheet" href="/static/style.css"/>
 <link rel="icon" href="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png"/>
 </head>
 <body>
 <div id="toasts" class="toasts"></div>
-<div id="app" style="max-width:1150px">
-  <div class="status">
-    <span class="brand" style="font-size:18px;font-weight:800"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> Prometheus</span>
-    <span class="badge">Admin · customer panel</span>
-    <span class="sp"></span>
-    <span class="k" id="ad-me">—</span>
-    <a class="btn ghost sm" href="/">← Dashboard</a>
-    <button class="btn ghost sm" onclick="logout()">Logout</button>
-  </div>
 
-  <div id="gate" class="card hidden">
-    <h3>Admin sign-in</h3>
+<header class="topbar">
+  <div class="brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> Prometheus</div>
+  <span class="chip">Admin console</span>
+  <span class="chip safe hidden" id="ad-online">● 0 online</span>
+  <span class="grow"></span>
+  <span class="chip hide-sm" id="ad-me">—</span>
+  <label class="chkline hide-sm" style="margin:0;font-size:12px" id="ad-auto-wrap"><input type="checkbox" id="ad-auto" onchange="toggleAuto()"/> Auto-refresh</label>
+  <button class="btn ghost sm" onclick="reloadAll()">↻ Refresh</button>
+  <a class="btn ghost sm" href="/">← Dashboard</a>
+  <button class="btn ghost sm" onclick="logout()">Logout</button>
+</header>
+
+<div class="admin-wrap">
+  <!-- GATE -->
+  <div id="gate" class="card hidden" style="max-width:400px;margin:8vh auto">
+    <div class="auth-head"><div class="brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/></div>
+      <h2 style="margin:14px 0 4px">Admin sign-in</h2><p class="auth-sub">Restricted — administrators only</p></div>
     <label>Email</label><input id="g-email" type="email"/>
-    <label>Password</label><input id="g-pass" type="password"/>
+    <label>Password</label><input id="g-pass" type="password" onkeydown="if(event.key==='Enter')adminLogin()"/>
     <div class="err" id="g-err"></div>
-    <button class="btn" style="margin-top:10px" onclick="adminLogin()">Sign in</button>
+    <button class="btn" style="width:100%;margin-top:12px" onclick="adminLogin()">Sign in</button>
   </div>
 
+  <!-- PANEL -->
   <div id="panel" class="hidden">
-    <div class="row" style="margin-bottom:14px">
-      <div class="card col"><div class="k">Customers</div><div class="big" id="m-total">—</div></div>
-      <div class="card col"><div class="k">Active trials</div><div class="big" id="m-trial">—</div></div>
-      <div class="card col"><div class="k">Licensed</div><div class="big" id="m-lic">—</div></div>
-      <div class="card col"><div class="k">Suspended / expired</div><div class="big" id="m-off">—</div></div>
+    <!-- business KPIs -->
+    <div class="kpi-row" id="kpi-biz"></div>
+    <!-- trading KPIs -->
+    <div class="kpi-row" id="kpi-trade"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>New sign-ups <span class="k">— last 30 days</span></h3>
+        <canvas id="ad-signups" class="chart" style="height:120px"></canvas>
+        <div class="hint" id="ad-signups-cap">—</div>
+      </div>
+      <div class="card">
+        <h3>Customer mix</h3>
+        <div id="ad-mix"></div>
+        <div class="hint">Estimated MRR assumes every active licence pays the configured price. Informational only — the app does not bill.</div>
+      </div>
     </div>
+
     <div class="card">
-      <h3>Customers <button class="btn ghost sm" style="float:right" onclick="loadUsers()">Refresh</button></h3>
-      <table><thead><tr>
-        <th>ID</th><th>Email</th><th>Status</th><th>Plan</th><th>Days left</th>
-        <th>Keys</th><th>Last seen</th><th>Actions</th></tr></thead>
-        <tbody id="u-body"></tbody></table>
+      <div class="chart-head" style="margin-bottom:12px">
+        <h3 style="margin:0">Customers <span class="chip" id="ad-count">0</span></h3>
+        <input id="ad-search" placeholder="🔎 Search email or name…" style="max-width:240px" oninput="applyFilters()"/>
+        <select id="ad-filter" style="width:auto" onchange="applyFilters()">
+          <option value="">All statuses</option>
+          <option value="trial">Trial</option>
+          <option value="licensed">Licensed</option>
+          <option value="expired">Expired</option>
+          <option value="suspended">Suspended</option>
+          <option value="admin">Admins</option>
+          <option value="online">Online now</option>
+        </select>
+        <span class="grow"></span>
+        <button class="btn ghost sm" onclick="exportCsv()">⬇ Export CSV</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th class="sortable" onclick="sortBy('id')">ID</th>
+            <th class="sortable" onclick="sortBy('email')">Customer</th>
+            <th class="sortable" onclick="sortBy('status')">Status</th>
+            <th class="sortable" onclick="sortBy('days')">Days left</th>
+            <th>Keys</th><th>Live</th>
+            <th class="sortable" onclick="sortBy('last_seen')">Last seen</th>
+            <th class="sortable" onclick="sortBy('created')">Joined</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="u-body"></tbody>
+        </table>
+      </div>
+      <div class="hint" id="ad-empty" style="display:none">No customers match your filters.</div>
     </div>
   </div>
 </div>
+
+<!-- DETAIL DRAWER -->
+<div id="drawer-scrim" class="drawer-scrim hidden" onclick="closeDrawer()"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div><h3 id="dw-name" style="margin:0">—</h3><div class="k mono" id="dw-email">—</div></div>
+    <button class="btn ghost sm" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="dw-body"></div>
+</aside>
+
 <footer class="site-footer">
   <div class="foot-inner">
     <div class="foot-brand"><img src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" class="logo-img" alt="Prometheus"/> <b>Prometheus</b></div>
-    <div class="foot-links">
-      <a href="https://www.prometheusai.tech/support" target="_blank" rel="noopener">Contact us</a>
-    </div>
+    <div class="foot-links"><a href="https://www.prometheusai.tech/support" target="_blank" rel="noopener">Contact us</a></div>
     <div class="foot-copy">© 2026 Prometheus. All rights reserved.</div>
   </div>
 </footer>

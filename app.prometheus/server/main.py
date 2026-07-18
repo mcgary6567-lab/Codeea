@@ -23,8 +23,9 @@ import backtest as bt
 import strategy as strat
 
 from . import security, store
-from .config_web import PUBLIC_URL
-from .session import get_session, public_ohlcv, public_ohlcv_days, public_prices
+from .config_web import PUBLIC_URL, LICENCE_PRICE
+from .session import (get_session, public_ohlcv, public_ohlcv_days, public_prices,
+                      live_stats, session_snapshot_if_live)
 
 _TF_SECONDS = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
                "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200, "1d": 86400}
@@ -389,7 +390,27 @@ def candles(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 300,
 # --- admin ------------------------------------------------------------------
 @app.get("/api/admin/users")
 def admin_users(admin: dict = Depends(require_admin)):
-    return {"users": store.list_users()}
+    live = live_stats()["per_user"]
+    users = store.list_users()
+    for u in users:
+        u["live"] = live.get(u["id"], {"connected": False, "strategy_on": False})
+    return {"users": users}
+
+
+@app.get("/api/admin/stats")
+def admin_stats(admin: dict = Depends(require_admin)):
+    stats = store.platform_stats(LICENCE_PRICE)
+    stats["live"] = {k: v for k, v in live_stats().items() if k != "per_user"}
+    return stats
+
+
+@app.get("/api/admin/user/{uid}")
+def admin_user_detail(uid: int, admin: dict = Depends(require_admin)):
+    detail = store.user_detail(uid)
+    if not detail:
+        raise HTTPException(404, "user not found")
+    detail["live"] = session_snapshot_if_live(uid)
+    return detail
 
 
 @app.post("/api/admin/action")
@@ -397,24 +418,39 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
     d = await body(request)
     uid = int(d.get("user_id", 0))
     action = d.get("action", "")
-    if not store.get_user(uid):
+    target = store.get_user(uid)
+    if not target:
         raise HTTPException(404, "user not found")
+    extra = {}
     if action == "suspend":
         store.set_active(uid, False)
     elif action == "activate":
         store.set_active(uid, True)
     elif action == "grant":
         store.grant_licence(uid, float(d.get("days", 30)))
+    elif action == "extend_trial":
+        store.extend_trial(uid, float(d.get("days", 7)))
     elif action == "revoke":
         store.revoke_licence(uid)
     elif action == "make_admin":
         store.set_admin(uid, True)
     elif action == "remove_admin":
+        # Guard: never remove the last remaining admin.
+        admins = [u for u in store.list_users() if u.get("is_admin")]
+        if len(admins) <= 1 and target.get("is_admin"):
+            raise HTTPException(400, "cannot remove the last admin")
         store.set_admin(uid, False)
+    elif action == "reset_link":
+        raw = store.create_reset(uid, ttl_seconds=3600)
+        base = PUBLIC_URL or ""
+        extra["reset_url"] = f"{base}/?reset={raw}" if base else f"/?reset={raw}"
+        extra["expires_minutes"] = 60
     else:
         raise HTTPException(400, "unknown action")
-    return {"ok": True, "user": {k: v for k, v in store.get_user(uid).items()
+    resp = {"ok": True, "user": {k: v for k, v in store.get_user(uid).items()
                                  if k not in ("pw_hash", "keys_blob")}}
+    resp.update(extra)
+    return resp
 
 
 # --- live prices (dashboard strip) -----------------------------------------

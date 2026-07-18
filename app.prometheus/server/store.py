@@ -145,8 +145,8 @@ def touch(user_id: int) -> None:
 def list_users() -> list:
     with _LOCK, _conn() as c:
         rows = c.execute(
-            "SELECT id,email,is_admin,active,plan,trial_ends,licence_until,created,last_seen,"
-            "(keys_blob IS NOT NULL) AS has_keys FROM users ORDER BY id"
+            "SELECT id,email,first_name,last_name,is_admin,active,plan,trial_ends,licence_until,"
+            "created,last_seen,(keys_blob IS NOT NULL) AS has_keys FROM users ORDER BY id"
         ).fetchall()
     out = []
     for r in rows:
@@ -154,6 +154,116 @@ def list_users() -> list:
         d["entitlement"] = entitlement(d)
         out.append(d)
     return out
+
+
+def platform_stats(licence_price: float = 0.0) -> dict:
+    """Aggregate business + trading metrics across all customers.
+
+    Read-only, single connection, no schema dependency beyond existing columns.
+    All money figures for MRR are *estimates* derived from ``licence_price``.
+    """
+    now = time.time()
+    day = 86400.0
+    with _LOCK, _conn() as c:
+        users = [dict(r) for r in c.execute(
+            "SELECT id,is_admin,active,plan,trial_ends,licence_until,created,last_seen,"
+            "(keys_blob IS NOT NULL) AS has_keys FROM users"
+        ).fetchall()]
+        trows = c.execute(
+            "SELECT mode,pnl FROM trades WHERE kind='close'"
+        ).fetchall()
+        topen = c.execute("SELECT COUNT(*) n FROM trades WHERE kind!='close'").fetchone()["n"]
+
+    total = admins = trial = licensed = expired = suspended = with_keys = 0
+    new_today = new_7d = new_30d = 0
+    ever_paid = 0
+    # 30-day daily signup series (index 0 = 29 days ago … 29 = today)
+    series = [0] * 30
+    for u in users:
+        total += 1
+        if u["is_admin"]:
+            admins += 1
+        if u["has_keys"]:
+            with_keys += 1
+        ent = entitlement(u)
+        st = ent["status"]
+        if st == "trial":
+            trial += 1
+        elif st == "licensed":
+            licensed += 1
+        elif st == "expired":
+            expired += 1
+        elif st == "suspended":
+            suspended += 1
+        if u["plan"] in ("paid", "licensed") or (u["licence_until"] or 0) > 0:
+            ever_paid += 1
+        created = u["created"] or 0
+        age = now - created
+        if age < day:
+            new_today += 1
+        if age < 7 * day:
+            new_7d += 1
+        if age < 30 * day:
+            new_30d += 1
+        didx = int((created - (now - 30 * day)) / day)
+        if 0 <= didx < 30:
+            series[didx] += 1
+
+    # trial→paid conversion: share of non-admin customers who ever bought
+    customers = total - admins
+    conversion = round(100 * ever_paid / customers, 1) if customers else 0.0
+
+    live_pnl = paper_pnl = 0.0
+    live_n = paper_n = live_wins = 0
+    for r in trows:
+        p = r["pnl"] or 0.0
+        if (r["mode"] or "live") == "paper":
+            paper_pnl += p
+            paper_n += 1
+        else:
+            live_pnl += p
+            live_n += 1
+            if p > 0:
+                live_wins += 1
+
+    return {
+        "users": {
+            "total": total, "customers": customers, "admins": admins,
+            "trial": trial, "licensed": licensed, "expired": expired,
+            "suspended": suspended, "with_keys": with_keys,
+        },
+        "growth": {
+            "new_today": new_today, "new_7d": new_7d, "new_30d": new_30d,
+            "conversion": conversion, "signup_series": series,
+        },
+        "revenue": {
+            "licensed": licensed,
+            "est_mrr": round(licensed * licence_price, 2),
+            "licence_price": licence_price,
+        },
+        "trading": {
+            "closed_trades": live_n + paper_n,
+            "open_trades": topen,
+            "live_trades": live_n, "paper_trades": paper_n,
+            "live_pnl": round(live_pnl, 2), "paper_pnl": round(paper_pnl, 2),
+            "live_win_rate": round(100 * live_wins / live_n, 1) if live_n else 0.0,
+        },
+    }
+
+
+def user_detail(user_id: int) -> Optional[dict]:
+    """Full per-customer profile for the admin drawer (read-only)."""
+    u = get_user(user_id)
+    if not u:
+        return None
+    safe = {k: v for k, v in u.items()
+            if k not in ("pw_hash", "keys_blob", "webhook_token", "totp_secret")}
+    safe["has_keys"] = bool(u.get("keys_blob"))
+    safe["entitlement"] = entitlement(u)
+    safe["analytics"] = analytics(user_id)
+    safe["pnl_modes"] = pnl_by_mode(user_id)
+    safe["recent_trades"] = recent_trades(user_id, 20)
+    return safe
 
 
 def set_active(user_id: int, active: bool) -> None:
@@ -178,6 +288,14 @@ def grant_licence(user_id: int, days: float) -> None:
 def revoke_licence(user_id: int) -> None:
     with _LOCK, _conn() as c:
         c.execute("UPDATE users SET licence_until=0, plan='trial' WHERE id=?", (user_id,))
+
+
+def extend_trial(user_id: int, days: float) -> None:
+    """Extend the free trial by ``days`` from max(now, current trial end)."""
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT trial_ends FROM users WHERE id=?", (user_id,)).fetchone()
+        base = max(time.time(), (r["trial_ends"] or 0) if r else 0)
+        c.execute("UPDATE users SET trial_ends=? WHERE id=?", (base + days * 86400, user_id))
 
 
 def get_user(user_id: int) -> Optional[dict]:

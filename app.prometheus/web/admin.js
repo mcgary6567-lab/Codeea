@@ -1,6 +1,24 @@
-// Prometheus Web — admin panel
+// Prometheus Web — admin console
 let TOKEN = localStorage.getItem("prometheus_token") || "";
 const $ = id => document.getElementById(id);
+let ALL_USERS = [];          // raw list from server
+let STATS = null;            // platform stats
+let SORT = { key: "id", dir: 1 };
+let autoTimer = null;
+
+const esc = x => String(x ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtMoney = n => (n == null || isNaN(n)) ? "—" : (n < 0 ? "-$" : "$") + Math.abs(Number(n)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const fmtNum = n => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString();
+const dt = s => s ? new Date(s * 1000).toLocaleString() : "—";
+const dshort = s => s ? new Date(s * 1000).toLocaleDateString() : "—";
+const ago = s => {
+  if (!s) return "never";
+  const d = Date.now() / 1000 - s;
+  if (d < 60) return "just now";
+  if (d < 3600) return Math.floor(d / 60) + "m ago";
+  if (d < 86400) return Math.floor(d / 3600) + "h ago";
+  return Math.floor(d / 86400) + "d ago";
+};
 
 async function api(path, method = "GET", bodyObj) {
   const opt = { method, headers: {} };
@@ -11,8 +29,9 @@ async function api(path, method = "GET", bodyObj) {
   if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
   return d;
 }
-function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; location.reload(); }
+function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (autoTimer) clearInterval(autoTimer); location.reload(); }
 
+// ---- auth ----
 async function adminLogin() {
   $("g-err").textContent = "";
   try {
@@ -20,63 +39,284 @@ async function adminLogin() {
     TOKEN = d.token; localStorage.setItem("prometheus_token", TOKEN); boot();
   } catch (e) { $("g-err").textContent = e.message; }
 }
+function showGate() { $("gate").classList.remove("hidden"); $("panel").classList.add("hidden"); }
 
 async function boot() {
   try {
-    const d = await api("/api/admin/users");
+    await reloadAll();
     $("gate").classList.add("hidden"); $("panel").classList.remove("hidden");
-    render(d.users);
   } catch (e) {
-    if (String(e.message).includes("admin only")) { $("ad-me").textContent = "not an admin account"; showGate(); }
-    else showGate();
+    if (String(e.message).toLowerCase().includes("admin")) $("ad-me").textContent = "not an admin account";
+    showGate();
   }
 }
-function showGate() { $("gate").classList.remove("hidden"); $("panel").classList.add("hidden"); }
 
-async function loadUsers() { try { render((await api("/api/admin/users")).users); } catch (e) { notify(e.message, "error"); } }
+async function reloadAll() {
+  const [uRes, sRes] = await Promise.all([api("/api/admin/users"), api("/api/admin/stats")]);
+  ALL_USERS = uRes.users || [];
+  STATS = sRes;
+  renderStats();
+  applyFilters();
+}
 
-function render(users) {
-  let trial = 0, lic = 0, off = 0;
-  $("u-body").innerHTML = users.map(u => {
-    const e = u.entitlement || {};
-    if (e.status === "trial") trial++; else if (e.status === "licensed") lic++;
-    else if (e.status === "suspended" || e.status === "expired") off++;
-    const cls = e.ok ? (e.status === "trial" ? "warn" : "pos") : "neg";
-    const seen = u.last_seen ? new Date(u.last_seen * 1000).toLocaleString() : "—";
-    return `<tr>
-      <td>${u.id}</td><td class="mono">${u.email}${u.is_admin ? ' <span class="badge">admin</span>' : ''}</td>
-      <td class="${cls}">${e.status}</td><td>${u.plan}</td><td class="mono">${e.days_left ?? '—'}</td>
-      <td>${u.has_keys ? '✓' : '—'}</td><td class="k">${seen}</td>
-      <td>
-        ${u.active ? `<button class="btn ghost sm" onclick="act(${u.id},'suspend')">Suspend</button>`
-        : `<button class="btn green sm" onclick="act(${u.id},'activate')">Activate</button>`}
-        <button class="btn sm" onclick="grant(${u.id})">+Licence</button>
-        <button class="btn ghost sm" onclick="act(${u.id},'revoke')">Revoke</button>
-      </td></tr>`;
+// ---- KPI + charts ----
+function kpi(label, value, sub, cls) {
+  return `<div class="kpi"><div class="kpi-l">${label}</div><div class="kpi-v ${cls || ""}">${value}</div><div class="kpi-s">${sub || ""}</div></div>`;
+}
+function renderStats() {
+  if (!STATS) return;
+  const u = STATS.users, g = STATS.growth, rev = STATS.revenue, tr = STATS.trading, live = STATS.live || {};
+  $("kpi-biz").innerHTML =
+    kpi("Customers", fmtNum(u.customers), `+${g.new_today} today · +${g.new_7d} this week`) +
+    kpi("Licensed", fmtNum(u.licensed), `~${fmtMoney(rev.est_mrr)} est. MRR`, "pos") +
+    kpi("Active trials", fmtNum(u.trial), `${g.new_30d} new in 30d`, "warn") +
+    kpi("Trial → Paid", g.conversion + "%", "conversion rate") +
+    kpi("Expired / Susp.", fmtNum(u.expired + u.suspended), `${u.suspended} suspended`, (u.expired + u.suspended) ? "neg" : "") +
+    kpi("Online now", fmtNum(live.online || 0), `${live.trading || 0} actively trading`, (live.online ? "pos" : ""));
+  $("kpi-trade").innerHTML =
+    kpi("Platform PnL (live)", fmtMoney(tr.live_pnl), "realized, all customers", tr.live_pnl >= 0 ? "pos" : "neg") +
+    kpi("Live trades", fmtNum(tr.live_trades), `${tr.open_trades} open now`) +
+    kpi("Paper trades", fmtNum(tr.paper_trades), fmtMoney(tr.paper_pnl) + " simulated", "warn") +
+    kpi("Win rate (live)", tr.live_win_rate + "%", "closed live trades") +
+    kpi("With API keys", fmtNum(u.with_keys), "exchange connected") +
+    kpi("Total accounts", fmtNum(u.total), `${u.admins} admin`);
+
+  // online chip
+  const oc = $("ad-online");
+  oc.classList.toggle("hidden", !(live.online));
+  oc.textContent = `● ${live.online || 0} online`;
+
+  drawSignups(g.signup_series || []);
+  const tot30 = (g.signup_series || []).reduce((a, b) => a + b, 0);
+  $("ad-signups-cap").textContent = `${tot30} new sign-up${tot30 === 1 ? "" : "s"} in the last 30 days.`;
+
+  // mix bar
+  const parts = [
+    { k: "Licensed", n: u.licensed, c: "var(--green)" },
+    { k: "Trial", n: u.trial, c: "var(--amber)" },
+    { k: "Expired", n: u.expired, c: "var(--mut)" },
+    { k: "Suspended", n: u.suspended, c: "var(--red)" },
+  ];
+  const sum = parts.reduce((a, p) => a + p.n, 0) || 1;
+  $("ad-mix").innerHTML =
+    `<div class="mixbar">${parts.map(p => p.n ? `<span style="width:${100 * p.n / sum}%;background:${p.c}" title="${p.k}: ${p.n}"></span>` : "").join("")}</div>` +
+    `<div class="mixlegend">${parts.map(p => `<span><i style="background:${p.c}"></i>${p.k} <b>${p.n}</b></span>`).join("")}</div>`;
+}
+
+function drawSignups(series) {
+  const cv = $("ad-signups"); if (!cv) return;
+  const ratio = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 400, h = cv.clientHeight || 120;
+  if (w < 20) return;
+  cv.width = w * ratio; cv.height = h * ratio;
+  const g = cv.getContext("2d"); g.scale(ratio, ratio);
+  g.clearRect(0, 0, w, h);
+  const max = Math.max(1, ...series);
+  const n = series.length, gap = 3, bw = (w - gap * (n - 1)) / n;
+  const grad = g.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, "#f97316"); grad.addColorStop(1, "#7c3a10");
+  series.forEach((v, i) => {
+    const bh = Math.max(v ? 3 : 0, (h - 18) * v / max);
+    const x = i * (bw + gap), y = h - 16 - bh;
+    g.fillStyle = v ? grad : "rgba(255,255,255,.05)";
+    g.fillRect(x, y, bw, bh || 2);
+  });
+  g.fillStyle = "#8a97ab"; g.font = "10px -apple-system,sans-serif";
+  g.fillText("30d ago", 0, h - 3); g.textAlign = "right"; g.fillText("today", w, h - 3);
+}
+window.addEventListener("resize", () => STATS && drawSignups(STATS.growth.signup_series || []));
+
+// ---- users table ----
+function statusOf(u) { return (u.entitlement || {}).status || "—"; }
+function daysOf(u) { const e = u.entitlement || {}; return e.days_left == null ? -1 : e.days_left; }
+
+function applyFilters() {
+  const q = ($("ad-search").value || "").trim().toLowerCase();
+  const f = $("ad-filter").value;
+  let rows = ALL_USERS.filter(u => {
+    if (q) {
+      const hay = (u.email + " " + (u.first_name || "") + " " + (u.last_name || "")).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (f === "admin") return u.is_admin;
+    if (f === "online") return u.live && u.live.connected;
+    if (f) return statusOf(u) === f;
+    return true;
+  });
+  const k = SORT.key, dir = SORT.dir;
+  rows.sort((a, b) => {
+    let va, vb;
+    if (k === "status") { va = statusOf(a); vb = statusOf(b); }
+    else if (k === "days") { va = daysOf(a); vb = daysOf(b); }
+    else if (k === "email") { va = a.email; vb = b.email; }
+    else { va = a[k] || 0; vb = b[k] || 0; }
+    return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
+  });
+  renderRows(rows);
+}
+function sortBy(k) { SORT = { key: k, dir: SORT.key === k ? -SORT.dir : 1 }; applyFilters(); }
+
+const PILL = { trial: "warn", licensed: "safe", admin: "safe", expired: "danger", suspended: "danger" };
+function renderRows(rows) {
+  $("ad-count").textContent = rows.length;
+  $("ad-empty").style.display = rows.length ? "none" : "block";
+  $("u-body").innerHTML = rows.map(u => {
+    const st = statusOf(u), e = u.entitlement || {};
+    const nm = [u.first_name, u.last_name].filter(Boolean).join(" ");
+    const lv = u.live || {};
+    const dot = lv.connected ? `<span class="dot on" title="connected${lv.strategy_on ? " · trading" : ""}"></span>` : `<span class="dot" title="offline"></span>`;
+    return `<tr onclick="openDrawer(${u.id})" style="cursor:pointer">
+      <td>${u.id}</td>
+      <td><div>${nm ? esc(nm) : "<span class='k'>—</span>"}</div><div class="k mono">${esc(u.email)}</div></td>
+      <td><span class="chip ${PILL[st] || ""}">${st}</span>${u.is_admin ? ' <span class="chip safe">admin</span>' : ""}</td>
+      <td class="mono">${e.days_left == null ? "—" : e.days_left + "d"}</td>
+      <td>${u.has_keys ? "✓" : "—"}</td>
+      <td>${dot}${lv.strategy_on ? ' <span class="pos" title="strategy running">▶</span>' : ""}</td>
+      <td class="k">${ago(u.last_seen)}</td>
+      <td class="k">${dshort(u.created)}</td>
+      <td onclick="event.stopPropagation()">${actionBtns(u)}</td>
+    </tr>`;
   }).join("");
-  $("m-total").textContent = users.length;
-  $("m-trial").textContent = trial; $("m-lic").textContent = lic; $("m-off").textContent = off;
+}
+function actionBtns(u) {
+  return `${u.active
+    ? `<button class="btn ghost sm" onclick="act(${u.id},'suspend')">Suspend</button>`
+    : `<button class="btn green sm" onclick="act(${u.id},'activate')">Activate</button>`}
+    <button class="btn sm" onclick="grant(${u.id})">+Licence</button>
+    <button class="btn ghost sm" onclick="openDrawer(${u.id})">Details</button>`;
+}
+
+// ---- detail drawer ----
+async function openDrawer(uid) {
+  $("drawer").classList.remove("hidden"); $("drawer-scrim").classList.remove("hidden");
+  $("dw-body").innerHTML = `<div class="hint">Loading…</div>`;
+  try {
+    const d = await api("/api/admin/user/" + uid);
+    renderDrawer(d);
+  } catch (e) { $("dw-body").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+function closeDrawer() { $("drawer").classList.add("hidden"); $("drawer-scrim").classList.add("hidden"); }
+
+function renderDrawer(d) {
+  const nm = [d.first_name, d.last_name].filter(Boolean).join(" ") || "(no name)";
+  $("dw-name").textContent = nm;
+  $("dw-email").textContent = d.email;
+  const e = d.entitlement || {}, an = d.analytics || {}, pm = d.pnl_modes || {}, live = d.live;
+  const lv = pm.live || {}, pp = pm.paper || {};
+  const st = e.status;
+  const rows = (d.recent_trades || []).slice(0, 12);
+  $("dw-body").innerHTML = `
+    <div class="dw-badges">
+      <span class="chip ${PILL[st] || ""}">${st}</span>
+      ${d.is_admin ? '<span class="chip safe">admin</span>' : ""}
+      ${d.has_keys ? '<span class="chip">🔑 keys</span>' : '<span class="chip">no keys</span>'}
+      ${d.totp_enabled ? '<span class="chip safe">🔐 2FA</span>' : ""}
+      ${live && live.connected ? '<span class="chip safe">● connected</span>' : '<span class="chip">offline</span>'}
+      ${live && live.paper_mode ? '<span class="chip warn">paper</span>' : ""}
+    </div>
+    <div class="dw-grid">
+      <div class="dw-stat"><span>Access</span><b>${st}${e.days_left != null ? " · " + e.days_left + "d" : ""}</b></div>
+      <div class="dw-stat"><span>Plan</span><b>${esc(d.plan)}</b></div>
+      <div class="dw-stat"><span>Joined</span><b>${dshort(d.created)}</b></div>
+      <div class="dw-stat"><span>Last seen</span><b>${ago(d.last_seen)}</b></div>
+    </div>
+    <h4 class="dw-h">Performance</h4>
+    <div class="dw-grid">
+      <div class="dw-stat"><span>Realized PnL</span><b class="${(an.realized_pnl || 0) >= 0 ? "pos" : "neg"}">${fmtMoney(an.realized_pnl)}</b></div>
+      <div class="dw-stat"><span>Win rate</span><b>${an.win_rate ?? 0}%</b></div>
+      <div class="dw-stat"><span>Trades</span><b>${an.trades ?? 0}</b></div>
+      <div class="dw-stat"><span>Best / Worst</span><b class="mono">${fmtMoney(an.best)} / ${fmtMoney(an.worst)}</b></div>
+      <div class="dw-stat"><span>Live PnL</span><b class="${(lv.pnl || 0) >= 0 ? "pos" : "neg"}">${fmtMoney(lv.pnl)}</b><em>${lv.trades || 0} trades</em></div>
+      <div class="dw-stat"><span>Paper PnL</span><b class="warn">${fmtMoney(pp.pnl)}</b><em>${pp.trades || 0} trades</em></div>
+    </div>
+    ${live && live.positions && live.positions.length ? `
+      <h4 class="dw-h">Open positions (live)</h4>
+      <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th></tr></thead>
+      <tbody>${live.positions.map(p => `<tr><td>${esc(p.pair)}</td><td>${esc(p.side)}</td><td class="mono">${p.size}</td><td class="mono">${p.entry}</td><td class="mono ${p.pnl >= 0 ? "pos" : "neg"}">${fmtMoney(p.pnl)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <h4 class="dw-h">Recent activity</h4>
+    <div class="tablewrap"><table><thead><tr><th>When</th><th>Symbol</th><th>Kind</th><th>PnL</th><th>Mode</th></tr></thead>
+    <tbody>${rows.length ? rows.map(t => `<tr><td class="k">${ago(t.ts)}</td><td>${esc(t.symbol)}</td><td>${esc(t.kind)}</td><td class="mono ${(t.pnl || 0) >= 0 ? "pos" : "neg"}">${t.kind === "close" ? fmtMoney(t.pnl) : "—"}</td><td class="k">${esc(t.mode)}</td></tr>`).join("") : `<tr><td colspan="5" class="k">No activity yet.</td></tr>`}</tbody></table></div>
+    <h4 class="dw-h">Actions</h4>
+    <div class="dw-actions">
+      ${d.active ? `<button class="btn ghost sm" onclick="act(${d.id},'suspend',1)">⛔ Suspend</button>` : `<button class="btn green sm" onclick="act(${d.id},'activate',1)">✅ Activate</button>`}
+      <button class="btn sm" onclick="grant(${d.id},1)">+ Grant licence</button>
+      <button class="btn ghost sm" onclick="extendTrial(${d.id})">+ Extend trial</button>
+      <button class="btn ghost sm" onclick="act(${d.id},'revoke',1)">Revoke licence</button>
+      <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
+      ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">Make admin</button>`}
+    </div>
+    <div id="dw-msg" class="hint"></div>`;
+}
+
+// ---- actions ----
+const ACTMSG = { suspend: "Customer suspended", activate: "Customer activated", revoke: "Licence revoked", make_admin: "Now an admin", remove_admin: "Admin removed" };
+async function act(uid, action, fromDrawer) {
+  if (action === "suspend" && !confirm("Suspend this customer? Their trading stops immediately.")) return;
+  if (action === "remove_admin" && !confirm("Remove admin rights from this account?")) return;
+  try {
+    await api("/api/admin/action", "POST", { user_id: uid, action });
+    notify(ACTMSG[action] || "Done", action === "suspend" || action === "revoke" ? "warn" : "ok");
+    await reloadAll();
+    if (fromDrawer) openDrawer(uid);
+  } catch (e) { notify(e.message, "error"); }
+}
+async function grant(uid, fromDrawer) {
+  const days = prompt("Grant / extend licence for how many days?", "30");
+  if (!days) return;
+  try {
+    await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) });
+    notify(`Licence granted (${days} days) ✓`, "ok"); await reloadAll(); if (fromDrawer) openDrawer(uid);
+  } catch (e) { notify(e.message, "error"); }
+}
+async function extendTrial(uid) {
+  const days = prompt("Extend the free trial by how many days?", "7");
+  if (!days) return;
+  try {
+    await api("/api/admin/action", "POST", { user_id: uid, action: "extend_trial", days: parseFloat(days) });
+    notify(`Trial extended (${days} days) ✓`, "ok"); await reloadAll(); openDrawer(uid);
+  } catch (e) { notify(e.message, "error"); }
+}
+async function resetLink(uid) {
+  try {
+    const d = await api("/api/admin/action", "POST", { user_id: uid, action: "reset_link" });
+    const url = location.origin + (d.reset_url.startsWith("http") ? new URL(d.reset_url).pathname + new URL(d.reset_url).search : d.reset_url);
+    const box = $("dw-msg");
+    if (box) box.innerHTML = `One-time reset link (valid ${d.expires_minutes || 60} min):<br><input class="mono" style="margin-top:6px" readonly value="${esc(url)}" onclick="this.select()"/>`;
+    try { await navigator.clipboard.writeText(url); notify("Reset link copied to clipboard", "ok"); }
+    catch { notify("Reset link generated", "ok"); }
+  } catch (e) { notify(e.message, "error"); }
+}
+
+// ---- CSV ----
+function exportCsv() {
+  const head = ["id", "email", "first_name", "last_name", "status", "days_left", "plan", "has_keys", "is_admin", "created", "last_seen"];
+  const lines = [head.join(",")];
+  ALL_USERS.forEach(u => {
+    const e = u.entitlement || {};
+    const row = [u.id, u.email, u.first_name || "", u.last_name || "", e.status || "", e.days_left ?? "", u.plan, u.has_keys ? 1 : 0, u.is_admin ? 1 : 0,
+      u.created ? new Date(u.created * 1000).toISOString() : "", u.last_seen ? new Date(u.last_seen * 1000).toISOString() : ""];
+    lines.push(row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "prometheus-customers.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---- auto-refresh ----
+function toggleAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  if ($("ad-auto").checked) autoTimer = setInterval(() => reloadAll().catch(() => { }), 15000);
 }
 
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { alert(msg); return; }
-  const icon = type === "error" ? "⚠️" : "✅";
+  const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";
   const el = document.createElement("div"); el.className = "toast " + type;
-  el.innerHTML = `<span>${icon}</span><span class="tx">${String(msg).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</span>`;
+  el.innerHTML = `<span>${icon}</span><span class="tx">${esc(msg)}</span>`;
   el.onclick = () => el.remove(); wrap.appendChild(el);
   setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 320); }, 3400);
 }
-const ACTMSG = { suspend: "Customer suspended", activate: "Customer activated", revoke: "Licence revoked" };
-async function act(uid, action) {
-  if (action === "suspend" && !confirm("Suspend this customer? Their trading stops immediately.")) return;
-  try { await api("/api/admin/action", "POST", { user_id: uid, action }); notify(ACTMSG[action] || "Done", action === "suspend" ? "error" : "ok"); loadUsers(); }
-  catch (e) { notify(e.message, "error"); }
-}
-async function grant(uid) {
-  const days = prompt("Grant licence for how many days?", "30");
-  if (!days) return;
-  try { await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) }); notify(`Licence granted (${days} days) ✓`, "ok"); loadUsers(); }
-  catch (e) { notify(e.message, "error"); }
-}
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 
 if (TOKEN) boot(); else showGate();
