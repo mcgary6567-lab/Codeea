@@ -1,0 +1,8 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+ccxt==4.4.30
+cryptography==43.0.3
+PyJWT==2.10.1
+python-multipart==0.0.17
+a2wsgi==1.10.7
+
