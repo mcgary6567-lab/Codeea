@@ -252,7 +252,7 @@ function applySettings(s, email) {
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
-  chk("s-summary", s.daily_summary);
+  chk("s-summary", s.daily_summary); chk("s-alert-skips", s.alert_skips);
   const p = s.strategy_params || {};
   for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; if (BOOLP.has(k)) set("p-" + k, v ? "1" : "0"); else set("p-" + k, v); }
 }
@@ -264,7 +264,7 @@ async function saveSettings() {
   } catch (e) { notify(e.message, "error"); }
 }
 async function saveTelegram() {
-  try { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim(), daily_summary: $("s-summary").checked }); notify("Telegram settings saved ✓", "ok"); }
+  try { await api("/api/settings", "POST", { telegram_token: $("tg-token").value.trim(), telegram_chat: $("tg-chat").value.trim(), daily_summary: $("s-summary").checked, alert_skips: $("s-alert-skips").checked }); notify("Telegram settings saved ✓", "ok"); }
   catch (e) { notify(e.message, "error"); }
 }
 async function tgTest() {

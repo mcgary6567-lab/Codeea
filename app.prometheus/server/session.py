@@ -144,6 +144,7 @@ DEFAULT_SETTINGS = {
     "telegram_token": "",
     "telegram_chat": "",
     "daily_summary": True,           # daily PnL recap via Telegram/email
+    "alert_skips": False,            # Telegram alert when a strategy signal is blocked
     "strategy_filter": "Prometheus",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT",
@@ -412,6 +413,8 @@ class TraderSession:
             self.log(f"Blocked {side.upper()} {symbol}: {reason}", "warn")
             store.record_trade(self.user_id, symbol=symbol, side=side, kind="signal",
                                status="blocked", note=reason, mode=self._mode())
+            if source == "strategy" and self.settings.get("alert_skips", False):
+                self.notify(f"⏭️ Skipped {side.upper()} {symbol} — {reason}")
             return {"ok": False, "message": f"blocked: {reason}"}
 
         price = entry if entry > 0 else self.get_price(symbol)
@@ -431,8 +434,20 @@ class TraderSession:
         if not res.ok:
             return {"ok": False, "message": res.message}
 
-        self.notify(f"{side.upper()} {symbol} x{amount} @ ~{price:g}"
-                    + (f" | SL {sl:g}" if sl else "") + (f" TP {tp1:g}/{tp2:g}" if tp1 else ""))
+        emoji = "🟢" if side == "buy" else "🔴"
+        notional = amount * price
+        rr = ""
+        if sl and tp1 and price:
+            risk = abs(price - sl)
+            if risk > 0:
+                rr = f" · R:R 1:{abs(tp1 - price) / risk:.1f}"
+        self.notify(f"{emoji} {side.upper()} {symbol}\n"
+                    f"Size {amount:g} (~${notional:,.0f})\n"
+                    f"Entry ~{price:g}"
+                    + (f" · SL {sl:g}" if sl else "")
+                    + (f" · TP {tp1:g}" if tp1 else "")
+                    + rr
+                    + f"\n{source} · {self._mode()}")
         self.guard.record_entry(symbol)
 
         # bracket: reduce-only SL + scaled TP legs
@@ -463,7 +478,8 @@ class TraderSession:
                                    amount=p.size * fraction, price=p.current, pnl=p.pnl,
                                    note=res.message, mode=self._mode())
                 self.log(f"Close {p.pair}: {res.message}", "ok" if res.ok else "error")
-                self.notify(f"Closed {p.pair} | PnL {p.pnl:+.4f}")
+                cemoji = "✅" if p.pnl >= 0 else "❌"
+                self.notify(f"{cemoji} Closed {p.pair}\nPnL {p.pnl:+.4f} ({self._mode()})")
                 self.refresh()
                 return {"ok": res.ok, "message": res.message}
         return {"ok": False, "message": "position not found"}
