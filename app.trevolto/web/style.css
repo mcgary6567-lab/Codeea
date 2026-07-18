@@ -111,8 +111,6 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .chlegend{font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
 .lg-fast{color:#eab308}.lg-slow{color:#3b82f6}.lg-trend{color:#a855f7}
 .hamb{display:none;background:transparent;border:none;color:var(--txt);font-size:20px;padding:2px 8px}
-.chmode{display:inline-flex;gap:6px}
-#tv-chart{width:100%;background:var(--chip);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 
 @media(max-width:900px){
   .pricestrip{grid-template-columns:repeat(2,1fr)}

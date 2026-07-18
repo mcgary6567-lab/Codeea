@@ -101,7 +101,7 @@ function show(v, btn) {
   document.querySelectorAll(".side button").forEach(b => b.classList.toggle("on", b === btn));
   document.querySelector(".side").classList.remove("open");
   if (v === "analytics") loadAnalytics();
-  if (v === "home") chartLoad();
+  if (v === "home") loadChart();
 }
 
 // ---- live state ----
@@ -437,47 +437,6 @@ async function loadChart() {
     const sells = d.markers.filter(m => m.type === "enter" && m.side === "short").length;
     $("ch-legend").innerHTML = `<span>${d.symbol} · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos">▲ ${buys} BUY</span> <span class="neg">▼ ${sells} SELL</span>`;
   } catch (e) { const ctx = $("ch-price").getContext("2d"); ctx.clearRect(0, 0, 2000, 500); ctx.fillStyle = "#8a97ab"; ctx.font = "13px sans-serif"; ctx.fillText("No chart data — check connectivity", 14, 26); }
-}
-// ---- TradingView pro-chart mode ----
-let chMode = "strat", tvWidget = null;
-const TV_EX = { binance: "BINANCE", binanceus: "BINANCE", bybit: "BYBIT", okx: "OKX", kucoin: "KUCOIN", bitget: "BITGET", kraken: "BINANCE", coinbase: "BINANCE" };
-const TV_INT = { "5m": "5", "15m": "15", "30m": "30", "1h": "60", "2h": "120", "4h": "240", "1d": "D" };
-function tvSymbol() {
-  const pair = String($("ch-sym").value || "BTC/USDT").toUpperCase().replace(/\s/g, "").replace("/", "");
-  const ex = TV_EX[(lastState && lastState.exchange) || "binance"] || "BINANCE";
-  return ex + ":" + pair;
-}
-function chartLoad() { if (chMode === "tv") loadTradingView(); else loadChart(); }
-function chartMode(m) {
-  chMode = m;
-  $("chm-strat").className = "btn sm" + (m === "strat" ? "" : " ghost");
-  $("chm-tv").className = "btn sm" + (m === "tv" ? "" : " ghost");
-  const tv = m === "tv";
-  document.querySelectorAll(".strat-only").forEach(el => el.classList.toggle("hidden", tv));
-  document.querySelectorAll(".tv-only").forEach(el => el.classList.toggle("hidden", !tv));
-  $("tv-chart").classList.toggle("hidden", !tv);
-  if (tv) loadTradingView(); else { $("ch-price").classList.remove("hidden"); loadChart(); }
-}
-function buildTV() {
-  if (!(window.TradingView && window.TradingView.widget)) return;
-  $("tv-chart").innerHTML = "";
-  tvWidget = new TradingView.widget({
-    container_id: "tv-chart", autosize: true,
-    symbol: tvSymbol(), interval: TV_INT[$("ch-tf").value] || "15",
-    timezone: "Etc/UTC", theme: "dark", style: "1", locale: "en",
-    hide_side_toolbar: false, allow_symbol_change: true, withdateranges: true,
-    studies: [
-      { id: "MAExp@tv-basicstudies", inputs: { length: 9 } },
-      { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
-      { id: "MAExp@tv-basicstudies", inputs: { length: 100 } }
-    ]
-  });
-}
-function loadTradingView() {
-  if (window.TradingView && window.TradingView.widget) { buildTV(); return; }
-  let sc = document.getElementById("tv-js");
-  if (!sc) { sc = document.createElement("script"); sc.id = "tv-js"; sc.src = "https://s3.tradingview.com/tv.js"; sc.onload = buildTV; document.head.appendChild(sc); }
-  else { const iv = setInterval(() => { if (window.TradingView && window.TradingView.widget) { clearInterval(iv); buildTV(); } }, 200); setTimeout(() => clearInterval(iv), 8000); }
 }
 function chReset() { if (!CH) return; const n = CH.d.candles.length; CH.i1 = n; CH.i0 = Math.max(0, n - 140); drawChart(); }
 function chZoom(f) { if (!CH) return; const n = CH.d.candles.length; let c = Math.round((CH.i1 - CH.i0) * f); c = Math.max(20, Math.min(n, c)); const mid = (CH.i0 + CH.i1) / 2; CH.i1 = Math.min(n, Math.round(mid + c / 2)); CH.i0 = Math.max(0, CH.i1 - c); drawChart(); }
