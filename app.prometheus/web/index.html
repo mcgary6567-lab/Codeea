@@ -196,6 +196,15 @@
 
       <!-- EXCHANGE -->
       <section id="v-exchange" class="hidden">
+        <div class="card" style="border-color:var(--accent)">
+          <h3>🌐 Bot server IP <span class="chip">for exchange IP whitelist</span></h3>
+          <div class="hint">If you turn on <b>IP access restriction</b> for your API key, whitelist the IP below. Your bot connects to the exchange from <b>our cloud server</b>, so it is this <b>server IP</b> that must be allowed — <b>not</b> your home or office IP.</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input id="srv-ip" class="mono grow" readonly value="Loading…"/>
+            <button class="btn" onclick="copyServerIP()" style="flex-shrink:0">Copy IP</button>
+          </div>
+          <div class="hint">⚠️ Optional. If the exchange later blocks the connection, re-copy this IP or turn IP restriction off — your trade-only key is still safe. Always keep <b>withdrawals disabled</b>.</div>
+        </div>
         <div class="card">
           <h3>Exchange connection <span class="chip" id="ex-state">—</span></h3>
           <div class="row">
@@ -488,6 +497,7 @@
               <div class="gs-btnrow"><b class="gs-btn">Save &amp; Connect</b><b class="gs-btn ghost">Disconnect</b></div>
             </div>
             <p class="gtip">💡 Tip: turn on <b>Read-only</b> first if you just want to watch without any orders being placed.</p>
+            <p class="gtip">🌐 <b>IP whitelist (optional):</b> if your exchange lets you restrict the API key to certain IPs, copy the <b>Bot server IP</b> at the top of the Exchange tab and paste it into the exchange API “IP access restriction” field. Trades come from our cloud, so that is the IP to allow — not your own device.</p>
           </div>
         </div>
 
@@ -575,6 +585,7 @@
           <div class="gq"><b>Paper vs live?</b> Paper simulates fills so you can watch the strategy risk-free. Flip it off in Strategy → Execution when you're ready for real orders.</div>
           <div class="gq"><b>Forgot my password?</b> Use <b>Forgot password?</b> on the login screen — you'll get a secure reset link by email.</div>
           <div class="gq"><b>Can I control the bot from my phone?</b> Yes — connect Telegram in Settings, then message your bot <b>/status</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> from anywhere.</div>
+          <div class="gq"><b>Which IP do I whitelist on my exchange?</b> The <b>Bot server IP</b> shown at the top of the Exchange tab — the bot trades from our cloud, so your own IP will not work. IP restriction is optional; a trade-only key with withdrawals disabled is safe on its own.</div>
           <div class="gq"><b>Do alerts work when the app is closed?</b> Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div>
         </div>
       </section>

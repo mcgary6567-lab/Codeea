@@ -543,6 +543,33 @@ async def ws(websocket: WebSocket):
         return
 
 
+# --- server outbound IP (for exchange API IP-whitelisting) ------------------
+_SERVER_IP = {"ip": "", "t": 0.0}
+
+
+def _server_ip() -> str:
+    import urllib.request as _u, time as _t
+    now = _t.time()
+    if _SERVER_IP["ip"] and now - _SERVER_IP["t"] < 3600:
+        return _SERVER_IP["ip"]
+    for url in ("https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"):
+        try:
+            with _u.urlopen(url, timeout=5) as r:
+                ip = r.read().decode().strip()
+            if ip and 6 <= len(ip) <= 45:
+                _SERVER_IP["ip"] = ip
+                _SERVER_IP["t"] = now
+                return ip
+        except Exception:
+            continue
+    return _SERVER_IP["ip"]
+
+
+@app.get("/api/server_ip")
+def server_ip(user: dict = Depends(current_user)):
+    return {"ip": _server_ip()}
+
+
 # --- security: login history + logout everywhere ----------------------------
 @app.get("/api/security/logins")
 def security_logins(user: dict = Depends(current_user)):

@@ -145,6 +145,7 @@ function show(v, btn) {
   if (v === "analytics") loadAnalytics();
   if (v === "home") loadChart();
   if (v === "settings") loadLogins();
+  if (v === "exchange") loadServerIP();
 }
 
 // ---- live state ----
@@ -592,6 +593,17 @@ async function subscribePush() {
   } catch (e) { }
 }
 // ---- security: login history + sign out everywhere ----
+async function loadServerIP() {
+  const el = $("srv-ip"); if (!el) return;
+  try { const d = await api("/api/server_ip"); el.value = d.ip || "Unavailable \u2014 IP restriction not needed"; }
+  catch (e) { el.value = "Unavailable"; }
+}
+function copyServerIP() {
+  const el = $("srv-ip"); if (!el || !el.value) return;
+  el.select();
+  if (navigator.clipboard) navigator.clipboard.writeText(el.value).then(() => notify("Server IP copied \u2713", "ok"), () => { });
+  else { try { document.execCommand("copy"); notify("Copied", "ok"); } catch (e) { } }
+}
 async function loadLogins() {
   try {
     const d = await api("/api/security/logins"); const rows = d.logins || [];
