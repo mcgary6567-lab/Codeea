@@ -137,6 +137,7 @@ function syncChartToStrategy(forceLoad) {
 // ---- views ----
 const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
 function goCheckout() { window.open(CHECKOUT_URL, "_blank", "noopener"); }
+function dismissAnnounce(id) { localStorage.setItem("bc_seen", String(id)); const ab = $("announce"); if (ab) ab.classList.add("hidden"); }
 function qNav(v) { return document.querySelector('.side button[data-v="' + v + '"]'); }
 function show(v, btn) {
   VIEWS.forEach(x => $("v-" + x).classList.toggle("hidden", x !== v));
@@ -170,6 +171,7 @@ function render(s) {
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
+  { const an = s.announcement, ab = $("announce"); if (ab) { if (an && an.message && localStorage.getItem("bc_seen") !== String(an.id)) { ab.classList.remove("hidden"); ab.innerHTML = "📢 " + esc(an.message) + ` <a onclick="dismissAnnounce(${an.id})" style="cursor:pointer;text-decoration:underline">dismiss</a>`; } else ab.classList.add("hidden"); } }
   { const ww = $("withdraw-warn"); if (ww) { ww.classList.toggle("hidden", !s.key_withdraw_warn); if (s.key_withdraw_warn) ww.innerHTML = "\u26a0\ufe0f <b>Your API key has withdrawals enabled.</b> For safety, replace it with a trade-only key (withdrawals disabled) on your exchange."; } }
   const name = s.name || (s.email || "").split("@")[0];
   $("st-email").textContent = "👋 " + name;

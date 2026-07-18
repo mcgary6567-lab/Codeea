@@ -79,6 +79,21 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL, sub TEXT NOT NULL, created REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS broadcasts(
+                id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
+                message TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', active INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS sales(
+                id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ts REAL NOT NULL,
+                amount REAL NOT NULL DEFAULT 0, method TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS ix_sales_ts ON sales(ts);
+            CREATE TABLE IF NOT EXISTS audit(
+                id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
+                admin_email TEXT NOT NULL DEFAULT '', action TEXT NOT NULL DEFAULT '',
+                target_id INTEGER, detail TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS ix_audit_ts ON audit(ts);
             """
         )
         for name, ddl in {
@@ -86,6 +101,7 @@ def init_db() -> None:
             "totp_enabled": "INTEGER NOT NULL DEFAULT 0",
             "last_summary": "TEXT NOT NULL DEFAULT ''",
             "token_version": "INTEGER NOT NULL DEFAULT 0",
+            "admin_note": "TEXT NOT NULL DEFAULT ''",
         }.items():
             ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
             if name not in ucols:
@@ -593,3 +609,120 @@ def kv_get(key: str):
 def kv_set(key: str, value: str) -> None:
     with _LOCK, _conn() as c:
         c.execute("INSERT OR REPLACE INTO kv(k, v) VALUES(?,?)", (key, value))
+
+
+# --- admin: broadcasts, sales/revenue, audit, customer mgmt ------------------
+def add_broadcast(message: str, level: str = "info") -> int:
+    with _LOCK, _conn() as c:
+        cur = c.execute("INSERT INTO broadcasts(ts, message, level, active) VALUES(?,?,?,1)",
+                        (time.time(), message.strip(), level))
+        return cur.lastrowid
+
+
+def active_broadcast() -> Optional[dict]:
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT id, ts, message, level FROM broadcasts WHERE active=1 "
+                      "ORDER BY id DESC LIMIT 1").fetchone()
+        return dict(r) if r else None
+
+
+def recent_broadcasts(limit: int = 15) -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT id, ts, message, level, active FROM broadcasts "
+                         "ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def deactivate_broadcasts() -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE broadcasts SET active=0 WHERE active=1")
+
+
+def record_sale(user_id: int, amount: float, method: str = "", note: str = "") -> None:
+    if amount <= 0:
+        return
+    with _LOCK, _conn() as c:
+        c.execute("INSERT INTO sales(user_id, ts, amount, method, note) VALUES(?,?,?,?,?)",
+                  (user_id, time.time(), float(amount), method[:40], note[:200]))
+
+
+def revenue_stats() -> dict:
+    now = time.time(); day = 86400.0
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT ts, amount FROM sales").fetchall()
+    total = m30 = m7 = 0.0
+    n = 0
+    series = [0.0] * 30
+    for r in rows:
+        a = r["amount"] or 0.0; total += a; n += 1
+        age = now - (r["ts"] or 0)
+        if age < 30 * day: m30 += a
+        if age < 7 * day: m7 += a
+        idx = int((r["ts"] - (now - 30 * day)) / day)
+        if 0 <= idx < 30:
+            series[idx] += a
+    return {"total": round(total, 2), "last_30d": round(m30, 2), "last_7d": round(m7, 2),
+            "sales": n, "series": [round(x, 2) for x in series]}
+
+
+def record_audit(admin_email: str, action: str, target_id=None, detail: str = "") -> None:
+    with _LOCK, _conn() as c:
+        c.execute("INSERT INTO audit(ts, admin_email, action, target_id, detail) VALUES(?,?,?,?,?)",
+                  (time.time(), (admin_email or "")[:120], action[:40], target_id, (detail or "")[:200]))
+
+
+def recent_audit(limit: int = 30) -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT ts, admin_email, action, target_id, detail FROM audit "
+                         "ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def set_admin_note(user_id: int, note: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET admin_note=? WHERE id=?", ((note or "")[:1000], user_id))
+
+
+def set_licence_until(user_id: int, ts: float) -> None:
+    with _LOCK, _conn() as c:
+        plan = "paid" if ts > time.time() else "trial"
+        c.execute("UPDATE users SET licence_until=?, plan=? WHERE id=?", (float(ts), plan, user_id))
+
+
+def admin_update_user(user_id: int, email=None, first_name=None, last_name=None) -> None:
+    with _LOCK, _conn() as c:
+        if email:
+            c.execute("UPDATE users SET email=? WHERE id=?", (email.strip().lower(), user_id))
+        if first_name is not None or last_name is not None:
+            c.execute("UPDATE users SET first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name) WHERE id=?",
+                      (first_name, last_name, user_id))
+
+
+def delete_user(user_id: int) -> None:
+    with _LOCK, _conn() as c:
+        for t in ("trades", "equity", "resets", "logins", "push_subs", "sales"):
+            c.execute(f"DELETE FROM {t} WHERE user_id=?", (user_id,))
+        c.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def all_telegram_targets() -> list:
+    """(token, chat) pairs for every user who configured Telegram — for broadcasts."""
+    out = []
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT settings FROM users WHERE settings LIKE '%telegram_token%'").fetchall()
+    for r in rows:
+        try:
+            st = json.loads(r["settings"] or "{}")
+            tok = (st.get("telegram_token") or "").strip()
+            chat = str(st.get("telegram_chat") or "").strip()
+            if tok and chat:
+                out.append((tok, chat))
+        except Exception:
+            continue
+    return out
+
+
+def all_push_subs() -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT endpoint, sub FROM push_subs").fetchall()
+        return [dict(r) for r in rows]

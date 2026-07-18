@@ -39,6 +39,8 @@
     <div class="kpi-row" id="kpi-biz"></div>
     <!-- trading KPIs -->
     <div class="kpi-row" id="kpi-trade"></div>
+    <!-- revenue KPIs -->
+    <div class="kpi-row" id="kpi-rev"></div>
 
     <div class="grid2">
       <div class="card">
@@ -85,6 +87,25 @@
         </table>
       </div>
       <div class="hint" id="ad-empty" style="display:none">No customers match your filters.</div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>📣 Broadcast announcement</h3>
+        <div class="hint">Shows as a banner to every customer. Optionally also push via Telegram + browser notifications.</div>
+        <textarea id="bc-msg" rows="2" placeholder="e.g. Scheduled maintenance tonight 2–3am UTC…" style="width:100%;margin-top:8px;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13px"></textarea>
+        <label class="chkline"><input type="checkbox" id="bc-notify"/> Also send via Telegram + push</label>
+        <div class="btnrow">
+          <button class="btn" onclick="sendBroadcast()">Post announcement</button>
+          <button class="btn ghost" onclick="broadcastOff()">Clear active</button>
+        </div>
+        <div id="bc-list" class="hint" style="margin-top:10px">—</div>
+      </div>
+      <div class="card">
+        <h3>🧾 Admin audit log</h3>
+        <div class="tablewrap" style="max-height:300px;overflow:auto"><table><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Detail</th></tr></thead>
+          <tbody id="audit-rows"><tr><td colspan="4" class="k">—</td></tr></tbody></table></div>
+      </div>
     </div>
   </div>
 </div>

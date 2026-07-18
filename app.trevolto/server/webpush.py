@@ -61,6 +61,29 @@ def push_to_user(user_id: int, message: str) -> None:
     threading.Thread(target=_send_all, args=(user_id, message), daemon=True).start()
 
 
+def push_to_all(message: str) -> None:
+    if not _HAS:
+        return
+    threading.Thread(target=_send_broadcast, args=(message,), daemon=True).start()
+
+
+def _send_broadcast(message: str) -> None:
+    priv, _ = _keys()
+    if not priv:
+        return
+    payload = json.dumps({"title": _BRAND, "body": message})
+    for row in store.all_push_subs():
+        try:
+            _webpush(subscription_info=json.loads(row["sub"]), data=payload,
+                     vapid_private_key=priv, vapid_claims=dict(_CLAIM))
+        except WebPushException as e:
+            code = getattr(getattr(e, "response", None), "status_code", 0)
+            if code in (404, 410):
+                store.remove_push_sub(row["endpoint"])
+        except Exception:
+            pass
+
+
 def _send_all(user_id: int, message: str) -> None:
     priv, _ = _keys()
     if not priv:

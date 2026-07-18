@@ -57,6 +57,8 @@ async function reloadAll() {
   STATS = sRes;
   renderStats();
   applyFilters();
+  loadBroadcasts();
+  loadAudit();
 }
 
 // ---- KPI + charts ----
@@ -80,6 +82,13 @@ function renderStats() {
     kpi("Win rate (live)", tr.live_win_rate + "%", "closed live trades") +
     kpi("With API keys", fmtNum(u.with_keys), "exchange connected") +
     kpi("Total accounts", fmtNum(u.total), `${u.admins} admin`);
+  const rr = STATS.revenue_real || { total: 0, last_30d: 0, last_7d: 0, sales: 0 };
+  $("kpi-rev").innerHTML = rr.sales > 0
+    ? kpi("Revenue (all-time)", fmtMoney(rr.total), `${rr.sales} sales logged`, "pos") +
+      kpi("Revenue (30d)", fmtMoney(rr.last_30d), "last 30 days", "pos") +
+      kpi("Revenue (7d)", fmtMoney(rr.last_7d), "last 7 days") +
+      kpi("Avg sale", fmtMoney(rr.sales ? rr.total / rr.sales : 0), "per licence")
+    : kpi("Revenue", "—", "Log a $ amount when granting a licence to track real revenue");
 
   // online chip
   const oc = $("ad-online");
@@ -236,6 +245,9 @@ function renderDrawer(d) {
     <h4 class="dw-h">Recent activity</h4>
     <div class="tablewrap"><table><thead><tr><th>When</th><th>Symbol</th><th>Kind</th><th>PnL</th><th>Mode</th></tr></thead>
     <tbody>${rows.length ? rows.map(t => `<tr><td class="k">${ago(t.ts)}</td><td>${esc(t.symbol)}</td><td>${esc(t.kind)}</td><td class="mono ${(t.pnl || 0) >= 0 ? "pos" : "neg"}">${t.kind === "close" ? fmtMoney(t.pnl) : "—"}</td><td class="k">${esc(t.mode)}</td></tr>`).join("") : `<tr><td colspan="5" class="k">No activity yet.</td></tr>`}</tbody></table></div>
+    <h4 class="dw-h">Internal note</h4>
+    <textarea id="dw-note" rows="2" style="width:100%;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 10px;font-family:inherit;font-size:12.5px">${esc(d.admin_note || "")}</textarea>
+    <button class="btn ghost sm" style="margin-top:6px" onclick="saveNote(${d.id})">Save note</button>
     <h4 class="dw-h">Actions</h4>
     <div class="dw-actions">
       ${d.active ? `<button class="btn ghost sm" onclick="act(${d.id},'suspend',1)">⛔ Suspend</button>` : `<button class="btn green sm" onclick="act(${d.id},'activate',1)">✅ Activate</button>`}
@@ -244,7 +256,10 @@ function renderDrawer(d) {
       <button class="btn ghost sm" onclick="extendTrial(${d.id})">+ Extend trial</button>
       <button class="btn ghost sm" onclick="act(${d.id},'revoke',1)">Revoke licence</button>
       <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
+      <button class="btn ghost sm" onclick="editUser(${d.id})">✏️ Edit details</button>
+      <button class="btn ghost sm" onclick="setExpiry(${d.id})">📅 Set expiry date</button>
       ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">Make admin</button>`}
+      <button class="btn red sm" onclick="deleteUser(${d.id})">🗑 Delete</button>
     </div>
     <div id="dw-msg" class="hint"></div>`;
 }
@@ -263,16 +278,57 @@ async function act(uid, action, fromDrawer) {
 }
 async function grantLifetime(uid, fromDrawer) {
   if (!confirm("Grant a LIFETIME (never-expiring) licence to this customer?")) return;
+  const amt = prompt("Sale amount in $ (blank = don't log revenue):", "");
   try {
-    await api("/api/admin/action", "POST", { user_id: uid, action: "grant", lifetime: true });
+    const body = { user_id: uid, action: "grant", lifetime: true };
+    if (amt && parseFloat(amt) > 0) { body.amount = parseFloat(amt); body.method = "manual"; }
+    await api("/api/admin/action", "POST", body);
     notify("♾ Lifetime licence granted ✓", "ok"); await reloadAll(); if (fromDrawer) openDrawer(uid);
   } catch (e) { notify(e.message, "error"); }
+}
+// ---- new admin ops: notes, edit, expiry, delete, broadcasts, audit ----
+async function saveNote(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "note", note: $("dw-note").value }); notify("Note saved ✓", "ok"); } catch (e) { notify(e.message, "error"); } }
+async function editUser(uid) {
+  const u = ALL_USERS.find(x => x.id === uid) || {};
+  const email = prompt("Email:", u.email || ""); if (email === null) return;
+  const first = prompt("First name:", u.first_name || ""); if (first === null) return;
+  const last = prompt("Last name:", u.last_name || ""); if (last === null) return;
+  try { await api("/api/admin/action", "POST", { user_id: uid, action: "edit", email, first_name: first, last_name: last }); notify("Customer updated ✓", "ok"); await reloadAll(); openDrawer(uid); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function setExpiry(uid) {
+  const s = prompt("Licence expiry date (YYYY-MM-DD):"); if (!s) return;
+  const t = Date.parse(s + "T23:59:59Z"); if (isNaN(t)) { notify("Invalid date — use YYYY-MM-DD", "error"); return; }
+  try { await api("/api/admin/action", "POST", { user_id: uid, action: "set_expiry", ts: t / 1000 }); notify("Expiry date set ✓", "ok"); await reloadAll(); openDrawer(uid); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function deleteUser(uid) {
+  if (!confirm("Permanently DELETE this customer and ALL their data (trades, keys, logins)? This cannot be undone.")) return;
+  try { await api("/api/admin/action", "POST", { user_id: uid, action: "delete" }); notify("Customer deleted", "warn"); closeDrawer(); await reloadAll(); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function sendBroadcast() {
+  const msg = $("bc-msg").value.trim(); if (!msg) { notify("Enter a message first", "warn"); return; }
+  try { await api("/api/admin/broadcast", "POST", { message: msg, notify: $("bc-notify").checked }); notify("Announcement posted ✓", "ok"); $("bc-msg").value = ""; loadBroadcasts(); loadAudit(); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function broadcastOff() { try { await api("/api/admin/broadcast_off", "POST"); notify("Announcement cleared", "warn"); loadBroadcasts(); loadAudit(); } catch (e) { notify(e.message, "error"); } }
+async function loadBroadcasts() {
+  try { const d = await api("/api/admin/broadcasts"); const active = (d.broadcasts || []).find(b => b.active);
+    $("bc-list").innerHTML = active ? `<b>Active:</b> ${esc(active.message)} <span class="k">(${new Date(active.ts * 1000).toLocaleString()})</span>` : "No active announcement."; } catch (e) { }
+}
+async function loadAudit() {
+  try { const d = await api("/api/admin/audit"); const rows = d.audit || [];
+    $("audit-rows").innerHTML = rows.length ? rows.map(r => `<tr><td class="k">${new Date(r.ts * 1000).toLocaleString()}</td><td class="k">${esc(r.admin_email)}</td><td>${esc(r.action)}</td><td class="k">${esc((r.detail || "") + (r.target_id ? " #" + r.target_id : ""))}</td></tr>`).join("") : `<tr><td colspan="4" class="k">No admin actions yet.</td></tr>`; } catch (e) { }
 }
 async function grantDays(uid) {
   const days = prompt("Grant a time-limited licence for how many days?\n(Leave blank to cancel — use “+Licence” for a lifetime licence.)", "30");
   if (!days) return;
   try {
-    await api("/api/admin/action", "POST", { user_id: uid, action: "grant", days: parseFloat(days) });
+    const body = { user_id: uid, action: "grant", days: parseFloat(days) };
+    const amt = prompt("Sale amount in $ (blank = don't log revenue):", "");
+    if (amt && parseFloat(amt) > 0) { body.amount = parseFloat(amt); body.method = "manual"; }
+    await api("/api/admin/action", "POST", body);
     notify(`Licence granted (${days} days) ✓`, "ok"); await reloadAll(); openDrawer(uid);
   } catch (e) { notify(e.message, "error"); }
 }

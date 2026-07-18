@@ -188,6 +188,7 @@ def full_state(user: dict) -> dict:
     snap["totp_enabled"] = bool(user.get("totp_enabled"))
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
+    snap["announcement"] = store.active_broadcast()
     snap["access"] = store.entitlement(user)
     return snap
 
@@ -410,6 +411,7 @@ def admin_users(admin: dict = Depends(require_admin)):
 def admin_stats(admin: dict = Depends(require_admin)):
     stats = store.platform_stats(LICENCE_PRICE)
     stats["live"] = {k: v for k, v in live_stats().items() if k != "per_user"}
+    stats["revenue_real"] = store.revenue_stats()
     return stats
 
 
@@ -431,27 +433,56 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
     if not target:
         raise HTTPException(404, "user not found")
     extra = {}
+    detail = ""
     if action == "suspend":
         store.set_active(uid, False)
     elif action == "activate":
         store.set_active(uid, True)
     elif action == "grant":
         if d.get("lifetime"):
-            store.grant_licence(uid, lifetime=True)
+            store.grant_licence(uid, lifetime=True); detail = "lifetime"
         else:
-            store.grant_licence(uid, days=float(d.get("days", 30)))
+            store.grant_licence(uid, days=float(d.get("days", 30))); detail = f"{d.get('days', 30)}d"
+        amt = float(d.get("amount", 0) or 0)
+        if amt > 0:
+            store.record_sale(uid, amt, d.get("method", "manual"), "licence")
+            detail += f" ${amt:g}"
     elif action == "extend_trial":
-        store.extend_trial(uid, float(d.get("days", 7)))
+        store.extend_trial(uid, float(d.get("days", 7))); detail = f"{d.get('days', 7)}d"
     elif action == "revoke":
         store.revoke_licence(uid)
+    elif action == "set_expiry":
+        store.set_licence_until(uid, float(d.get("ts", 0) or 0)); detail = str(int(float(d.get("ts", 0) or 0)))
+    elif action == "note":
+        store.set_admin_note(uid, d.get("note", ""))
+    elif action == "edit":
+        em = (d.get("email") or "").strip().lower()
+        if em:
+            other = store.get_user_by_email(em)
+            if other and other["id"] != uid:
+                raise HTTPException(400, "email already in use")
+        store.admin_update_user(uid, email=em or None,
+                                first_name=d.get("first_name"), last_name=d.get("last_name"))
+        detail = em or "profile"
+    elif action == "record_sale":
+        store.record_sale(uid, float(d.get("amount", 0) or 0), d.get("method", "manual"), d.get("note", ""))
+        detail = f"${d.get('amount', 0)}"
     elif action == "make_admin":
         store.set_admin(uid, True)
     elif action == "remove_admin":
-        # Guard: never remove the last remaining admin.
         admins = [u for u in store.list_users() if u.get("is_admin")]
         if len(admins) <= 1 and target.get("is_admin"):
             raise HTTPException(400, "cannot remove the last admin")
         store.set_admin(uid, False)
+    elif action == "delete":
+        if uid == admin["id"]:
+            raise HTTPException(400, "you cannot delete your own account")
+        admins = [u for u in store.list_users() if u.get("is_admin")]
+        if len(admins) <= 1 and target.get("is_admin"):
+            raise HTTPException(400, "cannot delete the last admin")
+        store.delete_user(uid)
+        store.record_audit(admin["email"], "delete", uid, target["email"])
+        return {"ok": True, "deleted": True}
     elif action == "reset_link":
         raw = store.create_reset(uid, ttl_seconds=3600)
         base = PUBLIC_URL or ""
@@ -459,10 +490,56 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
         extra["expires_minutes"] = 60
     else:
         raise HTTPException(400, "unknown action")
+    store.record_audit(admin["email"], action, uid, detail)
     resp = {"ok": True, "user": {k: v for k, v in store.get_user(uid).items()
-                                 if k not in ("pw_hash", "keys_blob")}}
+                                 if k not in ("pw_hash", "keys_blob", "totp_secret")}}
     resp.update(extra)
     return resp
+
+
+# --- admin: broadcasts, audit -----------------------------------------------
+def _broadcast_telegram(message: str):
+    import urllib.request as _u, urllib.parse as _p
+    for token, chat in store.all_telegram_targets():
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            data = _p.urlencode({"chat_id": chat, "text": message}).encode()
+            _u.urlopen(_u.Request(url, data=data), timeout=8)
+        except Exception:
+            continue
+
+
+@app.post("/api/admin/broadcast")
+async def admin_broadcast(request: Request, admin: dict = Depends(require_admin)):
+    d = await body(request)
+    msg = (d.get("message") or "").strip()
+    if not msg:
+        raise HTTPException(400, "message required")
+    store.deactivate_broadcasts()
+    bid = store.add_broadcast(msg, d.get("level", "info"))
+    store.record_audit(admin["email"], "broadcast", None, msg[:80])
+    if d.get("notify"):
+        import threading as _t
+        webpush.push_to_all("\U0001F4E2 " + msg)
+        _t.Thread(target=_broadcast_telegram, args=("\U0001F4E2 " + msg,), daemon=True).start()
+    return {"ok": True, "id": bid}
+
+
+@app.get("/api/admin/broadcasts")
+def admin_broadcasts(admin: dict = Depends(require_admin)):
+    return {"broadcasts": store.recent_broadcasts(15)}
+
+
+@app.post("/api/admin/broadcast_off")
+def admin_broadcast_off(admin: dict = Depends(require_admin)):
+    store.deactivate_broadcasts()
+    store.record_audit(admin["email"], "broadcast_off")
+    return {"ok": True}
+
+
+@app.get("/api/admin/audit")
+def admin_audit(admin: dict = Depends(require_admin)):
+    return {"audit": store.recent_audit(30)}
 
 
 # --- live prices (dashboard strip) -----------------------------------------
