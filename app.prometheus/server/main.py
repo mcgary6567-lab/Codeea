@@ -189,6 +189,9 @@ def full_state(user: dict) -> dict:
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
     snap["announcement"] = store.active_broadcast()
+    _gs = store.get_global_strategy()
+    snap["strategy_managed"] = True
+    snap["managed_strategy"] = {"params": _gs.get("params", {}), "timeframe": _gs.get("timeframe", "15m"), "symbols": _gs.get("symbols", "BTC/USDT")}
     snap["access"] = store.entitlement(user)
     return snap
 
@@ -297,15 +300,8 @@ async def telegram_test(request: Request, user: dict = Depends(current_user)):
 async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
     s = get_session(user["id"])
-    if d.get("params") is not None or d.get("symbols") is not None or d.get("timeframe") is not None:
-        patch = {}
-        if d.get("symbols") is not None:
-            patch["strategy_symbols"] = d["symbols"]
-        if d.get("timeframe") is not None:
-            patch["strategy_timeframe"] = d["timeframe"]
-        if d.get("params") is not None:
-            patch["strategy_params"] = d["params"]
-        s.set_settings(patch)
+    # Strategy params / timeframe / symbols are managed centrally (locked) —
+    # customer-supplied changes here are ignored on purpose.
     if d.get("enable") is True:
         require_entitled(user)
         s.set_settings({"strategy_enabled": True})   # persist so it auto-starts on connect
@@ -540,6 +536,26 @@ def admin_broadcast_off(admin: dict = Depends(require_admin)):
 @app.get("/api/admin/audit")
 def admin_audit(admin: dict = Depends(require_admin)):
     return {"audit": store.recent_audit(30)}
+
+
+# --- admin: global bot strategy (locked, applies to every customer) ---------
+@app.get("/api/admin/strategy")
+def admin_get_strategy(admin: dict = Depends(require_admin)):
+    return store.get_global_strategy()
+
+
+@app.post("/api/admin/strategy")
+async def admin_set_strategy(request: Request, admin: dict = Depends(require_admin)):
+    d = await body(request)
+    params = {}
+    for k, v in (d.get("params") or {}).items():
+        try:
+            params[str(k)] = float(v)
+        except (TypeError, ValueError):
+            continue
+    g = store.set_global_strategy(params, str(d.get("timeframe", "15m")), str(d.get("symbols", "BTC/USDT")))
+    store.record_audit(admin["email"], "strategy", None, f"v{g['version']} {g['timeframe']} {g['symbols']}")
+    return g
 
 
 # --- live prices (dashboard strip) -----------------------------------------

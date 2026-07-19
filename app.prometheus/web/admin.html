@@ -56,6 +56,39 @@
     </div>
 
     <div class="card">
+      <h3>🤖 Global Bot Strategy <span class="chip">applies to all customers</span></h3>
+      <div class="hint">Change these and <b>every customer's bot updates automatically within seconds</b> — no action on their side. Customers can't edit the strategy; their risk, sizing &amp; API keys stay their own.</div>
+      <div class="row" style="margin-top:10px">
+        <div class="col"><label>Timeframe</label><select id="gs-tf"><option>5m</option><option>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
+        <div class="col" style="flex:2"><label>Symbols (comma-separated)</label><input id="gs-sym" placeholder="BTC/USDT,ETH/USDT"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Fast EMA</label><input id="gp-fast_ema" type="number"/></div>
+        <div class="col"><label>Slow EMA</label><input id="gp-slow_ema" type="number"/></div>
+        <div class="col"><label>Trend EMA</label><input id="gp-trend_ema" type="number"/></div>
+        <div class="col"><label>Trend filter</label><select id="gp-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Confirm candles</label><input id="gp-confirm" type="number"/></div>
+        <div class="col"><label>Min body (0-1)</label><input id="gp-min_body" type="number" step="0.05"/></div>
+        <div class="col"><label>SL buffer % past EMA21</label><input id="gp-sl_ema_buffer_pct" type="number" step="0.05"/></div>
+        <div class="col"><label>Swing lookback</label><input id="gp-swing_lookback" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Partial TP R:R</label><input id="gp-tp_r" type="number" step="0.1"/></div>
+        <div class="col"><label>Partial close (0-1)</label><input id="gp-partial_pct" type="number" step="0.05"/></div>
+        <div class="col"><label>Whipsaw max crosses</label><input id="gp-whipsaw_max_crosses" type="number"/></div>
+        <div class="col"><label>within N candles</label><input id="gp-whipsaw_window" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Suspend entries (hours)</label><input id="gp-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+        <div class="col"><label>Avoid daily close</label><select id="gp-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
+        <div class="col end"><button class="btn" onclick="saveGlobalStrategy()">💾 Save &amp; push to all customers</button></div>
+      </div>
+      <div class="hint" id="gs-info">-</div>
+    </div>
+
+    <div class="card">
       <div class="chart-head" style="margin-bottom:12px">
         <h3 style="margin:0">Customers <span class="chip" id="ad-count">0</span></h3>
         <input id="ad-search" placeholder="🔎 Search email or name…" style="max-width:240px" oninput="applyFilters()"/>
