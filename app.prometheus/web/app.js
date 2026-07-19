@@ -75,7 +75,7 @@ function enterApp() {
 }
 
 // ---- browser / system notifications ----
-let lastAlertTs = 0, alertInit = false, unread = 0;
+let lastAlertTs = 0, alertInit = false, unread = 0, seenTs = parseFloat(localStorage.getItem("bell_seen_ts") || "0"), newestAlertTs = 0;
 function notifIcon() { const i = document.querySelector('.brand img'); return i ? i.src : ""; }
 function notifTitle() { const i = document.querySelector('.brand img'); return (i && i.alt) || "Alert"; }
 function browserNotifyOn() { return localStorage.getItem("notif") === "1" && "Notification" in window && Notification.permission === "granted"; }
@@ -91,9 +91,12 @@ function toggleNotif() {
 function processAlerts(s) {
   const a = s.alerts || [];
   renderBell(a);
+  if (a.length) newestAlertTs = a[0].ts;
+  unread = a.filter(x => x.ts > seenTs).length;   // persistent unseen count (survives reloads)
+  updateBadge();
   if (!a.length) return;
   const newestTs = a[0].ts;
-  if (!alertInit) { lastAlertTs = newestTs; alertInit = true; return; }   // don't replay history on first load
+  if (!alertInit) { lastAlertTs = newestTs; alertInit = true; return; }   // don't toast history on first load
   if (newestTs <= lastAlertTs) return;
   const fresh = a.filter(x => x.ts > lastAlertTs).sort((x, y) => x.ts - y.ts);
   lastAlertTs = newestTs;
@@ -101,9 +104,7 @@ function processAlerts(s) {
     const t = x.msg.indexOf("\u274C") >= 0 ? "error" : (x.msg.indexOf("\u23ED") >= 0 ? "warn" : "ok");
     notify(x.msg.split("\n").join(" \u00b7 "), t);                              // in-app toast
     if (browserNotifyOn() && !pushActive) { try { new Notification(notifTitle(), { body: x.msg, icon: notifIcon() }); } catch (e) { } }
-    unread++;
   });
-  updateBadge();
 }
 function bellTime(ts) { const d = Date.now() / 1000 - ts; if (d < 60) return "just now"; if (d < 3600) return Math.floor(d / 60) + "m ago"; if (d < 86400) return Math.floor(d / 3600) + "h ago"; return Math.floor(d / 86400) + "d ago"; }
 function renderBell(a) {
@@ -112,7 +113,7 @@ function renderBell(a) {
   list.innerHTML = a.map(x => `<div class="bell-item">${esc(x.msg).split("\n").join("<br>")}<div class="bell-time">${bellTime(x.ts)}</div></div>`).join("");
 }
 function updateBadge() { const b = $("bell-badge"); if (!b) return; b.textContent = unread > 9 ? "9+" : unread; b.classList.toggle("hidden", unread <= 0); }
-function toggleBell() { const p = $("bell-panel"); if (!p) return; p.classList.toggle("hidden"); if (!p.classList.contains("hidden")) { unread = 0; updateBadge(); } }
+function toggleBell() { const p = $("bell-panel"); if (!p) return; p.classList.toggle("hidden"); if (!p.classList.contains("hidden")) { seenTs = newestAlertTs || (Date.now() / 1000); localStorage.setItem("bell_seen_ts", String(seenTs)); unread = 0; updateBadge(); } }
 document.addEventListener("click", e => { const p = $("bell-panel"); if (p && !p.classList.contains("hidden") && !e.target.closest(".bell-wrap")) p.classList.add("hidden"); });
 
 
