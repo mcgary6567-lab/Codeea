@@ -189,6 +189,13 @@ def full_state(user: dict) -> dict:
     snap["webhook_url"] = _webhook_url(user)
     snap["has_keys"] = store.load_keys(user["id"]) is not None
     snap["announcement"] = store.active_broadcast()
+    _allow = bool(user.get("allow_custom"))
+    snap["allow_custom"] = _allow
+    snap["strategy_managed"] = not _allow
+    snap["custom_requested"] = bool(user.get("custom_requested"))
+    if not _allow:
+        _gs = store.get_global_strategy()
+        snap["managed_strategy"] = {"params": _gs.get("params", {}), "timeframe": _gs.get("timeframe", "15m"), "symbols": _gs.get("symbols", "BTC/USDT")}
     snap["access"] = store.entitlement(user)
     return snap
 
@@ -297,7 +304,7 @@ async def telegram_test(request: Request, user: dict = Depends(current_user)):
 async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
     s = get_session(user["id"])
-    if d.get("params") is not None or d.get("symbols") is not None or d.get("timeframe") is not None:
+    if (d.get("params") is not None or d.get("symbols") is not None or d.get("timeframe") is not None) and user.get("allow_custom"):
         patch = {}
         if d.get("symbols") is not None:
             patch["strategy_symbols"] = d["symbols"]
@@ -483,6 +490,16 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
         store.delete_user(uid)
         store.record_audit(admin["email"], "delete", uid, target["email"])
         return {"ok": True, "deleted": True}
+    elif action == "unlock_strategy":
+        store.set_allow_custom(uid, True)
+        try:
+            get_session(uid).notify("\u2705 Custom-strategy access approved \u2014 you can now edit your Bot Setting.")
+        except Exception:
+            pass
+    elif action == "lock_strategy":
+        store.set_allow_custom(uid, False)
+    elif action == "deny_custom":
+        store.clear_custom_request(uid)
     elif action == "reset_link":
         raw = store.create_reset(uid, ttl_seconds=3600)
         base = PUBLIC_URL or ""
@@ -540,6 +557,39 @@ def admin_broadcast_off(admin: dict = Depends(require_admin)):
 @app.get("/api/admin/audit")
 def admin_audit(admin: dict = Depends(require_admin)):
     return {"audit": store.recent_audit(30)}
+
+
+# --- customer: request custom-strategy access -------------------------------
+@app.post("/api/strategy/request")
+async def strategy_request(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    store.request_custom(user["id"], str(d.get("reason", "")))
+    return {"ok": True}
+
+
+# --- admin: global bot strategy + per-customer unlock -----------------------
+@app.get("/api/admin/strategy")
+def admin_get_strategy(admin: dict = Depends(require_admin)):
+    return store.get_global_strategy()
+
+
+@app.post("/api/admin/strategy")
+async def admin_set_strategy(request: Request, admin: dict = Depends(require_admin)):
+    d = await body(request)
+    params = {}
+    for k, v in (d.get("params") or {}).items():
+        try:
+            params[str(k)] = float(v)
+        except (TypeError, ValueError):
+            continue
+    g = store.set_global_strategy(params, str(d.get("timeframe", "15m")), str(d.get("symbols", "BTC/USDT")))
+    store.record_audit(admin["email"], "strategy", None, f"v{g['version']} {g['timeframe']} {g['symbols']}")
+    return g
+
+
+@app.get("/api/admin/strategy_requests")
+def admin_strategy_requests(admin: dict = Depends(require_admin)):
+    return {"requests": store.pending_custom_requests()}
 
 
 # --- live prices (dashboard strip) -----------------------------------------

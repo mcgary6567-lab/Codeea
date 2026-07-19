@@ -122,6 +122,20 @@ def public_prices(exchange_id: str, symbols: list) -> dict:
     return {s: base.get(s, base.get(ex.normalize_symbol(s), {})) for s in symbols}
 
 
+_GS_CACHE = {"v": None, "t": 0.0}
+
+
+def _global_strategy() -> dict:
+    """Admin-managed strategy, cached ~5s so the per-user loops share it cheaply."""
+    now = time.time()
+    if _GS_CACHE["v"] is not None and now - _GS_CACHE["t"] < 5:
+        return _GS_CACHE["v"]
+    g = store.get_global_strategy()
+    _GS_CACHE["v"] = g
+    _GS_CACHE["t"] = now
+    return g
+
+
 DEFAULT_SETTINGS = {
     "sizing_mode": "risk_stop",      # fixed | fixed_quote | risk_balance | risk_stop
     "fixed_size": 0.003,
@@ -184,7 +198,8 @@ class TraderSession:
         self.strategy_on = False
         self._strat: threading.Thread | None = None
         self._strat_primed: dict = {}
-        self._strat_hold: dict = {}      # last logged "why held" reason per symbol
+        self._strat_hold: dict = {}
+        self._strat_version = None      # last logged "why held" reason per symbol
         self._apply_guardrails()
         self.key_withdraw_warn = False
         self._tg_offset = 0
@@ -264,8 +279,11 @@ class TraderSession:
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
     def _params(self) -> "strat.StrategyParams":
+        return self._strat_params(self.settings.get("strategy_params") or {})
+
+    def _strat_params(self, src: dict) -> "strat.StrategyParams":
         p = strat.StrategyParams()
-        for k, v in (self.settings.get("strategy_params") or {}).items():
+        for k, v in (src or {}).items():
             if hasattr(p, k):
                 setattr(p, k, v)
         return p
@@ -549,7 +567,8 @@ class TraderSession:
     def _strategy_loop(self) -> None:
         while self.strategy_on and self.connected:
             # Stop trading if the licence/trial lapsed mid-session.
-            ent = store.entitlement(store.get_user(self.user_id) or {})
+            _u = store.get_user(self.user_id) or {}
+            ent = store.entitlement(_u)
             if not ent["ok"]:
                 msg = ("Trial ended — trading stopped. Buy a licence to reactivate."
                        if ent["status"] == "expired" else f"Trading stopped — access {ent['status']}.")
@@ -557,9 +576,22 @@ class TraderSession:
                 self.notify(msg)
                 self.strategy_on = False
                 break
-            symbols = [s.strip() for s in str(self.settings.get("strategy_symbols", "")).split(",") if s.strip()]
-            tf = self.settings.get("strategy_timeframe", "1h")
-            params = self._params()
+            if _u.get("allow_custom"):
+                src = self.settings.get("strategy_params") or {}
+                sym_csv = str(self.settings.get("strategy_symbols", "BTC/USDT"))
+                tf = self.settings.get("strategy_timeframe", "15m")
+            else:
+                g = _global_strategy()
+                if self._strat_version is not None and g.get("version") != self._strat_version:
+                    self.log("\u2699\ufe0f Strategy updated \u2014 new settings are now live.", "ok")
+                    self.notify("\u2699\ufe0f Your bot strategy was updated \u2014 new settings are now live.")
+                    self._strat_primed = {}
+                self._strat_version = g.get("version")
+                src = g.get("params") or {}
+                sym_csv = str(g.get("symbols", "BTC/USDT"))
+                tf = g.get("timeframe", "15m")
+            symbols = [s.strip() for s in sym_csv.split(",") if s.strip()]
+            params = self._strat_params(src)
             for sym in symbols:
                 try:
                     self._strategy_step(sym, tf, params)

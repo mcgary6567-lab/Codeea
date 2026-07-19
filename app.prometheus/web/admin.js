@@ -59,6 +59,8 @@ async function reloadAll() {
   applyFilters();
   loadBroadcasts();
   loadAudit();
+  loadStrategy();
+  loadRequests();
 }
 
 // ---- KPI + charts ----
@@ -222,6 +224,8 @@ function renderDrawer(d) {
       ${d.totp_enabled ? '<span class="chip safe">🔐 2FA</span>' : ""}
       ${live && live.connected ? '<span class="chip safe">● connected</span>' : '<span class="chip">offline</span>'}
       ${live && live.paper_mode ? '<span class="chip warn">paper</span>' : ""}
+      ${d.allow_custom ? '<span class="chip safe">custom strategy</span>' : '<span class="chip">managed strategy</span>'}
+      ${d.custom_requested && !d.allow_custom ? '<span class="chip warn">⏳ requested custom</span>' : ""}
     </div>
     <div class="dw-grid">
       <div class="dw-stat"><span>Access</span><b>${st}${e.lifetime ? " · ♾ lifetime" : (e.days_left != null ? " · " + e.days_left + "d" : "")}</b></div>
@@ -258,6 +262,7 @@ function renderDrawer(d) {
       <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
       <button class="btn ghost sm" onclick="editUser(${d.id})">✏️ Edit details</button>
       <button class="btn ghost sm" onclick="setExpiry(${d.id})">📅 Set expiry date</button>
+      ${d.allow_custom ? `<button class="btn ghost sm" onclick="act(${d.id},'lock_strategy',1)">🔒 Lock to managed strategy</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'unlock_strategy',1)">🔓 Allow custom strategy</button>`}
       ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">Make admin</button>`}
       <button class="btn red sm" onclick="deleteUser(${d.id})">🗑 Delete</button>
     </div>
@@ -373,6 +378,36 @@ function toggleAuto() {
   if ($("ad-auto").checked) autoTimer = setInterval(() => reloadAll().catch(() => { }), 15000);
 }
 
+const GSPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
+const GBOOL = new Set(["use_trend_filter", "avoid_daily_close"]);
+async function loadStrategy() {
+  try {
+    const g = await api("/api/admin/strategy"); const p = g.params || {};
+    for (const k in GSPARAMS) { const el = $("gp-" + k); if (!el) continue; const v = p[k] !== undefined ? p[k] : GSPARAMS[k]; el.value = GBOOL.has(k) ? (v ? "1" : "0") : v; }
+    if ($("gs-tf")) $("gs-tf").value = g.timeframe || "15m";
+    if ($("gs-sym")) $("gs-sym").value = g.symbols || "BTC/USDT";
+    if ($("gs-info")) $("gs-info").innerHTML = `Version <b>${g.version}</b>${g.updated ? " \u00b7 updated " + new Date(g.updated * 1000).toLocaleString() : ""} \u00b7 live for all managed customers.`;
+  } catch (e) { }
+}
+async function saveGlobalStrategy() {
+  const params = {}; for (const k in GSPARAMS) { const el = $("gp-" + k); if (!el) continue; let v = parseFloat(el.value); if (isNaN(v)) v = GSPARAMS[k]; params[k] = v; }
+  if (!confirm("Save this strategy and push it live to ALL managed customers now?")) return;
+  try { await api("/api/admin/strategy", "POST", { params, timeframe: $("gs-tf").value, symbols: $("gs-sym").value.trim() }); notify("Strategy saved \u2014 pushing to all customers \u2713", "ok"); loadStrategy(); loadAudit(); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function loadRequests() {
+  try { const d = await api("/api/admin/strategy_requests"); renderRequests(d.requests || []); } catch (e) { }
+}
+function renderRequests(list) {
+  if ($("req-count")) $("req-count").textContent = list.length;
+  const el = $("req-list"); if (!el) return;
+  el.innerHTML = list.length ? list.map(r => {
+    const nm = [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(nm)}</b> <span class="k mono">${esc(r.email)}</span><div class="k" style="margin-top:2px">${esc(r.custom_reason || "(no reason given)")} \u00b7 ${ago(r.custom_requested)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn green sm" onclick="approveCustom(${r.id})">Approve</button><button class="btn ghost sm" onclick="denyCustom(${r.id})">Deny</button></div></div>`;
+  }).join("") : '<div class="k">No pending requests.</div>';
+}
+async function approveCustom(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "unlock_strategy" }); notify("Approved \u2014 customer can now customize \u2713", "ok"); loadRequests(); reloadAll(); } catch (e) { notify(e.message, "error"); } }
+async function denyCustom(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "deny_custom" }); notify("Request dismissed", "warn"); loadRequests(); } catch (e) { notify(e.message, "error"); } }
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { alert(msg); return; }
   const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";

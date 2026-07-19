@@ -102,6 +102,9 @@ def init_db() -> None:
             "last_summary": "TEXT NOT NULL DEFAULT ''",
             "token_version": "INTEGER NOT NULL DEFAULT 0",
             "admin_note": "TEXT NOT NULL DEFAULT ''",
+            "allow_custom": "INTEGER NOT NULL DEFAULT 0",
+            "custom_requested": "REAL NOT NULL DEFAULT 0",
+            "custom_reason": "TEXT NOT NULL DEFAULT ''",
         }.items():
             ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
             if name not in ucols:
@@ -725,4 +728,55 @@ def all_telegram_targets() -> list:
 def all_push_subs() -> list:
     with _LOCK, _conn() as c:
         rows = c.execute("SELECT endpoint, sub FROM push_subs").fetchall()
+        return [dict(r) for r in rows]
+
+
+# --- admin-managed global bot strategy + per-customer unlock -----------------
+def get_global_strategy() -> dict:
+    raw = kv_get("global_strategy")
+    if raw:
+        try:
+            g = json.loads(raw)
+            g.setdefault("params", {}); g.setdefault("timeframe", "15m")
+            g.setdefault("symbols", "BTC/USDT"); g.setdefault("version", 0)
+            return g
+        except Exception:
+            pass
+    return {"params": {}, "timeframe": "15m", "symbols": "BTC/USDT", "version": 0, "updated": 0}
+
+
+def set_global_strategy(params: dict, timeframe: str, symbols: str) -> dict:
+    cur = get_global_strategy()
+    g = {"params": params or {}, "timeframe": timeframe or "15m",
+         "symbols": symbols or "BTC/USDT", "version": int(cur.get("version", 0)) + 1,
+         "updated": time.time()}
+    kv_set("global_strategy", json.dumps(g))
+    return g
+
+
+def set_allow_custom(user_id: int, allow: bool) -> None:
+    with _LOCK, _conn() as c:
+        if allow:
+            c.execute("UPDATE users SET allow_custom=1, custom_requested=0 WHERE id=?", (user_id,))
+        else:
+            c.execute("UPDATE users SET allow_custom=0 WHERE id=?", (user_id,))
+
+
+def request_custom(user_id: int, reason: str = "") -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET custom_requested=?, custom_reason=? WHERE id=?",
+                  (time.time(), (reason or "")[:300], user_id))
+
+
+def clear_custom_request(user_id: int) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET custom_requested=0 WHERE id=?", (user_id,))
+
+
+def pending_custom_requests() -> list:
+    with _LOCK, _conn() as c:
+        rows = c.execute(
+            "SELECT id, email, first_name, last_name, custom_requested, custom_reason "
+            "FROM users WHERE custom_requested>0 AND allow_custom=0 ORDER BY custom_requested DESC"
+        ).fetchall()
         return [dict(r) for r in rows]
