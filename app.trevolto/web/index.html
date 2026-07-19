@@ -223,8 +223,9 @@
           <label>API secret</label><input id="cx-sec" type="password" placeholder="secret"/>
           <label>Passphrase <span class="k">(OKX / KuCoin / Bitget)</span></label><input id="cx-pass" placeholder="optional"/>
           <div class="btnrow big">
-            <button class="btn" onclick="saveConnect()">Save &amp; Connect</button>
-            <button class="btn ghost" onclick="disconnect()">Disconnect</button>
+            <button class="btn" onclick="saveConnect()">🔌 Save &amp; Connect</button>
+            <button class="btn ghost" onclick="disconnect()">⏸️ Disconnect</button>
+            <button class="btn ghost" id="btn-clear-keys" onclick="clearKeys()" style="margin-left:auto">🗑 Remove saved keys</button>
           </div>
           <label class="chkline"><input type="checkbox" id="s-ro"/> Read-only (monitor only, block all orders)</label>
           <div class="warnbox" style="margin-top:12px">⚡ This is <b>live trading</b>. Use API keys with <b>trade permission but withdrawals disabled</b>, and IP-whitelist where possible. Keys are stored encrypted server-side.</div>

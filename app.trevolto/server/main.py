@@ -258,6 +258,14 @@ def disconnect(user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+@app.post("/api/keys/clear")
+def clear_keys(user: dict = Depends(current_user)):
+    # Stop trading, drop the live connection, then wipe the stored encrypted keys.
+    get_session(user["id"]).disconnect()
+    store.clear_keys(user["id"])
+    return {"ok": True}
+
+
 # --- trading ----------------------------------------------------------------
 @app.post("/api/trade")
 async def trade(request: Request, user: dict = Depends(current_user)):

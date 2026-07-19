@@ -82,7 +82,7 @@ function browserNotifyOn() { return localStorage.getItem("notif") === "1" && "No
 function updateNotifBtn() { const b = $("notif-btn"); if (b) b.textContent = browserNotifyOn() ? "\uD83D\uDD14 Notifications ON \u2014 click to turn off" : "\uD83D\uDD14 Enable browser notifications"; }
 function toggleNotif() {
   if (!("Notification" in window)) { notify("This browser doesn't support notifications", "warn"); return; }
-  if (browserNotifyOn()) { localStorage.setItem("notif", "0"); updateNotifBtn(); notify("Browser notifications off", "warn"); return; }
+  if (browserNotifyOn()) { localStorage.setItem("notif", "0"); updateNotifBtn(); unsubscribePush(); notify("Browser notifications off", "warn"); return; }
   Notification.requestPermission().then(p => {
     if (p === "granted") { localStorage.setItem("notif", "1"); updateNotifBtn(); subscribePush(); try { new Notification(notifTitle(), { body: "Notifications enabled \u2014 you'll be alerted on trades.", icon: notifIcon() }); } catch (e) { } }
     else notify("Notifications are blocked in your browser settings", "warn");
@@ -170,6 +170,7 @@ function render(s) {
   $("st-conn").textContent = s.connected ? "Connected" : "Disconnected";
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";
   $("ex-state").textContent = s.connected ? "connected" : "not connected";
+  if ($("btn-clear-keys")) $("btn-clear-keys").classList.toggle("hidden", !(s.has_keys || s.connected));
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
@@ -272,6 +273,11 @@ async function saveConnect() {
 }
 async function disconnect() {
   try { await api("/api/disconnect", "POST"); notify("Exchange disconnected", "warn"); refresh(); }
+  catch (e) { notify(e.message, "error"); }
+}
+async function clearKeys() {
+  if (!confirm("Remove your saved exchange API keys?\nThe bot stops trading and disconnects, and you'll need to paste keys again to reconnect.")) return;
+  try { await api("/api/keys/clear", "POST"); notify("Saved API keys removed 🗑", "ok"); refresh(); }
   catch (e) { notify(e.message, "error"); }
 }
 async function trade(side) {
@@ -629,6 +635,17 @@ async function subscribePush() {
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(v.key) });
     await api("/api/push/subscribe", "POST", { subscription: sub.toJSON() });
     pushActive = true;
+  } catch (e) { }
+}
+async function unsubscribePush() {
+  pushActive = false;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    await api("/api/push/unsubscribe", "POST", { endpoint: sub.endpoint }).catch(() => { });
+    await sub.unsubscribe().catch(() => { });
   } catch (e) { }
 }
 // ---- security: login history + sign out everywhere ----
