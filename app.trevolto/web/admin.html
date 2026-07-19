@@ -60,7 +60,16 @@
       <div class="hint">Change these and <b>every customer's bot updates automatically within seconds</b> — no action on their side. Customers are locked to this strategy unless you approve a custom-access request below.</div>
       <div class="row" style="margin-top:10px">
         <div class="col"><label>Timeframe</label><select id="gs-tf"><option>5m</option><option>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
-        <div class="col" style="flex:2"><label>Symbols (comma-separated)</label><input id="gs-sym" placeholder="BTC/USDT,ETH/USDT"/></div>
+        <div class="col" style="flex:2"><label>Symbols <span class="hint" style="font-weight:400">pick popular pairs or add your own</span></label>
+          <div class="msel" id="sym-msel">
+            <div class="msel-field" id="sym-field"><span id="sym-chips" class="msel-chips"></span><span class="msel-caret">▾</span></div>
+            <div class="msel-menu hidden" id="sym-menu">
+              <input class="msel-search" id="sym-search" placeholder="Search or type BTC/USDT then Enter…" autocomplete="off"/>
+              <div id="sym-options" class="msel-options"></div>
+            </div>
+          </div>
+          <input type="hidden" id="gs-sym"/>
+        </div>
       </div>
       <div class="row">
         <div class="col"><label>Fast EMA</label><input id="gp-fast_ema" type="number"/></div>

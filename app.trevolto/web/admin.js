@@ -385,7 +385,7 @@ async function loadStrategy() {
     const g = await api("/api/admin/strategy"); const p = g.params || {};
     for (const k in GSPARAMS) { const el = $("gp-" + k); if (!el) continue; const v = p[k] !== undefined ? p[k] : GSPARAMS[k]; el.value = GBOOL.has(k) ? (v ? "1" : "0") : v; }
     if ($("gs-tf")) $("gs-tf").value = g.timeframe || "15m";
-    if ($("gs-sym")) $("gs-sym").value = g.symbols || "BTC/USDT";
+    setSyms(g.symbols || "BTC/USDT");
     if ($("gs-info")) $("gs-info").innerHTML = `Version <b>${g.version}</b>${g.updated ? " \u00b7 updated " + new Date(g.updated * 1000).toLocaleString() : ""} \u00b7 live for all managed customers.`;
   } catch (e) { }
 }
@@ -395,6 +395,36 @@ async function saveGlobalStrategy() {
   try { await api("/api/admin/strategy", "POST", { params, timeframe: $("gs-tf").value, symbols: $("gs-sym").value.trim() }); notify("Strategy saved \u2014 pushing to all customers \u2713", "ok"); loadStrategy(); loadAudit(); }
   catch (e) { notify(e.message, "error"); }
 }
+
+/* ---- Symbols multi-select dropdown ---- */
+const POPULAR_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", "DOGE/USDT", "ADA/USDT", "AVAX/USDT", "LINK/USDT", "TRX/USDT", "DOT/USDT", "MATIC/USDT", "LTC/USDT", "TON/USDT", "SHIB/USDT", "NEAR/USDT", "UNI/USDT", "APT/USDT", "ATOM/USDT", "SUI/USDT", "ARB/USDT", "OP/USDT", "INJ/USDT", "PEPE/USDT", "FIL/USDT"];
+let SYMS = [];
+function normPair(p) { p = String(p || "").toUpperCase().trim().replace(/\s+/g, ""); if (!p) return ""; if (p.indexOf("/") < 0) { if (p.endsWith("USDT")) p = p.slice(0, -4) + "/USDT"; else if (p.endsWith("USDC")) p = p.slice(0, -4) + "/USDC"; else p = p + "/USDT"; } return p; }
+function setSyms(csv) { const seen = new Set(); SYMS = []; String(csv || "").split(",").forEach(s => { const n = normPair(s); if (n && !seen.has(n)) { seen.add(n); SYMS.push(n); } }); syncSyms(); renderSymChips(); renderSymOptions(); }
+function syncSyms() { if ($("gs-sym")) $("gs-sym").value = SYMS.join(","); }
+function toggleSym(p) { p = normPair(p); if (!p) return; const i = SYMS.indexOf(p); if (i >= 0) SYMS.splice(i, 1); else SYMS.push(p); syncSyms(); renderSymChips(); renderSymOptions(); }
+function renderSymChips() {
+  const box = $("sym-chips"); if (!box) return;
+  if (!SYMS.length) { box.innerHTML = '<span class="msel-ph">Select trading pairs\u2026</span>'; return; }
+  box.innerHTML = SYMS.map(p => `<span class="msel-chip">${esc(p)}<i data-p="${esc(p)}">\u00d7</i></span>`).join("");
+  box.querySelectorAll("i[data-p]").forEach(i => i.onclick = e => { e.stopPropagation(); toggleSym(i.getAttribute("data-p")); });
+}
+function renderSymOptions() {
+  const box = $("sym-options"); if (!box) return;
+  const q = ($("sym-search").value || "").toUpperCase().trim();
+  const list = POPULAR_PAIRS.filter(p => !q || p.indexOf(q) >= 0);
+  const extra = SYMS.filter(p => POPULAR_PAIRS.indexOf(p) < 0 && (!q || p.indexOf(q) >= 0));
+  let html = extra.concat(list).map(p => `<label class="msel-opt"><input type="checkbox" data-p="${esc(p)}" ${SYMS.indexOf(p) >= 0 ? "checked" : ""}/> ${esc(p)}</label>`).join("");
+  const qn = normPair(q);
+  if (qn && POPULAR_PAIRS.indexOf(qn) < 0 && SYMS.indexOf(qn) < 0) html += `<div class="msel-add" data-add="${esc(qn)}">\u2795 Add "${esc(qn)}"</div>`;
+  box.innerHTML = html || '<div class="msel-empty">No match \u2014 type a pair and press Enter</div>';
+  box.querySelectorAll("input[data-p]").forEach(i => i.onchange = () => toggleSym(i.getAttribute("data-p")));
+  box.querySelectorAll("[data-add]").forEach(d => d.onclick = () => { toggleSym(d.getAttribute("data-add")); $("sym-search").value = ""; renderSymOptions(); });
+}
+function symMenu(open) { const m = $("sym-menu"), f = $("sym-field"); if (!m) return; const willOpen = open === undefined ? m.classList.contains("hidden") : open; m.classList.toggle("hidden", !willOpen); if (f) f.classList.toggle("open", willOpen); if (willOpen) { renderSymOptions(); const s = $("sym-search"); if (s) { s.value = ""; setTimeout(() => s.focus(), 0); } } }
+document.addEventListener("click", e => { const w = $("sym-msel"); if (!w) return; if (w.contains(e.target)) { if ($("sym-field").contains(e.target)) symMenu(); } else symMenu(false); });
+document.addEventListener("input", e => { if (e.target && e.target.id === "sym-search") renderSymOptions(); });
+document.addEventListener("keydown", e => { if (e.target && e.target.id === "sym-search") { if (e.key === "Enter") { e.preventDefault(); const n = normPair(e.target.value); if (n) { if (SYMS.indexOf(n) < 0) toggleSym(n); e.target.value = ""; renderSymOptions(); } } else if (e.key === "Escape") { symMenu(false); } } });
 async function loadRequests() {
   try { const d = await api("/api/admin/strategy_requests"); renderRequests(d.requests || []); } catch (e) { }
 }
