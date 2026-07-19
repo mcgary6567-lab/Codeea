@@ -59,7 +59,6 @@ async function reloadAll() {
   applyFilters();
   loadBroadcasts();
   loadAudit();
-  loadStrategy();
 }
 
 // ---- KPI + charts ----
@@ -374,23 +373,6 @@ function toggleAuto() {
   if ($("ad-auto").checked) autoTimer = setInterval(() => reloadAll().catch(() => { }), 15000);
 }
 
-const GSPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
-const GBOOL = new Set(["use_trend_filter", "avoid_daily_close"]);
-async function loadStrategy() {
-  try {
-    const g = await api("/api/admin/strategy"); const p = g.params || {};
-    for (const k in GSPARAMS) { const el = $("gp-" + k); if (!el) continue; const v = p[k] !== undefined ? p[k] : GSPARAMS[k]; el.value = GBOOL.has(k) ? (v ? "1" : "0") : v; }
-    if ($("gs-tf")) $("gs-tf").value = g.timeframe || "15m";
-    if ($("gs-sym")) $("gs-sym").value = g.symbols || "BTC/USDT";
-    if ($("gs-info")) $("gs-info").innerHTML = `Version <b>${g.version}</b>${g.updated ? " \u00b7 updated " + new Date(g.updated * 1000).toLocaleString() : ""} \u00b7 live for all customers.`;
-  } catch (e) { }
-}
-async function saveGlobalStrategy() {
-  const params = {}; for (const k in GSPARAMS) { const el = $("gp-" + k); if (!el) continue; let v = parseFloat(el.value); if (isNaN(v)) v = GSPARAMS[k]; params[k] = v; }
-  if (!confirm("Save this strategy and push it live to ALL customers now?")) return;
-  try { await api("/api/admin/strategy", "POST", { params, timeframe: $("gs-tf").value, symbols: $("gs-sym").value.trim() }); notify("Strategy saved \u2014 pushing to all customers \u2713", "ok"); loadStrategy(); loadAudit(); }
-  catch (e) { notify(e.message, "error"); }
-}
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { alert(msg); return; }
   const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";

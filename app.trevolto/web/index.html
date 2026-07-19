@@ -235,7 +235,6 @@
       <section id="v-strategy" class="hidden">
         <div class="card">
           <h3>Built-in strategy — EMA 9 / 21 cross <span class="chip" id="strat-state">on</span></h3>
-          <div class="warnbox hidden" id="strat-managed-banner">🔒 Your trading strategy is <b>managed for you</b> — set centrally and updated automatically. Your risk, sizing, exchange &amp; alerts below stay yours to control.</div>
           <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
           <div class="row" style="margin-top:12px">
             <div class="col"><label>Timeframe the strategy trades on</label>
@@ -290,10 +289,10 @@
           <div class="hint">If EMA9/21 cross more than <i>max crosses</i> within the window, new entries pause for the suspend hours (chop protection). <i>Avoid daily close</i> blocks new entries 23:30–00:30 UTC (existing trades keep their stops).</div>
         </div>
         <div class="btnrow big">
-          <button class="btn" id="btn-save-strat" onclick="saveStrategy()">💾 Save strategy</button>
+          <button class="btn" onclick="saveStrategy()">💾 Save strategy</button>
           <button class="btn green" onclick="strategy(true)">Enable / Start</button>
           <button class="btn ghost" onclick="strategy(false)">Disable</button>
-          <button class="btn ghost" id="btn-reset-strat" onclick="resetStrategy()">↺ Reset defaults</button>
+          <button class="btn ghost" onclick="resetStrategy()">↺ Reset defaults</button>
         </div>
 
         <h3 style="margin:22px 0 12px">Execution, sizing &amp; risk guardrails</h3>

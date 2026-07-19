@@ -222,7 +222,6 @@ function render(s) {
 
   $("log").innerHTML = (s.log || []).map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("");
   applySettings(s.settings || {}, s.email);
-  lockStrategy(s);
   if ($("ch-follow") && $("ch-follow").checked) syncChartToStrategy(false);
 }
 
@@ -291,16 +290,6 @@ async function panic() {
 }
 
 // ---- settings ----
-function lockStrategy(st) {
-  if (!st || !st.strategy_managed) return;
-  const m = st.managed_strategy || {}, p = m.params || {};
-  for (const k in SPARAMS) { const v = p[k] !== undefined ? p[k] : SPARAMS[k]; const el = $("p-" + k); if (el) { el.value = BOOLP.has(k) ? (v ? "1" : "0") : v; el.disabled = true; } }
-  if ($("sg-tf")) { $("sg-tf").value = m.timeframe || "15m"; $("sg-tf").disabled = true; }
-  if (typeof mselSet === "function") mselSet(m.symbols || "BTC/USDT");
-  const mh = document.querySelector("#v-strategy .msel-head"); if (mh) mh.style.pointerEvents = "none";
-  ["btn-save-strat", "btn-reset-strat"].forEach(id => { const b = $(id); if (b) b.classList.add("hidden"); });
-  const banner = $("strat-managed-banner"); if (banner) banner.classList.remove("hidden");
-}
 function applySettings(s, email) {
   if (document.activeElement && ["INPUT", "SELECT"].includes(document.activeElement.tagName)) return;
   const set = (id, v) => { if ($(id) != null && v !== undefined) $(id).value = v; };

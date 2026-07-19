@@ -122,20 +122,6 @@ def public_prices(exchange_id: str, symbols: list) -> dict:
     return {s: base.get(s, base.get(ex.normalize_symbol(s), {})) for s in symbols}
 
 
-_GS_CACHE = {"v": None, "t": 0.0}
-
-
-def _global_strategy() -> dict:
-    """Admin-managed strategy, cached ~5s so the per-user loops share it cheaply."""
-    now = time.time()
-    if _GS_CACHE["v"] is not None and now - _GS_CACHE["t"] < 5:
-        return _GS_CACHE["v"]
-    g = store.get_global_strategy()
-    _GS_CACHE["v"] = g
-    _GS_CACHE["t"] = now
-    return g
-
-
 DEFAULT_SETTINGS = {
     "sizing_mode": "risk_stop",      # fixed | fixed_quote | risk_balance | risk_stop
     "fixed_size": 0.003,
@@ -198,8 +184,7 @@ class TraderSession:
         self.strategy_on = False
         self._strat: threading.Thread | None = None
         self._strat_primed: dict = {}
-        self._strat_hold: dict = {}
-        self._strat_version = None      # last logged "why held" reason per symbol
+        self._strat_hold: dict = {}      # last logged "why held" reason per symbol
         self._apply_guardrails()
         self.key_withdraw_warn = False
         self._tg_offset = 0
@@ -280,7 +265,7 @@ class TraderSession:
 
     def _params(self) -> "strat.StrategyParams":
         p = strat.StrategyParams()
-        for k, v in (_global_strategy().get("params") or {}).items():
+        for k, v in (self.settings.get("strategy_params") or {}).items():
             if hasattr(p, k):
                 setattr(p, k, v)
         return p
@@ -572,14 +557,8 @@ class TraderSession:
                 self.notify(msg)
                 self.strategy_on = False
                 break
-            g = _global_strategy()
-            if self._strat_version is not None and g.get("version") != self._strat_version:
-                self.log("\u2699\ufe0f Strategy updated \u2014 new settings are now live.", "ok")
-                self.notify("\u2699\ufe0f Your bot strategy was updated by us \u2014 new settings are now live.")
-                self._strat_primed = {}
-            self._strat_version = g.get("version")
-            symbols = [s.strip() for s in str(g.get("symbols", "")).split(",") if s.strip()]
-            tf = g.get("timeframe", "15m")
+            symbols = [s.strip() for s in str(self.settings.get("strategy_symbols", "")).split(",") if s.strip()]
+            tf = self.settings.get("strategy_timeframe", "1h")
             params = self._params()
             for sym in symbols:
                 try:
@@ -738,7 +717,6 @@ class TraderSession:
             "log": list(self.log_ring)[:120],
             "alerts": list(self.alert_ring)[:30],
             "key_withdraw_warn": getattr(self, "key_withdraw_warn", False),
-            "strategy_managed": True,
             "settings": self.settings,
         }
 

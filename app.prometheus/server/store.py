@@ -726,26 +726,3 @@ def all_push_subs() -> list:
     with _LOCK, _conn() as c:
         rows = c.execute("SELECT endpoint, sub FROM push_subs").fetchall()
         return [dict(r) for r in rows]
-
-
-# --- admin-managed global bot strategy (locked, applies to all customers) ----
-def get_global_strategy() -> dict:
-    raw = kv_get("global_strategy")
-    if raw:
-        try:
-            g = json.loads(raw)
-            g.setdefault("params", {}); g.setdefault("timeframe", "15m")
-            g.setdefault("symbols", "BTC/USDT"); g.setdefault("version", 0)
-            return g
-        except Exception:
-            pass
-    return {"params": {}, "timeframe": "15m", "symbols": "BTC/USDT", "version": 0, "updated": 0}
-
-
-def set_global_strategy(params: dict, timeframe: str, symbols: str) -> dict:
-    cur = get_global_strategy()
-    g = {"params": params or {}, "timeframe": timeframe or "15m",
-         "symbols": symbols or "BTC/USDT", "version": int(cur.get("version", 0)) + 1,
-         "updated": time.time()}
-    kv_set("global_strategy", json.dumps(g))
-    return g
