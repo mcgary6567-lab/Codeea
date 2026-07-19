@@ -138,6 +138,7 @@ async def reset(request: Request):
     if not uid:
         raise HTTPException(400, "invalid or expired reset link")
     store.update_password(uid, pw)
+    store.bump_token_version(uid)          # invalidate every other existing session
     u = store.get_user(uid)
     return {"token": security.make_token(u["id"], u["email"], u.get("token_version", 0)), "email": u["email"]}
 
@@ -223,6 +224,7 @@ async def account(request: Request, user: dict = Depends(current_user)):
         if len(new_password) < 6:
             raise HTTPException(400, "new password must be 6+ characters")
         store.update_password(user["id"], new_password)
+        store.bump_token_version(user["id"])   # sign out other sessions on password change
     u = store.get_user(user["id"])
     return {"ok": True, "token": security.make_token(u["id"], u["email"], u.get("token_version", 0)), "email": u["email"]}
 
@@ -267,13 +269,25 @@ async def trade(request: Request, user: dict = Depends(current_user)):
     s = get_session(user["id"])
     if not s.connected:
         raise HTTPException(400, "not connected")
-    return s.place_manual(side, d.get("symbol", "BTC/USDT"), d.get("size"))
+    size = d.get("size")
+    if size not in (None, ""):
+        try:
+            size = float(size)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "size must be a number")
+    else:
+        size = None
+    return s.place_manual(side, d.get("symbol", "BTC/USDT"), size)
 
 
 @app.post("/api/close")
 async def close(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
-    return get_session(user["id"]).close_position(d.get("symbol", ""), float(d.get("fraction", 1.0)))
+    try:
+        fraction = float(d.get("fraction", 1.0))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "fraction must be a number")
+    return get_session(user["id"]).close_position(d.get("symbol", ""), fraction)
 
 
 @app.post("/api/close_all")
@@ -313,16 +327,20 @@ async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
         if d.get("params") is not None:
             patch["strategy_params"] = d["params"]
         s.set_settings(patch)
+    msg = ""
     if d.get("enable") is True:
         require_entitled(user)
         s.set_settings({"strategy_enabled": True})   # persist so it auto-starts on connect
-        if not s.connected:
-            raise HTTPException(400, "connect an exchange first")
-        s.start_strategy()
+        if s.connected:
+            s.start_strategy()
+        else:
+            # Not an error — enabled now, will auto-start the moment an exchange connects.
+            msg = "Strategy is ON — it will start automatically as soon as you connect an exchange."
     elif d.get("enable") is False:
         s.set_settings({"strategy_enabled": False})
         s.stop_strategy()
-    return {"ok": True, "strategy_on": s.strategy_on, "strategy_enabled": s.settings.get("strategy_enabled")}
+    return {"ok": True, "strategy_on": s.strategy_on,
+            "strategy_enabled": s.settings.get("strategy_enabled"), "message": msg}
 
 
 # --- backtest ---------------------------------------------------------------
@@ -434,7 +452,10 @@ def admin_user_detail(uid: int, admin: dict = Depends(require_admin)):
 @app.post("/api/admin/action")
 async def admin_action(request: Request, admin: dict = Depends(require_admin)):
     d = await body(request)
-    uid = int(d.get("user_id", 0))
+    try:
+        uid = int(d.get("user_id") or 0)
+    except (TypeError, ValueError):
+        uid = 0
     action = d.get("action", "")
     target = store.get_user(uid)
     if not target:
@@ -508,8 +529,9 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
     else:
         raise HTTPException(400, "unknown action")
     store.record_audit(admin["email"], action, uid, detail)
-    resp = {"ok": True, "user": {k: v for k, v in store.get_user(uid).items()
-                                 if k not in ("pw_hash", "keys_blob", "totp_secret")}}
+    # never return secrets to the admin client (settings holds the Telegram token / webhook passphrase)
+    _hide = ("pw_hash", "keys_blob", "totp_secret", "webhook_token", "webhook_passphrase", "settings")
+    resp = {"ok": True, "user": {k: v for k, v in store.get_user(uid).items() if k not in _hide}}
     resp.update(extra)
     return resp
 
@@ -655,10 +677,14 @@ async def ws(websocket: WebSocket):
         await websocket.close(code=4401)
         return
     uid = int(data["sub"])
+    tv = int(data.get("tv", 0))
     try:
         while True:
             user = store.get_user(uid)
-            if not user:
+            # Close if the user is gone, suspended, or the token was revoked
+            # (e.g. "sign out everywhere" / password change bumps token_version).
+            if (not user or not user.get("active", 1)
+                    or int(user.get("token_version", 0) or 0) != tv):
                 await websocket.close(code=4401)
                 return
             # Full state (incl. live access/licence) so the client never loses it.
@@ -806,7 +832,6 @@ if os.path.isdir(WEB_DIR):
 
 # --- daily PnL summary scheduler (Telegram + optional email) ----------------
 def _summary_loop():
-    import threading  # noqa: F401
     from . import mailer
     from .session import TraderSession
     while True:
@@ -835,5 +860,4 @@ def _summary_loop():
         time.sleep(900)   # re-check every 15 minutes
 
 
-import threading as _threading  # noqa: E402
 _threading.Thread(target=_summary_loop, daemon=True).start()

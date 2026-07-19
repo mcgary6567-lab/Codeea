@@ -112,7 +112,7 @@ function renderBell(a) {
   if (!a || !a.length) { list.innerHTML = '<div class="bell-empty">No alerts yet.</div>'; return; }
   list.innerHTML = a.map(x => `<div class="bell-item">${esc(x.msg).split("\n").join("<br>")}<div class="bell-time">${bellTime(x.ts)}</div></div>`).join("");
 }
-function updateBadge() { const b = $("bell-badge"); if (!b) return; b.textContent = unread > 9 ? "9+" : unread; b.classList.toggle("hidden", unread <= 0); }
+function updateBadge() { const b = $("bell-badge"); if (!b) return; b.textContent = unread > 9 ? "9+" : unread; b.classList.toggle("hidden", unread <= 0); const btn = $("bell-btn"); if (btn) btn.classList.toggle("has-unread", unread > 0); }
 function toggleBell() { const p = $("bell-panel"); if (!p) return; p.classList.toggle("hidden"); if (!p.classList.contains("hidden")) { seenTs = newestAlertTs || (Date.now() / 1000); localStorage.setItem("bell_seen_ts", String(seenTs)); unread = 0; updateBadge(); } }
 document.addEventListener("click", e => { const p = $("bell-panel"); if (p && !p.classList.contains("hidden") && !e.target.closest(".bell-wrap")) p.classList.add("hidden"); });
 
@@ -137,7 +137,8 @@ function syncChartToStrategy(forceLoad) {
 
 // ---- views ----
 const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
-function goCheckout() { window.open(CHECKOUT_URL, "_blank", "noopener"); }
+let accessBuyable = false;
+function goCheckout() { if (!accessBuyable) return; window.open(CHECKOUT_URL, "_blank", "noopener"); }
 function dismissAnnounce(id) { localStorage.setItem("bc_seen", String(id)); const ab = $("announce"); if (ab) ab.classList.add("hidden"); }
 function qNav(v) { return document.querySelector('.side button[data-v="' + v + '"]'); }
 function show(v, btn) {
@@ -188,6 +189,7 @@ function render(s) {
   $("st-access").textContent = lbl + suf;
   $("st-access").className = "chip " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "danger");
   const buyable = ac.status === "trial" || ac.status === "expired";
+  accessBuyable = buyable;
   $("st-access").style.cursor = buyable ? "pointer" : "default";
   $("st-access").title = buyable ? "Buy / renew licence" : "";
   if ($("st-buy")) { $("st-buy").classList.toggle("hidden", !buyable); $("st-buy").href = CHECKOUT_URL; }
@@ -221,7 +223,9 @@ function render(s) {
     <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
     <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">Close</button></td></tr>`).join("");
 
-  $("log").innerHTML = (s.log || []).map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("");
+  $("log").innerHTML = (s.log && s.log.length)
+    ? s.log.map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("")
+    : `<div class="empty">No activity yet — connect an exchange and your bot's actions will show up here.</div>`;
   applySettings(s.settings || {}, s.email);
   lockStrategy(s);
   if ($("ch-follow") && $("ch-follow").checked) syncChartToStrategy(false);
@@ -397,7 +401,7 @@ function collectParams() {
   }
   return p;
 }
-async function strategy(enable) { try { await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); notify(enable ? "Strategy enabled ✓" : "Strategy disabled", enable ? "ok" : "warn"); refresh(); } catch (e) { notify(e.message, "error"); } }
+async function strategy(enable) { try { const r = await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); notify((r && r.message) ? r.message : (enable ? "Strategy enabled ✓" : "Strategy disabled"), enable ? "ok" : "warn"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); notify("Strategy saved ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function resetStrategy() {
   if (!confirm("Reset all strategy parameters to their defaults?")) return;
@@ -446,7 +450,9 @@ async function runBacktest() {
     ];
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     $("bt-ntr").textContent = d.trades.length;
-    $("bt-trades").innerHTML = d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("");
+    $("bt-trades").innerHTML = d.trades.length
+      ? d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("")
+      : `<tr><td colspan="8" class="k" style="text-align:center;padding:16px">No trades were triggered in this period — try a longer range, a different timeframe, or looser settings.</td></tr>`;
     const p = d.period || {};
     $("bt-period-info").textContent = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
     $("bt-csv").disabled = !d.trades.length;

@@ -9,7 +9,6 @@ let autoTimer = null;
 const esc = x => String(x ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmtMoney = n => (n == null || isNaN(n)) ? "—" : (n < 0 ? "-$" : "$") + Math.abs(Number(n)).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtNum = n => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString();
-const dt = s => s ? new Date(s * 1000).toLocaleString() : "—";
 const dshort = s => s ? new Date(s * 1000).toLocaleDateString() : "—";
 const ago = s => {
   if (!s) return "never";
@@ -41,9 +40,11 @@ async function adminLogin() {
 }
 function showGate() { $("gate").classList.remove("hidden"); $("panel").classList.add("hidden"); }
 
+function tokenEmail() { try { return JSON.parse(atob(TOKEN.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).email || ""; } catch (e) { return ""; } }
 async function boot() {
   try {
     await reloadAll();
+    const me = tokenEmail(); if (me && $("ad-me")) $("ad-me").textContent = me;
     $("gate").classList.add("hidden"); $("panel").classList.remove("hidden");
   } catch (e) {
     if (String(e.message).toLowerCase().includes("admin")) $("ad-me").textContent = "not an admin account";
@@ -251,19 +252,19 @@ function renderDrawer(d) {
     <tbody>${rows.length ? rows.map(t => `<tr><td class="k">${ago(t.ts)}</td><td>${esc(t.symbol)}</td><td>${esc(t.kind)}</td><td class="mono ${(t.pnl || 0) >= 0 ? "pos" : "neg"}">${t.kind === "close" ? fmtMoney(t.pnl) : "—"}</td><td class="k">${esc(t.mode)}</td></tr>`).join("") : `<tr><td colspan="5" class="k">No activity yet.</td></tr>`}</tbody></table></div>
     <h4 class="dw-h">Internal note</h4>
     <textarea id="dw-note" rows="2" style="width:100%;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 10px;font-family:inherit;font-size:12.5px">${esc(d.admin_note || "")}</textarea>
-    <button class="btn ghost sm" style="margin-top:6px" onclick="saveNote(${d.id})">Save note</button>
+    <button class="btn ghost sm" style="margin-top:6px" onclick="saveNote(${d.id})">📝 Save note</button>
     <h4 class="dw-h">Actions</h4>
     <div class="dw-actions">
       ${d.active ? `<button class="btn ghost sm" onclick="act(${d.id},'suspend',1)">⛔ Suspend</button>` : `<button class="btn green sm" onclick="act(${d.id},'activate',1)">✅ Activate</button>`}
       <button class="btn sm" onclick="grantLifetime(${d.id},1)">♾ Lifetime licence</button>
-      <button class="btn ghost sm" onclick="grantDays(${d.id})">Grant N days…</button>
-      <button class="btn ghost sm" onclick="extendTrial(${d.id})">+ Extend trial</button>
-      <button class="btn ghost sm" onclick="act(${d.id},'revoke',1)">Revoke licence</button>
+      <button class="btn ghost sm" onclick="grantDays(${d.id})">🎟️ Grant N days…</button>
+      <button class="btn ghost sm" onclick="extendTrial(${d.id})">⏳ Extend trial</button>
+      <button class="btn ghost sm" onclick="act(${d.id},'revoke',1)">🚫 Revoke licence</button>
       <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
       <button class="btn ghost sm" onclick="editUser(${d.id})">✏️ Edit details</button>
       <button class="btn ghost sm" onclick="setExpiry(${d.id})">📅 Set expiry date</button>
       ${d.allow_custom ? `<button class="btn ghost sm" onclick="act(${d.id},'lock_strategy',1)">🔒 Lock to managed strategy</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'unlock_strategy',1)">🔓 Allow custom strategy</button>`}
-      ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">Make admin</button>`}
+      ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">🙅 Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">🛡️ Make admin</button>`}
       <button class="btn red sm" onclick="deleteUser(${d.id})">🗑 Delete</button>
     </div>
     <div id="dw-msg" class="hint"></div>`;
@@ -274,6 +275,8 @@ const ACTMSG = { suspend: "Customer suspended", activate: "Customer activated", 
 async function act(uid, action, fromDrawer) {
   if (action === "suspend" && !confirm("Suspend this customer? Their trading stops immediately.")) return;
   if (action === "remove_admin" && !confirm("Remove admin rights from this account?")) return;
+  if (action === "revoke" && !confirm("Revoke this customer's licence? They lose live-trading access immediately.")) return;
+  if (action === "make_admin" && !confirm("Make this account a full admin? They will get complete access to the admin console.")) return;
   try {
     await api("/api/admin/action", "POST", { user_id: uid, action });
     notify(ACTMSG[action] || "Done", action === "suspend" || action === "revoke" ? "warn" : "ok");
@@ -329,8 +332,10 @@ async function loadAudit() {
 async function grantDays(uid) {
   const days = prompt("Grant a time-limited licence for how many days?\n(Leave blank to cancel — use “+Licence” for a lifetime licence.)", "30");
   if (!days) return;
+  const nDays = parseFloat(days);
+  if (isNaN(nDays) || nDays <= 0) { notify("Enter a valid number of days", "error"); return; }
   try {
-    const body = { user_id: uid, action: "grant", days: parseFloat(days) };
+    const body = { user_id: uid, action: "grant", days: nDays };
     const amt = prompt("Sale amount in $ (blank = don't log revenue):", "");
     if (amt && parseFloat(amt) > 0) { body.amount = parseFloat(amt); body.method = "manual"; }
     await api("/api/admin/action", "POST", body);
@@ -340,8 +345,10 @@ async function grantDays(uid) {
 async function extendTrial(uid) {
   const days = prompt("Extend the free trial by how many days?", "7");
   if (!days) return;
+  const nDays = parseFloat(days);
+  if (isNaN(nDays) || nDays <= 0) { notify("Enter a valid number of days", "error"); return; }
   try {
-    await api("/api/admin/action", "POST", { user_id: uid, action: "extend_trial", days: parseFloat(days) });
+    await api("/api/admin/action", "POST", { user_id: uid, action: "extend_trial", days: nDays });
     notify(`Trial extended (${days} days) ✓`, "ok"); await reloadAll(); openDrawer(uid);
   } catch (e) { notify(e.message, "error"); }
 }
@@ -405,8 +412,8 @@ function syncSyms() { if ($("gs-sym")) $("gs-sym").value = SYMS.join(","); }
 function toggleSym(p) { p = normPair(p); if (!p) return; const i = SYMS.indexOf(p); if (i >= 0) SYMS.splice(i, 1); else SYMS.push(p); syncSyms(); renderSymChips(); renderSymOptions(); }
 function renderSymChips() {
   const box = $("sym-chips"); if (!box) return;
-  if (!SYMS.length) { box.innerHTML = '<span class="msel-ph">Select trading pairs\u2026</span>'; return; }
-  box.innerHTML = SYMS.map(p => `<span class="msel-chip">${esc(p)}<i data-p="${esc(p)}">\u00d7</i></span>`).join("");
+  if (!SYMS.length) { box.innerHTML = '<span class="psel-ph">Select trading pairs\u2026</span>'; return; }
+  box.innerHTML = SYMS.map(p => `<span class="psel-chip">${esc(p)}<i data-p="${esc(p)}">\u00d7</i></span>`).join("");
   box.querySelectorAll("i[data-p]").forEach(i => i.onclick = e => { e.stopPropagation(); toggleSym(i.getAttribute("data-p")); });
 }
 function renderSymOptions() {
@@ -414,10 +421,10 @@ function renderSymOptions() {
   const q = ($("sym-search").value || "").toUpperCase().trim();
   const list = POPULAR_PAIRS.filter(p => !q || p.indexOf(q) >= 0);
   const extra = SYMS.filter(p => POPULAR_PAIRS.indexOf(p) < 0 && (!q || p.indexOf(q) >= 0));
-  let html = extra.concat(list).map(p => `<label class="msel-opt"><input type="checkbox" data-p="${esc(p)}" ${SYMS.indexOf(p) >= 0 ? "checked" : ""}/> ${esc(p)}</label>`).join("");
+  let html = extra.concat(list).map(p => `<label class="psel-opt"><input type="checkbox" data-p="${esc(p)}" ${SYMS.indexOf(p) >= 0 ? "checked" : ""}/> ${esc(p)}</label>`).join("");
   const qn = normPair(q);
-  if (qn && POPULAR_PAIRS.indexOf(qn) < 0 && SYMS.indexOf(qn) < 0) html += `<div class="msel-add" data-add="${esc(qn)}">\u2795 Add "${esc(qn)}"</div>`;
-  box.innerHTML = html || '<div class="msel-empty">No match \u2014 type a pair and press Enter</div>';
+  if (qn && POPULAR_PAIRS.indexOf(qn) < 0 && SYMS.indexOf(qn) < 0) html += `<div class="psel-add" data-add="${esc(qn)}">\u2795 Add "${esc(qn)}"</div>`;
+  box.innerHTML = html || '<div class="psel-empty">No match \u2014 type a pair and press Enter</div>';
   box.querySelectorAll("input[data-p]").forEach(i => i.onchange = () => toggleSym(i.getAttribute("data-p")));
   box.querySelectorAll("[data-add]").forEach(d => d.onclick = () => { toggleSym(d.getAttribute("data-add")); $("sym-search").value = ""; renderSymOptions(); });
 }
