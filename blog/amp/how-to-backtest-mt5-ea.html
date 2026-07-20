@@ -1,0 +1,75 @@
+<!doctype html>
+<html amp lang="en">
+<head>
+<meta charset="utf-8">
+<title>How to Backtest an MT5 Expert Advisor (Step-by-Step 2026) | Gold Scalpers</title>
+<link rel="canonical" href="https://goldscalpers.com/blog/how-to-backtest-mt5-ea">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F59E0B">
+<meta name="description" content="A step-by-step guide to backtesting an MT5 Expert Advisor in the Strategy Tester - modelling quality, the metrics that matter, and the mistakes to avoid.">
+<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+<script async src="https://cdn.ampproject.org/v0.js"></script><script async custom-element="amp-consent" src="https://cdn.ampproject.org/v0/amp-consent-0.1.js"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)","datePublished":"2026-06-24","author":{"@type":"Organization","name":"Gold Scalpers"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"How to Backtest an MT5 Expert Advisor","totalTime":"PT15M","step":[{"@type":"HowToStep","position":1,"name":"Open the Strategy Tester","text":"In MetaTrader 5, press Ctrl+R or View > Strategy Tester."},{"@type":"HowToStep","position":2,"name":"Select the EA and symbol","text":"Choose the Expert Advisor, set the symbol (e.g. XAUUSD) and timeframe (e.g. M15)."},{"@type":"HowToStep","position":3,"name":"Set the date range and modelling","text":"Pick a multi-year range and set modelling to Every tick based on real ticks."},{"@type":"HowToStep","position":4,"name":"Set deposit and inputs","text":"Set a realistic deposit and leverage, configure the EA inputs, and disable optimization."},{"@type":"HowToStep","position":5,"name":"Run and review","text":"Run the test, then review net profit, profit factor, max drawdown, trade count and the equity curve."}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I backtest an EA in MetaTrader 5?","acceptedAnswer":{"@type":"Answer","text":"Open the Strategy Tester (Ctrl+R), select your Expert Advisor, choose the symbol and timeframe, set a multi-year date range, set modelling to Every tick based on real ticks, enter a realistic deposit and the EA inputs, then run and review net profit, profit factor, max drawdown, trade count and the equity curve."}},{"@type":"Question","name":"What is a good profit factor for an EA?","acceptedAnswer":{"@type":"Answer","text":"A profit factor above 1.3 is decent and above 1.5 is good, provided it comes from 100+ trades over several years with realistic spread and commission. A high profit factor from a handful of trades is meaningless."}},{"@type":"Question","name":"Is backtesting enough before going live?","acceptedAnswer":{"@type":"Answer","text":"No. A backtest shows historical behaviour, but real fills, spreads, slippage and latency differ. Always forward-test on a demo account on your own broker for several weeks, then go live with small size."}},{"@type":"Question","name":"What modelling quality should I use?","acceptedAnswer":{"@type":"Answer","text":"Use Every tick based on real ticks when your broker provides real tick history - it is the most accurate. Avoid drawing strong conclusions from the lowest-quality models, especially for scalping EAs sensitive to spread."}},{"@type":"Question","name":"Why do my backtest and live results differ?","acceptedAnswer":{"@type":"Answer","text":"Differences come from spread and commission, slippage, requotes, latency, broker execution, and over-optimisation (curve fitting). That is why forward-testing on demo and starting live small is essential."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Backtest an MT5 EA","item":"https://goldscalpers.com/blog/how-to-backtest-mt5-ea"}]}</script>
+<style amp-custom>#gsConsentUI{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#0F1422;border-top:1px solid #1F2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#gsConsentUI .ac-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;flex-wrap:wrap}#gsConsentUI .ac-tx{flex:1 1 220px;min-width:0}#gsConsentUI .ac-tx strong{display:block;color:#F4F6FA;font-size:.95rem;font-weight:700}#gsConsentUI .ac-tx span{color:#9CA3AF;font-size:.82rem}#gsConsentUI .ac-bt{display:flex;gap:.5rem;flex:0 0 auto}#gsConsentUI .ac-b{font-size:.85rem;font-weight:700;padding:.55rem 1.1rem;border-radius:9px;border:1px solid transparent;cursor:pointer;font-family:inherit}#gsConsentUI .ac-ghost{background:#1A2230;color:#E6E9EF;border:1px solid #2A3443}#gsConsentUI .ac-acc{background:#F59E0B;color:#1a1206}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0E1A;color:#F9FAFB;line-height:1.7}a{color:#FCD34D;text-decoration:none}a:hover{text-decoration:underline}code{font-family:'SF Mono',Menlo,monospace;font-size:0.9em;background:rgba(245,158,11,0.1);color:#FCD34D;padding:0.15em 0.4em;border-radius:4px}pre{background:#131726;border:1px solid #1F2937;padding:1rem;border-radius:8px;overflow-x:auto;margin:1rem 0;font-size:0.9rem;color:#F9FAFB}.nav{background:#0F1422;border-bottom:1px solid #1F2937;padding:1rem 1.2rem;position:sticky;top:0;z-index:100}.nav-inner{max-width:780px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}.logo{font-weight:800;color:#F9FAFB;font-size:1rem}.btn{display:inline-block;padding:0.5rem 1rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0E1A;border-radius:6px;font-weight:700;font-size:0.85rem}article{max-width:760px;margin:0 auto;padding:2rem 1.2rem 3rem}.tag{display:inline-block;background:rgba(245,158,11,0.1);color:#FCD34D;font-size:0.75rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:99px;margin-bottom:1rem;letter-spacing:0.05em;text-transform:uppercase}h1{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:1rem}.meta{color:#64748B;font-size:0.85rem;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}h2{font-size:1.4rem;margin:2rem 0 0.8rem;font-weight:800}h3{font-size:1.1rem;margin:1.5rem 0 0.6rem;font-weight:700}p{color:#94A3B8;margin-bottom:1rem;font-size:1rem}strong{color:#F9FAFB}ul,ol{padding-left:1.5rem;margin-bottom:1rem;color:#94A3B8}li{margin-bottom:0.4rem}table{width:100%;border-collapse:collapse;margin:1rem 0;background:#131726;border-radius:8px;overflow:hidden;font-size:0.9rem}th{background:#1F2937;padding:0.7rem;text-align:left;color:#F9FAFB;font-weight:700;font-size:0.85rem}td{padding:0.7rem;border-top:1px solid #1F2937;color:#94A3B8}.cta{background:linear-gradient(135deg,#131726,rgba(245,158,11,0.05));border:1px solid #F59E0B;border-radius:14px;padding:1.5rem;text-align:center;margin:2rem 0}.cta h3{font-size:1.2rem;margin-bottom:0.5rem;color:#F9FAFB}.footer{background:#0F1422;border-top:1px solid #1F2937;padding:2rem 1.2rem;text-align:center;font-size:0.8rem;color:#64748B}.footer a{color:#94A3B8}@media (min-width:600px){h1{font-size:2.4rem}h2{font-size:1.7rem}}.sec-ico{display:inline-block;width:1.05em;height:1.05em;vertical-align:-0.14em;margin-right:.4rem;stroke:#F59E0B}.mt{margin-top:.5rem}</style>
+</head>
+<body><amp-consent id="gsConsent" layout="nodisplay"><script type="application/json">{"consentInstanceId":"gsConsent","consentRequired":true,"promptUI":"gsConsentUI"}</script><div id="gsConsentUI"><div class="ac-in"><div class="ac-tx"><strong>We use cookies</strong><span>Essential cookies keep the site working; optional analytics help us improve.</span></div><div class="ac-bt"><button class="ac-b ac-ghost" on="tap:gsConsent.reject" role="button" tabindex="0">Essential only</button><button class="ac-b ac-acc" on="tap:gsConsent.accept" role="button" tabindex="0">Accept all</button></div></div></div></amp-consent>
+<nav class="nav"><div class="nav-inner"><a href="/" class="logo">Gold Scalpers</a><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></div></nav>
+<article>
+  <span class="tag">How-To</span>
+  <h1>How to Backtest an MT5 Expert Advisor</h1>
+  <div class="meta"><span>June 24, 2026</span><span>10 min read</span></div>
+
+  <p>Before you trust any robot with real money, you have to <strong>backtest it</strong>. A backtest replays an <strong>MT5 Expert Advisor</strong> over historical data so you can see its profit, drawdowns and trade frequency. This is the verification step we recommend in the <a href="/blog/best-mt5-expert-advisors-2026">best MT5 EAs</a> and <a href="/blog/how-to-choose-mt5-ea">safe-EA</a> guides.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Step-by-step in the Strategy Tester</h2>
+  <ol>
+    <li>Open the Strategy Tester &ndash; <code>Ctrl+R</code>.</li>
+    <li>Select the EA from the Expert dropdown.</li>
+    <li>Set the symbol and timeframe &ndash; e.g. <code>XAUUSD</code>, <code>M15</code>.</li>
+    <li>Choose a multi-year date range (trending, ranging, news-heavy).</li>
+    <li>Set modelling to <strong>"Every tick based on real ticks"</strong>.</li>
+    <li>Set a realistic deposit/leverage and the EA inputs.</li>
+    <li>Disable optimisation; run; review the report.</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The metrics that matter</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Rough guide</th></tr></thead>
+    <tbody>
+      <tr><td>Profit factor</td><td>&gt;1.3 decent, &gt;1.5 good</td></tr>
+      <tr><td>Max drawdown %</td><td>Lower is better &ndash; can you stomach it?</td></tr>
+      <tr><td>Total trades</td><td>100+ for meaning</td></tr>
+      <tr><td>Recovery factor</td><td>Net profit &divide; max drawdown</td></tr>
+    </tbody>
+  </table>
+  <p>The trap: huge profit with 70% drawdown and 25 trades is not a good EA &ndash; it's a small, lucky (or curve-fit) sample.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>5 common mistakes</h2>
+  <ol>
+    <li><strong>Curve fitting</strong> &ndash; optimising until the past looks perfect.</li>
+    <li><strong>Ignoring spread &amp; commission.</strong></li>
+    <li><strong>Too short a period.</strong></li>
+    <li><strong>Lowest-quality modelling.</strong></li>
+    <li><strong>Trusting the backtest alone.</strong></li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtest, then forward-test on demo</h2>
+  <p>A backtest is necessary but never sufficient. After a solid multi-year test, forward-test on demo for several weeks, then go live small under the <a href="/blog/forex-risk-management-1-percent-rule">1% rule</a>. See also <a href="/blog/mt5-ea-vs-manual-trading">EA vs manual trading</a>.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtesting Gold Scalpers EA</h2>
+  <p>One advantage of <a href="/#features">Gold Scalpers EA</a> is that the EMA indicator it uses is bundled inside the EA &ndash; so it runs in the Strategy Tester and on any PC with no extra files. Drop it on <code>XAUUSD</code> / <code>M15</code>, pick a multi-year range with real ticks, and verify it on your own data before going live.</p>
+
+  <div class="cta">
+    <h3>An EA you can actually backtest &ndash; no extra files</h3>
+    <p>The EMA indicator is bundled inside, so it runs in the Strategy Tester anywhere. One-time $220, 14-day money-back guarantee.</p>
+    <p><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></p>
+  </div>
+</article>
+<footer class="footer"><p>&copy; 2026 Gold Scalpers &middot; Trading involves risk of loss. Automated systems can lose money.</p><p class="mt"><a href="/">Home</a> &middot; <a href="/blog/">Blog</a> &middot; <a href="/blog/how-to-backtest-mt5-ea">Full version</a></p></footer>
+</body>
+</html>

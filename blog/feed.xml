@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Gold Scalpers Trading Blog</title>
+    <link>https://goldscalpers.com/blog/</link>
+    <description>Expert trading guides for XAUUSD, USDJPY, and GBPJPY. Strategy, indicators, automation, and risk management.</description>
+    <language>en-us</language>
+    <copyright>© 2026 Gold Scalpers</copyright>
+    <managingEditor>support@goldscalpers.com (Gold Scalpers Research Team)</managingEditor>
+    <webMaster>support@goldscalpers.com (Gold Scalpers Research Team)</webMaster>
+    <pubDate>Tue, 07 Jul 2026 20:00:00 GMT</pubDate>
+    <lastBuildDate>Tue, 07 Jul 2026 20:00:00 GMT</lastBuildDate>
+    <atom:link href="https://goldscalpers.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>https://goldscalpers.com/og-image.png</url>
+      <title>Gold Scalpers</title>
+      <link>https://goldscalpers.com</link>
+    </image>
+
+    <item>
+      <title>How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD)</title>
+      <link>https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold.html</guid>
+      <pubDate>Tue, 07 Jul 2026 20:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>The exact dollar math to pass a $50k prop firm challenge on gold: the $5,000 target, $2,500 daily and $5,000 max-loss limits, XAUUSD lot sizing at 1% risk, a pace plan, and the EA settings that enforce it.</description>
+    </item>
+
+    <item>
+      <title>How to Pass a $25,000 Prop Firm Challenge Trading Gold (XAUUSD)</title>
+      <link>https://goldscalpers.com/blog/how-to-pass-25k-prop-firm-challenge-gold.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-pass-25k-prop-firm-challenge-gold.html</guid>
+      <pubDate>Tue, 07 Jul 2026 19:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>The exact dollar math to pass a $25k prop firm challenge on gold: the $2,500 target, $1,250 daily and $2,500 max-loss limits, XAUUSD lot sizing at 1% risk, a pace plan, and the EA settings that enforce it.</description>
+    </item>
+
+    <item>
+      <title>How to Pass a $10,000 Prop Firm Challenge Trading Gold (XAUUSD)</title>
+      <link>https://goldscalpers.com/blog/how-to-pass-10k-prop-firm-challenge-gold.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-pass-10k-prop-firm-challenge-gold.html</guid>
+      <pubDate>Tue, 07 Jul 2026 18:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>The exact dollar math to pass a $10k prop firm challenge on gold: the $1,000 target, $500 daily and $1,000 max-loss limits, XAUUSD lot sizing at 1% risk, a pace plan, and the EA settings that enforce it.</description>
+    </item>
+
+    <item>
+      <title>How to Pass a $100,000 Prop Firm Challenge Trading Gold (XAUUSD)</title>
+      <link>https://goldscalpers.com/blog/how-to-pass-100k-prop-firm-challenge-gold.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-pass-100k-prop-firm-challenge-gold.html</guid>
+      <pubDate>Tue, 07 Jul 2026 17:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>The exact dollar math to pass a $100k prop firm challenge on gold: the $10,000 target, $5,000 daily and $10,000 max-loss limits, XAUUSD lot sizing at 1% risk, a realistic pace plan, and the EA settings that enforce it.</description>
+    </item>
+
+    <item>
+      <title>Best Gold Scalping EA for MT5 (2026): How to Choose One That Survives</title>
+      <link>https://goldscalpers.com/blog/best-gold-scalping-ea-mt5.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-gold-scalping-ea-mt5.html</guid>
+      <pubDate>Tue, 07 Jul 2026 16:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>How to choose the best gold scalping EA for MT5 in 2026: the seven features a real XAUUSD scalper needs, the martingale robots that blow up accounts, how to verify a backtest, and how Gold Scalpers EA is built against the checklist.</description>
+    </item>
+
+    <item>
+      <title>XAUUSD Scalping Strategy That Actually Works (Full Rules, 2026)</title>
+      <link>https://goldscalpers.com/blog/xauusd-scalping-strategy.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/xauusd-scalping-strategy.html</guid>
+      <pubDate>Tue, 07 Jul 2026 15:00:00 GMT</pubDate>
+      <category>Strategy</category>
+      <description>A complete XAUUSD scalping strategy for MT5: the EMA and RSI setup, exact entry and exit rules, the best sessions to scalp gold, a news filter, a worked example, and how to automate the whole thing.</description>
+    </item>
+
+    <item>
+      <title>How to Pass a Prop Firm Challenge Trading Gold (XAUUSD) in 2026</title>
+      <link>https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd.html</guid>
+      <pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>How to pass a prop firm challenge trading gold (XAUUSD): the daily-loss and max-drawdown math that fails most traders, the disciplined rule-set that passes, and how Gold Scalpers EA's Prop Firm Mode enforces every rule automatically.</description>
+    </item>
+
+    <item>
+      <title>Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?</title>
+      <link>https://goldscalpers.com/blog/triple-rsi-strategy.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/triple-rsi-strategy.html</guid>
+      <pubDate>Tue, 07 Jul 2026 09:00:00 GMT</pubDate>
+      <category>Strategy</category>
+      <description>The Triple RSI strategy stacks 3, 7 and 14-period RSI for a "90% win rate". Here's how the 3-7-14 crossover really works, why raw win rate lies, and the stop-loss, trend filter and risk-reward rules that make it genuinely tradeable.</description>
+    </item>
+
+    <item>
+      <title>Best MT5 EA for Prop Firm Challenges (2026): What Passes, What Blows Up</title>
+      <link>https://goldscalpers.com/blog/best-mt5-ea-for-prop-firm.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-mt5-ea-for-prop-firm.html</guid>
+      <pubDate>Fri, 26 Jun 2026 09:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>What to look for in a prop firm EA for MT5 — daily loss limits, max drawdown and consistency — and why martingale/grid robots fail FTMO-style challenges. An honest 2026 guide.</description>
+    </item>
+
+    <item>
+      <title>How to Install an EA on MT5 (Step-by-Step 2026)</title>
+      <link>https://goldscalpers.com/blog/how-to-install-ea-on-mt5.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-install-ea-on-mt5.html</guid>
+      <pubDate>Fri, 26 Jun 2026 08:00:00 GMT</pubDate>
+      <category>Setup Guide</category>
+      <description>Install an Expert Advisor on MetaTrader 5 in minutes: copy the .ex5 into the Experts folder, enable AutoTrading, attach to the chart, and verify the smiley — with a troubleshooting checklist.</description>
+    </item>
+
+    <item>
+      <title>MT5 Expert Advisor vs Manual Trading: Which Wins for Gold?</title>
+      <link>https://goldscalpers.com/blog/mt5-ea-vs-manual-trading.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/mt5-ea-vs-manual-trading.html</guid>
+      <pubDate>Wed, 24 Jun 2026 09:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>EA vs manual trading for gold (XAUUSD) — discipline, speed, emotion, time and cost compared, plus the hybrid approach that beats both.</description>
+    </item>
+
+    <item>
+      <title>How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)</title>
+      <link>https://goldscalpers.com/blog/how-to-backtest-mt5-ea.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-backtest-mt5-ea.html</guid>
+      <pubDate>Wed, 24 Jun 2026 08:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>Step-by-step in the MT5 Strategy Tester — modelling quality, the metrics that matter, common mistakes, and why you must forward-test on demo too.</description>
+    </item>
+
+    <item>
+      <title>How to Choose a Safe MT5 Expert Advisor (2026 Buyer's Guide)</title>
+      <link>https://goldscalpers.com/blog/how-to-choose-mt5-ea.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-choose-mt5-ea.html</guid>
+      <pubDate>Tue, 23 Jun 2026 09:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>A 10-point checklist for choosing a safe MetaTrader 5 EA — spot martingale scams, fake win rates, and untestable robots, and the green flags of a trustworthy trading robot.</description>
+    </item>
+
+    <item>
+      <title>Best Forex &amp; Gold Trading Robots for 2027: What to Look For</title>
+      <link>https://goldscalpers.com/blog/best-forex-trading-robots-2027.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-forex-trading-robots-2027.html</guid>
+      <pubDate>Tue, 23 Jun 2026 08:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>The trends and criteria that will define the best MT5 trading robots in 2027 — and how to pick a robot that lasts. Honest, no hype.</description>
+    </item>
+
+    <item>
+      <title>Best MetaTrader 5 Expert Advisors (EA) in 2026: Top Trading Robots</title>
+      <link>https://goldscalpers.com/blog/best-mt5-expert-advisors-2026.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-mt5-expert-advisors-2026.html</guid>
+      <pubDate>Mon, 22 Jun 2026 09:00:00 GMT</pubDate>
+      <category>Expert Advisors</category>
+      <description>The best MT5 Expert Advisors and trading robots of 2026 ranked by category — honest selection criteria, EA types explained, scam red flags, and the top gold EA for XAUUSD.</description>
+    </item>
+
+    <item>
+      <title>How to Read Forex Charts: Complete Beginner's Guide</title>
+      <link>https://goldscalpers.com/blog/how-to-read-forex-charts-beginners-guide.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-read-forex-charts-beginners-guide.html</guid>
+      <pubDate>Tue, 13 May 2026 09:00:00 GMT</pubDate>
+      <category>Beginner</category>
+      <description>Learn how to read forex charts step by step. Candlesticks, timeframes, support/resistance, trends, and the 5 essential patterns every trader must recognize.</description>
+    </item>
+
+    <item>
+      <title>Best Forex Pairs to Trade in 2026: Volume, Volatility &amp; Edge Analysis</title>
+      <link>https://goldscalpers.com/blog/best-forex-pairs-to-trade-2026.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-forex-pairs-to-trade-2026.html</guid>
+      <pubDate>Mon, 12 May 2026 09:00:00 GMT</pubDate>
+      <category>Pairs</category>
+      <description>The 7 best forex pairs for 2026 ranked by volume, spread, volatility, and trading edge.</description>
+    </item>
+
+    <item>
+      <title>Forex Risk Management: The 1% Rule Explained</title>
+      <link>https://goldscalpers.com/blog/forex-risk-management-1-percent-rule.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/forex-risk-management-1-percent-rule.html</guid>
+      <pubDate>Sun, 11 May 2026 09:00:00 GMT</pubDate>
+      <category>Risk Management</category>
+      <description>The 1% rule limits risk to 1% of account balance per trade. Learn the exact formula and why this single rule prevents 80% of retail account blow-ups.</description>
+    </item>
+
+    <item>
+      <title>TradingView vs MetaTrader: Which is Better for Forex Trading in 2026?</title>
+      <link>https://goldscalpers.com/blog/tradingview-vs-metatrader.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/tradingview-vs-metatrader.html</guid>
+      <pubDate>Sat, 10 May 2026 09:00:00 GMT</pubDate>
+      <category>Platform Comparison</category>
+      <description>TradingView vs MetaTrader comparison covering charts, alerts, automation, broker integration, and pricing.</description>
+    </item>
+
+    <item>
+      <title>Pine Script Trading Alerts: Complete 2026 Guide</title>
+      <link>https://goldscalpers.com/blog/pine-script-trading-alerts-guide.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/pine-script-trading-alerts-guide.html</guid>
+      <pubDate>Fri, 09 May 2026 09:00:00 GMT</pubDate>
+      <category>Pine Script</category>
+      <description>Pine Script trading alerts let you trigger custom notifications from TradingView indicators. Learn the alert() function, alertcondition(), and webhook integration.</description>
+    </item>
+
+    <item>
+      <title>What is RSI in Trading? Complete Guide to the Relative Strength Index</title>
+      <link>https://goldscalpers.com/blog/what-is-rsi-in-trading.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/what-is-rsi-in-trading.html</guid>
+      <pubDate>Thu, 08 May 2026 09:00:00 GMT</pubDate>
+      <category>Indicators</category>
+      <description>RSI (Relative Strength Index) is a momentum oscillator measuring price change speed on a 0-100 scale. Learn how to read RSI, optimal settings per pair, and confirmation rules.</description>
+    </item>
+
+    <item>
+      <title>How to Trade Gold (XAUUSD) Reversals: Complete 2026 Strategy Guide</title>
+      <link>https://goldscalpers.com/blog/how-to-trade-gold-reversals.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-to-trade-gold-reversals.html</guid>
+      <pubDate>Mon, 05 May 2026 09:00:00 GMT</pubDate>
+      <category>Gold Trading</category>
+      <description>Master XAUUSD reversal trading with a proven 5-filter detection method. Real entry rules and forward-tested results from 1-minute charts.</description>
+    </item>
+
+    <item>
+      <title>RSI Oversold Strategy: Why 87% of Traders Get It Wrong</title>
+      <link>https://goldscalpers.com/blog/rsi-oversold-strategy-mistakes.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/rsi-oversold-strategy-mistakes.html</guid>
+      <pubDate>Sat, 03 May 2026 09:00:00 GMT</pubDate>
+      <category>Strategy</category>
+      <description>The RSI oversold strategy fails for most retail traders. Learn the 4 confirmation filters that turn RSI from a death trap into a profitable reversal tool.</description>
+    </item>
+
+    <item>
+      <title>5 Best TradingView Indicators for Scalping Forex in 2026</title>
+      <link>https://goldscalpers.com/blog/best-tradingview-scalping-indicators.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-tradingview-scalping-indicators.html</guid>
+      <pubDate>Thu, 01 May 2026 09:00:00 GMT</pubDate>
+      <category>Indicators</category>
+      <description>Comparison of the top 5 TradingView indicators for forex scalping — pros, cons, ideal pairs, and pair-specific tools comparison.</description>
+    </item>
+
+    <item>
+      <title>How to Set Up Telegram Trading Alerts in 5 Minutes</title>
+      <link>https://goldscalpers.com/blog/telegram-trading-alerts-setup.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/telegram-trading-alerts-setup.html</guid>
+      <pubDate>Mon, 28 Apr 2026 09:00:00 GMT</pubDate>
+      <category>Setup Guide</category>
+      <description>Complete guide to receiving TradingView alerts on Telegram with full entry, stop loss, and take profit. Free setup, no third-party services.</description>
+    </item>
+
+    <item>
+      <title>USDJPY vs GBPJPY: Which Pair Has the Better Trading Edge?</title>
+      <link>https://goldscalpers.com/blog/usdjpy-vs-gbpjpy-trading-edge.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/usdjpy-vs-gbpjpy-trading-edge.html</guid>
+      <pubDate>Fri, 25 Apr 2026 09:00:00 GMT</pubDate>
+      <category>Pair Analysis</category>
+      <description>Side-by-side analysis of USDJPY and GBPJPY — volatility, spreads, news sensitivity, and which pair suits scalpers vs swing traders.</description>
+    </item>
+
+    <item>
+      <title>Auto-Execute Trades from TradingView: Complete 2026 Setup Guide</title>
+      <link>https://goldscalpers.com/blog/auto-execute-tradingview-trades.html</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/auto-execute-tradingview-trades.html</guid>
+      <pubDate>Tue, 22 Apr 2026 09:00:00 GMT</pubDate>
+      <category>Automation</category>
+      <description>Three ways to auto-execute trades from TradingView signals — relay services, MT4/MT5 EAs, and self-hosted webhooks. Pros, cons, setup steps.</description>
+    </item>
+
+  </channel>
+</rss>

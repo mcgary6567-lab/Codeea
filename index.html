@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>Prop-Firm XAUUSD Robot for MT5 — Stop Blowing Challenges</title>
+<meta name="description" content="Stop blowing prop-firm challenges. Gold Scalpers EA runs XAUUSD on MT5 on autopilot with prop-firm-grade risk control — daily-loss limits, drawdown guard and disciplined EMA entries. $220 lifetime, 14-day refund.">
+<meta name="keywords" content="AI gold trading bot, gold trading bot, forex robot, XAUUSD robot, MT5 trading bot, trading bot that works while you sleep, Gold Scalpers EA, XAUUSD EA, gold trading robot, MT5 Expert Advisor, MetaTrader 5 EA, automated gold trading, EMA crossover EA, gold scalping robot">
+<meta name="author" content="Gold Scalpers">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<meta property="og:type" content="product">
+<meta property="og:title" content="Gold Scalpers EA — Prop-Firm-Ready XAUUSD Robot for MT5">
+<meta property="og:description" content="Stop blowing challenges. Gold Scalpers EA runs gold on autopilot with prop-firm-grade risk control — daily-loss limits, drawdown guard and disciplined EMA entries. Built for the rules prop firms demand. 14-day money-back.">
+<meta property="og:url" content="https://goldscalpers.com">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:image:width" content="2000">
+<meta property="og:image:height" content="1050">
+<meta property="og:image:alt" content="Gold Scalpers EA — automated gold trading robot for MT5, XAUUSD chart with EMA golden cross BUY signal">
+<meta property="og:locale" content="en_US">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Gold Scalpers EA — Prop-Firm-Ready XAUUSD Robot for MT5">
+<meta name="twitter:description" content="Stop blowing challenges. Gold Scalpers EA runs gold on autopilot with prop-firm-grade risk control — daily-loss limits, drawdown guard and disciplined EMA entries. Built for the rules prop firms demand. 14-day money-back.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+
+<link rel="canonical" href="https://goldscalpers.com">
+
+<!-- ═══ SCHEMA MARKUP ═══════════════════════════════════════ -->
+
+<!-- WebSite — enables Google Sitelinks search box -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Gold Scalpers EA",
+  "url": "https://goldscalpers.com",
+  "description": "Fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) with prop-firm-grade risk control — EMA 9/21 crossover, 50-EMA trend filter, market-structure swing stop, daily-loss limit and drawdown guard, plus Scalping or Swing take-profit, a live dashboard and Telegram alerts. Pro Lifetime $220 one-time with 14-day money-back guarantee.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://goldscalpers.com/blog/?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+
+<!-- Organization — entity authority signal -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Gold Scalpers EA",
+  "url": "https://goldscalpers.com",
+  "logo": "https://goldscalpers.com/og-image.png",
+  "description": "Gold Scalpers builds automated MetaTrader 5 Expert Advisors for XAUUSD (Gold). Hands-free EMA-crossover trading with a market-structure stop, Scalping/Swing take-profit, a live on-chart dashboard, and Telegram alerts. Pro Lifetime $220 one-time with 14-day money-back guarantee.",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "support@goldscalpers.com",
+    "contactType": "customer service",
+    "availableLanguage": "English"
+  }
+}
+</script>
+
+<!-- SoftwareApplication — indicator is software, not a physical product -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Gold Scalpers EA — MetaTrader 5 Expert Advisor",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "MetaTrader 5 (Windows)",
+  "softwareVersion": "3.03",
+  "applicationSubCategory": "Automated Trading Robot (Expert Advisor)",
+  "description": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold). It enters on a 9/21 EMA crossover confirmed by a 50-EMA trend filter and a confirmation candle, places the stop at the most recent market-structure swing, and takes profit in Scalping (fixed $) or Swing (ride to the opposite EMA cross) mode. It filters spikes, climactic candles, wide spreads, off-session hours and high-impact news, executes and manages trades hands-free, and includes a live on-chart dashboard plus Telegram, mobile push and terminal alerts.",
+  "url": "https://goldscalpers.com",
+  "image": "https://goldscalpers.com/og-image.png",
+  "screenshot": "https://goldscalpers.com/assets/chart-preview.png",
+  "featureList": [
+    "Fully automated execution — enters, manages and closes trades hands-free in MT5",
+    "EMA 9/21 crossover with a 50-EMA trend filter",
+    "Market-structure swing-high/low stop loss",
+    "Two take-profit modes: Scalping (fixed $) or Swing (ride to the opposite EMA cross)",
+    "Spike, climactic-candle, spread, session and high-impact-news filters",
+    "Risk controls: daily profit/loss limits, max-drawdown guard, spread cap, fixed-lot or %-risk sizing",
+    "Live on-chart dashboard with manual Buy/Sell/Pause/Close controls",
+    "Telegram, MT5 mobile push and terminal alerts",
+    "Self-contained — the EMA indicator is bundled, so it backtests and runs anywhere"
+  ],
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Pro Lifetime",
+      "price": "220",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "url": "https://goldscalpers.com/checkout",
+      "priceValidUntil": "2027-01-01"
+    }
+  ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "reviewCount": "47",
+    "bestRating": "5",
+    "worstRating": "1"
+  }
+}
+</script>
+
+<!-- FAQPage — all 9 Q&As for AI extraction and rich results -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is Gold Scalpers EA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold). It enters on a 9/21 EMA crossover confirmed by a 50-EMA trend filter and a confirmation candle, places the stop loss at the most recent market-structure swing, and takes profit in Scalping (fixed $) or Swing (ride to the opposite EMA cross) mode. It filters out spikes, climactic candles, wide spreads, off-session hours and high-impact news, then enters, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to watch the charts myself?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Gold Scalpers EA trades hands-free. Once it is attached to an XAUUSD chart with algorithmic trading enabled, it opens, manages and closes positions automatically. You can also enable Telegram and MT5 mobile push alerts, and use the on-chart dashboard's manual Buy, Sell, Pause and Close buttons whenever you want to step in."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What do I need to run Gold Scalpers EA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MetaTrader 5, a broker that offers XAUUSD (Gold), and a computer or VPS that stays on while the market is open. A VPS is recommended so the EA can trade 24/5 without interruption. You enable algorithmic trading and allow the EA's licence URL under Tools > Options > Expert Advisors."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which pair and timeframe does Gold Scalpers EA trade?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "XAUUSD (Gold) on the M15 timeframe by default. The EA is built and tuned specifically for gold; it is not a multi-symbol product."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is there a free trial for Gold Scalpers EA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, there is no free trial. Gold Scalpers EA is sold as Pro Lifetime — a single $220 one-time payment that unlocks lifetime use of the EA and every future update. Every purchase is backed by a 14-day money-back guarantee, so if it does not suit you after demo testing you can email support@goldscalpers.com within 14 days for a full refund."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What risk controls does Gold Scalpers EA have?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Built-in protections include daily profit and loss limits, a maximum-drawdown guard, a maximum open-positions cap, a spread filter, and a choice of fixed-lot or percent-risk position sizing. Trading is still high-risk — always run the EA on a demo account first and never risk money you cannot afford to lose."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I backtest Gold Scalpers EA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The EMA indicator is bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it and forward-test on demo before going live."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does Gold Scalpers EA setup take?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "About 5 minutes. Attach the EA to an XAUUSD M15 chart, tick Allow Algorithmic Trading, allow the licence URL under Tools > Options > Expert Advisors, set your lot size or risk percent, and the EA begins trading automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the Gold Scalpers EA refund policy?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "14-day money-back guarantee on Pro Lifetime. If the EA is not a fit after your demo test within 14 days, email support@goldscalpers.com with your order number for a full refund. Approved and refunded within 48 hours."
+      }
+    }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --bg:#FFFFFF; --bg-2:#F7F8FC; --card:#FFFFFF; --card-hover:#F9FAFB; --border:#E5E7EB;
+  --gold:#D97706; --gold-bright:#F59E0B; --green:#059669; --green-bright:#10B981;
+  --red:#DC2626; --blue:#2563EB;
+  --text:#111827; --text-muted:#6B7280; --text-dim:#9CA3AF;
+  --accent-glow:rgba(217,119,6,0.10); --green-glow:rgba(5,150,105,0.10);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.08),0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg:0 12px 40px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.05);
+}
+*{margin:0;padding:0;box-sizing:border-box}html{overflow-x:hidden}img,video{max-width:100%;height:auto}svg,iframe{max-width:100%}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.6; overflow-x:hidden;
+}
+::selection{background:var(--gold);color:var(--bg)}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:#FFFFFF;border-bottom:1px solid var(--border);padding:0.9rem 0;box-shadow:var(--shadow-sm)}
+.nav-inner{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:0.6rem;font-weight:800;font-size:1.15rem;letter-spacing:-0.02em;color:var(--text)}
+.logo-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.nav-links{display:flex;gap:2rem;align-items:center}
+.nav-links a{color:var(--text-muted);text-decoration:none;font-size:0.95rem;transition:color 0.2s;font-weight:500}
+.nav-links a:hover{color:var(--text)}
+.btn{display:inline-block;padding:0.65rem 1.4rem;border-radius:8px;font-weight:600;text-decoration:none;font-size:0.92rem;transition:all 0.2s;cursor:pointer;border:none}
+.btn-primary{background:var(--gold);color:#FFFFFF;box-shadow:0 2px 8px rgba(217,119,6,0.25)}
+.btn-primary:hover{background:#B45309;transform:translateY(-1px);box-shadow:0 6px 20px rgba(217,119,6,0.30)}
+.btn-ghost{background:transparent;color:var(--text);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+/* HERO */
+.hero{position:relative;padding:3.5rem 2rem 2.5rem;overflow:hidden;background:#FFFFFF}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse 70% 60% at 70% 50%,rgba(217,119,6,0.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+.hero-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1.2fr;gap:4rem;align-items:center;position:relative;z-index:1}
+.hero-tag{display:inline-flex;align-items:center;gap:0.5rem;background:#FEF3C7;border:1px solid #FDE68A;padding:0.35rem 0.9rem;border-radius:99px;font-size:0.82rem;color:#92400E;font-weight:600;margin-bottom:1.2rem}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1;box-shadow:0 0 0 0 rgba(5,150,105,0.6)}50%{transform:scale(1.2);opacity:0.8;box-shadow:0 0 0 8px rgba(5,150,105,0)}}
+.hero h1{font-size:3rem;font-weight:800;line-height:1.1;letter-spacing:-0.03em;margin-bottom:1.2rem;color:var(--text)}
+.hero h1 .accent{color:var(--gold)}
+.hero p.lede{font-size:1.05rem;color:var(--text-muted);margin-bottom:1.8rem;max-width:480px;line-height:1.7}
+.hero-cta{display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:0.5rem;vertical-align:middle;box-shadow:0 0 0 0 rgba(34,197,94,0.7);animation:livePulse 1.8s infinite}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,0.6)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.hero-trust{display:flex;gap:1.2rem;margin-top:1.8rem;flex-wrap:wrap;font-size:0.82rem;color:var(--text-dim)}
+.hero-trust span{display:flex;align-items:center;gap:0.35rem;font-weight:500}
+.hero-trust svg{width:13px;height:13px;color:var(--green)}
+.hero-rating{display:flex;align-items:center;gap:0.5rem;margin-top:1.3rem;font-size:0.88rem;color:var(--text-muted);flex-wrap:wrap}
+.hero-rating .stars{color:var(--gold-bright);letter-spacing:1px;font-size:0.98rem}
+.hero-rating strong{color:var(--text);font-weight:800}
+.hero-rating a{color:var(--gold);text-decoration:none;font-weight:600}
+.hero-rating a:hover{text-decoration:underline}
+
+/* HERO CHART IMAGE */
+.hero-chart-wrap{
+  background:#FFFFFF;border:1.5px solid var(--border);border-radius:16px;
+  overflow:hidden;box-shadow:var(--shadow-lg);
+  position:relative;
+}
+.hero-chart-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0.65rem 1rem;border-bottom:1px solid var(--border);
+  background:#F9FAFB;font-size:0.85rem;
+}
+.hero-chart-img{
+  width:100%;display:block;height:auto;
+  object-fit:cover;
+}
+.hero-chart-video{
+  position:relative;width:100%;aspect-ratio:16/9;background:#000;
+}
+.hero-chart-video iframe{
+  position:absolute;inset:0;width:100%;height:100%;border:0;display:block;
+}
+.hero-chart-placeholder{
+  display:none;
+}
+
+/* SECTIONS */
+.section{padding:3.75rem 2rem;position:relative}
+.section-inner{max-width:1280px;margin:0 auto}
+.eyebrow{display:inline-block;color:var(--gold);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.8rem;background:#FEF3C7;padding:0.25rem 0.75rem;border-radius:99px}
+h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing:-0.02em;margin-bottom:0.8rem;color:var(--text)}
+.sec-ico{width:1.5rem;height:1.5rem;vertical-align:-0.22em;margin-right:.6rem;stroke:var(--gold);color:var(--gold);flex-shrink:0}
+.section-subtitle{font-size:1rem;color:var(--text-muted);max-width:680px;margin-bottom:2rem;line-height:1.65}
+
+.definition-card{background:#FFFBEB;border:1px solid #FDE68A;border-radius:16px;padding:2rem;margin-bottom:3rem;border-left:4px solid var(--gold)}
+.definition-card h3{font-size:1.3rem;margin-bottom:1rem;color:var(--gold)}
+.definition-card p{font-size:1.05rem;color:var(--text);line-height:1.7}
+
+/* SIGNAL DEMO */
+.signal-demo{display:grid;grid-template-columns:1.3fr 1fr;gap:3rem;align-items:center}
+.signal-svg-wrap{background:#F9FAFB;border:1.5px solid var(--border);border-radius:16px;padding:1.5rem;position:relative;box-shadow:var(--shadow-sm)}
+.signal-svg{width:100%;height:auto;display:block}
+
+/* PHONE MOCK */
+.phone-mock{width:280px;margin:0 auto;background:#1a1d24;border-radius:32px;padding:0.6rem;box-shadow:0 25px 60px rgba(0,0,0,0.5);border:1px solid #2a2d34}
+.phone-screen{background:#0E1621;border-radius:24px;padding:1rem;min-height:520px;position:relative;overflow:hidden}
+.phone-bar{display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.6rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.05);margin-bottom:0.8rem}
+.bot-info{display:flex;align-items:center;gap:0.6rem}
+.bot-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#D97706);display:flex;align-items:center;justify-content:center;color:#000;font-weight:700;font-size:0.9rem}
+.bot-name{font-size:0.85rem;font-weight:600}
+.bot-status{font-size:0.7rem;color:var(--text-dim)}
+.tg-msg{background:#182533;border-radius:12px;padding:0.9rem 1rem;font-size:0.8rem;line-height:1.5;color:#E5E7EB;margin-top:0.6rem;animation:msgSlide 0.5s ease-out forwards;opacity:0;transform:translateY(10px)}
+.tg-msg:nth-child(2){animation-delay:0.5s}
+.tg-msg:nth-child(3){animation-delay:1s}
+@keyframes msgSlide{to{opacity:1;transform:translateY(0)}}
+.tg-line{display:flex;justify-content:space-between;padding:0.18rem 0}
+.tg-line .key{color:#8b95a3}
+.tg-line .val{color:#E5E7EB;font-family:'SF Mono',monospace}
+.tg-line .val-green{color:var(--green-bright);font-family:'SF Mono',monospace}
+.tg-line .val-red{color:#FCA5A5;font-family:'SF Mono',monospace}
+.tg-divider{height:1px;background:rgba(255,255,255,0.05);margin:0.5rem 0}
+.tg-time{font-size:0.65rem;color:var(--text-dim);text-align:right;margin-top:0.4rem}
+
+/* FEATURES GRID */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem}
+.feature-card{background:#FFFFFF;border:1px solid var(--border);border-radius:14px;padding:1.8rem;transition:all 0.25s;position:relative;overflow:hidden;box-shadow:var(--shadow-sm)}
+.feature-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.feature-icon{width:44px;height:44px;border-radius:10px;background:#FEF3C7;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;color:var(--gold)}
+.feature-card h3{font-size:1.05rem;margin-bottom:0.4rem;font-weight:700;color:var(--text)}
+.feature-card p{color:var(--text-muted);font-size:0.88rem;line-height:1.6}
+
+/* DASHBOARD MOCK */
+.dashboard-mock{background:#FFFFFF;border:1.5px solid var(--border);border-radius:14px;padding:1.5rem;font-family:'SF Mono',monospace;font-size:0.85rem;box-shadow:var(--shadow-md)}
+.dash-title{background:#FEF3C7;border:1px solid #FDE68A;padding:0.65rem 1rem;border-radius:8px;font-weight:700;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;color:#92400E}
+.dash-table{width:100%;border-collapse:collapse}
+.dash-table th{background:#F9FAFB;color:var(--text-muted);padding:0.55rem 0.8rem;text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
+.dash-table td{padding:0.65rem 0.8rem;border-top:1px solid #F3F4F6;font-size:0.82rem;color:var(--text)}
+.dash-row-win{background:#F0FDF4}
+.dash-row-win td{color:#065F46}
+.dash-row-open{background:#FFFBEB}
+.dash-row-open td{color:#92400E}
+.status-badge{display:inline-block;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:700}
+.badge-win{background:#D1FAE5;color:#065F46}
+.badge-open{background:#FEF3C7;color:#92400E}
+
+
+/* HOW IT WORKS */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
+.step{position:relative;padding:2rem 1.5rem;background:#FFFFFF;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm)}
+.step-num{position:absolute;top:-20px;left:1.5rem;width:42px;height:42px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;color:#FFFFFF;box-shadow:0 4px 12px rgba(217,119,6,0.35)}
+.step h4{font-size:1rem;margin:1rem 0 0.4rem;font-weight:700;color:var(--text)}
+.step p{color:var(--text-muted);font-size:0.88rem;line-height:1.6}
+
+/* COMPARE TABLE */
+.compare-table{width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;border-collapse:collapse}
+.compare-table th{padding:1rem 1.2rem;text-align:left;font-weight:700;background:#1F2937;border-bottom:1px solid var(--border)}
+.compare-table th.highlight{background:linear-gradient(135deg,var(--accent-glow),transparent);color:var(--gold-bright)}
+.compare-table td{padding:1rem 1.2rem;border-bottom:1px solid var(--border);color:var(--text-muted)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table .yes{color:var(--green-bright);font-weight:600}
+.compare-table .no{color:var(--red);font-weight:600}
+.compare-table .col-ours{background:rgba(245,158,11,0.04);color:var(--text);font-weight:500}
+
+/* COMPARE TABLE */
+.compare-table th.highlight{background:linear-gradient(135deg,#FEF3C7,#FFFBEB);color:var(--gold)}
+.compare-table .col-ours{background:#FFFBEB;color:var(--text);font-weight:600}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;margin-bottom:3rem}
+.stat-card{background:#FFFFFF;border:1px solid var(--border);border-radius:14px;padding:1.8rem;text-align:center;box-shadow:var(--shadow-sm)}
+.stat-icon{width:42px;height:42px;margin:0 auto 0.7rem;border-radius:11px;background:#FEF3C7;display:flex;align-items:center;justify-content:center;color:var(--gold)}
+.stat-icon svg{width:22px;height:22px}
+.stat-num{font-size:2.6rem;font-weight:800;line-height:1;color:var(--gold);letter-spacing:-0.02em}
+.stat-label{color:var(--text-muted);font-size:0.82rem;margin-top:0.5rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
+
+.winrate-section{background:#FFFFFF;border:1px solid var(--border);border-radius:14px;padding:2rem;margin-bottom:3rem;box-shadow:var(--shadow-sm)}
+.winrate-bar{width:100%;height:12px;background:#F3F4F6;border-radius:99px;overflow:hidden;margin:1rem 0}
+.winrate-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green-bright));border-radius:99px;width:0%;animation:fillBar 2.5s ease-out forwards;animation-delay:0.5s}
+@keyframes fillBar{to{width:82%}}
+.winrate-row{display:flex;justify-content:space-between;font-size:0.88rem;color:var(--text-muted)}
+
+/* PRICING - 2 TIER */
+.pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;max-width:860px;margin:0 auto}
+.price-card{background:#FFFFFF;border:1.5px solid var(--border);border-radius:16px;padding:2.2rem 2rem;position:relative;transition:all 0.3s;box-shadow:var(--shadow-sm)}
+.price-card.featured{border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,119,6,0.12),var(--shadow-md);transform:scale(1.03)}
+.price-card.featured::before{content:'⭐ MOST POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:#FFFFFF;padding:0.3rem 1rem;border-radius:99px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em}
+.price-tier-name{font-size:0.9rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+.price-amount{font-size:2.8rem;font-weight:800;margin:0.5rem 0;letter-spacing:-0.02em;color:var(--text)}
+.price-amount .currency{font-size:1.4rem;vertical-align:top;color:var(--text-muted)}
+.price-amount .period{font-size:0.85rem;color:var(--text-muted);font-weight:500}
+.price-features{list-style:none;margin:1.5rem 0;padding:0}
+.price-features li{padding:0.45rem 0;font-size:0.88rem;color:var(--text);display:flex;align-items:flex-start;gap:0.6rem;border-bottom:1px solid #F3F4F6}
+.price-features li:last-child{border-bottom:none}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.price-features li.disabled{color:var(--text-dim)}
+.price-features li.disabled::before{content:'×';color:var(--text-dim)}
+.price-card .btn{width:100%;text-align:center;display:block}
+
+/* FAQ */
+.faq-list{display:flex;flex-direction:column;gap:0.8rem}
+.faq-item{background:#FFFFFF;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;transition:all 0.2s;box-shadow:var(--shadow-sm)}
+.faq-item:hover{border-color:var(--gold)}
+.faq-q{padding:1.2rem 1.5rem;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;color:var(--text);font-size:0.95rem}
+.faq-q:hover{color:var(--gold)}
+.faq-q::after{content:'+';font-size:1.4rem;color:var(--gold);transition:transform 0.2s;font-weight:300}
+.faq-item.open .faq-q::after{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.3s;color:var(--text-muted)}
+.faq-item.open .faq-a{max-height:300px}
+.faq-a-inner{padding:0 1.5rem 1.3rem;font-size:0.9rem;line-height:1.7}
+
+/* FINAL CTA */
+.final-cta{background:linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%);border:1.5px solid #FDE68A;border-radius:20px;padding:3rem 2.5rem;text-align:center;position:relative;overflow:hidden}
+.final-cta::before{content:'';position:absolute;top:-50%;right:-20%;width:500px;height:500px;background:radial-gradient(circle,rgba(217,119,6,0.08) 0%,transparent 70%);pointer-events:none}
+.final-cta h2{font-size:2.2rem;margin-bottom:1rem;font-weight:800;color:var(--text)}
+.final-cta p{color:var(--text-muted);margin-bottom:2rem;font-size:1rem}
+
+/* FOOTER - keep dark like Bitsgap */
+.footer{background:#111827;border-top:1px solid #1F2937;padding:3rem 2rem 2rem}
+.footer .logo{color:#FFFFFF!important}
+.footer p{color:#9CA3AF}
+.footer-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:3rem}
+.footer h5{font-size:0.82rem;font-weight:700;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.08em;color:#F9FAFB}
+.footer ul{list-style:none}
+.footer ul li{padding:0.3rem 0}
+.footer ul li a{color:#9CA3AF;text-decoration:none;font-size:0.88rem;transition:color 0.2s}
+.footer ul li a:hover{color:#FFFFFF}
+.footer-disclaimer{max-width:1280px;margin:3rem auto 0;padding-top:2rem;border-top:1px solid #1F2937;font-size:0.78rem;color:#6B7280;line-height:1.7}
+
+/* SOCIAL ICONS IN FOOTER */
+.footer-socials{display:flex;gap:0.7rem;margin-top:1.2rem}
+.footer-socials a{
+  width:36px;height:36px;border-radius:8px;
+  background:#1F2937;border:1px solid #374151;
+  display:flex;align-items:center;justify-content:center;
+  color:#9CA3AF;transition:all 0.2s;text-decoration:none;
+}
+.footer-socials a:hover{color:var(--gold);border-color:var(--gold);transform:translateY(-2px)}
+.footer-socials svg{width:17px;height:17px}
+
+/* PROMO POPUP */
+.promo-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.75);
+  z-index:9999;display:flex;align-items:center;justify-content:center;
+  opacity:0;visibility:hidden;transition:all 0.3s;
+  backdrop-filter:blur(6px);
+  padding:1rem;overflow-y:auto;
+}
+.promo-overlay.active{opacity:1;visibility:visible}
+.promo-modal{
+  background:#FFFFFF;
+  border:1.5px solid #FDE68A;border-radius:20px;
+  padding:2rem 1.5rem;max-width:460px;width:100%;
+  text-align:center;position:relative;
+  transform:scale(0.9);transition:transform 0.3s;
+  box-shadow:0 30px 80px rgba(0,0,0,0.18);
+  color:var(--text);
+  max-height:calc(100vh - 2rem);overflow-y:auto;
+  margin:auto;
+}
+.promo-overlay.active .promo-modal{transform:scale(1)}
+.promo-close{
+  position:absolute;top:1rem;right:1rem;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,0.05);border:none;
+  color:var(--text-muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;transition:all 0.2s;
+}
+.promo-close:hover{background:rgba(255,255,255,0.1);color:var(--text)}
+.promo-emoji{font-size:3rem;margin-bottom:0.5rem;animation:bounce 2s infinite}
+.promo-short{
+  position:relative;width:220px;max-width:100%;aspect-ratio:9/16;
+  margin:0.8rem auto 1rem;border-radius:14px;overflow:hidden;
+  background:#000;box-shadow:0 12px 30px rgba(0,0,0,0.18);
+}
+@media(max-height:760px){
+  .promo-short{width:180px}
+}
+@media(max-height:620px){
+  .promo-short{width:140px}
+  .promo-modal{padding:1.5rem 1.2rem}
+  .promo-price{margin:0.8rem 0}
+}
+.promo-short iframe{
+  position:absolute;inset:0;width:100%;height:100%;border:0;display:block;
+}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.promo-modal h3{font-size:1.6rem;font-weight:800;margin-bottom:0.5rem;letter-spacing:-0.02em}
+.promo-modal h3 .gold{background:linear-gradient(135deg,var(--gold),var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent}
+.promo-modal p{color:var(--text-muted);margin-bottom:1.5rem;font-size:0.95rem}
+.promo-price{
+  display:flex;align-items:center;justify-content:center;gap:0.7rem;
+  margin:1.5rem 0;
+}
+.promo-strike{
+  font-size:1.4rem;color:var(--text-dim);text-decoration:line-through;
+}
+.promo-now{
+  font-size:2.6rem;font-weight:800;
+  background:linear-gradient(135deg,var(--gold),var(--gold-bright));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-0.02em;
+}
+.promo-cta{
+  display:block;width:100%;padding:1rem;
+  background:linear-gradient(135deg,var(--gold),#D97706);color:#000;
+  border-radius:12px;font-weight:800;font-size:1rem;
+  text-decoration:none;margin-bottom:0.7rem;
+  transition:transform 0.2s;
+}
+.promo-cta:hover{transform:translateY(-2px)}
+.promo-secondary{
+  color:var(--text-muted);font-size:0.85rem;
+  background:none;border:none;cursor:pointer;
+  text-decoration:underline;
+}
+.promo-secondary:hover{color:var(--text)}
+.promo-timer{
+  color:var(--gold-bright);font-weight:700;font-size:0.9rem;
+  display:flex;align-items:center;justify-content:center;gap:0.4rem;
+  margin-top:0.7rem;
+}
+
+/* RESPONSIVE */
+@media(max-width:1080px){
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .steps{grid-template-columns:repeat(2,1fr)}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:900px){
+  .hero h1{font-size:2.1rem}
+  .hero-inner{grid-template-columns:1fr;gap:2.5rem}
+  .hero-chart-wrap{margin-top:0}
+  .signal-demo{grid-template-columns:1fr}
+  .pricing-grid{grid-template-columns:1fr}
+  .footer-inner{grid-template-columns:1fr 1fr}
+  h2.section-title{font-size:1.7rem}
+  .nav-links a:not(.btn){display:none}
+  .nav-links{gap:0}
+  .price-card.featured{transform:none}
+  .promo-modal{padding:2rem 1.2rem}
+  .promo-now{font-size:2rem}
+}
+@media(max-width:600px){
+  .features-grid{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr}
+  .footer-inner{grid-template-columns:1fr}
+  .hero h1{font-size:1.8rem}
+  .hero p.lede{font-size:1rem}
+  .section{padding:2.75rem 1.3rem}
+  .hero{padding:2.5rem 1.3rem 2rem}
+  h2.section-title{font-size:1.55rem}
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{text-align:center}
+  .nav-inner{padding:0 1.2rem}
+  .stat-num{font-size:2.1rem}
+}
+/* TOP ANNOUNCEMENT / COUNTDOWN BAR */
+.topbar{background:linear-gradient(90deg,#0B1018,#11161f 50%,#0B1018);color:#E6E9EF;font-size:0.85rem;border-bottom:1px solid #1f2734}
+.topbar-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:0.65rem;flex-wrap:wrap;padding:0.5rem 1rem}
+.topbar .bolt{color:#F59E0B;font-size:0.95rem}
+.topbar .tb-label{font-weight:600;color:#C7CCD6}
+.topbar .tb-time{background:#1A2230;border:1px solid #2A3443;border-radius:6px;padding:0.12rem 0.5rem;color:#fff;font-variant-numeric:tabular-nums}
+.topbar .tb-time b{font-weight:800}
+.topbar .tb-sep{color:#3a4452}
+.topbar .tb-now{color:#34D399;font-weight:800}
+.topbar .tb-was{color:#6B7280;text-decoration:line-through}
+.topbar .tb-cta{color:#0a0c12;background:linear-gradient(135deg,#F59E0B,#D97706);padding:0.28rem 0.85rem;border-radius:6px;font-weight:800;text-decoration:none;font-size:0.8rem;transition:transform 0.15s}
+.topbar .tb-cta:hover{transform:translateY(-1px)}
+@media(max-width:680px){.topbar{font-size:0.76rem}.topbar .tb-cta{display:none}.topbar-inner{gap:0.45rem}}
+
+/* MONEY-BACK GUARANTEE POPUP */
+.promo-modal.promo-guarantee{border:1.5px solid #A7F3D0;background:radial-gradient(ellipse 110% 55% at 50% 0%,rgba(16,185,129,0.12),#FFFFFF 72%)}
+.promo-badge{width:66px;height:66px;border-radius:50%;margin:0.2rem auto 1.1rem;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,0.12);border:1px solid #A7F3D0;box-shadow:0 0 0 6px rgba(16,185,129,0.05)}
+.promo-badge svg{width:34px;height:34px;color:#059669}
+.promo-modal h3 .green{background:linear-gradient(135deg,#059669,#10B981);-webkit-background-clip:text;background-clip:text;color:transparent}
+.promo-gsub{font-weight:800;color:#047857;font-size:0.76rem;letter-spacing:0.08em;text-transform:uppercase;margin:-0.15rem 0 0.85rem!important}
+.promo-modal p.promo-gbody{margin-bottom:1rem}
+.promo-modal p.promo-gbody b{color:var(--text);font-weight:700}
+.promo-pills{display:flex;gap:0.45rem;justify-content:center;flex-wrap:wrap;margin:0.2rem 0 0.4rem}
+.promo-pill{font-size:0.78rem;font-weight:700;color:#047857;background:rgba(16,185,129,0.08);border:1px solid #A7F3D0;border-radius:99px;padding:0.32rem 0.8rem}
+
+/* MONEY-BACK BADGE STRIP (under hero) */
+.mb-strip{max-width:1280px;margin:-1rem auto 0;padding:0 2rem}
+.mb-badge{display:flex;align-items:center;gap:1.4rem;background:#F2FBF6;border:1px solid #BBF0D6;border-radius:18px;padding:1.5rem 1.8rem;box-shadow:0 4px 20px rgba(16,185,129,0.08)}
+.mb-badge .mb-icon{flex:0 0 auto;width:56px;height:56px;border-radius:14px;background:rgba(16,185,129,0.12);border:1px solid #A7F3D0;display:flex;align-items:center;justify-content:center;color:#059669}
+.mb-badge .mb-icon svg{width:30px;height:30px}
+.mb-badge .mb-text{flex:1 1 auto;min-width:0}
+.mb-badge .mb-title{font-size:1.15rem;font-weight:800;color:#065F46;line-height:1.2;letter-spacing:-0.01em}
+.mb-badge .mb-sub{font-size:0.92rem;color:var(--text-muted);margin-top:0.25rem;line-height:1.55}
+.mb-badge .mb-sub b{color:#047857;font-weight:700}
+.mb-pills{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.7rem}
+.mb-pill-g{font-size:0.76rem;font-weight:700;color:#047857;background:rgba(16,185,129,0.08);border:1px solid #A7F3D0;border-radius:99px;padding:0.3rem 0.75rem;white-space:nowrap}
+.mb-actions{flex:0 0 auto;display:flex;flex-direction:column;gap:0.55rem;padding-left:1.6rem;border-left:1px solid #C9EEDB}
+.mb-act{display:inline-flex;align-items:center;justify-content:center;gap:0.45rem;font-size:0.88rem;font-weight:700;padding:0.6rem 1.15rem;border-radius:10px;text-decoration:none;white-space:nowrap;cursor:pointer;border:1px solid transparent;transition:all 0.18s;font-family:inherit}
+.mb-act svg{width:17px;height:17px}
+.mb-act.primary{background:#059669;color:#fff}
+.mb-act.primary:hover{background:#047857;transform:translateY(-1px)}
+.mb-act.ghost{background:#fff;color:#065F46;border-color:#A7F3D0}
+.mb-act.ghost:hover{background:#ECFBF3;transform:translateY(-1px)}
+@media(max-width:980px){.mb-badge{flex-wrap:wrap}.mb-actions{width:100%;flex-direction:row;padding-left:0;border-left:none;border-top:1px solid #C9EEDB;padding-top:1rem;margin-top:0.3rem}.mb-act{flex:1 1 auto}}
+@media(max-width:640px){.mb-strip{margin-top:-0.25rem;padding:0 1.2rem}.mb-badge{padding:1.2rem 1.2rem;gap:1rem}.mb-badge .mb-title{font-size:1.05rem}.mb-badge .mb-sub{font-size:0.86rem}.mb-actions{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<!-- TOP ANNOUNCEMENT / COUNTDOWN BAR -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="bolt">⚡</span>
+    <span class="tb-label">$77 off — Pay once, own it forever</span>
+    <span class="tb-sep">|</span>
+    <span class="tb-label">Ends in</span>
+    <span class="tb-time"><b id="tbDays">02</b>d</span>
+    <span class="tb-time"><b id="tbHrs">22</b>h</span>
+    <span class="tb-time"><b id="tbMin">15</b>m</span>
+    <span class="tb-sep">|</span>
+    <span>Just <span class="tb-now">$220</span> <span class="tb-was">$297</span></span>
+    <a href="checkout" class="tb-cta">Claim offer →</a>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="/results">Results</a>
+      <a href="#pricing">Pricing</a>
+      <a href="checkout" class="btn btn-primary">Get Lifetime – $220</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-tag">
+        <span class="pulse-dot"></span>
+        MetaTrader 5 Expert Advisor
+      </div>
+      <h1>Stop Blowing Challenges. Let an MT5 Robot Trade XAUUSD <span class="accent">for You.</span></h1>
+      <p class="lede"><strong>Gold Scalpers EA</strong> runs gold on autopilot with prop-firm-grade risk control — hard daily-loss limits, a drawdown guard and disciplined EMA entries. Built for the rules prop firms demand, hands-free.</p>
+      <div class="hero-cta">
+        <a href="checkout" class="btn btn-primary">Get Lifetime – $220 →</a>
+        <a href="/results" class="btn btn-ghost"><span class="live-dot"></span>Live Myfxbook record →</a>
+      </div>
+      <div class="hero-rating">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <strong>4.9/5</strong>
+        <span>from 47 traders</span>
+      </div>
+      <div class="hero-trust">
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Prop-firm ready</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Daily-loss limit</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Drawdown guard</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> 14-day money-back</span>
+      </div>
+    </div>
+
+    <!-- HERO CHART SCREENSHOT -->
+    <div class="hero-chart-wrap">
+      <div class="hero-chart-header">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;display:inline-block;box-shadow:0 0 6px #F59E0B"></span>
+          <span style="font-weight:700;font-size:0.85rem;color:#111827">XAUUSD · M15</span>
+          <span style="font-size:0.72rem;color:#6B7280;margin-left:0.3rem">Gold Scalpers EA</span>
+        </div>
+        <span style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;font-weight:600;color:#059669">
+          <span style="width:6px;height:6px;border-radius:50%;background:#059669;animation:pulse 1.5s infinite;display:inline-block"></span>LIVE
+        </span>
+      </div>
+      <div class="hero-chart-video">
+        <!-- EA live mockup (MetaTrader 5 style): EMA 9/21 golden cross fires BUY with Entry/SL/TP + dashboard -->
+        <svg viewBox="0 0 940 528" preserveAspectRatio="xMidYMid slice" role="img" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%;display:block">
+        <title>Gold Scalpers EA — EMA 9/21 golden cross fires a BUY with Entry, SL and TP on XAUUSD M15</title>
+        <rect x="0" y="0" width="940" height="528" fill="#0b1018"/>
+        <rect x="0" y="0" width="940" height="22" fill="#0a0c12"/>
+        <rect x="6" y="7" width="9" height="9" rx="1" fill="#2f6df6"/><rect x="18" y="7" width="9" height="9" rx="1" fill="#16a06a"/>
+        <text x="33" y="15" fill="#c7ccd6" font-size="10.5" font-family="'Segoe UI',Tahoma,sans-serif">XAUUSD, M15: Gold vs US Dollar</text>
+        <text x="934" y="15" fill="#8a90a0" font-size="10.5" text-anchor="end" font-family="'Segoe UI',Tahoma,sans-serif">Gold Scalpers EA</text>
+        <g stroke="#2b3543" stroke-width="1" stroke-dasharray="1 4">
+          <line x1="320" y1="26" x2="320" y2="510"/><line x1="380" y1="26" x2="380" y2="510"/><line x1="440" y1="26" x2="440" y2="510"/><line x1="500" y1="26" x2="500" y2="510"/><line x1="560" y1="26" x2="560" y2="510"/><line x1="620" y1="26" x2="620" y2="510"/><line x1="680" y1="26" x2="680" y2="510"/><line x1="740" y1="26" x2="740" y2="510"/><line x1="800" y1="26" x2="800" y2="510"/><line x1="860" y1="26" x2="860" y2="510"/>
+          <line x1="300" y1="70" x2="936" y2="70"/><line x1="300" y1="124" x2="936" y2="124"/><line x1="300" y1="178" x2="936" y2="178"/><line x1="300" y1="232" x2="936" y2="232"/><line x1="300" y1="286" x2="936" y2="286"/><line x1="300" y1="340" x2="936" y2="340"/><line x1="300" y1="394" x2="936" y2="394"/><line x1="300" y1="448" x2="936" y2="448"/>
+        </g>
+        <line x1="882" y1="22" x2="882" y2="514" stroke="#222b38" stroke-width="1"/>
+        <g fill="#69748a" font-size="9" font-family="Consolas,monospace"><text x="888" y="94">4040.0</text><text x="888" y="244">4020.0</text><text x="888" y="424">4002.0</text></g>
+        <line x1="620" y1="56" x2="620" y2="318" stroke="#FCD34D" stroke-width="1" stroke-dasharray="2 4" opacity="0.55"/>
+        <text x="620" y="46" fill="#FCD34D" font-size="12" font-weight="800" text-anchor="middle" font-family="'Segoe UI',Tahoma,sans-serif">EMA 9 / 21 GOLDEN CROSS</text>
+        <polyline points="320,235 440,272 540,308 620,322 700,318 780,298 860,272" fill="none" stroke="#dfe3ea" stroke-width="2" opacity="0.92"/>
+        <polyline points="320,210 440,255 540,300 600,318 620,320 700,300 780,262 860,232" fill="none" stroke="#F59E0B" stroke-width="2"/>
+        <polyline points="320,224 440,275 540,322 600,330 620,322 660,300 700,282 780,242 860,206" fill="none" stroke="#3B82F6" stroke-width="2"/>
+        <g>
+          <line x1="320" y1="166" x2="320" y2="194" stroke="#e06363"/><rect x="316" y="173" width="8" height="14" fill="#e06363"/>
+          <line x1="340" y1="182" x2="340" y2="210" stroke="#e06363"/><rect x="336" y="189" width="8" height="14" fill="#e06363"/>
+          <line x1="360" y1="196" x2="360" y2="224" stroke="#e06363"/><rect x="356" y="203" width="8" height="14" fill="#e06363"/>
+          <line x1="380" y1="210" x2="380" y2="238" stroke="#e06363"/><rect x="376" y="217" width="8" height="14" fill="#e06363"/>
+          <line x1="400" y1="224" x2="400" y2="252" stroke="#e06363"/><rect x="396" y="231" width="8" height="14" fill="#e06363"/>
+          <line x1="420" y1="238" x2="420" y2="266" stroke="#e06363"/><rect x="416" y="245" width="8" height="14" fill="#e06363"/>
+          <line x1="440" y1="250" x2="440" y2="278" stroke="#e06363"/><rect x="436" y="257" width="8" height="14" fill="#e06363"/>
+          <line x1="460" y1="262" x2="460" y2="290" stroke="#e06363"/><rect x="456" y="269" width="8" height="14" fill="#e06363"/>
+          <line x1="480" y1="274" x2="480" y2="302" stroke="#e06363"/><rect x="476" y="281" width="8" height="14" fill="#e06363"/>
+          <line x1="500" y1="286" x2="500" y2="314" stroke="#e06363"/><rect x="496" y="293" width="8" height="14" fill="#e06363"/>
+          <line x1="520" y1="298" x2="520" y2="326" stroke="#e06363"/><rect x="516" y="305" width="8" height="14" fill="#e06363"/>
+          <line x1="540" y1="308" x2="540" y2="336" stroke="#e06363"/><rect x="536" y="315" width="8" height="14" fill="#e06363"/>
+          <line x1="560" y1="316" x2="560" y2="344" stroke="#e06363"/><rect x="556" y="323" width="8" height="14" fill="#e06363"/>
+          <line x1="580" y1="320" x2="580" y2="348" stroke="#e06363"/><rect x="576" y="327" width="8" height="14" fill="#e06363"/>
+          <line x1="600" y1="322" x2="600" y2="350" stroke="#e06363"/><rect x="596" y="329" width="8" height="14" fill="#e06363"/>
+          <line x1="620" y1="318" x2="620" y2="346" stroke="#2faa86"/><rect x="616" y="325" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="640" y1="310" x2="640" y2="338" stroke="#2faa86"/><rect x="636" y="317" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="660" y1="298" x2="660" y2="326" stroke="#2faa86"/><rect x="656" y="305" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="680" y1="284" x2="680" y2="312" stroke="#2faa86"/><rect x="676" y="291" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="700" y1="268" x2="700" y2="296" stroke="#2faa86"/><rect x="696" y="275" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="720" y1="252" x2="720" y2="280" stroke="#2faa86"/><rect x="716" y="259" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="740" y1="236" x2="740" y2="264" stroke="#2faa86"/><rect x="736" y="243" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="760" y1="222" x2="760" y2="250" stroke="#2faa86"/><rect x="756" y="229" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="780" y1="210" x2="780" y2="238" stroke="#2faa86"/><rect x="776" y="217" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="800" y1="200" x2="800" y2="228" stroke="#2faa86"/><rect x="796" y="207" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="820" y1="192" x2="820" y2="220" stroke="#2faa86"/><rect x="816" y="199" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="840" y1="186" x2="840" y2="214" stroke="#2faa86"/><rect x="836" y="193" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+          <line x1="860" y1="182" x2="860" y2="210" stroke="#2faa86"/><rect x="856" y="189" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
+        </g>
+        <circle cx="620" cy="321" r="9" fill="none" stroke="#FCD34D" stroke-width="2"><animate attributeName="r" values="7;16;7" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0.9" dur="2s" repeatCount="indefinite"/></circle>
+        <circle cx="620" cy="321" r="3.5" fill="#FCD34D"/>
+        <path d="M620 372 L610 390 L630 390 Z" fill="#22C55E"/>
+        <rect x="596" y="392" width="48" height="18" rx="4" fill="#10241A" stroke="#1E5235"/><text x="620" y="405" fill="#34D399" font-size="12" font-weight="800" text-anchor="middle" font-family="'Segoe UI',Tahoma,sans-serif">BUY</text>
+        <line x1="620" y1="315" x2="882" y2="315" stroke="#3B82F6" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <line x1="620" y1="150" x2="882" y2="150" stroke="#22C55E" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <line x1="620" y1="356" x2="882" y2="356" stroke="#EF4444" stroke-width="1.3" stroke-dasharray="6 4"/>
+        <g font-family="Consolas,monospace" font-size="11" font-weight="700">
+          <rect x="796" y="141" width="84" height="18" rx="3" fill="#16331f" stroke="#22C55E"/><text x="838" y="154" fill="#7ef0a8" text-anchor="middle">TP 4036.20</text>
+          <rect x="796" y="306" width="84" height="18" rx="3" fill="#16243d" stroke="#3B82F6"/><text x="838" y="319" fill="#8fbaff" text-anchor="middle">ENTRY 4016.62</text>
+          <rect x="796" y="347" width="84" height="18" rx="3" fill="#33161a" stroke="#EF4444"/><text x="838" y="360" fill="#ff9a9a" text-anchor="middle">SL 4008.40</text>
+        </g>
+        <line x1="300" y1="486" x2="882" y2="486" stroke="#222b38" stroke-width="1"/>
+        <g fill="#214a3a">
+          <rect x="316" y="502" width="8" height="12"/><rect x="336" y="498" width="8" height="16"/><rect x="356" y="504" width="8" height="10"/><rect x="376" y="500" width="8" height="14"/><rect x="396" y="496" width="8" height="18"/><rect x="416" y="503" width="8" height="11"/><rect x="436" y="499" width="8" height="15"/><rect x="456" y="505" width="8" height="9"/><rect x="476" y="500" width="8" height="14"/><rect x="496" y="497" width="8" height="17"/><rect x="516" y="502" width="8" height="12"/><rect x="536" y="498" width="8" height="16"/><rect x="556" y="501" width="8" height="13"/><rect x="576" y="495" width="8" height="19"/><rect x="596" y="492" width="8" height="22"/><rect x="616" y="490" width="8" height="24"/><rect x="636" y="496" width="8" height="18"/><rect x="656" y="500" width="8" height="14"/><rect x="676" y="494" width="8" height="20"/><rect x="696" y="498" width="8" height="16"/><rect x="716" y="492" width="8" height="22"/><rect x="736" y="500" width="8" height="14"/><rect x="756" y="496" width="8" height="18"/><rect x="776" y="501" width="8" height="13"/><rect x="796" y="498" width="8" height="16"/><rect x="816" y="503" width="8" height="11"/><rect x="836" y="499" width="8" height="15"/><rect x="856" y="502" width="8" height="12"/>
+        </g>
+        <rect x="6" y="28" width="292" height="486" fill="#0E1216"/>
+        <line x1="298" y1="28" x2="298" y2="514" stroke="#000000" opacity="0.5" stroke-width="2"/>
+        <g font-family="'Segoe UI',Tahoma,sans-serif">
+          <text x="18" y="50" fill="#F4F6FA" font-size="15" font-weight="700">Gold Scalpers EA</text>
+          <text x="286" y="49" fill="#E8B923" font-size="11" font-weight="700" text-anchor="end">v3.03</text>
+          <line x1="6" y1="60" x2="298" y2="60" stroke="#C9A227" stroke-width="1.5"/>
+          <text x="18" y="88" fill="#C7CCD6" font-size="12">XAUUSD · M15</text>
+          <text x="286" y="92" fill="#F4F6FA" font-size="21" font-weight="700" text-anchor="end" font-family="Consolas,monospace">4016.62</text>
+          <rect x="10" y="104" width="284" height="24" rx="3" fill="#10241A" stroke="#1E5235"/>
+          <circle cx="24" cy="116" r="4" fill="#22C55E"/>
+          <text x="34" y="120" fill="#34D399" font-size="12" font-weight="700">Trading active · In position</text>
+          <text x="18" y="150" fill="#8A90A0" font-size="11">SIGNAL</text>
+          <text x="286" y="150" fill="#34D399" font-size="12" font-weight="800" text-anchor="end">BUY  100%</text>
+          <rect x="18" y="157" width="268" height="8" rx="4" fill="#1A1F29" stroke="#2E343F"/>
+          <rect x="19" y="158" width="266" height="6" rx="3" fill="#22C55E"/>
+          <text x="18" y="184" fill="#34D399" font-size="11" font-weight="600">Golden cross confirmed — BUY fired</text>
+          <rect x="18" y="196" width="80" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="58" y="212" fill="#C7CCD6" font-size="11" text-anchor="middle">Pause</text>
+          <rect x="104" y="196" width="100" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="154" y="212" fill="#E0A0A0" font-size="11" text-anchor="middle">Close all</text>
+          <rect x="210" y="196" width="76" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="248" y="213" fill="#8A90A0" font-size="11" text-anchor="middle">▲</text>
+          <line x1="18" y1="236" x2="286" y2="236" stroke="#20252F" stroke-width="1"/>
+          <text x="18" y="252" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">TRADE</text>
+          <text x="18" y="272" fill="#8A90A0" font-size="11">Entry</text><text x="286" y="272" fill="#8FBAFF" font-size="11" font-weight="600" text-anchor="end">4016.62</text>
+          <text x="18" y="292" fill="#8A90A0" font-size="11">Stop loss</text><text x="286" y="292" fill="#FF9A9A" font-size="11" font-weight="600" text-anchor="end">4008.40  (swing)</text>
+          <text x="18" y="312" fill="#8A90A0" font-size="11">Take profit</text><text x="286" y="312" fill="#7EF0A8" font-size="11" font-weight="600" text-anchor="end">4036.20</text>
+          <line x1="18" y1="326" x2="286" y2="326" stroke="#20252F" stroke-width="1"/>
+          <text x="18" y="342" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">PERFORMANCE</text>
+          <text x="18" y="362" fill="#8A90A0" font-size="11">Open</text><text x="286" y="362" fill="#E6E9EF" font-size="11" text-anchor="end">1 position</text>
+          <text x="18" y="382" fill="#8A90A0" font-size="11">Today</text><text x="286" y="382" fill="#E0A33A" font-size="11" font-weight="600" text-anchor="end">6 trades</text>
+          <text x="18" y="402" fill="#8A90A0" font-size="11">Win rate</text><text x="286" y="402" fill="#34D399" font-size="11" font-weight="600" text-anchor="end">75%   9W / 3L</text>
+          <text x="18" y="422" fill="#8A90A0" font-size="11">Day P&amp;L</text><text x="286" y="422" fill="#34D399" font-size="11" font-weight="700" text-anchor="end">+125.06 USD</text>
+          <text x="18" y="442" fill="#8A90A0" font-size="11">Last signal</text><text x="286" y="442" fill="#34D399" font-size="11" font-weight="600" text-anchor="end">BUY  4016.62</text>
+          <line x1="18" y1="456" x2="286" y2="456" stroke="#20252F" stroke-width="1"/>
+          <text x="18" y="472" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">MANUAL</text>
+          <rect x="18" y="480" width="130" height="28" rx="4" fill="#10301f" stroke="#1E5235"/><text x="83" y="498" fill="#34D399" font-size="11.5" font-weight="700" text-anchor="middle">Buy market</text>
+          <rect x="156" y="480" width="130" height="28" rx="4" fill="#2a1416" stroke="#5a2327"/><text x="221" y="498" fill="#FF8A8A" font-size="11.5" font-weight="700" text-anchor="middle">Sell market</text>
+        </g>
+        </svg>
+      </div>
+      <!-- /end hero mockup -->
+    </div>
+  </div>
+</section>
+
+<!-- MONEY-BACK GUARANTEE BADGE (under hero) -->
+<div class="mb-strip">
+  <div class="mb-badge">
+    <div class="mb-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <div class="mb-text">
+      <div class="mb-title">14-Day Money-Back Guarantee</div>
+      <div class="mb-sub">Run Gold Scalpers EA on demo or live, completely risk-free. Not the right fit? <b>Email us or start a live chat</b> within 14 days for a full refund — no forms, no questions asked.</div>
+      <div class="mb-pills">
+        <span class="mb-pill-g">✓ Full refund</span>
+        <span class="mb-pill-g">✓ No questions asked</span>
+        <span class="mb-pill-g">✓ Paid back in 48h</span>
+      </div>
+    </div>
+    <div class="mb-actions">
+      <a href="mailto:support@goldscalpers.com?subject=Gold%20Scalpers%20EA%20refund%20request" class="mb-act primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+        Email us
+      </a>
+      <button type="button" class="mb-act ghost" onclick="if(window.Tawk_API&amp;&amp;Tawk_API.maximize){Tawk_API.maximize();}else{window.location.href='mailto:support@goldscalpers.com';}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Live chat
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE SIGNAL DEMO -->
+<section class="section" id="demo" style="background:var(--bg-2)">
+  <div class="section-inner">
+    <span class="eyebrow">How It Trades</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>Automated XAUUSD trading on <span style="color:var(--gold)">MetaTrader 5.</span></h2>
+    <p class="section-subtitle">The gold EA enters on a 9/21 EMA crossover, sets the swing stop and target, and fires on-chart signals plus pop-up and Telegram alerts — hands-free.</p>
+
+    <div class="ea-gallery" id="eaGallery">
+      <figure class="ea-shot">
+        <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Live signals & alerts">
+          <img src="assets/display/signals.PNG" alt="Gold Scalpers EA running live in MetaTrader 5 — on-chart dashboard showing a BUY signal at 95% with pop-up trade alerts on XAUUSD M15" loading="lazy" decoding="async">
+          <span class="ea-zoom" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span class="ea-zoom-txt">Click or tap to view full system</span>
+          </span>
+        </button>
+        <figcaption><span class="ea-tag">Live signals &amp; alerts</span>The on-chart dashboard fires a BUY at 95% confidence and pushes a pop-up alert the moment a setup is ready — XAUUSD, M15.</figcaption>
+      </figure>
+      <figure class="ea-shot">
+        <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Trade in progress">
+          <img src="assets/display/picksignal.PNG" alt="Gold Scalpers EA managing an open BUY position on the XAUUSD M15 chart with the EMA 9, 21 and 50 lines" loading="lazy" decoding="async">
+          <span class="ea-zoom" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span class="ea-zoom-txt">Click or tap to view full system</span>
+          </span>
+        </button>
+        <figcaption><span class="ea-tag">Trade in progress</span>The EA holds and tracks an open position live against the EMA 9 / 21 / 50 stack.</figcaption>
+      </figure>
+      <figure class="ea-shot">
+        <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Full control">
+          <img src="assets/display/2.PNG" alt="Gold Scalpers EA Inputs panel in MetaTrader 5 — risk limits, lot sizing and EMA 9/21 strategy settings" loading="lazy" decoding="async">
+          <span class="ea-zoom" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span class="ea-zoom-txt">Click or tap to view full system</span>
+          </span>
+        </button>
+        <figcaption><span class="ea-tag">Full control</span>Every input is yours — daily risk limits, lot sizing, sessions and the EMA 9 / 21 / 50 strategy.</figcaption>
+      </figure>
+    </div>
+
+    <!-- ALERTS — Telegram + MetaTrader 5 mobile -->
+    <style>
+    .ea-alerts{margin-top:3rem;border-top:1px solid var(--border);padding-top:2.6rem}
+    .ea-alerts-head{text-align:center;max-width:660px;margin:0 auto 2.2rem}
+    .ea-alerts-head h3{font-size:1.7rem;font-weight:800;letter-spacing:-0.02em;margin:.5rem 0 .6rem;color:var(--text)}
+    .ea-alerts-head p{color:var(--text-muted);font-size:.95rem;line-height:1.65}
+    .ea-phones{display:flex;flex-wrap:wrap;gap:2.4rem;justify-content:center;align-items:stretch}
+    .ea-phone-card{margin:0;display:flex;flex-direction:column;align-items:center;gap:.75rem}
+    .ea-phone-card figcaption{font-size:.82rem;color:var(--text-dim)}
+    .ea-phone{width:288px;background:#15171d;border-radius:38px;padding:10px;border:1px solid #2a2d34;box-shadow:0 24px 60px rgba(0,0,0,.28);flex:1;display:flex;flex-direction:column}
+    .ea-screen{border-radius:28px;overflow:hidden;flex:1;display:flex;flex-direction:column}
+    .ea-nav{margin-top:auto}
+    .ea-stat{display:flex;align-items:center;justify-content:space-between;padding:9px 18px 7px;font-size:12px;font-weight:600}
+    .ea-stat .ico{display:flex;gap:6px;align-items:center}
+    .ea-nav span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px}
+    .ea-nav svg{width:18px;height:18px}
+    @media(max-width:680px){.ea-phone{width:100%;max-width:330px}}
+    </style>
+    <div class="ea-alerts">
+      <div class="ea-alerts-head">
+        <span class="eyebrow">Alerts everywhere</span>
+        <h3><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Every signal, on your <span style="color:var(--gold)">phone.</span></h3>
+        <p>The second a setup fires, you get it on Telegram <b>and</b> as a MetaTrader 5 mobile push — entry, stop, target and the result, the instant it happens. Watch nothing; miss nothing.</p>
+      </div>
+      <div class="ea-phones">
+
+        <figure class="ea-phone-card">
+          <div class="ea-phone"><div class="ea-screen" style="background:#0E1621">
+            <div class="ea-stat" style="color:#F4F6FA"><span>14:30</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:13px"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg></span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#17212B;border-bottom:1px solid #0b1118">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#5aa7e8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polyline points="15 18 9 12 15 6"/></svg>
+              <div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px">🎯</div>
+              <div style="flex:1"><div style="color:#F4F6FA;font-weight:700;font-size:14px">Gold Scalpers EA</div><div style="color:#5aa7e8;font-size:11px">bot · online</div></div>
+            </div>
+            <div style="padding:12px 12px 14px">
+              <div style="text-align:center;margin-bottom:12px"><span style="background:#1c2733;color:#9aa6b2;font-size:11px;padding:3px 12px;border-radius:99px">Today</span></div>
+              <div style="background:#182533;border-radius:12px 12px 12px 4px;padding:11px 12px;margin-bottom:10px">
+                <div style="color:#E8B923;font-weight:700;font-size:13px;margin-bottom:3px">🟢 BUY opened</div>
+                <div style="color:#8A90A0;font-size:11px;margin-bottom:9px">XAUUSDc · M15</div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">📍 Entry</span><span style="color:#8FBAFF">4064.20</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🛑 Stop (swing)</span><span style="color:#FF9A9A">4055.10</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🎯 Target</span><span style="color:#7EF0A8">4082.80</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">📦 Lot</span><span style="color:#E6E9EF">0.02</span></div>
+                <div style="height:1px;background:#20303f;margin:9px 0"></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#8A90A0">Signal</span><span style="color:#34D399">EMA 9 ▲ 21 · 95%</span></div>
+                <div style="color:#6c7686;font-size:11px;text-align:right;margin-top:6px">14:30 ✓✓</div>
+              </div>
+              <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:12px 12px 12px 4px;padding:11px 12px">
+                <div style="color:#34D399;font-weight:700;font-size:13px;margin-bottom:3px">✅ Target hit — trade closed</div>
+                <div style="color:#9aa6b2;font-size:11px">4024.52 → 4042.90 · +$40.00 · 1h 42m</div>
+                <div style="color:#6c7686;font-size:11px;text-align:right;margin-top:6px">16:12 ✓✓</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#17212B;border-top:1px solid #0b1118;color:#5e6878;margin-top:auto"><span style="flex:1;font-size:12px">Message</span><span style="font-size:13px">🎤</span></div>
+          </div></div>
+          <figcaption>Telegram signal — on your phone</figcaption>
+        </figure>
+
+        <figure class="ea-phone-card">
+          <div class="ea-phone"><div class="ea-screen" style="background:#eef1f4">
+            <div class="ea-stat" style="background:#27384a;color:#fff"><span>14:30</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:13px"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg></span></div>
+            <div style="padding:8px 8px 4px;background:#27384a">
+              <div style="background:#fff;border-radius:12px;padding:9px 11px;display:flex;gap:10px;align-items:flex-start">
+                <div style="width:30px;height:30px;border-radius:7px;background:#0a84c2;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:17px;height:17px"><line x1="8" y1="3" x2="8" y2="7"/><rect x="6" y="7" width="4" height="7" rx="1"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="10"/><rect x="14" y="10" width="4" height="7" rx="1"/><line x1="16" y1="17" x2="16" y2="20"/></svg></div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:1px"><span style="font-weight:700;color:#444">MetaTrader 5</span><span>now</span></div>
+                  <div style="font-size:12px;color:#1a1a1a;line-height:1.45">Gold Scalpers EA: BUY XAUUSDc 0.02 at 4064.20 · SL 4055.10 · TP 4082.80</div>
+                </div>
+              </div>
+            </div>
+            <div style="background:#27384a;padding:8px 14px 11px">
+              <div style="color:#aeb9c6;font-size:11px">Trade</div>
+              <div style="color:#fff;font-size:19px;font-weight:700">10,212.60 <span style="font-size:12px;color:#aeb9c6;font-weight:400">USD</span></div>
+              <div style="display:flex;gap:14px;margin-top:4px;font-size:11px;color:#aeb9c6"><span>Free margin <span style="color:#fff">9,930.18</span></span><span>Level <span style="color:#48c98a">4621%</span></span></div>
+            </div>
+            <div style="background:#f4f6f8;padding:7px 14px;font-size:11px;color:#6a7686;border-bottom:1px solid #e2e6ea;font-weight:700;letter-spacing:.04em">POSITIONS</div>
+            <div style="background:#fff;padding:10px 14px;border-bottom:1px solid #eef1f4">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:#1a1a1a;font-weight:700">XAUUSDc<span style="color:#0a84c2;font-weight:400"> buy 0.02</span></span><span style="font-size:13px;color:#2e9b51;font-weight:700">+12.60</span></div>
+              <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:12px;color:#5e6878"><span>4064.20 → 4070.50</span><span>14:30:02</span></div>
+            </div>
+            <div style="background:#fff;padding:10px 14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:#1a1a1a;font-weight:700">XAUUSDc<span style="color:#0a84c2;font-weight:400"> buy 0.02</span></span><span style="font-size:13px;color:#2e9b51;font-weight:700">+40.00</span></div>
+              <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:12px;color:#5e6878"><span>4024.52 → 4042.90</span><span>closed</span></div>
+            </div>
+            <div class="ea-nav" style="display:flex;justify-content:space-around;align-items:center;background:#fff;border-top:1px solid #e2e6ea;padding:8px 4px 9px">
+              <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Quotes</span>
+              <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="7"/><rect x="6" y="7" width="4" height="7" rx="1"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="10"/><rect x="14" y="10" width="4" height="7" rx="1"/><line x1="16" y1="17" x2="16" y2="20"/></svg>Charts</span>
+              <span style="color:#0a84c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Trade</span>
+              <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>History</span>
+              <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</span>
+            </div>
+          </div></div>
+          <figcaption>MetaTrader 5 — Android app</figcaption>
+        </figure>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>@keyframes fadeIn{to{opacity:1}}
+/* EA SCREENSHOT GALLERY */
+.ea-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem}
+.ea-shot{margin:0}
+.ea-thumb{position:relative;display:block;width:100%;padding:0;border:1.5px solid var(--border);background:#F9FAFB;border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .2s,box-shadow .2s,border-color .2s}
+.ea-thumb:hover,.ea-thumb:focus-visible{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--gold)}
+.ea-thumb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ea-thumb img{display:block;width:100%}
+.ea-gallery .ea-thumb img{aspect-ratio:16/10;object-fit:cover;object-position:left top}
+.results-thumb{max-width:560px;margin:0 auto}
+.results-thumb img{border-radius:12px}
+.ea-zoom{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7rem;color:#fff;background:linear-gradient(180deg,rgba(15,18,22,.12),rgba(15,18,22,.74));opacity:0;transition:opacity .22s}
+.ea-thumb:hover .ea-zoom,.ea-thumb:focus-visible .ea-zoom{opacity:1}
+.ea-zoom svg{width:34px;height:34px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+.ea-zoom-txt{font-size:.8rem;font-weight:800;letter-spacing:.01em;background:var(--gold);color:#fff;padding:.42rem .85rem;border-radius:99px;box-shadow:0 4px 14px rgba(217,119,6,.4)}
+.ea-shot figcaption{font-size:.84rem;color:var(--text-muted);line-height:1.55;padding:.85rem .25rem .3rem}
+.ea-tag{display:block;font-weight:800;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
+/* LIGHTBOX */
+.ea-lightbox{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(8,11,16,.93);padding:3.4rem 1rem;opacity:0;animation:eaLbIn .2s ease forwards}
+.ea-lightbox[hidden]{display:none}
+@keyframes eaLbIn{to{opacity:1}}
+@keyframes eaLbPop{from{transform:scale(.97);opacity:.4}to{transform:scale(1);opacity:1}}
+.ea-lb-figure{margin:0;max-width:1200px;width:100%;display:flex;flex-direction:column;align-items:center}
+.ea-lb-figure img{max-width:100%;max-height:80vh;width:auto;height:auto;border-radius:10px;border:1px solid #2a2d34;background:#0E1621;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:eaLbPop .22s ease}
+.ea-lb-figure figcaption{color:#E5E7EB;font-size:.9rem;margin-top:1rem;text-align:center;max-width:760px;line-height:1.55}
+.ea-lb-figure figcaption .ea-tag{color:var(--gold-bright,#FBBF24);display:inline;margin:0 .35rem 0 0}
+.ea-lb-close,.ea-lb-nav{position:absolute;border:0;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,transform .15s}
+.ea-lb-close{top:1rem;right:1.2rem;width:44px;height:44px;border-radius:50%;font-size:1.7rem}
+.ea-lb-close:hover{background:rgba(255,255,255,.22);transform:rotate(90deg)}
+.ea-lb-nav{top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:50%;font-size:2rem}
+.ea-lb-nav:hover{background:rgba(217,119,6,.92)}
+.ea-lb-prev{left:1.2rem}.ea-lb-next{right:1.2rem}
+.ea-lb-count{position:absolute;bottom:1.1rem;left:50%;transform:translateX(-50%);color:#9aa3ad;font-size:.78rem;letter-spacing:.08em}
+@media(max-width:760px){
+  .ea-gallery{grid-template-columns:1fr}
+  .ea-zoom{opacity:1;background:linear-gradient(180deg,rgba(15,18,22,0) 45%,rgba(15,18,22,.6))}
+  .ea-zoom svg{display:none}
+  .ea-lb-nav{width:40px;height:40px;font-size:1.6rem}
+  .ea-lb-prev{left:.35rem}.ea-lb-next{right:.35rem}
+}</style>
+
+<!-- EA SCREENSHOT LIGHTBOX -->
+<div class="ea-lightbox" id="eaLightbox" role="dialog" aria-modal="true" aria-label="Gold Scalpers EA screenshot viewer" hidden>
+  <button type="button" class="ea-lb-close" id="eaLbClose" aria-label="Close viewer">&times;</button>
+  <button type="button" class="ea-lb-nav ea-lb-prev" id="eaLbPrev" aria-label="Previous screenshot">&#8249;</button>
+  <figure class="ea-lb-figure">
+    <img id="eaLbImg" src="" alt="">
+    <figcaption id="eaLbCap"></figcaption>
+  </figure>
+  <button type="button" class="ea-lb-nav ea-lb-next" id="eaLbNext" aria-label="Next screenshot">&#8250;</button>
+  <div class="ea-lb-count" id="eaLbCount"></div>
+</div>
+<script>
+(function(){
+  var lb = document.getElementById('eaLightbox');
+  if(!lb) return;
+  var imgEl    = document.getElementById('eaLbImg');
+  var capEl    = document.getElementById('eaLbCap');
+  var countEl  = document.getElementById('eaLbCount');
+  var closeBtn = document.getElementById('eaLbClose');
+  var prevBtn  = document.getElementById('eaLbPrev');
+  var nextBtn  = document.getElementById('eaLbNext');
+  var list = [], idx = 0, lastFocus = null;
+
+  function render(){
+    var it = list[idx]; if(!it) return;
+    imgEl.src = it.src; imgEl.alt = it.alt || '';
+    capEl.innerHTML = it.cap || '';
+    var multi = list.length > 1;
+    prevBtn.style.display = multi ? '' : 'none';
+    nextBtn.style.display = multi ? '' : 'none';
+    countEl.textContent = multi ? (idx+1) + ' / ' + list.length : '';
+  }
+  function openSet(items, i){
+    list = items; idx = i; lastFocus = document.activeElement;
+    render(); lb.hidden = false;
+    document.body.style.overflow = 'hidden';
+    closeBtn.focus();
+  }
+  function close(){
+    lb.hidden = true; document.body.style.overflow = ''; imgEl.src = '';
+    if(lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function go(d){ if(list.length < 2) return; idx = (idx + d + list.length) % list.length; render(); }
+
+  // Group 1 — the EA screenshot gallery (prev/next within the set)
+  var gallery = document.getElementById('eaGallery');
+  if(gallery){
+    var thumbs = Array.prototype.slice.call(gallery.querySelectorAll('.ea-thumb'));
+    var eaItems = thumbs.map(function(btn){
+      var img = btn.querySelector('img');
+      var cap = btn.parentNode.querySelector('figcaption');
+      return { src: img.getAttribute('src'), alt: img.getAttribute('alt'), cap: cap ? cap.innerHTML : '' };
+    });
+    thumbs.forEach(function(btn,i){ btn.addEventListener('click', function(){ openSet(eaItems, i); }); });
+  }
+
+  // Group 2 — any standalone trigger on the page (data-lb-src), e.g. verified results
+  Array.prototype.slice.call(document.querySelectorAll('[data-lb-src]')).forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      openSet([{ src: el.getAttribute('data-lb-src'), alt: el.getAttribute('data-lb-alt') || '', cap: el.getAttribute('data-lb-cap') || '' }], 0);
+    });
+  });
+
+  closeBtn.addEventListener('click', close);
+  prevBtn.addEventListener('click', function(){ go(-1); });
+  nextBtn.addEventListener('click', function(){ go(1); });
+  lb.addEventListener('click', function(e){ if(e.target === lb) close(); });
+  document.addEventListener('keydown', function(e){
+    if(lb.hidden) return;
+    if(e.key === 'Escape') close();
+    else if(e.key === 'ArrowRight') go(1);
+    else if(e.key === 'ArrowLeft') go(-1);
+  });
+  var x0 = null;
+  lb.addEventListener('touchstart', function(e){ x0 = e.touches[0].clientX; }, {passive:true});
+  lb.addEventListener('touchend', function(e){
+    if(x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if(Math.abs(dx) > 45){ go(dx < 0 ? 1 : -1); }
+    x0 = null;
+  });
+})();
+</script>
+
+<!-- STATS -->
+<section class="section">
+  <div class="section-inner">
+    <span class="eyebrow">Backtest It Yourself</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtest the gold EA in the <span style="color:var(--gold)">MT5 Strategy Tester.</span></h2>
+    <p class="section-subtitle">No fabricated win-rates — the EMA indicator is built in, so you can backtest on real XAUUSD history and forward-test on demo before risking a cent. Trading is high-risk; past results don't guarantee future ones.</p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <div class="stat-num">100%</div>
+        <div class="stat-label">Hands-Free</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <div class="stat-num">MT5</div>
+        <div class="stat-label">MetaTrader 5</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="stat-num">M15</div>
+        <div class="stat-label">Gold · XAUUSD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+        <div class="stat-num">24/5</div>
+        <div class="stat-label">VPS-Ready</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- VERIFIED RESULTS -->
+<section class="section" id="results" style="background:var(--bg-2)">
+  <div class="section-inner" style="text-align:center">
+    <span class="eyebrow">Independently verified · Myfxbook</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Real-money results, <span style="color:var(--gold)">verified live.</span></h2>
+    <p class="section-subtitle" style="margin-left:auto;margin-right:auto">Track the Gold Scalpers EA on a real account — third-party verified by Myfxbook and auto-updated straight from the broker. No screenshots, no edits.</p>
+    <div style="max-width:560px;margin:1.6rem auto 0">
+      <button type="button" class="ea-thumb results-thumb" aria-label="Enlarge the verified Myfxbook results"
+        data-lb-src="https://widget.myfxbook.com/widget/widget.png?accountOid=12092078&type=6"
+        data-lb-alt="Gold Scalpers EA — verified live results (gain, drawdown, equity curve) on Myfxbook"
+        data-lb-cap="Verified live results — third-party verified by Myfxbook and auto-updated straight from the broker.">
+        <img src="https://widget.myfxbook.com/widget/widget.png?accountOid=12092078&type=6" alt="Gold Scalpers EA — verified live results (gain, drawdown, equity curve) on Myfxbook" loading="lazy" decoding="async">
+        <span class="ea-zoom" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span class="ea-zoom-txt">Click or tap to enlarge</span>
+        </span>
+      </button>
+      <p style="margin:.85rem 0 0;font-size:.84rem">
+        <a href="https://www.myfxbook.com/members/Goldscalpersea/gold-scalpers-ea/12092078" target="_blank" rel="noopener" style="color:var(--gold);font-weight:700;text-decoration:none">↗ Verify live on Myfxbook</a>
+      </p>
+    </div>
+    <div style="margin-top:1.6rem">
+      <a href="/results" class="btn btn-primary">See full verified results →</a>
+    </div>
+    <p style="font-size:.8rem;color:var(--text-muted);max-width:640px;margin:1.2rem auto 0">Past performance does not guarantee future results. Trading is high-risk.</p>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <span class="eyebrow">One of the best MT5 EAs for gold · Scalping &amp; prop-firm ready</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why traders choose this <span style="color:var(--gold)">MT5 gold EA.</span></h2>
+    <p class="section-subtitle">A focused, fully automated XAUUSD robot — every feature does one job: trade gold with discipline, hands-free.</p>
+    <div class="features-grid">
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>Fully Automated</h3><p>Opens, manages and closes every XAUUSD trade in MT5 — hands-free.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><h3>EMA 9/21 + Trend Filter</h3><p>Enters on the EMA crossover only with the 50-EMA trend.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Market-Structure Stop</h3><p>Stop sits beyond the recent swing — real structure, not fixed pips.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><h3>Scalping &amp; Swing TP</h3><p>Pick your exit: Scalping takes a fixed dollar target; Swing rides the trend and exits on the opposite EMA cross. One input switches modes.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div><h3>Smart Entry Filters</h3><p>Skips spikes, wide spreads, off-session hours and high-impact news.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><h3>Built-In Risk Controls</h3><p>Daily loss limit, max-drawdown guard, spread cap, %-risk sizing.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><h3>Live Dashboard</h3><p>On-chart status, signals and P&amp;L + Buy/Sell/Pause/Close buttons.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Telegram &amp; Mobile Alerts</h3><p>Entry, stop, target and close pushed to Telegram and mobile.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Backtest Anywhere</h3><p>Indicator bundled in — runs in the MT5 Strategy Tester. Lifetime updates.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how" style="background:var(--bg-2)">
+  <div class="section-inner">
+    <span class="eyebrow">Setup in Under 5 Minutes</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Install the gold EA on MT5 in <span style="color:var(--gold)">4 simple steps.</span></h2>
+    <p class="section-subtitle">No coding, no complex setup — if you can drag a file onto a chart, you can run Gold Scalpers EA.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><h4>Get Instant Access</h4><p>Secure checkout — your EA file + licence arrive by email instantly.</p></div>
+      <div class="step"><div class="step-num">2</div><h4>Add to MetaTrader 5</h4><p>Drop it in the Experts folder and open an XAUUSD M15 chart.</p></div>
+      <div class="step"><div class="step-num">3</div><h4>Enable Algo Trading</h4><p>Drag the EA on, tick <em>Allow Algo Trading</em>, and whitelist the licence URL.</p></div>
+      <div class="step"><div class="step-num">4</div><h4>Life on Autopilot</h4><p>Set it once and let the EA handle entries, stops and exits — hands-free.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING - 2 TIERS -->
+<section class="section" id="pricing">
+  <div class="section-inner">
+    <span class="eyebrow">MetaTrader 5 EA · One-Time Payment · 14-Day Money-Back</span>
+    <h2 class="section-title" style="text-align:center"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>One payment. <span style="color:var(--gold)">Lifetime access.</span></h2>
+    <p class="section-subtitle" style="text-align:center;margin-left:auto;margin-right:auto">Get the Gold Scalpers EA for a single payment of $220. Use it forever, with every future update included. Demo-test it risk-free — if it isn't a fit within 14 days, get a full refund.</p>
+
+    <div class="pricing-grid" style="grid-template-columns:minmax(0,460px);justify-content:center;max-width:460px">
+      <div class="price-card featured" style="position:relative">
+        <div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gold);color:#fff;font-size:0.68rem;font-weight:800;letter-spacing:.06em;padding:.25rem .8rem;border-radius:99px;white-space:nowrap">MOST POPULAR</div>
+        <div class="price-tier-name">PRO LIFETIME</div>
+        <div class="price-amount"><span class="currency">$</span>220 <span class="period">one-time</span></div>
+        <p style="color:var(--text-muted);font-size:0.9rem">Pay once. Trade gold on MT5 forever.</p>
+        <ul class="price-features">
+          <li>Full Gold Scalpers EA for MetaTrader 5</li>
+          <li>XAUUSD (Gold) — built &amp; tuned for gold</li>
+          <li>Scalping &amp; Swing take-profit modes</li>
+          <li>Telegram + mobile + terminal alerts</li>
+          <li>Live dashboard with manual controls</li>
+          <li>Account licence included</li>
+          <li>Lifetime updates (free forever)</li>
+          <li>Priority email support (24h)</li>
+          <li>14-day money-back guarantee</li>
+        </ul>
+        <a href="checkout" class="btn btn-primary">Get Lifetime – $220</a>
+      </div>
+    </div>
+
+    <p style="text-align:center;color:var(--text-muted);margin-top:2rem;font-size:0.85rem">
+      🔒 <a href="checkout" style="color:var(--gold)">Secure checkout</a> · This is a <strong>MetaTrader 5 Expert Advisor</strong> — requires MT5 and a broker offering XAUUSD · Instant download · 14-day money-back guarantee
+    </p>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq" style="background:var(--bg-2)">
+  <div class="section-inner" style="max-width:900px">
+    <span class="eyebrow">Frequently Asked Questions</span>
+    <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Everything you need to know <span style="color:var(--gold)">before you start.</span></h2>
+    <div class="faq-list">
+      <div class="faq-item open"><div class="faq-q">What is Gold Scalpers EA?</div><div class="faq-a"><div class="faq-a-inner">Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold). It enters on a 9/21 EMA crossover confirmed by a 50-EMA trend filter and a confirmation candle, places the stop at the most recent market-structure swing, and takes profit in Scalping (fixed $) or Swing (ride to the opposite EMA cross) mode. It filters spikes, wide spreads, off-session hours and high-impact news, then opens, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Do I have to watch the charts myself?</div><div class="faq-a"><div class="faq-a-inner">No. The EA trades hands-free. Once it's on an XAUUSD chart with algorithmic trading enabled, it opens, manages and closes positions automatically. You can also enable Telegram and mobile alerts and use the dashboard's manual Buy, Sell, Pause and Close buttons.</div></div></div>
+      <div class="faq-item"><div class="faq-q">What do I need to run it?</div><div class="faq-a"><div class="faq-a-inner">MetaTrader 5, a broker that offers XAUUSD, and a computer or VPS that stays on during market hours. A VPS is recommended so the EA can trade 24/5 without interruption. You enable algorithmic trading and allow the EA's licence URL under Tools → Options → Expert Advisors.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Which pair and timeframe does it trade?</div><div class="faq-a"><div class="faq-a-inner">XAUUSD (Gold) on the M15 timeframe by default. The EA is built and tuned specifically for gold — it is not a multi-symbol product.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Is there a free trial?</div><div class="faq-a"><div class="faq-a-inner">No free trial. Gold Scalpers EA is Pro Lifetime — a single $220 one-time payment for lifetime use and every future update. Every purchase has a 14-day money-back guarantee, so if it isn't a fit after demo testing, email support@goldscalpers.com within 14 days for a full refund.</div></div></div>
+      <div class="faq-item"><div class="faq-q">What risk controls are built in?</div><div class="faq-a"><div class="faq-a-inner">Daily profit and loss limits, a max-drawdown guard, a max open-positions cap, a spread filter, and fixed-lot or percent-risk position sizing. Trading is still high-risk — always demo-test first and never risk money you can't afford to lose.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Can I backtest it?</div><div class="faq-a"><div class="faq-a-inner">Yes. The EMA indicator is bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it and forward-test on demo before going live.</div></div></div>
+      <div class="faq-item"><div class="faq-q">How long does setup take?</div><div class="faq-a"><div class="faq-a-inner">About 5 minutes: attach the EA to an XAUUSD M15 chart, tick Allow Algorithmic Trading, allow the licence URL under Tools → Options → Expert Advisors, set your lot or risk percent, and it starts trading automatically.</div></div></div>
+      <div class="faq-item"><div class="faq-q">What is your refund policy?</div><div class="faq-a"><div class="faq-a-inner">14-day money-back guarantee on Pro Lifetime. If the EA isn't a fit after your demo test within 14 days, email support@goldscalpers.com with your order number for a full refund. Approved and refunded within 48 hours.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT WIDGET -->
+
+<!-- FINAL CTA -->
+<section class="section">
+  <div class="section-inner">
+    <div class="final-cta">
+      <h2>Ready to let the robot trade gold for you?</h2>
+      <p>Let Gold Scalpers EA watch XAUUSD around the clock and execute with discipline — so you don't have to sit at the screen.</p>
+      <div style="margin-bottom:1.3rem;font-size:1rem;color:var(--text-muted)"><span style="text-decoration:line-through;color:var(--text-dim)">$297</span> <strong style="color:var(--text);font-size:1.35rem">$220</strong> one-time · <strong style="color:var(--green)">save $77</strong></div>
+      <a href="checkout" class="btn btn-primary" style="font-size:1.1rem;padding:1rem 2rem">Get Lifetime Access – $220 →</a>
+      <p style="margin-top:1.5rem;color:var(--text-dim);font-size:0.85rem">One-time payment · Instant access · 14-day money-back guarantee</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER with NEW SOCIAL ICONS, REMOVED PINECONNECTOR -->
+<section class="section" id="popular-guides">
+  <div class="section-inner" style="max-width:1220px">
+    <span class="eyebrow" style="text-align:center;display:block">📚 Popular Guides</span>
+    <h2 class="section-title" style="text-align:center"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Most-read gold trading <span style="color:var(--gold)">guides.</span></h2>
+    <p class="section-subtitle" style="text-align:center;margin:0 auto 2.2rem;max-width:640px">The reads traders open most &mdash; strategy rules, prop-firm math, and how to pick an EA that survives. Straight from the desk.</p>
+
+    <style>
+      .pop-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem}
+      .pop-card{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+      .pop-card:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 18px 44px rgba(0,0,0,.12)}
+      .pop-thumb{overflow:hidden;line-height:0}
+      .pop-thumb svg{width:100%;height:auto;display:block}
+      .pop-body{padding:1rem 1.05rem 1.15rem}
+      .pop-tag{display:inline-block;background:rgba(245,158,11,.12);color:#D97706;font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:.25rem .6rem;border-radius:99px;margin-bottom:.65rem}
+      .pop-card h3{font-size:1rem;line-height:1.3;margin:0 0 .4rem;color:var(--text);font-weight:800;letter-spacing:-.01em}
+      .pop-card p{font-size:.85rem;color:var(--text-muted);margin:0 0 .8rem;line-height:1.5}
+      .pop-meta{display:flex;gap:1.1rem;font-size:.78rem;color:var(--text-dim)}
+      .pop-more{display:inline-block;margin-top:2rem;padding:.8rem 1.6rem;border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:.92rem;text-decoration:none;transition:all .2s ease}
+      .pop-more:hover{border-color:var(--gold);color:var(--gold);background:rgba(245,158,11,.06)}
+      @media(max-width:1000px){.pop-grid{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:560px){.pop-grid{grid-template-columns:1fr}}
+    </style>
+
+    <div class="pop-grid">
+      <a class="pop-card" href="/blog/best-gold-scalping-ea-mt5">
+        <div class="pop-thumb"><svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="180" fill="#0E1421"/><line x1="40" y1="132" x2="360" y2="132" stroke="#334155"/><polyline points="40,120 100,110 160,118 220,122 270,112 300,150 322,168" fill="none" stroke="#F87171" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="40,120 110,112 180,116 250,92 320,78 380,56" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="380" cy="56" r="5" fill="#10B981"/><text x="332" y="150" fill="#FCD34D" font-size="22" font-weight="800" text-anchor="middle">Au</text><text x="200" y="30" fill="#FCD34D" font-size="15" font-weight="800" text-anchor="middle">🤖 GOLD SCALPING EA</text></svg></div>
+        <div class="pop-body"><span class="pop-tag">Expert Advisors</span><h3>Best Gold Scalping EA for MT5 (2026)</h3><p>The 7 features a real XAUUSD scalper needs &mdash; and the martingale robots that quietly blow up funded accounts.</p><div class="pop-meta"><span>📅 Jul 2026</span><span>⏱ 11 min</span></div></div>
+      </a>
+      <a class="pop-card" href="/blog/xauusd-scalping-strategy">
+        <div class="pop-thumb"><svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="180" fill="#0E1421"/><path d="M 20,130 Q 150,110 250,90 T 390,55" fill="none" stroke="#F59E0B" stroke-width="2" opacity="0.7"/><g stroke-width="2.5"><line x1="120" y1="112" x2="120" y2="140" stroke="#EF4444"/><rect x="113" y="118" width="14" height="18" fill="#EF4444"/><line x1="160" y1="120" x2="160" y2="150" stroke="#EF4444"/><rect x="153" y="126" width="14" height="18" fill="#EF4444"/><line x1="200" y1="96" x2="200" y2="128" stroke="#10B981"/><rect x="193" y="100" width="14" height="22" fill="#10B981"/><line x1="240" y1="74" x2="240" y2="104" stroke="#10B981"/><rect x="233" y="78" width="14" height="22" fill="#10B981"/></g><circle cx="167" cy="140" r="9" fill="none" stroke="#7DD3FC" stroke-width="2"/><text x="200" y="30" fill="#FCD34D" font-size="15" font-weight="800" text-anchor="middle">📉 EMA + RSI PULLBACK</text></svg></div>
+        <div class="pop-body"><span class="pop-tag">Strategy</span><h3>XAUUSD Scalping Strategy That Actually Works</h3><p>The full EMA + RSI pullback system: exact entries, structural stops, the sessions that pay, and a worked example.</p><div class="pop-meta"><span>📅 Jul 2026</span><span>⏱ 12 min</span></div></div>
+      </a>
+      <a class="pop-card" href="/blog/how-to-pass-100k-prop-firm-challenge-gold">
+        <div class="pop-thumb"><svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="180" fill="#0E1421"/><line x1="30" y1="48" x2="380" y2="48" stroke="#10B981" stroke-dasharray="4 3" opacity="0.5"/><text x="35" y="43" fill="#10B981" font-size="9" font-weight="800">$110K TARGET</text><line x1="30" y1="140" x2="380" y2="140" stroke="#EF4444" stroke-dasharray="4 3" opacity="0.5"/><text x="35" y="155" fill="#EF4444" font-size="9" font-weight="800">$95K DAILY FLOOR</text><polyline points="30,122 100,114 170,118 240,94 300,74 380,52" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="380" cy="52" r="5" fill="#10B981"/><text x="200" y="26" fill="#FCD34D" font-size="17" font-weight="800" text-anchor="middle">💰 $100K CHALLENGE</text></svg></div>
+        <div class="pop-body"><span class="pop-tag">Prop Firms</span><h3>How to Pass a $100k Prop Firm Challenge on Gold</h3><p>The exact dollar math &mdash; target, floors, lot sizing at 1% risk &mdash; and the EA settings that hold the line.</p><div class="pop-meta"><span>📅 Jul 2026</span><span>⏱ 10 min</span></div></div>
+      </a>
+      <a class="pop-card" href="/blog/triple-rsi-strategy">
+        <div class="pop-thumb"><svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="180" fill="#0E1421"/><line x1="0" y1="52" x2="400" y2="52" stroke="#10B981" stroke-dasharray="3 3" opacity="0.4"/><line x1="0" y1="132" x2="400" y2="132" stroke="#EF4444" stroke-dasharray="3 3" opacity="0.4"/><path d="M 20,132 Q 130,122 220,92 T 380,58" fill="none" stroke="#A78BFA" stroke-width="2.2"/><path d="M 20,142 Q 130,116 220,82 T 380,48" fill="none" stroke="#F59E0B" stroke-width="2.2"/><path d="M 20,150 Q 120,102 220,72 T 380,40" fill="none" stroke="#7DD3FC" stroke-width="2.4"/><circle cx="252" cy="74" r="7" fill="#10B981"/><text x="200" y="32" fill="#FCD34D" font-size="16" font-weight="800" text-anchor="middle">TRIPLE RSI &middot; 3/7/14</text></svg></div>
+        <div class="pop-body"><span class="pop-tag">Strategy</span><h3>Triple RSI Strategy (3-7-14): Does It Really Win 90%?</h3><p>How the 3-7-14 crossover works, why raw win-rate lies, and the stop, trend filter and risk-reward that make it tradeable.</p><div class="pop-meta"><span>📅 Jul 2026</span><span>⏱ 11 min</span></div></div>
+      </a>
+    </div>
+
+    <div style="text-align:center"><a class="pop-more" href="/blog/">Browse all 27 guides &rarr;</a></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="margin-bottom:1rem;color:#FFFFFF;text-decoration:none">
+        <div class="logo-icon">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+            <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+            <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+            <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+            <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+            <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+            <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          </svg>
+        </div>
+        Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px">Automated MetaTrader 5 gold trading for XAUUSD. Built for traders who'd rather let a disciplined robot do the work.</p>
+
+      <!-- SOCIAL ICONS -->
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+
+      <address style="margin-top:1.4rem;font-style:normal;color:#9CA3AF;font-size:0.85rem;line-height:1.6">
+        1954 W Lullaby Ln<br>Anaheim, CA 92804<br>United States
+      </address>
+    </div>
+
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-disclaimer">
+    <strong>⚠️ Risk Disclaimer:</strong> Trading involves substantial risk of loss and is not suitable for every investor. Gold Scalpers EA is an automated trading tool, not financial advice. Automated systems can and do lose money, and past performance does not guarantee future results. Always run the EA on a demo account before risking real capital, and never risk money you cannot afford to lose. By using this EA, you accept full responsibility for any gains or losses on your account.
+    <br><br>
+    © 2026 Gold Scalpers. All rights reserved.
+  </div>
+</footer>
+
+<!-- PROMO POPUP -->
+<div class="promo-overlay" id="promoOverlay">
+  <div class="promo-modal promo-guarantee">
+    <button class="promo-close" id="promoClose" aria-label="Close">×</button>
+    <div class="promo-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <h3>Love It — or <span class="green">Get Every Penny Back</span></h3>
+    <p class="promo-gsub">14-Day Money-Back Guarantee</p>
+    <p class="promo-gbody">Run Gold Scalpers EA on demo or live for two full weeks. If it isn't the right fit, email us for a <b>full refund</b> — no forms, no questions, no hard feelings. <b>You've got nothing to lose.</b></p>
+    <div class="promo-pills">
+      <span class="promo-pill">✓ Full refund</span>
+      <span class="promo-pill">✓ No questions asked</span>
+      <span class="promo-pill">✓ Paid back in 48h</span>
+    </div>
+    <div class="promo-price">
+      <div class="promo-strike">$297</div>
+      <div class="promo-now">$220</div>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-muted)">$77 off — Pay once, own it forever</p>
+    <a href="checkout" class="promo-cta" id="promoCta">Try It Risk-Free – $220 →</a>
+    <button class="promo-secondary" id="promoSecondary">No thanks, continue browsing</button>
+    <div class="promo-timer" id="promoTimer">⏱ Offer expires in <span id="countdown">14:59</span></div>
+  </div>
+</div>
+
+<script>
+// TOP BAR — evergreen launch countdown (resets per visitor so the offer never dead-ends)
+(function(){
+  var d=document.getElementById('tbDays'),h=document.getElementById('tbHrs'),m=document.getElementById('tbMin');
+  if(!d) return;
+  var KEY='gsLaunchEnd', span=3*24*60*60*1000; // 3-day window
+  var end=parseInt(localStorage.getItem(KEY)||'0',10);
+  if(!end || end<Date.now()){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); }
+  function pad(n){return (n<10?'0':'')+n;}
+  function tick(){
+    var rem=end-Date.now();
+    if(rem<0){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); rem=end-Date.now(); }
+    d.textContent=pad(Math.floor(rem/86400000));
+    h.textContent=pad(Math.floor((rem%86400000)/3600000));
+    m.textContent=pad(Math.floor((rem%3600000)/60000));
+  }
+  tick(); setInterval(tick,30000);
+})();
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    q.parentElement.classList.toggle('open');
+  });
+});
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (href === '#') return;
+    const target = document.querySelector(href);
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  });
+});
+
+// CONTACT FORM (honeypot + success message)
+(function() {
+  const form = document.getElementById('contactForm');
+  const formWrap = document.getElementById('contactFormWrap');
+  const success = document.getElementById('contactSuccess');
+  const resetBtn = document.getElementById('contactReset');
+  if (!form) return;
+
+  form.addEventListener('submit', function(e) {
+    // Honeypot check — if filled, it's a bot
+    const honey = form.querySelector('input[name="website_url_extra"]');
+    if (honey && honey.value !== '') {
+      e.preventDefault();
+      console.warn('Spam blocked');
+      return false;
+    }
+    // Show success state after a brief delay (mailto: opens email client)
+    e.preventDefault();
+    var btn=form.querySelector('button[type="submit"]'); var _o=btn?btn.textContent:'';
+    if(btn){ btn.disabled=true; btn.textContent='Sending...'; }
+    var data={}; new FormData(form).forEach(function(v,k){ data[k]=v; });
+    delete data.website_url_extra; data._subject='Pre-Sales Question - goldscalpers.com'; data._template='table'; data._captcha='false';
+    fetch('https://formsubmit.co/ajax/support@goldscalpers.com',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)})
+      .then(function(r){return r.json();})
+      .then(function(o){ if(o&&(o.success===true||o.success==='true')){ formWrap.style.display='none'; success.style.display='block'; success.scrollIntoView({behavior:'smooth',block:'center'}); form.reset(); } else { if(btn){btn.disabled=false;btn.textContent=_o;} alert('Could not send. Please email support@goldscalpers.com directly.'); } })
+      .catch(function(){ if(btn){btn.disabled=false;btn.textContent=_o;} alert('Network error. Please email support@goldscalpers.com directly.'); });
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    success.style.display = 'none';
+    formWrap.style.display = 'block';
+    form.reset();
+  });
+})();
+
+// PROMO POPUP LOGIC
+(function() {
+  const overlay = document.getElementById('promoOverlay');
+  const closeBtn = document.getElementById('promoClose');
+  const secondaryBtn = document.getElementById('promoSecondary');
+  const ctaBtn = document.getElementById('promoCta');
+  const countdownEl = document.getElementById('countdown');
+
+  let popupShown = false;
+  let popupTimer = null;
+
+  // Test override: open any page with ?popup=1 to force-show the popup (ignores the 24h suppression)
+  const forceShow = /[?&]popup=1/.test(location.search);
+  // Don't show if already dismissed in last 24 hours
+  const lastDismissed = localStorage.getItem('promoDismissedAt');
+  const dismissedRecently = !forceShow && lastDismissed && (Date.now() - parseInt(lastDismissed)) < 86400000;
+
+  function showPopup() {
+    if (popupShown || dismissedRecently) return;
+    popupShown = true;
+    overlay.classList.add('active');
+    startCountdown();
+  }
+
+  function hidePopup() {
+    overlay.classList.remove('active');
+    localStorage.setItem('promoDismissedAt', Date.now().toString());
+  }
+
+  // Countdown timer (15 min countdown for urgency)
+  function startCountdown() {
+    let seconds = 14 * 60 + 59; // 14:59
+    const interval = setInterval(() => {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      countdownEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      seconds--;
+      if (seconds < 0) clearInterval(interval);
+    }, 1000);
+  }
+
+  // Trigger 1: After 12 seconds on page
+  setTimeout(showPopup, 12000);
+
+  // Test override fires immediately
+  if (forceShow) showPopup();
+
+  // Trigger 2: When user scrolls past 40% of page
+  function checkScroll() {
+    const scrolled = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+    if (scrolled > 40) {
+      showPopup();
+      window.removeEventListener('scroll', checkScroll);
+    }
+  }
+  window.addEventListener('scroll', checkScroll, { passive: true });
+
+  // Trigger 3: Exit intent (mouse leaves top of viewport)
+  let exitIntentFired = false;
+  document.addEventListener('mouseleave', e => {
+    if (e.clientY < 10 && !exitIntentFired && !dismissedRecently) {
+      exitIntentFired = true;
+      showPopup();
+    }
+  });
+
+  // Close handlers
+  closeBtn.addEventListener('click', hidePopup);
+  secondaryBtn.addEventListener('click', hidePopup);
+  ctaBtn.addEventListener('click', () => {
+    overlay.classList.remove('active');
+    // Don't save dismissed since they clicked CTA
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) hidePopup();
+  });
+
+  // ESC key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) hidePopup();
+  });
+})();
+
+// Hide chart placeholder once real image loads
+(function(){
+  const img = document.querySelector('.hero-chart-img');
+  const ph  = document.querySelector('.hero-chart-placeholder');
+  if (!img || !ph) return;
+  function hide(){ ph.style.display = 'none'; img.style.display = 'block'; }
+  if (img.complete && img.naturalWidth > 0) { hide(); }
+  else { img.addEventListener('load', hide); img.addEventListener('error', function(){ img.style.display='none'; }); }
+})();
+</script>
+
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>

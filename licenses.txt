@@ -1,0 +1,7 @@
+# Gold Scalpers EA - Licence File (managed via /panel)
+# -----------------------------------------------
+# Listed accounts can run the EA.  '#' prefix = disabled.
+# -----------------------------------------------
+
+250481917   # Customer 1 - John (ACTIVE)
+253600315

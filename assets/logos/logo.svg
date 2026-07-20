@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FCD34D" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer rotating ring (slowly rotates) -->
+  <g transform-origin="100 100">
+    <circle cx="100" cy="100" r="90" fill="none" stroke="url(#goldGrad)" stroke-width="1.5" opacity="0.25"/>
+    <circle cx="100" cy="100" r="90" fill="none" stroke="#F59E0B" stroke-width="2" stroke-dasharray="8 12" opacity="0.6">
+      <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="20s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Inner ring (counter-rotates) -->
+  <circle cx="100" cy="100" r="70" fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.5"/>
+
+  <!-- Main scope ring -->
+  <circle cx="100" cy="100" r="55" fill="none" stroke="url(#goldGrad)" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Inner scope ring -->
+  <circle cx="100" cy="100" r="40" fill="none" stroke="#F59E0B" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Center glow + bullseye -->
+  <circle cx="100" cy="100" r="20" fill="url(#centerGlow)"/>
+  <circle cx="100" cy="100" r="6" fill="url(#goldGrad)" filter="url(#glow)">
+    <animate attributeName="r" values="6;9;6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="100" cy="100" r="3" fill="#FCD34D"/>
+
+  <!-- Crosshair lines -->
+  <line x1="100" y1="10" x2="100" y2="40" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="100" y1="160" x2="100" y2="190" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="10" y1="100" x2="40" y2="100" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="160" y1="100" x2="190" y2="100" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Tick marks on outer ring -->
+  <g stroke="#F59E0B" stroke-width="2" stroke-linecap="round">
+    <line x1="100" y1="45" x2="100" y2="50" opacity="0.6"/>
+    <line x1="100" y1="150" x2="100" y2="155" opacity="0.6"/>
+    <line x1="45" y1="100" x2="50" y2="100" opacity="0.6"/>
+    <line x1="150" y1="100" x2="155" y2="100" opacity="0.6"/>
+  </g>
+
+  <!-- Diagonal accents -->
+  <g stroke="#FCD34D" stroke-width="1.5" opacity="0.4">
+    <line x1="139" y1="61" x2="146" y2="54"/>
+    <line x1="61" y1="61" x2="54" y2="54"/>
+    <line x1="139" y1="139" x2="146" y2="146"/>
+    <line x1="61" y1="139" x2="54" y2="146"/>
+  </g>
+
+  <!-- Locked-on indicator dot (pulses) -->
+  <circle cx="100" cy="100" r="2" fill="#34D399">
+    <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+</svg>

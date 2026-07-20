@@ -1,0 +1,98 @@
+<!doctype html>
+<html Ã¢Å¡Â¡ lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pine Script Trading Alerts: Complete 2026 Guide | Gold Scalpers Ã¢â‚¬â€ Reversal Indicator for XAUUSD, USDJPY, GBPJPY</title>
+<link rel="canonical" href="https://goldscalpers.com/blog/pine-script-trading-alerts-guide">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/pine-script-trading-alerts-guide">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F59E0B">
+<meta name="description" content="Pine Script trading alerts let you trigger custom notifications from TradingView indicators. Learn alert(), alertcondition(), webhook integration, and best practices.">
+<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+<script async src="https://cdn.ampproject.org/v0.js"></script><script async custom-element="amp-consent" src="https://cdn.ampproject.org/v0/amp-consent-0.1.js"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Pine Script Trading Alerts: Complete 2026 Guide","datePublished":"2026-05-09","author":{"@type":"Organization","name":"Gold Scalpers"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is Pine Script?","acceptedAnswer":{"@type":"Answer","text":"Pine Script is TradingView's proprietary scripting language used to create custom indicators, strategies, and alerts. It runs server-side on TradingView's infrastructure and supports real-time market data, technical analysis functions, and webhook integrations."}},{"@type":"Question","name":"What is the difference between alert() and alertcondition()?","acceptedAnswer":{"@type":"Answer","text":"alert() is a Pine Script v4+ function that fires alerts dynamically with custom messages built from real-time variables. alertcondition() is the legacy method using static text strings. Use alert() for dynamic content, alertcondition() for simple boolean triggers."}},{"@type":"Question","name":"Do Pine Script alerts work with free TradingView?","acceptedAnswer":{"@type":"Answer","text":"Free TradingView accounts can use Pine Script alerts but only one active alert at a time and no webhook URLs. Webhook delivery to Telegram, Discord, or trade automation services requires TradingView Pro+ at $30 per month or higher."}},{"@type":"Question","name":"Can Pine Script execute trades automatically?","acceptedAnswer":{"@type":"Answer","text":"Pine Script cannot execute trades directly. It can output webhook JSON that relay services like PineConnector or TradersPost convert into broker orders via API."}},{"@type":"Question","name":"How do I prevent repainting alerts?","acceptedAnswer":{"@type":"Answer","text":"Use alert.freq_once_per_bar_close instead of alert.freq_once_per_bar. Wrap logic in barstate.isconfirmed checks. Avoid lookahead.on parameter in security() calls. Test by comparing bar history vs real-time behavior."}}]}</script>
+<style amp-custom>#gsConsentUI{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#0F1422;border-top:1px solid #1F2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#gsConsentUI .ac-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;flex-wrap:wrap}#gsConsentUI .ac-tx{flex:1 1 220px;min-width:0}#gsConsentUI .ac-tx strong{display:block;color:#F4F6FA;font-size:.95rem;font-weight:700}#gsConsentUI .ac-tx span{color:#9CA3AF;font-size:.82rem}#gsConsentUI .ac-bt{display:flex;gap:.5rem;flex:0 0 auto}#gsConsentUI .ac-b{font-size:.85rem;font-weight:700;padding:.55rem 1.1rem;border-radius:9px;border:1px solid transparent;cursor:pointer;font-family:inherit}#gsConsentUI .ac-ghost{background:#1A2230;color:#E6E9EF;border:1px solid #2A3443}#gsConsentUI .ac-acc{background:#F59E0B;color:#1a1206}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0E1A;color:#F9FAFB;line-height:1.7}a{color:#FCD34D;text-decoration:none}a:hover{text-decoration:underline}code{font-family:'SF Mono',Menlo,monospace;font-size:0.9em;background:rgba(245,158,11,0.1);color:#FCD34D;padding:0.15em 0.4em;border-radius:4px}pre{background:#131726;border:1px solid #1F2937;padding:1rem;border-radius:8px;overflow-x:auto;margin:1rem 0;font-size:0.85rem;color:#F9FAFB}.nav{background:#0F1422;border-bottom:1px solid #1F2937;padding:1rem 1.2rem;position:sticky;top:0;z-index:100}.nav-inner{max-width:780px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}.logo{font-weight:800;color:#F9FAFB;font-size:1rem}.btn{display:inline-block;padding:0.5rem 1rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0E1A;border-radius:6px;font-weight:700;font-size:0.85rem}article{max-width:760px;margin:0 auto;padding:2rem 1.2rem 3rem}.tag{display:inline-block;background:rgba(245,158,11,0.1);color:#FCD34D;font-size:0.75rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:99px;margin-bottom:1rem;letter-spacing:0.05em;text-transform:uppercase}h1{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:1rem}.meta{color:#64748B;font-size:0.85rem;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}h2{font-size:1.4rem;margin:2rem 0 0.8rem;font-weight:800}h3{font-size:1.1rem;margin:1.5rem 0 0.6rem;font-weight:700}p{color:#94A3B8;margin-bottom:1rem;font-size:1rem}strong{color:#F9FAFB}ul,ol{padding-left:1.5rem;margin-bottom:1rem;color:#94A3B8}li{margin-bottom:0.4rem}table{width:100%;border-collapse:collapse;margin:1rem 0;background:#131726;border-radius:8px;overflow:hidden;font-size:0.9rem}th{background:#1F2937;padding:0.7rem;text-align:left;color:#F9FAFB;font-weight:700;font-size:0.85rem}td{padding:0.7rem;border-top:1px solid #1F2937;color:#94A3B8}.cta{background:linear-gradient(135deg,#131726,rgba(245,158,11,0.05));border:1px solid #F59E0B;border-radius:14px;padding:1.5rem;text-align:center;margin:2rem 0}.cta h3{font-size:1.2rem;margin-bottom:0.5rem;color:#F9FAFB}.footer{background:#0F1422;border-top:1px solid #1F2937;padding:2rem 1.2rem;text-align:center;font-size:0.8rem;color:#64748B}.footer a{color:#94A3B8}@media (min-width:600px){h1{font-size:2.4rem}h2{font-size:1.7rem}}.sec-ico{display:inline-block;width:1.05em;height:1.05em;vertical-align:-0.14em;margin-right:.4rem;stroke:#F59E0B}.mt{margin-top:.5rem}</style>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Pine Script Trading Alerts Guide","item":"https://goldscalpers.com/blog/pine-script-trading-alerts-guide"}]}
+</script>
+</head>
+<body><amp-consent id="gsConsent" layout="nodisplay"><script type="application/json">{"consentInstanceId":"gsConsent","consentRequired":true,"promptUI":"gsConsentUI"}</script><div id="gsConsentUI"><div class="ac-in"><div class="ac-tx"><strong>We use cookies</strong><span>Essential cookies keep the site working; optional analytics help us improve.</span></div><div class="ac-bt"><button class="ac-b ac-ghost" on="tap:gsConsent.reject" role="button" tabindex="0">Essential only</button><button class="ac-b ac-acc" on="tap:gsConsent.accept" role="button" tabindex="0">Accept all</button></div></div></div></amp-consent>
+<nav class="nav"><div class="nav-inner"><a href="/" class="logo">Ã°Å¸Å½Â¯ Gold Scalpers</a><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></div></nav>
+<article>
+  <span class="tag">Pine Script</span>
+  <h1>Pine Script Trading Alerts: Complete 2026 Guide for TradingView</h1>
+  <div class="meta"><span>Ã°Å¸â€œâ€¦ May 9, 2026</span><span>Ã¢ÂÂ± 8 min read</span></div>
+
+  <p><strong>Pine Script trading alerts</strong> are notifications triggered by custom logic in TradingView indicators. Pine Script provides two alert mechanisms: the modern <code>alert()</code> function for dynamic messages, and the legacy <code>alertcondition()</code> for static boolean triggers.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Two Pine Script Alert Functions</h2>
+  <table>
+    <thead><tr><th>Function</th><th>Version</th><th>Best For</th></tr></thead>
+    <tbody>
+      <tr><td><code>alert()</code></td><td>v4+</td><td>Dynamic messages with real-time variables</td></tr>
+      <tr><td><code>alertcondition()</code></td><td>v3+ (legacy)</td><td>Static text alerts</td></tr>
+    </tbody>
+  </table>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The alert() Function</h2>
+  <pre>//@version=6
+indicator("Custom Alert", overlay=true)
+rsi = ta.rsi(close, 14)
+if rsi &lt; 30
+    msg = "BUY @ " + str.tostring(close)
+    alert(msg, alert.freq_once_per_bar_close)</pre>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>How to Avoid Repainting Alerts</h2>
+  <ol>
+    <li>Use <code>alert.freq_once_per_bar_close</code></li>
+    <li>Wrap logic in <code>if barstate.isconfirmed</code></li>
+    <li>Avoid <code>lookahead.on</code></li>
+    <li>Test history vs real-time behavior Ã¢â‚¬â€œ they should match</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Webhook Integration</h2>
+  <ol>
+    <li>Build alert message as JSON or HTML in Pine Script</li>
+    <li>Click Ã¢ÂÂ° Ã¢â€ â€™ Create Alert in TradingView</li>
+    <li>Set Condition to "Any alert() function call"</li>
+    <li>Enable Notifications Ã¢â€ â€™ Webhook URL</li>
+    <li>Paste your endpoint URL</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Pine Script Alert Limits by Plan</h2>
+  <table>
+    <thead><tr><th>Plan</th><th>Active Alerts</th><th>Webhooks</th></tr></thead>
+    <tbody>
+      <tr><td>Free / Basic</td><td>1</td><td>Ã¢ÂÅ’ No</td></tr>
+      <tr><td>Essential</td><td>20</td><td>Ã¢ÂÅ’ No</td></tr>
+      <tr><td>Plus</td><td>100</td><td>Ã¢ÂÅ’ No</td></tr>
+      <tr><td>Premium</td><td>400</td><td>Ã¢Å“â€¦ Yes</td></tr>
+      <tr><td>Pro+</td><td>800</td><td>Ã¢Å“â€¦ Yes</td></tr>
+    </tbody>
+  </table>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Common Patterns</h2>
+
+  <h3>Pattern 1: Multi-filter signal (Gold Scalpers style)</h3>
+  <pre>signal = isOversold and isVolumeSpike and isRangeFilter and twoGreens
+if signal
+    msg = '{"action":"buy","entry":' + str.tostring(close) + '}'
+    alert(msg, alert.freq_once_per_bar_close)</pre>
+
+  <h3>Pattern 2: HTML formatting (Telegram)</h3>
+  <pre>msg = "Ã°Å¸Å½Â¯ &lt;b&gt;BUY SIGNAL&lt;/b&gt;\nÃ°Å¸â€œÂ Entry: &lt;code&gt;" + str.tostring(close) + "&lt;/code&gt;"
+alert(msg, alert.freq_once_per_bar_close)</pre>
+
+  <div class="cta">
+    <h3>See Pine Script Alerts in Action</h3>
+    <p>Gold Scalpers uses production-grade alert() patterns with no repainting.</p>
+    <p><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></p>
+  </div>
+</article>
+<footer class="footer"><p>Ã‚Â© 2026 Gold Scalpers Ã‚Â· Trading involves risk of loss.</p><p class="mt"><a href="/">Home</a> Ã‚Â· <a href="/blog/">Blog</a> Ã‚Â· <a href="/blog/pine-script-trading-alerts-guide">Full version</a></p></footer>
+</body>
+</html>

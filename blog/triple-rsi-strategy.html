@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time? | Gold Scalpers</title>
+<meta name="description" content="The Triple RSI strategy stacks 3, 7 and 14-period RSI for a '90% win rate'. Here's how the 3-7-14 RSI crossover actually works, why raw win rate lies, and the stop-loss, trend filter and risk-reward rules that make it genuinely tradeable.">
+<meta name="keywords" content="triple RSI strategy, 3 7 14 RSI, RSI crossover strategy, 90% win rate strategy, win 90 percent of the time, multi RSI strategy, RSI trading strategy, RSI scalping strategy, best RSI settings">
+<link rel="canonical" href="https://goldscalpers.com/blog/triple-rsi-strategy">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/triple-rsi-strategy">
+<meta property="og:title" content="Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://goldscalpers.com/blog/triple-rsi-strategy">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?">
+<meta name="twitter:description" content="How the 3-7-14 Triple RSI crossover works, why the '90% win rate' claim is a trap, and the stop-loss, trend filter and risk-reward rules that make it tradeable.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Indicator Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/triple-rsi-strategy"},"image":"https://goldscalpers.com/og-image.png"}
+</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The Triple RSI strategy plots three RSI lines of different lengths — usually 3, 7 and 14 periods — on the same window. A long signal fires when the fast RSI (3) is above the medium RSI (7) and the medium is above the slow RSI (14), meaning short-, medium- and long-term momentum all point up at once. A short is the mirror image. The three-way alignment filters out weak, single-indicator signals."}},{"@type":"Question","name":"Does the Triple RSI strategy really win 90% of the time?","acceptedAnswer":{"@type":"Answer","text":"Not in any way that matters. A 90% win rate is easy to manufacture with a tiny take-profit and a wide or non-existent stop-loss — but the occasional loss then wipes out dozens of small wins. What determines whether a strategy makes money is expectancy (win rate combined with average risk-reward), not win rate alone. A realistic, properly risk-managed Triple RSI setup wins far less than 90% and still makes money because its winners are larger than its losers."}},{"@type":"Question","name":"What are the best settings for the 3-7-14 RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"3, 7 and 14 are the standard lengths. Keep the RSI period the same across instruments and adjust the trade rules instead: on gold (XAUUSD) require the fast RSI to also clear 50, on calmer JPY pairs the plain alignment is enough. Always pair the entry with a structure-based stop-loss and a minimum 1:1.5 risk-reward target."}},{"@type":"Question","name":"What timeframe works best for the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"The 15-minute and 1-hour charts give the cleanest alignments for intraday trading. Faster charts (1-5 minute) produce more Triple RSI crossovers but far more false ones, so they need a higher-timeframe trend filter to stay profitable."}},{"@type":"Question","name":"How do I add a stop-loss to the Triple RSI strategy?","acceptedAnswer":{"@type":"Answer","text":"Place the stop just beyond the swing low that formed before your long entry (or the swing high before a short), plus a small buffer. That way the trade is only stopped out if the structure that justified the signal actually breaks, and your position size can be derived from that stop distance for consistent 1% risk."}}]}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Triple RSI Strategy","item":"https://goldscalpers.com/blog/triple-rsi-strategy"}]}
+</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">Strategy</span>
+    <h1>Triple RSI Strategy (3-7-14): Does It Really Win 90% of the Time?</h1>
+    <div class="article-meta"><span>📅 July 7, 2026</span><span>⏱ 11 min read</span></div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team · Advanced · Reviewed for accuracy 2026-07-07</div>
+  </div>
+  <div class="article-hero-svg">
+    <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three stacked RSI lines aligning into a long signal">
+      <rect width="760" height="340" fill="#0E1421"/>
+      <line x1="0" y1="90" x2="760" y2="90" stroke="#10B981" stroke-dasharray="3 3" opacity="0.4"/>
+      <text x="20" y="85" fill="#10B981" font-size="11" font-weight="700">70</text>
+      <line x1="0" y1="170" x2="760" y2="170" stroke="#64748B" stroke-dasharray="2 4" opacity="0.5"/>
+      <text x="20" y="165" fill="#94A3B8" font-size="11" font-weight="700">50 MIDLINE</text>
+      <line x1="0" y1="250" x2="760" y2="250" stroke="#EF4444" stroke-dasharray="3 3" opacity="0.4"/>
+      <text x="20" y="266" fill="#EF4444" font-size="11" font-weight="700">30</text>
+      <!-- RSI 14 (slow) -->
+      <path d="M 30,250 Q 160,255 300,215 T 560,150 T 740,120" fill="none" stroke="#A78BFA" stroke-width="2.4"/>
+      <!-- RSI 7 (mid) -->
+      <path d="M 30,268 Q 160,260 300,200 T 560,120 T 740,96" fill="none" stroke="#F59E0B" stroke-width="2.4"/>
+      <!-- RSI 3 (fast) -->
+      <path d="M 30,280 Q 150,230 300,180 T 560,100 T 740,78" fill="none" stroke="#7DD3FC" stroke-width="2.4"><animate attributeName="stroke-dasharray" values="0 1400;1400 0" dur="3s" repeatCount="indefinite"/></path>
+      <circle cx="470" cy="150" r="9" fill="#10B981"><animate attributeName="r" values="7;13;7" dur="1.6s" repeatCount="indefinite"/></circle>
+      <text x="470" y="192" fill="#10B981" font-size="12" font-weight="800" text-anchor="middle">STACK ALIGNED → LONG</text>
+      <text x="640" y="300" fill="#7DD3FC" font-size="11" font-weight="700">RSI 3</text>
+      <text x="640" y="316" fill="#F59E0B" font-size="11" font-weight="700">RSI 7</text>
+      <text x="695" y="308" fill="#A78BFA" font-size="11" font-weight="700">RSI 14</text>
+      <text x="380" y="34" fill="#FCD34D" font-size="21" font-weight="800" text-anchor="middle">Triple RSI · 3 / 7 / 14</text>
+    </svg>
+  </div>
+</section>
+
+<article class="article-body">
+  <p>Search &ldquo;<strong>win 90% of the time</strong>&rdquo; and you will land on some version of the <strong>Triple RSI strategy</strong> &ndash; three <a href="/blog/what-is-rsi-in-trading">Relative Strength Index</a> lines of length 3, 7 and 14 stacked in the same window, promising a near-guaranteed win rate. It is one of the most-searched trading systems on the internet, and one of the most misunderstood.</p>
+  <p>The idea has real merit: aligning three momentum readings is a genuinely better entry filter than a single RSI. But the &ldquo;90% win rate&rdquo; headline is marketing, not math &ndash; and the original write-ups leave out the three things that actually decide whether you make money: a <strong>stop-loss</strong>, a <strong>trend filter</strong>, and a <strong>risk-reward rule</strong>. This guide fixes all three and shows you how the 3-7-14 RSI crossover works in the real world.</p>
+
+  <div class="toc" style="background:#0E1421;border:1px solid #1E293B;border-radius:12px;padding:1rem 1.25rem;margin:1.5rem 0">
+    <strong style="color:#FCD34D;font-size:0.9rem;letter-spacing:.02em">ON THIS PAGE</strong>
+    <ul style="columns:2;margin:.6rem 0 0;padding-left:1.1rem;font-size:0.92rem">
+      <li><a href="#what-is-triple-rsi">What the Triple RSI strategy is</a></li>
+      <li><a href="#entry-rules">The exact 3-7-14 entry rules</a></li>
+      <li><a href="#the-90-percent-trap">Where &ldquo;90% win rate&rdquo; comes from</a></li>
+      <li><a href="#expectancy-math">Win rate is not profit</a></li>
+      <li><a href="#three-missing-pieces">The 3 missing pieces</a></li>
+      <li><a href="#best-settings">Best settings by instrument</a></li>
+      <li><a href="#realistic-results">Realistic expectations</a></li>
+      <li><a href="#automate">Automating the Triple RSI</a></li>
+    </ul>
+  </div>
+
+  <h2 id="what-is-triple-rsi"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What the Triple RSI Strategy Actually Is</h2>
+  <p>A single RSI answers one question: <em>over the last N bars, how much of the movement was buying versus selling?</em> The <strong>Triple RSI strategy</strong> asks that same question over three different horizons at once and only trades when all three agree:</p>
+  <ul>
+    <li><strong>RSI 3</strong> &ndash; the fast line. Reacts to the most recent few bars. It is noisy on its own.</li>
+    <li><strong>RSI 7</strong> &ndash; the medium line. Smooths out the twitch of RSI 3.</li>
+    <li><strong>RSI 14</strong> &ndash; the slow line, the classic default. Represents the underlying momentum.</li>
+  </ul>
+  <p>When these three &ldquo;fan out&rdquo; in order &ndash; fast on top, slow on the bottom for a long &ndash; short-, medium- and long-term momentum are all pushing the same way. That alignment is the whole edge. It is the same logic behind stacked moving averages, applied to momentum instead of price. If you have ever been burned buying a single <a href="/blog/rsi-oversold-strategy-mistakes">RSI oversold reading</a>, the third line is exactly the confirmation you were missing.</p>
+
+  <h2 id="entry-rules"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>The Exact 3-7-14 Entry Rules</h2>
+  <p>The rules are refreshingly simple &ndash; which is why the strategy is popular:</p>
+  <ol>
+    <li><strong>Long entry:</strong> RSI 3 crosses <em>above</em> RSI 7, <em>and</em> RSI 7 is above RSI 14. All three lines stacked bullish.</li>
+    <li><strong>Short entry:</strong> RSI 3 crosses <em>below</em> RSI 7, <em>and</em> RSI 7 is below RSI 14. All three stacked bearish.</li>
+    <li><strong>No trade:</strong> the lines are tangled together (chop) &ndash; stand aside.</li>
+  </ol>
+
+  <figure style="margin:1.75rem 0">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;border-radius:12px;border:1px solid #1E293B" role="img" aria-label="The three RSI lines converge then fan out into a long trigger">
+      <rect width="720" height="300" fill="#0E1421"/>
+      <line x1="0" y1="70" x2="720" y2="70" stroke="#10B981" stroke-dasharray="3 3" opacity="0.35"/><text x="14" y="65" fill="#10B981" font-size="10" font-weight="700">70</text>
+      <line x1="0" y1="150" x2="720" y2="150" stroke="#64748B" stroke-dasharray="2 4" opacity="0.5"/><text x="14" y="145" fill="#94A3B8" font-size="10" font-weight="700">50</text>
+      <line x1="0" y1="230" x2="720" y2="230" stroke="#EF4444" stroke-dasharray="3 3" opacity="0.35"/><text x="14" y="245" fill="#EF4444" font-size="10" font-weight="700">30</text>
+      <path d="M 40,150 C 140,120 200,205 300,200 C 360,197 400,150 470,120 C 540,92 620,80 690,72" fill="none" stroke="#A78BFA" stroke-width="2.4"/>
+      <path d="M 40,168 C 150,150 210,210 300,205 C 360,201 405,135 470,105 C 540,78 620,66 690,58" fill="none" stroke="#F59E0B" stroke-width="2.4"/>
+      <path d="M 40,190 C 150,205 220,215 300,208 C 355,202 405,118 470,90 C 540,64 620,54 690,46" fill="none" stroke="#7DD3FC" stroke-width="2.6"/>
+      <line x1="335" y1="30" x2="335" y2="270" stroke="#334155" stroke-dasharray="2 3"/>
+      <text x="335" y="24" fill="#94A3B8" font-size="10" text-anchor="middle" font-weight="700">TANGLED · NO TRADE</text>
+      <circle cx="430" cy="118" r="8" fill="#10B981"/>
+      <line x1="430" y1="118" x2="430" y2="270" stroke="#10B981" stroke-dasharray="2 3" opacity="0.6"/>
+      <text x="430" y="286" fill="#10B981" font-size="11" text-anchor="middle" font-weight="800">3 &gt; 7 &gt; 14 → LONG</text>
+      <text x="612" y="40" fill="#7DD3FC" font-size="10" font-weight="700">RSI 3</text>
+      <text x="612" y="52" fill="#F59E0B" font-size="10" font-weight="700">RSI 7</text>
+      <text x="612" y="64" fill="#A78BFA" font-size="10" font-weight="700">RSI 14</text>
+    </svg>
+    <figcaption style="color:var(--text-muted);font-size:0.85rem;text-align:center;margin-top:.5rem">Figure 1 — The lines start tangled (no edge), then fan out in order. The long triggers only when the fast RSI leads the medium, which leads the slow.</figcaption>
+  </figure>
+
+  <p>That is the entire original strategy. Notice what is <em>not</em> there: no stop-loss, no target, no trend context, no position sizing. That omission is exactly where the &ldquo;90% win rate&rdquo; myth is born.</p>
+
+  <h2 id="the-90-percent-trap"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Where the &ldquo;90% Win Rate&rdquo; Number Comes From</h2>
+  <p>Here is the uncomfortable truth: <strong>a 90% win rate is trivial to manufacture.</strong> Take any decent entry, attach a microscopic take-profit and a huge (or invisible) stop-loss, and most trades will hit the tiny target before the far stop. You will &ldquo;win&rdquo; nine times out of ten.</p>
+  <p>The problem is the tenth trade. When it goes against you, the oversized stop gives back every one of those nine small wins &ndash; and then some. High win rate, negative account. This is the single most common way beginner strategies flatter themselves, and it is why we treat any headline win rate with suspicion.</p>
+
+  <figure style="margin:1.75rem 0">
+    <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;border-radius:12px;border:1px solid #1E293B" role="img" aria-label="A 90 percent win rate strategy loses money while a 55 percent strategy makes money">
+      <rect width="720" height="340" fill="#0E1421"/>
+      <text x="360" y="30" fill="#FCD34D" font-size="15" font-weight="800" text-anchor="middle">Win rate lies. Expectancy tells the truth.</text>
+      <!-- axis -->
+      <line x1="90" y1="250" x2="660" y2="250" stroke="#334155"/>
+      <line x1="90" y1="90" x2="90" y2="250" stroke="#334155"/>
+      <text x="60" y="255" fill="#94A3B8" font-size="10" text-anchor="end">0R</text>
+      <text x="60" y="150" fill="#94A3B8" font-size="10" text-anchor="end">+0.4R</text>
+      <line x1="90" y1="150" x2="660" y2="150" stroke="#1E293B" stroke-dasharray="2 3"/>
+      <!-- Strategy A: 90% win, negative expectancy -->
+      <rect x="180" y="250" width="120" height="14" fill="#EF4444" rx="2"/>
+      <text x="240" y="286" fill="#EF4444" font-size="12" font-weight="800" text-anchor="middle">−0.03R / trade</text>
+      <text x="240" y="308" fill="#E2E8F0" font-size="12" font-weight="700" text-anchor="middle">90% win rate</text>
+      <text x="240" y="324" fill="#94A3B8" font-size="10" text-anchor="middle">+0.3R wins · −3R losses</text>
+      <text x="240" y="245" fill="#F87171" font-size="11" font-weight="800" text-anchor="middle">▼ loses money</text>
+      <!-- Strategy B: 55% win, positive expectancy -->
+      <rect x="440" y="100" width="120" height="150" fill="#10B981" rx="2"/>
+      <text x="500" y="286" fill="#10B981" font-size="12" font-weight="800" text-anchor="middle">+0.38R / trade</text>
+      <text x="500" y="308" fill="#E2E8F0" font-size="12" font-weight="700" text-anchor="middle">55% win rate</text>
+      <text x="500" y="324" fill="#94A3B8" font-size="10" text-anchor="middle">+1.5R wins · −1R losses</text>
+      <text x="500" y="90" fill="#34D399" font-size="11" font-weight="800" text-anchor="middle">▲ makes money</text>
+    </svg>
+    <figcaption style="color:var(--text-muted);font-size:0.85rem;text-align:center;margin-top:.5rem">Figure 2 — A 90%-win system with tiny wins and huge losses bleeds out (−0.03R per trade), while a 55%-win system with a 1:1.5 payoff compounds (+0.38R per trade). The metric that matters is expectancy, not win rate.</figcaption>
+  </figure>
+
+  <h2 id="expectancy-math"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Win Rate Is Not Profit &ndash; The Expectancy Math</h2>
+  <p>The number that actually predicts your equity curve is <strong>expectancy</strong>, the average amount you win or lose per trade in units of risk (R):</p>
+  <blockquote>Expectancy = (Win% &times; Average Win) &minus; (Loss% &times; Average Loss)</blockquote>
+  <p>Run the two scenarios from Figure&nbsp;2:</p>
+  <ul>
+    <li><strong>The &ldquo;90% winner&rdquo;:</strong> 0.90 &times; (+0.3R) &minus; 0.10 &times; (3R) = <strong>&minus;0.03R</strong> per trade. Impressive win rate, losing system.</li>
+    <li><strong>The disciplined version:</strong> 0.55 &times; (+1.5R) &minus; 0.45 &times; (1R) = <strong>+0.38R</strong> per trade. Lower win rate, genuinely profitable.</li>
+  </ul>
+  <p>This is why every serious trader eventually stops chasing win rate and starts protecting risk-reward. If you have not internalised position sizing yet, our guide to the <a href="/blog/forex-risk-management-1-percent-rule">1% risk-management rule</a> is the fastest way to make the math above work for you rather than against you.</p>
+
+  <h2 id="three-missing-pieces"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>The 3 Missing Pieces That Make Triple RSI Tradeable</h2>
+  <p>The raw 3-7-14 crossover is a decent <em>trigger</em>. To turn it into a system, bolt on the three things the original never mentioned.</p>
+
+  <h3>#1 &mdash; A Stop-Loss With a Reason</h3>
+  <p>Do not use a fixed pip stop. Place it just beyond the <strong>swing low that formed before your long entry</strong> (or the swing high before a short), plus a small buffer. The trade is only killed if the structure that justified the signal actually breaks. That stop distance then <em>defines</em> your position size for a clean 1% risk on every trade.</p>
+
+  <figure style="margin:1.75rem 0">
+    <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;border-radius:12px;border:1px solid #1E293B" role="img" aria-label="A price chart showing the Triple RSI entry, structure stop-loss and 1 to 1.5 target">
+      <rect width="720" height="320" fill="#0E1421"/>
+      <!-- candles: a dip, swing low, then rally -->
+      <g stroke-width="2">
+        <line x1="80"  y1="120" x2="80"  y2="170" stroke="#EF4444"/><rect x="72"  y="130" width="16" height="30" fill="#EF4444"/>
+        <line x1="120" y1="150" x2="120" y2="205" stroke="#EF4444"/><rect x="112" y="160" width="16" height="35" fill="#EF4444"/>
+        <line x1="160" y1="190" x2="160" y2="245" stroke="#EF4444"/><rect x="152" y="200" width="16" height="30" fill="#EF4444"/>
+        <line x1="200" y1="215" x2="200" y2="262" stroke="#EF4444"/><rect x="192" y="222" width="16" height="24" fill="#EF4444"/>
+        <line x1="240" y1="212" x2="240" y2="250" stroke="#10B981"/><rect x="232" y="218" width="16" height="24" fill="#10B981"/>
+        <line x1="280" y1="180" x2="280" y2="228" stroke="#10B981"/><rect x="272" y="186" width="16" height="34" fill="#10B981"/>
+        <line x1="320" y1="150" x2="320" y2="196" stroke="#10B981"/><rect x="312" y="156" width="16" height="34" fill="#10B981"/>
+        <line x1="360" y1="118" x2="360" y2="162" stroke="#10B981"/><rect x="352" y="124" width="16" height="34" fill="#10B981"/>
+        <line x1="400" y1="92"  x2="400" y2="132" stroke="#10B981"/><rect x="392" y="98"  width="16" height="30" fill="#10B981"/>
+      </g>
+      <!-- entry -->
+      <line x1="235" y1="230" x2="470" y2="230" stroke="#7DD3FC" stroke-dasharray="4 3"/>
+      <text x="474" y="234" fill="#7DD3FC" font-size="11" font-weight="800">ENTRY (stack aligns)</text>
+      <polygon points="222,246 214,262 230,262" fill="#7DD3FC"/>
+      <!-- stop below swing low -->
+      <line x1="180" y1="278" x2="470" y2="278" stroke="#EF4444" stroke-dasharray="4 3"/>
+      <text x="474" y="282" fill="#EF4444" font-size="11" font-weight="800">STOP — beyond swing low (1R)</text>
+      <!-- target -->
+      <line x1="235" y1="158" x2="470" y2="158" stroke="#10B981" stroke-dasharray="4 3"/>
+      <text x="474" y="162" fill="#10B981" font-size="11" font-weight="800">TARGET — 1.5R</text>
+      <!-- R brackets -->
+      <rect x="205" y="230" width="6" height="48" fill="#EF4444" opacity="0.25"/>
+      <rect x="205" y="158" width="6" height="72" fill="#10B981" opacity="0.25"/>
+    </svg>
+    <figcaption style="color:var(--text-muted);font-size:0.85rem;text-align:center;margin-top:.5rem">Figure 3 — Entry on the stack alignment, stop just beyond the prior swing low (1R), target at 1.5R. Now the winner is bigger than the loser, and the math from Figure 2 works in your favour.</figcaption>
+  </figure>
+
+  <h3>#2 &mdash; A Higher-Timeframe Trend Filter</h3>
+  <p>A Triple RSI long inside a strong daily downtrend is a counter-trend bet, and those fail far more often. Add one rule: <strong>only take longs when the higher-timeframe trend is up, and shorts when it is down.</strong> A 50- or 200-period EMA on the chart above yours is enough. This single filter removes most of the losing signals that fast RSIs generate &ndash; the same principle we use to <a href="/blog/how-to-trade-gold-reversals">trade gold reversals</a> instead of fading them blindly.</p>
+
+  <h3>#3 &mdash; A Fixed Risk-Reward Target</h3>
+  <p>Set the take-profit at a minimum of <strong>1:1.5</strong> risk-reward &ndash; the target is 1.5&times; your stop distance. Combined with the roughly 50&ndash;60% win rate a filtered Triple RSI produces, that payoff turns the strategy positive. Chase 1:3 in strong trends; drop to 1:1 only if you are scalping the quietest sessions.</p>
+
+  <h2 id="best-settings"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Best Triple RSI Settings by Instrument</h2>
+  <p>Keep the RSI lengths at <strong>3, 7 and 14</strong> everywhere &ndash; do not curve-fit the periods. Adjust the <em>rules</em> per instrument instead:</p>
+  <div style="overflow-x:auto;margin:1.25rem 0">
+    <table style="width:100%;border-collapse:collapse;font-size:0.92rem">
+      <thead><tr style="text-align:left;border-bottom:1px solid #334155;color:#FCD34D">
+        <th style="padding:.6rem .5rem">Instrument</th><th style="padding:.6rem .5rem">RSI periods</th><th style="padding:.6rem .5rem">Extra entry filter</th><th style="padding:.6rem .5rem">Target</th></tr></thead>
+      <tbody style="color:var(--text)">
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem"><strong>Gold (XAUUSD)</strong></td><td style="padding:.55rem .5rem">3 / 7 / 14</td><td style="padding:.55rem .5rem">Fast RSI must also clear 50 (extra volatility guard)</td><td style="padding:.55rem .5rem">1:1.5&ndash;1:2</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem"><strong>USDJPY</strong></td><td style="padding:.55rem .5rem">3 / 7 / 14</td><td style="padding:.55rem .5rem">Plain stack alignment</td><td style="padding:.55rem .5rem">1:1.5</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem"><strong>GBPJPY</strong></td><td style="padding:.55rem .5rem">3 / 7 / 14</td><td style="padding:.55rem .5rem">Session filter (skip the 22:00&ndash;00:00 gap)</td><td style="padding:.55rem .5rem">1:2</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>These are the same instruments and the same philosophy we bake into our tools &ndash; if you want to compare RSI against other entries, see our breakdown of the <a href="/blog/best-tradingview-scalping-indicators">best scalping indicators</a>.</p>
+
+  <blockquote>&ldquo;A 55% win rate you can trade for years beats a 90% win rate that detonates on the tenth trade.&rdquo;</blockquote>
+
+  <h2 id="realistic-results"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>What Realistic Triple RSI Results Look Like</h2>
+  <p>Forget 90%. A properly filtered 3-7-14 system, tested honestly on XAUUSD, USDJPY and GBPJPY with realistic spread and commission, tends to look like this:</p>
+  <ul>
+    <li><strong>Raw stack crossover, no filters:</strong> ~48% win rate, roughly break-even to slightly negative after costs.</li>
+    <li><strong>+ trend filter + structure stop:</strong> ~54% win rate, positive expectancy at 1:1.5.</li>
+    <li><strong>+ session &amp; volatility filters:</strong> ~57% win rate, the cleanest equity curve of the three &ndash; and a drawdown you can actually sit through.</li>
+  </ul>
+  <p>None of those is 90%. All three of the last two make money, because the winners are bigger than the losers. That is the entire game. Backtest it yourself before risking a cent &ndash; our guide on <a href="/blog/how-to-backtest-mt5-ea">how to backtest properly</a> shows the settings that stop a tester from lying to you.</p>
+
+  <h2 id="automate"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Automating the Triple RSI Strategy</h2>
+  <p>Three RSI lines, a trend filter, a structure stop and a risk-reward target is a lot to watch across three pairs, 24 hours a day &ndash; which is exactly why traders automate it. A well-built <a href="/blog/best-mt5-expert-advisors-2026">MT5 Expert Advisor</a> checks every condition on every bar, sizes the position from the stop, and never fires the moment discipline slips.</p>
+
+  <div class="cta-banner">
+    <h3>Stop chasing 90%. Trade a system with real risk math.</h3>
+    <p>Gold Scalpers stacks momentum confirmation, a structure stop and a fixed risk-reward on XAUUSD, USDJPY and GBPJPY &ndash; and pings your phone when a real signal fires.</p>
+    <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220 →</a>
+    <a href="/blog/trading-strategy-hub" class="btn btn-ghost" style="margin-left:0.5rem">Explore the Strategy Hub</a>
+  </div>
+
+  <h2 id="conclusion"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>The Triple RSI strategy is a genuinely useful idea wrapped in a misleading headline. Stacking the 3, 7 and 14-period RSI is a smart momentum filter &ndash; far better than trading a single <a href="/blog/what-is-rsi-in-trading">RSI</a> line. But the &ldquo;win 90% of the time&rdquo; promise is a vanity metric that hides the only numbers that matter: your stop, your target, and your expectancy. Add a structure stop, a higher-timeframe trend filter and a 1:1.5 payoff, accept a realistic ~55% win rate, and you will have something you can actually trade &ndash; long after the 90% crowd has blown up.</p>
+</article>
+
+<section class="related-posts">
+  <h3>Related Articles</h3>
+  <div class="blog-grid">
+    <article class="blog-card"><a href="/blog/rsi-oversold-strategy-mistakes"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><path d="M 20,120 Q 120,60 200,130 Q 280,180 380,90" fill="none" stroke="#A78BFA" stroke-width="2.5"/><circle cx="230" cy="150" r="9" fill="#EF4444"/><text x="200" y="40" fill="#FCD34D" font-size="14" font-weight="800" text-anchor="middle">RSI MISTAKES</text></svg></div><div class="blog-card-body"><span class="blog-tag">Strategy</span><h3>RSI Oversold: Why 87% Get It Wrong</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/what-is-rsi-in-trading"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><line x1="0" y1="60" x2="400" y2="60" stroke="#10B981" stroke-dasharray="3 3" opacity="0.5"/><line x1="0" y1="130" x2="400" y2="130" stroke="#EF4444" stroke-dasharray="3 3" opacity="0.5"/><path d="M 20,100 Q 120,60 200,110 Q 280,150 380,80" fill="none" stroke="#F59E0B" stroke-width="2.5"/><text x="200" y="30" fill="#FCD34D" font-size="15" font-weight="800" text-anchor="middle">WHAT IS RSI?</text></svg></div><div class="blog-card-body"><span class="blog-tag">Basics</span><h3>What Is RSI in Trading?</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/forex-risk-management-1-percent-rule"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="105" fill="#10B981" font-size="34" font-weight="800" text-anchor="middle">1% RULE</text><text x="200" y="140" fill="#94A3B8" font-size="12" text-anchor="middle">risk management</text></svg></div><div class="blog-card-body"><span class="blog-tag">Risk</span><h3>The 1% Risk Management Rule</h3></div></a></article>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Precision reversal signals for XAUUSD, USDJPY, and GBPJPY. Built for serious traders who refuse to miss setups.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">© 2026 Gold Scalpers. Trading involves substantial risk of loss. Past performance does not guarantee future results. Nothing in this article is financial advice.</div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>

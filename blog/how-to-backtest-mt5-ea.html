@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>How to Backtest an MT5 Expert Advisor (Step-by-Step 2026) | Gold Scalpers</title>
+<meta name="description" content="A step-by-step guide to backtesting an MT5 Expert Advisor in the Strategy Tester — modelling quality, the metrics that matter, and the mistakes to avoid.">
+<meta name="keywords" content="how to backtest MT5 EA, MetaTrader 5 strategy tester, backtest expert advisor, EA modelling quality, profit factor drawdown, forward test demo">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://goldscalpers.com/blog/how-to-backtest-mt5-ea">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/how-to-backtest-mt5-ea">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)">
+<meta property="og:description" content="Backtest any MT5 EA properly — Strategy Tester setup, modelling quality, the metrics that matter, and the mistakes that fool beginners.">
+<meta property="og:url" content="https://goldscalpers.com/blog/how-to-backtest-mt5-ea">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)">
+<meta name="twitter:description" content="Backtest any MT5 EA properly — setup, metrics, and the mistakes that fool beginners.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Backtest an MT5 Expert Advisor (Step-by-Step 2026)","datePublished":"2026-06-24","dateModified":"2026-06-24","author":{"@type":"Organization","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-backtest-mt5-ea"},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"How to Backtest an MT5 Expert Advisor","totalTime":"PT15M","step":[
+{"@type":"HowToStep","position":1,"name":"Open the Strategy Tester","text":"In MetaTrader 5, press Ctrl+R or View > Strategy Tester to open the testing panel."},
+{"@type":"HowToStep","position":2,"name":"Select the EA and symbol","text":"Choose the Expert Advisor, set the symbol (e.g. XAUUSD) and the timeframe (e.g. M15)."},
+{"@type":"HowToStep","position":3,"name":"Set the date range and modelling","text":"Pick a multi-year date range and set modelling to 'Every tick based on real ticks' for the most accurate test."},
+{"@type":"HowToStep","position":4,"name":"Set deposit and inputs","text":"Set a realistic deposit and leverage, configure the EA inputs, and disable optimization for a single run."},
+{"@type":"HowToStep","position":5,"name":"Run and review","text":"Run the test, then review the report — net profit, profit factor, max drawdown, number of trades, and the equity curve."}
+]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"How do I backtest an EA in MetaTrader 5?","acceptedAnswer":{"@type":"Answer","text":"Open the Strategy Tester (Ctrl+R), select your Expert Advisor, choose the symbol and timeframe, set a multi-year date range, set modelling to 'Every tick based on real ticks', enter a realistic deposit and the EA inputs, then run. Review the report's net profit, profit factor, maximum drawdown, number of trades, and equity curve."}},
+{"@type":"Question","name":"What is a good profit factor for an EA?","acceptedAnswer":{"@type":"Answer","text":"A profit factor above 1.3 is generally considered decent, and above 1.5 is good, provided the result comes from a large number of trades over several years with realistic spread and commission. A high profit factor from only a handful of trades is statistically meaningless."}},
+{"@type":"Question","name":"Is backtesting enough before going live?","acceptedAnswer":{"@type":"Answer","text":"No. A backtest shows how an EA would have behaved on historical data, but real fills, spreads, slippage and latency differ. Always forward-test on a demo account on your own broker for several weeks after a good backtest, then go live with small size."}},
+{"@type":"Question","name":"What modelling quality should I use in MT5?","acceptedAnswer":{"@type":"Answer","text":"Use 'Every tick based on real ticks' when your broker provides real tick history — it is the most accurate. The plain 'Every tick' generated model is acceptable for a rough idea, but avoid drawing strong conclusions from the lowest-quality models, especially for scalping EAs sensitive to spread."}},
+{"@type":"Question","name":"Why do my backtest and live results differ?","acceptedAnswer":{"@type":"Answer","text":"Differences come from spread and commission not modelled accurately, slippage, requotes, latency, broker execution, and over-optimisation (curve fitting) of the EA to past data. This is exactly why forward-testing on demo and starting live with small risk is essential."}}
+]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Backtest an MT5 EA","item":"https://goldscalpers.com/blog/how-to-backtest-mt5-ea"}]}
+</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">How-To</span>
+    <h1>How to Backtest an MT5 Expert Advisor</h1>
+    <div class="article-meta"><span>📅 June 24, 2026</span><span>⏱ 10 min read</span></div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team · Step-by-step in the MT5 Strategy Tester</div>
+  </div>
+  <div class="article-hero-svg">
+    <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg">
+      <rect width="760" height="340" fill="#0E1421"/>
+      <text x="380" y="60" fill="#FCD34D" font-size="24" font-weight="800" text-anchor="middle">📈 STRATEGY TESTER</text>
+      <polyline points="80,260 160,250 240,255 320,225 400,235 480,190 560,200 640,140 690,150" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="80" y1="285" x2="690" y2="285" stroke="#1F2937" stroke-width="1"/>
+      <text x="100" y="110" fill="#94A3B8" font-size="12">Equity curve</text>
+      <text x="380" y="315" fill="#94A3B8" font-size="13" text-anchor="middle">Net profit · Profit factor · Max drawdown</text>
+    </svg>
+  </div>
+</section>
+
+<article class="article-body">
+  <p>Before you trust any robot with real money, you have to <strong>backtest it</strong>. A backtest replays a <strong>MetaTrader 5 Expert Advisor</strong> over historical price data so you can see how it would have behaved — its profit, its drawdowns, and how often it traded. This step-by-step guide shows you how to backtest an MT5 EA properly in 2026, which metrics actually matter, and the mistakes that fool beginners into trusting a robot that later fails live.</p>
+  <p>This is the verification step we recommend in every guide, including the <a href="/blog/best-mt5-expert-advisors-2026">best MT5 EAs of 2026</a> and the <a href="/blog/how-to-choose-mt5-ea">safe-EA buyer's guide</a>.</p>
+
+  <h2 id="step-by-step"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Step-by-step: backtest an EA in the Strategy Tester</h2>
+  <ol>
+    <li><strong>Open the Strategy Tester</strong> — press <code>Ctrl+R</code> or <em>View → Strategy Tester</em>.</li>
+    <li><strong>Select the EA</strong> from the Expert dropdown.</li>
+    <li><strong>Set the symbol and timeframe</strong> — e.g. <code>XAUUSD</code> and <code>M15</code>.</li>
+    <li><strong>Choose a date range</strong> — use several years to capture different conditions (trending, ranging, news-heavy).</li>
+    <li><strong>Set modelling to "Every tick based on real ticks"</strong> when your broker provides real tick history — it's the most accurate model.</li>
+    <li><strong>Set a realistic deposit, leverage and currency</strong>, and configure the EA inputs (lot/risk, etc.).</li>
+    <li><strong>Disable optimisation</strong> for a single, honest run.</li>
+    <li><strong>Run it</strong>, then open the <em>Backtest</em> and <em>Graph</em> tabs to read the report.</li>
+  </ol>
+
+  <h2 id="metrics-that-matter"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The metrics that actually matter</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>What it tells you</th><th>Rough guide</th></tr></thead>
+    <tbody>
+      <tr><td>Net profit</td><td>Total gain over the period</td><td>Positive, but read with drawdown</td></tr>
+      <tr><td>Profit factor</td><td>Gross profit ÷ gross loss</td><td>&gt;1.3 decent, &gt;1.5 good</td></tr>
+      <tr><td>Max drawdown %</td><td>Worst peak-to-trough drop</td><td>Lower is better; can you stomach it?</td></tr>
+      <tr><td>Total trades</td><td>Sample size</td><td>100+ for any statistical meaning</td></tr>
+      <tr><td>Expected payoff</td><td>Avg profit per trade</td><td>Positive after costs</td></tr>
+      <tr><td>Recovery factor</td><td>Net profit ÷ max drawdown</td><td>Higher = more efficient</td></tr>
+    </tbody>
+  </table>
+  <p><strong>The trap:</strong> a huge net profit with a 70% drawdown and only 25 trades is not a good EA — it's a small, lucky (or curve-fit) sample. Always read profit <em>against</em> drawdown and trade count.</p>
+
+  <h2 id="modelling-quality"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Modelling &amp; data quality matter</h2>
+  <p>Garbage data produces garbage results. For scalping EAs especially, use real tick data and set a realistic spread — testing on an unrealistically tight spread will overstate results. If you can only use generated ticks, treat the numbers as a rough sketch, not proof.</p>
+
+  <h2 id="common-mistakes"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>5 common backtesting mistakes</h2>
+  <ol>
+    <li><strong>Curve fitting</strong> — optimising inputs until the past looks perfect. It won't repeat. Test on data the EA wasn't tuned on.</li>
+    <li><strong>Ignoring spread &amp; commission</strong> — add your broker's real costs; they erode scalping edges fast.</li>
+    <li><strong>Too short a period</strong> — a few months can't show how an EA handles different regimes.</li>
+    <li><strong>Lowest-quality modelling</strong> — fine for a glance, misleading for decisions.</li>
+    <li><strong>Trusting the backtest alone</strong> — see below.</li>
+  </ol>
+
+  <h2 id="forward-test"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtest, then forward-test on demo</h2>
+  <p>A backtest is necessary but never sufficient. Real fills, slippage, latency and live spreads differ from history. After a solid multi-year backtest, <strong>forward-test on a demo account</strong> on your own broker for several weeks, then go live with small size under the <a href="/blog/forex-risk-management-1-percent-rule">1% risk rule</a>. This is the same honest sequence we recommend instead of trusting advertised win rates — see the debate in <a href="/blog/mt5-ea-vs-manual-trading">EA vs manual trading</a>.</p>
+
+  <h2 id="backtest-gold-scalpers"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Backtesting Gold Scalpers EA</h2>
+  <p>One practical advantage of <a href="/#features">Gold Scalpers EA</a> is that the EMA indicator it uses is <strong>bundled inside the EA</strong> — so it runs in the Strategy Tester and on any PC with no extra files or "indicator not found" errors. Drop it on <code>XAUUSD</code>, set <code>M15</code>, pick a multi-year range with real ticks, and you can verify exactly how the 9/21 + 50-EMA logic and the swing stop would have behaved — then demo-test before going live. That's the whole point: <strong>judge it on your own data, not our word.</strong></p>
+
+  <h2 id="frequently-asked-questions"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Frequently asked questions</h2>
+  <h3>How do I backtest an EA in MetaTrader 5?</h3>
+  <p>Open the Strategy Tester (Ctrl+R), pick the EA, symbol and timeframe, set a multi-year range with real-tick modelling, enter a realistic deposit and inputs, then run and review the report.</p>
+  <h3>What is a good profit factor?</h3>
+  <p>Above 1.3 is decent, above 1.5 is good — but only with 100+ trades over several years and realistic costs.</p>
+  <h3>Is backtesting enough before going live?</h3>
+  <p>No. Always forward-test on demo afterward, then start live small.</p>
+  <h3>What modelling quality should I use?</h3>
+  <p>"Every tick based on real ticks" when available; avoid drawing strong conclusions from the lowest-quality model.</p>
+  <h3>Why do backtest and live results differ?</h3>
+  <p>Spread/commission, slippage, latency, broker execution, and curve fitting. Forward-testing bridges the gap.</p>
+
+  <div class="cta-banner">
+    <h3>An EA you can actually backtest — no extra files</h3>
+    <p>The EMA indicator is bundled inside, so Gold Scalpers EA runs in the Strategy Tester anywhere. One-time $220 · 14-day money-back guarantee.</p>
+    <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220 →</a>
+    <a href="/blog/best-mt5-expert-advisors-2026" class="btn btn-ghost" style="margin-left:0.5rem">Best MT5 EAs 2026</a>
+  </div>
+</article>
+
+<section class="related-posts"><h3>Related Articles</h3>
+<div class="blog-grid">
+  <article class="blog-card"><a href="/blog/how-to-choose-mt5-ea"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#10B981" font-size="20" font-weight="800" text-anchor="middle">✅ EA CHECKLIST</text></svg></div><div class="blog-card-body"><span class="blog-tag">Buyer's Guide</span><h3>How to Choose a Safe MT5 EA</h3></div></a></article>
+  <article class="blog-card"><a href="/blog/best-mt5-expert-advisors-2026"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#FCD34D" font-size="22" font-weight="800" text-anchor="middle">🤖 BEST EAs 2026</text></svg></div><div class="blog-card-body"><span class="blog-tag">Expert Advisors</span><h3>Best MT5 EAs in 2026</h3></div></a></article>
+  <article class="blog-card"><a href="/blog/mt5-ea-vs-manual-trading"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#3B82F6" font-size="20" font-weight="800" text-anchor="middle">🤖 vs 🧑 TRADER</text></svg></div><div class="blog-card-body"><span class="blog-tag">Comparison</span><h3>EA vs Manual Trading</h3></div></a></article>
+</div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Automated MetaTrader 5 gold trading for XAUUSD. Built for traders who'd rather let a disciplined robot do the work.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">© 2026 Gold Scalpers. Trading involves substantial risk of loss. Automated systems can lose money. Past performance does not guarantee future results.</div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>

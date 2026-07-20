@@ -1,0 +1,97 @@
+<!doctype html>
+<html amp lang="en">
+<head>
+<meta charset="utf-8">
+<title>How to Pass a Prop Firm Challenge Trading Gold (XAUUSD) in 2026 | Gold Scalpers</title>
+<link rel="canonical" href="https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/how-to-pass-prop-firm-challenge-xauusd">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F59E0B">
+<meta name="description" content="How to pass a prop firm challenge trading gold (XAUUSD): the daily-loss and max-drawdown math that fails most traders, a rule-set that passes, and how Gold Scalpers EA's Prop Firm Mode enforces it automatically.">
+
+<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+
+<script async src="https://cdn.ampproject.org/v0.js"></script><script async custom-element="amp-consent" src="https://cdn.ampproject.org/v0/amp-consent-0.1.js"></script>
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Pass a Prop Firm Challenge Trading Gold (XAUUSD) in 2026","datePublished":"2026-07-07","author":{"@type":"Organization","name":"Gold Scalpers"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png"}</script>
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can you pass a prop firm challenge trading only gold (XAUUSD)?","acceptedAnswer":{"@type":"Answer","text":"Yes. Gold's intraday volatility lets you reach an 8-10% profit target quickly, but the same volatility blows the daily-loss limit just as fast, so passing is about controlling risk per trade and per day."}},{"@type":"Question","name":"Why do most traders fail prop firm challenges?","acceptedAnswer":{"@type":"Answer","text":"Most failures are a single broken risk rule, not a run of bad trades: over-leveraging, revenge-trading after a loss, or holding through a news spike or the low-liquidity rollover. All three breach the daily-loss limit in one move."}},{"@type":"Question","name":"What risk per trade should I use to pass a prop challenge?","acceptedAnswer":{"@type":"Answer","text":"0.5-1% of the account per trade. On a 5% daily-loss limit that gives you five to ten losers of room. Above 2% per trade, two or three losses can end your challenge."}},{"@type":"Question","name":"Can an EA pass a prop firm challenge for you?","acceptedAnswer":{"@type":"Answer","text":"An EA cannot guarantee a pass, but a disciplined one removes the human errors that cause most failures. Gold Scalpers EA's Prop Firm Mode clamps risk per trade, enforces a daily-loss stop inside the firm's limit, runs a max-drawdown guard, and filters news and the session gap."}},{"@type":"Question","name":"Do prop firms allow EAs on XAUUSD?","acceptedAnswer":{"@type":"Answer","text":"Most do. FTMO, FundedNext, The5ers and FundingPips all permit Expert Advisors on gold. Always confirm each firm's EA and news-trading rules before you start."}}]}</script>
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Pass a Prop Firm Challenge Trading Gold","item":"https://goldscalpers.com/blog/how-to-pass-prop-firm-challenge-xauusd"}]}</script>
+
+<style amp-custom>#gsConsentUI{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#0F1422;border-top:1px solid #1F2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#gsConsentUI .ac-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;flex-wrap:wrap}#gsConsentUI .ac-tx{flex:1 1 220px;min-width:0}#gsConsentUI .ac-tx strong{display:block;color:#F4F6FA;font-size:.95rem;font-weight:700}#gsConsentUI .ac-tx span{color:#9CA3AF;font-size:.82rem}#gsConsentUI .ac-bt{display:flex;gap:.5rem;flex:0 0 auto}#gsConsentUI .ac-b{font-size:.85rem;font-weight:700;padding:.55rem 1.1rem;border-radius:9px;border:1px solid transparent;cursor:pointer;font-family:inherit}#gsConsentUI .ac-ghost{background:#1A2230;color:#E6E9EF;border:1px solid #2A3443}#gsConsentUI .ac-acc{background:#F59E0B;color:#1a1206}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0E1A;color:#F9FAFB;line-height:1.7}a{color:#FCD34D;text-decoration:none}a:hover{text-decoration:underline}.nav{background:#0F1422;border-bottom:1px solid #1F2937;padding:1rem 1.2rem;position:sticky;top:0;z-index:100}.nav-inner{max-width:780px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}.logo{font-weight:800;color:#F9FAFB;font-size:1rem}.btn{display:inline-block;padding:0.5rem 1rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0E1A;border-radius:6px;font-weight:700;font-size:0.85rem}article{max-width:760px;margin:0 auto;padding:2rem 1.2rem 3rem}.tag{display:inline-block;background:rgba(245,158,11,0.1);color:#FCD34D;font-size:0.75rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:99px;margin-bottom:1rem;letter-spacing:0.05em;text-transform:uppercase}h1{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:1rem}.meta{color:#64748B;font-size:0.85rem;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}h2{font-size:1.4rem;margin:2rem 0 0.8rem;font-weight:800}h3{font-size:1.1rem;margin:1.5rem 0 0.6rem;font-weight:700}p{color:#94A3B8;margin-bottom:1rem;font-size:1rem}strong{color:#F9FAFB}ul,ol{padding-left:1.5rem;margin-bottom:1rem;color:#94A3B8}li{margin-bottom:0.4rem}blockquote{border-left:3px solid #F59E0B;padding:0.8rem 1.2rem;margin:1.2rem 0;background:rgba(245,158,11,0.05);border-radius:0 8px 8px 0;color:#F9FAFB;font-style:italic}table{width:100%;border-collapse:collapse;font-size:0.9rem;margin:1rem 0}th,td{text-align:left;padding:0.5rem;border-bottom:1px solid #1F2937}th{color:#FCD34D}td{color:#94A3B8}.cta{background:linear-gradient(135deg,#131726,rgba(245,158,11,0.05));border:1px solid #F59E0B;border-radius:14px;padding:1.5rem;text-align:center;margin:2rem 0}.cta h3{font-size:1.2rem;margin-bottom:0.5rem;color:#F9FAFB}.footer{background:#0F1422;border-top:1px solid #1F2937;padding:2rem 1.2rem;text-align:center;font-size:0.8rem;color:#64748B}.footer a{color:#94A3B8}@media (min-width:600px){h1{font-size:2.4rem}h2{font-size:1.7rem}}.sec-ico{display:inline-block;width:1.05em;height:1.05em;vertical-align:-0.14em;margin-right:.4rem;stroke:#F59E0B}.mt{margin-top:.5rem}</style>
+</head>
+<body><amp-consent id="gsConsent" layout="nodisplay"><script type="application/json">{"consentInstanceId":"gsConsent","consentRequired":true,"promptUI":"gsConsentUI"}</script><div id="gsConsentUI"><div class="ac-in"><div class="ac-tx"><strong>We use cookies</strong><span>Essential cookies keep the site working; optional analytics help us improve.</span></div><div class="ac-bt"><button class="ac-b ac-ghost" on="tap:gsConsent.reject" role="button" tabindex="0">Essential only</button><button class="ac-b ac-acc" on="tap:gsConsent.accept" role="button" tabindex="0">Accept all</button></div></div></div></amp-consent>
+
+<nav class="nav"><div class="nav-inner"><a href="/" class="logo">Gold Scalpers</a><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></div></nav>
+
+<article>
+  <span class="tag">Prop Firms</span>
+  <h1>How to Pass a Prop Firm Challenge Trading Gold (XAUUSD) in 2026</h1>
+  <div class="meta"><span>July 7, 2026</span><span>12 min read</span></div>
+
+  <p>Almost everyone can find a decent trade. Almost no one passes a <strong>prop firm challenge</strong> &ndash; the pass rate sits in single digits. And it is rarely the entries that fail people; it is a single broken risk rule on one candle. <strong>Gold (XAUUSD)</strong> is the most popular challenge instrument because it can hit an 8&ndash;10% target in days &ndash; but that same volatility ends challenges in one over-sized trade.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>The Challenge Math: A Risk Test, Not a Profit Test</h2>
+  <p>Every evaluation is three numbers &ndash; hit the top before touching either bottom:</p>
+  <ul>
+    <li><strong>Profit target:</strong> usually +8% to +10%.</li>
+    <li><strong>Daily loss limit:</strong> usually &minus;5% (this is what kills people).</li>
+    <li><strong>Max overall loss:</strong> usually &minus;10%.</li>
+  </ul>
+  <p>You get twice as much room to lose (10%) as you need to win, plus a daily brake at 5%. The firm is testing whether you can <strong>not lose too fast</strong>.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why Gold Traders Blow Challenges</h2>
+  <ul>
+    <li><strong>Over-leverage</strong> &ndash; risking 3&ndash;5% per trade; two losses and the daily limit is gone.</li>
+    <li><strong>News spikes</strong> &ndash; CPI, NFP and FOMC can breach &minus;5% in one candle.</li>
+    <li><strong>The rollover gap</strong> &ndash; the 22:00&ndash;00:00 low-liquidity window with wide spreads and stop-hunt wicks.</li>
+    <li><strong>Revenge trading</strong> &ndash; one loss, then a bigger &ldquo;make it back&rdquo; trade.</li>
+  </ul>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>The 5 Rules That Pass a Challenge</h2>
+  <ol>
+    <li><strong>Risk 0.5&ndash;1% per trade</strong> &ndash; that buys 5&ndash;10 losers of room. Start with the <a href="/blog/forex-risk-management-1-percent-rule">1% rule</a>.</li>
+    <li><strong>Personal daily stop inside the firm's</strong> &ndash; stop at &minus;3% if the limit is &minus;5%.</li>
+    <li><strong>Max-drawdown guard</strong> &ndash; flatten and pause if total drawdown hits your threshold.</li>
+    <li><strong>Filter news and the rollover gap</strong> &ndash; no new trades in those windows.</li>
+    <li><strong>Bank the target, don't chase it</strong> &ndash; consistent small days beat one hero day.</li>
+  </ol>
+  <blockquote>&ldquo;You don't pass a challenge by trading well on your best day. You pass it by not blowing up on your worst.&rdquo;</blockquote>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>A Worked $100k Example</h2>
+  <p>Rules: +10% target ($10,000), &minus;5% daily ($5,000), &minus;10% max ($10,000). Risk 1% = $1,000 per trade at 1:1.5. At ~55% win rate that is +$380/trade expectancy, so ~26 net-positive trades reach the target &ndash; a few weeks, not one reckless afternoon. Your personal daily stop is &minus;$3,000 (3 losers), a full $2,000 inside the firm's limit. No single trade or day ends the challenge.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>How Gold Scalpers EA Passes It For You</h2>
+  <p>Every rule is a discipline problem &ndash; and discipline is what humans lose at 2am. An <a href="/blog/best-mt5-ea-for-prop-firm">EA built for prop challenges</a> never breaks its own rules. Prop Firm Mode maps onto the challenge:</p>
+  <table>
+    <thead><tr><th>Challenge rule</th><th>What the EA does</th></tr></thead>
+    <tbody>
+      <tr><td>Daily loss</td><td>Hard daily-loss stop inside the firm's limit; flattens, halts new entries.</td></tr>
+      <tr><td>Max loss</td><td>Max-drawdown guard closes all and pauses.</td></tr>
+      <tr><td>Risk/trade</td><td>Size from stop distance for fixed % risk &ndash; no over-leverage.</td></tr>
+      <tr><td>News/volatility</td><td>Calendar news filter, session filter and spread guard.</td></tr>
+      <tr><td>Consistency</td><td>Daily profit target banks the day and stops trading.</td></tr>
+    </tbody>
+  </table>
+  <p>No EA can promise a pass. What Prop Firm Mode does is remove the errors that cause most failures. Still <a href="/blog/how-to-backtest-mt5-ea">backtest</a> and run the firm's demo first.</p>
+
+  <div class="cta">
+    <h3>Let the EA trade your challenge &ndash; inside the rules, around the clock.</h3>
+    <p>Daily-loss, max-drawdown, risk and news rules enforced automatically on XAUUSD.</p>
+    <p><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Settings by Prop Firm</h2>
+  <p>Map the EA's controls to your firm: <a href="/prop-firms/ftmo">FTMO</a>, <a href="/prop-firms/fundednext">FundedNext</a>, <a href="/prop-firms/the5ers">The5ers</a>, <a href="/prop-firms/fundingpips">FundingPips</a>. Always confirm current rules on the firm's own site.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>Passing a prop challenge on gold is about surviving your worst day. Cap risk at 1% per trade, set a daily stop inside the firm's, guard the max drawdown, and sit out the news and rollover gap. Do that consistently and the +10% target arrives on its own &ndash; or let <a href="/prop-firms/">Prop Firm Mode</a> enforce it for you.</p>
+</article>
+
+<footer class="footer"><p>&copy; 2026 Gold Scalpers &middot; Not affiliated with any prop firm; firm names are trademarks of their owners. Trading involves risk of loss. Nothing here is financial advice.</p><p class="mt"><a href="/">Home</a> &middot; <a href="/blog/">Blog</a> &middot; <a href="/prop-firms/">Prop Firms</a> &middot; <a href="/blog/how-to-pass-prop-firm-challenge-xauusd">Full version</a></p></footer>
+
+</body>
+</html>

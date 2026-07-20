@@ -1,0 +1,13 @@
+# Gold Scalpers - redirects for Netlify & Cloudflare Pages
+# (HTTPS + clean/extensionless URLs are handled automatically by both hosts.)
+
+# Force non-www (apex) - 301
+https://www.goldscalpers.com/*  https://goldscalpers.com/:splat  301!
+http://www.goldscalpers.com/*   https://goldscalpers.com/:splat  301!
+
+# Collapse /index to root
+/index       /   301
+/index.html  /   301
+
+# Block internal project files (strategy docs)
+/.agents/*   /404  404!

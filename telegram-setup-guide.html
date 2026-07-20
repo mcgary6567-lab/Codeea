@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)</title>
+<meta name="description" content="Step-by-step Telegram setup for Gold Scalpers EA on MT5. Get every trade alert on your phone in 5 minutes — create a bot, paste the token, whitelist the URL.">
+<meta name="keywords" content="Telegram trading alerts, Gold Scalpers EA setup, MT5 Telegram WebRequest, MetaTrader 5 Telegram bot, BotFather setup, trading alert automation">
+<link rel="canonical" href="https://goldscalpers.com/telegram-setup-guide">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)">
+<meta property="og:description" content="Get EA trade alerts on Telegram in 5 minutes. Step-by-step setup for the Gold Scalpers EA on MT5.">
+<meta property="og:url" content="https://goldscalpers.com/telegram-setup-guide">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)">
+<meta name="twitter:description" content="Get EA trade alerts on Telegram in 5 minutes. Step-by-step MT5 setup guide.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="assets/styles.css">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"How to Set Up Telegram Alerts for Gold Scalpers EA","description":"Complete 5-minute setup guide to receive Gold Scalpers EA trade alerts on Telegram in MetaTrader 5.","totalTime":"PT5M","step":[
+{"@type":"HowToStep","position":1,"name":"Create Telegram Bot","text":"Open Telegram, find @BotFather, send the /newbot command, and copy the bot token."},
+{"@type":"HowToStep","position":2,"name":"Get Chat ID","text":"Search @userinfobot in Telegram, click Start, and copy your numeric chat ID."},
+{"@type":"HowToStep","position":3,"name":"Activate Bot","text":"Send any message to your new bot so it is allowed to message you back."},
+{"@type":"HowToStep","position":4,"name":"Configure the EA","text":"In the Gold Scalpers EA inputs set use_telegram to true and paste your bot token and chat ID."},
+{"@type":"HowToStep","position":5,"name":"Allow WebRequest","text":"In MetaTrader 5, go to Tools > Options > Expert Advisors, tick Allow WebRequest for listed URL, and add https://api.telegram.org. Reattach the EA to send a connected test message."}
+]}
+</script>
+
+<!-- FAQPage schema for AI citation -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Do I need a paid subscription for Telegram alerts?","acceptedAnswer":{"@type":"Answer","text":"No. The EA sends Telegram messages itself from MetaTrader 5, so you only need a free Telegram account and a free bot. There is no TradingView or webhook subscription involved."}},
+{"@type":"Question","name":"Why isn't my Telegram bot sending messages?","acceptedAnswer":{"@type":"Answer","text":"Check three things: (1) you sent your bot a message first so it can reply, (2) use_telegram is true with the correct token and chat ID in the EA inputs, and (3) https://api.telegram.org is allowed under Tools > Options > Expert Advisors. The EA's Experts log shows the exact error if a message fails."}},
+{"@type":"Question","name":"How long does Telegram setup take?","acceptedAnswer":{"@type":"Answer","text":"About 5 minutes total: 2 minutes to create the bot, 1 minute to get your Chat ID, 30 seconds to message the bot, 1 minute to paste the token and chat ID into the EA, and 30 seconds to whitelist the Telegram URL."}},
+{"@type":"Question","name":"Can the EA send alerts to a Telegram group?","acceptedAnswer":{"@type":"Answer","text":"Yes. Add your bot to the group and make it admin, then visit https://api.telegram.org/bot<TOKEN>/getUpdates in your browser to find the negative group ID. Use that negative number as the chat ID in the EA inputs."}},
+{"@type":"Question","name":"What does a Gold Scalpers EA Telegram alert contain?","acceptedAnswer":{"@type":"Answer","text":"Trade events such as entry (with direction, price, stop, target and lot), and close (with result). The EA also sends a 'connected' test message when it is first attached, so you can confirm the link works immediately."}}
+]}
+</script>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="checkout" class="btn btn-primary">Get Lifetime – $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="page-hero">
+  <div class="page-hero-inner">
+    <span class="page-eyebrow">📱 Setup Guide · 5 Minutes</span>
+    <h1 class="page-title">Get EA alerts on your phone in <span class="accent">5 simple steps.</span></h1>
+    <p class="page-subtitle">No coding. No paid subscription. Wire the Gold Scalpers EA to Telegram once and every entry, stop, target and close lands on your phone within minutes.</p>
+  </div>
+</section>
+
+<div class="content-wrap">
+
+  <!-- VISUAL STEPS GRID -->
+  <div class="tg-steps" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin:0 0 3rem 0">
+    <div class="tg-step">
+      <div class="tg-step-num">1</div>
+      <div class="tg-step-icon">
+        <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+          <defs><linearGradient id="b1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FCD34D"/><stop offset="100%" stop-color="#F59E0B"/></linearGradient></defs>
+          <rect x="14" y="20" width="36" height="32" rx="6" fill="url(#b1)"/>
+          <circle cx="24" cy="32" r="3" fill="#0A0E1A"/><circle cx="40" cy="32" r="3" fill="#0A0E1A"/>
+          <rect x="24" y="40" width="16" height="3" rx="1.5" fill="#0A0E1A"/>
+          <line x1="32" y1="20" x2="32" y2="12" stroke="#F59E0B" stroke-width="2"/>
+          <circle cx="32" cy="10" r="3" fill="#F59E0B"><animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite"/></circle>
+        </svg>
+      </div>
+      <h4>Create Bot</h4>
+      <p>BotFather creates your bot</p>
+    </div>
+    <div class="tg-step">
+      <div class="tg-step-num">2</div>
+      <div class="tg-step-icon">
+        <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="24" r="10" fill="#F59E0B"/>
+          <path d="M16 52 Q16 38 32 38 Q48 38 48 52" fill="#F59E0B"/>
+          <circle cx="46" cy="42" r="10" fill="#0A0E1A" stroke="#FCD34D" stroke-width="2"/>
+          <text x="46" y="46" fill="#FCD34D" font-size="11" font-weight="800" text-anchor="middle">ID</text>
+        </svg>
+      </div>
+      <h4>Get Chat ID</h4>
+      <p>Find your unique ID</p>
+    </div>
+    <div class="tg-step">
+      <div class="tg-step-num">3</div>
+      <div class="tg-step-icon">
+        <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+          <rect x="10" y="14" width="44" height="36" rx="4" fill="#131726" stroke="#F59E0B" stroke-width="2"/>
+          <line x1="10" y1="22" x2="54" y2="22" stroke="#F59E0B" stroke-width="1.5"/>
+          <rect x="14" y="28" width="20" height="3" rx="1" fill="#94A3B8"/>
+          <rect x="14" y="40" width="24" height="3" rx="1" fill="#FCD34D"/>
+          <circle cx="48" cy="34" r="6" fill="#10B981"/>
+          <path d="M 45 34 L 47 36 L 51 32" stroke="#0A0E1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h4>Configure EA</h4>
+      <p>Paste token + ID in EA</p>
+    </div>
+    <div class="tg-step">
+      <div class="tg-step-num">4</div>
+      <div class="tg-step-icon">
+        <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+          <path d="M32 8 C24 8 18 14 18 22 V36 L14 42 V46 H50 V42 L46 36 V22 C46 14 40 8 32 8 Z" fill="#F59E0B"/>
+          <circle cx="46" cy="14" r="6" fill="#EF4444"><animate attributeName="r" values="5;7;5" dur="1.2s" repeatCount="indefinite"/></circle>
+          <text x="46" y="18" fill="#fff" font-size="9" font-weight="800" text-anchor="middle">!</text>
+        </svg>
+      </div>
+      <h4>Allow WebRequest</h4>
+      <p>Whitelist Telegram URL</p>
+    </div>
+    <div class="tg-step">
+      <div class="tg-step-num">5</div>
+      <div class="tg-step-icon">
+        <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+          <rect x="20" y="6" width="24" height="48" rx="4" fill="#1a1d24" stroke="#F59E0B" stroke-width="2"/>
+          <rect x="22" y="12" width="20" height="32" rx="2" fill="#0E1621"/>
+          <rect x="24" y="16" width="16" height="3" rx="1" fill="#34D399"/>
+          <rect x="24" y="22" width="14" height="2" rx="1" fill="#94A3B8"/>
+          <rect x="24" y="27" width="16" height="2" rx="1" fill="#FCD34D"/>
+          <circle cx="48" cy="14" r="6" fill="#10B981"><animate attributeName="r" values="5;8;5" dur="1.5s" repeatCount="indefinite"/></circle>
+          <text x="48" y="17" fill="#fff" font-size="8" font-weight="800" text-anchor="middle">✓</text>
+        </svg>
+      </div>
+      <h4>Get Alerts</h4>
+      <p>Trade events on phone</p>
+    </div>
+  </div>
+
+  <div class="callout gold">
+    <h4>✅ What you need</h4>
+    <p style="margin:0">Just a <strong>free Telegram account</strong> and the <strong>Gold Scalpers EA running in MetaTrader 5</strong>. The EA sends the messages itself, so there's no TradingView, webhook service or paid subscription involved. Telegram alerts are optional — the EA also pops up alerts in the terminal and pushes to the MT5 mobile app.</p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Step 1: Create Your Telegram Bot</h2>
+  <p><strong>Time:</strong> 2 minutes &nbsp;&nbsp; <strong>Cost:</strong> Free</p>
+  <ol>
+    <li>Open Telegram (mobile or desktop)</li>
+    <li>Search for <code>@BotFather</code> in the search bar</li>
+    <li>Click <strong>Start</strong> to begin a chat</li>
+    <li>Send the command: <code>/newbot</code></li>
+    <li>BotFather asks for a <strong>name</strong> → type any name (e.g. "My Gold Scalpers Bot")</li>
+    <li>BotFather asks for a <strong>username</strong> → must end in <code>bot</code> (e.g. <code>mygoldsniper_bot</code>)</li>
+    <li><strong>Copy the token</strong> BotFather gives you. Looks like:
+      <pre><code>7891234567:AAH1234abcDEFxyz...</code></pre>
+    </li>
+  </ol>
+
+  <div class="callout red">
+    <h4>🔙 Keep your bot token secret</h4>
+    <p style="margin:0">Anyone with your bot token can send messages from your bot. Never share it publicly or commit it to a public repository.</p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 2: Get Your Chat ID</h2>
+  <p><strong>Time:</strong> 1 minute</p>
+  <ol>
+    <li>In Telegram, search for <code>@userinfobot</code></li>
+    <li>Click <strong>Start</strong></li>
+    <li>It immediately replies with your info, including:
+      <pre><code>Id: 123456789</code></pre>
+    </li>
+    <li><strong>Copy the number</strong> – that's your Chat ID</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 3: Activate Your Bot</h2>
+  <p><strong>Time:</strong> 30 seconds – but <strong>critical step</strong></p>
+  <ol>
+    <li>Search for your new bot in Telegram (the one you created in Step 1)</li>
+    <li>Click <strong>Start</strong> or send any message like <code>hi</code></li>
+  </ol>
+
+  <div class="callout gold">
+    <h4>💡 Why this matters</h4>
+    <p style="margin:0">Telegram bots can't send messages to a user until that user has started a conversation with the bot. This step is non-negotiable – skip it and your alerts will silently fail.</p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 4: Configure the EA</h2>
+  <p><strong>Time:</strong> 1 minute</p>
+  <ol>
+    <li>Attach <strong>Gold Scalpers EA</strong> to an <strong>XAUUSD M15</strong> chart (or open its inputs if it's already running)</li>
+    <li>In the <strong>Alerts</strong> input group, set <code>use_telegram = true</code></li>
+    <li>Paste your token from Step 1 into <code>telegram_token</code></li>
+    <li>Paste your Chat ID from Step 2 into <code>telegram_chatid</code></li>
+    <li>Click <strong>OK</strong> to save</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 5: Allow WebRequest in MetaTrader 5</h2>
+  <p><strong>Time:</strong> 30 seconds &nbsp;&nbsp; <strong>This is the step most people miss.</strong></p>
+  <ol>
+    <li>In MT5 go to <strong>Tools → Options → Expert Advisors</strong></li>
+    <li>Tick <strong>"Allow WebRequest for listed URL"</strong></li>
+    <li>Add exactly: <pre><code>https://api.telegram.org</code></pre></li>
+    <li>Click <strong>OK</strong>, then remove and re-attach the EA (or restart MT5)</li>
+    <li>On attach, the EA sends a <strong>"connected" test message</strong> to your Telegram — that confirms it's wired up</li>
+  </ol>
+
+  <div class="callout red" style="margin-top:0.5rem">
+    <p style="margin:0"><strong>If the test message doesn't arrive,</strong> open the <strong>Experts</strong> tab in MT5 — it logs the exact reason (e.g. URL not allowed, or wrong token/chat ID).</p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>What You'll Receive</h2>
+  <p>From then on, every trade the EA takes is pushed to your Telegram within seconds, formatted like this:</p>
+  <pre><code>🟢 BUY opened — Gold Scalpers EA
+XAUUSD · M15
+━━━━━━━━━━━━━━━
+📍 Entry  : 2384.50
+🛑 Stop   : 2380.20  (swing)
+🎯 Target : 2393.10
+📦 Lot    : 0.02
+━━━━━━━━━━━━━━━
+2026-05-04 14:30:00</code></pre>
+  <p>A matching <strong>close</strong> message is sent when the trade hits its stop, target or reverse-cross exit.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Problem</th><th>Solution</th></tr></thead>
+    <tbody>
+      <tr><td>No "connected" test message</td><td>Add <code>https://api.telegram.org</code> under Tools → Options → Expert Advisors, then re-attach the EA</td></tr>
+      <tr><td>Experts log shows err <code>4014</code> / <code>-1</code></td><td>The Telegram URL isn't whitelisted (or you edited a different MT5 install)</td></tr>
+      <tr><td><code>Bad Request: chat not found</code></td><td>Wrong chat ID — re-verify with @userinfobot, and message your bot first</td></tr>
+      <tr><td><code>Unauthorized</code> in the log</td><td>Wrong bot token in <code>telegram_token</code></td></tr>
+      <tr><td>EA runs but no Telegram</td><td><code>use_telegram</code> is false, or the token / chat ID is blank</td></tr>
+      <tr><td>Bot never messages you</td><td>You haven't started a chat with your bot — send it <code>hi</code> (Step 3)</td></tr>
+    </tbody>
+  </table>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Send to a Group Instead of DM</h2>
+  <ol>
+    <li>Add your bot to the group → make it admin</li>
+    <li>Visit <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> in your browser</li>
+    <li>Find <code>"chat":{"id":-1001234567890,...}</code> – the <strong>negative</strong> number is the group ID</li>
+    <li>Use that negative number as <code>telegram_chatid</code> in the EA inputs</li>
+  </ol>
+
+  <div class="cta-banner">
+    <h3>Need Help With Setup?</h3>
+    <p>Our support team responds within 48 hours (24h priority for customers).</p>
+    <a href="/support" class="btn btn-primary">Get Support →</a>
+    <a href="checkout" class="btn btn-ghost" style="margin-left:0.5rem">Get Lifetime – $220</a>
+  </div>
+
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Automated MetaTrader 5 gold trading for XAUUSD. Built for traders who'd rather let a disciplined robot do the work.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">© 2026 Gold Scalpers. Trading involves substantial risk of loss. Past performance does not guarantee future results.</div>
+</footer>
+
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>

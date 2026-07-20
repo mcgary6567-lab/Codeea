@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>5 Best TradingView Indicators for Scalping Forex in 2026 | Gold Scalpers</title>
+<meta name="description" content="Comparison of the top 5 TradingView indicators for forex scalping in 2026. RSI, MACD, Bollinger Bands, VWAP, and pair-specific tools – pros, cons, and ideal use cases.">
+<meta name="keywords" content="best TradingView indicators, scalping indicators 2026, forex scalping tools, Pine Script indicators, RSI MACD VWAP">
+<link rel="canonical" href="https://goldscalpers.com/blog/best-tradingview-scalping-indicators">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/best-tradingview-scalping-indicators">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://goldscalpers.com/blog/best-tradingview-scalping-indicators">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:title" content="5 Best TradingView Indicators for Scalping Forex in 2026">
+<meta property="og:description" content="Comparison of the top 5 TradingView indicators for forex scalping in 2026. RSI, MACD, Bollinger Bands, VWAP, and pair-specific tools – pros, cons, and ideal use cases.">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="5 Best TradingView Indicators for Scalping Forex in 2026 | Gold Scalpers">
+<meta name="twitter:description" content="Comparison of the top 5 TradingView indicators for forex scalping in 2026. RSI, MACD, Bollinger Bands, VWAP, and pair-specific tools – pros, cons, and ideal use cases.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"5 Best TradingView Indicators for Scalping Forex in 2026","datePublished":"2026-05-01","dateModified":"2026-05-05","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Indicator Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/best-tradingview-scalping-indicators"},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the best TradingView indicator for scalping?","acceptedAnswer":{"@type":"Answer","text":"No single indicator wins for every pair. The best scalping indicator depends on the asset class — RSI works well for ranging markets, ATR-based filters work for volatile pairs like Gold, and volume-confirmed reversals work best on liquid forex pairs. Multi-filter systems like Gold Scalpers combine 5 filters to reduce false signals."}},{"@type":"Question","name":"Does Bollinger Bands work for scalping?","acceptedAnswer":{"@type":"Answer","text":"Bollinger Bands work for mean-reversion scalping on ranging pairs but produce many false signals during trends. Combine them with a momentum filter (RSI or MACD) to filter signals."}},{"@type":"Question","name":"How many indicators should a scalper use?","acceptedAnswer":{"@type":"Answer","text":"2 to 5 indicators is the sweet spot. Fewer than 2 produces too many false signals; more than 5 introduces analysis paralysis and conflicting signals. Use one for trend, one for momentum, one for volatility."}},{"@type":"Question","name":"Are scalping indicators reliable on the 1-minute chart?","acceptedAnswer":{"@type":"Answer","text":"1-minute charts have more noise than higher timeframes. Indicators tuned for 5-minute or 15-minute charts often fail on 1-minute. Use indicators specifically tuned for sub-5-minute timeframes, like Gold Scalpers, which auto-tunes RSI and ATR per pair."}},{"@type":"Question","name":"Do free TradingView indicators work as well as paid ones?","acceptedAnswer":{"@type":"Answer","text":"Free indicators using standard formulas (RSI, MACD, Stochastic) are mathematically identical to paid versions. The difference is in tuning, multi-filter logic, alert integration, and ongoing support. A well-tuned free indicator beats a poorly-tuned paid one."}}]}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Best TradingView Scalping Indicators","item":"https://goldscalpers.com/blog/best-tradingview-scalping-indicators"}]}
+</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">Indicators</span>
+    <h1>5 Best TradingView Indicators for Scalping Forex in 2026</h1>
+    <div class="article-meta"><span>📅 May 1, 2026</span><span>⏱ 9 min read</span></div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team · Reviewed for accuracy 2026-05-05</div>
+  </div>
+  <div class="article-hero-svg">
+    <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg">
+      <rect width="760" height="340" fill="#0E1421"/>
+      <path d="M 30,200 Q 130,100 230,180 T 430,140 T 630,160 T 740,120" fill="none" stroke="#3B82F6" stroke-width="2.5"><animate attributeName="stroke-dashoffset" values="800;0" dur="2s" repeatCount="indefinite"/></path>
+      <path d="M 30,220 Q 130,150 230,200 T 430,170 T 630,180 T 740,150" fill="none" stroke="#F59E0B" stroke-width="2.5" opacity="0.8"/>
+      <path d="M 30,250 Q 130,200 230,230 T 430,200 T 630,210 T 740,180" fill="none" stroke="#10B981" stroke-width="2.5" opacity="0.8"/>
+      <path d="M 30,270 Q 130,240 230,255 T 430,230 T 630,235 T 740,210" fill="none" stroke="#A78BFA" stroke-width="2.5" opacity="0.7"/>
+      <circle cx="380" cy="160" r="10" fill="#FCD34D"><animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite"/></circle>
+      <text x="380" y="50" fill="#FCD34D" font-size="22" font-weight="800" text-anchor="middle">TOP 5 INDICATORS · 2026</text>
+      <text x="50" y="320" fill="#3B82F6" font-size="11" font-weight="700">RSI</text>
+      <text x="200" y="320" fill="#F59E0B" font-size="11" font-weight="700">MACD</text>
+      <text x="350" y="320" fill="#10B981" font-size="11" font-weight="700">Bollinger</text>
+      <text x="500" y="320" fill="#A78BFA" font-size="11" font-weight="700">VWAP</text>
+      <text x="650" y="320" fill="#FCD34D" font-size="11" font-weight="700">Gold Scalpers</text>
+    </svg>
+  </div>
+</section>
+
+<article class="article-body">
+  <p>Scalping forex on 1-minute and 5-minute charts demands tools designed for speed, precision, and clean signals. With thousands of indicators available on TradingView, picking the right ones can make or break your strategy.</p>
+  <p>Here are the 5 indicators that consistently outperform the noise in 2026, ranked by edge for scalpers.</p>
+
+  <h2 id="1-rsi-relative-strength-index"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>1. RSI (Relative Strength Index)</h2>
+  <p><strong>Best for:</strong> Reversal entries on oversold/overbought conditions.</p>
+  <p><strong>Pros:</strong></p>
+  <ul>
+    <li>Fast, lagless momentum signal</li>
+    <li>Universally understood – easy to combine with other tools</li>
+    <li>Free and built into every charting platform</li>
+  </ul>
+  <p><strong>Cons:</strong></p>
+  <ul>
+    <li>Single-input signal – high false positive rate alone</li>
+    <li>Standard 30/70 levels don't work for high-volatility instruments</li>
+  </ul>
+  <p><strong>Verdict:</strong> Excellent foundational indicator. Always pair with at least 2 confirmation filters. <a href="/blog/rsi-oversold-strategy-mistakes">Read the full RSI strategy guide</a>.</p>
+
+  <h2 id="2-macd-moving-average-convergence-divergence"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>2. MACD (Moving Average Convergence Divergence)</h2>
+  <p><strong>Best for:</strong> Trend strength and momentum shifts.</p>
+  <p><strong>Pros:</strong></p>
+  <ul>
+    <li>Histogram visually shows momentum acceleration/deceleration</li>
+    <li>Crossovers + divergences = strong setups when combined</li>
+    <li>Works across all timeframes</li>
+  </ul>
+  <p><strong>Cons:</strong></p>
+  <ul>
+    <li>Lagging – by the time it crosses, half the move is done</li>
+    <li>Whipsaws constantly on 1-minute charts</li>
+  </ul>
+  <p><strong>Verdict:</strong> Better on 15M+ timeframes. For 1M scalping, MACD is too slow – RSI is faster.</p>
+
+  <h2 id="3-bollinger-bands"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>3. Bollinger Bands</h2>
+  <p><strong>Best for:</strong> Volatility expansion and mean reversion.</p>
+  <p><strong>Pros:</strong></p>
+  <ul>
+    <li>Visual representation of volatility (bands widen/narrow)</li>
+    <li>Excellent for "squeeze" breakout setups</li>
+    <li>Mean-reversion entries when price tags outer bands</li>
+  </ul>
+  <p><strong>Cons:</strong></p>
+  <ul>
+    <li>Standard deviation can stretch in trending markets – tags don't always reverse</li>
+    <li>Requires combining with momentum indicator for confirmation</li>
+  </ul>
+  <p><strong>Verdict:</strong> Powerful for mean-reversion strategies on JPY pairs. Less reliable on gold during trend days.</p>
+
+  <h2 id="4-vwap-volume-weighted-average-price"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>4. VWAP (Volume Weighted Average Price)</h2>
+  <p><strong>Best for:</strong> Intraday support/resistance levels.</p>
+  <p><strong>Pros:</strong></p>
+  <ul>
+    <li>Institutional traders use this – it self-fulfills</li>
+    <li>Price tends to revert to VWAP intraday</li>
+    <li>No parameters to tune – pure price/volume calculation</li>
+  </ul>
+  <p><strong>Cons:</strong></p>
+  <ul>
+    <li>Resets at session start – early session is noisy</li>
+    <li>Less useful on forex (which trades 24/7) vs. stocks</li>
+  </ul>
+  <p><strong>Verdict:</strong> Top-tier for stock scalping, useful for forex during major sessions (London/NY).</p>
+
+  <h2 id="5-gold-scalpers-pair-specific"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>5. Gold Scalpers (Pair-Specific)</h2>
+  <p><strong>Best for:</strong> Confirmed reversal entries on XAUUSD, USDJPY, GBPJPY.</p>
+  <p><strong>Pros:</strong></p>
+  <ul>
+    <li>Auto-tuned parameters per pair – no settings to guess</li>
+    <li>5-filter detection (RSI + ATR + volume + range + price action)</li>
+    <li>2-green confirmation eliminates falling-knife trades</li>
+    <li>Built-in Telegram alerts with entry/SL/TP</li>
+    <li>No repaint guarantee</li>
+  </ul>
+  <p><strong>Cons:</strong></p>
+  <ul>
+    <li>Only works on 3 specific pairs (by design)</li>
+    <li>Requires TradingView Pro+ for webhook alerts</li>
+  </ul>
+  <p><strong>Verdict:</strong> If you trade XAUUSD or JPY pairs, it's hard to beat a pair-specific tool. <a href="/checkout">Get Pro Lifetime for $220</a> — backed by a 14-day money-back guarantee.</p>
+
+  <h2 id="comparison-table"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>Comparison Table</h2>
+  <table>
+    <thead><tr><th>Indicator</th><th>Best Timeframe</th><th>Best Pairs</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><td>RSI</td><td>5M-1H</td><td>All</td><td>Free</td></tr>
+      <tr><td>MACD</td><td>15M-4H</td><td>All</td><td>Free</td></tr>
+      <tr><td>Bollinger Bands</td><td>5M-1H</td><td>JPY pairs, EUR</td><td>Free</td></tr>
+      <tr><td>VWAP</td><td>1M-15M</td><td>Stocks, major FX</td><td>Free</td></tr>
+      <tr><td>Gold Scalpers</td><td>1M-15M</td><td>XAUUSD, USDJPY, GBPJPY</td><td>$220 lifetime</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="should-you-combine-indicators"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Should You Combine Indicators?</h2>
+  <p>Yes – but carefully. Stacking 5+ indicators creates analysis paralysis. The sweet spot is <strong>2-3 indicators that measure different things</strong>:</p>
+  <ul>
+    <li>One momentum indicator (RSI or MACD)</li>
+    <li>One volatility indicator (Bollinger Bands or ATR)</li>
+    <li>One volume indicator (VWAP or volume spike)</li>
+  </ul>
+  <p>Pair-specific tools like Gold Scalpers bake all three into a single output, removing the manual combination work.</p>
+
+  <h2 id="conclusion"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>The best indicator depends on your style, timeframe, and pairs. For scalping XAUUSD or JPY pairs, a purpose-built tool with multi-filter detection beats stacking generic indicators. For other pairs, RSI + Bollinger + VWAP is a solid free combo.</p>
+
+  <div class="cta-banner">
+    <h3>Try a Pair-Specific Indicator Free</h3>
+    <p>Gold Scalpers combines RSI, ATR, volume, and price action into one signal – auto-tuned for XAUUSD, USDJPY, and GBPJPY.</p>
+    <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220 →</a>
+  <a href="/checkout" class="btn btn-ghost" style="margin-left:0.5rem">Get Lifetime Access – $220</a>
+  </div>
+</article>
+
+<section class="related-posts"><h3>Related Articles</h3>
+<div class="blog-grid">
+  <article class="blog-card"><a href="/blog/how-to-trade-gold-reversals"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#FCD34D" font-size="32" font-weight="800" text-anchor="middle">XAUUSD</text></svg></div><div class="blog-card-body"><span class="blog-tag">Gold</span><h3>How to Trade Gold Reversals</h3></div></a></article>
+  <article class="blog-card"><a href="/blog/rsi-oversold-strategy-mistakes"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#A78BFA" font-size="32" font-weight="800" text-anchor="middle">RSI</text></svg></div><div class="blog-card-body"><span class="blog-tag">Strategy</span><h3>RSI Oversold Mistakes</h3></div></a></article>
+  <article class="blog-card"><a href="/blog/auto-execute-tradingview-trades"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><text x="200" y="100" fill="#10B981" font-size="20" font-weight="800" text-anchor="middle">⚡ AUTOMATE</text></svg></div><div class="blog-card-body"><span class="blog-tag">Automation</span><h3>Auto-Execute Trades</h3></div></a></article>
+</div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Precision reversal signals for XAUUSD, USDJPY, and GBPJPY. Built for serious traders who refuse to miss setups.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">© 2026 Gold Scalpers. Trading involves substantial risk of loss. Past performance does not guarantee future results.</div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>

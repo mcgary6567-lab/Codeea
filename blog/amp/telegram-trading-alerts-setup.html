@@ -1,0 +1,113 @@
+<!doctype html>
+<html Ã¢Å¡Â¡ lang="en">
+<head>
+<meta charset="utf-8">
+<title>How to Set Up Telegram Trading Alerts in 5 Minutes (2026) | Gold Scalpers Ã¢â‚¬â€ Reversal Indicator for XAUUSD, USDJPY, GBPJPY</title>
+<link rel="canonical" href="https://goldscalpers.com/blog/telegram-trading-alerts-setup">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/telegram-trading-alerts-setup">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F59E0B">
+<meta name="description" content="Complete guide to receiving TradingView alerts on Telegram with full entry, stop loss, and take profit. Free setup, no third-party services needed.">
+<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+<script async src="https://cdn.ampproject.org/v0.js"></script><script async custom-element="amp-consent" src="https://cdn.ampproject.org/v0/amp-consent-0.1.js"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Set Up Telegram Trading Alerts in 5 Minutes","datePublished":"2026-04-28","author":{"@type":"Organization","name":"Gold Scalpers"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"How to Set Up Telegram Trading Alerts","description":"5-minute setup guide to receive TradingView indicator signals on Telegram.","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Create Telegram Bot","text":"Open Telegram, find @BotFather, send /newbot command, copy the bot token."},{"@type":"HowToStep","position":2,"name":"Get Chat ID","text":"Search @userinfobot in Telegram, send any message, copy your numeric chat ID."},{"@type":"HowToStep","position":3,"name":"Activate Bot","text":"Send any message to your new bot to activate it for two-way communication."},{"@type":"HowToStep","position":4,"name":"Create Alert","text":"Create a TradingView alert using Any alert function call condition with the Telegram webhook URL."},{"@type":"HowToStep","position":5,"name":"Test","text":"The next signal arrives within seconds of bar close. Verify formatting matches expectations."}]}</script>
+<style amp-custom>#gsConsentUI{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#0F1422;border-top:1px solid #1F2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#gsConsentUI .ac-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;flex-wrap:wrap}#gsConsentUI .ac-tx{flex:1 1 220px;min-width:0}#gsConsentUI .ac-tx strong{display:block;color:#F4F6FA;font-size:.95rem;font-weight:700}#gsConsentUI .ac-tx span{color:#9CA3AF;font-size:.82rem}#gsConsentUI .ac-bt{display:flex;gap:.5rem;flex:0 0 auto}#gsConsentUI .ac-b{font-size:.85rem;font-weight:700;padding:.55rem 1.1rem;border-radius:9px;border:1px solid transparent;cursor:pointer;font-family:inherit}#gsConsentUI .ac-ghost{background:#1A2230;color:#E6E9EF;border:1px solid #2A3443}#gsConsentUI .ac-acc{background:#F59E0B;color:#1a1206}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0E1A;color:#F9FAFB;line-height:1.7}a{color:#FCD34D;text-decoration:none}a:hover{text-decoration:underline}code{font-family:'SF Mono',Menlo,monospace;font-size:0.9em;background:rgba(245,158,11,0.1);color:#FCD34D;padding:0.15em 0.4em;border-radius:4px}pre{background:#131726;border:1px solid #1F2937;padding:1rem;border-radius:8px;overflow-x:auto;margin:1rem 0;font-size:0.85rem;color:#F9FAFB}.nav{background:#0F1422;border-bottom:1px solid #1F2937;padding:1rem 1.2rem;position:sticky;top:0;z-index:100}.nav-inner{max-width:780px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}.logo{font-weight:800;color:#F9FAFB;font-size:1rem}.btn{display:inline-block;padding:0.5rem 1rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0E1A;border-radius:6px;font-weight:700;font-size:0.85rem}article{max-width:760px;margin:0 auto;padding:2rem 1.2rem 3rem}.tag{display:inline-block;background:rgba(245,158,11,0.1);color:#FCD34D;font-size:0.75rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:99px;margin-bottom:1rem;letter-spacing:0.05em;text-transform:uppercase}h1{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:1rem}.meta{color:#64748B;font-size:0.85rem;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}h2{font-size:1.4rem;margin:2rem 0 0.8rem;font-weight:800}h3{font-size:1.1rem;margin:1.5rem 0 0.6rem;font-weight:700}p{color:#94A3B8;margin-bottom:1rem;font-size:1rem}strong{color:#F9FAFB}ul,ol{padding-left:1.5rem;margin-bottom:1rem;color:#94A3B8}li{margin-bottom:0.4rem}table{width:100%;border-collapse:collapse;margin:1rem 0;background:#131726;border-radius:8px;overflow:hidden;font-size:0.9rem}th{background:#1F2937;padding:0.7rem;text-align:left;color:#F9FAFB;font-weight:700;font-size:0.85rem}td{padding:0.7rem;border-top:1px solid #1F2937;color:#94A3B8}.cta{background:linear-gradient(135deg,#131726,rgba(245,158,11,0.05));border:1px solid #F59E0B;border-radius:14px;padding:1.5rem;text-align:center;margin:2rem 0}.cta h3{font-size:1.2rem;margin-bottom:0.5rem;color:#F9FAFB}.footer{background:#0F1422;border-top:1px solid #1F2937;padding:2rem 1.2rem;text-align:center;font-size:0.8rem;color:#64748B}.footer a{color:#94A3B8}@media (min-width:600px){h1{font-size:2.4rem}h2{font-size:1.7rem}}.sec-ico{display:inline-block;width:1.05em;height:1.05em;vertical-align:-0.14em;margin-right:.4rem;stroke:#F59E0B}.mt{margin-top:.5rem}</style>
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I send TradingView alerts to Telegram?","acceptedAnswer":{"@type":"Answer","text":"Create a Telegram bot via @BotFather, get the bot token, get your chat ID via @userinfobot, then configure the TradingView alert webhook URL to https://api.telegram.org/bot[TOKEN]/sendMessage with chat_id and HTML-formatted message text in the payload."}},{"@type":"Question","name":"Are Telegram trading alerts free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Telegram Bot API is free and unlimited for personal use. The only paid component is TradingView Pro tier, which is required to send webhook alerts."}},{"@type":"Question","name":"Can I use Telegram alerts for free TradingView accounts?","acceptedAnswer":{"@type":"Answer","text":"No. TradingView free tier does not support webhook alerts to external URLs. You need at least Pro ($14.95/month) to use Telegram alert integration."}},{"@type":"Question","name":"Why are my Telegram alerts not arriving?","acceptedAnswer":{"@type":"Answer","text":"Most common causes: wrong chat ID, bot has not been started in your chat (send /start to the bot first), webhook URL has typos in the bot token, or message body uses special HTML characters that break the parse_mode."}},{"@type":"Question","name":"How do I format Telegram alerts with entry, stop loss, and take profit?","acceptedAnswer":{"@type":"Answer","text":"Use HTML parse_mode in the webhook payload. Format the message with line breaks (\\n) and bold tags around price levels. Gold Scalpers ships with pre-formatted Telegram alert templates for XAUUSD, USDJPY, and GBPJPY."}}]}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Telegram Trading Alerts Setup","item":"https://goldscalpers.com/blog/telegram-trading-alerts-setup"}]}
+</script>
+</head>
+<body><amp-consent id="gsConsent" layout="nodisplay"><script type="application/json">{"consentInstanceId":"gsConsent","consentRequired":true,"promptUI":"gsConsentUI"}</script><div id="gsConsentUI"><div class="ac-in"><div class="ac-tx"><strong>We use cookies</strong><span>Essential cookies keep the site working; optional analytics help us improve.</span></div><div class="ac-bt"><button class="ac-b ac-ghost" on="tap:gsConsent.reject" role="button" tabindex="0">Essential only</button><button class="ac-b ac-acc" on="tap:gsConsent.accept" role="button" tabindex="0">Accept all</button></div></div></div></amp-consent>
+<nav class="nav"><div class="nav-inner"><a href="/" class="logo">Ã°Å¸Å½Â¯ Gold Scalpers</a><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></div></nav>
+<article>
+  <span class="tag">Setup Guide</span>
+  <h1>How to Set Up Telegram Trading Alerts in 5 Minutes</h1>
+  <div class="meta"><span>Ã°Å¸â€œâ€¦ April 28, 2026</span><span>Ã¢ÂÂ± 6 min read</span></div>
+
+  <p>Getting trading alerts on your phone changes how you trade. Instead of staring at charts for hours, your phone pings the moment a signal fires Ã¢â‚¬â€œ entry, SL, TP, all in one tap-to-copy message.</p>
+
+  <p>This guide shows you how to set up Telegram alerts from any TradingView indicator in 5 minutes. <strong>Free, no third-party services, no monthly fees.</strong></p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Why Telegram Beats SMS, Email, and Push</h2>
+  <table>
+    <thead><tr><th>Channel</th><th>Speed</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><td>Telegram</td><td>Instant</td><td>Free</td></tr>
+      <tr><td>SMS</td><td>30s+ delay</td><td>$0.01-0.05/msg</td></tr>
+      <tr><td>Email</td><td>1-3 min delay</td><td>Free but slow</td></tr>
+    </tbody>
+  </table>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Prerequisites</h2>
+  <ul>
+    <li>TradingView Pro+ account ($30/month)</li>
+    <li>Telegram app installed</li>
+    <li>An indicator with <code>alert()</code> function calls</li>
+  </ul>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 1: Create Your Bot (2 min)</h2>
+  <ol>
+    <li>Open Telegram, search <code>@BotFather</code>, click Start</li>
+    <li>Send: <code>/newbot</code></li>
+    <li>Pick name and username (must end in <code>bot</code>)</li>
+    <li>Copy the token: <code>7891234567:AAH...xyz</code></li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 2: Get Chat ID (1 min)</h2>
+  <ol>
+    <li>Search <code>@userinfobot</code> in Telegram</li>
+    <li>Click Start</li>
+    <li>Copy your numeric ID</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 3: Activate Bot (Critical)</h2>
+  <p>Send any message to your new bot. Telegram bots can't message users who haven't initiated.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Step 4: Configure Indicator</h2>
+  <ol>
+    <li>Open indicator settings</li>
+    <li>Paste Chat ID</li>
+    <li>Set Alert Format = "Telegram"</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 5: Create Alert</h2>
+  <ol>
+    <li>Ã¢ÂÂ° Ã¢â€ â€™ Create Alert</li>
+    <li>Condition: <strong>"Any alert() function call"</strong> Ã¢â€ Â critical</li>
+    <li>Webhook URL:</li>
+  </ol>
+  <pre>https://api.telegram.org/bot&lt;TOKEN&gt;/sendMessage</pre>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>What You'll Receive</h2>
+  <pre>Ã°Å¸Å½Â¯ Gold Scalpers Ã¢â‚¬â€œ XAUUSD (1)
+Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â
+Ã°Å¸â€œÂ ENTRY : 2384.50
+Ã°Å¸â€ºâ€˜ SL    : 2380.20  (-43 pips)
+Ã°Å¸Å½Â¯ TP    : 2393.10  (+86 pips)
+Ã¢Å¡â€“Ã¯Â¸Â R:R   : 1:2.0
+Ã¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€ÂÃ¢â€Â</pre>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Common Issues</h2>
+  <ul>
+    <li><strong>No alerts:</strong> did you send "hi" to the bot?</li>
+    <li><strong>"chat not found":</strong> wrong Chat ID</li>
+    <li><strong>"Unauthorized":</strong> wrong token or missing <code>bot</code> prefix</li>
+    <li><strong>HTML tags showing:</strong> set Alert Format to "Telegram"</li>
+  </ul>
+
+  <div class="cta">
+    <h3>Try Gold Scalpers Free</h3>
+    <p>Get Telegram alerts on XAUUSD, USDJPY, and GBPJPY for 7 days.</p>
+    <p><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>Telegram alerts free you from your screen. Set them up once, never miss a setup again. The 5-minute setup is the highest-leverage time you'll spend on your trading workflow.</p>
+</article>
+<footer class="footer"><p>Ã‚Â© 2026 Gold Scalpers Ã‚Â· Trading involves risk of loss.</p><p class="mt"><a href="/">Home</a> Ã‚Â· <a href="/blog/">Blog</a> Ã‚Â· <a href="/blog/telegram-trading-alerts-setup">Full version</a></p></footer>
+</body>
+</html>

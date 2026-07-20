@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold Scalpers EA for FundingPips - Settings to Stay Within the Rules</title>
+<meta name="description" content="How to configure Gold Scalpers EA (MT5, XAUUSD) to respect FundingPips's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each rule.">
+<link rel="canonical" href="https://goldscalpers.com/prop-firms/fundingpips">
+<meta property="og:title" content="Gold Scalpers EA for FundingPips - Settings to Stay Within the Rules">
+<meta property="og:description" content="Map Gold Scalpers EA's built-in risk controls to FundingPips's challenge rules.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://goldscalpers.com/prop-firms/fundingpips">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .pf-wrap{max-width:820px;margin:0 auto;padding:2rem 1.2rem;font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#111827;line-height:1.65}
+  .pf-crumb{font-size:.82rem;color:#6B7280;margin-bottom:1rem}.pf-crumb a{color:#D97706;text-decoration:none}
+  .pf-wrap h1{font-size:2rem;line-height:1.15;letter-spacing:-.02em;margin:.2rem 0 .6rem}
+  .pf-wrap h2{font-size:1.3rem;margin:2rem 0 .6rem}.pf-lede{font-size:1.05rem;color:#374151}
+  .pf-table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.92rem}
+  .pf-table th,.pf-table td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid #E5E7EB;vertical-align:top}
+  .pf-table th{background:#FFFBEB;color:#92400E;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+  .pf-table code{background:#F3F4F6;padding:.1rem .35rem;border-radius:4px;font-size:.86rem}
+  .pf-note{background:#FFFBEB;border:1px solid #FDE68A;border-left:4px solid #D97706;border-radius:10px;padding:1rem 1.1rem;font-size:.9rem;margin:1.4rem 0}
+  .pf-cta{display:inline-block;background:#D97706;color:#fff;text-decoration:none;font-weight:700;padding:.8rem 1.6rem;border-radius:10px;margin:.4rem 0}
+  .pf-faq h3{font-size:1.02rem;margin:1.1rem 0 .3rem}
+  .pf-disc{font-size:.8rem;color:#6B7280;border-top:1px solid #E5E7EB;margin-top:2.5rem;padding-top:1rem}
+@media(max-width:560px){.pf-wrap{padding:1.2rem .85rem}.pf-table{table-layout:fixed;font-size:.8rem}.pf-table th,.pf-table td{padding:.45rem .4rem;word-break:break-word;overflow-wrap:anywhere}.pf-table code{white-space:normal;overflow-wrap:anywhere}}</style>
+</head>
+<body>
+<main class="pf-wrap">
+  <nav class="pf-crumb"><a href="/">Home</a> &rsaquo; <a href="/prop-firms/">Prop firms</a> &rsaquo; FundingPips</nav>
+  <h1>Gold Scalpers EA for FundingPips</h1>
+  <p class="pf-lede">FundingPips runs multi-step evaluations with daily-loss and overall-loss limits. Gold Scalpers EA maps each limit to a built-in control so you trade gold within the rules, hands-free.</p>
+  <a class="pf-cta" href="/checkout">Get the EA - $220 (lifetime)</a>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>FundingPips rules - Gold Scalpers EA settings</h2>
+  <p>Prop evaluations are won by preserving capital. Gold Scalpers EA enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
+  <table class="pf-table">
+    <tr><th>FundingPips rule (verify current values)</th><th>What it means</th><th>Gold Scalpers EA control</th></tr>
+    <tr><td>Max daily loss (typically ~5%)</td><td>Account cannot lose more than the daily cap</td><td><code>daily_loss</code> - set to ~80% of your program's daily cap in account $. EA flattens and pauses for the day when hit.</td></tr>
+    <tr><td>Max overall loss (typically ~10%)</td><td>Account cannot fall below the overall floor</td><td><code>max_dd</code> - set a few % under your program's limit. The drawdown guard closes all and pauses on breach.</td></tr>
+    <tr><td>Profit target</td><td>Reach target without breaking loss rules</td><td><code>daily_profit</code> - optional daily cap to bank gains and avoid giving them back.</td></tr>
+    <tr><td>News restrictions</td><td>Some programs restrict trading around high-impact news</td><td><code>use_news = true</code> - pauses entries within the news window (MT5 calendar).</td></tr>
+    <tr><td>Overtrading / consistency</td><td>Avoid one outlier day carrying the account</td><td><code>max_daily_orders</code> + <code>b_max_open</code> - cap trades/day and open positions.</td></tr>
+  </table>
+
+  <div class="pf-note"><strong>How to set it:</strong> FundingPips rewards steady progress to target - the EA's news, session and spread filters avoid the low-quality conditions that cause rule breaches. Start with <code>use_risk_lots = true</code>, <code>risk_percent</code> = 0.5-1.0, <code>b_max_open</code> = 1, <code>use_news</code> = true, and your <code>daily_loss</code> / <code>max_dd</code> set safely under FundingPips's published limits.</div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why an EA helps with a prop challenge</h2>
+  <p>The most common way traders fail is a single emotional or oversized day. Gold Scalpers EA removes that: fixed-risk sizing, an automatic daily-loss cap and a max-drawdown guard, and no revenge trading. It is a rules-based EMA 9/21 system - <strong>not</strong> martingale or grid - so it never stacks losing positions.</p>
+
+  <h2 class="pf-faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</h2>
+  <div class="pf-faq">
+    <h3>Can I use Gold Scalpers EA on a FundingPips account?</h3>
+    <p>Yes. It runs on any broker's MetaTrader 5, including FundingPips's platform. Set the risk inputs to sit inside FundingPips's daily-loss and max-drawdown limits.</p>
+    <h3>Does it guarantee I will pass?</h3>
+    <p>No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first.</p>
+  </div>
+
+  <a class="pf-cta" href="/checkout">Get the EA - $220 (lifetime, 14-day money-back)</a>
+  <p class="pf-disc">FundingPips is a trademark of its respective owner; Gold Scalpers is not affiliated with or endorsed by FundingPips. Prop-firm rules change - always confirm current rules on FundingPips's official site. Trading FX and CFDs carries a high level of risk; past performance is not indicative of future results. Information only, not financial advice.</p>
+</main>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com/"},
+{"@type":"ListItem","position":2,"name":"Prop firms","item":"https://goldscalpers.com/prop-firms/"},
+{"@type":"ListItem","position":3,"name":"FundingPips","item":"https://goldscalpers.com/prop-firms/fundingpips"}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Can I use Gold Scalpers EA on a FundingPips account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including FundingPips's platform. Set the risk inputs to sit inside FundingPips's daily-loss and max-drawdown limits."}},
+{"@type":"Question","name":"Does it guarantee I will pass?","acceptedAnswer":{"@type":"Answer","text":"No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first."}}]}
+</script>
+</body></html>

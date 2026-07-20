@@ -1,0 +1,107 @@
+<!doctype html>
+<html Ã¢Å¡Â¡ lang="en">
+<head>
+<meta charset="utf-8">
+<title>Auto-Execute Trades from TradingView: Complete 2026 Setup Guide | Gold Scalpers Ã¢â‚¬â€ Reversal Indicator for XAUUSD, USDJPY, GBPJPY</title>
+<link rel="canonical" href="https://goldscalpers.com/blog/auto-execute-tradingview-trades">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/auto-execute-tradingview-trades">
+<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#F59E0B">
+<meta name="description" content="Three ways to auto-execute trades from TradingView signals Ã¢â‚¬â€œ relay services, MT4/MT5 EAs, and self-hosted webhooks. Complete pros, cons, and setup steps.">
+<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+<script async src="https://cdn.ampproject.org/v0.js"></script><script async custom-element="amp-consent" src="https://cdn.ampproject.org/v0/amp-consent-0.1.js"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Auto-Execute Trades from TradingView: Complete 2026 Setup Guide","datePublished":"2026-04-22","author":{"@type":"Organization","name":"Gold Scalpers"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can TradingView auto-execute trades?","acceptedAnswer":{"@type":"Answer","text":"TradingView itself cannot auto-execute trades from indicator signals. Auto-execution requires a webhook relay service (PineConnector, TradersPost) that receives TradingView alerts and forwards orders to your broker via API. TradingView Pro+ subscription is required for webhook support."}},{"@type":"Question","name":"What is PineConnector?","acceptedAnswer":{"@type":"Answer","text":"PineConnector is a webhook relay service that forwards TradingView alerts to MetaTrader 4 and MetaTrader 5 via an Expert Advisor. It costs $25/month and supports any MT4/MT5 broker. Setup takes 30-60 minutes and requires a VPS running MT4/MT5 24/7."}},{"@type":"Question","name":"How fast is auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Typical signal-to-fill latency is 1-3 seconds: TradingView fires alert (instant), webhook reaches relay service (less than 500ms), relay forwards to broker EA (less than 500ms), EA places order with broker (less than 1 second). VPS latency to broker matters most for scalping strategies."}},{"@type":"Question","name":"Do prop firms allow auto-execution?","acceptedAnswer":{"@type":"Answer","text":"Most prop firms including FTMO, MyForexFunds, and similar prohibit third-party automation tools like PineConnector. Read your firm's terms before using auto-execution. Violations void your account without payout. Some firms allow proprietary EAs you build yourself."}},{"@type":"Question","name":"What VPS should I use for auto-trading?","acceptedAnswer":{"@type":"Answer","text":"For latency-sensitive strategies, use Forex-specialized VPS providers like ForexVPS ($19/month) or Beeks Financial ($35/month) which co-locate near major broker servers. For less latency-sensitive use, Contabo ($7/month) works fine. Avoid generic AWS/Azure for trading VPS due to higher latency."}}]}</script>
+<style amp-custom>#gsConsentUI{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#0F1422;border-top:1px solid #1F2937;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#gsConsentUI .ac-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:1rem;padding:1rem 1.2rem;flex-wrap:wrap}#gsConsentUI .ac-tx{flex:1 1 220px;min-width:0}#gsConsentUI .ac-tx strong{display:block;color:#F4F6FA;font-size:.95rem;font-weight:700}#gsConsentUI .ac-tx span{color:#9CA3AF;font-size:.82rem}#gsConsentUI .ac-bt{display:flex;gap:.5rem;flex:0 0 auto}#gsConsentUI .ac-b{font-size:.85rem;font-weight:700;padding:.55rem 1.1rem;border-radius:9px;border:1px solid transparent;cursor:pointer;font-family:inherit}#gsConsentUI .ac-ghost{background:#1A2230;color:#E6E9EF;border:1px solid #2A3443}#gsConsentUI .ac-acc{background:#F59E0B;color:#1a1206}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0E1A;color:#F9FAFB;line-height:1.7}a{color:#FCD34D;text-decoration:none}a:hover{text-decoration:underline}code{font-family:'SF Mono',Menlo,monospace;font-size:0.9em;background:rgba(245,158,11,0.1);color:#FCD34D;padding:0.15em 0.4em;border-radius:4px}.nav{background:#0F1422;border-bottom:1px solid #1F2937;padding:1rem 1.2rem;position:sticky;top:0;z-index:100}.nav-inner{max-width:780px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}.logo{font-weight:800;color:#F9FAFB;font-size:1rem}.btn{display:inline-block;padding:0.5rem 1rem;background:linear-gradient(135deg,#F59E0B,#D97706);color:#0A0E1A;border-radius:6px;font-weight:700;font-size:0.85rem}article{max-width:760px;margin:0 auto;padding:2rem 1.2rem 3rem}.tag{display:inline-block;background:rgba(245,158,11,0.1);color:#FCD34D;font-size:0.75rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:99px;margin-bottom:1rem;letter-spacing:0.05em;text-transform:uppercase}h1{font-size:2rem;font-weight:800;line-height:1.15;margin-bottom:1rem}.meta{color:#64748B;font-size:0.85rem;display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}h2{font-size:1.4rem;margin:2rem 0 0.8rem;font-weight:800}h3{font-size:1.1rem;margin:1.5rem 0 0.6rem;font-weight:700}p{color:#94A3B8;margin-bottom:1rem;font-size:1rem}strong{color:#F9FAFB}ul,ol{padding-left:1.5rem;margin-bottom:1rem;color:#94A3B8}li{margin-bottom:0.4rem}table{width:100%;border-collapse:collapse;margin:1rem 0;background:#131726;border-radius:8px;overflow:hidden;font-size:0.9rem}th{background:#1F2937;padding:0.7rem;text-align:left;color:#F9FAFB;font-weight:700;font-size:0.85rem}td{padding:0.7rem;border-top:1px solid #1F2937;color:#94A3B8}.cta{background:linear-gradient(135deg,#131726,rgba(245,158,11,0.05));border:1px solid #F59E0B;border-radius:14px;padding:1.5rem;text-align:center;margin:2rem 0}.cta h3{font-size:1.2rem;margin-bottom:0.5rem;color:#F9FAFB}.footer{background:#0F1422;border-top:1px solid #1F2937;padding:2rem 1.2rem;text-align:center;font-size:0.8rem;color:#64748B}.footer a{color:#94A3B8}@media (min-width:600px){h1{font-size:2.4rem}h2{font-size:1.7rem}}.sec-ico{display:inline-block;width:1.05em;height:1.05em;vertical-align:-0.14em;margin-right:.4rem;stroke:#F59E0B}.mt{margin-top:.5rem}</style>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Auto-Execute TradingView Trades","item":"https://goldscalpers.com/blog/auto-execute-tradingview-trades"}]}
+</script>
+</head>
+<body><amp-consent id="gsConsent" layout="nodisplay"><script type="application/json">{"consentInstanceId":"gsConsent","consentRequired":true,"promptUI":"gsConsentUI"}</script><div id="gsConsentUI"><div class="ac-in"><div class="ac-tx"><strong>We use cookies</strong><span>Essential cookies keep the site working; optional analytics help us improve.</span></div><div class="ac-bt"><button class="ac-b ac-ghost" on="tap:gsConsent.reject" role="button" tabindex="0">Essential only</button><button class="ac-b ac-acc" on="tap:gsConsent.accept" role="button" tabindex="0">Accept all</button></div></div></div></amp-consent>
+<nav class="nav"><div class="nav-inner"><a href="/" class="logo">Ã°Å¸Å½Â¯ Gold Scalpers</a><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></div></nav>
+<article>
+  <span class="tag">Automation</span>
+  <h1>Auto-Execute Trades from TradingView: Complete 2026 Setup Guide</h1>
+  <div class="meta"><span>Ã°Å¸â€œâ€¦ April 22, 2026</span><span>Ã¢ÂÂ± 10 min read</span></div>
+
+  <p>Manual trading from TradingView signals works Ã¢â‚¬â€œ until you miss one because you stepped away, slept, or got distracted. Auto-execution removes the human bottleneck. Signal fires Ã¢â€ â€™ broker executes within 3 seconds, while you sleep.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>The TradingView Limitation</h2>
+  <p>TradingView's broker integration is for <strong>manual click trading only</strong>. Indicator alerts cannot directly trigger broker orders. Auto-execution requires a relay service:</p>
+  <p><code>TradingView signal Ã¢â€ â€™ Webhook Ã¢â€ â€™ Relay Ã¢â€ â€™ Broker API Ã¢â€ â€™ Order filled</code></p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Path 1: PineConnector (MT4/MT5)</h2>
+  <p><strong>Best for:</strong> Forex traders using MetaTrader (90% of retail forex).</p>
+  <ul>
+    <li>Ã¢Å“â€¦ Works with any MT4/MT5 broker</li>
+    <li>Ã¢Å“â€¦ 30-60 min setup</li>
+    <li>Ã¢Å“â€¦ $25/month</li>
+    <li>Ã¢ÂÅ’ Requires VPS ($7-15/month)</li>
+  </ul>
+  <p><strong>Total monthly cost:</strong> ~$60 (TradingView Pro+ + PineConnector + VPS).</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Path 2: TradersPost (US Brokers)</h2>
+  <p><strong>Best for:</strong> US traders using Interactive Brokers, Tradier, Alpaca.</p>
+  <ul>
+    <li>Ã¢Å“â€¦ No VPS required</li>
+    <li>Ã¢Å“â€¦ Supports stocks, options, futures, crypto</li>
+    <li>Ã¢ÂÅ’ $29-99/month</li>
+    <li>Ã¢ÂÅ’ US brokers only</li>
+  </ul>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Path 3: Self-Hosted Cloudflare Worker</h2>
+  <p><strong>Best for:</strong> Developers wanting full control.</p>
+  <ul>
+    <li>Ã¢Å“â€¦ $0/month (Cloudflare free tier)</li>
+    <li>Ã¢Å“â€¦ Full control</li>
+    <li>Ã¢ÂÅ’ Requires coding (~150 lines TS)</li>
+    <li>Ã¢ÂÅ’ You handle security and uptime</li>
+  </ul>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>Comparison Table</h2>
+  <table>
+    <thead><tr><th>Method</th><th>Brokers</th><th>Cost/mo</th><th>Setup</th></tr></thead>
+    <tbody>
+      <tr><td>PineConnector</td><td>MT4, MT5</td><td>$25 + VPS</td><td>30-60 min</td></tr>
+      <tr><td>TradersPost</td><td>IBKR, Tradier, Alpaca</td><td>$29-99</td><td>15-30 min</td></tr>
+      <tr><td>Self-Hosted</td><td>Any with API</td><td>$0</td><td>4-8 hours</td></tr>
+    </tbody>
+  </table>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Critical Risks</h2>
+  <ol>
+    <li><strong>Slippage:</strong> 1-2 pips on 1M scalping = 5-10% of TP target</li>
+    <li><strong>Spreads:</strong> theoretical entries differ from real fills</li>
+    <li><strong>VPS downtime:</strong> reboots = missed trades</li>
+    <li><strong>News events:</strong> auto-execution doesn't pause for NFP/FOMC</li>
+    <li><strong>Prop firm rules:</strong> most ban third-party automation</li>
+  </ol>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Position Sizing</h2>
+  <p>Your indicator outputs entry/SL/TP. It does NOT calculate lot size. Most account blow-ups in auto-trading come from this gap. Use a lot size calculator add-on or set fixed lot sizes.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Recommended Path for Most Traders</h2>
+  <ol>
+    <li>TradingView Pro+ ($30/mo)</li>
+    <li>PineConnector ($25/mo)</li>
+    <li>VPS ($7-15/mo)</li>
+    <li>Install PineConnector EA on MT5</li>
+    <li>Test on demo for 30+ days</li>
+    <li>Go live at 0.5% risk for first 50 trades</li>
+  </ol>
+
+  <div class="cta">
+    <h3>Use Gold Scalpers with Auto-Execution</h3>
+    <p>Outputs Webhook JSON for PineConnector and TradersPost out of the box.</p>
+    <p><a href="/checkout" class="btn">Get Lifetime &ndash; $220</a></p>
+  </div>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>Auto-execution from TradingView is genuinely possible. PineConnector + MT4/MT5 + VPS is the most accessible path at ~$60/month total. Forward-test 30 days before going live. Never skip news pauses or position sizing rules.</p>
+</article>
+<footer class="footer"><p>Ã‚Â© 2026 Gold Scalpers Ã‚Â· Trading involves risk of loss.</p><p class="mt"><a href="/">Home</a> Ã‚Â· <a href="/blog/">Blog</a> Ã‚Â· <a href="/blog/auto-execute-tradingview-trades">Full version</a></p></footer>
+</body>
+</html>

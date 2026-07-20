@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD) | Gold Scalpers</title>
+<meta name="description" content="The exact dollar math to pass a $50k prop firm challenge on gold: the $5,000 target, $2,500 daily-loss and $5,000 max-loss limits, XAUUSD lot sizing at 1% risk, a realistic pace plan, and the EA settings that enforce it.">
+<meta name="keywords" content="pass $50k prop firm challenge, $50k prop firm challenge gold, $50k challenge XAUUSD, $50k funded account gold, prop firm $50k lot size, pass $50k FTMO gold, $50k challenge risk math">
+<link rel="canonical" href="https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/how-to-pass-50k-prop-firm-challenge-gold">
+<meta property="og:title" content="How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD)">
+<meta property="og:description" content="The exact dollar math, XAUUSD lot sizing at 1% risk, a realistic pace plan, and the EA settings to pass a $50k gold challenge.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Pass a $50,000 Prop Firm Challenge on Gold">
+<meta name="twitter:description" content="Exact dollar math, XAUUSD lot sizing at 1% risk, a pace plan, and the EA settings to pass a $50k gold challenge.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article","headline":"How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD)","datePublished":"2026-07-07","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Indicator Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold"},"image":"https://goldscalpers.com/og-image.png"}
+</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much do you need to make to pass a $50k prop firm challenge?","acceptedAnswer":{"@type":"Answer","text":"A typical $50,000 challenge has a +10% profit target, which is $5,000. You must reach $55,000 in equity without ever losing $2,500 in a single day (the 5% daily-loss limit) or drawing down $5,000 overall (the 10% max-loss limit)."}},{"@type":"Question","name":"What lot size should I use on a $50k gold challenge?","acceptedAnswer":{"@type":"Answer","text":"Size each trade so the stop-loss equals about 1% of the account, or $500, on a $50k challenge. For XAUUSD, one standard lot is roughly $100 per $1 of price movement, so let the stop distance set the lot size, never the other way around."}},{"@type":"Question","name":"How long does it take to pass a $50k challenge on gold?","acceptedAnswer":{"@type":"Answer","text":"At 1% risk per trade and a 1:1.5 reward, a realistic 55% win rate produces roughly $190 of expectancy per trade, so reaching the $5,000 target takes about 26 net-positive trades. That is a few weeks, not a single afternoon."}},{"@type":"Question","name":"What is the daily loss limit on a $50k challenge?","acceptedAnswer":{"@type":"Answer","text":"Most $50,000 challenges use a 5% daily-loss limit, which is $2,500. The safe approach is a personal daily stop at 3%, or $1,500, which is three losing trades at 1% risk, leaving a $1,000 buffer inside the firm's line."}},{"@type":"Question","name":"Can an EA pass a $50k gold challenge for you?","acceptedAnswer":{"@type":"Answer","text":"An EA cannot guarantee a pass, but Gold Scalpers EA's Prop Firm Mode automatically sizes each trade to 1% of the $50k balance, stops trading at a $1,500 daily loss, flattens on max drawdown, and filters news and the session gap."}}]}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"Pass a $50k Prop Firm Challenge on Gold","item":"https://goldscalpers.com/blog/how-to-pass-50k-prop-firm-challenge-gold"}]}
+</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/prop-firms/">Prop Firms</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">Prop Firms</span>
+    <h1>How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD)</h1>
+    <div class="article-meta"><span>&#128197; July 7, 2026</span><span>&#9201; 10 min read</span></div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team &middot; Advanced &middot; Reviewed for accuracy 2026-07-07</div>
+  </div>
+  <div class="article-hero-svg">
+    <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A $50k account equity curve climbing to the target while staying above the daily and max loss floors">
+      <rect width="760" height="340" fill="#0E1421"/>
+      <line x1="0" y1="70" x2="760" y2="70" stroke="#10B981" stroke-dasharray="4 3" opacity="0.6"/><text x="20" y="64" fill="#10B981" font-size="11" font-weight="800">TARGET $55,000 (+10%)</text>
+      <line x1="0" y1="250" x2="760" y2="250" stroke="#F59E0B" stroke-dasharray="4 3" opacity="0.6"/><text x="20" y="244" fill="#F59E0B" font-size="11" font-weight="800">DAILY FLOOR $47,500 (&minus;5%)</text>
+      <line x1="0" y1="300" x2="760" y2="300" stroke="#EF4444" stroke-dasharray="4 3" opacity="0.6"/><text x="20" y="294" fill="#EF4444" font-size="11" font-weight="800">MAX FLOOR $45,000 (&minus;10%)</text>
+      <path d="M 30,200 L 110,192 L 180,198 L 250,176 L 320,182 L 400,152 L 480,132 L 560,110 L 640,90 L 720,72" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><animate attributeName="stroke-dasharray" values="0 1600;1600 0" dur="3s" repeatCount="indefinite"/></path>
+      <circle cx="720" cy="72" r="8" fill="#10B981"><animate attributeName="r" values="6;11;6" dur="1.6s" repeatCount="indefinite"/></circle>
+      <text x="380" y="34" fill="#FCD34D" font-size="20" font-weight="800" text-anchor="middle">$50k &rarr; $55,000 without touching the floors</text>
+    </svg>
+  </div>
+</section>
+
+<article class="article-body">
+  <p>A <strong>$50,000 prop firm challenge</strong> is a popular funded-account size, and one where a lot of money is lost, because traders see the balance and start swinging for the target. This page is the opposite: the precise <em>dollar</em> math of a $50k gold challenge, the XAUUSD lot sizing that keeps you safe, a realistic pace plan, and the settings that enforce all of it.</p>
+  <p>If you want the general principles first, read <a href="/blog/how-to-pass-prop-firm-challenge-xauusd">how to pass a prop firm challenge on gold</a>. This page is the $50k-specific playbook.</p>
+
+  <div class="toc" style="background:#0E1421;border:1px solid #1E293B;border-radius:12px;padding:1rem 1.25rem;margin:1.5rem 0">
+    <strong style="color:#FCD34D;font-size:0.9rem;letter-spacing:.02em">ON THIS PAGE</strong>
+    <ul style="columns:2;margin:.6rem 0 0;padding-left:1.1rem;font-size:0.92rem">
+      <li><a href="#the-numbers">The three numbers</a></li>
+      <li><a href="#lot-size">XAUUSD lot sizing at $50k</a></li>
+      <li><a href="#pace">The pace plan</a></li>
+      <li><a href="#daily-stop">Your personal daily stop</a></li>
+      <li><a href="#ea-settings">EA settings for $50k</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+  </div>
+
+  <h2 id="the-numbers"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>The Three Numbers of a $50k Challenge</h2>
+  <p>Every $50,000 evaluation comes down to three dollar figures. Hit the top one before you ever touch either floor:</p>
+  <ul>
+    <li><strong>Profit target +10% = $5,000.</strong> Reach $55,000 in equity to pass.</li>
+    <li><strong>Daily loss limit &minus;5% = $2,500.</strong> Lose $2,500 in one day and the account is gone, instantly.</li>
+    <li><strong>Max overall loss &minus;10% = $5,000.</strong> Drop to $45,000 total and it's over.</li>
+  </ul>
+  <p>Read it the way the firm means it: you have <em>twice</em> the room to lose ($5,000) that you need to win the daily battle, and a hard brake at $2,500 a day. A $50k challenge is a <strong>risk test</strong> with a $5,000 finish line &ndash; not a race.</p>
+
+  <figure style="margin:1.75rem 0">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;border-radius:12px;border:1px solid #1E293B" role="img" aria-label="The three dollar thresholds of a $50k challenge as stacked zones">
+      <rect width="720" height="250" fill="#0E1421"/>
+      <rect x="70" y="24"  width="580" height="44" fill="#10B981" opacity="0.14"/><text x="360" y="51" fill="#10B981" font-size="13" font-weight="800" text-anchor="middle">&#9650; PASS at $55,000  (+$5,000)</text>
+      <rect x="70" y="74"  width="580" height="86" fill="#1E293B" opacity="0.5"/><text x="360" y="122" fill="#94A3B8" font-size="12" font-weight="700" text-anchor="middle">TRADE HERE &mdash; small size, let $5,000 build over weeks</text>
+      <rect x="70" y="168" width="580" height="32" fill="#F59E0B" opacity="0.16"/><text x="360" y="189" fill="#F59E0B" font-size="12" font-weight="800" text-anchor="middle">DAILY FLOOR $47,500  &mdash;  &minus;$2,500 in a day = out</text>
+      <rect x="70" y="204" width="580" height="26" fill="#EF4444" opacity="0.16"/><text x="360" y="222" fill="#EF4444" font-size="11" font-weight="800" text-anchor="middle">MAX FLOOR $45,000  &mdash;  &minus;$5,000 total = out</text>
+    </svg>
+    <figcaption style="color:var(--text-muted);font-size:0.85rem;text-align:center;margin-top:.5rem">Figure 1 &mdash; On a $50k account the whole job is reaching the green line while never touching amber or red. Everything below is just how to do that on gold.</figcaption>
+  </figure>
+
+  <h2 id="lot-size"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>XAUUSD Lot Sizing on a $50k Account</h2>
+  <p>Here's where $50k challenges die: traders pick a lot size, <em>then</em> place a stop. Do it backwards. Decide you'll risk <strong>1% = $500</strong> per trade, place a structural stop, and let that distance set the lot size. On XAUUSD, one standard lot is roughly <strong>$100 per $1</strong> of gold movement, so:</p>
+  <div style="overflow-x:auto;margin:1.25rem 0">
+    <table style="width:100%;border-collapse:collapse;font-size:0.92rem">
+      <thead><tr style="text-align:left;border-bottom:1px solid #334155;color:#FCD34D">
+        <th style="padding:.6rem .5rem">Stop distance</th><th style="padding:.6rem .5rem">Risk per lot</th><th style="padding:.6rem .5rem">Lots for 1% ($500)</th></tr></thead>
+      <tbody style="color:var(--text)">
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">$2.00 (tight scalp)</td><td style="padding:.55rem .5rem">~$200</td><td style="padding:.55rem .5rem">~2.5 lots</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">$3.00</td><td style="padding:.55rem .5rem">~$300</td><td style="padding:.55rem .5rem">~1.67 lots</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">$5.00</td><td style="padding:.55rem .5rem">~$500</td><td style="padding:.55rem .5rem">~1.0 lot</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">$10.00 (swing)</td><td style="padding:.55rem .5rem">~$1,000</td><td style="padding:.55rem .5rem">~0.5 lots</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Notice the lot size <em>falls</em> as the stop widens &ndash; that's the point. The dollar risk stays pinned at $500 no matter the setup. This is the <a href="/blog/forex-risk-management-1-percent-rule">1% rule</a> applied to your account, and exactly the calculation an EA does on every single trade without a slip.</p>
+
+  <h2 id="pace"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>The Pace Plan: $5,000 in About 26 Trades</h2>
+  <p>Target 1:1.5 reward, so each $500 risk aims at <strong>+$750</strong>. At a realistic 55% win rate, expectancy is <strong>+$190 per trade</strong>. Reaching +$5,000 therefore takes roughly <strong>26 net-positive trades</strong>. At three or four clean gold setups a session, that's a <strong>few weeks</strong> &ndash; well inside most challenge time limits.</p>
+  <blockquote>&ldquo;A $50k challenge isn't won on your best day. It's won by never having the day that breaches $2,500.&rdquo;</blockquote>
+  <p>Bank consistent small green days and let them compound. Many firms also run a consistency rule that punishes a single outsized day, so a smooth curve isn't just safer &ndash; it's often required. Use the mechanical entries from the <a href="/blog/xauusd-scalping-strategy">XAUUSD scalping strategy</a> to find those setups.</p>
+
+  <h2 id="daily-stop"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>Your Personal Daily Stop: $1,500, Not $2,500</h2>
+  <p>Never let the firm's $2,500 line be your stop &ndash; by the time you hit it, you've failed. Set a personal daily stop at <strong>3% = $1,500</strong>, which is exactly <strong>three losing trades</strong> at 1% risk. If you're down $1,500, you're done for the day with a full <strong>$1,000 buffer</strong> still between you and the breach. Three losers is a bad day; it should never become a blown account.</p>
+
+  <div class="cta-banner">
+    <h3>Let the EA size every $50k trade to the dollar.</h3>
+    <p>Prop Firm Mode auto-sizes each XAUUSD trade to 1% of your $50k balance, stops at a $1,500 daily loss, flattens on max drawdown, and skips news and the session gap &ndash; the whole playbook above, enforced automatically.</p>
+    <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220 &rarr;</a>
+    <a href="/prop-firms/" class="btn btn-ghost" style="margin-left:0.5rem">See per-firm settings &rarr;</a>
+  </div>
+
+  <h2 id="ea-settings"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Gold Scalpers EA Settings for a $50k Challenge</h2>
+  <p>If you're running <a href="/blog/best-gold-scalping-ea-mt5">the EA</a> on the challenge, this is the starting map. Always confirm against your specific firm's current rules:</p>
+  <div style="overflow-x:auto;margin:1.25rem 0">
+    <table style="width:100%;border-collapse:collapse;font-size:0.92rem">
+      <thead><tr style="text-align:left;border-bottom:1px solid #334155;color:#FCD34D">
+        <th style="padding:.6rem .5rem">Setting</th><th style="padding:.6rem .5rem">$50k value</th><th style="padding:.6rem .5rem">Why</th></tr></thead>
+      <tbody style="color:var(--text)">
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">Risk per trade</td><td style="padding:.55rem .5rem">1.0% ($500)</td><td style="padding:.55rem .5rem">5&ndash;10 losers of room vs the daily limit</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">Daily-loss stop</td><td style="padding:.55rem .5rem">$1,500</td><td style="padding:.55rem .5rem">Inside the firm's $2,500 line</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">Max-drawdown guard</td><td style="padding:.55rem .5rem">$4,000&ndash;$4,500</td><td style="padding:.55rem .5rem">Flattens before the $5,000 max-loss line</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">Daily profit target</td><td style="padding:.55rem .5rem">$1,000 (optional)</td><td style="padding:.55rem .5rem">Banks the day, satisfies consistency rules</td></tr>
+        <tr style="border-bottom:1px solid #1E293B"><td style="padding:.55rem .5rem">News + session filter</td><td style="padding:.55rem .5rem">On</td><td style="padding:.55rem .5rem">Skips CPI/NFP/FOMC and the rollover gap</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Map these to your firm on the <a href="/prop-firms/">prop-firms hub</a> (FTMO, FundedNext, The5ers, FundingPips), and <a href="/blog/how-to-backtest-mt5-ea">backtest</a> before you run the live evaluation. Trading a bigger account next? See the <a href="/blog/how-to-pass-100k-prop-firm-challenge-gold">$100k challenge playbook</a>.</p>
+
+  <h2 id="faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Frequently Asked Questions</h2>
+  <h3>How much do you need to make to pass a $50k challenge?</h3>
+  <p>$5,000 (the +10% target), reaching $55,000 without ever losing $2,500 in a day or $5,000 overall.</p>
+  <h3>What lot size on a $50k gold challenge?</h3>
+  <p>Whatever makes your stop equal 1% ($500). On XAUUSD that's about ~2.5 lots for a $2 stop and ~1.0 lot for a $5 stop &ndash; the stop distance decides, never the reverse.</p>
+  <h3>How long does it take?</h3>
+  <p>About 26 net-positive trades at 1% risk and 1:1.5 reward &ndash; a few weeks of a few setups per session, not one afternoon.</p>
+  <h3>Can an EA pass it for me?</h3>
+  <p>It can't guarantee a pass, but Gold Scalpers EA's Prop Firm Mode enforces the exact sizing, daily stop and drawdown guard above automatically.</p>
+
+  <h2 id="conclusion"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conclusion</h2>
+  <p>A $50,000 gold challenge is won by arithmetic, not heroics: reach $55,000 while never seeing $47,500 in a day or $45,000 overall. Risk $500 per trade, let the stop set the lots, stop your own day at $1,500, and bank the target over weeks. Every number here is fixed and mechanical &ndash; which is why <a href="/blog/best-gold-scalping-ea-mt5">a properly built EA</a> can hold the line far more reliably than a human at 2am. Set it to the values above and let it trade the plan.</p>
+</article>
+
+<section class="related-posts">
+  <h3>Related Articles</h3>
+  <div class="blog-grid">
+    <article class="blog-card"><a href="/blog/how-to-pass-100k-prop-firm-challenge-gold"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><line x1="30" y1="48" x2="380" y2="48" stroke="#10B981" stroke-dasharray="4 3" opacity="0.5"/><polyline points="30,122 100,114 170,118 240,94 300,74 380,52" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="380" cy="52" r="5" fill="#10B981"/><text x="200" y="26" fill="#FCD34D" font-size="17" font-weight="800" text-anchor="middle">&#128176; $100K CHALLENGE</text></svg></div><div class="blog-card-body"><span class="blog-tag">Prop Firms</span><h3>How to Pass a $100,000 Challenge on Gold</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/best-gold-scalping-ea-mt5"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><polyline points="30,120 100,112 170,116 240,92 310,80 380,58" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="330" y="150" fill="#FCD34D" font-size="26" font-weight="800" text-anchor="middle">Au</text><text x="200" y="34" fill="#FCD34D" font-size="14" font-weight="800" text-anchor="middle">&#129302; GOLD SCALPING EA</text></svg></div><div class="blog-card-body"><span class="blog-tag">Expert Advisors</span><h3>Best Gold Scalping EA for MT5 (2026)</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/forex-risk-management-1-percent-rule"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="90" r="55" fill="none" stroke="#10B981" stroke-width="6"/><text x="200" y="102" fill="#FCD34D" font-size="34" font-weight="800" text-anchor="middle">1%</text></svg></div><div class="blog-card-body"><span class="blog-tag">Risk</span><h3>The 1% Risk Management Rule</h3></div></a></article>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Precision reversal signals for XAUUSD, USDJPY, and GBPJPY. Built for serious traders who refuse to miss setups.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/prop-firms/">Prop Firms</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">&copy; 2026 Gold Scalpers. Not affiliated with or endorsed by any prop firm; all firm names are trademarks of their owners. Trading involves substantial risk of loss. Past performance does not guarantee future results. Nothing in this article is financial advice.</div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>
