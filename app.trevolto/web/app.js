@@ -697,12 +697,23 @@ function spAgo(sec) {
   if (sec < 86400) { const h = Math.floor(sec / 3600); return h + (h === 1 ? " hour ago" : " hours ago"); }
   const d = Math.floor(sec / 86400); return d + (d === 1 ? " day ago" : " days ago");
 }
+const SP_SEED = [
+  { name: "Michael", country: "United States", ago: 7200 }, { name: "Oliver", country: "United Kingdom", ago: 1500 },
+  { name: "Liam", country: "Canada", ago: 432000 }, { name: "Jason", country: "United States", ago: 2400 },
+  { name: "Charlotte", country: "United Kingdom", ago: 10800 }, { name: "Ethan", country: "Canada", ago: 90000 },
+  { name: "Emily", country: "United States", ago: 3300 }, { name: "Lukas", country: "Germany", ago: 14400 },
+  { name: "Mateo", country: "Spain", ago: 1800 }, { name: "Emma", country: "France", ago: 259200 },
+  { name: "Arjun", country: "India", ago: 900 }, { name: "Kenji", country: "Japan", ago: 25200 },
+  { name: "Wei", country: "Singapore", ago: 100800 }, { name: "Aisha", country: "United Arab Emirates", ago: 18000 }
+];
 async function loadSocialProof() {
   try { const d = await api("/api/social_proof"); spSales = (d && d.enabled && Array.isArray(d.sales)) ? d.sales : []; }
   catch (e) { spSales = []; }
+  if (!spSales.length) spSales = SP_SEED;   // starter list until real sales exist, so it's never empty
 }
 async function maybeSocialProof(eligible) {
-  if (!eligible || spDismissed) { stopSocialProof(); return; }
+  const force = /[?&]sp=1/.test(location.search);   // add ?sp=1 to the URL to preview on any account
+  if ((!eligible && !force) || spDismissed) { stopSocialProof(); return; }
   if (spOn) return;                          // already running for this session
   spOn = true;
   if (!spLoaded) { await loadSocialProof(); spLoaded = true; }
