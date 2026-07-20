@@ -732,7 +732,7 @@ function spCycle() {
   spIdx++;
   if (spIdx % spSales.length === 0) loadSocialProof();     // refresh list on wrap (picks up new sales)
   const loc = s.country ? ` from ${esc(s.country)}` : "";
-  box.innerHTML = `<img class="sp-logo" src="/static/icon-192.png" alt=""/>` +
+  box.innerHTML = `<img class="sp-logo" src="https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png" alt=""/>` +
     `<div class="sp-body"><div class="sp-line"><b>${esc(s.name)}</b>${loc}</div>` +
     `<div class="sp-sub">just purchased! · ${esc(spAgo(s.ago))}</div></div>` +
     `<button class="sp-x" onclick="dismissSocialProof()" aria-label="Dismiss">×</button>`;

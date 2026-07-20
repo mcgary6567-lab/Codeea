@@ -166,7 +166,7 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
   transform:translateY(140%);opacity:0;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .45s}
 .social-proof.show{transform:translateY(0);opacity:1}
 .social-proof.hidden{display:none}
-.sp-logo{width:40px;height:40px;border-radius:9px;flex-shrink:0;object-fit:cover;background:var(--chip)}
+.sp-logo{width:40px;height:40px;border-radius:9px;flex-shrink:0;object-fit:contain;padding:3px;background:var(--chip)}
 .sp-body{flex:1;min-width:0}
 .sp-line{font-size:13px;color:var(--txt);font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sp-line b{font-weight:800}
