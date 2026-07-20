@@ -16,7 +16,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "engine"))
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import backtest as bt
@@ -821,15 +821,18 @@ def server_ip(user: dict = Depends(current_user)):
 
 @app.get("/api/social_proof")
 def social_proof():
-    """Public: recent real purchases for the dashboard popup. No auth, no secrets."""
+    """Public: recent real purchases for the dashboard + marketing-site popup.
+    No auth, no secrets. CORS-open so the static marketing sites can read it."""
     if (store.kv_get("social_proof_on") or "1") != "1":
-        return {"enabled": False, "sales": []}
-    now = time.time()
-    out = []
-    for s in store.social_proof_sales(12):
-        out.append({"name": s["name"], "country": s["country"],
-                    "ago": int(max(0, now - (s["ts"] or now)))})
-    return {"enabled": True, "sales": out}
+        payload = {"enabled": False, "sales": []}
+    else:
+        now = time.time()
+        out = [{"name": s["name"], "country": s["country"],
+                "ago": int(max(0, now - (s["ts"] or now)))}
+               for s in store.social_proof_sales(12)]
+        payload = {"enabled": True, "sales": out}
+    return JSONResponse(payload, headers={"Access-Control-Allow-Origin": "*",
+                                          "Cache-Control": "public, max-age=30"})
 
 
 # --- no-cache for app JS/CSS so deploys always load fresh code --------------
