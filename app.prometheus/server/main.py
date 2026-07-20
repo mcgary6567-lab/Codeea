@@ -90,7 +90,9 @@ async def register(request: Request):
         user = store.create_user(email, pw, d.get("first_name", ""), d.get("last_name", ""))
     except ValueError as e:
         raise HTTPException(400, str(e))
-    store.record_login(user["id"], _ip(request), request.headers.get("user-agent", ""))
+    ip = _ip(request)
+    store.record_login(user["id"], ip, request.headers.get("user-agent", ""))
+    _geolocate_user_async(user["id"], ip)   # fill country for the social-proof popup
     return {"token": security.make_token(user["id"], user["email"], user.get("token_version", 0)), "email": user["email"]}
 
 
@@ -589,6 +591,21 @@ def admin_audit(admin: dict = Depends(require_admin)):
     return {"audit": store.recent_audit(30)}
 
 
+@app.get("/api/admin/social_proof")
+def admin_social_proof_get(admin: dict = Depends(require_admin)):
+    return {"enabled": (store.kv_get("social_proof_on") or "1") == "1",
+            "count": len(store.social_proof_sales(50))}
+
+
+@app.post("/api/admin/social_proof")
+async def admin_social_proof_set(request: Request, admin: dict = Depends(require_admin)):
+    d = await body(request)
+    on = bool(d.get("enabled"))
+    store.kv_set("social_proof_on", "1" if on else "0")
+    store.record_audit(admin["email"], "social_proof", None, "on" if on else "off")
+    return {"ok": True, "enabled": on}
+
+
 # --- customer: request custom-strategy access -------------------------------
 @app.post("/api/strategy/request")
 async def strategy_request(request: Request, user: dict = Depends(current_user)):
@@ -745,9 +762,74 @@ import threading as _threading
 _threading.Thread(target=_warm_server_ip, daemon=True).start()
 
 
+# --- geolocation for the social-proof popup ("from United States") ----------
+def _is_public_ip(ip: str) -> bool:
+    if not ip or ip in ("127.0.0.1", "::1", "localhost"):
+        return False
+    for p in ("10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+              "172.2", "172.30.", "172.31.", "169.254.", "fc", "fd", "fe80"):
+        if ip.startswith(p):
+            return False
+    return True
+
+
+def _geolocate_country(ip: str) -> str:
+    """Best-effort country NAME from an IP. Tries several free providers so a
+    single one being down/rate-limited doesn't lose the location. Degrades to
+    "" (the popup then just omits the location)."""
+    if not _is_public_ip(ip):
+        return ""
+    import urllib.request as _u, json as _j
+
+    def _txt(url):
+        req = _u.Request(url, headers={"User-Agent": "curl/8"})
+        with _u.urlopen(req, timeout=4) as r:
+            return r.read().decode().strip()
+
+    def _ok(name):
+        return isinstance(name, str) and name and "<" not in name and 2 <= len(name) <= 56
+
+    # Providers that return a full country NAME (not a 2-letter code).
+    providers = [
+        lambda: _txt(f"https://ipapi.co/{ip}/country_name/"),
+        lambda: (_j.loads(_txt(f"https://ipwho.is/{ip}")) or {}).get("country", ""),
+        lambda: (_j.loads(_txt(f"http://ip-api.com/json/{ip}?fields=country")) or {}).get("country", ""),
+        lambda: _txt(f"https://get.geojs.io/v1/ip/country/full/{ip}"),
+    ]
+    for fn in providers:
+        try:
+            name = fn()
+            if _ok(name):
+                return name.strip()
+        except Exception:
+            continue
+    return ""
+
+
+def _geolocate_user_async(user_id: int, ip: str) -> None:
+    def _run():
+        c = _geolocate_country(ip)
+        if c:
+            store.set_country(user_id, c)
+    _threading.Thread(target=_run, daemon=True).start()
+
+
 @app.get("/api/server_ip")
 def server_ip(user: dict = Depends(current_user)):
     return {"ip": _server_ip()}
+
+
+@app.get("/api/social_proof")
+def social_proof():
+    """Public: recent real purchases for the dashboard popup. No auth, no secrets."""
+    if (store.kv_get("social_proof_on") or "1") != "1":
+        return {"enabled": False, "sales": []}
+    now = time.time()
+    out = []
+    for s in store.social_proof_sales(12):
+        out.append({"name": s["name"], "country": s["country"],
+                    "ago": int(max(0, now - (s["ts"] or now)))})
+    return {"enabled": True, "sales": out}
 
 
 # --- no-cache for app JS/CSS so deploys always load fresh code --------------

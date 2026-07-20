@@ -62,6 +62,21 @@ async function reloadAll() {
   loadAudit();
   loadStrategy();
   loadRequests();
+  loadSocialProofState();
+}
+async function loadSocialProofState() {
+  try {
+    const d = await api("/api/admin/social_proof");
+    if ($("sp-on")) $("sp-on").checked = !!d.enabled;
+    if ($("sp-state")) $("sp-state").textContent = d.enabled
+      ? `On · ${d.count} recent sale${d.count === 1 ? "" : "s"} in rotation.`
+      : "Off — customers won't see the sale popup.";
+  } catch (e) { }
+}
+async function toggleSocialProof() {
+  const on = !!($("sp-on") && $("sp-on").checked);
+  try { await api("/api/admin/social_proof", "POST", { enabled: on }); notify(on ? "Sale popup ON ✓" : "Sale popup off", on ? "ok" : "warn"); loadSocialProofState(); loadAudit(); }
+  catch (e) { notify(e.message, "error"); loadSocialProofState(); }
 }
 
 // ---- KPI + charts ----

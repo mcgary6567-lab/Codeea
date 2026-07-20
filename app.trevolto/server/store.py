@@ -105,6 +105,7 @@ def init_db() -> None:
             "allow_custom": "INTEGER NOT NULL DEFAULT 0",
             "custom_requested": "REAL NOT NULL DEFAULT 0",
             "custom_reason": "TEXT NOT NULL DEFAULT ''",
+            "country": "TEXT NOT NULL DEFAULT ''",
         }.items():
             ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
             if name not in ucols:
@@ -647,6 +648,32 @@ def record_sale(user_id: int, amount: float, method: str = "", note: str = "") -
     with _LOCK, _conn() as c:
         c.execute("INSERT INTO sales(user_id, ts, amount, method, note) VALUES(?,?,?,?,?)",
                   (user_id, time.time(), float(amount), method[:40], note[:200]))
+
+
+def set_country(user_id: int, country: str) -> None:
+    country = (country or "").strip()[:60]
+    if not country:
+        return
+    with _LOCK, _conn() as c:
+        c.execute("UPDATE users SET country=? WHERE id=? AND (country='' OR country IS NULL)",
+                  (country, user_id))
+
+
+def social_proof_sales(limit: int = 12, max_age_days: float = 120.0) -> list:
+    """Recent real purchases for the social-proof popup — first name + country only,
+    never email/amount. Newest first."""
+    cutoff = time.time() - max_age_days * 86400
+    with _LOCK, _conn() as c:
+        rows = c.execute(
+            "SELECT s.ts AS ts, u.first_name AS first_name, u.country AS country "
+            "FROM sales s JOIN users u ON u.id = s.user_id "
+            "WHERE s.amount > 0 AND s.ts >= ? ORDER BY s.ts DESC LIMIT ?",
+            (cutoff, int(limit))).fetchall()
+    out = []
+    for r in rows:
+        name = (r["first_name"] or "").strip().split(" ")[0][:24] or "Someone"
+        out.append({"name": name, "country": (r["country"] or "").strip(), "ts": r["ts"]})
+    return out
 
 
 def revenue_stats() -> dict:

@@ -66,7 +66,7 @@ async function doReset() {
 async function twofaSetup() { try { const d = await api("/api/2fa/setup", "POST"); $("tfa-secret").textContent = d.secret; $("tfa-setup").classList.remove("hidden"); } catch (e) { notify(e.message, "error"); } }
 async function twofaEnable() { try { await api("/api/2fa/enable", "POST", { code: $("tfa-code").value.trim() }); notify("2FA enabled ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function twofaDisable() { try { await api("/api/2fa/disable", "POST", { password: $("tfa-pass").value }); notify("2FA disabled", "warn"); $("tfa-pass").value = ""; refresh(); } catch (e) { notify(e.message, "error"); } }
-function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
+function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); stopSocialProof(); spDismissed = false; spLoaded = false; $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
 function enterApp() {
   $("landing").classList.add("hidden"); $("app").classList.remove("hidden");
   const foll = localStorage.getItem("ch_follow") !== "0";   // ON by default
@@ -191,6 +191,7 @@ function render(s) {
   $("st-access").className = "chip " + (ac.ok ? (ac.status === "trial" ? "warn" : "safe") : "danger");
   const buyable = ac.status === "trial" || ac.status === "expired";
   accessBuyable = buyable;
+  maybeSocialProof(buyable);          // FOMO purchase popup for trial/expired users
   $("st-access").style.cursor = buyable ? "pointer" : "default";
   $("st-access").title = buyable ? "Buy / renew licence" : "";
   if ($("st-buy")) { $("st-buy").classList.toggle("hidden", !buyable); $("st-buy").href = CHECKOUT_URL; }
@@ -687,6 +688,52 @@ function notify(msg, type = "ok") {
   setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateX(24px)"; setTimeout(() => el.remove(), 320); }, 3400);
 }
 function toast(msg) { notify(msg, "ok"); }
+
+// ---- social-proof purchase popup (shown to trial/expired users only) ----
+let spSales = [], spIdx = 0, spTimer = null, spOn = false, spDismissed = false, spLoaded = false;
+function spAgo(sec) {
+  sec = Math.max(0, sec | 0);
+  if (sec < 3600) return Math.max(1, Math.floor(sec / 60)) + " min ago";
+  if (sec < 86400) { const h = Math.floor(sec / 3600); return h + (h === 1 ? " hour ago" : " hours ago"); }
+  const d = Math.floor(sec / 86400); return d + (d === 1 ? " day ago" : " days ago");
+}
+async function loadSocialProof() {
+  try { const d = await api("/api/social_proof"); spSales = (d && d.enabled && Array.isArray(d.sales)) ? d.sales : []; }
+  catch (e) { spSales = []; }
+}
+async function maybeSocialProof(eligible) {
+  if (!eligible || spDismissed) { stopSocialProof(); return; }
+  if (spOn) return;                          // already running for this session
+  spOn = true;
+  if (!spLoaded) { await loadSocialProof(); spLoaded = true; }
+  spCycle();
+}
+function stopSocialProof() {
+  spOn = false;
+  if (spTimer) { clearTimeout(spTimer); spTimer = null; }
+  const box = $("social-proof"); if (box) box.classList.add("hidden");
+}
+function spCycle() {
+  if (!spOn || spDismissed) return;
+  const box = $("social-proof"); if (!box) return;
+  if (!spSales.length) { box.classList.add("hidden"); return; }
+  const s = spSales[spIdx % spSales.length];
+  spIdx++;
+  if (spIdx % spSales.length === 0) loadSocialProof();     // refresh list on wrap (picks up new sales)
+  const loc = s.country ? ` from ${esc(s.country)}` : "";
+  box.innerHTML = `<img class="sp-logo" src="/static/icon-192.png" alt=""/>` +
+    `<div class="sp-body"><div class="sp-line"><b>${esc(s.name)}</b>${loc}</div>` +
+    `<div class="sp-sub">just purchased! · ${esc(spAgo(s.ago))}</div></div>` +
+    `<button class="sp-x" onclick="dismissSocialProof()" aria-label="Dismiss">×</button>`;
+  box.classList.remove("hidden");
+  requestAnimationFrame(() => box.classList.add("show"));
+  spTimer = setTimeout(() => {                                // visible ~6.5s, then slide out
+    box.classList.remove("show");
+    setTimeout(() => box.classList.add("hidden"), 400);      // finish slide-out then hide
+    spTimer = setTimeout(spCycle, 20000 + Math.floor(Math.random() * 8000));  // 20–28s until next
+  }, 6500);
+}
+function dismissSocialProof() { spDismissed = true; stopSocialProof(); }
 window.addEventListener("load", chSetup);
 checkResetUrl();
 if (TOKEN && !RESET_TOKEN) enterApp();
