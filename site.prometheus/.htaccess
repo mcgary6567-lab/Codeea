@@ -1,0 +1,122 @@
+# ============================================================
+#  Prometheus AI — prometheusai.tech
+#  Clean URLs • HTTPS/www canonical • Caching • Compression
+# ============================================================
+
+Options -Indexes +FollowSymLinks
+ServerSignature Off
+DirectoryIndex index.html
+AddDefaultCharset UTF-8
+
+# ------------------------------------------------------------
+#  URL REWRITES
+# ------------------------------------------------------------
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# --- Force HTTPS (proxy-aware) ---
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTP:X-Forwarded-SSL} !on
+RewriteRule ^(.*)$ https://www.prometheusai.tech/$1 [R=301,L,NE]
+
+# --- Force www ---
+RewriteCond %{HTTP_HOST} ^prometheusai\.tech$ [NC]
+RewriteRule ^(.*)$ https://www.prometheusai.tech/$1 [R=301,L,NE]
+
+# --- /index.html or /index -> / ---
+RewriteCond %{THE_REQUEST} \s/+index(?:\.html)?[\s?] [NC]
+RewriteRule ^ / [R=301,L,NE]
+
+# --- /checkout.php -> /checkout (clean URL) ---
+RewriteCond %{THE_REQUEST} \s/+checkout\.php[\s?] [NC]
+RewriteRule ^ /checkout [R=301,L,NE]
+
+# --- Keep search-engine verification files at their exact URL ---
+RewriteRule ^google[0-9a-f]+\.html$ - [L]
+
+# --- Redirect /page.html -> /page (external, 301) ---
+RewriteCond %{THE_REQUEST} \s/+([^\s?]+?)\.html[\s?] [NC]
+RewriteRule ^ /%1 [R=301,L,NE]
+
+# --- Remove trailing slash on non-directories ---
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+?)/+$ /$1 [R=301,L,NE]
+
+# --- Retired page: /contact -> /support ---
+RewriteRule ^contact/?$ /support [R=301,L,NE]
+
+# --- Internally map /page -> page.html when the file exists ---
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+)$ $1.html [L]
+</IfModule>
+
+# ------------------------------------------------------------
+#  SECURITY
+# ------------------------------------------------------------
+# Block access to server/system files
+<FilesMatch "^(\.htaccess|\.htpasswd|error_log|\.DS_Store|.*\.log)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+# ------------------------------------------------------------
+#  COMPRESSION (gzip)
+# ------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+  AddOutputFilterByType DEFLATE application/javascript application/x-javascript application/json
+  AddOutputFilterByType DEFLATE application/xml application/rss+xml image/svg+xml
+  AddOutputFilterByType DEFLATE font/ttf font/otf font/woff font/woff2 application/vnd.ms-fontobject
+</IfModule>
+
+# ------------------------------------------------------------
+#  BROWSER CACHING
+# ------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                      "access plus 1 week"
+  ExpiresByType text/html             "access plus 1 hour"
+  ExpiresByType text/css              "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/jpeg            "access plus 6 months"
+  ExpiresByType image/png             "access plus 6 months"
+  ExpiresByType image/gif             "access plus 6 months"
+  ExpiresByType image/webp            "access plus 6 months"
+  ExpiresByType image/svg+xml         "access plus 6 months"
+  ExpiresByType image/x-icon          "access plus 1 year"
+  ExpiresByType font/woff             "access plus 1 year"
+  ExpiresByType font/woff2            "access plus 1 year"
+  ExpiresByType font/ttf              "access plus 1 year"
+  ExpiresByType application/vnd.ms-fontobject "access plus 1 year"
+</IfModule>
+
+# ------------------------------------------------------------
+#  MIME TYPES (fonts)
+# ------------------------------------------------------------
+<IfModule mod_mime.c>
+  AddType font/woff2  .woff2
+  AddType font/woff   .woff
+  AddType font/ttf    .ttf
+  AddType image/svg+xml .svg
+</IfModule>
+
+# ------------------------------------------------------------
+#  ERROR PAGES
+# ------------------------------------------------------------
+ErrorDocument 404 /404.html
