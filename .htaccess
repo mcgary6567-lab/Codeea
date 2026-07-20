@@ -1,0 +1,121 @@
+# ============================================================
+#  Gold Scalpers — goldscalpers.com  (Apache / Hostinger)
+#  Clean/extensionless URLs • HTTPS + non-www • headers • cache
+#  (Replaces Netlify/Cloudflare _redirects & _headers, which Apache ignores.)
+# ============================================================
+
+Options -Indexes +FollowSymLinks
+ServerSignature Off
+DirectoryIndex index.html
+AddDefaultCharset UTF-8
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# --- Force HTTPS (proxy-aware) ---
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTP:X-Forwarded-SSL} !on
+RewriteRule ^(.*)$ https://goldscalpers.com/$1 [R=301,L,NE]
+
+# --- Force non-www (apex), matching the site's canonical URLs ---
+RewriteCond %{HTTP_HOST} ^www\.goldscalpers\.com$ [NC]
+RewriteRule ^(.*)$ https://goldscalpers.com/$1 [R=301,L,NE]
+
+# --- /index or /index.html -> / ---
+RewriteCond %{THE_REQUEST} \s/+index(?:\.html)?[\s?] [NC]
+RewriteRule ^ / [R=301,L,NE]
+
+# --- Keep the Google verification file at its exact URL ---
+RewriteRule ^google[0-9a-f]+\.html$ - [L]
+
+# --- Block internal strategy docs (was /.agents/* -> 404 in _redirects) ---
+RewriteRule ^\.agents(/.*)?$ - [R=404,L]
+
+# --- Pretty URLs: 301 /page.html -> /page (avoid duplicate content) ---
+RewriteCond %{THE_REQUEST} \s/+([^\s?]+?)\.html[\s?] [NC]
+RewriteRule ^ /%1 [R=301,L,NE]
+
+# --- Remove trailing slash on non-directories ---
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+?)/+$ /$1 [R=301,L,NE]
+
+# --- Internally serve /page from page.html when it exists  (fixes /checkout) ---
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+)$ $1.html [L]
+</IfModule>
+
+# ------------------------------------------------------------
+#  SECURITY
+# ------------------------------------------------------------
+# Hide server/system + internal build files from the public
+<FilesMatch "^(\.htaccess|\.htpasswd|\.git.*|\.env.*|error_log|.*\.log|_redirects|_headers)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+# Internal markdown docs (README, checklists, pricing notes) — not for the public
+<FilesMatch "\.md$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  # EA download files should not be cached long (they can be updated)
+  <FilesMatch "\.(zip|rar|ex4|ex5|mq4|mq5|set)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+</IfModule>
+
+# ------------------------------------------------------------
+#  COMPRESSION (gzip)
+# ------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+  AddOutputFilterByType DEFLATE application/javascript application/x-javascript application/json
+  AddOutputFilterByType DEFLATE application/xml application/rss+xml image/svg+xml
+  AddOutputFilterByType DEFLATE font/ttf font/otf font/woff font/woff2 application/vnd.ms-fontobject
+</IfModule>
+
+# ------------------------------------------------------------
+#  BROWSER CACHING
+# ------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                       "access plus 1 week"
+  ExpiresByType text/html              "access plus 1 hour"
+  ExpiresByType text/css               "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png              "access plus 1 year"
+  ExpiresByType image/jpeg             "access plus 1 year"
+  ExpiresByType image/gif              "access plus 1 year"
+  ExpiresByType image/webp             "access plus 1 year"
+  ExpiresByType image/svg+xml          "access plus 1 year"
+  ExpiresByType image/x-icon           "access plus 1 year"
+  ExpiresByType font/woff              "access plus 1 year"
+  ExpiresByType font/woff2             "access plus 1 year"
+  ExpiresByType font/ttf               "access plus 1 year"
+</IfModule>
+
+# ------------------------------------------------------------
+#  ERROR PAGES
+# ------------------------------------------------------------
+ErrorDocument 404 /404.html
+ErrorDocument 500 /500.html
