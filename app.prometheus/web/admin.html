@@ -91,8 +91,11 @@
       </div>
       <div class="row">
         <div class="col"><label>Suspend entries (hours)</label><input id="gp-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+        <div class="col"><label>🛑 Cooldown after SL (candles)</label><input id="gp-post_sl_cooldown_bars" type="number" min="0"/></div>
         <div class="col"><label>Avoid daily close</label><select id="gp-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
-        <div class="col end"><button class="btn" onclick="saveGlobalStrategy()">💾 Save &amp; push to all customers</button></div>
+      </div>
+      <div class="row">
+        <div class="col end" style="margin-left:auto"><button class="btn" onclick="saveGlobalStrategy()">💾 Save &amp; push to all customers</button></div>
       </div>
       <div class="hint" id="gs-info">-</div>
     </div>

@@ -394,8 +394,8 @@ function mselToggle() { mselBuild(); $("sg-panel").classList.toggle("hidden"); }
 document.addEventListener("click", e => { const m = document.querySelector(".msel"); if (m && !m.contains(e.target) && $("sg-panel")) $("sg-panel").classList.add("hidden"); });
 
 // ---- strategy params (EMA 9/21 model) ----
-const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, avoid_daily_close: 1 };
-const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "confirm", "swing_lookback", "whipsaw_max_crosses", "whipsaw_window"]);
+const SPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, post_sl_cooldown_bars: 0, avoid_daily_close: 1 };
+const INTP = new Set(["fast_ema", "slow_ema", "trend_ema", "confirm", "swing_lookback", "whipsaw_max_crosses", "whipsaw_window", "post_sl_cooldown_bars"]);
 const BOOLP = new Set(["use_trend_filter", "avoid_daily_close"]);
 function collectParams() {
   const p = {};

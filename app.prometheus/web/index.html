@@ -291,10 +291,11 @@
             <div class="col"><label>Whipsaw: max crosses…</label><input id="p-whipsaw_max_crosses" type="number"/></div>
             <div class="col"><label>…within N candles</label><input id="p-whipsaw_window" type="number"/></div>
             <div class="col"><label>Suspend entries (hours)</label><input id="p-whipsaw_suspend_hours" type="number" step="0.5"/></div>
+            <div class="col"><label>🛑 Cooldown after stop-loss (candles)</label><input id="p-post_sl_cooldown_bars" type="number" min="0"/></div>
             <div class="col"><label>Avoid daily close window</label>
               <select id="p-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
           </div>
-          <div class="hint">If EMA9/21 cross more than <i>max crosses</i> within the window, new entries pause for the suspend hours (chop protection). <i>Avoid daily close</i> blocks new entries 23:30–00:30 UTC (existing trades keep their stops).</div>
+          <div class="hint">If EMA9/21 cross more than <i>max crosses</i> within the window, new entries pause for the suspend hours (chop protection). <b>Cooldown after stop-loss</b> blocks a new entry on the same symbol for that many closed candles after any stop-out (0 = off) — stops the bot re-entering right where it was just stopped. <i>Avoid daily close</i> blocks new entries 23:30–00:30 UTC (existing trades keep their stops).</div>
         </div>
         <div class="btnrow big">
           <button class="btn" id="btn-save-strat" onclick="saveStrategy()">💾 Save strategy</button>

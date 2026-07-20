@@ -41,6 +41,7 @@ class StrategyParams:
     whipsaw_window: int = 5       # candles in the whipsaw window
     whipsaw_suspend_hours: float = 12.0
     avoid_daily_close: bool = True  # no new entries 23:30–00:30 UTC
+    post_sl_cooldown_bars: int = 0  # after a stop-out, block new entries for N closed candles (0 = off)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +109,8 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     pending: Optional[dict] = None   # {"side","cross_i"} awaiting next-open fill
     cross_bars: list = []            # indices where EMA9/21 crossed
     suspend_until = 0                # ms; whipsaw suspension of new entries
+    sl_cd = max(0, int(getattr(params, "post_sl_cooldown_bars", 0) or 0))
+    sl_cooldown_until = -1           # bar index; no new entries at/before this bar after a stop-out
 
     for i in range(1, n):
         if None in (fast[i], slow[i], trend[i], fast[i - 1], slow[i - 1]):
@@ -149,6 +152,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
                 if low[i] <= stop:
                     events.append((i, {"act": "exit", "side": side, "reason": reason,
                                        "price": stop, "ts": ts[i]})); pos = None
+                    sl_cooldown_until = i + sl_cd     # stop-out -> cooldown before re-entry
                 else:
                     if not pos["scaled"] and h[i] >= pos["tp"]:
                         events.append((i, {"act": "partial", "fraction": params.partial_pct,
@@ -164,6 +168,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
                 if h[i] >= stop:
                     events.append((i, {"act": "exit", "side": side, "reason": reason,
                                        "price": stop, "ts": ts[i]})); pos = None
+                    sl_cooldown_until = i + sl_cd     # stop-out -> cooldown before re-entry
                 else:
                     if not pos["scaled"] and low[i] <= pos["tp"]:
                         events.append((i, {"act": "partial", "fraction": params.partial_pct,
@@ -199,7 +204,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
             recent = [x for x in cross_bars if x > i - params.whipsaw_window]
             if len(recent) > params.whipsaw_max_crosses:
                 suspend_until = now + int(params.whipsaw_suspend_hours * 3600 * 1000)
-            elif now >= suspend_until and not _in_daily_close_window(now, params):
+            elif now >= suspend_until and i > sl_cooldown_until and not _in_daily_close_window(now, params):
                 above = (not params.use_trend_filter) or low[i] > trend[i]
                 below = (not params.use_trend_filter) or h[i] < trend[i]
                 if cu and above:
