@@ -20,24 +20,32 @@
 
   // --- starter list (used until real sales load / if endpoint is unreachable) ---
   var SEED = [
-    { name: "Richard", country: "United States", ago: 442800 },
-    { name: "Sophie", country: "United Kingdom", ago: 8400 },
-    { name: "Daniel", country: "Canada", ago: 133200 },
-    { name: "Mateo", country: "Spain", ago: 2700 },
-    { name: "Aisha", country: "United Arab Emirates", ago: 61200 },
-    { name: "Lukas", country: "Germany", ago: 349200 },
-    { name: "Olivia", country: "Australia", ago: 19800 },
-    { name: "James", country: "United States", ago: 705600 },
-    { name: "Priya", country: "India", ago: 5400 },
-    { name: "Noah", country: "Netherlands", ago: 226800 },
-    { name: "Emma", country: "France", ago: 46800 },
-    { name: "Carlos", country: "Mexico", ago: 111600 },
-    { name: "Liam", country: "Ireland", ago: 900 },
-    { name: "Chloe", country: "New Zealand", ago: 518400 }
+    // US / UK / Canada (core markets)
+    { name: "Michael", country: "United States", ago: 7200 },
+    { name: "Oliver", country: "United Kingdom", ago: 1500 },
+    { name: "Liam", country: "Canada", ago: 432000 },
+    { name: "Jason", country: "United States", ago: 2400 },
+    { name: "Charlotte", country: "United Kingdom", ago: 10800 },
+    { name: "Ethan", country: "Canada", ago: 90000 },
+    { name: "David", country: "United States", ago: 480 },
+    { name: "Harry", country: "United Kingdom", ago: 21600 },
+    { name: "Olivia", country: "Canada", ago: 176400 },
+    { name: "Emily", country: "United States", ago: 3300 },
+    // Europe
+    { name: "Lukas", country: "Germany", ago: 14400 },
+    { name: "Mateo", country: "Spain", ago: 1800 },
+    { name: "Emma", country: "France", ago: 259200 },
+    { name: "Daan", country: "Netherlands", ago: 43200 },
+    { name: "Marco", country: "Italy", ago: 68400 },
+    // Asia / Middle East
+    { name: "Arjun", country: "India", ago: 900 },
+    { name: "Kenji", country: "Japan", ago: 25200 },
+    { name: "Wei", country: "Singapore", ago: 100800 },
+    { name: "Aisha", country: "United Arab Emirates", ago: 18000 }
   ];
 
   var css =
-    ".sp2{position:fixed;left:20px;bottom:20px;z-index:2147483000;display:flex;align-items:center;gap:12px;" +
+    ".sp2{position:fixed;left:20px;bottom:88px;z-index:2147483000;display:flex;align-items:center;gap:12px;" +
     "max-width:330px;background:#fff;color:#0f1622;border:1px solid #e6e9ee;border-radius:12px;padding:12px 14px;" +
     "box-shadow:0 14px 38px rgba(20,30,50,.18);font-family:inherit;transform:translateY(170%);opacity:0;" +
     "transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .5s;pointer-events:none}" +
@@ -52,7 +60,7 @@
     ".sp2-x{position:absolute;top:7px;right:9px;border:none;background:none;color:#9aa4b2;font-size:16px;line-height:1;cursor:pointer;padding:2px}" +
     ".sp2-x:hover{color:#0f1622}" +
     ".sp2-ver{margin-left:auto;font-size:10px;color:#aab2bf;white-space:nowrap}" +
-    "@media(max-width:520px){.sp2{left:12px;right:12px;bottom:12px;max-width:none}}";
+    "@media(max-width:520px){.sp2{left:12px;right:12px;bottom:84px;max-width:none}}";
   var st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
 
   var box = document.createElement("div");
