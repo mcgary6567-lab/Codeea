@@ -12,7 +12,7 @@
     <text x="90" y="90" font-size="26" font-weight="800" letter-spacing="2" fill="#14f195">TREVOLTO</text>
     <rect x="90" y="120" width="150" height="34" rx="17" fill="#14f195" opacity=".16"/>
     <text x="107" y="143" font-size="18" font-weight="800" letter-spacing="1.5" fill="#14f195">ALTCOINS</text>
-    <text x="90" y="250" font-size="54" font-weight="900" fill="#ffffff"><tspan x="90" dy="0">AI Bots for Solana</tspan><tspan x="90" dy="68">& Altcoins</tspan></text>
+    <text x="90" y="250" font-size="54" font-weight="900" fill="#ffffff"><tspan x="90" dy="0">AI Bots for Solana</tspan><tspan x="90" dy="68">&amp; Altcoins</tspan></text>
     <text x="90" y="560" font-size="22" font-weight="700" fill="#8fa0b5">trevolto.com  &#183;  AI Crypto Trading Bot</text>
   </g>
 </svg>
