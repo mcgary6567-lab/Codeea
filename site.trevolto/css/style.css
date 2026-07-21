@@ -819,5 +819,5 @@ img { max-width: 100%; display: block; }
 .blog-card__cover { display: block; width: calc(100% + 52px); margin: -26px -26px 18px -26px; aspect-ratio: 1200 / 630; object-fit: cover; border-radius: 14px 14px 0 0; }
 
 /* ===== Article featured cover image ===== */
-.article-cover { display: block; width: 100%; max-width: 860px; margin: 0 auto 8px; border-radius: 14px; aspect-ratio: 1200 / 630; object-fit: cover; box-shadow: 0 20px 50px rgba(16,24,40,0.14); }
+.article-cover { display: block; width: 100%; max-width: 860px; height: auto; margin: 0 auto 8px; border-radius: 14px; box-shadow: 0 20px 50px rgba(16,24,40,0.14); }
 .article-cover-wrap { padding: 0 20px; margin-top: 8px; }
