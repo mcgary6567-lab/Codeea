@@ -1,21 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Can AI Bots Make You Rich?">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0e1c2b"/><stop offset="1" stop-color="#0a1420"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="18%" cy="20%" r="70%">
-      <stop offset="0" stop-color="#f5b301" stop-opacity=".28"/><stop offset="1" stop-color="#f5b301" stop-opacity="0"/>
-    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e1a28"/><stop offset="1" stop-color="#0a1018"/></linearGradient>
+    <radialGradient id="glow" cx="80%" cy="30%" r="65%"><stop offset="0" stop-color="#10b981" stop-opacity=".30"/><stop offset="1" stop-color="#10b981" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect width="1200" height="630" fill="url(#glow)"/>
-  <g opacity=".55"><rect x="717" y="396" width="6" height="88" fill="#22c55e" opacity=".5"/><rect x="709" y="410" width="22" height="60" rx="3" fill="#22c55e" opacity=".9"/><rect x="757" y="366" width="6" height="118" fill="#ef4444" opacity=".5"/><rect x="749" y="380" width="22" height="90" rx="3" fill="#ef4444" opacity=".9"/><rect x="797" y="386" width="6" height="98" fill="#22c55e" opacity=".5"/><rect x="789" y="400" width="22" height="70" rx="3" fill="#22c55e" opacity=".9"/><rect x="837" y="346" width="6" height="138" fill="#22c55e" opacity=".5"/><rect x="829" y="360" width="22" height="110" rx="3" fill="#22c55e" opacity=".9"/><rect x="877" y="361" width="6" height="123" fill="#ef4444" opacity=".5"/><rect x="869" y="375" width="22" height="95" rx="3" fill="#ef4444" opacity=".9"/><rect x="917" y="316" width="6" height="168" fill="#22c55e" opacity=".5"/><rect x="909" y="330" width="22" height="140" rx="3" fill="#22c55e" opacity=".9"/><rect x="957" y="336" width="6" height="148" fill="#22c55e" opacity=".5"/><rect x="949" y="350" width="22" height="120" rx="3" fill="#22c55e" opacity=".9"/><rect x="997" y="291" width="6" height="193" fill="#ef4444" opacity=".5"/><rect x="989" y="305" width="22" height="165" rx="3" fill="#ef4444" opacity=".9"/><rect x="1037" y="306" width="6" height="178" fill="#22c55e" opacity=".5"/><rect x="1029" y="320" width="22" height="150" rx="3" fill="#22c55e" opacity=".9"/><rect x="1077" y="266" width="6" height="218" fill="#22c55e" opacity=".5"/><rect x="1069" y="280" width="22" height="190" rx="3" fill="#22c55e" opacity=".9"/><rect x="1117" y="281" width="6" height="203" fill="#ef4444" opacity=".5"/><rect x="1109" y="295" width="22" height="175" rx="3" fill="#ef4444" opacity=".9"/><polyline points="720,404 760,390 800,394 840,370 880,369 920,340 960,344 1000,315 1040,314 1080,290 1120,289" fill="none" stroke="#f5b301" stroke-width="3.5" opacity=".9"/><path d="M760 420 l10 -18 l10 18 z" fill="#22c55e"/><path d="M1080 240 l10 18 l10 -18 z" fill="#ef4444"/></g>
-  <rect x="0" y="0" width="1200" height="630" fill="none"/>
+  <g transform="translate(858,150)" fill="none" stroke="#10b981" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+<ellipse cx="95" cy="230" rx="80" ry="26" fill="#10b981" opacity=".22"/><ellipse cx="95" cy="230" rx="80" ry="26"/>
+<ellipse cx="95" cy="188" rx="80" ry="26" fill="#10b981" opacity=".18"/><ellipse cx="95" cy="188" rx="80" ry="26"/>
+<ellipse cx="95" cy="146" rx="80" ry="26" fill="#10b981" opacity=".14"/><ellipse cx="95" cy="146" rx="80" ry="26"/>
+<path d="M175 120 L215 60 M215 60 L182 66 M215 60 L209 96" stroke-width="8"/></g>
   <g font-family="Inter, -apple-system, Segoe UI, sans-serif">
-    <text x="90" y="90" font-size="26" font-weight="800" letter-spacing="2" fill="#f5b301">TREVOLTO</text>
-    <rect x="90" y="120" width="190" height="34" rx="17" fill="#f5b301" opacity=".16"/>
-    <text x="107" y="143" font-size="18" font-weight="800" letter-spacing="1.5" fill="#f5b301">EXPECTATIONS</text>
+    <text x="90" y="90" font-size="26" font-weight="800" letter-spacing="2" fill="#10b981">TREVOLTO</text>
+    <rect x="90" y="120" width="196" height="34" rx="17" fill="#10b981" opacity=".16"/>
+    <text x="107" y="143" font-size="18" font-weight="800" letter-spacing="1.5" fill="#10b981">EXPECTATIONS</text>
     <text x="90" y="250" font-size="54" font-weight="900" fill="#ffffff"><tspan x="90" dy="0">Can AI Bots Make You</tspan><tspan x="90" dy="68">Rich?</tspan></text>
-    <text x="90" y="560" font-size="22" font-weight="700" fill="#8fa0b5">trevolto.com  ·  AI Crypto Trading Bot</text>
+    <text x="90" y="560" font-size="22" font-weight="700" fill="#8fa0b5">trevolto.com  &#183;  AI Crypto Trading Bot</text>
   </g>
 </svg>
