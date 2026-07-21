@@ -114,4 +114,34 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+<url>
+  <loc>https://trevolto.com/blog/can-ai-predict-crypto-prices</loc>
+  <lastmod>2026-07-21</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+<url>
+  <loc>https://trevolto.com/blog/best-crypto-exchanges-for-trading-bots</loc>
+  <lastmod>2026-07-21</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+<url>
+  <loc>https://trevolto.com/blog/how-to-backtest-crypto-trading-bot</loc>
+  <lastmod>2026-07-21</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+<url>
+  <loc>https://trevolto.com/blog/crypto-trading-bot-taxes</loc>
+  <lastmod>2026-07-21</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
+<url>
+  <loc>https://trevolto.com/blog/ai-trading-bots-for-solana-altcoins</loc>
+  <lastmod>2026-07-21</lastmod>
+  <changefreq>monthly</changefreq>
+  <priority>0.7</priority>
+</url>
 </urlset>
