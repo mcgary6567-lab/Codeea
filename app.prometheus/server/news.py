@@ -10,8 +10,8 @@ around them.
 Behaviour
 ---------
 * Source: the public ForexFactory weekly calendar JSON feed. We keep only
-  ``impact == "High"`` events. USD macro drives crypto the most, but *any*
-  high-impact print can whip risk assets, so all high-impact events count.
+  high-impact **USD** events (``impact == "High"`` and ``country == "USD"``) —
+  US macro (FOMC, CPI, NFP, PCE, GDP) is what actually moves crypto.
 * A single background refresh (TTL-gated, non-blocking) keeps the calendar
   fresh; snapshot/strategy reads only ever touch the in-memory cache.
 * ``blackout(now)`` returns the active event when ``now`` is within the
@@ -45,6 +45,8 @@ def _parse(raw: bytes) -> list[dict]:
     for e in json.loads(raw.decode("utf-8", "replace")):
         if str(e.get("impact", "")).lower() != "high":
             continue
+        if str(e.get("country", "")).strip().upper() != "USD":
+            continue                              # USD high-impact events only
         ds = e.get("date") or ""
         try:
             dt = datetime.fromisoformat(ds)
