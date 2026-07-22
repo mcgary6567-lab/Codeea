@@ -250,3 +250,63 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
         if fast[i] < slow[i] and cl[i] >= trend[i]:
             return f"SELL held — price still above EMA{params.trend_ema} (trend filter)"
     return ""
+
+
+def signal_strength(candles, params: StrategyParams) -> dict:
+    """A 0-100 'how close is the strategy to firing an entry' meter with a
+    plain-English state, plus the likely side (long=BUY / short=SELL).
+    Rises as the EMAs converge -> cross -> confirm -> ready to enter."""
+    n = len(candles)
+    if n < crossover_need(params):
+        return {"pct": 0, "state": "Warming up", "side": ""}
+    o, h, low, cl, fast, slow, trend = crossover_arrays(candles, params)
+    i = n - 1
+    if fast[i] is None or slow[i] is None or trend[i] is None:
+        return {"pct": 0, "state": "Warming up", "side": ""}
+    up = fast[i] >= slow[i]
+    side = "long" if up else "short"
+    tf_ok = (not params.use_trend_filter) or (cl[i] > trend[i] if up else cl[i] < trend[i])
+    confirm = max(0, int(params.confirm))
+    look = max(4, int(params.whipsaw_window) + 2)
+    rng = sum((h[k] - low[k]) for k in range(max(0, i - look), i + 1)) / (min(look, i) + 1) or 1.0
+
+    # most recent SAME-direction EMA9/21 cross within the lookback (None if none)
+    cross_age = None
+    for j in range(i, max(1, i - look), -1):
+        if None in (fast[j], slow[j], fast[j - 1], slow[j - 1]):
+            continue
+        cu = fast[j - 1] <= slow[j - 1] and fast[j] > slow[j]
+        cd = fast[j - 1] >= slow[j - 1] and fast[j] < slow[j]
+        if (up and cu) or (not up and cd):
+            cross_age = i - j; break
+        if (up and cd) or (not up and cu):
+            break  # opposite cross came first -> not a fresh same-side setup
+
+    if cross_age is not None:
+        if not tf_ok:
+            return {"pct": 55, "state": "Cross fired — awaiting trend confirmation", "side": side}
+        cc = 0
+        for k in range(i - cross_age, i + 1):
+            r = (h[k] - low[k]) or 1.0
+            body_ok = (abs(cl[k] - o[k]) / r) >= params.min_body
+            dir_ok = (cl[k] > o[k]) if up else (cl[k] < o[k])
+            cc = cc + 1 if (body_ok and dir_ok) else 0
+        prog = 1.0 if confirm == 0 else min(1.0, cc / confirm)
+        pct = int(round(72 + 28 * prog))
+        state = "Signal ready — entry imminent" if prog >= 1.0 else f"Confirming — {cc}/{confirm} candles"
+        return {"pct": pct, "state": state, "side": side}
+
+    # no fresh cross -> score how close the EMAs are to crossing (convergence)
+    gap = abs(fast[i] - slow[i])
+    gap_prev = abs(fast[i - 1] - slow[i - 1]) if fast[i - 1] is not None else gap
+    converging = gap < gap_prev
+    prox = max(0.0, 1.0 - min(1.0, gap / (rng * 1.5)))
+    base = prox * (0.7 if converging else 0.35) + (0.12 if tf_ok else 0.0)
+    pct = int(round(min(62, base * 62)))
+    if pct < 12:
+        state = "Idle — no cross brewing"
+    elif pct < 35:
+        state = "Watching — trend developing"
+    else:
+        state = "Cross brewing — EMAs converging"
+    return {"pct": pct, "state": state, "side": side}

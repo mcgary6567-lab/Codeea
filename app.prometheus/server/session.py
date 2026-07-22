@@ -199,6 +199,8 @@ class TraderSession:
         self._strat: threading.Thread | None = None
         self._strat_primed: dict = {}
         self._strat_hold: dict = {}
+        self._sig_alerted: dict = {}       # per-symbol: fired the >=85% alert this run
+        self.signal: dict = None           # latest signal-strength meter {pct,state,side,symbol}
         self._strat_version = None      # last logged "why held" reason per symbol
         self._apply_guardrails()
         self.key_withdraw_warn = False
@@ -546,6 +548,7 @@ class TraderSession:
             "fast": rnd(fast), "slow": rnd(slow), "trend": rnd(trend),
             "fast_ema": params.fast_ema, "slow_ema": params.slow_ema, "trend_ema": params.trend_ema,
             "markers": markers,
+            "signal": strat.signal_strength(closed, params),
         }
 
     # -- built-in strategy ---------------------------------------------------
@@ -641,6 +644,20 @@ class TraderSession:
             if reason and self._strat_hold.get(symbol) != reason:
                 self.log(f"{symbol}: no entry — {reason}", "warn")
             self._strat_hold[symbol] = reason
+        # Signal-strength meter + early "get ready" alert when it reaches 85%.
+        try:
+            sig = strat.signal_strength(closed, params)
+        except Exception:
+            sig = {"pct": 0, "state": "", "side": ""}
+        self.signal = dict(sig, symbol=symbol)
+        pct, sd = int(sig.get("pct", 0)), sig.get("side", "")
+        if pct >= 85 and sd and not acted and not self._sig_alerted.get(symbol):
+            self._sig_alerted[symbol] = True
+            word = "BUY" if sd == "long" else "SELL"
+            self.notify(f"⚡ {word} signal firing on {symbol} — strength {pct}%. "
+                        f"A {'long' if sd == 'long' else 'short'} entry is lining up — the bot is getting ready to trade.")
+        elif pct < 70:
+            self._sig_alerted[symbol] = False
 
     # -- snapshot for the UI -------------------------------------------------
     # -- API-key safety check -----------------------------------------------
@@ -738,6 +755,7 @@ class TraderSession:
             "read_only": bool(self.settings.get("read_only", False)),
             "balance": round(self.balance, 2),
             "pnl": round(self.pnl, 2),
+            "signal": self.signal,
             "strategy_on": self.strategy_on,
             "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,

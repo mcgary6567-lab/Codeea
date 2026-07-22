@@ -166,6 +166,7 @@ setInterval(() => { if (TOKEN && !ws) refresh(); }, 3000);
 function render(s) {
   lastState = s;
   processAlerts(s);
+  if (s.signal) renderSignal(s.signal);   // live signal-strength meter (when the bot is running)
   $("st-dot").classList.toggle("on", s.connected);
   $("st-conn").textContent = s.connected ? "Connected" : "Disconnected";
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";
@@ -583,7 +584,19 @@ async function loadChart() {
       if (le) { const buy = le.side === "long", px = fmt(le.price, le.price < 10 ? 5 : (le.price < 1000 ? 3 : 2)); ls.classList.remove("hidden"); ls.innerHTML = `<span class="k">Last signal</span> <b class="${buy ? "pos" : "neg"}">${buy ? "▲ BUY" : "▼ SELL"} ${px}</b> <span class="k">${d.symbol}</span>`; }
       else { ls.classList.add("hidden"); ls.innerHTML = ""; }
     }
+    renderSignal(d.signal);
   } catch (e) { if ($("ch-legend")) $("ch-legend").innerHTML = '<span class="neg">No chart data — connect an exchange or check connectivity.</span>'; }
+}
+function renderSignal(sig) {
+  const box = $("ch-sig"); if (!box) return;
+  if (!sig || sig.pct == null) { box.classList.add("hidden"); return; }
+  const pct = Math.max(0, Math.min(100, sig.pct | 0));
+  const buy = sig.side === "long", sell = sig.side === "short";
+  const col = pct < 35 ? "#8a97ab" : (buy ? "#22c55e" : (sell ? "#ef4444" : "#eab308"));
+  box.classList.remove("hidden"); box.classList.toggle("ready", pct >= 85);
+  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = col; }
+  const p = $("ch-sig-pct"); if (p) { p.textContent = pct + "%"; p.style.color = col; }
+  const st = $("ch-sig-state"); if (st) st.textContent = sig.state || "";
 }
 function chReset() { if (LW) { LW.bs = 7; LW.chart.timeScale().applyOptions({ barSpacing: 7 }); LW.chart.timeScale().fitContent(); } }
 function chZoom(f) { if (!LW) return; LW.bs = Math.max(2, Math.min(50, (LW.bs || 7) / f)); LW.chart.timeScale().applyOptions({ barSpacing: LW.bs }); }

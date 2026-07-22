@@ -116,7 +116,15 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .ch-lastsig b{font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace}
 .ch-ohlc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--mut);white-space:nowrap}
 .ch-ohlc b{color:var(--txt);font-weight:700}
-@media(max-width:640px){.tvchart{height:340px}.ch-ohlc{font-size:10.5px}}
+.ch-sig{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:3px 10px;white-space:nowrap}
+.ch-sig-k{color:var(--mut);font-weight:700;letter-spacing:.4px}
+.ch-sig-bar{position:relative;width:88px;height:7px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;flex:0 0 auto}
+.ch-sig-bar i{display:block;height:100%;width:0;border-radius:4px;background:#eab308;transition:width .45s ease,background .3s ease}
+.ch-sig-pct{font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace;min-width:30px}
+.ch-sig-state{color:var(--mut)}
+.ch-sig.ready{border-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.25);animation:sigpulse 1.3s ease-in-out infinite}
+@keyframes sigpulse{0%,100%{box-shadow:0 0 0 1px rgba(34,197,94,.25)}50%{box-shadow:0 0 10px 1px rgba(34,197,94,.5)}}
+@media(max-width:640px){.tvchart{height:340px}.ch-ohlc{font-size:10.5px}.ch-sig-bar{width:64px}.ch-sig-state{display:none}}
 .lg-fast{color:#eab308}.lg-slow{color:#3b82f6}.lg-trend{color:#a855f7}
 .hamb{display:none;background:transparent;border:none;color:var(--txt);font-size:20px;padding:2px 8px}
 
