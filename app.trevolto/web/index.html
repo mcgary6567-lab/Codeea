@@ -490,6 +490,7 @@
             <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Bot Setting</span>
             <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Profit Simulator</span>
             <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
+            <span class="gstep" onclick="show('home',qNav('home'))">📈 Chart tools</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
             <span class="gstep" onclick="show('settings',qNav('settings'))">⑥ Alerts &amp; security</span>
           </div>
@@ -573,6 +574,26 @@
           </div>
         </div>
 
+        <div class="card gcard gcard-vip">
+          <div class="gnum">📈</div>
+          <div class="gbody">
+            <h3>📈 New: pro chart tools — signal strength, last signal &amp; news filter</h3>
+            <p>The <b>Dashboard chart</b> is now a full <b>TradingView-style</b> chart — real time axis, scroll back through history, zoom and pan. Above it, a live header shows exactly what the bot is thinking. Here's each new tool, left to right:</p>
+            <ol class="glist">
+              <li><b>🎯 Last signal</b> — the bot's most recent entry for the selected pair, e.g. <b class="pos">▲ BUY 4,073.33</b> or <b class="neg">▼ SELL</b>, with the price and coin. It stays on screen after the trade so you always see where the last BUY/SELL happened.</li>
+              <li><b>📶 Signal-strength bar (0–100%)</b> — a live meter of how close the strategy is to firing: EMAs converging → cross → confirming → ready. It's <b class="pos">green when a BUY</b> is lining up and <b class="neg">red when a SELL</b> is, with a plain-English label (“Cross brewing”, “Confirming — 1/2 candles”, “Signal ready — entry imminent”). At <b>85%</b> it fires a <b>Telegram + app alert</b> — “⚡ BUY signal firing… the bot is getting ready to trade” — so you get a heads-up seconds before the entry.</li>
+              <li><b>📰 News trading ON / OFF</b> — a one-tap safety switch. <b>Hover it</b> for a full explanation. Leave it <b>ON</b> to trade around the clock, or turn it <b>OFF</b> and the bot will <b>hold new entries for 1 hour before and after high-impact USD news</b> (FOMC rate decisions, CPI, jobs) — the violent, low-liquidity spikes that stop-hunt tight stops. When armed it shows the <b>next event</b> (“🛡 Next: CPI in 2h 23m”); inside the window it shows a red <b>⛔ Paused</b> flag and sends you an alert explaining why. <b>Open trades are never touched</b> — stops and targets keep running; only brand-new entries wait.</li>
+            </ol>
+            <div class="gshot">
+              <div class="gs-field"><span>🎯 Last signal</span><i class="pos">▲ BUY 4,073.33 · BTC/USDT</i></div>
+              <div class="gs-field"><span>📶 Signal</span><i><b style="color:#22c55e">████████░░ 88%</b> · Signal ready — entry imminent</i></div>
+              <div class="gs-field"><span>📰 News trading</span><i><b style="color:#ef4444">● OFF</b> · 🛡 Next: CPI (USD) in 2h 23m</i></div>
+              <div class="gs-btnrow"><b class="gs-btn green">⚡ 85% — get-ready alert</b><b class="gs-btn">⛔ Paused near news</b></div>
+            </div>
+            <p class="gtip">💡 The signal bar and news filter only affect the <b>built-in strategy's own entries</b> — your manual orders always go through. The news calendar covers <b>USD high-impact events only</b>, the ones that actually move crypto.</p>
+          </div>
+        </div>
+
         <div class="card gcard">
           <div class="gnum">5</div>
           <div class="gbody">
@@ -619,6 +640,8 @@
           <div class="gq"><b>Which IP do I whitelist on my exchange?</b> The <b>Bot server IP</b> shown at the top of the Exchange tab — the bot trades from our cloud, so your own IP will not work. IP restriction is optional; a trade-only key with withdrawals disabled is safe on its own.</div>
           <div class="gq"><b>Do alerts work when the app is closed?</b> Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div>
           <div class="gq"><b>Can I use my own strategy settings?</b> Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div>
+          <div class="gq"><b>What is the signal-strength bar?</b> A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div>
+          <div class="gq"><b>What does “News trading OFF” do?</b> It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything. Hover the toggle for details.</div>
         </div>
       </section>
     </main>
