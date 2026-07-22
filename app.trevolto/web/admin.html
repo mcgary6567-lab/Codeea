@@ -19,7 +19,7 @@
   <label class="chkline hide-sm" style="margin:0;font-size:12px" id="ad-auto-wrap"><input type="checkbox" id="ad-auto" onchange="toggleAuto()"/> Auto-refresh</label>
   <button class="btn ghost sm" onclick="reloadAll()">↻ Refresh</button>
   <a class="btn ghost sm" href="/">← Dashboard</a>
-  <button class="btn ghost sm" onclick="logout()">Logout</button>
+  <button class="btn ghost sm" onclick="logout()">🚪 Logout</button>
 </header>
 
 <div class="admin-wrap">
@@ -30,7 +30,7 @@
     <label>Email</label><input id="g-email" type="email"/>
     <label>Password</label><input id="g-pass" type="password" onkeydown="if(event.key==='Enter')adminLogin()"/>
     <div class="err" id="g-err"></div>
-    <button class="btn" style="width:100%;margin-top:12px" onclick="adminLogin()">Sign in</button>
+    <button class="btn" style="width:100%;margin-top:12px" onclick="adminLogin()">🔐 Sign in</button>
   </div>
 
   <!-- PANEL -->
@@ -147,8 +147,8 @@
         <textarea id="bc-msg" rows="2" placeholder="e.g. Scheduled maintenance tonight 2–3am UTC…" style="width:100%;margin-top:8px;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13px"></textarea>
         <label class="chkline"><input type="checkbox" id="bc-notify"/> Also send via Telegram + push</label>
         <div class="btnrow">
-          <button class="btn" onclick="sendBroadcast()">Post announcement</button>
-          <button class="btn ghost" onclick="broadcastOff()">Clear active</button>
+          <button class="btn" onclick="sendBroadcast()">📢 Post announcement</button>
+          <button class="btn ghost" onclick="broadcastOff()">🗑 Clear active</button>
         </div>
         <div id="bc-list" class="hint" style="margin-top:10px">—</div>
       </div>

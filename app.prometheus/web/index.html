@@ -46,8 +46,8 @@
         <p id="auth-sub" class="auth-sub">Sign in to your trading dashboard</p>
       </div>
       <div class="tabsw">
-        <button id="tab-login" class="on" onclick="authTab('login')">Log in</button>
-        <button id="tab-reg" onclick="authTab('reg')">Start free trial</button>
+        <button id="tab-login" class="on" onclick="authTab('login')">🔑 Log in</button>
+        <button id="tab-reg" onclick="authTab('reg')">🎁 Start free trial</button>
       </div>
       <div id="reg-fields" class="hidden">
         <div class="row">
@@ -60,14 +60,14 @@
         <label>Password</label><input id="au-pass" type="password" placeholder="••••••••"/>
         <div id="tfa-field" class="hidden"><label>2FA code</label><input id="au-totp" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"/></div>
         <div class="err" id="au-err"></div>
-        <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">Continue</button>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doAuth()">➡️ Continue</button>
         <div class="hint"><a onclick="forgotPassword()" style="cursor:pointer">Forgot password?</a> · New accounts get a free trial.</div>
       </div>
       <div id="reset-panel" class="hidden">
         <h3 style="margin:0 0 10px">Set a new password</h3>
         <label>New password</label><input id="rs-pass" type="password" placeholder="••••••••"/>
         <div class="err" id="rs-err"></div>
-        <button class="btn" style="width:100%;margin-top:10px" onclick="doReset()">Reset password</button>
+        <button class="btn" style="width:100%;margin-top:10px" onclick="doReset()">🔑 Reset password</button>
       </div>
     </div>
   </div>
@@ -106,7 +106,7 @@
       </div>
     </div>
     <a class="btn ghost sm hidden" id="st-admin" href="/admin" target="_blank">Admin</a>
-    <button class="btn ghost sm" onclick="logout()">Logout</button>
+    <button class="btn ghost sm" onclick="logout()">🚪 Logout</button>
   </header>
 
   <div class="shell">
@@ -156,12 +156,12 @@
             <h3 style="margin:0">Live chart</h3>
             <input id="ch-sym" list="symbols" value="BTC/USDT" style="width:130px"/>
             <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
-            <button class="btn ghost sm" onclick="loadChart()">Load</button>
+            <button class="btn ghost sm" onclick="loadChart()">🔄 Load</button>
             <label class="chkline" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
             <span class="grow"></span>
             <button class="btn ghost sm" onclick="chZoom(0.8)">＋</button>
             <button class="btn ghost sm" onclick="chZoom(1.25)">－</button>
-            <button class="btn ghost sm" onclick="chReset()">Reset</button>
+            <button class="btn ghost sm" onclick="chReset()">↺ Reset</button>
           </div>
           <div class="chart-topbar"><div class="chlegend" id="ch-legend"></div><div class="ch-lastsig hidden" id="ch-lastsig"></div><div class="ch-sig hidden" id="ch-sig"><span class="ch-sig-k">📶 SIGNAL</span><span class="ch-sig-bar"><i id="ch-sig-fill"></i></span><span class="ch-sig-pct" id="ch-sig-pct"></span><span class="ch-sig-state" id="ch-sig-state"></span></div><div class="ch-news" id="ch-news"><span class="ch-news-k">📰 NEWS TRADING</span><button class="ch-news-btn" id="ch-news-btn" type="button" role="switch" aria-checked="true" aria-label="News trading. Turn OFF to pause new trades one hour before and after high-impact USD news." onclick="toggleNews()"><span class="ch-news-dot"></span><span class="ch-news-lbl" id="ch-news-lbl">ON</span></button><span class="ch-news-flag hidden" id="ch-news-flag"></span><span class="ch-news-tip" role="tooltip">Click <b>OFF</b> to pause new trades for <b>1 hour before &amp; after</b> high-impact <b>USD</b> news — FOMC, CPI, jobs. Open trades stay fully managed.</span></div><div class="ch-ohlc" id="ch-ohlc"></div></div>
           <div id="ch-price" class="tvchart"></div>
@@ -183,13 +183,13 @@
               <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>
             </div>
             <div class="btnrow big">
-              <button class="btn green" onclick="trade('buy')">BUY</button>
-              <button class="btn red" onclick="trade('sell')">SELL</button>
+              <button class="btn green" onclick="trade('buy')">▲ BUY</button>
+              <button class="btn red" onclick="trade('sell')">▼ SELL</button>
             </div>
             <div class="hint">⚡ <b>Live trading</b> — orders are real. Sizing: <b id="tr-mode">—</b></div>
           </div>
           <div class="card">
-            <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">Close All</button></h3>
+            <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
             <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th><th></th></tr></thead>
               <tbody id="pos-body"><tr><td colspan="6" class="k">No open positions.</td></tr></tbody></table></div>
           </div>
@@ -203,7 +203,7 @@
           <div class="hint">If you turn on <b>IP access restriction</b> for your API key, whitelist the IP below. Your bot connects to the exchange from <b>our cloud server</b>, so it is this <b>server IP</b> that must be allowed — <b>not</b> your home or office IP.</div>
           <div style="display:flex;gap:8px;margin-top:10px">
             <input id="srv-ip" class="mono grow" readonly value="Loading…"/>
-            <button class="btn" onclick="copyServerIP()" style="flex-shrink:0">Copy IP</button>
+            <button class="btn" onclick="copyServerIP()" style="flex-shrink:0">📋 Copy IP</button>
           </div>
           <div class="hint">⚠️ Optional. If the exchange later blocks the connection, re-copy this IP or turn IP restriction off — your trade-only key is still safe. Always keep <b>withdrawals disabled</b>.</div>
         </div>
@@ -241,7 +241,7 @@
           <div class="hidden" id="strat-upgrade" style="background:linear-gradient(90deg,rgba(249,115,22,.12),transparent);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:12px">
             <b>⭐ Want to run your own strategy?</b>
             <div class="hint" style="margin:4px 0 8px">Advanced trader, or want to take higher risk? Request <b>Custom Strategy</b> access — once we approve it you can fully tune every setting below.</div>
-            <button class="btn sm" id="strat-req-btn" onclick="requestCustom()">Request custom-strategy access</button>
+            <button class="btn sm" id="strat-req-btn" onclick="requestCustom()">⭐ Request custom-strategy access</button>
             <span class="hint" id="strat-req-status" style="margin-left:8px"></span>
           </div>
           <div class="hint">Fast EMA crossing the Slow EMA triggers; a Trend EMA filters direction; N confirmation candles validate; the stop sits at the recent swing point. <b>ON by default</b> — auto-starts on connect.</div>
@@ -300,8 +300,8 @@
         </div>
         <div class="btnrow big">
           <button class="btn" id="btn-save-strat" onclick="saveStrategy()">💾 Save strategy</button>
-          <button class="btn green" onclick="strategy(true)">Enable / Start</button>
-          <button class="btn ghost" onclick="strategy(false)">Disable</button>
+          <button class="btn green" onclick="strategy(true)">▶ Enable / Start</button>
+          <button class="btn ghost" onclick="strategy(false)">⏸️ Disable</button>
           <button class="btn ghost" id="btn-reset-strat" onclick="resetStrategy()">↺ Reset defaults</button>
         </div>
 
@@ -399,7 +399,7 @@
             <h3 style="margin:0">Performance</h3>
             <label style="margin:0">From</label><input id="an-from" type="date" style="width:auto"/>
             <label style="margin:0">To</label><input id="an-to" type="date" style="width:auto"/>
-            <button class="btn ghost sm" onclick="loadAnalytics()">Apply</button>
+            <button class="btn ghost sm" onclick="loadAnalytics()">✅ Apply</button>
             <button class="btn ghost sm" onclick="anRange(7)">7d</button>
             <button class="btn ghost sm" onclick="anRange(30)">30d</button>
             <button class="btn ghost sm" onclick="anRange(0)">All</button>
@@ -421,7 +421,7 @@
 
       <!-- LOG -->
       <section id="v-log" class="hidden">
-        <div class="card"><h3>Trade &amp; activity log <button class="btn ghost sm" style="float:right" onclick="refresh()">Refresh</button></h3>
+        <div class="card"><h3>Trade &amp; activity log <button class="btn ghost sm" style="float:right" onclick="refresh()">🔄 Refresh</button></h3>
           <div class="log" id="log"></div></div>
       </section>
 
@@ -437,7 +437,7 @@
             <label>New password <span class="k">(blank = keep)</span></label><input id="ac-newpass" type="password" placeholder="••••••••"/>
             <label>Current password <span class="k">(required)</span></label><input id="ac-cur" type="password" placeholder="••••••••"/>
             <div class="err" id="ac-err"></div>
-            <button class="btn" style="margin-top:10px" onclick="saveAccount()">Update account</button>
+            <button class="btn" style="margin-top:10px" onclick="saveAccount()">💾 Update account</button>
           </div>
           <div class="card"><h3>Telegram notifications</h3>
             <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
@@ -446,7 +446,7 @@
             <label class="chkline"><input type="checkbox" id="s-alert-skips"/> ⏭️ Alert on skipped signals (blocked by guardrails)</label>
             <div style="margin-top:6px"><button class="btn ghost sm" id="notif-btn" onclick="toggleNotif()">🔔 Enable browser notifications</button></div>
             <div class="btnrow">
-              <button class="btn" onclick="saveTelegram()">Save Telegram</button>
+              <button class="btn" onclick="saveTelegram()">💾 Save Telegram</button>
               <button class="btn ghost" id="tg-test" onclick="tgTest()">✈️ Send test</button>
             </div>
             <div class="err" id="tg-result"></div>
@@ -457,25 +457,25 @@
           <div class="card"><h3>🔐 Security — Two-factor authentication</h3>
             <div id="tfa-off">
               <div class="hint">Add an extra layer with an authenticator app (Google Authenticator, Authy). Strongly recommended — your account controls real funds.</div>
-              <button class="btn" style="margin-top:10px" onclick="twofaSetup()">Enable 2FA</button>
+              <button class="btn" style="margin-top:10px" onclick="twofaSetup()">🔐 Enable 2FA</button>
               <div id="tfa-setup" class="hidden" style="margin-top:12px">
                 <div class="hint">In your authenticator app choose "enter a setup key" and paste this secret (account: your email), then type the 6-digit code:</div>
                 <div class="mono" id="tfa-secret" style="margin:8px 0;padding:8px;background:var(--chip);border-radius:8px;word-break:break-all"></div>
                 <input id="tfa-code" inputmode="numeric" placeholder="123456"/>
-                <button class="btn" style="margin-top:8px" onclick="twofaEnable()">Confirm &amp; turn on</button>
+                <button class="btn" style="margin-top:8px" onclick="twofaEnable()">✅ Confirm &amp; turn on</button>
               </div>
             </div>
             <div id="tfa-on" class="hidden">
               <div class="hint">✅ 2FA is <b>ON</b> — you'll enter a code at login.</div>
               <label>Password (to disable)</label><input id="tfa-pass" type="password" placeholder="••••••••"/>
-              <button class="btn red" style="margin-top:8px" onclick="twofaDisable()">Disable 2FA</button>
+              <button class="btn red" style="margin-top:8px" onclick="twofaDisable()">🔓 Disable 2FA</button>
             </div>
           </div>
           <div class="card"><h3>🖥️ Sessions &amp; login history</h3>
             <div class="hint">Recent sign-ins to your account. If anything looks unfamiliar, change your password and sign out everywhere.</div>
             <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>When</th><th>IP</th><th>Device</th></tr></thead>
               <tbody id="login-rows"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
-            <button class="btn red" style="margin-top:12px" onclick="logoutAll()">Sign out all other devices</button>
+            <button class="btn red" style="margin-top:12px" onclick="logoutAll()">🚪 Sign out all other devices</button>
           </div>
         </div>
       </section>

@@ -207,10 +207,10 @@ function renderRows(rows) {
 }
 function actionBtns(u) {
   return `${u.active
-    ? `<button class="btn ghost sm" onclick="act(${u.id},'suspend')">Suspend</button>`
-    : `<button class="btn green sm" onclick="act(${u.id},'activate')">Activate</button>`}
-    <button class="btn sm" onclick="grantLifetime(${u.id})">+Licence</button>
-    <button class="btn ghost sm" onclick="openDrawer(${u.id})">Details</button>`;
+    ? `<button class="btn ghost sm" onclick="act(${u.id},'suspend')">⛔ Suspend</button>`
+    : `<button class="btn green sm" onclick="act(${u.id},'activate')">✅ Activate</button>`}
+    <button class="btn sm" onclick="grantLifetime(${u.id})">🎟️ Licence</button>
+    <button class="btn ghost sm" onclick="openDrawer(${u.id})">🔍 Details</button>`;
 }
 
 // ---- detail drawer ----
@@ -455,7 +455,7 @@ function renderRequests(list) {
   const el = $("req-list"); if (!el) return;
   el.innerHTML = list.length ? list.map(r => {
     const nm = [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(nm)}</b> <span class="k mono">${esc(r.email)}</span><div class="k" style="margin-top:2px">${esc(r.custom_reason || "(no reason given)")} \u00b7 ${ago(r.custom_requested)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn green sm" onclick="approveCustom(${r.id})">Approve</button><button class="btn ghost sm" onclick="denyCustom(${r.id})">Deny</button></div></div>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(nm)}</b> <span class="k mono">${esc(r.email)}</span><div class="k" style="margin-top:2px">${esc(r.custom_reason || "(no reason given)")} \u00b7 ${ago(r.custom_requested)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn green sm" onclick="approveCustom(${r.id})">✅ Approve</button><button class="btn ghost sm" onclick="denyCustom(${r.id})">🚫 Deny</button></div></div>`;
   }).join("") : '<div class="k">No pending requests.</div>';
 }
 async function approveCustom(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "unlock_strategy" }); notify("Approved \u2014 customer can now customize \u2713", "ok"); loadRequests(); reloadAll(); } catch (e) { notify(e.message, "error"); } }
