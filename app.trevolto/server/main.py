@@ -426,7 +426,7 @@ def _bt_trade(t) -> dict:
 def candles(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 300,
             user: dict = Depends(current_user)):
     s = get_session(user["id"])
-    data = s.chart_data(symbol, timeframe, min(int(limit), 500))
+    data = s.chart_data(symbol, timeframe, min(int(limit), 1000))
     if not data["candles"]:
         raise HTTPException(400, "no candle data (needs ccxt + connectivity)")
     return data

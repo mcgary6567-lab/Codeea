@@ -163,9 +163,9 @@
             <button class="btn ghost sm" onclick="chZoom(1.25)">－</button>
             <button class="btn ghost sm" onclick="chReset()">Reset</button>
           </div>
-          <div class="chlegend" id="ch-legend"></div>
-          <canvas id="ch-price" class="chart" style="height:380px;margin-top:8px;touch-action:none"></canvas>
-          <div class="hint">Scroll / pinch to zoom, drag to pan. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> red / <span style="color:var(--green)">TP</span> green.</div>
+          <div class="chart-topbar"><div class="chlegend" id="ch-legend"></div><div class="ch-ohlc" id="ch-ohlc"></div></div>
+          <div id="ch-price" class="tvchart"></div>
+          <div class="hint">Drag to pan · scroll / pinch to zoom · hover for OHLC &amp; time · scroll left to check back-data. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> / <span style="color:var(--green)">TP</span> lines.</div>
         </div>
 
         <div class="grid2">
@@ -637,6 +637,7 @@
   </footer>
 </div>
 
+<script src="/static/lightweight-charts.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

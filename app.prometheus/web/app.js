@@ -516,69 +516,71 @@ function drawLine(id, series, color, fill) {
   if (fill) { ctx.fillStyle = color + "22"; ctx.lineTo(x(series.length - 1), h - 8); ctx.lineTo(x(0), h - 8); ctx.closePath(); ctx.fill(); }
 }
 
-// ================= ADVANCED CANDLE CHART (zoom / pan / SL-TP) =================
-let CH = null;            // {d, i0, i1}
-let chDrag = null;        // {x, i0, i1} while dragging
-let chPinch = null;
+// ============ TradingView Lightweight Charts — live candlestick chart ============
+let CH = null;            // { d } last fetched chart data
+let LW = null;            // { chart, candle, fast, slow, trend, priceLines:[], bs }
+function lwInit() {
+  const el = $("ch-price"); if (!el || LW || typeof LightweightCharts === "undefined") return;
+  const chart = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background: { color: "#0e1420" }, textColor: "#8a97ab", fontFamily: "inherit", fontSize: 11 },
+    grid: { vertLines: { color: "#161d2b" }, horzLines: { color: "#161d2b" } },
+    rightPriceScale: { borderColor: "#242d3e", scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale: { borderColor: "#242d3e", timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: 7 },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color: "#3b4a63", width: 1, style: 2, labelBackgroundColor: "#1a2130" },
+      horzLine: { color: "#3b4a63", width: 1, style: 2, labelBackgroundColor: "#1a2130" },
+    },
+    localization: { priceFormatter: p => p >= 100 ? p.toFixed(2) : p.toFixed(4) },
+  });
+  const candle = chart.addCandlestickSeries({
+    upColor: "#22c55e", downColor: "#ef4444", borderUpColor: "#22c55e",
+    borderDownColor: "#ef4444", wickUpColor: "#22c55e", wickDownColor: "#ef4444",
+  });
+  const mk = c => chart.addLineSeries({ color: c, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  LW = { chart, candle, fast: mk("#eab308"), slow: mk("#3b82f6"), trend: mk("#a855f7"), priceLines: [], bs: 7 };
+  chart.subscribeCrosshairMove(p => {
+    const o = $("ch-ohlc"); if (!o) return;
+    const c = p && p.seriesData && p.seriesData.get(candle);
+    if (!c) { o.innerHTML = ""; return; }
+    const cls = c.close >= c.open ? "pos" : "neg", ch = ((c.close - c.open) / c.open * 100);
+    o.innerHTML = `O <b>${fmt(c.open)}</b> H <b>${fmt(c.high)}</b> L <b>${fmt(c.low)}</b> C <b class="${cls}">${fmt(c.close)}</b> <b class="${cls}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</b>`;
+  });
+}
+function lwLine(d, arr) { const out = []; for (let i = 0; i < d.candles.length; i++) { if (arr[i] == null) continue; out.push({ time: Math.floor(d.candles[i][0] / 1000), value: arr[i] }); } return out; }
+function lwRender(d) {
+  lwInit(); if (!LW) return;
+  LW.candle.setData(d.candles.map(c => ({ time: Math.floor(c[0] / 1000), open: c[1], high: c[2], low: c[3], close: c[4] })));
+  LW.fast.setData(lwLine(d, d.fast)); LW.slow.setData(lwLine(d, d.slow)); LW.trend.setData(lwLine(d, d.trend));
+  const mks = [];
+  (d.markers || []).forEach(m => {
+    const c = d.candles[m.i]; if (!c) return; const time = Math.floor(c[0] / 1000);
+    if (m.type === "enter") { const buy = m.side === "long"; mks.push({ time, position: buy ? "belowBar" : "aboveBar", color: buy ? "#22c55e" : "#ef4444", shape: buy ? "arrowUp" : "arrowDown", text: buy ? "BUY" : "SELL" }); }
+    else if (m.type === "exit") mks.push({ time, position: "aboveBar", color: "#8a97ab", shape: "circle", text: m.reason === "sl" ? "SL hit" : (m.reason === "counter_cross" ? "exit" : "trail") });
+  });
+  mks.sort((a, b) => a.time - b.time);
+  LW.candle.setMarkers(mks);
+  LW.priceLines.forEach(pl => LW.candle.removePriceLine(pl)); LW.priceLines = [];
+  const le = [...(d.markers || [])].reverse().find(m => m.type === "enter");
+  if (le) {
+    if (le.sl) LW.priceLines.push(LW.candle.createPriceLine({ price: le.sl, color: "#ef4444", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "SL" }));
+    if (le.tp1) LW.priceLines.push(LW.candle.createPriceLine({ price: le.tp1, color: "#22c55e", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "TP" }));
+  }
+}
 async function loadChart() {
-  const info = $("ch-price"); if (!info) return;
+  if (!$("ch-price")) return;
   try {
-    const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=400`);
-    CH = { d, i0: 0, i1: d.candles.length }; chReset();
+    const d = await api(`/api/candles?symbol=${encodeURIComponent($("ch-sym").value)}&timeframe=${$("ch-tf").value}&limit=1000`);
+    const first = !CH; CH = { d }; lwRender(d);
+    if (first && LW) LW.chart.timeScale().fitContent();
     const buys = d.markers.filter(m => m.type === "enter" && m.side === "long").length;
     const sells = d.markers.filter(m => m.type === "enter" && m.side === "short").length;
-    $("ch-legend").innerHTML = `<span>${d.symbol} · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos">▲ ${buys} BUY</span> <span class="neg">▼ ${sells} SELL</span>`;
-  } catch (e) { const ctx = $("ch-price").getContext("2d"); ctx.clearRect(0, 0, 2000, 500); ctx.fillStyle = "#8a97ab"; ctx.font = "13px sans-serif"; ctx.fillText("No chart data — check connectivity", 14, 26); }
+    $("ch-legend").innerHTML = `<span><b>${d.symbol}</b> · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos">▲ ${buys} BUY</span> <span class="neg">▼ ${sells} SELL</span>`;
+  } catch (e) { if ($("ch-legend")) $("ch-legend").innerHTML = '<span class="neg">No chart data — connect an exchange or check connectivity.</span>'; }
 }
-function chReset() { if (!CH) return; const n = CH.d.candles.length; CH.i1 = n; CH.i0 = Math.max(0, n - 140); drawChart(); }
-function chZoom(f) { if (!CH) return; const n = CH.d.candles.length; let c = Math.round((CH.i1 - CH.i0) * f); c = Math.max(20, Math.min(n, c)); const mid = (CH.i0 + CH.i1) / 2; CH.i1 = Math.min(n, Math.round(mid + c / 2)); CH.i0 = Math.max(0, CH.i1 - c); drawChart(); }
-function chPan(dCandles) { if (!CH) return; const n = CH.d.candles.length, c = CH.i1 - CH.i0; let i0 = Math.max(0, Math.min(n - c, chDrag.i0 + dCandles)); CH.i0 = i0; CH.i1 = i0 + c; drawChart(); }
-function drawChart() {
-  if (!CH) return;
-  const cv = $("ch-price"); if (cv.clientWidth < 20) return; const ctx = cv.getContext("2d");
-  const w = cv.width = cv.clientWidth, h = cv.height = cv.clientHeight; ctx.clearRect(0, 0, w, h);
-  const d = CH.d, i0 = Math.max(0, Math.floor(CH.i0)), i1 = Math.min(d.candles.length, Math.ceil(CH.i1));
-  const view = d.candles.slice(i0, i1); if (view.length < 2) return;
-  let lo = Math.min(...view.map(c => c[3])), hi = Math.max(...view.map(c => c[2]));
-  // include SL/TP of visible markers in range so lines are on-screen
-  d.markers.forEach(m => { if (m.i >= i0 && m.i < i1 && m.type === "enter") {[m.sl, m.tp1, m.tp2].forEach(v => { if (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); } });
-  const rng = (hi - lo) || 1, padR = 62, plotW = w - 8 - padR;
-  const N = i1 - i0, cw = Math.max(1.5, plotW / N * 0.7);
-  const x = i => 8 + (i - i0) * plotW / (N - 1);
-  const y = v => 6 + (hi - v) / rng * (h - 12);
-  // grid + price axis
-  ctx.fillStyle = "#8a97ab"; ctx.font = "10px monospace"; ctx.strokeStyle = "#1c2534";
-  for (let g = 0; g <= 4; g++) { const v = lo + rng * g / 4, yy = y(v); ctx.beginPath(); ctx.moveTo(8, yy); ctx.lineTo(8 + plotW, yy); ctx.stroke(); ctx.fillText(v.toFixed(v < 10 ? 4 : 2), w - padR + 5, yy + 3); }
-  // candles
-  view.forEach((k, idx) => {
-    const i = i0 + idx, [, o, hg, l, c] = k, up = c >= o; ctx.strokeStyle = up ? "#22c55e" : "#ef4444"; ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath(); ctx.moveTo(x(i), y(hg)); ctx.lineTo(x(i), y(l)); ctx.stroke();
-    const yt = y(Math.max(o, c)), yb = y(Math.min(o, c)); ctx.fillRect(x(i) - cw / 2, yt, cw, Math.max(1, yb - yt));
-  });
-  // EMA overlays
-  const line = (arr, col) => { ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath(); let st = false; for (let i = i0; i < i1; i++) { const v = arr[i]; if (v == null) continue; const px = x(i), py = y(v); st ? ctx.lineTo(px, py) : ctx.moveTo(px, py); st = true; } ctx.stroke(); ctx.lineWidth = 1; };
-  line(d.fast, "#eab308"); line(d.slow, "#3b82f6"); line(d.trend, "#a855f7");
-  // markers + SL/TP lines
-  ctx.font = "bold 11px sans-serif";
-  d.markers.forEach(m => {
-    if (m.i < i0 || m.i >= i1) return; const px = x(m.i);
-    if (m.type === "enter") {
-      const buy = m.side === "long", col = buy ? "#22c55e" : "#ef4444"; const py = y(m.price);
-      ctx.fillStyle = col; ctx.beginPath();
-      if (buy) { ctx.moveTo(px, py + 14); ctx.lineTo(px - 6, py + 26); ctx.lineTo(px + 6, py + 26); } else { ctx.moveTo(px, py - 14); ctx.lineTo(px - 6, py - 26); ctx.lineTo(px + 6, py - 26); }
-      ctx.closePath(); ctx.fill();
-      const lab = buy ? "BUY" : "SELL", tw = ctx.measureText(lab).width, ly = buy ? py + 40 : py - 32, lx = Math.min(Math.max(px - tw / 2 - 4, 2), w - padR - tw - 8);
-      ctx.fillStyle = col; rr(ctx, lx, ly - 12, tw + 8, 16, 4); ctx.fill(); ctx.fillStyle = "#0a0d13"; ctx.fillText(lab, lx + 4, ly);
-      const seg = Math.min(px + 64, w - padR);
-      if (m.sl) { hline(ctx, px, seg, y(m.sl), "#ef4444"); chlabel(ctx, seg, y(m.sl), "SL", "#ef4444"); }
-      if (m.tp1) { hline(ctx, px, seg, y(m.tp1), "#22c55e"); chlabel(ctx, seg, y(m.tp1), "TP1", "#22c55e"); }
-      if (m.tp2) { hline(ctx, px, seg, y(m.tp2), "#16a34a"); chlabel(ctx, seg, y(m.tp2), "TP2", "#16a34a"); }
-    } else { ctx.fillStyle = "#8a97ab"; ctx.fillRect(px - 2, y(m.price) - 2, 4, 4); }
-  });
-}
-function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
-function hline(ctx, x1, x2, yy, col) { ctx.strokeStyle = col; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, yy); ctx.lineTo(x2, yy); ctx.stroke(); ctx.setLineDash([]); }
-function chlabel(ctx, x, yy, text, col) { ctx.font = "bold 9px sans-serif"; const tw = ctx.measureText(text).width; ctx.fillStyle = col; rr(ctx, x + 2, yy - 7, tw + 6, 13, 3); ctx.fill(); ctx.fillStyle = "#0a0d13"; ctx.fillText(text, x + 5, yy + 3); }
+function chReset() { if (LW) { LW.bs = 7; LW.chart.timeScale().applyOptions({ barSpacing: 7 }); LW.chart.timeScale().fitContent(); } }
+function chZoom(f) { if (!LW) return; LW.bs = Math.max(2, Math.min(50, (LW.bs || 7) / f)); LW.chart.timeScale().applyOptions({ barSpacing: LW.bs }); }
 
 // order-panel mark price for the selected symbol
 async function markTick() {
@@ -586,22 +588,8 @@ async function markTick() {
   try { const d = await api("/api/prices?symbols=" + encodeURIComponent(sym)); const t = d[sym]; if ($("tr-mark")) $("tr-mark").value = t && t.price != null ? fmt(t.price, t.price < 10 ? 5 : 2) : "—"; } catch (e) { }
 }
 
-// chart interaction
-function chSetup() {
-  const cv = $("ch-price"); if (!cv || cv._wired) return; cv._wired = true;
-  const candleW = () => { const N = (CH ? CH.i1 - CH.i0 : 1); return (cv.clientWidth - 70) / Math.max(1, N); };
-  cv.addEventListener("wheel", e => { e.preventDefault(); chZoom(e.deltaY > 0 ? 1.15 : 0.87); }, { passive: false });
-  cv.addEventListener("mousedown", e => { if (CH) chDrag = { x: e.clientX, i0: CH.i0 }; });
-  window.addEventListener("mousemove", e => { if (chDrag) chPan(Math.round((chDrag.x - e.clientX) / candleW())); });
-  window.addEventListener("mouseup", () => chDrag = null);
-  cv.addEventListener("touchstart", e => { if (e.touches.length === 1 && CH) chDrag = { x: e.touches[0].clientX, i0: CH.i0 }; else if (e.touches.length === 2 && CH) chPinch = { dist: tdist(e), c: CH.i1 - CH.i0, mid: (CH.i0 + CH.i1) / 2 }; }, { passive: true });
-  cv.addEventListener("touchmove", e => {
-    if (e.touches.length === 2 && chPinch) { const nd = tdist(e); let c = Math.round(chPinch.c * chPinch.dist / (nd || 1)); c = Math.max(20, Math.min(CH.d.candles.length, c)); CH.i1 = Math.min(CH.d.candles.length, Math.round(chPinch.mid + c / 2)); CH.i0 = Math.max(0, CH.i1 - c); drawChart(); }
-    else if (e.touches.length === 1 && chDrag) { chPan(Math.round((chDrag.x - e.touches[0].clientX) / candleW())); }
-  }, { passive: true });
-  cv.addEventListener("touchend", () => { chDrag = null; chPinch = null; });
-}
-function tdist(e) { const a = e.touches[0], b = e.touches[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+// Lightweight Charts manages its own pan/zoom/crosshair — just init the chart.
+function chSetup() { lwInit(); }
 
 function btRedraw() {
   if (!BT || $("bt-out").classList.contains("hidden")) return;
@@ -612,7 +600,7 @@ function btRedraw() {
 // discard canvas contents while a tab is frozen).
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
-  requestAnimationFrame(() => { if (CH) drawChart(); btRedraw(); });
+  requestAnimationFrame(() => { btRedraw(); });
 });
 
 // unified toast notifications for every action
