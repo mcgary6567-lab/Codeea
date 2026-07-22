@@ -156,7 +156,12 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
   .side button{font-size:15px;padding:13px 14px}
   .content{width:100%}
   .land-copy h1{font-size:28px}
+  .land-copy{min-width:0}
+  .land-hero{gap:26px;margin:3vh auto}
+  #auth{padding:26px 20px}
   .btnrow.big button{font-size:15px;padding:12px}
+  .topbar{padding:10px 14px;gap:8px}
+  .topbar .brand{font-size:15px}
 }
 @media(max-width:520px){ .tiles{grid-template-columns:1fr 1fr}.pricestrip{grid-template-columns:1fr 1fr} }
 
