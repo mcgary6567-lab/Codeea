@@ -577,6 +577,12 @@ async function loadChart() {
     const buys = d.markers.filter(m => m.type === "enter" && m.side === "long").length;
     const sells = d.markers.filter(m => m.type === "enter" && m.side === "short").length;
     $("ch-legend").innerHTML = `<span><b>${d.symbol}</b> · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos">▲ ${buys} BUY</span> <span class="neg">▼ ${sells} SELL</span>`;
+    // last signal badge: most recent entry (BUY/SELL) + price, for the selected pair
+    const ls = $("ch-lastsig"), le = [...d.markers].reverse().find(m => m.type === "enter");
+    if (ls) {
+      if (le) { const buy = le.side === "long", px = fmt(le.price, le.price < 10 ? 5 : (le.price < 1000 ? 3 : 2)); ls.classList.remove("hidden"); ls.innerHTML = `<span class="k">Last signal</span> <b class="${buy ? "pos" : "neg"}">${buy ? "▲ BUY" : "▼ SELL"} ${px}</b> <span class="k">${d.symbol}</span>`; }
+      else { ls.classList.add("hidden"); ls.innerHTML = ""; }
+    }
   } catch (e) { if ($("ch-legend")) $("ch-legend").innerHTML = '<span class="neg">No chart data — connect an exchange or check connectivity.</span>'; }
 }
 function chReset() { if (LW) { LW.bs = 7; LW.chart.timeScale().applyOptions({ barSpacing: 7 }); LW.chart.timeScale().fitContent(); } }
