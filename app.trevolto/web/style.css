@@ -162,6 +162,9 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
   .btnrow.big button{font-size:15px;padding:12px}
   .topbar{padding:10px 14px;gap:8px}
   .topbar .brand{font-size:15px}
+  /* 16px inputs stop iOS Safari zoom-jumping on focus, which left form-heavy
+     pages (esp. Settings) stuck zoomed-in and feeling unresponsive */
+  input,select,textarea,#auth input{font-size:16px}
 }
 @media(max-width:520px){ .tiles{grid-template-columns:1fr 1fr}.pricestrip{grid-template-columns:1fr 1fr} }
 
