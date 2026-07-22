@@ -591,11 +591,9 @@ function renderSignal(sig) {
   const box = $("ch-sig"); if (!box) return;
   if (!sig || sig.pct == null) { box.classList.add("hidden"); return; }
   const pct = Math.max(0, Math.min(100, sig.pct | 0));
-  const buy = sig.side === "long", sell = sig.side === "short";
-  const col = pct < 35 ? "#8a97ab" : (buy ? "#22c55e" : (sell ? "#ef4444" : "#eab308"));
   box.classList.remove("hidden"); box.classList.toggle("ready", pct >= 85);
-  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = col; }
-  const p = $("ch-sig-pct"); if (p) { p.textContent = pct + "%"; p.style.color = col; }
+  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = "#22c55e"; }
+  const p = $("ch-sig-pct"); if (p) { p.textContent = pct + "%"; p.style.color = "#fff"; }
   const st = $("ch-sig-state"); if (st) st.textContent = sig.state || "";
 }
 function chReset() { if (LW) { LW.bs = 7; LW.chart.timeScale().applyOptions({ barSpacing: 7 }); LW.chart.timeScale().fitContent(); } }
