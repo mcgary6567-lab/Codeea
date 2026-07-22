@@ -19,7 +19,7 @@ import exchange as ex          # engine module (on sys.path)
 import strategy as strat
 from guardrails import Guardrails
 
-from . import store, webpush
+from . import store, webpush, news
 from .config_web import POLL_INTERVAL
 
 # Keyless public ccxt clients for candle data (backtest / built-in strategy),
@@ -159,6 +159,7 @@ DEFAULT_SETTINGS = {
     "telegram_chat": "",
     "daily_summary": True,           # daily PnL recap via Telegram/email
     "alert_skips": False,            # Telegram alert when a strategy signal is blocked
+    "news_trading": True,            # True = trade through news; False = pause ±1h around high-impact events
     "strategy_filter": "Trevolto",
     "strategy_enabled": True,        # built-in strategy ON by default
     "strategy_symbols": "BTC/USDT",
@@ -201,6 +202,7 @@ class TraderSession:
         self._strat_hold: dict = {}
         self._sig_alerted: dict = {}       # per-symbol: fired the >=85% alert this run
         self.signal: dict = None           # latest signal-strength meter {pct,state,side,symbol}
+        self._news_alerted: str = ""       # event key we've already warned about (blackout)
         self._strat_version = None      # last logged "why held" reason per symbol
         self._apply_guardrails()
         self.key_withdraw_warn = False
@@ -619,10 +621,18 @@ class TraderSession:
         if last_ts == primed:
             return                               # no new closed candle yet
         self._strat_primed[symbol] = last_ts
+        # High-impact news filter: when News-trading is OFF, hold new entries for
+        # 1h before and after major macro releases (FOMC/CPI/NFP...). Exits are
+        # never blocked — protecting open risk always takes priority.
+        protect = not self.settings.get("news_trading", True)
+        blackout = news.blackout() if protect else None
         acted = False
         for evt in strat.evaluate_crossover(closed, params, symbol):
             act = evt.get("act")
             if act == "enter":
+                if blackout:
+                    self._news_hold(symbol, evt["side"], blackout)
+                    continue
                 acted = True
                 side = "buy" if evt["side"] == "long" else "sell"
                 self.log(f"Signal {symbol} {side.upper()} — entry {float(evt['entry']):g}, "
@@ -651,13 +661,27 @@ class TraderSession:
             sig = {"pct": 0, "state": "", "side": ""}
         self.signal = dict(sig, symbol=symbol)
         pct, sd = int(sig.get("pct", 0)), sig.get("side", "")
-        if pct >= 85 and sd and not acted and not self._sig_alerted.get(symbol):
+        if pct >= 85 and sd and not acted and not blackout and not self._sig_alerted.get(symbol):
             self._sig_alerted[symbol] = True
             word = "BUY" if sd == "long" else "SELL"
             self.notify(f"⚡ {word} signal firing on {symbol} — strength {pct}%. "
                         f"A {'long' if sd == 'long' else 'short'} entry is lining up — the bot is getting ready to trade.")
         elif pct < 70:
             self._sig_alerted[symbol] = False
+
+    def _news_hold(self, symbol: str, side: str, bl: dict) -> None:
+        """Log (and alert once) when a fresh entry is held back by the news filter."""
+        word = "BUY" if side == "long" else "SELL"
+        cc = f" ({bl['country']})" if bl.get("country") else ""
+        when = (f"in {bl['mins']}m" if bl["phase"] == "pre"
+                else f"{abs(bl['mins'])}m ago")
+        self.log(f"News filter: held {symbol} {word} — high-impact {bl['title']}{cc} {when}", "warn")
+        key = f"{bl['title']}@{int(bl['ts'])}"
+        if self._news_alerted != key:
+            self._news_alerted = key
+            self.notify(f"📰 New entries paused — high-impact news. {bl['title']}{cc} {when}. "
+                        f"The bot is standing aside until 1h after the event to avoid the volatility spike; "
+                        f"open trades and their stops/targets stay fully managed.")
 
     # -- snapshot for the UI -------------------------------------------------
     # -- API-key safety check -----------------------------------------------
@@ -756,6 +780,7 @@ class TraderSession:
             "balance": round(self.balance, 2),
             "pnl": round(self.pnl, 2),
             "signal": self.signal,
+            "news": news.status(protect=not self.settings.get("news_trading", True)),
             "strategy_on": self.strategy_on,
             "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,

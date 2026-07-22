@@ -167,6 +167,7 @@ function render(s) {
   lastState = s;
   processAlerts(s);
   if (s.signal) renderSignal(s.signal);   // live signal-strength meter (when the bot is running)
+  renderNews(s.news);                     // high-impact news filter toggle + blackout flag
   $("st-dot").classList.toggle("on", s.connected);
   $("st-conn").textContent = s.connected ? "Connected" : "Disconnected";
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";
@@ -591,10 +592,51 @@ function renderSignal(sig) {
   const box = $("ch-sig"); if (!box) return;
   if (!sig || sig.pct == null) { box.classList.add("hidden"); return; }
   const pct = Math.max(0, Math.min(100, sig.pct | 0));
+  const sell = sig.side === "short";
+  const col = sell ? "#ef4444" : "#22c55e";   // BUY side green, SELL side red
   box.classList.remove("hidden"); box.classList.toggle("ready", pct >= 85);
-  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = "#22c55e"; }
+  box.classList.toggle("sell", sell);
+  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = col; }
   const p = $("ch-sig-pct"); if (p) { p.textContent = pct + "%"; p.style.color = "#fff"; }
   const st = $("ch-sig-state"); if (st) st.textContent = sig.state || "";
+}
+let newsBusy = false;
+function renderNews(nw) {
+  const btn = $("ch-news-btn"), lbl = $("ch-news-lbl"), flag = $("ch-news-flag"), box = $("ch-news");
+  if (!btn || !box) return;
+  box.classList.remove("hidden");
+  // trading ON = protection OFF; protection ON = user turned news trading OFF
+  const on = !(nw && nw.protect);
+  btn.classList.toggle("off", !on);
+  btn.setAttribute("aria-checked", on ? "true" : "false");
+  if (lbl) lbl.textContent = on ? "ON" : "OFF";
+  if (!flag) return;
+  if (nw && nw.protect && nw.event) {                 // protection on + inside a news window
+    const e = nw.event, cc = e.country ? ` ${e.country}` : "";
+    const when = e.phase === "pre" ? `in ${e.mins}m` : `${Math.abs(e.mins)}m ago`;
+    flag.className = "ch-news-flag paused";
+    flag.textContent = `⛔ Paused — ${e.title}${cc} ${when}`;
+  } else if (nw && nw.protect && nw.next) {            // protection on, next event ahead
+    const e = nw.next, cc = e.country ? ` ${e.country}` : "";
+    const h = Math.floor(e.mins / 60), m = e.mins % 60, eta = h ? `${h}h ${m}m` : `${m}m`;
+    flag.className = "ch-news-flag armed";
+    flag.textContent = nw.stale ? "⚠ calendar offline" : `🛡 Next: ${e.title}${cc} in ${eta}`;
+  } else {
+    flag.className = "ch-news-flag hidden";
+    flag.textContent = "";
+  }
+}
+async function toggleNews() {
+  if (newsBusy) return; newsBusy = true;
+  const cur = !(lastState && lastState.news && lastState.news.protect);  // currently ON?
+  const next = !cur;                                                     // flip
+  try {
+    await api("/api/settings", "POST", { news_trading: next });
+    if (lastState) { lastState.news = Object.assign({}, lastState.news, { protect: !next }); renderNews(lastState.news); }
+    notify(next ? "News trading ON — bot trades through all events." :
+                  "News trading OFF — bot pauses ±1h around high-impact news. 🛡", "ok");
+  } catch (e) { notify("Could not update news filter.", "err"); }
+  finally { newsBusy = false; }
 }
 function chReset() { if (LW) { LW.bs = 7; LW.chart.timeScale().applyOptions({ barSpacing: 7 }); LW.chart.timeScale().fitContent(); } }
 function chZoom(f) { if (!LW) return; LW.bs = Math.max(2, Math.min(50, (LW.bs || 7) / f)); LW.chart.timeScale().applyOptions({ barSpacing: LW.bs }); }

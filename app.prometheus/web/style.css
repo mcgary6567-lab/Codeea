@@ -123,8 +123,20 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .ch-sig-pct{color:#fff;font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace;min-width:30px}
 .ch-sig-state{color:#fff}
 .ch-sig.ready{border-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,.25);animation:sigpulse 1.3s ease-in-out infinite}
+.ch-sig.ready.sell{border-color:#ef4444;box-shadow:0 0 0 1px rgba(239,68,68,.25);animation:sigpulsered 1.3s ease-in-out infinite}
 @keyframes sigpulse{0%,100%{box-shadow:0 0 0 1px rgba(34,197,94,.25)}50%{box-shadow:0 0 10px 1px rgba(34,197,94,.5)}}
-@media(max-width:640px){.tvchart{height:340px}.ch-ohlc{font-size:10.5px}.ch-sig-bar{width:64px}.ch-sig-state{display:none}}
+@keyframes sigpulsered{0%,100%{box-shadow:0 0 0 1px rgba(239,68,68,.25)}50%{box-shadow:0 0 10px 1px rgba(239,68,68,.5)}}
+/* high-impact news filter */
+.ch-news{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:3px 8px 3px 10px;white-space:nowrap}
+.ch-news-k{color:var(--mut);font-weight:700;letter-spacing:.4px}
+.ch-news-btn{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid rgba(34,197,94,.5);background:rgba(34,197,94,.14);color:#22c55e;font-weight:800;font-size:11px;border-radius:999px;padding:2px 9px 2px 6px;transition:.18s}
+.ch-news-btn .ch-news-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.8)}
+.ch-news-btn.off{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.14);color:#ef4444}
+.ch-news-btn.off .ch-news-dot{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,.8)}
+.ch-news-flag{display:inline-flex;align-items:center;font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px}
+.ch-news-flag.armed{color:#93c5fd;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.35)}
+.ch-news-flag.paused{color:#fff;background:rgba(239,68,68,.9);border:1px solid #ef4444;animation:sigpulsered 1.3s ease-in-out infinite}
+@media(max-width:640px){.tvchart{height:340px}.ch-ohlc{font-size:10.5px}.ch-sig-bar{width:64px}.ch-sig-state{display:none}.ch-news-k{display:none}.ch-news-flag{white-space:normal}}
 .lg-fast{color:#eab308}.lg-slow{color:#3b82f6}.lg-trend{color:#a855f7}
 .hamb{display:none;background:transparent;border:none;color:var(--txt);font-size:20px;padding:2px 8px}
 
