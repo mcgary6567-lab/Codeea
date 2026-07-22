@@ -2,8 +2,10 @@
 
 Production port of the spec:
 
-  * **Trend filter** — price must be *completely* above the EMA100 for longs
-    (candle low > EMA100) / completely below for shorts (candle high < EMA100).
+  * **Trend filter** — the candle must CLOSE above the EMA100 for longs / close
+    below for shorts. A "trend re-arm" also enters when the EMAs are already
+    aligned and price reclaims the EMA100 (so a cross during a pullback is not
+    missed once price clears the trend).
   * **Trigger** — EMA9 crosses EMA21 on a *closed* candle; entry is taken at the
     OPEN of the next candle (no intra-candle execution).
   * **Stop** — long: the lower of {EMA21 − 0.2%} and the recent swing low;
@@ -205,10 +207,20 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
             if len(recent) > params.whipsaw_max_crosses:
                 suspend_until = now + int(params.whipsaw_suspend_hours * 3600 * 1000)
             elif now >= suspend_until and i > sl_cooldown_until and not _in_daily_close_window(now, params):
-                above = (not params.use_trend_filter) or low[i] > trend[i]
-                below = (not params.use_trend_filter) or h[i] < trend[i]
+                above = (not params.use_trend_filter) or cl[i] > trend[i]
+                below = (not params.use_trend_filter) or cl[i] < trend[i]
+                # trend re-arm: EMAs already aligned and price just reclaimed the trend EMA
+                # (catches entries where the EMA cross happened during a pullback and price
+                #  only cleared the EMA100 a few candles later).
+                tf = params.use_trend_filter and trend[i - 1] is not None
+                reclaim_up = tf and cl[i - 1] <= trend[i - 1] and cl[i] > trend[i]
+                reclaim_dn = tf and cl[i - 1] >= trend[i - 1] and cl[i] < trend[i]
                 if cu and above:
                     pending = {"side": "long", "cross_i": i, "count": 0, "armed": confirm == 0}
+                elif reclaim_up and fast[i] > slow[i]:
+                    pending = {"side": "long", "cross_i": i, "count": 0, "armed": confirm == 0}
+                elif reclaim_dn and fast[i] < slow[i]:
+                    pending = {"side": "short", "cross_i": i, "count": 0, "armed": confirm == 0}
                 elif cd and below:
                     pending = {"side": "short", "cross_i": i, "count": 0, "armed": confirm == 0}
     return events
@@ -233,8 +245,8 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
     if fast[i] is None or slow[i] is None or trend[i] is None:
         return "EMAs warming up"
     if params.use_trend_filter:
-        if fast[i] > slow[i] and low[i] <= trend[i]:
-            return f"BUY held — price not fully above EMA{params.trend_ema}"
-        if fast[i] < slow[i] and h[i] >= trend[i]:
-            return f"SELL held — price not fully below EMA{params.trend_ema}"
+        if fast[i] > slow[i] and cl[i] <= trend[i]:
+            return f"BUY held — price still below EMA{params.trend_ema} (trend filter)"
+        if fast[i] < slow[i] and cl[i] >= trend[i]:
+            return f"SELL held — price still above EMA{params.trend_ema} (trend filter)"
     return ""
