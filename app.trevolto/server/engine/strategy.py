@@ -113,6 +113,7 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
     suspend_until = 0                # ms; whipsaw suspension of new entries
     sl_cd = max(0, int(getattr(params, "post_sl_cooldown_bars", 0) or 0))
     sl_cooldown_until = -1           # bar index; no new entries at/before this bar after a stop-out
+    last_up_cross = last_dn_cross = -10**9   # bar index of the most recent EMA9/21 cross per side
 
     for i in range(1, n):
         if None in (fast[i], slow[i], trend[i], fast[i - 1], slow[i - 1]):
@@ -121,6 +122,10 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
         cd = fast[i - 1] >= slow[i - 1] and fast[i] < slow[i]
         if cu or cd:
             cross_bars.append(i)
+        if cu:
+            last_up_cross = i
+        if cd:
+            last_dn_cross = i
 
         # 1) fill a CONFIRMED pending entry at THIS bar's open
         if pending is not None and pending.get("armed") and pos is None:
@@ -209,12 +214,16 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
             elif now >= suspend_until and i > sl_cooldown_until and not _in_daily_close_window(now, params):
                 above = (not params.use_trend_filter) or cl[i] > trend[i]
                 below = (not params.use_trend_filter) or cl[i] < trend[i]
-                # trend re-arm: EMAs already aligned and price just reclaimed the trend EMA
-                # (catches entries where the EMA cross happened during a pullback and price
-                #  only cleared the EMA100 a few candles later).
+                # trend re-arm: catches entries where the EMA9/21 cross happened during a
+                # pullback below the trend EMA and price only reclaimed the EMA100 a few bars
+                # later. Gated on a RECENT same-direction cross so it doesn't fire on every
+                # EMA100 reclaim in chop (which over-trades and bleeds the account).
                 tf = params.use_trend_filter and trend[i - 1] is not None
-                reclaim_up = tf and cl[i - 1] <= trend[i - 1] and cl[i] > trend[i]
-                reclaim_dn = tf and cl[i - 1] >= trend[i - 1] and cl[i] < trend[i]
+                rearm_look = max(3, int(params.whipsaw_window))
+                reclaim_up = (tf and cl[i - 1] <= trend[i - 1] and cl[i] > trend[i]
+                              and i - last_up_cross <= rearm_look)
+                reclaim_dn = (tf and cl[i - 1] >= trend[i - 1] and cl[i] < trend[i]
+                              and i - last_dn_cross <= rearm_look)
                 if cu and above:
                     pending = {"side": "long", "cross_i": i, "count": 0, "armed": confirm == 0}
                 elif reclaim_up and fast[i] > slow[i]:
