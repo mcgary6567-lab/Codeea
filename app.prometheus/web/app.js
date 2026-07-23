@@ -525,7 +525,7 @@ function lwInit() {
   const el = $("ch-price"); if (!el || LW || typeof LightweightCharts === "undefined") return;
   const chart = LightweightCharts.createChart(el, {
     autoSize: true,
-    layout: { background: { color: "#0e1420" }, textColor: "#8a97ab", fontFamily: "inherit", fontSize: 11 },
+    layout: { background: { color: "#0e1420" }, textColor: "#8a97ab", fontFamily: "inherit", fontSize: 13 },
     grid: { vertLines: { color: "#161d2b" }, horzLines: { color: "#161d2b" } },
     rightPriceScale: { borderColor: "#242d3e", scaleMargins: { top: 0.08, bottom: 0.08 } },
     timeScale: { borderColor: "#242d3e", timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: 7 },
