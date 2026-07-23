@@ -261,6 +261,10 @@ class TraderSession:
         if ":" in chat:
             return False, ("Your Chat ID looks like a bot token. The Chat ID is a plain number "
                            "(e.g. 987654321) — message @userinfobot to get yours.")
+        if chat == token.split(":", 1)[0]:
+            return False, ("That Chat ID is your bot's own ID, so it's trying to message itself. "
+                           "Use YOUR personal Chat ID — open Telegram, message @userinfobot, and it "
+                           "replies with your id (a number like 987654321).")
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             data = urllib.parse.urlencode({
@@ -284,6 +288,10 @@ class TraderSession:
             if "chat not found" in low:
                 return False, ("Chat not found — open a chat with your bot and send it any message "
                                "first, then use your numeric Chat ID (from @userinfobot).")
+            if "forbidden" in low:
+                return False, ("The bot can't message that chat. If your Chat ID is the bot's own id, "
+                               "use YOUR id from @userinfobot instead. Otherwise open Telegram, start "
+                               "a chat with your bot and send it any message first, then try again.")
             return False, f"Telegram rejected it: {desc}"
         except Exception as e:  # noqa: BLE001
             return False, f"Could not reach Telegram: {e}"
