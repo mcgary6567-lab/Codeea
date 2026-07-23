@@ -40,6 +40,26 @@ app = FastAPI(title="Trevolto Web", version="1.0.0")
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 
 
+@app.on_event("startup")
+def _restore_bots() -> None:
+    """Bring every entitled user's bot back online after a restart/deploy, so
+    trading is genuinely 24/7 and does NOT wait for someone to open the web app.
+    Each session auto-reconnects its saved keys (and auto-starts the strategy)."""
+    import threading
+
+    def _boot() -> None:
+        for u in store.all_users():
+            try:
+                if not u.get("keys_blob"):
+                    continue                      # no exchange keys → nothing to run
+                if not store.entitlement(u)["ok"]:
+                    continue                      # expired/suspended → don't trade
+                get_session(u["id"])              # creates + background-reconnects the bot
+            except Exception:
+                pass
+    threading.Thread(target=_boot, name="restore-bots", daemon=True).start()
+
+
 # --- auth helpers -----------------------------------------------------------
 def current_user(authorization: str = Header(default="")) -> dict:
     token = authorization[7:] if authorization.lower().startswith("bearer ") else authorization
@@ -328,7 +348,9 @@ async def telegram_test(request: Request, user: dict = Depends(current_user)):
 async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
     d = await body(request)
     s = get_session(user["id"])
-    if (d.get("params") is not None or d.get("symbols") is not None or d.get("timeframe") is not None) and user.get("allow_custom"):
+    msg = ""
+    wants_params = d.get("params") is not None or d.get("symbols") is not None or d.get("timeframe") is not None
+    if wants_params and user.get("allow_custom"):
         patch = {}
         if d.get("symbols") is not None:
             patch["strategy_symbols"] = d["symbols"]
@@ -337,7 +359,11 @@ async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
         if d.get("params") is not None:
             patch["strategy_params"] = d["params"]
         s.set_settings(patch)
-    msg = ""
+    elif wants_params:
+        # Managed plan: strategy parameters are locked, so don't pretend they saved.
+        msg = ("Your strategy is professionally managed — its parameters can't be changed on the "
+               "managed plan, so those weren't saved. Request ⭐ Custom Strategy access to edit them. "
+               "(Your sizing, risk & alert settings on the Settings tab do save normally.)")
     if d.get("enable") is True:
         require_entitled(user)
         s.set_settings({"strategy_enabled": True})   # persist so it auto-starts on connect

@@ -422,7 +422,7 @@ function collectParams() {
   return p;
 }
 async function strategy(enable) { try { const r = await api("/api/strategy", "POST", { enable, symbols: $("sg-sym").value, timeframe: $("sg-tf").value, params: collectParams() }); notify((r && r.message) ? r.message : (enable ? "Strategy enabled ✓" : "Strategy disabled"), enable ? "ok" : "warn"); refresh(); } catch (e) { notify(e.message, "error"); } }
-async function saveStrategy() { try { await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); notify("Strategy saved ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
+async function saveStrategy() { try { const d = await api("/api/strategy", "POST", { params: collectParams(), symbols: $("sg-sym").value, timeframe: $("sg-tf").value }); notify(d.message || "Strategy saved ✓", d.message ? "warn" : "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function resetStrategy() {
   if (!confirm("Reset all strategy parameters to their defaults?")) return;
   for (const k in SPARAMS) { const el = $("p-" + k); if (!el) continue; el.value = BOOLP.has(k) ? (SPARAMS[k] ? "1" : "0") : SPARAMS[k]; }
