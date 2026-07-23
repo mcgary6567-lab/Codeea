@@ -364,6 +364,10 @@ th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--accen
 .psel-add:hover{background:rgba(249,115,22,.2)}
 .psel-empty{padding:12px;color:var(--mut);font-size:12px;text-align:center}
 .bell-panel{position:absolute;right:0;top:calc(100% + 8px);width:330px;max-width:92vw;background:var(--panel2);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,.55);z-index:60;overflow:hidden}
+/* on mobile the bell sits at the left of the wrapped topbar, so a right-anchored
+   panel ran off the left edge (alerts appeared cut off / hidden) — anchor it to
+   the left and cap width to the viewport so it always opens on-screen */
+@media(max-width:640px){.bell-panel{left:0;right:auto;width:min(340px,calc(100vw - 22px))}}
 .bell-head{padding:11px 14px;font-weight:700;font-size:13px;border-bottom:1px solid var(--line)}
 .bell-list{max-height:60vh;overflow:auto}
 .bell-item{padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
