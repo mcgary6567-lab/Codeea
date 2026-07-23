@@ -237,11 +237,30 @@ class TraderSession:
             pass
 
     @staticmethod
+    def _looks_like_token(v: str) -> bool:
+        """A Telegram bot token is <digits>:<~35 char secret> (from @BotFather)."""
+        if ":" not in v:
+            return False
+        a, b = v.split(":", 1)
+        return a.isdigit() and len(a) >= 6 and len(b) >= 30
+
+    @staticmethod
     def telegram_test(token: str, chat: str) -> tuple:
         """Synchronous test send — returns (ok, message) so the UI can report."""
         token, chat = (token or "").strip(), (chat or "").strip()
         if not token or not chat:
             return False, "Enter both a bot token and a chat id."
+        # Most common setup mistake: the bot token pasted into the Chat ID field.
+        if not TraderSession._looks_like_token(token):
+            if TraderSession._looks_like_token(chat):
+                return False, ("Looks like the fields are swapped — your Chat ID contains the bot "
+                               "token. Put the token (like 123456789:ABC…) in Bot token, and your "
+                               "numeric Chat ID in Chat ID.")
+            return False, ("That bot token doesn't look right. Copy the full token from @BotFather — "
+                           "it looks like 123456789:ABCdef… and must include the part after the colon.")
+        if ":" in chat:
+            return False, ("Your Chat ID looks like a bot token. The Chat ID is a plain number "
+                           "(e.g. 987654321) — message @userinfobot to get yours.")
         try:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             data = urllib.parse.urlencode({
@@ -258,6 +277,13 @@ class TraderSession:
                 desc = json.loads(e.read().decode()).get("description", str(e))
             except Exception:
                 desc = str(e)
+            low = desc.lower()
+            if "not found" in low or "unauthorized" in low:
+                return False, ("Bot token was rejected — it's wrong or was revoked in @BotFather. "
+                               "Open @BotFather, copy the token again, and paste the full value.")
+            if "chat not found" in low:
+                return False, ("Chat not found — open a chat with your bot and send it any message "
+                               "first, then use your numeric Chat ID (from @userinfobot).")
             return False, f"Telegram rejected it: {desc}"
         except Exception as e:  # noqa: BLE001
             return False, f"Could not reach Telegram: {e}"
