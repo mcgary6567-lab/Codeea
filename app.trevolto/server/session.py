@@ -355,6 +355,15 @@ class TraderSession:
             self.start_strategy()
         return "connected"
 
+    def _auto_connect(self) -> None:
+        """Reconnect saved keys in the background so the connection survives
+        logout/login and server restarts (live sessions are held in memory)."""
+        try:
+            if not self.connected and store.load_keys(self.user_id):
+                self.connect()
+        except Exception as e:  # noqa: BLE001
+            self.log(f"Auto-reconnect skipped — {e}", "warn")
+
     def disconnect(self) -> None:
         with self._lock:
             self.stop_strategy()
@@ -838,10 +847,15 @@ _REG_LOCK = threading.RLock()
 def get_session(user_id: int) -> TraderSession:
     with _REG_LOCK:
         s = _SESSIONS.get(user_id)
-        if s is None:
+        fresh = s is None
+        if fresh:
             s = TraderSession(user_id)
             _SESSIONS[user_id] = s
-        return s
+    # A brand-new session (first request after login, or after a restart) with
+    # saved keys auto-reconnects in the background so the user stays "Connected".
+    if fresh and store.load_keys(user_id):
+        threading.Thread(target=s._auto_connect, name=f"autoconnect-{user_id}", daemon=True).start()
+    return s
 
 
 def live_stats() -> dict:

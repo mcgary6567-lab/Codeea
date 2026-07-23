@@ -173,6 +173,12 @@ function render(s) {
   $("st-ex").textContent = s.exchange ? `${s.exchange} · ${s.market_type}` : "—";
   $("ex-state").textContent = s.connected ? "connected" : "not connected";
   if ($("btn-clear-keys")) $("btn-clear-keys").classList.toggle("hidden", !(s.has_keys || s.connected));
+  // keys stay blank for security, but show they're saved + restore the exchange picker
+  { const kk = $("cx-key"), ks = $("cx-sec"); const ph = (s.has_keys || s.connected) ? "•••••••• saved — leave blank to keep" : null;
+    if (kk && !kk.value) kk.placeholder = ph || "key";
+    if (ks && !ks.value) ks.placeholder = ph || "secret";
+    const setSel = (id, v) => { const el = $(id); if (el && v && document.activeElement !== el) el.value = v; };
+    if (s.connected) { setSel("cx-ex", s.exchange); setSel("cx-mkt", s.market_type); } }
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
@@ -268,8 +274,13 @@ async function loadPnlModes() {
 // ---- connect / trade ----
 async function saveConnect() {
   try {
-    await api("/api/keys", "POST", { exchange: $("cx-ex").value, market_type: $("cx-mkt").value, api_key: $("cx-key").value.trim(), api_secret: $("cx-sec").value.trim(), password: $("cx-pass").value.trim() });
-    await api("/api/connect", "POST");
+    const key = $("cx-key").value.trim(), sec = $("cx-sec").value.trim();
+    if (key && sec) {
+      await api("/api/keys", "POST", { exchange: $("cx-ex").value, market_type: $("cx-mkt").value, api_key: key, api_secret: sec, password: $("cx-pass").value.trim() });
+    } else if (!(lastState && lastState.has_keys)) {
+      notify("Enter your API key and secret.", "warn"); return;
+    }
+    await api("/api/connect", "POST");           // reconnects with saved keys when fields are blank
     notify("Connected to " + $("cx-ex").value + " ✓", "ok");
     refresh(); show('home', document.querySelector('.side button'));
   } catch (e) { notify("Connect failed: " + e.message, "error"); }
