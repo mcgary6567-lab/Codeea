@@ -51,6 +51,7 @@ class StrategyParams:
 # ---------------------------------------------------------------------------
 def ema_series(values: List[float], length: int) -> List[Optional[float]]:
     n = len(values)
+    length = int(length)              # params from saved JSON can arrive as floats (e.g. 9.0)
     out: List[Optional[float]] = [None] * n
     if length <= 0 or n < length:
         return out

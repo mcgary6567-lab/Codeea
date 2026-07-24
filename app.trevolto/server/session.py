@@ -331,8 +331,19 @@ class TraderSession:
     def _strat_params(self, src: dict) -> "strat.StrategyParams":
         p = strat.StrategyParams()
         for k, v in (src or {}).items():
-            if hasattr(p, k):
-                setattr(p, k, v)
+            if not hasattr(p, k):
+                continue
+            cur = getattr(p, k)                 # coerce to the field's type — saved JSON may
+            try:                                # deliver ints/floats/bools loosely (e.g. 9.0)
+                if isinstance(cur, bool):
+                    v = bool(v)
+                elif isinstance(cur, int):
+                    v = int(float(v))
+                elif isinstance(cur, float):
+                    v = float(v)
+            except (TypeError, ValueError):
+                continue
+            setattr(p, k, v)
         return p
 
     # -- connection ----------------------------------------------------------
