@@ -505,7 +505,6 @@ async function resetStrategy() {
 
 // ---- backtest (pro) ----
 let BT = null;   // last result for CSV export
-function btPeriodChange() { $("bt-limit-wrap").style.display = $("bt-period").value === "0" ? "" : "none"; }
 function streaks(trades) {
   let win = 0, loss = 0, cw = 0, cl = 0;
   for (const t of trades) { if (t.pnl > 0) { cw++; cl = 0; } else if (t.pnl < 0) { cl++; cw = 0; } win = Math.max(win, cw); loss = Math.max(loss, cl); }
@@ -515,8 +514,7 @@ async function runBacktest() {
   const btn = $("bt-run"); btn.disabled = true; btn.textContent = "Running…"; $("bt-out").classList.add("hidden");
   try {
     const days = parseFloat($("bt-period").value);
-    const req = { exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, start_equity: parseFloat($("bt-eq").value) || 1000, risk_pct: parseFloat($("bt-risk").value) || 0, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() };
-    if (days > 0) req.days = days; else req.limit = parseInt($("bt-limit").value) || 1000;
+    const req = { exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, start_equity: parseFloat($("bt-eq").value) || 1000, risk_pct: parseFloat($("bt-risk").value) || 0, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", days: days, params: collectParams() };
     const nf = $("bt-news") ? $("bt-news").value : "";   // "" = follow the dashboard News-trading setting
     if (nf === "1") req.news_filter = true; else if (nf === "0") req.news_filter = false;
     const sc = $("bt-scalein") ? $("bt-scalein").value : "";  // "" = follow the saved scale-in setting

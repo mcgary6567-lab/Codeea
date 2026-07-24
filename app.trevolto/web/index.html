@@ -372,11 +372,10 @@
             <div class="col"><label>Timeframe</label>
               <select id="bt-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
             <div class="col"><label>Period</label>
-              <select id="bt-period" onchange="btPeriodChange()">
-                <option value="1">Last 1 day</option><option value="7" selected>Last 7 days</option>
-                <option value="14">Last 14 days</option><option value="30">Last 30 days</option>
+              <select id="bt-period">
+                <option value="30" selected>Last 30 days</option>
                 <option value="90">Last 90 days</option><option value="180">Last 180 days</option>
-                <option value="365">Last 1 year</option><option value="0">Max (by candles)</option>
+                <option value="365">Last 1 year</option>
               </select></div>
           </div>
           <div class="row">
@@ -386,7 +385,6 @@
             <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
             <div class="col"><label>News filter <span class="k">(skip high-impact news)</span></label><select id="bt-news"><option value="">Follow my setting</option><option value="1">On</option><option value="0">Off</option></select></div>
             <div class="col"><label>Scale-in <span class="k">(pyramiding)</span></label><select id="bt-scalein"><option value="">Follow my setting</option><option value="1">On</option><option value="0">Off</option></select></div>
-            <div class="col" id="bt-limit-wrap" style="display:none"><label>Max candles</label><input id="bt-limit" type="number" value="1000"/></div>
           </div>
           <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
           <div class="btnrow">
