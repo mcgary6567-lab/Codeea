@@ -270,6 +270,8 @@
               <div class="col"><label>Trend EMA (master filter)</label><input id="p-trend_ema" type="number"/></div>
               <div class="col"><label>Only trade with price fully past trend EMA</label>
                 <select id="p-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
+              <div class="col"><label>Entry style <span class="k">(Strict = fewer, cleaner)</span></label>
+                <select id="p-aggressive_entries"><option value="0">Strict — cross only, whole candle past EMA</option><option value="1">Aggressive — close-based + pullback re-arm</option></select></div>
             </div>
             <div class="row">
               <div class="col"><label>Confirming candles required <span class="k">(0 = enter on cross)</span></label><input id="p-confirm" type="number"/></div>

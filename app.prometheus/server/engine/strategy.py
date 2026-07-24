@@ -44,6 +44,8 @@ class StrategyParams:
     whipsaw_suspend_hours: float = 12.0
     avoid_daily_close: bool = True  # no new entries 23:30–00:30 UTC
     post_sl_cooldown_bars: int = 0  # after a stop-out, block new entries for N closed candles (0 = off)
+    aggressive_entries: bool = False  # False = strict (whole candle clears EMA, cross-only);
+    #                                   True = close-based filter + trend re-arm (more trades)
 
 
 # ---------------------------------------------------------------------------
@@ -213,18 +215,25 @@ def _replay_crossover(candles, params: StrategyParams, ticker: str = ""):
             if len(recent) > params.whipsaw_max_crosses:
                 suspend_until = now + int(params.whipsaw_suspend_hours * 3600 * 1000)
             elif now >= suspend_until and i > sl_cooldown_until and not _in_daily_close_window(now, params):
-                above = (not params.use_trend_filter) or cl[i] > trend[i]
-                below = (not params.use_trend_filter) or cl[i] < trend[i]
-                # trend re-arm: catches entries where the EMA9/21 cross happened during a
-                # pullback below the trend EMA and price only reclaimed the EMA100 a few bars
-                # later. Gated on a RECENT same-direction cross so it doesn't fire on every
-                # EMA100 reclaim in chop (which over-trades and bleeds the account).
-                tf = params.use_trend_filter and trend[i - 1] is not None
-                rearm_look = max(3, int(params.whipsaw_window))
-                reclaim_up = (tf and cl[i - 1] <= trend[i - 1] and cl[i] > trend[i]
-                              and i - last_up_cross <= rearm_look)
-                reclaim_dn = (tf and cl[i - 1] >= trend[i - 1] and cl[i] < trend[i]
-                              and i - last_dn_cross <= rearm_look)
+                if getattr(params, "aggressive_entries", False):
+                    # AGGRESSIVE: close-based trend filter + trend re-arm — takes more
+                    # entries (catches pullback/reclaim setups). Better in trends, more
+                    # whipsaws in chop.
+                    above = (not params.use_trend_filter) or cl[i] > trend[i]
+                    below = (not params.use_trend_filter) or cl[i] < trend[i]
+                    tf = params.use_trend_filter and trend[i - 1] is not None
+                    rearm_look = max(3, int(params.whipsaw_window))
+                    reclaim_up = (tf and cl[i - 1] <= trend[i - 1] and cl[i] > trend[i]
+                                  and i - last_up_cross <= rearm_look)
+                    reclaim_dn = (tf and cl[i - 1] >= trend[i - 1] and cl[i] < trend[i]
+                                  and i - last_dn_cross <= rearm_look)
+                else:
+                    # STRICT (default): the whole candle must clear the trend EMA and the
+                    # entry only fires on a fresh EMA9/21 cross — fewer, cleaner trend
+                    # trades that hold up better in choppy markets.
+                    above = (not params.use_trend_filter) or low[i] > trend[i]
+                    below = (not params.use_trend_filter) or h[i] < trend[i]
+                    reclaim_up = reclaim_dn = False
                 if cu and above:
                     pending = {"side": "long", "cross_i": i, "count": 0, "armed": confirm == 0}
                 elif reclaim_up and fast[i] > slow[i]:
@@ -255,9 +264,12 @@ def entry_block_reason(candles, params: StrategyParams) -> str:
     if fast[i] is None or slow[i] is None or trend[i] is None:
         return "EMAs warming up"
     if params.use_trend_filter:
-        if fast[i] > slow[i] and cl[i] <= trend[i]:
+        # strict mode needs the whole candle beyond the trend EMA; aggressive needs the close
+        long_below = (low[i] <= trend[i]) if not getattr(params, "aggressive_entries", False) else (cl[i] <= trend[i])
+        short_above = (h[i] >= trend[i]) if not getattr(params, "aggressive_entries", False) else (cl[i] >= trend[i])
+        if fast[i] > slow[i] and long_below:
             return f"BUY held — price still below EMA{params.trend_ema} (trend filter)"
-        if fast[i] < slow[i] and cl[i] >= trend[i]:
+        if fast[i] < slow[i] and short_above:
             return f"SELL held — price still above EMA{params.trend_ema} (trend filter)"
     return ""
 
