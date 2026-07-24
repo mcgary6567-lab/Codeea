@@ -168,9 +168,6 @@ DEFAULT_SETTINGS = {
     "move_be_on_tp1": False,
 }
 
-# Brand logo shown on Telegram alerts (sent as a photo caption).
-TG_LOGO = "https://prometheusbot.com/hosted/images/0f/af4d7125b6470b9ed2cd957982852a/51.png"
-
 
 class TraderSession:
     def __init__(self, user_id: int):
@@ -241,18 +238,12 @@ class TraderSession:
 
     @staticmethod
     def _tg_send(token: str, chat: str, msg: str) -> None:
-        text = f"🔥 Prometheus\n{msg}"
-        try:                                   # branded: logo photo + caption
-            url = f"https://api.telegram.org/bot{token}/sendPhoto"
-            data = urllib.parse.urlencode({"chat_id": chat, "photo": TG_LOGO, "caption": text}).encode()
+        try:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🔥 Prometheus\n{msg}"}).encode()
             urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
         except Exception:
-            try:                               # fall back to plain text if the photo can't be sent
-                url = f"https://api.telegram.org/bot{token}/sendMessage"
-                data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
-                urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
-            except Exception:
-                pass
+            pass
 
     @staticmethod
     def _looks_like_token(v: str) -> bool:
@@ -284,10 +275,10 @@ class TraderSession:
                            "Use YOUR personal Chat ID — open Telegram, message @userinfobot, and it "
                            "replies with your id (a number like 987654321).")
         try:
-            url = f"https://api.telegram.org/bot{token}/sendPhoto"
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
             data = urllib.parse.urlencode({
-                "chat_id": chat, "photo": TG_LOGO,
-                "caption": "🔥 Prometheus — test message. Your Telegram alerts are working ✅",
+                "chat_id": chat,
+                "text": "🔥 Prometheus — test message. Your Telegram alerts are working ✅",
             }).encode()
             with urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=10) as r:
                 body = json.loads(r.read().decode())
@@ -335,7 +326,15 @@ class TraderSession:
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
     def _params(self) -> "strat.StrategyParams":
-        return self._strat_params(self.settings.get("strategy_params") or {})
+        # Use the SAME params the live runner uses, so the chart reflects what the
+        # bot actually trades: custom users -> their saved params; managed users ->
+        # the admin's global strategy.
+        u = store.get_user(self.user_id) or {}
+        if u.get("allow_custom"):
+            src = self.settings.get("strategy_params") or {}
+        else:
+            src = (_global_strategy() or {}).get("params") or {}
+        return self._strat_params(src)
 
     def _strat_params(self, src: dict) -> "strat.StrategyParams":
         p = strat.StrategyParams()
@@ -534,6 +533,9 @@ class TraderSession:
         self.log(f"{source} {side.upper()} {symbol} x{amount}: {res.message} [{reason}]",
                  "ok" if res.ok else "error")
         if not res.ok:
+            if source == "strategy":            # signal fired but the order didn't go through
+                self.notify(f"⚠️ {side.upper()} {symbol} signal fired but the order was rejected — "
+                            f"{res.message}. Check your balance / API permissions.")
             return {"ok": False, "message": res.message}
 
         emoji = "🟢" if side == "buy" else "🔴"
