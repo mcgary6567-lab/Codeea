@@ -433,6 +433,11 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         cfg.risk_pct = float(d["risk_pct"])
     if d.get("allow_short") is not None:
         cfg.allow_short = bool(d["allow_short"])
+    # Daily loss / profit circuit breaker — default to the user's live guardrail so the
+    # backtest behaves like the real bot (which stops trading after the daily limit).
+    _bs = get_session(user["id"]).settings
+    cfg.daily_loss_pct = float(d.get("daily_loss_pct", _bs.get("daily_loss_pct", 0)) or 0)
+    cfg.daily_profit_pct = float(d.get("daily_profit_pct", _bs.get("daily_profit_pct", 0)) or 0)
     try:
         cfg.bar_seconds = float(_public_client_tf_seconds(tf))
     except Exception:

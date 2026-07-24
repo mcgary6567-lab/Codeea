@@ -27,6 +27,8 @@ class BacktestConfig:
     bar_seconds: float = 3600.0
     allow_short: bool = True
     news_windows: tuple = ()          # (start_ms, end_ms) blackout windows — skip entries inside
+    daily_loss_pct: float = 0.0       # stop opening new trades once the day is down this % (0 = off)
+    daily_profit_pct: float = 0.0     # stop opening new trades once the day is up this % (0 = off)
 
 
 @dataclass
@@ -79,9 +81,25 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
         return abs(notional) * (cfg.funding_pct_8h / 100.0) * periods
 
     news_skipped = 0
+    day_skipped = 0
+    day_key = None
+    day_start_equity = equity         # equity at the start of the current calendar day (UTC)
     for i, ev in strategy.evaluate_all_crossover(candles, params):
         act = ev["act"]
         if act == "enter":
+            # Daily loss / profit circuit breaker — mirrors the live guardrail: once the
+            # day's realized P&L crosses the limit, stop opening NEW trades for that day
+            # (open positions still close normally).
+            d_key = ts[i] // 86_400_000
+            if d_key != day_key:
+                day_key = d_key
+                day_start_equity = equity
+            if day_start_equity > 0 and (
+                (cfg.daily_loss_pct > 0 and equity <= day_start_equity * (1 - cfg.daily_loss_pct / 100.0)) or
+                (cfg.daily_profit_pct > 0 and equity >= day_start_equity * (1 + cfg.daily_profit_pct / 100.0))):
+                day_skipped += 1
+                cur = {}
+                continue
             if cfg.news_windows and any(a <= ts[i] <= b for (a, b) in cfg.news_windows):
                 news_skipped += 1     # news filter: no entries inside a high-impact window
                 cur = {}
@@ -124,6 +142,7 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
     res.stats = _summarise(res.trades, cfg.start_equity, res.equity)
     if isinstance(res.stats, dict):
         res.stats["news_skipped"] = news_skipped
+        res.stats["day_skipped"] = day_skipped
     return res
 
 
