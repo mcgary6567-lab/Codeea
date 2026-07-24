@@ -189,11 +189,6 @@ class TraderSession:
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.em = ex.ExchangeManager()
-        try:                                   # restore the persisted demo wallet
-            self.em.load_paper_state(store.load_paper_wallet(user_id))
-        except Exception:
-            pass
-        self._paper_sig = None
         self.guard = Guardrails()
         self.settings = {**DEFAULT_SETTINGS, **(store.load_settings(user_id) or {})}
         # One-time migration: the strategy was rewritten (EMA100 filter, new
@@ -369,33 +364,6 @@ class TraderSession:
             self.em.read_only = bool(self.settings.get("read_only", False))
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
-    def reset_paper(self, start_balance: float = 10_000.0) -> None:
-        """Reset the demo/paper wallet back to its starting balance and clear positions."""
-        with self._lock:
-            self.em.reset_paper(start_balance)
-            if self.settings.get("paper_mode"):
-                ps = self.em.paper_snapshot()
-                self.balance = ps["balance"]
-                self.positions = self.em.fetch_positions()
-                self.pnl = ps["unrealized"]
-            self._save_paper(force=True)
-        self.log(f"Demo wallet reset to ${start_balance:,.0f}")
-
-    def _save_paper(self, force: bool = False) -> None:
-        """Persist the demo wallet to the DB (change-guarded to avoid churn)."""
-        st = self.em.paper_state()
-        sig = (round(st["balance"], 4), st["trades"], len(st["positions"]),
-               tuple(round(float(p["size"]), 8) for p in st["positions"]))
-        if force or sig != self._paper_sig:
-            self._paper_sig = sig
-            try:
-                store.save_paper_wallet(self.user_id, st)
-            except Exception:
-                pass
-
-    def _save_paper_if_changed(self) -> None:
-        self._save_paper(force=False)
-
     def _params(self) -> "strat.StrategyParams":
         # Use the SAME params the live runner uses, so the chart reflects what the
         # bot actually trades: custom users -> their saved params; managed users ->
@@ -489,21 +457,12 @@ class TraderSession:
         if not self.connected:
             return
         with self._lock:
-            if self.settings.get("paper_mode"):
-                # Demo mode: the dashboard reflects the self-contained paper wallet
-                # (marked to market), not the real exchange balance.
-                ps = self.em.paper_snapshot(self.em._last_price)
-                self.balance = ps["balance"]
-                self.pnl = ps["unrealized"]
-                self.positions = self.em.fetch_positions()
-                self._save_paper_if_changed()
-            else:
-                try:
-                    self.balance = self.em.fetch_balance()
-                except Exception:
-                    pass
-                self.positions = self.em.fetch_positions()
-                self.pnl = self.em.total_pnl(self.positions)
+            try:
+                self.balance = self.em.fetch_balance()
+            except Exception:
+                pass
+            self.positions = self.em.fetch_positions()
+            self.pnl = self.em.total_pnl(self.positions)
         now = time.time()
         if now - self._last_equity_snap > 60:
             self._last_equity_snap = now
@@ -968,40 +927,25 @@ class TraderSession:
         return "Unknown command. Send /help."
 
     def snapshot(self) -> dict:
-        paper_on = bool(self.settings.get("paper_mode", False))
-        # Demo mode: source balance / PnL / positions from the self-contained paper
-        # wallet so it always shows (even before any exchange is connected).
-        paper = self.em.paper_snapshot() if paper_on else None
-        if paper is not None:
-            bal, upnl = paper["balance"], paper["unrealized"]
-            positions = [
-                {"pair": p["pair"], "side": p["side"], "size": p["size"], "entry": p["entry"],
-                 "current": p["current"], "pnl": p["pnl"], "status": "Active"}
-                for p in paper["positions"]
-            ]
-        else:
-            bal, upnl = round(self.balance, 2), round(self.pnl, 2)
-            positions = [
-                {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
-                 "current": p.current, "pnl": round(p.pnl, 4), "status": p.status}
-                for p in self.positions
-            ]
         return {
             "connected": self.connected,
             "exchange": self.exchange_id,
             "market_type": self.market_type,
             "safe_mode": bool(self.settings.get("safe_mode", False)),
-            "paper_mode": paper_on,
-            "paper": paper,
+            "paper_mode": bool(self.settings.get("paper_mode", False)),
             "read_only": bool(self.settings.get("read_only", False)),
-            "balance": bal,
-            "pnl": upnl,
+            "balance": round(self.balance, 2),
+            "pnl": round(self.pnl, 2),
             "signal": self.signal,
             "news": news.status(protect=not self.settings.get("news_trading", True)),
             "strategy_on": self.strategy_on,
             "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,
-            "positions": positions,
+            "positions": [
+                {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
+                 "current": p.current, "pnl": round(p.pnl, 4), "status": p.status}
+                for p in self.positions
+            ],
             "log": list(self.log_ring)[:120],
             "alerts": list(self.alert_ring)[:30],
             "key_withdraw_warn": getattr(self, "key_withdraw_warn", False),

@@ -313,16 +313,9 @@ class ExchangeManager:
         self.market_type: str = "spot"        # "spot" or "futures"
         self._fut_quote: str = QUOTE_CURRENCY  # futures margin/quote ccy (per venue)
         self._spot_entries: dict = {}          # asset -> entry price (bot buys)
-        # Simulated (demo / paper) wallet — a self-contained account, fully
-        # separate from the real exchange balance. Always available, even with no
-        # keys connected, so users can practise risk-free before going live.
-        self._sim_start: float = 10_000.0     # starting cash (for ROI)
-        self._sim_balance: float = 10_000.0   # realized cash balance
+        # Simulated state used when safe_mode is on or ccxt is missing.
+        self._sim_balance: float = 10_000.0
         self._sim_positions: List[Position] = []
-        self._sim_realized: float = 0.0       # cumulative realized PnL
-        self._sim_trades: int = 0             # closed round-trips
-        self._sim_wins: int = 0               # closed round-trips in profit
-        self._sim_fees: float = 0.0           # cumulative demo fees paid
 
     @property
     def is_futures(self) -> bool:
@@ -785,129 +778,27 @@ class ExchangeManager:
             return OrderResult(False, f"Cancel failed: {exc}", pair=sym)
 
     # -- simulation helpers -------------------------------------------------
-    _SIM_FEE = 0.0004   # 0.04% taker fee applied to every demo fill
-
     def _simulate_fill(self, symbol: str, side: str, amount: float) -> None:
-        """Fill a demo order against the live price, keeping a real ledger:
-        weighted-average entry on adds, realized PnL booked to the cash balance
-        on reduces/closes (with a taker fee), and position flips handled."""
         price = self._last_price(symbol) or 100.0
-        amount = abs(float(amount))
-        if amount <= 0:
-            return
-        self._sim_fees += amount * price * self._SIM_FEE
-        self._sim_balance -= amount * price * self._SIM_FEE
-        buy = (side == "buy")
-        pos = next((p for p in self._sim_positions if p.pair == symbol), None)
-        if pos is None:
-            self._sim_positions.append(Position(
-                pair=symbol, side="Long" if buy else "Short",
-                size=amount, entry=price, current=price, pnl=0.0))
-            return
-        same_dir = (pos.side == "Long" and buy) or (pos.side == "Short" and not buy)
-        if same_dir:                                   # add → weighted-average entry
-            total = pos.size + amount
-            pos.entry = (pos.entry * pos.size + price * amount) / total if total else price
-            pos.size = total
-            pos.current = price
-            return
-        # opposite direction → reduce / close / flip
-        close_qty = min(amount, pos.size)
-        direction = 1.0 if pos.side == "Long" else -1.0
-        realized = (price - pos.entry) * close_qty * direction
-        self._sim_balance += realized
-        self._sim_realized += realized
-        self._sim_trades += 1
-        if realized > 0:
-            self._sim_wins += 1
-        remaining = pos.size - close_qty
-        if remaining > 1e-9:
-            pos.size = remaining
-            pos.current = price
+        existing = next((p for p in self._sim_positions if p.pair == symbol), None)
+        signed = amount if side == "buy" else -amount
+        if existing:
+            new_size = existing.size + (signed if existing.side == "Long" else -signed)
+            if abs(new_size) < 1e-9:
+                self._sim_positions.remove(existing)
+            else:
+                existing.size = abs(new_size)
+                existing.side = "Long" if new_size > 0 else "Short"
         else:
-            self._sim_positions.remove(pos)
-            leftover = amount - close_qty
-            if leftover > 1e-9:                        # flipped to the other side
-                self._sim_positions.append(Position(
-                    pair=symbol, side="Long" if buy else "Short",
-                    size=leftover, entry=price, current=price, pnl=0.0))
-
-    def _mark_paper(self, price_lookup=None) -> None:
-        """Mark demo positions to market. ``price_lookup(pair)->price`` is optional;
-        when absent (cheap read path) existing PnL is kept."""
-        if not price_lookup:
-            return
-        for p in self._sim_positions:
-            try:
-                px = float(price_lookup(p.pair) or 0.0)
-            except Exception:  # noqa: BLE001
-                px = 0.0
-            if px <= 0:
-                continue
-            p.current = px
-            p.pnl = (px - p.entry) * p.size * (1.0 if p.side == "Long" else -1.0)
-
-    def paper_snapshot(self, price_lookup=None) -> dict:
-        """Full demo-account summary: cash, open PnL, equity, ROI, win-rate, trades."""
-        self._mark_paper(price_lookup)
-        unreal = sum(p.pnl for p in self._sim_positions)
-        equity = self._sim_balance + unreal
-        roi = (equity / self._sim_start - 1.0) * 100.0 if self._sim_start else 0.0
-        win_rate = (self._sim_wins / self._sim_trades * 100.0) if self._sim_trades else 0.0
-        return {
-            "start": round(self._sim_start, 2),
-            "balance": round(self._sim_balance, 2),
-            "unrealized": round(unreal, 2),
-            "equity": round(equity, 2),
-            "realized": round(self._sim_realized, 2),
-            "roi": round(roi, 2),
-            "trades": int(self._sim_trades),
-            "wins": int(self._sim_wins),
-            "win_rate": round(win_rate, 1),
-            "fees": round(self._sim_fees, 2),
-            "positions": [
-                {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
-                 "current": p.current, "pnl": round(p.pnl, 4)}
-                for p in self._sim_positions
-            ],
-        }
-
-    def paper_state(self) -> dict:
-        """Serialize the demo wallet (for DB persistence across restarts)."""
-        return {
-            "start": self._sim_start, "balance": self._sim_balance,
-            "realized": self._sim_realized, "trades": self._sim_trades,
-            "wins": self._sim_wins, "fees": self._sim_fees,
-            "positions": [{"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry}
-                          for p in self._sim_positions],
-        }
-
-    def load_paper_state(self, st: dict) -> None:
-        """Restore a previously persisted demo wallet."""
-        if not st:
-            return
-        try:
-            self._sim_start = float(st.get("start", 10_000.0))
-            self._sim_balance = float(st.get("balance", self._sim_start))
-            self._sim_realized = float(st.get("realized", 0.0))
-            self._sim_trades = int(st.get("trades", 0))
-            self._sim_wins = int(st.get("wins", 0))
-            self._sim_fees = float(st.get("fees", 0.0))
-            self._sim_positions = [
-                Position(pair=p["pair"], side=p.get("side", "Long"), size=float(p["size"]),
-                         entry=float(p["entry"]), current=float(p["entry"]), pnl=0.0)
-                for p in (st.get("positions") or [])
-            ]
-        except Exception:  # noqa: BLE001 - corrupt/partial state: start fresh
-            pass
-
-    def reset_paper(self, start_balance: float = 10_000.0) -> None:
-        """Reset the demo wallet: restore starting cash, clear positions & stats."""
-        self._sim_start = float(start_balance)
-        self._sim_balance = float(start_balance)
-        self._sim_positions = []
-        self._sim_realized = 0.0
-        self._sim_trades = 0
-        self._sim_wins = 0
-        self._sim_fees = 0.0
-        self._spot_entries = {}
+            self._sim_positions.append(
+                Position(
+                    pair=symbol,
+                    side="Long" if side == "buy" else "Short",
+                    size=amount,
+                    entry=price,
+                    current=price,
+                    pnl=0.0,
+                )
+            )
+        cost = amount * price * 0.001  # pretend a tiny fee
+        self._sim_balance -= cost

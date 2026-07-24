@@ -458,25 +458,6 @@ def load_settings(user_id: int) -> dict:
     return json.loads(u["settings"]) if u and u["settings"] else {}
 
 
-def save_paper_wallet(user_id: int, state: dict) -> None:
-    """Persist a user's demo/paper wallet so it survives restarts/redeploys."""
-    with _LOCK, _conn() as c:
-        c.execute("INSERT INTO kv(k, v) VALUES(?, ?) "
-                  "ON CONFLICT(k) DO UPDATE SET v=excluded.v",
-                  (f"paper:{user_id}", json.dumps(state)))
-
-
-def load_paper_wallet(user_id: int) -> Optional[dict]:
-    with _LOCK, _conn() as c:
-        row = c.execute("SELECT v FROM kv WHERE k=?", (f"paper:{user_id}",)).fetchone()
-    if not row or not row["v"]:
-        return None
-    try:
-        return json.loads(row["v"])
-    except Exception:
-        return None
-
-
 def save_keys(user_id: int, keys: dict) -> None:
     """keys = {exchange, market_type, api_key, api_secret, password}."""
     blob = security.encrypt_secret(keys)

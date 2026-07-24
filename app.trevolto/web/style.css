@@ -394,20 +394,3 @@ th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--accen
 .omodal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 16px;border-top:1px solid var(--line)}
 .omodal-foot .btn{min-width:140px}
 @media(max-width:640px){.omodal-foot .btn{min-width:0;flex:1}}
-
-/* ---- Demo / paper trading tab ---- */
-.paper-hero{background:linear-gradient(180deg,rgba(59,130,246,.10),rgba(19,24,36,0) 60%)}
-.paper-hero-top{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap}
-.paper-hero-txt{flex:1;min-width:220px}
-.paper-switch{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
-  border:1px solid var(--line);background:var(--chip);color:var(--txt);font-weight:800;cursor:pointer;
-  font-size:14px;min-width:96px;justify-content:center;transition:background .15s,border-color .15s}
-.paper-switch .paper-switch-dot{width:12px;height:12px;border-radius:50%;background:var(--mut);transition:background .15s}
-.paper-switch.on{background:rgba(34,197,94,.15);border-color:var(--green);color:var(--green)}
-.paper-switch.on .paper-switch-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
-.paper-switch.off:hover{border-color:var(--blue)}
-.paper-banner{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:13px;
-  background:var(--chip);border:1px solid var(--line);color:var(--mut)}
-.paper-banner.live-on{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:var(--txt)}
-.paper-how{margin:0;padding-left:2px;list-style:none;display:flex;flex-direction:column;gap:9px}
-.paper-how li{font-size:13px;line-height:1.45}
