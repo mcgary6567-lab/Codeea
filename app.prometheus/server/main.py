@@ -333,6 +333,12 @@ async def settings(request: Request, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+@app.post("/api/log/clear")
+def log_clear(user: dict = Depends(current_user)):
+    get_session(user["id"]).clear_log()
+    return {"ok": True}
+
+
 @app.post("/api/telegram/test")
 async def telegram_test(request: Request, user: dict = Depends(current_user)):
     from .session import TraderSession
@@ -417,6 +423,17 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         cfg.bar_seconds = float(_public_client_tf_seconds(tf))
     except Exception:
         pass
+    # News filter: if the user runs with news protection ON (news_trading == False),
+    # skip backtest entries near known high-impact events. Coverage is limited to the
+    # current week (historical economic-calendar data isn't available), so long
+    # backtests are largely unaffected — it mainly matches live behaviour for recent runs.
+    news_on = d.get("news_filter")
+    if news_on is None:
+        news_on = not get_session(user["id"]).settings.get("news_trading", True)
+    if news_on:
+        from . import news
+        w = news.WINDOW_SEC * 1000
+        cfg.news_windows = tuple((int(t * 1000 - w), int(t * 1000 + w)) for t in news.event_times())
     result = bt.run_backtest(candles, params, cfg)
     period = {
         "from": int(candles[0][0]), "to": int(candles[-1][0]),
@@ -438,6 +455,7 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
         "start_equity": cfg.start_equity, "period": period,
         "buy_hold_pct": round(bt.buy_hold_return(candles), 2),
         "summary": summary,
+        "news_filter": bool(cfg.news_windows),
         "trades": [_bt_trade(t) for t in result.trades],
         "equity": [[int(ts), round(eq, 2)] for ts, eq in result.equity],
     }

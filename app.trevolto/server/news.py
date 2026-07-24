@@ -116,6 +116,14 @@ def blackout(now: float | None = None, window: int = WINDOW_SEC) -> dict | None:
             "mins": int(round(d / 60.0)), "phase": "pre" if d >= 0 else "post"}
 
 
+def event_times(now: float | None = None) -> list:
+    """Epoch-seconds of all cached high-impact events (for the backtest filter)."""
+    now = time.time() if now is None else now
+    _maybe_refresh(now)
+    with _lock:
+        return [e["ts"] for e in _events]
+
+
 def next_event(now: float | None = None) -> dict | None:
     now = time.time() if now is None else now
     _maybe_refresh(now)

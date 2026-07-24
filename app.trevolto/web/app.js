@@ -161,6 +161,11 @@ function openWs() {
   } catch (e) { }
 }
 async function refresh() { try { render(await api("/api/state")); } catch (e) { if (String(e).includes("401")) logout(); } }
+async function clearLog() {
+  if (!confirm("Clear the activity log? This can't be undone.")) return;
+  try { await api("/api/log/clear", "POST"); if ($("log")) $("log").innerHTML = '<div class="empty">Log cleared.</div>'; notify("Activity log cleared 🗑", "ok"); }
+  catch (e) { notify(e.message, "error"); }
+}
 setInterval(() => { if (TOKEN && !ws) refresh(); }, 3000);
 
 function render(s) {
@@ -474,7 +479,9 @@ async function runBacktest() {
       ? d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("")
       : `<tr><td colspan="8" class="k" style="text-align:center;padding:16px">No trades were triggered in this period — try a longer range, a different timeframe, or looser settings.</td></tr>`;
     const p = d.period || {};
-    $("bt-period-info").textContent = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
+    let info = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
+    if (d.news_filter) info += ` · 📰 News filter ON — ${(d.summary.news_skipped || 0)} entr${(d.summary.news_skipped === 1) ? "y" : "ies"} skipped near high-impact news (backtest coverage: current week only; the live bot applies it in real time).`;
+    $("bt-period-info").textContent = info;
     $("bt-csv").disabled = !d.trades.length;
     // Un-hide the results BEFORE drawing so the canvases have real dimensions.
     $("bt-out").classList.remove("hidden");

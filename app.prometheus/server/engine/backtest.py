@@ -26,6 +26,7 @@ class BacktestConfig:
     apply_costs: bool = True
     bar_seconds: float = 3600.0
     allow_short: bool = True
+    news_windows: tuple = ()          # (start_ms, end_ms) blackout windows — skip entries inside
 
 
 @dataclass
@@ -77,9 +78,14 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
         periods = ((exit_i - entry_i) * cfg.bar_seconds) / (8.0 * 3600.0)
         return abs(notional) * (cfg.funding_pct_8h / 100.0) * periods
 
+    news_skipped = 0
     for i, ev in strategy.evaluate_all_crossover(candles, params):
         act = ev["act"]
         if act == "enter":
+            if cfg.news_windows and any(a <= ts[i] <= b for (a, b) in cfg.news_windows):
+                news_skipped += 1     # news filter: no entries inside a high-impact window
+                cur = {}
+                continue
             if ev["side"] == "short" and not cfg.allow_short:
                 cur = {}
                 continue
@@ -116,6 +122,8 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
             cur = {}
 
     res.stats = _summarise(res.trades, cfg.start_equity, res.equity)
+    if isinstance(res.stats, dict):
+        res.stats["news_skipped"] = news_skipped
     return res
 
 

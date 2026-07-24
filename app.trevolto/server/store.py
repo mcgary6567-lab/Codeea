@@ -611,6 +611,11 @@ def recent_activity(user_id: int, limit: int = 400) -> list:
         return [dict(r) for r in rows]
 
 
+def clear_activity(user_id: int) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("DELETE FROM activity WHERE user_id=?", (user_id,))
+
+
 # --- web-push subscriptions + kv store --------------------------------------
 def add_push_sub(user_id: int, endpoint: str, sub_json: str) -> None:
     with _LOCK, _conn() as c:

@@ -226,6 +226,13 @@ class TraderSession:
         except Exception:
             pass
 
+    def clear_log(self) -> None:
+        self.log_ring.clear()
+        try:
+            store.clear_activity(self.user_id)
+        except Exception:
+            pass
+
     def notify(self, msg: str) -> None:
         """Push an alert to the in-app feed, then best-effort Telegram."""
         self.alert_ring.appendleft({"ts": time.time(), "msg": msg})
