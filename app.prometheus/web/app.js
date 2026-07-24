@@ -136,7 +136,7 @@ function syncChartToStrategy(forceLoad) {
 }
 
 // ---- views ----
-const VIEWS = ["home", "paper", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
+const VIEWS = ["home", "paper", "exchange", "strategy", "analytics", "log", "settings", "guide"];
 let accessBuyable = false;
 function goCheckout() { if (!accessBuyable) return; window.open(CHECKOUT_URL, "_blank", "noopener"); }
 function dismissAnnounce(id) { localStorage.setItem("bc_seen", String(id)); const ab = $("announce"); if (ab) ab.classList.add("hidden"); }
@@ -554,79 +554,6 @@ async function resetStrategy() {
   catch (e) { notify(e.message, "error"); }
 }
 
-// ---- backtest (pro) ----
-let BT = null;   // last result for CSV export
-function btPeriodChange() { $("bt-limit-wrap").style.display = $("bt-period").value === "0" ? "" : "none"; }
-function streaks(trades) {
-  let win = 0, loss = 0, cw = 0, cl = 0;
-  for (const t of trades) { if (t.pnl > 0) { cw++; cl = 0; } else if (t.pnl < 0) { cl++; cw = 0; } win = Math.max(win, cw); loss = Math.max(loss, cl); }
-  return { win, loss };
-}
-async function runBacktest() {
-  const btn = $("bt-run"); btn.disabled = true; btn.textContent = "Running…"; $("bt-out").classList.add("hidden");
-  try {
-    const days = parseFloat($("bt-period").value);
-    const req = { exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, start_equity: parseFloat($("bt-eq").value) || 1000, risk_pct: parseFloat($("bt-risk").value) || 0, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() };
-    if (days > 0) req.days = days; else req.limit = parseInt($("bt-limit").value) || 1000;
-    const nf = $("bt-news") ? $("bt-news").value : "";   // "" = follow the dashboard News-trading setting
-    if (nf === "1") req.news_filter = true; else if (nf === "0") req.news_filter = false;
-    const d = await api("/api/backtest", "POST", req); BT = d;
-    const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct, st = streaks(d.trades);
-    const wins = d.trades.filter(t => t.pnl > 0), losses = d.trades.filter(t => t.pnl < 0);
-    const avgWin = wins.length ? wins.reduce((a, t) => a + t.pnl, 0) / wins.length : 0;
-    const avgLoss = losses.length ? losses.reduce((a, t) => a + t.pnl, 0) / losses.length : 0;
-    const payoff = avgLoss ? Math.abs(avgWin / avgLoss) : 0;
-    const expectancy = d.trades.length ? s.net_pnl / d.trades.length : 0;
-    const tiles = [
-      ["Return", (ret >= 0 ? "+" : "") + fmt(ret) + "%", ret >= 0 ? "pos" : "neg"],
-      ["vs Buy & Hold", (vs >= 0 ? "+" : "") + fmt(vs) + "%", vs >= 0 ? "pos" : "neg"],
-      ["Net PnL $", fmt(s.net_pnl), s.net_pnl >= 0 ? "pos" : "neg"],
-      ["Final equity", fmt(s.end_equity), ""],
-      ["Win rate", fmt(s.win_rate) + "%", ""],
-      ["Profit factor", (s.profit_factor > 999 ? "∞" : fmt(s.profit_factor)), ""],
-      ["Max drawdown", "-" + fmt(s.max_drawdown) + "%", "neg"],
-      ["Trades", `${s.trades} (${s.longs}L/${s.shorts}S)`, ""],
-      ["Avg R", fmt(s.avg_r), s.avg_r >= 0 ? "pos" : "neg"],
-      ["Expectancy $/trade", fmt(expectancy), expectancy >= 0 ? "pos" : "neg"],
-      ["Payoff (win/loss)", fmt(payoff), ""],
-      ["Win/Loss streak", `${st.win} / ${st.loss}`, ""],
-      ["Best / Worst $", `${fmt(s.best)} / ${fmt(s.worst)}`, ""],
-      ["Fees paid $", fmt(s.fees), "neg"],
-    ];
-    if (s.day_skipped) tiles.push(["🛡 Daily-limit skips", `${s.day_skipped}`, "pos"]);
-    $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
-    $("bt-ntr").textContent = d.trades.length;
-    $("bt-trades").innerHTML = d.trades.length
-      ? d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("")
-      : `<tr><td colspan="8" class="k" style="text-align:center;padding:16px">No trades were triggered in this period — try a longer range, a different timeframe, or looser settings.</td></tr>`;
-    const p = d.period || {};
-    let info = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
-    if (d.news_filter) info += ` · 📰 News filter ON — ${(d.summary.news_skipped || 0)} entr${(d.summary.news_skipped === 1) ? "y" : "ies"} skipped near high-impact news (backtest coverage: current week only; the live bot applies it in real time).`;
-    if (d.summary.day_skipped) info += ` · 🛡 Daily-loss protection ON — ${d.summary.day_skipped} entr${(d.summary.day_skipped === 1) ? "y" : "ies"} blocked after the daily limit was hit (same circuit breaker your live bot uses).`;
-    $("bt-period-info").textContent = info;
-    $("bt-csv").disabled = !d.trades.length;
-    // Un-hide the results BEFORE drawing so the canvases have real dimensions.
-    $("bt-out").classList.remove("hidden");
-    notify(`Backtest done — ${d.summary.trades} trades, ${fmt(d.summary.return_pct)}% return`, "ok");
-    const eq = d.equity.map(e => e[1]);
-    requestAnimationFrame(() => {
-      drawLine("bt-eqc", eq, "#f97316", true);
-      let peak = -1e9;
-      drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
-    });
-  } catch (e) { notify("Backtest: " + e.message, "error"); }
-  finally { btn.disabled = false; btn.textContent = "▶ Run backtest"; }
-}
-function btCsv() {
-  if (!BT || !BT.trades.length) return;
-  const head = ["#", "side", "entry_ts", "exit_ts", "entry", "exit", "qty", "pnl", "R", "reason"];
-  const rows = BT.trades.map((t, i) => [i + 1, t.side, t.entry_ts, t.exit_ts, t.entry, t.exit, t.qty, t.pnl, t.r, t.reason]);
-  const csv = [head, ...rows].map(r => r.join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `backtest_${BT.symbol.replace('/', '')}_${BT.timeframe}.csv`; a.click();
-}
-
 // ---- analytics ----
 function anRange(days) {
   if (!days) { $("an-from").value = ""; $("an-to").value = ""; }
@@ -790,17 +717,6 @@ async function markTick() {
 // Lightweight Charts manages its own pan/zoom/crosshair — just init the chart.
 function chSetup() { lwInit(); }
 
-function btRedraw() {
-  if (!BT || $("bt-out").classList.contains("hidden")) return;
-  const eq = BT.equity.map(e => e[1]); drawLine("bt-eqc", eq, "#f97316", true);
-  let peak = -1e9; drawLine("bt-ddc", eq.map(v => { peak = Math.max(peak, v); return peak > 0 ? -(peak - v) / peak * 100 : 0; }), "#ef4444", true);
-}
-// Redraw canvases when the tab becomes visible again (Chrome memory-saver can
-// discard canvas contents while a tab is frozen).
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "visible") return;
-  requestAnimationFrame(() => { btRedraw(); });
-});
 
 // unified toast notifications for every action
 // ---- PWA + web push ----

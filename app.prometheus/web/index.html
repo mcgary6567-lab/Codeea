@@ -32,14 +32,14 @@
         <li><span class="lf-ic">📶</span><span><b>Live signal strength &amp; pro charts</b> — a TradingView-style chart with a 0–100% signal meter and a heads-up alert the second a BUY/SELL is lining up.</span></li>
         <li><span class="lf-ic">📰</span><span><b>Smart news protection</b> — auto-pause new entries around high-impact US news (FOMC, CPI, jobs) so the bot sidesteps the wild spikes.</span></li>
         <li><span class="lf-ic">🔒</span><span><b>Your funds never leave your exchange</b> — non-custodial, trade-only keys. We even warn you if a key can withdraw.</span></li>
-        <li><span class="lf-ic">📈</span><span><b>Profit Simulator</b> — replay the exact strategy on real market history before you risk a cent.</span></li>
+        <li><span class="lf-ic">🎮</span><span><b>Demo trading</b> — practise with $10,000 of virtual money on live prices and the real strategy before you risk a cent.</span></li>
         <li><span class="lf-ic">🎮</span><span><b>Control it from Telegram</b> — check status, pause, resume or close everything with a quick message.</span></li>
         <li><span class="lf-ic">🔔</span><span><b>Never miss a trade</b> — instant Telegram, browser &amp; push alerts. Install it as an app and get notified even when it's closed.</span></li>
         <li><span class="lf-ic">🛡️</span><span><b>Bank-grade security</b> — 2FA, encrypted keys, login history and one-click sign-out on every device.</span></li>
         <li><span class="lf-ic">🎁</span><span><b>10 days free — no card</b> — watch it trade in paper mode, then flip to live when you're convinced.</span></li>
       </ul>
       <div class="cta-line">Start free — <b>upgrade only when the results speak for themselves.</b></div>
-      <div class="hint">Trading involves risk and can lose money. Past/backtested performance is not a guarantee of future results. Provided as-is, no warranty.</div>
+      <div class="hint">Trading involves risk and can lose money. Past performance is not a guarantee of future results. Provided as-is, no warranty.</div>
     </div>
     <div id="auth">
       <div class="auth-head">
@@ -117,7 +117,6 @@
       <button data-v="paper" onclick="show('paper',this)">🎮 Demo Trading</button>
       <button data-v="exchange" onclick="show('exchange',this)">🔌 Exchange</button>
       <button data-v="strategy" onclick="show('strategy',this)">🤖 Bot Setting</button>
-      <button data-v="backtest" onclick="show('backtest',this)">📈 Profit Simulator</button>
       <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
       <button data-v="log" onclick="show('log',this)">📜 Log</button>
       <button data-v="settings" onclick="show('settings',this)">⚙️ Settings</button>
@@ -392,56 +391,6 @@
         <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
       </section>
 
-      <!-- BACKTEST -->
-      <section id="v-backtest" class="hidden">
-        <div class="card">
-          <h3>Profit Simulator <span class="chip">pro</span></h3>
-          <div class="row">
-            <div class="col"><label>Exchange</label>
-              <select id="bt-ex">
-                <option value="binance">Binance</option><option value="bybit">Bybit</option>
-                <option value="okx">OKX</option><option value="kucoin">KuCoin</option>
-                <option value="bitget">Bitget</option><option value="kraken">Kraken</option>
-                <option value="coinbase">Coinbase</option><option value="binanceus">Binance.US</option>
-              </select></div>
-            <div class="col"><label>Symbol</label><input id="bt-sym" list="symbols" value="BTC/USDT"/></div>
-            <div class="col"><label>Timeframe</label>
-              <select id="bt-tf"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>2h</option><option>4h</option><option>1d</option></select></div>
-            <div class="col"><label>Period</label>
-              <select id="bt-period" onchange="btPeriodChange()">
-                <option value="1">Last 1 day</option><option value="7" selected>Last 7 days</option>
-                <option value="14">Last 14 days</option><option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option><option value="180">Last 180 days</option>
-                <option value="365">Last 1 year</option><option value="0">Max (by candles)</option>
-              </select></div>
-          </div>
-          <div class="row">
-            <div class="col"><label>Start equity ($)</label><input id="bt-eq" type="number" value="1000"/></div>
-            <div class="col"><label>Risk % per trade <span class="k">(0 = full balance)</span></label><input id="bt-risk" type="number" step="0.1" value="1"/></div>
-            <div class="col"><label>Fee %</label><input id="bt-fee" type="number" step="0.01" value="0.02"/></div>
-            <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
-            <div class="col"><label>News filter <span class="k">(skip high-impact news)</span></label><select id="bt-news"><option value="">Follow my setting</option><option value="1">On</option><option value="0">Off</option></select></div>
-            <div class="col" id="bt-limit-wrap" style="display:none"><label>Max candles</label><input id="bt-limit" type="number" value="1000"/></div>
-          </div>
-          <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
-          <div class="btnrow">
-            <button class="btn" id="bt-run" onclick="runBacktest()">▶ Run simulation</button>
-            <button class="btn ghost" id="bt-csv" onclick="btCsv()" disabled>⬇ Export CSV</button>
-          </div>
-          <div class="hint" id="bt-period-info"></div>
-        </div>
-        <div id="bt-out" class="hidden">
-          <div class="tiles" id="bt-tiles"></div>
-          <div class="card"><h3>Equity curve &amp; drawdown</h3>
-            <canvas id="bt-eqc" class="chart" style="height:240px"></canvas>
-            <canvas id="bt-ddc" class="chart" style="height:90px;margin-top:6px"></canvas></div>
-          <div class="card"><h3>Trades <span class="chip" id="bt-ntr">0</span></h3>
-            <div class="tablewrap" style="max-height:360px;overflow:auto">
-              <table><thead><tr><th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>R</th><th>Reason</th></tr></thead>
-                <tbody id="bt-trades"></tbody></table></div></div>
-        </div>
-      </section>
-
       <!-- ANALYTICS -->
       <section id="v-analytics" class="hidden">
         <div class="card">
@@ -538,7 +487,7 @@
           <div class="guide-steps">
             <span class="gstep" onclick="show('exchange',qNav('exchange'))">① Connect</span>
             <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Bot Setting</span>
-            <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Profit Simulator</span>
+            <span class="gstep" onclick="show('paper',qNav('paper'))">③ Demo Trading</span>
             <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
             <span class="gstep" onclick="show('home',qNav('home'))">📈 Chart tools</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
@@ -594,20 +543,20 @@
               <div class="gs-field"><span>⭐ Access</span><i>Request → Approved ✓</i></div>
               <div class="gs-btnrow"><b class="gs-btn">⭐ Request custom access</b><b class="gs-btn green">💾 Save my strategy</b></div>
             </div>
-            <p class="gtip">🚀 <b>Higher profit potential means higher risk.</b> Custom Strategy is built for experienced traders — always test your settings in the <b>🧪 Profit Simulator</b> first, and keep your risk % and daily loss limit sensible. Your funds always stay on your own exchange.</p>
+            <p class="gtip">🚀 <b>Higher profit potential means higher risk.</b> Custom Strategy is built for experienced traders — always test your settings in <b>🎮 Demo Trading</b> first, and keep your risk % and daily loss limit sensible. Your funds always stay on your own exchange.</p>
           </div>
         </div>
 
         <div class="card gcard">
           <div class="gnum">3</div>
           <div class="gbody">
-            <h3>🧪 Profit Simulator — see returns before you risk a cent</h3>
-            <p>Open <b>Profit Simulator</b>. Pick a symbol, timeframe and period, then <b>Run simulation</b> — it replays the <i>exact</i> live strategy on real market history and shows an equity curve, drawdown, win-rate and every trade. Export to CSV to dig deeper.</p>
+            <h3>🎮 Demo Trading — practise risk-free before you risk a cent</h3>
+            <p>Open <b>Demo Trading</b> and flip the switch <b>ON</b>. You get a <b>$10,000 virtual wallet</b> and the bot trades it on <b>live market prices</b> using your <i>exact</i> real strategy — same signals, SL/TP and guardrails. Watch balance, open positions and PnL update in real time; reset the wallet anytime. No exchange keys or deposit needed.</p>
             <div class="gshot">
-              <div class="gs-tiles"><div class="gs-tile"><span>Net PnL</span><b class="pos">+18.4%</b></div><div class="gs-tile"><span>Win rate</span><b>57%</b></div><div class="gs-tile"><span>Trades</span><b>42</b></div><div class="gs-tile"><span>Max DD</span><b class="neg">-6.1%</b></div></div>
+              <div class="gs-tiles"><div class="gs-tile"><span>Demo balance</span><b>$10,240</b></div><div class="gs-tile"><span>Open PnL</span><b class="pos">+$240</b></div><div class="gs-tile"><span>Trades</span><b>8</b></div><div class="gs-tile"><span>Mode</span><b class="pos">DEMO</b></div></div>
               <div class="gs-curve"><svg viewBox="0 0 200 44" preserveAspectRatio="none"><polyline points="0,38 25,34 50,36 75,26 100,28 125,18 150,20 175,10 200,6" fill="none" stroke="#22c55e" stroke-width="2"/></svg></div>
             </div>
-            <p class="gtip">💡 The Profit Simulator uses your <b>saved</b> strategy parameters — tune in Strategy, then re-run here to compare.</p>
+            <p class="gtip">💡 Demo Trading uses your <b>saved</b> strategy parameters — tune in Bot Setting, then flip Demo on to watch it work before going live.</p>
           </div>
         </div>
 
@@ -689,7 +638,7 @@
           <div class="gq"><b>Can I control the bot from my phone?</b> Yes — connect Telegram in Settings, then message your bot <b>/status</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> from anywhere.</div>
           <div class="gq"><b>Which IP do I whitelist on my exchange?</b> The <b>Bot server IP</b> shown at the top of the Exchange tab — the bot trades from our cloud, so your own IP will not work. IP restriction is optional; a trade-only key with withdrawals disabled is safe on its own.</div>
           <div class="gq"><b>Do alerts work when the app is closed?</b> Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div>
-          <div class="gq"><b>Can I use my own strategy settings?</b> Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div>
+          <div class="gq"><b>Can I use my own strategy settings?</b> Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in Demo Trading first.</div>
           <div class="gq"><b>What is the signal-strength bar?</b> A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div>
           <div class="gq"><b>What does “News trading OFF” do?</b> It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything. Hover the toggle for details.</div>
         </div>

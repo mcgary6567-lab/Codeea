@@ -2,7 +2,7 @@
 
 Exposes the desktop app's capabilities over HTTP + WebSocket: auth, exchange
 connect, manual trading, positions, settings, guardrails, TradingView webhooks,
-built-in strategy, backtesting and analytics — multi-user, one server.
+built-in strategy and analytics — multi-user, one server.
 """
 from __future__ import annotations
 
@@ -19,20 +19,12 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket,
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import backtest as bt
 import strategy as strat
 
 from . import security, store, webpush
 from .config_web import PUBLIC_URL, LICENCE_PRICE
-from .session import (get_session, public_ohlcv, public_ohlcv_days, public_prices,
+from .session import (get_session, public_prices,
                       live_stats, session_snapshot_if_live)
-
-_TF_SECONDS = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
-               "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200, "1d": 86400}
-
-
-def _public_client_tf_seconds(tf: str) -> int:
-    return _TF_SECONDS.get(tf, 3600)
 
 store.init_db()
 app = FastAPI(title="Prometheus Web", version="1.0.0")
@@ -409,91 +401,6 @@ async def strategy_ctl(request: Request, user: dict = Depends(current_user)):
         s.stop_strategy()
     return {"ok": True, "strategy_on": s.strategy_on,
             "strategy_enabled": s.settings.get("strategy_enabled"), "message": msg}
-
-
-# --- backtest ---------------------------------------------------------------
-@app.post("/api/backtest")
-async def backtest(request: Request, user: dict = Depends(current_user)):
-    d = await body(request)
-    exch = d.get("exchange", "binance")
-    symbol = d.get("symbol", "BTC/USDT")
-    tf = d.get("timeframe", "1h")
-    days = float(d.get("days", 0) or 0)
-    if days > 0:
-        candles = public_ohlcv_days(exch, symbol, tf, days)
-    else:
-        candles = public_ohlcv(exch, symbol, tf, min(int(d.get("limit", 1000)), 1500))
-    if len(candles) < 60:
-        raise HTTPException(400, "not enough candle data (need ccxt + connectivity, or a longer range)")
-    # Base the backtest on the user's SAVED strategy params (so it reflects the
-    # real strategy), then let any params in the request override them.
-    params = strat.StrategyParams()
-    saved = get_session(user["id"]).settings.get("strategy_params") or {}
-    for src in (saved, d.get("params") or {}):
-        for k, v in src.items():
-            if hasattr(params, k):
-                try:
-                    setattr(params, k, type(getattr(params, k))(v))
-                except (TypeError, ValueError):
-                    setattr(params, k, v)
-    cfg = bt.BacktestConfig()
-    if d.get("start_equity"):
-        cfg.start_equity = float(d["start_equity"])
-    if d.get("fee_pct") is not None:
-        cfg.fee_pct = float(d["fee_pct"])
-    if d.get("risk_pct") is not None:
-        cfg.risk_pct = float(d["risk_pct"])
-    if d.get("allow_short") is not None:
-        cfg.allow_short = bool(d["allow_short"])
-    # Daily loss / profit circuit breaker — default to the user's live guardrail so the
-    # backtest behaves like the real bot (which stops trading after the daily limit).
-    _bs = get_session(user["id"]).settings
-    cfg.daily_loss_pct = float(d.get("daily_loss_pct", _bs.get("daily_loss_pct", 0)) or 0)
-    cfg.daily_profit_pct = float(d.get("daily_profit_pct", _bs.get("daily_profit_pct", 0)) or 0)
-    try:
-        cfg.bar_seconds = float(_public_client_tf_seconds(tf))
-    except Exception:
-        pass
-    # News filter: if the user runs with news protection ON (news_trading == False),
-    # skip backtest entries near known high-impact events. Coverage is limited to the
-    # current week (historical economic-calendar data isn't available), so long
-    # backtests are largely unaffected — it mainly matches live behaviour for recent runs.
-    news_on = d.get("news_filter")
-    if news_on is None:
-        news_on = not get_session(user["id"]).settings.get("news_trading", True)
-    if news_on:
-        from . import news
-        w = news.WINDOW_SEC * 1000
-        cfg.news_windows = tuple((int(t * 1000 - w), int(t * 1000 + w)) for t in news.event_times())
-    result = bt.run_backtest(candles, params, cfg)
-    period = {
-        "from": int(candles[0][0]), "to": int(candles[-1][0]),
-        "days": round((candles[-1][0] - candles[0][0]) / 86_400_000, 1),
-    }
-    import math
-
-    def _finite(v):
-        if isinstance(v, float):
-            if math.isinf(v):
-                return 999999.0 if v > 0 else -999999.0   # JSON has no Infinity -> 500
-            if math.isnan(v):
-                return 0.0
-            return round(v, 4)
-        return v
-    summary = {k: _finite(v) for k, v in result.stats.items()}
-    return {
-        "symbol": symbol, "timeframe": tf, "exchange": exch, "candles": len(candles),
-        "start_equity": cfg.start_equity, "period": period,
-        "buy_hold_pct": round(bt.buy_hold_return(candles), 2),
-        "summary": summary,
-        "news_filter": bool(cfg.news_windows),
-        "trades": [_bt_trade(t) for t in result.trades],
-        "equity": [[int(ts), round(eq, 2)] for ts, eq in result.equity],
-    }
-
-
-def _bt_trade(t) -> dict:
-    return {k: (round(v, 6) if isinstance(v, float) else v) for k, v in vars(t).items()}
 
 
 # --- chart ------------------------------------------------------------------
