@@ -24,6 +24,8 @@ label.chkline input{width:auto}
 .btn.ghost:hover{border-color:var(--accent)}
 .btn.green{background:var(--green)} .btn.red{background:var(--red)}
 .btn.sm{padding:6px 10px;font-size:12px;border-radius:7px}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px;flex-wrap:wrap}
+.pager button[disabled]{opacity:.45;cursor:default}
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .col{flex:1;min-width:150px}
 .col.end{display:flex;align-items:flex-end}

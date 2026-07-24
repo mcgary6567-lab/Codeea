@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 let ALL_USERS = [];          // raw list from server
 let STATS = null;            // platform stats
 let SORT = { key: "id", dir: 1 };
+let VIEW_ROWS = [], PAGE = 1; const PER_PAGE = 5;   // customers pagination (5 per page)
 let autoTimer = null;
 
 const esc = x => String(x ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -179,15 +180,29 @@ function applyFilters() {
     else { va = a[k] || 0; vb = b[k] || 0; }
     return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
   });
-  renderRows(rows);
+  VIEW_ROWS = rows; PAGE = 1; renderRows();
 }
 function sortBy(k) { SORT = { key: k, dir: SORT.key === k ? -SORT.dir : 1 }; applyFilters(); }
+function gotoPage(p) { PAGE = p; renderRows(); }
 
 const PILL = { trial: "warn", licensed: "safe", admin: "safe", expired: "danger", suspended: "danger" };
-function renderRows(rows) {
+function renderRows() {
+  const rows = VIEW_ROWS;
+  const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  if (PAGE > pages) PAGE = pages; if (PAGE < 1) PAGE = 1;
+  const start = (PAGE - 1) * PER_PAGE;
+  const pageRows = rows.slice(start, start + PER_PAGE);
   $("ad-count").textContent = rows.length;
   $("ad-empty").style.display = rows.length ? "none" : "block";
-  $("u-body").innerHTML = rows.map(u => {
+  const pg = $("ad-pager");
+  if (pg) {
+    if (rows.length <= PER_PAGE) pg.innerHTML = "";
+    else pg.innerHTML = `<span class="k">${start + 1}–${Math.min(start + PER_PAGE, rows.length)} of ${rows.length}</span>`
+      + `<button class="btn ghost sm" ${PAGE <= 1 ? "disabled" : ""} onclick="gotoPage(${PAGE - 1})">‹ Prev</button>`
+      + `<span class="k">Page ${PAGE} / ${pages}</span>`
+      + `<button class="btn ghost sm" ${PAGE >= pages ? "disabled" : ""} onclick="gotoPage(${PAGE + 1})">Next ›</button>`;
+  }
+  $("u-body").innerHTML = pageRows.map(u => {
     const st = statusOf(u), e = u.entitlement || {};
     const nm = [u.first_name, u.last_name].filter(Boolean).join(" ");
     const lv = u.live || {};
