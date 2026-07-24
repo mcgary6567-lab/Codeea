@@ -450,6 +450,8 @@ async function runBacktest() {
     const days = parseFloat($("bt-period").value);
     const req = { exchange: $("bt-ex").value, symbol: $("bt-sym").value, timeframe: $("bt-tf").value, start_equity: parseFloat($("bt-eq").value) || 1000, risk_pct: parseFloat($("bt-risk").value) || 0, fee_pct: parseFloat($("bt-fee").value), allow_short: $("bt-short").value === "1", params: collectParams() };
     if (days > 0) req.days = days; else req.limit = parseInt($("bt-limit").value) || 1000;
+    const nf = $("bt-news") ? $("bt-news").value : "";   // "" = follow the dashboard News-trading setting
+    if (nf === "1") req.news_filter = true; else if (nf === "0") req.news_filter = false;
     const d = await api("/api/backtest", "POST", req); BT = d;
     const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct, st = streaks(d.trades);
     const wins = d.trades.filter(t => t.pnl > 0), losses = d.trades.filter(t => t.pnl < 0);
