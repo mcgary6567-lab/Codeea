@@ -76,6 +76,7 @@
         <div class="col"><label>Slow EMA</label><input id="gp-slow_ema" type="number"/></div>
         <div class="col"><label>Trend EMA</label><input id="gp-trend_ema" type="number"/></div>
         <div class="col"><label>Trend filter</label><select id="gp-use_trend_filter"><option value="1">Yes</option><option value="0">No</option></select></div>
+        <div class="col"><label>Entry style</label><select id="gp-aggressive_entries"><option value="0">Strict</option><option value="1">Aggressive</option></select></div>
       </div>
       <div class="row">
         <div class="col"><label>Confirm candles</label><input id="gp-confirm" type="number"/></div>
@@ -93,6 +94,31 @@
         <div class="col"><label>Suspend entries (hours)</label><input id="gp-whipsaw_suspend_hours" type="number" step="0.5"/></div>
         <div class="col"><label>🛑 Cooldown after SL (candles)</label><input id="gp-post_sl_cooldown_bars" type="number" min="0"/></div>
         <div class="col"><label>Avoid daily close</label><select id="gp-avoid_daily_close"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <h4 style="margin:16px 0 2px">⚙️ Execution &amp; risk <span class="chip">pushed to all managed customers</span></h4>
+      <div class="hint" style="margin-bottom:8px">Sizing and guardrails for every managed customer. Custom-access users keep their own. Daily limits are a % of the day's starting balance.</div>
+      <div class="row">
+        <div class="col"><label>Sizing mode</label><select id="gx-sizing_mode"><option value="risk_stop">Risk % (stop-based)</option><option value="risk_balance">Risk % (balance)</option><option value="fixed">Fixed lot</option><option value="fixed_quote">Fixed $</option></select></div>
+        <div class="col"><label>Risk %</label><input id="gx-risk_percent" type="number" step="0.1"/></div>
+        <div class="col"><label>Fixed lot</label><input id="gx-fixed_size" type="number" step="0.001"/></div>
+        <div class="col"><label>Fixed $</label><input id="gx-fixed_quote" type="number"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Order type</label><select id="gx-order_type"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+        <div class="col"><label>Leverage</label><input id="gx-leverage" type="number"/></div>
+        <div class="col"><label>Margin</label><select id="gx-margin_mode"><option value="">Default</option><option value="cross">Cross</option><option value="isolated">Isolated</option></select></div>
+        <div class="col"><label>Auto SL/TP</label><select id="gx-auto_bracket"><option value="1">Yes</option><option value="0">No</option></select></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>TP1 fraction (0-1)</label><input id="gx-tp1_fraction" type="number" step="0.05"/></div>
+        <div class="col"><label>Max open positions</label><input id="gx-max_open" type="number"/></div>
+        <div class="col"><label>Daily loss limit (%)</label><input id="gx-daily_loss_pct" type="number" step="0.5"/></div>
+        <div class="col"><label>Daily profit limit (%)</label><input id="gx-daily_profit_pct" type="number" step="0.5"/></div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Cooldown (s)</label><input id="gx-cooldown" type="number"/></div>
+        <div class="col"><label>Dedupe (s)</label><input id="gx-dedupe" type="number"/></div>
+        <div class="col"></div><div class="col"></div>
       </div>
       <div class="row">
         <div class="col end" style="margin-left:auto"><button class="btn" onclick="saveGlobalStrategy()">💾 Save &amp; push to all customers</button></div>

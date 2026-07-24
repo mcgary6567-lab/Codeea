@@ -170,6 +170,13 @@ DEFAULT_SETTINGS = {
     "move_be_on_tp1": False,
 }
 
+# Execution/risk keys the admin can push globally to managed customers.
+GLOBAL_EXEC_KEYS = (
+    "sizing_mode", "fixed_size", "fixed_quote", "risk_percent", "order_type", "leverage",
+    "margin_mode", "tp1_fraction", "auto_bracket", "max_open", "daily_loss_pct",
+    "daily_profit_pct", "cooldown", "dedupe",
+)
+
 
 class TraderSession:
     def __init__(self, user_id: int):
@@ -210,7 +217,7 @@ class TraderSession:
         self.signal: dict = None           # latest signal-strength meter {pct,state,side,symbol}
         self._news_alerted: str = ""       # event key we've already warned about (blackout)
         self._strat_version = None      # last logged "why held" reason per symbol
-        self._apply_guardrails()
+        self._apply_global_exec()       # managed users pick up the admin's global exec/risk
         self.key_withdraw_warn = False
         self._tg_offset = 0
         self._tg_thread = threading.Thread(target=self._tg_cmd_loop, daemon=True)
@@ -315,6 +322,20 @@ class TraderSession:
             return False, f"Could not reach Telegram: {e}"
 
     # -- settings ------------------------------------------------------------
+    def _apply_global_exec(self) -> None:
+        """Managed customers (no custom access) run the admin's GLOBAL execution/risk
+        config — overlay it onto settings in memory so all sizing/order/guardrail
+        reads pick it up. Custom-access users keep their own settings."""
+        try:
+            if not (store.get_user(self.user_id) or {}).get("allow_custom"):
+                gexec = (_global_strategy() or {}).get("execution") or {}
+                for k in GLOBAL_EXEC_KEYS:
+                    if gexec.get(k) is not None:
+                        self.settings[k] = gexec[k]
+        except Exception:
+            pass
+        self._apply_guardrails()
+
     def _apply_guardrails(self) -> None:
         s = self.settings
         self.guard.configure(
@@ -329,7 +350,7 @@ class TraderSession:
         with self._lock:
             self.settings.update(patch or {})
             store.save_settings(self.user_id, self.settings)
-            self._apply_guardrails()
+            self._apply_global_exec()       # managed users: global exec/risk wins over their edits
             paper = bool(self.settings.get("paper_mode", False))
             self.settings["safe_mode"] = paper
             self.em.safe_mode = paper
@@ -685,6 +706,7 @@ class TraderSession:
                     self.log("\u2699\ufe0f Strategy updated \u2014 new settings are now live.", "ok")
                     self.notify("\u2699\ufe0f Your bot strategy was updated \u2014 new settings are now live.")
                     self._strat_primed = {}
+                    self._apply_global_exec()   # pull the admin's new global exec/risk live
                 self._strat_version = g.get("version")
                 src = g.get("params") or {}
                 sym_csv = str(g.get("symbols", "BTC/USDT"))

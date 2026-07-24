@@ -673,7 +673,25 @@ async def admin_set_strategy(request: Request, admin: dict = Depends(require_adm
             params[str(k)] = float(v)
         except (TypeError, ValueError):
             continue
-    g = store.set_global_strategy(params, str(d.get("timeframe", "15m")), str(d.get("symbols", "BTC/USDT")))
+    # global execution/risk config pushed to all managed customers (whitelisted keys)
+    _EXEC_STR = {"sizing_mode", "order_type", "margin_mode"}
+    _EXEC_BOOL = {"auto_bracket"}
+    _EXEC_NUM = {"risk_percent", "fixed_size", "fixed_quote", "leverage", "tp1_fraction",
+                 "max_open", "daily_loss_pct", "daily_profit_pct", "cooldown", "dedupe"}
+    execution = {}
+    for k, v in (d.get("execution") or {}).items():
+        k = str(k)
+        if k in _EXEC_STR:
+            execution[k] = str(v)
+        elif k in _EXEC_BOOL:
+            execution[k] = bool(v)
+        elif k in _EXEC_NUM:
+            try:
+                execution[k] = float(v)
+            except (TypeError, ValueError):
+                continue
+    g = store.set_global_strategy(params, str(d.get("timeframe", "15m")),
+                                  str(d.get("symbols", "BTC/USDT")), execution)
     store.record_audit(admin["email"], "strategy", None, f"v{g['version']} {g['timeframe']} {g['symbols']}")
     return g
 

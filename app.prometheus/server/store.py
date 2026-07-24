@@ -796,17 +796,20 @@ def get_global_strategy() -> dict:
             g = json.loads(raw)
             g.setdefault("params", {}); g.setdefault("timeframe", "15m")
             g.setdefault("symbols", "BTC/USDT"); g.setdefault("version", 0)
+            g.setdefault("execution", {})     # global sizing/risk pushed to managed customers
             return g
         except Exception:
             pass
-    return {"params": {}, "timeframe": "15m", "symbols": "BTC/USDT", "version": 0, "updated": 0}
+    return {"params": {}, "timeframe": "15m", "symbols": "BTC/USDT",
+            "execution": {}, "version": 0, "updated": 0}
 
 
-def set_global_strategy(params: dict, timeframe: str, symbols: str) -> dict:
+def set_global_strategy(params: dict, timeframe: str, symbols: str, execution: dict = None) -> dict:
     cur = get_global_strategy()
     g = {"params": params or {}, "timeframe": timeframe or "15m",
-         "symbols": symbols or "BTC/USDT", "version": int(cur.get("version", 0)) + 1,
-         "updated": time.time()}
+         "symbols": symbols or "BTC/USDT",
+         "execution": execution if execution is not None else (cur.get("execution") or {}),
+         "version": int(cur.get("version", 0)) + 1, "updated": time.time()}
     kv_set("global_strategy", json.dumps(g))
     return g
 
