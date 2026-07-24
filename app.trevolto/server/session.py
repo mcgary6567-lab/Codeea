@@ -168,6 +168,9 @@ DEFAULT_SETTINGS = {
     "move_be_on_tp1": False,
 }
 
+# Brand logo shown on Telegram alerts (sent as a photo caption).
+TG_LOGO = "https://trevolto.com/assets/img-01.png"
+
 
 class TraderSession:
     def __init__(self, user_id: int):
@@ -229,12 +232,18 @@ class TraderSession:
 
     @staticmethod
     def _tg_send(token: str, chat: str, msg: str) -> None:
-        try:
-            url = f"https://api.telegram.org/bot{token}/sendMessage"
-            data = urllib.parse.urlencode({"chat_id": chat, "text": f"🔥 Trevolto\n{msg}"}).encode()
+        text = f"🔥 Trevolto\n{msg}"
+        try:                                   # branded: logo photo + caption
+            url = f"https://api.telegram.org/bot{token}/sendPhoto"
+            data = urllib.parse.urlencode({"chat_id": chat, "photo": TG_LOGO, "caption": text}).encode()
             urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
         except Exception:
-            pass
+            try:                               # fall back to plain text if the photo can't be sent
+                url = f"https://api.telegram.org/bot{token}/sendMessage"
+                data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
+                urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=8)
+            except Exception:
+                pass
 
     @staticmethod
     def _looks_like_token(v: str) -> bool:
@@ -266,10 +275,10 @@ class TraderSession:
                            "Use YOUR personal Chat ID — open Telegram, message @userinfobot, and it "
                            "replies with your id (a number like 987654321).")
         try:
-            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            url = f"https://api.telegram.org/bot{token}/sendPhoto"
             data = urllib.parse.urlencode({
-                "chat_id": chat,
-                "text": "🔥 Trevolto — test message. Your Telegram alerts are working ✅",
+                "chat_id": chat, "photo": TG_LOGO,
+                "caption": "🔥 Trevolto — test message. Your Telegram alerts are working ✅",
             }).encode()
             with urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=10) as r:
                 body = json.loads(r.read().decode())
