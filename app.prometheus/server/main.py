@@ -307,7 +307,21 @@ async def trade(request: Request, user: dict = Depends(current_user)):
             raise HTTPException(400, "size must be a number")
     else:
         size = None
-    return s.place_manual(side, d.get("symbol", "BTC/USDT"), size)
+
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return 0.0
+    return s.place_manual(side, d.get("symbol", "BTC/USDT"), size,
+                          sl=_f(d.get("sl")), tp1=_f(d.get("tp1")),
+                          tp_partial=_f(d.get("tp_partial")), entry=_f(d.get("entry")),
+                          order_type=str(d.get("order_type") or ""))
+
+
+@app.get("/api/trade/suggest")
+def trade_suggest(symbol: str = "BTC/USDT", side: str = "buy", user: dict = Depends(current_user)):
+    return get_session(user["id"]).suggest_trade(symbol, side)
 
 
 @app.post("/api/close")

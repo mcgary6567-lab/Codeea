@@ -299,15 +299,78 @@ async function clearKeys() {
   try { await api("/api/keys/clear", "POST"); notify("Saved API keys removed 🗑", "ok"); refresh(); }
   catch (e) { notify(e.message, "error"); }
 }
+// ---- manual order modal: R:R + SL/TP + partial (defaults from the bot strategy) ----
+let OM = { side: "buy", symbol: "", suggest: null };
 async function trade(side) {
-  const size = parseFloat($("tr-size").value);
-  if (!confirm(`${side.toUpperCase()} ${$("tr-sym").value} — LIVE order. Continue?`)) return;
+  const symbol = $("tr-sym").value;
+  OM = { side, symbol, suggest: null };
+  $("om-side").textContent = side === "buy" ? "▲ BUY" : "▼ SELL";
+  $("om-side").className = "om-side " + (side === "buy" ? "pos" : "neg");
+  $("om-sym").textContent = symbol;
+  const paper = !!(lastState && lastState.paper_mode);
+  $("om-mode").textContent = paper ? "Paper" : "Live";
+  $("om-mode").className = "chip " + (paper ? "warn" : "danger");
+  ["om-entry", "om-size", "om-sl", "om-tp", "om-partial"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+  ["om-rr", "om-risk", "om-reward", "om-sl-pct", "om-tp-pct"].forEach(id => { const el = $(id); if (el) el.textContent = "—"; });
+  const pl = $("om-place"); if (pl) { pl.disabled = true; pl.textContent = "Loading…"; }
+  $("order-modal").classList.remove("hidden");
   try {
-    const r = await api("/api/trade", "POST", { side, symbol: $("tr-sym").value, size: isNaN(size) ? null : size });
-    if (r.ok) notify(`${side.toUpperCase()} ${$("tr-sym").value} — ${r.message || "order placed"}`, "ok");
+    const d = await api(`/api/trade/suggest?symbol=${encodeURIComponent(symbol)}&side=${side}`);
+    OM.suggest = d;
+    if ($("om-otype")) $("om-otype").value = d.order_type || "market";
+    const dp = (v) => (v ? fmt(v, v < 10 ? 6 : (v < 1000 ? 3 : 2)) : "");
+    if ($("om-entry")) $("om-entry").value = d.entry ? d.entry : "";
+    if ($("om-sl")) $("om-sl").value = d.sl ? d.sl : "";
+    if ($("om-tp")) $("om-tp").value = d.tp ? d.tp : "";
+    if ($("om-partial")) $("om-partial").value = Math.round((d.tp_partial != null ? d.tp_partial : 0.5) * 100);
+    omRecalc();
+  } catch (e) { notify("Couldn't load strategy suggestion: " + e.message, "warn"); }
+  if (pl) { pl.disabled = false; pl.textContent = "✅ Place order"; }
+}
+function closeOrderModal() { const m = $("order-modal"); if (m) m.classList.add("hidden"); }
+function omSetRR(r) {
+  const entry = parseFloat($("om-entry").value), sl = parseFloat($("om-sl").value);
+  if (!entry || !sl) return;
+  const risk = Math.abs(entry - sl);
+  const tp = OM.side === "buy" ? entry + r * risk : entry - r * risk;
+  $("om-tp").value = tp.toFixed(entry < 10 ? 5 : (entry < 1000 ? 3 : 2));
+  omRecalc();
+}
+function omRecalc() {
+  const entry = parseFloat($("om-entry").value) || 0, sl = parseFloat($("om-sl").value) || 0, tp = parseFloat($("om-tp").value) || 0;
+  const bal = (lastState && lastState.balance) || 0;
+  const riskDist = Math.abs(entry - sl), rewardDist = Math.abs(tp - entry);
+  const rr = riskDist > 0 ? rewardDist / riskDist : 0;
+  if ($("om-rr")) $("om-rr").textContent = rr ? "1 : " + rr.toFixed(1) : "—";
+  if ($("om-sl-pct")) $("om-sl-pct").textContent = (entry && sl) ? ((sl - entry) / entry * 100).toFixed(2) + "%" : "";
+  if ($("om-tp-pct")) $("om-tp-pct").textContent = (entry && tp) ? ((tp - entry) / entry * 100).toFixed(2) + "%" : "";
+  let size = parseFloat($("om-size").value);
+  if (isNaN(size)) size = (OM.suggest && OM.suggest.size) || 0;
+  const riskPct = (OM.suggest && OM.suggest.risk_pct) || 1;
+  const riskUsd = (size && riskDist) ? size * riskDist : (bal * riskPct / 100);
+  const rewardUsd = rr ? riskUsd * rr : 0;
+  if ($("om-risk")) $("om-risk").textContent = riskUsd ? "-$" + fmt(riskUsd) : "—";
+  if ($("om-reward")) $("om-reward").textContent = rewardUsd ? "+$" + fmt(rewardUsd) : "—";
+}
+async function placeOrder() {
+  const size = parseFloat($("om-size").value), partial = parseFloat($("om-partial").value);
+  const otype = $("om-otype").value;
+  const body = {
+    side: OM.side, symbol: OM.symbol, order_type: otype,
+    entry: otype === "limit" ? (parseFloat($("om-entry").value) || 0) : 0,
+    size: isNaN(size) ? null : size,
+    sl: parseFloat($("om-sl").value) || 0,
+    tp1: parseFloat($("om-tp").value) || 0,
+    tp_partial: isNaN(partial) ? 0 : Math.max(0, Math.min(1, partial / 100)),
+  };
+  const pl = $("om-place"); if (pl) pl.disabled = true;
+  try {
+    const r = await api("/api/trade", "POST", body);
+    if (r.ok) { notify(`${OM.side.toUpperCase()} ${OM.symbol} — ${r.message || "order placed"}`, "ok"); closeOrderModal(); }
     else notify(r.message || "Order rejected", "error");
     refresh();
   } catch (e) { notify(e.message, "error"); }
+  if (pl) pl.disabled = false;
 }
 async function closePos(sym) {
   if (!confirm("Close " + sym + "?")) return;

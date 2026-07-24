@@ -652,6 +652,43 @@
     </main>
   </div>
 
+  <!-- Manual order modal: R:R + SL/TP + partial (defaults from the bot strategy) -->
+  <div id="order-modal" class="omodal hidden">
+    <div class="omodal-card">
+      <div class="omodal-head">
+        <span id="om-side" class="om-side">▲ BUY</span>
+        <span id="om-sym" class="om-sym">BTC/USDT</span>
+        <span class="grow"></span>
+        <span class="chip danger" id="om-mode">Live</span>
+        <button class="omodal-x" onclick="closeOrderModal()">✕</button>
+      </div>
+      <div class="omodal-body">
+        <div class="row">
+          <div class="col"><label>Order type</label><select id="om-otype" onchange="omRecalc()"><option value="market">Market</option><option value="limit">Limit</option></select></div>
+          <div class="col"><label>Entry price</label><input id="om-entry" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="om-size" type="number" step="any" placeholder="auto" oninput="omRecalc()"/></div>
+        </div>
+        <div class="row">
+          <div class="col"><label>Stop-loss <span class="k" id="om-sl-pct"></span></label><input id="om-sl" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Take-profit <span class="k" id="om-tp-pct"></span></label><input id="om-tp" type="number" step="any" oninput="omRecalc()"/></div>
+          <div class="col"><label>Partial close at TP (%)</label><input id="om-partial" type="number" step="5" min="0" max="100" oninput="omRecalc()"/></div>
+        </div>
+        <div class="om-rr">
+          <span>R:R <b id="om-rr">—</b></span>
+          <span class="om-presets">set:<button type="button" onclick="omSetRR(1)">1:1</button><button type="button" onclick="omSetRR(2)">1:2</button><button type="button" onclick="omSetRR(3)">1:3</button></span>
+          <span class="grow"></span>
+          <span>Risk <b id="om-risk" class="neg">—</b></span>
+          <span>Reward <b id="om-reward" class="pos">—</b></span>
+        </div>
+        <div class="hint" id="om-note">⚡ Places a real order with a reduce-only <b>SL &amp; TP bracket</b> on your exchange. Defaults come from your bot strategy — edit anything before placing.</div>
+      </div>
+      <div class="omodal-foot">
+        <button class="btn ghost" onclick="closeOrderModal()">Cancel</button>
+        <button class="btn" id="om-place" onclick="placeOrder()">✅ Place order</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <div class="foot-inner">
       <div class="foot-brand"><img src="https://trevolto.com/assets/img-01.png" class="logo-img" alt="Trevolto"/></div>

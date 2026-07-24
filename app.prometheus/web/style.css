@@ -378,3 +378,19 @@ th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--accen
 .bell-time{color:var(--mut);font-size:11px;margin-top:3px}
 .bell-empty{padding:20px 14px;color:var(--mut);font-size:12.5px;text-align:center}
 .empty{padding:18px 14px;color:var(--mut);font-size:12.5px;text-align:center}
+
+/* ---- manual order modal (R:R + SL/TP + partial) ---- */
+.omodal{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.omodal-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:580px;max-width:100%;max-height:92vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.omodal-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.om-side{font-weight:800;font-size:16px}
+.om-sym{font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+.omodal-x{background:transparent;border:none;color:var(--mut);font-size:16px;cursor:pointer}
+.omodal-body{padding:16px}
+.om-rr{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;background:var(--chip);border:1px solid var(--line);border-radius:10px;font-size:13px}
+.om-rr b{font-weight:800}
+.om-presets button{background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 9px;margin-left:5px;font-size:12px;font-weight:700;cursor:pointer}
+.om-presets button:hover{border-color:var(--accent);color:var(--accent)}
+.omodal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 16px;border-top:1px solid var(--line)}
+.omodal-foot .btn{min-width:140px}
+@media(max-width:640px){.omodal-foot .btn{min-width:0;flex:1}}

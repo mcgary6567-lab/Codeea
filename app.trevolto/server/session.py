@@ -497,27 +497,55 @@ class TraderSession:
             except Exception:
                 pass
 
-    def place_manual(self, side: str, symbol: str, size: float | None = None) -> dict:
+    def place_manual(self, side: str, symbol: str, size: float | None = None,
+                     sl: float = 0.0, tp1: float = 0.0, tp_partial: float = 0.0,
+                     entry: float = 0.0, order_type: str = "") -> dict:
+        """Manual order from the Order-panel modal — routes through handle_signal so it
+        gets the same guardrails, sizing and reduce-only SL/TP bracket as the strategy."""
+        return self.handle_signal({
+            "action": side, "symbol": ex.normalize_symbol(symbol),
+            "size": size, "entry": float(entry or 0), "sl": float(sl or 0),
+            "tp1": float(tp1 or 0), "tp_partial": float(tp_partial or 0),
+            "order_type": (order_type or ""), "force_bracket": True,
+        }, source="manual")
+
+    def suggest_trade(self, symbol: str, side: str) -> dict:
+        """Strategy-derived entry / SL / TP / R:R / risk-based size for the manual-order
+        modal — same stop logic the built-in strategy uses (EMA21 buffer + swing)."""
         symbol = ex.normalize_symbol(symbol)
-        price = self.get_price(symbol)
-        order_type = self.settings.get("order_type", "market")
-        limit_px = price if order_type == "limit" else None
-        if size and size > 0:
-            amount = float(size)
-            reason = "manual size"
-        else:
-            amount, reason = self._size(price)
-        if amount <= 0:
-            return {"ok": False, "message": "size resolved to 0"}
-        self._apply_lev_margin(symbol)
-        res = self.em.place_order(symbol, side, amount, order_type, limit_px)
-        store.record_trade(self.user_id, symbol=symbol, side=side, kind="manual",
-                           status="filled" if res.ok else "rejected",
-                           amount=amount, price=price, note=res.message, mode=self._mode())
-        self.log(f"Manual {side.upper()} {symbol}: {res.message} [{reason}]",
-                 "ok" if res.ok else "error")
-        self.refresh()
-        return {"ok": res.ok, "message": res.message, "simulated": res.simulated}
+        side = "buy" if str(side).lower() in ("buy", "long") else "sell"
+        params = self._params()
+        price = float(self.get_price(symbol) or 0.0)
+        tf = self.settings.get("strategy_timeframe", "15m")
+        sl = tp = 0.0
+        raw = self.em.fetch_ohlcv(symbol, tf, 300) or public_ohlcv(
+            self.exchange_id or "binance", symbol, tf, 300)
+        if raw and len(raw) >= params.trend_ema + 3 and price > 0:
+            closed = raw[:-1]
+            o, h, low, cl, fast, slow, trend = strat.crossover_arrays(closed, params)
+            i = len(closed) - 1
+            if slow[i] is not None:
+                buf = max(0.0, params.sl_ema_buffer_pct) / 100.0
+                look = max(1, int(params.swing_lookback))
+                if side == "buy":
+                    sl = min(slow[i] * (1 - buf), min(low[max(0, i - look):i + 1]))
+                    risk = price - sl
+                    tp = price + params.tp_r * risk if risk > 0 else 0.0
+                else:
+                    sl = max(slow[i] * (1 + buf), max(h[max(0, i - look):i + 1]))
+                    risk = sl - price
+                    tp = price - params.tp_r * risk if risk > 0 else 0.0
+        try:
+            amount, _ = self._size(price, price, sl) if (sl and price) else (self._size(price)
+                                                                             if price else (0.0, ""))
+        except Exception:
+            amount = 0.0
+        return {"symbol": symbol, "side": side, "entry": round(price, 8),
+                "sl": round(sl, 8) if sl else 0, "tp": round(tp, 8) if tp else 0,
+                "rr": params.tp_r, "tp_partial": params.partial_pct,
+                "size": round(amount, 8) if amount else 0,
+                "order_type": self.settings.get("order_type", "market"),
+                "risk_pct": float(self.settings.get("risk_percent", 1))}
 
     def handle_signal(self, payload: dict, source: str = "webhook") -> dict:
         """Entry point for TradingView webhooks AND the built-in strategy."""
@@ -559,11 +587,17 @@ class TraderSession:
 
         price = entry if entry > 0 else self.get_price(symbol)
         amount, reason = self._size(price, entry, sl)
+        _psz = payload.get("size")                       # manual orders may pass an explicit size
+        if _psz not in (None, "", 0):
+            try:
+                amount, reason = float(_psz), "manual size"
+            except (TypeError, ValueError):
+                pass
         if amount <= 0:
             return {"ok": False, "message": "size 0"}
 
         self._apply_lev_margin(symbol)
-        order_type = self.settings.get("order_type", "market")
+        order_type = str(payload.get("order_type") or self.settings.get("order_type", "market"))
         limit_px = price if order_type == "limit" else None
         res = self.em.place_order(symbol, side, amount, order_type, limit_px)
         store.record_trade(self.user_id, symbol=symbol, side=side, kind="entry",
@@ -593,8 +627,8 @@ class TraderSession:
                     + f"\n{source} · {self._mode()}")
         self.guard.record_entry(symbol)
 
-        # bracket: reduce-only SL + scaled TP legs
-        if self.settings.get("auto_bracket", True):
+        # bracket: reduce-only SL + scaled TP legs (manual orders force it via the modal)
+        if self.settings.get("auto_bracket", True) or payload.get("force_bracket"):
             xside = ex.exit_side(side)
             if sl > 0:
                 r = self.em.place_reduce_order(symbol, xside, amount, sl, "sl")
