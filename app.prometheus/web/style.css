@@ -29,7 +29,8 @@ label.chkline input{width:auto}
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .col{flex:1;min-width:150px}
 .col.end{display:flex;align-items:flex-end}
-.btnrow{display:flex;gap:12px;margin-top:12px}
+.btnrow{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
+.btnrow.big button{min-width:0}
 .btnrow.big button{flex:1;font-size:16px;padding:14px}
 .err{color:var(--red);font-size:12px;min-height:16px;margin-top:6px}
 .hint{color:var(--mut);font-size:12px;margin-top:8px;line-height:1.5}

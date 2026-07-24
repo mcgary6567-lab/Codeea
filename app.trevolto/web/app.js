@@ -318,7 +318,6 @@ async function trade(side) {
     const d = await api(`/api/trade/suggest?symbol=${encodeURIComponent(symbol)}&side=${side}`);
     OM.suggest = d;
     if ($("om-otype")) $("om-otype").value = d.order_type || "market";
-    const dp = (v) => (v ? fmt(v, v < 10 ? 6 : (v < 1000 ? 3 : 2)) : "");
     if ($("om-entry")) $("om-entry").value = d.entry ? d.entry : "";
     if ($("om-sl")) $("om-sl").value = d.sl ? d.sl : "";
     if ($("om-tp")) $("om-tp").value = d.tp ? d.tp : "";
