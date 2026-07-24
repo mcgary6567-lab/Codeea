@@ -334,14 +334,14 @@
           <div class="card"><h3>Risk guardrails</h3>
             <div class="row">
               <div class="col"><label>Max open positions</label><input id="s-maxopen" type="number"/></div>
-              <div class="col"><label>Daily loss limit ($)</label><input id="s-dloss" type="number"/></div>
+              <div class="col"><label>Daily loss limit (%)</label><input id="s-dloss" type="number" step="0.5"/></div>
             </div>
             <div class="row">
-              <div class="col"><label>Daily profit limit ($)</label><input id="s-dprofit" type="number"/></div>
+              <div class="col"><label>Daily profit limit (%)</label><input id="s-dprofit" type="number" step="0.5"/></div>
               <div class="col"><label>Cooldown (s)</label><input id="s-cool" type="number"/></div>
               <div class="col"><label>Dedupe (s)</label><input id="s-dedupe" type="number"/></div>
             </div>
-            <div class="hint">Each 0 = disabled. Closing is never blocked, only new entries. Max open positions caps concurrent trades across all your pairs.</div>
+            <div class="hint">Daily limits are a <b>% of the day's starting balance</b> (scale with any account). Each 0 = disabled. Closing is never blocked, only new entries. Max open positions caps concurrent trades across all your pairs.</div>
           </div>
         </div>
         <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>

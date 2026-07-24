@@ -357,7 +357,7 @@ function applySettings(s, email) {
   set("s-sizing", s.sizing_mode); set("s-fixed", s.fixed_size); set("s-fixedq", s.fixed_quote); set("s-risk", s.risk_percent);
   set("s-otype", s.order_type); set("s-lev", s.leverage); set("s-margin", s.margin_mode); set("s-tp1f", s.tp1_fraction);
   chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only); chk("s-paper", s.paper_mode);
-  set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss); set("s-dprofit", s.daily_profit); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
+  set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss_pct); set("s-dprofit", s.daily_profit_pct); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   chk("s-summary", s.daily_summary); chk("s-alert-skips", s.alert_skips);
@@ -367,7 +367,7 @@ function applySettings(s, email) {
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
   try {
-    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss: num("s-dloss"), daily_profit: num("s-dprofit"), cooldown: num("s-cool"), dedupe: num("s-dedupe") });
+    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss_pct: num("s-dloss"), daily_profit_pct: num("s-dprofit"), daily_loss: 0, daily_profit: 0, cooldown: num("s-cool"), dedupe: num("s-dedupe") });
     refresh(); notify("Settings saved ✓", "ok");
   } catch (e) { notify(e.message, "error"); }
 }

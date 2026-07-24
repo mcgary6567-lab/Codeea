@@ -149,9 +149,11 @@ DEFAULT_SETTINGS = {
     "safe_mode": False,              # LIVE trading by default
     "paper_mode": False,             # paper/dry-run: simulate orders, no real fills
     "read_only": False,
-    "max_open": 4,
-    "daily_loss": 0.0,
+    "max_open": 3,
+    "daily_loss": 0.0,               # absolute $ cap (fallback; % below overrides when > 0)
     "daily_profit": 0.0,
+    "daily_loss_pct": 5.0,           # stop trading after -5% of the day's starting equity
+    "daily_profit_pct": 0.0,         # 0 = off (let winners run)
     "cooldown": 0,
     "dedupe": 5,
     "webhook_passphrase": "",
@@ -319,6 +321,8 @@ class TraderSession:
             max_open=s.get("max_open", 0), daily_loss=s.get("daily_loss", 0),
             cooldown=s.get("cooldown", 0), dedupe=s.get("dedupe", 0),
             daily_profit=s.get("daily_profit", 0),
+            daily_loss_pct=s.get("daily_loss_pct", 0),      # % of the day's starting equity
+            daily_profit_pct=s.get("daily_profit_pct", 0),  # (scales with any balance)
         )
 
     def set_settings(self, patch: dict) -> None:
@@ -584,6 +588,15 @@ class TraderSession:
         for p in self.positions:
             if p.pair == symbol or ex.normalize_symbol(p.pair) == ex.normalize_symbol(symbol):
                 res = self.em.close_position(p, fraction)
+                realized = float(p.pnl) * fraction
+                if res.ok:
+                    # feed realized PnL to the guardrail so the daily loss/profit limit works
+                    if self.guard.record_realized(realized):
+                        self.log(f"Daily {'profit' if realized > 0 else 'loss'} limit hit "
+                                 f"({self.guard.daily_realized:+.2f}) — new entries halted for today", "warn")
+                        self.notify(f"🛑 Daily {'profit target' if realized > 0 else 'loss limit'} hit "
+                                    f"({self.guard.daily_realized:+.2f}) — the bot has stopped opening new trades "
+                                    f"for the rest of the day. Open trades stay managed.")
                 store.record_trade(self.user_id, symbol=p.pair, side="close", kind="close",
                                    status="filled" if res.ok else "rejected",
                                    amount=p.size * fraction, price=p.current, pnl=p.pnl,
