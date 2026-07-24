@@ -259,7 +259,7 @@ function renderPaper(s) {
   const bn = $("paper-banner");
   bn.className = "paper-banner " + (on ? "live-on" : "");
   bn.innerHTML = on
-    ? "Demo mode is <b>ON</b> — orders are <b>simulated with fake money</b>. No real funds are used."
+    ? "Demo mode is <b>ON</b> — orders are <b>simulated with virtual money</b>. No real funds are used."
     : "Demo mode is <b>OFF</b> — the bot trades with <b>real funds</b>. Turn it <b>ON</b> to practice risk-free.";
   const p = (on && s.paper) ? s.paper : null;
   const signed = (id, val, pre, suf) => {
@@ -299,7 +299,7 @@ async function togglePaper() {
   if (!turningOn && !confirm("Turn Demo mode OFF? The bot will trade with REAL funds.")) return;
   try {
     await api("/api/settings", "POST", { paper_mode: turningOn });
-    notify(turningOn ? "🎮 Demo mode ON — trading with fake money" : "🟢 Demo mode OFF — live trading", "ok");
+    notify(turningOn ? "🎮 Demo mode ON — trading with virtual money" : "🟢 Demo mode OFF — live trading", "ok");
     refresh();
   } catch (e) { notify(e.message, "error"); }
 }
