@@ -74,6 +74,12 @@ def init_db() -> None:
                 ip TEXT NOT NULL DEFAULT '', ua TEXT NOT NULL DEFAULT ''
             );
             CREATE INDEX IF NOT EXISTS ix_logins_user ON logins(user_id, ts);
+            CREATE TABLE IF NOT EXISTS activity(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL, ts REAL NOT NULL,
+                level TEXT NOT NULL DEFAULT 'info', msg TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS ix_activity_user ON activity(user_id, id);
             CREATE TABLE IF NOT EXISTS push_subs(
                 endpoint TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL, sub TEXT NOT NULL, created REAL NOT NULL
@@ -582,6 +588,25 @@ def record_login(user_id: int, ip: str = "", ua: str = "") -> None:
 def recent_logins(user_id: int, limit: int = 10) -> list:
     with _LOCK, _conn() as c:
         rows = c.execute("SELECT ts, ip, ua FROM logins WHERE user_id=? ORDER BY ts DESC LIMIT ?",
+                         (user_id, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+
+# --- persistent activity log (survives restarts) ----------------------------
+def record_log(user_id: int, ts: float, level: str, msg: str) -> None:
+    with _LOCK, _conn() as c:
+        c.execute("INSERT INTO activity(user_id,ts,level,msg) VALUES(?,?,?,?)",
+                  (user_id, ts, level, msg))
+        # keep only the most recent 500 lines per user
+        c.execute("DELETE FROM activity WHERE user_id=? AND id NOT IN "
+                  "(SELECT id FROM activity WHERE user_id=? ORDER BY id DESC LIMIT 500)",
+                  (user_id, user_id))
+
+
+def recent_activity(user_id: int, limit: int = 400) -> list:
+    """Newest-first activity log lines for this user."""
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT ts, level, msg FROM activity WHERE user_id=? ORDER BY id DESC LIMIT ?",
                          (user_id, limit)).fetchall()
         return [dict(r) for r in rows]
 

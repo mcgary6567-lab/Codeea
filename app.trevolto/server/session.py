@@ -193,6 +193,10 @@ class TraderSession:
         self.exchange_id = ""
         self.market_type = "spot"
         self.log_ring: deque = deque(maxlen=400)
+        try:                                   # preload the persisted log so history survives restarts
+            self.log_ring.extend(store.recent_activity(user_id, 400))   # newest-first
+        except Exception:
+            pass
         self.alert_ring: deque = deque(maxlen=50)   # in-app/browser alert feed
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -218,7 +222,12 @@ class TraderSession:
         return "paper" if self.settings.get("paper_mode") else "live"
 
     def log(self, msg: str, level: str = "info") -> None:
-        self.log_ring.appendleft({"ts": time.time(), "level": level, "msg": msg})
+        ts = time.time()
+        self.log_ring.appendleft({"ts": ts, "level": level, "msg": msg})
+        try:                                   # persist so the log survives restarts
+            store.record_log(self.user_id, ts, level, msg)
+        except Exception:
+            pass
 
     def notify(self, msg: str) -> None:
         """Push an alert to the in-app feed, then best-effort Telegram."""
