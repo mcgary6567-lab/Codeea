@@ -542,6 +542,7 @@ async function runBacktest() {
       ["Best / Worst $", `${fmt(s.best)} / ${fmt(s.worst)}`, ""],
       ["Fees paid $", fmt(s.fees), "neg"],
     ];
+    if (s.day_skipped) tiles.push(["🛡 Daily-limit skips", `${s.day_skipped}`, "pos"]);
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.length
@@ -550,6 +551,7 @@ async function runBacktest() {
     const p = d.period || {};
     let info = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
     if (d.news_filter) info += ` · 📰 News filter ON — ${(d.summary.news_skipped || 0)} entr${(d.summary.news_skipped === 1) ? "y" : "ies"} skipped near high-impact news (backtest coverage: current week only; the live bot applies it in real time).`;
+    if (d.summary.day_skipped) info += ` · 🛡 Daily-loss protection ON — ${d.summary.day_skipped} entr${(d.summary.day_skipped === 1) ? "y" : "ies"} blocked after the daily limit was hit (same circuit breaker your live bot uses).`;
     $("bt-period-info").textContent = info;
     $("bt-csv").disabled = !d.trades.length;
     // Un-hide the results BEFORE drawing so the canvases have real dimensions.
