@@ -872,6 +872,35 @@ class ExchangeManager:
             ],
         }
 
+    def paper_state(self) -> dict:
+        """Serialize the demo wallet (for DB persistence across restarts)."""
+        return {
+            "start": self._sim_start, "balance": self._sim_balance,
+            "realized": self._sim_realized, "trades": self._sim_trades,
+            "wins": self._sim_wins, "fees": self._sim_fees,
+            "positions": [{"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry}
+                          for p in self._sim_positions],
+        }
+
+    def load_paper_state(self, st: dict) -> None:
+        """Restore a previously persisted demo wallet."""
+        if not st:
+            return
+        try:
+            self._sim_start = float(st.get("start", 10_000.0))
+            self._sim_balance = float(st.get("balance", self._sim_start))
+            self._sim_realized = float(st.get("realized", 0.0))
+            self._sim_trades = int(st.get("trades", 0))
+            self._sim_wins = int(st.get("wins", 0))
+            self._sim_fees = float(st.get("fees", 0.0))
+            self._sim_positions = [
+                Position(pair=p["pair"], side=p.get("side", "Long"), size=float(p["size"]),
+                         entry=float(p["entry"]), current=float(p["entry"]), pnl=0.0)
+                for p in (st.get("positions") or [])
+            ]
+        except Exception:  # noqa: BLE001 - corrupt/partial state: start fresh
+            pass
+
     def reset_paper(self, start_balance: float = 10_000.0) -> None:
         """Reset the demo wallet: restore starting cash, clear positions & stats."""
         self._sim_start = float(start_balance)

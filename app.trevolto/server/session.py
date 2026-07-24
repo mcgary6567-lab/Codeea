@@ -189,6 +189,11 @@ class TraderSession:
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.em = ex.ExchangeManager()
+        try:                                   # restore the persisted demo wallet
+            self.em.load_paper_state(store.load_paper_wallet(user_id))
+        except Exception:
+            pass
+        self._paper_sig = None
         self.guard = Guardrails()
         self.settings = {**DEFAULT_SETTINGS, **(store.load_settings(user_id) or {})}
         # One-time migration: the strategy was rewritten (EMA100 filter, new
@@ -373,7 +378,23 @@ class TraderSession:
                 self.balance = ps["balance"]
                 self.positions = self.em.fetch_positions()
                 self.pnl = ps["unrealized"]
+            self._save_paper(force=True)
         self.log(f"Demo wallet reset to ${start_balance:,.0f}")
+
+    def _save_paper(self, force: bool = False) -> None:
+        """Persist the demo wallet to the DB (change-guarded to avoid churn)."""
+        st = self.em.paper_state()
+        sig = (round(st["balance"], 4), st["trades"], len(st["positions"]),
+               tuple(round(float(p["size"]), 8) for p in st["positions"]))
+        if force or sig != self._paper_sig:
+            self._paper_sig = sig
+            try:
+                store.save_paper_wallet(self.user_id, st)
+            except Exception:
+                pass
+
+    def _save_paper_if_changed(self) -> None:
+        self._save_paper(force=False)
 
     def _params(self) -> "strat.StrategyParams":
         # Use the SAME params the live runner uses, so the chart reflects what the
@@ -475,6 +496,7 @@ class TraderSession:
                 self.balance = ps["balance"]
                 self.pnl = ps["unrealized"]
                 self.positions = self.em.fetch_positions()
+                self._save_paper_if_changed()
             else:
                 try:
                     self.balance = self.em.fetch_balance()
