@@ -782,6 +782,18 @@ class ExchangeManager:
         except Exception as exc:  # noqa: BLE001
             return OrderResult(False, f"Cancel failed: {exc}", pair=sym)
 
+    def cancel_all_orders(self, symbol: str) -> OrderResult:
+        """Cancel all open orders for a symbol (used to re-arm a bracket after a
+        scale-in / break-even move). Best-effort; no-op in safe mode / on spot."""
+        sym = self._market_symbol(symbol)
+        if self.safe_mode or not CCXT_AVAILABLE or not self.client:
+            return OrderResult(True, f"SIMULATED cancel-all {sym}", pair=sym, simulated=True)
+        try:
+            self.client.cancel_all_orders(sym)
+            return OrderResult(True, f"Cancelled all orders {sym}", pair=sym)
+        except Exception as exc:  # noqa: BLE001
+            return OrderResult(False, f"Cancel-all failed: {exc}", pair=sym)
+
     # -- simulation helpers -------------------------------------------------
     def _simulate_fill(self, symbol: str, side: str, amount: float) -> None:
         price = self._last_price(symbol) or 100.0

@@ -384,7 +384,7 @@ async function panic() {
 
 // ---- settings ----
 // execution/risk fields the admin manages globally (paper_mode & read_only stay the user's)
-const MEXEC = ["s-sizing", "s-fixed", "s-fixedq", "s-risk", "s-otype", "s-lev", "s-margin", "s-tp1f", "s-bracket", "s-maxopen", "s-dloss", "s-dprofit", "s-cool", "s-dedupe"];
+const MEXEC = ["s-sizing", "s-fixed", "s-fixedq", "s-risk", "s-otype", "s-lev", "s-margin", "s-tp1f", "s-bracket", "s-maxopen", "s-dloss", "s-dprofit", "s-cool", "s-dedupe", "s-scalein", "s-scalein-trig", "s-scalein-size", "s-scalein-be"];
 function lockStrategy(st) {
   const setDis = (dis) => {
     for (const k in SPARAMS) { const el = $("p-" + k); if (el) el.disabled = dis; }
@@ -424,6 +424,7 @@ function applySettings(s, email) {
   set("s-otype", s.order_type); set("s-lev", s.leverage); set("s-margin", s.margin_mode); set("s-tp1f", s.tp1_fraction);
   chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only); chk("s-paper", s.paper_mode);
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss_pct); set("s-dprofit", s.daily_profit_pct); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
+  chk("s-scalein", s.scale_in); set("s-scalein-trig", s.scale_in_trigger); set("s-scalein-size", s.scale_in_size); chk("s-scalein-be", s.scale_in_be);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   chk("s-summary", s.daily_summary); chk("s-alert-skips", s.alert_skips);
@@ -433,7 +434,7 @@ function applySettings(s, email) {
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
   try {
-    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss_pct: num("s-dloss"), daily_profit_pct: num("s-dprofit"), daily_loss: 0, daily_profit: 0, cooldown: num("s-cool"), dedupe: num("s-dedupe") });
+    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss_pct: num("s-dloss"), daily_profit_pct: num("s-dprofit"), daily_loss: 0, daily_profit: 0, cooldown: num("s-cool"), dedupe: num("s-dedupe"), scale_in: $("s-scalein").checked, scale_in_trigger: num("s-scalein-trig"), scale_in_size: num("s-scalein-size"), scale_in_be: $("s-scalein-be").checked });
     refresh(); notify("Settings saved ✓", "ok");
   } catch (e) { notify(e.message, "error"); }
 }

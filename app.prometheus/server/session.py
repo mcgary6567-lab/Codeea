@@ -168,6 +168,12 @@ DEFAULT_SETTINGS = {
     "strategy_timeframe": "15m",
     "strategy_params": {},           # overrides StrategyParams fields
     "move_be_on_tp1": False,
+    # Scale-in / pyramiding: when a winning trade is X% of the way to its TP, add a
+    # smaller same-direction trade and move the original stop to break-even. Opt-in.
+    "scale_in": False,               # master toggle (off by default)
+    "scale_in_trigger": 40.0,        # % of the entry->TP distance that must be covered
+    "scale_in_size": 50.0,           # add-on size as % of the original trade
+    "scale_in_be": True,             # move the first trade's stop to break-even on scale-in
 }
 
 # Execution/risk keys the admin can push globally to managed customers.
@@ -175,6 +181,7 @@ GLOBAL_EXEC_KEYS = (
     "sizing_mode", "fixed_size", "fixed_quote", "risk_percent", "order_type", "leverage",
     "margin_mode", "tp1_fraction", "auto_bracket", "max_open", "daily_loss_pct",
     "daily_profit_pct", "cooldown", "dedupe",
+    "scale_in", "scale_in_trigger", "scale_in_size", "scale_in_be",
 )
 # Baseline managed config applied to EVERY managed customer (old + new) even before the
 # admin customises it; the admin's saved global execution overrides these per key.
@@ -182,6 +189,7 @@ MANAGED_EXEC_DEFAULTS = {
     "sizing_mode": "risk_stop", "risk_percent": 1.0, "order_type": "market",
     "auto_bracket": True, "tp1_fraction": 0.5, "max_open": 3,
     "daily_loss_pct": 5.0, "daily_profit_pct": 0.0, "dedupe": 5,
+    "scale_in": False, "scale_in_trigger": 40.0, "scale_in_size": 50.0, "scale_in_be": True,
 }
 
 
@@ -200,6 +208,7 @@ class TraderSession:
             self.settings["strat_schema"] = 6
             store.save_settings(user_id, self.settings)
         self.positions: list = []
+        self._trade_meta: dict = {}     # symbol -> {side, entry, sl, tp, size, scaled} for scale-in
         self.balance = 0.0
         self.pnl = 0.0
         self.connected = False
@@ -468,6 +477,74 @@ class TraderSession:
             self._last_equity_snap = now
             store.record_equity(self.user_id, self.balance, self.pnl)
         self.guard.update_equity(self.balance + self.pnl)
+        try:
+            self._maybe_scale_in()
+        except Exception as exc:  # noqa: BLE001 - never let scale-in break the poll loop
+            self.log(f"scale-in check error: {exc}", "warn")
+
+    # -- scale-in / pyramiding ----------------------------------------------
+    def _maybe_scale_in(self) -> None:
+        """Once a winning trade is X% of the way to its TP, add a smaller same-direction
+        trade and move the original stop to break-even. Opt-in, once per position."""
+        s = self.settings
+        if not s.get("scale_in") or self.guard.tripped:
+            return
+        trig = float(s.get("scale_in_trigger", 40.0)) / 100.0
+        open_syms = {p.pair for p in self.positions}
+        for sym in list(self._trade_meta):          # forget trades that have closed
+            if sym not in open_syms:
+                self._trade_meta.pop(sym, None)
+        for p in self.positions:
+            m = self._trade_meta.get(p.pair)
+            if not m or m.get("scaled"):
+                continue
+            entry, tp, cur = m.get("entry", 0), m.get("tp", 0), (p.current or 0)
+            if entry <= 0 or tp <= 0 or cur <= 0:
+                continue
+            if p.side == "Long":
+                span = tp - entry
+                progress = (cur - entry) / span if span > 0 else 0.0
+            else:
+                span = entry - tp
+                progress = (entry - cur) / span if span > 0 else 0.0
+            if progress >= trig:
+                self._scale_in(p, m)
+
+    def _scale_in(self, p, m: dict) -> None:
+        s = self.settings
+        add_size = round(m.get("size", 0) * float(s.get("scale_in_size", 50.0)) / 100.0, 8)
+        if add_size <= 0:
+            return
+        symbol, side = p.pair, ("buy" if p.side == "Long" else "sell")
+        m["scaled"] = True                           # set first so a failure can't loop
+        self._apply_lev_margin(symbol)
+        res = self.em.place_order(symbol, side, add_size, "market", None)
+        store.record_trade(self.user_id, symbol=symbol, side=side, kind="scalein",
+                           status="filled" if res.ok else "rejected", amount=add_size,
+                           price=p.current, note=f"scale-in: {res.message}", mode=self._mode())
+        if not res.ok:
+            self.log(f"Scale-in {side.upper()} {symbol} rejected: {res.message}", "warn")
+            return
+        combined = round(p.size + add_size, 8)
+        be = bool(s.get("scale_in_be", True))
+        new_sl = m.get("entry", 0) if be else m.get("sl", 0)
+        tp = m.get("tp", 0)
+        # Re-arm one bracket for the whole (now larger) position at the break-even stop.
+        self.em.cancel_all_orders(symbol)
+        xside = ex.exit_side(side)
+        if new_sl > 0:
+            r = self.em.place_reduce_order(symbol, xside, combined, new_sl, "sl")
+            self.log(f"Scale-in SL {symbol} @ {new_sl}: {r.message}", "ok" if r.ok else "warn")
+        if tp > 0:
+            r = self.em.place_reduce_order(symbol, xside, combined, tp, "tp")
+            self.log(f"Scale-in TP {symbol} @ {tp}: {r.message}", "ok" if r.ok else "warn")
+        self.log(f"Scaled in {side.upper()} {symbol} +{add_size:g} "
+                 f"(combined {combined:g}); stop → {'break-even' if be else new_sl:g}", "ok")
+        self.notify(f"➕ Scaled in {side.upper()} {symbol}\n"
+                    f"Added {add_size:g} (~{int(float(s.get('scale_in_size', 50)))}% of the first "
+                    f"trade) at ~{p.current:g}\n"
+                    f"Combined {combined:g} · stop moved to "
+                    f"{'break-even' if be else new_sl:g} — the original trade is now risk-free.")
 
     # -- pricing / sizing ----------------------------------------------------
     def get_price(self, symbol: str) -> float:
@@ -627,6 +704,12 @@ class TraderSession:
                     + f"\n{source} · {self._mode()}")
         self.guard.record_entry(symbol)
 
+        # Remember this trade's levels so the scale-in engine can measure progress to
+        # TP later (fresh entries only — a scale-in add-on must not reset the meta).
+        if source != "scalein":
+            self._trade_meta[symbol] = {"side": side, "entry": float(price), "sl": float(sl),
+                                        "tp": float(tp1), "size": float(amount), "scaled": False}
+
         # bracket: reduce-only SL + scaled TP legs (manual orders force it via the modal)
         if self.settings.get("auto_bracket", True) or payload.get("force_bracket"):
             xside = ex.exit_side(side)
@@ -651,6 +734,8 @@ class TraderSession:
             if p.pair == symbol or ex.normalize_symbol(p.pair) == ex.normalize_symbol(symbol):
                 res = self.em.close_position(p, fraction)
                 realized = float(p.pnl) * fraction
+                if res.ok and fraction >= 1.0:
+                    self._trade_meta.pop(p.pair, None)   # clear scale-in meta on full close
                 if res.ok:
                     # feed realized PnL to the guardrail so the daily loss/profit limit works
                     if self.guard.record_realized(realized):

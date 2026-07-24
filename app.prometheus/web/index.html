@@ -344,6 +344,15 @@
             <div class="hint">Daily limits are a <b>% of the day's starting balance</b> (scale with any account). Each 0 = disabled. Closing is never blocked, only new entries. Max open positions caps concurrent trades across all your pairs.</div>
           </div>
         </div>
+        <div class="card"><h3>➕ Scale-in (pyramiding) <span class="chip">advanced</span></h3>
+          <label class="chkline"><input type="checkbox" id="s-scalein"/> Enable scale-in — add to a trade that's already winning</label>
+          <div class="row">
+            <div class="col"><label>Trigger — % of the way to TP</label><input id="s-scalein-trig" type="number" step="1" min="5" max="95" value="40"/></div>
+            <div class="col"><label>Add-on size — % of first trade</label><input id="s-scalein-size" type="number" step="5" min="5" max="200" value="50"/></div>
+          </div>
+          <label class="chkline"><input type="checkbox" id="s-scalein-be"/> Move the first trade's stop to <b>break-even</b> on scale-in <span class="k">(recommended)</span></label>
+          <div class="hint">When your first trade is <b>X% of the way to its take-profit</b>, the bot opens a <b>smaller trade in the same direction</b> and moves the original stop to break-even — growing the winner without risking your starting capital. Happens <b>once per position</b>, respects your Max-open &amp; daily-loss limits. Off by default.</div>
+        </div>
         <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
       </section>
 

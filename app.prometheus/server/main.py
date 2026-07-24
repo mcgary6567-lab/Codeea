@@ -694,9 +694,10 @@ async def admin_set_strategy(request: Request, admin: dict = Depends(require_adm
             continue
     # global execution/risk config pushed to all managed customers (whitelisted keys)
     _EXEC_STR = {"sizing_mode", "order_type", "margin_mode"}
-    _EXEC_BOOL = {"auto_bracket"}
+    _EXEC_BOOL = {"auto_bracket", "scale_in", "scale_in_be"}
     _EXEC_NUM = {"risk_percent", "fixed_size", "fixed_quote", "leverage", "tp1_fraction",
-                 "max_open", "daily_loss_pct", "daily_profit_pct", "cooldown", "dedupe"}
+                 "max_open", "daily_loss_pct", "daily_profit_pct", "cooldown", "dedupe",
+                 "scale_in_trigger", "scale_in_size"}
     execution = {}
     for k, v in (d.get("execution") or {}).items():
         k = str(k)
