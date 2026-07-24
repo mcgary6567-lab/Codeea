@@ -176,6 +176,13 @@ GLOBAL_EXEC_KEYS = (
     "margin_mode", "tp1_fraction", "auto_bracket", "max_open", "daily_loss_pct",
     "daily_profit_pct", "cooldown", "dedupe",
 )
+# Baseline managed config applied to EVERY managed customer (old + new) even before the
+# admin customises it; the admin's saved global execution overrides these per key.
+MANAGED_EXEC_DEFAULTS = {
+    "sizing_mode": "risk_stop", "risk_percent": 1.0, "order_type": "market",
+    "auto_bracket": True, "tp1_fraction": 0.5, "max_open": 3,
+    "daily_loss_pct": 5.0, "daily_profit_pct": 0.0, "dedupe": 5,
+}
 
 
 class TraderSession:
@@ -328,7 +335,7 @@ class TraderSession:
         reads pick it up. Custom-access users keep their own settings."""
         try:
             if not (store.get_user(self.user_id) or {}).get("allow_custom"):
-                gexec = (_global_strategy() or {}).get("execution") or {}
+                gexec = {**MANAGED_EXEC_DEFAULTS, **((_global_strategy() or {}).get("execution") or {})}
                 for k in GLOBAL_EXEC_KEYS:
                     if gexec.get(k) is not None:
                         self.settings[k] = gexec[k]

@@ -321,12 +321,16 @@ async function panic() {
 }
 
 // ---- settings ----
+// execution/risk fields the admin manages globally (paper_mode & read_only stay the user's)
+const MEXEC = ["s-sizing", "s-fixed", "s-fixedq", "s-risk", "s-otype", "s-lev", "s-margin", "s-tp1f", "s-bracket", "s-maxopen", "s-dloss", "s-dprofit", "s-cool", "s-dedupe"];
 function lockStrategy(st) {
   const setDis = (dis) => {
     for (const k in SPARAMS) { const el = $("p-" + k); if (el) el.disabled = dis; }
     if ($("sg-tf")) $("sg-tf").disabled = dis;
     const mh = document.querySelector("#v-strategy .msel-head"); if (mh) mh.style.pointerEvents = dis ? "none" : "";
     ["btn-save-strat", "btn-reset-strat"].forEach(id => { const b = $(id); if (b) b.classList.toggle("hidden", dis); });
+    MEXEC.forEach(id => { const el = $(id); if (el) el.disabled = dis; });   // lock managed exec/risk
+    const en = $("exec-managed-note"); if (en) en.classList.toggle("hidden", !dis);
   };
   if (!st || !st.strategy_managed) {                 // unlocked — customer controls it
     if ($("strat-managed-banner")) $("strat-managed-banner").classList.add("hidden");

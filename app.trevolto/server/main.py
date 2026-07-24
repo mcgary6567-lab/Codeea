@@ -218,7 +218,7 @@ def full_state(user: dict) -> dict:
     snap["custom_requested"] = bool(user.get("custom_requested"))
     if not _allow:
         _gs = store.get_global_strategy()
-        snap["managed_strategy"] = {"params": _gs.get("params", {}), "timeframe": _gs.get("timeframe", "15m"), "symbols": _gs.get("symbols", "BTC/USDT")}
+        snap["managed_strategy"] = {"params": _gs.get("params", {}), "timeframe": _gs.get("timeframe", "15m"), "symbols": _gs.get("symbols", "BTC/USDT"), "execution": _gs.get("execution", {})}
     snap["access"] = store.entitlement(user)
     return snap
 

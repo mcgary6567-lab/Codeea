@@ -239,7 +239,7 @@
       <section id="v-strategy" class="hidden">
         <div class="card">
           <h3>Built-in strategy — EMA 9 / 21 cross <span class="chip" id="strat-state">on</span></h3>
-          <div class="warnbox hidden" id="strat-managed-banner">🔒 Your trading strategy is <b>managed for you</b> — set centrally and updated automatically. Your risk, sizing, exchange &amp; alerts stay yours to control.</div>
+          <div class="warnbox hidden" id="strat-managed-banner">🔒 Your <b>strategy, risk &amp; sizing are managed for you</b> — set centrally and updated automatically. Your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control.</div>
           <div class="hidden" id="strat-upgrade" style="background:linear-gradient(90deg,rgba(249,115,22,.12),transparent);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:12px">
             <b>⭐ Want to run your own strategy?</b>
             <div class="hint" style="margin:4px 0 8px">Advanced trader, or want to take higher risk? Request <b>Custom Strategy</b> access — once we approve it you can fully tune every setting below.</div>
@@ -309,7 +309,7 @@
           <button class="btn ghost" id="btn-reset-strat" onclick="resetStrategy()">↺ Reset defaults</button>
         </div>
 
-        <h3 style="margin:22px 0 12px">Execution, sizing &amp; risk guardrails</h3>
+        <h3 style="margin:22px 0 12px">Execution, sizing &amp; risk guardrails <span class="chip hidden" id="exec-managed-note">🔒 managed for you</span></h3>
         <div class="grid2">
           <div class="card"><h3>Execution &amp; sizing</h3>
             <label>Sizing mode</label>
@@ -522,7 +522,7 @@
           <div class="gnum">2</div>
           <div class="gbody">
             <h3>🤖 Bot Setting — your strategy</h3>
-            <p>Open <b>Bot Setting</b>. Your bot runs a <b>professionally-managed EMA 9/21 cross + 100-EMA trend strategy</b> that we tune and keep up to date for you — it's <b>ON by default</b> and auto-starts the moment you connect. You always stay in full control of your <b>risk %, position sizing, guardrails, exchange &amp; alerts</b>. Want to run your <i>own</i> parameters for a higher-profit setup? See <b>⭐ Unlock Custom Strategy</b> just below.</p>
+            <p>Open <b>Bot Setting</b>. Your bot runs a <b>professionally-managed EMA 9/21 cross + 100-EMA trend strategy</b> — including its <b>risk %, sizing &amp; guardrails</b> — that we tune and keep up to date for you. It's <b>ON by default</b> and auto-starts the moment you connect, and your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control. Want to run your <i>own</i> parameters for a higher-profit setup? See <b>⭐ Unlock Custom Strategy</b> just below.</p>
             <div class="gshot">
               <div class="gs-row"><div class="gs-field"><span>Timeframe</span><i>15m ▾</i></div><div class="gs-field"><span>Symbols</span><i>BTC/USDT, ETH/USDT ▾</i></div></div>
               <div class="gs-row"><div class="gs-field"><span>Fast EMA</span><i>9</i></div><div class="gs-field"><span>Slow EMA</span><i>21</i></div><div class="gs-field"><span>Trend EMA</span><i>100</i></div></div>
