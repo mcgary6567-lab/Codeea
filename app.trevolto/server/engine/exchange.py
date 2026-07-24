@@ -45,16 +45,21 @@ def _friendly_error(exchange_id: str, exc: Exception, is_futures: bool = False) 
                 "Try a different exchange or disable any VPN.\n\n(" + msg + ")")
     if "-2015" in msg or ("invalid api" in low and "permission" in low):
         if is_futures:
-            return ("Futures rejected (code -2015). If Spot connects with this key, "
-                    "your key and IP are already fine — Futures needs its own setup:\n"
-                    "  1) Open a Futures account on the exchange (accept the agreement / "
+            return ("Futures rejected (code -2015) — the exchange refused this key.\n"
+                    "  ► If it worked before, your server IP most likely changed: open the "
+                    "Exchange tab, copy 'Show my IP', and add that address to the API key's "
+                    "IP whitelist on the exchange (or set the key to Unrestricted / no IP "
+                    "restriction). This is the usual cause of a key that suddenly stops "
+                    "connecting.\n"
+                    "  1) Activate a Futures account on the exchange (accept the agreement / "
                     "quiz) — until you do, the key's Futures permission does nothing.\n"
-                    "  2) Enable the 'Futures' permission on the API key (re-create the "
-                    "key if you turned it on after creating it).\n"
+                    "  2) Enable the 'Futures' permission on the API key (re-create the key "
+                    "if you turned it on after creating it).\n"
                     "  3) Make sure Futures is available in your region.\n\n(" + msg + ")")
-        return ("Invalid API key, IP, or permissions. Enable Spot/Futures trading "
-                "on the key and add your IP to its whitelist (use 'Show my IP').\n\n("
-                + msg + ")")
+        return ("Invalid API key, IP, or permissions. If it worked before, your server IP "
+                "likely changed — add the 'Show my IP' address to the key's whitelist on the "
+                "exchange (or set it Unrestricted). Otherwise enable Spot/Futures trading on "
+                "the key.\n\n(" + msg + ")")
     if exchange_id == "coinbase" and is_futures:
         return ("Coinbase futures run on Coinbase International Exchange "
                 "(institutional / non-US). Use a Coinbase International API key, or "
