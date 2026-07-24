@@ -261,23 +261,38 @@ function renderPaper(s) {
   bn.innerHTML = on
     ? "Demo mode is <b>ON</b> — orders are <b>simulated with fake money</b>. No real funds are used."
     : "Demo mode is <b>OFF</b> — the bot trades with <b>real funds</b>. Turn it <b>ON</b> to practice risk-free.";
-  const pos = on ? (s.positions || []) : [];
-  if (on) {
-    $("pt-bal").textContent = fmt(s.balance);
-    const p = $("pt-pnl"); p.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); p.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
-    $("pt-eq").textContent = fmt((s.balance || 0) + (s.pnl || 0));
-    $("pt-npos").textContent = pos.length;
+  const p = (on && s.paper) ? s.paper : null;
+  const signed = (id, val, pre, suf) => {
+    const el = $(id); if (!el) return;
+    if (p == null || val == null) { el.textContent = "—"; el.className = "v mono"; return; }
+    el.textContent = (val >= 0 ? "+" : "-") + (pre || "") + fmt(Math.abs(val)) + (suf || "");
+    el.className = "v mono " + (val >= 0 ? "pos" : "neg");
+  };
+  if (p) {
+    $("pt-bal").textContent = "$" + fmt(p.balance);
+    $("pt-eq").textContent = "$" + fmt(p.equity);
+    signed("pt-upnl", p.unrealized, "$");
+    signed("pt-roi", p.roi, "", "%");
+    signed("pt-real", p.realized, "$");
+    $("pt-wr").textContent = fmt(p.win_rate) + "%";
+    $("pt-wr").className = "v " + (p.trades ? (p.win_rate >= 50 ? "pos" : "neg") : "");
+    $("pt-wl").textContent = `${p.wins} / ${Math.max(0, p.trades - p.wins)}`;
+    $("pt-trades").textContent = p.trades;
+    $("pt-npos").textContent = p.positions.length;
+    if ($("pt-start")) $("pt-start").textContent = fmt(p.start, 0);
   } else {
-    $("pt-bal").textContent = "—"; $("pt-pnl").textContent = "—"; $("pt-pnl").className = "v mono";
-    $("pt-eq").textContent = "—"; $("pt-npos").textContent = "0";
+    ["pt-bal", "pt-eq", "pt-upnl", "pt-roi", "pt-real"].forEach(id => { const el = $(id); if (el) { el.textContent = "—"; el.className = "v mono"; } });
+    $("pt-wr").textContent = "—"; $("pt-wr").className = "v"; $("pt-wl").textContent = "0 / 0";
+    $("pt-trades").textContent = "0"; $("pt-npos").textContent = "0";
   }
+  const pos = p ? p.positions : [];
   const tb = $("pt-pos-body");
   if (!on) tb.innerHTML = `<tr><td colspan="5" class="k">Turn on Demo mode to start practising.</td></tr>`;
   else if (!pos.length) tb.innerHTML = `<tr><td colspan="5" class="k">No open demo positions yet.</td></tr>`;
-  else tb.innerHTML = pos.map(p => `<tr>
-    <td class="mono">${p.pair}</td><td class="${p.side === 'Long' ? 'pos' : 'neg'}">${p.side}</td>
-    <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
-    <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td></tr>`).join("");
+  else tb.innerHTML = pos.map(q => `<tr>
+    <td class="mono">${q.pair}</td><td class="${q.side === 'Long' ? 'pos' : 'neg'}">${q.side}</td>
+    <td class="mono">${fmt(q.size, 5)}</td><td class="mono">${fmt(q.entry, 4)}</td>
+    <td class="mono ${q.pnl >= 0 ? 'pos' : 'neg'}">${(q.pnl >= 0 ? '+' : '') + fmt(q.pnl, 4)}</td></tr>`).join("");
 }
 async function togglePaper() {
   const turningOn = !(lastState && lastState.paper_mode);
