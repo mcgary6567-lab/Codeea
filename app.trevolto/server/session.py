@@ -364,6 +364,16 @@ class TraderSession:
             self.em.read_only = bool(self.settings.get("read_only", False))
         self.log(f"Settings updated ({', '.join((patch or {}).keys())})")
 
+    def reset_paper(self, start_balance: float = 10_000.0) -> None:
+        """Reset the demo/paper wallet back to its starting balance and clear positions."""
+        with self._lock:
+            self.em.reset_paper(start_balance)
+            if self.settings.get("paper_mode"):
+                self.balance = self.em.fetch_balance()
+                self.positions = self.em.fetch_positions()
+                self.pnl = self.em.total_pnl(self.positions)
+        self.log(f"Demo wallet reset to ${start_balance:,.0f}")
+
     def _params(self) -> "strat.StrategyParams":
         # Use the SAME params the live runner uses, so the chart reflects what the
         # bot actually trades: custom users -> their saved params; managed users ->

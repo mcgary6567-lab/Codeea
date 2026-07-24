@@ -114,6 +114,7 @@
   <div class="shell">
     <nav class="side">
       <button class="on" data-v="home" onclick="show('home',this)">📊 Dashboard</button>
+      <button data-v="paper" onclick="show('paper',this)">🎮 Demo Trading</button>
       <button data-v="exchange" onclick="show('exchange',this)">🔌 Exchange</button>
       <button data-v="strategy" onclick="show('strategy',this)">🤖 Bot Setting</button>
       <button data-v="backtest" onclick="show('backtest',this)">📈 Profit Simulator</button>
@@ -194,6 +195,50 @@
             <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
             <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th><th></th></tr></thead>
               <tbody id="pos-body"><tr><td colspan="6" class="k">No open positions.</td></tr></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DEMO / PAPER TRADING -->
+      <section id="v-paper" class="hidden">
+        <div class="card paper-hero">
+          <div class="paper-hero-top">
+            <div class="paper-hero-txt">
+              <h3 style="margin:0">🎮 Demo / Paper Trading</h3>
+              <div class="hint" style="margin-top:4px">Practice with <b>$10,000 of fake money</b> on <b>live market prices</b> and your <b>real strategy</b> — completely risk-free. Flip it off anytime to trade for real.</div>
+            </div>
+            <button class="paper-switch off" id="paper-switch" type="button" role="switch" aria-checked="false" aria-label="Demo trading mode. When ON the bot simulates orders with fake money; when OFF it trades real funds." onclick="togglePaper()">
+              <span class="paper-switch-dot"></span><span class="paper-switch-lbl" id="paper-switch-lbl">OFF</span>
+            </button>
+          </div>
+          <div class="paper-banner" id="paper-banner">Demo mode is <b>OFF</b> — the bot trades with <b>real funds</b>. Turn it <b>ON</b> to practice risk-free.</div>
+        </div>
+
+        <div class="tiles">
+          <div class="tile"><div class="k">Demo balance</div><div class="v mono" id="pt-bal">—</div><div class="k">USDT (simulated)</div></div>
+          <div class="tile"><div class="k">Unrealized PnL</div><div class="v mono" id="pt-pnl">—</div><div class="k">open demo trades</div></div>
+          <div class="tile"><div class="k">Demo equity</div><div class="v mono" id="pt-eq">—</div><div class="k">balance + open PnL</div></div>
+          <div class="tile"><div class="k">Open demo trades</div><div class="v" id="pt-npos">0</div><div class="k">positions</div></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <h3>Demo positions</h3>
+            <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th></tr></thead>
+              <tbody id="pt-pos-body"><tr><td colspan="5" class="k">Turn on Demo mode to start practising.</td></tr></tbody></table></div>
+            <button class="btn red sm" style="margin-top:12px" onclick="resetPaper()">♻️ Reset demo wallet ($10,000)</button>
+            <div class="hint" style="margin-top:8px">Manual demo orders use the <b>Order panel</b> on the Dashboard while Demo mode is ON.</div>
+          </div>
+          <div class="card">
+            <h3>How demo trading works</h3>
+            <ul class="paper-how">
+              <li>💵 <b>Fake $10,000 wallet</b> — no exchange keys or deposit needed to start.</li>
+              <li>📈 <b>Live market prices</b> — fills happen at the real current price, with fees.</li>
+              <li>🤖 <b>Your real strategy</b> — same EMA engine, signals, SL/TP and guardrails as live.</li>
+              <li>🔔 <b>Same alerts</b> — entries and exits show on the Dashboard and in Telegram, tagged PAPER.</li>
+              <li>🟢 <b>Go live anytime</b> — flip the switch off and the exact same bot trades your real funds.</li>
+            </ul>
+            <div class="hint">Tip: run Demo for a few days to watch the strategy work before risking real money.</div>
           </div>
         </div>
       </section>

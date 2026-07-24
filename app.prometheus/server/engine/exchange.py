@@ -802,3 +802,9 @@ class ExchangeManager:
             )
         cost = amount * price * 0.001  # pretend a tiny fee
         self._sim_balance -= cost
+
+    def reset_paper(self, start_balance: float = 10_000.0) -> None:
+        """Reset the simulated (paper) wallet: restore balance, clear demo positions."""
+        self._sim_balance = float(start_balance)
+        self._sim_positions = []
+        self._spot_entries = {}

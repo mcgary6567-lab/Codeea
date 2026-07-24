@@ -136,7 +136,7 @@ function syncChartToStrategy(forceLoad) {
 }
 
 // ---- views ----
-const VIEWS = ["home", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
+const VIEWS = ["home", "paper", "exchange", "strategy", "backtest", "analytics", "log", "settings", "guide"];
 let accessBuyable = false;
 function goCheckout() { if (!accessBuyable) return; window.open(CHECKOUT_URL, "_blank", "noopener"); }
 function dismissAnnounce(id) { localStorage.setItem("bc_seen", String(id)); const ab = $("announce"); if (ab) ab.classList.add("hidden"); }
@@ -149,6 +149,7 @@ function show(v, btn) {
   if (v === "home") loadChart();
   if (v === "settings") loadLogins();
   if (v === "exchange") loadServerIP();
+  if (v === "paper") renderPaper(lastState);
 }
 
 // ---- live state ----
@@ -243,7 +244,57 @@ function render(s) {
     : `<div class="empty">No activity yet — connect an exchange and your bot's actions will show up here.</div>`;
   applySettings(s.settings || {}, s.email);
   lockStrategy(s);
+  renderPaper(s);
   if ($("ch-follow") && $("ch-follow").checked) syncChartToStrategy(false);
+}
+
+// ---- Demo / paper trading tab ----
+function renderPaper(s) {
+  if (!s || !$("paper-switch")) return;
+  const on = !!s.paper_mode;
+  const sw = $("paper-switch");
+  sw.classList.toggle("on", on); sw.classList.toggle("off", !on);
+  sw.setAttribute("aria-checked", on ? "true" : "false");
+  $("paper-switch-lbl").textContent = on ? "ON" : "OFF";
+  const bn = $("paper-banner");
+  bn.className = "paper-banner " + (on ? "live-on" : "");
+  bn.innerHTML = on
+    ? "Demo mode is <b>ON</b> — orders are <b>simulated with fake money</b>. No real funds are used."
+    : "Demo mode is <b>OFF</b> — the bot trades with <b>real funds</b>. Turn it <b>ON</b> to practice risk-free.";
+  const pos = on ? (s.positions || []) : [];
+  if (on) {
+    $("pt-bal").textContent = fmt(s.balance);
+    const p = $("pt-pnl"); p.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); p.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
+    $("pt-eq").textContent = fmt((s.balance || 0) + (s.pnl || 0));
+    $("pt-npos").textContent = pos.length;
+  } else {
+    $("pt-bal").textContent = "—"; $("pt-pnl").textContent = "—"; $("pt-pnl").className = "v mono";
+    $("pt-eq").textContent = "—"; $("pt-npos").textContent = "0";
+  }
+  const tb = $("pt-pos-body");
+  if (!on) tb.innerHTML = `<tr><td colspan="5" class="k">Turn on Demo mode to start practising.</td></tr>`;
+  else if (!pos.length) tb.innerHTML = `<tr><td colspan="5" class="k">No open demo positions yet.</td></tr>`;
+  else tb.innerHTML = pos.map(p => `<tr>
+    <td class="mono">${p.pair}</td><td class="${p.side === 'Long' ? 'pos' : 'neg'}">${p.side}</td>
+    <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
+    <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td></tr>`).join("");
+}
+async function togglePaper() {
+  const turningOn = !(lastState && lastState.paper_mode);
+  if (!turningOn && !confirm("Turn Demo mode OFF? The bot will trade with REAL funds.")) return;
+  try {
+    await api("/api/settings", "POST", { paper_mode: turningOn });
+    notify(turningOn ? "🎮 Demo mode ON — trading with fake money" : "🟢 Demo mode OFF — live trading", "ok");
+    refresh();
+  } catch (e) { notify(e.message, "error"); }
+}
+async function resetPaper() {
+  if (!confirm("Reset the demo wallet back to $10,000 and close all demo positions?")) return;
+  try {
+    await api("/api/paper/reset", "POST", { balance: 10000 });
+    notify("♻️ Demo wallet reset to $10,000", "ok");
+    refresh();
+  } catch (e) { notify(e.message, "error"); }
 }
 
 // ---- live price strip ----

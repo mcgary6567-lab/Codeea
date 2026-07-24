@@ -347,6 +347,18 @@ async def settings(request: Request, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+@app.post("/api/paper/reset")
+async def paper_reset(request: Request, user: dict = Depends(current_user)):
+    d = await body(request)
+    try:
+        bal = float(d.get("balance", 10_000) or 10_000)
+    except (TypeError, ValueError):
+        bal = 10_000.0
+    bal = min(max(bal, 100.0), 10_000_000.0)
+    get_session(user["id"]).reset_paper(bal)
+    return {"ok": True, "balance": bal}
+
+
 @app.post("/api/log/clear")
 def log_clear(user: dict = Depends(current_user)):
     get_session(user["id"]).clear_log()
