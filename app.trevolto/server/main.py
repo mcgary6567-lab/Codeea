@@ -438,6 +438,12 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
     _bs = get_session(user["id"]).settings
     cfg.daily_loss_pct = float(d.get("daily_loss_pct", _bs.get("daily_loss_pct", 0)) or 0)
     cfg.daily_profit_pct = float(d.get("daily_profit_pct", _bs.get("daily_profit_pct", 0)) or 0)
+    # Scale-in / pyramiding — model it in the backtest using the user's live settings
+    # (request overrides let the simulator preview it without changing saved config).
+    cfg.scale_in = bool(d.get("scale_in", _bs.get("scale_in", False)))
+    cfg.scale_in_trigger = float(d.get("scale_in_trigger", _bs.get("scale_in_trigger", 40)) or 40)
+    cfg.scale_in_size = float(d.get("scale_in_size", _bs.get("scale_in_size", 50)) or 50)
+    cfg.scale_in_be = bool(d.get("scale_in_be", _bs.get("scale_in_be", True)))
     try:
         cfg.bar_seconds = float(_public_client_tf_seconds(tf))
     except Exception:

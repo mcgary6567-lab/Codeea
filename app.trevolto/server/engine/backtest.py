@@ -29,6 +29,10 @@ class BacktestConfig:
     news_windows: tuple = ()          # (start_ms, end_ms) blackout windows — skip entries inside
     daily_loss_pct: float = 0.0       # stop opening new trades once the day is down this % (0 = off)
     daily_profit_pct: float = 0.0     # stop opening new trades once the day is up this % (0 = off)
+    scale_in: bool = False            # pyramid: add to a winner at scale_in_trigger% of the way to TP
+    scale_in_trigger: float = 40.0    # % of the entry->TP distance that must be covered
+    scale_in_size: float = 50.0       # add-on size as % of the original position
+    scale_in_be: bool = True          # add-on protected by a break-even (entry) stop
 
 
 @dataclass
@@ -47,6 +51,7 @@ class BacktestTrade:
     r: float
     reason: str               # "sl" / "tp" / "cross" / "reverse"
     scaled: bool
+    scaled_in: bool = False   # a pyramiding add-on was opened on this trade
 
 
 @dataclass
@@ -82,6 +87,7 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
 
     news_skipped = 0
     day_skipped = 0
+    scaled_in_count = 0
     day_key = None
     day_start_equity = equity         # equity at the start of the current calendar day (UTC)
     for i, ev in strategy.evaluate_all_crossover(candles, params):
@@ -114,7 +120,8 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
             else:
                 qty = (equity * cfg.size_pct / 100.0) / entry if entry > 0 else 0.0
             cur = {"side": ev["side"], "entry": entry, "entry_i": i, "qty": qty, "rem": qty,
-                   "init_risk": risk, "realized": 0.0, "fees": _fee(qty * entry, cfg), "scaled": False}
+                   "tp": float(ev.get("tp", 0) or 0), "init_risk": risk,
+                   "realized": 0.0, "fees": _fee(qty * entry, cfg), "scaled": False}
         elif act == "partial" and cur:
             part = cur["qty"] * float(ev.get("fraction", 0.5))
             px = float(ev["price"])
@@ -129,13 +136,47 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
             fees = cur["fees"] + _fee(rem * px, cfg)
             fund = funding(cur["entry_i"], i, cur["qty"] * cur["entry"])
             net = cur["realized"] + gross - fees - fund
+            qty_total = cur["qty"]
+            scaled_in = False
+            # Scale-in (pyramiding): once price is scale_in_trigger% of the way to TP, add a
+            # smaller same-direction lot at that price, protected by a break-even stop. The
+            # add-on rides to the trade's exit, or exits at break-even if price returns first.
+            tp = cur.get("tp", 0.0)
+            if cfg.scale_in and tp and tp != cur["entry"]:
+                e, sd, ei = cur["entry"], cur["side"], cur["entry_i"]
+                sign = 1.0 if sd == "long" else -1.0
+                trig_px = e + sign * (cfg.scale_in_trigger / 100.0) * (tp - e)
+                k = -1
+                for m in range(ei + 1, i + 1):
+                    if (sd == "long" and float(candles[m][2]) >= trig_px) or \
+                       (sd == "short" and float(candles[m][3]) <= trig_px):
+                        k = m
+                        break
+                if k >= 0:
+                    add_qty = cur["qty"] * (cfg.scale_in_size / 100.0)
+                    be_stop = e if cfg.scale_in_be else (e - sign * cur["init_risk"])
+                    add_exit_px, add_exit_i = px, i         # default: rides to the trade exit
+                    for m in range(k + 1, i + 1):
+                        if (sd == "long" and float(candles[m][3]) <= be_stop) or \
+                           (sd == "short" and float(candles[m][2]) >= be_stop):
+                            add_exit_px, add_exit_i = be_stop, m
+                            break
+                    agross = (add_exit_px - trig_px) * add_qty if sd == "long" else (trig_px - add_exit_px) * add_qty
+                    afees = _fee(add_qty * trig_px, cfg) + _fee(add_qty * add_exit_px, cfg)
+                    afund = funding(k, add_exit_i, add_qty * trig_px)
+                    net += agross - afees - afund
+                    fees += afees
+                    fund += afund
+                    qty_total += add_qty
+                    scaled_in = True
+                    scaled_in_count += 1
             equity += net
             res.trades.append(BacktestTrade(
                 side=cur["side"], entry_i=cur["entry_i"], exit_i=i,
                 entry_ts=ts[cur["entry_i"]], exit_ts=ts[i], entry=cur["entry"], exit=px,
-                qty=cur["qty"], pnl=net, fees=fees, funding=fund,
+                qty=qty_total, pnl=net, fees=fees, funding=fund,
                 r=(net / (cur["init_risk"] * cur["qty"])) if cur["init_risk"] > 0 and cur["qty"] > 0 else 0.0,
-                reason=ev.get("reason", "exit"), scaled=cur["scaled"]))
+                reason=ev.get("reason", "exit"), scaled=cur["scaled"], scaled_in=scaled_in))
             res.equity.append((ts[i], equity))
             cur = {}
 
@@ -143,6 +184,7 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
     if isinstance(res.stats, dict):
         res.stats["news_skipped"] = news_skipped
         res.stats["day_skipped"] = day_skipped
+        res.stats["scaled_in"] = scaled_in_count
     return res
 
 

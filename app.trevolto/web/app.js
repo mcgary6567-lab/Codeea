@@ -519,6 +519,8 @@ async function runBacktest() {
     if (days > 0) req.days = days; else req.limit = parseInt($("bt-limit").value) || 1000;
     const nf = $("bt-news") ? $("bt-news").value : "";   // "" = follow the dashboard News-trading setting
     if (nf === "1") req.news_filter = true; else if (nf === "0") req.news_filter = false;
+    const sc = $("bt-scalein") ? $("bt-scalein").value : "";  // "" = follow the saved scale-in setting
+    if (sc === "1") req.scale_in = true; else if (sc === "0") req.scale_in = false;
     const d = await api("/api/backtest", "POST", req); BT = d;
     const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct, st = streaks(d.trades);
     const wins = d.trades.filter(t => t.pnl > 0), losses = d.trades.filter(t => t.pnl < 0);
@@ -543,6 +545,7 @@ async function runBacktest() {
       ["Fees paid $", fmt(s.fees), "neg"],
     ];
     if (s.day_skipped) tiles.push(["🛡 Daily-limit skips", `${s.day_skipped}`, "pos"]);
+    if (s.scaled_in) tiles.push(["➕ Scale-in adds", `${s.scaled_in}`, "pos"]);
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.length
@@ -552,6 +555,7 @@ async function runBacktest() {
     let info = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;
     if (d.news_filter) info += ` · 📰 News filter ON — ${(d.summary.news_skipped || 0)} entr${(d.summary.news_skipped === 1) ? "y" : "ies"} skipped near high-impact news (backtest coverage: current week only; the live bot applies it in real time).`;
     if (d.summary.day_skipped) info += ` · 🛡 Daily-loss protection ON — ${d.summary.day_skipped} entr${(d.summary.day_skipped === 1) ? "y" : "ies"} blocked after the daily limit was hit (same circuit breaker your live bot uses).`;
+    if (d.summary.scaled_in) info += ` · ➕ Scale-in ON — ${d.summary.scaled_in} trade${(d.summary.scaled_in === 1) ? "" : "s"} added a same-direction pyramid once in profit, with the original stop moved to break-even.`;
     $("bt-period-info").textContent = info;
     $("bt-csv").disabled = !d.trades.length;
     // Un-hide the results BEFORE drawing so the canvases have real dimensions.
