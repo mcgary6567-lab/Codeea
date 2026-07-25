@@ -746,16 +746,12 @@ async function loadChart() {
     if (first && LW) LW.chart.timeScale().fitContent();
     const buys = d.markers.filter(m => m.type === "enter" && m.side === "long").length;
     const sells = d.markers.filter(m => m.type === "enter" && m.side === "short").length;
-    $("ch-legend").innerHTML = `<span>📊 <b>${d.symbol}</b> · ${d.timeframe}</span> <span class="lg-fast">EMA${d.fast_ema}</span> <span class="lg-slow">EMA${d.slow_ema}</span> <span class="lg-trend">EMA${d.trend_ema}</span> <span class="pos"><b>▲ ${buys} BUY</b></span> <span class="neg"><b>▼ ${sells} SELL</b></span>`;
-    // last signal badge: most recent entry (BUY/SELL) + price, for the selected pair
-    const ls = $("ch-lastsig"), le = [...d.markers].reverse().find(m => m.type === "enter");
+    $("ch-legend").innerHTML = `<span>📊 <b>${d.symbol}</b> · ${d.timeframe}</span> <span class="pos"><b>▲ ${buys} BUY</b></span> <span class="neg"><b>▼ ${sells} SELL</b></span>`;
+    // last signal is surfaced in the Bot-status KPI tile (chart badge removed)
+    const le = [...d.markers].reverse().find(m => m.type === "enter");
     if (le) { const buy = le.side === "long", px = fmt(le.price, le.price < 10 ? 5 : (le.price < 1000 ? 3 : 2)); LAST_SIG = { buy, px, symbol: d.symbol }; }
     else LAST_SIG = null;
-    if (ls) {
-      if (le) { ls.classList.remove("hidden"); ls.innerHTML = `<span class="k">🎯 Last signal</span> <b class="${LAST_SIG.buy ? "pos" : "neg"}">${LAST_SIG.buy ? "▲ BUY" : "▼ SELL"} ${LAST_SIG.px}</b> <span class="k">${d.symbol}</span>`; }
-      else { ls.classList.add("hidden"); ls.innerHTML = ""; }
-    }
-    setBotSigNote();   // mirror the last signal into the Bot-status tile
+    setBotSigNote();
     renderSignal(d.signal);
   } catch (e) { if ($("ch-legend")) $("ch-legend").innerHTML = '<span class="neg">No chart data — connect an exchange or check connectivity.</span>'; }
 }
