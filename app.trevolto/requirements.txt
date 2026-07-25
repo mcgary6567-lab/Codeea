@@ -7,3 +7,4 @@ python-multipart==0.0.17
 a2wsgi==1.10.7
 
 pywebpush==2.0.0
+segno==1.6.6

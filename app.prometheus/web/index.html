@@ -501,7 +501,9 @@
               <div class="hint">Add an extra layer with an authenticator app (Google Authenticator, Authy). Strongly recommended — your account controls real funds.</div>
               <button class="btn" style="margin-top:10px" onclick="twofaSetup()">🔐 Enable 2FA</button>
               <div id="tfa-setup" class="hidden" style="margin-top:12px">
-                <div class="hint">In your authenticator app choose "enter a setup key" and paste this secret (account: your email), then type the 6-digit code:</div>
+                <div class="hint"><b>Scan this QR</b> with your authenticator app (Google Authenticator, Authy) — then enter the 6-digit code below.</div>
+                <div id="tfa-qr-wrap" class="hidden" style="text-align:center;margin:12px 0"><img id="tfa-qr" alt="2FA QR code" style="width:184px;height:184px;border-radius:12px;background:#fff;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.4)"/></div>
+                <div class="hint">Can't scan? Choose <b>"enter a setup key"</b> instead and paste this secret (account: your email):</div>
                 <div class="mono" id="tfa-secret" style="margin:8px 0;padding:8px;background:var(--chip);border-radius:8px;word-break:break-all"></div>
                 <input id="tfa-code" inputmode="numeric" placeholder="123456"/>
                 <button class="btn" style="margin-top:8px" onclick="twofaEnable()">✅ Confirm &amp; turn on</button>

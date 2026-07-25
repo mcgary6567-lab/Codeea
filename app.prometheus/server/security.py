@@ -140,3 +140,20 @@ def verify_totp(secret: str, code: str, window: int = 1) -> bool:
 def totp_uri(secret: str, email: str, issuer: str = "Prometheus") -> str:
     from urllib.parse import quote
     return f"otpauth://totp/{quote(issuer)}:{quote(email)}?secret={secret}&issuer={quote(issuer)}"
+
+
+def totp_qr_data_uri(uri: str) -> str:
+    """Render an otpauth:// URI as a scannable QR code (SVG data-URI).
+
+    Returns "" if the QR library isn't installed, so 2FA setup still works via
+    the manual text secret and the app never crashes on a missing dependency.
+    """
+    try:
+        import segno
+    except Exception:  # noqa: BLE001
+        return ""
+    try:
+        qr = segno.make(uri, error="m")
+        return qr.svg_data_uri(scale=5, border=2, dark="#0b1220", light="#ffffff")
+    except Exception:  # noqa: BLE001
+        return ""

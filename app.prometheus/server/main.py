@@ -170,7 +170,8 @@ async def reset(request: Request):
 def twofa_setup(user: dict = Depends(current_user)):
     secret = security.new_totp_secret()
     store.set_totp_secret(user["id"], secret)          # stored, not yet enabled
-    return {"secret": secret, "uri": security.totp_uri(secret, user["email"])}
+    uri = security.totp_uri(secret, user["email"])
+    return {"secret": secret, "uri": uri, "qr": security.totp_qr_data_uri(uri)}
 
 
 @app.post("/api/2fa/enable")

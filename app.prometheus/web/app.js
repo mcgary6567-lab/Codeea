@@ -66,7 +66,7 @@ async function doReset() {
   } catch (e) { $("rs-err").textContent = e.message; }
 }
 // ---- 2FA settings ----
-async function twofaSetup() { try { const d = await api("/api/2fa/setup", "POST"); $("tfa-secret").textContent = d.secret; $("tfa-setup").classList.remove("hidden"); } catch (e) { notify(e.message, "error"); } }
+async function twofaSetup() { try { const d = await api("/api/2fa/setup", "POST"); $("tfa-secret").textContent = d.secret; const qw = $("tfa-qr-wrap"); if (d.qr) { $("tfa-qr").src = d.qr; qw.classList.remove("hidden"); } else { qw.classList.add("hidden"); } $("tfa-setup").classList.remove("hidden"); } catch (e) { notify(e.message, "error"); } }
 async function twofaEnable() { try { await api("/api/2fa/enable", "POST", { code: $("tfa-code").value.trim() }); notify("2FA enabled ✓", "ok"); refresh(); } catch (e) { notify(e.message, "error"); } }
 async function twofaDisable() { try { await api("/api/2fa/disable", "POST", { password: $("tfa-pass").value }); notify("2FA disabled", "warn"); $("tfa-pass").value = ""; refresh(); } catch (e) { notify(e.message, "error"); } }
 function logout() { localStorage.removeItem("prometheus_token"); TOKEN = ""; if (ws) ws.close(); stopSocialProof(); spDismissed = false; spLoaded = false; $("app").classList.add("hidden"); $("landing").classList.remove("hidden"); }
