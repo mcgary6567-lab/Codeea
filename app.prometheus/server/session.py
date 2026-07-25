@@ -125,10 +125,12 @@ def public_prices(exchange_id: str, symbols: list) -> dict:
 _GS_CACHE = {"v": None, "t": 0.0}
 
 
-def _is_weekend() -> bool:
-    """True on Saturday or Sunday in UTC (weekday() 5=Sat, 6=Sun)."""
+def _is_weekend(tz_offset_hours: float = 0.0) -> bool:
+    """True on Saturday or Sunday, shifted by ``tz_offset_hours`` from UTC so the
+    weekend can follow the user's local time (weekday() 5=Sat, 6=Sun)."""
     import datetime
-    return datetime.datetime.now(datetime.timezone.utc).weekday() >= 5
+    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=tz_offset_hours or 0.0)
+    return now.weekday() >= 5
 
 
 def _global_strategy() -> dict:
@@ -180,7 +182,8 @@ DEFAULT_SETTINGS = {
     "scale_in_trigger": 40.0,        # % of the entry->TP distance that must be covered
     "scale_in_size": 50.0,           # add-on size as % of the original trade
     "scale_in_be": True,             # move the first trade's stop to break-even on scale-in
-    "weekend_pause": False,          # hold new strategy entries on Sat & Sun (UTC). Opt-in.
+    "weekend_pause": False,          # hold new strategy entries on Sat & Sun. Opt-in.
+    "weekend_tz": 0.0,               # hours offset from UTC for the weekend window (per-user; 0 = UTC)
 }
 
 # Execution/risk keys the admin can push globally to managed customers.
@@ -497,7 +500,7 @@ class TraderSession:
         s = self.settings
         if not s.get("scale_in") or self.guard.tripped:
             return
-        if s.get("weekend_pause") and _is_weekend():
+        if s.get("weekend_pause") and _is_weekend(s.get("weekend_tz", 0)):
             return                               # no new risk (adds) on weekends
         trig = float(s.get("scale_in_trigger", 40.0)) / 100.0
         open_syms = {p.pair for p in self.positions}
@@ -664,7 +667,7 @@ class TraderSession:
 
         # Weekend pause: hold automated (strategy / webhook) entries on Sat & Sun (UTC).
         # Manual orders always go through; open trades stay fully managed.
-        if source in ("strategy", "webhook") and self.settings.get("weekend_pause") and _is_weekend():
+        if source in ("strategy", "webhook") and self.settings.get("weekend_pause") and _is_weekend(self.settings.get("weekend_tz", 0)):
             self.log(f"Weekend pause — held {side.upper()} {symbol} (new entries paused Sat/Sun UTC)", "warn")
             store.record_trade(self.user_id, symbol=symbol, side=side, kind="signal",
                                status="blocked", note="weekend pause", mode=self._mode())
@@ -1046,7 +1049,7 @@ class TraderSession:
             "strategy_on": self.strategy_on,
             "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,
-            "weekend_paused": bool(self.settings.get("weekend_pause")) and _is_weekend(),
+            "weekend_paused": bool(self.settings.get("weekend_pause")) and _is_weekend(self.settings.get("weekend_tz", 0)),
             "positions": [
                 {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
                  "current": p.current, "pnl": round(p.pnl, 4), "status": p.status,

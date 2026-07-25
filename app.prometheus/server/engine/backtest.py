@@ -33,7 +33,8 @@ class BacktestConfig:
     scale_in_trigger: float = 40.0    # % of the entry->TP distance that must be covered
     scale_in_size: float = 50.0       # add-on size as % of the original position
     scale_in_be: bool = True          # add-on protected by a break-even (entry) stop
-    weekend_pause: bool = False       # skip entries that fall on Sat/Sun (UTC)
+    weekend_pause: bool = False       # skip entries that fall on Sat/Sun
+    weekend_tz: float = 0.0           # hours offset from UTC for the weekend window (0 = UTC)
 
 
 @dataclass
@@ -103,7 +104,8 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
                 day_key = d_key
                 day_start_equity = equity
             # Weekend pause — skip entries on Sat/Sun (epoch day 0 = Thu, so +3 aligns Mon=0).
-            if cfg.weekend_pause and (d_key + 3) % 7 >= 5:
+            # weekend_tz shifts the day boundary so the weekend can follow local time.
+            if cfg.weekend_pause and (((ts[i] + int(cfg.weekend_tz * 3_600_000)) // 86_400_000) + 3) % 7 >= 5:
                 weekend_skipped += 1
                 cur = {}
                 continue

@@ -383,8 +383,9 @@
           <div class="hint">When your first trade is <b>X% of the way to its take-profit</b>, the bot opens a <b>smaller trade in the same direction</b> and moves the original stop to break-even — growing the winner without risking your starting capital. Happens <b>once per position</b>, respects your Max-open &amp; daily-loss limits. Off by default.</div>
         </div>
         <div class="card"><h3>🗓️ Weekend pause</h3>
-          <label class="chkline"><input type="checkbox" id="s-weekend"/> Don't open new trades on <b>Saturday &amp; Sunday</b> (UTC)</label>
-          <div class="hint">Crypto weekends are thin and choppy. When on, the bot <b>holds new entries (and scale-in adds) on Sat &amp; Sun UTC</b> — but <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. Off by default.</div>
+          <label class="chkline"><input type="checkbox" id="s-weekend"/> Don't open new trades on <b>Saturday &amp; Sunday</b></label>
+          <label class="chkline"><input type="checkbox" id="s-weekend-local"/> Use my <b>device's timezone</b> instead of UTC <span class="k" id="s-weekend-tz"></span></label>
+          <div class="hint">Crypto weekends are thin and choppy. When on, the bot <b>holds new entries (and scale-in adds) on Sat &amp; Sun</b> — but <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. Weekend is measured in <b>UTC</b> unless you tick the box above. Off by default.</div>
         </div>
         <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
       </section>

@@ -446,6 +446,7 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
     cfg.scale_in_size = float(d.get("scale_in_size", _bs.get("scale_in_size", 50)) or 50)
     cfg.scale_in_be = bool(d.get("scale_in_be", _bs.get("scale_in_be", True)))
     cfg.weekend_pause = bool(d.get("weekend_pause", _bs.get("weekend_pause", False)))
+    cfg.weekend_tz = float(d.get("weekend_tz", _bs.get("weekend_tz", 0)) or 0)
     try:
         cfg.bar_seconds = float(_public_client_tf_seconds(tf))
     except Exception:
