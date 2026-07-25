@@ -296,6 +296,7 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .gstep{background:var(--chip);border:1px solid var(--line);border-radius:20px;padding:7px 14px;font-size:13px;
   color:var(--txt);cursor:pointer;transition:.15s}
 .gstep:hover{border-color:var(--accent);color:var(--accent)}
+.gstep-help{border-color:rgba(249,115,22,.5);color:var(--accent);background:rgba(249,115,22,.06)}
 .gcard{display:flex;gap:18px;align-items:flex-start}
 .gcard-vip{border:1px solid var(--accent);background:linear-gradient(120deg,rgba(249,115,22,.10),transparent 60%)}
 .gcard-vip .gnum{background:linear-gradient(135deg,#f59e0b,#f97316);font-size:20px}

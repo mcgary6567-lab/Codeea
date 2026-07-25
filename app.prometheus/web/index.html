@@ -161,8 +161,8 @@
             <div class="kpi-sub" id="t-exp-pct" style="margin-top:6px">—</div>
           </div>
           <div class="kpi">
-            <div class="kpi-lab"><span class="eyebrow">Strategy</span><span class="delta" id="t-strat-chip">—</span></div>
-            <div class="kpi-big" id="t-strat" style="font-size:19px">Off</div>
+            <div class="kpi-lab"><span class="eyebrow">Bot status</span><span class="delta" id="t-strat-chip">—</span></div>
+            <div class="kpi-big" id="t-strat" style="font-size:15.5px">⚪ Bot is off</div>
             <div class="ksig"><span class="eyebrow" style="color:var(--mut)">Signal</span><span class="ksig-bar"><i id="t-sig-meter"></i></span><span class="mono" id="t-sig-pct" style="font-size:12px">—</span></div>
             <div class="kpi-sub" id="t-sig-note" style="margin-top:8px">EMA 9/21 engine</div>
           </div>
@@ -537,6 +537,7 @@
             <span class="gstep" onclick="show('home',qNav('home'))">📈 Chart tools</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
             <span class="gstep" onclick="show('settings',qNav('settings'))">⑥ Alerts &amp; security</span>
+            <span class="gstep gstep-help" onclick="document.getElementById('troubleshoot').scrollIntoView({behavior:'smooth',block:'start'})">🛠️ Help &amp; fixes</span>
           </div>
         </div>
 
@@ -690,7 +691,7 @@
           <details class="gq"><summary>What does “News trading OFF” do?</summary><div class="ga">It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything.</div></details>
         </div>
 
-        <div class="card gfaq">
+        <div class="card gfaq" id="troubleshoot" style="scroll-margin-top:80px">
           <h3>🛠️ Troubleshooting — exchange connection &amp; orders</h3>
           <div class="hint" style="margin-bottom:6px">Tap any issue to see the fix. Most connection problems are the API key's <b>IP whitelist</b> or <b>Futures setup</b> — not the app.</div>
           <details class="gq"><summary>❗ “Invalid API-key, IP, or permissions” (Binance <b>-2015</b>)</summary><div class="ga">Almost always the key's <b>IP whitelist</b>. If it connected before and suddenly fails, the <b>bot server IP changed</b> — open the <b>Exchange</b> tab, copy the <b>🌐 Bot server IP</b>, and add it to the key's <b>IP access restriction</b> on the exchange (or set the key to <b>Unrestricted</b>). For <b>Futures</b> also: activate a Futures account, tick <b>Enable Futures</b> on the key, and confirm Futures is available in your region. Wait ~30–60s after saving, then <b>Save &amp; Connect</b> again.</div></details>
