@@ -753,23 +753,29 @@ class ExchangeManager:
                 f"{label} not auto-placed — {self.exchange_id} doesn't expose "
                 f"reduce-only trigger orders here; set the stop on the exchange.",
                 pair=sym, side=side, order_type=label)
-        # Place the reduce-only protective order. Binance USDⓈ-M (and most futures
-        # venues) want an explicit STOP_MARKET / TAKE_PROFIT_MARKET conditional order
-        # with a `stopPrice` — sending a plain "market" order with the unified
-        # stopLossPrice/takeProfitPrice param is rejected on Binance with -4120
-        # ("Order type not supported for this endpoint"). Try the explicit type
-        # first, then fall back to the unified params for venues that prefer them.
-        is_sl = (kind == "sl")
-        attempts = [
-            ("STOP_MARKET" if is_sl else "TAKE_PROFIT_MARKET",
-             {"stopPrice": trigger_price, "reduceOnly": True}),
-            ("market",
-             {("stopLossPrice" if is_sl else "takeProfitPrice"): trigger_price, "reduceOnly": True}),
-        ]
+        # Place the reduce-only protective order. Binance USDⓈ-M has rejected the
+        # conditional STOP_MARKET / TAKE_PROFIT_MARKET orders with -4120 ("Order type
+        # not supported for this endpoint. Use the Algo Order API") on some builds, so
+        # we try several placement styles and keep the first the venue accepts.
+        #   (otype, amount, price, params)
+        if kind == "tp":
+            # A reduce-only LIMIT at the target fills (maker) when price reaches TP and
+            # never touches the conditional-order endpoint — so it sidesteps -4120.
+            attempts = [
+                ("limit", amount, trigger_price, {"reduceOnly": True}),
+                ("TAKE_PROFIT_MARKET", amount, None, {"stopPrice": trigger_price, "reduceOnly": True}),
+                ("market", amount, None, {"takeProfitPrice": trigger_price, "reduceOnly": True}),
+            ]
+        else:  # sl — needs a stop trigger
+            attempts = [
+                ("STOP_MARKET", amount, None, {"stopPrice": trigger_price, "reduceOnly": True}),
+                ("STOP_MARKET", amount, None, {"stopPrice": trigger_price, "closePosition": True}),
+                ("market", amount, None, {"stopLossPrice": trigger_price, "reduceOnly": True}),
+            ]
         last_err = ""
-        for otype, params in attempts:
+        for otype, amt, px, params in attempts:
             try:
-                order = self.client.create_order(sym, otype, side, amount, None, params)
+                order = self.client.create_order(sym, otype, side, amt, px, params)
                 return OrderResult(
                     True, f"{label} set {amount} {sym} @ {trigger_price}",
                     pair=sym, side=side, order_type=label, raw=order,
