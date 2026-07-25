@@ -716,9 +716,10 @@ class ExchangeManager:
     ) -> OrderResult:
         """Place a reduce-only protective order. ``kind`` is 'sl' or 'tp'.
 
-        Uses ccxt's unified trigger params (``stopLossPrice`` /
-        ``takeProfitPrice``), supported by the five target exchanges in recent
-        ccxt. Exchange-specific quirks are caught and surfaced in the log.
+        Uses an explicit STOP_MARKET / TAKE_PROFIT_MARKET conditional order with a
+        ``stopPrice`` (the format Binance USDⓈ-M and most futures venues accept),
+        falling back to ccxt's unified ``stopLossPrice`` / ``takeProfitPrice``
+        params. Exchange-specific errors are caught and surfaced in the log.
         """
         if self.read_only:
             return OrderResult(False, "Read-only — protective order blocked", pair=symbol)
@@ -752,16 +753,30 @@ class ExchangeManager:
                 f"{label} not auto-placed — {self.exchange_id} doesn't expose "
                 f"reduce-only trigger orders here; set the stop on the exchange.",
                 pair=sym, side=side, order_type=label)
-        try:
-            params = {"reduceOnly": True}
-            params["stopLossPrice" if kind == "sl" else "takeProfitPrice"] = trigger_price
-            order = self.client.create_order(sym, "market", side, amount, None, params)
-            return OrderResult(
-                True, f"{label} set {amount} {sym} @ {trigger_price}",
-                pair=sym, side=side, order_type=label, raw=order,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return OrderResult(False, f"{label} failed: {exc}", pair=sym, side=side, order_type=label)
+        # Place the reduce-only protective order. Binance USDⓈ-M (and most futures
+        # venues) want an explicit STOP_MARKET / TAKE_PROFIT_MARKET conditional order
+        # with a `stopPrice` — sending a plain "market" order with the unified
+        # stopLossPrice/takeProfitPrice param is rejected on Binance with -4120
+        # ("Order type not supported for this endpoint"). Try the explicit type
+        # first, then fall back to the unified params for venues that prefer them.
+        is_sl = (kind == "sl")
+        attempts = [
+            ("STOP_MARKET" if is_sl else "TAKE_PROFIT_MARKET",
+             {"stopPrice": trigger_price, "reduceOnly": True}),
+            ("market",
+             {("stopLossPrice" if is_sl else "takeProfitPrice"): trigger_price, "reduceOnly": True}),
+        ]
+        last_err = ""
+        for otype, params in attempts:
+            try:
+                order = self.client.create_order(sym, otype, side, amount, None, params)
+                return OrderResult(
+                    True, f"{label} set {amount} {sym} @ {trigger_price}",
+                    pair=sym, side=side, order_type=label, raw=order,
+                )
+            except Exception as exc:  # noqa: BLE001 - try the next placement style
+                last_err = str(exc)
+        return OrderResult(False, f"{label} failed: {last_err}", pair=sym, side=side, order_type=label)
 
     def close_position(self, position: Position, fraction: float = 1.0) -> OrderResult:
         """Flatten a position (or ``fraction`` of it) with a reduce-only market
