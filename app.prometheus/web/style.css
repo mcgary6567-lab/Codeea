@@ -147,9 +147,6 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .chlegend{font-size:12px;color:var(--mut);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
 .tvchart{width:100%;height:440px;margin-top:8px;background:#0e1420;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .chart-topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px}
-.ch-lastsig{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:3px 10px;white-space:nowrap}
-.ch-lastsig .k{color:var(--mut)}
-.ch-lastsig b{font-weight:800;font-family:ui-monospace,Menlo,Consolas,monospace}
 .ch-ohlc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--mut);white-space:nowrap}
 .ch-ohlc b{color:var(--txt);font-weight:700}
 .ch-sig{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:3px 10px;white-space:nowrap}
