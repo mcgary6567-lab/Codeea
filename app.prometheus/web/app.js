@@ -13,8 +13,8 @@ let DAY_START_EQ = null;   // day-start equity for the "today" delta (from /api/
 let LAST_SIG = null;       // most recent chart entry signal {buy, px, symbol} for the Bot-status tile
 function setBotSigNote() {
   const note = $("t-sig-note"); if (!note) return;
-  if (LAST_SIG) note.innerHTML = `Last signal <b class="${LAST_SIG.buy ? "pos" : "neg"}">${LAST_SIG.buy ? "▲ BUY" : "▼ SELL"} ${LAST_SIG.px}</b> · ${LAST_SIG.symbol}`;
-  else note.textContent = "No signal yet";
+  if (LAST_SIG) { note.style.color = LAST_SIG.buy ? "var(--green)" : "var(--red)"; note.innerHTML = `Last signal <b>${LAST_SIG.buy ? "▲ BUY" : "▼ SELL"} ${LAST_SIG.px}</b> · ${LAST_SIG.symbol}`; }
+  else { note.style.color = ""; note.textContent = "No signal yet"; }
 }
 
 async function api(path, method = "GET", bodyObj) {
@@ -256,8 +256,6 @@ function render(s) {
   setT("t-strat", s.strategy_on ? "🟢 Bot is Running" : (s.strategy_enabled ? "🟡 Bot is idle" : "⚪ Bot is off"));
   const sc = $("t-strat"); if (sc) sc.className = "kpi-big " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
   const chip = $("t-strat-chip"); if (chip) { chip.textContent = s.strategy_on ? "RUNNING" : (s.strategy_enabled ? "IDLE" : "OFF"); chip.className = "delta " + (s.strategy_on ? "up" : ""); }
-  const sig = s.signal || {}; const sp = (sig.pct != null) ? Math.max(0, Math.min(100, sig.pct | 0)) : 0;
-  setBar("t-sig-meter", sp); setT("t-sig-pct", (sig.pct != null) ? sp + "%" : "—");
   setBotSigNote();
   const gs = $("strat-state"); if (gs) gs.textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");
   setT("tr-mode", (s.settings || {}).sizing_mode || "—");
