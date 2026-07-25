@@ -760,12 +760,14 @@ function renderSignal(sig) {
   if (!sig || sig.pct == null) { box.classList.add("hidden"); return; }
   const pct = Math.max(0, Math.min(100, sig.pct | 0));
   const sell = sig.side === "short";
-  const col = sell ? "#ef4444" : "#22c55e";   // BUY side green, SELL side red
-  box.classList.remove("hidden"); box.classList.toggle("ready", pct >= 85);
+  const ready = pct >= 85;
+  box.classList.remove("hidden");
+  box.classList.toggle("ready", ready);
   box.classList.toggle("sell", sell);
-  const fill = $("ch-sig-fill"); if (fill) { fill.style.width = pct + "%"; fill.style.background = col; }
-  const p = $("ch-sig-pct"); if (p) { p.textContent = pct + "%"; p.style.color = "#fff"; }
-  const st = $("ch-sig-state"); if (st) st.textContent = sig.state || "";
+  const badge = $("ch-sig-badge"); if (badge) badge.textContent = (sell ? "▼ SELL" : "▲ BUY") + (ready ? " READY ⚡" : " SETUP");
+  const fill = $("ch-sig-fill"); if (fill) fill.style.width = pct + "%";
+  const p = $("ch-sig-pct"); if (p) p.textContent = pct + "%";
+  const st = $("ch-sig-state"); if (st) st.textContent = ready ? "Entry imminent" : (sig.state || "");
 }
 let newsBusy = false;
 function renderNews(nw) {
