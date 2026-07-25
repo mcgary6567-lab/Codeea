@@ -576,6 +576,7 @@
             </div>
             <p class="gtip">💡 Sizing &amp; risk guardrails live just below — set <b>Risk % per trade</b>, <b>Max open positions</b> and daily loss/profit limits. Flip <b>📝 Paper trading</b> ON to simulate fills with zero real risk.</p>
             <p class="gtip">➕ <b>Scale-in (pyramiding):</b> optional. When a trade is <b>40% of the way to its take-profit</b>, the bot adds a smaller same-direction trade (default 50% of the first) and moves the original stop to <b>break-even</b> — so it grows a winner without risking your starting capital. Happens once per position and respects your Max-open &amp; daily-loss limits. Off by default; turn it on in the <b>Scale-in</b> card below.</p>
+            <p class="gtip">🗓️ <b>Weekend pause:</b> optional. Turn it on to <b>hold new entries (and scale-in adds) on Saturday &amp; Sunday</b> — crypto weekends are thin and choppy. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. The weekend is measured in <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local Sat/Sun instead. Off by default; set it in the <b>Weekend pause</b> card below.</p>
           </div>
         </div>
 
@@ -695,6 +696,7 @@
           <details class="gq"><summary>Can I use my own strategy settings?</summary><div class="ga">Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div></details>
           <details class="gq"><summary>What is the signal-strength bar?</summary><div class="ga">A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div></details>
           <details class="gq"><summary>What does “News trading OFF” do?</summary><div class="ga">It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything.</div></details>
+          <details class="gq"><summary>Can I stop the bot from trading on weekends?</summary><div class="ga">Yes — in <b>Bot Setting → Weekend pause</b>, turn on <b>“Don't open new trades on Saturday &amp; Sunday.”</b> The bot then holds new entries (and scale-in adds) all weekend, while <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders still go through. The weekend is <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local Sat/Sun. A <b>🗓️ WEEKEND</b> chip shows in the top bar while it's active.</div></details>
         </div>
 
         <div class="card gfaq" id="troubleshoot" style="scroll-margin-top:80px">
