@@ -329,7 +329,19 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .gfaq h3{margin:0 0 12px}
 .gq{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;color:var(--mut);line-height:1.6}
 .gq:last-child{border-bottom:none}
-.gq b{color:var(--txt);display:block;margin-bottom:2px}
+.gq b{color:var(--txt)}
+/* FAQ / troubleshooting accordion (native <details>) */
+details.gq{padding:0}
+details.gq>summary{list-style:none;cursor:pointer;padding:13px 30px 13px 2px;font-weight:600;color:var(--txt);
+  position:relative;user-select:none}
+details.gq>summary::-webkit-details-marker{display:none}
+details.gq>summary::after{content:"⌄";position:absolute;right:6px;top:11px;color:var(--mut);font-size:17px;line-height:1;transition:transform .2s}
+details.gq[open]>summary::after{transform:rotate(180deg)}
+details.gq[open]>summary{color:var(--accent)}
+details.gq>summary:hover{color:var(--accent)}
+details.gq>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+details.gq .ga{padding:0 2px 14px;color:var(--mut);font-size:13.5px;line-height:1.6}
+details.gq .ga b{color:var(--txt)}
 @media(max-width:640px){.gcard{flex-direction:column;gap:10px}.gs-tiles{grid-template-columns:1fr 1fr}}
 
 /* ================= ADMIN CONSOLE ================= */
