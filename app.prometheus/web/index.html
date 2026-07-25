@@ -535,7 +535,7 @@
       <section id="v-guide" class="hidden">
         <div class="guide-hero card">
           <h2>📖 How to use Prometheus</h2>
-          <p class="guide-lead">Six steps to go from zero to a bot trading for you — plus two optional pro features (⭐ VIP &amp; 🆕 NEW). Tap a chip to jump to that screen, or read top-to-bottom the first time.</p>
+          <p class="guide-lead">Six steps to go from zero to a bot trading for you — plus <span class="vip-only">two optional pro features (⭐ VIP &amp; 🆕 NEW)</span><span class="vip-off">an optional pro feature (🆕 NEW)</span>. Tap a chip to jump to that screen, or read top-to-bottom the first time.</p>
           <div class="guide-steps">
             <span class="gstep" onclick="show('exchange',qNav('exchange'))"><span class="gs-n">1</span> Connect</span>
             <span class="gstep" onclick="show('strategy',qNav('strategy'))"><span class="gs-n">2</span> Bot Setting</span>
@@ -568,7 +568,7 @@
           <div class="gnum">2</div>
           <div class="gbody">
             <h3>🤖 Bot Setting — your strategy</h3>
-            <p>Open <b>Bot Setting</b>. Your bot runs a <b>professionally-managed EMA 9/21 cross + 100-EMA trend strategy</b> — including its <b>risk %, sizing &amp; guardrails</b> — that we tune and keep up to date for you. It's <b>ON by default</b> and auto-starts the moment you connect, and your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control. Want to run your <i>own</i> parameters for a higher-profit setup? See <b>⭐ Unlock Custom Strategy</b> just below.</p>
+            <p>Open <b>Bot Setting</b>. Your bot runs a <b>professionally-managed EMA 9/21 cross + 100-EMA trend strategy</b> — including its <b>risk %, sizing &amp; guardrails</b> — that we tune and keep up to date for you. It's <b>ON by default</b> and auto-starts the moment you connect, and your <b>exchange, paper mode, alerts, 2FA &amp; account</b> stay yours to control.<span class="vip-only"> Want to run your <i>own</i> parameters for a higher-profit setup? See <b>⭐ Unlock Custom Strategy</b> just below.</span></p>
             <div class="gshot">
               <div class="gs-row"><div class="gs-field"><span>Timeframe</span><i>15m ▾</i></div><div class="gs-field"><span>Symbols</span><i>BTC/USDT, ETH/USDT ▾</i></div></div>
               <div class="gs-row"><div class="gs-field"><span>Fast EMA</span><i>9</i></div><div class="gs-field"><span>Slow EMA</span><i>21</i></div><div class="gs-field"><span>Trend EMA</span><i>100</i></div></div>
@@ -581,7 +581,7 @@
           </div>
         </div>
 
-        <div class="card gcard gcard-vip">
+        <div class="card gcard gcard-vip vip-only">
           <span class="gribbon vip">⭐ VIP</span>
           <div class="gnum">⭐</div>
           <div class="gbody">
@@ -694,7 +694,7 @@
           <details class="gq"><summary>Can I control the bot from my phone?</summary><div class="ga">Yes — connect Telegram in Settings, then message your bot <b>/status</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> from anywhere.</div></details>
           <details class="gq"><summary>Which IP do I whitelist on my exchange?</summary><div class="ga">The <b>Bot server IP</b> shown at the top of the Exchange tab — the bot trades from our cloud, so your own IP will not work. IP restriction is optional; a trade-only key with withdrawals disabled is safe on its own.</div></details>
           <details class="gq"><summary>Do alerts work when the app is closed?</summary><div class="ga">Install it as an app and enable notifications for push alerts even with the tab closed. Telegram alerts always work.</div></details>
-          <details class="gq"><summary>Can I use my own strategy settings?</summary><div class="ga">Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div></details>
+          <details class="gq vip-only"><summary>Can I use my own strategy settings?</summary><div class="ga">Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div></details>
           <details class="gq"><summary>What is the signal-strength bar?</summary><div class="ga">A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div></details>
           <details class="gq"><summary>What does “News trading OFF” do?</summary><div class="ga">It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything.</div></details>
           <details class="gq"><summary>Can I stop the bot from trading on weekends?</summary><div class="ga">Yes — in <b>Bot Setting → Weekend pause</b>, turn on <b>“Don't open new trades on Saturday &amp; Sunday.”</b> The bot then holds new entries (and scale-in adds) all weekend, while <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders still go through. The weekend is <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local Sat/Sun. A <b>🗓️ WEEKEND</b> chip shows in the top bar while it's active.</div></details>

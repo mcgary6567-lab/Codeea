@@ -681,6 +681,12 @@ async def admin_social_proof_set(request: Request, admin: dict = Depends(require
 # --- customer: request custom-strategy access -------------------------------
 @app.post("/api/strategy/request")
 async def strategy_request(request: Request, user: dict = Depends(current_user)):
+    # Custom Strategy (VIP) is a paid-customer perk — only an active licence may
+    # request it. This backs up the UI (which hides the offer from everyone else)
+    # so a trial / expired account can't request via a crafted call.
+    ent = store.entitlement(user)
+    if ent.get("status") != "licensed":
+        raise HTTPException(402, "Custom Strategy is available to licensed customers only.")
     d = await body(request)
     store.request_custom(user["id"], str(d.get("reason", "")))
     return {"ok": True}

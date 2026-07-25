@@ -448,6 +448,14 @@ th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--accen
 .omodal-foot .btn{min-width:140px}
 @media(max-width:640px){.omodal-foot .btn{min-width:0;flex:1}}
 
+/* ---- VIP visibility — paid (licensed) customers only ----
+   .vip-only is hidden for everyone; JS adds body.vip-eligible for a paid,
+   managed, not-yet-requested customer, which reveals it. .vip-off is the
+   inverse (shown to non-eligible users) so prose reads cleanly either way. */
+.vip-only{display:none!important}
+body.vip-eligible .vip-only{display:revert!important}
+body.vip-eligible .vip-off{display:none!important}
+
 /* ---- VIP upsell — top-bar button + conversion modal ---- */
 .vipbtn{background:linear-gradient(135deg,#fbbf24,#f97316);color:#3a1a02;font-weight:800;border:0;box-shadow:0 4px 14px rgba(249,115,22,.4);animation:vippulse 2.4s ease-in-out infinite}
 @keyframes vippulse{0%,100%{box-shadow:0 4px 14px rgba(249,115,22,.4)}50%{box-shadow:0 4px 22px rgba(251,191,36,.7)}}
