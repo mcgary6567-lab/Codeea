@@ -98,6 +98,7 @@
     <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held Sat/Sun (UTC). Open trades stay managed.">🗓️ WEEKEND</span>
     <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
+    <button class="btn sm vipbtn hidden" id="st-vip" onclick="openVip()">⭐ Unlock VIP</button>
     <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
     <a class="btn sm hidden" id="st-buy" href="#" target="_blank" rel="noopener">✨ Get licence</a>
     <span class="chip hide-sm" id="st-email">—</span>
@@ -767,6 +768,32 @@
       <div class="foot-copy">© 2026 Trevolto. All rights reserved.</div>
     </div>
   </footer>
+</div>
+
+<!-- VIP upsell modal -->
+<div id="vip-modal" class="vipmodal hidden" onclick="if(event.target===this)closeVip()">
+  <div class="vipcard">
+    <button class="vipx" onclick="closeVip()" aria-label="Close">✕</button>
+    <div class="viphead">
+      <div class="vipstar">⭐</div>
+      <div>
+        <div class="vipkicker">VIP UPGRADE</div>
+        <h2>Unlock Custom Strategy</h2>
+        <p>Take full control of the bot and run your <b>own higher-profit setup</b>.</p>
+      </div>
+    </div>
+    <ul class="vipbenefits">
+      <li><span>✓</span> <b>Every parameter unlocks</b> — timeframe, EMAs, confirmation, targets &amp; trailing</li>
+      <li><span>✓</span> <b>Tighter timeframes &amp; more pairs</b> — trade more setups, your way</li>
+      <li><span>✓</span> <b>More aggressive entries &amp; targets</b> — chase higher returns</li>
+      <li><span>✓</span> <b>Backtest first</b> — validate your edge in the Profit Simulator</li>
+    </ul>
+    <div class="vipnote">⏱️ Approved within <b>a day or two</b> — you'll get an instant alert the moment it's unlocked.</div>
+    <textarea id="vip-reason" placeholder="Tell us your plan (optional) — e.g. higher risk, your own edge, specific pairs…"></textarea>
+    <button class="vipcta" id="vip-cta" onclick="submitVip()">⭐ Request access now</button>
+    <div class="viprisk">Higher profit potential means higher risk — built for advanced traders. Your funds always stay on your own exchange.</div>
+    <button class="viplater" onclick="closeVip()">Maybe later</button>
+  </div>
 </div>
 
 <script src="/static/lightweight-charts.js?v=2"></script>

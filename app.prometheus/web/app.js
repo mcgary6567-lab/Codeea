@@ -196,6 +196,13 @@ function render(s) {
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   { const w = $("st-weekend"); if (w) w.classList.toggle("hidden", !s.weekend_paused); }
+  // VIP upsell — managed users who haven't yet requested custom strategy
+  { const eligible = !!(s.strategy_managed && !s.custom_requested && s.access && s.access.status === "licensed");
+    const vb = $("st-vip"); if (vb) vb.classList.toggle("hidden", !eligible);
+    if (eligible && !vipShown) {
+      const seen = parseInt(localStorage.getItem("vip_seen") || "0", 10);
+      if (Date.now() - seen > 2 * 86400000) { vipShown = true; setTimeout(openVip, 1400); }  // auto-show once every ~2 days
+    } }
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
   { const an = s.announcement, ab = $("announce"); if (ab) { if (an && an.message && localStorage.getItem("bc_seen") !== String(an.id)) { ab.classList.remove("hidden"); ab.innerHTML = "📢 " + esc(an.message) + ` <a onclick="dismissAnnounce(${an.id})" style="cursor:pointer;text-decoration:underline">dismiss</a>`; } else ab.classList.add("hidden"); } }
   { const ww = $("withdraw-warn"); if (ww) { ww.classList.toggle("hidden", !s.key_withdraw_warn); if (s.key_withdraw_warn) ww.innerHTML = "\u26a0\ufe0f <b>Your API key has withdrawals enabled.</b> For safety, replace it with a trade-only key (withdrawals disabled) on your exchange."; } }
@@ -493,6 +500,19 @@ async function requestCustom() {
   if (reason === null) return;
   try { await api("/api/strategy/request", "POST", { reason }); notify("Request sent ✓ — we'll review it shortly.", "ok"); refresh(); }
   catch (e) { notify(e.message, "error"); }
+}
+// ---- VIP upsell modal (Unlock Custom Strategy) ----
+let vipShown = false;
+function openVip() { const m = $("vip-modal"); if (m) m.classList.remove("hidden"); }
+function closeVip() { const m = $("vip-modal"); if (m) m.classList.add("hidden"); localStorage.setItem("vip_seen", String(Date.now())); }
+async function submitVip() {
+  const btn = $("vip-cta"); if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  try {
+    await api("/api/strategy/request", "POST", { reason: ($("vip-reason") ? $("vip-reason").value : "") });
+    notify("⭐ Request sent — we'll approve it within a day or two. You'll get an alert the moment it's unlocked.", "ok");
+    closeVip(); refresh();
+  } catch (e) { notify(e.message, "error"); }
+  if (btn) { btn.disabled = false; btn.textContent = "⭐ Request access now"; }
 }
 function applySettings(s, email) {
   if (document.activeElement && ["INPUT", "SELECT"].includes(document.activeElement.tagName)) return;
