@@ -153,6 +153,7 @@
           <div class="hint">Simulated (paper) vs real (live) realized PnL from closed trades — compare before you flip Paper off.</div>
         </div>
 
+        <div class="chart-order-row">
         <div class="card">
           <div class="chart-head">
             <h3 style="margin:0">Live chart</h3>
@@ -170,31 +171,31 @@
           <div class="hint">Drag to pan · scroll / pinch to zoom · hover for OHLC &amp; time · scroll left to check back-data. <span class="lg-fast">━ EMA fast</span> <span class="lg-slow">━ EMA slow</span> <span class="lg-trend">━ trend</span> · <span style="color:var(--green)">▲BUY</span>/<span style="color:var(--red)">▼SELL</span>, <span style="color:var(--red)">SL</span> / <span style="color:var(--green)">TP</span> lines.</div>
         </div>
 
-        <div class="grid2">
-          <div class="card">
-            <h3>Order panel</h3>
-            <label>Symbol</label>
-            <select id="tr-sym" onchange="markTick()">
-              <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
-              <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
-              <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
-              <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
-            </select>
-            <div class="row">
-              <div class="col"><label>Mark</label><input id="tr-mark" readonly value="—"/></div>
-              <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>
-            </div>
-            <div class="btnrow big">
-              <button class="btn green" onclick="trade('buy')">▲ BUY</button>
-              <button class="btn red" onclick="trade('sell')">▼ SELL</button>
-            </div>
-            <div class="hint">⚡ <b>Live trading</b> — orders are real. Sizing: <b id="tr-mode">—</b></div>
+        <div class="card ord-ticket">
+          <h3>Order panel</h3>
+          <label>Symbol</label>
+          <select id="tr-sym" onchange="markTick()">
+            <option>BTC/USDT</option><option>ETH/USDT</option><option>SOL/USDT</option>
+            <option>BNB/USDT</option><option>XRP/USDT</option><option>DOGE/USDT</option>
+            <option>ADA/USDT</option><option>AVAX/USDT</option><option>LINK/USDT</option>
+            <option>TON/USDT</option><option>TRX/USDT</option><option>PEPE/USDT</option>
+          </select>
+          <div class="row">
+            <div class="col"><label>Mark</label><input id="tr-mark" readonly value="—"/></div>
+            <div class="col"><label>Size <span class="k">(blank = auto)</span></label><input id="tr-size" placeholder="auto"/></div>
           </div>
-          <div class="card">
-            <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
-            <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th><th></th></tr></thead>
-              <tbody id="pos-body"><tr><td colspan="6" class="k">No open positions.</td></tr></tbody></table></div>
+          <div class="btnrow big">
+            <button class="btn green" onclick="trade('buy')">▲ BUY</button>
+            <button class="btn red" onclick="trade('sell')">▼ SELL</button>
           </div>
+          <div class="hint">⚡ <b>Live trading</b> — orders are real. Sizing: <b id="tr-mode">—</b></div>
+        </div>
+        </div>
+
+        <div class="card">
+          <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
+          <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th></th></tr></thead>
+            <tbody id="pos-body"><tr><td colspan="7" class="k">No open positions.</td></tr></tbody></table></div>
         </div>
       </section>
 

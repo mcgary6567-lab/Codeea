@@ -231,10 +231,11 @@ function render(s) {
   $("tr-mode").textContent = (s.settings || {}).sizing_mode || "—";
 
   const tb = $("pos-body");
-  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="6" class="k">No open positions.</td></tr>`;
+  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="7" class="k">No open positions.</td></tr>`;
   else tb.innerHTML = s.positions.map(p => `<tr>
     <td class="mono">${p.pair}</td><td class="${p.side === 'Long' ? 'pos' : 'neg'}">${p.side}</td>
     <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
+    <td class="mono">${fmt(p.current, 4)}</td>
     <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
     <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">✖ Close</button></td></tr>`).join("");
 
