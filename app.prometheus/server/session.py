@@ -125,6 +125,12 @@ def public_prices(exchange_id: str, symbols: list) -> dict:
 _GS_CACHE = {"v": None, "t": 0.0}
 
 
+def _is_weekend() -> bool:
+    """True on Saturday or Sunday in UTC (weekday() 5=Sat, 6=Sun)."""
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).weekday() >= 5
+
+
 def _global_strategy() -> dict:
     """Admin-managed strategy, cached ~5s so the per-user loops share it cheaply."""
     now = time.time()
@@ -174,6 +180,7 @@ DEFAULT_SETTINGS = {
     "scale_in_trigger": 40.0,        # % of the entry->TP distance that must be covered
     "scale_in_size": 50.0,           # add-on size as % of the original trade
     "scale_in_be": True,             # move the first trade's stop to break-even on scale-in
+    "weekend_pause": False,          # hold new strategy entries on Sat & Sun (UTC). Opt-in.
 }
 
 # Execution/risk keys the admin can push globally to managed customers.
@@ -181,7 +188,7 @@ GLOBAL_EXEC_KEYS = (
     "sizing_mode", "fixed_size", "fixed_quote", "risk_percent", "order_type", "leverage",
     "margin_mode", "tp1_fraction", "auto_bracket", "max_open", "daily_loss_pct",
     "daily_profit_pct", "cooldown", "dedupe",
-    "scale_in", "scale_in_trigger", "scale_in_size", "scale_in_be",
+    "scale_in", "scale_in_trigger", "scale_in_size", "scale_in_be", "weekend_pause",
 )
 # Baseline managed config applied to EVERY managed customer (old + new) even before the
 # admin customises it; the admin's saved global execution overrides these per key.
@@ -190,6 +197,7 @@ MANAGED_EXEC_DEFAULTS = {
     "auto_bracket": True, "tp1_fraction": 0.5, "max_open": 3,
     "daily_loss_pct": 5.0, "daily_profit_pct": 0.0, "dedupe": 5,
     "scale_in": False, "scale_in_trigger": 40.0, "scale_in_size": 50.0, "scale_in_be": True,
+    "weekend_pause": False,
 }
 
 
@@ -489,6 +497,8 @@ class TraderSession:
         s = self.settings
         if not s.get("scale_in") or self.guard.tripped:
             return
+        if s.get("weekend_pause") and _is_weekend():
+            return                               # no new risk (adds) on weekends
         trig = float(s.get("scale_in_trigger", 40.0)) / 100.0
         open_syms = {p.pair for p in self.positions}
         for sym in list(self._trade_meta):          # forget trades that have closed
@@ -651,6 +661,16 @@ class TraderSession:
         tp2 = float(payload.get("tp2", 0) or 0)
         tp_partial = float(payload.get("tp_partial", 0) or 0)   # fraction closed at tp1 only
         side = action
+
+        # Weekend pause: hold automated (strategy / webhook) entries on Sat & Sun (UTC).
+        # Manual orders always go through; open trades stay fully managed.
+        if source in ("strategy", "webhook") and self.settings.get("weekend_pause") and _is_weekend():
+            self.log(f"Weekend pause — held {side.upper()} {symbol} (new entries paused Sat/Sun UTC)", "warn")
+            store.record_trade(self.user_id, symbol=symbol, side=side, kind="signal",
+                               status="blocked", note="weekend pause", mode=self._mode())
+            if source == "strategy" and self.settings.get("alert_skips", False):
+                self.notify(f"🗓️ Weekend — skipped {side.upper()} {symbol}. New entries pause Sat/Sun (UTC).")
+            return {"ok": False, "message": "blocked: weekend pause"}
 
         allowed, reason = self.guard.check_entry(symbol, side, self._open_pairs())
         self.guard.record_signal(symbol, side)  # mark seen (for the next dedupe window)
@@ -1026,6 +1046,7 @@ class TraderSession:
             "strategy_on": self.strategy_on,
             "strategy_enabled": bool(self.settings.get("strategy_enabled", True)),
             "guard_tripped": self.guard.tripped,
+            "weekend_paused": bool(self.settings.get("weekend_pause")) and _is_weekend(),
             "positions": [
                 {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
                  "current": p.current, "pnl": round(p.pnl, 4), "status": p.status,

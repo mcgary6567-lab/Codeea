@@ -445,6 +445,7 @@ async def backtest(request: Request, user: dict = Depends(current_user)):
     cfg.scale_in_trigger = float(d.get("scale_in_trigger", _bs.get("scale_in_trigger", 40)) or 40)
     cfg.scale_in_size = float(d.get("scale_in_size", _bs.get("scale_in_size", 50)) or 50)
     cfg.scale_in_be = bool(d.get("scale_in_be", _bs.get("scale_in_be", True)))
+    cfg.weekend_pause = bool(d.get("weekend_pause", _bs.get("weekend_pause", False)))
     try:
         cfg.bar_seconds = float(_public_client_tf_seconds(tf))
     except Exception:
@@ -701,7 +702,7 @@ async def admin_set_strategy(request: Request, admin: dict = Depends(require_adm
             continue
     # global execution/risk config pushed to all managed customers (whitelisted keys)
     _EXEC_STR = {"sizing_mode", "order_type", "margin_mode"}
-    _EXEC_BOOL = {"auto_bracket", "scale_in", "scale_in_be"}
+    _EXEC_BOOL = {"auto_bracket", "scale_in", "scale_in_be", "weekend_pause"}
     _EXEC_NUM = {"risk_percent", "fixed_size", "fixed_quote", "leverage", "tp1_fraction",
                  "max_open", "daily_loss_pct", "daily_profit_pct", "cooldown", "dedupe",
                  "scale_in_trigger", "scale_in_size"}

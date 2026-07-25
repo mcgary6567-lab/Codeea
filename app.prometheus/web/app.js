@@ -195,6 +195,7 @@ function render(s) {
     if (s.connected) { setSel("cx-ex", s.exchange); setSel("cx-mkt", s.market_type); } }
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
+  { const w = $("st-weekend"); if (w) w.classList.toggle("hidden", !s.weekend_paused); }
   $("st-paper").classList.toggle("hidden", !s.paper_mode);
   { const an = s.announcement, ab = $("announce"); if (ab) { if (an && an.message && localStorage.getItem("bc_seen") !== String(an.id)) { ab.classList.remove("hidden"); ab.innerHTML = "📢 " + esc(an.message) + ` <a onclick="dismissAnnounce(${an.id})" style="cursor:pointer;text-decoration:underline">dismiss</a>`; } else ab.classList.add("hidden"); } }
   { const ww = $("withdraw-warn"); if (ww) { ww.classList.toggle("hidden", !s.key_withdraw_warn); if (s.key_withdraw_warn) ww.innerHTML = "\u26a0\ufe0f <b>Your API key has withdrawals enabled.</b> For safety, replace it with a trade-only key (withdrawals disabled) on your exchange."; } }
@@ -461,7 +462,7 @@ async function panic() {
 
 // ---- settings ----
 // execution/risk fields the admin manages globally (paper_mode & read_only stay the user's)
-const MEXEC = ["s-sizing", "s-fixed", "s-fixedq", "s-risk", "s-otype", "s-lev", "s-margin", "s-tp1f", "s-bracket", "s-maxopen", "s-dloss", "s-dprofit", "s-cool", "s-dedupe", "s-scalein", "s-scalein-trig", "s-scalein-size", "s-scalein-be"];
+const MEXEC = ["s-sizing", "s-fixed", "s-fixedq", "s-risk", "s-otype", "s-lev", "s-margin", "s-tp1f", "s-bracket", "s-maxopen", "s-dloss", "s-dprofit", "s-cool", "s-dedupe", "s-scalein", "s-scalein-trig", "s-scalein-size", "s-scalein-be", "s-weekend"];
 function lockStrategy(st) {
   const setDis = (dis) => {
     for (const k in SPARAMS) { const el = $("p-" + k); if (el) el.disabled = dis; }
@@ -502,6 +503,7 @@ function applySettings(s, email) {
   chk("s-bracket", s.auto_bracket); chk("s-ro", s.read_only); chk("s-paper", s.paper_mode);
   set("s-maxopen", s.max_open); set("s-dloss", s.daily_loss_pct); set("s-dprofit", s.daily_profit_pct); set("s-cool", s.cooldown); set("s-dedupe", s.dedupe);
   chk("s-scalein", s.scale_in); set("s-scalein-trig", s.scale_in_trigger); set("s-scalein-size", s.scale_in_size); chk("s-scalein-be", s.scale_in_be);
+  chk("s-weekend", s.weekend_pause);
   mselSet(s.strategy_symbols || "BTC/USDT"); if (s.strategy_timeframe) set("sg-tf", s.strategy_timeframe);
   set("tg-token", s.telegram_token); set("tg-chat", s.telegram_chat); set("ac-email", email);
   chk("s-summary", s.daily_summary); chk("s-alert-skips", s.alert_skips);
@@ -511,7 +513,7 @@ function applySettings(s, email) {
 async function saveSettings() {
   const num = id => parseFloat($(id).value) || 0;
   try {
-    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss_pct: num("s-dloss"), daily_profit_pct: num("s-dprofit"), daily_loss: 0, daily_profit: 0, cooldown: num("s-cool"), dedupe: num("s-dedupe"), scale_in: $("s-scalein").checked, scale_in_trigger: num("s-scalein-trig"), scale_in_size: num("s-scalein-size"), scale_in_be: $("s-scalein-be").checked });
+    await api("/api/settings", "POST", { sizing_mode: $("s-sizing").value, fixed_size: num("s-fixed"), fixed_quote: num("s-fixedq"), risk_percent: num("s-risk"), order_type: $("s-otype").value, leverage: num("s-lev"), margin_mode: $("s-margin").value, tp1_fraction: num("s-tp1f"), auto_bracket: $("s-bracket").checked, read_only: $("s-ro").checked, paper_mode: $("s-paper").checked, max_open: num("s-maxopen"), daily_loss_pct: num("s-dloss"), daily_profit_pct: num("s-dprofit"), daily_loss: 0, daily_profit: 0, cooldown: num("s-cool"), dedupe: num("s-dedupe"), scale_in: $("s-scalein").checked, scale_in_trigger: num("s-scalein-trig"), scale_in_size: num("s-scalein-size"), scale_in_be: $("s-scalein-be").checked, weekend_pause: $("s-weekend").checked });
     refresh(); notify("Settings saved ✓", "ok");
   } catch (e) { notify(e.message, "error"); }
 }
@@ -596,6 +598,8 @@ async function runBacktest() {
     if (nf === "1") req.news_filter = true; else if (nf === "0") req.news_filter = false;
     const sc = $("bt-scalein") ? $("bt-scalein").value : "";  // "" = follow the saved scale-in setting
     if (sc === "1") req.scale_in = true; else if (sc === "0") req.scale_in = false;
+    const wk = $("bt-weekend") ? $("bt-weekend").value : "";  // "" = follow the saved weekend-pause setting
+    if (wk === "1") req.weekend_pause = true; else if (wk === "0") req.weekend_pause = false;
     const d = await api("/api/backtest", "POST", req); BT = d;
     const s = d.summary, ret = s.return_pct, vs = ret - d.buy_hold_pct, st = streaks(d.trades);
     const wins = d.trades.filter(t => t.pnl > 0), losses = d.trades.filter(t => t.pnl < 0);
@@ -621,6 +625,7 @@ async function runBacktest() {
     ];
     if (s.day_skipped) tiles.push(["🛡 Daily-limit skips", `${s.day_skipped}`, "pos"]);
     if (s.scaled_in) tiles.push(["➕ Scale-in adds", `${s.scaled_in}`, "pos"]);
+    if (s.weekend_skipped) tiles.push(["🗓️ Weekend skips", `${s.weekend_skipped}`, "pos"]);
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.length
@@ -631,6 +636,7 @@ async function runBacktest() {
     if (d.news_filter) info += ` · 📰 News filter ON — ${(d.summary.news_skipped || 0)} entr${(d.summary.news_skipped === 1) ? "y" : "ies"} skipped near high-impact news (backtest coverage: current week only; the live bot applies it in real time).`;
     if (d.summary.day_skipped) info += ` · 🛡 Daily-loss protection ON — ${d.summary.day_skipped} entr${(d.summary.day_skipped === 1) ? "y" : "ies"} blocked after the daily limit was hit (same circuit breaker your live bot uses).`;
     if (d.summary.scaled_in) info += ` · ➕ Scale-in ON — ${d.summary.scaled_in} trade${(d.summary.scaled_in === 1) ? "" : "s"} added a same-direction pyramid once in profit, with the original stop moved to break-even.`;
+    if (d.summary.weekend_skipped) info += ` · 🗓️ Weekend pause ON — ${d.summary.weekend_skipped} entr${(d.summary.weekend_skipped === 1) ? "y" : "ies"} skipped on Sat/Sun (UTC).`;
     $("bt-period-info").textContent = info;
     $("bt-csv").disabled = !d.trades.length;
     // Un-hide the results BEFORE drawing so the canvases have real dimensions.

@@ -95,6 +95,7 @@
     <span class="chip hide-sm" id="st-ex">—</span>
     <span class="chip warn hidden" id="st-ro">READ-ONLY</span>
     <span class="chip danger hidden" id="st-halt">HALTED</span>
+    <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held Sat/Sun (UTC). Open trades stay managed.">🗓️ WEEKEND</span>
     <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
     <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
@@ -381,6 +382,10 @@
           <label class="chkline"><input type="checkbox" id="s-scalein-be"/> Move the first trade's stop to <b>break-even</b> on scale-in <span class="k">(recommended)</span></label>
           <div class="hint">When your first trade is <b>X% of the way to its take-profit</b>, the bot opens a <b>smaller trade in the same direction</b> and moves the original stop to break-even — growing the winner without risking your starting capital. Happens <b>once per position</b>, respects your Max-open &amp; daily-loss limits. Off by default.</div>
         </div>
+        <div class="card"><h3>🗓️ Weekend pause</h3>
+          <label class="chkline"><input type="checkbox" id="s-weekend"/> Don't open new trades on <b>Saturday &amp; Sunday</b> (UTC)</label>
+          <div class="hint">Crypto weekends are thin and choppy. When on, the bot <b>holds new entries (and scale-in adds) on Sat &amp; Sun UTC</b> — but <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. Off by default.</div>
+        </div>
         <div class="btnrow"><button class="btn" onclick="saveSettings()">💾 Save execution &amp; guardrails</button></div>
       </section>
 
@@ -413,6 +418,7 @@
             <div class="col"><label>Allow shorts</label><select id="bt-short"><option value="1">Yes</option><option value="0">No</option></select></div>
             <div class="col"><label>News filter <span class="k">(skip high-impact news)</span></label><select id="bt-news"><option value="">Follow my setting</option><option value="1" selected>On</option><option value="0">Off</option></select></div>
             <div class="col"><label>Scale-in <span class="k">(pyramiding)</span></label><select id="bt-scalein"><option value="">Follow my setting</option><option value="1" selected>On</option><option value="0">Off</option></select></div>
+            <div class="col"><label>Weekend pause <span class="k">(skip Sat/Sun)</span></label><select id="bt-weekend"><option value="">Follow my setting</option><option value="1">On</option><option value="0">Off</option></select></div>
           </div>
           <div class="hint" style="margin:10px 0 0">Uses your saved strategy parameters. Longer periods on small timeframes are capped at ~8,000 candles — use a bigger timeframe for multi-month tests.</div>
           <div class="btnrow">

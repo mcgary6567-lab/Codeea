@@ -418,9 +418,9 @@ function toggleAuto() {
 const GSPARAMS = { fast_ema: 9, slow_ema: 21, trend_ema: 100, use_trend_filter: 1, confirm: 2, min_body: 0.4, sl_ema_buffer_pct: 0.2, swing_lookback: 10, tp_r: 1.0, partial_pct: 0.5, whipsaw_max_crosses: 2, whipsaw_window: 5, whipsaw_suspend_hours: 12, post_sl_cooldown_bars: 0, avoid_daily_close: 1, aggressive_entries: 0 };
 const GBOOL = new Set(["use_trend_filter", "avoid_daily_close", "aggressive_entries"]);
 // global execution/risk config (pushed to managed customers)
-const GEXEC = { sizing_mode: "risk_stop", risk_percent: 1, fixed_size: 0.003, fixed_quote: 25, order_type: "market", leverage: 0, margin_mode: "", auto_bracket: 1, tp1_fraction: 0.5, max_open: 3, daily_loss_pct: 5, daily_profit_pct: 0, cooldown: 0, dedupe: 5, scale_in: 0, scale_in_trigger: 40, scale_in_size: 50, scale_in_be: 1 };
+const GEXEC = { sizing_mode: "risk_stop", risk_percent: 1, fixed_size: 0.003, fixed_quote: 25, order_type: "market", leverage: 0, margin_mode: "", auto_bracket: 1, tp1_fraction: 0.5, max_open: 3, daily_loss_pct: 5, daily_profit_pct: 0, cooldown: 0, dedupe: 5, scale_in: 0, scale_in_trigger: 40, scale_in_size: 50, scale_in_be: 1, weekend_pause: 0 };
 const GEXSEL = new Set(["sizing_mode", "order_type", "margin_mode"]);
-const GEXBOOL = new Set(["auto_bracket", "scale_in", "scale_in_be"]);
+const GEXBOOL = new Set(["auto_bracket", "scale_in", "scale_in_be", "weekend_pause"]);
 async function loadStrategy() {
   try {
     const g = await api("/api/admin/strategy"); const p = g.params || {};

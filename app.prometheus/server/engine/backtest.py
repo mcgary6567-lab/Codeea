@@ -33,6 +33,7 @@ class BacktestConfig:
     scale_in_trigger: float = 40.0    # % of the entry->TP distance that must be covered
     scale_in_size: float = 50.0       # add-on size as % of the original position
     scale_in_be: bool = True          # add-on protected by a break-even (entry) stop
+    weekend_pause: bool = False       # skip entries that fall on Sat/Sun (UTC)
 
 
 @dataclass
@@ -87,6 +88,7 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
 
     news_skipped = 0
     day_skipped = 0
+    weekend_skipped = 0
     scaled_in_count = 0
     day_key = None
     day_start_equity = equity         # equity at the start of the current calendar day (UTC)
@@ -100,6 +102,11 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
             if d_key != day_key:
                 day_key = d_key
                 day_start_equity = equity
+            # Weekend pause — skip entries on Sat/Sun (epoch day 0 = Thu, so +3 aligns Mon=0).
+            if cfg.weekend_pause and (d_key + 3) % 7 >= 5:
+                weekend_skipped += 1
+                cur = {}
+                continue
             if day_start_equity > 0 and (
                 (cfg.daily_loss_pct > 0 and equity <= day_start_equity * (1 - cfg.daily_loss_pct / 100.0)) or
                 (cfg.daily_profit_pct > 0 and equity >= day_start_equity * (1 + cfg.daily_profit_pct / 100.0))):
@@ -184,6 +191,7 @@ def run_backtest(candles, params: strategy.StrategyParams, cfg: BacktestConfig) 
     if isinstance(res.stats, dict):
         res.stats["news_skipped"] = news_skipped
         res.stats["day_skipped"] = day_skipped
+        res.stats["weekend_skipped"] = weekend_skipped
         res.stats["scaled_in"] = scaled_in_count
     return res
 
