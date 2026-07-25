@@ -133,11 +133,39 @@
         <div class="welcome" id="welcome">Welcome back 👋</div>
         <div class="pricestrip" id="pricestrip"></div>
 
-        <div class="tiles">
-          <div class="tile"><div class="k">Balance</div><div class="v mono" id="t-bal">—</div><div class="k">USDT</div></div>
-          <div class="tile"><div class="k">Unrealized PnL</div><div class="v mono" id="t-pnl">—</div><div class="k">open positions</div></div>
-          <div class="tile"><div class="k">Access</div><div class="v" id="t-access">—</div><div class="k" id="t-accessd">—</div></div>
-          <div class="tile"><div class="k">Strategy</div><div class="v" id="t-strat">Off</div><div class="k">EMA 9/21 engine</div></div>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Account equity</span><span class="delta" id="t-daydelta">—</span></div>
+            <div class="kpi-big mono" id="t-equity">—</div>
+            <div class="kpi-sub">Balance <b class="mono" id="t-bal">—</b> · uPnL <b class="mono" id="t-pnl">—</b></div>
+            <svg class="kspark" id="t-spark" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Today · realized</span></div>
+            <div class="kpi-big mono" id="t-today">—</div>
+            <div class="kpi-sub" id="t-today-sub">—</div>
+            <div class="kwl" id="t-today-bar"></div>
+            <div class="kpi-sub" id="t-today-wl" style="margin-top:6px">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Win rate · 30d</span></div>
+            <div class="kpi-big mono" id="t-wr">—</div>
+            <div class="kpi-sub">Profit factor <b class="mono" id="t-pf">—</b> · <span id="t-wr-n">—</span></div>
+            <div class="kmeter"><i id="t-wr-meter"></i></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Open exposure</span></div>
+            <div class="kpi-big mono" id="t-exp">—</div>
+            <div class="kpi-sub"><span id="t-exp-n">—</span> · margin <b class="mono" id="t-margin">—</b></div>
+            <div class="kmeter"><i id="t-exp-meter" class="blue"></i></div>
+            <div class="kpi-sub" id="t-exp-pct" style="margin-top:6px">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-lab"><span class="eyebrow">Strategy</span><span class="delta" id="t-strat-chip">—</span></div>
+            <div class="kpi-big" id="t-strat" style="font-size:19px">Off</div>
+            <div class="ksig"><span class="eyebrow" style="color:var(--mut)">Signal</span><span class="ksig-bar"><i id="t-sig-meter"></i></span><span class="mono" id="t-sig-pct" style="font-size:12px">—</span></div>
+            <div class="kpi-sub" id="t-sig-note" style="margin-top:8px">EMA 9/21 engine</div>
+          </div>
         </div>
 
         <div class="card" id="pnl-compare-card" style="display:none">
@@ -194,8 +222,8 @@
 
         <div class="card">
           <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
-          <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th></th></tr></thead>
-            <tbody id="pos-body"><tr><td colspan="7" class="k">No open positions.</td></tr></tbody></table></div>
+          <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th>PnL %</th><th>Progress to TP</th><th></th></tr></thead>
+            <tbody id="pos-body"><tr><td colspan="9" class="k">No open positions.</td></tr></tbody></table></div>
         </div>
       </section>
 

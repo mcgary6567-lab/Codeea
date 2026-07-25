@@ -7,6 +7,9 @@ let ws = null, lastState = null;
 const $ = id => document.getElementById(id);
 const fmt = (n, d = 2) => (n === null || n === undefined || isNaN(n)) ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 const esc = x => String(x).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const setT = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+const setBar = (id, pct) => { const el = $(id); if (el) el.style.width = Math.max(0, Math.min(100, pct || 0)) + "%"; };
+let DAY_START_EQ = null;   // day-start equity for the "today" delta (from /api/dashboard)
 
 async function api(path, method = "GET", bodyObj) {
   const opt = { method, headers: {} };
@@ -146,7 +149,7 @@ function show(v, btn) {
   document.querySelectorAll(".side button").forEach(b => b.classList.toggle("on", b === btn));
   document.querySelector(".side").classList.remove("open");
   if (v === "analytics") loadAnalytics();
-  if (v === "home") loadChart();
+  if (v === "home") { loadChart(); loadDashboard(); }
   if (v === "settings") loadLogins();
   if (v === "exchange") loadServerIP();
 }
@@ -222,22 +225,61 @@ function render(s) {
     warn.innerHTML = `⏳ Your free trial ends in <b>${ac.days_left} day${ac.days_left === 1 ? "" : "s"}</b> — buy a licence now to keep the bot trading without interruption.${buyBtn}`;
   } else warn.classList.add("hidden");
 
-  $("t-bal").textContent = fmt(s.balance);
-  const pnl = $("t-pnl"); pnl.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); pnl.className = "v mono " + (s.pnl >= 0 ? "pos" : "neg");
-  $("t-access").textContent = lbl; $("t-accessd").textContent = ac.lifetime ? "Lifetime access" : (ac.days_left != null ? `${ac.days_left} days left` : (ac.status || ""));
-  $("t-strat").textContent = s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off");
-  $("t-strat").className = "v " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
-  $("strat-state").textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");
-  $("tr-mode").textContent = (s.settings || {}).sizing_mode || "—";
+  // ---- KPI strip ----
+  const eqNow = (s.balance || 0) + (s.pnl || 0);
+  setT("t-equity", "$" + fmt(eqNow));
+  setT("t-bal", fmt(s.balance));
+  const up = $("t-pnl"); if (up) { up.textContent = (s.pnl >= 0 ? "+" : "") + fmt(s.pnl); up.className = "mono " + (s.pnl >= 0 ? "pos" : "neg"); }
+  // day delta vs day-start equity
+  if (DAY_START_EQ && DAY_START_EQ > 0) {
+    const pct = (eqNow / DAY_START_EQ - 1) * 100;
+    const dd = $("t-daydelta"); if (dd) { dd.textContent = (pct >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(pct), 2) + "%"; dd.className = "delta " + (pct >= 0 ? "up" : "down"); }
+    setT("t-today-sub", (pct >= 0 ? "+" : "") + fmt(pct, 2) + "% of day-start equity");
+  }
+  // exposure
+  const pos = s.positions || [];
+  let notional = 0; pos.forEach(p => notional += Math.abs((p.size || 0) * (p.current || p.entry || 0)));
+  const lev = Math.max(1, (s.settings || {}).leverage || 1);
+  setT("t-exp", "$" + fmt(notional, 0));
+  setT("t-margin", "$" + fmt(notional / lev, 0));
+  setT("t-exp-n", pos.length + (pos.length === 1 ? " position" : " positions"));
+  const expPct = (s.balance > 0) ? Math.min(100, notional / s.balance * 100) : 0;
+  setBar("t-exp-meter", expPct);
+  setT("t-exp-pct", fmt(expPct, 0) + "% of balance deployed");
+  // strategy + signal
+  setT("t-strat", s.strategy_on ? "Running" : (s.strategy_enabled ? "On (idle)" : "Off"));
+  const sc = $("t-strat"); if (sc) sc.className = "kpi-big " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
+  const chip = $("t-strat-chip"); if (chip) { chip.textContent = s.strategy_on ? "RUNNING" : (s.strategy_enabled ? "IDLE" : "OFF"); chip.className = "delta " + (s.strategy_on ? "up" : ""); }
+  const sig = s.signal || {}; const sp = (sig.pct != null) ? Math.max(0, Math.min(100, sig.pct | 0)) : 0;
+  setBar("t-sig-meter", sp); setT("t-sig-pct", (sig.pct != null) ? sp + "%" : "—");
+  setT("t-sig-note", sig.state ? sig.state : "EMA 9/21 engine");
+  const gs = $("strat-state"); if (gs) gs.textContent = s.strategy_on ? "running" : (s.strategy_enabled ? "on — waiting for connection" : "off");
+  setT("tr-mode", (s.settings || {}).sizing_mode || "—");
 
   const tb = $("pos-body");
-  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="7" class="k">No open positions.</td></tr>`;
-  else tb.innerHTML = s.positions.map(p => `<tr>
-    <td class="mono">${p.pair}</td><td class="${p.side === 'Long' ? 'pos' : 'neg'}">${p.side}</td>
-    <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
-    <td class="mono">${fmt(p.current, 4)}</td>
-    <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
-    <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">✖ Close</button></td></tr>`).join("");
+  if (!s.positions || !s.positions.length) tb.innerHTML = `<tr><td colspan="9" class="k">No open positions.</td></tr>`;
+  else tb.innerHTML = s.positions.map(p => {
+    const notion = Math.abs((p.size || 0) * (p.entry || 0));
+    const pnlPct = notion > 0 ? (p.pnl / notion * 100) : 0;
+    let prog = -1;
+    if (p.tp && p.entry) {
+      const span = (p.side === 'Long') ? (p.tp - p.entry) : (p.entry - p.tp);
+      const cov = (p.side === 'Long') ? ((p.current || p.entry) - p.entry) : (p.entry - (p.current || p.entry));
+      if (span > 0) prog = Math.max(0, Math.min(100, cov / span * 100));
+    }
+    const progCell = prog >= 0
+      ? `<span class="tpbar"><i style="width:${prog.toFixed(0)}%"></i></span> <span class="k">${prog.toFixed(0)}%</span>`
+      : `<span class="k">—</span>`;
+    return `<tr>
+      <td class="mono">${p.pair}</td>
+      <td><span class="pside ${p.side === 'Long' ? 'long' : 'short'}">${p.side === 'Long' ? 'LONG' : 'SHORT'}</span></td>
+      <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
+      <td class="mono">${fmt(p.current, 4)}</td>
+      <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
+      <td class="mono ${pnlPct >= 0 ? 'pos' : 'neg'}">${(pnlPct >= 0 ? '+' : '') + fmt(pnlPct, 2)}%</td>
+      <td>${progCell}</td>
+      <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">✖ Close</button></td></tr>`;
+  }).join("");
 
   $("log").innerHTML = (s.log && s.log.length)
     ? s.log.map(l => `<div class="l"><span class="t">${new Date(l.ts * 1000).toLocaleTimeString()}</span> <span class="${l.level}">${esc(l.msg)}</span></div>`).join("")
@@ -246,6 +288,36 @@ function render(s) {
   lockStrategy(s);
   if ($("ch-follow") && $("ch-follow").checked) syncChartToStrategy(false);
 }
+
+// ---- pro dashboard KPIs (today / 30d / equity spark) ----
+function renderSpark(id, data) {
+  const el = $(id); if (!el) return;
+  if (!data || data.length < 2) { el.innerHTML = ""; return; }
+  const min = Math.min(...data), max = Math.max(...data), rng = (max - min) || 1;
+  const n = data.length, W = 300, H = 40;
+  const pts = data.map((v, i) => `${(i / (n - 1) * W).toFixed(1)},${(H - 2 - ((v - min) / rng) * (H - 6)).toFixed(1)}`);
+  const up = data[n - 1] >= data[0], col = up ? "#22c55e" : "#ef4444";
+  el.innerHTML = `<defs><linearGradient id="sg-${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".3"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>`
+    + `<path d="M0,${H} ${pts.join(" ")} L${W},${H} Z" fill="url(#sg-${id})"/>`
+    + `<polyline points="${pts.join(" ")}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+}
+function renderDashboard(d) {
+  if (!d) return;
+  DAY_START_EQ = d.day_start_equity || null;
+  const t = d.today || {}, s30 = d.stats30 || {};
+  const tn = t.net || 0;
+  const te = $("t-today"); if (te) { te.textContent = (tn >= 0 ? "+$" : "-$") + fmt(Math.abs(tn)); te.className = "kpi-big mono " + (tn >= 0 ? "pos" : "neg"); }
+  setT("t-today-wl", (t.wins || 0) + " wins · " + (t.losses || 0) + " losses today");
+  const bar = $("t-today-bar");
+  if (bar) { const w = t.wins || 0, l = t.losses || 0; bar.innerHTML = (w + l > 0) ? `<i style="flex:${w || 0.01};background:rgba(34,197,94,.6)"></i><i style="flex:${l || 0.01};background:rgba(239,68,68,.5)"></i>` : ""; }
+  setT("t-wr", s30.trades ? fmt(s30.win_rate, 1) + "%" : "—");
+  setT("t-pf", s30.profit_factor >= 999 ? "∞" : (s30.trades ? fmt(s30.profit_factor, 2) : "—"));
+  setT("t-wr-n", (s30.trades || 0) + " trades");
+  setBar("t-wr-meter", s30.win_rate || 0);
+  renderSpark("t-spark", d.spark || []);
+}
+async function loadDashboard() { try { renderDashboard(await api("/api/dashboard")); } catch (e) { } }
+setInterval(() => { if (TOKEN && $("v-home") && !$("v-home").classList.contains("hidden")) loadDashboard(); }, 30000);
 
 // ---- live price strip ----
 async function pollPrices() {

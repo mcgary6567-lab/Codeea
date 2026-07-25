@@ -1028,7 +1028,8 @@ class TraderSession:
             "guard_tripped": self.guard.tripped,
             "positions": [
                 {"pair": p.pair, "side": p.side, "size": p.size, "entry": p.entry,
-                 "current": p.current, "pnl": round(p.pnl, 4), "status": p.status}
+                 "current": p.current, "pnl": round(p.pnl, 4), "status": p.status,
+                 "tp": (self._trade_meta.get(p.pair) or {}).get("tp", 0.0)}
                 for p in self.positions
             ],
             "log": list(self.log_ring)[:120],

@@ -755,6 +755,27 @@ def analytics(since: float = 0, until: float = 0, user: dict = Depends(current_u
     }
 
 
+@app.get("/api/dashboard")
+def dashboard(user: dict = Depends(current_user)):
+    """Summary KPIs for the pro dashboard: today's realized, 30-day stats, an
+    equity sparkline and the day's starting equity (for the equity delta)."""
+    now = time.time()
+    day_start = now - (now % 86400.0)          # UTC midnight
+    eq = store.equity_curve(user["id"], 120)
+    spark = [round((e["balance"] or 0) + (e["pnl"] or 0), 2) for e in eq]
+    day_eq = None
+    for e in eq:                               # first equity point recorded today
+        if e["ts"] >= day_start:
+            day_eq = round((e["balance"] or 0) + (e["pnl"] or 0), 2)
+            break
+    return {
+        "today": store.trade_stats(user["id"], day_start),
+        "stats30": store.trade_stats(user["id"], now - 30 * 86400.0),
+        "spark": spark[-60:],
+        "day_start_equity": day_eq,
+    }
+
+
 # --- TradingView webhook (public, token in path) ----------------------------
 @app.post("/webhook/{token}")
 async def webhook(token: str, request: Request):

@@ -442,6 +442,24 @@ def realized_pnl_since(user_id: int, since_ts: float) -> tuple:
     return round(sum(pnls), 4), len(pnls), wins
 
 
+def trade_stats(user_id: int, since_ts: float) -> dict:
+    """Closed-trade stats since ``since_ts``: counts, win-rate, profit factor, net."""
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT pnl FROM trades WHERE user_id=? AND kind='close' AND ts>=?",
+                         (user_id, since_ts)).fetchall()
+    pnls = [r["pnl"] or 0.0 for r in rows]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+    gross_win = sum(wins)
+    gross_loss = -sum(losses)
+    return {
+        "trades": len(pnls), "wins": len(wins), "losses": len(losses),
+        "win_rate": round(len(wins) / len(pnls) * 100, 1) if pnls else 0.0,
+        "profit_factor": round(gross_win / gross_loss, 2) if gross_loss > 0 else (999.0 if gross_win > 0 else 0.0),
+        "net": round(sum(pnls), 2),
+    }
+
+
 def update_name(user_id: int, first_name: str, last_name: str) -> None:
     with _LOCK, _conn() as c:
         c.execute("UPDATE users SET first_name=?, last_name=? WHERE id=?",
