@@ -527,15 +527,14 @@
       <section id="v-guide" class="hidden">
         <div class="guide-hero card">
           <h2>📖 How to use Prometheus</h2>
-          <p class="guide-lead">A quick walkthrough of every screen — including the new alerts, remote control &amp; security tools. Follow it top-to-bottom the first time and you'll be trading in a few minutes.</p>
+          <p class="guide-lead">Six steps to go from zero to a bot trading for you — plus two optional pro features (⭐ VIP &amp; 🆕 NEW). Tap a chip to jump to that screen, or read top-to-bottom the first time.</p>
           <div class="guide-steps">
-            <span class="gstep" onclick="show('exchange',qNav('exchange'))">① Connect</span>
-            <span class="gstep" onclick="show('strategy',qNav('strategy'))">② Bot Setting</span>
-            <span class="gstep" onclick="show('backtest',qNav('backtest'))">③ Profit Simulator</span>
-            <span class="gstep" onclick="show('home',qNav('home'))">④ Go live</span>
-            <span class="gstep" onclick="show('home',qNav('home'))">📈 Chart tools</span>
-            <span class="gstep" onclick="show('analytics',qNav('analytics'))">⑤ Track</span>
-            <span class="gstep" onclick="show('settings',qNav('settings'))">⑥ Alerts &amp; security</span>
+            <span class="gstep" onclick="show('exchange',qNav('exchange'))"><span class="gs-n">1</span> Connect</span>
+            <span class="gstep" onclick="show('strategy',qNav('strategy'))"><span class="gs-n">2</span> Bot Setting</span>
+            <span class="gstep" onclick="show('backtest',qNav('backtest'))"><span class="gs-n">3</span> Simulator</span>
+            <span class="gstep" onclick="show('home',qNav('home'))"><span class="gs-n">4</span> Go live</span>
+            <span class="gstep" onclick="show('analytics',qNav('analytics'))"><span class="gs-n">5</span> Track</span>
+            <span class="gstep" onclick="show('settings',qNav('settings'))"><span class="gs-n">6</span> Security</span>
             <span class="gstep gstep-help" onclick="document.getElementById('troubleshoot').scrollIntoView({behavior:'smooth',block:'start'})">🛠️ Help &amp; fixes</span>
           </div>
         </div>
@@ -553,8 +552,7 @@
               <div class="gs-btnrow"><b class="gs-btn">Save &amp; Connect</b><b class="gs-btn ghost">Disconnect</b></div>
             </div>
             <p class="gtip">💡 Tip: turn on <b>Read-only</b> first if you just want to watch without any orders being placed.</p>
-            <p class="gtip">🌐 <b>IP whitelist (optional):</b> if your exchange lets you restrict the API key to certain IPs, copy the <b>Bot server IP</b> at the top of the Exchange tab and paste it into the exchange API “IP access restriction” field. Trades come from our cloud, so that is the IP to allow — not your own device.</p>
-            <div class="warnbox" style="margin-top:12px">⚠️ <b>“Invalid API-key, IP, or permissions” (Binance error&nbsp;-2015)?</b> This is almost always the key's <b>IP whitelist</b>. If it connected fine before and suddenly fails, the <b>bot server IP has changed</b> — copy the <b>🌐 Bot server IP</b> at the top of the Exchange tab and add it to the key's <b>IP access restriction</b> list on the exchange (or set the key to <b>Unrestricted</b>). For <b>Futures</b> also: activate a <b>Futures account</b> (accept the agreement/quiz), tick <b>Enable Futures</b> on the API key, and confirm Futures is available in your region. Then <b>Save &amp; Connect</b> again.</div>
+            <p class="gtip">🌐 <b>IP whitelist (optional):</b> if you restrict the key to certain IPs, copy the <b>Bot server IP</b> at the top of the Exchange tab — trades come from our cloud, so that's the IP to allow, not your device. Connection error? See <b>🛠️ Help &amp; fixes</b> below.</p>
           </div>
         </div>
 
@@ -575,9 +573,10 @@
         </div>
 
         <div class="card gcard gcard-vip">
+          <span class="gribbon vip">⭐ VIP</span>
           <div class="gnum">⭐</div>
           <div class="gbody">
-            <h3>⭐ Unlock Custom Strategy — your own high-profit setup</h3>
+            <h3>Unlock Custom Strategy — your own high-profit setup</h3>
             <p>By default your bot follows our <b>professionally-managed strategy</b> — the safe, hands-off way to trade. If you're an <b>advanced trader</b> who wants to chase <b>higher returns</b> — tighter timeframes, more pairs, more aggressive entries and targets — you can unlock <b>full control of every parameter</b>. Here's how:</p>
             <ol class="glist">
               <li><b>Open 🤖 Bot Setting.</b> If your strategy is managed, you'll see a 🔒 <i>“managed for you”</i> banner and a ⭐ <b>“Want to run your own strategy?”</b> box.</li>
@@ -620,10 +619,11 @@
           </div>
         </div>
 
-        <div class="card gcard gcard-vip">
+        <div class="card gcard gcard-new">
+          <span class="gribbon new">🆕 NEW</span>
           <div class="gnum">📈</div>
           <div class="gbody">
-            <h3>📈 New: pro chart tools — signal strength, last signal &amp; news filter</h3>
+            <h3>Pro chart tools — signal strength &amp; news filter</h3>
             <p>The <b>Dashboard chart</b> is now a full <b>TradingView-style</b> chart — real time axis, scroll back through history, zoom and pan. Above it, a live header shows exactly what the bot is thinking. Here's each new tool, left to right:</p>
             <ol class="glist">
               <li><b>🎯 Last signal</b> — the bot's most recent entry for the selected pair, e.g. <b class="pos">▲ BUY 4,073.33</b> or <b class="neg">▼ SELL</b>, with the price and coin. It stays on screen after the trade so you always see where the last BUY/SELL happened.</li>
