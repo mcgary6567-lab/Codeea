@@ -801,7 +801,11 @@ img { max-width: 100%; display: block; }
 .hero__cta .hero__trust { flex-basis: 100%; }
 /* Phone mockup overlapping the desktop dashboard */
 .hero__phone { position: absolute; right: -14px; bottom: 40px; width: 23%; max-width: 138px; height: auto; z-index: 3; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.55)); }
-@media (max-width: 700px) { .hero__phone { display: none; } }
+/* On phones the wide desktop shot is unreadable — show the phone mockup instead */
+@media (max-width: 700px) {
+  .hero__mockup-frame { display: none; }
+  .hero__phone { position: static; display: block; width: 210px; max-width: 66%; height: auto; margin: 6px auto 0; right: auto; bottom: auto; filter: drop-shadow(0 16px 32px rgba(0,0,0,0.45)); }
+}
 .nav a[href*="fly.dev"] { color: var(--gold); font-weight: 700; }
 
 /* App-screenshot hero: show the full SVG mockup (no zoom/crop) */
