@@ -295,14 +295,14 @@ function render(s) {
       ? `<span class="tpbar"><i style="width:${prog.toFixed(0)}%"></i></span> <span class="k">${prog.toFixed(0)}%</span>`
       : `<span class="k">—</span>`;
     return `<tr>
-      <td class="mono">${p.pair}</td>
-      <td><span class="pside ${p.side === 'Long' ? 'long' : 'short'}">${p.side === 'Long' ? 'LONG' : 'SHORT'}</span></td>
-      <td class="mono">${fmt(p.size, 5)}</td><td class="mono">${fmt(p.entry, 4)}</td>
-      <td class="mono">${fmt(p.current, 4)}</td>
-      <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
-      <td class="mono ${pnlPct >= 0 ? 'pos' : 'neg'}">${(pnlPct >= 0 ? '+' : '') + fmt(pnlPct, 2)}%</td>
-      <td>${progCell}</td>
-      <td><button class="btn ghost sm" onclick="closePos('${p.pair}')">✖ Close</button></td></tr>`;
+      <td class="mono" data-label="Pair">${p.pair}</td>
+      <td data-label="Side"><span class="pside ${p.side === 'Long' ? 'long' : 'short'}">${p.side === 'Long' ? 'LONG' : 'SHORT'}</span></td>
+      <td class="mono" data-label="Size">${fmt(p.size, 5)}</td><td class="mono" data-label="Entry">${fmt(p.entry, 4)}</td>
+      <td class="mono" data-label="Mark">${fmt(p.current, 4)}</td>
+      <td class="mono ${p.pnl >= 0 ? 'pos' : 'neg'}" data-label="PnL">${(p.pnl >= 0 ? '+' : '') + fmt(p.pnl, 4)}</td>
+      <td class="mono ${pnlPct >= 0 ? 'pos' : 'neg'}" data-label="PnL %">${(pnlPct >= 0 ? '+' : '') + fmt(pnlPct, 2)}%</td>
+      <td data-label="TP">${progCell}</td>
+      <td data-label=""><button class="btn ghost sm" onclick="closePos('${p.pair}')">✖ Close</button></td></tr>`;
   }).join("");
 
   $("log").innerHTML = (s.log && s.log.length)
@@ -665,7 +665,7 @@ async function runBacktest() {
     $("bt-tiles").innerHTML = tiles.map(([k, v, c]) => `<div class="tile"><div class="k">${k}</div><div class="v ${c}" style="font-size:18px">${v}</div></div>`).join("");
     $("bt-ntr").textContent = d.trades.length;
     $("bt-trades").innerHTML = d.trades.length
-      ? d.trades.slice().reverse().map((t, i) => `<tr><td>${d.trades.length - i}</td><td class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono">${fmt(t.entry, 4)}</td><td class="mono">${fmt(t.exit, 4)}</td><td class="mono">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}">${fmt(t.r, 2)}</td><td class="k">${t.reason}</td></tr>`).join("")
+      ? d.trades.slice().reverse().map((t, i) => `<tr><td data-label="#">${d.trades.length - i}</td><td data-label="Side" class="${t.side === 'long' ? 'pos' : 'neg'}">${t.side}</td><td class="mono" data-label="Entry">${fmt(t.entry, 4)}</td><td class="mono" data-label="Exit">${fmt(t.exit, 4)}</td><td class="mono" data-label="Qty">${fmt(t.qty, 5)}</td><td class="mono ${t.pnl >= 0 ? 'pos' : 'neg'}" data-label="PnL">${(t.pnl >= 0 ? '+' : '') + fmt(t.pnl, 2)}</td><td class="mono ${t.r >= 0 ? 'pos' : 'neg'}" data-label="R">${fmt(t.r, 2)}</td><td class="k" data-label="Reason">${t.reason}</td></tr>`).join("")
       : `<tr><td colspan="8" class="k" style="text-align:center;padding:16px">No trades were triggered in this period — try a longer range, a different timeframe, or looser settings.</td></tr>`;
     const p = d.period || {};
     let info = `${d.exchange} · ${d.symbol} · ${d.timeframe} — ${d.candles} candles over ~${p.days || "?"} days (${p.from ? new Date(p.from).toLocaleDateString() : "?"} → ${p.to ? new Date(p.to).toLocaleDateString() : "?"})`;

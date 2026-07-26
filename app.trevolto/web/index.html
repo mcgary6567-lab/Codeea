@@ -226,7 +226,7 @@
 
         <div class="card">
           <h3>Open positions <button class="btn red sm" style="float:right" onclick="panic()">🛑 Close All</button></h3>
-          <div class="tablewrap"><table><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th>PnL %</th><th>Progress to TP</th><th></th></tr></thead>
+          <div class="tablewrap"><table class="table--pos"><thead><tr><th>Pair</th><th>Side</th><th>Size</th><th>Entry</th><th>Mark</th><th>PnL</th><th>PnL %</th><th>Progress to TP</th><th></th></tr></thead>
             <tbody id="pos-body"><tr><td colspan="9" class="k">No open positions.</td></tr></tbody></table></div>
         </div>
       </section>
@@ -439,7 +439,7 @@
             <canvas id="bt-ddc" class="chart" style="height:90px;margin-top:6px"></canvas></div>
           <div class="card"><h3>Trades <span class="chip" id="bt-ntr">0</span></h3>
             <div class="tablewrap" style="max-height:360px;overflow:auto">
-              <table><thead><tr><th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>R</th><th>Reason</th></tr></thead>
+              <table class="table--cards"><thead><tr><th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>R</th><th>Reason</th></tr></thead>
                 <tbody id="bt-trades"></tbody></table></div></div>
         </div>
       </section>

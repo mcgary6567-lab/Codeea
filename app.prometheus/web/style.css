@@ -125,6 +125,39 @@ label.chkline input{width:auto}
 .pos{color:var(--green)} .neg{color:var(--red)}
 
 .tablewrap{overflow-x:auto}
+/* ---- Mobile: turn wide tables into cards (no sideways scroll) ---- */
+@media(max-width:640px){
+  /* Open Positions → card grid (pair + PnL header, 2-col details, TP bar, full-width Close) */
+  .table--pos thead{display:none}
+  .table--pos,.table--pos tbody{display:block;width:100%}
+  .table--pos tr{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:10px}
+  .table--pos td{border:0;padding:0;font-size:12.5px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;white-space:nowrap}
+  .table--pos td::before{content:attr(data-label);color:var(--mut);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  .table--pos td:nth-child(1){grid-area:1/1;justify-content:flex-start;font-weight:800;font-size:14px}
+  .table--pos td:nth-child(6){grid-area:1/2;justify-content:flex-end;font-weight:800;font-size:14px}
+  .table--pos td:nth-child(2){grid-area:2/1;justify-content:flex-start}
+  .table--pos td:nth-child(7){grid-area:2/2}
+  .table--pos td:nth-child(4){grid-area:3/1}
+  .table--pos td:nth-child(5){grid-area:3/2}
+  .table--pos td:nth-child(3){grid-area:4/1}
+  .table--pos td:nth-child(8){grid-area:5/1/6/3}
+  .table--pos td:nth-child(8) .tpbar{flex:1}
+  .table--pos td:nth-child(9){grid-area:6/1/7/3;margin-top:2px}
+  .table--pos td:nth-child(9) .btn{width:100%}
+  .table--pos td:nth-child(1)::before,.table--pos td:nth-child(2)::before,.table--pos td:nth-child(6)::before,.table--pos td:nth-child(9)::before,.table--pos td[colspan]::before{display:none}
+  .table--pos td[colspan]{grid-column:1/3;justify-content:center}
+  /* Backtest trades → labeled stack card */
+  .table--cards thead{display:none}
+  .table--cards,.table--cards tbody{display:block;width:100%}
+  .table--cards tr{display:block;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  .table--cards td{display:flex;justify-content:space-between;gap:12px;border:0;padding:3px 0;font-size:12.5px}
+  .table--cards td::before{content:attr(data-label);color:var(--mut);font-weight:600}
+  .table--cards td[colspan]{justify-content:center;text-align:center}
+  .table--cards td[colspan]::before{display:none}
+  /* Manual-order modal → stack inputs 1-per-row */
+  .omodal-body .row{flex-direction:column;gap:8px}
+  .omodal-body .col{min-width:0}
+}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel)}
