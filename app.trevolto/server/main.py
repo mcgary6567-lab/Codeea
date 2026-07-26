@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 import backtest as bt
 import strategy as strat
+import exchange as ex
 
 from . import security, store, webpush
 from .config_web import PUBLIC_URL, LICENCE_PRICE
@@ -246,6 +247,72 @@ def full_state(user: dict) -> dict:
 @app.get("/api/state")
 def state(user: dict = Depends(current_user)):
     return full_state(user)
+
+
+@app.get("/api/health")
+def health():
+    """Public liveness probe (no auth, no user data) for uptime monitors."""
+    db_ok = True
+    try:
+        store.active_broadcast()          # cheap DB read
+    except Exception:                     # noqa: BLE001
+        db_ok = False
+    return JSONResponse(
+        {"ok": db_ok, "db": db_ok, "ccxt": bool(ex.CCXT_AVAILABLE), "time": int(time.time())},
+        status_code=200 if db_ok else 503)
+
+
+@app.get("/api/selftest")
+def selftest(user: dict = Depends(current_user)):
+    """Authenticated end-to-end diagnostics for THIS account — DB, keys, exchange
+    ping, market-data feed, strategy loop and licence. Every check is best-effort
+    so one failure never masks the rest."""
+    checks: dict = {}
+
+    def chk(name, fn):
+        try:
+            checks[name] = fn()
+        except Exception as e:            # noqa: BLE001
+            checks[name] = {"ok": False, "detail": str(e)[:160]}
+
+    s = get_session(user["id"])
+
+    chk("database", lambda: {"ok": bool(store.get_user(user["id"])), "detail": "reachable"})
+    chk("ccxt", lambda: {"ok": bool(ex.CCXT_AVAILABLE),
+                         "detail": "available" if ex.CCXT_AVAILABLE else "not installed"})
+
+    def _keys():
+        k = store.load_keys(user["id"])
+        return {"ok": True, "present": bool(k), "exchange": (k or {}).get("exchange"),
+                "detail": "trade-only key stored" if k else "no keys connected yet"}
+    chk("keys", _keys)
+
+    def _exchange():
+        if not s.connected:
+            return {"ok": True, "connected": False, "detail": "not connected — bot idle until you connect keys"}
+        bal = s.em.fetch_balance()
+        return {"ok": True, "connected": True, "id": s.exchange_id, "market": s.market_type,
+                "paper": bool(s.em.safe_mode), "balance_ok": bal is not None,
+                "balance": round(bal, 2) if isinstance(bal, (int, float)) else None}
+    chk("exchange", _exchange)
+
+    def _market():
+        raw = public_ohlcv(s.exchange_id or "binance", "BTC/USDT", "15m", 5, s.market_type or "spot")
+        return {"ok": bool(raw), "candles": len(raw or []),
+                "detail": "candle feed reachable" if raw else "no candles returned"}
+    chk("market_data", _market)
+
+    chk("strategy", lambda: {"ok": True, "enabled": bool(s.settings.get("strategy_enabled", True)),
+                             "running": bool(getattr(s, "strategy_on", False)), "connected": bool(s.connected)})
+
+    def _access():
+        e = store.entitlement(user)
+        return {"ok": bool(e.get("ok")), "status": e.get("status"),
+                "lifetime": e.get("lifetime"), "days_left": e.get("days_left")}
+    chk("access", _access)
+
+    return {"ok": all(c.get("ok", False) for c in checks.values()),
+            "checks": checks, "time": int(time.time())}
 
 
 @app.post("/api/account")

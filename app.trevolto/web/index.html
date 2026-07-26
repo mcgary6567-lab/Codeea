@@ -531,6 +531,11 @@
               <tbody id="login-rows"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
             <button class="btn red" style="margin-top:12px" onclick="logoutAll()">🚪 Sign out all other devices</button>
           </div>
+          <div class="card"><h3>🩺 Diagnostics — self-test</h3>
+            <div class="hint">Run an end-to-end check of your account: database, trading library, exchange connection &amp; balance, market-data feed, strategy loop and licence.</div>
+            <button class="btn ghost" style="margin-top:10px" id="selftest-btn" onclick="runSelfTest()">🩺 Run self-test</button>
+            <div id="selftest-out" class="hidden" style="margin-top:12px"></div>
+          </div>
         </div>
       </section>
 

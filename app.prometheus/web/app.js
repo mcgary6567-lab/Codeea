@@ -935,6 +935,30 @@ async function logoutAll() {
     notify("Signed out all other devices \u2713", "ok");
   } catch (e) { notify(e.message, "error"); }
 }
+async function runSelfTest() {
+  const btn = $("selftest-btn"), out = $("selftest-out");
+  if (btn) { btn.disabled = true; btn.textContent = "Running…"; }
+  const LABELS = { database: "Database", ccxt: "Trading library", keys: "Exchange keys", exchange: "Exchange connection", market_data: "Market-data feed", strategy: "Strategy loop", access: "Licence" };
+  try {
+    const d = await api("/api/selftest");
+    const rows = Object.entries(d.checks || {}).map(([k, v]) => {
+      const det = v.detail || [
+        v.connected === false ? "not connected" : (v.id ? v.id + " · " + (v.market || "") : ""),
+        v.balance != null ? "balance " + v.balance : "",
+        v.running != null ? (v.running ? "running" : "idle") : "",
+        v.status ? v.status + (v.lifetime ? " · lifetime" : "") : ""
+      ].filter(Boolean).join(" · ");
+      return `<div class="st-row"><span class="st-ic ${v.ok ? "ok" : "bad"}">${v.ok ? "✓" : "✕"}</span><b>${LABELS[k] || k}</b><span class="st-d">${det || ""}</span></div>`;
+    }).join("");
+    out.innerHTML = `<div class="st-head ${d.ok ? "ok" : "bad"}">${d.ok ? "✅ All systems go" : "⚠️ Some checks need attention"}</div>${rows}`;
+    out.classList.remove("hidden");
+  } catch (e) {
+    out.innerHTML = `<div class="st-head bad">⚠️ ${e.message}</div>`;
+    out.classList.remove("hidden");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "🩺 Run self-test"; }
+  }
+}
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { console.log(type + ": " + msg); return; }
   const icon = type === "error" ? "⚠️" : type === "warn" ? "⚠️" : "✅";
