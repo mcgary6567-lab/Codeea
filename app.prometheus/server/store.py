@@ -111,6 +111,7 @@ def init_db() -> None:
             "allow_custom": "INTEGER NOT NULL DEFAULT 0",
             "custom_requested": "REAL NOT NULL DEFAULT 0",
             "custom_reason": "TEXT NOT NULL DEFAULT ''",
+            "vip_invoice_paid": "INTEGER NOT NULL DEFAULT 0",
             "country": "TEXT NOT NULL DEFAULT ''",
         }.items():
             ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
@@ -838,6 +839,18 @@ def set_allow_custom(user_id: int, allow: bool) -> None:
             c.execute("UPDATE users SET allow_custom=1, custom_requested=0 WHERE id=?", (user_id,))
         else:
             c.execute("UPDATE users SET allow_custom=0 WHERE id=?", (user_id,))
+
+
+def mark_invoice_paid(user_id: int, paid: bool = True) -> None:
+    """Admin marks the VIP invoice as paid → unlocks Custom Strategy and flags the
+    account so the customer's top bar shows the 'VIP Unlocked' badge. Unmarking
+    reverses both (relocks to the managed strategy)."""
+    with _LOCK, _conn() as c:
+        if paid:
+            c.execute("UPDATE users SET vip_invoice_paid=1, allow_custom=1, "
+                      "custom_requested=0 WHERE id=?", (user_id,))
+        else:
+            c.execute("UPDATE users SET vip_invoice_paid=0, allow_custom=0 WHERE id=?", (user_id,))
 
 
 def request_custom(user_id: int, reason: str = "") -> None:

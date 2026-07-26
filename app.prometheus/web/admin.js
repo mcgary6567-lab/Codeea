@@ -257,6 +257,7 @@ function renderDrawer(d) {
       ${live && live.paper_mode ? '<span class="chip warn">paper</span>' : ""}
       ${d.allow_custom ? '<span class="chip safe">custom strategy</span>' : '<span class="chip">managed strategy</span>'}
       ${d.custom_requested && !d.allow_custom ? '<span class="chip warn">⏳ requested custom</span>' : ""}
+      ${d.vip_invoice_paid ? '<span class="chip safe">⭐ VIP invoice paid</span>' : ""}
     </div>
     <div class="dw-grid">
       <div class="dw-stat"><span>Access</span><b>${st}${e.lifetime ? " · ♾ lifetime" : (e.days_left != null ? " · " + e.days_left + "d" : "")}</b></div>
@@ -293,6 +294,7 @@ function renderDrawer(d) {
       <button class="btn ghost sm" onclick="resetLink(${d.id})">🔗 Password-reset link</button>
       <button class="btn ghost sm" onclick="editUser(${d.id})">✏️ Edit details</button>
       <button class="btn ghost sm" onclick="setExpiry(${d.id})">📅 Set expiry date</button>
+      ${d.vip_invoice_paid ? `<button class="btn ghost sm" onclick="act(${d.id},'unmark_invoice_paid',1)">↩️ Unmark VIP invoice</button>` : `<button class="btn sm" onclick="act(${d.id},'mark_invoice_paid',1)">🧾 Mark invoice paid → unlock VIP</button>`}
       ${d.allow_custom ? `<button class="btn ghost sm" onclick="act(${d.id},'lock_strategy',1)">🔒 Lock to managed strategy</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'unlock_strategy',1)">🔓 Allow custom strategy</button>`}
       ${d.is_admin ? `<button class="btn ghost sm" onclick="act(${d.id},'remove_admin',1)">🙅 Remove admin</button>` : `<button class="btn ghost sm" onclick="act(${d.id},'make_admin',1)">🛡️ Make admin</button>`}
       <button class="btn red sm" onclick="deleteUser(${d.id})">🗑 Delete</button>
@@ -480,10 +482,10 @@ function renderRequests(list) {
   const el = $("req-list"); if (!el) return;
   el.innerHTML = list.length ? list.map(r => {
     const nm = [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(nm)}</b> <span class="k mono">${esc(r.email)}</span><div class="k" style="margin-top:2px">${esc(r.custom_reason || "(no reason given)")} \u00b7 ${ago(r.custom_requested)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn green sm" onclick="approveCustom(${r.id})">✅ Approve</button><button class="btn ghost sm" onclick="denyCustom(${r.id})">🚫 Deny</button></div></div>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(nm)}</b> <span class="k mono">${esc(r.email)}</span><div class="k" style="margin-top:2px">${esc(r.custom_reason || "(no reason given)")} \u00b7 ${ago(r.custom_requested)}</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn green sm" onclick="invoicePaid(${r.id})">🧾 Invoice paid → Unlock</button><button class="btn ghost sm" onclick="denyCustom(${r.id})">🚫 Deny</button></div></div>`;
   }).join("") : '<div class="k">No pending requests.</div>';
 }
-async function approveCustom(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "unlock_strategy" }); notify("Approved \u2014 customer can now customize \u2713", "ok"); loadRequests(); reloadAll(); } catch (e) { notify(e.message, "error"); } }
+async function invoicePaid(uid) { if (!confirm("Mark this customer's VIP invoice as paid? This unlocks Custom Strategy on their account.")) return; try { await api("/api/admin/action", "POST", { user_id: uid, action: "mark_invoice_paid" }); notify("VIP unlocked \u2014 invoice marked paid \u2713", "ok"); loadRequests(); reloadAll(); } catch (e) { notify(e.message, "error"); } }
 async function denyCustom(uid) { try { await api("/api/admin/action", "POST", { user_id: uid, action: "deny_custom" }); notify("Request dismissed", "warn"); loadRequests(); } catch (e) { notify(e.message, "error"); } }
 function notify(msg, type = "ok") {
   const wrap = $("toasts"); if (!wrap) { alert(msg); return; }

@@ -98,6 +98,8 @@
     <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held Sat/Sun (UTC). Open trades stay managed.">🗓️ WEEKEND</span>
     <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
+    <span class="vipunlocked hidden" id="st-vip-unlocked" title="Custom Strategy is unlocked on your account.">⭐ VIP Unlocked</span>
+    <span class="chip vippending hidden" id="st-vip-pending" title="Your VIP request is in — we'll email you an invoice to unlock.">⏳ VIP pending</span>
     <button class="btn sm vipbtn hidden" id="st-vip" onclick="openVip()">⭐ Unlock VIP</button>
     <span class="chip pick" id="st-access" onclick="goCheckout()">—</span>
     <a class="btn sm hidden" id="st-buy" href="#" target="_blank" rel="noopener">✨ Get licence</a>
@@ -788,7 +790,7 @@
       <li><span>✓</span> <b>More aggressive entries &amp; targets</b> — chase higher returns</li>
       <li><span>✓</span> <b>Backtest first</b> — validate your edge in the Profit Simulator</li>
     </ul>
-    <div class="vipnote">⏱️ Approved within <b>a day or two</b> — you'll get an instant alert the moment it's unlocked.</div>
+    <div class="vipnote">🧾 We'll email you an <b>invoice</b> to unlock — VIP activates the moment it's paid, and you'll get an instant alert.</div>
     <textarea id="vip-reason" placeholder="Tell us your plan (optional) — e.g. higher risk, your own edge, specific pairs…"></textarea>
     <button class="vipcta" id="vip-cta" onclick="submitVip()">⭐ Request access now</button>
     <div class="viprisk">Higher profit potential means higher risk — built for advanced traders. Your funds always stay on your own exchange.</div>

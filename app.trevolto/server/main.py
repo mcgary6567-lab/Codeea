@@ -200,27 +200,20 @@ def _webhook_url(user: dict) -> str:
 
 
 # --- VIP (Custom Strategy) upsell audience -----------------------------------
-# Only customers who registered on/after this launch date see the VIP offer, so
-# long-standing ("old") paid customers aren't shown the upsell. Set to 0 to show
-# it to every paid customer, or raise/lower the date to move the cut-off.
-import datetime as _dt
-VIP_LAUNCH_TS = _dt.datetime(2026, 7, 26, tzinfo=_dt.timezone.utc).timestamp()
-
-
 def vip_eligible(user: dict) -> bool:
     """Single source of truth for who sees the ⭐ Custom Strategy (VIP) offer —
     the top-bar button, the pop-up, the How-to-use blocks and the request endpoint.
 
-    A PAID (licensed) customer, on the managed strategy, who registered after the
-    VIP launch and hasn't already requested / been granted Custom Strategy. Trial,
-    expired and long-standing ("old") customers are excluded."""
-    if store.entitlement(user).get("status") != "licensed":
-        return False                        # not a paying customer
-    if bool(user.get("allow_custom")):
-        return False                        # already has Custom Strategy
+    A LIFETIME-licence member, on the managed strategy, who hasn't already
+    requested it and whose VIP invoice hasn't been marked paid. Trial, expired and
+    ordinary time-limited licences are excluded — only lifetime members qualify."""
+    if not store.entitlement(user).get("lifetime"):
+        return False                        # lifetime-licence members only
+    if bool(user.get("allow_custom")) or bool(user.get("vip_invoice_paid")):
+        return False                        # already unlocked
     if bool(user.get("custom_requested")):
         return False                        # already requested — UI shows "pending"
-    return float(user.get("created") or 0) >= VIP_LAUNCH_TS   # new customers only
+    return True
 
 
 def full_state(user: dict) -> dict:
@@ -241,6 +234,7 @@ def full_state(user: dict) -> dict:
     snap["allow_custom"] = _allow
     snap["strategy_managed"] = not _allow
     snap["custom_requested"] = bool(user.get("custom_requested"))
+    snap["vip_invoice_paid"] = bool(user.get("vip_invoice_paid"))   # → "VIP Unlocked" badge
     snap["vip_eligible"] = vip_eligible(user)   # gates the VIP button / pop-up / how-to blocks
     if not _allow:
         _gs = store.get_global_strategy()
@@ -626,6 +620,15 @@ async def admin_action(request: Request, admin: dict = Depends(require_admin)):
             pass
     elif action == "lock_strategy":
         store.set_allow_custom(uid, False)
+    elif action == "mark_invoice_paid":
+        store.mark_invoice_paid(uid, True)
+        try:
+            get_session(uid).notify("⭐ VIP unlocked — your invoice is confirmed and "
+                                    "Custom Strategy is now active. Open Bot Setting to tune it.")
+        except Exception:
+            pass
+    elif action == "unmark_invoice_paid":
+        store.mark_invoice_paid(uid, False)
     elif action == "deny_custom":
         store.clear_custom_request(uid)
     elif action == "reset_link":

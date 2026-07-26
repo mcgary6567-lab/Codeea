@@ -196,12 +196,17 @@ function render(s) {
   $("st-ro").classList.toggle("hidden", !s.read_only);
   $("st-halt").classList.toggle("hidden", !s.guard_tripped);
   { const w = $("st-weekend"); if (w) w.classList.toggle("hidden", !s.weekend_paused); }
-  // VIP upsell — PAID (licensed) managed customers who haven't yet requested custom strategy.
-  // Drives the top-bar button, the auto pop-up, AND every static VIP block in How-to-use
-  // (via the body.vip-eligible class). Trial / expired / free users see nothing, anywhere.
-  { const eligible = !!s.vip_eligible;   // server decides (paid + managed + new customer)
+  // VIP — three top-bar states for lifetime members: Unlocked badge (invoice paid) /
+  // Unlock button + pop-up (eligible) / pending chip (requested, awaiting invoice).
+  // The offer state also drives every static VIP block in How-to-use via body.vip-eligible.
+  { const unlocked = !!s.vip_invoice_paid;
+    const eligible = !!s.vip_eligible;                       // server decides (lifetime + managed + not requested/unlocked)
+    const pending = !!s.custom_requested && !unlocked;       // requested, invoice not yet marked paid
     document.body.classList.toggle("vip-eligible", eligible);
-    const vb = $("st-vip"); if (vb) vb.classList.toggle("hidden", !eligible);
+    const setHid = (id, show) => { const el = $(id); if (el) el.classList.toggle("hidden", !show); };
+    setHid("st-vip-unlocked", unlocked);
+    setHid("st-vip-pending", pending);
+    setHid("st-vip", eligible);
     if (eligible && !vipShown) {
       const seen = parseInt(localStorage.getItem("vip_seen") || "0", 10);
       if (Date.now() - seen > 2 * 86400000) { vipShown = true; setTimeout(openVip, 1400); }  // auto-show once every ~2 days
@@ -515,7 +520,7 @@ async function submitVip() {
   const btn = $("vip-cta"); if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
   try {
     await api("/api/strategy/request", "POST", { reason: ($("vip-reason") ? $("vip-reason").value : "") });
-    notify("⭐ Request sent — we'll approve it within a day or two. You'll get an alert the moment it's unlocked.", "ok");
+    notify("⭐ Request sent — we'll email you an invoice to unlock Custom Strategy. Once it's paid, VIP activates on your account.", "ok");
     closeVip(); refresh();
   } catch (e) { notify(e.message, "error"); }
   if (btn) { btn.disabled = false; btn.textContent = "⭐ Request access now"; }
