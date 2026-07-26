@@ -95,7 +95,7 @@
     <span class="chip hide-sm" id="st-ex">—</span>
     <span class="chip warn hidden" id="st-ro">READ-ONLY</span>
     <span class="chip danger hidden" id="st-halt">HALTED</span>
-    <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held Sat/Sun (UTC). Open trades stay managed.">🗓️ WEEKEND</span>
+    <span class="chip warn hidden" id="st-weekend" title="Weekend pause — new entries held until Sunday evening, then the bot resumes. Open trades stay managed.">🗓️ WEEKEND</span>
     <span class="chip warn hidden" id="st-paper">PAPER</span>
     <span class="grow"></span>
     <span class="vipunlocked hidden" id="st-vip-unlocked" title="Custom Strategy is unlocked on your account.">⭐ VIP Unlocked</span>
@@ -124,7 +124,7 @@
       <button data-v="analytics" onclick="show('analytics',this)">📅 Analytics</button>
       <button data-v="log" onclick="show('log',this)">📜 Log</button>
       <button data-v="settings" onclick="show('settings',this)">⚙️ Settings</button>
-      <button data-v="guide" onclick="show('guide',this)">📖 How to use</button>
+      <button data-v="guide" onclick="show('guide',this)">⚡ How it works</button>
     </nav>
 
     <main class="content">
@@ -536,8 +536,13 @@
       <!-- HOW TO USE -->
       <section id="v-guide" class="hidden">
         <div class="guide-hero card">
-          <h2>📖 How to use Prometheus</h2>
-          <p class="guide-lead">Six steps to go from zero to a bot trading for you — plus <span class="vip-only">two optional pro features (⭐ VIP &amp; 🆕 NEW)</span><span class="vip-off">an optional pro feature (🆕 NEW)</span>. Tap a chip to jump to that screen, or read top-to-bottom the first time.</p>
+          <h2>⚡ How Prometheus works</h2>
+          <p class="guide-lead"><b>It's fully automatic.</b> Connect your exchange API keys once and your bot starts taking trades on its own — entries, stop-losses, take-profits and exits are all handled for you. No charts to babysit, no buttons to press. <b>Just connect and watch the profit.</b></p>
+          <div class="guide-badges">
+            <span class="gbadge auto">🤖 100% automated — connect &amp; done</span>
+            <span class="gbadge tg">🌍 World's first bot you run entirely from Telegram</span>
+          </div>
+          <p class="guide-lead" style="margin:14px 0 16px">Here's the whole system top-to-bottom — but honestly, <b>Step 1 is all you need to start.</b> <span class="vip-only">Two optional pro features (⭐ VIP &amp; 🆕 NEW) are marked as such.</span><span class="vip-off">One optional pro feature (🆕 NEW) is marked as such.</span> Tap a chip to jump to any screen.</p>
           <div class="guide-steps">
             <span class="gstep" onclick="show('exchange',qNav('exchange'))"><span class="gs-n">1</span> Connect</span>
             <span class="gstep" onclick="show('strategy',qNav('strategy'))"><span class="gs-n">2</span> Bot Setting</span>
@@ -579,7 +584,7 @@
             </div>
             <p class="gtip">💡 Sizing &amp; risk guardrails live just below — set <b>Risk % per trade</b>, <b>Max open positions</b> and daily loss/profit limits. Flip <b>📝 Paper trading</b> ON to simulate fills with zero real risk.</p>
             <p class="gtip">➕ <b>Scale-in (pyramiding):</b> optional. When a trade is <b>40% of the way to its take-profit</b>, the bot adds a smaller same-direction trade (default 50% of the first) and moves the original stop to <b>break-even</b> — so it grows a winner without risking your starting capital. Happens once per position and respects your Max-open &amp; daily-loss limits. Off by default; turn it on in the <b>Scale-in</b> card below.</p>
-            <p class="gtip">🗓️ <b>Weekend pause:</b> optional. Turn it on to <b>hold new entries (and scale-in adds) on Saturday &amp; Sunday</b> — crypto weekends are thin and choppy. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. The weekend is measured in <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local Sat/Sun instead. Off by default; set it in the <b>Weekend pause</b> card below.</p>
+            <p class="gtip">🗓️ <b>Weekend pause:</b> optional. Turn it on to <b>hold new entries (and scale-in adds) from Saturday until Sunday evening</b> — crypto weekends are thin and choppy — then the bot <b>resumes automatically on Sunday evening</b> for the market re-open. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders always go through. The weekend is measured in <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local time instead. Off by default; set it in the <b>Weekend pause</b> card below.</p>
           </div>
         </div>
 
@@ -671,7 +676,7 @@
             <h3>🔔 Alerts, remote control &amp; security</h3>
             <p>Run the bot hands-off and keep your account safe — all set up in <b>Settings</b>. Here's what we just added:</p>
             <ul class="glist">
-              <li><b>🎮 Two-way Telegram control</b> — after you add your Telegram bot token + chat ID, message the bot <b>/status</b>, <b>/pnl</b>, <b>/positions</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> to run it from your phone. Only your own linked chat can send commands.</li>
+              <li><b>🎮 Two-way Telegram control <span class="gribbon new" style="position:static;display:inline-block;vertical-align:middle">🌍 WORLD FIRST</span></b> — the <b>first trading bot you can run entirely from Telegram</b>. Add your Telegram bot token + chat ID, then message the bot <b>/status</b>, <b>/pnl</b>, <b>/positions</b>, <b>/pause</b>, <b>/resume</b> or <b>/closeall</b> to control everything from your phone — no dashboard needed. Only your own linked chat can send commands.</li>
               <li><b>📲 Install as an app + push notifications</b> — use your browser's “Install / Add to Home Screen” option, then tap <b>Enable browser notifications</b> in Settings → Telegram. You'll get an alert on every entry &amp; close — <b>even when the app is closed</b>.</li>
               <li><b>⏭️ Skipped-signal alerts</b> — optionally get pinged when a signal is blocked by a guardrail (daily loss limit, max positions, cooldown), so you always know why the bot held.</li>
               <li><b>🖥️ Sessions &amp; login history</b> — see recent sign-ins (time, IP, device) and <b>sign out of all other devices</b> in one click if anything looks off.</li>
@@ -699,7 +704,7 @@
           <details class="gq vip-only"><summary>Can I use my own strategy settings?</summary><div class="ga">Yes — by default your bot runs our managed strategy, but you can request <b>⭐ Custom Strategy (VIP)</b> access from the <b>Bot Setting</b> tab. Once we approve it, every parameter unlocks so you can tune your own higher-profit setup. It's built for advanced traders — test in the Profit Simulator first.</div></details>
           <details class="gq"><summary>What is the signal-strength bar?</summary><div class="ga">A live 0–100% meter on the Dashboard chart showing how close the strategy is to an entry — green for a building BUY, red for a SELL. At 85% it sends you a Telegram + app “get ready” alert seconds before the bot trades. It reflects the strategy only; your manual orders are unaffected.</div></details>
           <details class="gq"><summary>What does “News trading OFF” do?</summary><div class="ga">It pauses <i>new</i> bot entries for 1 hour before and after high-impact <b>USD</b> economic news (FOMC, CPI, jobs) to dodge volatility spikes. The header shows the next event and a red “Paused” flag while active. Open trades and their stops/targets are never blocked. Turn it back ON to trade through everything.</div></details>
-          <details class="gq"><summary>Can I stop the bot from trading on weekends?</summary><div class="ga">Yes — in <b>Bot Setting → Weekend pause</b>, turn on <b>“Don't open new trades on Saturday &amp; Sunday.”</b> The bot then holds new entries (and scale-in adds) all weekend, while <b>open trades stay fully managed</b> (SL/TP keep running) and your manual orders still go through. The weekend is <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local Sat/Sun. A <b>🗓️ WEEKEND</b> chip shows in the top bar while it's active.</div></details>
+          <details class="gq"><summary>Can I stop the bot from trading on weekends?</summary><div class="ga">Yes — in <b>Bot Setting → Weekend pause</b>, turn on <b>“Don't open new trades on the weekend.”</b> The bot then holds new entries (and scale-in adds) from <b>Saturday until Sunday evening</b>, then <b>resumes automatically</b> for the Sunday-night market re-open. <b>Open trades stay fully managed</b> (SL/TP keep running) and your manual orders still go through. The weekend is <b>UTC</b> by default; tick <b>“use my device's timezone”</b> to follow your local time. A <b>🗓️ WEEKEND</b> chip shows in the top bar while it's active.</div></details>
         </div>
 
         <div class="card gfaq" id="troubleshoot" style="scroll-margin-top:80px">
@@ -795,6 +800,30 @@
     <button class="vipcta" id="vip-cta" onclick="submitVip()">⭐ Request access now</button>
     <div class="viprisk">Higher profit potential means higher risk — built for advanced traders. Your funds always stay on your own exchange.</div>
     <button class="viplater" onclick="closeVip()">Maybe later</button>
+  </div>
+</div>
+
+<!-- First-run welcome: one step to fully-automated trading -->
+<div id="welcome-modal" class="vipmodal hidden" onclick="if(event.target===this)closeWelcome()">
+  <div class="vipcard">
+    <button class="vipx" onclick="closeWelcome()" aria-label="Close">✕</button>
+    <div class="viphead">
+      <div class="vipstar">🚀</div>
+      <div>
+        <div class="vipkicker">WELCOME</div>
+        <h2>You're one step from automated trading</h2>
+        <p>Connect your exchange <b>API keys</b> and your bot <b>starts taking trades instantly</b>. Everything after that is automatic — just watch the profit.</p>
+      </div>
+    </div>
+    <ul class="vipbenefits">
+      <li><span>✓</span> <b>Fully automatic</b> — entries, stop-loss, take-profit &amp; exits all handled for you</li>
+      <li><span>✓</span> <b>One step to go live</b> — paste a trade-only API key and the bot starts working</li>
+      <li><span>✓</span> <b>Run it from Telegram</b> — the world's first bot you control entirely from your phone</li>
+      <li><span>✓</span> <b>Just watch the profit</b> — no charts to babysit, no buttons to press</li>
+    </ul>
+    <div class="vipnote">🔒 Keys are encrypted server-side and <b>can't withdraw</b> your funds — they never leave your exchange.</div>
+    <button class="vipcta" onclick="closeWelcome(); show('exchange', qNav('exchange'))">🔌 Connect exchange &amp; start</button>
+    <button class="viplater" onclick="closeWelcome()">I'll explore first</button>
   </div>
 </div>
 

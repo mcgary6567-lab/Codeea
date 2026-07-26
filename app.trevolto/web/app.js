@@ -47,6 +47,7 @@ async function doAuth() {
     const totp = $("au-totp").value.trim(); if (totp) body.totp = totp;
     const d = await api("/api/" + (authMode === "reg" ? "register" : "login"), "POST", body);
     if (d.need_2fa) { $("tfa-field").classList.remove("hidden"); $("au-err").textContent = "Enter your 6-digit 2FA code."; $("au-totp").focus(); return; }
+    if (authMode === "reg") sessionStorage.setItem("just_registered", "1");   // → first-run welcome pop-up
     TOKEN = d.token; localStorage.setItem("trevolto_token", TOKEN); enterApp();
   } catch (e) { $("au-err").textContent = e.message; }
 }
@@ -81,7 +82,10 @@ function enterApp() {
   const foll = localStorage.getItem("ch_follow") !== "0";   // ON by default
   $("ch-follow").checked = foll; $("ch-sym").disabled = foll; $("ch-tf").disabled = foll;
   refresh(); openWs(); loadChart(); pollPrices(); updateNotifBtn(); registerSW(); if (browserNotifyOn()) subscribePush();
+  if (sessionStorage.getItem("just_registered")) { sessionStorage.removeItem("just_registered"); setTimeout(showWelcome, 700); }
 }
+function showWelcome() { const m = $("welcome-modal"); if (m) m.classList.remove("hidden"); }
+function closeWelcome() { const m = $("welcome-modal"); if (m) m.classList.add("hidden"); }
 
 // ---- browser / system notifications ----
 let lastAlertTs = 0, alertInit = false, unread = 0, seenTs = parseFloat(localStorage.getItem("bell_seen_ts") || "0"), newestAlertTs = 0;

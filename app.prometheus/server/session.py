@@ -139,12 +139,22 @@ def public_prices(exchange_id: str, symbols: list) -> dict:
 _GS_CACHE = {"v": None, "t": 0.0}
 
 
+WEEKEND_RESUME_HOUR = 18   # Sunday local hour the bot resumes taking new entries (evening re-open)
+
+
 def _is_weekend(tz_offset_hours: float = 0.0) -> bool:
-    """True on Saturday or Sunday, shifted by ``tz_offset_hours`` from UTC so the
-    weekend can follow the user's local time (weekday() 5=Sat, 6=Sun)."""
+    """Weekend hold window: all of Saturday and Sunday UP TO the evening re-open,
+    shifted by ``tz_offset_hours`` from UTC so it can follow the user's local time.
+    The bot resumes taking new entries on Sunday evening (``WEEKEND_RESUME_HOUR``
+    local) so it's live again for the Sunday-night market open (weekday() 5=Sat, 6=Sun)."""
     import datetime
     now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=tz_offset_hours or 0.0)
-    return now.weekday() >= 5
+    wd = now.weekday()
+    if wd == 5:
+        return True                                  # Saturday — held all day
+    if wd == 6:
+        return now.hour < WEEKEND_RESUME_HOUR        # Sunday — resumes in the evening
+    return False
 
 
 def _global_strategy() -> dict:
@@ -196,7 +206,7 @@ DEFAULT_SETTINGS = {
     "scale_in_trigger": 40.0,        # % of the entry->TP distance that must be covered
     "scale_in_size": 50.0,           # add-on size as % of the original trade
     "scale_in_be": True,             # move the first trade's stop to break-even on scale-in
-    "weekend_pause": False,          # hold new strategy entries on Sat & Sun. Opt-in.
+    "weekend_pause": False,          # hold new entries Sat → Sunday evening, then resume. Opt-in.
     "weekend_tz": 0.0,               # hours offset from UTC for the weekend window (per-user; 0 = UTC)
 }
 
@@ -679,14 +689,15 @@ class TraderSession:
         tp_partial = float(payload.get("tp_partial", 0) or 0)   # fraction closed at tp1 only
         side = action
 
-        # Weekend pause: hold automated (strategy / webhook) entries on Sat & Sun (UTC).
+        # Weekend pause: hold automated (strategy / webhook) entries from Saturday
+        # until Sunday evening, when the bot resumes for the Sunday-night re-open.
         # Manual orders always go through; open trades stay fully managed.
         if source in ("strategy", "webhook") and self.settings.get("weekend_pause") and _is_weekend(self.settings.get("weekend_tz", 0)):
-            self.log(f"Weekend pause — held {side.upper()} {symbol} (new entries paused Sat/Sun UTC)", "warn")
+            self.log(f"Weekend pause — held {side.upper()} {symbol} (new entries paused; resume Sunday evening)", "warn")
             store.record_trade(self.user_id, symbol=symbol, side=side, kind="signal",
                                status="blocked", note="weekend pause", mode=self._mode())
             if source == "strategy" and self.settings.get("alert_skips", False):
-                self.notify(f"🗓️ Weekend — skipped {side.upper()} {symbol}. New entries pause Sat/Sun (UTC).")
+                self.notify(f"🗓️ Weekend — skipped {side.upper()} {symbol}. New entries resume Sunday evening.")
             return {"ok": False, "message": "blocked: weekend pause"}
 
         allowed, reason = self.guard.check_entry(symbol, side, self._open_pairs())
