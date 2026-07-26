@@ -526,6 +526,9 @@ body.vip-eligible .vip-off{display:none!important}
 .vipbenefits li{font-size:13.5px;color:var(--mut);line-height:1.45;display:flex;gap:9px;align-items:flex-start}
 .vipbenefits li b{color:var(--txt)}
 .vipbenefits li span{flex:none;width:20px;height:20px;border-radius:50%;background:rgba(34,197,94,.15);color:#7dd3a0;display:grid;place-items:center;font-weight:900;font-size:11px;margin-top:1px}
+.vipprice{display:flex;align-items:baseline;justify-content:center;gap:9px;flex-wrap:wrap;margin:0 0 12px;padding:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:10px}
+.vipprice-amt{font-size:26px;font-weight:900;color:#fbbf24;letter-spacing:.01em}
+.vipprice-sub{font-size:12.5px;font-weight:600;color:var(--mut)}
 .vipnote{background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbd28a;margin-bottom:12px}
 .vipnote b{color:#fde68a}
 #vip-reason{width:100%;box-sizing:border-box;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;min-height:56px;resize:vertical;margin-bottom:12px}
