@@ -199,7 +199,7 @@ function render(s) {
   // VIP upsell — PAID (licensed) managed customers who haven't yet requested custom strategy.
   // Drives the top-bar button, the auto pop-up, AND every static VIP block in How-to-use
   // (via the body.vip-eligible class). Trial / expired / free users see nothing, anywhere.
-  { const eligible = !!(s.strategy_managed && !s.custom_requested && s.access && s.access.status === "licensed");
+  { const eligible = !!s.vip_eligible;   // server decides (paid + managed + new customer)
     document.body.classList.toggle("vip-eligible", eligible);
     const vb = $("st-vip"); if (vb) vb.classList.toggle("hidden", !eligible);
     if (eligible && !vipShown) {
@@ -493,10 +493,10 @@ function lockStrategy(st) {
   if (typeof mselSet === "function") mselSet(m.symbols || "BTC/USDT");
   setDis(true);
   if ($("strat-managed-banner")) $("strat-managed-banner").classList.remove("hidden");
-  // The upsell / request box is for PAID (licensed) customers only — trial & free
-  // managed users still see the "managed" banner above, just not the request button.
-  const paid = !!(st.access && st.access.status === "licensed");
-  if ($("strat-upgrade")) $("strat-upgrade").classList.toggle("hidden", !paid);
+  // The upsell / request box shows only to VIP-eligible customers (paid + managed +
+  // new) — or to anyone with a request already pending, so they still see its status.
+  const showBox = !!(st.vip_eligible || st.custom_requested);
+  if ($("strat-upgrade")) $("strat-upgrade").classList.toggle("hidden", !showBox);
   const btn = $("strat-req-btn"), status = $("strat-req-status");
   if (st.custom_requested) { if (btn) btn.classList.add("hidden"); if (status) status.innerHTML = "⏳ <b>Request pending</b> — we'll review it shortly."; }
   else { if (btn) btn.classList.remove("hidden"); if (status) status.textContent = ""; }

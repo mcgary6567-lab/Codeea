@@ -199,6 +199,30 @@ def _webhook_url(user: dict) -> str:
     return f"{base}/webhook/{user['webhook_token']}"
 
 
+# --- VIP (Custom Strategy) upsell audience -----------------------------------
+# Only customers who registered on/after this launch date see the VIP offer, so
+# long-standing ("old") paid customers aren't shown the upsell. Set to 0 to show
+# it to every paid customer, or raise/lower the date to move the cut-off.
+import datetime as _dt
+VIP_LAUNCH_TS = _dt.datetime(2026, 7, 26, tzinfo=_dt.timezone.utc).timestamp()
+
+
+def vip_eligible(user: dict) -> bool:
+    """Single source of truth for who sees the ⭐ Custom Strategy (VIP) offer —
+    the top-bar button, the pop-up, the How-to-use blocks and the request endpoint.
+
+    A PAID (licensed) customer, on the managed strategy, who registered after the
+    VIP launch and hasn't already requested / been granted Custom Strategy. Trial,
+    expired and long-standing ("old") customers are excluded."""
+    if store.entitlement(user).get("status") != "licensed":
+        return False                        # not a paying customer
+    if bool(user.get("allow_custom")):
+        return False                        # already has Custom Strategy
+    if bool(user.get("custom_requested")):
+        return False                        # already requested — UI shows "pending"
+    return float(user.get("created") or 0) >= VIP_LAUNCH_TS   # new customers only
+
+
 def full_state(user: dict) -> dict:
     """Snapshot + per-user fields — used by BOTH /api/state and the WebSocket so
     live updates never drop the licence/access status (fixes the stale banner)."""
@@ -217,6 +241,7 @@ def full_state(user: dict) -> dict:
     snap["allow_custom"] = _allow
     snap["strategy_managed"] = not _allow
     snap["custom_requested"] = bool(user.get("custom_requested"))
+    snap["vip_eligible"] = vip_eligible(user)   # gates the VIP button / pop-up / how-to blocks
     if not _allow:
         _gs = store.get_global_strategy()
         snap["managed_strategy"] = {"params": _gs.get("params", {}), "timeframe": _gs.get("timeframe", "15m"), "symbols": _gs.get("symbols", "BTC/USDT"), "execution": _gs.get("execution", {})}
@@ -681,12 +706,11 @@ async def admin_social_proof_set(request: Request, admin: dict = Depends(require
 # --- customer: request custom-strategy access -------------------------------
 @app.post("/api/strategy/request")
 async def strategy_request(request: Request, user: dict = Depends(current_user)):
-    # Custom Strategy (VIP) is a paid-customer perk — only an active licence may
-    # request it. This backs up the UI (which hides the offer from everyone else)
-    # so a trial / expired account can't request via a crafted call.
-    ent = store.entitlement(user)
-    if ent.get("status") != "licensed":
-        raise HTTPException(402, "Custom Strategy is available to licensed customers only.")
+    # Custom Strategy (VIP) is gated to the same audience the UI shows it to
+    # (see vip_eligible) — backs up the hidden button so a trial / expired / old
+    # account can't request it via a crafted call.
+    if not vip_eligible(user):
+        raise HTTPException(402, "Custom Strategy isn't available on this account.")
     d = await body(request)
     store.request_custom(user["id"], str(d.get("reason", "")))
     return {"ok": True}

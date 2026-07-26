@@ -27,18 +27,32 @@ from .config_web import POLL_INTERVAL
 _PUBLIC: dict = {}
 
 
-def public_ohlcv(exchange_id: str, symbol: str, timeframe: str, limit: int = 300) -> list:
+def public_ohlcv(exchange_id: str, symbol: str, timeframe: str, limit: int = 300,
+                 market_type: str = "spot") -> list:
+    """Keyless candle feed. ``market_type`` selects the right data class/defaultType
+    so a *futures* session that briefly has no live client still gets FUTURES candles
+    (not spot) — otherwise the chart / last-signal / setup meter would jump between
+    the spot and futures price basis and look inconsistent between accounts."""
     if not ex.CCXT_AVAILABLE:
         return []
     try:
-        client = _PUBLIC.get(exchange_id)
+        ccxt_id, default_type = ex.market_ccxt_spec(exchange_id, market_type)
+        key = ccxt_id if default_type == "spot" else f"{ccxt_id}:{default_type}"
+        client = _PUBLIC.get(key)
         if client is None:
             import ccxt
-            if exchange_id not in ccxt.exchanges:
+            if ccxt_id not in ccxt.exchanges:
                 return []
-            client = getattr(ccxt, exchange_id)({"enableRateLimit": True})
-            _PUBLIC[exchange_id] = client
-        return client.fetch_ohlcv(symbol, timeframe, limit=limit)
+            client = getattr(ccxt, ccxt_id)(
+                {"enableRateLimit": True, "options": {"defaultType": default_type}})
+            _PUBLIC[key] = client
+        sym = symbol
+        if default_type != "spot":
+            try:
+                sym = ex.resolve_market_symbol(client, symbol, "futures", exchange_id)
+            except Exception:  # noqa: BLE001 - fall back to the plain perp guess
+                sym = ex.perp_symbol(symbol, exchange_id)
+        return client.fetch_ohlcv(sym, timeframe, limit=limit)
     except Exception:
         return []
 
@@ -789,7 +803,8 @@ class TraderSession:
     # -- chart data (candles + strategy overlays) ----------------------------
     def chart_data(self, symbol: str, tf: str, limit: int = 300) -> dict:
         raw = self.em.fetch_ohlcv(symbol, tf, limit) or public_ohlcv(
-            self.exchange_id or "binance", ex.normalize_symbol(symbol), tf, limit)
+            self.exchange_id or "binance", ex.normalize_symbol(symbol), tf, limit,
+            self.market_type)
         if len(raw) < 40:
             return {"candles": [], "fast": [], "slow": [], "trend": [], "markers": []}
         closed = raw[:-1]
