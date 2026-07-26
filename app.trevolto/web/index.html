@@ -192,10 +192,11 @@
             <select id="ch-tf" style="width:auto"><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
             <button class="btn ghost sm" onclick="loadChart()">🔄 Load</button>
             <label class="chkline" style="margin:0;font-size:12px;white-space:nowrap"><input type="checkbox" id="ch-follow" onchange="chFollowToggle()"/> Follow strategy</label>
-            <span class="grow"></span>
-            <button class="btn ghost sm" onclick="chZoom(0.8)">＋</button>
-            <button class="btn ghost sm" onclick="chZoom(1.25)">－</button>
-            <button class="btn ghost sm" onclick="chReset()">↺ Reset</button>
+            <div class="chart-tools">
+              <button class="btn ghost sm" onclick="chReset()">↺ Reset</button>
+              <button class="btn ghost sm" onclick="chZoom(0.8)" aria-label="Zoom in">＋</button>
+              <button class="btn ghost sm" onclick="chZoom(1.25)" aria-label="Zoom out">－</button>
+            </div>
           </div>
           <div class="chart-topbar"><div class="chlegend" id="ch-legend"></div><div class="ch-sig hidden" id="ch-sig"><div class="ch-sig-top"><span class="ch-sig-badge" id="ch-sig-badge">📶 SIGNAL</span><span class="ch-sig-state" id="ch-sig-state"></span><span class="ch-sig-pct" id="ch-sig-pct"></span></div><div class="ch-sig-u"><i id="ch-sig-fill"></i></div></div><div class="ch-news" id="ch-news"><span class="ch-news-k">📰 NEWS TRADING</span><button class="ch-news-btn" id="ch-news-btn" type="button" role="switch" aria-checked="true" aria-label="News trading. Turn OFF to pause new trades one hour before and after high-impact USD news." onclick="toggleNews()"><span class="ch-news-dot"></span><span class="ch-news-lbl" id="ch-news-lbl">ON</span></button><span class="ch-news-flag hidden" id="ch-news-flag"></span><span class="ch-news-tip" role="tooltip">Click <b>OFF</b> to pause new trades for <b>1 hour before &amp; after</b> high-impact <b>USD</b> news — FOMC, CPI, jobs. Open trades stay fully managed.</span></div><div class="ch-ohlc" id="ch-ohlc"></div></div>
           <div id="ch-price" class="tvchart"></div>
