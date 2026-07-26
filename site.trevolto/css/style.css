@@ -821,3 +821,7 @@ img { max-width: 100%; display: block; }
 /* ===== Article featured cover image ===== */
 .article-cover { display: block; width: 100%; max-width: 860px; height: auto; margin: 0 auto 8px; border-radius: 14px; box-shadow: 0 20px 50px rgba(16,24,40,0.14); }
 .article-cover-wrap { padding: 0 20px; margin-top: 8px; }
+
+/* Why-Trevolto pillars CTA */
+.why__cta{text-align:center;margin-top:34px}
+.why__cta .btn{display:inline-flex}
