@@ -200,6 +200,16 @@
         <div class="tablewrap" style="max-height:300px;overflow:auto"><table><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Detail</th></tr></thead>
           <tbody id="audit-rows"><tr><td colspan="4" class="k">—</td></tr></tbody></table></div>
       </div>
+      <div class="card">
+        <h3>💾 Backup &amp; restore <span class="chip">whole database</span></h3>
+        <div class="hint">One-click <b>export</b> downloads the entire database — every customer, encrypted key, trade &amp; licence — as a single backup file. <b>Import</b> restores it (e.g. when moving to a new server).</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn green sm" onclick="exportDb()">⬇️ Export database</button>
+          <input type="file" id="db-import-file" accept=".db,.sqlite" style="display:none" onchange="importDb()"/>
+          <button class="btn ghost sm" onclick="document.getElementById('db-import-file').click()">⬆️ Import database…</button>
+        </div>
+        <div class="hint" style="margin-top:8px">⚠️ Import <b>overwrites</b> all current data. Encrypted API keys only decrypt if the new server uses the <b>same SECRET_KEY</b>. Restart the app after importing.</div>
+      </div>
     </div>
   </div>
 </div>

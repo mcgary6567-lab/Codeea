@@ -136,6 +136,78 @@ def init_db() -> None:
                 c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
 
 
+# --- backup / restore (admin) ----------------------------------------------
+def export_db() -> bytes:
+    """A consistent, whole-database snapshot as SQLite bytes (online backup —
+    safe while the app is running)."""
+    import os
+    import tempfile
+    with _LOCK:
+        fd, tmp = tempfile.mkstemp(suffix=".db", dir=os.path.dirname(DB_PATH) or None)
+        os.close(fd)
+        try:
+            src = sqlite3.connect(DB_PATH)
+            dst = sqlite3.connect(tmp)
+            with dst:
+                src.backup(dst)
+            dst.close(); src.close()
+            with open(tmp, "rb") as f:
+                return f.read()
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def import_db(data: bytes) -> dict:
+    """Replace the whole database with an uploaded SQLite snapshot, after
+    validating it. Atomic file swap on the DB's own filesystem; WAL side-files
+    are checkpointed and cleared first. A restart is recommended afterwards so
+    any in-memory sessions pick up the restored data."""
+    import os
+    import tempfile
+    if data[:16] != b"SQLite format 3\x00":
+        raise ValueError("not a SQLite database file")
+    dbdir = os.path.dirname(DB_PATH) or "."
+    fd, tmp = tempfile.mkstemp(suffix=".db", dir=dbdir)
+    os.close(fd)
+    try:
+        with open(tmp, "wb") as f:
+            f.write(data)
+        v = sqlite3.connect(tmp)
+        tables = {r[0] for r in v.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "users" not in tables:
+            v.close()
+            raise ValueError("not a valid backup — no 'users' table")
+        nusers = v.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        v.close()
+        with _LOCK:
+            try:
+                c = sqlite3.connect(DB_PATH)
+                c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                c.close()
+            except Exception:  # noqa: BLE001
+                pass
+            for ext in ("-wal", "-shm"):
+                p = DB_PATH + ext
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+            os.replace(tmp, DB_PATH)   # atomic
+            tmp = None
+            init_db()                  # migrate any missing columns on the restored DB
+        return {"ok": True, "users": int(nusers), "tables": len(tables)}
+    finally:
+        if tmp and os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
 # --- users ------------------------------------------------------------------
 def create_user(email: str, password: str, first_name: str = "", last_name: str = "") -> dict:
     email = email.strip().lower()

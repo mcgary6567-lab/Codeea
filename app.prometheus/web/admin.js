@@ -497,4 +497,35 @@ function notify(msg, type = "ok") {
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 
+async function exportDb() {
+  try {
+    const r = await fetch("/api/admin/export", { headers: { Authorization: "Bearer " + TOKEN } });
+    if (!r.ok) throw new Error("Export failed (" + r.status + ")");
+    const blob = await r.blob();
+    const cd = r.headers.get("Content-Disposition") || "";
+    const m = cd.match(/filename="?([^"]+)"?/);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = m ? m[1] : "database_backup.db";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    notify("Database exported ✓", "ok");
+  } catch (e) { notify(e.message, "error"); }
+}
+async function importDb() {
+  const inp = document.getElementById("db-import-file");
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  if (!confirm("Replace the ENTIRE database with \"" + f.name + "\"?\n\nAll current data will be overwritten. Encrypted API keys only decrypt with the same SECRET_KEY. Restart the app after importing.")) { inp.value = ""; return; }
+  try {
+    const fd = new FormData(); fd.append("file", f);
+    const r = await fetch("/api/admin/import", { method: "POST", headers: { Authorization: "Bearer " + TOKEN }, body: fd });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "Import failed");
+    notify("Imported ✓ — " + d.users + " customers restored. Restart the app to fully apply.", "ok");
+    await reloadAll();
+  } catch (e) { notify(e.message, "error"); }
+  finally { inp.value = ""; }
+}
+
 if (TOKEN) boot(); else showGate();

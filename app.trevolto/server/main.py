@@ -15,8 +15,8 @@ import time
 # Put the trading engine (flat-import modules) on the path BEFORE importing it.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "engine"))
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 import backtest as bt
@@ -591,6 +591,31 @@ def candles(symbol: str = "BTC/USDT", timeframe: str = "1h", limit: int = 300,
 
 
 # --- admin ------------------------------------------------------------------
+@app.get("/api/admin/export")
+def admin_export(admin: dict = Depends(require_admin)):
+    """Download the entire database as a single SQLite backup file."""
+    import os
+    data = store.export_db()
+    store.record_audit(admin["email"], "export_db", 0, f"{len(data)} bytes")
+    fname = os.path.basename(store.DB_PATH).replace(".db", f"_backup_{int(time.time())}.db")
+    return Response(content=data, media_type="application/octet-stream",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@app.post("/api/admin/import")
+async def admin_import(admin: dict = Depends(require_admin), file: UploadFile = File(...)):
+    """Replace the database with an uploaded SQLite backup (restore/migrate)."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "Empty file.")
+    try:
+        res = store.import_db(data)
+    except Exception as e:                     # noqa: BLE001
+        raise HTTPException(400, f"Import failed: {e}")
+    store.record_audit(admin["email"], "import_db", 0, f"users={res.get('users')}")
+    return res
+
+
 @app.get("/api/admin/users")
 def admin_users(admin: dict = Depends(require_admin)):
     live = live_stats()["per_user"]
