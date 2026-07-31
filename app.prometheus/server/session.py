@@ -264,7 +264,8 @@ class TraderSession:
         self._strat: threading.Thread | None = None
         self._strat_primed: dict = {}
         self._strat_hold: dict = {}
-        self._sig_alerted: dict = {}       # per-symbol: fired the >=85% alert this run
+        self._sig_alerted: dict = {}       # per-symbol: side we last fired the >=85% "get ready" alert for
+        self._sig_alert_ts: dict = {}      # per-symbol: epoch of that last alert (rate-limits re-fires)
         self.signal: dict = None           # latest signal-strength meter {pct,state,side,symbol}
         self._news_alerted: str = ""       # event key we've already warned about (blackout)
         self._strat_version = None      # last logged "why held" reason per symbol
@@ -952,13 +953,20 @@ class TraderSession:
             sig = {"pct": 0, "state": "", "side": ""}
         self.signal = dict(sig, symbol=symbol)
         pct, sd = int(sig.get("pct", 0)), sig.get("side", "")
-        if pct >= 85 and sd and not acted and not blackout and not self._sig_alerted.get(symbol):
-            self._sig_alerted[symbol] = True
-            word = "BUY" if sd == "long" else "SELL"
-            self.notify(f"⚡ {word} signal firing on {symbol} — strength {pct}%. "
-                        f"A {'long' if sd == 'long' else 'short'} entry is lining up — the bot is getting ready to trade.")
+        if pct >= 85 and sd and not acted and not blackout:
+            # Fire the "get ready" alert once per genuine build-up, and at most once
+            # every 30 min per symbol — so strength wobbling around the 85% line
+            # (85 → dip → 85 → …) can't fire the same alert again and again.
+            last = self._sig_alert_ts.get(symbol, 0.0)
+            if self._sig_alerted.get(symbol) != sd and (time.time() - last) >= 1800:
+                self._sig_alerted[symbol] = sd
+                self._sig_alert_ts[symbol] = time.time()
+                word = "BUY" if sd == "long" else "SELL"
+                self.notify(f"⚡ {word} signal firing on {symbol} — strength {pct}%. "
+                            f"A {'long' if sd == 'long' else 'short'} entry is lining up — the bot is getting ready to trade.")
         elif pct < 70:
-            self._sig_alerted[symbol] = False
+            # Strength has clearly backed off — disarm so the *next* real build-up can alert.
+            self._sig_alerted[symbol] = None
 
     def _news_hold(self, symbol: str, side: str, bl: dict) -> None:
         """Log (and alert once) when a fresh entry is held back by the news filter."""

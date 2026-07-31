@@ -388,6 +388,11 @@ th{color:var(--mut);font-weight:600;font-size:12px;position:sticky;top:0;backgro
 .gs-tile{background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:9px 10px;text-align:center}
 .gs-tile span{display:block;color:var(--mut);font-size:11px;margin-bottom:3px}
 .gs-tile b{font-size:15px}
+.gs-chat{display:flow-root}
+.gs-msg{max-width:82%;padding:8px 11px;border-radius:12px;font-size:12.5px;line-height:1.5;margin-bottom:7px;clear:both;word-break:break-word}
+.gs-msg.you{float:right;background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.gs-msg.bot{float:left;background:var(--chip);border:1px solid var(--line);color:var(--txt);border-bottom-left-radius:3px;font-family:ui-monospace,Menlo,monospace}
+.gcode{font-family:ui-monospace,Menlo,monospace;background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;color:var(--txt);white-space:nowrap}
 .gs-curve{background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:8px;height:60px}
 .gs-curve svg{width:100%;height:100%}
 .gfaq h3{margin:0 0 12px}
@@ -480,7 +485,9 @@ th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--accen
    panel to it pushed it off-screen (left OR right). Pin it to the viewport
    instead — full width just below the sticky topbar — so it always fits. */
 @media(max-width:640px){.bell-panel{position:fixed;top:90px;left:10px;right:10px;width:auto;max-width:none}}
-.bell-head{padding:11px 14px;font-weight:700;font-size:13px;border-bottom:1px solid var(--line)}
+.bell-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;font-weight:700;font-size:13px;border-bottom:1px solid var(--line)}
+.bell-clear{background:transparent;border:1px solid var(--line);color:var(--mut);font-size:11.5px;font-weight:600;border-radius:7px;padding:4px 9px;cursor:pointer;transition:.15s}
+.bell-clear:hover{border-color:var(--red);color:var(--red)}
 .bell-list{max-height:60vh;overflow:auto}
 .bell-item{padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5}
 .bell-item:last-child{border-bottom:none}

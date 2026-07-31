@@ -107,7 +107,7 @@
     <div class="bell-wrap">
       <button class="bell-btn" id="bell-btn" onclick="toggleBell()">🔔<span class="bell-badge hidden" id="bell-badge">0</span></button>
       <div class="bell-panel hidden" id="bell-panel">
-        <div class="bell-head">Alerts</div>
+        <div class="bell-head"><span>Alerts</span><button class="bell-clear" id="bell-clear" onclick="clearBell()">Clear all</button></div>
         <div class="bell-list" id="bell-list"><div class="bell-empty">No alerts yet.</div></div>
       </div>
     </div>
@@ -556,6 +556,7 @@
             <span class="gstep" onclick="show('home',qNav('home'))"><span class="gs-n">4</span> Go live</span>
             <span class="gstep" onclick="show('analytics',qNav('analytics'))"><span class="gs-n">5</span> Track</span>
             <span class="gstep" onclick="show('settings',qNav('settings'))"><span class="gs-n">6</span> Security</span>
+            <span class="gstep" onclick="show('settings',qNav('settings'))"><span class="gs-n">7</span> Telegram bot</span>
             <span class="gstep gstep-help" onclick="document.getElementById('troubleshoot').scrollIntoView({behavior:'smooth',block:'start'})">🛠️ Help &amp; fixes</span>
           </div>
         </div>
@@ -695,6 +696,39 @@
               <div class="gs-field"><span>🖥️ Sessions</span><i>Sign out all devices</i></div>
             </div>
             <p class="gtip">💡 Set Telegram once, tap <b>✈️ Send test</b> to confirm, enable notifications, and you're covered on every device.</p>
+          </div>
+        </div>
+
+        <div class="card gcard">
+          <div class="gnum">7</div>
+          <div class="gbody">
+            <h3>✈️ Make your Telegram bot &amp; control the system by command</h3>
+            <p>Set this up once and you can run everything from your phone — check status, pause, resume or close all trades — just by messaging your own bot. It takes about <b>3 minutes</b>.</p>
+            <ul class="glist">
+              <li><b>1 · Open @BotFather</b> — in Telegram, search <b>BotFather</b> (the one with the blue tick), tap <b>Start</b>, then send <b>/newbot</b>.</li>
+              <li><b>2 · Name it</b> — pick any name, then a username ending in <b>bot</b> (e.g. <i>my_trading_bot</i>). BotFather replies with a <b>bot token</b> that looks like <span class="gcode">1234567890:AAE…xyz</span> — copy it.</li>
+              <li><b>3 · Get your Chat ID</b> — search <b>@userinfobot</b>, tap <b>Start</b>, and it replies with your numeric <b>Id</b>. Copy that number.</li>
+              <li><b>4 · Say hi to your bot</b> — open the bot you just made and tap <b>Start</b> once, so Telegram allows it to message you.</li>
+              <li><b>5 · Paste into the app</b> — go to <b>Settings → Telegram notifications</b>, paste the <b>token</b> and <b>Chat ID</b>, then tap <b>✈️ Send test</b>. You'll get a test message — you're linked.</li>
+            </ul>
+            <p style="margin-top:14px"><b>Now message your bot any of these — from anywhere:</b></p>
+            <div class="gshot gs-chat">
+              <div class="gs-topbar"><span class="gs-dot on"></span> Your bot · online</div>
+              <div class="gs-msg you">/status</div>
+              <div class="gs-msg bot">🟢 Connected · Binance<br>Strategy: running<br>Balance: 1,240.55 · uPnL: +18.30<br>Open: 2 · live</div>
+              <div class="gs-msg you">/pause</div>
+              <div class="gs-msg bot">⏸️ Strategy paused.</div>
+            </div>
+            <div class="gshot">
+              <div class="gs-field"><span>/status</span><i>Connection, strategy, balance &amp; open trades</i></div>
+              <div class="gs-field"><span>/pnl</span><i>Realized PnL — 24h + all-time</i></div>
+              <div class="gs-field"><span>/positions</span><i>List every open position</i></div>
+              <div class="gs-field"><span>/pause</span><i>Stop opening new trades</i></div>
+              <div class="gs-field"><span>/resume</span><i>Start the strategy again</i></div>
+              <div class="gs-field"><span>/closeall</span><i>Close all open positions now</i></div>
+              <div class="gs-field"><span>/help</span><i>Show the full command list</i></div>
+            </div>
+            <p class="gtip">🔒 Only your own linked chat can send commands — nobody else can control your bot, even if they learn its name.</p>
           </div>
         </div>
 

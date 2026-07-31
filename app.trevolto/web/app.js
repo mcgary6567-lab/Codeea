@@ -88,7 +88,7 @@ function showWelcome() { const m = $("welcome-modal"); if (m) m.classList.remove
 function closeWelcome() { const m = $("welcome-modal"); if (m) m.classList.add("hidden"); }
 
 // ---- browser / system notifications ----
-let lastAlertTs = 0, alertInit = false, unread = 0, seenTs = parseFloat(localStorage.getItem("bell_seen_ts") || "0"), newestAlertTs = 0;
+let lastAlertTs = 0, alertInit = false, unread = 0, seenTs = parseFloat(localStorage.getItem("bell_seen_ts") || "0"), newestAlertTs = 0, clearedTs = parseFloat(localStorage.getItem("bell_cleared_ts") || "0");
 function notifIcon() { const i = document.querySelector('.brand img'); return i ? i.src : ""; }
 function notifTitle() { const i = document.querySelector('.brand img'); return (i && i.alt) || "Alert"; }
 function browserNotifyOn() { return localStorage.getItem("notif") === "1" && "Notification" in window && Notification.permission === "granted"; }
@@ -102,7 +102,7 @@ function toggleNotif() {
   });
 }
 function processAlerts(s) {
-  const a = s.alerts || [];
+  const a = (s.alerts || []).filter(x => x.ts > clearedTs);   // hide alerts the user cleared
   renderBell(a);
   if (a.length) newestAlertTs = a[0].ts;
   unread = a.filter(x => x.ts > seenTs).length;   // persistent unseen count (survives reloads)
@@ -127,6 +127,7 @@ function renderBell(a) {
 }
 function updateBadge() { const b = $("bell-badge"); if (!b) return; b.textContent = unread > 9 ? "9+" : unread; b.classList.toggle("hidden", unread <= 0); const btn = $("bell-btn"); if (btn) btn.classList.toggle("has-unread", unread > 0); }
 function toggleBell() { const p = $("bell-panel"); if (!p) return; p.classList.toggle("hidden"); if (!p.classList.contains("hidden")) { seenTs = newestAlertTs || (Date.now() / 1000); localStorage.setItem("bell_seen_ts", String(seenTs)); unread = 0; updateBadge(); } }
+function clearBell() { clearedTs = Math.max(clearedTs, newestAlertTs, Date.now() / 1000); localStorage.setItem("bell_cleared_ts", String(clearedTs)); unread = 0; newestAlertTs = 0; renderBell([]); updateBadge(); }
 document.addEventListener("click", e => { const p = $("bell-panel"); if (p && !p.classList.contains("hidden") && !e.target.closest(".bell-wrap")) p.classList.add("hidden"); });
 
 
