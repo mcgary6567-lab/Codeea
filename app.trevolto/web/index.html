@@ -166,7 +166,7 @@
           </div>
           <div class="kpi">
             <div class="kpi-lab"><span class="eyebrow">Bot status</span><span class="delta" id="t-strat-chip">—</span></div>
-            <div class="kpi-big" id="t-strat" style="font-size:15.5px">⚪ Bot is off</div>
+            <div class="kpi-big" id="t-strat" style="font-size:15.5px"><span class="dot off"></span> Bot is off</div>
             <div class="kpi-sub" id="t-sig-note" style="margin-top:12px;font-weight:600">No signal yet</div>
           </div>
         </div>
@@ -174,7 +174,7 @@
         <div class="card" id="pnl-compare-card" style="display:none">
           <h3>Paper vs Live — realized PnL</h3>
           <div class="grid2">
-            <div class="pcompare live"><div class="k">🟢 LIVE</div>
+            <div class="pcompare live"><div class="k"><span class="dot on"></span> LIVE</div>
               <div class="v mono" id="pc-live-pnl">—</div>
               <div class="k"><span id="pc-live-tr">0</span> trades · <span id="pc-live-wr">0</span>% win</div></div>
             <div class="pcompare paper"><div class="k">📝 PAPER</div>
@@ -531,9 +531,9 @@
               <tbody id="login-rows"><tr><td colspan="3" class="k">—</td></tr></tbody></table></div>
             <button class="btn red" style="margin-top:12px" onclick="logoutAll()">🚪 Sign out all other devices</button>
           </div>
-          <div class="card"><h3>🩺 Diagnostics — self-test</h3>
+          <div class="card"><h3>🔧 Diagnostics — self-test</h3>
             <div class="hint">Run an end-to-end check of your account: database, trading library, exchange connection &amp; balance, market-data feed, strategy loop and licence.</div>
-            <button class="btn ghost" style="margin-top:10px" id="selftest-btn" onclick="runSelfTest()">🩺 Run self-test</button>
+            <button class="btn ghost" style="margin-top:10px" id="selftest-btn" onclick="runSelfTest()">🔧 Run self-test</button>
             <div id="selftest-out" class="hidden" style="margin-top:12px"></div>
           </div>
         </div>
@@ -715,7 +715,7 @@
             <div class="gshot gs-chat">
               <div class="gs-topbar"><span class="gs-dot on"></span> Your bot · online</div>
               <div class="gs-msg you">/status</div>
-              <div class="gs-msg bot">🟢 Connected · Binance<br>Strategy: running<br>Balance: 1,240.55 · uPnL: +18.30<br>Open: 2 · live</div>
+              <div class="gs-msg bot"><span class="dot on"></span> Connected · Binance<br>Strategy: running<br>Balance: 1,240.55 · uPnL: +18.30<br>Open: 2 · live</div>
               <div class="gs-msg you">/pause</div>
               <div class="gs-msg bot">⏸️ Strategy paused.</div>
             </div>

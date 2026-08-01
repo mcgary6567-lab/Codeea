@@ -274,7 +274,7 @@ function render(s) {
   setBar("t-exp-meter", expPct);
   setT("t-exp-pct", fmt(expPct, 0) + "% of balance deployed");
   // bot status + signal
-  setT("t-strat", s.strategy_on ? "🟢 Bot is Running" : (s.strategy_enabled ? "🟡 Bot is idle" : "⚪ Bot is off"));
+  { const st = $("t-strat"); if (st) st.innerHTML = s.strategy_on ? '<span class="dot on"></span> Bot is Running' : (s.strategy_enabled ? '<span class="dot warn"></span> Bot is idle' : '<span class="dot off"></span> Bot is off'); }
   const sc = $("t-strat"); if (sc) sc.className = "kpi-big " + (s.strategy_on ? "pos" : (s.strategy_enabled ? "" : "neg"));
   const chip = $("t-strat-chip"); if (chip) { chip.textContent = s.strategy_on ? "RUNNING" : (s.strategy_enabled ? "IDLE" : "OFF"); chip.className = "delta " + (s.strategy_on ? "up" : ""); }
   setBotSigNote();
@@ -957,7 +957,7 @@ async function runSelfTest() {
     out.innerHTML = `<div class="st-head bad">⚠️ ${e.message}</div>`;
     out.classList.remove("hidden");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "🩺 Run self-test"; }
+    if (btn) { btn.disabled = false; btn.textContent = "🔧 Run self-test"; }
   }
 }
 function notify(msg, type = "ok") {

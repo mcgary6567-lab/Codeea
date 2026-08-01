@@ -75,6 +75,8 @@ label.chkline input{width:auto}
 .conn{font-size:13px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--red);display:inline-block}
 .dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.warn{background:#f5a623;box-shadow:0 0 8px rgba(245,166,35,.55)}
+.dot.off{background:var(--mut);box-shadow:none}
 .chip{font-size:11px;padding:4px 9px;border-radius:20px;background:var(--chip);border:1px solid var(--line);color:var(--mut);white-space:nowrap}
 .chip.safe{color:var(--green);border-color:var(--green)}
 .chip.warn{color:var(--amber);border-color:var(--amber)}
