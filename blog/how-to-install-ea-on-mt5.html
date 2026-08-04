@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#F59E0B">
+<title>How to Install an EA on MT5 (Step-by-Step 2026) | Gold Scalpers</title>
+<meta name="description" content="Install an MT5 Expert Advisor in minutes: copy the .ex5 into the Experts folder, enable AutoTrading, attach it to the chart, and verify the smiley.">
+<meta name="keywords" content="How, Install, MT5, Step, gold scalping, XAUUSD, MT5 EA, Gold Scalpers EA">
+<link rel="canonical" href="https://goldscalpers.com/blog/how-to-install-ea-on-mt5">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/how-to-install-ea-on-mt5">
+<meta property="og:title" content="How to Install an EA on MT5 (Step-by-Step 2026)">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://goldscalpers.com/blog/how-to-install-ea-on-mt5">
+<meta property="og:image" content="https://goldscalpers.com/og-image.png">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Install an EA on MT5 (Step-by-Step 2026)">
+<meta name="twitter:description" content="Install an MT5 Expert Advisor in minutes: copy the .ex5 into the Experts folder, enable AutoTrading, attach it to the chart, and verify the smiley.">
+<meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
+<link rel="stylesheet" href="../assets/styles.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Install an EA on MT5 (Step-by-Step 2026)","datePublished":"2026-06-26","dateModified":"2026-07-07","author":{"@type":"Person","name":"Gold Scalpers Research Team","url":"https://goldscalpers.com","jobTitle":"Trading Strategy Research"},"publisher":{"@type":"Organization","name":"Gold Scalpers","logo":{"@type":"ImageObject","url":"https://goldscalpers.com/og-image.png","width":1200,"height":630}},"image":"https://goldscalpers.com/og-image.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://goldscalpers.com/blog/how-to-install-ea-on-mt5"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"How to Install an Expert Advisor (EA) on MetaTrader 5","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Open the data folder","text":"In MT5 click File > Open Data Folder, then open MQL5 > Experts."},{"@type":"HowToStep","position":2,"name":"Copy the EA file","text":"Copy the EA's .ex5 (or .mq5) file into the Experts folder."},{"@type":"HowToStep","position":3,"name":"Refresh the Navigator","text":"Right-click Expert Advisors in the Navigator and choose Refresh."},{"@type":"HowToStep","position":4,"name":"Enable AutoTrading","text":"Click the AutoTrading button so it turns green."},{"@type":"HowToStep","position":5,"name":"Attach the EA to a chart","text":"Open the correct symbol/timeframe, drag the EA on, tick Allow Algo Trading, set inputs."},{"@type":"HowToStep","position":6,"name":"Verify it is running","text":"Confirm the smiley face shows in the top-right of the chart."}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Where do I put the EA file in MT5?","acceptedAnswer":{"@type":"Answer","text":"File > Open Data Folder > MQL5 > Experts. Copy the .ex5 there, then right-click Expert Advisors in the Navigator and Refresh."}},{"@type":"Question","name":"Why is my EA not trading on MT5?","acceptedAnswer":{"@type":"Answer","text":"Usually AutoTrading is off, Allow Algo Trading wasn't ticked, there's a sad face, the wrong symbol/timeframe is loaded, the market is closed, or the spread is above the EA's filter."}},{"@type":"Question","name":"What does the smiley face mean on an MT5 chart?","acceptedAnswer":{"@type":"Answer","text":"A smiley in the top-right means the EA is active and allowed to trade. A sad face means algo trading is disabled. No face means no EA is attached."}},{"@type":"Question","name":"Can I run the same EA on multiple charts or computers?","acceptedAnswer":{"@type":"Answer","text":"Yes - use a unique magic number per chart, and copy the .ex5 to each machine's Experts folder. Gold Scalpers EA has no device lock."}},{"@type":"Question","name":"What is the difference between an .ex5 and an .mq5 file?","acceptedAnswer":{"@type":"Answer","text":".mq5 is source code; .ex5 is the compiled runnable version. Run an .ex5 directly, or compile an .mq5 in MetaEditor with F7."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://goldscalpers.com/blog"},{"@type":"ListItem","position":3,"name":"How to Install an EA on MT5","item":"https://goldscalpers.com/blog/how-to-install-ea-on-mt5"}]}</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/prop-firms/">Prop Firms</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a>
+    </div>
+  </div>
+</nav>
+
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">Setup Guide</span>
+    <h1>How to Install an EA on MT5 (Step-by-Step)</h1>
+    <div class="article-meta"><span>📅 June 26, 2026</span><span>⏱ 6 min read</span></div>
+    <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team · Reviewed for accuracy 2026-07-07</div>
+  </div>
+</section>
+
+<article class="article-body">
+<p>Installing an Expert Advisor on <strong>MetaTrader 5</strong> takes about five minutes. Here's the whole process — copy the file, enable AutoTrading, attach to a chart, confirm it's running — plus a troubleshooting checklist. No EA yet? See the <a href="/blog/best-mt5-expert-advisors-2026">best MT5 EAs of 2026</a>.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Before you start</h2>
+  <p>You need MT5 installed and logged into a broker (demo is fine), plus your EA file — an <code>.ex5</code> (ready to run) or <code>.mq5</code> (source you compile).</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 1 — Open the data folder</h2>
+  <p>In MT5: <strong>File ▸ Open Data Folder</strong>, then open <code>MQL5</code> ▸ <code>Experts</code>.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>Step 2 — Copy the EA file in</h2>
+  <p>Copy your <code>.ex5</code> into that <code>Experts</code> folder (an <code>.mq5</code> works too — you'll compile it next).</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 3 — Refresh the Navigator</h2>
+  <p>Back in MT5, right-click <strong>Expert Advisors</strong> in the Navigator (Ctrl+N) and choose <strong>Refresh</strong>. For an <code>.mq5</code>, double-click it and press <strong>F7</strong> in MetaEditor to compile.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Step 4 — Enable AutoTrading</h2>
+  <p>Click the <strong>AutoTrading</strong> toolbar button so it turns <strong>green</strong> — the master switch for all EAs.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Step 5 — Attach the EA to a chart</h2>
+  <p>Open the right symbol/timeframe (Gold Scalpers EA runs on <strong>XAUUSD</strong>), drag the EA on, then in the dialog tick <strong>Allow Algo Trading</strong> (Common tab), set inputs (Inputs tab), and click OK.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 6 — Verify it's running</h2>
+  <p>Top-right of the chart: a <strong>smiley 🙂</strong> = active and allowed to trade; a <strong>sad face ☹</strong> = algo trading disabled (recheck Steps 4–5). Watch the Experts/Journal tabs (Ctrl+T).</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Multiple charts or devices</h2>
+  <p>Use a unique <strong>magic number</strong> per chart, and copy the <code>.ex5</code> to each computer's Experts folder. <strong>Gold Scalpers EA has no device lock</strong> — install and backtest it on multiple devices freely.</p>
+
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Sad face</td><td>Tick "Allow Algo Trading" and turn AutoTrading green</td></tr>
+      <tr><td>No face</td><td>Drag the EA onto the chart again</td></tr>
+      <tr><td>Loaded but no trades</td><td>Wrong symbol/timeframe, market closed, or no signal yet</td></tr>
+      <tr><td>Trades rejected</td><td>Spread above filter, low margin, or invalid lot</td></tr>
+      <tr><td>EA missing</td><td>Not in MQL5\Experts, or needs Refresh/recompile</td></tr>
+    </tbody>
+  </table>
+  <p>Next: <a href="/blog/how-to-backtest-mt5-ea">backtest it</a> and forward-test on demo before going live.</p>
+
+  <div class="cta-banner">
+    <h3>Ready to install Gold Scalpers EA?</h3>
+    <p>An automated XAUUSD gold scalping EA with built-in risk controls. No device lock. One-time $220, 14-day money-back guarantee.</p>
+    <p><a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $220</a></p>
+  </div>
+</article>
+
+<section class="related-posts">
+  <h3>Related Articles</h3>
+  <div class="blog-grid">
+    <article class="blog-card"><a href="/blog/best-mt5-expert-advisors-2026"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>Best MetaTrader 5 Expert Advisors (EA) in 2026</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/how-to-backtest-mt5-ea"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>How to Backtest an MT5 Expert Advisor</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/best-gold-scalping-ea-mt5"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>Best Gold Scalping EA for MT5 (2026): How to Choose One That Survives</h3></div></a></article>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <a href="/" class="logo" style="text-decoration:none">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg> Gold Scalpers
+      </a>
+      <p style="color:var(--text-muted);font-size:0.9rem;max-width:340px;margin-top:1rem">Precision reversal signals for XAUUSD, USDJPY, and GBPJPY. Built for serious traders who refuse to miss setups.</p>
+      <div class="footer-socials">
+        <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+      </div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/#how">How it works</a></li>
+        <li><a href="/prop-firms/">Prop Firms</a></li>
+        <li><a href="/blog/">Blog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="/telegram-setup-guide">Telegram Setup Guide</a></li>
+        <li><a href="/affiliate">Affiliate Program</a></li>
+        <li><a href="/support">Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms-of-service">Terms of Service</a></li>
+        <li><a href="/privacy-policy">Privacy Policy</a></li>
+        <li><a href="/risk-disclaimer">Risk Disclaimer</a></li>
+        <li><a href="/refund-policy">Refund Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-disclaimer">© 2026 Gold Scalpers. Not affiliated with or endorsed by any prop firm; all firm names are trademarks of their owners. Trading involves substantial risk of loss. Past performance does not guarantee future results. Nothing in this article is financial advice.</div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>
