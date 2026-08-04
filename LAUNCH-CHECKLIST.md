@@ -187,7 +187,7 @@ You need an audience BEFORE you sell. Otherwise you're shouting into the void.
 | Stripe rejected business | Switch to Gumroad or Whop |
 | Site not loading | Check Cloudflare DNS settings |
 | Pine Script syntax error | Refer to `docs/07-support-faq.md` |
-| Customer wants refund | Honor it within 14 days, no questions |
+| Customer wants refund | Honor it within 60 days, no questions |
 
 ---
 
