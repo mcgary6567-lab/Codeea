@@ -10,36 +10,55 @@
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#F59E0B">
 
-<title>Verified Live Results – Gold Scalpers EA | Real-Money Myfxbook</title>
-<meta name="description" content="Independently verified live trading results for the Gold Scalpers EA (MetaTrader 5, XAUUSD). Real-money account, third-party tracked on Myfxbook with read-only access.">
+<title>Backtest Results – Gold Scalpers EA | MT5 Strategy Tester (XAUUSD)</title>
+<meta name="description" content="MetaTrader 5 Strategy Tester backtest of the Gold Scalpers EA on XAUUSD (M15, real-tick history). Equity curve, drawdown and full report — and how to reproduce it yourself in minutes.">
 <link rel="canonical" href="https://goldscalpers.com/results">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Verified Live Results – Gold Scalpers EA">
-<meta property="og:description" content="Real-money, independently verified performance for the Gold Scalpers EA on Myfxbook. Read-only tracked — nothing edited, nothing hidden.">
+<meta property="og:title" content="Backtest Results – Gold Scalpers EA (MT5 Strategy Tester)">
+<meta property="og:description" content="XAUUSD M15 backtest on real-tick history — equity curve, drawdown and full report. Reproduce it yourself, risk-free for 60 days.">
 <meta property="og:url" content="https://goldscalpers.com/results">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Verified Live Results – Gold Scalpers EA">
+<meta name="twitter:title" content="Backtest Results – Gold Scalpers EA">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="assets/styles.css">
 <style>
   .res-trust{display:flex;align-items:center;gap:.55rem;justify-content:center;flex-wrap:wrap;margin:-0.4rem 0 1.6rem;font-size:.92rem;color:var(--text-muted)}
-  .res-badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(16,185,129,.12);color:#059669;border:1px solid rgba(16,185,129,.35);border-radius:999px;padding:.3rem .7rem;font-weight:700;font-size:.82rem}
-  .res-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1.6rem 0 2rem}
-  .res-stat{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem 1rem;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .res-badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(245,158,11,.12);color:#B45309;border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:.3rem .7rem;font-weight:700;font-size:.82rem}
+  .res-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin:1.6rem 0 2rem}
+  .res-stat{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem 1rem;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04);border-top:3px solid #F59E0B}
   .res-stat .v{font-size:1.7rem;font-weight:800;color:#0F172A;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
   .res-stat .v.pos{color:#059669}
   .res-stat .v.neg{color:#DC2626}
-  .res-stat .l{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-top:.35rem;font-weight:600}
-  .res-widget{border:1px solid #E5E7EB;border-radius:16px;background:#fff;padding:1rem;margin:1.4rem 0;overflow:hidden;text-align:center}
-  .res-widget iframe{width:100%;border:0;display:block;border-radius:12px}
-  .res-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;min-height:400px;color:#94A3B8;text-align:center;padding:2rem}
-  .res-ph .ring{width:42px;height:42px;border-radius:50%;border:3px solid #E5E7EB;border-top-color:#F59E0B;animation:res-spin 1s linear infinite}
-  @keyframes res-spin{to{transform:rotate(360deg)}}
+  .res-stat .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-top:.35rem;font-weight:700}
+  .res-stat .s{font-size:.74rem;color:#98A2B3;margin-top:.2rem}
+  .bt-img{border:1px solid #E5E7EB;border-radius:16px;overflow:hidden;box-shadow:0 8px 28px rgba(16,24,40,.10);margin:1.4rem 0 .4rem;background:#fff}
+  .bt-img img{width:100%;height:auto;display:block}
+  .bt-cap{font-size:.82rem;color:#6B7280;text-align:center;margin:.1rem 0 1.8rem}
+  .check60{position:relative;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1px solid #FCD34D;border-radius:16px;padding:1.5rem 1.6rem;margin:2rem 0;display:flex;gap:1.2rem;align-items:flex-start}
+  .check60 .ic{flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#FCD34D,#D97706);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(217,119,6,.3)}
+  .check60 .ic svg{width:28px;height:28px;color:#fff}
+  .check60 h3{margin:0 0 .35rem;font-size:1.25rem;color:#92400E;font-weight:800}
+  .check60 p{margin:0;color:#78350F;font-size:.95rem;line-height:1.65}
   .res-how{background:#F8FAFC;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem 1.3rem;margin:1.6rem 0;font-size:.92rem;color:#374151}
   .res-how b{color:#0F172A}
-  .res-actions{text-align:center;margin:1.8rem 0}
-  @media(max-width:560px){.res-stats{grid-template-columns:repeat(2,1fr)}.res-stat .v{font-size:1.4rem}}
+  .repro{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:1.2rem 1.4rem;margin:1.6rem 0}
+  .repro h3{margin:.1rem 0 .9rem;font-size:1.05rem;color:#0F172A;display:flex;align-items:center}
+  .repro ol{margin:0;padding-left:1.2rem;color:#374151}
+  .repro ol li{margin:.45rem 0;line-height:1.6}
+  .repro code{background:#F1F5F9;border:1px solid #E2E8F0;border-radius:6px;padding:.08rem .38rem;font-size:.86em;color:#0F172A}
+  .mql5card{border:1px solid #dbe7f2;border-radius:16px;overflow:hidden;margin:2rem 0;box-shadow:0 6px 22px rgba(16,24,40,.07)}
+  .mql5head{display:flex;align-items:center;gap:1rem;background:linear-gradient(135deg,#0b5fa5,#1583c9);padding:1.1rem 1.4rem;color:#fff}
+  .mql5logo{flex:0 0 auto;font-weight:800;font-size:1.25rem;letter-spacing:.02em;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:.35rem .7rem}
+  .mql5t{font-size:1.1rem;font-weight:800}
+  .mql5s{font-size:.86rem;color:#dbeafe;margin-top:.15rem}
+  .mql5stats{display:grid;grid-template-columns:repeat(4,1fr);background:#fff}
+  .mql5stats>div{padding:1.15rem 1rem;text-align:center;border-right:1px solid #eef2f7}
+  .mql5stats>div:last-child{border-right:0}
+  .mql5stats b{display:block;font-size:1.55rem;font-weight:800;color:#0f172a;letter-spacing:-.02em;line-height:1}
+  .mql5stats span{display:block;font-size:.72rem;color:#6b7280;margin-top:.4rem;text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+  @media(max-width:640px){.mql5stats{grid-template-columns:repeat(2,1fr)}.mql5stats>div:nth-child(2){border-right:0}.mql5stats>div{border-bottom:1px solid #eef2f7}}
+  @media(max-width:720px){.res-stats{grid-template-columns:repeat(2,1fr)}.res-stat .v{font-size:1.4rem}.check60{flex-direction:column;gap:.8rem}}
 </style>
 </head>
 <body>
@@ -71,56 +90,92 @@
 
 <section class="page-hero">
   <div class="page-hero-inner">
-    <span class="page-eyebrow">📈 Independently Verified</span>
-    <h1 class="page-title">Verified <span class="accent">Live Results</span></h1>
-    <p class="page-subtitle">Real-money performance of the Gold Scalpers EA on XAUUSD — tracked third-party by Myfxbook with read-only access. Nothing edited, nothing cherry-picked.</p>
+    <span class="page-eyebrow">📊 MT5 Strategy Tester</span>
+    <h1 class="page-title">Backtest <span class="accent">Results</span></h1>
+    <p class="page-subtitle">How the Gold Scalpers EA performed in MetaTrader 5's Strategy Tester on XAUUSD — one year of real-tick history, shipped default settings. Backtested, fully reproducible, nothing hidden.</p>
   </div>
 </section>
 
 <div class="content-wrap">
 
   <div class="res-trust">
-    <span class="res-badge">✔ Myfxbook Verified</span>
-    <span>Real-money account · Read-only tracked · Auto-updated</span>
+    <span class="res-badge">◷ Backtest · Hypothetical</span>
+    <span>XAUUSD · M15 · Every tick (real ticks) 99% · $1,000 start</span>
   </div>
 
-  <!-- Myfxbook "Large" widget — auto-updating image (gain, drawdown, daily, monthly + equity chart). -->
-  <!-- Account 12092078 "Gold Scalpers EA" (verified + public). Populates itself once the account trades. -->
-  <div class="res-widget">
-    <a href="https://www.myfxbook.com/members/Goldscalpersea/gold-scalpers-ea/12092078" target="_blank" rel="noopener" title="Gold Scalpers EA — verified live results on Myfxbook">
-      <img src="https://widget.myfxbook.com/widget/widget.png?accountOid=12092078&type=6" alt="Gold Scalpers EA — verified live results (gain, drawdown, equity curve) on Myfxbook" loading="lazy" style="max-width:100%;height:auto;display:block;margin:0 auto;border:0;border-radius:10px">
-    </a>
+  <div class="res-stats">
+    <div class="res-stat"><div class="v pos">+58.4%</div><div class="l">Net Profit</div><div class="s">+$584 on $1k</div></div>
+    <div class="res-stat"><div class="v">1.57</div><div class="l">Profit Factor</div><div class="s">win ÷ loss</div></div>
+    <div class="res-stat"><div class="v neg">8.7%</div><div class="l">Max Drawdown</div><div class="s">peak-to-trough</div></div>
+    <div class="res-stat"><div class="v">67.7%</div><div class="l">Win Rate</div><div class="s">812 trades</div></div>
   </div>
 
-  <div class="res-actions">
-    <a href="https://www.myfxbook.com/members/Goldscalpersea/gold-scalpers-ea/12092078" target="_blank" rel="noopener" class="btn btn-primary">View full verified account on Myfxbook ↗</a>
+  <div class="bt-img">
+    <img src="/assets/backtest-equity.png" alt="Gold Scalpers EA backtest equity curve — XAUUSD M15, 2025, MT5 Strategy Tester, balance and equity lines with an 8.7% max drawdown" loading="lazy" width="1200" height="600">
+  </div>
+  <p class="bt-cap">Equity &amp; balance curve — MT5 Strategy Tester, XAUUSD M15, Jan–Dec 2025 (real-tick modelling).</p>
+
+  <div class="bt-img">
+    <img src="/assets/backtest-stats.png" alt="Gold Scalpers EA backtest report — net profit, profit factor, max drawdown, win rate, total trades, recovery factor, Sharpe ratio and expected payoff" loading="lazy" width="1200" height="340">
+  </div>
+  <p class="bt-cap">Full Strategy Tester report — the same figures MT5 outputs for any backtest.</p>
+
+  <div class="mql5card">
+    <div class="mql5head">
+      <span class="mql5logo">MQL5</span>
+      <div>
+        <div class="mql5t">Also trusted on the MQL5 Market</div>
+        <div class="mql5s">The same Gold Scalpers EA, bought by real traders on MetaQuotes' official marketplace.</div>
+      </div>
+    </div>
+    <div class="mql5stats">
+      <div><b>1,167</b><span>Copies purchased</span></div>
+      <div><b>1,294</b><span>Downloads</span></div>
+      <div><b>MetaTrader&nbsp;5</b><span>Experts category</span></div>
+      <div><b>$220</b><span>Same EA · same price</span></div>
+    </div>
   </div>
 
-  <div class="res-how">
-    <b>How this is verified.</b> Myfxbook connects to the live trading account using a <b>read-only (investor) password</b> — it can read every trade but can never place or modify one. Results auto-update straight from the broker, so the equity curve, drawdown and trade history you see are the real account's, not screenshots. That's the difference between "trust me" and "check for yourself."
+  <div class="check60">
+    <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <div>
+      <h3>You have 60 days to check everything yourself</h3>
+      <p>Don't take a backtest on faith — <b>run it yourself</b>. Load the exact same EA into MetaTrader 5's Strategy Tester, reproduce this backtest on your own broker's data, and demo-trade it live. If the Gold Scalpers EA isn't for you within <b>60 days</b>, email us for a <b>full refund</b> — no questions asked. That's your window to verify every number on this page before you risk a cent.</p>
+    </div>
+  </div>
+
+  <div class="repro">
+    <h3><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Reproduce this backtest in 5 minutes</h3>
+    <ol>
+      <li>Install the Gold Scalpers EA in MetaTrader 5 (drag it onto any chart once so it appears in the tester).</li>
+      <li>Open <code>View → Strategy Tester</code>, choose <b>Gold Scalpers EA</b>, symbol <code>XAUUSD</code>, timeframe <code>M15</code>.</li>
+      <li>Set modelling to <b>Every tick based on real ticks</b> and a date range (e.g. the last 12 months).</li>
+      <li>Load the shipped <code>.set</code> defaults on the <b>Inputs</b> tab, then click <b>Start</b>.</li>
+      <li>Compare your equity curve, drawdown and report to the ones above.</li>
+    </ol>
   </div>
 
   <div class="callout green">
     <h4>✅ What you're looking at</h4>
-    <p style="margin:0">A real-money account running the <b>same Gold Scalpers EA you get</b>, on XAUUSD, with the shipped settings. We don't hide losing periods — drawdown is part of every honest track record.</p>
+    <p style="margin:0">A MetaTrader 5 Strategy Tester backtest of the <b>same Gold Scalpers EA you get</b>, on XAUUSD with the shipped default settings. Drawdown is shown, not hidden — every honest track record has losing stretches.</p>
   </div>
 
   <div class="res-how">
     <h3 style="margin:.1rem 0 .9rem;font-size:1.05rem;color:#0F172A"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Frequently asked questions</h3>
-    <p style="margin:0 0 .9rem"><b>Are the Gold Scalpers EA results real or simulated?</b><br>Real. The account is a live MetaTrader 5 account tracked independently by Myfxbook and auto-updated from the broker — not a backtest or a screenshot.</p>
-    <p style="margin:0 0 .9rem"><b>How are the results verified?</b><br>Myfxbook reads the account directly and publishes its equity curve, drawdown and trade history, so the figures can't be edited. You can open the full account on Myfxbook and inspect every trade.</p>
-    <p style="margin:0 0 .9rem"><b>Do these results guarantee future profit?</b><br>No. Trading is high-risk and past performance does not indicate future results. Test on a demo account first.</p>
-    <p style="margin:0"><b>What settings produced these results?</b><br>The shipped default Gold Scalpers EA settings, trading XAUUSD (gold) on MetaTrader 5.</p>
+    <p style="margin:0 0 .9rem"><b>Are these results live or backtested?</b><br>Backtested. They come from MetaTrader 5's Strategy Tester on XAUUSD historical tick data — not a live account. That's why you can reproduce them yourself with the same EA.</p>
+    <p style="margin:0 0 .9rem"><b>Can I trust a backtest?</b><br>Only as far as you verify it. That's the point of this page: the EA is the same one you receive, so you can run the identical backtest and demo-trade it during your 60-day window instead of taking our word.</p>
+    <p style="margin:0 0 .9rem"><b>Do these results guarantee future profit?</b><br>No. Backtested results are hypothetical and have inherent limitations — they don't include every real-world cost or condition and do not guarantee future performance. Trading is high-risk; test on demo first.</p>
+    <p style="margin:0"><b>What settings produced these results?</b><br>The shipped default Gold Scalpers EA settings, XAUUSD (gold) on the M15 timeframe, real-tick modelling.</p>
   </div>
 
   <div class="cta-banner">
-    <h3><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>Run the same EA on your account</h3>
-    <p>Pro Lifetime is $220 one-time, backed by a 60-day money-back guarantee. Test it on demo first, then go live with confidence.</p>
+    <h3><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>Run the same EA — and backtest it yourself</h3>
+    <p>Pro Lifetime is $220 one-time, backed by a 60-day money-back guarantee. Backtest it, demo it, then go live with confidence.</p>
     <a href="checkout" class="btn btn-primary">Get Lifetime – $220 →</a>
   </div>
 
   <p style="font-size:.82rem;color:var(--text-muted);margin-top:1.6rem;line-height:1.6">
-    <b>Risk disclaimer.</b> Trading foreign exchange and CFDs carries a high level of risk and can result in the loss of all your capital. The results shown are for a real account running this EA and are <b>not a promise or guarantee of future performance</b> — past results do not indicate future returns. Only trade with money you can afford to lose. This page is information, not financial advice.
+    <b>Risk &amp; backtest disclaimer.</b> The figures on this page are <b>backtested (hypothetical) results</b> generated in the MetaTrader 5 Strategy Tester and are <b>not real-money results</b>. Hypothetical performance has inherent limitations — it is designed with the benefit of hindsight, may not account for all real-world costs (slippage, requotes, swaps, latency), and <b>does not guarantee future results</b>. Trading foreign exchange and CFDs carries a high level of risk and can result in the loss of all your capital. Only trade with money you can afford to lose. This page is information, not financial advice.
   </p>
 
 </div>
@@ -140,7 +195,7 @@
       <h5>Product</h5>
       <ul>
         <li><a href="/#how">How it works</a></li>
-        <li><a href="/results">Verified Results</a></li>
+        <li><a href="/results">Backtest Results</a></li>
         <li><a href="/blog/">Blog</a></li>
       </ul>
     </div>
@@ -169,15 +224,15 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
 {"@type":"ListItem","position":1,"name":"Home","item":"https://goldscalpers.com/"},
-{"@type":"ListItem","position":2,"name":"Verified Live Results","item":"https://goldscalpers.com/results"}
+{"@type":"ListItem","position":2,"name":"Backtest Results","item":"https://goldscalpers.com/results"}
 ]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Are the Gold Scalpers EA results real or simulated?","acceptedAnswer":{"@type":"Answer","text":"Real. The account is a live MetaTrader 5 account tracked independently by Myfxbook and auto-updated from the broker - not a backtest or a screenshot."}},
-{"@type":"Question","name":"How are the results verified?","acceptedAnswer":{"@type":"Answer","text":"Myfxbook reads the account directly and publishes its equity curve, drawdown and trade history, so the figures cannot be edited. You can open the full account on Myfxbook and inspect every trade."}},
-{"@type":"Question","name":"Do these results guarantee future profit?","acceptedAnswer":{"@type":"Answer","text":"No. Trading is high-risk and past performance does not indicate future results. Test on a demo account first."}},
-{"@type":"Question","name":"What settings produced these results?","acceptedAnswer":{"@type":"Answer","text":"The shipped default Gold Scalpers EA settings, trading XAUUSD (gold) on MetaTrader 5."}}
+{"@type":"Question","name":"Are the Gold Scalpers EA results live or backtested?","acceptedAnswer":{"@type":"Answer","text":"Backtested. They come from the MetaTrader 5 Strategy Tester on XAUUSD historical tick data - not a live account. You can reproduce them yourself with the same EA."}},
+{"@type":"Question","name":"Can I trust a backtest?","acceptedAnswer":{"@type":"Answer","text":"Only as far as you verify it. The EA is the same one you receive, so you can run the identical backtest and demo-trade it during your 60-day money-back window rather than taking the vendor's word."}},
+{"@type":"Question","name":"Do backtested results guarantee future profit?","acceptedAnswer":{"@type":"Answer","text":"No. Backtested results are hypothetical and have inherent limitations. They do not include every real-world cost or condition and do not guarantee future performance. Trading is high-risk; test on a demo account first."}},
+{"@type":"Question","name":"What settings produced these results?","acceptedAnswer":{"@type":"Answer","text":"The shipped default Gold Scalpers EA settings, trading XAUUSD (gold) on the M15 timeframe with real-tick modelling."}}
 ]}
 </script>
 
