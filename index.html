@@ -842,9 +842,19 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <span class="eyebrow">Live on the MQL5 Market</span>
     <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>Already selling on <span style="color:var(--gold)">MQL5 Market.</span></h2>
     <p class="section-subtitle" style="margin-left:auto;margin-right:auto">The same Gold Scalpers EA is published on MetaQuotes' official MQL5 Market — <strong>1,167 copies purchased</strong> and <strong>1,294 downloads</strong> to date.</p>
-    <div style="max-width:1040px;margin:1.6rem auto 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(16,24,40,.12)">
-      <img src="/assets/mql5-market.png?v=1" alt="Gold Scalpers EA on the MQL5 Market — MetaTrader 5 Experts, 1,294 downloads, 1,167 purchased, $220" loading="lazy" decoding="async" style="width:100%;height:auto;display:block">
+    <style>
+      .mql5-shot{max-width:1040px;margin:1.6rem auto 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(16,24,40,.12)}
+      .mql5-shot img{width:100%;height:auto;display:block}
+      .mql5-hint{display:none}
+      @media(max-width:640px){
+        .mql5-shot{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;box-shadow:0 6px 18px rgba(16,24,40,.12)}
+        .mql5-shot img{width:auto;height:200px;max-width:none}
+        .mql5-hint{display:block;text-align:center;font-size:.75rem;color:#98A2B3;margin:.55rem 0 1.2rem;font-weight:600}
+      }
+    </style><div class="mql5-shot">
+      <img src="/assets/mql5-market.png?v=1" alt="Gold Scalpers EA on the MQL5 Market — MetaTrader 5 Experts, 1,294 downloads, 1,167 purchased, $220" loading="lazy" decoding="async">
     </div>
+    <p class="mql5-hint">← swipe to view the full dashboard →</p>
   </div>
 </section>
 

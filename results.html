@@ -120,9 +120,19 @@
   </div>
   <p class="bt-cap">Full Strategy Tester report — the same figures MT5 outputs for any backtest.</p>
 
-  <div style="margin:2rem auto;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(16,24,40,.12)">
-      <img src="/assets/mql5-market.png?v=1" alt="Gold Scalpers EA on the MQL5 Market — MetaTrader 5 Experts, 1,294 downloads, 1,167 purchased, $220" loading="lazy" decoding="async" style="width:100%;height:auto;display:block">
+  <style>
+      .mql5-shot{max-width:1040px;margin:1.6rem auto 0;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px rgba(16,24,40,.12)}
+      .mql5-shot img{width:100%;height:auto;display:block}
+      .mql5-hint{display:none}
+      @media(max-width:640px){
+        .mql5-shot{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;box-shadow:0 6px 18px rgba(16,24,40,.12)}
+        .mql5-shot img{width:auto;height:200px;max-width:none}
+        .mql5-hint{display:block;text-align:center;font-size:.75rem;color:#98A2B3;margin:.55rem 0 1.2rem;font-weight:600}
+      }
+    </style><div class="mql5-shot">
+      <img src="/assets/mql5-market.png?v=1" alt="Gold Scalpers EA on the MQL5 Market — MetaTrader 5 Experts, 1,294 downloads, 1,167 purchased, $220" loading="lazy" decoding="async">
     </div>
+    <p class="mql5-hint">← swipe to view the full dashboard →</p>
 
   <div class="check60">
     <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
