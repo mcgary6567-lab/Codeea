@@ -10,7 +10,7 @@ Gold Scalpers EA is sold as a single one-time purchase. There is no subscription
 - License: lifetime; bound to your MetaTrader 5 account number(s). Contact support to add or change accounts.
 - Platform: MetaTrader 5 (MT5), any broker
 - Market: XAUUSD (gold)
-- Guarantee: 14-day money-back
+- Guarantee: 30-day money-back
 - Payment methods: credit/debit card, PayPal, Google Pay, Apple Pay, and cryptocurrency
 - Buy: https://goldscalpers.com/checkout
 
