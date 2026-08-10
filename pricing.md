@@ -17,7 +17,7 @@ Gold Scalpers EA is sold as a single one-time purchase. There is no subscription
 ## What's included
 - Full Gold Scalpers EA for MetaTrader 5 and all future updates
 - Slope Direction Line × 50 EMA crossover, confirmed by ZeroLag MACD and an optional confirmation candle
-- Protective step-stop; quick scalping take-profit with an optional AutoScaler grid (M1 timeframe)
+- Protective step-stop; quick scalping take-profit with optional Momentum Pyramiding (M1 timeframe)
 - Risk controls: daily profit/loss limits, max-drawdown guard, max daily orders, spread/session/news filters
 - Live on-chart dashboard with a SIGNAL readiness bar
 - Pop-up, mobile push, and Telegram alerts
