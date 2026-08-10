@@ -1,20 +1,20 @@
 # Gold Scalpers EA
 
-> Gold Scalpers EA is an automated MetaTrader 5 (MT5) Expert Advisor that trades XAUUSD (gold) hands-free using a 9/21 EMA crossover with a 50-EMA trend filter, market-structure stops, and prop-firm-ready risk controls. Price: $220 one-time (lifetime license), 30-day money-back.
+> Gold Scalpers EA is an automated MetaTrader 5 (MT5) Expert Advisor — a pure XAUUSD (gold) M1 scalper. It trades hands-free using a Slope Direction Line × 50 EMA crossover confirmed by the ZeroLag MACD, with prop-firm-ready risk controls. Price: $220 one-time (lifetime license), 30-day money-back.
 
-Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters on the EMA 9/21 golden/death cross, confirmed by price on the correct side of the 50-EMA plus a confirmation candle. It places a stop at the most recent market-structure swing and takes profit by a fixed-dollar target (scalping mode) or the opposite EMA cross (swing mode). Risk is capped by daily profit/loss limits, a max-drawdown guard, a position cap, and spread/session/news filters. It is NOT a martingale or grid system. A live on-chart dashboard shows status, a signal-readiness bar and P&L; alerts are delivered by pop-up, mobile push and Telegram.
+Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD being on the correct side of zero plus an optional confirmation candle. It manages the trade with an AutoScaler grid (optional scale-in as price runs), a quick scalping take-profit and a step-stop trail. Risk is capped by daily profit/loss limits, a max-drawdown guard, a position cap, a chop/whipsaw filter, a loss-streak cooldown, and spread/session/news filters. Scale-in can be turned off for prop-firm single-entry mode. It also runs on major FX pairs. A live on-chart dashboard shows status, a signal-readiness bar, BUY/SELL arrows and P&L; alerts are delivered by pop-up, mobile push and Telegram.
 
 ## Key facts
 - Platform: MetaTrader 5 (MT5), works on any broker
-- Market: XAUUSD (gold)
-- Strategy: EMA 9/21 crossover + 50-EMA trend filter + confirmation candle
-- Stop-loss: most recent market-structure swing high/low + buffer
-- Take-profit: fixed-dollar (scalping) or opposite EMA cross (swing)
+- Market: XAUUSD (gold), M1 timeframe; also runs on major FX pairs
+- Strategy: Slope Direction Line × 50 EMA crossover + ZeroLag MACD confirmation + optional confirmation candle
+- Stop-loss: protective stop per trade + step-stop trailing as the grid adds
+- Take-profit: quick scalping target, with an optional AutoScaler grid (scale-in as price runs)
 - Risk controls: daily loss/profit limits, max-drawdown guard, max daily orders, spread/session/news filters
 - Price: $220 one-time, lifetime license (regular $297)
 - Guarantee: 30-day money-back
-- License: bound to the buyer's MT5 account number
-- Not martingale, not grid
+- License: bound to the buyer's MT5 account number (allow-list at https://goldscalpers.com/licenses.txt)
+- Not martingale; optional AutoScaler grid/scale-in that can be turned off for prop-firm single-entry mode
 
 ## Key pages
 - [Home](https://goldscalpers.com/): product overview, features, live signal demo, pricing

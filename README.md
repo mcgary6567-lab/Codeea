@@ -48,11 +48,11 @@ GoldScalpers/
 1. **Preview the site** — double-click `index.html` to open in browser
 2. **Customize** — search-replace `goldscalpers.com` with your real domain
 3. **Read** `LAUNCH-CHECKLIST.md` for the step-by-step deployment plan
-4. **Test** the EA — copy `expert-advisor/gold-scalpers-ea.ex5` into your MT5 `MQL5/Experts` folder, then attach it to an XAUUSD M15 chart in the Strategy Tester
+4. **Test** the EA — copy `expert-advisor/gold-scalpers-ea.ex5` into your MT5 `MQL5/Experts` folder, then attach it to an XAUUSD M1 chart in the Strategy Tester
 
 ## 🎯 What You're Selling
 
-**Product**: Gold Scalpers EA — a fully automated **MetaTrader 5 Expert Advisor** that trades **XAUUSD (Gold) only** (default M15). It enters on an **EMA 9/21 crossover** confirmed by a **50-EMA trend filter**, sets a **market-structure swing stop**, and takes profit in either **Scalping** or **Swing** mode. Includes a **live on-chart dashboard**, **Telegram / mobile / terminal alerts**, and an **account-locked licence**.
+**Product**: Gold Scalpers EA — a fully automated **MetaTrader 5 Expert Advisor**, a pure **XAUUSD (Gold) M1 scalper** (also runs on major FX pairs). It enters when the **Slope Direction Line crosses the 50 EMA**, confirmed by the **ZeroLag MACD**, manages the trade with a **protective step-stop** and a **quick scalping take-profit** plus an **optional AutoScaler grid**. Includes a **live on-chart dashboard**, **BUY/SELL signal arrows**, **Telegram / mobile / terminal alerts**, and an **account-locked licence** (allow-list at `goldscalpers.com/licenses.txt`).
 
 **Deliverable**: Buyers receive the `.ex5` EA file plus a licence key, installed directly in MetaTrader 5 (drop the `.ex5` into `MQL5/Experts` and activate the account-locked licence). No TradingView invite required.
 
