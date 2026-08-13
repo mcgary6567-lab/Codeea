@@ -1,15 +1,18 @@
 # Gold Scalpers EA
 
-> Gold Scalpers EA is an automated MetaTrader 5 (MT5) Expert Advisor — a pure XAUUSD (gold) M1 scalper. It trades hands-free using a Slope Direction Line × 50 EMA crossover confirmed by the ZeroLag MACD, with prop-firm-ready risk controls. Price: $220 one-time (lifetime license), 30-day money-back.
+> Gold Scalpers EA is an automated MetaTrader 5 (MT5) Expert Advisor — a pure XAUUSD (gold) M5 scalper. It trades hands-free using a Slope Direction Line × 50 EMA crossover confirmed by the ZeroLag MACD, with prop-firm-ready risk controls. Price: $220 one-time (lifetime license), 30-day money-back.
 
-Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD being on the correct side of zero plus an optional confirmation candle. It manages the trade with Momentum Pyramiding (optional pyramiding as price runs), a quick scalping take-profit and a step-stop trail. Risk is capped by daily profit/loss limits, a max-drawdown guard, a position cap, a chop/whipsaw filter, a loss-streak cooldown, and spread/session/news filters. Pyramiding can be turned off for prop-firm single-entry mode. It also runs on major FX pairs. A live on-chart dashboard shows status, a signal-readiness bar, BUY/SELL arrows and P&L; alerts are delivered by pop-up, mobile push and Telegram.
+Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD being on the correct side of zero plus an optional confirmation candle. The stop loss sits at the most recent swing high/low beyond the 50 EMA (real market structure); break-even protection then moves it to entry once the trade is in profit so a winner cannot become a loser. Momentum Pyramiding optionally adds to a WINNING trade as it runs - never averaging down - and every add-on shares one basket stop, tightened by a step-stop on each fill. Risk is capped by daily profit/loss limits, a max-drawdown guard, a position cap, a chop/whipsaw filter, a loss-streak cooldown, and spread/session/news filters. Pyramiding can be turned off for prop-firm single-entry mode. A live on-chart dashboard shows status, a signal-readiness bar, BUY/SELL arrows and P&L; alerts are delivered by pop-up, mobile push and Telegram.
 
 ## Key facts
 - Platform: MetaTrader 5 (MT5), works on any broker
-- Market: XAUUSD (gold), M1 timeframe; also runs on major FX pairs
+- Market: XAUUSD (gold) only, M5 timeframe
 - Strategy: Slope Direction Line × 50 EMA crossover + ZeroLag MACD confirmation + optional confirmation candle
-- Stop-loss: protective stop per trade + step-stop trailing as the grid adds
-- Take-profit: quick scalping target, with optional Momentum Pyramiding (pyramiding as price runs)
+- Stop-loss: swing-structure stop (last swing high/low beyond the 50 EMA) + break-even lock + step-stop trailing
+- Take-profit: quick scalping target; optional Momentum Pyramiding adds to winners only
+- Break-even: stop moves to entry + a locked amount once the trade is in profit
+- Prop-Firm Mode: percentage daily-loss and max-drawdown limits from balance baselines, hard lock on breach
+- Pre-flight self-check on attach (permissions, history, spread, indicators, licence)
 - Risk controls: daily loss/profit limits, max-drawdown guard, max daily orders, spread/session/news filters
 - Price: $220 one-time, lifetime license (regular $297)
 - Guarantee: 30-day money-back

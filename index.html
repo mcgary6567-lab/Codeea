@@ -41,7 +41,7 @@
   "@type": "WebSite",
   "name": "Gold Scalpers EA",
   "url": "https://goldscalpers.com",
-  "description": "Fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 1-minute (M1) gold scalper with prop-firm-grade risk control. Slope Direction Line × 50 EMA crossover confirmed by ZeroLag MACD, Momentum Pyramiding with quick scalping take-profit and a step-stop trail, daily-loss limit and drawdown guard, session/news/chop filters, a live dashboard and Telegram alerts. Also runs on major FX pairs. Pro Lifetime $220 one-time with 30-day money-back guarantee.",
+  "description": "Fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with prop-firm-grade risk control. Slope Direction Line × 50 EMA crossover confirmed by ZeroLag MACD, Momentum Pyramiding, a swing-structure stop loss, break-even protection and a step-stop trail, daily-loss limit and drawdown guard, session/news/chop filters, a live dashboard and Telegram alerts. Pro Lifetime $220 one-time with 30-day money-back guarantee.",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
@@ -62,7 +62,7 @@
   "name": "Gold Scalpers EA",
   "url": "https://goldscalpers.com",
   "logo": "https://goldscalpers.com/og-image.png",
-  "description": "Gold Scalpers builds automated MetaTrader 5 Expert Advisors for XAUUSD (Gold). Hands-free M1 gold scalping — Slope Direction Line × 50 EMA crossover with ZeroLag MACD confirmation, Momentum Pyramiding, a step-stop trail, a live on-chart dashboard, and Telegram alerts. Pro Lifetime $220 one-time with 30-day money-back guarantee.",
+  "description": "Gold Scalpers builds automated MetaTrader 5 Expert Advisors for XAUUSD (Gold). Hands-free M5 gold scalping — Slope Direction Line × 50 EMA crossover with ZeroLag MACD confirmation, Momentum Pyramiding, a step-stop trail, a live on-chart dashboard, and Telegram alerts. Pro Lifetime $220 one-time with 30-day money-back guarantee.",
   "sameAs": [
     "https://www.facebook.com/goldscalpersea"
   ],
@@ -99,14 +99,18 @@
   "operatingSystem": "MetaTrader 5 (Windows)",
   "softwareVersion": "4.10",
   "applicationSubCategory": "Automated Trading Robot (Expert Advisor)",
-  "description": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 1-minute (M1) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD and an optional confirmation candle, then manages the position with Momentum Pyramiding, a quick scalping take-profit and a step-stop trail. It filters ranging/chop conditions, wide spreads, off-session hours and high-impact news, executes and manages trades hands-free, and includes a live on-chart dashboard, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts. Also runs on major FX pairs.",
+  "description": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (up = buy, down = sell), confirmed by the ZeroLag MACD. The stop loss is placed at the most recent swing high/low beyond the 50 EMA - real market structure - and break-even protection moves it to entry once the trade is in profit, so a winner cannot turn into a loser. Momentum Pyramiding can add to a winning trade as it runs (never averaging down), with every add-on sharing one basket stop. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters ranging conditions, wide spreads, off-session hours and high-impact news, and a pre-flight self-check verifies the whole setup on attach. It executes hands-free and includes a live on-chart dashboard, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts.",
   "url": "https://goldscalpers.com",
   "image": "https://goldscalpers.com/og-image.png",
   "screenshot": "https://goldscalpers.com/assets/chart-preview.png",
   "featureList": [
     "Fully automated execution — enters, manages and closes trades hands-free in MT5",
     "Slope Direction Line × 50 EMA crossover, confirmed by ZeroLag MACD",
-    "Momentum Pyramiding money-management with a quick scalping take-profit and step-stop trail",
+    "Swing-structure stop loss at the last swing beyond the 50 EMA",
+    "Break-even protection - the stop moves to entry once the trade is in profit",
+    "Momentum Pyramiding - adds to winners only, all add-ons share one basket stop",
+    "Prop-Firm Mode: percentage daily-loss and max-drawdown limits with a hard lock on breach",
+    "Pre-flight self-check that verifies permissions, history, spread, indicators and licence on attach",
     "Optional pyramiding that adds as price runs, plus a chop/whipsaw filter and loss-streak cooldown",
     "Session and high-impact-news filters, plus a wide-spread guard",
     "Risk controls: daily profit/loss limits, max-drawdown guard, spread cap, fixed-lot or %-risk sizing",
@@ -146,7 +150,7 @@
       "name": "What is Gold Scalpers EA?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 1-minute (M1) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (slope up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD and an optional confirmation candle, then manages the trade with Momentum Pyramiding, a quick scalping take-profit and a step-stop trail. It filters out ranging/chop conditions, wide spreads, off-session hours and high-impact news, then enters, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts. It also runs on major FX pairs."
+        "text": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (up = buy, down = sell), confirmed by the ZeroLag MACD. The stop loss is placed at the most recent swing high/low beyond the 50 EMA - real market structure - and break-even protection moves it to entry once the trade is in profit, so a winner cannot turn into a loser. Momentum Pyramiding can add to a winning trade as it runs (never averaging down), with every add-on sharing one basket stop. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters ranging conditions, wide spreads, off-session hours and high-impact news, and a pre-flight self-check verifies the whole setup on attach. It enters, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts."
       }
     },
     {
@@ -170,7 +174,7 @@
       "name": "Which pair and timeframe does Gold Scalpers EA trade?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "XAUUSD (Gold) on the M1 (1-minute) timeframe — it is a pure gold scalper, built and tuned for gold. A Major-Pairs preset is also included so it can run on major FX pairs (GBPUSD, GBPJPY, EURUSD, USDJPY and more)."
+        "text": "XAUUSD (Gold) on the M5 (5-minute) timeframe — it is a pure gold scalper, built and tuned for gold."
       }
     },
     {
@@ -194,7 +198,7 @@
       "name": "Can I backtest Gold Scalpers EA?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. The Slope, 50 EMA and ZeroLag MACD indicators are bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M1 and forward-test on demo before going live."
+        "text": "Yes. The Slope, 50 EMA and ZeroLag MACD indicators are bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live."
       }
     },
     {
@@ -202,7 +206,31 @@
       "name": "How long does Gold Scalpers EA setup take?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "About 5 minutes. Attach the EA to an XAUUSD M1 chart, tick Allow Algorithmic Trading, allow the licence URL (https://goldscalpers.com/licenses.txt) under Tools > Options > Expert Advisors, set your lot size or risk percent, and the EA begins trading automatically."
+        "text": "About 5 minutes. Attach the EA to an XAUUSD M5 chart, tick Allow Algorithmic Trading, allow the licence URL (https://goldscalpers.com/licenses.txt) under Tools > Options > Expert Advisors, set your lot size, and the EA begins trading automatically."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Gold Scalpers EA be used on a prop-firm challenge?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Prop-Firm Mode measures your daily loss as a percentage of the day-start balance and your total drawdown from the starting balance (or a trailing high-water mark), and hard-locks trading if either limit is breached. Pyramiding can also be switched off for firms that prefer a single entry at a time. Always confirm your firm's current rules; no pass is guaranteed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Gold Scalpers EA use martingale or add to losing trades?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Momentum Pyramiding only adds to a trade that is already winning - the add-on orders sit beyond the entry and fill only if price keeps moving in your favour, and all of them share one basket stop loss. It never averages down into a loser and there is no lot doubling on losses. It can be turned off for single-entry trading."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What stops a winning trade from turning into a loss?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Break-even protection. Once a trade is far enough in profit the EA moves its stop to the entry price plus a small locked amount, so the trade can no longer close as a loss. The step-stop then pulls every stop tighter each time a new add-on fills, banking more of the move as it extends."
       }
     },
     {
@@ -288,7 +316,7 @@ body{
   object-fit:cover;
 }
 .hero-chart-video{
-  position:relative;width:100%;aspect-ratio:16/9;background:#000;
+  position:relative;width:100%;aspect-ratio:1085/632;background:#000;
 }
 .hero-chart-video iframe{
   position:absolute;inset:0;width:100%;height:100%;border:0;display:block;
@@ -669,7 +697,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         MetaTrader 5 Expert Advisor
       </div>
       <h1>Stop Blowing Challenges. Let an MT5 Robot Trade XAUUSD <span class="accent">for You.</span></h1>
-      <p class="lede"><strong>Gold Scalpers EA</strong> is a pure XAUUSD M1 scalper that runs gold on autopilot with prop-firm-grade risk control — hard daily-loss limits, a drawdown guard, and disciplined Slope&nbsp;×&nbsp;50&nbsp;EMA crossover entries confirmed by ZeroLag MACD. Built for the rules prop firms demand, hands-free.</p>
+      <p class="lede"><strong>Gold Scalpers EA</strong> trades XAUUSD on the M5 chart for you. Disciplined Slope&nbsp;×&nbsp;50&nbsp;EMA entries confirmed by ZeroLag MACD, a stop placed at real market structure, and <strong>break-even protection</strong> that stops a winner ever turning into a loser. Prop-firm mode included. No coding, no screen-watching.</p>
       <div class="hero-cta">
         <a href="/checkout" class="btn btn-primary">Get Lifetime – $220 →</a>
         <a href="/results" class="btn btn-ghost">See backtest results →</a>
@@ -681,8 +709,8 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       </div>
       <div class="hero-trust">
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Prop-firm ready</span>
-        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Daily-loss limit</span>
-        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Drawdown guard</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Break-even protection</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Swing-structure stop</span>
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> 30-day money-back</span>
       </div>
     </div>
@@ -692,7 +720,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       <div class="hero-chart-header">
         <div style="display:flex;align-items:center;gap:0.5rem">
           <span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;display:inline-block;box-shadow:0 0 6px #F59E0B"></span>
-          <span style="font-weight:700;font-size:0.85rem;color:#111827">XAUUSD · M1</span>
+          <span style="font-weight:700;font-size:0.85rem;color:#111827">XAUUSD · M5</span>
           <span style="font-size:0.72rem;color:#6B7280;margin-left:0.3rem">Gold Scalpers EA</span>
         </div>
         <span style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;font-weight:600;color:#059669">
@@ -700,108 +728,11 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         </span>
       </div>
       <div class="hero-chart-video">
-        <!-- EA live mockup (MetaTrader 5 style): Slope x 50 EMA crossover fires BUY with Entry/SL/TP + dashboard -->
-        <svg viewBox="0 0 940 528" preserveAspectRatio="xMidYMid slice" role="img" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0;width:100%;height:100%;display:block">
-        <title>Gold Scalpers EA — Slope Direction Line crosses the 50 EMA and fires a BUY with Entry, SL and TP on XAUUSD M1</title>
-        <rect x="0" y="0" width="940" height="528" fill="#0b1018"/>
-        <rect x="0" y="0" width="940" height="22" fill="#0a0c12"/>
-        <rect x="6" y="7" width="9" height="9" rx="1" fill="#2f6df6"/><rect x="18" y="7" width="9" height="9" rx="1" fill="#16a06a"/>
-        <text x="33" y="15" fill="#c7ccd6" font-size="10.5" font-family="'Segoe UI',Tahoma,sans-serif">XAUUSD, M1: Gold vs US Dollar</text>
-        <text x="934" y="15" fill="#8a90a0" font-size="10.5" text-anchor="end" font-family="'Segoe UI',Tahoma,sans-serif">Gold Scalpers EA</text>
-        <g stroke="#2b3543" stroke-width="1" stroke-dasharray="1 4">
-          <line x1="320" y1="26" x2="320" y2="510"/><line x1="380" y1="26" x2="380" y2="510"/><line x1="440" y1="26" x2="440" y2="510"/><line x1="500" y1="26" x2="500" y2="510"/><line x1="560" y1="26" x2="560" y2="510"/><line x1="620" y1="26" x2="620" y2="510"/><line x1="680" y1="26" x2="680" y2="510"/><line x1="740" y1="26" x2="740" y2="510"/><line x1="800" y1="26" x2="800" y2="510"/><line x1="860" y1="26" x2="860" y2="510"/>
-          <line x1="300" y1="70" x2="936" y2="70"/><line x1="300" y1="124" x2="936" y2="124"/><line x1="300" y1="178" x2="936" y2="178"/><line x1="300" y1="232" x2="936" y2="232"/><line x1="300" y1="286" x2="936" y2="286"/><line x1="300" y1="340" x2="936" y2="340"/><line x1="300" y1="394" x2="936" y2="394"/><line x1="300" y1="448" x2="936" y2="448"/>
-        </g>
-        <line x1="882" y1="22" x2="882" y2="514" stroke="#222b38" stroke-width="1"/>
-        <g fill="#69748a" font-size="9" font-family="Consolas,monospace"><text x="888" y="94">4040.0</text><text x="888" y="244">4020.0</text><text x="888" y="424">4002.0</text></g>
-        <line x1="620" y1="56" x2="620" y2="318" stroke="#FCD34D" stroke-width="1" stroke-dasharray="2 4" opacity="0.55"/>
-        <text x="620" y="46" fill="#FCD34D" font-size="12" font-weight="800" text-anchor="middle" font-family="'Segoe UI',Tahoma,sans-serif">SLOPE &#215; 50 EMA CROSS</text>
-        <polyline points="320,235 440,272 540,308 620,322 700,318 780,298 860,272" fill="none" stroke="#dfe3ea" stroke-width="2" opacity="0.92"/>
-        <polyline points="320,210 440,255 540,300 600,318 620,320 700,300 780,262 860,232" fill="none" stroke="#F59E0B" stroke-width="2"/>
-        <polyline points="320,224 440,275 540,322 600,330 620,322 660,300 700,282 780,242 860,206" fill="none" stroke="#3B82F6" stroke-width="2"/>
-        <g>
-          <line x1="320" y1="166" x2="320" y2="194" stroke="#e06363"/><rect x="316" y="173" width="8" height="14" fill="#e06363"/>
-          <line x1="340" y1="182" x2="340" y2="210" stroke="#e06363"/><rect x="336" y="189" width="8" height="14" fill="#e06363"/>
-          <line x1="360" y1="196" x2="360" y2="224" stroke="#e06363"/><rect x="356" y="203" width="8" height="14" fill="#e06363"/>
-          <line x1="380" y1="210" x2="380" y2="238" stroke="#e06363"/><rect x="376" y="217" width="8" height="14" fill="#e06363"/>
-          <line x1="400" y1="224" x2="400" y2="252" stroke="#e06363"/><rect x="396" y="231" width="8" height="14" fill="#e06363"/>
-          <line x1="420" y1="238" x2="420" y2="266" stroke="#e06363"/><rect x="416" y="245" width="8" height="14" fill="#e06363"/>
-          <line x1="440" y1="250" x2="440" y2="278" stroke="#e06363"/><rect x="436" y="257" width="8" height="14" fill="#e06363"/>
-          <line x1="460" y1="262" x2="460" y2="290" stroke="#e06363"/><rect x="456" y="269" width="8" height="14" fill="#e06363"/>
-          <line x1="480" y1="274" x2="480" y2="302" stroke="#e06363"/><rect x="476" y="281" width="8" height="14" fill="#e06363"/>
-          <line x1="500" y1="286" x2="500" y2="314" stroke="#e06363"/><rect x="496" y="293" width="8" height="14" fill="#e06363"/>
-          <line x1="520" y1="298" x2="520" y2="326" stroke="#e06363"/><rect x="516" y="305" width="8" height="14" fill="#e06363"/>
-          <line x1="540" y1="308" x2="540" y2="336" stroke="#e06363"/><rect x="536" y="315" width="8" height="14" fill="#e06363"/>
-          <line x1="560" y1="316" x2="560" y2="344" stroke="#e06363"/><rect x="556" y="323" width="8" height="14" fill="#e06363"/>
-          <line x1="580" y1="320" x2="580" y2="348" stroke="#e06363"/><rect x="576" y="327" width="8" height="14" fill="#e06363"/>
-          <line x1="600" y1="322" x2="600" y2="350" stroke="#e06363"/><rect x="596" y="329" width="8" height="14" fill="#e06363"/>
-          <line x1="620" y1="318" x2="620" y2="346" stroke="#2faa86"/><rect x="616" y="325" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="640" y1="310" x2="640" y2="338" stroke="#2faa86"/><rect x="636" y="317" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="660" y1="298" x2="660" y2="326" stroke="#2faa86"/><rect x="656" y="305" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="680" y1="284" x2="680" y2="312" stroke="#2faa86"/><rect x="676" y="291" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="700" y1="268" x2="700" y2="296" stroke="#2faa86"/><rect x="696" y="275" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="720" y1="252" x2="720" y2="280" stroke="#2faa86"/><rect x="716" y="259" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="740" y1="236" x2="740" y2="264" stroke="#2faa86"/><rect x="736" y="243" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="760" y1="222" x2="760" y2="250" stroke="#2faa86"/><rect x="756" y="229" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="780" y1="210" x2="780" y2="238" stroke="#2faa86"/><rect x="776" y="217" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="800" y1="200" x2="800" y2="228" stroke="#2faa86"/><rect x="796" y="207" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="820" y1="192" x2="820" y2="220" stroke="#2faa86"/><rect x="816" y="199" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="840" y1="186" x2="840" y2="214" stroke="#2faa86"/><rect x="836" y="193" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-          <line x1="860" y1="182" x2="860" y2="210" stroke="#2faa86"/><rect x="856" y="189" width="8" height="14" fill="#0b1018" stroke="#2faa86" stroke-width="1.1"/>
-        </g>
-        <circle cx="620" cy="321" r="9" fill="none" stroke="#FCD34D" stroke-width="2"><animate attributeName="r" values="7;16;7" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0;0.9" dur="2s" repeatCount="indefinite"/></circle>
-        <circle cx="620" cy="321" r="3.5" fill="#FCD34D"/>
-        <path d="M620 372 L610 390 L630 390 Z" fill="#22C55E"/>
-        <rect x="596" y="392" width="48" height="18" rx="4" fill="#10241A" stroke="#1E5235"/><text x="620" y="405" fill="#34D399" font-size="12" font-weight="800" text-anchor="middle" font-family="'Segoe UI',Tahoma,sans-serif">BUY</text>
-        <line x1="620" y1="315" x2="882" y2="315" stroke="#3B82F6" stroke-width="1.3" stroke-dasharray="6 4"/>
-        <line x1="620" y1="150" x2="882" y2="150" stroke="#22C55E" stroke-width="1.3" stroke-dasharray="6 4"/>
-        <line x1="620" y1="356" x2="882" y2="356" stroke="#EF4444" stroke-width="1.3" stroke-dasharray="6 4"/>
-        <g font-family="Consolas,monospace" font-size="11" font-weight="700">
-          <rect x="796" y="141" width="84" height="18" rx="3" fill="#16331f" stroke="#22C55E"/><text x="838" y="154" fill="#7ef0a8" text-anchor="middle">TP 4036.20</text>
-          <rect x="796" y="306" width="84" height="18" rx="3" fill="#16243d" stroke="#3B82F6"/><text x="838" y="319" fill="#8fbaff" text-anchor="middle">ENTRY 4016.62</text>
-          <rect x="796" y="347" width="84" height="18" rx="3" fill="#33161a" stroke="#EF4444"/><text x="838" y="360" fill="#ff9a9a" text-anchor="middle">SL 4008.40</text>
-        </g>
-        <line x1="300" y1="486" x2="882" y2="486" stroke="#222b38" stroke-width="1"/>
-        <g fill="#214a3a">
-          <rect x="316" y="502" width="8" height="12"/><rect x="336" y="498" width="8" height="16"/><rect x="356" y="504" width="8" height="10"/><rect x="376" y="500" width="8" height="14"/><rect x="396" y="496" width="8" height="18"/><rect x="416" y="503" width="8" height="11"/><rect x="436" y="499" width="8" height="15"/><rect x="456" y="505" width="8" height="9"/><rect x="476" y="500" width="8" height="14"/><rect x="496" y="497" width="8" height="17"/><rect x="516" y="502" width="8" height="12"/><rect x="536" y="498" width="8" height="16"/><rect x="556" y="501" width="8" height="13"/><rect x="576" y="495" width="8" height="19"/><rect x="596" y="492" width="8" height="22"/><rect x="616" y="490" width="8" height="24"/><rect x="636" y="496" width="8" height="18"/><rect x="656" y="500" width="8" height="14"/><rect x="676" y="494" width="8" height="20"/><rect x="696" y="498" width="8" height="16"/><rect x="716" y="492" width="8" height="22"/><rect x="736" y="500" width="8" height="14"/><rect x="756" y="496" width="8" height="18"/><rect x="776" y="501" width="8" height="13"/><rect x="796" y="498" width="8" height="16"/><rect x="816" y="503" width="8" height="11"/><rect x="836" y="499" width="8" height="15"/><rect x="856" y="502" width="8" height="12"/>
-        </g>
-        <rect x="6" y="28" width="292" height="486" fill="#0E1216"/>
-        <line x1="298" y1="28" x2="298" y2="514" stroke="#000000" opacity="0.5" stroke-width="2"/>
-        <g font-family="'Segoe UI',Tahoma,sans-serif">
-          <text x="18" y="50" fill="#F4F6FA" font-size="15" font-weight="700">Gold Scalpers EA</text>
-          <text x="286" y="49" fill="#E8B923" font-size="11" font-weight="700" text-anchor="end">v4.10</text>
-          <line x1="6" y1="60" x2="298" y2="60" stroke="#C9A227" stroke-width="1.5"/>
-          <text x="18" y="88" fill="#C7CCD6" font-size="12">XAUUSD · M1</text>
-          <text x="286" y="92" fill="#F4F6FA" font-size="21" font-weight="700" text-anchor="end" font-family="Consolas,monospace">4016.62</text>
-          <rect x="10" y="104" width="284" height="24" rx="3" fill="#10241A" stroke="#1E5235"/>
-          <circle cx="24" cy="116" r="4" fill="#22C55E"/>
-          <text x="34" y="120" fill="#34D399" font-size="12" font-weight="700">Trading active · In position</text>
-          <text x="18" y="150" fill="#8A90A0" font-size="11">SIGNAL</text>
-          <text x="286" y="150" fill="#34D399" font-size="12" font-weight="800" text-anchor="end">BUY  100%</text>
-          <rect x="18" y="157" width="268" height="8" rx="4" fill="#1A1F29" stroke="#2E343F"/>
-          <rect x="19" y="158" width="266" height="6" rx="3" fill="#22C55E"/>
-          <text x="18" y="184" fill="#34D399" font-size="11" font-weight="600">Slope crossed 50 EMA — BUY fired</text>
-          <rect x="18" y="196" width="80" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="58" y="212" fill="#C7CCD6" font-size="11" text-anchor="middle">Pause</text>
-          <rect x="104" y="196" width="100" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="154" y="212" fill="#E0A0A0" font-size="11" text-anchor="middle">Close all</text>
-          <rect x="210" y="196" width="76" height="24" rx="4" fill="#1A1F29" stroke="#2E343F"/><text x="248" y="213" fill="#8A90A0" font-size="11" text-anchor="middle">▲</text>
-          <line x1="18" y1="236" x2="286" y2="236" stroke="#20252F" stroke-width="1"/>
-          <text x="18" y="252" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">TRADE</text>
-          <text x="18" y="272" fill="#8A90A0" font-size="11">Entry</text><text x="286" y="272" fill="#8FBAFF" font-size="11" font-weight="600" text-anchor="end">4016.62</text>
-          <text x="18" y="292" fill="#8A90A0" font-size="11">Stop loss</text><text x="286" y="292" fill="#FF9A9A" font-size="11" font-weight="600" text-anchor="end">4008.40  (step)</text>
-          <text x="18" y="312" fill="#8A90A0" font-size="11">Take profit</text><text x="286" y="312" fill="#7EF0A8" font-size="11" font-weight="600" text-anchor="end">4036.20</text>
-          <line x1="18" y1="326" x2="286" y2="326" stroke="#20252F" stroke-width="1"/>
-          <text x="18" y="342" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">PERFORMANCE</text>
-          <text x="18" y="362" fill="#8A90A0" font-size="11">Open</text><text x="286" y="362" fill="#E6E9EF" font-size="11" text-anchor="end">1 position</text>
-          <text x="18" y="382" fill="#8A90A0" font-size="11">Today</text><text x="286" y="382" fill="#E0A33A" font-size="11" font-weight="600" text-anchor="end">6 trades</text>
-          <text x="18" y="402" fill="#8A90A0" font-size="11">Win rate</text><text x="286" y="402" fill="#34D399" font-size="11" font-weight="600" text-anchor="end">75%   9W / 3L</text>
-          <text x="18" y="422" fill="#8A90A0" font-size="11">Day P&amp;L</text><text x="286" y="422" fill="#34D399" font-size="11" font-weight="700" text-anchor="end">+125.06 USD</text>
-          <text x="18" y="442" fill="#8A90A0" font-size="11">Last signal</text><text x="286" y="442" fill="#34D399" font-size="11" font-weight="600" text-anchor="end">BUY  4016.62</text>
-          <line x1="18" y1="456" x2="286" y2="456" stroke="#20252F" stroke-width="1"/>
-          <text x="18" y="472" fill="#C9A227" font-size="10" font-weight="700" letter-spacing="1">MANUAL</text>
-          <rect x="18" y="480" width="130" height="28" rx="4" fill="#10301f" stroke="#1E5235"/><text x="83" y="498" fill="#34D399" font-size="11.5" font-weight="700" text-anchor="middle">Buy market</text>
-          <rect x="156" y="480" width="130" height="28" rx="4" fill="#2a1416" stroke="#5a2327"/><text x="221" y="498" fill="#FF8A8A" font-size="11.5" font-weight="700" text-anchor="middle">Sell market</text>
-        </g>
-        </svg>
+        <img src="/assets/hero-live.png?v=1" alt="Gold Scalpers EA running live in MetaTrader 5 on XAUUSD M5 — dashboard showing a SELL signal at 100%, the Slope line and 50 EMA, the swing-structure stop loss line, and pop-up trade alerts" width="1085" height="632" fetchpriority="high" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:left top;display:block">
+      </div>
+      <div style="padding:.55rem .85rem;background:#0F1422;border-top:1px solid #1F2937;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <span style="font-size:.72rem;font-weight:700;color:#F59E0B;letter-spacing:.04em">LIVE SCREENSHOT</span>
+        <span style="font-size:.72rem;color:#9CA3AF">Real MT5 terminal &mdash; dashboard, swing stop-loss line and trade alerts. Demo account; figures shown are illustrative, not typical or guaranteed results.</span>
       </div>
       <!-- /end hero mockup -->
     </div>
@@ -868,17 +799,17 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <div class="ea-gallery" id="eaGallery">
       <figure class="ea-shot">
         <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Live signals & alerts">
-          <img src="assets/display/signals.PNG" alt="Gold Scalpers EA running live in MetaTrader 5 — on-chart dashboard showing a BUY signal at 95% with pop-up trade alerts on XAUUSD M1" loading="lazy" decoding="async">
+          <img src="assets/display/signals.PNG" alt="Gold Scalpers EA running live in MetaTrader 5 — on-chart dashboard showing a BUY signal at 95% with pop-up trade alerts on XAUUSD M5" loading="lazy" decoding="async">
           <span class="ea-zoom" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           <span class="ea-zoom-txt">Click or tap to view full system</span>
           </span>
         </button>
-        <figcaption><span class="ea-tag">Live signals &amp; alerts</span>The on-chart dashboard fires a BUY at 95% confidence and pushes a pop-up alert the moment a setup is ready — XAUUSD, M1.</figcaption>
+        <figcaption><span class="ea-tag">Live signals &amp; alerts</span>The on-chart dashboard fires a BUY at 95% confidence and pushes a pop-up alert the moment a setup is ready — XAUUSD, M5.</figcaption>
       </figure>
       <figure class="ea-shot">
         <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Trade in progress">
-          <img src="assets/display/picksignal.PNG" alt="Gold Scalpers EA managing an open BUY position on the XAUUSD M1 chart with the Slope line, 50 EMA and ZeroLag MACD" loading="lazy" decoding="async">
+          <img src="assets/display/picksignal.PNG" alt="Gold Scalpers EA managing an open BUY position on the XAUUSD M5 chart with the Slope line, 50 EMA and ZeroLag MACD" loading="lazy" decoding="async">
           <span class="ea-zoom" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           <span class="ea-zoom-txt">Click or tap to view full system</span>
@@ -936,7 +867,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
               <div style="text-align:center;margin-bottom:12px"><span style="background:#1c2733;color:#9aa6b2;font-size:11px;padding:3px 12px;border-radius:99px">Today</span></div>
               <div style="background:#182533;border-radius:12px 12px 12px 4px;padding:11px 12px;margin-bottom:10px">
                 <div style="color:#E8B923;font-weight:700;font-size:13px;margin-bottom:3px">🟢 BUY opened</div>
-                <div style="color:#8A90A0;font-size:11px;margin-bottom:9px">XAUUSDc · M1</div>
+                <div style="color:#8A90A0;font-size:11px;margin-bottom:9px">XAUUSDc · M5</div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">📍 Entry</span><span style="color:#8FBAFF">4064.20</span></div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🛑 Stop (swing)</span><span style="color:#FF9A9A">4055.10</span></div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🎯 Target</span><span style="color:#7EF0A8">4082.80</span></div>
@@ -1180,14 +1111,17 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
   <div class="section-inner">
     <span class="eyebrow">One of the best MT5 EAs for gold · Scalping &amp; prop-firm ready</span>
     <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why traders choose this <span style="color:var(--gold)">MT5 gold EA.</span></h2>
-    <p class="section-subtitle">A focused, fully automated XAUUSD robot — every feature does one job: trade gold with discipline, hands-free.</p>
+    <p class="section-subtitle">A focused, fully automated XAUUSD robot — every feature exists to do one thing: protect your capital while it trades gold with discipline.</p>
     <div class="features-grid">
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>Fully Automated</h3><p>Opens, manages and closes every XAUUSD trade in MT5 — hands-free.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><h3>Slope × 50 EMA Crossover</h3><p>Enters when the Slope line crosses the 50 EMA, confirmed by ZeroLag MACD.</p></div>
-      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Protective + Step Stop</h3><p>A protective stop on every trade that steps tighter as the grid adds — locking in as price runs.</p></div>
-      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><h3>Scalping TP + Momentum Pyramiding</h3><p>Takes quick scalping profits, with optional Momentum Pyramiding that pyramids as price runs your way — one input turns pyramiding on or off.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Swing-Structure Stop Loss</h3><p>The stop sits behind the last real swing high/low beyond the 50 EMA — market structure, not a fixed guess.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/><path d="M3 21h18"/></svg></div><h3>Break-Even Protection</h3><p>Once a trade is in profit, the stop jumps to entry and locks a little in — from that moment the trade <b>cannot become a loser</b>.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><h3>Momentum Pyramiding</h3><p>Adds to a <b>winning</b> trade as it runs — never averages down into a loser. Every add-on shares one basket stop. One switch turns it off for single-entry mode.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div><h3>Smart Entry Filters</h3><p>Skips spikes, wide spreads, off-session hours and high-impact news.</p></div>
-      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><h3>Built-In Risk Controls</h3><p>Daily loss limit, max-drawdown guard, spread cap, %-risk sizing.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><h3>Built-In Risk Controls</h3><p>Daily loss limit, max-drawdown guard, spread cap, position cap, loss-streak cooldown.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Prop-Firm Mode</h3><p>Switch it on and the EA enforces your firm's <b>daily-loss %</b> and <b>max-drawdown %</b> from the real balance baselines — and hard-locks trading if a limit is breached.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>Pre-Flight Self-Check</h3><p>On attach it verifies permissions, history, spread, indicators and licence, then prints a plain-English PASS / FAIL list — so nothing fails silently.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><h3>Live Dashboard</h3><p>On-chart status, signals and P&amp;L + Buy/Sell/Pause/Close buttons.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Telegram &amp; Mobile Alerts</h3><p>Entry, stop, target and close pushed to Telegram and mobile.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Backtest Anywhere</h3><p>Indicator bundled in — runs in the MT5 Strategy Tester. Lifetime updates.</p></div>
@@ -1203,7 +1137,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <p class="section-subtitle">No coding, no complex setup — if you can drag a file onto a chart, you can run Gold Scalpers EA.</p>
     <div class="steps">
       <div class="step"><div class="step-num">1</div><h4>Get Instant Access</h4><p>Secure checkout — your EA file + licence arrive by email instantly.</p></div>
-      <div class="step"><div class="step-num">2</div><h4>Add to MetaTrader 5</h4><p>Drop it in the Experts folder and open an XAUUSD M1 chart.</p></div>
+      <div class="step"><div class="step-num">2</div><h4>Add to MetaTrader 5</h4><p>Drop it in the Experts folder and open an XAUUSD M5 chart.</p></div>
       <div class="step"><div class="step-num">3</div><h4>Enable Algo Trading</h4><p>Drag the EA on, tick <em>Allow Algo Trading</em>, and whitelist the licence URL.</p></div>
       <div class="step"><div class="step-num">4</div><h4>Life on Autopilot</h4><p>Set it once and let the EA handle entries, stops and exits — hands-free.</p></div>
     </div>
@@ -1226,7 +1160,9 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         <ul class="price-features">
           <li>Full Gold Scalpers EA for MetaTrader 5</li>
           <li>XAUUSD (Gold) — built &amp; tuned for gold</li>
-          <li>Quick scalping take-profit + Momentum Pyramiding</li>
+          <li>Swing-structure stop + break-even protection</li>
+          <li>Momentum Pyramiding (adds to winners only)</li>
+          <li>Prop-Firm Mode with %-based limits</li>
           <li>Telegram + mobile + terminal alerts</li>
           <li>Live dashboard with manual controls</li>
           <li>Account licence included</li>
@@ -1250,14 +1186,17 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <span class="eyebrow">Frequently Asked Questions</span>
     <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Everything you need to know <span style="color:var(--gold)">before you start.</span></h2>
     <div class="faq-list">
-      <div class="faq-item open"><div class="faq-q">What is Gold Scalpers EA?</div><div class="faq-a"><div class="faq-a-inner">Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 1-minute (M1) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (up through the EMA = buy, down = sell), confirmed by the ZeroLag MACD and an optional confirmation candle, then manages the trade with Momentum Pyramiding, a quick scalping take-profit and a step-stop trail. It filters ranging/chop conditions, wide spreads, off-session hours and high-impact news, then opens, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts. It also runs on major FX pairs.</div></div></div>
+      <div class="faq-item open"><div class="faq-q">What is Gold Scalpers EA?</div><div class="faq-a"><div class="faq-a-inner">Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper. It enters when the Slope Direction Line crosses the 50 EMA (up = buy, down = sell), confirmed by the ZeroLag MACD. The stop loss is placed at the most recent swing high/low beyond the 50 EMA - real market structure - and break-even protection moves it to entry once the trade is in profit, so a winner cannot turn into a loser. Momentum Pyramiding can add to a winning trade as it runs (never averaging down), with every add-on sharing one basket stop. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters ranging conditions, wide spreads, off-session hours and high-impact news, and a pre-flight self-check verifies the whole setup on attach. It opens, manages and closes trades hands-free while sending Telegram, mobile and terminal alerts.</div></div></div>
       <div class="faq-item"><div class="faq-q">Do I have to watch the charts myself?</div><div class="faq-a"><div class="faq-a-inner">No. The EA trades hands-free. Once it's on an XAUUSD chart with algorithmic trading enabled, it opens, manages and closes positions automatically. You can also enable Telegram and mobile alerts and use the dashboard's manual Buy, Sell, Pause and Close buttons.</div></div></div>
       <div class="faq-item"><div class="faq-q">What do I need to run it?</div><div class="faq-a"><div class="faq-a-inner">MetaTrader 5, a broker that offers XAUUSD, and a computer or VPS that stays on during market hours. A VPS is recommended so the EA can trade 24/5 without interruption. You enable algorithmic trading and allow the EA's licence URL under Tools → Options → Expert Advisors.</div></div></div>
-      <div class="faq-item"><div class="faq-q">Which pair and timeframe does it trade?</div><div class="faq-a"><div class="faq-a-inner">XAUUSD (Gold) on the M1 (1-minute) timeframe — it's a pure gold scalper, built and tuned for gold. A Major-Pairs preset is also included so you can run it on major FX pairs (GBPUSD, GBPJPY, EURUSD, USDJPY and more).</div></div></div>
+      <div class="faq-item"><div class="faq-q">Which pair and timeframe does it trade?</div><div class="faq-a"><div class="faq-a-inner">XAUUSD (Gold) on the M5 (5-minute) timeframe — it's a pure gold scalper, built and tuned for gold.</div></div></div>
       <div class="faq-item"><div class="faq-q">Is there a free trial?</div><div class="faq-a"><div class="faq-a-inner">No free trial. Gold Scalpers EA is Pro Lifetime — a single $220 one-time payment for lifetime use and every future update. Every purchase has a 30-day money-back guarantee, so if it isn't a fit after demo testing, email support@goldscalpers.com within 30 days for a full refund.</div></div></div>
       <div class="faq-item"><div class="faq-q">What risk controls are built in?</div><div class="faq-a"><div class="faq-a-inner">Daily profit and loss limits, a max-drawdown guard, a max open-positions cap, a spread filter, and fixed-lot or percent-risk position sizing. Trading is still high-risk — always demo-test first and never risk money you can't afford to lose.</div></div></div>
-      <div class="faq-item"><div class="faq-q">Can I backtest it?</div><div class="faq-a"><div class="faq-a-inner">Yes. The Slope, 50 EMA and ZeroLag MACD indicators are bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M1 and forward-test on demo before going live.</div></div></div>
-      <div class="faq-item"><div class="faq-q">How long does setup take?</div><div class="faq-a"><div class="faq-a-inner">About 5 minutes: attach the EA to an XAUUSD M1 chart, tick Allow Algorithmic Trading, allow the licence URL (https://goldscalpers.com/licenses.txt) under Tools → Options → Expert Advisors, set your lot or risk percent, and it starts trading automatically.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Can I backtest it?</div><div class="faq-a"><div class="faq-a-inner">Yes. The Slope, 50 EMA and ZeroLag MACD indicators are bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live.</div></div></div>
+      <div class="faq-item"><div class="faq-q">How long does setup take?</div><div class="faq-a"><div class="faq-a-inner">About 5 minutes: attach the EA to an XAUUSD M5 chart, tick Allow Algorithmic Trading, allow the licence URL (https://goldscalpers.com/licenses.txt) under Tools → Options → Expert Advisors, set your lot size, and it starts trading automatically.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Can I use it on a prop-firm challenge?</div><div class="faq-a"><div class="faq-a-inner">Yes — there is a dedicated <b>Prop-Firm Mode</b>. Switch it on and set your firm's numbers: the EA measures your daily loss as a percentage of the day-start balance and your total drawdown from the starting balance (or a trailing high-water mark, your choice). If either limit is breached it closes everything and hard-locks trading until you reload it. For firms that dislike multiple entries you can also switch pyramiding off and run one trade at a time. Always confirm your firm's current rules — no pass is guaranteed.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Does it use martingale or add to losing trades?</div><div class="faq-a"><div class="faq-a-inner">No. Momentum Pyramiding only adds to a trade that is <b>already winning</b> — the add-on orders sit beyond your entry and fill only if price keeps moving your way, and every one of them shares the same basket stop loss. It never averages down into a loser, and there is no lot doubling on losses. You can turn it off entirely for single-entry trading.</div></div></div>
+      <div class="faq-item"><div class="faq-q">What happens if a winning trade turns around?</div><div class="faq-a"><div class="faq-a-inner">That is what <b>break-even protection</b> is for. Once a trade is far enough in profit, the EA moves its stop to your entry price plus a small locked amount — from that point the trade cannot close as a loss. On top of that, the step-stop pulls every stop tighter each time a new add-on fills, so the further the move runs, the more profit is already banked.</div></div></div>
       <div class="faq-item"><div class="faq-q">What is your refund policy?</div><div class="faq-a"><div class="faq-a-inner">30-day money-back guarantee on Pro Lifetime. If the EA isn't a fit after your demo test within 30 days, email support@goldscalpers.com with your order number for a full refund. Approved and refunded within 48 hours.</div></div></div>
     </div>
   </div>
