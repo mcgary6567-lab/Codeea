@@ -22,7 +22,7 @@ Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters
 ## Key pages
 - [Home](https://goldscalpers.com/): product overview, features, live signal demo, pricing
 - [Checkout](https://goldscalpers.com/checkout): buy the EA ($220, card or crypto)
-- [Backtest results](https://goldscalpers.com/results): MT5 Strategy Tester backtest on XAUUSD M15 (hypothetical, reproducible)
+- [Backtest results](https://goldscalpers.com/results): MT5 Strategy Tester backtest on XAUUSD, run on an earlier M15 configuration (hypothetical, reproducible)
 - [Pricing (machine-readable)](https://goldscalpers.com/pricing.md): structured pricing for AI agents
 - [Support](https://goldscalpers.com/support): help and contact
 - [How to install an EA on MT5](https://goldscalpers.com/blog/how-to-install-ea-on-mt5): step-by-step setup
