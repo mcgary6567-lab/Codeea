@@ -105,6 +105,12 @@ a:hover{color:#B45309}
 .logo:hover{text-decoration:none;color:var(--text)}
 .nav-secure{display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--text-muted);font-weight:500}
 .nav-secure svg{color:var(--green)}
+.secure-pill{display:inline-flex;align-items:center;gap:0.55rem;padding:0.55rem 1rem;border-radius:999px;background:#ECFDF5;border:1.5px solid #A7F3D0;color:#047857;font-weight:700;font-size:0.87rem;letter-spacing:0.01em;white-space:nowrap}
+.secure-pill svg{flex:0 0 auto}
+.secure-pill .pill-short{display:none}
+@media(max-width:640px){.secure-pill{padding:0.45rem 0.8rem;font-size:0.79rem;gap:0.42rem}.secure-pill .pill-shield{display:none}}
+@media(max-width:460px){.nav-inner{padding:0 1rem}.logo{font-size:1rem;gap:0.45rem}.logo svg{width:26px;height:26px}
+  .secure-pill .pill-text{display:none}.secure-pill .pill-short{display:inline}.secure-pill{padding:0.42rem 0.7rem;font-size:0.76rem}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.4rem;padding:0.7rem 1.6rem;border-radius:8px;font-weight:700;font-size:0.95rem;transition:all 0.2s;cursor:pointer;border:none;text-decoration:none}
 .btn-primary{background:var(--gold);color:#FFFFFF;box-shadow:0 2px 8px rgba(217,119,6,0.30)}
 .btn-primary:hover{background:#B45309;transform:translateY(-1px);box-shadow:0 6px 20px rgba(217,119,6,0.35);color:#FFFFFF;text-decoration:none}
@@ -309,7 +315,15 @@ a:hover{color:#B45309}
       Gold Scalpers
     </a>
     <div class="nav-links">
-      <a href="/" class="btn btn-ghost">← Back to site</a>
+      <div class="secure-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span class="pill-text">Secure Checkout</span><span class="pill-short">Secure</span>
+        <svg class="pill-shield" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.75" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>
+        </svg>
+      </div>
     </div>
   </div>
 </nav>
