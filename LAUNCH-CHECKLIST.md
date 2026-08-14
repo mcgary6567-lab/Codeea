@@ -39,7 +39,7 @@ This is the most important phase. Skip it and you'll be refunding sales by week 
 - [ ] **Sign up for Stripe** — set up business profile, identity verify
   - Backup: also create Gumroad account (Stripe sometimes blocks "trading" products)
 - [ ] **Create Stripe products:**
-  - "Pro Lifetime" — $220 (or $220 intro / $297 regular)
+  - "Pro Lifetime" — $140 (or $140 intro / $220 regular)
   - "Elite" — $497
 - [ ] **Sign up for email tool** (Beehiiv free tier — `beehiiv.com`)
 - [ ] **Create Telegram bot** via @BotFather for customer support
@@ -116,11 +116,11 @@ You need an audience BEFORE you sell. Otherwise you're shouting into the void.
 
 ## PHASE 5 — Soft Launch (Week 7)
 
-- [ ] **Announce in Telegram channel** — "Indicator launching tomorrow at $220 — first 100 buyers only"
+- [ ] **Announce in Telegram channel** — "Indicator launching tomorrow at $140 — first 100 buyers only"
 
 - [ ] **Send first email broadcast** to your list (if you've collected any)
 
-- [ ] **Open the cart at $220 intro pricing**
+- [ ] **Open the cart at $140 intro pricing**
 
 - [ ] **Goal:** 10-20 sales in first week from existing audience
 
@@ -138,7 +138,7 @@ You need an audience BEFORE you sell. Otherwise you're shouting into the void.
 
 - [ ] **Open affiliate program** — promote `affiliate.html` to creators
 
-- [ ] **Raise price to $297** after first 100 buyers
+- [ ] **Raise price to $220** after first 100 buyers
 
 - [ ] **Goal:** 50+ buyers in first 30 days = $9,850 revenue
 

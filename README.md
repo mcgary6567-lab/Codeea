@@ -58,7 +58,7 @@ GoldScalpers/
 
 **Pricing**:
 - Free tier: Public Telegram channel signals
-- Pro Lifetime: $220 (intro) → $297 (regular)
+- Pro Lifetime: $140 (intro) → $220 (regular)
 - Elite: $497 (Pro + 1-on-1 setup call)
 
 **Year 1 revenue target**: $30,000 - $80,000 (solo creator with content engine)
