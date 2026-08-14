@@ -429,6 +429,9 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 .price-amount{font-size:2.8rem;font-weight:800;margin:0.5rem 0;letter-spacing:-0.02em;color:var(--text)}
 .price-amount .currency{font-size:1.4rem;vertical-align:top;color:var(--text-muted)}
 .price-amount .period{font-size:0.85rem;color:var(--text-muted);font-weight:500}
+.price-was-row{display:flex;align-items:center;gap:0.55rem;margin:-0.25rem 0 0.55rem;flex-wrap:wrap}
+.price-was{font-size:1.15rem;font-weight:700;color:var(--text-dim);text-decoration:line-through}
+.price-save{background:var(--gold-pale);color:#92400E;font-size:0.72rem;font-weight:800;letter-spacing:.05em;padding:.2rem .6rem;border-radius:99px;border:1px solid #FDE68A}
 .price-features{list-style:none;margin:1.5rem 0;padding:0}
 .price-features li{padding:0.45rem 0;font-size:0.88rem;color:var(--text);display:flex;align-items:flex-start;gap:0.6rem;border-bottom:1px solid #F3F4F6}
 .price-features li:last-child{border-bottom:none}
@@ -1153,9 +1156,9 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 
     <div class="pricing-grid" style="grid-template-columns:minmax(0,460px);justify-content:center;max-width:460px">
       <div class="price-card featured" style="position:relative">
-        <div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gold);color:#fff;font-size:0.68rem;font-weight:800;letter-spacing:.06em;padding:.25rem .8rem;border-radius:99px;white-space:nowrap">MOST POPULAR</div>
         <div class="price-tier-name">PRO LIFETIME</div>
-        <div class="price-amount"><span class="currency">$</span>220 <span class="period">one-time</span></div>
+        <div class="price-amount"><span class="currency">$</span>140 <span class="period">one-time</span></div>
+        <div class="price-was-row"><span class="price-was">$220</span><span class="price-save">SAVE $80</span></div>
         <p style="color:var(--text-muted);font-size:0.9rem">Pay once. Trade gold on MT5 forever.</p>
         <ul class="price-features">
           <li>Full Gold Scalpers EA for MetaTrader 5</li>
