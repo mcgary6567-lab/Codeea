@@ -122,6 +122,11 @@ a:hover{color:#B45309}
 .btn-crypto-pay{display:flex;align-items:center;justify-content:center;gap:0.6rem;width:100%;padding:0.95rem 1rem;background:linear-gradient(135deg,#1F2937,#0F1422);color:#fff;border-radius:11px;font-weight:800;font-size:0.98rem;letter-spacing:0.01em;text-decoration:none;transition:all 0.2s;border:1px solid #2A3443;box-shadow:0 6px 18px rgba(15,20,34,0.18)}
 .btn-crypto-pay:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(15,20,34,0.26);color:#fff;text-decoration:none}
 .btn-crypto-pay svg{width:20px;height:20px;color:#F59E0B;flex:0 0 auto}
+.btn-paypal{display:flex;align-items:center;justify-content:center;gap:0.55rem;width:100%;padding:0.9rem 1rem;background:#FFC439;color:#253B80;border-radius:11px;font-weight:800;font-size:0.98rem;text-decoration:none;transition:all 0.2s;border:1px solid #EBB230;box-shadow:0 4px 14px rgba(255,196,57,0.35)}
+.btn-paypal:hover{background:#F0B429;transform:translateY(-2px);box-shadow:0 8px 22px rgba(255,196,57,0.45);color:#253B80;text-decoration:none}
+.btn-paypal svg{height:17px;width:auto;flex:0 0 auto}
+.pp-note{font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:0.6rem;line-height:1.55}
+.pp-note a{font-weight:700}
 .np-btn{display:block;text-decoration:none;transition:transform 0.2s}
 .np-btn:hover{transform:translateY(-2px);text-decoration:none}
 .np-btn img{display:block;margin:0 auto;width:250px;max-width:100%;height:auto;border-radius:8px}
@@ -500,7 +505,7 @@ a:hover{color:#B45309}
       </div>
 
       <!-- CARD PAYMENT -->
-      <div class="pay-section-label">Pay by Card / PayPal</div>
+      <div class="pay-section-label">Pay by Card</div>
       <div class="card-cta-wrap">
         <a href="https://buy.stripe.com/00w5kEenX0aM50YdUJdby02" target="_blank" id="cardPayBtn" class="btn btn-primary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -509,7 +514,6 @@ a:hover{color:#B45309}
         <div class="card-icons">
           <div class="card-icon" title="Visa"><svg viewBox="0 0 48 16" xmlns="http://www.w3.org/2000/svg"><text x="24" y="13" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="800" font-style="italic" fill="#1A1F71" letter-spacing="1">VISA</text></svg></div>
           <div class="card-icon" title="Mastercard"><svg viewBox="0 0 40 24" xmlns="http://www.w3.org/2000/svg"><circle cx="15" cy="12" r="9" fill="#EB001B"/><circle cx="25" cy="12" r="9" fill="#F79E1B"/><path d="M20 5.1a9 9 0 0 1 0 13.8 9 9 0 0 1 0-13.8z" fill="#FF5F00"/></svg></div>
-          <div class="card-icon" title="PayPal"><svg viewBox="0 0 64 16" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="800" font-style="italic"><tspan fill="#003087">Pay</tspan><tspan fill="#009cde">Pal</tspan></text></svg></div>
           <div class="card-icon" title="Google Pay"><svg viewBox="0 0 58 16" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="700"><tspan fill="#4285F4">G</tspan><tspan fill="#5F6368" dx="2">Pay</tspan></text></svg></div>
           <div class="card-icon" title="Apple Pay"><svg viewBox="0 0 56 22" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 6.2c-.6 0-1.5-.68-2.48-.66-1.28.02-2.45.74-3.1 1.89-1.33 2.3-.34 5.7.95 7.57.63.91 1.38 1.94 2.36 1.9.95-.04 1.31-.61 2.46-.61 1.15 0 1.47.61 2.47.6 1.02-.02 1.67-.93 2.3-1.85.42-.65.66-1.1.79-1.36-2.07-.78-2.4-3.69-.23-4.64-.66-1.19-2.01-1.33-2.5-1.35-1.14-.09-2.09.63-2.64.63zM12.8 4.4c.51-.61.85-1.46.76-2.31-.73.03-1.62.48-2.15 1.1-.47.54-.88 1.4-.77 2.21.81.06 1.65-.41 2.16-1z" fill="#000"/><text x="20" y="16" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="600" fill="#000">Pay</text></svg></div>
         </div>
@@ -518,6 +522,17 @@ a:hover{color:#B45309}
           Secure 256-bit SSL checkout · Instant delivery
         </div>
       </div>
+
+      <!-- DIVIDER -->
+      <div class="pay-divider">or pay with paypal</div>
+
+      <!-- PAYPAL CTA (PayPal.Me) -->
+      <a href="https://paypal.me/GMclaughlin802/140" target="_blank" rel="noreferrer noopener" class="btn-paypal">
+        <svg viewBox="0 0 64 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><text x="0" y="13" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="800" font-style="italic"><tspan fill="#003087">Pay</tspan><tspan fill="#009cde">Pal</tspan></text></svg>
+        Pay $140 with PayPal
+      </a>
+      <div class="pp-note">Opens PayPal with the $140 amount pre-filled. After paying, head to the
+        <a href="/thank-you">activation page</a> to download the EA and submit your MT5 account number.</div>
 
       <!-- DIVIDER -->
       <div class="pay-divider">or pay with crypto</div>
