@@ -122,6 +122,10 @@ a:hover{color:#B45309}
 .btn-crypto-pay{display:flex;align-items:center;justify-content:center;gap:0.6rem;width:100%;padding:0.95rem 1rem;background:linear-gradient(135deg,#1F2937,#0F1422);color:#fff;border-radius:11px;font-weight:800;font-size:0.98rem;letter-spacing:0.01em;text-decoration:none;transition:all 0.2s;border:1px solid #2A3443;box-shadow:0 6px 18px rgba(15,20,34,0.18)}
 .btn-crypto-pay:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(15,20,34,0.26);color:#fff;text-decoration:none}
 .btn-crypto-pay svg{width:20px;height:20px;color:#F59E0B;flex:0 0 auto}
+.np-btn{display:block;text-decoration:none;transition:transform 0.2s}
+.np-btn:hover{transform:translateY(-2px);text-decoration:none}
+.np-btn img{display:block;margin:0 auto;width:250px;max-width:100%;height:auto;border-radius:8px}
+.np-btn .btn-crypto-pay{display:none}
 .crypto-manual-note{text-align:center;font-size:0.8rem;color:var(--text-dim);margin:0.7rem 0 1.1rem}
 
 /* ── URGENCY BAR ─────────────────────────────────────────────────────── */
@@ -519,9 +523,13 @@ a:hover{color:#B45309}
       <div class="pay-divider">or pay with crypto</div>
 
       <!-- CRYPTO PAY CTA (NOWPayments) -->
-      <a href="https://nowpayments.io/payment/?iid=4509795000" target="_blank" rel="noopener" class="btn-crypto-pay">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="M16.71 13.88l.7.71-2.82 2.82"/></svg>
-        Pay with Crypto
+      <a href="https://nowpayments.io/payment/?iid=4509795000&amp;source=button" target="_blank" rel="noreferrer noopener" class="np-btn">
+        <img src="https://nowpayments.io/images/embeds/payments-button-black.svg" alt="Crypto payment button by NOWPayments" width="250" height="55" decoding="async"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <span class="btn-crypto-pay">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="M16.71 13.88l.7.71-2.82 2.82"/></svg>
+          Pay with Crypto
+        </span>
       </a>
 
       <!-- PANEL FOOTER -->
