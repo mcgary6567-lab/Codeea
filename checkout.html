@@ -678,7 +678,7 @@ a:hover{color:#B45309}
 (function(){
   var d=document.getElementById('ubD'),h=document.getElementById('ubH'),m=document.getElementById('ubM'),s=document.getElementById('ubS');
   if(!d) return;
-  var KEY='gsCoLaunchEnd', span=3*24*60*60*1000;
+  var KEY='gsCoLaunchEnd30', span=30*24*60*60*1000; // 30-day window
   var end=parseInt(localStorage.getItem(KEY)||'0',10);
   if(!end||end<Date.now()){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); }
   function p(n){return (n<10?'0':'')+n;}

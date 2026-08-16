@@ -1360,7 +1360,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 (function(){
   var d=document.getElementById('tbDays'),h=document.getElementById('tbHrs'),m=document.getElementById('tbMin');
   if(!d) return;
-  var KEY='gsLaunchEnd', span=3*24*60*60*1000; // 3-day window
+  var KEY='gsLaunchEnd30', span=30*24*60*60*1000; // 30-day window
   var end=parseInt(localStorage.getItem(KEY)||'0',10);
   if(!end || end<Date.now()){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); }
   function pad(n){return (n<10?'0':'')+n;}
