@@ -56,27 +56,7 @@
       "durationOfWarranty": { "@type": "QuantitativeValue", "value": "30", "unitCode": "DAY" },
       "warrantyScope": "https://schema.org/WarrantyScope"
     }
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.9",
-    "reviewCount": "47",
-    "bestRating": "5"
-  },
-  "review": [
-    {
-      "@type": "Review",
-      "reviewRating": { "@type": "Rating", "ratingValue": "5" },
-      "author": { "@type": "Person", "name": "Alex K." },
-      "reviewBody": "Running it on XAUUSD M5 on a VPS for 3 months. Love that it trades hands-free and the step-stop keeps me out of the worst spikes. The quick scalping exits suit gold well."
-    },
-    {
-      "@type": "Review",
-      "reviewRating": { "@type": "Rating", "ratingValue": "5" },
-      "author": { "@type": "Person", "name": "Marcus B." },
-      "reviewBody": "Setup took literally 6 minutes — dragged the EA on, allowed algo trading, done. The Telegram alerts and dashboard mean I always know what it's doing."
-    }
-  ]
+  }
 }
 </script>
 <style>
@@ -432,30 +412,15 @@ a:hover{color:#B45309}
     <!-- TESTIMONIALS -->
     <div class="reviews-head">
       <span class="rh-stars">★★★★★</span>
-      <strong>4.9/5</strong>
-      <span>Loved by 47 gold traders</span>
+      <strong>1,167 copies purchased</strong>
+      <span>on the official MQL5 Market</span>
     </div>
     <div class="testimonials">
-      <div class="testimonial">
-        <div class="testimonial-stars">★★★★★</div>
-        <p class="testimonial-text">"Running it on XAUUSD M5 on a VPS for 3 months. Love that it trades hands-free, and the step-stop keeps me out of the worst spikes. The quick scalping exits suit gold well."</p>
-        <div class="testimonial-author">
-          <div class="avatar">AK</div>
-          <div>
-            <span>Alex K.</span><br>
-            <em>Gold trader, Dubai · Verified buyer</em>
-          </div>
-        </div>
-      </div>
-      <div class="testimonial">
-        <div class="testimonial-stars">★★★★★</div>
-        <p class="testimonial-text">"Setup took literally 6 minutes — dragged the EA on, allowed algo trading, done. The Telegram alerts and dashboard mean I always know exactly what it's doing."</p>
-        <div class="testimonial-author">
-          <div class="avatar">MB</div>
-          <div>
-            <span>Marcus B.</span><br>
-            <em>Gold trader, Germany · Verified buyer</em>
-          </div>
+      <div class="testimonial" style="display:flex;gap:.9rem;align-items:flex-start">
+        <div style="flex:0 0 auto;width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0b5fa5,#1583c9);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.72rem">MQL5</div>
+        <div>
+          <p class="testimonial-text" style="font-style:normal;margin-bottom:.35rem">Gold Scalpers EA is published on MetaQuotes&rsquo; official <b>MQL5 Market</b> &mdash; <b>1,167 copies purchased</b> and <b>1,294 downloads</b> to date.</p>
+          <div class="testimonial-author"><div><em>Independently listed and counted by MetaQuotes</em></div></div>
         </div>
       </div>
     </div>
@@ -779,17 +744,16 @@ a:hover{color:#B45309}
 
 <!-- SCRIPTS -->
 <script>
-/* Launch-price countdown (evergreen — resets per visitor so the offer never dead-ends) */
+/* Launch-price countdown to a REAL fixed deadline - keep PROMO_END in sync with index.html */
 (function(){
+  var PROMO_END = Date.UTC(2026, 8, 15, 23, 59, 0);   // 15 Sep 2026 23:59 UTC
   var d=document.getElementById('ubD'),h=document.getElementById('ubH'),m=document.getElementById('ubM'),s=document.getElementById('ubS');
   if(!d) return;
-  var KEY='gsCoLaunchEnd30', span=30*24*60*60*1000; // 30-day window
-  var end=parseInt(localStorage.getItem(KEY)||'0',10);
-  if(!end||end<Date.now()){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); }
+  var bar=d.closest('.urgency-bar');
   function p(n){return (n<10?'0':'')+n;}
   function tick(){
-    var r=end-Date.now();
-    if(r<0){ end=Date.now()+span; localStorage.setItem(KEY,String(end)); r=end-Date.now(); }
+    var r=PROMO_END-Date.now();
+    if(r<=0){ if(bar) bar.style.display='none'; return; }
     d.textContent=p(Math.floor(r/86400000));
     h.textContent=p(Math.floor((r%86400000)/3600000));
     m.textContent=p(Math.floor((r%3600000)/60000));

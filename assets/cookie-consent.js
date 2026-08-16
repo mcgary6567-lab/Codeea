@@ -1,5 +1,42 @@
 /* Gold Scalpers — cookie consent banner (self-contained, no dependencies) */
 (function () {
+  /* -------------------------------------------------------------
+     ANALYTICS - paste your IDs here, then everything else works.
+     Leave a value as '' to disable that tool.
+       GA4_ID     : Google Analytics 4, looks like 'G-XXXXXXXXXX'
+       CLARITY_ID : Microsoft Clarity project id, looks like 'abcd1234ef'
+     Nothing loads until the visitor accepts analytics cookies.
+     ------------------------------------------------------------- */
+  var GA4_ID     = '';
+  var CLARITY_ID = '';
+
+  var analyticsLoaded = false;
+  function loadAnalytics() {
+    if (analyticsLoaded) return;
+    analyticsLoaded = true;
+    if (GA4_ID) {
+      var g = document.createElement('script');
+      g.async = true;
+      g.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA4_ID;
+      document.head.appendChild(g);
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () { window.dataLayer.push(arguments); };
+      window.gtag('js', new Date());
+      window.gtag('config', GA4_ID, { anonymize_ip: true });
+    }
+    if (CLARITY_ID) {
+      (function (c, l, a, r, i, t, y) {
+        c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments); };
+        t = l.createElement(r); t.async = 1; t.src = 'https://www.clarity.ms/tag/' + i;
+        y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+      })(window, document, 'clarity', 'script', CLARITY_ID);
+    }
+  }
+  /* Fire an event from anywhere:  window.gsTrack('begin_checkout') */
+  window.gsTrack = function (name, params) {
+    if (window.gtag) window.gtag('event', name, params || {});
+  };
+
   var KEY = 'gsCookieConsent';
   var styleInjected = false;
   var bar = null;
@@ -38,7 +75,7 @@
     b.classList.add('gs-out');
     bar = null;
     setTimeout(function () { if (b && b.parentNode) b.parentNode.removeChild(b); }, 320);
-    // When analytics are added, load them here only if value === 'all'.
+    if (value === 'all') loadAnalytics();
   }
 
   function openBanner() {
@@ -76,4 +113,5 @@
   var consent = null;
   try { consent = localStorage.getItem(KEY); } catch (e) {}
   if (!consent) openBanner();
+  else if (consent === 'all') loadAnalytics();
 })();
