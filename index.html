@@ -838,17 +838,61 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     .ea-alerts-head{text-align:center;max-width:660px;margin:0 auto 2.2rem}
     .ea-alerts-head h3{font-size:1.7rem;font-weight:800;letter-spacing:-0.02em;margin:.5rem 0 .6rem;color:var(--text)}
     .ea-alerts-head p{color:var(--text-muted);font-size:.95rem;line-height:1.65}
-    .ea-phones{display:flex;flex-wrap:wrap;gap:2.4rem;justify-content:center;align-items:stretch}
-    .ea-phone-card{margin:0;display:flex;flex-direction:column;align-items:center;gap:.75rem}
-    .ea-phone-card figcaption{font-size:.82rem;color:var(--text-dim)}
-    .ea-phone{width:288px;background:#15171d;border-radius:38px;padding:10px;border:1px solid #2a2d34;box-shadow:0 24px 60px rgba(0,0,0,.28);flex:1;display:flex;flex-direction:column}
-    .ea-screen{border-radius:28px;overflow:hidden;flex:1;display:flex;flex-direction:column}
+    .ea-phones{display:flex;flex-wrap:wrap;gap:3.2rem;justify-content:center;align-items:stretch}
+    .ea-phone-card{margin:0;display:flex;flex-direction:column;align-items:center;gap:1rem}
+    .ea-phone-card figcaption{font-size:.8rem;color:var(--text-muted);font-weight:600;letter-spacing:.01em;
+      display:flex;align-items:center;gap:.45rem}
+    .ea-phone-card figcaption i{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block}
+    /* device */
+    .ea-phone{position:relative;width:292px;background:linear-gradient(160deg,#3A3F4A,#15171D 22%,#101217 78%,#2A2E37);
+      border-radius:44px;padding:11px;flex:1;display:flex;flex-direction:column;
+      box-shadow:0 34px 70px rgba(16,24,40,.34),0 4px 14px rgba(16,24,40,.16),inset 0 0 0 1px rgba(255,255,255,.07)}
+    .ea-phone::after{content:'';position:absolute;left:11px;right:11px;top:11px;bottom:11px;border-radius:34px;
+      pointer-events:none;z-index:30;
+      background:linear-gradient(148deg,rgba(255,255,255,.13) 0%,rgba(255,255,255,.03) 26%,transparent 46%)}
+    .ea-phone .btn-r{position:absolute;right:-2px;top:132px;width:3px;height:62px;border-radius:2px;
+      background:linear-gradient(#40454F,#23262D)}
+    .ea-phone .btn-l{position:absolute;left:-2px;top:112px;width:3px;height:38px;border-radius:2px;
+      background:linear-gradient(#40454F,#23262D)}
+    .ea-screen{position:relative;border-radius:34px;overflow:hidden;flex:1;display:flex;flex-direction:column}
+    /* dynamic island */
+    .ea-island{position:absolute;left:50%;transform:translateX(-50%);top:9px;width:86px;height:23px;
+      background:#05070A;border-radius:99px;z-index:25}
     .ea-nav{margin-top:auto}
-    .ea-stat{display:flex;align-items:center;justify-content:space-between;padding:9px 18px 7px;font-size:12px;font-weight:600}
+    .ea-stat{display:flex;align-items:center;justify-content:space-between;padding:11px 20px 8px;
+      font-size:12px;font-weight:700;position:relative;z-index:20}
     .ea-stat .ico{display:flex;gap:6px;align-items:center}
     .ea-nav span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px}
     .ea-nav svg{width:18px;height:18px}
-    @media(max-width:680px){.ea-phone{width:100%;max-width:330px}}
+    /* telegram bubbles */
+    .tg-wrap{padding:10px 11px 12px;background:
+      radial-gradient(120% 90% at 12% 0%,rgba(80,120,170,.14),transparent 60%),
+      radial-gradient(90% 70% at 95% 100%,rgba(120,90,170,.12),transparent 60%),#0E1621;flex:1}
+    .tg-day{text-align:center;margin-bottom:11px}
+    .tg-day span{background:rgba(28,39,51,.86);color:#9aa6b2;font-size:10.5px;font-weight:600;
+      padding:3px 12px;border-radius:99px}
+    .tg-b{position:relative;background:#182533;border-radius:13px 13px 13px 5px;padding:11px 12px 9px;margin-bottom:9px;
+      box-shadow:0 2px 8px rgba(0,0,0,.28)}
+    .tg-b.win{background:linear-gradient(180deg,rgba(16,185,129,.16),rgba(16,185,129,.08));
+      border:1px solid rgba(16,185,129,.34)}
+    .tg-h{display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px;margin-bottom:2px}
+    .tg-sub{color:#7C8798;font-size:10.5px;margin-bottom:8px;letter-spacing:.02em}
+    .tg-r{display:flex;justify-content:space-between;font-size:11.5px;padding:2.5px 0}
+    .tg-r span:first-child{color:#8A94A6}
+    .tg-r span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
+    .tg-div{height:1px;background:#22323F;margin:8px 0}
+    .tg-t{color:#6C7686;font-size:10px;text-align:right;margin-top:6px;display:flex;
+      align-items:center;justify-content:flex-end;gap:3px}
+    .tg-t svg{width:13px;height:13px;color:#5AA7E8}
+    /* mt5 */
+    .mt-row{background:#fff;padding:10px 14px;border-bottom:1px solid #EEF1F4}
+    .mt-r1{display:flex;justify-content:space-between;align-items:baseline}
+    .mt-sym{font-size:13px;color:#12171F;font-weight:800}
+    .mt-sym b{color:#0A84C2;font-weight:600}
+    .mt-pl{font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums}
+    .mt-r2{display:flex;justify-content:space-between;margin-top:3px;font-size:11.5px;color:#5E6878;
+      font-variant-numeric:tabular-nums}
+    @media(max-width:680px){.ea-phone{width:100%;max-width:330px}.ea-phones{gap:2.4rem}}
     </style>
     <div class="ea-alerts">
       <div class="ea-alerts-head">
@@ -859,62 +903,83 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       <div class="ea-phones">
 
         <figure class="ea-phone-card">
-          <div class="ea-phone"><div class="ea-screen" style="background:#0E1621">
+          <div class="ea-phone"><span class="btn-l"></span><span class="btn-r"></span><div class="ea-screen" style="background:#0E1621"><span class="ea-island"></span>
             <div class="ea-stat" style="color:#F4F6FA"><span>14:30</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:13px"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg></span></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#17212B;border-bottom:1px solid #0b1118">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#5aa7e8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polyline points="15 18 9 12 15 6"/></svg>
-              <div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px">🎯</div>
-              <div style="flex:1"><div style="color:#F4F6FA;font-weight:700;font-size:14px">Gold Scalpers EA</div><div style="color:#5aa7e8;font-size:11px">bot · online</div></div>
-            </div>
-            <div style="padding:12px 12px 14px">
-              <div style="text-align:center;margin-bottom:12px"><span style="background:#1c2733;color:#9aa6b2;font-size:11px;padding:3px 12px;border-radius:99px">Today</span></div>
-              <div style="background:#182533;border-radius:12px 12px 12px 4px;padding:11px 12px;margin-bottom:10px">
-                <div style="color:#E8B923;font-weight:700;font-size:13px;margin-bottom:3px">🟢 BUY opened</div>
-                <div style="color:#8A90A0;font-size:11px;margin-bottom:9px">XAUUSDc · M5</div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">📍 Entry</span><span style="color:#8FBAFF">4064.20</span></div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🛑 Stop (swing)</span><span style="color:#FF9A9A">4055.10</span></div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">🎯 Target</span><span style="color:#7EF0A8">4082.80</span></div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:#8A90A0">📦 Lot</span><span style="color:#E6E9EF">0.02</span></div>
-                <div style="height:1px;background:#20303f;margin:9px 0"></div>
-                <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#8A90A0">Signal</span><span style="color:#34D399">Slope ▲ 50 EMA · 95%</span></div>
-                <div style="color:#6c7686;font-size:11px;text-align:right;margin-top:6px">14:30 ✓✓</div>
+            <div style="display:flex;align-items:center;gap:9px;padding:7px 13px 8px;background:#17212B;border-bottom:1px solid #0B1118">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#5AA7E8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;flex:0 0 auto"><polyline points="15 18 9 12 15 6"/></svg>
+              <div style="width:33px;height:33px;border-radius:50%;flex:0 0 auto;background:linear-gradient(145deg,#F7C64B,#D97706);display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 32 32" fill="none" style="width:19px;height:19px"><circle cx="16" cy="16" r="13" stroke="#3B2604" stroke-width="2" opacity=".45"/><circle cx="16" cy="16" r="8" stroke="#3B2604" stroke-width="2"/><circle cx="16" cy="16" r="2.4" fill="#3B2604"/></svg>
               </div>
-              <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:12px 12px 12px 4px;padding:11px 12px">
-                <div style="color:#34D399;font-weight:700;font-size:13px;margin-bottom:3px">✅ Target hit — trade closed</div>
-                <div style="color:#9aa6b2;font-size:11px">4024.52 → 4042.90 · +$40.00 · 1h 42m</div>
-                <div style="color:#6c7686;font-size:11px;text-align:right;margin-top:6px">16:12 ✓✓</div>
+              <div style="flex:1;min-width:0">
+                <div style="color:#F4F6FA;font-weight:700;font-size:13.5px">Gold Scalpers EA</div>
+                <div style="color:#5AA7E8;font-size:10.5px;display:flex;align-items:center;gap:4px"><span style="width:5px;height:5px;border-radius:50%;background:#34D399;display:inline-block"></span>bot · online</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#17212B;border-top:1px solid #0b1118;color:#5e6878;margin-top:auto"><span style="flex:1;font-size:12px">Message</span><span style="font-size:13px">🎤</span></div>
+            <div class="tg-wrap">
+              <div class="tg-day"><span>Today</span></div>
+
+              <div class="tg-b">
+                <div class="tg-h" style="color:#4ADE80"><span style="width:8px;height:8px;border-radius:50%;background:#4ADE80;display:inline-block;box-shadow:0 0 7px rgba(74,222,128,.9)"></span>BUY opened</div>
+                <div class="tg-sub">XAUUSD · M5 · New York session</div>
+                <div class="tg-r"><span>Entry</span><span style="color:#8FBAFF">4371.50</span></div>
+                <div class="tg-r"><span>Stop (swing)</span><span style="color:#FF9A9A">4365.20</span></div>
+                <div class="tg-r"><span>Target</span><span style="color:#7EF0A8">4376.50</span></div>
+                <div class="tg-r"><span>Lot</span><span style="color:#E6E9EF">0.10</span></div>
+                <div class="tg-div"></div>
+                <div class="tg-r"><span>Signal</span><span style="color:#34D399">Slope ▲ 50 EMA · 95%</span></div>
+                <div class="tg-t">14:30 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 13 5 17 13 7"/><polyline points="10 15 12 17 22 6"/></svg></div>
+              </div>
+
+              <div class="tg-b">
+                <div class="tg-h" style="color:#F3AD3A">🛡 Break-even armed</div>
+                <div class="tg-sub" style="margin-bottom:0">Stop moved to 4373.50 — this trade can no longer lose.</div>
+                <div class="tg-t">15:04 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 13 5 17 13 7"/><polyline points="10 15 12 17 22 6"/></svg></div>
+              </div>
+
+              <div class="tg-b win">
+                <div class="tg-h" style="color:#34D399">✅ Target hit — trade closed</div>
+                <div class="tg-sub" style="margin-bottom:0;color:#9AA6B2">4371.50 → 4376.50 · <b style="color:#4ADE80">+$50.00</b> · 1h 42m</div>
+                <div class="tg-t">16:12 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 13 5 17 13 7"/><polyline points="10 15 12 17 22 6"/></svg></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#17212B;border-top:1px solid #0B1118;color:#5E6878;margin-top:auto"><span style="flex:1;font-size:12px">Message</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></div>
           </div></div>
-          <figcaption>Telegram signal — on your phone</figcaption>
+          <figcaption><i></i>Telegram — instant signal to your phone</figcaption>
         </figure>
 
         <figure class="ea-phone-card">
-          <div class="ea-phone"><div class="ea-screen" style="background:#eef1f4">
+          <div class="ea-phone"><span class="btn-l"></span><span class="btn-r"></span><div class="ea-screen" style="background:#EEF1F4"><span class="ea-island"></span>
             <div class="ea-stat" style="background:#27384a;color:#fff"><span>14:30</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:13px"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg></span></div>
             <div style="padding:8px 8px 4px;background:#27384a">
               <div style="background:#fff;border-radius:12px;padding:9px 11px;display:flex;gap:10px;align-items:flex-start">
                 <div style="width:30px;height:30px;border-radius:7px;background:#0a84c2;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:17px;height:17px"><line x1="8" y1="3" x2="8" y2="7"/><rect x="6" y="7" width="4" height="7" rx="1"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="10"/><rect x="14" y="10" width="4" height="7" rx="1"/><line x1="16" y1="17" x2="16" y2="20"/></svg></div>
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:1px"><span style="font-weight:700;color:#444">MetaTrader 5</span><span>now</span></div>
-                  <div style="font-size:12px;color:#1a1a1a;line-height:1.45">Gold Scalpers EA: BUY XAUUSDc 0.02 at 4064.20 · SL 4055.10 · TP 4082.80</div>
+                  <div style="font-size:12px;color:#1A1A1A;line-height:1.45">Gold Scalpers EA: <b>BUY XAUUSD</b> 0.10 at 4371.50 · SL 4365.20 · TP 4376.50</div>
                 </div>
               </div>
             </div>
-            <div style="background:#27384a;padding:8px 14px 11px">
-              <div style="color:#aeb9c6;font-size:11px">Trade</div>
-              <div style="color:#fff;font-size:19px;font-weight:700">10,212.60 <span style="font-size:12px;color:#aeb9c6;font-weight:400">USD</span></div>
-              <div style="display:flex;gap:14px;margin-top:4px;font-size:11px;color:#aeb9c6"><span>Free margin <span style="color:#fff">9,930.18</span></span><span>Level <span style="color:#48c98a">4621%</span></span></div>
+            <div style="background:#27384A;padding:9px 14px 12px">
+              <div style="color:#AEB9C6;font-size:10.5px;letter-spacing:.03em">Equity</div>
+              <div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums">10,212.60 <span style="font-size:12px;color:#AEB9C6;font-weight:500">USD</span></div>
+              <div style="display:flex;gap:14px;margin-top:5px;font-size:10.5px;color:#AEB9C6"><span>Free margin <span style="color:#fff;font-weight:600">10,125.20</span></span><span>Level <span style="color:#48C98A;font-weight:600">1&thinsp;168%</span></span></div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.12);font-size:11px">
+                <span style="color:#AEB9C6">Today</span><span style="color:#48C98A;font-weight:800">+150.00</span>
+                <span style="color:#7C8798">·</span><span style="color:#AEB9C6">10 trades · 75% won</span>
+              </div>
             </div>
-            <div style="background:#f4f6f8;padding:7px 14px;font-size:11px;color:#6a7686;border-bottom:1px solid #e2e6ea;font-weight:700;letter-spacing:.04em">POSITIONS</div>
-            <div style="background:#fff;padding:10px 14px;border-bottom:1px solid #eef1f4">
-              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:#1a1a1a;font-weight:700">XAUUSDc<span style="color:#0a84c2;font-weight:400"> buy 0.02</span></span><span style="font-size:13px;color:#2e9b51;font-weight:700">+12.60</span></div>
-              <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:12px;color:#5e6878"><span>4064.20 → 4070.50</span><span>14:30:02</span></div>
+            <div style="background:#F4F6F8;padding:7px 14px;font-size:10.5px;color:#6A7686;border-bottom:1px solid #E2E6EA;font-weight:800;letter-spacing:.06em">POSITIONS</div>
+            <div class="mt-row">
+              <div class="mt-r1"><span class="mt-sym">XAUUSD<b> buy 0.10</b></span><span class="mt-pl" style="color:#2E9B51">+44.20</span></div>
+              <div class="mt-r2"><span>4371.50 → 4375.92</span><span>14:30:02</span></div>
             </div>
-            <div style="background:#fff;padding:10px 14px">
-              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:#1a1a1a;font-weight:700">XAUUSDc<span style="color:#0a84c2;font-weight:400"> buy 0.02</span></span><span style="font-size:13px;color:#2e9b51;font-weight:700">+40.00</span></div>
-              <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:12px;color:#5e6878"><span>4024.52 → 4042.90</span><span>closed</span></div>
+            <div class="mt-row">
+              <div class="mt-r1"><span class="mt-sym">XAUUSD<b> buy 0.10</b></span><span class="mt-pl" style="color:#2E9B51">+50.00</span></div>
+              <div class="mt-r2"><span>4361.50 → 4366.50</span><span>closed · TP</span></div>
+            </div>
+            <div class="mt-row">
+              <div class="mt-r1"><span class="mt-sym">XAUUSD<b> buy 0.10</b></span><span class="mt-pl" style="color:#2E9B51">+50.00</span></div>
+              <div class="mt-r2"><span>4352.10 → 4357.10</span><span>closed · TP</span></div>
             </div>
             <div class="ea-nav" style="display:flex;justify-content:space-around;align-items:center;background:#fff;border-top:1px solid #e2e6ea;padding:8px 4px 9px">
               <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Quotes</span>
@@ -924,7 +989,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
               <span style="color:#9aa6b2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</span>
             </div>
           </div></div>
-          <figcaption>MetaTrader 5 — Android app</figcaption>
+          <figcaption><i></i>MetaTrader 5 mobile — push notification</figcaption>
         </figure>
 
       </div>
@@ -1078,7 +1143,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       </div>
       <div class="stat-card">
         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <div class="stat-num">M1</div>
+        <div class="stat-num">M5</div>
         <div class="stat-label">Gold · XAUUSD</div>
       </div>
       <div class="stat-card">
