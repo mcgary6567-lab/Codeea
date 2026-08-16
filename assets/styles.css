@@ -273,3 +273,58 @@ pre code{background:none;padding:0;color:var(--text)}
 @media(max-width:400px){
   .nav-links .btn{font-size:0.75rem;padding:0.45rem 0.7rem}
 }
+
+
+/* ===== FOOTER (unified) ===== */
+.footer{position:relative;background:#0B1220;padding:0 2rem 1.6rem;overflow:hidden;border-top:0}
+.footer::before{content:'';position:absolute;inset:0 0 auto;height:2px;
+  background:linear-gradient(90deg,transparent,#F59E0B 22%,#D97706 50%,#F59E0B 78%,transparent)}
+.footer::after{content:'';position:absolute;left:50%;top:-180px;width:900px;height:420px;transform:translateX(-50%);
+  background:radial-gradient(closest-side,rgba(245,158,11,.13),transparent 72%);pointer-events:none}
+.f-wrap{position:relative;z-index:2;max-width:1280px;margin:0 auto}
+.f-cta{display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;
+  margin:2.6rem 0 2.4rem;padding:1.7rem 2rem;border-radius:18px;
+  background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(217,119,6,.06));
+  border:1px solid rgba(245,158,11,.30)}
+.f-cta h4{color:#fff;font-size:1.38rem;font-weight:800;letter-spacing:-.02em;line-height:1.3}
+.f-cta p{color:#C4CBD6;font-size:.9rem;margin-top:.3rem}
+.f-cta p b{color:#FCD34D}
+.f-cta-btn{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(180deg,#F59E0B,#D97706);
+  color:#fff;font-weight:800;font-size:1rem;padding:.92rem 1.7rem;border-radius:11px;text-decoration:none;
+  box-shadow:0 10px 26px rgba(217,119,6,.42);white-space:nowrap;transition:transform .2s,box-shadow .2s}
+.f-cta-btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(217,119,6,.55);color:#fff;text-decoration:none}
+.f-cta-sub{display:block;font-size:.74rem;color:#98A2B3;margin-top:.55rem;text-align:center;font-weight:500}
+.f-trust{display:flex;flex-wrap:wrap;gap:.6rem 2.2rem;padding:0 0 2.2rem;border-bottom:1px solid #1B2536}
+.f-trust span{display:inline-flex;align-items:center;gap:.5rem;color:#AEB7C4;font-size:.83rem;font-weight:600}
+.f-trust svg{width:15px;height:15px;color:#34D399;flex:0 0 auto}
+.f-grid{display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr 1fr;gap:2.6rem;padding:2.4rem 0 2.2rem}
+.f-logo{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:1.12rem;color:#fff;text-decoration:none}
+.f-logo:hover{color:#fff;text-decoration:none}
+.f-brand p{color:#98A2B3;font-size:.88rem;max-width:330px;margin-top:.9rem}
+.f-contact{margin-top:1.1rem;display:flex;flex-direction:column;gap:.45rem}
+.f-contact a{display:inline-flex;align-items:center;gap:.5rem;color:#C4CBD6;font-size:.86rem;
+  text-decoration:none;font-weight:600;transition:color .2s;width:fit-content}
+.f-contact a:hover{color:#F59E0B;text-decoration:none}
+.f-contact svg{width:15px;height:15px;color:#6B7684}
+.f-social{display:flex;gap:.6rem;margin-top:1.2rem}
+.f-social a{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:#AEB7C4;
+  background:#131C2B;border:1px solid #1F2A3C;transition:all .2s}
+.f-social a:hover{color:#F59E0B;border-color:#F59E0B;transform:translateY(-2px);text-decoration:none}
+.f-social svg{width:17px;height:17px}
+.footer h5{font-size:.74rem;font-weight:800;margin-bottom:1rem;text-transform:uppercase;
+  letter-spacing:.1em;color:#fff}
+.footer ul{list-style:none;margin:0;padding:0}
+.footer ul li{padding:.28rem 0}
+.footer ul li a{color:#98A2B3;text-decoration:none;font-size:.87rem;transition:color .2s}
+.footer ul li a:hover{color:#fff;text-decoration:none}
+.f-disc{border-top:1px solid #1B2536;padding-top:1.5rem;font-size:.76rem;color:#6B7684;line-height:1.75;
+  display:flex;gap:.75rem;align-items:flex-start}
+.f-disc svg{width:17px;height:17px;color:#F59E0B;flex:0 0 auto;margin-top:2px}
+.f-disc b{color:#8A93A1}
+.f-bottom{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;
+  margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid #1B2536;font-size:.78rem;color:#6B7684}
+.f-meta{display:flex;gap:.5rem;align-items:center}
+.f-meta i{width:4px;height:4px;border-radius:50%;background:#2C3648;display:inline-block}
+.f-meta b{color:#98A2B3;font-weight:700}
+@media(max-width:980px){.f-grid{grid-template-columns:1fr 1fr 1fr}.f-brand{grid-column:1/-1}}
+@media(max-width:620px){.f-grid{grid-template-columns:1fr 1fr}.f-cta{padding:1.3rem}.f-cta h4{font-size:1.15rem}}
