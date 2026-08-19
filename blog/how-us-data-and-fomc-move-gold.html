@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0B0E14">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
+<link rel="apple-touch-icon" href="/assets/favicon-192.png">
+<title>What Moves Gold? US Data &amp; FOMC Minutes Explained (XAUUSD)</title>
+<meta name="description" content="US retail data and FOMC minutes move XAUUSD through one chain: rate expectations, real yields, then gold. Learn the reaction pattern and how to trade gold around news on MT5.">
+<meta name="keywords" content="what moves XAUUSD, gold news trading, FOMC gold reaction, trading gold around news, US retail sales gold, XAUUSD news filter, gold price drivers, MT5 gold trading">
+<link rel="canonical" href="https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold">
+<link rel="amphtml" href="https://goldscalpers.com/blog/amp/how-us-data-and-fomc-move-gold">
+<meta property="og:type" content="article">
+<meta property="og:title" content="What Moves Gold? US Data &amp; FOMC Minutes Explained (XAUUSD)">
+<meta property="og:description" content="US retail data and FOMC minutes move XAUUSD through one chain: rate expectations, real yields, then gold. The reaction pattern, and how to trade it.">
+<meta property="og:url" content="https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold">
+<meta property="og:image" content="https://goldscalpers.com/assets/blog/gold-news-chain.png">
+<meta property="og:site_name" content="Gold Scalpers EA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Moves Gold? US Data &amp; FOMC Minutes Explained (XAUUSD)">
+<meta name="twitter:description" content="The chain that actually moves gold: consumer data to rate expectations to real yields to XAUUSD.">
+<meta name="twitter:image" content="https://goldscalpers.com/assets/blog/gold-news-chain.png">
+<link rel="stylesheet" href="../assets/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What Moves Gold? US Retail Data and FOMC Minutes Explained (XAUUSD)",
+  "description": "US retail data and FOMC minutes move XAUUSD through one chain: rate expectations, real yields, then gold. Learn the reaction pattern and how to trade gold around news on MT5.",
+  "image": [
+    "https://goldscalpers.com/assets/blog/gold-news-chain.png",
+    "https://goldscalpers.com/assets/blog/xauusd-news-release-window.png"
+  ],
+  "datePublished": "2026-08-19",
+  "dateModified": "2026-08-19",
+  "author": { "@type": "Organization", "name": "Gold Scalpers EA", "url": "https://goldscalpers.com" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Gold Scalpers EA",
+    "url": "https://goldscalpers.com",
+    "logo": { "@type": "ImageObject", "url": "https://goldscalpers.com/assets/favicon-192.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold" },
+  "articleSection": "Gold Market Education",
+  "keywords": "what moves XAUUSD, gold news trading, FOMC gold reaction, trading gold around news"
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What actually moves the price of gold?",
+      "acceptedAnswer": { "@type": "Answer", "text": "In the short term, gold is driven mainly by US real interest rates and the US dollar. Gold pays no yield, so when real yields rise, holding gold costs more in forgone interest and the price tends to fall. Almost every US data release matters only through that channel: the data changes what traders expect the Federal Reserve to do, which changes real yields, which moves XAUUSD." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do US retail earnings affect XAUUSD?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Large retailers such as Walmart, Home Depot, Target and Lowe's report what US households are really spending. If spending holds up, inflation pressure is more likely to persist and traders push expected rate cuts further out, which lifts real yields and usually pressures gold. If spending weakens, cuts get priced sooner and gold usually firms. The retailer itself is irrelevant to gold; the consumer read is not." }
+    },
+    {
+      "@type": "Question",
+      "name": "How does gold react to the FOMC minutes?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The FOMC minutes are released three weeks after each policy meeting. Because the decision itself is already known, the minutes move gold only when the tone differs from what the market assumed. The typical pattern is a fast two-way spike in the first minute or two as algorithms read the text, a widened spread, and then a cleaner directional move once the tone is agreed on. Trading the spike is a coin flip; the move after it is the tradeable part." }
+    },
+    {
+      "@type": "Question",
+      "name": "Should I trade gold during high-impact news?",
+      "acceptedAnswer": { "@type": "Answer", "text": "For most retail traders, no. During a high-impact release the XAUUSD spread can widen several times over, slippage on stops is common, and price often spikes both directions before choosing one. Waiting until the spread normalises, typically a few minutes after the release, gives a similar move with far more predictable execution." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Gold Scalpers EA trade through news events?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Gold Scalpers EA includes a configurable news filter that pauses new entries for a set number of minutes before and after high-impact events, and a spread filter that blocks entries whenever the spread exceeds your limit. Existing positions continue to be managed normally." }
+    }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://goldscalpers.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://goldscalpers.com/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "What Moves Gold: US Data and FOMC Minutes", "item": "https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold" }
+  ]
+}
+</script>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="logo" style="text-decoration:none;color:inherit">
+      <div class="logo-icon">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2" fill="#F59E0B"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+          <line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/>
+        </svg>
+      </div>
+      Gold Scalpers
+    </a>
+    <div class="nav-links">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/prop-firms/">Prop Firms</a>
+      <a href="/checkout" class="btn btn-primary">Get Lifetime &ndash; $140</a>
+    </div>
+  </div>
+</nav>
+<section class="article-hero">
+  <div class="article-hero-inner">
+    <span class="blog-tag">Gold Market Education</span>
+    <h1>What Moves Gold? US Retail Data and FOMC Minutes Explained</h1>
+    <div class="article-meta">
+      <span>📅 August 19, 2026</span>
+      <span>⏱ 9 min read</span>
+      <span>🏷 XAUUSD · Fundamentals</span>
+    </div>
+    <p class="article-byline">Every few weeks the same thing happens: US retailers report earnings, the Fed publishes its meeting minutes, and gold moves hard for twenty minutes. Most traders watch the headline. The headline is not what moved the price. Here is the chain that actually does.</p>
+  </div>
+</section>
+
+<article class="article-body">
+
+  <h2><span class="sec-ico">⚡</span> The short answer</h2>
+  <p><strong>Gold does not trade on news. It trades on interest rates.</strong> Every US release &mdash; retail sales, retailer earnings, CPI, payrolls, the FOMC minutes &mdash; reaches XAUUSD through exactly one path: it changes what traders expect the Federal Reserve to do, that changes real yields and the US dollar, and <em>that</em> moves gold.</p>
+  <p>Gold pays no interest. Holding it means giving up whatever cash would have earned. When expected rates rise, that sacrifice gets more expensive and gold usually falls. When expected rates fall, the sacrifice gets cheaper and gold usually rises. Once you see releases as rate-expectation inputs rather than as news, the reaction stops looking random.</p>
+
+  <h2><span class="sec-ico">🔗</span> The chain, step by step</h2>
+  <figure class="article-figure">
+    <picture>
+      <source srcset="/assets/blog/gold-news-chain.webp" type="image/webp">
+      <img src="/assets/blog/gold-news-chain.png" alt="Diagram showing how US consumer data moves the gold price through rate expectations, real yields and the dollar to XAUUSD" width="1200" height="675" loading="lazy" decoding="async">
+    </picture>
+    <figcaption>Gold reacts to what the data implies about interest rates, not to the data itself.</figcaption>
+  </figure>
+  <p>Read it left to right. A US consumer datapoint lands. Traders update how likely and how soon a rate cut is. Bond yields and the dollar reprice within seconds &mdash; those two markets are far larger and faster than gold. Only then does XAUUSD follow.</p>
+  <p>This is why gold sometimes ignores a scary-sounding headline entirely: if the number does not change the rate outlook, there is nothing for gold to price.</p>
+
+  <h2><span class="sec-ico">🛒</span> Why retailer earnings matter to a gold trader</h2>
+  <p>It sounds unrelated. Why would a gold trader care what Home Depot, Walmart, Target or Lowe&rsquo;s reported this morning?</p>
+  <p>Because roughly two-thirds of US economic activity is consumer spending, and those companies are the cleanest read on it available. Official retail sales figures arrive monthly and get revised. A large retailer&rsquo;s quarterly results and, more importantly, its forward guidance tell you whether households are still spending, trading down to cheaper products, or pulling back on big-ticket purchases entirely.</p>
+  <p>That feeds straight into the inflation question the Fed is still trying to answer:</p>
+  <ul>
+    <li><strong>Spending holds up</strong> &rarr; inflation pressure persists &rarr; cuts get pushed further out &rarr; real yields rise &rarr; gold under pressure</li>
+    <li><strong>Spending weakens</strong> &rarr; demand cooling, recession risk up &rarr; cuts priced sooner &rarr; real yields fall &rarr; gold supported</li>
+  </ul>
+  <p>One caveat that trips people up: a single retailer missing its numbers is a <em>company</em> story, not a macro one. Gold only cares when several retailers point the same direction, or when one of them explicitly describes the state of the consumer in its guidance. A stock can drop 15% on its own results while gold does not move a dollar.</p>
+
+  <h2><span class="sec-ico">📋</span> The FOMC minutes: a delayed, tone-driven event</h2>
+  <p>The minutes are published three weeks after each policy meeting. The rate decision is already old news, so the minutes cannot surprise you on the <em>what</em> &mdash; only on the <em>tone</em>.</p>
+  <p>What traders actually scan for:</p>
+  <ul>
+    <li><strong>How divided the committee was.</strong> Several members wanting a different path signals the next decision is genuinely open.</li>
+    <li><strong>How they described inflation.</strong> A shift from &ldquo;elevated&rdquo; toward &ldquo;easing&rdquo; is a meaningful dovish tell.</li>
+    <li><strong>How they described the labour market.</strong> Growing concern about jobs pulls cut expectations forward.</li>
+    <li><strong>Anything about the balance sheet.</strong> Usually ignored, occasionally the biggest line in the document.</li>
+  </ul>
+  <p>The reaction is distinctive. Because the text is long and machine-read, the first sixty to ninety seconds are frequently a two-way whipsaw as algorithms latch onto different phrases. Then the market settles on a reading and a cleaner move follows. <strong>The first spike is noise. The move after it is the signal.</strong></p>
+
+  <h2><span class="sec-ico">📉</span> What a release actually does to your XAUUSD chart</h2>
+  <figure class="article-figure">
+    <picture>
+      <source srcset="/assets/blog/xauusd-news-release-window.webp" type="image/webp">
+      <img src="/assets/blog/xauusd-news-release-window.png" alt="XAUUSD M5 chart showing calm price action, a violent two-way spike with widened spread during a high-impact release, then a clean trend afterwards" width="1200" height="675" loading="lazy" decoding="async">
+    </picture>
+    <figcaption>The direction is usually right. The execution during the window is not.</figcaption>
+  </figure>
+  <p>Traders lose money around news for reasons that have nothing to do with getting the direction wrong:</p>
+  <ol>
+    <li><strong>The spread blows out.</strong> XAUUSD often sits around 15&ndash;25 points on a decent broker. In a release window it can triple or worse. A scalping strategy targeting 40&ndash;80 points has just lost most of its edge before the trade is even open.</li>
+    <li><strong>Stops slip.</strong> During a fast move there may be no liquidity at your stop price. You get the next available fill, which can be well beyond the loss you had planned for.</li>
+    <li><strong>Price goes both ways first.</strong> The classic sequence is a spike up, a deeper spike down, and only then the real direction. Stops on both sides get taken out. Being right about direction and still losing is entirely normal here.</li>
+    <li><strong>Pending orders behave unexpectedly.</strong> Buy stops and sell stops sitting near price get triggered at prices you never intended.</li>
+  </ol>
+
+  <h2><span class="sec-ico">🎯</span> Three sensible ways to handle it</h2>
+  <p><strong>1. Sit it out.</strong> Flat before the release, back in once the spread normalises. Unglamorous and, for most retail accounts, correct. You give up one move per event and avoid every execution problem above.</p>
+  <p><strong>2. Trade the aftermath.</strong> Wait five to fifteen minutes. Let the spike resolve, let the spread come back, then trade the direction the market settled on. You catch less of the move but with normal execution and a stop that means something.</p>
+  <p><strong>3. Trade it deliberately, with news-sized risk.</strong> If you genuinely want the event, size down, widen your stop to survive the whipsaw, and accept slippage as a cost of doing business. What does not work is running your normal scalping size and stop into a release and hoping.</p>
+  <p>Whichever you choose, the one thing worth doing every week is opening an economic calendar and marking the high-impact US events. For gold that means CPI, non-farm payrolls, FOMC decisions and minutes, retail sales, and PCE.</p>
+
+  <div class="cta-banner">
+    <h3>Let the EA handle the calendar for you</h3>
+    <p>Gold Scalpers EA includes a built-in news filter and spread filter, so it stops opening new trades before a high-impact release and waits until conditions are normal again.</p>
+    <a href="/checkout" class="btn btn-primary">Get Lifetime Access &mdash; $140</a>
+  </div>
+
+  <h2><span class="sec-ico">🛡️</span> How Gold Scalpers EA handles news windows</h2>
+  <p>A scalping EA on M1 or M5 is exactly the kind of system a news release punishes hardest &mdash; small targets, tight stops, high trade frequency. Gold Scalpers EA deals with it in three ways:</p>
+  <ul>
+    <li><strong>News filter.</strong> Set how many minutes before and after a high-impact event new entries should be blocked. The EA simply stops taking new trades in that window.</li>
+    <li><strong>Spread filter.</strong> An independent hard ceiling. If the spread is above your limit, no entry is taken &mdash; whether or not a news event is scheduled. This catches unscheduled spikes and thin liquidity around the daily rollover too.</li>
+    <li><strong>Open positions keep being managed.</strong> Filters block <em>new</em> entries. Anything already open continues with its normal stop, break-even and trailing logic.</li>
+  </ul>
+  <p>The point is not that the EA predicts the news. It is that it declines to trade when the market is not worth trading &mdash; which over a month of releases is worth more than any single event.</p>
+
+  <h2><span class="sec-ico">❓</span> Frequently asked questions</h2>
+  <p><strong>What actually moves the price of gold?</strong><br>In the short term, US real interest rates and the US dollar. Gold pays no yield, so when real yields rise, holding gold costs more in forgone interest and the price tends to fall. Almost every US release matters only through that channel.</p>
+  <p><strong>Why do US retail earnings affect XAUUSD?</strong><br>Large retailers report what US households are really spending. If spending holds up, inflation pressure is more likely to persist and traders push expected rate cuts further out, which lifts real yields and usually pressures gold. If spending weakens, cuts get priced sooner and gold usually firms.</p>
+  <p><strong>How does gold react to the FOMC minutes?</strong><br>Because the decision itself is already known, the minutes move gold only when the tone differs from what the market assumed. Expect a fast two-way spike in the first minute or two, a widened spread, then a cleaner directional move once the tone is agreed on.</p>
+  <p><strong>Should I trade gold during high-impact news?</strong><br>For most retail traders, no. The spread can widen several times over, slippage on stops is common, and price often spikes both directions before choosing one. Waiting until the spread normalises gives a similar move with far more predictable execution.</p>
+  <p><strong>Does Gold Scalpers EA trade through news events?</strong><br>No. It includes a configurable news filter that pauses new entries around high-impact events, plus a spread filter that blocks entries whenever the spread exceeds your limit. Existing positions continue to be managed normally.</p>
+
+  <h2><span class="sec-ico">📚</span> Keep reading</h2>
+  <ul>
+    <li><a href="/blog/xauusd-scalping-strategy">XAUUSD scalping strategy</a> &mdash; the session windows and spread conditions where gold scalping actually works.</li>
+    <li><a href="/blog/how-to-trade-gold-reversals">How to trade gold reversals</a> &mdash; reading exhaustion on XAUUSD instead of chasing the spike.</li>
+    <li><a href="/blog/forex-risk-management-1-percent-rule">The 1% risk rule</a> &mdash; sizing that survives the days a release goes against you.</li>
+    <li><a href="/prop-firms">Gold EA for prop firm challenges</a> &mdash; why news filters matter even more under a daily drawdown rule.</li>
+  </ul>
+
+  <h2><span class="sec-ico">✅</span> Conclusion</h2>
+  <p>US retail data and the FOMC minutes are not gold stories. They are interest-rate stories, and gold is downstream of interest rates. Once you trace every release along that chain &mdash; consumer data, rate expectations, real yields and the dollar, then XAUUSD &mdash; the reactions stop being surprising and become something you can plan around.</p>
+  <p>Planning around them mostly means knowing when <em>not</em> to be in the market. The spread widens, stops slip, and price runs both ways before it runs one way. Whether you sit out manually or let a news filter do it, the trades you skip during those windows are usually worth more than the ones you catch.</p>
+  <p><em>This article is educational and is not investment advice. Trading leveraged products carries substantial risk of loss. Past performance does not indicate future results.</em></p>
+
+</article>
+<section class="related-posts">
+  <h3>Related Articles</h3>
+  <div class="blog-grid">
+    <article class="blog-card"><a href="/blog/best-gold-scalping-ea-mt5"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>Best Gold Scalping EA for MT5 (2026): How to Choose One That Survives</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/how-to-choose-mt5-ea"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>How to Choose a Safe MT5 Expert Advisor</h3></div></a></article>
+    <article class="blog-card"><a href="/blog/how-to-backtest-mt5-ea"><div class="blog-thumb"><svg viewBox="0 0 400 180"><rect width="400" height="180" fill="#0E1421"/><circle cx="200" cy="86" r="34" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0.35"/><circle cx="200" cy="86" r="20" stroke="#F59E0B" stroke-width="2" fill="none"/><circle cx="200" cy="86" r="4" fill="#F59E0B"/><text x="200" y="150" fill="#FCD34D" font-size="13" font-weight="800" text-anchor="middle">GOLD SCALPERS</text></svg></div><div class="blog-card-body"><span class="blog-tag">Related</span><h3>How to Backtest an MT5 Expert Advisor</h3></div></a></article>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="f-wrap">
+
+    <div class="f-cta">
+      <div>
+        <h4>Ready to hand gold over to the robot?</h4>
+        <p><b>$140</b> one-time &middot; lifetime licence &middot; every future update included</p>
+      </div>
+      <div>
+        <a href="/checkout" class="f-cta-btn">Get Lifetime Access &mdash; $140 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+        <span class="f-cta-sub">30-day money-back guarantee</span>
+      </div>
+    </div>
+
+    <div class="f-trust">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>30-day money-back</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure checkout</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Instant download</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Lifetime updates</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Human support, 24h</span>
+    </div>
+
+    <div class="f-grid">
+      <div class="f-brand">
+        <a href="/" class="f-logo"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14" stroke="#F59E0B" stroke-width="1.5" opacity="0.3"/><circle cx="16" cy="16" r="9" stroke="#F59E0B" stroke-width="1.5"/><circle cx="16" cy="16" r="2" fill="#F59E0B"/><line x1="16" y1="2" x2="16" y2="9" stroke="#F59E0B" stroke-width="1.5"/><line x1="16" y1="23" x2="16" y2="30" stroke="#F59E0B" stroke-width="1.5"/><line x1="2" y1="16" x2="9" y2="16" stroke="#F59E0B" stroke-width="1.5"/><line x1="23" y1="16" x2="30" y2="16" stroke="#F59E0B" stroke-width="1.5"/></svg>Gold Scalpers</a>
+        <p>Automated MetaTrader 5 gold trading for XAUUSD. Built for traders who'd rather let a disciplined robot do the work.</p>
+        <div class="f-contact">
+          <a href="mailto:support@goldscalpers.com"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>support@goldscalpers.com</a>
+          <a href="/support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Live chat &amp; help centre</a>
+        </div>
+        <div class="f-social">
+          <a href="https://www.facebook.com/goldscalpersea" target="_blank" rel="noopener" aria-label="Gold Scalpers on Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+          <a href="https://www.youtube.com/@GoldScalpersEA" target="_blank" rel="noopener" aria-label="Gold Scalpers on YouTube"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+        </div>
+      </div>
+
+      <div>
+        <h5>Product</h5>
+        <ul>
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/#how">How it works</a></li>
+          <li><a href="/#pricing">Pricing</a></li>
+          <li><a href="/results">Backtest results</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5>Prop firms</h5>
+        <ul>
+          <li><a href="/prop-firms/">Settings hub</a></li>
+          <li><a href="/prop-firms/ftmo">FTMO</a></li>
+          <li><a href="/prop-firms/fundednext">FundedNext</a></li>
+          <li><a href="/prop-firms/the5ers">The5ers</a></li>
+          <li><a href="/prop-firms/fundingpips">FundingPips</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5>Resources</h5>
+        <ul>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/blog/how-to-install-ea-on-mt5">Install guide</a></li>
+          <li><a href="/telegram-setup-guide">Telegram setup</a></li>
+          <li><a href="/affiliate">Affiliate programme</a></li>
+          <li><a href="/support">Support</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5>Legal</h5>
+        <ul>
+          <li><a href="/terms-of-service">Terms of service</a></li>
+          <li><a href="/privacy-policy">Privacy policy</a></li>
+          <li><a href="/risk-disclaimer">Risk disclaimer</a></li>
+          <li><a href="/refund-policy">Refund policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="f-disc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div><b>Risk disclaimer.</b> Trading involves substantial risk of loss and is not suitable for every investor. Gold Scalpers EA is an automated trading tool, not financial advice. Automated systems can and do lose money; past or hypothetical performance is not indicative of future results. Never risk capital you cannot afford to lose, and test on a demo account first.</div>
+    </div>
+
+    <div class="f-bottom">
+      <span>&copy; 2026 Gold Scalpers. All rights reserved.</span>
+      <span class="f-meta"><b>MetaTrader 5</b><i></i>XAUUSD<i></i>M5<i></i>v4.10</span>
+    </div>
+  </div>
+</footer>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/6a05bfd813da351c35a8c047/1joj7aq3c';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+<script src="/assets/cookie-consent.js" defer></script>
+</body>
+</html>
