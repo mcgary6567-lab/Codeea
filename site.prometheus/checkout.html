@@ -51,6 +51,7 @@
   }
   </script>
 
+  <link rel="stylesheet" href="index_files/all.css" />
   <link rel="icon" href="img/core-img/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -109,7 +110,7 @@ body{overflow-x:hidden}
   border-radius:999px;padding:3px 10px}
 
 /* ---------- value recap ---------- */
-.recap{max-width:840px;margin:0 auto 32px;background:var(--white);border:1px solid var(--line);
+.recap{max-width:1010px;margin:0 auto 32px;background:var(--white);border:1px solid var(--line);
   border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
 .recap__lead{font-weight:700;font-size:16px;line-height:1.45;margin-bottom:14px}
 .recap__lead span{color:var(--cyan-dark)}
@@ -118,10 +119,10 @@ body{overflow-x:hidden}
 .recap li::before{content:"✓";position:absolute;left:0;color:var(--cyan-dark);font-weight:800}
 
 /* ---------- payment options ---------- */
-.pay-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:22px;
-  max-width:940px;margin:0 auto 34px}
+.pay-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(278px,100%),1fr));gap:20px;
+  max-width:1010px;margin:0 auto 34px;align-items:stretch}
 .pay-opt{position:relative;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
-  padding:26px 24px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  padding:24px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column}
 .pay-opt--crypto{border-color:var(--cyan);box-shadow:0 10px 34px rgba(25,211,211,.16)}
 .pay-opt__flag{position:absolute;top:-12px;left:22px;background:var(--cyan);color:var(--navy);
   font-size:11.5px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:4px 12px}
@@ -131,17 +132,29 @@ body{overflow-x:hidden}
 /* Accepted-payment badges. Each is a text badge by default; if you drop a
    real logo at img/pay/<brand>.svg (or .png) it is swapped in automatically
    by the script at the end of this file — see that block for details. */
-.paylogo{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 9px;
-  background:#fff;border:1px solid var(--line);border-radius:7px;
+.paylogo{display:inline-flex;align-items:center;justify-content:center;height:32px;min-width:46px;
+  padding:0 9px;background:#fff;border:1px solid var(--line);border-radius:7px;
   box-shadow:0 1px 2px rgba(10,13,19,.08);overflow:hidden}
+.paylogo i{font-size:23px;line-height:1}
 .paylogo span{font-size:11px;font-weight:800;letter-spacing:.01em;line-height:1;white-space:nowrap}
-.paylogo img{height:20px;width:auto;display:block}
-.paylogo[data-brand="visa"] span{color:#1a1f71}
-.paylogo[data-brand="mastercard"] span{color:#b3541e}
-.paylogo[data-brand="amex"] span{color:#1f72cd}
-.paylogo[data-brand="paypal"] span{color:#253b80}
+.paylogo img{height:21px;width:auto;display:block}
+.paylogo[data-brand="visa"] i{color:#1a1f71}
+.paylogo[data-brand="mastercard"] i{color:#eb001b}
+.paylogo[data-brand="amex"] i{color:#1f72cd}
+.paylogo[data-brand="discover"] i{color:#f27712}
+.paylogo[data-brand="paypal"] i{color:#253b80}
+.paylogo[data-brand="applepay"] i{color:#111}
 .paylogo[data-brand="gpay"] span{color:#5f6368}
-.paylogo[data-brand="applepay"] span{color:#111}
+
+/* coin badges */
+.coinlogo{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;
+  font-size:12px;font-weight:700;border-radius:7px;border:1px solid;white-space:nowrap}
+.coinlogo i{font-size:16px}
+.coin--btc{color:#a5670a;background:#fff7e8;border-color:#f3dcae}
+.coin--btc i{color:#f7931a}
+.coin--usdt{color:#0b7a5e;background:#e9f8f3;border-color:#b6e3d5}
+.coin--eth{color:#4a4f7a;background:#eef0fa;border-color:#c9cee9}
+.coin--eth i{color:#627eea}
 
 .chip--btc{color:#a5670a;background:#fff7e8;border-color:#f3dcae}
 .chip--usdt{color:#0b7a5e;background:#e9f8f3;border-color:#b6e3d5}
@@ -156,15 +169,17 @@ body{overflow-x:hidden}
 .pay-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
 .pay-btn:active{transform:translateY(1px)}
 .pay-btn--card{background:linear-gradient(180deg,#fb8a2e,var(--orange));box-shadow:0 4px 0 rgba(124,51,6,.35)}
+.pay-btn--paypal{background:linear-gradient(180deg,#2b5fbe,#1e3d7b);box-shadow:0 4px 0 rgba(16,32,64,.35)}
+.pay-opt--paypal{border-color:#c7d4ea}
 .pay-btn--crypto{background:linear-gradient(180deg,#1fdede,var(--cyan-dark));color:var(--navy);
   box-shadow:0 4px 0 rgba(10,51,58,.3)}
 
 /* ---------- help + assurances ---------- */
-.pay-help{text-align:center;font-size:14px;color:var(--body);margin:0 auto 26px;max-width:940px}
+.pay-help{text-align:center;font-size:14px;color:var(--body);margin:0 auto 26px;max-width:1010px}
 .pay-help a{color:var(--cyan-dark);font-weight:600;text-decoration:none}
 .pay-help a:hover{text-decoration:underline}
 
-.assure{list-style:none;max-width:940px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:center;
+.assure{list-style:none;max-width:1010px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:center;
   gap:12px 30px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
   padding:18px 22px;box-shadow:var(--shadow)}
 .assure li{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--body)}
@@ -255,15 +270,15 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
     <section class="pay-options">
       <div class="pay-opt pay-opt--card">
         <div class="pay-opt__chips">
-          <span class="paylogo" data-brand="visa"><span>VISA</span></span>
-          <span class="paylogo" data-brand="mastercard"><span>Mastercard</span></span>
-          <span class="paylogo" data-brand="amex"><span>AMEX</span></span>
-          <span class="paylogo" data-brand="paypal"><span>PayPal</span></span>
-          <span class="paylogo" data-brand="gpay"><span>G Pay</span></span>
-          <span class="paylogo" data-brand="applepay"><span>Apple Pay</span></span>
+          <span class="paylogo" data-brand="visa" title="Visa"><i class="fab fa-cc-visa" aria-hidden="true"></i></span>
+          <span class="paylogo" data-brand="mastercard" title="Mastercard"><i class="fab fa-cc-mastercard" aria-hidden="true"></i></span>
+          <span class="paylogo" data-brand="amex" title="American Express"><i class="fab fa-cc-amex" aria-hidden="true"></i></span>
+          <span class="paylogo" data-brand="discover" title="Discover"><i class="fab fa-cc-discover" aria-hidden="true"></i></span>
+          <span class="paylogo" data-brand="applepay" title="Apple Pay"><i class="fab fa-cc-apple-pay" aria-hidden="true"></i></span>
+          <span class="paylogo" data-brand="gpay" title="Google Pay"><span>G&nbsp;Pay</span></span>
         </div>
-        <h2 class="pay-opt__title">Card · PayPal · Google Pay</h2>
-        <p class="pay-opt__sub">Secure checkout via Stripe. Your access details are emailed the moment payment clears.</p>
+        <h2 class="pay-opt__title">Card · Apple &amp; Google Pay</h2>
+        <p class="pay-opt__sub">Secure card checkout via Stripe. Your access details are emailed the moment payment clears.</p>
         <ul class="pay-check">
           <li>Instant access delivery</li>
           <li>Apple / Google Pay supported</li>
@@ -273,12 +288,27 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
         <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00">Pay $267 with Card →</a>
       </div>
 
+      <div class="pay-opt pay-opt--paypal">
+        <div class="pay-opt__chips">
+          <span class="paylogo" data-brand="paypal" title="PayPal"><i class="fab fa-cc-paypal" aria-hidden="true"></i></span>
+        </div>
+        <h2 class="pay-opt__title">Pay with PayPal</h2>
+        <p class="pay-opt__sub">Send $267 straight from your PayPal balance, bank or card using our PayPal.Me link.</p>
+        <ul class="pay-check">
+          <li>Pay from your PayPal balance</li>
+          <li>Amount is pre-filled &mdash; nothing to type</li>
+          <li>Choose <strong>Goods &amp; Services</strong> at checkout</li>
+          <li>Access sent as soon as payment clears</li>
+        </ul>
+        <a class="pay-btn pay-btn--paypal" href="https://paypal.me/GMclaughlin802/267USD" target="_blank" rel="noopener noreferrer">Pay $267 with PayPal &rarr;</a>
+      </div>
+
       <div class="pay-opt pay-opt--crypto">
         <span class="pay-opt__flag">⚡ Fastest approval</span>
         <div class="pay-opt__chips">
-          <span class="chip chip--btc">₿ Bitcoin</span>
-          <span class="chip chip--usdt">USDT</span>
-          <span class="chip chip--eth">◆ Ethereum</span>
+          <span class="coinlogo coin--btc" title="Bitcoin"><i class="fab fa-bitcoin" aria-hidden="true"></i> Bitcoin</span>
+          <span class="coinlogo coin--usdt" title="Tether USDT">₮ USDT</span>
+          <span class="coinlogo coin--eth" title="Ethereum"><i class="fab fa-ethereum" aria-hidden="true"></i> Ethereum</span>
         </div>
         <h2 class="pay-opt__title">Pay with crypto</h2>
         <p class="pay-opt__sub">Pay $267 in BTC, USDT (ERC-20) or ETH. Approval typically within a minute.</p>
