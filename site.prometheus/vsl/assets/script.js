@@ -762,7 +762,6 @@
           var target = {
             facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + url,
             x:        'https://twitter.com/intent/tweet?url=' + url + '&text=' + text,
-            whatsapp: 'https://api.whatsapp.com/send?text=' + text + '%20' + url,
             telegram: 'https://t.me/share/url?url=' + url + '&text=' + text
           }[opt.getAttribute('data-share')];
 
