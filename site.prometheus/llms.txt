@@ -9,7 +9,7 @@ Support: support@prometheusai.tech (24/7 live chat also available on the site)
 ## Key pages
 
 - [Home](https://www.prometheusai.tech/): Product overview, demo video, testimonials, and purchase options
-- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 (regular price $997) via card, PayPal, Google Pay, or cryptocurrency (BTC, ETH, USDT)
+- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 (regular price $497) via card, PayPal, Google Pay, or cryptocurrency (BTC, ETH, USDT)
 - [Support / Contact](https://www.prometheusai.tech/support): Contact the team
 - [Risk Disclaimer](https://www.prometheusai.tech/disclaimer): Crypto trading involves risk; read before use
 - [Terms of Service](https://www.prometheusai.tech/terms)
@@ -17,6 +17,6 @@ Support: support@prometheusai.tech (24/7 live chat also available on the site)
 
 ## Pricing
 
-- Prometheus AI Trading Bot: $267 one-time payment, lifetime access (regular price $997)
+- Prometheus AI Trading Bot: $267 one-time payment, lifetime access (regular price $497)
 - Free trial: available at https://prometheus-bot.fly.dev/ — try the bot before buying
 - Payment methods: Cards, PayPal, Google Pay, Bitcoin, Ethereum, USDT
