@@ -168,11 +168,20 @@ body{overflow-x:hidden}
   padding:15px 18px;border-radius:10px;color:#fff;transition:filter .2s,transform .1s}
 .pay-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
 .pay-btn:active{transform:translateY(1px)}
+.pay-btn i{font-size:1.15em;vertical-align:-.08em;margin-right:5px}
+/* keep the label + arrow on one line at every card width */
+.pay-btn{white-space:nowrap;font-size:clamp(13.5px,1.35vw,16.5px)}
 .pay-btn--card{background:linear-gradient(180deg,#fb8a2e,var(--orange));box-shadow:0 4px 0 rgba(124,51,6,.35)}
 .pay-btn--paypal{background:linear-gradient(180deg,#2b5fbe,#1e3d7b);box-shadow:0 4px 0 rgba(16,32,64,.35)}
 .pay-opt--paypal{border-color:#c7d4ea}
-.pay-btn--crypto{background:linear-gradient(180deg,#1fdede,var(--cyan-dark));color:var(--navy);
-  box-shadow:0 4px 0 rgba(10,51,58,.3)}
+/* Official NOWPayments button. It is their hosted SVG, so it is sized
+   and centred rather than restyled, and min-height keeps this card's
+   footer aligned with the card and PayPal buttons beside it. */
+.pay-btn-np{margin-top:auto;display:flex;align-items:center;justify-content:center;
+  min-height:53px;padding:2px;border-radius:10px;transition:transform .1s ease,filter .2s ease}
+.pay-btn-np:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.pay-btn-np:active{transform:translateY(1px)}
+.pay-btn-np img{max-width:100%;height:auto;max-height:53px;display:block}
 
 /* ---------- help + assurances ---------- */
 .pay-help{text-align:center;font-size:14px;color:var(--body);margin:0 auto 26px;max-width:1010px}
@@ -284,7 +293,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <li>Apple / Google Pay supported</li>
           <li>Powered by Stripe (PCI-DSS Level 1)</li>
         </ul>
-        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00">Pay $267 with Card →</a>
+        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><i class="fab fa-stripe-s" aria-hidden="true"></i> Pay $267 with Card &rarr;</a>
       </div>
 
       <div class="pay-opt pay-opt--paypal">
@@ -297,7 +306,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <li>Pay from your PayPal balance</li>
           <li>Amount is pre-filled &mdash; nothing to type</li>
         </ul>
-        <a class="pay-btn pay-btn--paypal" href="https://paypal.me/GMclaughlin802/267USD" target="_blank" rel="noopener noreferrer">Pay $267 with PayPal &rarr;</a>
+        <a class="pay-btn pay-btn--paypal" href="https://paypal.me/GMclaughlin802/267USD" target="_blank" rel="noopener noreferrer"><i class="fab fa-paypal" aria-hidden="true"></i> Pay $267 with PayPal &rarr;</a>
       </div>
 
       <div class="pay-opt pay-opt--crypto">
@@ -315,7 +324,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <li>Approved within a minute</li>
           <li>Pay from any wallet or exchange</li>
         </ul>
-        <a class="pay-btn pay-btn--crypto" href="https://nowpayments.io/payment/?iid=4429945164">Pay $267 with crypto →</a>
+        <a class="pay-btn-np" href="https://nowpayments.io/payment/?iid=5200568451&amp;source=button" target="_blank" rel="noreferrer noopener">
+          <img src="https://nowpayments.io/images/embeds/payments-button-black.svg" alt="Crypto payment button by NOWPayments" />
+        </a>
       </div>
     </section>
 
