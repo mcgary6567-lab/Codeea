@@ -1129,3 +1129,28 @@ body.modal-open { overflow: hidden; }
   .modal-decline   { min-height: 44px; padding: 10px 14px; }
   .vsl-catch       { min-height: 44px; }
 }
+
+/* ---------------------------------------------------------
+   Finish pass — softer corners and layered shadows so the
+   card reads as a premium surface rather than a plain box.
+   Full-bleed mobile (<=500px) keeps square edges.
+   --------------------------------------------------------- */
+.post-card{border-radius:16px;box-shadow:0 1px 2px rgba(10,13,19,.06),0 12px 32px rgba(10,13,19,.10)}
+.vsl-aspect{border-radius:14px;box-shadow:0 6px 20px rgba(5,7,12,.28)}
+.vsl-placeholder{border-radius:14px}
+.cta-wrapper .cta-btn{border-radius:12px}
+.live-bar{border-radius:12px}
+.share-sheet{border-radius:14px}
+.comment-bubble{border-radius:20px}
+.load-more{border-radius:10px}
+.post-avatar{box-shadow:0 0 0 2px rgba(25,211,211,.35)}
+.vsl-progress{border-radius:4px}
+.status-sub{box-shadow:0 2px 8px rgba(179,83,9,.08)}
+.offer{border-radius:20px 20px 0 0}
+.modal{border-radius:14px}
+
+@media (max-width:500px){
+  .post-card{border-radius:0;box-shadow:none}
+  .vsl-aspect,.vsl-placeholder{border-radius:10px}
+  .offer{border-radius:0}
+}
