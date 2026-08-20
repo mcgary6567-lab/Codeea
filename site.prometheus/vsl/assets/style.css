@@ -283,7 +283,47 @@ img, svg { max-width: 100%; display: block; }
   transition: opacity .3s ease;
 }
 
-.vsl-placeholder.is-hidden { opacity: 0; pointer-events: none; }
+.vsl-placeholder[hidden] { display: none !important; }
+
+/* transparent layer over the iframe: catches the first tap to unmute,
+   and afterwards stops the viewer pausing or skipping the video */
+.vsl-catch {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(5, 7, 12, .28);
+  transition: background .3s ease;
+}
+
+.vsl-catch[hidden] { display: none !important; }
+.vsl-catch.is-quiet { background: none; cursor: default; }
+
+.vsl-sound {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  background: rgba(5, 7, 12, .82);
+  border: 1.5px solid var(--cyan);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  animation: soundPulse 2.2s ease-in-out infinite;
+}
+
+.vsl-sound[hidden] { display: none !important; }
+.vsl-sound svg { width: 19px; height: 19px; color: var(--cyan); flex: none; }
+
+@keyframes soundPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
 
 .vsl-poster {
   width: 54px;
@@ -376,6 +416,18 @@ img, svg { max-width: 100%; display: block; }
 
 .cta-btn:hover  { filter: brightness(1.06); transform: translateY(-1px); }
 .cta-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(124, 51, 6, .4); }
+
+/* green purchase button used under the video */
+.cta-btn-green {
+  background: linear-gradient(180deg, #35d94b, #2ecc40);
+  border-color: #0a3d12;
+  box-shadow: 0 4px 0 rgba(10, 61, 18, .4);
+  /* keep the label on one line at every width */
+  white-space: nowrap;
+  font-size: clamp(13px, 4.15vw, 19px);
+}
+
+.cta-btn-green:active { box-shadow: 0 1px 0 rgba(10, 61, 18, .4); }
 
 .cta-btn-lg { padding: 16px 20px; font-size: 20px; }
 .cta-main { display: block; line-height: 1.25; }
@@ -1040,6 +1092,7 @@ body.modal-open { overflow: hidden; }
   .modal-h1 { font-size: 26px; }
   .modal-h2 { font-size: 18px; }
   .cta-btn { font-size: 16px; padding: 16px 14px; }
+  .cta-btn-green { font-size: clamp(13px, 4.15vw, 19px); }
   .cta-btn-lg { font-size: 17px; }
   .clock { gap: 4px; }
   .clock-unit { min-width: 38px; padding: 4px 3px; }

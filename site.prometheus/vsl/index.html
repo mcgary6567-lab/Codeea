@@ -81,7 +81,17 @@
       <div class="vsl-aspect">
         <div id="ytPlayer"></div>
 
-        <div class="vsl-placeholder" id="vslPlaceholder" role="button" tabindex="0" aria-label="Play the Prometheus AI demo">
+        <!-- click-catcher: unmutes the autoplaying video, and keeps the
+             viewer from pausing or skipping once sound is on -->
+        <div class="vsl-catch" id="vslCatch" role="button" tabindex="0" aria-label="Turn on sound">
+          <div class="vsl-sound" id="vslSound">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zM14 2v2a8 8 0 010 16v2a10 10 0 000-20z"/></svg>
+            <span>Your video is playing — tap for sound</span>
+          </div>
+        </div>
+
+        <!-- shown only if the browser blocks autoplay outright -->
+        <div class="vsl-placeholder" id="vslPlaceholder" role="button" tabindex="0" aria-label="Play the Prometheus AI demo" hidden>
           <img class="vsl-poster" src="assets/logo.png" alt="">
           <div class="vsl-brand">PR<span>O</span>METHEUS <b>AI</b></div>
           <div class="vsl-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
@@ -97,10 +107,10 @@
 
   <!-- CTA revealed after CONFIG.ctaRevealSeconds of playback -->
   <div class="cta-wrapper" id="ctaTop">
-    <a class="cta-btn" href="https://prometheus-bot.fly.dev/" target="_blank" rel="noopener noreferrer" data-cta="post">
-      🚀 Start My Free Prometheus Trial &raquo;
+    <a class="cta-btn cta-btn-green" href="https://www.prometheusai.tech/checkout" target="_blank" rel="noopener noreferrer" data-cta="post">
+      Get Instant Access To Prometheus AI &raquo;
     </a>
-    <p class="cta-note">Try the bot free before you buy · No card needed to test in demo mode</p>
+    <p class="cta-note">$267 one time · 90-day satisfaction guarantee</p>
   </div>
 
   <div class="live-bar">
@@ -222,10 +232,6 @@
       <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg> ~10 minute setup (done for you)</li>
       <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9"/><polyline points="3 3 3 9 9 9"/></svg> 90-day satisfaction guarantee</li>
     </ul>
-
-    <a class="ghost-link" href="https://prometheus-bot.fly.dev/" target="_blank" rel="noopener noreferrer" data-cta="trial">
-      Not ready? 🚀 Try the bot free first &rsaquo;
-    </a>
   </div>
 </section>
 

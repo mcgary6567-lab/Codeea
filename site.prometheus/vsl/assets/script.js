@@ -178,6 +178,9 @@
 
   function initVideo() {
     var overlay = $('#vslPlaceholder');
+    var catcher = $('#vslCatch');
+    var sound   = $('#vslSound');
+    var soundOn = false;
     var bar  = $('#vslBar');
     var time = $('#vslTime');
     var dur  = $('#vslDur');
@@ -197,17 +200,51 @@
         videoId: CONFIG.youtubeId,
         host: 'https://www.youtube-nocookie.com',
         playerVars: {
-          rel: 0, modestbranding: 1, playsinline: 1,
-          controls: 1, showinfo: 0, iv_load_policy: 3
+          /* rel:0 restricts the end-screen related videos to this
+             video's own channel (Prometheus AI System) — since 2018
+             YouTube no longer allows hiding them entirely. */
+          rel: 0,
+          autoplay: 1,      /* starts on load … */
+          mute: 1,          /* … which browsers only allow while muted */
+          controls: 0,      /* no scrub bar, no play/pause */
+          disablekb: 1,     /* no keyboard seeking */
+          fs: 0,            /* no fullscreen button */
+          modestbranding: 1,
+          playsinline: 1,
+          showinfo: 0,
+          iv_load_policy: 3
         },
         events: {
           onReady: function () {
             duration = player.getDuration ? player.getDuration() : 0;
             if (dur && duration) dur.textContent = fmt(duration);
+
+            /* belt and braces: some browsers ignore the autoplay
+               playerVar but honour an explicit muted play() */
+            try { player.mute(); player.playVideo(); } catch (err) { /* noop */ }
+
+            /* Watch for a few seconds. If the browser blocked autoplay
+               the player never leaves UNSTARTED/CUED, so fall back to a
+               tap-to-play button. Polled rather than a single timeout so
+               a slow-loading player is not mistaken for a blocked one. */
+            var tries = 0;
+            var watch = setInterval(function () {
+              tries++;
+              var state = player.getPlayerState ? player.getPlayerState() : -1;
+              if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.BUFFERING) {
+                clearInterval(watch);
+                return;
+              }
+              if (tries >= 12) {              /* ~6s */
+                clearInterval(watch);
+                if (catcher) catcher.hidden = true;
+                if (overlay) overlay.hidden = false;
+              }
+            }, 500);
           },
           onStateChange: function (e) {
             if (e.data === YT.PlayerState.PLAYING) {
-              if (overlay) overlay.classList.add('is-hidden');
+              if (overlay) overlay.hidden = true;
               startTicker();
             }
           }
@@ -232,11 +269,15 @@
       }, 500);
     }
 
+    /* Fallback path: browser blocked autoplay, viewer taps to start. */
     function play() {
-      if (overlay) overlay.classList.add('is-hidden');
+      if (overlay) overlay.hidden = true;
       if (player && player.playVideo) {
         player.unMute && player.unMute();
         player.playVideo();
+        soundOn = true;
+        if (sound) sound.hidden = true;
+        if (catcher) catcher.hidden = false;
         startTicker();
       }
     }
@@ -245,6 +286,22 @@
       overlay.addEventListener('click', play);
       overlay.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(); }
+      });
+    }
+
+    /* Normal path: video is already playing muted — first tap unmutes. */
+    function unmute() {
+      if (soundOn) return;
+      soundOn = true;
+      if (player && player.unMute) { player.unMute(); player.setVolume(100); }
+      if (sound) sound.hidden = true;
+      if (catcher) catcher.classList.add('is-quiet');
+    }
+
+    if (catcher) {
+      catcher.addEventListener('click', unmute);
+      catcher.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unmute(); }
       });
     }
   }
