@@ -164,11 +164,17 @@ body{overflow-x:hidden}
 .pay-check{list-style:none;margin:0 0 20px;display:grid;gap:8px}
 .pay-check li{font-size:13.5px;color:var(--body);padding-left:24px;position:relative}
 .pay-check li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
-.pay-btn{margin-top:auto;display:block;text-align:center;text-decoration:none;font-weight:700;font-size:16.5px;
-  padding:15px 18px;border-radius:10px;color:#fff;transition:filter .2s,transform .1s}
+/* flex-centred with a fixed height so a tall brand mark (the Stripe
+   wordmark) cannot grow one button taller than its neighbour */
+.pay-btn{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:2px;
+  min-height:56px;text-align:center;text-decoration:none;font-weight:700;font-size:16.5px;
+  padding:10px 18px;border-radius:10px;color:#fff;transition:filter .2s,transform .1s}
 .pay-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
 .pay-btn:active{transform:translateY(1px)}
-.pay-btn i{font-size:1.15em;vertical-align:-.08em;margin-right:5px}
+.pay-btn i{font-size:1.2em;margin-right:6px;line-height:1}
+/* the Stripe wordmark is far wider than a glyph icon — size it to sit
+   level with the label rather than dominating the button */
+.pay-btn .fa-stripe{font-size:2em;margin-right:8px;line-height:1}
 /* keep the label + arrow on one line at every card width */
 .pay-btn{white-space:nowrap;font-size:clamp(13.5px,1.35vw,16.5px)}
 .pay-btn--card{background:linear-gradient(180deg,#fb8a2e,var(--orange));box-shadow:0 4px 0 rgba(124,51,6,.35)}
@@ -293,7 +299,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <li>Apple / Google Pay supported</li>
           <li>Powered by Stripe (PCI-DSS Level 1)</li>
         </ul>
-        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><i class="fab fa-stripe-s" aria-hidden="true"></i> Pay $267 with Card &rarr;</a>
+        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><i class="fab fa-stripe" aria-hidden="true"></i> Pay $267 with Card &rarr;</a>
       </div>
 
       <div class="pay-opt pay-opt--paypal">
