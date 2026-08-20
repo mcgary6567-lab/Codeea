@@ -189,6 +189,15 @@ head.appendChild(script);
 }
 </script>
 
+<style id="pm-overflow-fix">
+/* Some ClickFunnels rows use negative side margins (e.g. margin:20px -200px)
+   for a full-bleed background, which pushes the document ~140px wider than
+   the viewport and gives desktop a sideways scrollbar. The clipped area is
+   empty, so hiding the horizontal overflow costs no content.
+   !important is required: the <html> tag carries an inline
+   "overflow: initial" that would otherwise win the cascade. */
+html,body{overflow-x:hidden !important;max-width:100% !important}
+</style>
 </head>
 
 <body data-affiliate-param="affiliate_id" data-show-progress="true">
