@@ -1,6 +1,6 @@
 # Prometheus AI Trading Bot
 
-> Prometheus AI is an automated cryptocurrency trading bot that monitors and trades crypto markets 24/7 on the user's behalf. It is sold as a one-time purchase (lifetime access) for $297, with a free live-demo trial available before buying.
+> Prometheus AI is an automated cryptocurrency trading bot that monitors and trades crypto markets 24/7 on the user's behalf. It is sold as a one-time purchase (lifetime access) for $267, with a free live-demo trial available before buying.
 
 Official website: https://www.prometheusai.tech/
 Free trial / live demo: https://prometheus-bot.fly.dev/
@@ -9,7 +9,7 @@ Support: support@prometheusai.tech (24/7 live chat also available on the site)
 ## Key pages
 
 - [Home](https://www.prometheusai.tech/): Product overview, demo video, testimonials, and purchase options
-- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $297 (regular price $997) via card, PayPal, Google Pay, or cryptocurrency (BTC, ETH, USDT)
+- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 (regular price $997) via card, PayPal, Google Pay, or cryptocurrency (BTC, ETH, USDT)
 - [Support / Contact](https://www.prometheusai.tech/support): Contact the team
 - [Risk Disclaimer](https://www.prometheusai.tech/disclaimer): Crypto trading involves risk; read before use
 - [Terms of Service](https://www.prometheusai.tech/terms)
@@ -17,6 +17,6 @@ Support: support@prometheusai.tech (24/7 live chat also available on the site)
 
 ## Pricing
 
-- Prometheus AI Trading Bot: $297 one-time payment, lifetime access (regular price $997)
+- Prometheus AI Trading Bot: $267 one-time payment, lifetime access (regular price $997)
 - Free trial: available at https://prometheus-bot.fly.dev/ — try the bot before buying
 - Payment methods: Cards, PayPal, Google Pay, Bitcoin, Ethereum, USDT
