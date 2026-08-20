@@ -235,6 +235,13 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
 .site-footer a[href^="mailto"]{color:var(--cyan);text-decoration:none}
 .site-footer__copy{opacity:.75}
 
+@media (pointer: coarse){
+  .logo{min-height:44px}
+  .footer-nav a{display:inline-block;padding:6px 2px}
+  .social a{width:44px;height:44px}
+  .pay-help a{display:inline-block;padding:4px 0}
+}
+
 @media (max-width:640px){
   .site-header__inner{justify-content:space-between;gap:10px}
   .assure{gap:10px 18px;padding:16px}

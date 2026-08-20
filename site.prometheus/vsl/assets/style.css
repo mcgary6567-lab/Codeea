@@ -1107,3 +1107,25 @@ body.modal-open { overflow: hidden; }
   .status { padding-top: 26px; }
   .status-title { font-size: 26px; }
 }
+
+/* ---------------------------------------------------------
+   Touch targets
+   On touch devices the small inline controls (Like/Reply, the
+   sort and options buttons, the composer) are given enough
+   height to hit reliably. Scoped to pointer:coarse so the
+   denser desktop layout is untouched.
+   --------------------------------------------------------- */
+@media (pointer: coarse) {
+  .action-btn      { min-height: 44px; }
+  .meta-btn        { min-height: 34px; padding: 8px 6px; }
+  .comment-meta    { gap: 8px; padding-top: 0; }
+  .post-more       { width: 40px; height: 40px; }
+  .sort-btn        { min-height: 40px; padding: 8px 10px; }
+  .share-opt       { min-height: 48px; }
+  .load-more       { min-height: 44px; }
+  .ci-field        { height: 44px; }
+  .ci-send         { width: 44px; height: 44px; min-width: 44px; }
+  .modal-close     { width: 44px; height: 44px; top: 2px; right: 4px; }
+  .modal-decline   { min-height: 44px; padding: 10px 14px; }
+  .vsl-catch       { min-height: 44px; }
+}
