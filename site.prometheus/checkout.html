@@ -172,9 +172,15 @@ body{overflow-x:hidden}
 .pay-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
 .pay-btn:active{transform:translateY(1px)}
 .pay-btn i{font-size:1.2em;margin-right:6px;line-height:1}
-/* the Stripe wordmark is far wider than a glyph icon — size it to sit
-   level with the label rather than dominating the button */
-.pay-btn .fa-stripe{font-size:2em;margin-right:8px;line-height:1}
+/* Stripe's square app mark: the licensed stripe-s glyph set in white on
+   Stripe brand purple. For the pixel-exact official asset, download it
+   from Stripe's brand page and drop it at img/pay/stripe.svg — the
+   script at the end of this file will use it instead. */
+.stripe-badge{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;min-width:28px;border-radius:7px;background:#635bff;
+  margin-right:9px;flex:none;overflow:hidden}
+.stripe-badge i{font-size:19px;color:#fff;line-height:1;margin:0}
+.stripe-badge img{width:100%;height:100%;object-fit:contain;display:block}
 /* keep the label + arrow on one line at every card width */
 .pay-btn{white-space:nowrap;font-size:clamp(13.5px,1.35vw,16.5px)}
 .pay-btn--card{background:linear-gradient(180deg,#fb8a2e,var(--orange));box-shadow:0 4px 0 rgba(124,51,6,.35)}
@@ -299,7 +305,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <li>Apple / Google Pay supported</li>
           <li>Powered by Stripe (PCI-DSS Level 1)</li>
         </ul>
-        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><i class="fab fa-stripe" aria-hidden="true"></i> Pay $267 with Card &rarr;</a>
+        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><span class="stripe-badge" aria-hidden="true"><i class="fab fa-stripe-s"></i></span> Pay $267 with Card &rarr;</a>
       </div>
 
       <div class="pay-opt pay-opt--paypal">
@@ -401,6 +407,25 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
       probe.src = 'img/pay/' + brand + '.' + ext;
     });
   });
+
+  /* official Stripe asset, if one has been added */
+  (function () {
+    var badge = document.querySelector('.stripe-badge');
+    if (!badge) return;
+    ['svg', 'png'].forEach(function (ext) {
+      var probe = new Image();
+      probe.onload = function () {
+        if (badge.querySelector('img')) return;
+        badge.style.background = 'none';
+        badge.textContent = '';
+        var img = document.createElement('img');
+        img.src = probe.src;
+        img.alt = 'Stripe';
+        badge.appendChild(img);
+      };
+      probe.src = 'img/pay/stripe.' + ext;
+    });
+  })();
 
   var y = document.getElementById('year');
   if (y) y.textContent = new Date().getFullYear();
