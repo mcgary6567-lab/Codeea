@@ -315,18 +315,20 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
           <span class="paylogo" data-brand="visa" title="Visa"><i class="fab fa-cc-visa" aria-hidden="true"></i></span>
           <span class="paylogo" data-brand="mastercard" title="Mastercard"><i class="fab fa-cc-mastercard" aria-hidden="true"></i></span>
           <span class="paylogo" data-brand="amex" title="American Express"><i class="fab fa-cc-amex" aria-hidden="true"></i></span>
-          <span class="paylogo" data-brand="discover" title="Discover"><i class="fab fa-cc-discover" aria-hidden="true"></i></span>
-          <span class="paylogo" data-brand="applepay" title="Apple Pay"><i class="fab fa-cc-apple-pay" aria-hidden="true"></i></span>
-          <span class="paylogo" data-brand="gpay" title="Google Pay"><span>G&nbsp;Pay</span></span>
+          <span class="paylogo" data-brand="paypal" title="PayPal"><i class="fab fa-cc-paypal" aria-hidden="true"></i></span>
+          <span class="paylogo paylogo--txt" data-brand="venmo" title="Venmo"><span>venmo</span></span>
+          <span class="paylogo paylogo--txt" data-brand="klarna" title="Klarna"><span>Klarna</span></span>
+          <span class="paylogo paylogo--txt" data-brand="ppcredit" title="PayPal Credit"><span>PP&nbsp;Credit</span></span>
         </div>
-        <h2 class="pay-opt__title">Card · Apple &amp; Google Pay</h2>
-        <p class="pay-opt__sub">Secure card checkout via Stripe. Your access details are emailed the moment payment clears.</p>
+        <h2 class="pay-opt__title">Card · PayPal · Klarna · Venmo</h2>
+        <p class="pay-opt__sub">One secure checkout via Hotmart — pay by card, PayPal, Venmo, Klarna or PayPal Credit. Your access details are emailed the moment payment clears.</p>
         <ul class="pay-check">
           <li>Instant access delivery</li>
-          <li>Apple / Google Pay supported</li>
-          <li>Powered by Stripe (PCI-DSS Level 1)</li>
+          <li>Klarna — Pay in 30 days or Pay Over Time</li>
+          <li>PayPal, Venmo &amp; PayPal Credit supported</li>
+          <li>Secure checkout by Hotmart</li>
         </ul>
-        <a class="pay-btn pay-btn--card" href="https://buy.stripe.com/eVqbJ2bbL0aMdxudUJdby00"><span class="stripe-badge" aria-hidden="true"><i class="fab fa-stripe-s"></i></span> Pay $267 with Card &rarr;</a>
+        <a class="pay-btn pay-btn--card" href="https://pay.hotmart.com/X107299486Y?checkoutMode=10&amp;bid=1787641383744"> Pay $267 — Card · PayPal · Klarna &rarr;</a>
       </div>
 
       <div class="pay-opt pay-opt--paypal">
@@ -428,25 +430,6 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
       probe.src = 'img/pay/' + brand + '.' + ext;
     });
   });
-
-  /* official Stripe asset, if one has been added */
-  (function () {
-    var badge = document.querySelector('.stripe-badge');
-    if (!badge) return;
-    ['svg', 'png'].forEach(function (ext) {
-      var probe = new Image();
-      probe.onload = function () {
-        if (badge.querySelector('img')) return;
-        badge.style.background = 'none';
-        badge.textContent = '';
-        var img = document.createElement('img');
-        img.src = probe.src;
-        img.alt = 'Stripe';
-        badge.appendChild(img);
-      };
-      probe.src = 'img/pay/stripe.' + ext;
-    });
-  })();
 
   var y = document.getElementById('year');
   if (y) y.textContent = new Date().getFullYear();
