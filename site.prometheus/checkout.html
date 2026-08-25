@@ -352,6 +352,84 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--cyan);outline-offse
       </div>
     </section>
 
+    <!-- ===== Trust / reassurance block ===== -->
+    <style>
+      .ck-trust{max-width:860px;margin:30px auto 0}
+      .ck-guarantee{display:flex;gap:22px;align-items:center;background:linear-gradient(180deg,#ffffff,#eefaf3);
+        border:1px solid #bfe9d4;border-radius:18px;padding:24px 26px;box-shadow:0 18px 40px -26px rgba(18,160,92,.55)}
+      .ck-guarantee .seal{flex:none;width:104px;height:104px}
+      .ck-guarantee h3{margin:0 0 6px;font-size:1.15rem;color:var(--ink);font-weight:800}
+      .ck-guarantee p{margin:0 0 8px;color:var(--body);font-size:.95rem;line-height:1.55}
+      .ck-guarantee a{color:var(--ok);font-weight:700;text-decoration:none}
+      .ck-guarantee a:hover{text-decoration:underline}
+      .ck-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0 0}
+      .ck-step{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-align:center}
+      .ck-step .n{width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;font-weight:800;
+        font-size:1rem;display:grid;place-items:center;margin:0 auto 10px;box-shadow:0 6px 14px -4px rgba(249,115,22,.6)}
+      .ck-step h4{margin:0 0 5px;font-size:.98rem;color:var(--ink);font-weight:700}
+      .ck-step p{margin:0;font-size:.85rem;color:var(--body);line-height:1.5}
+      .ck-safe{display:flex;gap:14px;align-items:flex-start;background:var(--navy);color:#eaf1fb;border-radius:14px;
+        padding:18px 20px;margin:16px 0 0}
+      .ck-safe svg{flex:none;width:26px;height:26px;fill:none;stroke:var(--cyan);stroke-width:2;margin-top:2px}
+      .ck-safe b{color:#fff}
+      .ck-safe p{margin:0;font-size:.9rem;line-height:1.6;color:#c3d0e0}
+      .ck-faq{margin:16px 0 0;display:grid;gap:10px}
+      .ck-faq details{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:0 16px}
+      .ck-faq summary{cursor:pointer;list-style:none;padding:13px 0;font-weight:700;color:var(--ink);font-size:.95rem;
+        display:flex;justify-content:space-between;align-items:center;gap:10px}
+      .ck-faq summary::-webkit-details-marker{display:none}
+      .ck-faq summary::after{content:"+";color:var(--orange);font-weight:800;font-size:1.25rem;line-height:1}
+      .ck-faq details[open] summary::after{content:"–"}
+      .ck-faq .a{padding:0 0 14px;color:var(--body);font-size:.9rem;line-height:1.6}
+      .ck-secure{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;align-items:center;
+        margin:20px auto 0;padding:14px 18px;background:var(--cyan-soft);border:1px solid #bdeceb;border-radius:12px;
+        font-size:.82rem;color:var(--teal-deep);font-weight:600;text-align:center}
+      .ck-secure span{display:inline-flex;align-items:center;gap:6px}
+      .ck-secure svg{width:15px;height:15px;fill:none;stroke:var(--cyan-dark);stroke-width:2}
+      .ck-secure a{color:var(--cyan-dark);font-weight:700;text-decoration:none}
+      @media(max-width:640px){.ck-guarantee{flex-direction:column;text-align:center}.ck-steps{grid-template-columns:1fr}}
+    </style>
+    <div class="ck-trust">
+      <div class="ck-guarantee">
+        <svg class="seal" viewBox="0 0 120 120" role="img" aria-label="90-day money-back guarantee">
+          <circle cx="60" cy="60" r="56" fill="#12a05c"/>
+          <circle cx="60" cy="60" r="47" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 4" opacity=".8"/>
+          <text x="60" y="46" text-anchor="middle" fill="#fff" font-family="Poppins,sans-serif" font-size="30" font-weight="800">90</text>
+          <text x="60" y="63" text-anchor="middle" fill="#eafff3" font-family="Poppins,sans-serif" font-size="12" font-weight="700" letter-spacing="1">DAY</text>
+          <text x="60" y="83" text-anchor="middle" fill="#fff" font-family="Poppins,sans-serif" font-size="9.5" font-weight="700" letter-spacing=".5">MONEY-BACK</text>
+          <path d="M46 96l9 8 20-20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+        </svg>
+        <div>
+          <h3>90-Day Money-Back Guarantee</h3>
+          <p>Try Prometheus with confidence. If it isn't right for you, email us within <b>90 days</b> for a full refund of your purchase — no questions asked. The risk is entirely on us.</p>
+          <a href="/refund">Read our full refund policy &rarr;</a>
+        </div>
+      </div>
+
+      <div class="ck-steps">
+        <div class="ck-step"><div class="n">1</div><h4>Instant access</h4><p>Your login &amp; access details are emailed the moment your payment clears.</p></div>
+        <div class="ck-step"><div class="n">2</div><h4>Free 1-on-1 setup</h4><p>Book your live call — an expert sets your bot up with you, step by step.</p></div>
+        <div class="ck-step"><div class="n">3</div><h4>Watch it run</h4><p>Start in demo mode with nothing at risk, then go live on your own exchange.</p></div>
+      </div>
+
+      <div class="ck-safe">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <p><b>Your money never leaves your own exchange.</b> Prometheus connects with a <b>trade-only API key</b> — it can place trades but can <b>never withdraw</b> your funds. You stay in full control of your account the entire time.</p>
+      </div>
+
+      <div class="ck-faq">
+        <details open><summary>When do I get access?</summary><div class="a">Immediately. Card, PayPal, Klarna and Venmo (via Hotmart) and crypto all deliver your access by email the moment payment is confirmed — usually within seconds.</div></details>
+        <details><summary>What if it's not for me?</summary><div class="a">You're covered by our 90-day money-back guarantee. Email <b>support@prometheusai.tech</b> and we'll refund your purchase — no hoops.</div></details>
+        <details><summary>Is my payment secure?</summary><div class="a">Yes. Checkout is SSL-encrypted and processed by <b>Hotmart</b>, a global payment platform used by thousands of businesses. We never see or store your card details.</div></details>
+        <details><summary>Are there any recurring fees?</summary><div class="a">No. This is a <b>one-time payment</b> for lifetime access — no monthly subscription to us, ever.</div></details>
+      </div>
+
+      <div class="ck-secure">
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> SSL-encrypted checkout</span>
+        <span>Processed securely by Hotmart</span>
+        <span>💬 24/7 support &middot; <a href="mailto:support@prometheusai.tech">support@prometheusai.tech</a></span>
+      </div>
+    </div>
 
     <p class="pay-help">Can't find your preferred payment method?
       <a href="/support">Contact us on live chat, 24/7</a>.</p>
