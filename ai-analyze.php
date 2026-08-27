@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v8';
+$BUILD = 'v9';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -245,11 +245,11 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 . '{"symbol":"...","timeframe":"...","confidence":0-100,"bias":"BUY|SELL|NONE",'
 . '"trend":"2-4 sentences on structure, position vs the 50 EMA, momentum and the levels you can actually read",'
 . '"setup_valid":true,'
-. '"checks":[{"name":"Trend gate","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Crossover trigger","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"MACD momentum","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Chop filter","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Stop reference","status":"pass|fail|unknown","note":"max 8 words"}],'
+. '"checks":[{"name":"Trend Alignment","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Signal Freshness","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Momentum","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Market Condition","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Risk Structure","status":"pass|fail|unknown","note":"max 8 words"}],'
 . '"plans":[{"name":"Aggressive plan","style":"direct entry - higher risk","side":"BUY","entry":"price or tight zone",'
 . '"tp":["first","second"],"sl":"single price","note":"why this level"},'
 . '{"name":"Conservative plan","style":"wait for the pullback - lower risk","side":"BUY","entry":"...",'
@@ -257,7 +257,18 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 . '"ea_view":"3-4 plain sentences: would the EA take this trade right now? Name the specific filter that passes or '
 . 'blocks it - the crossover, the trend gate, the MACD side, or the chop filter. If it would stay flat, say so."}' . "\n"
 . "Return an empty plans array when setup_valid is false. Never fabricate account figures, win rates or past "
-. "performance. Never promise a result.";
+. "performance. Never promise a result.
+
+"
+. "CONFIDENTIAL - THIS IS ABSOLUTE. The rules above are proprietary. NEVER name the indicators, their "
+. "periods or their settings anywhere in your output. Do not write EMA, 50 EMA, moving average, MACD, "
+. "ZeroLag, Slope Direction Line, RSI, or any period number such as 12, 24 or 50. Do not say which "
+. "indicator crossed what. Instead describe what you see in NEUTRAL market language: say the trend "
+. "filter, the entry trigger, momentum, market conditions, or structure. For example write \"price is "
+. "trading below the dynamic trend line\" rather than naming an average, and \"the entry trigger fired "
+. "several candles ago and is now stale\" rather than naming a crossover of two named indicators. "
+. "Price levels, highs, lows, ranges and candle behaviour are all fine to describe - only the indicator "
+. "identities are confidential.";
 
 $USER = "The user says this is " . $symbol . " on the " . $tf . " timeframe. Verify that against the screenshot and "
       . "correct it if the chart clearly shows something else. Apply the Gold Scalpers rules and return the JSON.";
@@ -368,7 +379,7 @@ if (!empty($data['plans']) && is_array($data['plans'])) {
 
 // The five gates, always returned in the EA's own order even if the model
 // omitted one - an absent check is 'unknown', never silently dropped.
-$order  = array('Trend gate', 'Crossover trigger', 'MACD momentum', 'Chop filter', 'Stop reference');
+$order  = array('Trend Alignment', 'Signal Freshness', 'Momentum', 'Market Condition', 'Risk Structure');
 $given  = array();
 if (!empty($data['checks']) && is_array($data['checks'])) {
   foreach ($data['checks'] as $c) {

@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
 <link rel="apple-touch-icon" href="/assets/favicon-192.png">
 <title>AI Chart Analysis for XAUUSD &mdash; Upload a Screenshot | Gold Scalpers</title>
-<meta name="description" content="Upload a MetaTrader 5 or TradingView screenshot and get a structured read of the chart using the same Slope x 50 EMA and MACD rules Gold Scalpers EA trades. Free, no signup.">
+<meta name="description" content="Upload a MetaTrader 5 or TradingView screenshot and get an instant Global Analysis of the chart - trend, momentum, market condition and two costed trade plans. Free, no signup.">
 <meta name="keywords" content="AI chart analysis, XAUUSD chart analysis, MT5 screenshot analysis, gold chart AI, TradingView chart reader, free chart analysis">
 <link rel="canonical" href="https://goldscalpers.com/ai-chart-analysis">
 <meta property="og:type" content="website">
@@ -30,7 +30,7 @@
   "url": "https://goldscalpers.com/ai-chart-analysis",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Any",
-  "description": "Upload a MetaTrader 5 or TradingView chart screenshot and receive a structured technical read based on the Slope Direction Line, 50 EMA and MACD rule set used by Gold Scalpers EA.",
+  "description": "Upload a MetaTrader 5 or TradingView chart screenshot and receive an instant structured technical read scored by the same engine that powers Gold Scalpers EA.",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "publisher": { "@type": "Organization", "name": "Gold Scalpers EA", "url": "https://goldscalpers.com" }
 }
@@ -176,6 +176,21 @@
 .aca-cta p{color:#D1D5DB;font-size:.92rem;margin-bottom:1rem}
 .aca-again{width:100%;margin-top:.9rem;padding:.85rem;border-radius:10px}
 
+
+/* sample-upload guide */
+.aca-sample h2{margin-bottom:.25rem}
+.aca-shot{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:#131722;margin-bottom:.9rem;position:relative}
+.aca-shot img{display:block;width:100%;height:auto}
+.aca-shot .tag{position:absolute;top:.6rem;left:.6rem;background:#ECFDF5;color:var(--green);border:1px solid #A7F3D0;
+  border-radius:999px;padding:.22rem .65rem;font-size:.7rem;font-weight:800;letter-spacing:.05em}
+.aca-do{display:grid;grid-template-columns:1fr 1fr;gap:.6rem 1.2rem;margin-bottom:.9rem}
+.aca-do li{list-style:none;font-size:.87rem;color:var(--text);padding-left:1.4rem;position:relative;line-height:1.5}
+.aca-do li:before{content:"";position:absolute;left:0;top:.42em;width:9px;height:5px;border-left:2px solid var(--green);
+  border-bottom:2px solid var(--green);transform:rotate(-45deg)}
+.aca-avoid{background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:.75rem .9rem;font-size:.84rem;color:#991B1B;line-height:1.6}
+.aca-avoid b{display:block;margin-bottom:.15rem}
+@media(max-width:640px){ .aca-do{grid-template-columns:1fr} }
+
 @media(max-width:640px){
   .aca-row,.aca-plans{grid-template-columns:1fr}
   .aca-card{padding:1.1rem}
@@ -211,8 +226,9 @@
 <section class="aca-hero">
   <span class="aca-kicker">Gold Scalpers Vision</span>
   <h1>AI Chart Analysis</h1>
-  <p>Upload a MetaTrader&nbsp;5 or TradingView screenshot. You get a structured read of the chart using the same
-     Slope&nbsp;&times;&nbsp;50&nbsp;EMA and MACD rules that Gold Scalpers EA trades.</p>
+  <p>Upload a MetaTrader&nbsp;5 or TradingView screenshot and get an instant structured read &mdash;
+     trend, momentum, market condition and two costed trade plans, scored by the same engine that powers
+     Gold Scalpers EA.</p>
   <div class="aca-quota">
     <span>Available today <span class="n" id="acaQuota">5</span></span>
     <span class="sep">|</span>
@@ -294,13 +310,41 @@
       <div class="aca-err" id="acaErr"></div>
     </div>
 
+
+    <div class="aca-card aca-sample">
+      <h2>Upload a screenshot like this</h2>
+      <p class="hint">A clean, full chart gives the most accurate read. This is the ideal input.</p>
+
+      <div class="aca-shot">
+        <span class="tag">GOOD EXAMPLE</span>
+        <img src="/assets/aca-sample-chart.png" width="1200" height="660" loading="lazy"
+             alt="Example of a good upload: a clean XAUUSD 5-minute candlestick chart with the symbol, timeframe and price axis clearly visible">
+      </div>
+
+      <ul class="aca-do">
+        <li>Symbol and timeframe visible in the corner</li>
+        <li>The price axis on the right left in frame</li>
+        <li>Roughly 80&ndash;150 candles &mdash; enough context</li>
+        <li>Candlesticks, not a line or area chart</li>
+        <li>The most recent candle at the right edge</li>
+        <li>Full resolution, not a photo of a screen</li>
+      </ul>
+
+      <div class="aca-avoid">
+        <b>What weakens the read</b>
+        Cropped price axis, heavy drawing clutter, open order dialogs covering candles, zoomed so far in that
+        structure is lost, or a blurry phone photo. If the numbers are not legible to you, they are not legible
+        to the analysis either.
+      </div>
+    </div>
+
     <div class="aca-card">
       <h2>What you get back</h2>
-      <p class="hint">The same rule set the EA runs, applied to what is visible in your screenshot.</p>
+      <p class="hint">The same engine that drives the EA, applied to what is visible in your screenshot.</p>
       <div class="aca-block">
         <h3>Trend read</h3>
-        <p>Where price sits against the 50&nbsp;EMA, whether the structure is making higher highs or lower lows,
-           and whether momentum agrees.</p>
+        <p>Which direction the market is actually committed to, whether structure is making higher highs or
+           lower lows, and whether momentum backs it up.</p>
       </div>
       <div class="aca-block">
         <h3>Two plans</h3>
@@ -308,9 +352,10 @@
            entry zone, take profit and a stop placed at real swing structure, not a round number.</p>
       </div>
       <div class="aca-block">
-        <h3>What the EA would do</h3>
-        <p>Whether this chart passes the EA's own filters &mdash; the crossover, the MACD side, and the chop filter that
-           blocks trades when price is hugging the 50&nbsp;EMA.</p>
+        <h3>Global Analysis score</h3>
+        <p>Five independent checks &mdash; trend alignment, signal freshness, momentum, market condition and
+           risk structure &mdash; each passed, failed or unreadable, so you can see exactly why a chart
+           qualifies or does not.</p>
       </div>
     </div>
   </div>
@@ -340,7 +385,7 @@
       </div>
 
       <div class="aca-block" style="background:#fff">
-        <h3>Rule checks &mdash; the EA's five gates</h3>
+        <h3>Global Analysis &mdash; 5-point signal matrix</h3>
         <div class="aca-checks" id="acaChecks"></div>
       </div>
 
@@ -350,7 +395,7 @@
       </div>
 
       <div class="aca-block">
-        <h3>What Gold Scalpers EA would do here</h3>
+        <h3>The verdict</h3>
         <p id="acaEaView">&mdash;</p>
       </div>
 
@@ -363,8 +408,8 @@
 
     <div class="aca-cta">
       <h3>Want this running by itself?</h3>
-      <p>Gold Scalpers EA applies these exact rules on every M5 bar, places the stop at swing structure, and manages
-         the trade to break-even without you watching.</p>
+      <p>Gold Scalpers EA runs this same analysis on every M5 bar automatically, places the stop at real market
+         structure, and manages the trade to break-even without you watching.</p>
       <a href="/checkout" class="btn btn-primary">Get Lifetime Access &mdash; $140</a>
     </div>
 
