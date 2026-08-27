@@ -14,7 +14,15 @@
 <link rel="stylesheet" href="../assets/styles.css">
 <style>
   .pf-wrap{max-width:820px;margin:0 auto;padding:2rem 1.2rem;font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#111827;line-height:1.65}
-  .pf-crumb{font-size:.82rem;color:#6B7280;margin-bottom:1rem}.pf-crumb a{color:#D97706;text-decoration:none}
+  .pf-bar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;
+  padding:.75rem 0 .9rem;border-bottom:1px solid #E5E7EB;margin-bottom:1rem}
+.pf-bar .pf-home{font-weight:700;color:#111827;text-decoration:none;font-size:.95rem}
+.pf-bar .pf-nav{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.pf-bar .pf-nav a{font-size:.86rem;color:#6B7280;text-decoration:none}
+.pf-bar .pf-nav a:hover{color:#111827}
+.pf-bar .pf-free{background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;border-radius:999px;
+  font-size:.58rem;font-weight:800;letter-spacing:.06em;padding:.08rem .34rem;margin-left:.28rem}
+.pf-crumb{font-size:.82rem;color:#6B7280;margin-bottom:1rem}.pf-crumb a{color:#D97706;text-decoration:none}
   .pf-wrap h1{font-size:2rem;line-height:1.15;letter-spacing:-.02em;margin:.2rem 0 .6rem}
   .pf-wrap h2{font-size:1.3rem;margin:2rem 0 .6rem}.pf-lede{font-size:1.05rem;color:#374151}
   .pf-table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.92rem}
@@ -29,6 +37,16 @@
 </head>
 <body>
 <main class="pf-wrap">
+  <div class="pf-bar">
+    <a href="/" class="pf-home">Gold Scalpers</a>
+    <div class="pf-nav">
+      <a href="/#features">Features</a>
+      <a href="/results">Backtesting</a>
+      <a href="/blog/">Blog</a>
+      <a href="/ai-chart-analysis">AI Analysis<span class="pf-free">FREE</span></a>
+      <a href="/checkout">Get Lifetime</a>
+    </div>
+  </div>
   <nav class="pf-crumb"><a href="/">Home</a> &rsaquo; <a href="/prop-firms/">Prop firms</a> &rsaquo; FundingPips</nav>
   <h1>Gold Scalpers EA for FundingPips</h1>
   <p class="pf-lede">FundingPips runs multi-step evaluations with daily-loss and overall-loss limits. Gold Scalpers EA maps each limit to a built-in control so you trade gold within the rules, hands-free.</p>

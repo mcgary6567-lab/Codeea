@@ -269,6 +269,29 @@ body{
 .btn-ghost{background:transparent;color:var(--text);border:1.5px solid var(--border)}
 .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
 
+/* ---- mobile nav (CSS-only burger) ---- */
+.nav-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.nav-burger{display:none;flex-direction:column;justify-content:center;gap:5px;width:40px;height:36px;
+  padding:0 9px;border:1px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;flex:0 0 auto}
+.nav-burger span{display:block;height:2px;background:var(--text);border-radius:2px;transition:transform .22s,opacity .22s}
+.nav-toggle:focus-visible ~ .nav-burger{outline:2px solid var(--gold);outline-offset:2px}
+.nav-toggle:checked ~ .nav-burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle:checked ~ .nav-burger span:nth-child(2){opacity:0}
+.nav-toggle:checked ~ .nav-burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.nav-new{display:inline-block;background:#ECFDF5;color:var(--green);border:1px solid #A7F3D0;border-radius:999px;
+  font-size:.6rem;font-weight:800;letter-spacing:.06em;padding:.08rem .34rem;margin-left:.3rem;vertical-align:middle}
+@media(max-width:900px){
+  .nav-burger{display:flex;order:3}
+  .nav-links{margin-left:auto}
+  .nav-inner{gap:.65rem}
+  .nav-toggle:checked ~ .nav-links{position:absolute;top:100%;left:0;right:0;margin:0;
+    flex-direction:column;align-items:stretch;gap:0;background:#fff;border-top:1px solid var(--border);
+    box-shadow:0 14px 30px rgba(17,24,39,.11);padding:.3rem 1.1rem 1.1rem}
+  .nav-toggle:checked ~ .nav-links a:not(.btn){display:block;font-size:1rem;padding:.9rem .1rem;
+    border-bottom:1px solid var(--border)}
+  .nav-toggle:checked ~ .nav-links .btn{margin-top:.9rem;text-align:center;padding:.8rem 1rem;font-size:.95rem}
+}
+
 /* HERO */
 .hero{position:relative;padding:3.5rem 2rem 2.5rem;overflow:hidden;background:#FFFFFF}
 .hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse 70% 60% at 70% 50%,rgba(217,119,6,0.06) 0%,transparent 70%);pointer-events:none;z-index:0}
@@ -677,7 +700,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       <a href="#how">How it works</a>
       <a href="/results">Backtesting</a>
       <a href="#pricing">Pricing</a>
-      <a href="/ai-chart-analysis">AI Analysis</a>
+      <a href="/ai-chart-analysis">AI Analysis <span class="nav-new">FREE</span></a>
       <a href="/checkout" class="btn btn-primary">Get Lifetime – $140</a>
     </div>
   </div>

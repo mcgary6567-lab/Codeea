@@ -334,3 +334,26 @@ pre code{background:none;padding:0;color:var(--text)}
 .article-figure img{display:block;width:100%;height:auto}
 .article-figure figcaption{padding:12px 18px;font-size:.9rem;color:#94a3b8;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.06)}
 @media(max-width:640px){.article-figure{margin:22px -4px}.article-figure figcaption{font-size:.85rem;padding:10px 14px}}
+
+/* ---- mobile nav (CSS-only burger) ---- */
+.nav-toggle{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.nav-burger{display:none;flex-direction:column;justify-content:center;gap:5px;width:40px;height:36px;
+  padding:0 9px;border:1px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;flex:0 0 auto}
+.nav-burger span{display:block;height:2px;background:var(--text);border-radius:2px;transition:transform .22s,opacity .22s}
+.nav-toggle:focus-visible ~ .nav-burger{outline:2px solid var(--gold);outline-offset:2px}
+.nav-toggle:checked ~ .nav-burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle:checked ~ .nav-burger span:nth-child(2){opacity:0}
+.nav-toggle:checked ~ .nav-burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.nav-new{display:inline-block;background:#ECFDF5;color:var(--green);border:1px solid #A7F3D0;border-radius:999px;
+  font-size:.6rem;font-weight:800;letter-spacing:.06em;padding:.08rem .34rem;margin-left:.3rem;vertical-align:middle}
+@media(max-width:900px){
+  .nav-burger{display:flex;order:3}
+  .nav-links{margin-left:auto}
+  .nav-inner{gap:.65rem}
+  .nav-toggle:checked ~ .nav-links{position:absolute;top:100%;left:0;right:0;margin:0;
+    flex-direction:column;align-items:stretch;gap:0;background:#fff;border-top:1px solid var(--border);
+    box-shadow:0 14px 30px rgba(17,24,39,.11);padding:.3rem 1.1rem 1.1rem}
+  .nav-toggle:checked ~ .nav-links a:not(.btn){display:block;font-size:1rem;padding:.9rem .1rem;
+    border-bottom:1px solid var(--border)}
+  .nav-toggle:checked ~ .nav-links .btn{margin-top:.9rem;text-align:center;padding:.8rem 1rem;font-size:.95rem}
+}
