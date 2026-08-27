@@ -14,7 +14,7 @@
 //      return array(
 //        'provider' => 'openai',                 // 'openai' or 'anthropic'
 //        'key'      => 'sk-...',
-//        'model'    => 'gpt-4o',                 // anthropic: claude-sonnet-4-20250514
+//        'model'    => 'gpt-4o',                 // anthropic: claude-sonnet-5
 //      );
 //
 //  Until that file exists the endpoint returns a clear "not configured"
@@ -137,7 +137,7 @@ if (!is_readable($CFG_FILE)) {
 $cfg = include $CFG_FILE;
 if (!is_array($cfg) || empty($cfg['key'])) out(false, 'Chart analysis is not configured correctly.');
 $provider = isset($cfg['provider']) ? $cfg['provider'] : 'openai';
-$model    = isset($cfg['model']) ? $cfg['model'] : ($provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
+$model    = isset($cfg['model']) ? $cfg['model'] : ($provider === 'anthropic' ? 'claude-sonnet-5' : 'gpt-4o');
 
 // =====================================================================
 //  THE RULE SET  -  mirrors Gold Scalpers EA v4.10
@@ -258,6 +258,11 @@ if ($code === 401 || $code === 403) {
            . ' Open /ai-analyze.php?selftest=1 to check the config.');
 }
 if ($code === 429)    out(false, 'The analysis service is rate limited right now. Try again in a minute.');
+if ($code === 404) {
+  out(false, "The {$provider} API does not recognise the model '{$model}'. "
+           . "Fix the 'model' line in .ai-config.php - for Anthropic use claude-sonnet-5 "
+           . "or claude-haiku-4-5-20251001; for OpenAI use gpt-4o.");
+}
 if ($code >= 400) {
   $up = json_decode($resp, true);
   $why = isset($up['error']['message']) ? $up['error']['message']
