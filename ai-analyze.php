@@ -28,9 +28,18 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v4';
+$BUILD = 'v5';
 
-$CFG_FILE  = __DIR__ . '/.ai-config.php';
+// The deploy replaces public_html wholesale, so a config kept inside it is
+// deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
+// deploy never touches it and the web server cannot serve it at all.
+$CFG_CANDIDATES = array(
+  dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
+  __DIR__ . '/.ai-config.php',            // fallback  - wiped on every deploy
+);
+$CFG_FILE = $CFG_CANDIDATES[1];
+foreach ($CFG_CANDIDATES as $cand) { if (is_readable($cand)) { $CFG_FILE = $cand; break; } }
+
 $RATE_FILE = __DIR__ . '/.ai_rate.json';
 $LOG_FILE  = __DIR__ . '/.ai_analyze.log';
 $DAILY_MAX = 5;
@@ -154,6 +163,9 @@ if (isset($_GET['selftest'])) {
   $mask = ($i['key'] === '') ? '(none)' : substr($i['key'], 0, 7) . '...' . substr($i['key'], -4);
   out(true, 'config inspected as text (never executed)', array(
     'build'      => $BUILD,
+    'looked_in'  => array(basename(dirname($CFG_CANDIDATES[0])) . '/.ai-config.php  (preferred, survives deploys)',
+                          'public_html/.ai-config.php  (wiped on every deploy)'),
+    'using'      => is_readable($CFG_FILE) ? $CFG_FILE : '(none found)',
     'bytes'      => $i['raw_len'],
     'lines'      => $i['lines'],
     'provider'   => $i['provider'],
