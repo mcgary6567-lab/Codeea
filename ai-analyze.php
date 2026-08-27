@@ -6,32 +6,46 @@
 //  vision model with the Gold Scalpers rule set as the system prompt,
 //  and returns structured JSON the page renders.
 //
-//  SETUP (one step): put your API key in .ai-config.php next to this
-//  file. That file is a dotfile, so the root .htaccess already denies
-//  it to the web. Example:
+//  SETUP: create .ai-config.php next to this file:
 //
 //      <?php
 //      return array(
-//        'provider' => 'openai',                 // 'openai' or 'anthropic'
-//        'key'      => 'sk-...',
-//        'model'    => 'gpt-4o',                 // anthropic: claude-sonnet-5
+//        'provider' => 'anthropic',              // 'anthropic' or 'openai'
+//        'key'      => 'sk-ant-...',
+//        'model'    => 'claude-sonnet-5',        // openai: gpt-4o
 //      );
 //
-//  Until that file exists the endpoint returns a clear "not configured"
-//  message - it never invents an analysis.
+//  That config is checked AS TEXT before it is ever included, so a typo
+//  in it returns a clear message instead of a blank 500.
+//  Diagnose any time with:  /ai-analyze.php?selftest=1
 // =====================================================================
 
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
-// A stray warning or a parse error in an included file must never corrupt the
-// JSON stream - the page just sees "unexpected response" and you learn nothing.
 @ini_set('display_errors', '0');
 @ini_set('log_errors', '1');
-@set_time_limit(120);            // must exceed the cURL timeout below
+@set_time_limit(150);
+
+$BUILD = 'v4';
+
+$CFG_FILE  = __DIR__ . '/.ai-config.php';
+$RATE_FILE = __DIR__ . '/.ai_rate.json';
+$LOG_FILE  = __DIR__ . '/.ai_analyze.log';
+$DAILY_MAX = 5;
+$MAX_BYTES = 8 * 1024 * 1024;
+$TIMEOUT   = 120;
+
 $GLOBALS['gs_sent'] = false;
 
+function out($ok, $msg, $extra = array()) {
+  $GLOBALS['gs_sent'] = true;
+  echo json_encode(array_merge(array('ok' => $ok, 'message' => $msg), $extra));
+  exit;
+}
+
+// Any fatal that still slips through comes back as JSON, not a blank 500.
 register_shutdown_function(function () {
   if (!empty($GLOBALS['gs_sent'])) return;
   $e = error_get_last();
@@ -42,50 +56,15 @@ register_shutdown_function(function () {
   }
 });
 
-$CFG_FILE   = __DIR__ . '/.ai-config.php';
-$RATE_FILE  = __DIR__ . '/.ai_rate.json';   // dotfile -> denied by root .htaccess
-$LOG_FILE   = __DIR__ . '/.ai_analyze.log'; // dotfile -> denied
-$DAILY_MAX  = 5;                             // analyses per IP per day
-$MAX_BYTES  = 8 * 1024 * 1024;               // 8 MB upload ceiling
-$TIMEOUT    = 90;
-
-function out($ok, $msg, $extra = array()) {
-  $GLOBALS['gs_sent'] = true;
-  echo json_encode(array_merge(array('ok' => $ok, 'message' => $msg), $extra));
-  exit;
-}
-
-// Include the config without letting a typo in it kill the whole endpoint.
-function load_cfg($file) {
-  try {
-    $c = @include $file;
-  } catch (\Throwable $e) {
-    out(false, 'Your .ai-config.php has a PHP syntax error: ' . $e->getMessage()
-             . ' (line ' . $e->getLine() . '). Check the quotes and the trailing commas.');
-  }
-  if (!is_array($c)) {
-    out(false, '.ai-config.php did not return an array. It must be exactly: '
-             . '<?php return array( 'provider' => 'anthropic', 'key' => 'sk-ant-...', '
-             . ''model' => 'claude-sonnet-5', );');
-  }
-  return $c;
-}
-
 function client_ip() {
-  foreach (array('HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR') as $k) {
-    if (!empty($_SERVER[$k])) {
-      $v = explode(',', $_SERVER[$k]);
-      return trim($v[0]);
-    }
+  foreach (array('HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR') as $k) {
+    if (!empty($_SERVER[$k])) { $v = explode(',', $_SERVER[$k]); return trim($v[0]); }
   }
   return '0.0.0.0';
 }
 
-// ---- daily per-IP quota -------------------------------------------------
 function quota_read($file, $max) {
-  $ip  = client_ip();
-  $day = gmdate('Y-m-d');
-  $all = array();
+  $ip = client_ip(); $day = gmdate('Y-m-d'); $all = array();
   if (is_readable($file)) {
     $j = json_decode(@file_get_contents($file), true);
     if (is_array($j)) $all = $j;
@@ -100,96 +79,112 @@ function quota_bump($file, $all, $ip) {
   @file_put_contents($file, json_encode($all), LOCK_EX);
 }
 
-// ---- quota-only ping from the page ------------------------------------
-if (isset($_GET['quota'])) {
-  list($all, $ip, $used, $left) = quota_read($RATE_FILE, $DAILY_MAX);
-  out(true, 'ok', array('quota_left' => $left, 'build' => 'v3-textcheck'));
+// ---------------------------------------------------------------------
+//  Inspect .ai-config.php as TEXT. A syntax error in an included file is
+//  a compile error that cannot be caught, so we never execute it to check
+//  it - we read it and look for what people actually get wrong.
+// ---------------------------------------------------------------------
+function inspect_cfg($file) {
+  $r = array('ok' => false, 'problems' => array(), 'provider' => '(not found)',
+             'model' => '(not found)', 'key' => '', 'looks' => 'unknown',
+             'raw_len' => 0, 'lines' => 0);
+  if (!is_readable($file)) { $r['problems'][] = 'No .ai-config.php found next to ai-analyze.php.'; return $r; }
+
+  $raw = (string)@file_get_contents($file);
+  $r['raw_len'] = strlen($raw);
+  $r['lines']   = substr_count($raw, chr(10)) + 1;
+
+  $bom   = chr(0xEF) . chr(0xBB) . chr(0xBF);
+  $curly = array(chr(0xE2) . chr(0x80) . chr(0x98), chr(0xE2) . chr(0x80) . chr(0x99),
+                 chr(0xE2) . chr(0x80) . chr(0x9C), chr(0xE2) . chr(0x80) . chr(0x9D));
+  $sq = chr(39);
+
+  if ($raw === '') $r['problems'][] = 'The file is empty.';
+  if (substr($raw, 0, 3) === $bom)
+    $r['problems'][] = 'The file starts with a UTF-8 BOM. Re-save it as UTF-8 without BOM.';
+  if (strpos(ltrim($raw), '<?php') !== 0)
+    $r['problems'][] = 'The file does not start with <?php - check for a blank line or stray text above it.';
+  foreach ($curly as $ch) {
+    if (strpos($raw, $ch) !== false) {
+      $r['problems'][] = 'The file contains curly/smart quotes. PHP needs straight quotes. Retype them.';
+      break;
+    }
+  }
+  if (strpos($raw, 'return') === false) $r['problems'][] = 'There is no return statement.';
+  $o = substr_count($raw, '('); $c = substr_count($raw, ')');
+  if ($o !== $c) $r['problems'][] = 'Unbalanced brackets: ' . $o . ' open vs ' . $c . ' close.';
+  $q = substr_count($raw, $sq);
+  if (($q % 2) !== 0) $r['problems'][] = 'Odd number of single quotes (' . $q . ') - one is missing.';
+
+  if (preg_match('/' . $sq . 'provider' . $sq . '\s*=>\s*' . $sq . '([^' . $sq . ']*)' . $sq . '/', $raw, $m))
+    $r['provider'] = $m[1];
+  if (preg_match('/' . $sq . 'model' . $sq . '\s*=>\s*' . $sq . '([^' . $sq . ']*)' . $sq . '/', $raw, $m))
+    $r['model'] = $m[1];
+  if (preg_match('/' . $sq . 'key' . $sq . '\s*=>\s*' . $sq . '([^' . $sq . ']*)' . $sq . '/', $raw, $m))
+    $r['key'] = $m[1];
+
+  if ($r['key'] === '') {
+    $r['problems'][] = 'Could not find a key line.';
+  } else {
+    $r['looks'] = (strpos($r['key'], 'sk-ant-') === 0) ? 'anthropic'
+                : ((strpos($r['key'], 'sk-') === 0) ? 'openai' : 'unknown');
+    if ($r['looks'] !== 'unknown' && $r['looks'] !== $r['provider'])
+      $r['problems'][] = 'MISMATCH: provider is ' . $r['provider'] . ' but the key looks like a '
+                       . $r['looks'] . ' key.';
+    if (trim($r['key']) !== $r['key']) $r['problems'][] = 'The key has leading or trailing whitespace.';
+  }
+  if (!in_array($r['provider'], array('anthropic', 'openai'), true))
+    $r['problems'][] = 'provider must be exactly anthropic or openai - found ' . $r['provider'] . '.';
+  if ($r['provider'] === 'anthropic' && strpos($r['model'], 'claude') !== 0)
+    $r['problems'][] = 'model ' . $r['model'] . ' is not a Claude id. Use claude-sonnet-5 or claude-haiku-4-5-20251001.';
+
+  $r['ok'] = empty($r['problems']);
+  return $r;
 }
 
-// ---- self-test: diagnose the config without uploading anything ---------
-//      /ai-analyze.php?selftest=1   -> never prints the key, only its shape
+// ---- quota ping -------------------------------------------------------
+if (isset($_GET['quota'])) {
+  list($all, $ip, $used, $left) = quota_read($RATE_FILE, $DAILY_MAX);
+  out(true, 'ok', array('quota_left' => $left, 'build' => $BUILD));
+}
+
+// ---- self-test --------------------------------------------------------
 if (isset($_GET['selftest'])) {
-  if (!is_readable($CFG_FILE)) out(false, 'No .ai-config.php found next to ai-analyze.php.');
-
-  // Read it as TEXT. A syntax error in this file is a compile error that cannot
-  // be caught by including it, so we never include it here - we inspect it.
-  $raw = (string)@file_get_contents($CFG_FILE);
-  $problems = array();
-
-  if ($raw === '') $problems[] = 'The file is empty.';
-  if (substr($raw, 0, 3) === "ï»¿")
-    $problems[] = 'The file starts with a UTF-8 BOM. Re-save it as UTF-8 WITHOUT BOM.';
-  if (strpos(ltrim($raw), '<?php') !== 0)
-    $problems[] = 'The file does not start with <?php (check for a blank line or stray text above it).';
-  foreach (array("â"=>'left single', "â"=>'right single',
-                 "â"=>'left double', "â"=>'right double') as $ch => $name) {
-    if (strpos($raw, $ch) !== false)
-      $problems[] = "The file contains a curly $name quote. PHP needs straight quotes ' and \". Retype them.";
-  }
-  if (strpos($raw, 'return') === false) $problems[] = 'There is no "return" statement.';
-  if (substr_count($raw, '(') !== substr_count($raw, ')'))
-    $problems[] = 'Unbalanced brackets: ' . substr_count($raw, '(') . ' open vs ' . substr_count($raw, ')') . ' close.';
-  if ((substr_count($raw, "'") % 2) !== 0)
-    $problems[] = 'Odd number of single quotes (' . substr_count($raw, "'") . ') - one is missing.';
-
-  preg_match("/'provider'\s*=>\s*'([^']*)'/", $raw, $mp);
-  preg_match("/'model'\s*=>\s*'([^']*)'/",    $raw, $mm);
-  preg_match("/'key'\s*=>\s*'([^']*)'/",      $raw, $mk);
-  $prov = isset($mp[1]) ? $mp[1] : '(not found)';
-  $mdl  = isset($mm[1]) ? $mm[1] : '(not found)';
-  $key  = isset($mk[1]) ? $mk[1] : '';
-
-  if ($key === '') {
-    $problems[] = 'Could not find a 'key' => '...' line.';
-    $mask = '(none)';
-    $looks = 'unknown';
-  } else {
-    $mask  = substr($key, 0, 7) . '...' . substr($key, -4);
-    $looks = (strpos($key, 'sk-ant-') === 0) ? 'anthropic'
-           : ((strpos($key, 'sk-') === 0) ? 'openai' : 'unknown');
-    if ($looks !== 'unknown' && $looks !== $prov)
-      $problems[] = "MISMATCH: provider is '$prov' but the key looks like a $looks key.";
-    if (trim($key) !== $key) $problems[] = 'The key has leading or trailing whitespace.';
-  }
-  if (!in_array($prov, array('anthropic','openai'), true))
-    $problems[] = "provider must be exactly 'anthropic' or 'openai' - found '$prov'.";
-  if ($prov === 'anthropic' && strpos($mdl, 'claude') !== 0)
-    $problems[] = "model '$mdl' is not a Claude id. Use claude-sonnet-5 or claude-haiku-4-5-20251001.";
-
-  out(true, 'config inspected as text (not executed)', array(
-    'build'      => 'v3-textcheck',
-    'bytes'      => strlen($raw),
-    'lines'      => substr_count($raw, "
-") + 1,
-    'provider'   => $prov,
-    'model'      => $mdl,
+  $i = inspect_cfg($CFG_FILE);
+  $mask = ($i['key'] === '') ? '(none)' : substr($i['key'], 0, 7) . '...' . substr($i['key'], -4);
+  out(true, 'config inspected as text (never executed)', array(
+    'build'      => $BUILD,
+    'bytes'      => $i['raw_len'],
+    'lines'      => $i['lines'],
+    'provider'   => $i['provider'],
+    'model'      => $i['model'],
     'key_prefix' => $mask,
-    'key_looks_like' => $looks,
-    'key_length' => strlen($key),
-    'problems'   => $problems,
-    'diagnosis'  => $problems ? implode('  |  ', $problems)
-                              : 'No syntax problem detected. If uploads still fail, the key itself may be invalid.'
+    'key_length' => strlen($i['key']),
+    'key_looks_like' => $i['looks'],
+    'problems'   => $i['problems'],
+    'diagnosis'  => $i['ok']
+      ? 'Config looks correct. If analysis still fails the key itself may be invalid or out of credit.'
+      : implode('  |  ', $i['problems'])
   ));
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(false, 'Send the image as a POST request.');
 
 list($all, $ip, $used, $left) = quota_read($RATE_FILE, $DAILY_MAX);
-if ($left <= 0) {
+if ($left <= 0)
   out(false, 'You have used all ' . $DAILY_MAX . ' free analyses for today. It resets at midnight UTC.',
       array('quota_left' => 0));
-}
 
-// ---- validate the upload ------------------------------------------------
+// ---- validate the upload ---------------------------------------------
 if (empty($_FILES['image']) || !isset($_FILES['image']['tmp_name'])) out(false, 'No image was received.');
 $f = $_FILES['image'];
-if ($f['error'] !== UPLOAD_ERR_OK)  out(false, 'The upload did not complete. Please try again.');
-if ($f['size'] > $MAX_BYTES)        out(false, 'That image is larger than 8 MB.');
+if ($f['error'] !== UPLOAD_ERR_OK) out(false, 'The upload did not complete. Please try again.');
+if ($f['size'] > $MAX_BYTES)       out(false, 'That image is larger than 8 MB.');
 
 $info = @getimagesize($f['tmp_name']);
 if (!$info) out(false, 'That file is not a readable image.');
 $mime = $info['mime'];
-if (!in_array($mime, array('image/png','image/jpeg','image/webp'), true))
+if (!in_array($mime, array('image/png', 'image/jpeg', 'image/webp'), true))
   out(false, 'Use a JPG, PNG or WebP screenshot.');
 if ($info[0] < 320 || $info[1] < 200)
   out(false, 'That screenshot is too small to read. Capture the full chart window.');
@@ -197,111 +192,76 @@ if ($info[0] < 320 || $info[1] < 200)
 $symbol = isset($_POST['symbol']) ? preg_replace('/[^A-Za-z0-9\/\.\-]/', '', $_POST['symbol']) : 'XAUUSD';
 $tf     = isset($_POST['timeframe']) ? preg_replace('/[^A-Za-z0-9]/', '', $_POST['timeframe']) : 'M5';
 if ($symbol === '') $symbol = 'XAUUSD';
-if ($tf === '')     $tf     = 'M5';
+if ($tf === '')     $tf = 'M5';
 
 $b64 = base64_encode(file_get_contents($f['tmp_name']));
 
-// ---- config -------------------------------------------------------------
-if (!is_readable($CFG_FILE)) {
+// ---- config: check as text FIRST, only then use ----------------------
+if (!is_readable($CFG_FILE))
   out(false, 'Chart analysis is not switched on yet. The owner needs to add an API key. '
            . 'In the meantime the EA itself applies these rules automatically on every M5 bar.');
-}
-$cfg = load_cfg($CFG_FILE);
-if (empty($cfg['key'])) out(false, '.ai-config.php has no key.');
-$provider = isset($cfg['provider']) ? $cfg['provider'] : 'openai';
-$model    = isset($cfg['model']) ? $cfg['model'] : ($provider === 'anthropic' ? 'claude-sonnet-5' : 'gpt-4o');
+$chk = inspect_cfg($CFG_FILE);
+if (!$chk['ok'])
+  out(false, 'The .ai-config.php file has a problem: ' . implode('  |  ', $chk['problems'])
+           . '  Open /ai-analyze.php?selftest=1 for detail.');
+
+$provider = $chk['provider'];
+$model    = $chk['model'];
+$key      = $chk['key'];
 
 // =====================================================================
 //  THE RULE SET  -  mirrors Gold Scalpers EA v4.10
 // =====================================================================
-$SYSTEM = <<<TXT
-You are the chart-reading engine behind Gold Scalpers EA, a MetaTrader 5 expert
-advisor that trades XAUUSD. Read the attached chart screenshot and judge it by
-the EA's own rules. Be accurate and conservative; never invent price levels you
-cannot see.
+$SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrader 5 expert advisor "
+. "that trades XAUUSD. Read the attached chart screenshot and judge it by the EA's own rules. "
+. "Be accurate and conservative; never invent price levels you cannot see.\n\n"
+. "THE EA'S RULES, which you must apply:\n"
+. "1. TREND GATE - it only buys when price is above the 50 EMA and only sells when price is below it. No exceptions.\n"
+. "2. TRIGGER - the entry is a CROSSOVER EVENT: a Slope Direction Line (period 12, smoothed) crossing the 50 EMA. "
+. "A chart where everything is already aligned but the cross happened long ago is a continuation, NOT a fresh trigger. Say so.\n"
+. "3. MOMENTUM - a ZeroLag MACD (12, 24, 9) must be on the same side of zero as the trade. If the MACD panel is not "
+. "visible, infer momentum from candle structure and say that you inferred it.\n"
+. "4. CHOP FILTER - if price is hugging the 50 EMA (less than roughly one average candle body away), there is NO trade. "
+. "This filter blocks more setups than any other; respect it.\n"
+. "5. STOP - the stop sits beyond the most recent swing low (for a buy) or swing high (for a sell) that lies past the "
+. "50 EMA, plus a small buffer. Never a round number, never a fixed pip count.\n"
+. "6. TARGET - on gold the EA's default take profit is about 5.00 of price movement. Scale sensibly for other "
+. "instruments and timeframes.\n"
+. "7. If the chart does not qualify, say so plainly and return an empty plans array. Refusing a bad chart is a "
+. "correct answer, not a failure.\n\n"
+. "OUTPUT - return ONLY raw JSON, no markdown fence, no commentary:\n"
+. '{"symbol":"...","timeframe":"...","confidence":0-100,"bias":"BUY|SELL|NONE",'
+. '"trend":"2-4 sentences on structure, position vs the 50 EMA, momentum and the levels you can actually read",'
+. '"setup_valid":true,'
+. '"plans":[{"name":"Aggressive plan","style":"direct entry - higher risk","side":"BUY","entry":"price or tight zone",'
+. '"tp":["first","second"],"sl":"single price","note":"why this level"},'
+. '{"name":"Conservative plan","style":"wait for the pullback - lower risk","side":"BUY","entry":"...",'
+. '"tp":["...","..."],"sl":"...","note":"..."}],'
+. '"ea_view":"3-4 plain sentences: would the EA take this trade right now? Name the specific filter that passes or '
+. 'blocks it - the crossover, the trend gate, the MACD side, or the chop filter. If it would stay flat, say so."}' . "\n"
+. "Return an empty plans array when setup_valid is false. Never fabricate account figures, win rates or past "
+. "performance. Never promise a result.";
 
-THE EA'S RULES, which you must apply:
-1. TREND GATE - it only buys when price is above the 50 EMA and only sells when
-   price is below it. No exceptions.
-2. TRIGGER - the entry is a CROSSOVER EVENT: a Slope Direction Line (period 12,
-   smoothed) crossing the 50 EMA. A chart where everything is already aligned but
-   the cross happened long ago is a continuation, NOT a fresh trigger. Say so.
-3. MOMENTUM - a ZeroLag MACD (12, 24, 9) must be on the same side of zero as the
-   trade. If the MACD panel is not visible, infer momentum from candle structure
-   and say that you inferred it.
-4. CHOP FILTER - if price is hugging the 50 EMA (less than roughly one average
-   candle body away), there is NO trade. This filter blocks more setups than any
-   other; respect it.
-5. STOP - the stop sits beyond the most recent swing low (for a buy) or swing
-   high (for a sell) that lies past the 50 EMA, plus a small buffer. Never a
-   round number, never a fixed pip count.
-6. TARGET - on gold the EA's default take profit is about \$5.00 of price
-   movement. Scale sensibly for other instruments and timeframes.
-7. If the chart does not qualify, say so plainly and return an empty plans array.
-   Refusing a bad chart is a correct answer, not a failure.
+$USER = "The user says this is " . $symbol . " on the " . $tf . " timeframe. Verify that against the screenshot and "
+      . "correct it if the chart clearly shows something else. Apply the Gold Scalpers rules and return the JSON.";
 
-OUTPUT - return ONLY raw JSON, no markdown fence, no commentary:
-{
-  "symbol": "the instrument you actually see, or the one supplied",
-  "timeframe": "the timeframe you actually see, or the one supplied",
-  "confidence": 0-100 integer - how clearly you can read the chart and how clean the setup is,
-  "bias": "BUY" | "SELL" | "NONE",
-  "trend": "2-4 sentences: structure, position vs the 50 EMA, momentum, and the levels you can actually read",
-  "setup_valid": true or false,
-  "plans": [
-    {
-      "name": "Aggressive plan",
-      "style": "direct entry - higher risk",
-      "side": "BUY" or "SELL",
-      "entry": "a price or a tight zone, e.g. 4601 - 4604",
-      "tp": ["first target", "second target"],
-      "sl": "single stop price",
-      "note": "one or two sentences on why this level"
-    },
-    {
-      "name": "Conservative plan",
-      "style": "wait for the pullback - lower risk",
-      "side": "BUY" or "SELL",
-      "entry": "...", "tp": ["...","..."], "sl": "...", "note": "..."
-    }
-  ],
-  "ea_view": "3-4 sentences in plain English: would the EA actually take this trade right now? Name the specific filter that passes or blocks it - the crossover, the trend gate, the MACD side, or the chop filter. If it would stay flat, say so clearly."
-}
-Return an empty plans array when setup_valid is false. Never fabricate account
-figures, win rates or past performance. Never promise a result.
-TXT;
-
-$USER = "The user says this is {$symbol} on the {$tf} timeframe. Verify that against the "
-      . "screenshot and correct it if the chart clearly shows something else. Apply the "
-      . "Gold Scalpers rules and return the JSON.";
-
-// ---- call the model -----------------------------------------------------
+// ---- call the model ---------------------------------------------------
 if ($provider === 'anthropic') {
   $url  = 'https://api.anthropic.com/v1/messages';
-  $hdrs = array('content-type: application/json',
-                'x-api-key: ' . $cfg['key'],
-                'anthropic-version: 2023-06-01');
-  $body = array(
-    'model' => $model, 'max_tokens' => 1600, 'system' => $SYSTEM,
+  $hdrs = array('content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01');
+  $body = array('model' => $model, 'max_tokens' => 1600, 'system' => $SYSTEM,
     'messages' => array(array('role' => 'user', 'content' => array(
       array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => $mime, 'data' => $b64)),
-      array('type' => 'text',  'text' => $USER)
-    )))
-  );
+      array('type' => 'text', 'text' => $USER)))));
 } else {
-  $base = isset($cfg['base_url']) ? rtrim($cfg['base_url'], '/') : 'https://api.openai.com/v1';
-  $url  = $base . '/chat/completions';
-  $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $cfg['key']);
-  $body = array(
-    'model' => $model, 'max_tokens' => 1600, 'temperature' => 0.2,
+  $url  = 'https://api.openai.com/v1/chat/completions';
+  $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $key);
+  $body = array('model' => $model, 'max_tokens' => 1600, 'temperature' => 0.2,
     'messages' => array(
       array('role' => 'system', 'content' => $SYSTEM),
       array('role' => 'user', 'content' => array(
         array('type' => 'text', 'text' => $USER),
-        array('type' => 'image_url', 'image_url' => array('url' => 'data:' . $mime . ';base64,' . $b64))
-      ))
-    )
-  );
+        array('type' => 'image_url', 'image_url' => array('url' => 'data:' . $mime . ';base64,' . $b64))))));
 }
 
 $ch = curl_init($url);
@@ -313,53 +273,45 @@ curl_setopt_array($ch, array(
   CURLOPT_TIMEOUT        => $TIMEOUT,
 ));
 $resp = curl_exec($ch);
-$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $cerr = curl_error($ch);
 curl_close($ch);
 
-@file_put_contents($LOG_FILE, gmdate('c') . "\t$ip\t$symbol\t$tf\thttp=$code\n", FILE_APPEND | LOCK_EX);
+@file_put_contents($LOG_FILE, gmdate('c') . "\t" . $ip . "\t" . $symbol . "\t" . $tf . "\thttp=" . $code . "\n",
+                   FILE_APPEND | LOCK_EX);
 
-if ($resp === false)  out(false, 'Could not reach the analysis service. Please try again. (' . $cerr . ')');
-if ($code === 401 || $code === 403) {
-  $up = json_decode($resp, true);
-  $why = '';
-  if (isset($up['error']['message'])) $why = $up['error']['message'];
-  elseif (isset($up['message']))      $why = $up['message'];
-  out(false, 'The ' . $provider . ' API rejected the key (model ' . $model . ').'
-           . ($why !== '' ? ' It said: ' . $why : '')
-           . ' Open /ai-analyze.php?selftest=1 to check the config.');
-}
-if ($code === 429)    out(false, 'The analysis service is rate limited right now. Try again in a minute.');
-if ($code === 404) {
-  out(false, "The {$provider} API does not recognise the model '{$model}'. "
-           . "Fix the 'model' line in .ai-config.php - for Anthropic use claude-sonnet-5 "
-           . "or claude-haiku-4-5-20251001; for OpenAI use gpt-4o.");
-}
-if ($code >= 400) {
-  $up = json_decode($resp, true);
-  $why = isset($up['error']['message']) ? $up['error']['message']
-       : (isset($up['message']) ? $up['message'] : '');
-  out(false, 'The ' . $provider . ' API returned HTTP ' . $code . '.'
-           . ($why !== '' ? ' It said: ' . $why : ''));
-}
+if ($resp === false) out(false, 'Could not reach the analysis service. (' . $cerr . ')');
 
-$j = json_decode($resp, true);
+$up  = json_decode($resp, true);
+$why = '';
+if (isset($up['error']['message'])) $why = $up['error']['message'];
+elseif (isset($up['message']))      $why = $up['message'];
+
+if ($code === 401 || $code === 403)
+  out(false, 'The ' . $provider . ' API rejected the key.' . ($why !== '' ? ' It said: ' . $why : ''));
+if ($code === 404)
+  out(false, 'The ' . $provider . ' API does not recognise the model "' . $model . '". '
+           . 'For Anthropic use claude-sonnet-5 or claude-haiku-4-5-20251001; for OpenAI use gpt-4o.');
+if ($code === 429)
+  out(false, 'The analysis service is rate limited or out of credit.' . ($why !== '' ? ' It said: ' . $why : ''));
+if ($code >= 400)
+  out(false, 'The ' . $provider . ' API returned HTTP ' . $code . '.' . ($why !== '' ? ' It said: ' . $why : ''));
+
 $text = '';
 if ($provider === 'anthropic') {
-  if (!empty($j['content'][0]['text'])) $text = $j['content'][0]['text'];
+  if (!empty($up['content'][0]['text'])) $text = $up['content'][0]['text'];
 } else {
-  if (!empty($j['choices'][0]['message']['content'])) $text = $j['choices'][0]['message']['content'];
+  if (!empty($up['choices'][0]['message']['content'])) $text = $up['choices'][0]['message']['content'];
 }
 if ($text === '') out(false, 'The analysis service sent an empty reply. Please try again.');
 
-// strip a ```json fence if the model added one, then take the outermost object
 $text = preg_replace('/^\s*```(?:json)?\s*|\s*```\s*$/i', '', trim($text));
 $s = strpos($text, '{'); $e = strrpos($text, '}');
-if ($s === false || $e === false || $e <= $s) out(false, 'Could not read the analysis. Please try a clearer screenshot.');
+if ($s === false || $e === false || $e <= $s)
+  out(false, 'Could not read the analysis. Please try a clearer screenshot.');
 $data = json_decode(substr($text, $s, $e - $s + 1), true);
 if (!is_array($data)) out(false, 'Could not read the analysis. Please try a clearer screenshot.');
 
-// ---- normalise + return -------------------------------------------------
 quota_bump($RATE_FILE, $all, $ip);
 
 $plans = array();
@@ -379,13 +331,13 @@ if (!empty($data['plans']) && is_array($data['plans'])) {
 }
 
 out(true, 'ok', array(
-  'symbol'      => isset($data['symbol'])    ? (string)$data['symbol']    : $symbol,
-  'timeframe'   => isset($data['timeframe']) ? (string)$data['timeframe'] : $tf,
-  'confidence'  => isset($data['confidence'])? (int)$data['confidence']   : null,
-  'bias'        => isset($data['bias'])      ? strtoupper((string)$data['bias']) : 'NONE',
-  'trend'       => isset($data['trend'])     ? (string)$data['trend']     : '',
+  'symbol'      => isset($data['symbol'])     ? (string)$data['symbol']    : $symbol,
+  'timeframe'   => isset($data['timeframe'])  ? (string)$data['timeframe'] : $tf,
+  'confidence'  => isset($data['confidence']) ? (int)$data['confidence']   : null,
+  'bias'        => isset($data['bias'])       ? strtoupper((string)$data['bias']) : 'NONE',
+  'trend'       => isset($data['trend'])      ? (string)$data['trend']     : '',
   'setup_valid' => !empty($data['setup_valid']),
   'plans'       => $plans,
-  'ea_view'     => isset($data['ea_view'])   ? (string)$data['ea_view']   : '',
+  'ea_view'     => isset($data['ea_view'])    ? (string)$data['ea_view']   : '',
   'quota_left'  => max(0, $left - 1),
 ));
