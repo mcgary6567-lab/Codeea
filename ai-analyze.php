@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v5';
+$BUILD = 'v6';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -261,14 +261,14 @@ $USER = "The user says this is " . $symbol . " on the " . $tf . " timeframe. Ver
 if ($provider === 'anthropic') {
   $url  = 'https://api.anthropic.com/v1/messages';
   $hdrs = array('content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01');
-  $body = array('model' => $model, 'max_tokens' => 1600, 'system' => $SYSTEM,
+  $body = array('model' => $model, 'max_tokens' => 2000, 'system' => $SYSTEM,
     'messages' => array(array('role' => 'user', 'content' => array(
       array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => $mime, 'data' => $b64)),
       array('type' => 'text', 'text' => $USER)))));
 } else {
   $url  = 'https://api.openai.com/v1/chat/completions';
   $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $key);
-  $body = array('model' => $model, 'max_tokens' => 1600, 'temperature' => 0.2,
+  $body = array('model' => $model, 'max_tokens' => 2000, 'temperature' => 0.2,
     'messages' => array(
       array('role' => 'system', 'content' => $SYSTEM),
       array('role' => 'user', 'content' => array(
@@ -309,13 +309,32 @@ if ($code === 429)
 if ($code >= 400)
   out(false, 'The ' . $provider . ' API returned HTTP ' . $code . '.' . ($why !== '' ? ' It said: ' . $why : ''));
 
+// Anthropic returns content as an ARRAY OF BLOCKS. The text is not always the
+// first one (a thinking block can precede it), so collect every text block
+// rather than assuming index 0.
 $text = '';
 if ($provider === 'anthropic') {
-  if (!empty($up['content'][0]['text'])) $text = $up['content'][0]['text'];
+  if (!empty($up['content']) && is_array($up['content'])) {
+    foreach ($up['content'] as $blk) {
+      if (isset($blk['type'], $blk['text']) && $blk['type'] === 'text') $text .= $blk['text'];
+    }
+  }
 } else {
-  if (!empty($up['choices'][0]['message']['content'])) $text = $up['choices'][0]['message']['content'];
+  if (isset($up['choices'][0]['message']['content'])) $text = (string)$up['choices'][0]['message']['content'];
 }
-if ($text === '') out(false, 'The analysis service sent an empty reply. Please try again.');
+
+if (trim($text) === '') {
+  // Say WHY it was empty instead of just "try again".
+  $types = array();
+  if (!empty($up['content']) && is_array($up['content'])) {
+    foreach ($up['content'] as $blk) $types[] = isset($blk['type']) ? $blk['type'] : '?';
+  }
+  $stop = isset($up['stop_reason']) ? $up['stop_reason']
+        : (isset($up['choices'][0]['finish_reason']) ? $up['choices'][0]['finish_reason'] : 'unknown');
+  out(false, 'The model returned no text (stop_reason=' . $stop
+           . ($types ? ', blocks=' . implode('+', $types) : '')
+           . ($why !== '' ? ', note: ' . $why : '') . '). Try again, or use a clearer screenshot.');
+}
 
 $text = preg_replace('/^\s*```(?:json)?\s*|\s*```\s*$/i', '', trim($text));
 $s = strpos($text, '{'); $e = strrpos($text, '}');
