@@ -103,33 +103,72 @@ function quota_bump($file, $all, $ip) {
 // ---- quota-only ping from the page ------------------------------------
 if (isset($_GET['quota'])) {
   list($all, $ip, $used, $left) = quota_read($RATE_FILE, $DAILY_MAX);
-  out(true, 'ok', array('quota_left' => $left));
+  out(true, 'ok', array('quota_left' => $left, 'build' => 'v3-textcheck'));
 }
 
 // ---- self-test: diagnose the config without uploading anything ---------
 //      /ai-analyze.php?selftest=1   -> never prints the key, only its shape
 if (isset($_GET['selftest'])) {
   if (!is_readable($CFG_FILE)) out(false, 'No .ai-config.php found next to ai-analyze.php.');
-  $c = load_cfg($CFG_FILE);
-  $prov = isset($c['provider']) ? $c['provider'] : '(missing)';
-  $mdl  = isset($c['model'])    ? $c['model']    : '(default)';
-  $key  = isset($c['key'])      ? trim($c['key']): '';
-  if ($key === '') out(false, '.ai-config.php has no key.');
 
-  $looks = (strpos($key, 'sk-ant-') === 0) ? 'anthropic'
-         : ((strpos($key, 'sk-') === 0) ? 'openai' : 'unknown');
-  $mask  = substr($key, 0, 7) . '...' . substr($key, -4);
-  $warn  = '';
-  if ($looks !== 'unknown' && $looks !== $prov)
-    $warn = "MISMATCH: provider is '$prov' but the key looks like a $looks key. "
-          . "Set provider to '$looks' (and a matching model).";
-  if ($key !== (isset($c['key']) ? $c['key'] : ''))
-    $warn .= ' Also: the key has leading/trailing whitespace - remove it.';
+  // Read it as TEXT. A syntax error in this file is a compile error that cannot
+  // be caught by including it, so we never include it here - we inspect it.
+  $raw = (string)@file_get_contents($CFG_FILE);
+  $problems = array();
 
-  out(true, 'config read', array(
-    'provider' => $prov, 'model' => $mdl, 'key_prefix' => $mask,
-    'key_looks_like' => $looks, 'key_length' => strlen($key),
-    'diagnosis' => ($warn !== '' ? $warn : 'Config shape looks correct. If the API still rejects it, the key itself is invalid, revoked, or the account has no credit.')
+  if ($raw === '') $problems[] = 'The file is empty.';
+  if (substr($raw, 0, 3) === "ï»¿")
+    $problems[] = 'The file starts with a UTF-8 BOM. Re-save it as UTF-8 WITHOUT BOM.';
+  if (strpos(ltrim($raw), '<?php') !== 0)
+    $problems[] = 'The file does not start with <?php (check for a blank line or stray text above it).';
+  foreach (array("â"=>'left single', "â"=>'right single',
+                 "â"=>'left double', "â"=>'right double') as $ch => $name) {
+    if (strpos($raw, $ch) !== false)
+      $problems[] = "The file contains a curly $name quote. PHP needs straight quotes ' and \". Retype them.";
+  }
+  if (strpos($raw, 'return') === false) $problems[] = 'There is no "return" statement.';
+  if (substr_count($raw, '(') !== substr_count($raw, ')'))
+    $problems[] = 'Unbalanced brackets: ' . substr_count($raw, '(') . ' open vs ' . substr_count($raw, ')') . ' close.';
+  if ((substr_count($raw, "'") % 2) !== 0)
+    $problems[] = 'Odd number of single quotes (' . substr_count($raw, "'") . ') - one is missing.';
+
+  preg_match("/'provider'\s*=>\s*'([^']*)'/", $raw, $mp);
+  preg_match("/'model'\s*=>\s*'([^']*)'/",    $raw, $mm);
+  preg_match("/'key'\s*=>\s*'([^']*)'/",      $raw, $mk);
+  $prov = isset($mp[1]) ? $mp[1] : '(not found)';
+  $mdl  = isset($mm[1]) ? $mm[1] : '(not found)';
+  $key  = isset($mk[1]) ? $mk[1] : '';
+
+  if ($key === '') {
+    $problems[] = 'Could not find a 'key' => '...' line.';
+    $mask = '(none)';
+    $looks = 'unknown';
+  } else {
+    $mask  = substr($key, 0, 7) . '...' . substr($key, -4);
+    $looks = (strpos($key, 'sk-ant-') === 0) ? 'anthropic'
+           : ((strpos($key, 'sk-') === 0) ? 'openai' : 'unknown');
+    if ($looks !== 'unknown' && $looks !== $prov)
+      $problems[] = "MISMATCH: provider is '$prov' but the key looks like a $looks key.";
+    if (trim($key) !== $key) $problems[] = 'The key has leading or trailing whitespace.';
+  }
+  if (!in_array($prov, array('anthropic','openai'), true))
+    $problems[] = "provider must be exactly 'anthropic' or 'openai' - found '$prov'.";
+  if ($prov === 'anthropic' && strpos($mdl, 'claude') !== 0)
+    $problems[] = "model '$mdl' is not a Claude id. Use claude-sonnet-5 or claude-haiku-4-5-20251001.";
+
+  out(true, 'config inspected as text (not executed)', array(
+    'build'      => 'v3-textcheck',
+    'bytes'      => strlen($raw),
+    'lines'      => substr_count($raw, "
+") + 1,
+    'provider'   => $prov,
+    'model'      => $mdl,
+    'key_prefix' => $mask,
+    'key_looks_like' => $looks,
+    'key_length' => strlen($key),
+    'problems'   => $problems,
+    'diagnosis'  => $problems ? implode('  |  ', $problems)
+                              : 'No syntax problem detected. If uploads still fail, the key itself may be invalid.'
   ));
 }
 
