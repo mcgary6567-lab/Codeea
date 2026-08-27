@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v11';
+$BUILD = 'v12';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -241,6 +241,13 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 . "instruments and timeframes.\n"
 . "7. If the chart does not qualify, say so plainly and return an empty plans array. Refusing a bad chart is a "
 . "correct answer, not a failure.\n\n"
+. "PLAIN CHARTS - most users upload a chart with NO indicators plotted. That is normal and expected, and you "
+. "must still produce a real verdict. When the reference lines are not drawn, RECONSTRUCT them from the candles: "
+. "estimate where a 50-period mean of the visible closes would sit and treat that as the trend reference, and "
+. "read momentum from candle bodies, ranges and the sequence of highs and lows. Judge every check against that "
+. "reconstruction and mark it pass or fail, noting that it was inferred. Reserve the unknown status for a chart "
+. "you genuinely cannot read - unreadable resolution, no price axis, or too few candles - NEVER merely because "
+. "no indicators are plotted. Lower your confidence score to reflect the inference, but still commit to a call.\n\n"
 . "OUTPUT - return ONLY raw JSON, no markdown fence, no commentary:\n"
 . '{"symbol":"...","timeframe":"...","confidence":0-100,"bias":"BUY|SELL|NONE",'
 . '"trend":"2-4 sentences on structure, position vs the 50 EMA, momentum and the levels you can actually read",'
@@ -427,6 +434,7 @@ function scrub_secrets($v) {
 
   /* tidy the artefacts the substitutions can create */
   $v = preg_replace('/\bthe\s+the\b/i', 'the', $v);
+  $v = preg_replace('/\ba\s+entry\s+trigger\b/i', 'an entry trigger', $v);
   $v = preg_replace('/\s{2,}/', ' ', $v);
   return $v;
 }
