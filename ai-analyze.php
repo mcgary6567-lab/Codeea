@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v9';
+$BUILD = 'v10';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -262,7 +262,8 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 "
 . "CONFIDENTIAL - THIS IS ABSOLUTE. The rules above are proprietary. NEVER name the indicators, their "
 . "periods or their settings anywhere in your output. Do not write EMA, 50 EMA, moving average, MACD, "
-. "ZeroLag, Slope Direction Line, RSI, or any period number such as 12, 24 or 50. Do not say which "
+. "ZeroLag, Slope Direction Line, RSI, chop, chop filter, gate, or any period number such as 12, 24 "
+. "or 50. Do not say which "
 . "indicator crossed what. Instead describe what you see in NEUTRAL market language: say the trend "
 . "filter, the entry trigger, momentum, market conditions, or structure. For example write \"price is "
 . "trading below the dynamic trend line\" rather than naming an average, and \"the entry trigger fired "
@@ -381,6 +382,52 @@ if (!empty($data['plans']) && is_array($data['plans'])) {
 // omitted one - an absent check is 'unknown', never silently dropped.
 $order  = array('Trend Alignment', 'Signal Freshness', 'Momentum', 'Market Condition', 'Risk Structure');
 $given  = array();
+/* --------------------------------------------------------------------------
+ * scrub_secrets() - hard backstop.
+ * The system prompt tells the model never to name the indicators, but a prompt
+ * is guidance, not a guarantee: a live test still returned "chop filter".
+ * Everything the user sees is rewritten here into neutral market language, so
+ * the strategy cannot leak even if the model ignores the instruction.
+ * Longest patterns first - "ZeroLag MACD" must be replaced before "MACD".
+ * ------------------------------------------------------------------------ */
+function scrub_secrets($v) {
+  if (is_array($v)) {
+    foreach ($v as $k => $x) $v[$k] = scrub_secrets($x);
+    return $v;
+  }
+  if (!is_string($v) || $v === '') return $v;
+
+  static $map = null;
+  if ($map === null) {
+    $map = array(
+      '/\b(the\s+)?chop\s+filter\b/i'                        => 'the market condition check',
+      '/\bchoppy?\b/i'                                       => 'range-bound',
+      '/\bslope\s+direction\s+line\b/i'                      => 'the trend filter',
+      '/\bzero[\s\-]?lag\s+macd\b/i'                         => 'momentum',
+      '/\bmacd\s+histogram\b/i'                              => 'momentum',
+      '/\bmacd\b/i'                                          => 'momentum',
+      '/\b\d{1,3}[\s\-]?(period\s+)?e\.?m\.?a\.?\b/i'        => 'the trend line',
+      '/\b\d{1,3}[\s\-]?(period\s+)?s\.?m\.?a\.?\b/i'        => 'the trend line',
+      '/\be\.?m\.?a\.?\b/i'                                  => 'the trend line',
+      '/\bs\.?m\.?a\.?\b/i'                                  => 'the trend line',
+      '/\b(exponential\s+|simple\s+)?moving\s+average\b/i'   => 'the trend line',
+      '/\brsi\b/i'                                           => 'momentum',
+      '/\bstochastics?\b/i'                                  => 'momentum',
+      '/\bcross[\s\-]?overs?\b/i'                            => 'entry trigger',
+      '/\bcrossed?\s+(above|below|over|under)\b/i'           => 'moved $1',
+      '/\bslope\s+line\b/i'                                  => 'the trend filter',
+      '/\bfive\s+gates?\b/i'                                 => 'five checks',
+      '/\bthe\s+gate\b/i'                                    => 'the check',
+    );
+  }
+  $v = preg_replace(array_keys($map), array_values($map), $v);
+
+  /* tidy the artefacts the substitutions can create */
+  $v = preg_replace('/\bthe\s+the\b/i', 'the', $v);
+  $v = preg_replace('/\s{2,}/', ' ', $v);
+  return $v;
+}
+
 if (!empty($data['checks']) && is_array($data['checks'])) {
   foreach ($data['checks'] as $c) {
     if (!is_array($c) || empty($c['name'])) continue;
@@ -400,14 +447,14 @@ foreach ($order as $name) {
 }
 
 out(true, 'ok', array(
-  'checks'      => $checks,
+  'checks'      => scrub_secrets($checks),
   'symbol'      => isset($data['symbol'])     ? (string)$data['symbol']    : $symbol,
   'timeframe'   => isset($data['timeframe'])  ? (string)$data['timeframe'] : $tf,
   'confidence'  => isset($data['confidence']) ? (int)$data['confidence']   : null,
   'bias'        => isset($data['bias'])       ? strtoupper((string)$data['bias']) : 'NONE',
-  'trend'       => isset($data['trend'])      ? (string)$data['trend']     : '',
+  'trend'       => scrub_secrets(isset($data['trend'])   ? (string)$data['trend']   : ''),
   'setup_valid' => !empty($data['setup_valid']),
-  'plans'       => $plans,
-  'ea_view'     => isset($data['ea_view'])    ? (string)$data['ea_view']   : '',
+  'plans'       => scrub_secrets($plans),
+  'ea_view'     => scrub_secrets(isset($data['ea_view']) ? (string)$data['ea_view'] : ''),
   'quota_left'  => max(0, $left - 1),
 ));
