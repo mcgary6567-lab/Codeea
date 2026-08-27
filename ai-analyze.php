@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v10';
+$BUILD = 'v11';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -414,6 +414,9 @@ function scrub_secrets($v) {
       '/\brsi\b/i'                                           => 'momentum',
       '/\bstochastics?\b/i'                                  => 'momentum',
       '/\bcross[\s\-]?overs?\b/i'                            => 'entry trigger',
+      '/crossings?/i'                                    => 'trigger',
+      '/crosses/i'                                       => 'triggers',
+      '/cross/i'                                         => 'trigger',
       '/\bcrossed?\s+(above|below|over|under)\b/i'           => 'moved $1',
       '/\bslope\s+line\b/i'                                  => 'the trend filter',
       '/\bfive\s+gates?\b/i'                                 => 'five checks',
