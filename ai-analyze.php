@@ -25,6 +25,23 @@ header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
+// A stray warning or a parse error in an included file must never corrupt the
+// JSON stream - the page just sees "unexpected response" and you learn nothing.
+@ini_set('display_errors', '0');
+@ini_set('log_errors', '1');
+@set_time_limit(120);            // must exceed the cURL timeout below
+$GLOBALS['gs_sent'] = false;
+
+register_shutdown_function(function () {
+  if (!empty($GLOBALS['gs_sent'])) return;
+  $e = error_get_last();
+  if ($e && in_array($e['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR), true)) {
+    if (!headers_sent()) { header('Content-Type: application/json'); http_response_code(200); }
+    echo json_encode(array('ok' => false, 'message' =>
+      'Server error: ' . $e['message'] . ' (' . basename($e['file']) . ' line ' . $e['line'] . ')'));
+  }
+});
+
 $CFG_FILE   = __DIR__ . '/.ai-config.php';
 $RATE_FILE  = __DIR__ . '/.ai_rate.json';   // dotfile -> denied by root .htaccess
 $LOG_FILE   = __DIR__ . '/.ai_analyze.log'; // dotfile -> denied
@@ -33,8 +50,25 @@ $MAX_BYTES  = 8 * 1024 * 1024;               // 8 MB upload ceiling
 $TIMEOUT    = 90;
 
 function out($ok, $msg, $extra = array()) {
+  $GLOBALS['gs_sent'] = true;
   echo json_encode(array_merge(array('ok' => $ok, 'message' => $msg), $extra));
   exit;
+}
+
+// Include the config without letting a typo in it kill the whole endpoint.
+function load_cfg($file) {
+  try {
+    $c = @include $file;
+  } catch (\Throwable $e) {
+    out(false, 'Your .ai-config.php has a PHP syntax error: ' . $e->getMessage()
+             . ' (line ' . $e->getLine() . '). Check the quotes and the trailing commas.');
+  }
+  if (!is_array($c)) {
+    out(false, '.ai-config.php did not return an array. It must be exactly: '
+             . '<?php return array( 'provider' => 'anthropic', 'key' => 'sk-ant-...', '
+             . ''model' => 'claude-sonnet-5', );');
+  }
+  return $c;
 }
 
 function client_ip() {
@@ -76,8 +110,7 @@ if (isset($_GET['quota'])) {
 //      /ai-analyze.php?selftest=1   -> never prints the key, only its shape
 if (isset($_GET['selftest'])) {
   if (!is_readable($CFG_FILE)) out(false, 'No .ai-config.php found next to ai-analyze.php.');
-  $c = include $CFG_FILE;
-  if (!is_array($c)) out(false, '.ai-config.php does not return an array.');
+  $c = load_cfg($CFG_FILE);
   $prov = isset($c['provider']) ? $c['provider'] : '(missing)';
   $mdl  = isset($c['model'])    ? $c['model']    : '(default)';
   $key  = isset($c['key'])      ? trim($c['key']): '';
@@ -134,8 +167,8 @@ if (!is_readable($CFG_FILE)) {
   out(false, 'Chart analysis is not switched on yet. The owner needs to add an API key. '
            . 'In the meantime the EA itself applies these rules automatically on every M5 bar.');
 }
-$cfg = include $CFG_FILE;
-if (!is_array($cfg) || empty($cfg['key'])) out(false, 'Chart analysis is not configured correctly.');
+$cfg = load_cfg($CFG_FILE);
+if (empty($cfg['key'])) out(false, '.ai-config.php has no key.');
 $provider = isset($cfg['provider']) ? $cfg['provider'] : 'openai';
 $model    = isset($cfg['model']) ? $cfg['model'] : ($provider === 'anthropic' ? 'claude-sonnet-5' : 'gpt-4o');
 
