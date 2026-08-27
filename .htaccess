@@ -51,7 +51,7 @@ RewriteRule ^(.+)$ $1.html [L]
 #  SECURITY
 # ------------------------------------------------------------
 # Hide server/system + internal build files from the public
-<FilesMatch "^(\.htaccess|\.htpasswd|\.git.*|\.env.*|error_log|.*\.log|_redirects|_headers)$">
+<FilesMatch "^(\.htaccess|\.htpasswd|\.git.*|\.env.*|\.ai-config\.php|\.ai_.*|\.accounts\.json|error_log|.*\.log|_redirects|_headers)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

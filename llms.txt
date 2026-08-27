@@ -34,6 +34,7 @@ Gold Scalpers EA is a rules-based gold-trading robot for MetaTrader 5. It enters
 - [Trading strategy hub](https://goldscalpers.com/blog/trading-strategy-hub): pillar page indexing every strategy guide
 - [Blog](https://goldscalpers.com/blog/): trading-strategy and EA guides
 - [What moves gold: US data and FOMC minutes](https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold): how US consumer data and Fed minutes reach XAUUSD via rate expectations, and how to trade the release window
+- [AI chart analysis tool](https://goldscalpers.com/ai-chart-analysis): upload an MT5 or TradingView screenshot, get a structured read using the Slope x 50 EMA and MACD rules the EA trades
 
 ## Policies
 - [Refund policy](https://goldscalpers.com/refund-policy): 30-day money-back
