@@ -72,6 +72,34 @@ if (isset($_GET['quota'])) {
   out(true, 'ok', array('quota_left' => $left));
 }
 
+// ---- self-test: diagnose the config without uploading anything ---------
+//      /ai-analyze.php?selftest=1   -> never prints the key, only its shape
+if (isset($_GET['selftest'])) {
+  if (!is_readable($CFG_FILE)) out(false, 'No .ai-config.php found next to ai-analyze.php.');
+  $c = include $CFG_FILE;
+  if (!is_array($c)) out(false, '.ai-config.php does not return an array.');
+  $prov = isset($c['provider']) ? $c['provider'] : '(missing)';
+  $mdl  = isset($c['model'])    ? $c['model']    : '(default)';
+  $key  = isset($c['key'])      ? trim($c['key']): '';
+  if ($key === '') out(false, '.ai-config.php has no key.');
+
+  $looks = (strpos($key, 'sk-ant-') === 0) ? 'anthropic'
+         : ((strpos($key, 'sk-') === 0) ? 'openai' : 'unknown');
+  $mask  = substr($key, 0, 7) . '...' . substr($key, -4);
+  $warn  = '';
+  if ($looks !== 'unknown' && $looks !== $prov)
+    $warn = "MISMATCH: provider is '$prov' but the key looks like a $looks key. "
+          . "Set provider to '$looks' (and a matching model).";
+  if ($key !== (isset($c['key']) ? $c['key'] : ''))
+    $warn .= ' Also: the key has leading/trailing whitespace - remove it.';
+
+  out(true, 'config read', array(
+    'provider' => $prov, 'model' => $mdl, 'key_prefix' => $mask,
+    'key_looks_like' => $looks, 'key_length' => strlen($key),
+    'diagnosis' => ($warn !== '' ? $warn : 'Config shape looks correct. If the API still rejects it, the key itself is invalid, revoked, or the account has no credit.')
+  ));
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(false, 'Send the image as a POST request.');
 
 list($all, $ip, $used, $left) = quota_read($RATE_FILE, $DAILY_MAX);
@@ -220,9 +248,23 @@ curl_close($ch);
 @file_put_contents($LOG_FILE, gmdate('c') . "\t$ip\t$symbol\t$tf\thttp=$code\n", FILE_APPEND | LOCK_EX);
 
 if ($resp === false)  out(false, 'Could not reach the analysis service. Please try again. (' . $cerr . ')');
-if ($code === 401 || $code === 403) out(false, 'The analysis service rejected the API key.');
+if ($code === 401 || $code === 403) {
+  $up = json_decode($resp, true);
+  $why = '';
+  if (isset($up['error']['message'])) $why = $up['error']['message'];
+  elseif (isset($up['message']))      $why = $up['message'];
+  out(false, 'The ' . $provider . ' API rejected the key (model ' . $model . ').'
+           . ($why !== '' ? ' It said: ' . $why : '')
+           . ' Open /ai-analyze.php?selftest=1 to check the config.');
+}
 if ($code === 429)    out(false, 'The analysis service is rate limited right now. Try again in a minute.');
-if ($code >= 400)     out(false, 'The analysis service returned an error (HTTP ' . $code . ').');
+if ($code >= 400) {
+  $up = json_decode($resp, true);
+  $why = isset($up['error']['message']) ? $up['error']['message']
+       : (isset($up['message']) ? $up['message'] : '');
+  out(false, 'The ' . $provider . ' API returned HTTP ' . $code . '.'
+           . ($why !== '' ? ' It said: ' . $why : ''));
+}
 
 $j = json_decode($resp, true);
 $text = '';
