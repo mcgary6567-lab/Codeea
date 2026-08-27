@@ -177,6 +177,25 @@
 .aca-again{width:100%;margin-top:.9rem;padding:.85rem;border-radius:10px}
 
 
+/* trend as signed points */
+.aca-tpts{display:grid;gap:.5rem}
+.aca-tpt{display:flex;align-items:flex-start;gap:.6rem;font-size:.91rem;line-height:1.55;color:var(--text)}
+.aca-tpt .ic{width:18px;height:18px;border-radius:50%;flex:0 0 auto;margin-top:.15rem;display:flex;
+  align-items:center;justify-content:center;color:#fff;font-size:.68rem;font-weight:800;line-height:1}
+.aca-tpt.positive .ic{background:var(--green)}
+.aca-tpt.negative .ic{background:var(--red)}
+.aca-tpt.neutral  .ic{background:#9CA3AF}
+.aca-tsum{margin-top:.85rem;padding-top:.8rem;border-top:1px dashed var(--border);font-size:.88rem;
+  color:var(--text-muted);line-height:1.6}
+
+/* per-check strength bar */
+.aca-chk .bar{display:block;height:4px;border-radius:99px;background:#E5E7EB;overflow:hidden;margin-top:.4rem}
+.aca-chk .bar i{display:block;height:100%;border-radius:99px;transition:width .5s ease}
+.aca-chk.pass    .bar i{background:var(--green)}
+.aca-chk.fail    .bar i{background:var(--red)}
+.aca-chk.unknown .bar i{background:#9CA3AF}
+.aca-chk .sc{float:right;font-size:.68rem;font-weight:800;color:var(--text-dim);margin-left:.4rem}
+
 /* sample-upload guide */
 .aca-sample h2{margin-bottom:.25rem}
 .aca-shot{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:#131722;margin-bottom:.9rem;position:relative}
@@ -381,7 +400,8 @@
 
       <div class="aca-block">
         <h3>Trend</h3>
-        <p id="acaTrend">&mdash;</p>
+        <div class="aca-tpts" id="acaTPts"></div>
+        <p class="aca-tsum" id="acaTrend">&mdash;</p>
       </div>
 
       <div class="aca-block" style="background:#fff">
@@ -521,9 +541,11 @@
     var st=(c.status||'unknown').toLowerCase();
     if(st!=='pass'&&st!=='fail') st='unknown';
     var g={pass:'✓',fail:'✕',unknown:'?'}[st];
+    var sc=(c.score==null||isNaN(c.score))?null:Math.max(0,Math.min(100,parseInt(c.score,10)));
     return '<div class="aca-chk '+st+'"><span class="ic">'+g+'</span><span class="tx">'+
-      '<span class="nm">'+esc(c.name||'')+'</span>'+
-      (c.note?'<span class="nt">'+esc(c.note)+'</span>':'')+'</span></div>';
+      '<span class="nm">'+(sc==null?'':'<span class="sc">'+sc+'</span>')+esc(c.name||'')+'</span>'+
+      (c.note?'<span class="nt">'+esc(c.note)+'</span>':'')+
+      (sc==null?'':'<span class="bar"><i style="width:'+sc+'%"></i></span>')+'</span></div>';
   }
 
   function render(d){
@@ -546,7 +568,17 @@
       : '<div class="aca-chk unknown"><span class="ic">?</span><span class="tx">'+
         '<span class="nm">Gates not reported</span></span></div>';
 
-    $('acaTrend').textContent=d.trend||'—';
+    var tp=(d.trend_points||[]).filter(function(x){return x&&x.text});
+    $('acaTPts').innerHTML = tp.map(function(x){
+      var sg=(x.signal||'neutral').toLowerCase();
+      if(sg!=='positive'&&sg!=='negative') sg='neutral';
+      var g={positive:'\u2713',negative:'\u2715',neutral:'\u2013'}[sg];
+      return '<div class="aca-tpt '+sg+'"><span class="ic">'+g+'</span><span>'+esc(x.text)+'</span></div>';
+    }).join('');
+    /* the prose becomes a closing summary under the points; on its own if there are none */
+    var tsum=$('acaTrend');
+    tsum.textContent=d.trend||'—';
+    tsum.className = tp.length ? 'aca-tsum' : '';
     $('acaEaView').textContent=d.ea_view||'—';
     var plans=(d.plans||[]);
     $('acaPlans').innerHTML = plans.length ? plans.map(planCard).join('')

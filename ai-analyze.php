@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v12';
+$BUILD = 'v13';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -248,15 +248,26 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 . "reconstruction and mark it pass or fail, noting that it was inferred. Reserve the unknown status for a chart "
 . "you genuinely cannot read - unreadable resolution, no price axis, or too few candles - NEVER merely because "
 . "no indicators are plotted. Lower your confidence score to reflect the inference, but still commit to a call.\n\n"
+. "TREND POINTS - break your trend read into 3 to 5 separate observations. Each one gets a signal: "
+. "positive if it argues FOR taking a trade in the direction you lean, negative if it argues against, "
+. "neutral if it is context that cuts neither way. Cite an actual price level in most of them. These are "
+. "read as a checklist, so make each point stand alone - do not write a sentence that only makes sense "
+. "after the previous one.\n\n"
+. "SCORES - every check also carries a score from 0 to 100 for how strongly that dimension supports a "
+. "trade right now. A pass is normally 60-100, a fail 0-40, and an unreadable dimension sits near 50. "
+. "Use the range: a marginal pass is 62, an emphatic one is 95. Do not return the same score for "
+. "every check.\n\n"
 . "OUTPUT - return ONLY raw JSON, no markdown fence, no commentary:\n"
 . '{"symbol":"...","timeframe":"...","confidence":0-100,"bias":"BUY|SELL|NONE",'
 . '"trend":"2-4 sentences on structure, position vs the 50 EMA, momentum and the levels you can actually read",'
+. '"trend_points":[{"text":"one specific observation, max 16 words, cite a level you can read",'
+. '"signal":"positive|negative|neutral"}],'
 . '"setup_valid":true,'
-. '"checks":[{"name":"Trend Alignment","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Signal Freshness","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Momentum","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Market Condition","status":"pass|fail|unknown","note":"max 8 words"},'
-. '{"name":"Risk Structure","status":"pass|fail|unknown","note":"max 8 words"}],'
+. '"checks":[{"name":"Trend Alignment","status":"pass|fail|unknown","score":0-100,"note":"max 8 words"},'
+. '{"name":"Signal Freshness","status":"pass|fail|unknown","score":0-100,"note":"max 8 words"},'
+. '{"name":"Momentum","status":"pass|fail|unknown","score":0-100,"note":"max 8 words"},'
+. '{"name":"Market Condition","status":"pass|fail|unknown","score":0-100,"note":"max 8 words"},'
+. '{"name":"Risk Structure","status":"pass|fail|unknown","score":0-100,"note":"max 8 words"}],'
 . '"plans":[{"name":"Aggressive plan","style":"direct entry - higher risk","side":"BUY","entry":"price or tight zone",'
 . '"tp":["first","second"],"sl":"single price","note":"why this level"},'
 . '{"name":"Conservative plan","style":"wait for the pullback - lower risk","side":"BUY","entry":"...",'
@@ -444,6 +455,7 @@ if (!empty($data['checks']) && is_array($data['checks'])) {
     if (!is_array($c) || empty($c['name'])) continue;
     $given[strtolower(trim($c['name']))] = array(
       'status' => isset($c['status']) ? strtolower((string)$c['status']) : 'unknown',
+      'score'  => isset($c['score'])  ? $c['score'] : null,
       'note'   => isset($c['note'])   ? (string)$c['note'] : '',
     );
   }
@@ -453,8 +465,29 @@ foreach ($order as $name) {
   $k = strtolower($name);
   $st = isset($given[$k]['status']) ? $given[$k]['status'] : 'unknown';
   if (!in_array($st, array('pass', 'fail', 'unknown'), true)) $st = 'unknown';
-  $checks[] = array('name' => $name, 'status' => $st,
+  /* Score drives the strength bar. If the model omits it, fall back to a value
+     that at least agrees with the status rather than showing a misleading bar. */
+  if (isset($given[$k]['score']) && is_numeric($given[$k]['score'])) {
+    $sc = (int)$given[$k]['score'];
+    if ($sc < 0)   $sc = 0;
+    if ($sc > 100) $sc = 100;
+  } else {
+    $sc = ($st === 'pass') ? 70 : (($st === 'fail') ? 25 : 50);
+  }
+  $checks[] = array('name' => $name, 'status' => $st, 'score' => $sc,
                     'note' => isset($given[$k]['note']) ? $given[$k]['note'] : '');
+}
+
+/* Trend points: keep only well-formed entries, cap at 6, normalise the signal. */
+$tpoints = array();
+if (!empty($data['trend_points']) && is_array($data['trend_points'])) {
+  foreach ($data['trend_points'] as $tp) {
+    if (!is_array($tp) || empty($tp['text'])) continue;
+    $sig = isset($tp['signal']) ? strtolower((string)$tp['signal']) : 'neutral';
+    if (!in_array($sig, array('positive', 'negative', 'neutral'), true)) $sig = 'neutral';
+    $tpoints[] = array('text' => (string)$tp['text'], 'signal' => $sig);
+    if (count($tpoints) >= 6) break;
+  }
 }
 
 out(true, 'ok', array(
@@ -464,6 +497,7 @@ out(true, 'ok', array(
   'confidence'  => isset($data['confidence']) ? (int)$data['confidence']   : null,
   'bias'        => isset($data['bias'])       ? strtoupper((string)$data['bias']) : 'NONE',
   'trend'       => scrub_secrets(isset($data['trend'])   ? (string)$data['trend']   : ''),
+  'trend_points'=> scrub_secrets($tpoints),
   'setup_valid' => !empty($data['setup_valid']),
   'plans'       => scrub_secrets($plans),
   'ea_view'     => scrub_secrets(isset($data['ea_view']) ? (string)$data['ea_view'] : ''),
