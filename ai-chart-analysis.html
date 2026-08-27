@@ -117,6 +117,43 @@
 .aca-rhead h2{font-size:1.35rem;margin:.15rem 0 0}
 .aca-conf{background:#EFF6FF;color:var(--blue);border:1px solid #BFDBFE;border-radius:999px;
   padding:.35rem .85rem;font-size:.82rem;font-weight:700;white-space:nowrap}
+.aca-verdict{display:flex;align-items:center;gap:1rem;padding:1.05rem 1.15rem;border-radius:12px;
+  margin-bottom:1rem;border:1px solid var(--border);background:#F9FAFB}
+.aca-verdict.buy{background:#ECFDF5;border-color:#A7F3D0}
+.aca-verdict.sell{background:#FEF2F2;border-color:#FECACA}
+.aca-verdict.none{background:#F9FAFB;border-color:var(--border)}
+.aca-vpill{font-size:1.05rem;font-weight:800;letter-spacing:.04em;padding:.55rem 1.05rem;border-radius:10px;
+  background:#fff;border:1px solid var(--border);white-space:nowrap;flex:0 0 auto}
+.aca-verdict.buy .aca-vpill{color:var(--green);border-color:#A7F3D0}
+.aca-verdict.sell .aca-vpill{color:var(--red);border-color:#FECACA}
+.aca-verdict.none .aca-vpill{color:var(--text-muted)}
+.aca-vmeta{flex:1;min-width:0}
+.aca-vlab{font-size:.7rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);
+  margin-bottom:.4rem;display:flex;justify-content:space-between;gap:.6rem}
+.aca-vlab b{color:var(--text)}
+.aca-vbar{height:7px;border-radius:99px;background:#E5E7EB;overflow:hidden}
+.aca-vbar i{display:block;height:100%;border-radius:99px;background:var(--gold);transition:width .5s ease}
+.aca-vbar i.lo{background:#DC2626}.aca-vbar i.mid{background:#F59E0B}.aca-vbar i.hi{background:#059669}
+
+.aca-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:.55rem}
+.aca-chk{display:flex;align-items:flex-start;gap:.5rem;background:#fff;border:1px solid var(--border);
+  border-radius:9px;padding:.6rem .7rem}
+.aca-chk .ic{width:17px;height:17px;border-radius:50%;flex:0 0 auto;margin-top:.1rem;display:flex;
+  align-items:center;justify-content:center;font-size:.66rem;font-weight:900;color:#fff}
+.aca-chk.pass .ic{background:var(--green)}
+.aca-chk.fail .ic{background:var(--red)}
+.aca-chk.unknown .ic{background:#9CA3AF}
+.aca-chk .tx{min-width:0;display:block}
+.aca-chk .nm{display:block;font-size:.79rem;font-weight:700;line-height:1.3}
+.aca-chk .nt{display:block;font-size:.72rem;color:var(--text-muted);line-height:1.4;margin-top:.15rem}
+
+.aca-empty{text-align:center;padding:1.9rem 1.2rem;background:#fff;border:1px dashed var(--border);border-radius:11px}
+.aca-empty .ring{width:44px;height:44px;border-radius:50%;background:#F3F4F6;margin:0 auto .75rem;
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:1.25rem;font-weight:800}
+.aca-empty h4{font-size:1rem;margin-bottom:.35rem}
+.aca-empty p{font-size:.87rem;color:var(--text-muted);max-width:430px;margin:0 auto;line-height:1.65}
+.aca-rr{display:inline-block;margin-left:.4rem;font-size:.7rem;font-weight:800;color:var(--text-muted);
+  background:#F3F4F6;border-radius:5px;padding:.1rem .4rem;vertical-align:middle}
 .aca-block{background:#F9FAFB;border:1px solid var(--border);border-radius:11px;padding:1rem 1.1rem;margin-bottom:.9rem}
 .aca-block h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.45rem}
 .aca-block p{font-size:.94rem;color:var(--text)}
@@ -286,12 +323,25 @@
           <div class="aca-rmeta" id="acaRMeta">XAUUSD &middot; M5</div>
           <h2>Structured analysis</h2>
         </div>
-        <div class="aca-conf" id="acaConf">Confidence &mdash;</div>
+        
+      </div>
+
+      <div class="aca-verdict none" id="acaVerdict">
+        <div class="aca-vpill" id="acaVPill">&mdash;</div>
+        <div class="aca-vmeta">
+          <div class="aca-vlab"><span>Read confidence</span><b id="acaConfTxt">&mdash;</b></div>
+          <div class="aca-vbar"><i id="acaConfBar" style="width:0%"></i></div>
+        </div>
       </div>
 
       <div class="aca-block">
         <h3>Trend</h3>
         <p id="acaTrend">&mdash;</p>
+      </div>
+
+      <div class="aca-block" style="background:#fff">
+        <h3>Rule checks &mdash; the EA's five gates</h3>
+        <div class="aca-checks" id="acaChecks"></div>
       </div>
 
       <div class="aca-block" style="background:#fff">
@@ -422,15 +472,43 @@
     '</div>';
   }
 
+  function chkCard(c){
+    var st=(c.status||'unknown').toLowerCase();
+    if(st!=='pass'&&st!=='fail') st='unknown';
+    var g={pass:'✓',fail:'✕',unknown:'?'}[st];
+    return '<div class="aca-chk '+st+'"><span class="ic">'+g+'</span><span class="tx">'+
+      '<span class="nm">'+esc(c.name||'')+'</span>'+
+      (c.note?'<span class="nt">'+esc(c.note)+'</span>':'')+'</span></div>';
+  }
+
   function render(d){
     $('acaRMeta').textContent=(d.symbol||'—')+' · '+(d.timeframe||'—');
-    $('acaConf').textContent='Confidence '+(d.confidence!=null?d.confidence+'%':'—');
+
+    var bias=(d.bias||'NONE').toUpperCase();
+    var side=(bias==='BUY'||bias==='SELL')?bias.toLowerCase():'none';
+    var v=$('acaVerdict');
+    v.className='aca-verdict '+side;
+    $('acaVPill').textContent=(side==='none')?'NO TRADE':bias;
+
+    var pc=(d.confidence==null)?0:Math.max(0,Math.min(100,d.confidence));
+    $('acaConfTxt').textContent=(d.confidence==null?'—':pc+'%');
+    var bar=$('acaConfBar');
+    bar.style.width=pc+'%';
+    bar.className=pc<40?'lo':(pc<70?'mid':'hi');
+
+    var ck=(d.checks||[]);
+    $('acaChecks').innerHTML = ck.length ? ck.map(chkCard).join('')
+      : '<div class="aca-chk unknown"><span class="ic">?</span><span class="tx">'+
+        '<span class="nm">Gates not reported</span></span></div>';
+
     $('acaTrend').textContent=d.trend||'—';
     $('acaEaView').textContent=d.ea_view||'—';
     var plans=(d.plans||[]);
     $('acaPlans').innerHTML = plans.length ? plans.map(planCard).join('')
-      : '<div class="aca-plan"><div class="note">No valid setup on this chart under the Gold Scalpers rules. '+
-        'The EA would stay flat here rather than force a trade.</div></div>';
+      : '<div class="aca-empty" style="grid-column:1/-1"><div class="ring">—</div>'+
+        '<h4>No trade on this chart</h4><p>Nothing here passes the Gold Scalpers rules, so no entry is offered. '+
+        'Sitting out a chart like this is the behaviour the EA is built for &mdash; the filters exist to skip '+
+        'setups, not to find one every time.</p></div>';
     $('acaUpload').style.display='none';
     $('acaResult').style.display='block';
     $('acaStep1').classList.remove('on');

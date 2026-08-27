@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v6';
+$BUILD = 'v7';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -245,6 +245,11 @@ $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrade
 . '{"symbol":"...","timeframe":"...","confidence":0-100,"bias":"BUY|SELL|NONE",'
 . '"trend":"2-4 sentences on structure, position vs the 50 EMA, momentum and the levels you can actually read",'
 . '"setup_valid":true,'
+. '"checks":[{"name":"Trend gate","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Crossover trigger","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"MACD momentum","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Chop filter","status":"pass|fail|unknown","note":"max 8 words"},'
+. '{"name":"Stop reference","status":"pass|fail|unknown","note":"max 8 words"}],'
 . '"plans":[{"name":"Aggressive plan","style":"direct entry - higher risk","side":"BUY","entry":"price or tight zone",'
 . '"tp":["first","second"],"sl":"single price","note":"why this level"},'
 . '{"name":"Conservative plan","style":"wait for the pullback - lower risk","side":"BUY","entry":"...",'
@@ -361,7 +366,30 @@ if (!empty($data['plans']) && is_array($data['plans'])) {
   }
 }
 
+// The five gates, always returned in the EA's own order even if the model
+// omitted one - an absent check is 'unknown', never silently dropped.
+$order  = array('Trend gate', 'Crossover trigger', 'MACD momentum', 'Chop filter', 'Stop reference');
+$given  = array();
+if (!empty($data['checks']) && is_array($data['checks'])) {
+  foreach ($data['checks'] as $c) {
+    if (!is_array($c) || empty($c['name'])) continue;
+    $given[strtolower(trim($c['name']))] = array(
+      'status' => isset($c['status']) ? strtolower((string)$c['status']) : 'unknown',
+      'note'   => isset($c['note'])   ? (string)$c['note'] : '',
+    );
+  }
+}
+$checks = array();
+foreach ($order as $name) {
+  $k = strtolower($name);
+  $st = isset($given[$k]['status']) ? $given[$k]['status'] : 'unknown';
+  if (!in_array($st, array('pass', 'fail', 'unknown'), true)) $st = 'unknown';
+  $checks[] = array('name' => $name, 'status' => $st,
+                    'note' => isset($given[$k]['note']) ? $given[$k]['note'] : '');
+}
+
 out(true, 'ok', array(
+  'checks'      => $checks,
   'symbol'      => isset($data['symbol'])     ? (string)$data['symbol']    : $symbol,
   'timeframe'   => isset($data['timeframe'])  ? (string)$data['timeframe'] : $tf,
   'confidence'  => isset($data['confidence']) ? (int)$data['confidence']   : null,
