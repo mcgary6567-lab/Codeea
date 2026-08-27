@@ -80,6 +80,16 @@
 .aca-drop .plus{font-size:2rem;color:var(--gold);line-height:1;margin-bottom:.6rem}
 .aca-drop .t{font-weight:700;margin-bottom:.35rem}
 .aca-drop .s{color:var(--text-dim);font-size:.82rem}
+.aca-or{display:flex;align-items:center;gap:.8rem;margin:1rem 0 .2rem;color:var(--text-dim);
+  font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.aca-or:before,.aca-or:after{content:"";flex:1;height:1px;background:var(--border)}
+.aca-paste{margin-top:.7rem;border:1px solid var(--border);border-radius:10px;padding:1.1rem 1rem;background:#fff;
+  color:var(--text-dim);font-size:.9rem;display:flex;align-items:flex-start;gap:.55rem;cursor:text;
+  min-height:84px;transition:.2s}
+.aca-paste:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,158,11,.15);color:var(--text-muted)}
+.aca-paste.ok{border-color:var(--green);color:var(--green)}
+.aca-paste svg{flex:0 0 auto;margin-top:.12rem;opacity:.55}
+.aca-pastebtn{width:100%;margin-top:.6rem;padding:.8rem;border-radius:10px}
 .aca-preview{display:none;margin-top:1rem;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#0E1421}
 .aca-preview img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}
 .aca-file{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.6rem .85rem;background:#fff;
@@ -222,6 +232,19 @@
       </div>
       <input type="file" id="acaFile" accept="image/png,image/jpeg,image/webp" hidden>
 
+      <div class="aca-or">or paste it</div>
+
+      <div class="aca-paste" id="acaPasteBox" tabindex="0" role="textbox"
+           aria-label="Click here, then press Control V to paste a screenshot">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+          <rect x="8" y="2" width="8" height="4" rx="1"/>
+        </svg>
+        <span id="acaPasteMsg">Click here, then press Ctrl&nbsp;+&nbsp;V to paste a screenshot</span>
+      </div>
+      <button type="button" class="btn btn-ghost aca-pastebtn" id="acaPasteBtn">Paste from clipboard</button>
+
       <div class="aca-preview" id="acaPreview">
         <img id="acaImg" alt="Your uploaded chart">
         <div class="aca-file">
@@ -341,8 +364,44 @@
   drop.addEventListener('drop',function(e){ accept(e.dataTransfer.files[0]); });
   document.addEventListener('paste',function(e){
     var it=(e.clipboardData||{}).items||[];
-    for(var i=0;i<it.length;i++) if(it[i].type.indexOf('image')===0){ accept(it[i].getAsFile()); break; }
+    for(var i=0;i<it.length;i++) if(it[i].type.indexOf('image')===0){ accept(it[i].getAsFile()); pasteOK(); break; }
   });
+  // ---- paste target + explicit clipboard read ----
+  var pbox=$('acaPasteBox'), pmsg=$('acaPasteMsg');
+  function pasteOK(){
+    pbox.classList.add('ok');
+    pmsg.textContent='Screenshot pasted.';
+    setTimeout(function(){ pbox.classList.remove('ok');
+      pmsg.innerHTML='Click here, then press Ctrl&nbsp;+&nbsp;V to paste a screenshot'; },2500);
+  }
+  pbox.addEventListener('click',function(){ pbox.focus(); });
+
+  $('acaPasteBtn').addEventListener('click',function(){
+    clearErr();
+    if(!navigator.clipboard || !navigator.clipboard.read){
+      pbox.focus();
+      return fail('This browser will not let a page read the clipboard directly. Click the box above and press Ctrl + V instead.');
+    }
+    navigator.clipboard.read().then(function(items){
+      for(var i=0;i<items.length;i++){
+        var types=items[i].types||[];
+        for(var t=0;t<types.length;t++){
+          if(types[t].indexOf('image/')===0){
+            return items[i].getType(types[t]).then(function(blob){
+              var ext=(blob.type.split('/')[1]||'png').replace('jpeg','jpg');
+              accept(new File([blob],'pasted-screenshot.'+ext,{type:blob.type}));
+              pasteOK();
+            });
+          }
+        }
+      }
+      fail('There is no image on the clipboard. Copy a screenshot first, then try again.');
+    }).catch(function(){
+      pbox.focus();
+      fail('Clipboard access was blocked by the browser. Click the box above and press Ctrl + V instead.');
+    });
+  });
+
   $('acaClear').addEventListener('click',function(){
     file=null; input.value=''; prev.style.display='none'; go.disabled=true; clearErr();
   });
