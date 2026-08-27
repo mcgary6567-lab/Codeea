@@ -28,7 +28,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(150);
 
-$BUILD = 'v7';
+$BUILD = 'v8';
 
 // The deploy replaces public_html wholesale, so a config kept inside it is
 // deleted on every push. Prefer one stored ONE LEVEL ABOVE the web root: the
@@ -266,14 +266,14 @@ $USER = "The user says this is " . $symbol . " on the " . $tf . " timeframe. Ver
 if ($provider === 'anthropic') {
   $url  = 'https://api.anthropic.com/v1/messages';
   $hdrs = array('content-type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01');
-  $body = array('model' => $model, 'max_tokens' => 2000, 'system' => $SYSTEM,
+  $body = array('model' => $model, 'max_tokens' => 8000, 'system' => $SYSTEM,
     'messages' => array(array('role' => 'user', 'content' => array(
       array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => $mime, 'data' => $b64)),
       array('type' => 'text', 'text' => $USER)))));
 } else {
   $url  = 'https://api.openai.com/v1/chat/completions';
   $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $key);
-  $body = array('model' => $model, 'max_tokens' => 2000, 'temperature' => 0.2,
+  $body = array('model' => $model, 'max_tokens' => 8000, 'temperature' => 0.2,
     'messages' => array(
       array('role' => 'system', 'content' => $SYSTEM),
       array('role' => 'user', 'content' => array(
