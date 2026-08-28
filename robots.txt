@@ -5,6 +5,10 @@
 User-agent: GPTBot
 Allow: /
 
+# OpenAI - live fetch when a user asks ChatGPT to open a page
+User-agent: ChatGPT-User
+Allow: /
+
 # Perplexity AI
 User-agent: PerplexityBot
 Allow: /

@@ -196,6 +196,16 @@
 .aca-chk.unknown .bar i{background:#9CA3AF}
 .aca-chk .sc{float:right;font-size:.68rem;font-weight:800;color:var(--text-dim);margin-left:.4rem}
 
+/* FAQ */
+.aca-faq details{border:1px solid var(--border);border-radius:11px;background:#fff;margin-bottom:.55rem;overflow:hidden}
+.aca-faq summary{cursor:pointer;padding:.85rem 1rem;font-weight:700;font-size:.92rem;list-style:none;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.aca-faq summary::-webkit-details-marker{display:none}
+.aca-faq summary:after{content:"+";color:var(--gold);font-weight:800;font-size:1.15rem;line-height:1;flex:0 0 auto}
+.aca-faq details[open] summary:after{content:"\2212"}
+.aca-faq details[open] summary{border-bottom:1px solid var(--border)}
+.aca-faq .a{padding:.85rem 1rem;font-size:.9rem;color:var(--text-muted);line-height:1.65}
+
 /* sample-upload guide */
 .aca-sample h2{margin-bottom:.25rem}
 .aca-shot{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:#131722;margin-bottom:.9rem;position:relative}
@@ -215,6 +225,30 @@
   .aca-card{padding:1.1rem}
 }
 </style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Is the AI chart analysis free?","acceptedAnswer":{"@type":"Answer","text":"Yes. You get 5 chart analyses per day at no cost and there is no signup, no email and no card required. The daily allowance resets at midnight UTC."}},
+{"@type":"Question","name":"What kind of screenshot should I upload?","acceptedAnswer":{"@type":"Answer","text":"A clear, full screenshot of a MetaTrader 5 or TradingView chart in JPG, PNG or WebP, up to 8 MB. Keep the symbol, timeframe and price axis visible and leave roughly 80 to 150 candles in frame. You can drag the file in, paste it with Ctrl+V, or use the paste button."}},
+{"@type":"Question","name":"Do I need indicators plotted on the chart?","acceptedAnswer":{"@type":"Answer","text":"No. A plain candlestick chart with no indicators works. When no reference lines are drawn, the analysis reconstructs the trend reference from the visible price action and tells you it inferred it, so you still get a real verdict rather than an unreadable result."}},
+{"@type":"Question","name":"Which markets and timeframes does it support?","acceptedAnswer":{"@type":"Answer","text":"It is tuned for XAUUSD (gold) on M5, and also reads EURUSD, GBPUSD, USDJPY, GBPJPY, US30, NAS100 and BTCUSD across M1 to D1. You pick the instrument and timeframe before uploading, or let it read them from the chart."}},
+{"@type":"Question","name":"What does the analysis actually return?","acceptedAnswer":{"@type":"Answer","text":"A BUY, SELL or NO TRADE verdict with a read-confidence score, a trend breakdown as individual signed observations, a five-point Global Analysis matrix scoring trend alignment, signal freshness, momentum, market condition and risk structure, and up to two costed trade plans with entry, take profit and a stop placed at market structure."}},
+{"@type":"Question","name":"Is this financial advice?","acceptedAnswer":{"@type":"Answer","text":"No. It is an AI reading of a screenshot, not a live signal and not financial advice. Trading leveraged products carries substantial risk of loss and past performance does not indicate future results. Always confirm on your own chart before acting."}},
+{"@type":"Question","name":"Why did it say there is no valid setup?","acceptedAnswer":{"@type":"Answer","text":"Because the chart did not qualify. Refusing a chart is a correct answer rather than a failure - most charts at most moments do not offer a clean setup, and returning no trade is what a disciplined system does instead of forcing one."}}
+]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"How to analyse a trading chart screenshot with AI",
+"description":"Upload a MetaTrader 5 or TradingView screenshot and get a structured read of trend, momentum, market condition and two costed trade plans.",
+"totalTime":"PT1M","estimatedCost":{"@type":"MonetaryAmount","currency":"USD","value":"0"},
+"tool":[{"@type":"HowToTool","name":"A MetaTrader 5 or TradingView chart screenshot"}],
+"step":[
+{"@type":"HowToStep","position":1,"name":"Choose instrument and timeframe","text":"Select what you are analysing - for example XAU/USD on M5 - so the read is scored against the right market.","url":"https://goldscalpers.com/ai-chart-analysis"},
+{"@type":"HowToStep","position":2,"name":"Upload the screenshot","text":"Drag the image onto the upload area, click to browse, or paste it directly with Ctrl+V. JPG, PNG or WebP up to 8 MB.","url":"https://goldscalpers.com/ai-chart-analysis"},
+{"@type":"HowToStep","position":3,"name":"Run the analysis","text":"Press Analyse this chart. The read usually takes 10 to 45 seconds.","url":"https://goldscalpers.com/ai-chart-analysis"},
+{"@type":"HowToStep","position":4,"name":"Read the verdict and the five-point matrix","text":"Check the BUY, SELL or NO TRADE verdict and its confidence score, then the Global Analysis matrix showing which of the five checks passed, failed or could not be read.","url":"https://goldscalpers.com/ai-chart-analysis"},
+{"@type":"HowToStep","position":5,"name":"Review the trade plans","text":"If the chart qualifies you get up to two plans - an aggressive and a conservative entry - each with an entry zone, take profit and a stop placed at real market structure. Confirm on your own chart before acting.","url":"https://goldscalpers.com/ai-chart-analysis"}
+]}
+</script>
 </head>
 <body>
 
@@ -379,6 +413,39 @@
            risk structure &mdash; each passed, failed or unreadable, so you can see exactly why a chart
            qualifies or does not.</p>
       </div>
+    </div>
+
+    <div class="aca-card aca-faq">
+      <h2>Questions</h2>
+      <p class="hint">What the tool does, and what it deliberately does not do.</p>
+      <details>
+        <summary>Is the AI chart analysis free?</summary>
+        <div class="a">Yes. You get <b>5 chart analyses per day</b> at no cost &mdash; no signup, no email, no card. The allowance resets at midnight UTC.</div>
+      </details>
+      <details>
+        <summary>What kind of screenshot should I upload?</summary>
+        <div class="a">A clear, full screenshot of a MetaTrader&nbsp;5 or TradingView chart in JPG, PNG or WebP, up to 8&nbsp;MB. Keep the symbol, timeframe and price axis visible and leave roughly 80&ndash;150 candles in frame. Drag it in, paste with Ctrl&nbsp;+&nbsp;V, or use the paste button.</div>
+      </details>
+      <details>
+        <summary>Do I need indicators plotted on the chart?</summary>
+        <div class="a">No. A plain candlestick chart works. When no reference lines are drawn, the analysis reconstructs the trend reference from the visible price action and tells you it inferred it &mdash; so you still get a real verdict rather than an unreadable result.</div>
+      </details>
+      <details>
+        <summary>Which markets and timeframes does it support?</summary>
+        <div class="a">It is tuned for <b>XAUUSD (gold) on M5</b>, and also reads EUR/USD, GBP/USD, USD/JPY, GBP/JPY, US30, NAS100 and BTC/USD across M1 to D1. Pick the instrument and timeframe before uploading, or let it read them from the chart.</div>
+      </details>
+      <details>
+        <summary>What does the analysis actually return?</summary>
+        <div class="a">A <b>BUY, SELL or NO TRADE</b> verdict with a read-confidence score; the trend broken into individual signed observations; a five-point Global Analysis matrix scoring trend alignment, signal freshness, momentum, market condition and risk structure; and up to two costed trade plans with entry, take profit and a stop placed at market structure.</div>
+      </details>
+      <details>
+        <summary>Why did it say there is no valid setup?</summary>
+        <div class="a">Because the chart did not qualify. Refusing a chart is a correct answer, not a failure &mdash; most charts at most moments do not offer a clean setup, and returning <i>no trade</i> is what a disciplined system does instead of forcing one.</div>
+      </details>
+      <details>
+        <summary>Is this financial advice?</summary>
+        <div class="a">No. It is an AI reading of a screenshot, not a live signal and not financial advice. Trading leveraged products carries substantial risk of loss and past performance does not indicate future results. Always confirm on your own chart before acting.</div>
+      </details>
     </div>
   </div>
 
