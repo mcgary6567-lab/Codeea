@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold Scalpers Pro for FTMO — Settings to Stay Within the Rules</title>
-<meta name="description" content="How to configure Gold Scalpers Pro (MT5, XAUUSD) to respect FTMO's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each FTMO rule.">
+<title>Gold Scalpers EA for FTMO — Settings to Stay Within the Rules</title>
+<meta name="description" content="How to configure Gold Scalpers EA (MT5, XAUUSD) to respect FTMO's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each FTMO rule.">
 <link rel="canonical" href="https://goldscalpers.com/prop-firms/ftmo">
-<meta property="og:title" content="Gold Scalpers Pro for FTMO — Settings to Stay Within the Rules">
-<meta property="og:description" content="Map Gold Scalpers Pro's built-in risk controls to FTMO's challenge rules: daily loss, max drawdown, news and trading days.">
+<meta property="og:title" content="Gold Scalpers EA for FTMO — Settings to Stay Within the Rules">
+<meta property="og:description" content="Map Gold Scalpers EA's built-in risk controls to FTMO's challenge rules: daily loss, max drawdown, news and trading days.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/prop-firms/ftmo">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
@@ -51,15 +51,15 @@
   </div>
   <nav class="pf-crumb"><a href="/">Home</a> › <a href="/prop-firms/">Prop firms</a> › FTMO</nav>
 
-  <h1>Gold Scalpers Pro for FTMO</h1>
-  <p class="pf-lede">Gold Scalpers Pro is an automated MetaTrader 5 Expert Advisor for XAUUSD (gold) with built-in, prop-firm-style risk controls — making it straightforward to configure for an FTMO Challenge. This page maps each FTMO rule to the exact EA setting that keeps you inside it.</p>
+  <h1>Gold Scalpers EA for FTMO</h1>
+  <p class="pf-lede">Gold Scalpers EA is an automated MetaTrader 5 Expert Advisor for XAUUSD (gold) with built-in, prop-firm-style risk controls — making it straightforward to configure for an FTMO Challenge. This page maps each FTMO rule to the exact EA setting that keeps you inside it.</p>
 
   <a class="pf-cta" href="/checkout">Get the EA — $140 (lifetime)</a>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>FTMO rules → Gold Scalpers Pro settings</h2>
-  <p>FTMO evaluates traders on capital preservation. Gold Scalpers Pro enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>FTMO rules → Gold Scalpers EA settings</h2>
+  <p>FTMO evaluates traders on capital preservation. Gold Scalpers EA enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
   <table class="pf-table">
-    <tr><th>FTMO rule (verify current values)</th><th>What it means</th><th>Gold Scalpers Pro control</th></tr>
+    <tr><th>FTMO rule (verify current values)</th><th>What it means</th><th>Gold Scalpers EA control</th></tr>
     <tr><td>Max daily loss (~5%)</td><td>Account can't lose more than ~5% of balance in one day</td><td><code>daily_loss</code> — set to your firm's daily-loss cap in account $ (e.g. 4% of balance for a safety buffer). EA flattens and pauses for the day when hit.</td></tr>
     <tr><td>Max overall loss (~10%)</td><td>Account can't fall below ~90% of starting balance</td><td><code>max_dd</code> — set to ~8% (buffer under 10%). The drawdown guard closes all positions and pauses trading on breach.</td></tr>
     <tr><td>Profit target (Phase 1 ~10%)</td><td>Reach the target without breaking the loss rules</td><td><code>daily_profit</code> — optional; set a daily profit cap to bank gains and avoid giving them back.</td></tr>
@@ -72,11 +72,11 @@
   <code>daily_loss</code> = 4,000 &nbsp;·&nbsp; <code>max_dd</code> = 8 &nbsp;·&nbsp; <code>daily_profit</code> = 0 (off, or set to bank gains) &nbsp;·&nbsp; <code>use_news</code> = true &nbsp;·&nbsp; <code>b_max_open</code> = 1 &nbsp;·&nbsp; <code>use_risk_lots</code> = true with <code>risk_percent</code> = 0.5–1.0</div>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why an EA helps with a prop challenge</h2>
-  <p>The most common way traders fail a challenge is a single emotional or oversized day. Gold Scalpers Pro removes that: it sizes by fixed risk, caps daily loss and total drawdown automatically, and won't revenge-trade. It is a rules-based Slope&nbsp;×&nbsp;50&nbsp;EMA system with fixed-risk sizing, and for prop-firm accounts you run it in <strong>single-entry mode</strong> (pyramiding off) — so it does not stack losing positions.</p>
+  <p>The most common way traders fail a challenge is a single emotional or oversized day. Gold Scalpers EA removes that: it sizes by fixed risk, caps daily loss and total drawdown automatically, and won't revenge-trade. It is a rules-based Slope&nbsp;×&nbsp;50&nbsp;EMA system with fixed-risk sizing, and for prop-firm accounts you run it in <strong>single-entry mode</strong> (pyramiding off) — so it does not stack losing positions.</p>
 
   <h2 class="pf-faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</h2>
   <div class="pf-faq">
-    <h3>Can I use Gold Scalpers Pro on an FTMO account?</h3>
+    <h3>Can I use Gold Scalpers EA on an FTMO account?</h3>
     <p>Yes. It runs on any broker's MetaTrader 5, including FTMO's platform. Set the risk inputs to sit inside FTMO's daily-loss and max-drawdown limits.</p>
     <h3>Does it guarantee I'll pass the challenge?</h3>
     <p>No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules — outcomes still depend on market conditions. Test on a demo and backtest first.</p>
@@ -105,7 +105,7 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    {"@type":"Question","name":"Can I use Gold Scalpers Pro on an FTMO account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including FTMO's platform. Set the risk inputs to sit inside FTMO's daily-loss and max-drawdown limits."}},
+    {"@type":"Question","name":"Can I use Gold Scalpers EA on an FTMO account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including FTMO's platform. Set the risk inputs to sit inside FTMO's daily-loss and max-drawdown limits."}},
     {"@type":"Question","name":"Does it guarantee I'll pass the challenge?","acceptedAnswer":{"@type":"Answer","text":"No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on market conditions. Test on a demo and backtest first."}},
     {"@type":"Question","name":"Does it respect news rules?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable use_news and it pauses entries around high-impact news from the MT5 economic calendar."}}
   ]

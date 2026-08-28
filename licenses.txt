@@ -1,4 +1,4 @@
-# Gold Scalpers Pro - Licence File (managed via /panel)
+# Gold Scalpers EA - Licence File (managed via /panel)
 # -----------------------------------------------
 # Listed accounts can run the EA.  '#' prefix = disabled.
 # -----------------------------------------------

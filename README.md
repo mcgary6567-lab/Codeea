@@ -1,6 +1,6 @@
 # Gold Scalpers — Complete Launch Package
 
-Everything you need to launch and sell the **Gold Scalpers Pro** — a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold).
+Everything you need to launch and sell the **Gold Scalpers EA** — a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold).
 
 ## 📁 Folder Structure
 
@@ -52,7 +52,7 @@ GoldScalpers/
 
 ## 🎯 What You're Selling
 
-**Product**: Gold Scalpers Pro — a fully automated **MetaTrader 5 Expert Advisor**, a pure **XAUUSD (Gold) M1 scalper** (also runs on major FX pairs). It enters when the **Slope Direction Line crosses the 50 EMA**, confirmed by the **ZeroLag MACD**, manages the trade with a **protective step-stop** and a **quick scalping take-profit** plus an **optional Momentum Pyramiding**. Includes a **live on-chart dashboard**, **BUY/SELL signal arrows**, **Telegram / mobile / terminal alerts**, and an **account-locked licence** (allow-list at `goldscalpers.com/licenses.txt`).
+**Product**: Gold Scalpers EA — a fully automated **MetaTrader 5 Expert Advisor**, a pure **XAUUSD (Gold) M1 scalper** (also runs on major FX pairs). It enters when the **Slope Direction Line crosses the 50 EMA**, confirmed by the **ZeroLag MACD**, manages the trade with a **protective step-stop** and a **quick scalping take-profit** plus an **optional Momentum Pyramiding**. Includes a **live on-chart dashboard**, **BUY/SELL signal arrows**, **Telegram / mobile / terminal alerts**, and an **account-locked licence** (allow-list at `goldscalpers.com/licenses.txt`).
 
 **Deliverable**: Buyers receive the `.ex5` EA file plus a licence key, installed directly in MetaTrader 5 (drop the `.ex5` into `MQL5/Experts` and activate the account-locked licence). No TradingView invite required.
 
@@ -115,7 +115,7 @@ thank-you.html (Stripe success URL)
 
 ## 📝 License Notes
 
-This package is your launch toolkit. The Gold Scalpers Pro (MQL5) source and compiled `.ex5` are yours to sell.
+This package is your launch toolkit. The Gold Scalpers EA (MQL5) source and compiled `.ex5` are yours to sell.
 
 Attribution to libraries used:
 - MQL5 / MetaTrader 5 (MetaQuotes) — Expert Advisor platform

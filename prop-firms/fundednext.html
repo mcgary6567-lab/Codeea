@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold Scalpers Pro for FundedNext - Settings to Stay Within the Rules</title>
-<meta name="description" content="How to configure Gold Scalpers Pro (MT5, XAUUSD) to respect FundedNext's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each rule.">
+<title>Gold Scalpers EA for FundedNext - Settings to Stay Within the Rules</title>
+<meta name="description" content="How to configure Gold Scalpers EA (MT5, XAUUSD) to respect FundedNext's daily-loss, max-drawdown and news rules. Recommended risk settings mapped to each rule.">
 <link rel="canonical" href="https://goldscalpers.com/prop-firms/fundednext">
-<meta property="og:title" content="Gold Scalpers Pro for FundedNext - Settings to Stay Within the Rules">
-<meta property="og:description" content="Map Gold Scalpers Pro's built-in risk controls to FundedNext's challenge rules.">
+<meta property="og:title" content="Gold Scalpers EA for FundedNext - Settings to Stay Within the Rules">
+<meta property="og:description" content="Map Gold Scalpers EA's built-in risk controls to FundedNext's challenge rules.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://goldscalpers.com/prop-firms/fundednext">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
@@ -48,14 +48,14 @@
     </div>
   </div>
   <nav class="pf-crumb"><a href="/">Home</a> &rsaquo; <a href="/prop-firms/">Prop firms</a> &rsaquo; FundedNext</nav>
-  <h1>Gold Scalpers Pro for FundedNext</h1>
-  <p class="pf-lede">FundedNext is known for its evaluation models and profit share during the challenge phase. Gold Scalpers Pro helps you trade its XAUUSD allocation while staying inside the daily-loss and max-drawdown rules.</p>
+  <h1>Gold Scalpers EA for FundedNext</h1>
+  <p class="pf-lede">FundedNext is known for its evaluation models and profit share during the challenge phase. Gold Scalpers EA helps you trade its XAUUSD allocation while staying inside the daily-loss and max-drawdown rules.</p>
   <a class="pf-cta" href="/checkout">Get the EA - $140 (lifetime)</a>
 
-  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>FundedNext rules - Gold Scalpers Pro settings</h2>
-  <p>Prop evaluations are won by preserving capital. Gold Scalpers Pro enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
+  <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>FundedNext rules - Gold Scalpers EA settings</h2>
+  <p>Prop evaluations are won by preserving capital. Gold Scalpers EA enforces the same limits automatically, so a breach is far less likely than with manual trading.</p>
   <table class="pf-table">
-    <tr><th>FundedNext rule (verify current values)</th><th>What it means</th><th>Gold Scalpers Pro control</th></tr>
+    <tr><th>FundedNext rule (verify current values)</th><th>What it means</th><th>Gold Scalpers EA control</th></tr>
     <tr><td>Max daily loss (typically ~5%)</td><td>Account cannot lose more than the daily cap</td><td><code>daily_loss</code> - set to ~80% of your program's daily cap in account $. EA flattens and pauses for the day when hit.</td></tr>
     <tr><td>Max overall loss (typically ~10%)</td><td>Account cannot fall below the overall floor</td><td><code>max_dd</code> - set a few % under your program's limit. The drawdown guard closes all and pauses on breach.</td></tr>
     <tr><td>Profit target</td><td>Reach target without breaking loss rules</td><td><code>daily_profit</code> - optional daily cap to bank gains and avoid giving them back.</td></tr>
@@ -66,11 +66,11 @@
   <div class="pf-note"><strong>How to set it:</strong> FundedNext traders value consistency - the EA's fixed-risk sizing and daily-loss cap keep a single bad day from ending the challenge. Start with <code>use_risk_lots = true</code>, <code>risk_percent</code> = 0.5-1.0, <code>b_max_open</code> = 1, <code>use_news</code> = true, and your <code>daily_loss</code> / <code>max_dd</code> set safely under FundedNext's published limits.</div>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>Why an EA helps with a prop challenge</h2>
-  <p>The most common way traders fail is a single emotional or oversized day. Gold Scalpers Pro removes that: fixed-risk sizing, an automatic daily-loss cap and a max-drawdown guard, and no revenge trading. It is a rules-based Slope x 50 EMA system with fixed-risk sizing, and for prop-firm accounts you run it in <strong>single-entry mode</strong> (pyramiding off) - so it never stacks losing positions.</p>
+  <p>The most common way traders fail is a single emotional or oversized day. Gold Scalpers EA removes that: fixed-risk sizing, an automatic daily-loss cap and a max-drawdown guard, and no revenge trading. It is a rules-based Slope x 50 EMA system with fixed-risk sizing, and for prop-firm accounts you run it in <strong>single-entry mode</strong> (pyramiding off) - so it never stacks losing positions.</p>
 
   <h2 class="pf-faq"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</h2>
   <div class="pf-faq">
-    <h3>Can I use Gold Scalpers Pro on a FundedNext account?</h3>
+    <h3>Can I use Gold Scalpers EA on a FundedNext account?</h3>
     <p>Yes. It runs on any broker's MetaTrader 5, including FundedNext's platform. Set the risk inputs to sit inside FundedNext's daily-loss and max-drawdown limits.</p>
     <h3>Does it guarantee I will pass?</h3>
     <p>No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first.</p>
@@ -87,7 +87,7 @@
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Can I use Gold Scalpers Pro on a FundedNext account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including FundedNext's platform. Set the risk inputs to sit inside FundedNext's daily-loss and max-drawdown limits."}},
+{"@type":"Question","name":"Can I use Gold Scalpers EA on a FundedNext account?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs on any broker's MetaTrader 5, including FundedNext's platform. Set the risk inputs to sit inside FundedNext's daily-loss and max-drawdown limits."}},
 {"@type":"Question","name":"Does it guarantee I will pass?","acceptedAnswer":{"@type":"Answer","text":"No. Trading is high-risk and no EA can guarantee results. The EA helps you trade with discipline and stay within the rules; outcomes still depend on the market. Test on a demo and backtest first."}}]}
 </script>
 </body></html>
