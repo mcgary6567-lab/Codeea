@@ -369,3 +369,22 @@ pre code{background:none;padding:0;color:var(--text)}
   .nav-burger{width:36px;height:32px;padding:0 8px}
   .nav-toggle:checked ~ .nav-links .btn{font-size:.95rem;padding:.8rem 1rem}
 }
+
+/* article tables - previously unstyled, rendered as bare HTML in every blog post */
+.article-body table{width:100%;border-collapse:collapse;margin:1.6rem 0;background:#fff;
+  border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-sm);font-size:.92rem}
+.article-body thead th{background:#F9FAFB;text-align:left;font-weight:800;font-size:.78rem;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:.7rem .85rem;
+  border-bottom:1px solid var(--border);white-space:nowrap}
+.article-body td{padding:.75rem .85rem;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.55}
+.article-body tbody tr:last-child td{border-bottom:none}
+.article-body tbody tr:nth-child(even){background:#FCFCFD}
+.article-body .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1.6rem 0}
+.article-body .tbl-scroll table{margin:0}
+.yes{color:var(--green);font-weight:700}
+.no{color:var(--red);font-weight:700}
+.maybe{color:#B45309;font-weight:700}
+
+.article-body blockquote{margin:1.3rem 0;padding:.9rem 1.1rem;background:#FFFBEB;border-left:3px solid var(--gold);
+  border-radius:0 9px 9px 0;color:#78350F}
+.article-body blockquote p{margin:0;font-style:italic;line-height:1.65}
