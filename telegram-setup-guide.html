@@ -9,28 +9,28 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#F59E0B">
-<title>Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)</title>
-<meta name="description" content="Step-by-step Telegram setup for Gold Scalpers EA on MT5. Get every trade alert on your phone in 5 minutes — create a bot, paste the token, whitelist the URL.">
-<meta name="keywords" content="Telegram trading alerts, Gold Scalpers EA setup, MT5 Telegram WebRequest, MetaTrader 5 Telegram bot, BotFather setup, trading alert automation">
+<title>Telegram Setup Guide – Gold Scalpers Pro (MetaTrader 5)</title>
+<meta name="description" content="Step-by-step Telegram setup for Gold Scalpers Pro on MT5. Get every trade alert on your phone in 5 minutes — create a bot, paste the token, whitelist the URL.">
+<meta name="keywords" content="Telegram trading alerts, Gold Scalpers Pro setup, MT5 Telegram WebRequest, MetaTrader 5 Telegram bot, BotFather setup, trading alert automation">
 <link rel="canonical" href="https://goldscalpers.com/telegram-setup-guide">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)">
-<meta property="og:description" content="Get EA trade alerts on Telegram in 5 minutes. Step-by-step setup for the Gold Scalpers EA on MT5.">
+<meta property="og:title" content="Telegram Setup Guide – Gold Scalpers Pro (MetaTrader 5)">
+<meta property="og:description" content="Get EA trade alerts on Telegram in 5 minutes. Step-by-step setup for the Gold Scalpers Pro on MT5.">
 <meta property="og:url" content="https://goldscalpers.com/telegram-setup-guide">
 <meta property="og:image" content="https://goldscalpers.com/og-image.png">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Telegram Setup Guide – Gold Scalpers EA (MetaTrader 5)">
+<meta name="twitter:title" content="Telegram Setup Guide – Gold Scalpers Pro (MetaTrader 5)">
 <meta name="twitter:description" content="Get EA trade alerts on Telegram in 5 minutes. Step-by-step MT5 setup guide.">
 <meta name="twitter:image" content="https://goldscalpers.com/og-image.png">
 <link rel="stylesheet" href="assets/styles.css">
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"How to Set Up Telegram Alerts for Gold Scalpers EA","description":"Complete 5-minute setup guide to receive Gold Scalpers EA trade alerts on Telegram in MetaTrader 5.","totalTime":"PT5M","step":[
+{"@context":"https://schema.org","@type":"HowTo","name":"How to Set Up Telegram Alerts for Gold Scalpers Pro","description":"Complete 5-minute setup guide to receive Gold Scalpers Pro trade alerts on Telegram in MetaTrader 5.","totalTime":"PT5M","step":[
 {"@type":"HowToStep","position":1,"name":"Create Telegram Bot","text":"Open Telegram, find @BotFather, send the /newbot command, and copy the bot token."},
 {"@type":"HowToStep","position":2,"name":"Get Chat ID","text":"Search @userinfobot in Telegram, click Start, and copy your numeric chat ID."},
 {"@type":"HowToStep","position":3,"name":"Activate Bot","text":"Send any message to your new bot so it is allowed to message you back."},
-{"@type":"HowToStep","position":4,"name":"Configure the EA","text":"In the Gold Scalpers EA inputs set use_telegram to true and paste your bot token and chat ID."},
+{"@type":"HowToStep","position":4,"name":"Configure the EA","text":"In the Gold Scalpers Pro inputs set use_telegram to true and paste your bot token and chat ID."},
 {"@type":"HowToStep","position":5,"name":"Allow WebRequest","text":"In MetaTrader 5, go to Tools > Options > Expert Advisors, tick Allow WebRequest for listed URL, and add https://api.telegram.org. Reattach the EA to send a connected test message."}
 ]}
 </script>
@@ -42,7 +42,7 @@
 {"@type":"Question","name":"Why isn't my Telegram bot sending messages?","acceptedAnswer":{"@type":"Answer","text":"Check three things: (1) you sent your bot a message first so it can reply, (2) use_telegram is true with the correct token and chat ID in the EA inputs, and (3) https://api.telegram.org is allowed under Tools > Options > Expert Advisors. The EA's Experts log shows the exact error if a message fails."}},
 {"@type":"Question","name":"How long does Telegram setup take?","acceptedAnswer":{"@type":"Answer","text":"About 5 minutes total: 2 minutes to create the bot, 1 minute to get your Chat ID, 30 seconds to message the bot, 1 minute to paste the token and chat ID into the EA, and 30 seconds to whitelist the Telegram URL."}},
 {"@type":"Question","name":"Can the EA send alerts to a Telegram group?","acceptedAnswer":{"@type":"Answer","text":"Yes. Add your bot to the group and make it admin, then visit https://api.telegram.org/bot<TOKEN>/getUpdates in your browser to find the negative group ID. Use that negative number as the chat ID in the EA inputs."}},
-{"@type":"Question","name":"What does a Gold Scalpers EA Telegram alert contain?","acceptedAnswer":{"@type":"Answer","text":"Trade events such as entry (with direction, price, stop, target and lot), and close (with result). The EA also sends a 'connected' test message when it is first attached, so you can confirm the link works immediately."}}
+{"@type":"Question","name":"What does a Gold Scalpers Pro Telegram alert contain?","acceptedAnswer":{"@type":"Answer","text":"Trade events such as entry (with direction, price, stop, target and lot), and close (with result). The EA also sends a 'connected' test message when it is first attached, so you can confirm the link works immediately."}}
 ]}
 </script>
 </head>
@@ -80,7 +80,7 @@
   <div class="page-hero-inner">
     <span class="page-eyebrow">📱 Setup Guide · 5 Minutes</span>
     <h1 class="page-title">Get EA alerts on your phone in <span class="accent">5 simple steps.</span></h1>
-    <p class="page-subtitle">No coding. No paid subscription. Wire the Gold Scalpers EA to Telegram once and every entry, stop, target and close lands on your phone within minutes.</p>
+    <p class="page-subtitle">No coding. No paid subscription. Wire the Gold Scalpers Pro to Telegram once and every entry, stop, target and close lands on your phone within minutes.</p>
   </div>
 </section>
 
@@ -163,7 +163,7 @@
 
   <div class="callout gold">
     <h4>✅ What you need</h4>
-    <p style="margin:0">Just a <strong>free Telegram account</strong> and the <strong>Gold Scalpers EA running in MetaTrader 5</strong>. The EA sends the messages itself, so there's no TradingView, webhook service or paid subscription involved. Telegram alerts are optional — the EA also pops up alerts in the terminal and pushes to the MT5 mobile app.</p>
+    <p style="margin:0">Just a <strong>free Telegram account</strong> and the <strong>Gold Scalpers Pro running in MetaTrader 5</strong>. The EA sends the messages itself, so there's no TradingView, webhook service or paid subscription involved. Telegram alerts are optional — the EA also pops up alerts in the terminal and pushes to the MT5 mobile app.</p>
   </div>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Step 1: Create Your Telegram Bot</h2>
@@ -211,7 +211,7 @@
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Step 4: Configure the EA</h2>
   <p><strong>Time:</strong> 1 minute</p>
   <ol>
-    <li>Attach <strong>Gold Scalpers EA</strong> to an <strong>XAUUSD M1</strong> chart (or open its inputs if it's already running)</li>
+    <li>Attach <strong>Gold Scalpers Pro</strong> to an <strong>XAUUSD M1</strong> chart (or open its inputs if it's already running)</li>
     <li>In the <strong>Alerts</strong> input group, set <code>use_telegram = true</code></li>
     <li>Paste your token from Step 1 into <code>telegram_token</code></li>
     <li>Paste your Chat ID from Step 2 into <code>telegram_chatid</code></li>
@@ -234,7 +234,7 @@
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>What You'll Receive</h2>
   <p>From then on, every trade the EA takes is pushed to your Telegram within seconds, formatted like this:</p>
-  <pre><code>🟢 BUY opened — Gold Scalpers EA
+  <pre><code>🟢 BUY opened — Gold Scalpers Pro
 XAUUSD · M1
 ━━━━━━━━━━━━━━━
 📍 Entry  : 2384.50
@@ -356,7 +356,7 @@ XAUUSD · M1
 
     <div class="f-disc">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <div><b>Risk disclaimer.</b> Trading involves substantial risk of loss and is not suitable for every investor. Gold Scalpers EA is an automated trading tool, not financial advice. Automated systems can and do lose money; past or hypothetical performance is not indicative of future results. Never risk capital you cannot afford to lose, and test on a demo account first.</div>
+      <div><b>Risk disclaimer.</b> Trading involves substantial risk of loss and is not suitable for every investor. Gold Scalpers Pro is an automated trading tool, not financial advice. Automated systems can and do lose money; past or hypothetical performance is not indicative of future results. Never risk capital you cannot afford to lose, and test on a demo account first.</div>
     </div>
 
     <div class="f-bottom">

@@ -39,7 +39,7 @@ function load_entries($file) {
   return $out;
 }
 function save_entries($file, $entries) {
-  $o  = "# Gold Scalpers EA - Licence File (managed via /panel)\n";
+  $o  = "# Gold Scalpers Pro - Licence File (managed via /panel)\n";
   $o .= "# -----------------------------------------------\n";
   $o .= "# Listed accounts can run the EA.  '#' prefix = disabled.\n";
   $o .= "# -----------------------------------------------\n\n";

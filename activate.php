@@ -93,7 +93,7 @@ $label = 'web ' . date('Y-m-d') . ($labelName !== '' ? ' ' . $labelName : '');
 
 // ---- append the account to licenses.txt (dedupe / re-enable) ----
 $content = is_file($LICENSE_FILE) ? (string)file_get_contents($LICENSE_FILE) : '';
-if (trim($content) === '') $content = "# Gold Scalpers EA - Licence File\n\n";
+if (trim($content) === '') $content = "# Gold Scalpers Pro - Licence File\n\n";
 $alreadyActive = (bool)preg_match('/^\s*' . preg_quote($real, '/') . '\b/m', $content);
 if (!$alreadyActive) {
   $content = preg_replace('/^\s*#\s*' . preg_quote($real, '/') . '\b.*$/m', '', $content); // drop disabled dup
