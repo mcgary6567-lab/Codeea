@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Connect a Trading Bot to Bybit with API Keys (Safely) | Prometheus AI</title>
+<meta name="description" content="Step-by-step: how to connect a trading bot to Bybit using API keys — the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta name="keywords" content="connect trading bot to Bybit, Bybit API key trading bot, Bybit API setup, trade-only API key Bybit, Bybit bot connection">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://www.prometheusai.tech/blog/connect-trading-bot-to-bybit-api">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to Connect a Trading Bot to Bybit with API Keys (Safely)">
+<meta property="og:description" content="Step-by-step: how to connect a trading bot to Bybit using API keys — the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta property="og:url" content="https://www.prometheusai.tech/blog/connect-trading-bot-to-bybit-api">
+<meta property="og:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<meta property="og:site_name" content="Prometheus AI">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Connect a Trading Bot to Bybit with API Keys (Safely)">
+<meta name="twitter:description" content="Step-by-step: how to connect a trading bot to Bybit using API keys — the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta name="twitter:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<link rel="icon" href="/img/core-img/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css?v=2">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "How to Connect a Trading Bot to Bybit with API Keys (Safely)", "description": "Step-by-step: how to connect a trading bot to Bybit using API keys — the exact permissions to enable, what to disable, and how to keep your account safe.", "datePublished": "2026-08-25", "dateModified": "2026-08-25", "author": {"@type": "Organization", "name": "Prometheus AI", "url": "https://www.prometheusai.tech"}, "publisher": {"@type": "Organization", "name": "Prometheus AI", "logo": {"@type": "ImageObject", "url": "https://www.prometheusai.tech/img/core-img/logo.png"}}, "image": "https://www.prometheusai.tech/img/og-prometheus.jpg", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://www.prometheusai.tech/blog/connect-trading-bot-to-bybit-api"}, "articleSection": "How-To", "inLanguage": "en"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it safe to connect a bot to Bybit?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, if the API key has trading enabled but withdrawals/transfers disabled and is bound to the bot's IP. In that setup the bot can trade but can never move funds off Bybit."}}, {"@type": "Question", "name": "What Bybit API permissions does a bot need?", "acceptedAnswer": {"@type": "Answer", "text": "Spot and/or derivatives (contract) trading, with withdrawals and transfers left off, plus IP binding. That's all a bot needs to trade and nothing it needs to move money."}}, {"@type": "Question", "name": "Can a leaked Bybit API key drain my account?", "acceptedAnswer": {"@type": "Answer", "text": "Not if transfers and withdrawals are disabled on that key — it can only place trades. Bind it to the bot's IP and delete it if you're ever unsure."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.prometheusai.tech"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.prometheusai.tech/blog"}, {"@type": "ListItem", "position": 3, "name": "Connect a Trading Bot to Bybit", "item": "https://www.prometheusai.tech/blog/connect-trading-bot-to-bybit-api"}]}</script>
+</head>
+<body>
+<nav class="bnav"><div class="bnav__in">
+  <a class="bnav__logo" href="/"><img src="/img/core-img/logo.png" alt="Prometheus AI"/>Prometheus <b>AI</b></a>
+  <div class="bnav__links"><a href="/blog">Blog</a><a href="/#features">Features</a><a class="bnav__cta" href="/checkout">Get Access</a></div>
+</div></nav>
+<header class="bhero"><div class="bhero__in">
+  <span class="btag">How-To</span>
+  <h1>How to Connect a Trading Bot to Bybit with API Keys (Safely)</h1>
+  <div class="bmeta"><span>📅 August 25, 2026</span><span>⏱ 6 min read</span></div>
+  <div class="bbyline">By the Prometheus AI Team</div>
+</div></header>
+<div class="bhero__img"><svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HOW-TO"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6fafe"/><stop offset="1" stop-color="#eef4fb"/></linearGradient></defs><rect width="720" height="300" fill="url(#g)"/><g stroke="#e2e9f2" stroke-width="1"><line x1="0" y1="75" x2="720" y2="75"/><line x1="0" y1="150" x2="720" y2="150"/><line x1="0" y1="225" x2="720" y2="225"/><line x1="180" y1="0" x2="180" y2="300"/><line x1="360" y1="0" x2="360" y2="300"/><line x1="540" y1="0" x2="540" y2="300"/></g><g transform="translate(240,150)" fill="none" stroke="#ea6a0c" stroke-width="6"><circle cx="0" cy="0" r="26"/><circle cx="0" cy="0" r="10" fill="#ea6a0c"/><line x1="26" y1="0" x2="120" y2="0"/><rect x="118" y="-9" width="16" height="18" fill="#ea6a0c" stroke="none"/><rect x="140" y="-9" width="16" height="18" fill="#ea6a0c" stroke="none"/></g><text x="470" y="158" fill="#0ea5a5" font-family="Poppins,Arial,sans-serif" font-size="26" font-weight="800">Bybit</text><text x="36" y="270" fill="#8a94a3" font-family="Poppins,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="1">HOW-TO</text></svg></div>
+<main class="wrap bbody">
+  <p class="lead">Connecting a bot to Bybit takes a few minutes, and the safety comes down to one setting: what the API key is allowed to do. Enable trading, disable transfers, and a leaked key can't cost you your balance. Here's the exact, safe way.</p>
+  <div class="keytake">On Bybit, create an API key with <b>Contract/Spot trading enabled</b> and <b>transfers/withdrawals disabled</b>. Bind it to the bot's IP and a stolen key still can't move your funds.</div>
+  <div class="toc"><strong>On this page</strong><ul><li><a href="#what">What the key does</a></li><li><a href="#steps">Create the key</a></li><li><a href="#perms">The right permissions</a></li><li><a href="#connect">Connect the bot</a></li><li><a href="#safe">Staying safe</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+  <h2 id="what">What a Bybit API Key Does</h2>
+<p>An API key lets a bot place and manage orders on your Bybit account through Bybit's official interface — the same actions you'd take in the app, automated. It never exposes your password, and with the right permissions it can't withdraw your funds.</p><p>As always, prefer a <a href="/blog/non-custodial-crypto-trading-bot">non-custodial</a> bot: your money stays on Bybit; the bot only trades.</p>
+<h2 id="steps">Create the Key on Bybit</h2>
+<ol><li>Log in and open <strong>Account &amp; Security → API</strong>.</li><li>Click <strong>Create New Key</strong> → choose <strong>System-generated</strong>.</li><li>Set permissions (below), complete 2FA, and copy the <strong>key</strong> and <strong>secret</strong> — the secret shows once.</li></ol>
+<div class="bcta">
+  <h3>Let the bots trade while you don't</h3>
+  <p>Prometheus runs a managed, risk-controlled strategy 24/7 on your own exchange — non-custodial, with a 90-day money-back guarantee.</p>
+  <a href="/checkout">Get Lifetime Access &rarr;</a>
+</div><h2 id="perms">Set the Right Permissions</h2>
+<ul><li>✅ <strong>Enable</strong> Spot and/or Derivatives <strong>trading</strong> (Contract) — so the bot can trade.</li><li>❌ <strong>Do not enable</strong> Withdrawals or internal Transfers.</li><li>✅ Bind the key to the bot's <strong>IP address</strong> so only that server can use it.</li></ul><p>With transfers off, the key can trade but can never move money off your account.</p>
+<h2 id="connect">Connect the Bot</h2>
+<p>Paste the key and secret into your bot, select Bybit and your market (spot or derivatives), and save. Prometheus shows its server IP to bind, connects in one click, and can start in demo mode so you confirm everything works before going live.</p>
+<h2 id="safe">Staying Safe</h2>
+<ul><li>Keep <strong>withdrawals/transfers disabled</strong> on the key.</li><li>Use <strong>IP binding</strong> and account <strong>2FA</strong>.</li><li>Delete the key instantly if anything looks wrong — access is revoked, and funds were never at withdrawal risk.</li></ul>
+
+  <h2 id="faq">Frequently Asked Questions</h2>
+  <div class="bfaq"><details open><summary>Is it safe to connect a bot to Bybit?</summary><div class="a">Yes, if the API key has trading enabled but withdrawals/transfers disabled and is bound to the bot's IP. In that setup the bot can trade but can never move funds off Bybit.</div></details><details><summary>What Bybit API permissions does a bot need?</summary><div class="a">Spot and/or derivatives (contract) trading, with withdrawals and transfers left off, plus IP binding. That's all a bot needs to trade and nothing it needs to move money.</div></details><details><summary>Can a leaked Bybit API key drain my account?</summary><div class="a">Not if transfers and withdrawals are disabled on that key — it can only place trades. Bind it to the bot's IP and delete it if you're ever unsure.</div></details></div>
+  <p class="bdisc">This article is for information only and is not financial advice. Cryptocurrency trading involves substantial risk of loss and is not suitable for everyone. Past performance does not guarantee future results. Never trade money you cannot afford to lose.</p>
+</main>
+<section class="wrap brel"><h3>Keep reading</h3><div class="brel__grid"><a class="brel__card" href="/blog/connect-trading-bot-to-binance-api-keys"><span>How to Connect a Tradi</span><b>Connect a Trading Bot to Binance</b></a><a class="brel__card" href="/blog/are-crypto-trading-bots-safe"><span>Are Crypto Trading Bot</span><b>Are Crypto Trading Bots Safe?</b></a><a class="brel__card" href="/blog/non-custodial-crypto-trading-bot"><span>Non-Custodial Crypto T</span><b>Non-Custodial Crypto Trading Bots</b></a></div></section>
+<footer class="bfooter"><div class="bfooter__in">
+  <a class="bnav__logo" href="/" style="color:#fff"><img src="/img/core-img/logo.png" alt="Prometheus AI" style="height:26px"/>Prometheus <b style="color:var(--cyan)">AI</b></a>
+  <nav class="bfooter__nav">
+    <a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+    <a href="/disclaimer">Disclaimer</a><a href="/refund">Refund</a><a href="/support">Contact</a>
+  </nav>
+  <p class="bfooter__copy">&copy; <span id="y">2026</span> Prometheus AI. Automated crypto trading on your own exchange. Trading involves risk.</p>
+</div><script>document.getElementById('y')&&(document.getElementById('y').textContent=new Date().getFullYear());</script></footer>
+</body>
+</html>
