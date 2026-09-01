@@ -8,14 +8,50 @@
     <copyright>© 2026 Gold Scalpers</copyright>
     <managingEditor>support@goldscalpers.com (Gold Scalpers Research Team)</managingEditor>
     <webMaster>support@goldscalpers.com (Gold Scalpers Research Team)</webMaster>
-    <pubDate>Tue, 07 Jul 2026 20:00:00 GMT</pubDate>
-    <lastBuildDate>Tue, 07 Jul 2026 20:00:00 GMT</lastBuildDate>
+    <pubDate>Tue, 01 Sep 2026 08:00:00 GMT</pubDate>
+    <lastBuildDate>Tue, 01 Sep 2026 08:00:00 GMT</lastBuildDate>
     <atom:link href="https://goldscalpers.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
     <image>
       <url>https://goldscalpers.com/og-image.png</url>
       <title>Gold Scalpers</title>
       <link>https://goldscalpers.com</link>
     </image>
+
+    <item>
+      <title>Gold Trading Strategies: 5 XAUUSD Systems Compared (2026)</title>
+      <link>https://goldscalpers.com/blog/gold-trading-strategies</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/gold-trading-strategies</guid>
+      <pubDate>Tue, 01 Sep 2026 08:00:00 GMT</pubDate>
+      <category>Gold</category>
+      <description>Five gold strategies with exact rules, the session each one needs, the cost maths that decides which can actually profit, XAUUSD lot sizing, and how to pick the one your schedule supports.</description>
+    </item>
+
+    <item>
+      <title>Prop Firms That Allow EA Trading (2026): Verified Rules and VPS Policies</title>
+      <link>https://goldscalpers.com/blog/prop-firms-that-allow-ea</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/prop-firms-that-allow-ea</guid>
+      <pubDate>Fri, 28 Aug 2026 09:00:00 GMT</pubDate>
+      <category>Prop Firms</category>
+      <description>Checked against each firm's own rules pages, not affiliate blogs - including the rule that quietly bans every EA you can buy, and the VPS change that landed on 12 August.</description>
+    </item>
+
+    <item>
+      <title>What Moves Gold? US Retail Data and FOMC Minutes Explained</title>
+      <link>https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/how-us-data-and-fomc-move-gold</guid>
+      <pubDate>Wed, 19 Aug 2026 09:00:00 GMT</pubDate>
+      <category>Gold</category>
+      <description>Gold does not trade on news - it trades on interest rates. The chain from US consumer data to rate expectations to XAUUSD, and how to handle the release window.</description>
+    </item>
+
+    <item>
+      <title>Forex Trading Strategy Hub: The Complete Learning Path</title>
+      <link>https://goldscalpers.com/blog/trading-strategy-hub</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/trading-strategy-hub</guid>
+      <pubDate>Tue, 07 Jul 2026 20:00:00 GMT</pubDate>
+      <category>Strategy</category>
+      <description>Every strategy, indicator, pair and automation guide on the site arranged into five clusters and one recommended learning path.</description>
+    </item>
 
     <item>
       <title>How to Pass a $50,000 Prop Firm Challenge Trading Gold (XAUUSD)</title>
