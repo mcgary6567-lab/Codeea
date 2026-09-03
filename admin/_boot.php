@@ -72,6 +72,37 @@ function flash(?string $msg = null, string $kind = 'ok'): ?array
     return $f;
 }
 
+/**
+ * Offset pagination for list pages. Returns [page, offset, per, html].
+ * Keeps every other query-string parameter (filters) intact; `$param` names
+ * the page parameter so two lists on one page can paginate independently.
+ */
+function paginate(int $total, int $per = 50, string $param = 'page'): array
+{
+    $pages = max(1, (int)ceil($total / $per));
+    $page  = max(1, min($pages, (int)($_GET[$param] ?? 1)));
+    $link  = static function (int $p) use ($param): string {
+        $q = $_GET; $q[$param] = $p;
+        return '?' . http_build_query($q);
+    };
+    $html = '';
+    if ($pages > 1) {
+        $html .= '<nav class="pager" aria-label="Pages">';
+        $html .= $page > 1 ? '<a href="' . h($link($page - 1)) . '">&larr; Prev</a>' : '<span class="off">&larr; Prev</span>';
+        $lo = max(1, $page - 2); $hi = min($pages, $page + 2);
+        if ($lo > 1) $html .= '<a href="' . h($link(1)) . '">1</a>' . ($lo > 2 ? '<span class="gap">…</span>' : '');
+        for ($p = $lo; $p <= $hi; $p++) {
+            $html .= $p === $page ? '<span class="cur">' . $p . '</span>' : '<a href="' . h($link($p)) . '">' . $p . '</a>';
+        }
+        if ($hi < $pages) $html .= ($hi < $pages - 1 ? '<span class="gap">…</span>' : '') . '<a href="' . h($link($pages)) . '">' . $pages . '</a>';
+        $html .= $page < $pages ? '<a href="' . h($link($page + 1)) . '">Next &rarr;</a>' : '<span class="off">Next &rarr;</span>';
+        $html .= '<span class="count">' . number_format($total) . ' total</span></nav>';
+    } elseif ($total > 0) {
+        $html = '<nav class="pager"><span class="count">' . number_format($total) . ' total</span></nav>';
+    }
+    return [$page, ($page - 1) * $per, $per, $html];
+}
+
 function layout_head(string $title): void
 {
     $a = admin_user();
@@ -102,7 +133,7 @@ function layout_head(string $title): void
     <a href="trades.php">Trades</a>
     <?php if ($a['role'] === 'owner'): ?><a href="settings.php">Settings</a><a href="logs.php">Logs</a><?php endif; ?>
   </nav>
-  <div class="who"><?= h($a['email']) ?> <span class="role"><?= h($a['role']) ?></span>
+  <div class="who"><span class="who-mail"><?= h($a['email']) ?></span> <span class="role"><?= h($a['role']) ?></span>
     <a class="out" href="logout.php">Sign out</a></div>
   <?php endif; ?>
 </header>

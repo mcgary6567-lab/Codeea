@@ -1,5 +1,5 @@
 <?php
-/** Customer list: plan, status, per-user trading permission. */
+/** Customer list: plan, status, per-user trading permission. Paginated. */
 require_once __DIR__ . '/_boot.php';
 $me = require_admin();
 
@@ -8,8 +8,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     require_admin('support');
     $uid    = (int)($_POST['user_id'] ?? 0);
     $action = (string)($_POST['action'] ?? '');
+    $back   = 'users.php' . (($_POST['back'] ?? '') !== '' ? '?' . preg_replace('/[^\w=&%.@+-]/', '', (string)$_POST['back']) : '');
     $u = q1('SELECT * FROM users WHERE id = ?', [$uid]);
-    if (!$u) { flash('User not found.', 'err'); header('Location: users.php'); exit; }
+    if (!$u) { flash('User not found.', 'err'); header("Location: $back"); exit; }
 
     switch ($action) {
         case 'toggle_trading':
@@ -49,24 +50,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             flash('Plan updated for ' . $u['email']);
             break;
     }
-    header('Location: users.php'); exit;
+    header("Location: $back"); exit;
 }
 
 $search = trim((string)($_GET['q'] ?? ''));
 $where  = $search !== '' ? 'WHERE u.email LIKE ? OR u.name LIKE ?' : '';
 $args   = $search !== '' ? ["%$search%", "%$search%"] : [];
 
+$total = (int)qval("SELECT COUNT(*) FROM users u $where", $args, 0);
+[$page, $offset, $per, $pager] = paginate($total, 50, 'page');
+$back  = http_build_query(array_filter(['q' => $search, 'page' => $page > 1 ? $page : null]));
+
 $users = qall(
   "SELECT u.*,
           (SELECT COUNT(*) FROM broker_accounts b WHERE b.user_id = u.id) AS n_acc,
           (SELECT COUNT(*) FROM trades t WHERE t.user_id = u.id) AS n_trades,
           (SELECT COALESCE(SUM(t.profit),0) FROM trades t WHERE t.user_id = u.id) AS pnl
-     FROM users u $where ORDER BY u.id DESC LIMIT 200", $args);
+     FROM users u $where ORDER BY u.id DESC LIMIT $per OFFSET $offset", $args);
 
 layout_head('Users');
 ?>
 <h1>Users</h1>
-<p class="sub"><?= count($users) ?> shown. Suspending a user halts their accounts and signs the app out.</p>
+<p class="sub"><?= number_format($total) ?> user<?= $total === 1 ? '' : 's' ?>. Suspending a user halts their accounts and signs the app out.</p>
 
 <div class="panel">
   <form method="get" class="row">
@@ -81,13 +86,13 @@ layout_head('Users');
 <div class="panel">
 <div class="tw"><table>
   <thead><tr>
-    <th>#</th><th>Email</th><th>Plan</th><th>Status</th><th>Trading</th>
-    <th>Accts</th><th>Trades</th><th>P/L</th><th>Last seen</th><th>Actions</th>
+    <th class="hide-sm">#</th><th>Email</th><th>Plan</th><th>Status</th><th>Trading</th>
+    <th class="num hide-sm">Accts</th><th class="num hide-sm">Trades</th><th class="num">P/L</th><th class="hide-sm">Last seen</th><th>Actions</th>
   </tr></thead>
   <tbody>
   <?php foreach ($users as $u): ?>
     <tr>
-      <td><?= (int)$u['id'] ?></td>
+      <td class="hide-sm"><?= (int)$u['id'] ?></td>
       <td><?= h($u['email']) ?><?php if ($u['name']): ?><br><span class="note"><?= h($u['name']) ?></span><?php endif; ?></td>
       <td><span class="pill dim"><?= h($u['plan']) ?></span>
           <?php if ($u['plan_expires']): ?><br><span class="note"><?= h(substr((string)$u['plan_expires'],0,10)) ?></span><?php endif; ?></td>
@@ -97,30 +102,33 @@ layout_head('Users');
       ?></td>
       <td><?= $u['trading_enabled']
             ? '<span class="pill ok">ON</span>' : '<span class="pill dim">off</span>' ?></td>
-      <td><?= (int)$u['n_acc'] ?></td>
-      <td><?= (int)$u['n_trades'] ?></td>
-      <td class="<?= (float)$u['pnl'] >= 0 ? 'pos' : 'neg' ?>"><?= money((float)$u['pnl']) ?></td>
-      <td class="note"><?= h(substr((string)$u['last_seen'], 0, 16)) ?></td>
-      <td>
-        <form method="post" style="display:inline">
+      <td class="num hide-sm"><?= (int)$u['n_acc'] ?></td>
+      <td class="num hide-sm"><?= (int)$u['n_trades'] ?></td>
+      <td class="num <?= (float)$u['pnl'] >= 0 ? 'pos' : 'neg' ?>"><?= money((float)$u['pnl']) ?></td>
+      <td class="note hide-sm"><?= h(substr((string)$u['last_seen'], 0, 16)) ?></td>
+      <td><div class="actions">
+        <form method="post">
           <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+          <input type="hidden" name="back" value="<?= h($back) ?>">
           <input type="hidden" name="action" value="toggle_trading">
           <button class="btn sm ghost"><?= $u['trading_enabled'] ? 'Disable' : 'Enable' ?></button>
         </form>
-        <form method="post" style="display:inline"
+        <form method="post"
               onsubmit="return confirm('<?= $u['status'] === 'suspended' ? 'Activate' : 'Suspend' ?> this user?')">
           <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+          <input type="hidden" name="back" value="<?= h($back) ?>">
           <input type="hidden" name="action" value="<?= $u['status'] === 'suspended' ? 'activate' : 'suspend' ?>">
           <button class="btn sm <?= $u['status'] === 'suspended' ? 'ghost' : 'danger' ?>">
             <?= $u['status'] === 'suspended' ? 'Activate' : 'Suspend' ?></button>
         </form>
-      </td>
+      </div></td>
     </tr>
   <?php endforeach; ?>
   <?php if (!$users): ?><tr><td colspan="10" class="empty">No users.</td></tr><?php endif; ?>
   </tbody>
 </table></div>
+<?= $pager ?>
 </div>
 <?php layout_foot();

@@ -180,8 +180,45 @@ tr.row-warn td{background:rgba(251,191,36,.05)}
   word-break:break-word; color:var(--muted); max-height:70vh; overflow:auto}
 .log .l-bad{color:var(--red)} .log .l-hot{color:var(--gold-bright)}
 
-@media (max-width:640px){
-  main{padding:1rem .9rem 2.5rem}
-  .stat .v{font-size:1.4rem}
-  .chart{height:170px}
+/* ---------- pager ---------- */
+.pager{display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; margin-top:.9rem; font-size:.85rem}
+.pager a,.pager span{padding:.35rem .6rem; border-radius:7px; border:1px solid var(--border); color:var(--text)}
+.pager a:hover{border-color:var(--gold); color:var(--gold-bright); text-decoration:none}
+.pager .cur{background:var(--gold); color:#1A1206; border-color:var(--gold); font-weight:700}
+.pager .off{color:var(--dim)}
+.pager .gap,.pager .count{border:none; color:var(--dim); padding:.35rem .25rem}
+.pager .count{margin-left:auto}
+
+/* ---------- phones ---------- */
+.actions{display:flex; gap:.35rem; flex-wrap:wrap}
+@media (max-width:820px){
+  .hide-sm{display:none !important}
+  .topbar{gap:.6rem .9rem; padding:.7rem .9rem}
+  .topbar nav{flex:1 1 100%; order:3; gap:.2rem; flex-wrap:nowrap; overflow-x:auto;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -.9rem; padding:0 .9rem}
+  .topbar nav::-webkit-scrollbar{display:none}
+  .topbar nav a{white-space:nowrap; padding:.35rem .6rem; border-radius:8px; background:var(--panel)}
+  .who{margin-left:auto}
+  .who-mail{display:none}
+  main{padding:1rem .8rem 2.5rem}
+  h1{font-size:1.3rem}
+  .panel{padding:.95rem; margin-bottom:.9rem}
+  .grid.kpi{grid-template-columns:repeat(2,1fr); gap:.6rem}
+  .grid.c4{grid-template-columns:repeat(2,1fr)}
+  .health{grid-template-columns:repeat(2,1fr); gap:.5rem}
+  .h-item{padding:.65rem .7rem .65rem .9rem}
+  .stat{padding:.8rem .85rem}
+  .stat .v{font-size:1.35rem}
+  .chart{height:160px}
+  table{font-size:.82rem}
+  th,td{padding:.5rem .5rem}
+  .row>.field{flex:1 1 100%}
+  .btn{padding:.55rem .9rem}
+  .btn.sm{padding:.4rem .6rem}
+  .dash-head{flex-direction:column; align-items:flex-start}
+  .feed{font-size:.82rem}
+  .log{font-size:.74rem; max-height:60vh}
+}
+@media (max-width:420px){
+  .grid.kpi,.health{grid-template-columns:1fr}
 }
