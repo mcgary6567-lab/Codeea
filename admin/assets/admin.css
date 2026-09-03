@@ -200,12 +200,18 @@ tr.row-warn td{background:rgba(251,191,36,.05)}
   .topbar nav a{white-space:nowrap; padding:.35rem .6rem; border-radius:8px; background:var(--panel)}
   .who{margin-left:auto}
   .who-mail{display:none}
-  main{padding:1rem .8rem 2.5rem}
+  body{overflow-x:hidden}
+  main{padding:1rem .8rem 2.5rem; max-width:100vw}
   h1{font-size:1.3rem}
-  .panel{padding:.95rem; margin-bottom:.9rem}
-  .grid.kpi{grid-template-columns:repeat(2,1fr); gap:.6rem}
-  .grid.c4{grid-template-columns:repeat(2,1fr)}
-  .health{grid-template-columns:repeat(2,1fr); gap:.5rem}
+  .panel{padding:.95rem; margin-bottom:.9rem; min-width:0}
+  /* minmax(0,1fr) so a long label cannot widen a track past the screen */
+  .grid.kpi{grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem}
+  .grid.c2,.grid.c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid.c2{grid-template-columns:minmax(0,1fr)}
+  .health{grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem}
+  .stat,.h-item{min-width:0; overflow-wrap:anywhere}
+  .stat .k,.h-k{letter-spacing:.03em}
+  .sub{overflow-wrap:anywhere}
   .h-item{padding:.65rem .7rem .65rem .9rem}
   .stat{padding:.8rem .85rem}
   .stat .v{font-size:1.35rem}
@@ -220,5 +226,5 @@ tr.row-warn td{background:rgba(251,191,36,.05)}
   .log{font-size:.74rem; max-height:60vh}
 }
 @media (max-width:420px){
-  .grid.kpi,.health{grid-template-columns:1fr}
+  .grid.kpi,.health,.grid.c4{grid-template-columns:minmax(0,1fr)}
 }
