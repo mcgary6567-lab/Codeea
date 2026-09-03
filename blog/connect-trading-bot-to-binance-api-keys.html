@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Connect a Trading Bot to Binance with API Keys (Safely) | Prometheus AI</title>
+<meta name="description" content="Step-by-step: how to connect a trading bot to Binance using API keys — with the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta name="keywords" content="connect trading bot to Binance, Binance API key trading bot, how to create Binance API key, trading bot API setup, trade-only API key">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to Connect a Trading Bot to Binance with API Keys (Safely)">
+<meta property="og:description" content="Step-by-step: how to connect a trading bot to Binance using API keys — with the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta property="og:url" content="https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys">
+<meta property="og:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<meta property="og:site_name" content="Prometheus AI">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Connect a Trading Bot to Binance with API Keys (Safely)">
+<meta name="twitter:description" content="Step-by-step: how to connect a trading bot to Binance using API keys — with the exact permissions to enable, what to disable, and how to keep your account safe.">
+<meta name="twitter:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<link rel="icon" href="/img/core-img/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css?v=2">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "How to Connect a Trading Bot to Binance with API Keys (Safely)", "description": "Step-by-step: how to connect a trading bot to Binance using API keys — with the exact permissions to enable, what to disable, and how to keep your account safe.", "datePublished": "2026-08-25", "dateModified": "2026-08-25", "author": {"@type": "Organization", "name": "Prometheus AI", "url": "https://www.prometheusai.tech"}, "publisher": {"@type": "Organization", "name": "Prometheus AI", "logo": {"@type": "ImageObject", "url": "https://www.prometheusai.tech/img/core-img/logo.png"}}, "image": "https://www.prometheusai.tech/img/og-prometheus.jpg", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys"}, "articleSection": "How-To", "inLanguage": "en"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it safe to connect a trading bot to Binance?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, if you create a trade-only API key with withdrawals disabled and, ideally, IP whitelisting. In that setup the bot can place trades but can never withdraw your funds, so even a leaked key can't drain your account."}}, {"@type": "Question", "name": "What Binance API permissions does a trading bot need?", "acceptedAnswer": {"@type": "Answer", "text": "Enable Reading and Spot/Margin (or Futures) trading, and disable Withdrawals. Add IP restriction to the bot's server if you can. That's everything a bot needs to trade and nothing it needs to move money out."}}, {"@type": "Question", "name": "Can someone steal my crypto with my API key?", "acceptedAnswer": {"@type": "Answer", "text": "Not if withdrawals are disabled on that key — it can only trade, not transfer funds off Binance. Never enable withdrawal permission for a bot, and delete any key you're unsure about."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.prometheusai.tech"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.prometheusai.tech/blog"}, {"@type": "ListItem", "position": 3, "name": "Connect a Trading Bot to Binance", "item": "https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys"}]}</script>
+</head>
+<body>
+<nav class="bnav"><div class="bnav__in">
+  <a class="bnav__logo" href="/"><img src="/img/core-img/logo.png" alt="Prometheus AI"/>Prometheus <b>AI</b></a>
+  <div class="bnav__links"><a href="/blog">Blog</a><a href="/#features">Features</a><a class="bnav__cta" href="/checkout">Get Access</a></div>
+</div></nav>
+<header class="bhero"><div class="bhero__in">
+  <span class="btag">How-To</span>
+  <h1>How to Connect a Trading Bot to Binance with API Keys (Safely)</h1>
+  <div class="bmeta"><span>📅 August 25, 2026</span><span>⏱ 7 min read</span></div>
+  <div class="bbyline">By the Prometheus AI Team</div>
+</div></header>
+<div class="bhero__img"><svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HOW-TO"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6fafe"/><stop offset="1" stop-color="#eef4fb"/></linearGradient></defs><rect width="720" height="300" fill="url(#g)"/><g stroke="#e2e9f2" stroke-width="1"><line x1="0" y1="75" x2="720" y2="75"/><line x1="0" y1="150" x2="720" y2="150"/><line x1="0" y1="225" x2="720" y2="225"/><line x1="180" y1="0" x2="180" y2="300"/><line x1="360" y1="0" x2="360" y2="300"/><line x1="540" y1="0" x2="540" y2="300"/></g><g transform="translate(250,150)" fill="none" stroke="#ea6a0c" stroke-width="6"><circle cx="0" cy="0" r="26"/><circle cx="0" cy="0" r="10" fill="#ea6a0c"/><line x1="26" y1="0" x2="120" y2="0"/><rect x="118" y="-9" width="16" height="18" fill="#ea6a0c" stroke="none"/><rect x="140" y="-9" width="16" height="18" fill="#ea6a0c" stroke="none"/></g><g transform="translate(500,150)"><rect x="-34" y="-8" width="68" height="52" rx="8" fill="#0ea5a5" opacity=".15" stroke="#0ea5a5" stroke-width="3"/><path d="M-20,-8 v-14 a20,20 0 0 1 40,0 v14" fill="none" stroke="#0ea5a5" stroke-width="4"/><circle cx="0" cy="14" r="6" fill="#0ea5a5"/><rect x="-3" y="16" width="6" height="16" fill="#0ea5a5"/></g><text x="36" y="270" fill="#8a94a3" font-family="Poppins,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="1">HOW-TO</text></svg></div>
+<main class="wrap bbody">
+  <p class="lead">Connecting a bot to Binance takes about five minutes, and the safety comes down to one thing: what you allow the API key to do. Get the permissions right and a leaked key can't cost you your balance. Here's the exact, safe way to do it.</p>
+  <div class="keytake">Create the key with <b>trading enabled</b> and <b>withdrawals disabled</b>. That one setting is what keeps your funds safe even if the key is ever exposed.</div>
+  <div class="toc"><strong>On this page</strong><ul><li><a href="#what-is">What an API key is</a></li><li><a href="#steps">Create the key</a></li><li><a href="#permissions">The right permissions</a></li><li><a href="#connect">Connect the bot</a></li><li><a href="#safety">Staying safe</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+  <h2 id="what-is">What an API Key Actually Is</h2>
+<p>An API key is a pair of codes — a <em>key</em> and a <em>secret</em> — that let an app act on your exchange account through Binance's official interface. A trading bot uses it to place and close orders, exactly like the Binance app does when you tap buy or sell.</p><p>The key never gives anyone your password or login. And with the right permissions, it can't withdraw your money either.</p>
+<h2 id="steps">Step 1–3: Create the Key on Binance</h2>
+<ol><li>Log in to Binance and open <strong>Account → API Management</strong>.</li><li>Click <strong>Create API</strong>, choose a <strong>System-generated</strong> key, and name it (e.g. “Prometheus”).</li><li>Complete 2FA verification. Binance shows your <strong>API Key</strong> and <strong>Secret Key</strong> — copy both now; the secret is shown only once.</li></ol>
+<div class="bcta">
+  <h3>Let the bots trade while you don't</h3>
+  <p>Prometheus runs a managed, risk-controlled strategy 24/7 on your own exchange — non-custodial, with a 90-day money-back guarantee.</p>
+  <a href="/checkout">Get Lifetime Access &rarr;</a>
+</div><h2 id="permissions">Step 4: Set the Right Permissions (The Important Part)</h2>
+<p>On the key's settings, set exactly this:</p><ul><li>✅ <strong>Enable Reading</strong> — so the bot can see balances and positions.</li><li>✅ <strong>Enable Spot &amp; Margin Trading</strong> (or Futures, if you trade futures) — so it can place orders.</li><li>❌ <strong>Disable Withdrawals</strong> — leave this OFF. Never enable it for a bot.</li><li>✅ <strong>Restrict access to trusted IPs</strong> — add the bot's server IP if you have it; this locks the key to that one machine.</li></ul><p>With withdrawals off, the key can trade but can never move funds off your account — the core of keeping a bot safe.</p>
+<h2 id="connect">Step 5: Connect the Bot</h2>
+<p>In your bot, paste the API key and secret, pick your exchange (Binance / Binance.US) and market (spot or futures), and save. Prometheus shows its server IP so you can whitelist it, then connects in one click — and can auto-reconnect on restart so you stay online.</p><p>If your bot offers demo / paper mode, start there to confirm everything's wired correctly before going live.</p>
+<h2 id="safety">Keeping the Connection Safe</h2>
+<ul><li>Keep <strong>withdrawals disabled</strong> on the key — always.</li><li>Use <strong>IP whitelisting</strong> so only the bot's server can use it.</li><li>Turn on <strong>2FA</strong> for your Binance account.</li><li>If anything looks off, <strong>delete the key</strong> in API Management — it revokes access instantly, and your funds were never at withdrawal risk anyway.</li></ul>
+
+  <h2 id="faq">Frequently Asked Questions</h2>
+  <div class="bfaq"><details open><summary>Is it safe to connect a trading bot to Binance?</summary><div class="a">Yes, if you create a trade-only API key with withdrawals disabled and, ideally, IP whitelisting. In that setup the bot can place trades but can never withdraw your funds, so even a leaked key can't drain your account.</div></details><details><summary>What Binance API permissions does a trading bot need?</summary><div class="a">Enable Reading and Spot/Margin (or Futures) trading, and disable Withdrawals. Add IP restriction to the bot's server if you can. That's everything a bot needs to trade and nothing it needs to move money out.</div></details><details><summary>Can someone steal my crypto with my API key?</summary><div class="a">Not if withdrawals are disabled on that key — it can only trade, not transfer funds off Binance. Never enable withdrawal permission for a bot, and delete any key you're unsure about.</div></details></div>
+  <p class="bdisc">This article is for information only and is not financial advice. Cryptocurrency trading involves substantial risk of loss and is not suitable for everyone. Past performance does not guarantee future results. Never trade money you cannot afford to lose.</p>
+</main>
+<section class="wrap brel"><h3>Keep reading</h3><div class="brel__grid"><a class="brel__card" href="/blog/are-crypto-trading-bots-safe"><span>Are Crypto Trading Bot</span><b>Are Crypto Trading Bots Safe?</b></a><a class="brel__card" href="/blog/non-custodial-crypto-trading-bot"><span>Non-Custodial Crypto T</span><b>Non-Custodial Crypto Trading Bots</b></a><a class="brel__card" href="/blog/automated-crypto-trading-for-beginners"><span>Automated Crypto Tradi</span><b>Automated Crypto Trading for Beginners</b></a></div></section>
+<footer class="bfooter"><div class="bfooter__in">
+  <a class="bnav__logo" href="/" style="color:#fff"><img src="/img/core-img/logo.png" alt="Prometheus AI" style="height:26px"/>Prometheus <b style="color:var(--cyan)">AI</b></a>
+  <nav class="bfooter__nav">
+    <a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+    <a href="/disclaimer">Disclaimer</a><a href="/refund">Refund</a><a href="/support">Contact</a>
+  </nav>
+  <p class="bfooter__copy">&copy; <span id="y">2026</span> Prometheus AI. Automated crypto trading on your own exchange. Trading involves risk.</p>
+</div><script>document.getElementById('y')&&(document.getElementById('y').textContent=new Date().getFullYear());</script></footer>
+</body>
+</html>
