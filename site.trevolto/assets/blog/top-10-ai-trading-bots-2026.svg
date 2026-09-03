@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Top 10 AI Trading Bots 2026">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e1a28"/><stop offset="1" stop-color="#0a1018"/></linearGradient>
+    <radialGradient id="glow" cx="80%" cy="30%" r="65%"><stop offset="0" stop-color="#f59e0b" stop-opacity=".30"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(870,175)" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+<path d="M50 10 H150 V70 A50 50 0 0 1 50 70 Z" fill="#f59e0b" opacity=".18"/><path d="M50 10 H150 V70 A50 50 0 0 1 50 70 Z"/>
+<path d="M50 25 H18 V45 A32 32 0 0 0 50 66"/><path d="M150 25 H182 V45 A32 32 0 0 1 150 66"/>
+<line x1="100" y1="120" x2="100" y2="160"/><rect x="62" y="160" width="76" height="20" rx="6"/><rect x="44" y="180" width="112" height="22" rx="6"/>
+<g fill="#f59e0b" stroke="none"><path d="M100 24 l6 13 14 2 -10 10 3 14 -13 -7 -13 7 3 -14 -10 -10 14 -2z"/></g></g>
+  <g font-family="Inter, -apple-system, Segoe UI, sans-serif">
+    <text x="90" y="90" font-size="26" font-weight="800" letter-spacing="2" fill="#f59e0b">TREVOLTO</text>
+    <rect x="90" y="120" width="150" height="34" rx="17" fill="#f59e0b" opacity=".16"/>
+    <text x="107" y="143" font-size="18" font-weight="800" letter-spacing="1.5" fill="#f59e0b">REVIEWS</text>
+    <text x="90" y="250" font-size="54" font-weight="900" fill="#ffffff"><tspan x="90" dy="0">Top 10 AI Trading</tspan><tspan x="90" dy="68">Bots 2026</tspan></text>
+    <text x="90" y="560" font-size="22" font-weight="700" fill="#8fa0b5">trevolto.com  &#183;  AI Crypto Trading Bot</text>
+  </g>
+</svg>

@@ -1,0 +1,47 @@
+# Prometheus AI Trading Bot
+
+> Prometheus AI is a non-custodial, automated cryptocurrency trading bot that monitors and trades crypto markets 24/7 on the user's own exchange account. Funds never leave the user's exchange — the bot connects with a trade-only API key (withdrawals disabled). It is sold as a one-time purchase (lifetime access) for $267, with a free live-demo trial available before buying.
+
+Official website: https://www.prometheusai.tech/
+Free trial / live demo: https://prometheus-bot.fly.dev/
+Support: support@prometheusai.tech (24/7 live chat also available on the site)
+
+## Key pages
+
+- [Home](https://www.prometheusai.tech/): Product overview, demo video, and purchase options
+- [Checkout](https://www.prometheusai.tech/checkout): One-time payment of $267 (regular price $497) via card, PayPal, Klarna, Venmo (secure checkout by Hotmart), or cryptocurrency (BTC, ETH, USDT). Backed by a 90-day money-back guarantee.
+- [Blog](https://www.prometheusai.tech/blog): Plain-English guides on AI crypto trading bots — how they work, safety, strategy, and realistic expectations
+- [Support / Contact](https://www.prometheusai.tech/support): Contact the team
+- [Risk Disclaimer](https://www.prometheusai.tech/disclaimer): Crypto trading involves risk; read before use
+- [Terms of Service](https://www.prometheusai.tech/terms)
+- [Privacy Policy](https://www.prometheusai.tech/privacy)
+- [Refund Policy](https://www.prometheusai.tech/refund): 90-day satisfaction guarantee
+
+## Blog / Guides
+
+Honest, hype-free guides. No guaranteed-profit or "risk-free" claims — all note that crypto trading carries risk.
+
+- [Best AI Crypto Trading Bot in 2026](https://www.prometheusai.tech/blog/best-ai-crypto-trading-bot-2026): How to choose a bot that won't blow up — the features that matter, red flags to avoid, and how to verify a bot before trusting it with real money.
+- [Are Crypto Trading Bots Safe?](https://www.prometheusai.tech/blog/are-crypto-trading-bots-safe): The real risks (custody, API keys, over-leverage) and the exact settings that keep an automated account protected.
+- [How Do Crypto Trading Bots Work?](https://www.prometheusai.tech/blog/how-crypto-trading-bots-work): A plain-English walkthrough of the watch → decide → execute → manage loop, signals, execution and risk management.
+- [Automated Crypto Trading for Beginners](https://www.prometheusai.tech/blog/automated-crypto-trading-for-beginners): What it is, what you need, how to start in demo mode, and the safety basics to get right first.
+- [Crypto Trading Bot vs Manual Trading](https://www.prometheusai.tech/blog/crypto-trading-bot-vs-manual-trading): Where each wins on speed, discipline, emotion, time and control — and who should use which.
+- [How to Connect a Trading Bot to Binance with API Keys](https://www.prometheusai.tech/blog/connect-trading-bot-to-binance-api-keys): Step-by-step API setup — enable trading, disable withdrawals, add IP whitelisting — to stay safe.
+- [Do Crypto Trading Bots Really Work?](https://www.prometheusai.tech/blog/do-crypto-trading-bots-really-work): An honest look at what bots can and can't do, why most fail, and what a good one looks like.
+- [Non-Custodial Crypto Trading Bots](https://www.prometheusai.tech/blog/non-custodial-crypto-trading-bot): Why your funds should never leave your exchange, how custody works, and how API-key trading keeps funds yours.
+- [The EMA Crossover Strategy for Crypto](https://www.prometheusai.tech/blog/ema-crossover-strategy-crypto): How the 9/21 EMA cross works, why a trend filter matters, entries and exits, and how to automate it.
+- [Crypto Trading Bot for Passive Income? Realistic Expectations](https://www.prometheusai.tech/blog/crypto-trading-bot-passive-income-realistic): A hype-free reality check on what's realistic, what isn't, and how to think about returns and risk.
+
+## Key facts
+
+- Non-custodial: the bot trades on the user's own exchange via a trade-only API key; it can place trades but can never withdraw funds.
+- Supported exchanges: Binance, Binance.US, Bybit, OKX, KuCoin, Bitget, Kraken, Coinbase (spot & futures).
+- Built-in strategy: EMA 9/21 crossover with a 100-EMA trend filter, plus stop-loss/take-profit on every trade and risk guardrails (daily-loss limit, max-drawdown guard).
+- Two-way Telegram control: /status, /pnl, /positions, /pause, /resume, /closeall.
+- Trading involves risk; no returns are guaranteed. Past performance does not indicate future results.
+
+## Pricing
+
+- Prometheus AI Trading Bot: $267 one-time payment, lifetime access (regular price $497), 90-day money-back guarantee
+- Free trial: available at https://prometheus-bot.fly.dev/ — try the bot before buying
+- Payment methods: Card, PayPal, Klarna, Venmo, PayPal Credit (via Hotmart), plus Bitcoin, Ethereum, USDT
