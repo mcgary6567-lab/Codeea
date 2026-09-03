@@ -24,6 +24,10 @@ require_once __DIR__ . '/../lib/push.php';
 
 function plog(string $m): void { fwrite(STDOUT, gmdate('H:i:s') . ' ' . $m . "\n"); }
 
+// Heartbeat for the admin dashboard, recorded even when we exit early below.
+q("INSERT INTO engine_state (k, v) VALUES ('provision_last_run', ?)
+   ON DUPLICATE KEY UPDATE v = VALUES(v)", [gs_now()]);
+
 /* --- sanity: "connected" without a MetaApi account is impossible ---- */
 // (An old resume path could mark accounts connected by hand.)
 q("UPDATE broker_accounts
