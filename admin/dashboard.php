@@ -297,6 +297,7 @@ layout_head('Dashboard');
       <?php foreach ($activity as $ev):
           $bad = (bool)preg_match('/kill|halt|fail|error|reject|suspend/i', (string)$ev['action']);
           $dt = (string)$ev['detail'];
+          if ($dt === 'null') $dt = '';
           if ($dt !== '' && $dt[0] === '{') { $j = json_decode($dt, true); $dt = is_array($j) ? implode(' · ', array_map(static fn($k2, $v2) => $k2 . '=' . (is_scalar($v2) ? $v2 : json_encode($v2)), array_keys($j), $j)) : $dt; }
       ?>
         <li class="<?= $bad ? 'bad' : '' ?>">
