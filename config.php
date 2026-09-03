@@ -21,7 +21,7 @@ return [
     // --- crypto ---------------------------------------------------
     // 32 random bytes, base64. Generate:  openssl rand -base64 32
     // Rotating this invalidates every stored broker password.
-    'app_key' => 'f8hTYPKuTnsfoP4S9c5bfxbkl+zYjVmUevQPBXM+3Gg=',
+    'app_key' => 'CHANGEME-run: openssl rand -base64 32',
 
     // --- MetaApi (execution) --------------------------------------
     // https://app.metaapi.cloud  -> API access token

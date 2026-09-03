@@ -1,0 +1,4 @@
+# Never commit real secrets or runtime state
+.gs-app-config.php
+*.log
+.ai_*
