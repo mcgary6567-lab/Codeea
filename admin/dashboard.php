@@ -104,13 +104,6 @@ $recentTrades = qall(
      FROM trades t JOIN users u ON u.id = t.user_id
     ORDER BY t.id DESC LIMIT 10');
 
-$activity = qall(
-  'SELECT l.actor_type, l.actor_id, l.action, l.detail, l.created_at,
-          CASE l.actor_type WHEN "admin" THEN (SELECT email FROM admins WHERE id = l.actor_id)
-                            WHEN "user"  THEN (SELECT email FROM users  WHERE id = l.actor_id)
-                            ELSE "system" END AS who
-     FROM audit_log l ORDER BY l.id DESC LIMIT 12');
-
 $pill = static function (string $status, int $halted): string {
     if ($halted) return '<span class="pill no">HALTED</span>';
     return match ($status) {
@@ -132,6 +125,7 @@ layout_head('Dashboard');
   <div class="dash-actions">
     <a class="btn ghost sm" href="control.php">Control</a>
     <a class="btn ghost sm" href="accounts.php">Accounts</a>
+    <?php if ($me['role'] !== 'readonly'): ?><a class="btn ghost sm" href="logs.php?tab=activity">Activity</a><?php endif; ?>
     <?php if ($me['role'] === 'owner'): ?><a class="btn ghost sm" href="settings.php">Settings</a><?php endif; ?>
   </div>
 </div>
@@ -284,7 +278,6 @@ layout_head('Dashboard');
   </table></div>
 </div>
 
-<div class="grid c2">
   <div class="panel">
     <h2>Recent signal evaluations</h2>
     <div class="tw"><table>
@@ -311,27 +304,6 @@ layout_head('Dashboard');
       </tbody>
     </table></div>
   </div>
-
-  <div class="panel">
-    <h2>Activity</h2>
-    <ul class="feed">
-      <?php foreach ($activity as $ev):
-          $bad = (bool)preg_match('/kill|halt|fail|error|reject|suspend/i', (string)$ev['action']);
-          $dt = (string)$ev['detail'];
-          if ($dt === 'null') $dt = '';
-          if ($dt !== '' && $dt[0] === '{') { $j = json_decode($dt, true); $dt = is_array($j) ? implode(' · ', array_map(static fn($k2, $v2) => $k2 . '=' . (is_scalar($v2) ? $v2 : json_encode($v2)), array_keys($j), $j)) : $dt; }
-      ?>
-        <li class="<?= $bad ? 'bad' : '' ?>">
-          <span class="f-when"><?= h(substr((string)$ev['created_at'], 5, 11)) ?></span>
-          <span class="f-what"><?= h(str_replace('_', ' ', (string)$ev['action'])) ?></span>
-          <span class="f-who"><?= h((string)$ev['who']) ?></span>
-          <?= $dt !== '' ? '<div class="sub2">' . h(substr($dt, 0, 140)) . '</div>' : '' ?>
-        </li>
-      <?php endforeach; ?>
-      <?php if (!$activity): ?><li class="empty">Nothing logged yet.</li><?php endif; ?>
-    </ul>
-  </div>
-</div>
 
 <div class="panel">
   <div class="panel-head">

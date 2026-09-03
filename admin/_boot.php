@@ -131,7 +131,8 @@ function layout_head(string $title): void
     <a href="accounts.php">Accounts</a>
     <a href="control.php">Control</a>
     <a href="trades.php">Trades</a>
-    <?php if ($a['role'] === 'owner'): ?><a href="settings.php">Settings</a><a href="logs.php">Logs</a><?php endif; ?>
+    <?php if ($a['role'] !== 'readonly'): ?><a href="logs.php">Logs</a><?php endif; ?>
+    <?php if ($a['role'] === 'owner'): ?><a href="settings.php">Settings</a><?php endif; ?>
   </nav>
   <div class="who"><span class="who-mail"><?= h($a['email']) ?></span> <span class="role"><?= h($a['role']) ?></span>
     <a class="out" href="logout.php">Sign out</a></div>
