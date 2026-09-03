@@ -37,7 +37,9 @@ $RUN_ID = substr(bin2hex(random_bytes(4)), 0, 8);
 function elog(string $msg): void
 {
     global $RUN_ID;
-    fwrite(STDOUT, sprintf("[%s %s] %s\n", gmdate('Y-m-d H:i:s'), $RUN_ID, $msg));
+    $line = sprintf("[%s %s] %s", gmdate('Y-m-d H:i:s'), $RUN_ID, $msg);
+    fwrite(STDOUT, $line . "\n");
+    gs_log_append('engine', $line);
 }
 
 /* ==================================================================

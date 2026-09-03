@@ -124,6 +124,25 @@ function gs_path_is_web_served(string $path): bool
     return (bool)preg_match('#/(public_html|htdocs|www|web)(/|$)#', $path);
 }
 
+/**
+ * Where the cron logs live: <home>/gs-<name>.log, three levels above the web
+ * root on Hostinger, or engine.log_dir from the config. The crons append here
+ * themselves because the host's cron does not reliably honour shell
+ * redirection, and Admin -> Logs reads the same files.
+ */
+function gs_logfile(string $name): string
+{
+    $dir = rtrim((string)(gs_config()['engine']['log_dir'] ?? dirname(GS_ROOT, 3)), '/');
+    return "$dir/gs-$name.log";
+}
+
+function gs_log_append(string $name, string $line): void
+{
+    try {
+        @file_put_contents(gs_logfile($name), $line . "\n", FILE_APPEND | LOCK_EX);
+    } catch (Throwable $e) { /* logging must never break a run */ }
+}
+
 /* ------------------------------------------------------------------
  * Database
  * ---------------------------------------------------------------- */

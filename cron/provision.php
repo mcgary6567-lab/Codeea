@@ -22,7 +22,12 @@ require_once __DIR__ . '/../lib/crypto.php';
 require_once __DIR__ . '/../lib/metaapi.php';
 require_once __DIR__ . '/../lib/push.php';
 
-function plog(string $m): void { fwrite(STDOUT, gmdate('H:i:s') . ' ' . $m . "\n"); }
+function plog(string $m): void
+{
+    $line = '[' . gmdate('Y-m-d H:i:s') . '] ' . $m;
+    fwrite(STDOUT, $line . "\n");
+    gs_log_append('provision', $line);
+}
 
 // Heartbeat for the admin dashboard, recorded even when we exit early below.
 q("INSERT INTO engine_state (k, v) VALUES ('provision_last_run', ?)
