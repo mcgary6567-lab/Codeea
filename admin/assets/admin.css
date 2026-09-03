@@ -1,0 +1,127 @@
+/* Gold Scalpers admin — dark control-plane theme, matches the site palette */
+:root{
+  --bg:#0A0E1A; --panel:#121826; --panel-2:#0F1422; --border:#1F2937;
+  --text:#F4F6FA; --muted:#94A3B8; --dim:#64748B;
+  --gold:#F59E0B; --gold-bright:#FCD34D;
+  --green:#34D399; --red:#F87171; --amber:#FBBF24;
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+a{color:var(--gold-bright); text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ---------- chrome ---------- */
+.topbar{
+  display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
+  padding:.85rem 1.4rem; background:var(--panel-2);
+  border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20;
+}
+.brand{display:flex; align-items:center; gap:.55rem; font-weight:800; color:var(--text)}
+.brand span{color:var(--gold); font-weight:700}
+.topbar nav{display:flex; gap:1.1rem; flex:1; flex-wrap:wrap}
+.topbar nav a{color:var(--muted); font-weight:600; font-size:.92rem}
+.topbar nav a:hover{color:var(--gold-bright); text-decoration:none}
+.who{font-size:.83rem; color:var(--dim); display:flex; align-items:center; gap:.6rem}
+.role{
+  background:rgba(245,158,11,.12); color:var(--gold-bright);
+  padding:.1rem .5rem; border-radius:99px; font-size:.72rem;
+  font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+}
+.out{color:var(--muted)}
+main{max-width:1180px; margin:0 auto; padding:1.6rem 1.4rem 3rem}
+.foot{text-align:center; color:var(--dim); font-size:.8rem; padding:1.5rem}
+
+h1{font-size:1.5rem; font-weight:800; letter-spacing:-.02em; margin-bottom:.3rem}
+h2{font-size:1.1rem; font-weight:700; margin:0 0 .9rem}
+.sub{color:var(--muted); font-size:.9rem; margin-bottom:1.4rem}
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:1.2rem; margin-bottom:1.2rem;
+}
+.grid{display:grid; gap:1rem}
+.grid.c2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.grid.c4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+
+/* ---------- stat tiles ---------- */
+.stat{background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:1rem 1.1rem}
+.stat .k{font-size:.74rem; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--dim); font-weight:700}
+.stat .v{font-size:1.7rem; font-weight:800; letter-spacing:-.02em; margin-top:.25rem}
+.stat .n{font-size:.8rem; color:var(--muted); margin-top:.15rem}
+.pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--amber)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table{width:100%; border-collapse:collapse; font-size:.87rem}
+th{
+  text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--dim); font-weight:800; padding:.55rem .7rem;
+  border-bottom:1px solid var(--border); white-space:nowrap;
+}
+td{padding:.6rem .7rem; border-bottom:1px solid rgba(31,41,55,.6); vertical-align:top}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+.empty{color:var(--dim); padding:1.6rem; text-align:center}
+
+/* ---------- pills ---------- */
+.pill{display:inline-block; padding:.14rem .55rem; border-radius:99px;
+  font-size:.72rem; font-weight:700; letter-spacing:.02em}
+.pill.ok{background:rgba(52,211,153,.14); color:var(--green)}
+.pill.no{background:rgba(248,113,113,.14); color:var(--red)}
+.pill.mid{background:rgba(251,191,36,.14); color:var(--amber)}
+.pill.dim{background:rgba(148,163,184,.12); color:var(--muted)}
+
+/* ---------- forms ---------- */
+label{display:block; font-size:.78rem; font-weight:700; color:var(--muted);
+  margin-bottom:.3rem; text-transform:uppercase; letter-spacing:.04em}
+input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{
+  width:100%; background:var(--panel-2); border:1px solid var(--border);
+  color:var(--text); border-radius:9px; padding:.6rem .75rem;
+  font:inherit; font-size:.9rem;
+}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--gold)}
+textarea{min-height:120px; font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:.82rem}
+.field{margin-bottom:.9rem}
+.row{display:flex; gap:.8rem; flex-wrap:wrap}
+.row>.field{flex:1 1 190px}
+.check{display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem}
+.check input{width:auto}
+.check label{margin:0; text-transform:none; letter-spacing:0; font-size:.88rem;
+  color:var(--text); font-weight:500}
+
+.btn{
+  display:inline-block; border:none; cursor:pointer; font:inherit;
+  font-weight:700; font-size:.88rem; padding:.62rem 1.1rem;
+  border-radius:9px; background:var(--gold); color:#1A1206;
+}
+.btn:hover{background:var(--gold-bright); text-decoration:none}
+.btn.ghost{background:transparent; border:1px solid var(--border); color:var(--text)}
+.btn.ghost:hover{border-color:var(--gold); color:var(--gold-bright)}
+.btn.danger{background:#B91C1C; color:#fff}
+.btn.danger:hover{background:#DC2626}
+.btn.sm{padding:.36rem .7rem; font-size:.78rem}
+
+/* ---------- flash + callouts ---------- */
+.flash{padding:.75rem 1rem; border-radius:9px; margin-bottom:1.2rem;
+  font-size:.9rem; font-weight:600}
+.flash.ok{background:rgba(52,211,153,.12); color:var(--green);
+  border:1px solid rgba(52,211,153,.3)}
+.flash.err{background:rgba(248,113,113,.12); color:var(--red);
+  border:1px solid rgba(248,113,113,.3)}
+.danger-zone{border-color:rgba(248,113,113,.35)}
+.danger-zone h2{color:var(--red)}
+.note{font-size:.82rem; color:var(--dim); margin-top:.5rem}
+code{font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:.85em;
+  background:rgba(245,158,11,.1); color:var(--gold-bright);
+  padding:.1em .35em; border-radius:4px}
+
+/* ---------- login ---------- */
+.login{max-width:380px; margin:12vh auto; }
+.login .panel{padding:1.8rem}
+.login h1{text-align:center; margin-bottom:1.4rem}
