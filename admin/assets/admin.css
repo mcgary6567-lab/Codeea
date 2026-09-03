@@ -173,6 +173,10 @@ tr.row-warn td{background:rgba(251,191,36,.05)}
 .f-who{color:var(--muted); margin-left:.45rem; font-size:.8rem}
 .feed .empty{background:none; border:none}
 
+.log{font:.8rem/1.5 ui-monospace,'SF Mono',Menlo,monospace; white-space:pre-wrap;
+  word-break:break-word; color:var(--muted); max-height:70vh; overflow:auto}
+.log .l-bad{color:var(--red)} .log .l-hot{color:var(--gold-bright)}
+
 @media (max-width:640px){
   main{padding:1rem .9rem 2.5rem}
   .stat .v{font-size:1.4rem}
