@@ -8,6 +8,22 @@ require_once __DIR__ . '/_boot.php';
 $me  = require_admin();
 $cfg = gs_config();
 
+/* ---------------- actions ---------------- */
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    csrf_check();
+    if (($_POST['action'] ?? '') === 'provision') {
+        require_admin('support');
+        require_once __DIR__ . '/../lib/provisioning.php';
+        set_time_limit(120);
+        $pr = gs_provision_run();
+        gs_audit('admin', (int)$me['id'], 'provisioning_run_manually', $pr);
+        flash(sprintf('Provisioning pass finished: %d provisioned, %d connected, %d error(s).%s',
+            $pr['provisioned'], $pr['connected'], $pr['errors'],
+            $pr['note'] ? ' ' . $pr['note'] . '.' : ''), $pr['errors'] ? 'err' : 'ok');
+        header('Location: dashboard.php'); exit;
+    }
+}
+
 /* ---------------- health ---------------- */
 $lastRun    = qval("SELECT v FROM engine_state WHERE k = 'last_run'", [], null);
 $runAgeS    = $lastRun ? (time() - strtotime((string)$lastRun . ' UTC')) : null;
@@ -130,7 +146,12 @@ layout_head('Dashboard');
   <div class="h-item <?= $provOk ? 'ok' : ($provRun ? 'warn' : 'dim') ?>">
     <div class="h-k">Provisioning</div>
     <div class="h-v"><?= $provOk ? 'Running' : ($provRun ? 'Stalled' : 'No data') ?></div>
-    <div class="h-n">run <?= ago($provAgeS) ?></div>
+    <div class="h-n">run <?= ago($provAgeS) ?>
+      <?php if ($me['role'] !== 'readonly'): ?>
+      · <form method="post" style="display:inline"><input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="provision">
+        <button class="linkbtn" type="submit">run now</button></form>
+      <?php endif; ?></div>
   </div>
   <div class="h-item <?= !$maSet ? 'bad' : ($maOn ? 'ok' : 'warn') ?>">
     <div class="h-k">Execution</div>

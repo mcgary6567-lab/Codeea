@@ -69,6 +69,19 @@ register_shutdown_function('engine_unlock');
 q("INSERT INTO engine_state (k, v) VALUES ('last_run', ?)
    ON DUPLICATE KEY UPDATE v = VALUES(v)", [gs_now()]);
 
+/* ------------------------------------------------------------------
+ *  1b. Provisioning fallback. The provisioning cron is the normal path;
+ *  if it has not reported for 6 minutes (never created, or stalled) the
+ *  engine runs one bounded pass itself so linked accounts still connect.
+ * ---------------------------------------------------------------- */
+$provLast = qval("SELECT v FROM engine_state WHERE k = 'provision_last_run'", [], null);
+if (!$provLast || time() - strtotime((string)$provLast . ' UTC') > 360) {
+    require_once __DIR__ . '/../lib/provisioning.php';
+    $pr = gs_provision_run('elog');
+    elog(sprintf('provisioning fallback: %d provisioned, %d connected, %d error(s)',
+        $pr['provisioned'], $pr['connected'], $pr['errors']));
+}
+
 /* ==================================================================
  *  2. Accounts in scope
  * ================================================================ */

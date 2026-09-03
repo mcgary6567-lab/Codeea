@@ -173,6 +173,9 @@ tr.row-warn td{background:rgba(251,191,36,.05)}
 .f-who{color:var(--muted); margin-left:.45rem; font-size:.8rem}
 .feed .empty{background:none; border:none}
 
+.linkbtn{background:none; border:none; padding:0; font:inherit; color:var(--gold-bright);
+  cursor:pointer; font-weight:600}
+.linkbtn:hover{text-decoration:underline}
 .log{font:.8rem/1.5 ui-monospace,'SF Mono',Menlo,monospace; white-space:pre-wrap;
   word-break:break-word; color:var(--muted); max-height:70vh; overflow:auto}
 .log .l-bad{color:var(--red)} .log .l-hot{color:var(--gold-bright)}
