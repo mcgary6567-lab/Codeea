@@ -193,8 +193,8 @@ try {
 
                 q('INSERT INTO broker_accounts
                      (user_id, label, platform, broker_login, broker_server,
-                      enc_password, symbol, is_demo, status)
-                   VALUES (?,?,?,?,?,?,?,?, "pending")',
+                      enc_password, symbol, is_demo, status, status_detail)
+                   VALUES (?,?,?,?,?,?,?,?, "pending", "queued")',
                   [$u['id'], substr(gs_str($b, 'label', 'MT5'), 0, 80),
                    gs_str($b, 'platform', 'mt5') === 'mt4' ? 'mt4' : 'mt5',
                    $login, $server, gs_encrypt($pass),
@@ -219,15 +219,25 @@ try {
                 if (!$acc) gs_fail(404, 'not_found');
 
                 if ($parts[2] === 'disable') {
-                    q('UPDATE broker_accounts SET status = "disabled" WHERE id = ?', [$accId]);
+                    // The MetaApi side is undeployed by the provisioning cron;
+                    // the password is never needed again for a re-enable.
+                    q('UPDATE broker_accounts SET status = "disabled", status_detail = \'\'
+                        WHERE id = ?', [$accId]);
                     gs_audit('user', (int)$u['id'], 'account_disabled', ['account' => $accId]);
                     gs_ok(['message' => 'Account disabled.']);
                 }
                 if ($parts[2] === 'resume') {
                     // Clearing a halt is deliberately allowed; enabling LIVE is not.
+                    // A disabled account goes back through provisioning: "pending"
+                    // if it never reached MetaApi, "deploying" if it did (the cron
+                    // re-deploys it and promotes it to connected once the broker
+                    // link is up). It is never marked connected by hand.
                     q('UPDATE broker_accounts
                           SET halted = 0, halt_reason = \'\',
-                              status = IF(status = "disabled", "connected", status)
+                              status_detail = IF(status = "disabled", "queued", status_detail),
+                              status = IF(status = "disabled",
+                                          IF(metaapi_account_id IS NULL, "pending", "deploying"),
+                                          IF(status = "error", "pending", status))
                         WHERE id = ?', [$accId]);
                     gs_audit('user', (int)$u['id'], 'account_resumed', ['account' => $accId]);
                     gs_ok(['message' => 'Account resumed.']);

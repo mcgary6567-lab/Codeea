@@ -115,6 +115,22 @@ function ma_remove(string $accountId): bool
     return $err === '';
 }
 
+/** Start (or restart) the MetaApi-side connection for an existing account. */
+function ma_deploy(string $accountId): bool
+{
+    [$code, , $err] = ma_request('POST',
+        ma_prov_url('/users/current/accounts/' . rawurlencode($accountId) . '/deploy'), [], 30);
+    return $err === '' && $code >= 200 && $code < 300;
+}
+
+/** Stop the MetaApi-side connection without deleting the account. */
+function ma_undeploy(string $accountId): bool
+{
+    [$code, , $err] = ma_request('POST',
+        ma_prov_url('/users/current/accounts/' . rawurlencode($accountId) . '/undeploy'), [], 30);
+    return $err === '' && $code >= 200 && $code < 300;
+}
+
 /* ==================================================================
  *  Market data + account state
  * ================================================================ */
