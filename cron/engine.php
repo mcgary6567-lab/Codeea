@@ -205,6 +205,9 @@ function process_account(array $acc): void
     }
     $balance = (float)($info['balance'] ?? 0);
     $equity  = (float)($info['equity']  ?? 0);
+    if ((string)$acc['status_detail'] === 'broker_unreachable') {
+        q("UPDATE broker_accounts SET status_detail = '' WHERE id = ?", [$accId]);
+    }
 
     /* --- day rollover -------------------------------------------- */
     $serverTime = gs_server_time((int)($cfg['server_offset_hours'] ?? 3));
