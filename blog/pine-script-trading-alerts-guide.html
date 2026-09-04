@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#F59E0B">
-<title>Pine Script Trading Alerts: Complete 2026 Guide | Gold Scalpers Ã¢â‚¬â€ Reversal Indicator for XAUUSD, USDJPY, GBPJPY</title>
-<meta name="description" content="Pine Script trading alerts let you trigger custom notifications from TradingView indicators. Learn alert(), alertcondition(), webhook integration, and best practices.">
+<title>Pine Script Trading Alerts: Complete 2026 Guide</title>
+<meta name="description" content="Pine Script trading alerts trigger custom notifications from TradingView indicators. Learn alert(), alertcondition(), webhooks and best practices.">
 <meta name="keywords" content="Pine, Script, Trading, Alerts, Complete, 2026, gold scalping, XAUUSD, MT5 EA, Gold Scalpers EA">
 <link rel="canonical" href="https://goldscalpers.com/blog/pine-script-trading-alerts-guide">
 <link rel="amphtml" href="https://goldscalpers.com/blog/amp/pine-script-trading-alerts-guide">
@@ -61,7 +61,7 @@
   <div class="article-hero-inner">
     <span class="blog-tag">Pine Script</span>
     <h1>Pine Script Trading Alerts: Complete 2026 Guide for TradingView</h1>
-    <div class="article-meta"><span>📅 Ã°Å¸â€œâ€¦ May 9, 2026</span><span>⏱ Ã¢ÂÂ± 8 min read</span></div>
+    <div class="article-meta"><span>📅 📅 May 9, 2026</span><span>⏱ ⏱ 8 min read</span></div>
     <div class="article-byline" style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">By Gold Scalpers Research Team · Reviewed for accuracy 2026-07-07</div>
   </div>
 </section>
@@ -91,15 +91,15 @@ if rsi &lt; 30
     <li>Use <code>alert.freq_once_per_bar_close</code></li>
     <li>Wrap logic in <code>if barstate.isconfirmed</code></li>
     <li>Avoid <code>lookahead.on</code></li>
-    <li>Test history vs real-time behavior Ã¢â‚¬â€œ they should match</li>
+    <li>Test history vs real-time behavior – they should match</li>
   </ol>
 
   <h2><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Webhook Integration</h2>
   <ol>
     <li>Build alert message as JSON or HTML in Pine Script</li>
-    <li>Click Ã¢ÂÂ° Ã¢â€ â€™ Create Alert in TradingView</li>
+    <li>Click ⏰ → Create Alert in TradingView</li>
     <li>Set Condition to "Any alert() function call"</li>
-    <li>Enable Notifications Ã¢â€ â€™ Webhook URL</li>
+    <li>Enable Notifications → Webhook URL</li>
     <li>Paste your endpoint URL</li>
   </ol>
 
@@ -107,11 +107,11 @@ if rsi &lt; 30
   <table>
     <thead><tr><th>Plan</th><th>Active Alerts</th><th>Webhooks</th></tr></thead>
     <tbody>
-      <tr><td>Free / Basic</td><td>1</td><td>Ã¢ÂÅ’ No</td></tr>
-      <tr><td>Essential</td><td>20</td><td>Ã¢ÂÅ’ No</td></tr>
-      <tr><td>Plus</td><td>100</td><td>Ã¢ÂÅ’ No</td></tr>
-      <tr><td>Premium</td><td>400</td><td>Ã¢Å“â€¦ Yes</td></tr>
-      <tr><td>Pro+</td><td>800</td><td>Ã¢Å“â€¦ Yes</td></tr>
+      <tr><td>Free / Basic</td><td>1</td><td>❌ No</td></tr>
+      <tr><td>Essential</td><td>20</td><td>❌ No</td></tr>
+      <tr><td>Plus</td><td>100</td><td>❌ No</td></tr>
+      <tr><td>Premium</td><td>400</td><td>✅ Yes</td></tr>
+      <tr><td>Pro+</td><td>800</td><td>✅ Yes</td></tr>
     </tbody>
   </table>
 
@@ -124,7 +124,7 @@ if signal
     alert(msg, alert.freq_once_per_bar_close)</pre>
 
   <h3>Pattern 2: HTML formatting (Telegram)</h3>
-  <pre>msg = "Ã°Å¸Å½Â¯ &lt;b&gt;BUY SIGNAL&lt;/b&gt;\nÃ°Å¸â€œÂ Entry: &lt;code&gt;" + str.tostring(close) + "&lt;/code&gt;"
+  <pre>msg = "🎯 &lt;b&gt;BUY SIGNAL&lt;/b&gt;\n📍 Entry: &lt;code&gt;" + str.tostring(close) + "&lt;/code&gt;"
 alert(msg, alert.freq_once_per_bar_close)</pre>
 
   <div class="cta-banner">
