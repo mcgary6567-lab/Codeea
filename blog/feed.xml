@@ -8,14 +8,23 @@
     <copyright>© 2026 Gold Scalpers</copyright>
     <managingEditor>support@goldscalpers.com (Gold Scalpers Research Team)</managingEditor>
     <webMaster>support@goldscalpers.com (Gold Scalpers Research Team)</webMaster>
-    <pubDate>Tue, 01 Sep 2026 08:00:00 GMT</pubDate>
-    <lastBuildDate>Tue, 01 Sep 2026 08:00:00 GMT</lastBuildDate>
+    <pubDate>Fri, 04 Sep 2026 09:00:00 GMT</pubDate>
+    <lastBuildDate>Fri, 04 Sep 2026 09:00:00 GMT</lastBuildDate>
     <atom:link href="https://goldscalpers.com/blog/feed.xml" rel="self" type="application/rss+xml"/>
     <image>
       <url>https://goldscalpers.com/og-image.png</url>
       <title>Gold Scalpers</title>
       <link>https://goldscalpers.com</link>
     </image>
+
+    <item>
+      <title>Best Time to Trade Gold (XAUUSD): Sessions by Hour</title>
+      <link>https://goldscalpers.com/blog/best-time-to-trade-gold</link>
+      <guid isPermaLink="true">https://goldscalpers.com/blog/best-time-to-trade-gold</guid>
+      <pubDate>Fri, 04 Sep 2026 09:00:00 GMT</pubDate>
+      <category>Gold</category>
+      <description>The best hours to trade gold, session by session: the London–New York overlap, the hours to avoid, news windows, a broker-time conversion table and how to automate the session filter.</description>
+    </item>
 
     <item>
       <title>Gold Trading Strategies: 5 XAUUSD Systems Compared (2026)</title>
