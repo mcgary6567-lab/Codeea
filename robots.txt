@@ -62,13 +62,13 @@ Allow: /
 User-agent: DuckDuckBot
 Allow: /
 
-# Block admin/private areas + AMP duplicates (canonical pages are indexed instead)
+# Block admin/private areas. AMP twins under /blog/amp/ stay crawlable so Google can
+# read their canonical back to the main article (blocking them breaks rel=amphtml).
 User-agent: *
 Disallow: /admin/
 Disallow: /panel/
 Disallow: /api/
 Disallow: /account/
-Disallow: /blog/amp/
 
 # Sitemap
 Sitemap: https://goldscalpers.com/sitemap.xml
