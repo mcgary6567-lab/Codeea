@@ -36,6 +36,14 @@
   "image": "https://goldscalpers.com/og-image.png",
   "brand": { "@type": "Brand", "name": "Gold Scalpers" },
   "category": "MetaTrader 5 Expert Advisor",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.6",
+    "bestRating": "5",
+    "worstRating": "1",
+    "ratingCount": "72",
+    "reviewCount": "72"
+  },
   "offers": {
     "@type": "Offer",
     "name": "Pro Lifetime",
@@ -177,6 +185,21 @@ a:hover{color:#B45309}
 .ub-timer b{font-weight:800}
 .ub-price{font-weight:800;opacity:1}
 .ub-price s{opacity:0.65;font-weight:500}
+/* Gumroad rating summary */
+.gr-summary{display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:0.9rem 1.1rem;margin-bottom:1rem}
+.gr-score{font-size:2rem;font-weight:800;color:var(--text);line-height:1}
+.gr-score small{font-size:0.9rem;font-weight:600;color:var(--text-muted)}
+.gr-stars{color:#F59E0B;font-size:1.05rem;letter-spacing:1px}
+.gr-meta{font-size:0.82rem;color:var(--text-muted)}
+.gr-meta a{color:var(--gold);font-weight:700;text-decoration:none}
+.gr-meta a:hover{text-decoration:underline}
+.gr-bars{display:grid;grid-template-columns:auto 1fr auto;gap:0.25rem 0.5rem;align-items:center;font-size:0.72rem;color:var(--text-muted);min-width:170px;flex:1}
+.gr-bar{height:6px;background:#F3F4F6;border-radius:99px;overflow:hidden}
+.gr-bar span{display:block;height:100%;background:#F59E0B;border-radius:99px}
+.gr-inline{display:flex;align-items:center;gap:0.45rem;font-size:0.82rem;color:var(--text-muted);margin:-0.9rem 0 1.2rem}
+.gr-inline .gr-stars{font-size:0.95rem}
+.gr-inline strong{color:var(--text);font-weight:800}
+.gr-badge{display:inline-flex;align-items:center;gap:0.3rem;background:#fff;border:1px solid #FDE68A;border-radius:99px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:700;color:#92400E}
 .reviews-head{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.8rem;font-size:0.9rem;color:var(--text-muted)}
 .reviews-head .rh-stars{color:var(--gold-bright);letter-spacing:1px;font-size:1rem}
 .reviews-head strong{color:var(--text);font-weight:800}
@@ -409,13 +432,37 @@ a:hover{color:#B45309}
       </div>
     </div>
 
-    <!-- TESTIMONIALS -->
+    <!-- GUMROAD RATING -->
+    <div class="gr-summary">
+      <div>
+        <div class="gr-score">4.6<small> / 5</small></div>
+        <div class="gr-stars" aria-label="4.6 out of 5 stars">★★★★★</div>
+      </div>
+      <div class="gr-bars" aria-hidden="true"><span>5★</span><div class="gr-bar"><span style="width:58%"></span></div><span>58%</span><span>4★</span><div class="gr-bar"><span style="width:42%"></span></div><span>42%</span><span>3★</span><div class="gr-bar"><span style="width:0%"></span></div><span>0%</span></div>
+      <div class="gr-meta"><strong style="color:var(--text)">72 ratings</strong> from verified buyers<br><a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener">Read all reviews on Gumroad &rarr;</a></div>
+    </div>
     <div class="reviews-head">
       <span class="rh-stars">★★★★★</span>
-      <strong>Published on the MQL5 Market</strong>
-      <span>vetted and hosted by MetaQuotes</span>
+      <strong>Rated 4.6/5 by 72 buyers</strong>
+      <span>verified purchases on Gumroad</span>
     </div>
     <div class="testimonials">
+      <div class="testimonial">
+        <p class="testimonial-text">“Very easy to get started. Gold Scalpers makes XAUUSD trading much more convenient.”</p>
+        <div class="testimonial-author"><div><strong>Terence Rod</strong> <span class="gr-badge">★ Verified Gumroad purchase</span></div></div>
+      </div>
+      <div class="testimonial">
+        <p class="testimonial-text">“I’ve tested Gold Scalpers on gold and liked the way it handles the entries and exits. It has been a nice addition to my MT5 setup.”</p>
+        <div class="testimonial-author"><div><strong>Moshe Bjorn</strong> <span class="gr-badge">★ Verified Gumroad purchase</span></div></div>
+      </div>
+      <div class="testimonial">
+        <p class="testimonial-text">“I like that I don’t have to spend all day watching the gold chart. Setup was simple too.”</p>
+        <div class="testimonial-author"><div><strong>Emanuel Westin</strong> <span class="gr-badge">★ Verified Gumroad purchase</span></div></div>
+      </div>
+      <div class="testimonial">
+        <p class="testimonial-text">“Setup didn’t take much time and the guide was helpful. Overall, a smooth experience so far.”</p>
+        <div class="testimonial-author"><div><strong>Lincoln Aldo</strong> <span class="gr-badge">★ Verified Gumroad purchase</span></div></div>
+      </div>
       <div class="testimonial" style="display:flex;gap:.9rem;align-items:flex-start">
         <div style="flex:0 0 auto;width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0b5fa5,#1583c9);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.72rem">MQL5</div>
         <div>
@@ -460,6 +507,7 @@ a:hover{color:#B45309}
         </div>
         <div class="price-desc">MetaTrader 5 Expert Advisor · One-time payment · Lifetime access · No recurring fees</div>
       </div>
+      <div class="gr-inline"><span class="gr-stars">★★★★★</span><strong>4.6/5</strong><span>&middot; <a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener" style="color:var(--gold);font-weight:600">72 ratings on Gumroad</a></span></div>
 
       <div class="price-value">💡 Many MT5 EAs rent for <strong>$30–100/month</strong>. Gold Scalpers EA is <strong>$140 once</strong> — yours forever, updates included.</div>
 
@@ -470,9 +518,9 @@ a:hover{color:#B45309}
       </div>
 
       <!-- CARD PAYMENT -->
-      <div class="pay-section-label">Pay by Card</div>
+      <div class="pay-section-label">Pay by Card &middot; secure checkout by Gumroad</div>
       <div class="card-cta-wrap">
-        <a href="https://buy.stripe.com/00w5kEenX0aM50YdUJdby02" target="_blank" id="cardPayBtn" class="btn btn-primary btn-lg">
+        <a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener" id="cardPayBtn" class="btn btn-primary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           Get Lifetime Access — $140
         </a>

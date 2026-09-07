@@ -116,6 +116,14 @@
     "Telegram, MT5 mobile push and terminal alerts",
     "Self-contained — the indicators are bundled, so it backtests and runs anywhere"
   ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.6",
+    "bestRating": "5",
+    "worstRating": "1",
+    "ratingCount": "72",
+    "reviewCount": "72"
+  },
   "offers": [
     {
       "@type": "Offer",
@@ -448,6 +456,25 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 
 /* PRICING - 2 TIER */
 .pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;max-width:860px;margin:0 auto}
+/* Buyer reviews strip (Gumroad) */
+.reviews-strip{background:#FFFBEB;border-top:1px solid #FDE68A;border-bottom:1px solid #FDE68A}
+.rv-head{display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.6rem;text-align:center}
+.rv-score{font-size:2.6rem;font-weight:800;letter-spacing:-0.02em;color:var(--text);line-height:1}
+.rv-score small{font-size:1rem;color:var(--text-muted);font-weight:600}
+.rv-stars{color:#F59E0B;font-size:1.25rem;letter-spacing:2px}
+.rv-meta{font-size:0.9rem;color:var(--text-muted)}
+.rv-meta a{color:var(--gold);font-weight:700;text-decoration:none}
+.rv-meta a:hover{text-decoration:underline}
+.rv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;max-width:1100px;margin:0 auto}
+.rv-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:1.3rem 1.4rem;box-shadow:var(--shadow-sm)}
+.rv-card .rv-stars{font-size:0.95rem;letter-spacing:1px}
+.rv-card p{font-size:0.92rem;color:var(--text);margin:0.5rem 0 0.8rem;line-height:1.55}
+.rv-card .rv-who{font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap}
+.rv-card .rv-who strong{color:var(--text)}
+.rv-badge{display:inline-flex;align-items:center;gap:0.3rem;background:#FFFBEB;border:1px solid #FDE68A;border-radius:99px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:700;color:#92400E}
+.price-rating{display:flex;align-items:center;gap:0.45rem;font-size:0.85rem;color:var(--text-muted);margin:0 0 1rem}
+.price-rating .rv-stars{font-size:0.95rem;letter-spacing:1px}
+.price-rating strong{color:var(--text);font-weight:800}
 .price-card{background:#FFFFFF;border:1.5px solid var(--border);border-radius:16px;padding:2.2rem 2rem;position:relative;transition:all 0.3s;box-shadow:var(--shadow-sm)}
 .price-card.featured{border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,119,6,0.12),var(--shadow-md);transform:scale(1.03)}
 .price-card.featured::before{content:'⭐ MOST POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:#FFFFFF;padding:0.3rem 1rem;border-radius:99px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em}
@@ -735,9 +762,9 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         <a href="/results" class="btn btn-ghost">See backtest results →</a>
       </div>
       <div class="hero-rating">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:#059669" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <strong>Published on the MQL5 Market</strong>
-        <span>vetted by MetaQuotes &middot; <a href="/results">376 downloads</a></span>
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <strong>4.6/5</strong>
+        <span>from <a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener">72 verified buyer ratings</a> &middot; also published on the <a href="/results">MQL5 Market</a></span>
       </div>
       <div class="hero-trust">
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Prop-firm ready</span>
@@ -1238,6 +1265,33 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
   </div>
 </section>
 
+<!-- BUYER REVIEWS (Gumroad) -->
+<section class="section reviews-strip" id="reviews">
+  <div class="section-inner">
+    <div class="rv-head">
+      <div><div class="rv-score">4.6<small> / 5</small></div><div class="rv-stars" aria-label="4.6 out of 5 stars">★★★★★</div></div>
+      <div class="rv-meta" style="text-align:left"><strong style="color:var(--text);font-size:1.05rem">Rated by 72 verified buyers</strong><br>58% five stars &middot; 42% four stars &middot; no rating below four<br><a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener">Read every review on Gumroad &rarr;</a></div>
+    </div>
+    <div class="rv-grid">
+      <div class="rv-card">
+        <div class="rv-stars" aria-hidden="true">★★★★★</div>
+        <p>“Very easy to get started. Gold Scalpers makes XAUUSD trading much more convenient.”</p>
+        <div class="rv-who"><strong>Terence Rod</strong><span class="rv-badge">★ Verified Gumroad purchase</span></div>
+      </div>
+      <div class="rv-card">
+        <div class="rv-stars" aria-hidden="true">★★★★★</div>
+        <p>“I’ve tested Gold Scalpers on gold and liked the way it handles the entries and exits. It has been a nice addition to my MT5 setup.”</p>
+        <div class="rv-who"><strong>Moshe Bjorn</strong><span class="rv-badge">★ Verified Gumroad purchase</span></div>
+      </div>
+      <div class="rv-card">
+        <div class="rv-stars" aria-hidden="true">★★★★★</div>
+        <p>“I like that I don’t have to spend all day watching the gold chart. Setup was simple too.”</p>
+        <div class="rv-who"><strong>Emanuel Westin</strong><span class="rv-badge">★ Verified Gumroad purchase</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- PRICING - 2 TIERS -->
 <section class="section" id="pricing">
   <div class="section-inner">
@@ -1264,6 +1318,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
           <li>Priority email support (24h)</li>
           <li>30-day money-back guarantee</li>
         </ul>
+        <div class="price-rating"><span class="rv-stars" aria-hidden="true">★★★★★</span><strong>4.6/5</strong><span>&middot; 72 verified ratings</span></div>
         <a href="/checkout" class="btn btn-primary">Get Lifetime – $140</a>
       </div>
     </div>
