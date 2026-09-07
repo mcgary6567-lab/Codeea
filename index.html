@@ -678,25 +678,36 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 .promo-pill{font-size:0.78rem;font-weight:700;color:#047857;background:rgba(16,185,129,0.08);border:1px solid #A7F3D0;border-radius:99px;padding:0.32rem 0.8rem}
 
 /* MONEY-BACK BADGE STRIP (under hero) */
-.mb-strip{max-width:1280px;margin:-1rem auto 0;padding:0 2rem}
-.mb-badge{display:flex;align-items:center;gap:1.4rem;background:#F2FBF6;border:1px solid #BBF0D6;border-radius:18px;padding:1.5rem 1.8rem;box-shadow:0 4px 20px rgba(16,185,129,0.08)}
-.mb-badge .mb-icon{flex:0 0 auto;width:56px;height:56px;border-radius:14px;background:rgba(16,185,129,0.12);border:1px solid #A7F3D0;display:flex;align-items:center;justify-content:center;color:#059669}
-.mb-badge .mb-icon svg{width:30px;height:30px}
-.mb-badge .mb-text{flex:1 1 auto;min-width:0}
-.mb-badge .mb-title{font-size:1.15rem;font-weight:800;color:#065F46;line-height:1.2;letter-spacing:-0.01em}
-.mb-badge .mb-sub{font-size:0.92rem;color:var(--text-muted);margin-top:0.25rem;line-height:1.55}
-.mb-badge .mb-sub b{color:#047857;font-weight:700}
-.mb-pills{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.7rem}
-.mb-pill-g{font-size:0.76rem;font-weight:700;color:#047857;background:rgba(16,185,129,0.08);border:1px solid #A7F3D0;border-radius:99px;padding:0.3rem 0.75rem;white-space:nowrap}
-.mb-actions{flex:0 0 auto;display:flex;flex-direction:column;gap:0.55rem;padding-left:1.6rem;border-left:1px solid #C9EEDB}
-.mb-act{display:inline-flex;align-items:center;justify-content:center;gap:0.45rem;font-size:0.88rem;font-weight:700;padding:0.6rem 1.15rem;border-radius:10px;text-decoration:none;white-space:nowrap;cursor:pointer;border:1px solid transparent;transition:all 0.18s;font-family:inherit}
-.mb-act svg{width:17px;height:17px}
-.mb-act.primary{background:#059669;color:#fff}
-.mb-act.primary:hover{background:#047857;transform:translateY(-1px)}
-.mb-act.ghost{background:#fff;color:#065F46;border-color:#A7F3D0}
-.mb-act.ghost:hover{background:#ECFBF3;transform:translateY(-1px)}
-@media(max-width:980px){.mb-badge{flex-wrap:wrap}.mb-actions{width:100%;flex-direction:row;padding-left:0;border-left:none;border-top:1px solid #C9EEDB;padding-top:1rem;margin-top:0.3rem}.mb-act{flex:1 1 auto}}
-@media(max-width:640px){.mb-strip{margin-top:-0.25rem;padding:0 1.2rem}.mb-badge{padding:1.2rem 1.2rem;gap:1rem}.mb-badge .mb-title{font-size:1.05rem}.mb-badge .mb-sub{font-size:0.86rem}.mb-actions{flex-direction:column}}
+/* PRODUCT BAR (Gumroad listing, under hero) */
+.pb-strip{max-width:1280px;margin:-1rem auto 0;padding:0 2rem}
+.pb-eyebrow{display:flex;align-items:center;gap:0.5rem;font-size:0.72rem;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted);margin:0 0 0.6rem 0.2rem}
+.pb-eyebrow .pb-dot{width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 0 4px rgba(16,185,129,0.18)}
+.pb-eyebrow b{color:var(--text)}
+.pb-card{display:flex;align-items:center;gap:1.3rem;background:#FFFFFF;border:1.5px solid #111827;border-radius:16px;padding:1.1rem 1.4rem 1.1rem 1.1rem;box-shadow:6px 6px 0 #111827,var(--shadow-md);transition:transform .2s,box-shadow .2s}
+.pb-card:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 #111827,var(--shadow-md)}
+.pb-tag{position:relative;flex:0 0 auto;background:#F59E0B;color:#111827;font-weight:800;font-size:1.25rem;letter-spacing:-0.01em;padding:0.5rem 0.75rem 0.5rem 0.9rem;border:1.5px solid #111827;border-right:none;line-height:1}
+.pb-tag::after{content:'';position:absolute;top:-1.5px;right:-15px;width:0;height:0;border-top:calc(50% + 1.5px) solid transparent;border-bottom:calc(50% + 1.5px) solid transparent;border-left:15px solid #111827}
+.pb-tag::before{content:'';position:absolute;top:0;right:-12px;width:0;height:0;border-top:50% solid transparent;border-bottom:50% solid transparent;border-left:12px solid #F59E0B;z-index:1}
+.pb-tag s{display:block;font-size:0.68rem;font-weight:700;color:#7C2D12;opacity:.8;margin-top:.15rem;letter-spacing:0}
+.pb-main{flex:1 1 auto;min-width:0;padding-left:0.6rem}
+.pb-title{font-size:1.12rem;font-weight:800;color:var(--text);letter-spacing:-0.01em;line-height:1.25}
+.pb-title .pb-kicker{display:block;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:0.2rem}
+.pb-sub{display:flex;flex-wrap:wrap;gap:0.35rem 0.9rem;font-size:0.8rem;color:var(--text-muted);margin-top:0.4rem}
+.pb-sub span{display:inline-flex;align-items:center;gap:0.3rem}
+.pb-sub svg{width:13px;height:13px;color:#059669}
+.pb-rating{flex:0 0 auto;text-align:right;text-decoration:none;color:inherit;padding-right:1.3rem;border-right:1px solid var(--border)}
+.pb-rating .pb-stars{color:#F59E0B;font-size:1.05rem;letter-spacing:1px;line-height:1}
+.pb-rating .pb-score{font-size:0.9rem;font-weight:800;color:var(--text);margin-top:0.2rem}
+.pb-rating .pb-count{font-size:0.74rem;color:var(--text-muted)}
+.pb-rating:hover .pb-count{color:var(--gold);text-decoration:underline}
+.pb-buy{flex:0 0 auto;display:inline-flex;align-items:center;gap:0.5rem;background:#F59E0B;color:#111827;font-weight:800;font-size:0.98rem;padding:0.85rem 1.5rem;border-radius:8px;border:1.5px solid #111827;text-decoration:none;white-space:nowrap;box-shadow:3px 3px 0 #111827;transition:all .15s}
+.pb-buy:hover{background:#FBBF24;color:#111827;text-decoration:none;transform:translate(-1px,-1px);box-shadow:4px 4px 0 #111827}
+.pb-buy svg{width:16px;height:16px}
+.pb-foot{display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;margin:0.6rem 0.3rem 0;font-size:0.74rem;color:var(--text-dim)}
+.pb-foot a{color:var(--text-muted);text-decoration:none;font-weight:600}
+.pb-foot a:hover{color:var(--gold);text-decoration:underline}
+@media(max-width:980px){.pb-card{flex-wrap:wrap;row-gap:1rem}.pb-main{flex-basis:calc(100% - 7.5rem)}.pb-rating{border-right:none;padding-right:0;text-align:left;margin-right:auto}.pb-buy{flex:1 1 auto;justify-content:center}}
+@media(max-width:640px){.pb-strip{margin-top:-0.25rem;padding:0 1.2rem}.pb-card{padding:1rem;gap:0.9rem}.pb-tag{font-size:1.05rem}.pb-title{font-size:1rem}.pb-main{flex-basis:calc(100% - 6.5rem)}}
 </style>
 </head>
 <body>
@@ -798,31 +809,32 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
   </div>
 </section>
 
-<!-- MONEY-BACK GUARANTEE BADGE (under hero) -->
-<div class="mb-strip">
-  <div class="mb-badge">
-    <div class="mb-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-    </div>
-    <div class="mb-text">
-      <div class="mb-title">30-Day Money-Back Guarantee</div>
-      <div class="mb-sub">Run Gold Scalpers EA on demo or live, completely risk-free. Not the right fit? <b>Email us or start a live chat</b> within 30 days for a full refund — no forms, no questions asked.</div>
-      <div class="mb-pills">
-        <span class="mb-pill-g">✓ Full refund</span>
-        <span class="mb-pill-g">✓ No questions asked</span>
-        <span class="mb-pill-g">✓ Paid back in 48h</span>
+<!-- PRODUCT BAR — live Gumroad listing (under hero) -->
+<div class="pb-strip" id="buy">
+  <div class="pb-eyebrow"><span class="pb-dot"></span><b>Live on Gumroad</b> &middot; secure checkout &middot; instant delivery</div>
+  <div class="pb-card">
+    <div class="pb-tag" aria-label="Price 140 dollars, was 220">$140<s>was $220</s></div>
+    <div class="pb-main">
+      <div class="pb-title"><span class="pb-kicker">Pro Lifetime &middot; MetaTrader 5 Expert Advisor</span>Gold Scalpers EA &mdash; Automated XAUUSD Robot for MetaTrader 5</div>
+      <div class="pb-sub">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>One-time payment, lifetime updates</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>EX5 + user guide delivered instantly</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>30-day money-back guarantee</span>
       </div>
     </div>
-    <div class="mb-actions">
-      <a href="mailto:support@goldscalpers.com?subject=Gold%20Scalpers%20EA%20refund%20request" class="mb-act primary">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-        Email us
-      </a>
-      <button type="button" class="mb-act ghost" onclick="if(window.Tawk_API&amp;&amp;Tawk_API.maximize){Tawk_API.maximize();}else{window.location.href='mailto:support@goldscalpers.com';}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Live chat
-      </button>
-    </div>
+    <a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener" class="pb-rating" aria-label="Rated 4.7 out of 5 from 72 ratings on Gumroad">
+      <div class="pb-stars" aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+      <div class="pb-score">4.7 / 5</div>
+      <div class="pb-count">72 ratings &rarr;</div>
+    </a>
+    <a href="https://goldempire.gumroad.com/l/vufoca" target="_blank" rel="noopener" class="pb-buy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Buy this
+    </a>
+  </div>
+  <div class="pb-foot">
+    <span>Card, Apple Pay and Google Pay via Gumroad &middot; PayPal and crypto on the <a href="/checkout">checkout page</a></span>
+    <span>Not the right fit? <a href="mailto:support@goldscalpers.com?subject=Gold%20Scalpers%20EA%20refund%20request">Email us</a> within 30 days for a full refund, no questions asked.</span>
   </div>
 </div>
 
