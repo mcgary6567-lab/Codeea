@@ -13,7 +13,7 @@ services:
     runtime: python
     plan: free          # free instances sleep after inactivity; use "starter" to stay warm
     region: oregon
-    branch: main
+    branch: online-quran-college-app
     buildCommand: "./render-build.sh"
     # One worker: the app runs an in-process APScheduler, so multiple workers
     # would duplicate every reminder, invoice run and backup job.
