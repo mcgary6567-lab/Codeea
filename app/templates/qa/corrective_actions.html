@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Corrective actions{% endblock %}
+{% block content %}
+{{ ui.page_header("Corrective actions", "Improvement work assigned from QA reviews", back="/qa") }}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+  {{ ui.stat("Open", stats.open, icon="list-todo", color="amber", href="/qa/corrective-actions?status=open") }}
+  {{ ui.stat("Overdue", stats.overdue, icon="alarm-clock", color="rose", href="/qa/corrective-actions?status=overdue") }}
+  {{ ui.stat("Closed", stats.closed, icon="check-circle-2", color="emerald", href="/qa/corrective-actions?status=closed") }}
+</div>
+
+{% call ui.filter_bar('/qa/corrective-actions') %}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
+{% endcall %}
+
+{{ ui.table_start(['Teacher','Action','Review','Due','Status','']) }}
+{% for a in page.items %}
+<tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/20' if a.status == 'overdue' }}">
+  <td class="px-4 py-2 font-medium">{{ a.teacher.full_name if a.teacher else '—' }}</td>
+  <td class="px-4 py-2 max-w-md text-sm">{{ a.description }}{% if a.closure_note %}<div class="text-xs text-slate-500">Closed: {{ a.closure_note }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{% if a.qa_review_id %}<a href="/qa/{{ a.qa_review_id }}" class="text-brand-600 hover:underline">#{{ a.qa_review_id }}</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ a.due_date|date }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if a.status != 'closed' and has_perm(user, 'qa.update') %}
+    <div x-data="{ open: false }" class="inline-block">
+      <button type="button" @click="open = !open" class="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700">Close</button>
+      <div x-show="open" x-cloak class="mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <form method="post" action="/qa/corrective-actions/{{ a.id }}/close" class="space-y-2">
+          <input name="note" required placeholder="Closure note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+          <button class="w-full rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white">Confirm closure</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No corrective actions match these filters.', 6, 'list-checks') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

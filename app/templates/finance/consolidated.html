@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Consolidated reporting{% endblock %}
+{% block content %}
+{% call ui.page_header("Consolidated reporting", "Transaction currencies consolidated into " ~ base ~ " with the exchange rates used.") %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<form method="get" action="/finance/accounts/consolidated" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-44">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+</form>
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("Income (" ~ base ~ ")", data.pl.total_income|money, icon="trending-up", color="emerald") }}
+  {{ ui.stat("Expenses (" ~ base ~ ")", data.pl.total_expenses|money, icon="trending-down", color="rose") }}
+  {{ ui.stat("Net", data.pl.net|money(base), icon="scale", color="brand", hint=data.pl.margin_pct|string ~ "% margin") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  {% for title, key, colour in [('Payments received', 'payments', 'emerald'), ('Invoices issued', 'invoices', 'sky'), ('Expenses', 'expenses', 'amber')] %}
+  {% call ui.card(title) %}
+  {{ ui.table_start(['Currency', 'Count', 'Amount', 'Rate', base]) }}
+  {% for r in data[key] %}
+  <tr><td class="px-4 py-2 font-mono text-xs font-semibold">{{ r.currency }}</td>
+    <td class="px-4 py-2 text-center text-slate-500">{{ r.count }}</td>
+    <td class="px-4 py-2 text-right">{{ r.amount|money }}</td>
+    <td class="px-4 py-2 text-right text-xs text-slate-500">{{ r.rate|round(4) }}</td>
+    <td class="px-4 py-2 text-right font-medium">{{ r.base|money }}</td></tr>
+  {% else %}{{ ui.empty('Nothing in this period.', 5) }}{% endfor %}
+  {% if data[key] %}
+  <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2" colspan="4">Total</td>
+    <td class="px-4 py-2 text-right">{{ (data[key]|sum(attribute='base'))|money }}</td></tr>
+  {% endif %}
+  {{ ui.table_end() }}
+  {% endcall %}
+  {% endfor %}
+</div>
+
+<div class="mt-5">
+{% call ui.card("Exchange rates used", "1 unit of the currency expressed in " ~ base) %}
+<div class="flex flex-wrap gap-2">
+  {% for code, rate in data.rates.items() %}
+  <span class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+    <b class="font-mono text-brand-700 dark:text-brand-300">{{ code }}</b><span class="text-slate-500">{{ rate|round(4) }} {{ base }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% endcall %}
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New user{% endblock %}
+{% block content %}
+{{ ui.page_header("New user", "Create a staff, teacher, parent or student account", back="/admin/users") }}
+
+{% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r.id, r.name ~ ' · ' ~ r.portal)) %}{% endfor %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% set branch_options = [] %}{% for b in branches %}{% set _ = branch_options.append((b.id, b.name)) %}{% endfor %}
+
+<form method="post" action="/admin/users/new" class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Identity", "The username is derived from the email address") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.input('email', 'Email address', '', type='email', required=True, placeholder='name@oqc.local') }}
+        {{ ui.input('full_name', 'Full name', '', required=True) }}
+        {{ ui.input('phone', 'Phone / WhatsApp', '', placeholder='+92 300 1234567') }}
+        {{ ui.select('language', 'Interface language', languages, 'en', placeholder=None) }}
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Placement", "Role decides the portal and the permission set") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.select('role_id', 'Role', role_options, None, required=True, placeholder='— Select a role —') }}
+        {{ ui.select('department_id', 'Department', dept_options, None, placeholder='No department') }}
+        {{ ui.select('branch_id', 'Branch', branch_options, None, placeholder='No branch') }}
+        {{ ui.select('timezone', 'Timezone', timezones, 'Asia/Karachi', placeholder=None) }}
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Access", "Leave the password blank to generate a temporary one — it is shown exactly once") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.input('password', 'Password (optional)', '', type='text', help='Minimum 8 characters with a letter and a digit.') }}
+        {{ ui.input('allowed_ips', 'IP allowlist (optional)', '', placeholder='203.0.113.5, 198.51.100.7', help='Comma separated. When set, sign-in is refused from any other address.') }}
+      </div>
+      <div class="mt-4">{{ ui.checkbox('must_change_password', 'Force a password change at first sign-in', True) }}</div>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Before you save") %}
+      <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="key-round" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>A generated temporary password is displayed once in the confirmation banner. Copy it before navigating away.</span></li>
+        <li class="flex gap-2"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>Permissions come from the role. Per-user extra and denied overrides are set on the user's Permissions tab afterwards.</span></li>
+        <li class="flex gap-2"><i data-lucide="user-x" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>Accounts are never deleted — deactivate them instead so the audit trail stays intact.</span></li>
+        <li class="flex gap-2"><i data-lucide="bell" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>A welcome notification is sent automatically.</span></li>
+      </ul>
+      <div class="mt-5 flex gap-2">
+        {{ ui.button('Create user', icon='user-plus') }}
+        {{ ui.button('Cancel', href='/admin/users', variant='secondary') }}
+      </div>
+    {% endcall %}
+  </div>
+</form>
+{% endblock %}

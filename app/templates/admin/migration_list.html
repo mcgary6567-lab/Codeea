@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Data migration{% endblock %}
+{% block content %}
+{% call ui.page_header("Data migration", "Import legacy clients, students, leads, teachers, invoices and payments — upload, map, validate, import, reconcile") %}
+  {{ ui.button("Cutover checklist", href="/admin/migration/checklist", icon="list-checks", variant="secondary") }}
+  {% if has_perm(user, 'migration.add') %}
+  <button type="button" @click="$dispatch('open-modal','upload')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="upload" class="h-4 w-4"></i>New import</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Migration jobs", jobs_total, icon="database-zap", color="brand") }}
+  {{ ui.stat("Records imported", imported, icon="check-circle", color="emerald") }}
+  {{ ui.stat("Records skipped", skipped, icon="skip-forward", color=("amber" if skipped else "slate"), hint="errors and duplicates") }}
+  {{ ui.stat("Supported entities", entities|length, icon="table-2", color="indigo") }}
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  {% for key, meta in entities.items() %}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-center gap-3">
+      <span class="rounded-lg bg-brand-50 p-2 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"><i data-lucide="{{ meta.get('icon', 'table-2') }}" class="h-5 w-5"></i></span>
+      <div><div class="font-semibold text-slate-900 dark:text-white">{{ meta.get('label', key|titleize) }}</div>
+        <div class="font-mono text-[11px] text-slate-400">{{ key }}</div></div>
+    </div>
+    <p class="mt-2 text-xs text-slate-500">{{ meta.get('columns', [])|length }} columns ·
+      matched on <b>{{ meta.get('match_on', '—') }}</b></p>
+    <div class="mt-3">{{ ui.button('Download CSV template', href='/admin/migration/template/' ~ key ~ '.csv', icon='download', variant='secondary', size='sm') }}</div>
+  </div>
+  {% else %}
+  <div class="sm:col-span-2 xl:col-span-3">{{ ui.empty_state('No importable entities are registered.', 'table-2') }}</div>
+  {% endfor %}
+</div>
+
+{{ ui.table_start(['Created','Job','Entity','Source','Status','Rows','Imported','Skipped','Duplicates','']) }}
+{% for j in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ j.created_at|datetime }}</td>
+  <td class="px-4 py-2"><a href="/admin/migration/{{ j.id }}" class="font-medium hover:text-brand-700">{{ j.name }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ entities.get(j.entity, {}).get('label', j.entity|titleize) }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ j.source_system }}</td>
+  <td class="px-4 py-2">{{ ui.badge(j.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ j.records_total }}</td>
+  <td class="px-4 py-2 text-xs font-semibold text-emerald-700">{{ j.records_imported }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-amber-600 font-semibold' if j.records_skipped }}">{{ j.records_skipped }}</td>
+  <td class="px-4 py-2 text-xs">{{ j.duplicates_found }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/admin/migration/' ~ j.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No migration jobs yet — upload a CSV to start.', 10, 'database-zap') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Import order matters") %}
+    <p class="mb-3 text-sm text-slate-600 dark:text-slate-300">Children need their parents to exist first. Run the imports in this order:</p>
+    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+      {% for step in ['clients','students','teachers','invoices','payments','leads'] %}
+      <span class="rounded-full bg-brand-50 px-2.5 py-1 font-mono text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ step }}</span>
+      {% if not loop.last %}<i data-lucide="chevron-right" class="h-3.5 w-3.5 text-slate-400"></i>{% endif %}
+      {% endfor %}
+    </div>
+    <p class="mt-3 text-xs text-slate-500">Rows whose parent record cannot be resolved are skipped and listed in the error CSV, never silently dropped.</p>
+  {% endcall %}
+  {% call ui.card("Safety rails") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Every row is imported in its own savepoint — one bad row never rolls back the batch.</li>
+      <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Duplicates are detected in the file and against the live database, and are skipped rather than merged.</li>
+      <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Importing requires a rationale and is recorded as a consequential audit event.</li>
+      <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Deleting a job removes the job record only — imported records stay put.</li>
+      <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Take a backup immediately before cutover; that is your rollback point.</li>
+    </ul>
+  {% endcall %}
+</div>
+
+{% if has_perm(user, 'migration.add') %}
+{% set entity_options = [] %}{% for key, meta in entities.items() %}{% set _ = entity_options.append((key, meta.get('label', key))) %}{% endfor %}
+{% call ui.modal('upload', 'Start a new import') %}
+<form method="post" action="/admin/migration/upload" enctype="multipart/form-data" class="grid gap-4 sm:grid-cols-2">
+  {{ ui.select('entity', 'Entity', entity_options, none, required=True, placeholder='— what are you importing? —') }}
+  {{ ui.input('source_system', 'Source system', 'legacy_erp', help='Recorded on the job for traceability.') }}
+  <div class="sm:col-span-2">{{ ui.input('name', 'Job name (optional)', '', placeholder='Clients — first cutover batch') }}</div>
+  <div class="sm:col-span-2">
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">File (CSV or XLSX) <span class="text-rose-500">*</span></label>
+    <input type="file" name="file" accept=".csv,.txt,.xlsx,.xlsm" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs dark:border-slate-700 dark:bg-slate-800">
+    <p class="mt-1 text-xs text-slate-500">The first row must be the header row. Download the matching template above if you are unsure of the columns.</p>
+  </div>
+  <div class="sm:col-span-2">{{ ui.button('Upload and detect columns', icon='upload') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

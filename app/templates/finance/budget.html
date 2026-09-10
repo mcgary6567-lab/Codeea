@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Budget vs actual{% endblock %}
+{% block content %}
+{% call ui.page_header("Budget vs actual", period ~ " · approved and paid expenses against budget, in " ~ base ~ ".") %}
+  {% if has_perm(user, 'accounts.add') %}
+  <button type="button" @click="$dispatch('open-modal','newbudget')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Set budget line</button>
+  {% endif %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<form method="get" action="/finance/accounts/budget" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-44">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+</form>
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("Budgeted", totals.budgeted|money(base), icon="target", color="sky") }}
+  {{ ui.stat("Actual", totals.actual|money(base), icon="wallet", color="amber") }}
+  {{ ui.stat("Variance", totals.variance|money(base), icon="scale", color=('emerald' if totals.variance >= 0 else 'rose')) }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Category', 'Department', 'Budgeted', 'Actual', 'Variance', 'Used', '']) }}
+    {% for r in rows %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-medium">{{ r.category|titleize }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ r.department }}</td>
+      <td class="px-4 py-2 text-right">{{ r.budgeted|money }}</td>
+      <td class="px-4 py-2 text-right">{{ r.actual|money }}</td>
+      <td class="px-4 py-2 text-right font-medium {{ 'text-emerald-600' if r.variance >= 0 else 'text-rose-600' }}">{{ r.variance|money }}</td>
+      <td class="px-4 py-2 w-40">{{ ui.progress(r.used_pct, 'rose' if r.used_pct > 100 else ('amber' if r.used_pct > 85 else 'emerald'), label=r.used_pct|string ~ '%') }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if r.budget and has_perm(user, 'accounts.delete') %}{{ ui.confirm_form('/finance/accounts/budget/' ~ r.budget.id ~ '/delete', '', icon='trash-2', variant='ghost', message='Remove this budget line?') }}{% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No budget lines or spending for this period.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card("Budget vs actual") %}
+    {{ ui.chart('budgetChart', 320) }}
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('newbudget', 'Set a budget line') %}
+<form method="post" action="/finance/accounts/budget/new" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('period', 'Period', periods, period, required=True, placeholder=None) }}
+    {{ ui.select('category', 'Category', categories, None, required=True) }}
+    {{ ui.select('department_id', 'Department', departments, None, placeholder='All departments') }}
+    {{ ui.input('amount', 'Amount (' ~ base ~ ')', '', type='number', step='0.01', required=True) }}
+  </div>
+  {{ ui.textarea('notes', 'Notes', '', rows=2) }}
+  {{ ui.button('Save budget', icon='save') }}
+</form>
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('budgetChart', {{ labels|tojson }}, [
+  { label: 'Budgeted', data: {{ budgeted|tojson }} },
+  { label: 'Actual', data: {{ actual|tojson }} }
+]);
+</script>
+{% endblock %}

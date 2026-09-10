@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My learning{% endblock %}
+{% block content %}
+{{ ui.page_header('Assalamu alaikum, ' ~ s.full_name.split()[0], (s.course.name if s.course else 'Your course') ~ ' · ' ~ (s.level or 'level to be set') ~ ' · times shown in ' ~ s.timezone) }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Attendance (30d)', attendance ~ '%', icon='clipboard-check', color=('emerald' if attendance >= 80 else 'amber')) }}
+  {{ ui.stat('Course progress', (p.pct or 0) ~ '%', icon='trending-up', color='brand') }}
+  {{ ui.stat('Lessons completed', p.completed or 0, icon='check-circle', color='sky', hint='of ' ~ (p.total or 0)|string) }}
+  {{ ui.stat('My teacher', s.teacher.full_name if s.teacher else 'being matched', icon='user-check', color='indigo') }}
+</div>
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Next class') %}
+      {% if next %}
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ next_local.strftime('%A %d %B, %H:%M') }}</div>
+          <div class="mt-1 text-sm text-slate-500">{{ next.duration_minutes }} minutes with {{ next.teacher.full_name if next.teacher else 'your teacher' }}</div>
+          <div class="mt-1 text-xs text-slate-400">{{ s.timezone }}</div>
+        </div>
+        {{ ui.button('Join class', href='/classroom/' ~ next.id, icon='video') }}
+      </div>
+      {% else %}
+      {{ ui.empty_state('No upcoming class scheduled yet.', 'calendar-off') }}
+      {% endif %}
+      <div class="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+        {{ ui.button('Open my lesson', href='/student/lesson', icon='book-open', variant='secondary', size='sm') }}
+        {{ ui.button('My classes', href='/student/classes', icon='video', variant='secondary', size='sm') }}
+        {{ ui.button('My results', href='/student/results', icon='file-badge', variant='secondary', size='sm') }}
+      </div>
+    {% endcall %}
+    {% call ui.card('Recent classes') %}
+      {{ ui.table_start(['Date', 'Time', 'Teacher', 'Status', 'Teacher notes']) }}
+      {% for c in recent %}
+      <tr><td class="px-4 py-2 text-xs">{{ c.date|date }}</td><td class="px-4 py-2">{{ c.start_time|time }}</td>
+        <td class="px-4 py-2 text-xs">{{ c.teacher.full_name if c.teacher else '—' }}</td>
+        <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ (c.teacher_notes or '—')|truncate(60) }}</td></tr>
+      {% else %}{{ ui.empty('No classes yet.', 5) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Where I am') %}
+      {{ ui.progress(p.pct or 0, 'brand', 'Course progress') }}
+      <dl class="mt-4 space-y-2 text-sm">
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Current lesson</dt><dd>{{ p.get('current_lesson_title') or s.sabaq_position or '—' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Sabaq position</dt><dd>{{ s.sabaq_position or '—' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Revision (dor)</dt><dd>{{ 'On track' if s.dor_quota_met else 'Catch up needed before new sabaq' }}</dd></div>
+      </dl>
+    {% endcall %}
+    {% call ui.card('Notifications') %}
+      <ol class="space-y-3">
+      {% for n in notifications %}
+        <li><div class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ n.title }}</div>
+          <div class="text-xs text-slate-500">{{ n.body|truncate(80) }}</div>
+          <div class="text-[11px] text-slate-400">{{ n.created_at|ago }}</div></li>
+      {% else %}<li class="py-6 text-center text-sm text-slate-400">Nothing new.</li>{% endfor %}
+      </ol>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

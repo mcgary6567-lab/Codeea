@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}CEO Command Center{% endblock %}
+{% block content %}
+{% call ui.page_header("CEO Command Center", "Institutional health, executive KPIs, AI insights and anomalies · " ~ period.label) %}
+  {{ ui.button("Executive report (XLSX)", href="/command-center/export?" ~ period.qs, icon="file-spreadsheet", variant="secondary") }}
+  {{ ui.button("Trajectory meetings", href="/transformation/meetings", icon="calendar-clock", variant="secondary") }}
+  {{ ui.button("KPI scorecards", href="/kpis/scorecards", icon="target") }}
+{% endcall %}
+
+<form method="get" action="/command-center" class="mb-6 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      x-data="{ mode: '{{ period.key }}' }">
+  <div class="w-44">{{ ui.select('period', 'Period', period_choices, period.key, placeholder=None, attrs='x-model="mode"') }}</div>
+  <div class="w-40" x-show="mode === 'custom'" x-cloak>{{ ui.input('start', 'From', period.start, type='date') }}</div>
+  <div class="w-40" x-show="mode === 'custom'" x-cloak>{{ ui.input('end', 'To', period.end, type='date') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+  <a href="/command-center" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">This month</a>
+  <div class="ml-auto flex items-center gap-4 text-xs text-slate-500">
+    <span>{{ period.start|date }} &ndash; {{ period.end|date }} ({{ period.days }} days)</span>
+    <span>{{ open_tasks }} open tasks · <b class="{{ 'text-rose-600' if overdue_tasks }}">{{ overdue_tasks }} overdue</b></span>
+  </div>
+</form>
+
+<!-- ============================================================ health + tiles -->
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-start justify-between">
+      <div>
+        <h3 class="font-semibold text-slate-900 dark:text-white">Institutional Health</h3>
+        <p class="text-xs text-slate-500">Weighted composite, 0&ndash;100</p>
+      </div>
+      {{ ui.badge(health.band, health.band) }}
+    </div>
+    <div class="relative mx-auto mt-2" style="height: 190px; max-width: 300px">
+      <canvas id="healthGauge"></canvas>
+      <div class="pointer-events-none absolute inset-x-0 bottom-6 text-center">
+        <div class="text-4xl font-extrabold tracking-tight text-{{ health.color }}-600">{{ health.score }}</div>
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">out of 100</div>
+      </div>
+    </div>
+    <div class="mt-3 space-y-2">
+      {% for key, weight in health.weights.items() %}
+      {% set v = health.subs[key] %}
+      {% set band = health.sub_bands[key] %}
+      <div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-medium text-slate-600 dark:text-slate-300">{{ key|titleize }} <span class="text-slate-400">· {{ (weight * 100)|round|int }}% weight</span></span>
+          <span class="font-semibold text-{{ band[1] }}-600">{{ v if v is not none else '—' }}</span>
+        </div>
+        {{ ui.progress(v or 0, band[1]) }}
+      </div>
+      {% endfor %}
+    </div>
+    <details class="mt-4 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
+      <summary class="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">How this score is calculated</summary>
+      <p class="mt-2 text-slate-600 dark:text-slate-300">{{ health.summary }}</p>
+      <ul class="mt-2 space-y-1.5 text-slate-600 dark:text-slate-300">
+        {% for key, notes in health.notes.items() %}
+        <li><b class="text-slate-800 dark:text-slate-100">{{ key|titleize }}</b>
+          <ul class="ml-3 list-disc space-y-0.5">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="mt-2 text-slate-500">Sub-scores with no underlying data are excluded and the remaining weights are rescaled.</p>
+    </details>
+  </div>
+
+  <div class="lg:col-span-2">
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {% for t in tiles %}
+      <a href="{{ t.href }}" class="group rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <span class="text-[10.5px] font-semibold uppercase tracking-wide text-slate-500">{{ t.label }}</span>
+          <span class="rounded-md bg-{{ t.color }}-50 p-1.5 text-{{ t.color }}-600 dark:bg-{{ t.color }}-500/10 dark:text-{{ t.color }}-300"><i data-lucide="{{ t.icon }}" class="h-3.5 w-3.5"></i></span>
+        </div>
+        <div class="mt-1.5 truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white">{{ t.value }}</div>
+        <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+          {% if t.delta is not none %}<span class="inline-flex items-center gap-0.5 font-semibold {{ 'text-emerald-600' if t.delta >= 0 else 'text-rose-600' }}"><i data-lucide="{{ 'trending-up' if t.delta >= 0 else 'trending-down' }}" class="h-3 w-3"></i>{{ t.delta }}%</span>{% endif %}
+          <span class="truncate">{{ t.hint }}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ charts -->
+<div class="mb-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Revenue vs expenses", "Last 6 months, base currency") %}
+    {% if series.revenue|sum or series.expenses|sum or series.payroll|sum %}{{ ui.chart('revChart', 260) }}
+    {% else %}{{ ui.empty_state('No payments or expenses recorded yet.', 'bar-chart-3') }}{% endif %}
+  {% endcall %}
+  {% call ui.card("Active students", "Roster trend and gross adds") %}
+    {% if series.students|sum %}{{ ui.chart('studChart', 260) }}
+    {% else %}{{ ui.empty_state('No student history yet.', 'line-chart') }}{% endif %}
+  {% endcall %}
+  {% call ui.card("Lead funnel", "Cohort of leads created in the period") %}
+    {% if funnel_data|sum %}{{ ui.chart('funnelChart', 260) }}
+    {% else %}{{ ui.empty_state('No leads in this period.', 'funnel') }}{% endif %}
+  {% endcall %}
+  {% call ui.card("Today's class execution", today_status.total ~ " sessions scheduled today") %}
+    {% if today_status.data|sum %}{{ ui.chart('todayChart', 260) }}
+    {% else %}{{ ui.empty_state('No classes scheduled today.', 'video') }}{% endif %}
+  {% endcall %}
+</div>
+
+<!-- ============================================================ insights + anomalies -->
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+        <div>
+          <h3 class="flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><i data-lucide="sparkles" class="h-4 w-4 text-brand-600"></i>AI executive insights</h3>
+          <p class="text-xs text-slate-500">Generated from the computed period metrics · AI output is advisory and human-reviewed (Module 38)</p>
+        </div>
+        <form method="post" action="/command-center/insights/regenerate">
+          <input type="hidden" name="period" value="{{ period.key }}"><input type="hidden" name="start" value="{{ period.start }}"><input type="hidden" name="end" value="{{ period.end }}">
+          {{ ui.button('Regenerate', icon='refresh-cw', variant='secondary', size='sm') }}
+        </form>
+      </div>
+      <div class="p-5">{% include "command_center/_insights.html" %}</div>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+        <div><h3 class="font-semibold text-slate-900 dark:text-white">Anomalies &amp; alerts</h3>
+          <p class="text-xs text-slate-500">{{ anomalies|length }} computed · {{ alerts|length }} open alert(s)</p></div>
+        <form method="post" action="/command-center/anomalies/scan">
+          <input type="hidden" name="period" value="{{ period.key }}"><input type="hidden" name="start" value="{{ period.start }}"><input type="hidden" name="end" value="{{ period.end }}">
+          {{ ui.button('Scan', icon='radar', variant='secondary', size='sm') }}
+        </form>
+      </div>
+      <div class="p-5">
+        {% if anomalies %}
+        <ul class="mb-4 space-y-2">
+          {% for a in anomalies %}
+          <li class="rounded-lg border border-{{ 'rose' if a.severity in ('critical','high') else 'amber' }}-200 bg-{{ 'rose' if a.severity in ('critical','high') else 'amber' }}-50 p-2.5 dark:border-slate-700 dark:bg-slate-800/60">
+            <div class="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><i data-lucide="triangle-alert" class="h-3.5 w-3.5"></i>{{ a.title }}</div>
+            <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{{ a.message }}</p>
+            {% if a.visibility == 'ceo_only' %}<span class="mt-1 inline-block text-[10px] font-semibold uppercase text-rose-600">CEO only</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="mb-4 rounded-lg bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">No anomalies detected for this period.</div>
+        {% endif %}
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Open risk alerts</div>
+        <ul class="mt-2 space-y-2.5 text-sm">
+          {% for a in alerts %}
+          <li class="flex gap-2.5">
+            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-{{ a.severity|status_color }}-500"></span>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium leading-snug text-slate-800 dark:text-slate-100">{{ a.title }}</div>
+              <div class="text-xs text-slate-500">{{ a.alert_type|titleize }} · {{ a.created_at|ago }}{% if a.visibility == 'ceo_only' %} · <span class="font-semibold text-rose-600">CEO only</span>{% endif %}</div>
+            </div>
+            <form method="post" action="/command-center/alerts/{{ a.id }}/ack"><input type="hidden" name="resolve" value="1">
+              <button class="rounded-md px-1.5 py-1 text-slate-400 hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800" title="Resolve"><i data-lucide="check" class="h-3.5 w-3.5"></i></button>
+            </form>
+          </li>
+          {% else %}
+          <li class="py-4 text-center text-xs text-slate-400">No open alerts.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    {% call ui.card("Weekly trajectory", "Governance rhythm") %}
+      {% if meeting %}
+      <div class="rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-800 dark:bg-brand-900/20">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">Next meeting</div>
+        <a href="/transformation/meetings/{{ meeting.id }}" class="text-sm font-semibold text-slate-900 hover:underline dark:text-white">{{ meeting.title }}</a>
+        <div class="text-xs text-slate-600 dark:text-slate-300">{{ meeting.meeting_date|date }} · {{ meeting.attendees|length }} attendee(s)</div>
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 p-3 text-center text-xs text-slate-400 dark:border-slate-700">No upcoming trajectory meeting scheduled.</div>
+      {% endif %}
+      <div class="mt-3 flex items-center justify-between text-xs">
+        <span class="text-slate-500">Open decisions</span>
+        <span class="font-bold text-slate-900 dark:text-white">{{ open_decisions|length }}{% if overdue_decisions %} <span class="text-rose-600">({{ overdue_decisions }} past due)</span>{% endif %}</span>
+      </div>
+      <ul class="mt-2 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for d in open_decisions %}
+        <li class="py-2"><a href="/decisions/{{ d.id }}" class="block hover:text-brand-700">
+          <div class="truncate font-medium text-slate-800 dark:text-slate-100">{{ d.title }}</div>
+          <div class="text-xs text-slate-500">{{ d.category|titleize }} · {{ d.owner.full_name if d.owner else 'no owner' }}{% if d.due_date %} · due {{ d.due_date|date }}{% endif %}</div>
+        </a></li>
+        {% else %}<li class="py-4 text-center text-xs text-slate-400">No open decisions on the register.</li>{% endfor %}
+      </ul>
+      <div class="mt-3"><a href="/decisions" class="text-xs font-medium text-brand-600 hover:underline">Open the decision register &rarr;</a></div>
+    {% endcall %}
+  </div>
+</div>
+
+<!-- ============================================================ department scorecards -->
+{% call ui.card("Department scorecards", "RAG status from the stored KPI snapshot for " ~ period.month) %}
+{{ ui.table_start(['Department', 'Score', 'Band', 'On target', 'At risk', 'Off target', 'No data', 'Submission', '']) }}
+{% for s in scorecards %}
+<tr>
+  <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ s.department.name }}</td>
+  <td class="px-4 py-2 font-bold">{{ s.score if s.score is not none else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.band[0], s.band[0]) }}</td>
+  <td class="px-4 py-2 text-emerald-600">{{ s.counts.green }}</td>
+  <td class="px-4 py-2 text-amber-600">{{ s.counts.amber }}</td>
+  <td class="px-4 py-2 text-rose-600">{{ s.counts.red }}</td>
+  <td class="px-4 py-2 text-slate-400">{{ s.counts.grey + s.counts.blue }}</td>
+  <td class="px-4 py-2">{% if s.submission %}{{ ui.badge(s.submission.status) }}{% else %}<span class="text-xs text-slate-400">not submitted</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/kpis/scorecards?department_id=' ~ s.department.id ~ '&period=' ~ period.month, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No departments configured.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var score = {{ health.score }};
+  var col = {emerald:'#10b981', sky:'#0ea5e9', amber:'#f59e0b', rose:'#ef4444', slate:'#94a3b8'}['{{ health.color }}'];
+  OQC.chart('healthGauge', {
+    type: 'doughnut',
+    data: { labels: ['Score', 'Remaining'], datasets: [{ data: [score, Math.max(0, 100 - score)],
+            backgroundColor: [col, 'rgba(148,163,184,.18)'], borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, circumference: 220, rotation: 250, cutout: '76%',
+               plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+  });
+  {% if series.revenue|sum or series.expenses|sum or series.payroll|sum %}
+  OQC.bar('revChart', {{ series.labels|tojson }}, [
+    {label: 'Revenue', data: {{ series.revenue|tojson }}, backgroundColor: '#0d9488'},
+    {label: 'Expenses', data: {{ series.expenses|tojson }}, backgroundColor: '#f59e0b'},
+    {label: 'Payroll', data: {{ series.payroll|tojson }}, backgroundColor: '#6366f1'}
+  ]);
+  {% endif %}
+  {% if series.students|sum %}
+  OQC.line('studChart', {{ series.labels|tojson }}, [
+    {label: 'Active students', data: {{ series.students|tojson }}, borderColor: '#0ea5e9', backgroundColor: '#0ea5e922'},
+    {label: 'New', data: {{ series.new_students|tojson }}, borderColor: '#10b981', backgroundColor: '#10b98122'},
+    {label: 'Cancelled', data: {{ series.cancelled|tojson }}, borderColor: '#ef4444', backgroundColor: '#ef444422'}
+  ]);
+  {% endif %}
+  {% if funnel_data|sum %}
+  OQC.bar('funnelChart', {{ funnel_labels|tojson }}, [{label: 'Leads', data: {{ funnel_data|tojson }}}],
+    {indexAxis: 'y', plugins: {legend: {display: false}}});
+  {% endif %}
+  {% if today_status.data|sum %}
+  OQC.doughnut('todayChart', {{ today_status.labels|tojson }}, {{ today_status.data|tojson }});
+  {% endif %}
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Monthly Tests{% endblock %}
+{% block content %}
+{% call ui.page_header("Monthly Tests & Result Cards", "Module 41 — tests are generated from each student's curriculum position, scored against the syllabus, and delivered to the guardian as a bilingual result card.") %}
+  {{ ui.button("Improvement reports", href="/academics/monthly-tests/reports?period=" ~ period, icon="bar-chart-3", variant="secondary") }}
+  {% if can_generate %}{{ ui.button("Generate tests for a period", icon="wand-2", attrs="@click=\"$dispatch('open-modal','genTests')\"") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Tests — " ~ period_label, stats.total, icon="file-badge", color="brand") }}
+  {{ ui.stat("Scored", stats.scored, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Awaiting scoring", stats.pending, icon="clock", color="amber") }}
+  {{ ui.stat("Cards delivered", stats.delivered, icon="send", color="sky") }}
+  {{ ui.stat("Average", stats.avg ~ '%', icon="gauge", color="indigo") }}
+  {{ ui.stat("Declining >10 pts", stats.declines, icon="trending-down", color="rose", hint="Routed to retention") }}
+</div>
+
+{% call ui.filter_bar('/academics/monthly-tests') %}
+  <div class="w-40">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <div class="w-56">{{ ui.select('student', 'Student', student_options, student, placeholder='All students') }}</div>
+  <div class="w-48">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-28">{{ ui.select('grade', 'Grade', grades, grade, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Student', 'Teacher', 'Score', 'Percentage', 'Previous', 'Improvement', 'Grade', 'Status', 'Card', '']) }}
+{% for t in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><a href="/academics/monthly-tests/{{ t.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ t.student.full_name if t.student else '—' }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ t.student.student_code if t.student else '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ t.teacher.full_name if t.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ (t.score|string ~ ' / ' ~ t.max_score|int|string) if t.score is not none else '—' }}</td>
+  <td class="px-4 py-2 w-36">{% if t.percentage is not none %}{{ ui.progress(t.percentage, 'emerald' if t.percentage >= 70 else ('amber' if t.percentage >= 55 else 'rose'), label=t.percentage ~ '%') }}{% else %}<span class="text-xs text-slate-400">Not scored</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (t.previous_percentage ~ '%') if t.previous_percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if t.improvement_pct is not none %}
+    <span class="inline-flex items-center gap-1 font-semibold {{ 'text-emerald-600' if t.improvement_pct >= 0 else 'text-rose-600' }}">
+      <i data-lucide="{{ 'trending-up' if t.improvement_pct >= 0 else 'trending-down' }}" class="h-3.5 w-3.5"></i>{{ '%+.1f'|format(t.improvement_pct) }}
+    </span>{% else %}—{% endif %}
+  </td>
+  <td class="px-4 py-2">{% if t.grade %}{{ ui.badge(t.grade) }}{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+  <td class="px-4 py-2 text-xs">{% if t.result_card_path %}<a href="/academics/monthly-tests/{{ t.id }}/card" class="inline-flex items-center gap-1 text-brand-600 hover:underline"><i data-lucide="file-down" class="h-3.5 w-3.5"></i>PDF</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/academics/monthly-tests/' ~ t.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No tests for ' ~ period_label ~ '. Use “Generate tests for a period” to create them.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_generate %}
+{% call ui.modal('genTests', 'Generate monthly tests') %}
+<form method="post" action="/academics/monthly-tests/generate" class="space-y-4">
+  <p class="text-sm text-slate-600 dark:text-slate-300">A test is built for every active and trial student from their current curriculum position. Students who already have a test for the period are skipped, so this is safe to run more than once.</p>
+  {{ ui.select('period', 'Period', periods, period, placeholder=None, required=True) }}
+  <div class="flex justify-end">{{ ui.button('Generate tests', icon='wand-2') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Income & payslips{% endblock %}
+{% block content %}
+{{ ui.page_header('Income & payslips', 'Your class output for ' ~ period ~ ' and the payslips issued by Finance. Class pay is per-class rate multiplied by classes marked done.') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Classes done', done, icon='video', color='emerald', hint=period) }}
+  {{ ui.stat('Missed', missed, icon='x-circle', color='rose', hint='not paid') }}
+  {{ ui.stat('Per-class rate', rate|money('PKR'), icon='coins', color='sky') }}
+  {{ ui.stat('Class pay', class_pay|money('PKR'), icon='banknote', color='brand') }}
+  {{ ui.stat('Basic salary', (structure.basic if structure else 0)|money('PKR'), icon='wallet', color='indigo') }}
+</div>
+{% call ui.filter_bar('/teacher/income') %}
+  <div class="w-40">{{ ui.input('period', 'Period (YYYY-MM)', period, placeholder='2026-09') }}</div>
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Class output — last 6 months') %}
+    {{ ui.chart('incomeChart', 240) }}
+  {% endcall %}
+  {% call ui.card('Salary structure') %}
+    {% if structure %}
+    {{ ui.dl([('Basic', structure.basic|money(structure.currency)), ('Per-class rate', structure.per_class_rate|money(structure.currency)),
+              ('Absence deduction / day', structure.absence_deduction_per_day|money(structure.currency)),
+              ('Late deduction / instance', structure.late_deduction_per_instance|money(structure.currency)),
+              ('Effective from', structure.effective_from|date)]) }}
+    <div class="mt-4">
+      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Allowances</div>
+      <ul class="space-y-1 text-sm">{% for k, v in (structure.allowances or {}).items() %}<li class="flex justify-between"><span class="text-slate-500">{{ k|titleize }}</span><span>{{ v|money(structure.currency) }}</span></li>{% else %}<li class="text-slate-400">None</li>{% endfor %}</ul>
+    </div>
+    {% else %}{{ ui.empty_state('No salary structure on file yet — contact People & Culture.', 'wallet') }}{% endif %}
+  {% endcall %}
+</div>
+<div class="mt-6">
+{% call ui.card('Payslips') %}
+  {{ ui.table_start(['Period', 'Classes', 'Class pay', 'Basic', 'Allowances', 'Bonus', 'Deductions', 'Net', 'Status', '']) }}
+  {% for p in payslips %}
+  <tr><td class="px-4 py-2 font-mono text-xs">{{ p.payroll_run.period if p.payroll_run else '—' }}</td>
+    <td class="px-4 py-2">{{ p.classes_taught }}</td><td class="px-4 py-2">{{ p.class_pay|money(p.currency) }}</td>
+    <td class="px-4 py-2">{{ p.basic|money(p.currency) }}</td><td class="px-4 py-2">{{ p.allowances|money(p.currency) }}</td>
+    <td class="px-4 py-2">{{ p.bonus|money(p.currency) }}</td><td class="px-4 py-2 text-rose-600">{{ p.deductions|money(p.currency) }}</td>
+    <td class="px-4 py-2 font-semibold">{{ p.net|money(p.currency) }}</td><td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+    <td class="px-4 py-2 text-right">{% if p.pdf_path %}<a href="/storage/{{ p.pdf_path }}" class="text-xs text-brand-600 hover:underline">PDF</a>{% endif %}</td></tr>
+  {% else %}{{ ui.empty('No payslips have been issued yet.', 10) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('incomeChart', {{ months|map(attribute='period')|list|tojson }}, [
+  {label: 'Classes done', data: {{ months|map(attribute='classes')|list|tojson }}, backgroundColor: '#0d9488'}
+]);
+</script>
+{% endblock %}

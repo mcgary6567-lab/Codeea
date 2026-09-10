@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% call ui.page_header("Notifications", "Message templates, the trigger catalogue, the delivery log, consent and broadcasts") %}
+  {% if has_perm(user, 'notifications.add') %}{{ ui.button("New template", href="/admin/notifications/templates/new", icon="plus") }}{% endif %}
+  {{ ui.button("Integration hub", href="/admin/integrations", icon="plug", variant="secondary") }}
+{% endcall %}
+
+{% set total_log = (counts.values()|sum) if counts else 0 %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Templates", templates|length, icon="file-text", color="brand", hint=(templates|selectattr('is_active')|list|length|string) ~ " active") }}
+  {{ ui.stat("Messages logged", total_log, icon="send", color="sky") }}
+  {{ ui.stat("Delivered / sent", (counts.get('delivered', 0) + counts.get('sent', 0)), icon="check-check", color="emerald") }}
+  {{ ui.stat("Failed", counts.get('failed', 0), icon="alert-triangle", color=("rose" if counts.get('failed', 0) else "slate"), href="/admin/notifications?tab=log&status=failed") }}
+  {{ ui.stat("Consent records", total_prefs, icon="hand", color="indigo", hint="opt-in / opt-out on file") }}
+</div>
+
+{{ ui.tabs([
+  ('templates', 'Templates (' ~ templates|length ~ ')', '/admin/notifications?tab=templates'),
+  ('triggers', 'Trigger catalogue (' ~ triggers|length ~ ')', '/admin/notifications?tab=triggers'),
+  ('log', 'Delivery log (' ~ page.total ~ ')', '/admin/notifications?tab=log'),
+  ('preferences', 'Consent', '/admin/notifications?tab=preferences'),
+  ('broadcast', 'Broadcast', '/admin/notifications?tab=broadcast')], tab) }}
+
+{% if tab == 'templates' %}
+{{ ui.table_start(['Event type','Channel','Language','Subject','Placeholders','Status','']) }}
+{% for t in templates %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-medium">{{ t.event_type }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.channel) }}</td>
+  <td class="px-4 py-2 text-xs uppercase">{{ t.language }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ t.subject|truncate(70) }}</td>
+  <td class="px-4 py-2 text-[11px] font-mono text-slate-400">{{ (t.subject ~ ' ' ~ t.body).count('{{') }} placeholder(s)</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if t.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Edit', href='/admin/notifications/templates/' ~ t.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No notification templates yet.', 7, 'file-text') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-4 text-xs text-slate-500">A template is picked by <b>event type + channel + language</b>. If none exists the
+platform falls back to the literal title and body supplied by the calling module, so notifications are never lost.</p>
+
+{% elif tab == 'triggers' %}
+<p class="mb-4 text-sm text-slate-500">Every automated message the platform can send, who receives it and which job or module fires it.</p>
+{{ ui.table_start(['Event type','What it is','Audience','Channels','Fired by','Template']) }}
+{% for event, description, audience, channels, automated_by in triggers %}
+{% set tpl = (templates|selectattr('event_type','equalto',event)|list|first) %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-medium">{{ event }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ description }}</td>
+  <td class="px-4 py-2 text-xs">{{ audience }}</td>
+  <td class="px-4 py-2 text-xs">{% for c in channels.split(',') %}{{ ui.badge(c.strip()) }} {% endfor %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ automated_by }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if tpl %}{{ ui.button('Edit template', href='/admin/notifications/templates/' ~ tpl.id, variant='ghost', size='sm') }}
+    {% else %}<span class="text-[11px] text-amber-600">no template</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('The trigger catalogue is empty.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'log' %}
+{% call ui.filter_bar('/admin/notifications') %}
+  <input type="hidden" name="tab" value="log">
+  {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('push','Push')], channel, placeholder='All channels') }}
+  {{ ui.select('status', 'Status', [('queued','Queued'),('sent','Sent'),('delivered','Delivered'),('failed','Failed'),('read','Read')], status, placeholder='Any status') }}
+  {{ ui.select('event', 'Event type', events, event, placeholder='All events') }}
+  {{ ui.input('start', 'From', start, type='date') }}
+  {{ ui.input('end', 'To', end, type='date') }}
+{% endcall %}
+{{ ui.table_start(['When','Recipient','Channel','Event','Title','Status','Attempts','Error','']) }}
+{% for n in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if n.status == 'failed' }}">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ n.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if n.user %}<a href="/admin/users/{{ n.user.id }}" class="font-medium hover:text-brand-700">{{ n.user.full_name }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}
+    {% if n.recipient_address %}<span class="block font-mono text-[11px] text-slate-400">{{ n.recipient_address }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2">{{ ui.badge(n.channel) }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ n.event_type }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ n.title|truncate(52) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(n.status) }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ n.attempts }}</td>
+  <td class="px-4 py-2 text-[11px] text-rose-600">{{ (n.error or '')|truncate(40) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if n.status in ('failed', 'queued') and has_perm(user, 'notifications.execute') %}
+    <form method="post" action="/admin/notifications/log/{{ n.id }}/retry" class="inline">{{ ui.button('Retry', icon='refresh-cw', variant='secondary', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No notifications match these filters.', 9, 'send') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% elif tab == 'preferences' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Consent by channel", "Opt-in and opt-out counts across clients and users") %}
+      {{ ui.table_start(['Channel','Opted in','Opted out','Opt-in rate']) }}
+      {% for r in pref_rows %}
+      {% set total = r['in'] + r['out'] %}
+      <tr>
+        <td class="px-4 py-2">{{ ui.badge(r.channel) }}</td>
+        <td class="px-4 py-2 text-sm font-semibold text-emerald-700">{{ r['in'] }}</td>
+        <td class="px-4 py-2 text-sm font-semibold text-slate-500">{{ r['out'] }}</td>
+        <td class="px-4 py-2 w-64">{{ ui.progress(100 * r['in'] / (total or 1), 'emerald', label=((100 * r['in'] / (total or 1))|round(0)|int)|string ~ '% of ' ~ total) }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No communication preferences recorded yet.', 4, 'hand') }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  {% call ui.card("Consent rules") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Marketing and broadcast messages honour the opt-out flag on every channel.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Transactional messages — invoices, receipts, class reminders, safeguarding — are always delivered.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Parents manage their own preferences from the client portal; staff can record a verbal opt-out on the client record.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>WhatsApp uses approved templates outside the 24-hour customer service window.</li>
+    </ul>
+    <p class="mt-3 text-xs text-slate-500">{{ total_prefs }} preference record(s) on file.</p>
+  {% endcall %}
+</div>
+
+{% else %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Send a broadcast", "Goes out immediately to every active account in the audience") %}
+      {% set targets = [('all_staff','Everyone on the staff portal'),('all_teachers','All teachers'),('all_clients','All parents / clients'),('all_users','Every active account')] %}
+      {% for r in roles %}{% set _ = targets.append(('role:' ~ r.slug, 'Role — ' ~ r.name)) %}{% endfor %}
+      {% for d in departments %}{% set _ = targets.append(('department:' ~ d.id, 'Department — ' ~ d.name)) %}{% endfor %}
+      <form method="post" action="/admin/notifications/broadcast" class="space-y-4">
+        {{ ui.select('target', 'Audience', targets, none, required=True, placeholder='— choose an audience —') }}
+        {{ ui.input('title', 'Title', '', required=True, placeholder='Scheduled maintenance this Sunday') }}
+        {{ ui.textarea('body', 'Message', '', rows=5, placeholder='Keep it short — WhatsApp and push truncate long messages.') }}
+        {{ ui.input('link', 'Link (optional)', '', placeholder='/admin/settings') }}
+        <div>
+          <div class="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">Channels</div>
+          <div class="flex flex-wrap gap-4">
+            {{ ui.checkbox('ch_in_app', 'In-app', True) }}
+            {{ ui.checkbox('ch_email', 'Email') }}
+            {{ ui.checkbox('ch_whatsapp', 'WhatsApp') }}
+          </div>
+        </div>
+        {{ ui.input('rationale', 'Rationale', '', placeholder='Why is this broadcast being sent?') }}
+        {{ ui.button('Send broadcast', icon='megaphone') }}
+      </form>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card("Before you send") %}
+      <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="alert-triangle" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>A broadcast is consequential: the audience, channels and recipient count are written to the audit log with your name.</li>
+        <li class="flex gap-2"><i data-lucide="alert-triangle" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>External channels cost money and are rate limited. Prefer in-app for routine announcements.</li>
+        <li class="flex gap-2"><i data-lucide="alert-triangle" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Opted-out recipients are skipped automatically on email and WhatsApp.</li>
+      </ul>
+    {% endcall %}
+    {% call ui.card("Recent broadcasts") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for n in page.items|selectattr('event_type','equalto','broadcast')|list %}{% if loop.index <= 8 %}
+        <li class="py-2"><span class="block font-medium">{{ n.title|truncate(48) }}</span>
+          <span class="block text-xs text-slate-500">{{ n.created_at|datetime }} · {{ n.channel }} · {{ n.status }}</span></li>
+        {% endif %}{% else %}<li class="py-6 text-center text-slate-400">No broadcasts on this page of the log.</li>{% endfor %}
+      </ul>
+      <div class="mt-3">{{ ui.button('Full delivery log', href='/admin/notifications?tab=log&event=broadcast', variant='secondary', size='sm', icon='arrow-right') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

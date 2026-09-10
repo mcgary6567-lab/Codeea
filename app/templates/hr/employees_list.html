@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+{% call ui.page_header("Employees", "Every person on the payroll — teachers and support staff. Contact details and CNIC are masked unless you hold employees.update.") %}
+  {{ ui.button("Export CSV", href="/hr/employees/export.csv", icon="download", variant="secondary") }}
+  {{ ui.button("My HR page", href="/hr/me", icon="user", variant="secondary") }}
+  {% if has_perm(user, 'employees.add') %}{{ ui.button("New employee", href="/hr/employees/new", icon="plus") }}{% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Headcount", stats.headcount, icon="users", color="brand", hint="active, probation and on leave") }}
+  {{ ui.stat("On probation", stats.probation, icon="hourglass", color="amber", href="/hr/employees?status=probation") }}
+  {{ ui.stat("On leave today", stats.on_leave, icon="plane", color="violet", href="/hr/leaves") }}
+  {{ ui.stat("Unverified teachers", stats.unverified, icon="shield-alert", color="rose", hint="background check pending") }}
+  {{ ui.stat("Departments", stats.departments, icon="building-2", color="indigo") }}
+</div>
+<div class="mb-6 flex flex-wrap gap-2">
+  {% for d in stats.by_department %}
+  <span class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+    <span class="font-medium text-slate-700 dark:text-slate-200">{{ d.department }}</span>
+    <span class="rounded-full bg-brand-50 px-1.5 py-0.5 font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ d.count }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% call ui.filter_bar('/hr/employees') %}
+  <div class="w-60">{{ ui.input('q', 'Search', q, placeholder='Name, code, email, designation') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-48">{{ ui.select('department', 'Department', dept_options, department, placeholder='All departments') }}</div>
+  <div class="w-36">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+{% endcall %}
+{{ ui.table_start(['Code', 'Employee', 'Designation', 'Department', 'Shift', 'Contact', 'Band', 'Status', '']) }}
+{% for e in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/hr/employees/{{ e.id }}">{{ e.employee_code }}</a></td>
+  <td class="px-4 py-2"><div class="flex items-center gap-2">{{ ui.avatar(e.full_name, 'sm') }}
+    <div><a href="/hr/employees/{{ e.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ e.full_name }}</a>
+      <div class="text-xs text-slate-500">Joined {{ e.join_date|date }}{% if e.is_teacher %} · <span class="text-brand-600">Teacher</span>{% endif %}</div></div></div></td>
+  <td class="px-4 py-2 text-xs">{{ e.designation }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.department.name if e.department else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.shift|titleize }}<div class="text-slate-500">{{ e.shift_start or '' }}–{{ e.shift_end or '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ e.phone if show_sensitive else e.phone|mask }}<div class="text-slate-500">{{ e.email if show_sensitive else e.email|mask }}</div></td>
+  <td class="px-4 py-2 text-xs">{% if e.salary_band %}{{ ui.badge(e.salary_band) }}{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(e.status) }}{% if e.background_check_status != 'verified' %}<div class="mt-1 text-[10px] text-rose-600">BG {{ e.background_check_status }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/employees/' ~ e.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No employees match these filters.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

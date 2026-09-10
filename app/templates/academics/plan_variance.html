@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Planned vs delivered{% endblock %}
+{% block content %}
+{% call ui.page_header("Planned vs Delivered", "Lesson-plan delivery variance by teacher over the selected period. Lower variance means the plan was followed.", back="/academics/lesson-plans") %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Plans in range", rep.n, icon="notebook-pen", color="brand") }}
+  {{ ui.stat("Fully delivered", rep.delivered, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Partial", rep.partial, icon="alert-circle", color="amber") }}
+  {{ ui.stat("Not delivered", rep.not_delivered, icon="x-circle", color="rose") }}
+  {{ ui.stat("Avg variance", rep.avg_variance ~ '%', icon="git-compare", color="indigo") }}
+</div>
+
+{% call ui.filter_bar('/academics/lesson-plans/variance') %}
+  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+{% endcall %}
+
+{% if chart.labels %}
+<div class="mb-5">
+{% call ui.card('Delivery rate and variance by teacher') %}
+{{ ui.chart('varianceChart', 280) }}
+{% endcall %}
+</div>
+{% endif %}
+
+{{ ui.table_start(['Teacher', 'Plans', 'Delivered', 'Partial', 'Not delivered', 'Delivery rate', 'Avg variance', 'Reviewed']) }}
+{% for r in rep.rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-medium">{{ r.teacher.full_name if r.teacher else 'Unassigned' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.planned }}</td>
+  <td class="px-4 py-2 text-xs text-emerald-600">{{ r.delivered }}</td>
+  <td class="px-4 py-2 text-xs text-amber-600">{{ r.partial }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ r.not_delivered }}</td>
+  <td class="px-4 py-2 w-40">{{ ui.progress(r.delivery_rate, 'emerald' if r.delivery_rate >= 85 else 'amber', label=r.delivery_rate ~ '%') }}</td>
+  <td class="px-4 py-2 text-xs font-semibold {{ 'text-emerald-600' if r.avg_variance <= 25 else 'text-rose-600' }}">{{ r.avg_variance }}%</td>
+  <td class="px-4 py-2 text-xs">{{ r.reviewed }}</td>
+</tr>
+{% else %}{{ ui.empty('No lesson plans in this date range.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}
+{% block scripts %}
+{% if chart.labels %}
+<script>
+OQC.bar('varianceChart', {{ chart.labels|tojson }}, [
+  {label: 'Delivery rate %', data: {{ chart.delivery|tojson }}},
+  {label: 'Avg variance %', data: {{ chart.variance|tojson }}}
+]);
+</script>
+{% endif %}
+{% endblock %}

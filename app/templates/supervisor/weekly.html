@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Weekly coverage{% endblock %}
+{% block content %}
+{% call ui.page_header("Weekly coverage", start.strftime('%d %b') ~ " – " ~ end.strftime('%d %b %Y'), back="/supervisor") %}
+  {{ ui.button("Previous week", href="/supervisor/weekly?week_start=" ~ prev_week, icon="chevron-left", variant="secondary", size="sm") }}
+  {{ ui.button("This week", href="/supervisor/weekly", variant="secondary", size="sm") }}
+  {{ ui.button("Next week", href="/supervisor/weekly?week_start=" ~ next_week, icon="chevron-right", variant="secondary", size="sm") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Coverage", coverage ~ '%', icon="target", color="emerald" if coverage >= 90 else ("amber" if coverage >= 80 else "rose"), hint=tot_done ~ " of " ~ tot_planned ~ " planned classes delivered") }}
+  {{ ui.stat("Planned classes", tot_planned, icon="calendar-days", color="sky") }}
+  {{ ui.stat("Delivered", tot_done, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Missed-class response", (avg_response ~ ' min') if response_count else '—', icon="alarm-clock", color="indigo",
+             hint=(response_count ~ " acknowledged alert(s)") if response_count else "No acknowledged missed-class alerts this week") }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Daily coverage") %}
+      {{ ui.chart('weekChart', 250) }}
+    {% endcall %}
+    {% call ui.card("Day breakdown") %}
+      {{ ui.table_start(['Day','Planned','Done','Missed','Absent','Pending','Coverage'], compact=True) }}
+      {% for d in days %}
+      <tr>
+        <td class="px-4 py-2 text-xs font-medium">{{ d.date.strftime('%a %d %b') }}</td>
+        <td class="px-4 py-2 text-xs">{{ d.planned }}</td>
+        <td class="px-4 py-2 text-xs text-emerald-600">{{ d.done }}</td>
+        <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-semibold' if d.missed }}">{{ d.missed }}</td>
+        <td class="px-4 py-2 text-xs">{{ d.absent }}</td>
+        <td class="px-4 py-2 text-xs">{{ d.pending }}</td>
+        <td class="px-4 py-2 w-40">{{ ui.progress(d.coverage, 'emerald' if d.coverage >= 90 else ('amber' if d.coverage >= 75 else 'rose')) }}</td>
+      </tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("Teachers needing attention", "Lowest completion rate this week") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for r in per_teacher[:12] %}
+        <li class="py-2">
+          <div class="flex items-center justify-between"><span class="font-medium">{{ r.teacher.full_name }}</span>
+            <span class="{{ 'text-rose-600 font-semibold' if r.completion_rate < 85 else 'text-slate-600' }}">{{ r.completion_rate }}%</span></div>
+          <div class="text-xs text-slate-500">{{ r.done }}/{{ r.total }} delivered · {{ r.missed }} missed · {{ r.late }} late</div>
+        </li>
+        {% else %}<li class="py-6 text-center text-slate-400">No classes recorded this week.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  OQC.bar('weekChart', {{ days|map(attribute='date')|map('string')|list|tojson }}, [
+    {label: 'Delivered', data: {{ days|map(attribute='done')|list|tojson }}, backgroundColor: '#10b981'},
+    {label: 'Missed', data: {{ days|map(attribute='missed')|list|tojson }}, backgroundColor: '#ef4444'},
+    {label: 'Absent', data: {{ days|map(attribute='absent')|list|tojson }}, backgroundColor: '#f97316'}
+  ]);
+</script>
+{% endblock %}

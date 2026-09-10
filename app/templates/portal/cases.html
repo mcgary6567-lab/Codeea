@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Requests & complaints{% endblock %}
+{% block content %}
+{{ ui.page_header('Requests & complaints', 'Raise anything here — a schedule change, a teacher change, a billing question or a complaint. Every case gets an owner and a response deadline.') }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div>
+    {% call ui.card('Open a new case') %}
+      <form method="post" action="/portal/cases" class="space-y-3">
+        {{ ui.select('case_type', 'What is it about?', [('request','General request'),('complaint','Complaint'),('schedule_change','Schedule change'),('teacher_change','Teacher change'),('billing','Billing'),('technical','Technical problem')], 'request', placeholder=None) }}
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Which child? (optional)</label>
+          <select name="student_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <option value="">— Not about a specific child —</option>
+            {% for s in children %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        {{ ui.input('title', 'Short title', '', required=True, placeholder='Please move Aisha to 6pm') }}
+        {{ ui.textarea('description', 'Tell us more', '', rows=5, placeholder='The more detail you give, the faster we can fix it.') }}
+        <div class="flex gap-2">{{ ui.button('Submit', icon='send') }}</div>
+      </form>
+    {% endcall %}
+  </div>
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Case', 'Type', 'Title', 'Opened', 'Response due', 'Status', '']) }}
+    {% for k in rows %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-xs"><a href="/portal/cases/{{ k.id }}" class="text-brand-700 dark:text-brand-300">{{ k.case_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ k.case_type|titleize }}</td>
+      <td class="px-4 py-2 text-sm">{{ k.title }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ k.created_at|ago }}</td>
+      <td class="px-4 py-2 text-xs">{{ k.sla_due_at|datetime if k.sla_due_at else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(k.status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/portal/cases/' ~ k.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('You have not raised any requests yet.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+</div>
+{% endblock %}

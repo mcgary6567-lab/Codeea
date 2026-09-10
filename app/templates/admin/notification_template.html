@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ (obj.event_type ~ ' template') if obj else 'New template' }}{% endblock %}
+{% block content %}
+{% call ui.page_header(obj.event_type if obj else "New notification template",
+                       ("Channel " ~ obj.channel ~ " · language " ~ obj.language) if obj else "Define the subject and body used when this event fires",
+                       back="/admin/notifications?tab=templates") %}
+  {% if obj %}{{ ui.badge('active' if obj.is_active else 'inactive') }}{{ ui.badge(obj.channel) }}{% endif %}
+  {% if obj and has_perm(user, 'notifications.delete') %}
+  {{ ui.button('Delete', href='#', icon='trash-2', variant='danger', size='sm', attrs='@click.prevent="$dispatch(\'open-modal\',\'deltpl\')"') }}
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Template") %}
+      {% set trigger_options = [] %}{% for e, d, a, c, by in triggers %}{% set _ = trigger_options.append((e, e ~ ' — ' ~ d)) %}{% endfor %}
+      <form method="post" action="/admin/notifications/templates/save" class="grid gap-4 sm:grid-cols-2">
+        {% if obj %}<input type="hidden" name="id" value="{{ obj.id }}">{% endif %}
+        <div class="sm:col-span-2">
+          {{ ui.select('event_type', 'Event type', trigger_options, obj.event_type if obj else none, required=True,
+                       placeholder='— choose the triggering event —',
+                       help='Must match the event_type the calling module passes to notify().') }}
+        </div>
+        {{ ui.select('channel', 'Channel', [('in_app','In-app'),('email','Email'),('whatsapp','WhatsApp'),('push','Push')],
+                     obj.channel if obj else 'in_app', placeholder=None) }}
+        {{ ui.select('language', 'Language', [('en','English'),('ur','Urdu')], obj.language if obj else 'en', placeholder=None) }}
+        {% set ph_subject = 'Class starting in ' ~ '{{ minutes }}' ~ ' minutes' %}
+        {% set ph_body = 'Assalamu alaikum ' ~ '{{ name }}' ~ ', the class with ' ~ '{{ teacher }}' ~ ' starts at ' ~ '{{ time }}' ~ '. Join: ' ~ '{{ link }}' %}
+        <div class="sm:col-span-2">{{ ui.input('subject', 'Subject / title', obj.subject if obj else '', required=True, placeholder=ph_subject) }}</div>
+        <div class="sm:col-span-2">{{ ui.textarea('body', 'Body', obj.body if obj else '', rows=9, placeholder=ph_body) }}</div>
+        <div class="sm:col-span-2">{{ ui.checkbox('is_active', 'Active — the platform may use this template', obj.is_active if obj else True) }}</div>
+        <div class="sm:col-span-2 flex gap-2">
+          {{ ui.button('Save template', icon='save') }}
+          {{ ui.button('Cancel', href='/admin/notifications?tab=templates', variant='secondary') }}
+        </div>
+      </form>
+    {% endcall %}
+
+    {% if preview %}
+    {% call ui.card("Preview", "Rendered with sample values") %}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+        <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
+          <i data-lucide="{{ {'in_app':'bell','email':'mail','whatsapp':'message-circle','push':'smartphone'}.get(obj.channel, 'bell') }}" class="h-4 w-4"></i>
+          {{ obj.channel|titleize }} · {{ obj.language|upper }}
+        </div>
+        <div class="font-semibold text-slate-900 dark:text-white">{{ preview.subject }}</div>
+        <div class="mt-2 whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ preview.body }}</div>
+      </div>
+      <div class="mt-4">
+        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Placeholders in this template</div>
+        {% if preview.placeholders %}
+        <div class="flex flex-wrap gap-1.5">{% for p in preview.placeholders %}
+          <code class="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[11px] text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">&#123;&#123; {{ p }} &#125;&#125;</code>
+        {% endfor %}</div>
+        {% else %}<span class="text-sm text-slate-400">This template contains no placeholders.</span>{% endif %}
+      </div>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Available placeholders", "Anything the calling module puts in the payload") %}
+      <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+        {% for p in ['name','student','teacher','time','minutes','room','link','number','amount','due','period','title','start','end'] %}
+        <code class="rounded bg-slate-100 px-1.5 py-1 font-mono text-slate-700 dark:bg-slate-800 dark:text-slate-200">&#123;&#123; {{ p }} &#125;&#125;</code>
+        {% endfor %}
+      </div>
+      <p class="mt-3 text-xs text-slate-500">An unknown placeholder is left untouched in the output rather than blanked,
+      so a typo is visible in the delivery log instead of silently dropping data.</p>
+    {% endcall %}
+
+    {% if obj %}
+    {% call ui.card("Where it fires") %}
+      {% set ns = namespace(match=None) %}
+      {% for t in triggers %}{% if t[0] == obj.event_type %}{% set ns.match = t %}{% endif %}{% endfor %}
+      {% if ns.match %}
+        {{ ui.dl([('Event', ns.match[0]), ('Description', ns.match[1]), ('Audience', ns.match[2]), ('Channels', ns.match[3]), ('Fired by', ns.match[4])]) }}
+      {% else %}
+        <p class="text-sm text-slate-500">This event type is not in the standard trigger catalogue — it is a custom event
+        raised directly by a module or by an integration.</p>
+      {% endif %}
+      <div class="mt-3">{{ ui.button('Delivery log for this event', href='/admin/notifications?tab=log&event=' ~ obj.event_type, icon='send', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Channel notes") %}
+      <ul class="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+        <li><b>In-app</b> — always delivered, shown in the bell menu, never blocked by consent.</li>
+        <li><b>Email</b> — subject becomes the email subject; the body is sent as plain text.</li>
+        <li><b>WhatsApp</b> — outside the 24-hour window the provider requires a pre-approved template with the same placeholder order.</li>
+        <li><b>Push</b> — the subject is the notification title; keep the body under 120 characters.</li>
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% if obj and has_perm(user, 'notifications.delete') %}
+{% call ui.modal('deltpl', 'Delete this template') %}
+{{ ui.alert('Messages for this event will fall back to the literal text supplied by the calling module.', 'warning', 'Deleting ' ~ obj.event_type ~ '/' ~ obj.channel) }}
+<form method="post" action="/admin/notifications/templates/{{ obj.id }}/delete" class="mt-4 space-y-4">
+  {{ ui.input('rationale', 'Rationale', '', required=True) }}
+  {{ ui.button('Delete template', icon='trash-2', variant='danger') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

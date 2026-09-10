@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ kind|titleize }}{% endblock %}
+{% block content %}
+{% set is_adv = kind == 'advances' %}
+{% call ui.page_header('Salary advances' if is_adv else 'Bonuses',
+    'Approved advances are recovered automatically in instalments through payroll.' if is_adv else 'Approved bonuses are added to the payslip for their period.',
+    back='/hr/payroll') %}
+  {{ ui.button('Request' if is_adv else 'Propose', icon='plus', type='button', attrs='@click="$dispatch(\'open-modal\',\'newItem\')"') }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Total', rows|length, icon='list', color='brand') }}
+  {{ ui.stat('Pending', rows|selectattr('status', 'equalto', 'pending')|list|length, icon='hourglass', color='amber', href='?status=pending') }}
+  {{ ui.stat('Approved', rows|selectattr('status', 'equalto', 'approved')|list|length, icon='check', color='emerald', href='?status=approved') }}
+  {{ ui.stat('Outstanding' if is_adv else 'Approved value', outstanding|money('PKR'), icon='banknote', color='indigo') }}
+</div>
+{% call ui.filter_bar('/hr/payroll/' ~ kind) %}
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+{% endcall %}
+{{ ui.table_start(['Employee', 'Amount', 'Installments' if is_adv else 'Type', 'Remaining' if is_adv else 'Period', 'Reason', 'Status', 'Decision']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ r.employee_id }}" class="font-medium hover:text-brand-600">{{ r.employee.full_name if r.employee else '—' }}</a>
+    <div class="text-[11px] text-slate-500">{{ r.employee.employee_code if r.employee else '' }}</div></td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ r.amount|float|money(r.currency) }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.installments if is_adv else r.bonus_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ (r.remaining|float|money) if is_adv else (r.period or '—') }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500 max-w-sm">{{ r.reason or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2">
+    {% if r.status == 'pending' and has_perm(user, 'payroll.approve') %}
+    <form method="post" action="/hr/payroll/{{ kind }}/{{ r.id }}/decide" class="flex items-center gap-1">
+      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
+      <button name="decision" value="reject" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
+    </form>
+    {% else %}<span class="text-xs text-slate-400">—</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('Nothing in this queue.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% call ui.modal('newItem', 'Request a salary advance' if is_adv else 'Propose a bonus') %}
+<form method="post" action="/hr/payroll/{{ kind }}/new" class="space-y-4">
+  {{ ui.select('employee_id', 'Employee', employees, None, required=True) }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('amount', 'Amount (PKR)', '', type='number', step='500', required=True) }}
+    {% if is_adv %}{{ ui.input('installments', 'Instalments', 3, type='number', min=1, max=12) }}
+    {% else %}{{ ui.select('bonus_type', 'Type', ['performance','referral','eid','retention','other'], 'performance', placeholder=None) }}{% endif %}
+    {% if not is_adv %}{{ ui.input('period', 'Period', today().strftime('%Y-%m'), type='month') }}{% endif %}
+  </div>
+  {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
+  {{ ui.button('Submit', icon='send') }}
+</form>
+{% endcall %}
+{% endblock %}

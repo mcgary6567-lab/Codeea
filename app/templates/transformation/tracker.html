@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Transformation OS{% endblock %}
+{% block content %}
+{% call ui.page_header("Transformation OS", "The institution's own build tracker — every internal system from planned to full launch") %}
+  {{ ui.button("Trajectory meetings", href="/transformation/meetings", icon="calendar-check", variant="secondary") }}
+  {{ ui.button("New system", icon="plus", type="button", attrs='@click="$dispatch(\'open-modal\',\'newItem\')"') }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('Systems tracked', total, icon='rocket', color='brand') }}
+  {{ ui.stat('Full launch', launched, icon='check-circle-2', color='emerald', hint=(total - launched)|string ~ ' still building') }}
+  {{ ui.stat('In beta', counts.beta, icon='flask-conical', color='indigo', hint=counts.alpha|string ~ ' in alpha') }}
+  {{ ui.stat('Past target date', overdue|length, icon='alarm-clock', color='rose') }}
+  {{ ui.stat('Average progress', avg_progress ~ '%', icon='gauge', color='sky') }}
+</div>
+
+<form method="get" action="/transformation" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-48">{{ ui.select('department_id', 'Department', opts.departments, department_id, placeholder='All departments') }}</div>
+  <div class="w-40">{{ ui.select('state', 'State', opts.states, state, placeholder='All states') }}</div>
+  <div class="w-48">{{ ui.select('owner_id', 'Owner', opts.users, owner_id, placeholder='Anyone') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/transformation" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  {% for key, label, color in states %}
+  <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <span class="h-2 w-2 rounded-full bg-{{ color }}-500"></span>{{ label }}
+      </div>
+      <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800">{{ counts[key] }}</span>
+    </div>
+    <div class="space-y-2.5">
+      {% for i in board[key] %}
+      <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 text-sm font-medium text-slate-800 dark:text-slate-100">{{ i.system_name }}</div>
+          <button type="button" class="shrink-0 text-slate-400 hover:text-brand-600" @click="$dispatch('open-modal','item{{ i.id }}')" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+        </div>
+        {% if i.description %}<p class="mt-1 line-clamp-2 text-[11px] text-slate-500">{{ i.description }}</p>{% endif %}
+        <div class="mt-2">{{ ui.progress(i.progress_pct, color, 'Progress') }}</div>
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+          {% if i.department %}<span class="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{{ i.department.name }}</span>{% endif %}
+          {% if i.owner %}<span class="inline-flex items-center gap-1"><i data-lucide="user" class="h-3 w-3"></i>{{ i.owner.full_name }}</span>{% endif %}
+          {% if i.target_date %}<span class="inline-flex items-center gap-1 {{ 'font-semibold text-rose-600' if i.target_date < today and i.state != 'full_launch' }}"><i data-lucide="calendar" class="h-3 w-3"></i>{{ i.target_date|date('%d %b %Y') }}</span>{% endif %}
+        </div>
+        <div class="mt-2 flex flex-wrap gap-1 border-t border-slate-100 pt-2 dark:border-slate-800">
+          {% for k2, l2, c2 in states %}{% if k2 != i.state %}
+          <form method="post" action="/transformation/items/{{ i.id }}/state" class="inline">
+            <input type="hidden" name="state" value="{{ k2 }}">
+            <button class="rounded px-1.5 py-0.5 text-[10px] font-medium text-{{ c2 }}-700 ring-1 ring-inset ring-{{ c2 }}-600/20 hover:bg-{{ c2 }}-50 dark:text-{{ c2 }}-300">{{ l2 }}</button>
+          </form>
+          {% endif %}{% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 py-8 text-center text-xs text-slate-400 dark:border-slate-700">Nothing here</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-6 grid gap-5 lg:grid-cols-2">
+  {% call ui.card('Department build progress', 'Average progress of the systems each department owns') %}
+    {{ ui.chart('deptBuild', 280) }}
+  {% endcall %}
+  {% call ui.card('Scorecard accountability · ' ~ period_label, 'Every HOD owes a monthly scorecard before the trajectory meeting') %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for s in scorecards %}
+    <li class="flex items-center gap-3 py-2">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-{{ s.band[1] }}-500"></span>
+      <a href="/kpis/scorecards?period={{ period }}&department_id={{ s.department.id }}" class="flex-1 truncate hover:text-brand-700">{{ s.department.name }}</a>
+      <span class="text-xs text-slate-500">{{ s.department.hod.full_name if s.department.hod else 'no HOD' }}</span>
+      <span class="w-10 text-right text-xs font-semibold text-slate-700 dark:text-slate-200">{{ s.score if s.score is not none else '—' }}</span>
+      {{ ui.badge(s.status, 'Submitted' if s.status == 'submitted' else ('Draft' if s.status == 'draft' else 'Missing')) }}
+    </li>
+    {% else %}<li class="py-6 text-center text-xs text-slate-400">No departments configured.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+</div>
+
+{% if overdue %}
+<div class="mt-5">
+  {% call ui.card('Past their target date', 'These systems have slipped — re-plan them in the meeting, do not silently extend') %}
+  {{ ui.table_start(['System','Department','Owner','State','Target','Progress']) }}
+  {% for i in overdue %}
+  <tr>
+    <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ i.system_name }}</td>
+    <td class="px-4 py-2 text-xs">{{ i.department.name if i.department else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ i.owner.full_name if i.owner else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(i.state) }}</td>
+    <td class="px-4 py-2 text-xs font-semibold text-rose-600">{{ i.target_date|date }}</td>
+    <td class="px-4 py-2 text-xs">{{ i.progress_pct }}%</td>
+  </tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endif %}
+
+{% call ui.modal('newItem', 'Add a system to the master tracker', 'lg') %}
+<form method="post" action="/transformation/items/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('system_name', 'System name', '', required=True, placeholder='e.g. Automated attendance escalation') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'What it replaces / why it matters', '', rows=2) }}</div>
+    {{ ui.select('department_id', 'Department', opts.departments, None, placeholder='— None —') }}
+    {{ ui.select('owner_id', 'Owner', opts.users, None, placeholder='— Me —') }}
+    {{ ui.select('state', 'State', opts.states, 'planned', placeholder=None) }}
+    {{ ui.input('progress_pct', 'Progress %', 0, type='number', min=0, max=100) }}
+    {{ ui.input('target_date', 'Target date', '', type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', '', rows=2) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Add system', icon='plus') }}</div>
+</form>
+{% endcall %}
+
+{% for i in items %}
+{% call ui.modal('item' ~ i.id, 'Edit — ' ~ i.system_name, 'lg') %}
+<form method="post" action="/transformation/items/{{ i.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('system_name', 'System name', i.system_name, required=True) }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', i.description, rows=2) }}</div>
+    {{ ui.select('department_id', 'Department', opts.departments, i.department_id, placeholder='— None —') }}
+    {{ ui.select('owner_id', 'Owner', opts.users, i.owner_id, placeholder='— None —') }}
+    {{ ui.select('state', 'State', opts.states, i.state, placeholder=None) }}
+    {{ ui.input('progress_pct', 'Progress %', i.progress_pct, type='number', min=0, max=100) }}
+    {{ ui.input('target_date', 'Target date', i.target_date.isoformat() if i.target_date else '', type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', i.notes, rows=2) }}</div>
+  </div>
+  <div class="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+    {{ ui.confirm_form('/transformation/items/' ~ i.id ~ '/delete', 'Delete', message='Delete this system from the tracker?', hidden={'rationale': 'Removed from the OS master tracker'}) }}
+    {{ ui.button('Save changes', icon='save') }}
+  </div>
+</form>
+{% endcall %}
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  OQC.bar('deptBuild', {{ dept_progress|map(attribute='name')|list|tojson }},
+          [{label: 'Average progress %', data: {{ dept_progress|map(attribute='pct')|list|tojson }}}],
+          {scales: {y: {beginAtZero: true, max: 100}}});
+</script>
+{% endblock %}

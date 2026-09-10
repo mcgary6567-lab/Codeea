@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Freezes{% endblock %}
+{% block content %}
+{% call ui.page_header('Freeze handling', 'Section 29.11 — reactivation outreach is scheduled seven days before each freeze ends', back='/retention') %}
+  {% if has_perm(user, 'retention.update') %}{{ ui.confirm_form('/retention/freezes/schedule', 'Schedule outreach', icon='calendar-plus', variant='primary', size='md', message='Create reactivation outreach actions for freezes ending within 7 days?') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Frozen students', stats.frozen, icon='snowflake', color='violet') }}
+  {{ ui.stat('Freeze records', rows|length, icon='pause-circle', color='sky') }}
+  {{ ui.stat('Open retention actions', stats.open_actions, icon='list-checks', color='amber') }}
+</div>
+
+{{ ui.table_start(['Student','Family','Freeze ends','Days left','Outreach action','Status']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-amber-50/40 dark:bg-amber-950/10' if r.days_left is not none and r.days_left <= 7 }}">
+  <td class="px-4 py-2"><a href="/students/{{ r.student.id }}" class="font-medium hover:text-brand-600">{{ r.student.full_name }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ r.student.student_code }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.student.client.full_name if r.student.client else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.freeze_end|date if r.freeze_end else 'open-ended' }}</td>
+  <td class="px-4 py-2 text-xs font-medium">{{ r.days_left if r.days_left is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ (r.action.scheduled_at|datetime) if r.action and r.action.scheduled_at else 'Not scheduled' }}</td>
+  <td class="px-4 py-2">{% if r.action %}{{ ui.badge(r.action.status) }}{% else %}<span class="text-xs text-slate-400">—</span>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No frozen students right now.', 6, 'snowflake') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

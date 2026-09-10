@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payroll {{ run.period }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Payroll ' ~ run.period, summary.payslips ~ ' payslips · ' ~ summary.teachers ~ ' teachers, ' ~ summary.staff ~ ' staff', back='/hr/payroll') %}
+  {{ ui.badge(run.status) }}
+  {{ ui.button('Export CSV', href='/hr/payroll/' ~ run.id ~ '/export.csv', icon='download', variant='secondary', size='sm') }}
+  {% if run.status == 'draft' and has_perm(user, 'payroll.update') %}
+  {{ ui.confirm_form('/hr/payroll/' ~ run.id ~ '/submit', 'Submit for approval', icon='send', variant='primary', message='Submit this run for approval?') }}
+  {% endif %}
+  {% if run.status in ('draft','pending_approval') and can_approve %}
+  {{ ui.button('Approve', icon='check', variant='success', size='sm', type='button', attrs='@click="$dispatch(\'open-modal\',\'approveRun\')"') }}
+  {% endif %}
+  {% if run.status == 'approved' and has_perm(user, 'payroll.execute') %}
+  {{ ui.confirm_form('/hr/payroll/' ~ run.id ~ '/pay', 'Mark paid & issue payslips', icon='banknote', variant='success', message='Mark this payroll paid and notify every employee?') }}
+  {% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Gross', run.total_gross|float|money(run.currency), icon='trending-up', color='brand') }}
+  {{ ui.stat('Deductions', run.total_deductions|float|money(run.currency), icon='trending-down', color='rose') }}
+  {{ ui.stat('Net payable', run.total_net|float|money(run.currency), icon='banknote', color='emerald') }}
+  {{ ui.stat('Payslips', summary.payslips, icon='file-text', color='indigo', hint=(run.approved_at|date if run.approved_at else 'not approved')) }}
+</div>
+{% if run.notes %}<div class="mb-4">{{ ui.alert(run.notes, 'success', 'Ledger') }}</div>{% endif %}
+{% if run.status in ('draft','pending_approval') %}
+<div class="mb-4">{{ ui.alert('While a run is a draft you can adjust individual payslips — every adjustment needs a reason and is recorded as a consequential audit event.', 'info') }}</div>
+{% endif %}
+{{ ui.table_start(['Employee', 'Basic', 'Class pay', 'Classes', 'Allowances', 'Bonus', 'Attendance', 'Advance', 'Other', 'Gross', 'Net', '']) }}
+{% for p in slips %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ p.employee_id }}" class="font-medium hover:text-brand-600">{{ p.employee.full_name if p.employee else '—' }}</a>
+    <div class="text-[11px] text-slate-500">{{ p.employee.employee_code if p.employee else '' }} · {{ (p.details or {}).get('designation', '') }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ p.basic|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.class_pay|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.classes_taught or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.allowances|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.bonus|float|money }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ p.attendance_deduction|float|money }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ p.advance_deduction|float|money }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ p.deductions|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.gross|float|money }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ p.net|float|money }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Slip', href='/hr/payslips/' ~ p.id, size='sm', variant='ghost') }}
+    {% if run.status in ('draft','pending_approval') and has_perm(user, 'payroll.update') %}
+    <form method="post" action="/hr/payroll/payslips/{{ p.id }}/adjust" class="mt-1 flex items-center justify-end gap-1">
+      <input name="amount" type="number" step="100" placeholder="±" class="w-20 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <input name="reason" placeholder="reason" required class="w-28 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Adjust</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('This run has no payslips.', 12) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if can_approve %}
+{% call ui.modal('approveRun', 'Approve payroll ' ~ run.period, 'sm') %}
+<form method="post" action="/hr/payroll/{{ run.id }}/approve" class="space-y-4">
+  <p class="text-sm text-slate-600 dark:text-slate-300">Approving releases {{ run.total_net|float|money(run.currency) }} across {{ summary.payslips }} payslip(s) and posts the salary expense to the ledger (5000 / 5100 against 2100 Salaries Payable).</p>
+  {{ ui.textarea('rationale', 'Approval rationale', '', rows=3, required=True) }}
+  {{ ui.button('Approve payroll', icon='check', variant='success') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

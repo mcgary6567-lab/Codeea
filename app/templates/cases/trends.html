@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Case trends{% endblock %}
+{% macro count_list(title, rows, icon='list') %}
+{% call ui.card(title) %}
+  {% if rows %}
+  <ul class="space-y-2 text-sm">
+    {% for key, n in rows[:10] %}
+    <li><div class="flex justify-between"><span class="text-slate-600 dark:text-slate-300">{{ key|titleize }}</span><b>{{ n }}</b></div>
+      {{ ui.progress(100 * n / rows[0][1], 'brand') }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}{{ ui.empty_state('No data yet.', icon) }}{% endif %}
+{% endcall %}
+{% endmacro %}
+{% block content %}
+{{ ui.page_header('Case trends', 'Volume, resolution speed and SLA compliance across categories, departments and teachers', back='/cases') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Total cases', t.total, icon='life-buoy', color='sky') }}
+  {{ ui.stat('Open', t.open, icon='folder-open', color='amber') }}
+  {{ ui.stat('Breached (open)', t.breached_open, icon='alarm-clock-off', color='rose') }}
+  {{ ui.stat('Avg resolution', t.avg_resolution_hours ~ 'h', icon='timer', color='indigo') }}
+  {{ ui.stat('SLA compliance', t.sla_compliance ~ '%', icon='shield-check', color='emerald') }}
+</div>
+
+{% call ui.card('Opened vs resolved by month') %}{{ ui.chart('trend', 260) }}{% endcall %}
+
+<div class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+  {{ count_list('By category', t.by_category, 'tags') }}
+  {{ count_list('By department', t.by_department, 'building-2') }}
+  {{ count_list('By teacher', t.by_teacher, 'user-check') }}
+  {{ count_list('By case type', t.by_type, 'list') }}
+  {{ count_list('Root causes', t.root_causes, 'search') }}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.line('trend', {{ t.labels|tojson }}, [{label:'Opened', data: {{ t.opened|tojson }}}, {label:'Resolved', data: {{ t.resolved|tojson }}}]);
+</script>
+{% endblock %}

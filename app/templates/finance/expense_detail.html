@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ e.expense_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(e.expense_number, (e.vendor or e.category|titleize) ~ ' · ' ~ (e.expense_date|date), back='/finance/expenses') %}
+  {% if e.status == 'pending' and has_perm(user, 'expenses.approve') %}
+  <button type="button" @click="$dispatch('open-modal','approveexp')" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Approve</button>
+  <button type="button" @click="$dispatch('open-modal','rejectexp')" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>Reject</button>
+  {% endif %}
+  {% if e.status == 'approved' and has_perm(user, 'expenses.execute') %}
+  <button type="button" @click="$dispatch('open-modal','payexp')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="banknote" class="h-4 w-4"></i>Mark paid</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  {{ ui.badge(e.status) }}
+  <span class="text-slate-500">{{ e.category|titleize }}{% if e.department %} · {{ e.department.name }}{% endif %}</span>
+  <span class="ml-auto text-2xl font-bold">{{ e.amount|money(e.currency) }}<span class="ml-2 text-sm font-normal text-slate-400">= {{ e.amount_in_base|money(base) }}</span></span>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card("Details") %}
+    {{ ui.dl([('Number', e.expense_number), ('Category', e.category|titleize),
+              ('Ledger account', (e.account.code ~ ' — ' ~ e.account.name) if e.account else '—'),
+              ('Department', e.department.name if e.department else '—'), ('Vendor', e.vendor or '—'),
+              ('Amount', e.amount|money(e.currency)), ('Consolidated', e.amount_in_base|money(base)),
+              ('Expense date', e.expense_date|date), ('Status', e.status|titleize)]) }}
+    {% if e.description %}<div class="mt-4 whitespace-pre-line rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60">{{ e.description }}</div>{% endif %}
+    {% if e.receipt_path %}<div class="mt-4">{{ ui.button('Open receipt file', href=e.receipt_path, icon='paperclip', variant='secondary', size='sm') }}</div>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Journal postings") %}
+    {{ ui.table_start(['Entry', 'Date', 'Account', 'Debit', 'Credit']) }}
+    {% for je in journal %}{% for l in je.lines %}
+    <tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/accounts/journal/{{ je.id }}">{{ je.entry_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ je.entry_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ l.account.code }} · {{ l.account.name }}</td>
+      <td class="px-4 py-2 text-right">{{ l.debit|money if l.debit|float else '' }}</td>
+      <td class="px-4 py-2 text-right">{{ l.credit|money if l.credit|float else '' }}</td></tr>
+    {% endfor %}{% else %}{{ ui.empty('No journal posted yet — approve the expense first.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("Audit trail") %}
+    <ul class="space-y-2 text-xs">
+      {% for ev in events %}
+      <li><div class="text-slate-400">{{ ev.created_at|datetime }}</div>
+        <div><b>{{ ev.actor_name }}</b> — {{ ev.description }}</div>
+        {% if ev.rationale %}<div class="text-slate-500">Rationale: {{ ev.rationale }}</div>{% endif %}</li>
+      {% else %}<li class="text-slate-400">No audit events.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('approveexp', 'Approve expense') %}
+<form method="post" action="/finance/expenses/{{ e.id }}/approve" class="space-y-4">
+  {{ ui.alert('Approving posts a journal debiting ' ~ (e.account.name if e.account else e.category|titleize) ~ ' and crediting Bank.', 'info') }}
+  {{ ui.textarea('note', 'Approval note', '', rows=2) }}
+  {{ ui.button('Approve & post', icon='check', variant='success') }}
+</form>
+{% endcall %}
+
+{% call ui.modal('rejectexp', 'Reject expense') %}
+<form method="post" action="/finance/expenses/{{ e.id }}/reject" class="space-y-4">
+  {{ ui.textarea('note', 'Reason', '', rows=3, required=True) }}
+  {{ ui.button('Reject', icon='x', variant='danger') }}
+</form>
+{% endcall %}
+
+{% call ui.modal('payexp', 'Mark expense as paid') %}
+<form method="post" action="/finance/expenses/{{ e.id }}/pay" class="space-y-4">
+  {{ ui.input('reference', 'Payment reference', '', placeholder='Bank transfer reference') }}
+  {{ ui.button('Mark paid', icon='banknote') }}
+</form>
+{% endcall %}
+{% endblock %}

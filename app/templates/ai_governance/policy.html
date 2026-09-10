@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI policy{% endblock %}
+{% block content %}
+{% call ui.page_header("AI policy & thresholds", "The confidence each module must reach before its output may be acted on without a human review") %}
+  {{ ui.button("Review queue", href="/ai-governance/queue", icon="inbox", variant="secondary") }}
+  {{ ui.button("Model registry", href="/ai-governance/registry", icon="cpu", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+  <div class="flex items-start gap-2">
+    <i data-lucide="scale" class="mt-0.5 h-4 w-4 shrink-0"></i>
+    <div>
+      <b>No disciplinary action rests on an AI score alone.</b>
+      <p class="mt-1">An AI class score, churn risk or complaint classification is an input to a human judgement, never the
+        judgement itself. Before any warning, grade change, salary consequence or termination: a person reviews the
+        recording or the record, the teacher or employee is heard, and the decision is written in the decision register with
+        its own rationale. AI output that falls below the module threshold below must be reviewed before it is used at all.</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card('Per-module confidence thresholds', 'Stored in the “ai_thresholds” setting and applied across the platform') %}
+    <form method="post" action="/ai-governance/policy" class="space-y-4">
+      {{ ui.table_start(['Module','Threshold','Runs','Below threshold','Reviewed','False-positive rate']) }}
+      {% for module, value in thresholds.items() %}
+      {% set s = stats.get(module, {}) %}
+      <tr>
+        <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ labels.get(module, module|titleize) }}
+          <span class="block font-mono text-[10px] text-slate-400">{{ module }} · default {{ '%.2f'|format(defaults.get(module, 0.7)) }}</span></td>
+        <td class="px-4 py-2 w-32">
+          {% if can_configure %}
+          <input name="threshold_{{ module }}" type="number" step="0.05" min="0" max="1" value="{{ '%.2f'|format(value) }}"
+                 class="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+          {% else %}<span class="text-sm font-semibold">{{ '%.2f'|format(value) }}</span>{% endif %}
+        </td>
+        <td class="px-4 py-2 text-xs">{{ s.get('total', 0) }}</td>
+        <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if s.get('below') }}">{{ s.get('below', 0) }}<span class="ml-1 text-slate-400">({{ s.get('below_pct', 0) }}%)</span></td>
+        <td class="px-4 py-2 text-xs">{{ s.get('reviewed', 0) }}</td>
+        <td class="px-4 py-2 text-xs">{{ s.get('fp_rate', 0) }}%</td>
+      </tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+      {% if can_configure %}
+      <div class="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div class="w-96">{{ ui.input('rationale', 'Reason for the change', '', placeholder='Why these thresholds are moving') }}</div>
+        {{ ui.button('Save thresholds', icon='save') }}
+      </div>
+      {% endif %}
+    </form>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('How thresholds are used') %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="filter" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>An output below its module threshold is flagged in the run log and pushed up the review queue.</span></li>
+      <li class="flex gap-2"><i data-lucide="user-check" class="mt-0.5 h-4 w-4 shrink-0 text-indigo-600"></i><span>Class monitoring and complaint classification always queue for human review, whatever the confidence.</span></li>
+      <li class="flex gap-2"><i data-lucide="flag-off" class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"></i><span>A rising false-positive rate is the signal to retune the prompt, not to lower the threshold.</span></li>
+      <li class="flex gap-2"><i data-lucide="file-text" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span>Every review — approve, reject, override, false positive — is written to the audit trail with its reason.</span></li>
+    </ul>
+    {% endcall %}
+
+    {% call ui.card('Data handling') %}
+    <p class="text-xs leading-relaxed text-slate-500">
+      Payloads sent to the gateway are summarised and stored with each run so an output can always be reproduced and
+      explained. On this deployment the provider is simulated unless an API key is configured, which means no student or
+      family data leaves the server. Check the current provider on the
+      <a href="/ai-governance/registry" class="font-semibold text-brand-700 hover:underline dark:text-brand-300">model registry</a>.
+    </p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

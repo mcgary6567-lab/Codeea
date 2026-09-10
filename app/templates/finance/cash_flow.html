@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Cash flow{% endblock %}
+{% block content %}
+{% call ui.page_header("Cash flow", "Six months of movement on the Cash and Bank accounts, in " ~ base ~ ".") %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Monthly inflow vs outflow") %}
+    {{ ui.chart('cfChart', 300) }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("Summary") %}
+    {{ ui.table_start(['Month', 'In', 'Out', 'Net']) }}
+    {% for r in rows %}
+    <tr><td class="px-4 py-2 text-xs">{{ r.label }}</td>
+      <td class="px-4 py-2 text-right text-emerald-600">{{ r.inflow|money }}</td>
+      <td class="px-4 py-2 text-right text-rose-600">{{ r.outflow|money }}</td>
+      <td class="px-4 py-2 text-right font-semibold {{ 'text-emerald-600' if r.net >= 0 else 'text-rose-600' }}">{{ r.net|money }}</td></tr>
+    {% else %}{{ ui.empty('No cash movement recorded.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+    <p class="mt-3 text-right text-sm text-slate-500">Cumulative: <b>{{ (rows[-1].cumulative if rows else 0)|money(base) }}</b></p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('cfChart', {{ labels|tojson }}, [
+  { label: 'Inflow', data: {{ inflow|tojson }} },
+  { label: 'Outflow', data: {{ outflow|tojson }} }
+]);
+</script>
+{% endblock %}

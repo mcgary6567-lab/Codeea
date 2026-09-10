@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% import "tasks/_fields.html" as tf %}
+{% block title %}{{ t.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(t.title, "Task #" ~ t.id ~ " · created by " ~ (t.creator.full_name if t.creator else 'system') ~ " · " ~ t.created_at|date, back="/tasks") %}
+  {{ ui.badge(t.status) }} {{ ui.badge(t.priority) }}
+  {% if t.escalated %}<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300"><i data-lucide="siren" class="h-3 w-3"></i>Escalated {{ t.escalated_at|ago }}</span>{% endif %}
+  {{ ui.button('Edit', icon='pencil', variant='secondary', type='button', attrs='@click="$dispatch(\'open-modal\',\'editTask\')"') }}
+{% endcall %}
+
+{% if blocked %}
+{{ ui.alert("This task is blocked by <b>" ~ t.depends_on.title ~ "</b> (status: " ~ t.depends_on.status|titleize ~ "). It cannot move to In progress until the dependency is done."|safe, 'warning', 'Blocked') }}
+<div class="mb-4"></div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Details") %}
+      <p class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ t.description or 'No description provided.' }}</p>
+      <div class="mt-4">
+      {{ ui.dl([
+        ('Assignee', t.assignee.full_name if t.assignee else 'Unassigned'),
+        ('Department', t.department.name if t.department else None),
+        ('Project', t.project.name if t.project else None),
+        ('Sprint', t.sprint_id and (t.sprint_id|string) or None),
+        ('Due date', t.due_date|date if t.due_date else None),
+        ('Estimate', (t.estimate_hours ~ ' h') if t.estimate_hours else None),
+        ('Recurrence', t.recurrence|titleize if t.recurrence else 'One-off'),
+        ('Depends on', t.depends_on.title if t.depends_on else None),
+        ('Linked KPI', (kpi.code ~ ' — ' ~ kpi.name) if kpi else None),
+        ('Linked record', (t.entity_type|titleize ~ ' #' ~ (t.entity_id|string)) if t.entity_type else None),
+        ('Completed', t.completed_at|datetime if t.completed_at else None),
+        ('Assessment', (t.assessment_score|string ~ ' / 5') if t.assessment_score else 'Not assessed'),
+      ]) }}
+      </div>
+      {% if blocking %}
+      <div class="mt-4 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
+        <b class="text-slate-700 dark:text-slate-200">Blocking {{ blocking|length }} task(s):</b>
+        {% for b in blocking %}<a href="/tasks/{{ b.id }}" class="ml-1 text-brand-600 hover:underline">{{ b.title }}</a>{% endfor %}
+      </div>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("Comments", comments|length ~ " comment(s)") %}
+      <ul class="mb-4 space-y-4">
+        {% for c in comments %}
+        <li class="flex gap-3">
+          {{ ui.avatar(c.user.full_name if c.user else 'System') }}
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-2"><span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ c.user.full_name if c.user else 'System' }}</span><span class="text-[11px] text-slate-400">{{ c.created_at|ago }}</span></div>
+            <p class="whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{{ c.text }}</p>
+          </div>
+        </li>
+        {% else %}<li class="py-4 text-center text-sm text-slate-400">No comments yet.</li>{% endfor %}
+      </ul>
+      <form method="post" action="/tasks/{{ t.id }}/comment" class="flex items-end gap-2">
+        <div class="flex-1">{{ ui.textarea('text', None, '', rows=2, placeholder='Add a comment…', required=True) }}</div>
+        {{ ui.button('Comment', icon='message-square') }}
+      </form>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Move task", "Status transitions are audit-logged") %}
+      <div class="grid grid-cols-2 gap-2">
+        {% for key, label, color in columns %}
+        {% if key != t.status %}
+        <form method="post" action="/tasks/{{ t.id }}/move">
+          <input type="hidden" name="status" value="{{ key }}"><input type="hidden" name="back" value="/tasks/{{ t.id }}">
+          <button {% if key == 'in_progress' and blocked %}disabled title="Blocked by dependency"{% endif %}
+                  class="w-full rounded-lg border border-{{ color }}-200 bg-{{ color }}-50 px-3 py-2 text-xs font-semibold text-{{ color }}-700 hover:bg-{{ color }}-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-{{ color }}-800 dark:bg-{{ color }}-500/10 dark:text-{{ color }}-300">{{ label }}</button>
+        </form>
+        {% endif %}
+        {% endfor %}
+        {% if t.status != 'cancelled' %}
+        <form method="post" action="/tasks/{{ t.id }}/move"><input type="hidden" name="status" value="cancelled">
+          <button class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Cancel task</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if t.status != 'done' %}
+      <form method="post" action="/tasks/{{ t.id }}/complete" class="mt-4 space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+        {% if can_assess %}
+        {{ ui.select('assessment_score', 'Quality assessment (1–5)', [(5,'5 — Outstanding'),(4,'4 — Good'),(3,'3 — Acceptable'),(2,'2 — Below standard'),(1,'1 — Poor')], None, placeholder='— Not assessed —', help='Set by the creator or a manager on completion.') }}
+        {% endif %}
+        {{ ui.button('Mark complete', icon='check-circle-2', variant='success') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+
+    {% if has_perm(user, 'tasks.delete') %}
+    {% call ui.card("Danger zone") %}
+      <form method="post" action="/tasks/{{ t.id }}/delete" onsubmit="return confirm('Delete this task permanently?')" class="space-y-2">
+        {{ ui.input('rationale', 'Reason (audited)', '', placeholder='Why is this task being deleted?') }}
+        {{ ui.button('Delete task', icon='trash-2', variant='danger', size='sm') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% call ui.modal('editTask', 'Edit task', 'lg') %}
+<form method="post" action="/tasks/{{ t.id }}/edit" class="space-y-4">
+  {{ tf.task_fields(opts, t) }}
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save changes', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

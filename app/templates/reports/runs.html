@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Export history{% endblock %}
+{% block content %}
+{% call ui.page_header("Export history", "Every report run and export, with the parameters used and the row count produced", back='/reports') %}
+  {{ ui.button("Report catalogue", href="/reports", icon="bar-chart-3", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Runs recorded', page.total, icon='history', color='brand') }}
+  {{ ui.stat('On this page', page.items|length, icon='list', color='slate') }}
+  {{ ui.stat('Rows exported', page.items|sum(attribute='row_count'), icon='rows-3', color='indigo', hint='this page') }}
+  {{ ui.stat('Reports in catalogue', reports_by_key|length, icon='layers', color='sky') }}
+</div>
+
+{{ ui.table_start(['Generated','Report','Type','Format','Rows','By','Parameters','']) }}
+{% for r in page.items %}
+<tr>
+  <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ r.generated_at|datetime }}</td>
+  <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ r.name }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.report_type }}</td>
+  <td class="px-4 py-2 text-xs uppercase">{{ r.format }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.row_count }}</td>
+  <td class="px-4 py-2 text-xs">{{ names.get(r.generated_by_id, 'system') }}</td>
+  <td class="px-4 py-2 text-[11px] text-slate-400">{% for k, v in (r.params or {}).items() %}{% if v %}<span class="mr-1.5 rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{{ k }}={{ v }}</span>{% endif %}{% endfor %}</td>
+  <td class="px-4 py-2 text-right">
+    {% if r.report_type in reports_by_key %}{{ ui.button('Re-run', href='/reports/' ~ r.report_type, variant='ghost', size='sm') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No report runs recorded yet.', 8, 'history') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/reports/runs') }}
+{% endblock %}

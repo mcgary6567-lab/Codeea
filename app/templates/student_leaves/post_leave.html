@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Post-leave absences{% endblock %}
+{% block content %}
+{% call ui.page_header("Post-leave absences", "Students who did not return for the first class after an approved leave — an early churn signal", back="/leaves/students") %}
+  {% if has_perm(user, 'leaves.approve') or has_perm(user, 'leaves.update') %}
+  <form method="post" action="/leaves/students/post-leave/scan" class="inline">{{ ui.button('Run scan', icon='radar', variant='secondary') }}</form>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+  {{ ui.stat("Leaves reviewed", rows|length, icon="calendar-check", color="sky") }}
+  {{ ui.stat("Did not return", flagged, icon="user-x", color="rose") }}
+  {{ ui.stat("Retention alerts raised", alerts|length, icon="bell-ring", color="amber") }}
+</div>
+
+{{ ui.table_start(['Student','Leave','Ended','First class back','Outcome','']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-rose-50/50 dark:bg-rose-950/20' if r.absent }}">
+  <td class="px-4 py-2"><div class="font-medium">{{ r.leave.student.full_name if r.leave.student else '—' }}</div>
+    <div class="font-mono text-[11px] text-slate-400">{{ r.leave.student.student_code if r.leave.student }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.leave.leave_type|titleize }} · {{ r.leave.start_date|date }} → {{ r.leave.end_date|date }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.leave.end_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{% if r.session %}<a href="/classes/{{ r.session.id }}" class="hover:text-brand-700">{{ r.session.date|date }} {{ r.session.start_time|time }}</a>{% else %}<span class="text-slate-400">Not yet held</span>{% endif %}</td>
+  <td class="px-4 py-2">{% if r.session %}{{ ui.badge(r.session.status) }}{% else %}<span class="text-xs text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right text-xs">
+    {% if r.absent %}<span class="font-medium text-rose-600">Retention follow-up required</span>{% elif r.session %}<span class="text-emerald-600">Returned</span>{% else %}—{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No completed student leaves to review yet.', 6, 'calendar-check') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6">
+{% call ui.card("Post-leave retention alerts") %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for a in alerts %}
+    <li class="py-2.5"><div class="flex items-center justify-between"><span class="font-medium">{{ a.title }}</span>{{ ui.badge(a.status) }}</div>
+      <div class="text-xs text-slate-500">{{ a.message }} · {{ a.created_at|ago }}</div></li>
+    {% else %}<li class="py-6 text-center text-slate-400">No post-leave absence alerts have been raised.</li>{% endfor %}
+  </ul>
+{% endcall %}
+</div>
+{% endblock %}

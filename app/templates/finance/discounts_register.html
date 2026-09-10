@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Discount register{% endblock %}
+{% block content %}
+{% call ui.page_header("Weekly discount register", "Every concession grouped by ISO week — count, average percentage and value given away.") %}
+  {% if has_perm(user, 'discounts.export') %}{{ ui.button("Export CSV", href="/finance/discounts/register.csv?weeks=26", icon="download", variant="secondary") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs([('queue', 'Approval queue', '/finance/discounts'), ('register', 'Weekly register', '/finance/discounts/register'),
+            ('scholarships', 'Scholarships', '/finance/discounts/scholarships')], tab) }}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("Weeks covered", groups|length, icon="calendar-range", color="brand") }}
+  {{ ui.stat("Requests", groups|sum(attribute='count'), icon="percent", color="sky") }}
+  {{ ui.stat("Value given (" ~ base ~ ")", (groups|sum(attribute='value'))|money, icon="trending-down", color="amber",
+             hint="Monthly value of approved and pending concessions") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['ISO week', 'Requests', 'Average %', 'Value (' ~ base ~ ')', 'Approved', 'Rejected', 'Pending']) }}
+    {% for g in groups %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-xs font-semibold">{{ g.week }}</td>
+      <td class="px-4 py-2 text-center">{{ g.count }}</td>
+      <td class="px-4 py-2 text-center font-semibold {{ 'text-rose-600' if g.avg_pct > thresholds.manager_max else 'text-slate-700 dark:text-slate-200' }}">{{ g.avg_pct }}%</td>
+      <td class="px-4 py-2 text-right">{{ g.value|money }}</td>
+      <td class="px-4 py-2 text-center text-emerald-600">{{ g.approved }}</td>
+      <td class="px-4 py-2 text-center text-rose-600">{{ g.rejected }}</td>
+      <td class="px-4 py-2 text-center text-amber-600">{{ g.pending }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No discounts have been requested in this window.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+
+    <div class="mt-5">
+    {% call ui.card("Detail") %}
+    {{ ui.table_start(['Week', 'Subscription', 'Family', '%', 'Tier', 'Status', 'Decided by']) }}
+    {% for g in groups %}{% for r in g.requests %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ g.week }}</td>
+      <td class="px-4 py-2 font-mono text-xs">{% if r.subscription %}<a class="text-brand-700 dark:text-brand-300" href="/finance/subscriptions/{{ r.subscription_id }}">{{ r.subscription.subscription_code }}</a>{% else %}—{% endif %}</td>
+      <td class="px-4 py-2 text-xs">{{ r.subscription.client.full_name if r.subscription and r.subscription.client else '—' }}</td>
+      <td class="px-4 py-2 text-center">{{ r.discount_pct|round(1) }}%</td>
+      <td class="px-4 py-2 text-xs uppercase">{{ r.approver_tier }}</td>
+      <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+      <td class="px-4 py-2 text-xs">{{ r.approved_by.full_name if r.approved_by else '—' }}</td></tr>
+    {% endfor %}{% else %}{{ ui.empty('Nothing to show.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    </div>
+  </div>
+  <div>
+    {% call ui.card("Concession value by week") %}
+    {{ ui.chart('discChart', 300) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>OQC.bar('discChart', {{ labels|tojson }}, [{label: 'Value ({{ base }})', data: {{ values|tojson }}}]);</script>
+{% endblock %}

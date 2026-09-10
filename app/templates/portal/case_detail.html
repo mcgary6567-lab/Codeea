@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ case.case_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(case.title, 'Case ' ~ case.case_number ~ ' · opened ' ~ (case.created_at|datetime), back='/portal/cases') %}
+  {{ ui.badge(case.status) }}{{ ui.badge(case.priority) }}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Your request') %}
+      <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{{ case.description or 'No further detail was provided.' }}</p>
+    {% endcall %}
+    {% call ui.card('Conversation') %}
+      <ol class="space-y-4">
+      {% for m in comments %}
+        <li class="flex gap-3">
+          {{ ui.avatar(m.user.full_name if m.user else 'OQC', 'sm') }}
+          <div class="min-w-0 flex-1 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ m.user.full_name if m.user else 'Online Quran College' }}</span>
+              <span class="text-[11px] text-slate-400">{{ m.created_at|ago }}</span>
+            </div>
+            <p class="mt-1 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{{ m.text }}</p>
+          </div>
+        </li>
+      {% else %}
+        <li class="py-6 text-center text-sm text-slate-400">No replies yet — our team has been notified.</li>
+      {% endfor %}
+      </ol>
+      {% if case.status not in ['closed'] %}
+      <form method="post" action="/portal/cases/{{ case.id }}/comment" class="mt-5 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+        {{ ui.textarea('text', 'Add a message', '', rows=3, required=True, placeholder='Anything else we should know?') }}
+        <div class="flex gap-2">{{ ui.button('Send', icon='send') }}</div>
+      </form>
+      {% endif %}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Case details') %}
+      {{ ui.dl([('Reference', case.case_number), ('Type', case.case_type|titleize), ('Priority', case.priority|titleize),
+                ('Status', case.status|titleize), ('Opened', case.created_at|datetime),
+                ('Response due', case.sla_due_at|datetime if case.sla_due_at else '—'),
+                ('Resolved', case.resolved_at|datetime if case.resolved_at else '—')]) }}
+      {% if case.resolution %}
+      <div class="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <b>Resolution:</b> {{ case.resolution }}
+      </div>
+      {% endif %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

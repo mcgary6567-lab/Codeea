@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Organisation settings{% endblock %}
+{% block content %}
+{% call ui.page_header("Organisation settings", "Profile, branches, departments, configuration values, background jobs and environment") %}
+  {{ ui.button("Security centre", href="/admin/security", icon="shield", variant="secondary") }}
+  {{ ui.button("Backups & DR", href="/admin/backups", icon="database", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs([
+  ('organization', 'Organisation', '/admin/settings?tab=organization'),
+  ('branches', 'Branches (' ~ branches|length ~ ')', '/admin/settings?tab=branches'),
+  ('departments', 'Departments (' ~ departments|length ~ ')', '/admin/settings?tab=departments'),
+  ('settings', 'Configuration', '/admin/settings?tab=settings'),
+  ('jobs', 'Background jobs (' ~ jobs|length ~ ')', '/admin/settings?tab=jobs'),
+  ('environment', 'Environment', '/admin/settings?tab=environment')], tab) }}
+
+{% if tab == 'organization' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Organisation profile", "Shown on invoices, certificates, result cards and every outbound email") %}
+    <form method="post" action="/admin/settings/organization" enctype="multipart/form-data" class="grid gap-4 sm:grid-cols-2">
+      {{ ui.input('name', 'Trading name', org.name, required=True) }}
+      {{ ui.input('legal_name', 'Registered legal name', org.legal_name) }}
+      {{ ui.select('base_currency', 'Base currency', currencies, org.base_currency, placeholder=None, help='All reporting is converted to this currency.') }}
+      {{ ui.select('timezone', 'Default timezone', timezones, org.timezone, placeholder=None) }}
+      {{ ui.input('email', 'Contact email', org.email, type='email') }}
+      {{ ui.input('phone', 'Contact phone', org.phone) }}
+      {{ ui.input('website', 'Website', org.website, placeholder='https://onlinequrancollege.com') }}
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Logo (PNG or SVG)</label>
+        <input type="file" name="logo" accept="image/*" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs dark:border-slate-700 dark:bg-slate-800">
+        {% if org.logo_url %}<p class="mt-1 text-xs text-slate-500">Current: <a href="{{ org.logo_url }}" class="text-brand-600 hover:underline">{{ org.logo_url }}</a></p>{% endif %}
+      </div>
+      <div class="sm:col-span-2">{{ ui.button('Save organisation profile', icon='save') }}</div>
+    </form>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card("Identity") %}
+      {{ ui.dl([('Organisation', org.name), ('Legal name', org.legal_name), ('Base currency', org.base_currency),
+                ('Timezone', org.timezone), ('Branches', branches|length), ('Departments', departments|length)]) }}
+    {% endcall %}
+    {% call ui.card("Extra settings blob") %}
+      {% if org.settings %}
+      <dl class="space-y-2 text-xs">
+        {% for k, v in org.settings.items() %}
+        <div class="flex justify-between gap-3 border-b border-slate-100 pb-1 dark:border-slate-800">
+          <dt class="font-mono text-slate-500">{{ k }}</dt><dd class="text-right font-medium">{{ v }}</dd></div>
+        {% endfor %}
+      </dl>
+      {% else %}{{ ui.empty_state('No organisation-level overrides stored.', 'settings') }}{% endif %}
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'branches' %}
+<div class="mb-4 flex justify-end">
+  <button type="button" @click="$dispatch('open-modal','newbranch')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New branch</button>
+</div>
+{{ ui.table_start(['Code','Branch','Country','Timezone','Status','']) }}
+{% for b in branches %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs">{{ b.code }}</td>
+  <td class="px-4 py-2 font-medium">{{ b.name }}</td>
+  <td class="px-4 py-2 text-xs">{{ b.country }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ b.timezone }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if b.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">
+    <button type="button" @click="$dispatch('open-modal','br{{ b.id }}')" class="rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">Edit</button>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No branches configured.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% call ui.modal('newbranch', 'New branch') %}
+<form method="post" action="/admin/settings/branches" class="grid gap-4 sm:grid-cols-2">
+  {{ ui.input('name', 'Branch name', '', required=True) }}
+  {{ ui.input('code', 'Code', '', required=True, placeholder='LHR') }}
+  {{ ui.input('country', 'Country', 'Pakistan') }}
+  {{ ui.select('timezone', 'Timezone', timezones, org.timezone, placeholder=None) }}
+  <div class="sm:col-span-2">{{ ui.checkbox('is_active', 'Active', True) }}</div>
+  <div class="sm:col-span-2">{{ ui.button('Create branch', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% for b in branches %}
+{% call ui.modal('br' ~ b.id, 'Edit ' ~ b.name) %}
+<form method="post" action="/admin/settings/branches" class="grid gap-4 sm:grid-cols-2">
+  <input type="hidden" name="id" value="{{ b.id }}">
+  {{ ui.input('name', 'Branch name', b.name, required=True) }}
+  {{ ui.input('code', 'Code', b.code, required=True) }}
+  {{ ui.input('country', 'Country', b.country) }}
+  {{ ui.select('timezone', 'Timezone', timezones, b.timezone, placeholder=None) }}
+  <div class="sm:col-span-2">{{ ui.checkbox('is_active', 'Active', b.is_active) }}</div>
+  <div class="sm:col-span-2 flex items-center gap-2">{{ ui.button('Save branch', icon='save') }}</div>
+</form>
+<form method="post" action="/admin/settings/branches" class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800" onsubmit="return confirm('Delete this branch?')">
+  <input type="hidden" name="id" value="{{ b.id }}"><input type="hidden" name="delete" value="1">
+  <div class="grid gap-3 sm:grid-cols-2">{{ ui.input('rationale', 'Rationale', '', required=True) }}
+  <div class="flex items-end">{{ ui.button('Delete branch', icon='trash-2', variant='danger') }}</div></div>
+</form>
+{% endcall %}
+{% endfor %}
+
+{% elif tab == 'departments' %}
+<div class="mb-4 flex justify-end">
+  <button type="button" @click="$dispatch('open-modal','newdept')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New department</button>
+</div>
+{{ ui.table_start(['Code','Department','Head of department','Description','Status','']) }}
+{% for d in departments %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs">{{ d.code }}</td>
+  <td class="px-4 py-2 font-medium">{{ d.name }}</td>
+  <td class="px-4 py-2 text-xs">{{ d.hod.full_name if d.hod else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (d.description or '—')|truncate(70) }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if d.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">
+    <button type="button" @click="$dispatch('open-modal','dp{{ d.id }}')" class="rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">Edit</button>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No departments configured.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% set staff_options = [] %}{% for s in staff %}{% set _ = staff_options.append((s.id, s.full_name)) %}{% endfor %}
+{% call ui.modal('newdept', 'New department') %}
+<form method="post" action="/admin/settings/departments" class="grid gap-4 sm:grid-cols-2">
+  {{ ui.input('name', 'Department name', '', required=True) }}
+  {{ ui.input('code', 'Code', '', required=True, placeholder='technology') }}
+  {{ ui.select('hod_user_id', 'Head of department', staff_options, none, placeholder='— none —') }}
+  <div>{{ ui.checkbox('is_active', 'Active', True) }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2) }}</div>
+  <div class="sm:col-span-2">{{ ui.button('Create department', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% for d in departments %}
+{% call ui.modal('dp' ~ d.id, 'Edit ' ~ d.name) %}
+<form method="post" action="/admin/settings/departments" class="grid gap-4 sm:grid-cols-2">
+  <input type="hidden" name="id" value="{{ d.id }}">
+  {{ ui.input('name', 'Department name', d.name, required=True) }}
+  {{ ui.input('code', 'Code', d.code, required=True) }}
+  {{ ui.select('hod_user_id', 'Head of department', staff_options, d.hod_user_id, placeholder='— none —') }}
+  <div>{{ ui.checkbox('is_active', 'Active', d.is_active) }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', d.description, rows=2) }}</div>
+  <div class="sm:col-span-2">{{ ui.button('Save department', icon='save') }}</div>
+</form>
+<form method="post" action="/admin/settings/departments" class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800" onsubmit="return confirm('Delete this department?')">
+  <input type="hidden" name="id" value="{{ d.id }}"><input type="hidden" name="delete" value="1">
+  <div class="grid gap-3 sm:grid-cols-2">{{ ui.input('rationale', 'Rationale', '', required=True) }}
+  <div class="flex items-end">{{ ui.button('Delete department', icon='trash-2', variant='danger') }}</div></div>
+</form>
+{% endcall %}
+{% endfor %}
+
+{% elif tab == 'settings' %}
+<p class="mb-4 text-sm text-slate-500">Every value below is stored in the <code class="rounded bg-slate-100 px-1 font-mono text-xs dark:bg-slate-800">settings</code> table and read live by the modules that own it. Each group saves independently and the change is written to the audit log with your rationale.</p>
+<div class="grid gap-6 xl:grid-cols-2">
+  {% for group, items in grouped.items() %}
+  {% call ui.card(group|titleize, items|length ~ ' key(s)') %}
+  <form method="post" action="/admin/settings/values" class="space-y-4">
+    <input type="hidden" name="group" value="{{ group }}">
+    {% for s in items %}
+    <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+      <div class="mb-2 flex items-baseline justify-between gap-3">
+        <code class="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">{{ s.key }}</code>
+        <span class="text-[11px] text-slate-500">{{ s.description or '' }}</span>
+      </div>
+      {% if s.value is mapping %}
+        <div class="grid gap-3 sm:grid-cols-2">
+        {% for k, v in s.value.items() %}
+          {% if v is boolean %}
+            <div class="flex items-center">{{ ui.checkbox('s_' ~ s.id ~ '__' ~ k, k|titleize, v) }}</div>
+          {% elif v is number %}
+            {{ ui.input('s_' ~ s.id ~ '__' ~ k, k|titleize, v, type='number', step='any') }}
+          {% elif v is string %}
+            {{ ui.input('s_' ~ s.id ~ '__' ~ k, k|titleize, v) }}
+          {% else %}
+            <div class="sm:col-span-2 text-xs"><span class="font-semibold text-slate-500">{{ k|titleize }}</span>
+              <pre class="mt-1 overflow-x-auto rounded bg-slate-50 p-2 font-mono text-[11px] dark:bg-slate-800">{{ v|tojson_safe }}</pre>
+              <span class="text-slate-400">Nested lists and objects are edited by the owning module.</span></div>
+          {% endif %}
+        {% endfor %}
+        </div>
+      {% elif s.value is boolean %}
+        {{ ui.checkbox('s_' ~ s.id ~ '__value', 'Enabled', s.value) }}
+      {% elif s.value is number %}
+        {{ ui.input('s_' ~ s.id ~ '__value', 'Value', s.value, type='number', step='any') }}
+      {% elif s.value is string %}
+        {{ ui.input('s_' ~ s.id ~ '__value', 'Value', s.value) }}
+      {% else %}
+        <pre class="overflow-x-auto rounded bg-slate-50 p-2 font-mono text-[11px] dark:bg-slate-800">{{ s.value|tojson_safe }}</pre>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="flex items-end gap-3">
+      <div class="flex-1">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is this changing?') }}</div>
+      {{ ui.button('Save ' ~ group, icon='save', size='sm') }}
+    </div>
+  </form>
+  {% endcall %}
+  {% else %}
+  <div class="xl:col-span-2">{{ ui.empty_state('No configuration keys have been seeded yet.', 'sliders-horizontal') }}</div>
+  {% endfor %}
+</div>
+
+{% elif tab == 'jobs' %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Registered jobs", jobs|length, icon="timer", color="brand") }}
+  {{ ui.stat("Ran OK", jobs|selectattr('status','equalto','ok')|list|length, icon="check-circle", color="emerald") }}
+  {{ ui.stat("Errored", jobs|selectattr('status','equalto','error')|list|length, icon="alert-triangle", color="rose") }}
+  {{ ui.stat("Never run", jobs|rejectattr('last_run')|list|length, icon="clock", color="amber") }}
+</div>
+{{ ui.table_start(['Job','Interval','Last run','Status','Result','']) }}
+{% for j in jobs %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-medium">{{ j.id }}</td>
+  <td class="px-4 py-2 text-xs">every {{ j.interval }} min</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ j.last_run|datetime if j.last_run else 'never' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(j.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (j.result|string)|truncate(90) if j.result is not none else '—' }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'settings.execute') %}
+    <form method="post" action="/admin/settings/jobs/{{ j.id }}/run" class="inline">{{ ui.button('Run now', icon='play', variant='secondary', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No background jobs are registered.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-4 text-xs text-slate-500">Jobs are discovered from <code class="font-mono">app/services/jobs_*.py</code> at start-up and run inside the application process. Running a job by hand is audit-logged.</p>
+
+{% else %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Runtime environment", "Read-only — values come from .env / environment variables") %}
+    <table class="min-w-full text-sm">
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for k, v in env %}
+      <tr><td class="py-2 pr-4 font-mono text-xs text-slate-500">{{ k }}</td>
+          <td class="py-2 font-medium break-all {{ 'text-rose-600' if 'DEFAULT' in (v|string) else '' }}">{{ v }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endcall %}
+  <div class="space-y-6">
+    {% call ui.card("Deployment checklist") %}
+      <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Set a unique <code class="font-mono text-xs">SECRET_KEY</code> and a PostgreSQL <code class="font-mono text-xs">DATABASE_URL</code>.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Configure SMTP and the WhatsApp Cloud API so notifications leave simulation mode.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Enable nightly backups and verify a restore test weekly.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Force two-factor authentication for privileged roles in the Security Centre.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Terminate TLS at nginx and keep <code class="font-mono text-xs">BASE_URL</code> on https.</li>
+      </ul>
+      <div class="mt-4 flex flex-wrap gap-2">
+        {{ ui.button('DR runbook', href='/admin/backups/runbook', icon='book-open', variant='secondary', size='sm') }}
+        {{ ui.button('Integration hub', href='/admin/integrations', icon='plug', variant='secondary', size='sm') }}
+      </div>
+    {% endcall %}
+    {% call ui.card("Application") %}
+      {{ ui.dl([('App name', app_name), ('Environment', app_env), ('Base URL', base_url), ('Server time (UTC)', utcnow()|datetime), ('Server date', today()|date)]) }}
+    {% endcall %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

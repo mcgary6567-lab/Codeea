@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA queue{% endblock %}
+{% block content %}
+{% call ui.page_header("Quality assurance queue", "Sampled classes awaiting a scored human review") %}
+  {{ ui.button("Corrective actions", href="/qa/corrective-actions", icon="list-checks", variant="secondary") }}
+  {{ ui.button("Trends", href="/qa/trends", icon="trending-up", variant="secondary") }}
+  {% if has_perm(user, 'qa.add') %}{{ ui.button("Sample classes", icon="dice-5", attrs='type="button" @click="$dispatch(\'open-modal\',\'sampleModal\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Queued", stats.queued, icon="inbox", color="amber", href="/qa?status=queued") }}
+  {{ ui.stat("In review", stats.in_review, icon="pencil-line", color="indigo", href="/qa?status=in_review") }}
+  {{ ui.stat("Completed", stats.completed, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Average score", stats.avg, icon="gauge", color="sky", hint="out of 100") }}
+  {{ ui.stat("Awaiting HOD approval", stats.needs_approval, icon="shield-alert", color="rose",
+             hint="scored below " ~ threshold) }}
+</div>
+
+{% call ui.filter_bar('/qa') %}
+  {{ ui.input('q', 'Teacher', q, placeholder='Name or code') }}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+  {{ ui.select('sample_type', 'Sample', sample_types, sample_type, placeholder='All') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
+  {{ ui.input('date_from', 'From', date_from or '', type='date') }}
+  {{ ui.input('date_to', 'To', date_to or '', type='date') }}
+{% endcall %}
+
+{{ ui.table_start(['Review','Teacher','Class','Sample','AI risk','Score','Status','Reviewer','']) }}
+{% for r in page.items %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">#{{ r.id }}{% if r.re_evaluation_of_id %}<div class="text-[10px] text-violet-600">re-eval of #{{ r.re_evaluation_of_id }}</div>{% endif %}</td>
+  <td class="px-4 py-2"><div class="font-medium">{{ r.teacher.full_name if r.teacher else '—' }}</div>
+    <div class="text-[11px] text-slate-400">grade {{ r.teacher.grade if r.teacher }} · QA avg {{ r.teacher.qa_score_avg|round(1) if r.teacher }}</div></td>
+  <td class="px-4 py-2 text-xs">{% if r.session %}<a href="/classes/{{ r.session_id }}" class="hover:text-brand-700">{{ r.session.date|date }} {{ r.session.start_time|time }}</a>{% else %}<span class="text-slate-400">No class linked</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ r.sample_type|titleize }}</td>
+  <td class="px-4 py-2">{% if r.session and r.session.ai_analysis %}{{ ui.badge(r.session.ai_analysis.risk_level) }}{% else %}<span class="text-xs text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2">{% if r.overall_score is not none %}<span class="text-sm font-bold {{ 'text-rose-600' if r.overall_score < threshold }}">{{ r.overall_score }}</span>{% else %}<span class="text-xs text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}{% if r.status == 'completed' and r.overall_score is not none and r.overall_score < threshold %}<div class="text-[10px] text-rose-600">needs HOD approval</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ r.reviewer.full_name if r.reviewer else 'Unassigned' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/qa/' ~ r.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('The QA queue is empty. Draw a sample to start reviewing.', 9, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'qa.add') %}
+{% call ui.modal('sampleModal', 'Draw a QA sample') %}
+<div class="space-y-6">
+  <form method="post" action="/qa/sample/random" class="space-y-3">
+    <h4 class="font-semibold">Random sample</h4>
+    <p class="text-xs text-slate-500">Completed classes from the last N days that have no review yet, spread across teachers and preferring classes with a recording.</p>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ ui.input('n', 'How many classes', 10, type='number', min=1, max=50) }}
+      {{ ui.input('days', 'Look back (days)', 7, type='number', min=1, max=60) }}
+    </div>
+    {{ ui.button('Draw random sample', icon='dice-5') }}
+  </form>
+  <hr class="border-slate-100 dark:border-slate-800">
+  <form method="post" action="/qa/sample/risk" class="space-y-3">
+    <h4 class="font-semibold">Risk-based sample</h4>
+    <p class="text-xs text-slate-500">Classes with a medium or high AI risk level, or taught by grade-C teachers.</p>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ ui.input('n', 'How many classes', 10, type='number', min=1, max=50) }}
+      {{ ui.input('days', 'Look back (days)', 14, type='number', min=1, max=90) }}
+    </div>
+    {{ ui.button('Draw risk-based sample', icon='alert-triangle', variant='warning') }}
+  </form>
+  <hr class="border-slate-100 dark:border-slate-800">
+  <form method="post" action="/qa/schedule-review" class="space-y-3">
+    <h4 class="font-semibold">Schedule a review for a teacher</h4>
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, none, required=True, placeholder='— Select —') }}
+    {{ ui.button('Schedule review', icon='calendar-check', variant='secondary') }}
+  </form>
+</div>
+{% endcall %}
+{% endif %}
+{% endblock %}

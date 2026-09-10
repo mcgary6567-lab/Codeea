@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Classroom · {{ s.room_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Live classroom", (s.student.full_name if s.student else '—') ~ " with " ~ (s.teacher.full_name if s.teacher else '—') ~ " · " ~ s.date.strftime('%d %b %Y') ~ " " ~ s.start_time.strftime('%H:%M'), back='/classes/' ~ s.id) %}
+  {{ ui.badge(s.status) }}
+  {% if can_end and s.status in ('pending','started') %}
+  <form method="post" action="/classroom/{{ s.id }}/end" onsubmit="return confirm('End the class and mark it done?')" class="inline">
+    <input type="hidden" name="reason" value="Class ended from the live classroom">
+    {{ ui.button('End class', icon='square', variant='danger') }}
+  </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% if provider == 'jitsi' %}
+    <div id="jitsi-container" class="h-[560px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-900 shadow-sm dark:border-slate-800"></div>
+    <p class="mt-2 text-xs text-slate-500">Room <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">{{ room }}</code> ·
+      you are joining as <b>{{ display_name }}</b> ({{ side }}). Join and leave times are recorded for attendance and QA.</p>
+    {% else %}
+    <div class="flex h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-center dark:border-slate-700 dark:bg-slate-900">
+      <i data-lucide="video-off" class="mb-3 h-10 w-10 text-slate-300"></i>
+      <h3 class="text-lg font-semibold">Video provider not configured</h3>
+      <p class="mt-1 max-w-md text-sm text-slate-500">VIDEO_PROVIDER is set to <b>{{ provider }}</b>. Set <code>VIDEO_PROVIDER=jitsi</code>
+        and <code>JITSI_DOMAIN</code> in the environment to embed the live classroom here.</p>
+      {% if s.join_url %}<a href="{{ s.join_url }}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="external-link" class="h-4 w-4"></i>Open the external room</a>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-4">
+      {{ ui.stat('Planned', s.duration_minutes ~ ' min', icon='timer', color='slate') }}
+      {{ ui.stat('Teacher joined', (s.teacher_joined_at|time) if s.teacher_joined_at else '—', icon='log-in', color='emerald') }}
+      {{ ui.stat('Student joined', (s.student_joined_at|time) if s.student_joined_at else '—', icon='user-check', color='sky') }}
+      {{ ui.stat('Late', (s.teacher_late_minutes ~ ' min') if s.teacher_late_minutes else 'On time', icon='alarm-clock',
+                 color='rose' if (s.teacher_late_minutes or 0) > 5 else 'emerald') }}
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Student") %}
+      <div class="flex items-center gap-3">{{ ui.avatar(s.student.full_name if s.student else '?') }}
+        <div><div class="font-medium">{{ s.student.full_name if s.student else '—' }}</div>
+          <div class="text-xs text-slate-500">{{ s.student.student_code if s.student }} · {{ s.course.name if s.course else 'No course' }}</div></div></div>
+      <div class="mt-4 space-y-2 text-sm">
+        <a href="/academics/arabic-view/{{ s.student_id }}?session={{ s.id }}" class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-brand-400 dark:border-slate-700">
+          <i data-lucide="book-open" class="h-4 w-4 text-brand-600"></i>Shared Arabic lesson view</a>
+        <a href="/classes?student_id={{ s.student_id }}" class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-brand-400 dark:border-slate-700">
+          <i data-lucide="history" class="h-4 w-4 text-slate-500"></i>Class history</a>
+      </div>
+      {% if s.student and s.student.sabaq_position %}<p class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">Current position: {{ s.student.sabaq_position }}</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Lesson plan", "Saved against today's plan") %}
+      <form method="post" action="/classroom/{{ s.id }}/lesson-plan" class="space-y-3">
+        {{ ui.textarea('planned_content', 'Planned content', plan.planned_content if plan else '', rows=2, required=True) }}
+        {{ ui.input('sabaq', 'Sabaq (new lesson)', plan.sabaq if plan else '') }}
+        {{ ui.input('sabqi', 'Sabqi (recent revision)', plan.sabqi if plan else '') }}
+        {{ ui.input('dor', 'Dor (long revision)', plan.dor if plan else '') }}
+        {{ ui.textarea('teacher_notes', 'Teacher notes', plan.teacher_notes if plan else (s.teacher_notes or ''), rows=2) }}
+        {{ ui.button('Save lesson plan', icon='notebook-pen', size='sm') }}
+      </form>
+    {% endcall %}
+
+    {% call ui.card("Recent classes") %}
+      <ul class="space-y-2 text-sm">
+        {% for r in recent %}
+        <li class="flex items-center justify-between"><a href="/classes/{{ r.id }}" class="hover:text-brand-700">{{ r.date|date }} {{ r.start_time|time }}</a>{{ ui.badge(r.status) }}</li>
+        {% else %}<li class="py-3 text-center text-slate-400">No previous completed classes.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if provider == 'jitsi' %}
+<script src="https://{{ jitsi_domain }}/external_api.js"></script>
+{% endif %}
+<script>
+(function () {
+  var sid = {{ s.id }};
+  var joined = false;
+  function post(path) { return fetch('/classroom/' + sid + path, {method:'POST', headers:{'Accept':'application/json'}}); }
+  function markJoin() { if (joined) return; joined = true; post('/join').catch(function(){}); }
+  function markLeave() { if (!joined) return; joined = false; try { navigator.sendBeacon('/classroom/' + sid + '/leave'); } catch (e) { post('/leave'); } }
+  {% if provider == 'jitsi' %}
+  if (window.JitsiMeetExternalAPI) {
+    var api = new JitsiMeetExternalAPI('{{ jitsi_domain }}', {
+      roomName: {{ room|tojson }},
+      parentNode: document.getElementById('jitsi-container'),
+      userInfo: { displayName: {{ display_name|tojson }} },
+      configOverwrite: { prejoinPageEnabled: false, disableDeepLinking: true, startWithAudioMuted: {{ 'false' if side == 'teacher' else 'true' }} },
+      interfaceConfigOverwrite: { SHOW_JITSI_WATERMARK: false, MOBILE_APP_PROMO: false }
+    });
+    api.addEventListener('videoConferenceJoined', markJoin);
+    api.addEventListener('videoConferenceLeft', markLeave);
+  } else {
+    markJoin();
+  }
+  {% else %}
+  markJoin();
+  {% endif %}
+  window.addEventListener('beforeunload', markLeave);
+})();
+</script>
+{% endblock %}

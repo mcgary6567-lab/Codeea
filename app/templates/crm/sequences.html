@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Automation sequences{% endblock %}
+{% block content %}
+{% call ui.page_header('Automation sequences', 'Timed WhatsApp follow-ups. A sequence stops automatically when the contact replies.') %}
+  {% if has_perm(user, 'sequences.update') %}{{ ui.confirm_form('/crm/sequences/run', 'Run due steps now', icon='play', variant='secondary', message='Send all due sequence steps now?') }}{% endif %}
+  {% if has_perm(user, 'sequences.add') %}<button @click="$dispatch('open-modal','newseq')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New sequence</button>{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Active enrollments', status_counts.get('active', 0), icon='play-circle', color='emerald') }}
+  {{ ui.stat('Completed', status_counts.get('completed', 0), icon='check-circle-2', color='sky') }}
+  {{ ui.stat('Replied (stopped)', status_counts.get('replied', 0), icon='message-circle-reply', color='indigo') }}
+  {{ ui.stat('Stopped', status_counts.get('stopped', 0), icon='octagon-x', color='slate') }}
+  {{ ui.stat('Sequences', sequences|length, icon='workflow', color='violet') }}
+</div>
+
+{{ ui.table_start(['Sequence','Type','Steps','Active','Total enrolled','Status','']) }}
+{% for s in sequences %}
+<tr>
+  <td class="px-4 py-2"><a href="/crm/sequences/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.name }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ s.sequence_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% for step in (s.steps or []) %}<span class="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] dark:bg-slate-800">D+{{ step.day }}</span>{% endfor %}
+  </td>
+  <td class="px-4 py-2 font-medium">{{ active.get(s.id, 0) }}</td>
+  <td class="px-4 py-2">{{ counts.get(s.id, 0) }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if s.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/crm/sequences/' ~ s.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No sequences configured yet.', 7, 'workflow') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% call ui.modal('newseq', 'New sequence', 'lg') %}
+<form method="post" action="/crm/sequences/new" class="space-y-4">
+  {{ ui.input('name', 'Name', '', required=True, placeholder='Lead follow-up — 5 touches') }}
+  {{ ui.select('sequence_type', 'Type', types, 'lead_follow_up', placeholder=None) }}
+  {{ ui.textarea('steps', 'Steps (JSON array)', '[{"day": 0, "template": "lead_follow_up"}, {"day": 2, "template": "trial_follow_up"}, {"day": 5, "template": "win_back"}]', rows=8,
+                 help='Each step: day offset plus a template name or a literal body. Placeholders are substituted per contact.') }}
+  {{ ui.checkbox('is_active', 'Active', checked=True) }}
+  {{ ui.button('Create sequence', icon='check') }}
+</form>
+{% endcall %}
+{% endblock %}

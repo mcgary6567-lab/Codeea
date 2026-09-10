@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ustaadh Lab{% endblock %}
+{% block content %}
+{% call ui.page_header('Ustaadh Lab — teacher development', 'Grades are computed from QA scores, punctuality and student retention over the last 90 days. A low grade triggers training, never termination.') %}
+  {% if has_perm(user, 'teacher_dev.update') %}
+  {{ ui.confirm_form('/hr/teacher-development/recompute', 'Recompute all grades', icon='refresh-cw', variant='primary', message='Recompute grades for every teacher? Band changes update salary structures.') }}
+  {% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Grade A', counts.A, icon='award', color='emerald') }}
+  {{ ui.stat('Grade B', counts.B, icon='medal', color='sky') }}
+  {{ ui.stat('Grade C', counts.C, icon='trending-down', color='amber') }}
+  {{ ui.stat('Teachers', teachers|length, icon='users', color='brand') }}
+  {{ ui.stat('Grades older than 14 days', stale, icon='clock-alert', color='rose') }}
+</div>
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'grading' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Teacher', 'Grade', 'QA', 'Punctuality', 'Retention', 'Computed', '']) }}
+    {% for t in teachers %}
+    {% set gi = t.grade_inputs or {} %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 text-xs">{% if t.employee_id %}<a href="/hr/employees/{{ t.employee_id }}" class="font-medium hover:text-brand-600">{{ t.full_name }}</a>{% else %}{{ t.full_name }}{% endif %}
+        <div class="text-[11px] text-slate-500">{{ t.teacher_code }} · {{ t.shift|titleize }}{% if not t.is_verified %} · <span class="text-rose-600">unverified</span>{% endif %}</div></td>
+      <td class="px-4 py-2">{{ ui.badge(t.grade or 'B') }}</td>
+      <td class="px-4 py-2 text-xs">{{ gi.get('qa', t.qa_score_avg)|round(1) }}<div class="text-[10px] text-slate-400">{{ gi.get('qa_reviews', 0) }} review(s)</div></td>
+      <td class="px-4 py-2 text-xs">{{ gi.get('punctuality', t.punctuality_score)|round(1) }}%<div class="text-[10px] text-slate-400">{{ gi.get('classes_done', 0) }} class(es)</div></td>
+      <td class="px-4 py-2 text-xs">{{ gi.get('retention', t.retention_rate)|round(1) }}%<div class="text-[10px] text-slate-400">{{ gi.get('students_active', 0) }} active / {{ gi.get('students_lost_90d', 0) }} lost</div></td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ t.grade_computed_at|ago if t.grade_computed_at else 'never' }}</td>
+      <td class="px-4 py-2 text-right">{% if has_perm(user, 'teacher_dev.update') %}
+        <form method="post" action="/hr/teacher-development/{{ t.id }}/recompute" class="inline">{{ ui.button('Recompute', icon='refresh-cw', size='sm', variant='ghost') }}</form>{% endif %}</td>
+    </tr>
+    {% else %}{{ ui.empty('No teachers on record.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card('Grade history', 'From the immutable audit trail') %}
+    <ul class="space-y-3 text-xs">
+      {% for ev in history %}
+      <li><div class="font-medium text-slate-700 dark:text-slate-200">{{ ev.description }}</div>
+        <div class="text-slate-500">{{ ev.rationale or '' }}</div>
+        <div class="text-slate-400">{{ ev.actor_name }} · {{ ev.created_at|ago }}</div></li>
+      {% else %}<li class="text-slate-400">No grade changes recorded yet.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'bands' %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Grade → basic salary') %}
+  {{ ui.table_start(['Grade', 'Basic salary (PKR)', 'Teachers']) }}
+  {% for g, amount in bands.items() %}
+  <tr><td class="px-4 py-2">{{ ui.badge(g) }}</td><td class="px-4 py-2 text-xs font-semibold">{{ amount|money }}</td><td class="px-4 py-2 text-xs">{{ counts.get(g, 0) }}</td></tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  <p class="mt-3 text-xs text-slate-500">Editable under Payroll → <a href="/hr/payroll/bands" class="text-brand-600 hover:underline">Salary bands</a> with payroll.configure.</p>
+  {% endcall %}
+  {% call ui.card('Thresholds') %}
+  {{ ui.table_start(['Grade', 'QA', 'Punctuality', 'Retention']) }}
+  {% for g, r in rules.items() %}
+  <tr><td class="px-4 py-2">{{ ui.badge(g) }}</td><td class="px-4 py-2 text-xs">≥ {{ r.qa }}</td><td class="px-4 py-2 text-xs">≥ {{ r.punctuality }}%</td><td class="px-4 py-2 text-xs">≥ {{ r.retention }}%</td></tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab in ('training', 'gates') %}
+{% if tab == 'gates' %}
+<div class="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {% for row in gates %}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-2 flex items-center justify-between">
+      <div><div class="font-medium text-slate-900 dark:text-white">{{ row.teacher.full_name }}</div>
+        <div class="text-xs text-slate-500">{{ row.teacher.teacher_code }} · grade {{ row.teacher.grade }}</div></div>
+      {{ ui.badge('approved' if row.ready else 'pending', (row.done ~ '/' ~ row.total) ~ ' gates') }}
+    </div>
+    {{ ui.progress(row.pct, 'emerald' if row.ready else 'amber') }}
+    {% if row.failed %}<p class="mt-2 text-xs text-rose-600">{{ row.failed }} failed attempt(s)</p>{% endif %}
+    {% if row.ready and has_perm(user, 'teacher_dev.approve') %}
+    <form method="post" action="/hr/teacher-development/{{ row.teacher.id }}/promote" class="mt-3 space-y-2">
+      <div class="flex gap-2">
+        <select name="grade" class="w-20 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"><option value="A">A</option><option value="B">B</option></select>
+        <input name="rationale" placeholder="Rationale (required)" required class="flex-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+      </div>
+      {{ ui.button('Promote', icon='trending-up', size='sm', variant='success') }}
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="md:col-span-2 xl:col-span-3">{{ ui.empty_state('No promotion-gate training has been assigned yet.', 'flag') }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{{ ui.table_start(['Teacher', 'Course', 'Category', 'Due', 'Gate', 'Score', 'Status', '']) }}
+{% for a in assignments %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 text-xs font-medium">{{ a.teacher.full_name if a.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.title }}<div class="text-[11px] text-slate-500 max-w-sm truncate">{{ a.description or '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ a.category|titleize }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600' if a.due_date and a.due_date < today() and a.status not in ('completed',) }}">{{ a.due_date|date if a.due_date else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ 'Yes' if a.is_promotion_gate else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.score if a.score is not none else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'teacher_dev.update') %}
+    <form method="post" action="/hr/teacher-development/training/{{ a.id }}/status" class="flex items-center justify-end gap-1">
+      <input type="hidden" name="next" value="/hr/teacher-development?tab={{ tab }}">
+      <select name="status" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+        {% for s in ['assigned','in_progress','completed','failed'] %}<option value="{{ s }}" {{ 'selected' if s == a.status }}>{{ s|titleize }}</option>{% endfor %}</select>
+      <input name="score" type="number" step="1" min="0" max="100" placeholder="score" class="w-16 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Save</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No training assignments.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{% if has_perm(user, 'teacher_dev.add') %}
+<form method="post" action="/hr/teacher-development/training/new" class="mt-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-64">{{ ui.select('teacher_id', 'Teacher', teacher_options, None, required=True) }}</div>
+  <div class="w-72">{{ ui.input('title', 'Course title', '', required=True) }}</div>
+  <div class="w-40">{{ ui.select('category', 'Category', categories, 'tajweed', placeholder=None) }}</div>
+  <div class="w-40">{{ ui.input('due_date', 'Due', '', type='date') }}</div>
+  <div class="pb-2">{{ ui.checkbox('is_promotion_gate', 'Promotion gate', False) }}</div>
+  {{ ui.button('Assign', icon='plus', size='sm') }}
+</form>
+{% endif %}
+
+{% elif tab == 'plans' %}
+{{ ui.table_start(['Employee', 'Plan', 'AI fluency', 'Runs', 'Progress', 'Status']) }}
+{% for p in plans %}
+<tr>
+  <td class="px-4 py-2 text-xs">{% if p.employee %}<a href="/hr/employees/{{ p.employee_id }}?tab=development" class="font-medium hover:text-brand-600">{{ p.employee.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ p.title }}<div class="text-[11px] text-slate-500">{{ (p.goals or [])|length }} goal(s)</div></td>
+  <td class="px-4 py-2 text-xs">{{ p.ai_fluency_level }} / 5</td>
+  <td class="px-4 py-2 text-xs">{{ p.start_date|date }} → {{ p.end_date|date if p.end_date else '—' }}</td>
+  <td class="px-4 py-2 w-48">{{ ui.progress(p.progress_pct, 'emerald') }}</td>
+  <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+</tr>
+{% else %}{{ ui.empty('No development plans yet.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'catalogue' %}
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {% for title, category, description, gate in catalogue %}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-2 flex items-start justify-between gap-2">
+      <h3 class="font-semibold text-slate-900 dark:text-white">{{ title }}</h3>
+      {{ ui.badge(category) }}
+    </div>
+    <p class="text-xs text-slate-500">{{ description }}</p>
+    {% if gate %}<p class="mt-2 text-[11px] font-medium text-amber-600">Promotion gate</p>{% endif %}
+    {% if has_perm(user, 'teacher_dev.add') %}
+    <form method="post" action="/hr/teacher-development/training/new" class="mt-3 flex items-end gap-2">
+      <input type="hidden" name="title" value="{{ title }}"><input type="hidden" name="category" value="{{ category }}">
+      <input type="hidden" name="description" value="{{ description }}">
+      {% if gate %}<input type="hidden" name="is_promotion_gate" value="1">{% endif %}
+      <select name="teacher_id" class="flex-1 rounded border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+        {% for tid, label in teacher_options %}<option value="{{ tid }}">{{ label }}</option>{% endfor %}</select>
+      {{ ui.button('Assign', icon='plus', size='sm', variant='secondary') }}
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

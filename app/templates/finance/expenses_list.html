@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+{% call ui.page_header("Expenses", "Vendor spend by category and department, posted to the general ledger on approval.") %}
+  {{ ui.button("Payables", href="/finance/accounts/payables", icon="file-clock", variant="secondary") }}
+  {% if has_perm(user, 'expenses.add') %}{{ ui.button("New expense", href="/finance/expenses/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Pending approval", counts.get('pending', 0), icon="hourglass", color="amber", href="/finance/expenses?status=pending") }}
+  {{ ui.stat("Approved", counts.get('approved', 0), icon="check", color="sky", href="/finance/expenses?status=approved") }}
+  {{ ui.stat("Paid", counts.get('paid', 0), icon="banknote", color="emerald", href="/finance/expenses?status=paid") }}
+  {{ ui.stat("Rejected", counts.get('rejected', 0), icon="file-x", color="slate") }}
+  {{ ui.stat("This month (" ~ base ~ ")", month_total|money, icon="wallet", color="rose") }}
+</div>
+
+{% call ui.filter_bar('/finance/expenses') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='EXP-, vendor, description') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-48">{{ ui.select('category', 'Category', categories, category, placeholder='All categories') }}</div>
+  <div class="w-48">{{ ui.select('department_id', 'Department', departments, department_id, placeholder='All departments') }}</div>
+{% endcall %}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Number', 'Date', 'Vendor', 'Category', 'Department', 'Amount', 'Base', 'Status', '']) }}
+    {% for e in page.items %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-xs font-semibold"><a class="text-brand-700 dark:text-brand-300" href="/finance/expenses/{{ e.id }}">{{ e.expense_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ e.expense_date|date }}</td>
+      <td class="px-4 py-2 text-sm">{{ e.vendor or '—' }}{% if e.receipt_path %}<i data-lucide="paperclip" class="ml-1 inline h-3 w-3 text-slate-400"></i>{% endif %}</td>
+      <td class="px-4 py-2 text-xs">{{ e.category|titleize }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ e.department.name if e.department else '—' }}</td>
+      <td class="px-4 py-2 text-right whitespace-nowrap">{{ e.amount|money(e.currency) }}</td>
+      <td class="px-4 py-2 text-right text-xs text-slate-500">{{ e.amount_in_base|money(base) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(e.status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/expenses/' ~ e.id, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No expenses match these filters.', 9) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+  <div>
+    {% call ui.card("Monthly spend by category", "Last six months, " ~ base) %}
+    {{ ui.chart('expChart', 320) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('expChart', {{ months|tojson }}, {{ series|tojson }}, { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { display: true, position: 'bottom' } } });
+</script>
+{% endblock %}

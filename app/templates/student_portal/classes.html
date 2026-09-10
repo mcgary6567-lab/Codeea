@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My classes{% endblock %}
+{% block content %}
+{{ ui.page_header('My classes', 'Every class, in your own timezone (' ~ s.timezone ~ ').') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Attendance (30d)', attendance ~ '%', icon='clipboard-check', color='emerald') }}
+  {{ ui.stat('Total classes', page.total, icon='video', color='brand') }}
+  {{ ui.stat('My teacher', s.teacher.full_name if s.teacher else '—', icon='user-check', color='indigo') }}
+</div>
+{{ ui.table_start(['My local time', 'College time', 'Teacher', 'Duration', 'Status', 'Notes', '']) }}
+{% for it in items %}
+<tr>
+  <td class="px-4 py-2"><div class="font-medium text-slate-900 dark:text-white">{{ it.local.strftime('%a %d %b · %H:%M') }}</div></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ it.cs.date|date }} {{ it.cs.start_time|time }}</td>
+  <td class="px-4 py-2 text-xs">{{ it.cs.teacher.full_name if it.cs.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ it.cs.duration_minutes }} min</td>
+  <td class="px-4 py-2">{{ ui.badge(it.cs.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (it.cs.teacher_notes or '—')|truncate(50) }}</td>
+  <td class="px-4 py-2 text-right">{% if it.cs.status in ['pending','started'] %}{{ ui.button('Join', href='/classroom/' ~ it.cs.id, icon='video', size='sm') }}{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No classes recorded yet.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

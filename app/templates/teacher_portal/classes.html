@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My classes{% endblock %}
+{% block content %}
+{{ ui.page_header('My classes', 'Full delivery history with your notes. Notes are visible to the academics and QA teams.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Done (30d)', stats.done, icon='check-circle', color='emerald') }}
+  {{ ui.stat('Missed (30d)', stats.missed, icon='x-circle', color='rose') }}
+  {{ ui.stat('Completion', stats.completion_rate ~ '%', icon='percent', color='sky') }}
+  {{ ui.stat('Punctuality', stats.punctuality_rate ~ '%', icon='timer', color='indigo') }}
+</div>
+{% call ui.filter_bar('/teacher/classes') %}
+  <div class="w-48">{{ ui.select('status', 'Status', ['pending','started','done','missed','absent','leave','cancelled','rescheduled'], status, placeholder='All statuses') }}</div>
+{% endcall %}
+{{ ui.table_start(['Date', 'Time', 'Student', 'Course', 'Late', 'Status', 'Notes', '']) }}
+{% for c in page.items %}
+<tr x-data="{ open: false }">
+  <td class="px-4 py-2 text-xs">{{ c.date|date }}</td><td class="px-4 py-2">{{ c.start_time|time }}</td>
+  <td class="px-4 py-2 text-sm">{{ c.student.full_name if c.student else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.course.code if c.course else '—' }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-medium text-rose-600' if (c.teacher_late_minutes or 0) > 5 else 'text-slate-500' }}">{{ c.teacher_late_minutes or 0 }}m</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (c.teacher_notes or '—')|truncate(60) }}</td>
+  <td class="px-4 py-2 text-right align-top">
+    {{ ui.button('Notes', variant='ghost', size='sm', icon='pencil', attrs='type="button" @click="open = !open"') }}
+    <div x-show="open" x-cloak class="mt-2 w-64 text-left">
+      <form method="post" action="/teacher/classes/{{ c.id }}/notes" class="space-y-2">
+        {{ ui.textarea('teacher_notes', None, c.teacher_notes, rows=3, placeholder='What was covered, how the student did…') }}
+        {{ ui.button('Save notes', size='sm', icon='save') }}
+      </form>
+    </div>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No classes recorded yet.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

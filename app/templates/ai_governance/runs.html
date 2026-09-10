@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI governance{% endblock %}
+{% block content %}
+{% call ui.page_header("AI governance", "Every AI output in the platform, with its model, prompt version, confidence, cost and human review status") %}
+  {{ ui.button("Review queue", href="/ai-governance/queue", icon="inbox", variant="secondary") }}
+  {{ ui.button("Usage & cost", href="/ai-governance/dashboard", icon="bar-chart-3", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('AI runs recorded', total, icon='brain-circuit', color='violet') }}
+  {{ ui.stat('Pending review', pending, icon='inbox', color='amber', href='/ai-governance/queue') }}
+  {{ ui.stat('Approved', status_counts.get('approved', 0), icon='check-circle-2', color='emerald') }}
+  {{ ui.stat('Rejected / overridden', status_counts.get('rejected', 0) + status_counts.get('overridden', 0), icon='x-circle', color='rose') }}
+  {{ ui.stat('Average confidence', avg_confidence if avg_confidence is not none else '—', icon='gauge', color='sky') }}
+</div>
+
+<form method="get" action="/ai-governance" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-48">{{ ui.select('module', 'Module', modules, module, placeholder='All modules') }}</div>
+  <div class="w-36">{{ ui.select('provider', 'Provider', providers, provider, placeholder='All') }}</div>
+  <div class="w-52">{{ ui.select('model', 'Model', models, model, placeholder='All models') }}</div>
+  <div class="w-40">{{ ui.select('review_status', 'Review', statuses, review_status, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('entity_type', 'Entity', entity_types, entity_type, placeholder='Any') }}</div>
+  <div class="w-28">{{ ui.input('entity_id', 'Entity id', entity_id, type='number') }}</div>
+  <div class="w-28">{{ ui.input('min_confidence', 'Conf ≥', min_confidence, type='number', step='0.01', min=0, max=1) }}</div>
+  <div class="w-28">{{ ui.input('max_confidence', 'Conf ≤', max_confidence, type='number', step='0.01', min=0, max=1) }}</div>
+  <div class="w-36">{{ ui.input('start', 'From', start, type='date') }}</div>
+  <div class="w-36">{{ ui.input('end', 'To', end, type='date') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/ai-governance" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{{ ui.table_start(['When','Module','Task','Model','Entity','Confidence','Tokens','Cost (USD)','Latency','Review','']) }}
+{% for r in page.items %}
+{% set thr = thresholds.get(r.module, 0.7) %}
+<tr>
+  <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ r.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200">{{ labels.get(r.module, r.module|titleize) }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.task }}</td>
+  <td class="px-4 py-2 text-[11px] text-slate-500">{{ r.model }}<span class="block text-slate-400">v{{ r.model_version }} · prompt {{ r.prompt_version }}</span></td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.entity_type or '—' }}{{ ' #' ~ r.entity_id if r.entity_id else '' }}</td>
+  <td class="px-4 py-2">
+    {% if r.confidence is not none %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ 'text-rose-600' if r.confidence < thr else 'text-emerald-600' }}">
+      <span class="h-1.5 w-1.5 rounded-full {{ 'bg-rose-500' if r.confidence < thr else 'bg-emerald-500' }}"></span>{{ '%.2f'|format(r.confidence) }}
+    </span>
+    {% else %}<span class="text-xs text-slate-400">—</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.tokens_in + r.tokens_out }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ '%.4f'|format(r.cost_usd|float) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.latency_ms }} ms</td>
+  <td class="px-4 py-2">{{ ui.badge(r.review_status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/ai-governance/' ~ r.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No AI runs match these filters.', 11, 'brain-circuit') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/ai-governance?' ~ qs) }}
+
+<div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+  <div class="flex items-start gap-2">
+    <i data-lucide="scale" class="mt-0.5 h-4 w-4 shrink-0"></i>
+    <p><b>AI advises, humans decide.</b> No disciplinary action, grade change or termination may rest on an AI score alone.
+      An AI output is evidence to be reviewed — approve it, override it, or mark it a false positive, and the record of that
+      judgement stays here.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Marketing Analytics{% endblock %}
+{% macro dim_table(title, rows, label) %}
+{% call ui.card(title) %}
+{{ ui.table_start([label,'Leads','Contacted','Trials','Won','Spend','CPL','CAC','Conv %','Trial conv %','Revenue','ROAS'], compact=True) }}
+{% for r in rows %}
+<tr><td class="px-4 py-1.5 font-medium">{{ r.key }}</td><td class="px-4 py-1.5">{{ r.leads }}</td><td class="px-4 py-1.5">{{ r.contacted }}</td>
+  <td class="px-4 py-1.5">{{ r.trials }}</td><td class="px-4 py-1.5 font-semibold text-emerald-600">{{ r.won }}</td>
+  <td class="px-4 py-1.5">{{ r.spend|money }}</td><td class="px-4 py-1.5">{{ r.cpl|money }}</td><td class="px-4 py-1.5">{{ r.cac|money }}</td>
+  <td class="px-4 py-1.5">{{ r.conversion }}%</td><td class="px-4 py-1.5">{{ r.trial_conversion }}%</td>
+  <td class="px-4 py-1.5">{{ r.revenue|money }}</td><td class="px-4 py-1.5 {{ 'text-emerald-600' if r.roas >= 1 else 'text-slate-500' }}">{{ r.roas }}x</td></tr>
+{% else %}{{ ui.empty('No data in this range.', 12) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endmacro %}
+{% block content %}
+{% call ui.page_header('Marketing Analytics', 'Module 34 — attribution, CPL/CAC and revenue by source, campaign, country and offer') %}
+  {{ ui.button('Export CSV', href='/crm/marketing/export?start=' ~ start ~ '&end=' ~ end ~ '&dim=source', icon='download', variant='secondary') }}
+  {{ ui.button('Campaigns', href='/crm/campaigns', icon='megaphone', variant='secondary') }}
+{% endcall %}
+
+{% call ui.filter_bar('/crm/marketing') %}
+  <div class="w-40">{{ ui.input('start', 'From', start, type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', end, type='date') }}</div>
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Leads', d.leads, icon='funnel', color='sky') }}
+  {{ ui.stat('Won', d.won, icon='trophy', color='emerald', hint=d.conversion ~ '% conversion') }}
+  {{ ui.stat('Spend', d.spend|money, icon='wallet', color='amber') }}
+  {{ ui.stat('CPL', d.cpl|money, icon='tag', color='indigo') }}
+  {{ ui.stat('CAC', d.cac|money, icon='user-plus', color='violet') }}
+  {{ ui.stat('Revenue', d.revenue|money, icon='banknote', color='emerald', hint='Attributed subscriptions') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3 mb-6">
+  {% call ui.card('Leads by source') %}{{ ui.chart('src', 240) }}{% endcall %}
+  {% call ui.card('Acquisition funnel') %}{{ ui.chart('funnel', 240) }}{% endcall %}
+  {% call ui.card('Leads by country') %}{{ ui.chart('country', 240) }}{% endcall %}
+</div>
+
+<div class="space-y-6">
+  {{ dim_table('By source', d.by_source, 'Source') }}
+  {{ dim_table('By campaign', d.by_campaign, 'Campaign') }}
+  {{ dim_table('By country', d.by_country, 'Country') }}
+  {{ dim_table('By offer', d.by_offer, 'Offer') }}
+
+  {% call ui.card('Month over month', 'Last 6 months, independent of the selected range') %}
+  {{ ui.table_start(['Month','Leads','Won','Spend','CPL','CAC','Revenue'], compact=True) }}
+  {% for m in d.mom %}
+  <tr><td class="px-4 py-1.5 font-medium">{{ m.month }}</td><td class="px-4 py-1.5">{{ m.leads }}</td>
+    <td class="px-4 py-1.5 text-emerald-600">{{ m.won }}</td><td class="px-4 py-1.5">{{ m.spend|money }}</td>
+    <td class="px-4 py-1.5">{{ m.cpl|money }}</td><td class="px-4 py-1.5">{{ m.cac|money }}</td><td class="px-4 py-1.5">{{ m.revenue|money }}</td></tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  <div class="mt-4">{{ ui.chart('mom', 240) }}</div>
+  {% endcall %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.doughnut('src', {{ d.by_source|map(attribute='key')|list|tojson }}, {{ d.by_source|map(attribute='leads')|list|tojson }});
+  OQC.bar('funnel', {{ d.funnel|map(attribute=0)|list|tojson }}, [{label:'Leads', data: {{ d.funnel|map(attribute=1)|list|tojson }}}], {indexAxis: 'y'});
+  OQC.doughnut('country', {{ d.by_country|map(attribute='key')|list|tojson }}, {{ d.by_country|map(attribute='leads')|list|tojson }});
+  OQC.line('mom', {{ d.mom|map(attribute='month')|list|tojson }}, [{label:'Leads', data: {{ d.mom|map(attribute='leads')|list|tojson }}}, {label:'Won', data: {{ d.mom|map(attribute='won')|list|tojson }}}]);
+</script>
+{% endblock %}

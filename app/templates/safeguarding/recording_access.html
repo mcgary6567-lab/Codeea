@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Recording access log{% endblock %}
+{% block content %}
+{{ ui.page_header("Recording access log", "Platform-wide record of who opened a class recording, when and why", back="/safeguarding") }}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+  {{ ui.stat("Access events", total, icon="scroll-text", color="violet", hint="in the selected window") }}
+  {{ ui.stat("Window", days ~ " days", icon="calendar-range", color="sky") }}
+  {{ ui.stat("Distinct viewers", top|length, icon="users", color="indigo") }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-4">
+  <div class="lg:col-span-3">
+    {% call ui.filter_bar('/safeguarding/recording-access') %}
+      {{ ui.input('days', 'Days', days, type='number', min=1, max=365) }}
+      {{ ui.input('user_id', 'User ID', user_id or '', type='number') }}
+    {% endcall %}
+    {{ ui.table_start(['When','User','Recording','Purpose','IP'], compact=True) }}
+    {% for l in page.items %}
+    <tr>
+      <td class="px-4 py-2 text-xs whitespace-nowrap">{{ l.accessed_at|datetime }}</td>
+      <td class="px-4 py-2 text-xs font-medium">{{ l.user.full_name if l.user else 'System' }}</td>
+      <td class="px-4 py-2 text-xs"><a href="/recordings/{{ l.recording_id }}" class="text-brand-600 hover:underline">#{{ l.recording_id }}</a></td>
+      <td class="px-4 py-2 max-w-md text-xs text-slate-600 dark:text-slate-300">{{ l.purpose or '—' }}</td>
+      <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ l.ip or '—' }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No recording was opened in this window.', 5, 'scroll-text') }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+  <div>
+    {% call ui.card("Most frequent viewers") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for t in top %}
+        <li class="flex items-center justify-between py-2"><span>{{ t.user.full_name if t.user else 'System' }}</span><b>{{ t.count }}</b></li>
+        {% else %}<li class="py-6 text-center text-slate-400">No access recorded.</li>{% endfor %}
+      </ul>
+      <p class="mt-3 text-xs text-slate-500">An unusual spike in recording access is itself a safeguarding signal — review the stated purposes.</p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

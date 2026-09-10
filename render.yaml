@@ -1,0 +1,60 @@
+# Render Blueprint - Online Quran College Digital Operating System
+# Deploy: Render Dashboard -> New -> Blueprint -> select this repository.
+databases:
+  - name: oqc-db
+    databaseName: oqc
+    user: oqc
+    plan: free          # change to "basic-256mb" or higher for production
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: oqc
+    runtime: python
+    plan: free          # free instances sleep after inactivity; use "starter" to stay warm
+    region: oregon
+    branch: main
+    buildCommand: "./render-build.sh"
+    # One worker: the app runs an in-process APScheduler, so multiple workers
+    # would duplicate every reminder, invoice run and backup job.
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --forwarded-allow-ips='*'"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oqc-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true        # Render generates a strong value and keeps it stable
+      - key: APP_ENV
+        value: production
+      - key: SEED_MODE
+        value: demo                # "demo" = full demo dataset, "core" = clean install
+      - key: ADMIN_PASSWORD
+        generateValue: true        # replaces the local default for admin@oqc.local
+      - key: DEMO_PASSWORD
+        generateValue: true        # shared password for the seeded demo logins
+      - key: BASE_CURRENCY
+        value: PKR
+      - key: DEFAULT_TIMEZONE
+        value: Asia/Karachi
+      - key: VIDEO_PROVIDER
+        value: jitsi
+      - key: JITSI_DOMAIN
+        value: meet.jit.si
+      - key: AI_PROVIDER
+        value: simulated
+      # Add real integration credentials here when you are ready to go live:
+      # - key: WHATSAPP_TOKEN
+      #   sync: false
+      # - key: WHATSAPP_PHONE_ID
+      #   sync: false
+      # - key: GHL_API_KEY
+      #   sync: false
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: AI_API_KEY
+      #   sync: false

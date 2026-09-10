@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'Edit lead' if mode == 'edit' else 'New lead' }}{% endblock %}
+{% block content %}
+{{ ui.page_header('Edit lead ' ~ lead.lead_code if mode == 'edit' else 'New lead', 'Duplicate detection, referral lookup and AI scoring run automatically on save.', back='/crm/leads' if mode == 'new' else '/crm/leads/' ~ lead.id) }}
+<form method="post" action="{{ '/crm/leads/' ~ lead.id ~ '/edit' if mode == 'edit' else '/crm/leads/new' }}" class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Family & contact') %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ ui.input('full_name', 'Parent / contact name', lead.full_name if lead else '', required=True) }}
+      {{ ui.input('email', 'Email', lead.email if lead else '', type='email') }}
+      {{ ui.input('phone', 'Phone', lead.phone if lead else '', help='Used for duplicate detection') }}
+      {{ ui.input('whatsapp', 'WhatsApp', lead.whatsapp if lead else '') }}
+      {{ ui.select('country', 'Country', countries, lead.country if lead else '', placeholder='Select country') }}
+      {{ ui.input('preferred_time', 'Preferred class time', lead.preferred_time if lead else '', placeholder='e.g. Weekdays after 6pm UK') }}
+    </div>
+    {% endcall %}
+    {% call ui.card('Student interest') %}
+    <div class="grid gap-4 sm:grid-cols-4">
+      <div class="sm:col-span-2">{{ ui.input('student_name', 'Student name', lead.student_name if lead else '') }}</div>
+      {{ ui.input('student_age', 'Age', lead.student_age if lead else '', type='number', min=3, max=80) }}
+      {{ ui.input('students_count', 'Students', lead.students_count if lead else 1, type='number', min=1, max=8) }}
+      <div class="sm:col-span-2">{{ ui.select('course_interest_id', 'Course interest', course_options, lead.course_interest_id if lead else '', placeholder='Not specified') }}</div>
+      <div class="sm:col-span-2">{{ ui.input('referral_code', 'Referral code', lead.referral_code if lead else '', placeholder='REFXXX000', help='Links this lead to an ambassador family') }}</div>
+    </div>
+    {% endcall %}
+    {% call ui.card('Notes') %}
+      {{ ui.textarea('notes', None, lead.notes if lead else '', rows=4, placeholder='Context from the first conversation, objections, budget…') }}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Attribution & ownership') %}
+    <div class="space-y-4">
+      {{ ui.select('source_id', 'Source', source_options, lead.source_id if lead else '', placeholder='Unknown') }}
+      {{ ui.select('campaign_id', 'Campaign', campaign_options, lead.campaign_id if lead else '', placeholder='No campaign') }}
+      {% if mode == 'new' %}
+      {{ ui.select('stage', 'Starting stage', stages, 'new') }}
+      {{ ui.select('assigned_to_id', 'Assign to closer', closer_options, '', placeholder='Round-robin automatically') }}
+      {% endif %}
+      {{ ui.input('next_follow_up', 'Next follow-up', (lead.next_follow_up.strftime('%Y-%m-%dT%H:%M') if lead and lead.next_follow_up else ''), type='datetime-local') }}
+      {{ ui.checkbox('whatsapp_opt_in', 'WhatsApp opt-in', checked=(lead.whatsapp_opt_in if lead else True), help='Required before any outbound WhatsApp message') }}
+    </div>
+    {% endcall %}
+    {{ ui.button('Save lead', icon='check') }}
+  </div>
+</form>
+{% endblock %}

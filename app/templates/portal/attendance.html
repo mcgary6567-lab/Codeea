@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance{% endblock %}
+{% block content %}
+{{ ui.page_header('Attendance', 'The last 90 days for each child. A class marked "missed" means the teacher did not attend — you are never charged for those.') }}
+<div class="mb-5 flex flex-wrap gap-2">
+  <a href="/portal/attendance" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if not child else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">All children</a>
+  {% for s in children %}
+  <a href="/portal/attendance?student_id={{ s.id }}" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if child and child.id == s.id else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">{{ s.full_name }}</a>
+  {% endfor %}
+</div>
+
+{% for b in blocks %}
+<div class="mb-8">
+  <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">{{ b.s.full_name }} <span class="ml-1 font-mono text-xs text-slate-500">{{ b.s.student_code }}</span></h2>
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-4">
+    {{ ui.stat('Last 30 days', b.pct30 ~ '%', icon='clipboard-check', color=('emerald' if b.pct30 >= 80 else ('amber' if b.pct30 >= 60 else 'rose'))) }}
+    {{ ui.stat('Last 90 days', b.pct90 ~ '%', icon='calendar-check', color='sky') }}
+    {{ ui.stat('Attended', b.present, icon='check', color='emerald') }}
+    {{ ui.stat('Absent', b.absent, icon='user-x', color='rose') }}
+    {{ ui.stat('On leave', b.leave, icon='calendar-off', color='violet') }}
+  </div>
+  {{ ui.table_start(['Date', 'Student', 'Teacher', 'Remarks']) }}
+  {% for r in b.rows %}
+  <tr><td class="px-4 py-2 text-xs">{{ r.date|date }}</td><td class="px-4 py-2">{{ ui.badge(r.student_status) }}</td>
+    <td class="px-4 py-2">{{ ui.badge(r.teacher_status) }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ r.remarks or '—' }}</td></tr>
+  {% else %}{{ ui.empty('No attendance records in the last 90 days.', 4) }}{% endfor %}
+  {{ ui.table_end() }}
+</div>
+{% else %}
+{{ ui.empty_state('No children are linked to your account yet.', 'graduation-cap') }}
+{% endfor %}
+{% endblock %}

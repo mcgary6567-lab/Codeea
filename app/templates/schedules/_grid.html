@@ -1,0 +1,43 @@
+{# 48 half-hour slots x 7 days. Empty cells are clickable to create a schedule in that slot. #}
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <table class="min-w-full border-collapse text-[11px]">
+    <thead class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80">
+      <tr>
+        <th class="w-16 border-b border-slate-200 px-2 py-2 text-left font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700">Slot</th>
+        {% for d in grid.days %}<th class="border-b border-l border-slate-200 px-2 py-2 text-center font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700">{{ d }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for idx in range(48) %}
+      {% set slot = grid.slots[idx] %}
+      {% set busy = grid.grid[idx] %}
+      <tr class="{{ 'bg-slate-50/70 dark:bg-slate-800/30' if idx % 2 == 0 }}">
+        <td class="border-b border-slate-100 px-2 py-1 font-mono text-slate-500 dark:border-slate-800">{{ slot.strftime('%H:%M') }}</td>
+        {% for d in range(7) %}
+        {% set cells = busy[d] %}
+        <td class="border-b border-l border-slate-100 p-0 align-top dark:border-slate-800">
+          {% if cells %}
+            {% for c in cells %}
+              {% set color = course_colors.get(c.schedule.course.code if c.schedule.course else '', 'slate') %}
+              {% if c.start %}
+              <a href="/schedules/{{ c.schedule.id }}" class="block truncate bg-{{ color }}-100 px-1.5 py-1 font-medium text-{{ color }}-800 hover:bg-{{ color }}-200 dark:bg-{{ color }}-500/20 dark:text-{{ color }}-200"
+                 title="{{ c.schedule.student.full_name if c.schedule.student }} with {{ c.schedule.teacher.full_name if c.schedule.teacher }} · {{ c.schedule.duration_minutes }} min">
+                {{ (c.schedule.student.full_name if c.schedule.student else '—') if scope != 'student' else (c.schedule.teacher.full_name if c.schedule.teacher else '—') }}
+              </a>
+              {% else %}
+              <div class="h-full bg-{{ color }}-50 px-1.5 py-1 text-{{ color }}-500 dark:bg-{{ color }}-500/10">·</div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            {% if has_perm(user, 'schedules.add') and create_base %}
+            <a href="{{ create_base }}&day={{ d }}&slot={{ slot.strftime('%H:%M') }}" class="block h-5 w-full hover:bg-brand-100 dark:hover:bg-brand-500/20" title="Create a class at {{ slot.strftime('%H:%M') }} on {{ grid.days[d] }}"></a>
+            {% else %}<div class="h-5"></div>{% endif %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-2 text-xs text-slate-500">Colours follow the course. Click any empty slot to create a schedule at that time.</p>

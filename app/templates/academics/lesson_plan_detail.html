@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lesson plan{% endblock %}
+{% block content %}
+{% call ui.page_header(plan.student.full_name ~ " — " ~ plan.plan_date.strftime('%d %b %Y'),
+                       plan.plan_type|title ~ " plan · " ~ (plan.teacher.full_name if plan.teacher else 'no teacher assigned'),
+                       back="/academics/lesson-plans") %}
+  {{ ui.badge(plan.status) }}
+  {% if can_update %}
+  <form method="post" action="/academics/lesson-plans/{{ plan.id }}/recommend" class="inline">
+    <button class="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-700"><i data-lucide="sparkles" class="h-4 w-4"></i>AI recommend</button>
+  </form>
+  {% endif %}
+  {{ ui.button('Progress', href='/academics/progress/' ~ plan.student_id, icon='trending-up', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Variance", (plan.variance_pct ~ '%') if plan.variance_pct is not none else '—', icon="git-compare",
+             color=('emerald' if plan.variance_pct is not none and plan.variance_pct <= 25 else ('amber' if plan.variance_pct is not none and plan.variance_pct < 95 else 'rose')),
+             hint="Planned content not delivered") }}
+  {{ ui.stat("Course progress", progress.pct ~ '%', icon="trending-up", color="brand", hint=progress.completed ~ ' of ' ~ progress.total ~ ' lessons') }}
+  {{ ui.stat("Dor quota", 'Met' if progress.dor_quota_met else 'Blocked', icon="repeat", color=('emerald' if progress.dor_quota_met else 'rose')) }}
+  {{ ui.stat("Review", 'Reviewed' if plan.reviewed_at else 'Pending', icon="eye", color=('emerald' if plan.reviewed_at else 'amber'),
+             hint=(plan.reviewed_at|date) if plan.reviewed_at else 'Awaiting HOD / coordinator') }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% call ui.card('Planned') %}<div class="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ plan.planned_content }}</div>{% endcall %}
+      {% call ui.card('Delivered') %}<div class="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ plan.delivered_content or 'Not yet marked as delivered.' }}</div>{% endcall %}
+    </div>
+
+    {% call ui.card('Sabaq · Sabqi · Dor') %}
+    {{ ui.dl([('Sabaq (new)', plan.sabaq), ('Sabqi (recent revision)', plan.sabqi), ('Dor (long-term revision)', plan.dor),
+              ('Curriculum lesson', plan.lesson.title if plan.lesson else '—'), ('Next objectives', plan.next_objectives),
+              ('Teacher notes', plan.teacher_notes)]) }}
+    {% endcall %}
+
+    {% if plan.ai_recommendation %}
+    <div class="rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/40">
+      <div class="mb-2 flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200"><i data-lucide="sparkles" class="h-4 w-4"></i>AI lesson recommendation</div>
+      <p class="text-sm leading-relaxed text-violet-900 dark:text-violet-100">{{ plan.ai_recommendation }}</p>
+    </div>
+    {% endif %}
+
+    {% call ui.card('Recent plans for this student') %}
+    {{ ui.table_start(['Date', 'Type', 'Planned', 'Variance', 'Status']) }}
+    {% for h in history %}
+    <tr><td class="px-4 py-2 text-xs"><a href="/academics/lesson-plans/{{ h.id }}" class="text-brand-600 hover:underline">{{ h.plan_date|date }}</a></td>
+    <td class="px-4 py-2 text-xs">{{ h.plan_type|titleize }}</td>
+    <td class="px-4 py-2 text-xs max-w-sm"><div class="truncate">{{ h.planned_content }}</div></td>
+    <td class="px-4 py-2 text-xs">{{ (h.variance_pct ~ '%') if h.variance_pct is not none else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(h.status) }}</td></tr>
+    {% else %}{{ ui.empty('No other plans for this student.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card('Activity') %}
+    <ol class="space-y-3">
+      {% for e in events %}
+      <li class="flex gap-3 text-sm">
+        <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500"></span>
+        <div><div class="text-slate-700 dark:text-slate-200">{{ e.description }}</div>
+          <div class="text-xs text-slate-400">{{ e.actor_name or 'System' }} · {{ e.created_at|datetime }}{% if e.rationale %} · <span class="italic">{{ e.rationale }}</span>{% endif %}</div></div>
+      </li>
+      {% else %}<li class="text-xs text-slate-400">No audit events yet.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% if can_update %}
+    {% call ui.card('Mark delivered', 'Variance is computed from the overlap between planned and delivered content.') %}
+    <form method="post" action="/academics/lesson-plans/{{ plan.id }}/deliver" class="space-y-3">
+      {{ ui.textarea('delivered_content', 'What was actually delivered', plan.delivered_content or '', rows=5, required=True) }}
+      {{ ui.textarea('teacher_notes', 'Teacher notes', plan.teacher_notes or '', rows=2) }}
+      {{ ui.input('variance_pct', 'Override variance %', '', type='number', step='0.1', min=0, max=100, help='Leave blank to compute automatically.') }}
+      {{ ui.button('Save delivery', icon='check') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% if can_review %}
+    {% call ui.card('Academic review', 'HOD / coordinator sign-off. The teacher is notified.') %}
+    {% if plan.reviewed_at %}
+    <div class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+      Reviewed {{ plan.reviewed_at|datetime }}<div class="mt-1 italic">{{ plan.review_comment }}</div>
+    </div>
+    {% endif %}
+    <form method="post" action="/academics/lesson-plans/{{ plan.id }}/review" class="space-y-3">
+      {{ ui.textarea('review_comment', 'Review comment', '', rows=3, required=True, placeholder='Observation, coaching point or approval.') }}
+      {{ ui.button('Save review', icon='eye', variant='secondary') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Student') %}
+    {{ ui.dl([('Student', plan.student.full_name), ('Code', plan.student.student_code),
+              ('Course', plan.student.course.name if plan.student.course else '—'),
+              ('Level', plan.student.level or '—'), ('Teacher', plan.teacher.full_name if plan.teacher else '—'),
+              ('Current lesson', progress.current_lesson_title)]) }}
+    <div class="mt-3 flex gap-2">
+      {{ ui.button('Arabic view', href='/academics/arabic-view/' ~ plan.student_id, icon='book-open', variant='secondary', size='sm') }}
+      {{ ui.button('Student record', href='/students/' ~ plan.student_id, icon='user', variant='ghost', size='sm') }}
+    </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

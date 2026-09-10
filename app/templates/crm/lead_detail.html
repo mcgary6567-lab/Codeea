@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ lead.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(lead.full_name, lead.lead_code ~ ' · ' ~ (lead.country or 'Unknown country') ~ ' · ' ~ (lead.source.name if lead.source else 'Direct'), back='/crm/leads') %}
+  {{ ui.badge(lead.stage) }}
+  {% if has_perm(user, 'leads.update') %}
+    {{ ui.button('Edit', href='/crm/leads/' ~ lead.id ~ '/edit', icon='pencil', variant='secondary', size='sm') }}
+    {{ ui.confirm_form('/crm/leads/' ~ lead.id ~ '/rescore', 'Rescore', icon='sparkles', variant='secondary', message='Run AI lead scoring again?') }}
+    {{ ui.confirm_form('/crm/leads/' ~ lead.id ~ '/sync-ghl', 'Sync GHL', icon='refresh-cw', variant='secondary', message='Push this lead to GoHighLevel?') }}
+  {% endif %}
+  {% if lead.converted_client_id %}{{ ui.button('Open client', href='/clients/' ~ lead.converted_client_id, icon='user-check', variant='success', size='sm') }}
+  {% elif has_perm(user, 'clients.add') %}<button @click="$dispatch('open-modal','convert')" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"><i data-lucide="user-plus" class="h-4 w-4"></i>Convert to client</button>{% endif %}
+{% endcall %}
+
+{% if duplicate_of %}
+{{ ui.alert('This lead was flagged as a possible duplicate of ' ~ duplicate_of.lead_code ~ ' (' ~ duplicate_of.full_name ~ '). Merge or dismiss before working it.', 'warning', 'Duplicate detected') }}
+<div class="mb-4"></div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Lead profile') %}
+      {{ ui.dl([('Contact', lead.phone or '—'), ('Email', lead.email or '—'), ('WhatsApp', lead.whatsapp or '—'),
+                ('Student', (lead.student_name or '—') ~ (' (age ' ~ lead.student_age ~ ')' if lead.student_age else '')),
+                ('Students', lead.students_count), ('Course interest', lead.course_interest.name if lead.course_interest else '—'),
+                ('Preferred time', lead.preferred_time or '—'), ('Campaign', lead.campaign.name if lead.campaign else '—'),
+                ('Referral code', lead.referral_code or '—'), ('Created', lead.created_at|datetime),
+                ('Last contacted', lead.last_contacted_at|datetime if lead.last_contacted_at else 'Never'),
+                ('Follow-ups', lead.follow_up_count)]) }}
+      {% if lead.notes %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ lead.notes }}</p>{% endif %}
+      {% if lead.lost_reason %}<p class="mt-3 text-sm text-rose-600"><b>Lost reason:</b> {{ lead.lost_reason }}</p>{% endif %}
+    {% endcall %}
+
+    {% if has_perm(user, 'leads.update') %}
+    {% call ui.card('Log activity', 'Calls, WhatsApp, email and notes build the lead timeline') %}
+    <form method="post" action="/crm/leads/{{ lead.id }}/activity" class="space-y-3">
+      <div class="grid gap-3 sm:grid-cols-3">
+        {{ ui.select('activity_type', 'Type', [('note','Note'),('call','Call'),('whatsapp','WhatsApp'),('email','Email')], 'call', placeholder=None) }}
+        <div class="sm:col-span-2">{{ ui.input('next_follow_up', 'Set next follow-up', '', type='datetime-local') }}</div>
+      </div>
+      {{ ui.textarea('note', 'Note', '', rows=2, required=True, placeholder='Spoke to the father, wants an evening slot for two children…') }}
+      {{ ui.button('Add to timeline', icon='plus', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Timeline', activities|length ~ ' activities') %}
+    <ol class="relative space-y-4 border-l border-slate-200 pl-5 dark:border-slate-800">
+      {% for a in activities %}
+      <li class="relative">
+        <span class="absolute -left-[27px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-{{ 'emerald' if a.activity_type == 'stage_change' else ('sky' if a.activity_type in ('call','whatsapp','email') else 'slate') }}-500/20">
+          <span class="h-1.5 w-1.5 rounded-full bg-{{ 'emerald' if a.activity_type == 'stage_change' else ('sky' if a.activity_type in ('call','whatsapp','email') else 'slate') }}-500"></span></span>
+        <div class="flex items-baseline justify-between gap-3">
+          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ a.activity_type|titleize }}</span>
+          <span class="text-[11px] text-slate-400">{{ a.created_at|datetime }} · {{ a.user.full_name if a.user else 'system' }}</span>
+        </div>
+        <p class="text-sm text-slate-700 dark:text-slate-200">{{ a.note }}</p>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">No activity recorded yet.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+
+    {% call ui.card('Trials', trials|length ~ ' recorded') %}
+      {% if trials %}
+      {{ ui.table_start(['Student','Scheduled','Teacher','Status','']) }}
+      {% for t in trials %}
+      <tr><td class="px-4 py-2">{{ t.student_name }}</td><td class="px-4 py-2 text-xs">{{ t.scheduled_at|datetime if t.scheduled_at else '—' }}</td>
+      <td class="px-4 py-2 text-xs">{{ t.teacher.full_name if t.teacher else '—' }}</td><td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/trials/' ~ t.id, variant='ghost', size='sm') }}</td></tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+      {% else %}{{ ui.empty_state('No trial booked yet.', 'flask-conical') }}{% endif %}
+      {% if has_perm(user, 'leads.update') %}
+      <form method="post" action="/crm/leads/{{ lead.id }}/schedule-trial" class="mt-4 grid gap-3 sm:grid-cols-3 items-end">
+        {{ ui.input('scheduled_at', 'Trial date & time', '', type='datetime-local', required=True) }}
+        {{ ui.select('teacher_id', 'Teacher', teacher_options, '', placeholder='Assign later') }}
+        {{ ui.button('Schedule trial', icon='calendar-plus') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('AI lead score') %}
+      <div class="text-center">
+        <div class="text-5xl font-bold tracking-tight text-slate-900 dark:text-white">{{ lead.score }}</div>
+        <div class="text-xs uppercase tracking-wide text-slate-500">out of 100</div>
+      </div>
+      <div class="mt-4">{{ ui.progress(lead.score, 'emerald' if lead.score >= 70 else ('amber' if lead.score >= 45 else 'slate')) }}</div>
+      <ul class="mt-4 space-y-1.5 text-sm">
+        {% for k, v in (lead.score_factors or {}).items() %}{% if not k.startswith('_') %}
+        <li class="flex justify-between"><span class="text-slate-600 dark:text-slate-300">{{ k|titleize }}</span><span class="font-medium text-emerald-600">+{{ v }}</span></li>
+        {% endif %}{% endfor %}
+      </ul>
+      {% if lead.score_factors and lead.score_factors.get('_recommendation') %}
+      <p class="mt-3 rounded-lg bg-brand-50 p-2.5 text-xs text-brand-800 dark:bg-brand-900/30 dark:text-brand-200"><b>AI:</b> {{ lead.score_factors['_recommendation'] }}</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Pipeline stage') %}
+    <form method="post" action="/crm/leads/{{ lead.id }}/stage" class="space-y-3" x-data="{ stage: '{{ lead.stage }}' }">
+      {{ ui.select('stage', 'Move to', stages, lead.stage, placeholder=None, attrs='x-model="stage"') }}
+      {{ ui.input('reason', 'Reason / note', lead.lost_reason or '', placeholder='Price, timing, chose another provider…', help='A lost reason is required when the stage is Lost') }}
+      {{ ui.button('Update stage', icon='arrow-right', size='sm') }}
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Ownership') %}
+    <form method="post" action="/crm/leads/{{ lead.id }}/assign" class="space-y-3">
+      {{ ui.select('assigned_to_id', 'Assigned closer', closer_options, lead.assigned_to_id, placeholder='Unassigned') }}
+      <div class="flex gap-2">{{ ui.button('Assign', icon='user-check', size='sm') }}</div>
+    </form>
+    <form method="post" action="/crm/leads/{{ lead.id }}/assign" class="mt-2">
+      <input type="hidden" name="mode" value="round_robin">
+      {{ ui.button('Round-robin', icon='shuffle', variant='secondary', size='sm') }}
+    </form>
+    <p class="mt-3 text-xs text-slate-500">Generated by {{ lead.generator.full_name if lead.generator else 'system' }}.</p>
+    {% endcall %}
+
+    {% call ui.card('Follow-up & automation') %}
+    <form method="post" action="/crm/leads/{{ lead.id }}/follow-up" class="space-y-3">
+      {{ ui.input('next_follow_up', 'Next follow-up', (lead.next_follow_up.strftime('%Y-%m-%dT%H:%M') if lead.next_follow_up else ''), type='datetime-local') }}
+      {{ ui.button('Save', icon='clock', size='sm', variant='secondary') }}
+    </form>
+    <form method="post" action="/crm/leads/{{ lead.id }}/enroll" class="mt-4 space-y-3">
+      {{ ui.select('sequence_type', 'Enroll in sequence', [('lead_follow_up','Lead follow-up'),('trial_follow_up','Trial follow-up'),('win_back','Win-back')], 'lead_follow_up', placeholder=None) }}
+      {{ ui.button('Enroll', icon='workflow', size='sm', variant='secondary') }}
+    </form>
+    {% if enrollments %}
+    <ul class="mt-4 space-y-1 text-xs text-slate-500">
+      {% for e in enrollments %}<li>{{ e.sequence.name }} — {{ ui.badge(e.status) }} step {{ e.current_step }}{% if e.stop_reason %} ({{ e.stop_reason }}){% endif %}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% endcall %}
+
+    {% if conv %}
+    {% call ui.card('WhatsApp') %}
+      <p class="text-sm text-slate-600 dark:text-slate-300">{{ conv.last_message_preview or 'No messages yet.' }}</p>
+      <p class="mt-1 text-xs text-slate-400">{{ conv.last_message_at|datetime if conv.last_message_at else '' }}</p>
+      <div class="mt-3">{{ ui.button('Open in inbox', href='/crm/inbox?c=' ~ conv.id, icon='message-circle', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+    {% endif %}
+
+    {% if referral %}
+    {% call ui.card('Referral') %}
+      {{ ui.dl([('Ambassador', referral.ambassador.full_name if referral.ambassador else '—'), ('Code', referral.referral_code), ('Status', referral.status|titleize)]) }}
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% call ui.modal('convert', 'Convert lead to client') %}
+<form method="post" action="/crm/leads/{{ lead.id }}/convert" class="space-y-4">
+  <p class="text-sm text-slate-600 dark:text-slate-300">This creates the client record, a family portal login and {{ lead.students_count }} student record(s) from the lead data — no re-entry. The lead is marked <b>won</b>, its conversation moves to the client and any referral is marked signed-up.</p>
+  {{ ui.input('email', 'Portal email', lead.email or '', type='email', help='Leave blank to generate a placeholder login') }}
+  {{ ui.select('relationship', 'Relationship to student', ['father','mother','guardian','self'], 'father', placeholder=None) }}
+  {{ ui.button('Convert now', icon='user-plus', variant='success') }}
+</form>
+{% endcall %}
+{% endblock %}

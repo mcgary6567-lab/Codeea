@@ -1,0 +1,59 @@
+{% import "macros.html" as ui %}
+<div id="sup-board" hx-get="/supervisor/partial/board?day={{ sel_date }}&shift_id={{ shift_id or '' }}&q={{ q }}"
+     hx-trigger="every 20s" hx-swap="outerHTML">
+  <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+      <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
+      Live · {{ board.total }} classes · {{ board.now.strftime('%H:%M') }} PKT
+    </span>
+    <span>auto-refresh every 20 seconds</span>
+  </div>
+  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+    {% for col in board.columns %}
+    <div class="flex flex-col rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/60">
+      <div class="flex items-center justify-between border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+        <span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+          <i data-lucide="{{ col.icon }}" class="h-3.5 w-3.5 text-{{ col.color }}-500"></i>{{ col.label }}</span>
+        <span class="rounded-full bg-{{ col.color }}-100 px-2 text-[11px] font-bold text-{{ col.color }}-700 dark:bg-{{ col.color }}-500/20 dark:text-{{ col.color }}-200">{{ col['items']|length }}</span>
+      </div>
+      <div class="max-h-[30rem] space-y-2 overflow-y-auto p-2">
+        {% for s in col['items'] %}
+        <div class="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">{{ s.start_time|time }}</span>
+            {% if (s.teacher_late_minutes or 0) > 0 %}<span class="rounded bg-rose-50 px-1.5 text-[10px] font-bold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">+{{ s.teacher_late_minutes }}m</span>{% endif %}
+          </div>
+          <a href="/classes/{{ s.id }}" class="mt-1 block truncate text-sm font-medium hover:text-brand-700">{{ s.student.full_name if s.student else '—' }}</a>
+          <div class="truncate text-[11px] text-slate-500">{{ s.teacher.full_name if s.teacher else '—' }}</div>
+          {% if has_perm(user, 'supervisor.update') or has_perm(user, 'classes.update') %}
+          <div class="mt-2 flex flex-wrap gap-1" x-data="{ open: false }">
+            {% if s.status in ('pending','started') %}
+            <form method="post" action="/supervisor/session/{{ s.id }}/status" class="inline">
+              <input type="hidden" name="status" value="done"><input type="hidden" name="back" value="/supervisor?day={{ sel_date }}">
+              <button class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-700">Done</button>
+            </form>
+            <button type="button" @click="open = !open" class="rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300">Flag…</button>
+            {% endif %}
+            <a href="/classroom/{{ s.id }}" class="rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300">Room</a>
+            <div x-show="open" x-cloak class="mt-1 w-full space-y-1">
+              <form method="post" action="/supervisor/session/{{ s.id }}/status" class="space-y-1">
+                <input type="hidden" name="back" value="/supervisor?day={{ sel_date }}">
+                <input name="reason" required placeholder="Reason (required)" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-600 dark:bg-slate-900">
+                <div class="flex gap-1">
+                  <button name="status" value="missed" class="flex-1 rounded bg-rose-600 px-1 py-0.5 text-[10px] font-medium text-white">Missed</button>
+                  <button name="status" value="absent" class="flex-1 rounded bg-orange-500 px-1 py-0.5 text-[10px] font-medium text-white">Absent</button>
+                  <button name="status" value="cancelled" class="flex-1 rounded bg-slate-500 px-1 py-0.5 text-[10px] font-medium text-white">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="py-6 text-center text-[11px] text-slate-400">Empty</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

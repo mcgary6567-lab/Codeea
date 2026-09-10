@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ k.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(k.name, k.code ~ " · " ~ (k.role_slug|titleize if k.role_slug else 'Institutional') ~ " · " ~ k.frequency|titleize, back="/kpis?period=" ~ period) %}
+  <span class="inline-flex items-center gap-1.5 rounded-full bg-{{ row.color }}-50 px-2.5 py-1 text-xs font-semibold text-{{ row.color }}-700 ring-1 ring-inset ring-{{ row.color }}-600/20 dark:bg-{{ row.color }}-500/10 dark:text-{{ row.color }}-300"><span class="h-1.5 w-1.5 rounded-full bg-{{ row.color }}-500"></span>{{ row.label }}</span>
+  {{ ui.button('Edit', icon='pencil', variant='secondary', type='button', attrs='@click="$dispatch(\'open-modal\',\'editKpi\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat(period_label, format_value(row.value, k.unit), icon='target', color=row.color, hint='source: ' ~ row.source) }}
+  {{ ui.stat('Target', format_value(k.target, k.unit) if k.target is not none else '—', icon='flag', color='sky', hint=('Higher is better' if k.direction=='higher' else 'Lower is better')) }}
+  {{ ui.stat('Formula', k.formula_key or 'Manual entry', icon='function-square', color='indigo') }}
+  {{ ui.stat('Owner', k.owner_id and (opts.users|selectattr('0','equalto',k.owner_id)|map(attribute='1')|first) or '—', icon='user', color='violet') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Timeline", "Actual versus target over the last 12 periods") %}
+      {% if values|reject('none')|list %}{{ ui.chart('kpiChart', 280) }}
+      {% else %}{{ ui.empty_state('No values recorded or computable for this KPI yet.', 'line-chart') }}{% endif %}
+    {% endcall %}
+
+    {% if k.description %}
+    {% call ui.card("Definition") %}<p class="text-sm text-slate-700 dark:text-slate-200">{{ k.description }}</p>{% endcall %}
+    {% endif %}
+
+    {% if entity_rows %}
+    {% call ui.card("Per-teacher values", period_label) %}
+      {{ ui.table_start(['Code','Teacher','Value','Target','Status']) }}
+      {% for e in entity_rows %}
+      <tr>
+        <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ e.code }}</td>
+        <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ e.name }}</td>
+        <td class="px-4 py-2 font-bold">{{ format_value(e.row.value, k.unit) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ format_value(k.target, k.unit) if k.target is not none else '—' }}</td>
+        <td class="px-4 py-2"><span class="inline-flex items-center gap-1.5 rounded-full bg-{{ e.row.color }}-50 px-2 py-0.5 text-[11px] font-semibold text-{{ e.row.color }}-700 dark:bg-{{ e.row.color }}-500/10 dark:text-{{ e.row.color }}-300">{{ e.row.label }}</span></td>
+      </tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Stored values", "Snapshot history including manual entries") %}
+      {{ ui.table_start(['Period','Entity','Value','Target','Source','Recorded']) }}
+      {% for v in history %}
+      <tr>
+        <td class="px-4 py-2 font-mono text-xs">{{ v.period }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ (v.entity_type|titleize ~ ' #' ~ (v.entity_id|string)) if v.entity_type else 'Institution' }}</td>
+        <td class="px-4 py-2 font-semibold">{{ format_value(v.value, k.unit) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ format_value(v.target, k.unit) if v.target is not none else '—' }}</td>
+        <td class="px-4 py-2">{{ ui.badge(v.source) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ v.created_at|ago }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No stored values. Run a snapshot from the catalogue.', 6) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Manual value entry", "Overrides the system snapshot for this period") %}
+      <form method="post" action="/kpis/{{ k.id }}/value" class="space-y-3">
+        {{ ui.select('period', 'Period', period_options, period, placeholder=None) }}
+        {{ ui.input('value', 'Value', '', type='number', step='0.01', required=True) }}
+        {{ ui.input('target', 'Target override', '', type='number', step='0.01') }}
+        <div class="grid grid-cols-2 gap-2">
+          {{ ui.select('entity_type', 'Entity', [('teacher','Teacher'),('department','Department'),('supervisor','Supervisor')], None, placeholder='Institution') }}
+          {{ ui.input('entity_id', 'Entity ID', '', type='number', min=1) }}
+        </div>
+        {{ ui.input('rationale', 'Rationale', '', placeholder='Why is this entered manually?') }}
+        {{ ui.button('Record value', icon='pencil-line') }}
+      </form>
+      <form method="post" action="/kpis/{{ k.id }}/remind" class="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <input type="hidden" name="period" value="{{ period }}">
+        {{ ui.button('Send entry reminder to owner', icon='bell', variant='secondary', size='sm') }}
+      </form>
+    {% endcall %}
+
+    {% call ui.card("Attributes") %}
+      {{ ui.dl([('Code', k.code), ('Unit', k.unit), ('Direction', 'Higher is better' if k.direction=='higher' else 'Lower is better'),
+                ('Frequency', k.frequency|titleize), ('Role', k.role_slug|titleize if k.role_slug else 'Institutional'),
+                ('Department', k.department.name if k.department else None), ('Formula key', k.formula_key or 'Manual'),
+                ('Custom', 'Yes' if k.is_custom else 'No'), ('Active', 'Yes' if k.is_active else 'No')]) }}
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('editKpi', 'Edit KPI', 'lg') %}
+<form method="post" action="/kpis/{{ k.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('name', 'Name', k.name, required=True) }}
+    {{ ui.select('role_slug', 'Role', opts.roles, k.role_slug, placeholder='— Institutional —') }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Definition', k.description, rows=2) }}</div>
+    {{ ui.select('department_id', 'Department', opts.departments, k.department_id, placeholder='— None —') }}
+    {{ ui.select('unit', 'Unit', opts.units, k.unit, placeholder=None) }}
+    {{ ui.input('target', 'Target', k.target, type='number', step='0.01') }}
+    {{ ui.select('direction', 'Direction', opts.directions, k.direction, placeholder=None) }}
+    {{ ui.select('frequency', 'Frequency', opts.frequencies, k.frequency, placeholder=None) }}
+    {{ ui.select('formula_key', 'Computed formula', opts.formulas, k.formula_key, placeholder='— Manual entry —') }}
+    {{ ui.select('owner_id', 'Owner', opts.users, k.owner_id, placeholder='— None —') }}
+    <div class="pt-6">{{ ui.checkbox('is_active', 'Active', k.is_active) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+OQC.line('kpiChart', {{ labels|tojson }}, [
+  {label: 'Actual', data: {{ values|tojson }}, borderColor: '#0d9488', backgroundColor: '#0d948822', spanGaps: true},
+  {label: 'Target', data: {{ targets|tojson }}, borderColor: '#94a3b8', backgroundColor: 'transparent', borderDash: [6, 4], fill: false, pointRadius: 0}
+]);
+</script>
+{% endblock %}

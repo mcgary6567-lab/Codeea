@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI class monitoring{% endblock %}
+{% block content %}
+{% call ui.page_header("AI class monitoring", "Automated signals from class recordings and timings — reviewed by humans") %}
+  {{ ui.button("Teacher trends", href="/ai-monitoring/teachers", icon="trending-up", variant="secondary") }}
+  {{ ui.button("QA queue", href="/qa", icon="shield-check", variant="secondary") }}
+{% endcall %}
+
+{{ ui.alert(disclaimer, 'warning', 'Governance rule') }}
+
+<div class="my-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("High risk", stats.high, icon="alert-triangle", color="rose", href="/ai-monitoring?risk=high") }}
+  {{ ui.stat("Medium risk", stats.medium, icon="alert-circle", color="amber", href="/ai-monitoring?risk=medium") }}
+  {{ ui.stat("Low risk", stats.low, icon="check-circle-2", color="emerald", href="/ai-monitoring?risk=low") }}
+  {{ ui.stat("Awaiting review", stats.pending, icon="hourglass", color="indigo", href="/ai-monitoring?review_status=pending") }}
+  {{ ui.stat("Average score", stats.avg, icon="gauge", color="sky") }}
+</div>
+
+{% call ui.filter_bar('/ai-monitoring') %}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
+  {{ ui.select('risk', 'Risk', risk_levels, risk, placeholder='All') }}
+  {{ ui.select('review_status', 'Review', review_statuses, review_status, placeholder='All') }}
+  {{ ui.select('flagged', 'Safeguarding', [('1','Contact-exchange only')], flagged, placeholder='All') }}
+  {{ ui.input('date_from', 'From', date_from or '', type='date') }}
+  {{ ui.input('date_to', 'To', date_to or '', type='date') }}
+{% endcall %}
+
+{{ ui.table_start(['Class','Teacher','Overall','Camera','Teaching','Engagement','Late','Flags','Risk','Review','']) }}
+{% for a in page.items %}
+<tr class="{{ 'bg-rose-50/50 dark:bg-rose-950/20' if a.contact_exchange_detected }}">
+  <td class="px-4 py-2 text-xs"><a href="/classes/{{ a.session_id }}" class="hover:text-brand-700">{{ a.session.date|date if a.session }} {{ a.session.start_time|time if a.session }}</a>
+    <div class="text-[11px] text-slate-400">{{ a.session.student.full_name if a.session and a.session.student else '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ a.teacher.full_name if a.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-sm font-bold">{{ a.overall_score|round(1) }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.camera_presence_pct|round(0) }}%</td>
+  <td class="px-4 py-2 text-xs">{{ a.active_teaching_pct|round(0) }}%</td>
+  <td class="px-4 py-2 text-xs">{{ a.student_engagement_score|round(0) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if a.punctuality_minutes > 10 }}">{{ a.punctuality_minutes }}m</td>
+  <td class="px-4 py-2">
+    <div class="flex gap-1">
+      {% if a.contact_exchange_detected %}<i data-lucide="shield-alert" class="h-3.5 w-3.5 text-rose-600" title="Contact-exchange signal"></i>{% endif %}
+      {% if a.conduct_flags %}<i data-lucide="flag" class="h-3.5 w-3.5 text-orange-500" title="{{ a.conduct_flags|join(', ') }}"></i>{% endif %}
+      {% if a.tone_flags %}<i data-lucide="volume-2" class="h-3.5 w-3.5 text-amber-500" title="{{ a.tone_flags|join(', ') }}"></i>{% endif %}
+    </div>
+  </td>
+  <td class="px-4 py-2">{{ ui.badge(a.risk_level) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.review_status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Review', href='/ai-monitoring/' ~ a.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No AI analyses match these filters.', 11, 'brain-circuit') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+<div class="mt-6">
+{% call ui.card("AI usage & cost", "Class-monitoring model runs by month (governance record)") %}
+  {{ ui.table_start(['Month','Runs','Reviewed','Tokens','Cost (USD)'], compact=True) }}
+  {% for u in usage %}
+  <tr><td class="px-4 py-2 text-xs font-medium">{{ u.month }}</td>
+    <td class="px-4 py-2 text-xs">{{ u.runs }}</td>
+    <td class="px-4 py-2 text-xs">{{ u.reviewed }}</td>
+    <td class="px-4 py-2 text-xs">{{ u.tokens }}</td>
+    <td class="px-4 py-2 text-xs">{{ '%.4f'|format(u.cost) }}</td></tr>
+  {% else %}{{ ui.empty('No AI runs recorded yet.', 5, 'cpu') }}{% endfor %}
+  {{ ui.table_end() }}
+  <p class="mt-3 text-xs text-slate-500">The gateway runs in simulated mode on this environment, so the recorded cost is zero.
+    Every run stores its model, model version, prompt version and confidence for audit.</p>
+{% endcall %}
+</div>
+{% endblock %}

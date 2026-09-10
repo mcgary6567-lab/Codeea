@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'Edit teacher' if mode == 'edit' else 'New teacher' }}{% endblock %}
+{% block content %}
+{{ ui.page_header(('Edit ' ~ t.teacher_code) if mode == 'edit' else 'New teacher',
+   'Creating a teacher provisions the login (role: teacher), the employee record and the teaching profile in one action. New teachers start unverified and cannot take live classes until the background check is approved.',
+   back=('/teachers/' ~ t.id) if t else '/teachers') }}
+<form method="post" action="{{ ('/teachers/' ~ t.id ~ '/edit') if mode == 'edit' else '/teachers/new' }}" class="space-y-6 max-w-5xl">
+  {% call ui.card("Identity") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {{ ui.input('full_name', 'Full name', t.full_name if t else '', required=True) }}
+    {{ ui.select('gender', 'Gender', ['male','female'], t.gender if t else 'male', placeholder=None, help='Female teachers are prioritised for female students and young children.') }}
+    {% if mode == 'new' %}{{ ui.input('email', 'Work email', '', type='email', required=True, help='Becomes the login username.') }}
+    {% else %}{{ ui.input('email_display', 'Work email', t.user.email if t.user else '', attrs='disabled') }}{% endif %}
+    {{ ui.input('phone', 'Phone', (t.user.phone if t and t.user else ''), placeholder='+92 3..') }}
+    {% if mode == 'new' %}{{ ui.input('cnic', 'CNIC / national ID', '', help='Stored masked; used for the background check.') }}
+    {{ ui.input('join_date', 'Join date', '', type='date') }}{% endif %}
+    {{ ui.select('status', 'Status', statuses, t.status if t else 'active', placeholder=None) }}
+  </div>
+  <div class="mt-4">{{ ui.textarea('qualifications', 'Qualifications', t.qualifications if t else '', rows=2, placeholder='Hafiz-e-Quran, Ijazah in Hafs an Asim, BA Islamic Studies…') }}</div>
+  {% endcall %}
+
+  {% call ui.card("Teaching profile", "Courses and availability drive the Module 44 teacher matcher.") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.select('shift', 'Shift', shifts, t.shift if t else 'evening', placeholder=None) }}
+    {{ ui.input('max_classes_per_day', 'Max classes / day', t.max_classes_per_day if t else 12, type='number', min=1, max=24) }}
+    {{ ui.select('grade', 'Grade', grades, t.grade if t else 'B', placeholder=None, help='Changing the grade requires teachers.approve.') }}
+    {{ ui.select('supervisor_id', 'Supervisor', supervisor_options, t.supervisor_id if t else None, placeholder='Unassigned') }}
+  </div>
+  <div class="mt-5">
+    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Courses this teacher can deliver</div>
+    <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      {% for c in courses %}
+      <label class="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
+        <input type="checkbox" name="courses" value="{{ c.code }}" {% if t and c.code in (t.courses or []) %}checked{% endif %} class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+        <span><span class="font-medium text-slate-700 dark:text-slate-200">{{ c.code }}</span><span class="block text-xs text-slate-500">{{ c.name }}</span></span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="mt-5">
+    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Languages</div>
+    <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {% set langs = (t.languages if t else ['English','Urdu']) or [] %}
+      {% for l in languages %}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="languages" value="{{ l }}" {% if l in langs %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+        <span class="text-slate-700 dark:text-slate-200">{{ l }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="mt-5">
+    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Weekly availability (org time, Asia/Karachi)</div>
+    <div class="grid gap-3 sm:grid-cols-4 lg:grid-cols-7">
+      {% for d in weekdays %}
+      {% set cur = ((t.availability or {}).get(d) if t else None) %}
+      {{ ui.input('avail_' ~ d, d|title, (cur[0] if cur else ''), placeholder='14:00-22:00') }}
+      {% endfor %}
+    </div>
+    <p class="mt-1 text-xs text-slate-500">Leave a day blank when the teacher is unavailable.</p>
+  </div>
+  {% endcall %}
+
+  {% call ui.card("Compensation") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.input('per_class_rate', 'Per-class rate (PKR)', (t.per_class_rate if t else 250), type='number', step='0.01', min=0) }}
+    {% if mode == 'new' %}
+    {{ ui.input('base_salary', 'Base salary (PKR / month)', 0, type='number', step='0.01', min=0) }}
+    {{ ui.select('employment_type', 'Employment type', ['full_time','part_time','contract'], 'full_time', placeholder=None) }}
+    {% endif %}
+  </div>
+  {% endcall %}
+
+  {% call ui.card("Bio") %}
+    {{ ui.textarea('bio', 'Public bio (shown to parents)', t.bio if t else '', rows=3, placeholder='Short, warm introduction used in the parent portal and trial confirmations.') }}
+  {% endcall %}
+
+  <div class="flex items-center gap-2">
+    {{ ui.button(('Save changes' if mode == 'edit' else 'Create teacher, login & employee'), icon='save') }}
+    {{ ui.button('Cancel', href=('/teachers/' ~ t.id) if t else '/teachers', variant='secondary') }}
+  </div>
+</form>
+{% endblock %}

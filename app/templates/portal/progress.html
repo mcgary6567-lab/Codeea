@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Progress{% endblock %}
+{% block content %}
+{{ ui.page_header('Progress', 'Where each child is in the curriculum, their current sabaq position and their most recent evaluations.') }}
+<div class="mb-5 flex flex-wrap gap-2">
+  <a href="/portal/progress" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if not child else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">All children</a>
+  {% for s in children %}
+  <a href="/portal/progress?student_id={{ s.id }}" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if child and child.id == s.id else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">{{ s.full_name }}</a>
+  {% endfor %}
+</div>
+
+{% for b in blocks %}
+<div class="mb-8 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card(b.s.full_name, (b.s.course.name if b.s.course else 'Course to be set') ~ ' · ' ~ (b.s.level or 'level to be set')) %}
+      {{ ui.progress(b.p.pct or 0, 'brand', 'Curriculum completed') }}
+      <div class="mt-4 grid gap-3 sm:grid-cols-4 text-center">
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-xl font-bold text-emerald-600">{{ b.p.completed or 0 }}</div><div class="text-xs text-slate-500">completed</div></div>
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-xl font-bold text-sky-600">{{ b.p.in_progress or 0 }}</div><div class="text-xs text-slate-500">in progress</div></div>
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-xl font-bold text-violet-600">{{ b.p.revision or 0 }}</div><div class="text-xs text-slate-500">revision</div></div>
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-xl font-bold text-slate-700 dark:text-slate-200">{{ b.p.total or 0 }}</div><div class="text-xs text-slate-500">total lessons</div></div>
+      </div>
+      <dl class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Current lesson</dt><dd>{{ b.p.get('current_lesson_title') or b.s.sabaq_position or '—' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Sabaq position</dt><dd>{{ b.s.sabaq_position or '—' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Teacher</dt><dd>{{ b.s.teacher.full_name if b.s.teacher else 'being matched' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase text-slate-500">Revision (dor)</dt><dd>{{ 'On track' if b.s.dor_quota_met else 'Needs more revision' }}</dd></div>
+      </dl>
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Recent evaluations') %}
+      <div class="space-y-3">
+      {% for e in b.evaluations %}
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <div class="flex items-center justify-between">
+            <div class="text-xs text-slate-500">{{ e.date|date }} · {{ e.evaluation_type|titleize }}</div>
+            <div class="text-lg font-bold text-brand-700 dark:text-brand-300">{{ e.score if e.score is not none else '—' }}</div>
+          </div>
+          {% if e.teacher_comment %}<p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{{ e.teacher_comment }}</p>{% endif %}
+        </div>
+      {% else %}
+        <p class="py-6 text-center text-sm text-slate-400">No evaluations recorded yet.</p>
+      {% endfor %}
+      </div>
+      <div class="mt-4">{{ ui.button('Result cards', href='/portal/result-cards', variant='secondary', size='sm', icon='file-badge') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% else %}
+{{ ui.empty_state('No children are linked to your account yet.', 'graduation-cap') }}
+{% endfor %}
+{% endblock %}

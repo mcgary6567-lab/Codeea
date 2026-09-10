@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My performance{% endblock %}
+{% block content %}
+{{ ui.page_header('My performance', 'How the college measures your teaching: delivery, punctuality, QA reviews, AI class analysis and student outcomes.') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Grade', t.grade, icon='award', color=('emerald' if t.grade == 'A' else ('sky' if t.grade == 'B' else 'amber'))) }}
+  {{ ui.stat('Completion (30d)', stats30.completion_rate ~ '%', icon='check-circle', color='emerald') }}
+  {{ ui.stat('Punctuality (30d)', stats30.punctuality_rate ~ '%', icon='timer', color='sky') }}
+  {{ ui.stat('QA average', t.qa_score_avg|round(1) if t.qa_score_avg else '—', icon='shield-check', color='indigo') }}
+  {{ ui.stat('AI class score', ai_score if ai_score else '—', icon='brain-circuit', color='violet') }}
+  {{ ui.stat('Complaints', complaints, icon='life-buoy', color='rose') }}
+</div>
+{% call ui.card('Classes delivered vs missed — last 8 weeks') %}{{ ui.chart('perfChart', 250) }}{% endcall %}
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Quality scorecard') %}
+    <div class="space-y-4">
+      {{ ui.progress(stats90.completion_rate, 'emerald', 'Completion rate (90 days)') }}
+      {{ ui.progress(stats90.punctuality_rate, 'sky', 'Punctuality (90 days)') }}
+      {{ ui.progress(t.qa_score_avg or 0, 'indigo', 'QA average') }}
+      {{ ui.progress(t.punctuality_score or 0, 'brand', 'Punctuality score') }}
+      {{ ui.progress(t.retention_rate or 0, 'violet', 'Student retention') }}
+    </div>
+    <p class="mt-4 text-xs text-slate-500">Grades are recomputed by the People &amp; Culture team from these inputs. A promotion gate may require completing an Ustaadh Lab assignment.</p>
+  {% endcall %}
+  {% call ui.card('My cohort') %}
+    {{ ui.dl([('Students assigned', students_total), ('Currently learning', students_active),
+              ('High churn risk', high_risk), ('Classes done (90d)', stats90.done), ('Missed (90d)', stats90.missed),
+              ('Late starts (90d)', stats90.late), ('Shift', t.shift|titleize), ('Max classes / day', t.max_classes_per_day)]) }}
+    <div class="mt-4 flex gap-2">{{ ui.button('My students', href='/teacher/students', variant='secondary', size='sm', icon='graduation-cap') }}{{ ui.button('QA feedback', href='/teacher/qa', variant='secondary', size='sm', icon='shield-check') }}</div>
+  {% endcall %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('perfChart', {{ chart.labels|tojson }}, [
+  {label: 'Done', data: {{ chart.done|tojson }}, backgroundColor: '#10b981'},
+  {label: 'Missed', data: {{ chart.missed|tojson }}, backgroundColor: '#f43f5e'}
+]);
+</script>
+{% endblock %}

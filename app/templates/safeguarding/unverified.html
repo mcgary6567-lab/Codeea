@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Verification gate{% endblock %}
+{% block content %}
+{% call ui.page_header("Background verification gate", "No unverified teacher may hold a live class schedule", back="/safeguarding") %}
+  <form method="post" action="/safeguarding/unverified/scan" class="inline">{{ ui.button('Run gate scan', icon='radar', variant='secondary') }}</form>
+{% endcall %}
+
+{% if breaches %}
+{{ ui.alert(breaches ~ ' unverified teacher(s) still hold active schedules or upcoming classes. Reassign the classes or complete the background check.', 'error', 'Policy breach') }}
+{% else %}
+{{ ui.alert('No unverified teacher holds an active schedule. The gate is clean.', 'success', 'Compliant') }}
+{% endif %}
+
+<div class="mt-6">
+{{ ui.table_start(['Teacher','Code','Status','Active schedules','Upcoming classes','Gate','']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-rose-50/50 dark:bg-rose-950/20' if r.breach }}">
+  <td class="px-4 py-2 font-medium">{{ r.teacher.full_name }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ r.teacher.teacher_code }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.teacher.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.schedules }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.upcoming }}</td>
+  <td class="px-4 py-2">{% if r.breach %}<span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Breach</span>{% else %}<span class="text-xs text-emerald-600">Clean</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Reassign', href='/schedules/bulk-teacher-change?from_teacher_id=' ~ r.teacher.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('Every teacher has passed background verification.', 7, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+<div class="mt-6">
+{% call ui.card("Gate alerts") %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for a in alerts %}
+    <li class="py-2.5"><div class="flex items-center justify-between"><span class="font-medium">{{ a.title }}</span>{{ ui.badge(a.status) }}</div>
+      <div class="text-xs text-slate-500">{{ a.message }} · {{ a.created_at|ago }}</div></li>
+    {% else %}<li class="py-6 text-center text-slate-400">No gate alerts have been raised.</li>{% endfor %}
+  </ul>
+{% endcall %}
+</div>
+{% endblock %}

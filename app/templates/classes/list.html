@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class sessions{% endblock %}
+{% block content %}
+{% call ui.page_header("Class sessions", "Every scheduled, live and completed class with its execution record") %}
+  {{ ui.button("Day view", href="/classes/day?date=" ~ (day or today()), icon="calendar-range", variant="secondary") }}
+  {% if has_perm(user, 'classes.add') or has_perm(user, 'schedules.update') %}
+  {{ ui.button("Generate sessions", icon="calendar-plus", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'genSessions\')"') }}
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+  {% for k, icon, color in [('pending','clock','amber'),('started','play-circle','indigo'),('done','check-circle-2','emerald'),('missed','user-x','rose'),('absent','user-minus','orange'),('leave','palmtree','violet'),('cancelled','ban','slate'),('rescheduled','calendar-clock','sky')] %}
+  <a href="/classes?date={{ day or today() }}&status={{ k }}" class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-center justify-between"><span class="text-[11px] font-semibold uppercase text-slate-500">{{ k|titleize }}</span>
+      <i data-lucide="{{ icon }}" class="h-3.5 w-3.5 text-{{ color }}-500"></i></div>
+    <div class="mt-1 text-xl font-bold">{{ counters.get(k, 0) }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/classes') %}
+  {{ ui.input('date', 'Date', date_value or (day or ''), type='date') }}
+  {{ ui.input('date_from', 'From', date_from or '', type='date') }}
+  {{ ui.input('date_to', 'To', date_to or '', type='date') }}
+  {{ ui.select('status', 'Status', status_options, status, placeholder='All') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
+  {{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All') }}
+  {{ ui.select('shift_id', 'Shift', shift_options, shift_id, placeholder='All') }}
+  {{ ui.select('trial', 'Trial', [('1','Trial only'),('0','Regular only')], trial, placeholder='All') }}
+  {{ ui.input('q', 'Search', q, placeholder='Student or room') }}
+{% endcall %}
+
+<form method="post" action="/classes/bulk-status" x-data="{ n: 0 }">
+<input type="hidden" name="back" value="{{ base_url }}">
+{{ ui.table_start(['', 'Date','Time','Student','Teacher','Course','Status','Late','Duration','Extras',''], compact=True) }}
+{% for c in page.items %}
+<tr>
+  <td class="px-3 py-2">{% if has_perm(user, 'classes.update') %}<input type="checkbox" name="session_ids" value="{{ c.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.date|date }}</td>
+  <td class="px-4 py-2 font-mono text-xs whitespace-nowrap">{{ c.start_time|time }}</td>
+  <td class="px-4 py-2"><a href="/classes/{{ c.id }}" class="font-medium hover:text-brand-700">{{ c.student.full_name if c.student else '—' }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ c.student.student_code if c.student }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ c.teacher.full_name if c.teacher else '—' }}{% if c.substitute_for_teacher_id %}<span class="ml-1 text-[10px] text-amber-600">(cover)</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ c.course.name if c.course else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-semibold' if (c.teacher_late_minutes or 0) > 5 }}">{{ (c.teacher_late_minutes ~ 'm') if c.teacher_late_minutes else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ (c.actual_duration_minutes ~ '/' ~ c.duration_minutes) if c.actual_duration_minutes else (c.duration_minutes ~ ' min') }}</td>
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-1 text-slate-400">
+      {% if c.is_trial %}<i data-lucide="flask-conical" class="h-3.5 w-3.5 text-sky-500" title="Trial"></i>{% endif %}
+      {% if c.recording %}<i data-lucide="film" class="h-3.5 w-3.5 text-violet-500" title="Recording available"></i>{% endif %}
+      {% if c.ai_analysis %}<i data-lucide="brain-circuit" class="h-3.5 w-3.5 text-{{ c.ai_analysis.risk_level|status_color }}-500" title="AI risk {{ c.ai_analysis.risk_level }}"></i>{% endif %}
+    </div>
+  </td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Open', href='/classes/' ~ c.id, size='sm', variant='ghost') }}
+    {% if c.status in ('pending','started') %}{{ ui.button('Room', href='/classroom/' ~ c.id, size='sm', variant='secondary', icon='video') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No classes match these filters.', 11, 'video-off') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if has_perm(user, 'classes.update') %}
+<div class="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="text-xs text-slate-500">Bulk action on <b x-text="n"></b> selected class(es)</div>
+  {{ ui.select('status', 'New status', status_options, none, placeholder='— Select —') }}
+  <div class="min-w-[16rem] flex-1">{{ ui.input('reason', 'Reason', '', placeholder='Required for missed, absent, cancelled or leave') }}</div>
+  {{ ui.button('Apply', icon='check-check', variant='warning', attrs='onclick="return confirm(\'Apply this status to the selected classes?\')"') }}
+</div>
+{% endif %}
+</form>
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('genSessions', 'Generate class sessions') %}
+<form method="post" action="/classes/generate" class="space-y-4">
+  <p class="text-sm text-slate-500">Materialises sessions for every active schedule in the chosen range. Existing sessions are never duplicated.</p>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('start_date', 'From', today(), type='date', required=True) }}
+    {{ ui.input('end_date', 'To', '', type='date', required=True) }}
+  </div>
+  {{ ui.button('Generate', icon='calendar-plus') }}
+</form>
+{% endcall %}
+{% endblock %}

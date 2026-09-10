@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Result cards{% endblock %}
+{% block content %}
+{{ ui.page_header('Monthly result cards', 'Each month your child sits a short test generated from exactly what they have covered. The improvement column compares this month with the last.') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Result cards', rows|length, icon='file-badge', color='brand') }}
+  {{ ui.stat('Improving', rows|selectattr('improvement_pct')|selectattr('improvement_pct', 'gt', 0)|list|length, icon='trending-up', color='emerald') }}
+  {{ ui.stat('Available to download', rows|selectattr('result_card_path')|list|length, icon='download', color='sky') }}
+</div>
+{{ ui.table_start(['Period', 'Child', 'Score', '%', 'Previous', 'Improvement', 'Grade', 'Teacher remarks', '']) }}
+{% for t in rows %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">{{ t.period }}</td>
+  <td class="px-4 py-2 text-sm">{{ names.get(t.student_id, '—') }}</td>
+  <td class="px-4 py-2">{{ t.score if t.score is not none else '—' }}<span class="text-xs text-slate-400">/{{ t.max_score|int }}</span></td>
+  <td class="px-4 py-2 font-semibold">{{ t.percentage if t.percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ t.previous_percentage if t.previous_percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-sm font-medium {{ 'text-emerald-600' if (t.improvement_pct or 0) > 0 else ('text-rose-600' if (t.improvement_pct or 0) < 0 else 'text-slate-500') }}">
+    {% if t.improvement_pct is not none %}{{ '+' if t.improvement_pct > 0 else '' }}{{ t.improvement_pct }} pts{% else %}—{% endif %}</td>
+  <td class="px-4 py-2"><span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold dark:bg-slate-800">{{ t.grade or '—' }}</span></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (t.teacher_remarks or '—')|truncate(70) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if t.result_card_path %}<a href="/storage/{{ t.result_card_path }}" class="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"><i data-lucide="download" class="h-3.5 w-3.5"></i>Download</a>
+    {% else %}<span class="text-xs text-slate-400">{{ t.status|titleize }}</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No result cards have been issued yet. The first one arrives after a full month of classes.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Teacher cost vs output{% endblock %}
+{% block content %}
+{% call ui.page_header('Teacher cost vs output', 'What each teacher costs (salary + class pay) against the subscription revenue their students generate, for ' ~ period ~ '.', back='/hr/payroll') %}
+  <form method="get" class="flex items-end gap-2"><div class="w-40">{{ ui.input('period', 'Period', period, type='month') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Total teacher cost', totals.cost|money('PKR'), icon='banknote', color='rose') }}
+  {{ ui.stat('Attributed revenue', totals.revenue|money('PKR'), icon='trending-up', color='emerald') }}
+  {{ ui.stat('Cost ratio', (totals.ratio ~ '%') if totals.ratio else '—', icon='scale', color='amber', hint='cost / revenue') }}
+  {{ ui.stat('Classes delivered', totals.classes, icon='video', color='indigo', hint=totals.students ~ ' active students') }}
+</div>
+{% if totals.revenue %}
+<div class="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <h3 class="mb-3 text-sm font-semibold">Salary vs revenue per teacher</h3>
+  {{ ui.chart('costChart', 300) }}
+</div>
+{% else %}
+<div class="mb-6">{{ ui.alert('No active subscriptions are recorded yet, so revenue attribution shows zero. Cost figures are still accurate.', 'info') }}</div>
+{% endif %}
+{{ ui.table_start(['Teacher', 'Grade', 'Salary', 'Class pay', 'Classes', 'Students', 'Total cost', 'Revenue', 'Margin', 'Cost ratio']) }}
+{% for r in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 text-xs">{% if r.employee %}<a href="/hr/employees/{{ r.employee.id }}" class="font-medium hover:text-brand-600">{{ r.teacher.full_name }}</a>{% else %}{{ r.teacher.full_name }}{% endif %}
+    <div class="text-[11px] text-slate-500">{{ r.teacher.teacher_code }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(r.grade or 'B') }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.salary|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.class_pay|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.classes }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.students }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ r.cost|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.revenue|money }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if r.margin > 0 else 'text-rose-600' }}">{{ r.margin|money }}</td>
+  <td class="px-4 py-2 text-xs">{% if r.ratio %}<span class="{{ 'text-rose-600 font-semibold' if r.ratio > 60 else 'text-slate-600' }}">{{ r.ratio }}%</span>{% else %}—{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No teachers on record.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}
+{% block scripts %}
+{% if totals.revenue %}
+<script>
+OQC.bar('costChart', {{ labels|tojson }}, [
+  {label: 'Cost (PKR)', data: {{ cost_data|tojson }}},
+  {label: 'Revenue (PKR)', data: {{ revenue_data|tojson }}}
+]);
+</script>
+{% endif %}
+{% endblock %}

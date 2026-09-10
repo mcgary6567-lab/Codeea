@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Change teacher · {{ s.full_name }}{% endblock %}
+{% block content %}
+{{ ui.page_header('Change teacher — ' ~ s.full_name,
+   'The matcher re-runs with the student\'s current course, gender, age and timezone. The old teacher, the new teacher and the parent are all notified, and every future session, schedule and subscription is moved.',
+   back='/students/' ~ s.id) }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <form method="post" action="/students/{{ s.id }}/change-teacher" x-data="{ chosen: '' }">
+      {% call ui.card('Recommended replacements', 'Current teacher is excluded. Unverified teachers never appear.') %}
+        <div class="space-y-2.5">
+        {% for r in ranked[:8] %}
+          <label class="block cursor-pointer rounded-lg border p-3 transition"
+                 :class="chosen === '{{ r.teacher_id }}' ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-900/20' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700'">
+            <div class="flex items-start gap-3">
+              <input type="radio" name="teacher_id" value="{{ r.teacher_id }}" x-model="chosen" class="mt-1 h-4 w-4 text-brand-600" required>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-medium text-slate-900 dark:text-white">{{ r.name }}{% if loop.first %}<span class="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Best match</span>{% endif %}</div>
+                  <div class="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-300">{{ r.score }}</div>
+                </div>
+                <div class="mt-0.5 font-mono text-[11px] text-slate-500">{{ r.code }} · {{ r.gender|titleize }} · {{ r.shift|titleize }} shift · Grade {{ r.grade }} · {{ r.load }} students</div>
+                <ul class="mt-1.5 space-y-0.5 text-xs text-slate-500">{% for reason in r.reasons %}<li>· {{ reason }}</li>{% endfor %}</ul>
+              </div>
+            </div>
+          </label>
+        {% else %}
+          {{ ui.empty_state('No verified teacher is available for this course and timezone. Verify a teacher first.', 'user-x') }}
+        {% endfor %}
+        </div>
+        <div class="mt-4">{{ ui.textarea('reason', 'Reason for the change (required)', '', rows=3, required=True, placeholder='Parent request, timezone change, QA outcome, teacher resignation…') }}</div>
+        <div class="mt-4 flex gap-2">{{ ui.button('Change teacher & propagate', icon='repeat') }}{{ ui.button('Cancel', href='/students/' ~ s.id, variant='secondary') }}</div>
+      {% endcall %}
+    </form>
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Current assignment') %}
+      {% if s.teacher %}
+      <div class="flex items-center gap-3">{{ ui.avatar(s.teacher.full_name) }}
+        <div><div class="font-medium">{{ s.teacher.full_name }}</div>
+          <div class="text-xs text-slate-500">{{ s.teacher.teacher_code }} · Grade {{ s.teacher.grade }}</div></div></div>
+      {% else %}<p class="text-sm text-slate-400">No teacher assigned.</p>{% endif %}
+      {{ ui.dl([('Course', s.course.name if s.course else '—'), ('Level', s.level or '—'), ('Gender', s.gender|titleize),
+                ('Age', s.age or '—'), ('Timezone', s.timezone), ('Status', s.status|titleize)]) }}
+    {% endcall %}
+    {% call ui.card('What happens next') %}
+      <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-500"></i>A TeacherMatch record is written with the ranked shortlist and your reason.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-500"></i>Active schedules, pending future sessions and the subscription move to the new teacher.</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-500"></i>Old teacher, new teacher and the parent are notified (WhatsApp when opted in).</li>
+        <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-500"></i>A consequential audit event is recorded with your rationale.</li>
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

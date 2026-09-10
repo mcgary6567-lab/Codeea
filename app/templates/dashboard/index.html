@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Academic Home{% endblock %}
+{% block content %}
+{% call ui.page_header("Academic Home", "Live class execution, pending approvals and risk signals · " ~ scope_label) %}
+  {{ ui.button("Supervisor board", href="/supervisor", icon="radio", variant="secondary") }}
+  {{ ui.button("Class list", href="/classes?date=" ~ sel_date, icon="video") }}
+{% endcall %}
+
+<form method="get" action="/dashboard" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  {{ ui.input('day', 'Date', sel_date, type='date') }}
+  {{ ui.select('shift_id', 'Shift', shift_options, shift_id, placeholder='All shifts') }}
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+  <a href="/dashboard" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Today</a>
+  <div class="ml-auto text-xs text-slate-500">30-day attendance <b class="text-slate-800 dark:text-slate-100">{{ attendance_pct }}%</b> · {{ counters.total }} classes on {{ sel_date|date }}</div>
+</form>
+
+<div class="mb-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
+  {% for c in cards %}
+  <a href="{{ c.url }}" class="group rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-center justify-between">
+      <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ c.label }}</span>
+      <span class="rounded-md bg-{{ c.color }}-50 p-1.5 text-{{ c.color }}-600 dark:bg-{{ c.color }}-500/10 dark:text-{{ c.color }}-300"><i data-lucide="{{ c.icon }}" class="h-3.5 w-3.5"></i></span>
+    </div>
+    <div class="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{{ c.value }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% include "dashboard/_live.html" %}
+
+    {% call ui.card("Done vs missed — last 7 days", "Execution quality trend across the scope") %}
+      {% if trend.done|sum or trend.missed|sum or trend.absent|sum %}
+        {{ ui.chart('trendChart', 240) }}
+      {% else %}
+        {{ ui.empty_state('No class history in the last 7 days yet.', 'bar-chart-3') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Pending requests", "Work waiting on a decision") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for p in pending %}
+        <li><a href="{{ p.url }}" class="flex items-center gap-3 py-2.5 hover:text-brand-700">
+          <span class="rounded-md bg-{{ p.color }}-50 p-1.5 text-{{ p.color }}-600 dark:bg-{{ p.color }}-500/10 dark:text-{{ p.color }}-300"><i data-lucide="{{ p.icon }}" class="h-3.5 w-3.5"></i></span>
+          <span class="flex-1">{{ p.label }}</span>
+          <span class="font-bold {{ 'text-slate-900 dark:text-white' if p.count else 'text-slate-400' }}">{{ p.count }}</span>
+        </a></li>
+        {% else %}
+        <li class="py-6 text-center text-slate-400">Nothing is waiting for a decision.</li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+
+    {% call ui.card("Risk alerts", "Most recent open signals") %}
+      <ul class="space-y-3 text-sm">
+        {% for a in alerts %}
+        <li class="flex gap-2.5">
+          <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-{{ a.severity|status_color }}-500"></span>
+          <div class="min-w-0">
+            <div class="font-medium leading-snug text-slate-800 dark:text-slate-100">{{ a.title }}</div>
+            <div class="text-xs text-slate-500">{{ a.alert_type|titleize }} · {{ a.created_at|ago }}{% if a.visibility == 'ceo_only' %} · <span class="text-rose-600">CEO only</span>{% endif %}</div>
+          </div>
+        </li>
+        {% else %}
+        <li class="py-6 text-center text-slate-400">No open alerts. All quiet.</li>
+        {% endfor %}
+      </ul>
+      <div class="mt-4"><a href="/alerts" class="text-xs font-medium text-brand-600 hover:underline">Open the alerts inbox →</a></div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  OQC.line('trendChart', {{ trend.labels|tojson }}, [
+    {label: 'Done', data: {{ trend.done|tojson }}, borderColor: '#10b981', backgroundColor: '#10b98122'},
+    {label: 'Missed', data: {{ trend.missed|tojson }}, borderColor: '#ef4444', backgroundColor: '#ef444422'},
+    {label: 'Absent', data: {{ trend.absent|tojson }}, borderColor: '#f97316', backgroundColor: '#f9731622'}
+  ]);
+</script>
+{% endblock %}

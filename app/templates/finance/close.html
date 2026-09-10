@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Financial close{% endblock %}
+{% block content %}
+{% call ui.page_header("Financial close", "Closing a month snapshots revenue, expenses and payroll, and blocks new journal entries dated inside it.") %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Period', 'Status', 'Revenue', 'Expenses', 'Payroll', 'Net', 'Closed by', 'Closed at', '']) }}
+    {% for p in periods %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-sm font-semibold">{{ p.period }}</td>
+      <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+      <td class="px-4 py-2 text-right text-emerald-600">{{ p.revenue_base|money }}</td>
+      <td class="px-4 py-2 text-right text-rose-600">{{ p.expenses_base|money }}</td>
+      <td class="px-4 py-2 text-right text-slate-500">{{ p.payroll_base|money }}</td>
+      <td class="px-4 py-2 text-right font-semibold">{{ (p.revenue_base|float - p.expenses_base|float)|money }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ p.notes or '—' }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ p.closed_at|datetime if p.closed_at else '—' }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if p.status == 'closed' and can_close %}
+        <form method="post" action="/finance/accounts/reopen" class="flex items-center justify-end gap-1.5">
+          <input type="hidden" name="period" value="{{ p.period }}">
+          <input name="rationale" placeholder="Rationale" required class="w-32 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+          <button class="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-600">Re-open</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No periods recorded yet.', 9) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+
+  <div class="space-y-5">
+    {% if can_close %}
+    {% call ui.card("Close a period") %}
+    <form method="post" action="/finance/accounts/close" class="space-y-3">
+      {{ ui.select('period', 'Period to close', options, options[1] if options|length > 1 else options[0], required=True, placeholder=None) }}
+      {{ ui.textarea('notes', 'Close notes', '', rows=3, help='Recorded on the audit trail with the snapshot figures.') }}
+      {{ ui.button('Close period', icon='lock', variant='warning') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card("What closing does") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="camera" class="mt-0.5 h-4 w-4 text-sky-600"></i>Snapshots revenue, expenses and payroll for the month.</li>
+      <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 text-slate-500"></i>Blocks any new journal dated inside the period.</li>
+      <li class="flex gap-2"><i data-lucide="scroll-text" class="mt-0.5 h-4 w-4 text-amber-600"></i>Writes a consequential audit event.</li>
+      <li class="flex gap-2"><i data-lucide="unlock" class="mt-0.5 h-4 w-4 text-rose-600"></i>Re-opening always demands a rationale.</li>
+    </ul>
+    <p class="mt-3 text-xs text-slate-500">Current period: <b>{{ current }}</b> (leave open until the month ends).</p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ s.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(s.full_name, (s.course.name if s.course else 'No course') ~ ' · ' ~ (s.level or 'level not set'), back='/students') %}
+  {% if has_perm(user, 'students.update') %}{{ ui.button('Edit', href='/students/' ~ s.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
+  {% if has_perm(user, 'students.update') or has_perm(user, 'students.assign') %}{{ ui.button('Change teacher', href='/students/' ~ s.id ~ '/change-teacher', icon='repeat', variant='secondary') }}{% endif %}
+  {% if has_perm(user, 'students.update') %}{{ ui.button('Status', icon='shuffle', attrs='type="button" @click="$dispatch(\'open-modal\',\'statusModal\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  <span class="rounded-lg bg-slate-900 px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-white dark:bg-slate-700">{{ s.student_code }}</span>
+  {{ ui.badge(s.status) }}
+  {{ ui.badge(s.risk_level, 'Risk ' ~ s.risk_level|titleize ~ ' (' ~ (s.risk_score|round|int) ~ ')') }}
+  {% if not s.dor_quota_met %}<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"><i data-lucide="alert-triangle" class="h-3 w-3"></i>Dor quota not met</span>{% endif %}
+  {% if s.is_minor %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-600/20">Minor · safeguarding</span>{% endif %}
+  <span class="text-xs text-slate-500">Joined {{ s.join_date|date }} · {{ s.timezone }}</span>
+</div>
+
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'overview' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Attendance (30d)', attendance_pct ~ '%', icon='clipboard-check', color='emerald') }}
+  {{ ui.stat('Curriculum', (progress.pct if progress else 0) ~ '%', icon='trending-up', color='sky', hint=(progress.completed if progress else 0)|string ~ ' of ' ~ (progress.total if progress else 0)|string ~ ' lessons') }}
+  {{ ui.stat('Open cases', open_cases, icon='life-buoy', color='amber', href='/students/' ~ s.id ~ '?tab=cases') }}
+  {{ ui.stat('Risk score', s.risk_score|round|int, icon='heart-pulse', color=('rose' if s.risk_level == 'high' else ('amber' if s.risk_level == 'medium' else 'emerald')), hint=s.risk_level|titleize) }}
+</div>
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Learner profile') %}
+      {{ ui.dl([('Student code', s.student_code), ('Gender', s.gender|titleize), ('Age', (s.age|string ~ ' years') if s.age else '—'),
+                ('Date of birth', s.date_of_birth|date if s.date_of_birth else '—'), ('Course', s.course.name if s.course else '—'),
+                ('Division / level', s.level or '—'), ('Language', s.preferred_language), ('Timezone', s.timezone),
+                ('Sabaq position', s.sabaq_position or '—'), ('Guardian consent', 'Recorded' if s.guardian_consent else 'Missing')]) }}
+      {% if s.notes %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ s.notes }}</p>{% endif %}
+    {% endcall %}
+    {% call ui.card('Risk factors', 'Churn model inputs refreshed ' ~ (s.risk_computed_at|ago if s.risk_computed_at else 'not yet')) %}
+      {% if s.risk_factors %}
+      <div class="grid gap-2 sm:grid-cols-2">
+        {% for k, val in s.risk_factors.items() %}
+        <div class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm dark:border-slate-800">
+          <span class="text-slate-600 dark:text-slate-300">{{ k|titleize }}</span><span class="font-semibold">{{ val }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}{{ ui.empty_state('No risk factors computed yet. The retention engine refreshes these nightly.', 'heart-pulse') }}{% endif %}
+    {% endcall %}
+    {% call ui.card('Recent activity') %}
+      <ol class="space-y-3">
+      {% for e in recent_audit %}
+        <li class="flex gap-3 text-sm"><i data-lucide="dot" class="mt-1 h-4 w-4 text-slate-400"></i>
+          <div><div class="text-slate-700 dark:text-slate-200">{{ e.description }}</div>
+            <div class="text-xs text-slate-500">{{ e.actor_name }} · {{ e.created_at|ago }}{% if e.rationale %} · <i>{{ e.rationale }}</i>{% endif %}</div></div></li>
+      {% else %}<li class="py-6 text-center text-sm text-slate-400">No recorded activity yet.</li>{% endfor %}
+      </ol>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Teacher') %}
+      {% if s.teacher %}
+      <div class="flex items-center gap-3">{{ ui.avatar(s.teacher.full_name) }}
+        <div><a href="/teachers/{{ s.teacher_id }}" class="font-medium hover:text-brand-600">{{ s.teacher.full_name }}</a>
+          <div class="text-xs text-slate-500">{{ s.teacher.teacher_code }} · Grade {{ s.teacher.grade }} · {{ s.teacher.shift|titleize }}</div></div>
+      </div>
+      {% if last_match %}<p class="mt-3 text-xs text-slate-500">Matched {{ last_match.created_at|date }}{% if last_match.overridden %} · <span class="text-amber-600">override</span>{% endif %}{% if last_match.match_score %} · score {{ last_match.match_score }}{% endif %}</p>{% endif %}
+      {% else %}{{ ui.alert('No teacher assigned yet. Use "Change teacher" to run the matcher.', 'warning') }}{% endif %}
+    {% endcall %}
+    {% call ui.card('Guardian') %}
+      {% if s.client %}
+      <a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>
+      <div class="mt-1 font-mono text-xs text-slate-500">{{ s.client.client_code }}</div>
+      <dl class="mt-3 space-y-1.5 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Relationship</dt><dd>{{ s.client.relationship_to_student|titleize }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Phone</dt><dd class="font-mono text-xs">{{ s.client.phone if show_contact else s.client.phone|mask }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Country</dt><dd>{{ s.client.country }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Status</dt><dd>{{ ui.badge(s.client.status) }}</dd></div>
+      </dl>
+      {% else %}<p class="text-sm text-slate-400">No client linked.</p>{% endif %}
+    {% endcall %}
+    {% call ui.card('Next class') %}
+      {% if next_session %}
+      <div class="text-sm font-medium">{{ next_session.date|date }} at {{ next_session.start_time|time }}</div>
+      <div class="mt-1 text-xs text-slate-500">{{ next_session.duration_minutes }} min · {{ next_session.room_name or 'room pending' }}</div>
+      {% else %}<p class="text-sm text-slate-400">No upcoming session scheduled.</p>{% endif %}
+      {% if dor %}<div class="mt-4 border-t border-slate-100 pt-3 text-sm dark:border-slate-800">
+        <div class="text-xs font-semibold uppercase text-slate-500">Revision (dor) — {{ dor.period }}</div>
+        {{ ui.progress((100 * dor.completed / dor.quota)|round(0) if dor.quota else 0, 'violet', 'Quota ' ~ dor.completed ~ '/' ~ dor.quota) }}
+      </div>{% endif %}
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'schedule' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {% for key, colour, icon in [('pending','sky','clock'),('done','emerald','check'),('missed','rose','x'),('absent','orange','user-x'),('leave','violet','calendar-off')] %}
+  {{ ui.stat(key|titleize, session_counts.get(key, 0), icon=icon, color=colour) }}
+  {% endfor %}
+</div>
+{% call ui.card('Recurring schedules') %}
+  {{ ui.table_start(['Days', 'Time (org)', 'Duration', 'Course', 'Teacher', 'Period', 'Status']) }}
+  {% for sc in schedules %}
+  <tr><td class="px-4 py-2 text-xs">{% for d in sc.days_of_week %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} {% endfor %}</td>
+    <td class="px-4 py-2">{{ sc.start_time|time }}</td><td class="px-4 py-2">{{ sc.duration_minutes }} min</td>
+    <td class="px-4 py-2 text-xs">{{ sc.course.name if sc.course else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ sc.teacher.full_name if sc.teacher else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ sc.start_date|date }} → {{ sc.end_date|date if sc.end_date else 'open' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(sc.status) }}</td></tr>
+  {% else %}{{ ui.empty('No schedule yet — create one in Schedules.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Upcoming sessions') %}
+    {{ ui.table_start(['Date', 'Time', 'Teacher', 'Status']) }}
+    {% for c in upcoming %}
+    <tr><td class="px-4 py-2 text-xs">{{ c.date|date }}</td><td class="px-4 py-2">{{ c.start_time|time }}</td>
+      <td class="px-4 py-2 text-xs">{{ c.teacher.full_name if c.teacher else '—' }}</td><td class="px-4 py-2">{{ ui.badge(c.status) }}</td></tr>
+    {% else %}{{ ui.empty('Nothing scheduled ahead.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card('Class history') %}
+    {{ ui.table_start(['Date', 'Time', 'Status', 'Notes']) }}
+    {% for c in history %}
+    <tr><td class="px-4 py-2 text-xs">{{ c.date|date }}</td><td class="px-4 py-2">{{ c.start_time|time }}</td>
+      <td class="px-4 py-2">{{ ui.badge(c.status) }}</td><td class="px-4 py-2 text-xs text-slate-500">{{ (c.teacher_notes or c.status_reason or '')|truncate(60) }}</td></tr>
+    {% else %}{{ ui.empty('No classes recorded yet.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'attendance' %}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Last 30 days', pct_30 ~ '%', icon='clipboard-check', color='emerald') }}
+  {{ ui.stat('Last 90 days', pct_90 ~ '%', icon='calendar-check', color='sky') }}
+  {{ ui.stat('Records (90d)', rows|length, icon='list', color='indigo') }}
+</div>
+{% call ui.card('Attendance trend', 'Present vs absent per week') %}{{ ui.chart('attChart', 220) }}{% endcall %}
+<div class="mt-6">
+{{ ui.table_start(['Date', 'Student', 'Teacher', 'Remarks']) }}
+{% for r in rows %}
+<tr><td class="px-4 py-2 text-xs">{{ r.date|date }}</td><td class="px-4 py-2">{{ ui.badge(r.student_status) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.teacher_status) }}</td><td class="px-4 py-2 text-xs text-slate-500">{{ r.remarks or '—' }}</td></tr>
+{% else %}{{ ui.empty('No attendance records in the last 90 days.', 4) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+{% elif tab == 'progress' %}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Curriculum complete', (progress.pct or 0) ~ '%', icon='trending-up', color='emerald') }}
+  {{ ui.stat('Lessons completed', progress.completed or 0, icon='check-circle', color='sky', hint='of ' ~ (progress.total or 0)|string) }}
+  {{ ui.stat('In progress', progress.in_progress or 0, icon='loader', color='indigo') }}
+  {{ ui.stat('Revision', progress.revision or 0, icon='rotate-ccw', color='violet') }}
+</div>
+{% call ui.card('Current position') %}
+  {{ ui.progress(progress.pct or 0, 'brand', 'Course progress') }}
+  <dl class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Current lesson</dt><dd>{{ progress.get('current_lesson_title') or s.sabaq_position or '—' }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Sabaq position</dt><dd>{{ s.sabaq_position or '—' }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Dor quota</dt><dd>{{ 'Met' if s.dor_quota_met else 'Not met — new sabaq blocked' }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Teacher</dt><dd>{{ s.teacher.full_name if s.teacher else '—' }}</dd></div>
+  </dl>
+{% endcall %}
+<div class="mt-6">
+{{ ui.table_start(['Date', 'Planned', 'Delivered', 'Variance', 'Status']) }}
+{% for p in plans %}
+<tr><td class="px-4 py-2 text-xs">{{ p.plan_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ (p.planned_content or '')|truncate(70) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (p.delivered_content or '—')|truncate(70) }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.variance_pct if p.variance_pct is not none else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(p.status) }}</td></tr>
+{% else %}{{ ui.empty('No lesson plans recorded.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+{% elif tab == 'evaluations' %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Evaluations') %}
+    {{ ui.table_start(['Date', 'Type', 'Score', 'Result', 'Comment']) }}
+    {% for e in evaluations %}
+    <tr><td class="px-4 py-2 text-xs">{{ e.date|date }}</td><td class="px-4 py-2 text-xs">{{ e.evaluation_type|titleize }}</td>
+      <td class="px-4 py-2">{{ e.score if e.score is not none else '—' }}/{{ e.max_score|int }}</td>
+      <td class="px-4 py-2">{{ ui.badge(e.result) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ (e.teacher_comment or '')|truncate(50) }}</td></tr>
+    {% else %}{{ ui.empty('No evaluations yet.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card('Monthly tests & result cards') %}
+    {{ ui.table_start(['Period', 'Score', '%', 'Improvement', 'Grade', 'Status']) }}
+    {% for t in tests %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ t.period }}</td>
+      <td class="px-4 py-2">{{ t.score if t.score is not none else '—' }}</td>
+      <td class="px-4 py-2">{{ t.percentage if t.percentage is not none else '—' }}</td>
+      <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if (t.improvement_pct or 0) >= 0 else 'text-rose-600' }}">{{ t.improvement_pct if t.improvement_pct is not none else '—' }}</td>
+      <td class="px-4 py-2">{{ t.grade or '—' }}</td><td class="px-4 py-2">{{ ui.badge(t.status) }}</td></tr>
+    {% else %}{{ ui.empty('No monthly tests generated.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'leaves' %}
+{% call ui.card('Request a leave for this student') %}
+  <form method="post" action="/students/{{ s.id }}/leaves" class="grid gap-4 sm:grid-cols-5 items-end">
+    {{ ui.select('leave_type', 'Type', ['vacation','sick','exam','emergency'], 'vacation', placeholder=None) }}
+    {{ ui.input('start_date', 'From', '', type='date', required=True) }}
+    {{ ui.input('end_date', 'To', '', type='date', required=True) }}
+    {{ ui.input('reason', 'Reason', '', placeholder='School exams…') }}
+    <div>{{ ui.button('Record leave', icon='calendar-plus') }}</div>
+  </form>
+{% endcall %}
+<div class="mt-6">
+{{ ui.table_start(['Type', 'From', 'To', 'Days', 'Reason', 'Status', '']) }}
+{% for l in leaves %}
+<tr><td class="px-4 py-2 text-xs">{{ l.leave_type|titleize }}</td><td class="px-4 py-2 text-xs">{{ l.start_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ l.end_date|date }}</td><td class="px-4 py-2">{{ (l.end_date - l.start_date).days + 1 }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (l.reason or '—')|truncate(50) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(l.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_approve and l.status == 'pending' %}
+      {{ ui.confirm_form('/students/' ~ s.id ~ '/leaves/' ~ l.id ~ '/approve', 'Approve', icon='check', variant='success', message='Approve this leave? Pending classes in the range will be marked as leave.') }}
+      {{ ui.confirm_form('/students/' ~ s.id ~ '/leaves/' ~ l.id ~ '/reject', 'Reject', icon='x', variant='danger', message='Reject this leave request?') }}
+    {% endif %}
+  </td></tr>
+{% else %}{{ ui.empty('No leave requests.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+{% elif tab == 'billing' %}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Family balance', balance|money(s.client.currency if s.client else ''), icon='wallet', color=('rose' if balance > 0 else 'emerald'), hint='Outstanding across the household') }}
+  {{ ui.stat('Subscriptions', subscriptions|length, icon='repeat', color='sky') }}
+  {{ ui.stat('Invoices', invoices|length, icon='receipt', color='indigo') }}
+</div>
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Subscriptions') %}
+    {{ ui.table_start(['Code', 'Package', 'Price', 'Next billing', 'Status']) }}
+    {% for sub in subscriptions %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ sub.subscription_code }}</td>
+      <td class="px-4 py-2 text-xs">{{ sub.sessions_per_week }}×{{ sub.session_minutes }}min</td>
+      <td class="px-4 py-2">{{ sub.price|money(sub.currency) }}</td>
+      <td class="px-4 py-2 text-xs">{{ sub.next_billing_date|date if sub.next_billing_date else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(sub.status) }}</td></tr>
+    {% else %}{{ ui.empty('No subscription yet.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card('Invoices') %}
+    {{ ui.table_start(['Number', 'Issued', 'Due', 'Total', 'Status']) }}
+    {% for inv in invoices %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ inv.invoice_number }}</td><td class="px-4 py-2 text-xs">{{ inv.issue_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ inv.due_date|date }}</td><td class="px-4 py-2">{{ inv.total|money(inv.currency) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(inv.status) }}</td></tr>
+    {% else %}{{ ui.empty('No invoices raised.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'cases' %}
+{{ ui.table_start(['Case', 'Type', 'Title', 'Priority', 'SLA due', 'Status']) }}
+{% for c in cases %}
+<tr><td class="px-4 py-2 font-mono text-xs"><a href="/cases/{{ c.id }}" class="text-brand-700 dark:text-brand-300">{{ c.case_number }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ c.case_type|titleize }}</td><td class="px-4 py-2 text-sm">{{ c.title }}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.priority) }}</td><td class="px-4 py-2 text-xs">{{ c.sla_due_at|datetime }}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status) }}</td></tr>
+{% else %}{{ ui.empty('No cases raised for this student.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'certificates' %}
+{{ ui.table_start(['Number', 'Title', 'Course', 'Issued', 'Source', '']) }}
+{% for c in certificates %}
+<tr><td class="px-4 py-2 font-mono text-xs">{{ c.certificate_number }}</td><td class="px-4 py-2 text-sm">{{ c.title }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.course.name if c.course else '—' }}</td><td class="px-4 py-2 text-xs">{{ c.issued_at|date }}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.generation) }}</td>
+  <td class="px-4 py-2 text-right">{% if c.pdf_path %}<a href="/storage/{{ c.pdf_path }}" class="text-brand-600 hover:underline text-xs">Download</a>{% endif %}</td></tr>
+{% else %}{{ ui.empty('No certificates issued yet.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'matches' %}
+{% call ui.card('Teacher-match history (Module 44)', 'Every recommendation, choice and override is preserved for audit.') %}
+  <div class="space-y-4">
+  {% for m in matches %}
+    <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm font-medium">{{ teacher_names.get(m.chosen_teacher_id, 'Unassigned') }}
+          <span class="text-xs font-normal text-slate-500">chosen{% if m.recommended_teacher_id %} · recommended {{ teacher_names.get(m.recommended_teacher_id, '—') }}{% endif %}</span></div>
+        <div class="flex items-center gap-2">{% if m.overridden %}{{ ui.badge('overridden') }}{% else %}{{ ui.badge('approved', 'Followed recommendation') }}{% endif %}
+          {% if m.match_score %}<span class="text-xs font-bold text-brand-700">{{ m.match_score }}</span>{% endif %}</div>
+      </div>
+      <div class="mt-1 text-xs text-slate-500">{{ m.created_at|datetime }} · decided by {{ user_names.get(m.decided_by_id, 'system') }}
+        {% if m.survived_90_days is not none %} · 90-day survival: <b>{{ 'yes' if m.survived_90_days else 'no' }}</b>{% endif %}</div>
+      {% if m.match_reason %}<p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ m.match_reason }}</p>{% endif %}
+      {% if m.override_reason %}<p class="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><b>Override reason:</b> {{ m.override_reason }}</p>{% endif %}
+      {% if m.ranked_candidates %}
+      <details class="mt-3"><summary class="cursor-pointer text-xs font-medium text-slate-500 hover:text-brand-600">Ranked shortlist ({{ m.ranked_candidates|length }})</summary>
+        <ol class="mt-2 space-y-1 text-xs text-slate-500">
+        {% for cand in m.ranked_candidates %}
+          <li class="flex justify-between gap-3 border-b border-slate-100 pb-1 dark:border-slate-800"><span>{{ loop.index }}. {{ cand.name }} <span class="text-slate-400">({{ (cand.reasons or [])|join('; ') }})</span></span><b>{{ cand.score }}</b></li>
+        {% endfor %}
+        </ol>
+      </details>{% endif %}
+    </div>
+  {% else %}{{ ui.empty_state('No teacher-match decision recorded for this student yet.', 'sparkles') }}{% endfor %}
+  </div>
+{% endcall %}
+
+{% elif tab == 'retention' %}
+{{ ui.table_start(['Action', 'Trigger', 'Risk at trigger', 'Owner', 'Scheduled', 'Outcome', 'Status']) }}
+{% for a in actions %}
+<tr><td class="px-4 py-2 text-xs">{{ a.action_type|titleize }}</td><td class="px-4 py-2 text-xs">{{ a.trigger|titleize }}</td>
+  <td class="px-4 py-2">{{ a.risk_score_at_trigger|round|int if a.risk_score_at_trigger else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.owner.full_name if a.owner else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.scheduled_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ a.outcome or '—' }}</td><td class="px-4 py-2">{{ ui.badge(a.status) }}</td></tr>
+{% else %}{{ ui.empty('No retention actions logged.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'audit' %}
+{{ ui.table_start(['When', 'Actor', 'Action', 'Description', 'Rationale']) }}
+{% for e in events %}
+<tr><td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ e.actor_name }}</td>
+  <td class="px-4 py-2">{{ ui.badge(e.action) }}</td><td class="px-4 py-2 text-xs">{{ e.description }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ e.rationale or '—' }}</td></tr>
+{% else %}{{ ui.empty('No audit events.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+
+{% if has_perm(user, 'students.update') %}
+{% call ui.modal('statusModal', 'Change enrolment status') %}
+<form method="post" action="/students/{{ s.id }}/status" class="space-y-4">
+  {{ ui.select('status', 'New status', statuses, s.status, placeholder=None, help='Activate, freeze, cancel, graduate or grant free classes.') }}
+  {{ ui.textarea('reason', 'Reason (required)', '', rows=3, required=True, placeholder='Why is the status changing? The parent and teacher are notified.') }}
+  <div class="flex gap-2">{{ ui.button('Apply status change', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if tab == 'attendance' %}
+<script>
+OQC.bar('attChart', {{ chart.labels|tojson }}, [
+  {label: 'Present', data: {{ chart.present|tojson }}, backgroundColor: '#10b981'},
+  {label: 'Absent', data: {{ chart.absent|tojson }}, backgroundColor: '#f43f5e'}
+]);
+</script>
+{% endif %}
+{% endblock %}

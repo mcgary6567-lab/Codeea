@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Backups & DR{% endblock %}
+{% block content %}
+{% call ui.page_header("Backups & disaster recovery", "Archive history, restore verification, retention and recovery objectives") %}
+  {{ ui.button("DR runbook", href="/admin/backups/runbook", icon="book-open", variant="secondary") }}
+  {% if has_perm(user, 'backups.execute') %}
+  <button type="button" @click="$dispatch('open-modal','newbackup')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="database-backup" class="h-4 w-4"></i>Create backup now</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Archives", page.total, icon="database", color="brand", hint="keeping the newest " ~ retention) }}
+  {{ ui.stat("Total size", (total_bytes / 1048576)|round(1) ~ " MB", icon="hard-drive", color="sky") }}
+  {{ ui.stat("Restore tested", tested, icon="check-circle", color=("emerald" if tested else "amber"), hint="of " ~ page.total ~ " archives") }}
+  {{ ui.stat("Latest backup", (latest.created_at|ago) if latest else "never", icon="clock", color=("emerald" if latest else "rose"), hint=(latest.filename|truncate(26)) if latest else "run one now") }}
+  {{ ui.stat("RPO / RTO", targets.get('rpo_hours', 24) ~ "h / " ~ targets.get('rto_hours', 4) ~ "h", icon="target", color="indigo", hint="recovery objectives") }}
+</div>
+
+{% if not latest %}
+<div class="mb-6">{{ ui.alert('No backup has ever been taken on this installation. Create one now and run a restore test on it before going live.', 'error', 'No recovery point') }}</div>
+{% elif not latest.restore_tested %}
+<div class="mb-6">{{ ui.alert('The most recent archive has never been restore-tested. An untested backup is not a recovery point.', 'warning', 'Untested backup') }}</div>
+{% endif %}
+
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Created','Filename','Type','Size','Status','Restore test','']) }}
+    {% for b in page.items %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ b.created_at|datetime }}</td>
+      <td class="px-4 py-2"><code class="font-mono text-[11px]">{{ b.filename }}</code></td>
+      <td class="px-4 py-2">{{ ui.badge(b.backup_type) }}</td>
+      <td class="px-4 py-2 text-xs">{{ (b.size_bytes / 1024)|round(0)|int }} KB</td>
+      <td class="px-4 py-2">{{ ui.badge(b.status) }}</td>
+      <td class="px-4 py-2 text-xs">
+        {% if b.restore_tested %}<span class="inline-flex items-center gap-1 text-emerald-600"><i data-lucide="check" class="h-3.5 w-3.5"></i>{{ b.restore_tested_at|date }}</span>
+        {% else %}<span class="text-slate-400">not tested</span>{% endif %}
+      </td>
+      <td class="px-4 py-2 text-right">
+        <div class="inline-flex items-center gap-1">
+          {% if has_perm(user, 'backups.execute') %}
+          <form method="post" action="/admin/backups/{{ b.id }}/restore-test" class="inline">{{ ui.button('Test', icon='flask-conical', variant='secondary', size='sm') }}</form>
+          {% endif %}
+          {% if has_perm(user, 'backups.export') %}
+          {{ ui.button('Download', href='/admin/backups/' ~ b.id ~ '/download', icon='download', variant='ghost', size='sm') }}
+          {% endif %}
+          {% if has_perm(user, 'backups.delete') %}
+          {{ ui.confirm_form('/admin/backups/' ~ b.id ~ '/delete', '', icon='trash-2', variant='ghost',
+                             message='Delete this archive from disk? This cannot be undone.',
+                             hidden={'rationale': 'Backup pruned from the admin console'}) }}
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No backups have been created yet.', 7, 'database') }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Retention & recovery objectives") %}
+      {% if has_perm(user, 'backups.configure') %}
+      <form method="post" action="/admin/backups/settings" class="space-y-4">
+        {{ ui.input('backup_retention_count', 'Archives to keep', retention, type='number', min=1,
+                    help='Older archives are pruned automatically after each new backup.') }}
+        <div class="grid gap-3 sm:grid-cols-2">
+          {{ ui.input('rpo_hours', 'RPO (hours)', targets.get('rpo_hours', 24), type='number', min=1, help='Maximum acceptable data loss.') }}
+          {{ ui.input('rto_hours', 'RTO (hours)', targets.get('rto_hours', 4), type='number', min=1, help='Target time to be back online.') }}
+        </div>
+        {{ ui.input('offsite', 'Off-site strategy', targets.get('offsite', ''), placeholder='rclone sync to S3 nightly at 02:30 UTC') }}
+        {{ ui.input('rationale', 'Rationale', '') }}
+        {{ ui.button('Save settings', icon='save') }}
+      </form>
+      {% else %}
+      {{ ui.dl([('Archives kept', retention), ('RPO', targets.get('rpo_hours', 24) ~ ' hours'),
+                ('RTO', targets.get('rto_hours', 4) ~ ' hours'), ('Off-site', targets.get('offsite') or '—')]) }}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("Where backups live") %}
+      {{ ui.dl([('Database engine', engine), ('Backup directory', backup_dir), ('Archive format', 'ZIP (database plus manifest)'),
+                ('Naming', 'oqc-YYYYmmdd-HHMMSS.zip')]) }}
+      <p class="mt-3 text-xs text-slate-500">The archive directory sits on the same volume as the application. Copy it
+      off-site every night — a backup that only exists on the server it protects is not a backup.</p>
+    {% endcall %}
+
+    {% call ui.card("What a restore test does") %}
+      <p class="text-sm text-slate-600 dark:text-slate-300">Opens the archive read-only in a temporary directory, counts
+      the tables and rows and runs an integrity check. The live database is never touched. A passing test stamps the
+      archive as verified so you can tell at a glance which recovery points are trustworthy.</p>
+      <div class="mt-3">{{ ui.button('Read the DR runbook', href='/admin/backups/runbook', icon='book-open', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+  </div>
+</div>
+
+{% if has_perm(user, 'backups.execute') %}
+{% call ui.modal('newbackup', 'Create a backup now') %}
+<p class="mb-4 text-sm text-slate-600 dark:text-slate-300">A full archive of the database is written to
+<code class="font-mono text-xs">{{ backup_dir }}</code>. Older archives beyond the retention count of
+<b>{{ retention }}</b> are pruned automatically.</p>
+<form method="post" action="/admin/backups/create" class="space-y-4">
+  {{ ui.input('rationale', 'Rationale', '', placeholder='Pre-cutover snapshot before the legacy import') }}
+  {{ ui.button('Create backup', icon='database-backup') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

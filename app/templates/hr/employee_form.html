@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'New employee' if mode == 'new' else e.full_name }}{% endblock %}
+{% block content %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% set branch_options = [] %}{% for b in branches %}{% set _ = branch_options.append((b.id, b.name)) %}{% endfor %}
+{% call ui.page_header('New employee' if mode == 'new' else 'Edit ' ~ e.full_name,
+      'Creating an employee also creates the nine standard onboarding tasks and a salary structure.' if mode == 'new' else e.employee_code ~ ' · ' ~ e.designation,
+      back='/hr/employees' if mode == 'new' else '/hr/employees/' ~ e.id) %}{% endcall %}
+<form method="post" action="{{ '/hr/employees/new' if mode == 'new' else '/hr/employees/' ~ e.id ~ '/edit' }}" class="space-y-6">
+  {% call ui.card('Identity') %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {{ ui.input('full_name', 'Full name', e.full_name if e else '', required=True) }}
+    {{ ui.input('designation', 'Designation', e.designation if e else '', required=True, placeholder='Quran Teacher, HR Officer …') }}
+    {{ ui.select('gender', 'Gender', ['male','female'], e.gender if e else 'male', placeholder=None) }}
+    {{ ui.select('department_id', 'Department', dept_options, e.department_id if e else None) }}
+    {{ ui.select('branch_id', 'Branch', branch_options, e.branch_id if e else None) }}
+    {{ ui.select('manager_id', 'Reports to', managers, e.manager_id if e else None) }}
+  </div>
+  {% endcall %}
+  {% call ui.card('Contact & sensitive data', 'CNIC is masked everywhere except for holders of employees.update.') %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.input('email', 'Work email', e.email if e else '', type='email') }}
+    {{ ui.input('phone', 'Phone', e.phone if e else '') }}
+    {{ ui.input('cnic', 'CNIC', e.cnic if e else '', placeholder='35202-1234567-1') }}
+    {{ ui.input('device_name', 'Device name', e.device_name if e else '', help='OQC-DEPT-NNN (auto-assigned when blank)') }}
+    <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('address', 'Address', e.address if e else '', rows=2) }}</div>
+  </div>
+  {% endcall %}
+  {% call ui.card('Employment') %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.input('join_date', 'Join date', (e.join_date if e else today())|string, type='date') }}
+    {{ ui.input('probation_end', 'Probation ends', (e.probation_end|string if e and e.probation_end else ''), type='date', help='Defaults to 90 days after joining') }}
+    {{ ui.select('employment_type', 'Employment type', types, e.employment_type if e else 'full_time', placeholder=None) }}
+    {{ ui.select('status', 'Status', statuses, e.status if e else 'probation', placeholder=None) }}
+    {{ ui.select('shift', 'Shift', shifts, e.shift if e else 'morning', placeholder=None) }}
+    {{ ui.input('shift_start', 'Shift start', e.shift_start if e else '', placeholder='09:00') }}
+    {{ ui.input('shift_end', 'Shift end', e.shift_end if e else '', placeholder='17:00') }}
+    {{ ui.input('base_salary', 'Base salary (PKR)', (e.base_salary|float if e else ''), type='number', step='100') }}
+    {{ ui.input('salary_band', 'Salary band', e.salary_band if e else '', help='A / B / C for teachers') }}
+    {{ ui.input('currency', 'Currency', e.currency if e else 'PKR') }}
+  </div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+    {{ ui.checkbox('is_teacher', 'This person teaches classes', e.is_teacher if e else False, help='Teachers get per-class pay and a grade band') }}
+    {% if mode == 'new' %}{{ ui.checkbox('create_login', 'Create a platform login and email a temporary password', True) }}
+    {% else %}{{ ui.checkbox('mfa_enforced', 'Enforce two-factor authentication', e.mfa_enforced) }}{% endif %}
+  </div>
+  {% endcall %}
+  {% if mode == 'edit' %}
+  {% call ui.card('Exit (only when resigning or terminating)') %}
+  <div class="grid gap-4 sm:grid-cols-3">
+    {{ ui.input('exit_date', 'Exit date', (e.exit_date|string if e.exit_date else ''), type='date') }}
+    {{ ui.input('exit_reason', 'Exit reason', e.exit_reason or '') }}
+    {{ ui.input('rationale', 'Rationale for this change', '', help='Required for consequential changes (status, exit)') }}
+  </div>
+  {% endcall %}
+  {% endif %}
+  <div class="flex items-center gap-2">
+    {{ ui.button('Save employee', icon='check') }}
+    {{ ui.button('Cancel', href='/hr/employees' if mode == 'new' else '/hr/employees/' ~ e.id, variant='secondary') }}
+  </div>
+</form>
+{% endblock %}

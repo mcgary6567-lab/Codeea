@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Audit event #{{ ev.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Audit event #" ~ ev.id, ev.action|titleize ~ " · " ~ ev.module|titleize ~ " · " ~ (ev.created_at|datetime), back="/admin/audit") %}
+  {{ ui.badge(ev.severity) }}
+  {% if ev.is_consequential %}{{ ui.badge('approved', 'Consequential') }}{% endif %}
+  {% if ev.entity_type %}{{ ui.button('Entity timeline', href='/admin/audit/entity/' ~ ev.entity_type ~ '/' ~ (ev.entity_id or 0), icon='history', variant='secondary', size='sm') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("What happened") %}
+      <p class="text-sm text-slate-800 dark:text-slate-100">{{ ev.description or 'No description recorded.' }}</p>
+      {% if ev.rationale %}
+      <div class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">
+        <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide">Rationale supplied by the actor</div>{{ ev.rationale }}
+      </div>
+      {% elif ev.is_consequential %}
+      {{ ui.alert('This action was marked consequential but no rationale was captured.', 'warning', 'Missing rationale') }}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("Field-level changes", (diff|selectattr('changed')|list|length) ~ " field(s) changed") %}
+      {% if diff %}
+      {{ ui.table_start(['Field','Before','After','']) }}
+      {% for row in diff %}
+      <tr class="{{ 'bg-amber-50/50 dark:bg-amber-950/10' if row.changed }}">
+        <td class="px-4 py-2 font-mono text-xs font-medium">{{ row.key }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500"><span class="break-all">{{ row.before if row.before is not none else '—' }}</span></td>
+        <td class="px-4 py-2 text-xs {{ 'font-semibold text-slate-900 dark:text-white' if row.changed else 'text-slate-500' }}"><span class="break-all">{{ row.after if row.after is not none else '—' }}</span></td>
+        <td class="px-4 py-2 text-right">
+          {% if row.added %}{{ ui.badge('new', 'Added') }}{% elif row.removed %}{{ ui.badge('cancelled', 'Removed') }}
+          {% elif row.changed %}{{ ui.badge('pending', 'Changed') }}{% else %}<span class="text-[11px] text-slate-400">unchanged</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+      {% else %}
+      {{ ui.empty_state('This event carries no before/after snapshot — it records an action rather than a field change.', 'git-compare') }}
+      {% endif %}
+    {% endcall %}
+
+    {% if ev.before_data or ev.after_data %}
+    {% call ui.card("Raw snapshots", "Exactly as stored on the event") %}
+      <div class="grid gap-4 md:grid-cols-2">
+        <div><div class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Before</div>
+          <pre class="max-h-72 overflow-auto rounded-lg bg-slate-50 p-3 font-mono text-[11px] leading-relaxed dark:bg-slate-800">{{ ev.before_data|tojson_safe if ev.before_data else '—' }}</pre></div>
+        <div><div class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">After</div>
+          <pre class="max-h-72 overflow-auto rounded-lg bg-slate-50 p-3 font-mono text-[11px] leading-relaxed dark:bg-slate-800">{{ ev.after_data|tojson_safe if ev.after_data else '—' }}</pre></div>
+      </div>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Event") %}
+      {{ ui.dl([('Event id', ev.id), ('Timestamp (UTC)', ev.created_at|datetime), ('Action', ev.action),
+                ('Module', ev.module|titleize), ('Entity type', ev.entity_type or '—'), ('Entity id', ev.entity_id or '—'),
+                ('Severity', ev.severity|titleize), ('Consequential', 'Yes' if ev.is_consequential else 'No'),
+                ('Source IP', ev.ip or '—')]) }}
+    {% endcall %}
+    {% call ui.card("Actor") %}
+      {% if ev.actor_id %}
+      <a href="/admin/users/{{ ev.actor_id }}" class="flex items-center gap-3 hover:text-brand-700">
+        {{ ui.avatar(ev.actor_name or '?') }}
+        <span><span class="block font-medium">{{ ev.actor_name or 'User #' ~ ev.actor_id }}</span>
+        <span class="block text-xs text-slate-500">Open user record</span></span>
+      </a>
+      <div class="mt-3">{{ ui.button('All events by this actor', href='/admin/audit?actor=' ~ ev.actor_id, icon='list', variant='secondary', size='sm') }}</div>
+      {% else %}
+      <p class="text-sm text-slate-500">Performed by the system (a background job or an unauthenticated request).</p>
+      {% endif %}
+    {% endcall %}
+    {% call ui.card("Related events", "Same entity, most recent first") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for r in related %}
+        <li class="py-2"><a href="/admin/audit/{{ r.id }}" class="block hover:text-brand-700">
+          <span class="flex items-center justify-between gap-2"><span class="font-mono text-xs">{{ r.action }}</span>{{ ui.badge(r.severity) }}</span>
+          <span class="block truncate text-xs text-slate-500">{{ r.created_at|datetime }} · {{ r.actor_name or 'system' }}</span></a></li>
+        {% else %}<li class="py-6 text-center text-slate-400">No other events for this entity.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

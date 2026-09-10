@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Supervised teachers{% endblock %}
+{% block content %}
+{{ ui.page_header("Supervised teachers", "Today's load and the last 30 days of execution quality", back="/supervisor") }}
+
+{% call ui.filter_bar('/supervisor/teachers') %}
+  {{ ui.input('day', 'Date', sel_date, type='date') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}
+{% endcall %}
+
+{{ ui.table_start(['Teacher','Grade','Students','Today','On time','Completion 30d','Missed 30d','Punctuality','QA avg','']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2"><div class="flex items-center gap-2">{{ ui.avatar(r.teacher.full_name, 'sm') }}
+    <div><div class="font-medium">{{ r.teacher.full_name }}</div>
+      <div class="font-mono text-[11px] text-slate-400">{{ r.teacher.teacher_code }} · {{ r.teacher.shift|titleize }}</div></div></div></td>
+  <td class="px-4 py-2">{{ ui.badge(r.teacher.grade) }}{% if not r.teacher.is_verified %}<span class="ml-1 text-[10px] text-rose-600">unverified</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ r.students }}</td>
+  <td class="px-4 py-2 text-xs">
+    <span class="font-semibold">{{ r.today.total }}</span>
+    <span class="text-slate-400">· {{ r.today.done }} done · {{ r.today.pending }} pending{% if r.today.missed %} · <span class="text-rose-600">{{ r.today.missed }} missed</span>{% endif %}</span>
+  </td>
+  <td class="px-4 py-2 text-xs">{{ r.today.on_time_pct }}%</td>
+  <td class="px-4 py-2 w-40">{{ ui.progress(r.stats.completion_rate, 'emerald' if r.stats.completion_rate >= 90 else ('amber' if r.stats.completion_rate >= 80 else 'rose'), r.stats.completion_rate ~ '% of ' ~ r.stats.total) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if r.stats.missed }}">{{ r.stats.missed }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.stats.punctuality_rate }}%</td>
+  <td class="px-4 py-2 text-xs">{{ r.teacher.qa_score_avg|round(1) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Schedule', href='/schedules?view=teacher&teacher_id=' ~ r.teacher.id, size='sm', variant='ghost') }}
+    {{ ui.button('Classes', href='/classes?teacher_id=' ~ r.teacher.id ~ '&date=', size='sm', variant='ghost') }}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No teachers in your scope.', 10, 'user-check') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payables{% endblock %}
+{% block content %}
+{% call ui.page_header("Payables", "Approved expenses awaiting payment.") %}
+  {{ ui.button("All expenses", href="/finance/expenses", icon="wallet", variant="secondary") }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 mb-6">
+  {{ ui.stat("Open payables", rows|length, icon="file-clock", color="amber") }}
+  {{ ui.stat("Value (" ~ base ~ ")", total|money, icon="banknote", color="rose") }}
+</div>
+
+{{ ui.table_start(['Number', 'Date', 'Vendor', 'Category', 'Department', 'Amount', 'Base', '']) }}
+{% for e in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/expenses/{{ e.id }}">{{ e.expense_number }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ e.expense_date|date }}</td>
+  <td class="px-4 py-2 text-sm">{{ e.vendor or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.category|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ e.department.name if e.department else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ e.amount|money(e.currency) }}</td>
+  <td class="px-4 py-2 text-right text-slate-500">{{ e.amount_in_base|money(base) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'expenses.execute') %}{{ ui.confirm_form('/finance/expenses/' ~ e.id ~ '/pay', 'Mark paid', icon='check', variant='success', message='Mark this expense as paid?') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No approved expenses are waiting for payment.', 8, icon='check-circle-2') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

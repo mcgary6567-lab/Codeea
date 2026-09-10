@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Invoices & payments{% endblock %}
+{% block content %}
+{% call ui.page_header('Invoices & payments', 'Your subscriptions, invoices, receipts and the running account statement for ' ~ c.client_code ~ '.') %}
+  {{ ui.button('Pay now', href='/portal/billing/pay', icon='credit-card') }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Account balance', balance|money(c.currency), icon='wallet', color=('rose' if balance > 0 else 'emerald'), hint=('due' if balance > 0 else 'in credit')) }}
+  {{ ui.stat('Outstanding invoices', outstanding|money(c.currency), icon='receipt', color='amber') }}
+  {{ ui.stat('Active subscriptions', subs|selectattr('status', 'equalto', 'active')|list|length, icon='repeat', color='sky') }}
+  {{ ui.stat('Payments recorded', payments|length, icon='credit-card', color='indigo') }}
+</div>
+
+{% call ui.card('Subscriptions') %}
+  {{ ui.table_start(['Code', 'Child', 'Plan', 'Price', 'Next billing', 'Status']) }}
+  {% for s in subs %}
+  <tr><td class="px-4 py-2 font-mono text-xs">{{ s.subscription_code }}</td>
+    <td class="px-4 py-2 text-sm">{{ names.get(s.student_id, '—') }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.sessions_per_week }} classes/week · {{ s.session_minutes }} min</td>
+    <td class="px-4 py-2">{{ s.price|money(s.currency) }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.next_billing_date|date if s.next_billing_date else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(s.status) }}</td></tr>
+  {% else %}{{ ui.empty('No subscription yet — your enrolment is still on trial.', 6) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-6">
+{% call ui.card('Invoices') %}
+  {{ ui.table_start(['Number', 'Child', 'Issued', 'Due', 'Total', 'Paid', 'Status', '']) }}
+  {% for i in invoices %}
+  <tr><td class="px-4 py-2 font-mono text-xs">{{ i.invoice_number }}</td>
+    <td class="px-4 py-2 text-sm">{{ names.get(i.student_id, '—') }}</td>
+    <td class="px-4 py-2 text-xs">{{ i.issue_date|date }}</td>
+    <td class="px-4 py-2 text-xs {{ 'font-medium text-rose-600' if i.status == 'overdue' else '' }}">{{ i.due_date|date }}</td>
+    <td class="px-4 py-2">{{ i.total|money(i.currency) }}</td>
+    <td class="px-4 py-2 text-xs">{{ i.paid_amount|money(i.currency) }}</td>
+    <td class="px-4 py-2">{{ ui.badge(i.status) }}</td>
+    <td class="px-4 py-2 text-right whitespace-nowrap">
+      {% if i.pdf_path %}<a href="/storage/{{ i.pdf_path }}" class="mr-2 text-xs text-brand-600 hover:underline">PDF</a>{% endif %}
+      {% if i.status in ['sent','partial','overdue'] %}{{ ui.button('Pay', href='/portal/billing/pay?invoice_id=' ~ i.id, size='sm', icon='credit-card') }}{% endif %}
+    </td></tr>
+  {% else %}{{ ui.empty('No invoices have been raised yet.', 8) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Payments & receipts') %}
+    {{ ui.table_start(['Reference', 'Date', 'Method', 'Amount', 'Status', '']) }}
+    {% for p in payments %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ p.payment_number }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.received_at|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.method|titleize }}</td>
+      <td class="px-4 py-2">{{ p.amount|money(p.currency) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+      <td class="px-4 py-2 text-right">{% set r = receipts.get(p.id) %}{% if r and r.pdf_path %}<a href="/storage/{{ r.pdf_path }}" class="text-xs text-brand-600 hover:underline">Receipt</a>{% endif %}</td></tr>
+    {% else %}{{ ui.empty('No payments recorded yet.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card('Account statement', 'Every charge and credit on your family account.') %}
+    {{ ui.table_start(['Date', 'Description', 'Charge', 'Credit', 'Balance']) }}
+    {% for e in ledger %}
+    <tr><td class="px-4 py-2 text-xs">{{ e.entry_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.description }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.debit|money(e.currency) if e.debit else '—' }}</td>
+      <td class="px-4 py-2 text-xs text-emerald-600">{{ e.credit|money(e.currency) if e.credit else '—' }}</td>
+      <td class="px-4 py-2 text-xs font-medium">{{ e.balance_after|money(e.currency) }}</td></tr>
+    {% else %}{{ ui.empty('No ledger entries yet.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endblock %}

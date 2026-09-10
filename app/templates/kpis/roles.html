@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Role scorecards{% endblock %}
+{% set scored = rows|rejectattr('score', 'none')|list %}
+{% set avg_score = ((scored|sum(attribute='score') / scored|length)|round(1)) if scored else None %}
+{% block content %}
+{% call ui.page_header("Role scorecards", "Every individual measured against the KPIs defined for their role · " ~ period_label) %}
+  {{ ui.button("KPI catalogue", href="/kpis?period=" ~ period, icon="target", variant="secondary") }}
+  {{ ui.button("Department scorecards", href="/kpis/scorecards?period=" ~ period, icon="layout-grid", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('People scored', rows|length, icon='users', color='brand', hint=role|titleize ~ ' role') }}
+  {{ ui.stat('KPIs in scorecard', kpis|length, icon='target', color='indigo', hint=period_label) }}
+  {{ ui.stat('Average score', avg_score if avg_score is not none else '—', icon='gauge', color='sky', hint='0–100 RAG composite') }}
+  {{ ui.stat('Healthy (80+)', scored|selectattr('score', '>=', 80)|list|length, icon='check-circle-2', color='emerald') }}
+  {{ ui.stat('Critical (<50)', scored|selectattr('score', '<', 50)|list|length, icon='alert-triangle', color='rose') }}
+</div>
+
+{{ ui.tabs([('teacher', 'Teachers', '/kpis/roles?role=teacher&period=' ~ period),
+            ('supervisor', 'Supervisors', '/kpis/roles?role=supervisor&period=' ~ period)], role) }}
+
+<form method="get" action="/kpis/roles" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <input type="hidden" name="role" value="{{ role }}">
+  <div class="w-44">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+  <a href="/kpis/roles?role={{ role }}" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+  <div class="ml-auto flex items-center gap-3 text-[11px] text-slate-500">
+    {% for c, lbl in [('emerald','On target'), ('amber','At risk'), ('rose','Off target'), ('slate','No data')] %}
+    <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-{{ c }}-500"></span>{{ lbl }}</span>
+    {% endfor %}
+  </div>
+</form>
+
+{% if kpis %}
+{{ ui.table_start([role|titleize, 'Score'] + (kpis|map(attribute='name')|list) + ['']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-2.5">{{ ui.avatar(r.name, 'sm') }}
+      <div class="min-w-0"><a href="{{ r.url }}" class="block truncate font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ r.name }}</a>
+        <div class="truncate text-[11px] text-slate-400">{{ r.sub }}</div></div></div>
+  </td>
+  <td class="px-4 py-2">
+    {% if r.score is not none %}
+    <div class="flex items-center gap-2">
+      <span class="w-9 text-sm font-bold text-slate-900 dark:text-white">{{ r.score }}</span>
+      <span class="inline-flex items-center rounded-full bg-{{ r.band[1] }}-50 px-2 py-0.5 text-[11px] font-semibold text-{{ r.band[1] }}-700 ring-1 ring-inset ring-{{ r.band[1] }}-600/20 dark:bg-{{ r.band[1] }}-500/10 dark:text-{{ r.band[1] }}-300">{{ r.band[0] }}</span>
+    </div>
+    {% else %}<span class="text-xs text-slate-400">No data</span>{% endif %}
+  </td>
+  {% for c in r.cells %}
+  <td class="px-4 py-2 whitespace-nowrap">
+    <span class="inline-flex items-center gap-1.5" title="{{ c.label }} · target {{ format_value(c.target, c.unit) if c.target is not none else 'none' }}">
+      <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-{{ c.color }}-500"></span>
+      <span class="text-sm font-semibold text-{{ c.color }}-700 dark:text-{{ c.color }}-300">{{ format_value(c.value, c.unit) }}</span>
+    </span>
+  </td>
+  {% endfor %}
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href=r.url, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No active ' ~ role ~ 's to score for this period.', kpis|length + 3, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+{% else %}
+{{ ui.empty_state('No KPIs are defined with role “' ~ role ~ '”. Add them in the KPI catalogue first.', 'target') }}
+{% endif %}
+
+{% if scored %}
+<div class="mt-6 grid gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card('Score distribution', 'RAG composite per ' ~ role ~ ' for ' ~ period_label) %}
+      {{ ui.chart('roleScores', 300) }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Attention list', 'Lowest scores first — these need a coaching action') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for r in scored|sort(attribute='score') %}{% if loop.index <= 8 %}
+      <li class="flex items-center gap-3 py-2">
+        <span class="h-2 w-2 shrink-0 rounded-full bg-{{ r.band[1] }}-500"></span>
+        <a href="{{ r.url }}" class="flex-1 truncate hover:text-brand-700">{{ r.name }}</a>
+        <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{{ r.score }}</span>
+      </li>
+      {% endif %}{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endif %}
+
+<div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <b class="text-slate-700 dark:text-slate-200">How the score is calculated.</b>
+  Each KPI cell is graded against its target (on target = 100, at risk = 60, off target = 20); the score is the average
+  of the graded cells. KPIs with no underlying data for the period are excluded rather than counted as a failure.
+  No disciplinary action may rest on this score alone — pair it with QA reviews and a documented conversation.
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if scored %}
+<script>
+  OQC.bar('roleScores', {{ scored|map(attribute='name')|list|tojson }},
+          [{label: 'Score', data: {{ scored|map(attribute='score')|list|tojson }}}],
+          {scales: {y: {beginAtZero: true, max: 100}}});
+</script>
+{% endif %}
+{% endblock %}

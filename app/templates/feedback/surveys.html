@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Surveys{% endblock %}
+{% block content %}
+{% call ui.page_header('Surveys', 'Triggered automatically after PTMs, result cards and tenure milestones, or sent manually', back='/feedback') %}
+  {% if has_perm(user, 'feedback.update') %}<button @click="$dispatch('open-modal','newsurvey')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New survey</button>{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 md:grid-cols-2">
+  {% for s in surveys %}
+  {% call ui.card(s.name, s.trigger|titleize ~ ' · audience: ' ~ s.audience|titleize) %}
+    <div class="flex items-center gap-2">{{ ui.badge('active' if s.is_active else 'inactive') }}
+      {% if s.audience == 'staff' %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-inset ring-violet-600/20">Confidential</span>{% endif %}
+      <span class="ml-auto text-xs text-slate-500">{{ responded.get(s.id, 0) }} / {{ counts.get(s.id, 0) }} responded</span>
+    </div>
+    <ul class="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+      {% for q in (s.questions or []) %}<li class="flex gap-2"><span class="text-slate-400">{{ loop.index }}.</span><span>{{ q.text or q.key }} <span class="text-[11px] text-slate-400">({{ q.type }})</span></span></li>{% endfor %}
+    </ul>
+    {% if has_perm(user, 'feedback.update') %}
+    <details class="mt-3">
+      <summary class="cursor-pointer text-xs font-medium text-brand-600">Edit survey</summary>
+      <form method="post" action="/feedback/surveys/{{ s.id }}/edit" class="mt-2 space-y-2">
+        {{ ui.input('name', 'Name', s.name, required=True) }}
+        {{ ui.select('trigger', 'Trigger', triggers, s.trigger, placeholder=None) }}
+        {{ ui.select('audience', 'Audience', audiences, s.audience, placeholder=None) }}
+        {{ ui.textarea('questions', 'Questions (JSON)', s.questions|tojson, rows=8) }}
+        {{ ui.checkbox('is_active', 'Active', checked=s.is_active) }}
+        {{ ui.button('Save', icon='check', size='sm') }}
+      </form>
+    </details>
+    {% endif %}
+  {% endcall %}
+  {% else %}
+  <div class="md:col-span-2">{{ ui.empty_state('No surveys configured yet.', 'clipboard-list') }}</div>
+  {% endfor %}
+</div>
+
+{% call ui.modal('newsurvey', 'New survey', 'lg') %}
+<form method="post" action="/feedback/surveys/new" class="space-y-4">
+  {{ ui.input('name', 'Name', '', required=True, placeholder='Post result-card pulse') }}
+  {{ ui.select('trigger', 'Trigger', triggers, 'manual', placeholder=None) }}
+  {{ ui.select('audience', 'Audience', audiences, 'client', placeholder=None, help='Staff surveys are stored confidentially and route to a grievance, never a case') }}
+  {{ ui.textarea('questions', 'Questions (JSON array)', default_questions, rows=10) }}
+  {{ ui.checkbox('is_active', 'Active', checked=True) }}
+  {{ ui.button('Create survey', icon='check') }}
+</form>
+{% endcall %}
+{% endblock %}

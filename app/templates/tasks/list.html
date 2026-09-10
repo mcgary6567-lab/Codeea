@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% import "tasks/_fields.html" as tf %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+{% call ui.page_header("Tasks & Projects", "Accountability engine — every commitment has an owner, a due date and an assessment") %}
+  {{ ui.button("Projects", href="/tasks/projects", icon="folder-kanban", variant="secondary") }}
+  {{ ui.button("New task", icon="plus", attrs='@click="$dispatch(\'open-modal\',\'newTask\')"', type='button') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('My open tasks', workload.open, icon='list-checks', color='brand', hint=workload.estimate_hours ~ 'h estimated') }}
+  {{ ui.stat('Overdue', workload.overdue, icon='alarm-clock', color='rose', hint=workload.escalated ~ ' escalated') }}
+  {{ ui.stat('Due today', workload.today, icon='calendar-check', color='amber', hint=workload.week ~ ' due this week') }}
+  {{ ui.stat('Completed (30d)', workload.done_30, icon='check-circle-2', color='emerald') }}
+  {{ ui.stat('Avg assessment', workload.avg_score if workload.avg_score is not none else '—', icon='star', color='violet', hint='quality score 1–5') }}
+</div>
+
+{{ ui.tabs([('my','My tasks','/tasks?view=my&layout=' ~ layout), ('team','Team','/tasks?view=team&layout=' ~ layout)] + ([('all','All tasks','/tasks?view=all&layout=' ~ layout)] if can_all else []), view) }}
+
+<form method="get" action="/tasks" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="layout" value="{{ layout }}">
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Title or description') }}</div>
+  <div class="w-44">{{ ui.select('assignee_id', 'Assignee', opts.users, assignee_id, placeholder='Anyone') }}</div>
+  <div class="w-44">{{ ui.select('project_id', 'Project', opts.projects, project_id, placeholder='All projects') }}</div>
+  <div class="w-32">{{ ui.select('priority', 'Priority', opts.priorities, priority, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('department_id', 'Department', opts.departments, department_id, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('due', 'Due', [('today','Today'),('week','Next 7 days'),('no_date','No due date')], due, placeholder='Any') }}</div>
+  <div class="w-32">{{ ui.select('overdue', 'Overdue', [('1','Overdue only')], overdue if overdue else '', placeholder='No') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/tasks?view={{ view }}&layout={{ layout }}" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+  <div class="ml-auto inline-flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
+    <a href="/tasks?{{ qs }}&layout=board" class="px-3 py-2 {{ 'bg-brand-600 text-white' if layout == 'board' else 'text-slate-600' }}">Board</a>
+    <a href="/tasks?{{ qs }}&layout=list" class="px-3 py-2 {{ 'bg-brand-600 text-white' if layout == 'list' else 'text-slate-600' }}">List</a>
+  </div>
+</form>
+
+{% if layout == 'board' %}
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  {% for key, label, color in columns %}
+  <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <span class="h-2 w-2 rounded-full bg-{{ color }}-500"></span>{{ label }}
+      </div>
+      <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800">{{ counts[key] }}</span>
+    </div>
+    <div class="space-y-2.5">
+      {% for t in board[key] %}{{ tf.task_card(t, today) }}{% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 py-8 text-center text-xs text-slate-400 dark:border-slate-700">Nothing here</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.table_start(['Task','Assignee','Project','Priority','Status','Due','Flags','']) }}
+{% for t in page.items %}
+<tr>
+  <td class="px-4 py-2"><a href="/tasks/{{ t.id }}" class="font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ t.title }}</a>
+    {% if t.kpi_id %}<span class="ml-1 text-[10px] text-slate-400">KPI</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ t.assignee.full_name if t.assignee else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.project.name if t.project else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.priority) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if t.due_date and t.due_date < today and t.status not in ('done','cancelled') }}">{{ t.due_date|date if t.due_date else '—' }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if t.escalated %}<span class="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 dark:bg-rose-500/10">Escalated</span>{% endif %}
+    {% if t.recurrence %}<span class="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{{ t.recurrence }}</span>{% endif %}
+    {% if t.assessment_score %}<span class="text-amber-600">{{ t.assessment_score }}/5</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/tasks/' ~ t.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No tasks match these filters.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/tasks?' ~ qs) }}
+{% endif %}
+
+{% if workload.upcoming %}
+<div class="mt-6">
+  {% call ui.card("My workload — next up", "Open tasks assigned to me by due date") %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for t in workload.upcoming %}
+    <li class="flex items-center gap-3 py-2">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-{{ t.priority|status_color }}-500"></span>
+      <a href="/tasks/{{ t.id }}" class="flex-1 truncate hover:text-brand-700">{{ t.title }}</a>
+      <span class="text-xs {{ 'font-semibold text-rose-600' if t.due_date < today }}">{{ t.due_date|date('%d %b') }}</span>
+      {{ ui.badge(t.status) }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endcall %}
+</div>
+{% endif %}
+
+{% call ui.modal('newTask', 'New task', 'lg') %}
+<form method="post" action="/tasks/create" class="space-y-4">
+  {{ tf.task_fields(opts) }}
+  <div class="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+    {{ ui.button('Create task', icon='plus') }}
+  </div>
+</form>
+{% endcall %}
+{% endblock %}

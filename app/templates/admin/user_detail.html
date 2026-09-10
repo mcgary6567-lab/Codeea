@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ obj.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(obj.full_name, obj.email ~ " · " ~ (obj.role.name if obj.role else "no role"), back="/admin/users") %}
+  {% if not obj.is_active %}{{ ui.badge('inactive', 'Deactivated') }}{% endif %}
+  {% if obj.locked_until and obj.locked_until > now %}{{ ui.badge('blocked', 'Locked') }}{% endif %}
+  {{ ui.badge(obj.portal) }}
+  {{ ui.button('Audit trail', href='/admin/audit/entity/User/' ~ obj.id, icon='scroll-text', variant='secondary', size='sm') }}
+{% endcall %}
+
+{{ ui.tabs([('profile','Profile','/admin/users/' ~ obj.id ~ '?tab=profile'),
+            ('permissions','Permissions','/admin/users/' ~ obj.id ~ '?tab=permissions'),
+            ('sessions','Sessions','/admin/users/' ~ obj.id ~ '?tab=sessions'),
+            ('activity','Login & activity','/admin/users/' ~ obj.id ~ '?tab=activity'),
+            ('security','Security incidents','/admin/users/' ~ obj.id ~ '?tab=security')], tab) }}
+
+{% if tab == 'profile' %}
+{% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r.id, r.name ~ ' · ' ~ r.portal)) %}{% endfor %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% set branch_options = [] %}{% for b in branches %}{% set _ = branch_options.append((b.id, b.name)) %}{% endfor %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <form method="post" action="/admin/users/{{ obj.id }}/edit">
+    {% call ui.card("Profile", "Changing the role is recorded as a consequential 'role_change' audit event") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.input('full_name', 'Full name', obj.full_name, required=True) }}
+        {{ ui.input('email', 'Email', obj.email, type='email', required=True, help='Username: ' ~ obj.username) }}
+        {{ ui.select('role_id', 'Role', role_options, obj.role_id, placeholder=None) }}
+        {{ ui.select('department_id', 'Department', dept_options, obj.department_id, placeholder='No department') }}
+        {{ ui.select('branch_id', 'Branch', branch_options, obj.branch_id, placeholder='No branch') }}
+        {{ ui.input('phone', 'Phone', obj.phone) }}
+        {{ ui.select('timezone', 'Timezone', timezones, obj.timezone, placeholder=None) }}
+        {{ ui.select('language', 'Language', languages, obj.language, placeholder=None) }}
+        {{ ui.input('allowed_ips', 'IP allowlist', obj.allowed_ips, help='Comma separated; blank means any address.') }}
+        {{ ui.input('rationale', 'Rationale (required for a role change)', '') }}
+      </div>
+      <div class="mt-4">{{ ui.checkbox('must_change_password', 'Force password change at next sign-in', obj.must_change_password) }}</div>
+      <div class="mt-5">{{ ui.button('Save changes', icon='save') }}</div>
+    {% endcall %}
+    </form>
+
+    <div class="mt-6">
+    {% call ui.card("Linked records", "The operational records this account is attached to") %}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {% set links = [('Client / Parent', linked.client, '/clients/', 'client_code'), ('Student', linked.student, '/students/', 'student_code'), ('Teacher', linked.teacher, '/teachers/', 'teacher_code'), ('Employee', linked.employee, '/hr/employees/', 'employee_code')] %}
+        {% for label, rec, url, code in links %}
+        <div class="rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm dark:border-slate-800">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</div>
+          {% if rec %}<a href="{{ url }}{{ rec.id }}" class="font-medium text-brand-700 hover:underline dark:text-brand-300">{{ rec[code] }} — {{ rec.full_name }}</a>
+          {% else %}<span class="text-slate-400">Not linked</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% endcall %}
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Account state") %}
+      {{ ui.dl([('Status', 'Active' if obj.is_active else 'Deactivated'),
+                ('Two-factor', 'Enrolled' if obj.two_factor_enabled else 'Not enrolled'),
+                ('Failed logins', obj.failed_login_attempts),
+                ('Locked until', obj.locked_until|datetime if obj.locked_until else 'Not locked'),
+                ('Last login', obj.last_login_at|datetime if obj.last_login_at else 'Never'),
+                ('Last login IP', obj.last_login_ip),
+                ('Created', obj.created_at|datetime),
+                ('Superuser', 'Yes' if obj.is_superuser else 'No')]) }}
+    {% endcall %}
+
+    {% if has_perm(user, 'users.update') %}
+    {% call ui.card("Administrative actions", "Each action requires a rationale and is audit-logged") %}
+      <div class="space-y-4 text-sm">
+        <form method="post" action="/admin/users/{{ obj.id }}/status" class="space-y-2">
+          <input type="hidden" name="activate" value="{{ 0 if obj.is_active else 1 }}">
+          {{ ui.input('rationale', ('Reason for deactivating' if obj.is_active else 'Reason for reactivating'), '', required=True) }}
+          {{ ui.button('Deactivate account' if obj.is_active else 'Reactivate account', icon=('user-x' if obj.is_active else 'user-check'), variant=('danger' if obj.is_active else 'success'), size='sm') }}
+        </form>
+        <hr class="border-slate-100 dark:border-slate-800">
+        <form method="post" action="/admin/users/{{ obj.id }}/reset-password" class="space-y-2">
+          {{ ui.input('password', 'New password (blank = generate)', '') }}
+          {{ ui.input('rationale', 'Reason', '') }}
+          {{ ui.button('Reset password', icon='key-round', variant='secondary', size='sm') }}
+        </form>
+        <hr class="border-slate-100 dark:border-slate-800">
+        <form method="post" action="/admin/users/{{ obj.id }}/unlock" class="space-y-2">
+          {{ ui.input('rationale', 'Reason for unlocking', '') }}
+          {{ ui.button('Unlock account', icon='unlock', variant='secondary', size='sm') }}
+        </form>
+        {% if has_perm(user, 'users.configure') %}
+        <hr class="border-slate-100 dark:border-slate-800">
+        <form method="post" action="/admin/users/{{ obj.id }}/reset-2fa" class="space-y-2">
+          {{ ui.select('action', 'Two-factor action', [('reset','Reset (user must re-enrol)'),('enable','Issue a new enrolment secret')], 'reset', placeholder=None) }}
+          {{ ui.input('rationale', 'Rationale', '', required=True) }}
+          {{ ui.button('Apply 2FA change', icon='shield-alert', variant='warning', size='sm') }}
+        </form>
+        {% endif %}
+      </div>
+    {% endcall %}
+    {% endif %}
+
+    {{ ui.alert('Impersonation is not available in this platform. To troubleshoot a user issue, review their audit trail, revoke sessions or reset their password — never sign in as them.', 'info', 'No impersonation') }}
+  </div>
+</div>
+
+{% elif tab == 'permissions' %}
+<div class="mb-4">{{ ui.alert('Green = granted by the role. Tick <b>Extra</b> to grant a permission this role does not have; tick <b>Deny</b> to remove one it does. Deny always wins.'|safe, 'info', 'Override matrix') }}</div>
+<form method="post" action="/admin/users/{{ obj.id }}/permissions">
+  <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+    <div class="min-w-[280px] flex-1">{{ ui.input('rationale', 'Rationale (required)', '', required=True) }}</div>
+    {{ ui.button('Save overrides', icon='save') }}
+    <div class="text-xs text-slate-500">Role <b>{{ obj.role.name if obj.role else '—' }}</b> grants {{ role_perms|length }} permissions.
+      Current overrides: {{ extra|length }} extra, {{ denied|length }} denied.</div>
+  </div>
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <table class="min-w-full text-xs">
+      <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+        <th class="px-3 py-2 text-left font-semibold uppercase tracking-wider text-slate-500">Module</th>
+        {% for a in ACTIONS %}<th class="px-2 py-2 text-center font-semibold uppercase tracking-wider text-slate-500">{{ a }}</th>{% endfor %}
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for m, label in MODULES.items() %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+        <td class="whitespace-nowrap px-3 py-1.5"><span class="font-medium text-slate-800 dark:text-slate-200">{{ label }}</span><span class="ml-1 font-mono text-[10px] text-slate-400">{{ m }}</span></td>
+        {% for a in ACTIONS %}
+        {% set perm = m ~ '.' ~ a %}
+        <td class="px-2 py-1.5 text-center {{ 'bg-emerald-50/60 dark:bg-emerald-500/5' if perm in role_perms }}">
+          <span class="inline-flex items-center gap-1">
+            <input type="checkbox" name="x__{{ m }}__{{ a }}" value="1" title="Extra grant" {% if perm in extra_expanded %}checked{% endif %}
+                   class="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+            <input type="checkbox" name="d__{{ m }}__{{ a }}" value="1" title="Deny" {% if perm in denied_expanded %}checked{% endif %}
+                   class="h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500">
+          </span>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{% elif tab == 'sessions' %}
+{{ ui.table_start(['Started','Last seen','Expires','IP','User agent','Status','']) }}
+{% for s in sessions %}
+<tr>
+  <td class="px-4 py-2 text-xs">{{ s.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.last_seen_at|ago }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.expires_at|datetime }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ s.ip or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500"><span class="block max-w-xs truncate">{{ s.user_agent or '—' }}</span></td>
+  <td class="px-4 py-2">{% if s.revoked %}{{ ui.badge('cancelled','Revoked') }}{% elif s.expires_at < now %}{{ ui.badge('expired') }}{% else %}{{ ui.badge('active') }}{% endif %}</td>
+  <td class="px-4 py-2 text-right">
+    {% if not s.revoked and s.expires_at > now and has_perm(user, 'security.execute') %}
+      {{ ui.confirm_form('/admin/users/' ~ obj.id ~ '/sessions/revoke', 'Revoke', icon='log-out', message='Revoke this session?', hidden={'session_id': s.id, 'rationale': 'Session revoked from the user detail page'}) }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No sessions recorded for this account.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+{% if has_perm(user, 'security.execute') %}
+<div class="mt-4">{{ ui.confirm_form('/admin/users/' ~ obj.id ~ '/sessions/revoke', 'Revoke all active sessions', icon='log-out', variant='danger', size='md', message='Sign this user out of every device?', hidden={'rationale': 'All sessions revoked from the user detail page'}) }}</div>
+{% endif %}
+
+{% elif tab == 'activity' %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Login history", "Sign-in, sign-out and lockout events") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for e in logins %}
+      <li class="flex items-start gap-3 py-2.5">
+        {{ ui.badge(e.action) }}
+        <span class="flex-1"><span class="block">{{ e.description or e.action|titleize }}</span>
+          <span class="text-xs text-slate-500">{{ e.created_at|datetime }} · {{ e.ip or 'no ip' }}</span></span>
+      </li>
+      {% else %}<li class="py-6 text-center text-slate-400">No login events yet.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+  {% call ui.card("Recent activity", "Everything this account did, newest first") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for e in activity %}
+      <li class="py-2.5">
+        <a href="/admin/audit/{{ e.id }}" class="block hover:text-brand-700">
+          <span class="font-medium">{{ e.description or (e.action ~ ' ' ~ e.module) }}</span>
+          <span class="block text-xs text-slate-500">{{ e.created_at|datetime }} · {{ e.module }} · {{ e.action }}{% if e.is_consequential %} · consequential{% endif %}</span>
+        </a>
+      </li>
+      {% else %}<li class="py-6 text-center text-slate-400">No activity recorded.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+</div>
+
+{% else %}
+{{ ui.table_start(['Raised','Type','Severity','Description','IP','Status']) }}
+{% for i in incidents %}
+<tr>
+  <td class="px-4 py-2 text-xs">{{ i.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ i.incident_type|titleize }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.severity) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ i.description or '—' }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ i.ip or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.status) }}</td>
+</tr>
+{% else %}{{ ui.empty('No security incidents involve this account.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+{% endblock %}

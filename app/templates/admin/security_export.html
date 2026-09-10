@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subject access export{% endblock %}
+{% block content %}
+{% call ui.page_header("Subject access export", "Build a portable ZIP archive of everything the platform holds about one client family", back="/admin/security") %}
+  {{ ui.button("Retention & erasure", href="/admin/security/retention", icon="calendar-clock", variant="secondary") }}
+  {{ ui.button("Data masking", href="/admin/security/masking", icon="eye-off", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Generate the export", "The archive downloads straight to your browser and the request is audit-logged") %}
+      {% set client_options = [] %}{% for c in clients %}{% set _ = client_options.append((c.id, c.client_code ~ ' — ' ~ c.full_name ~ (' (' ~ c.email ~ ')' if c.email else ''))) %}{% endfor %}
+      <form method="post" action="/admin/security/export" class="grid gap-4 sm:grid-cols-2">
+        {{ ui.select('client_id', 'Client / parent', client_options, none, required=True, placeholder='— select a client —',
+                     help='Search by typing the client code or family name once the list is open.') }}
+        {{ ui.input('rationale', 'Rationale', '', placeholder='Subject access request received on …',
+                    help='Defaults to "Subject access request" if left empty.') }}
+        <div class="sm:col-span-2">{{ ui.button('Generate and download ZIP', icon='file-archive') }}</div>
+      </form>
+    {% endcall %}
+
+    {% call ui.card("What the archive contains") %}
+      <div class="grid gap-4 sm:grid-cols-2 text-sm text-slate-600 dark:text-slate-300">
+        <ul class="space-y-1.5">
+          <li class="flex gap-2"><i data-lucide="file-json" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>client.json — profile, contacts, consent and communication preferences</li>
+          <li class="flex gap-2"><i data-lucide="file-json" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>students.json — every student on the account with level and status</li>
+          <li class="flex gap-2"><i data-lucide="file-json" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>subscriptions.json — packages, pricing and lifecycle</li>
+        </ul>
+        <ul class="space-y-1.5">
+          <li class="flex gap-2"><i data-lucide="file-json" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>invoices.json / payments.json — the complete billing history</li>
+          <li class="flex gap-2"><i data-lucide="file-json" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>notifications.json — messages sent to the family</li>
+          <li class="flex gap-2"><i data-lucide="file-text" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>MANIFEST.json — who generated it, when, and the record counts</li>
+        </ul>
+      </div>
+      {{ ui.alert('Class recordings are not embedded in the archive because of their size. Provide them separately through the recordings module if the request covers them.', 'info', 'Recordings') }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Handling a request") %}
+      <ol class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700">1</span>Verify the requester is the account holder — check the email or phone on the client record.</li>
+        <li class="flex gap-2"><span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700">2</span>Generate the archive here and record the request reference in the rationale.</li>
+        <li class="flex gap-2"><span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700">3</span>Send it over an authenticated channel; never attach it to an unverified email address.</li>
+        <li class="flex gap-2"><span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700">4</span>Respond within one calendar month, and log the completion on the client's case.</li>
+      </ol>
+    {% endcall %}
+    {% call ui.card("Audit") %}
+      <p class="text-sm text-slate-600 dark:text-slate-300">Every export is written to the audit log as a consequential
+      <code class="font-mono text-xs">export</code> event in the <b>security</b> module, with the client code, the archive
+      name and your rationale.</p>
+      <div class="mt-3">{{ ui.button('View export events', href='/admin/audit?module=security&action=export', icon='scroll-text', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

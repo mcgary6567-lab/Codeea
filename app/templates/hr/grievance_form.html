@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Raise a grievance{% endblock %}
+{% block content %}
+{% call ui.page_header('Raise a confidential grievance', 'Your submission goes directly to the Head of People & Culture. Department heads, managers and supervisors never see this channel.') %}{% endcall %}
+<div class="max-w-2xl space-y-6">
+  {{ ui.alert('We aim to acknowledge and start investigating within ' ~ sla_days ~ ' working days. Choosing "anonymous" means we cannot come back to you for detail, and your identity is not stored on the record.', 'info', 'How this works') }}
+  <form method="post" action="/hr/grievances/new" class="space-y-6">
+    {% call ui.card('Your grievance') %}
+    <div class="space-y-4">
+      {{ ui.select('category', 'Category', categories, 'workplace', placeholder=None) }}
+      {{ ui.input('subject', 'Subject', '', required=True, placeholder='Short summary') }}
+      {{ ui.textarea('description', 'What happened', '', rows=8, required=True, placeholder='Dates, people involved, what you have already tried and what outcome you are looking for.') }}
+      {{ ui.checkbox('is_anonymous', 'Submit anonymously', False, help='Your name, user account and employee record are not stored against the case') }}
+    </div>
+    {% endcall %}
+    <div class="flex gap-2">{{ ui.button('Send confidentially', icon='lock') }}{{ ui.button('Cancel', href='/hr/me', variant='secondary') }}</div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI usage & cost{% endblock %}
+{% block content %}
+{% call ui.page_header("AI usage & cost", "What the platform spends on AI, where it spends it, and how often the humans disagree with it") %}
+  {{ ui.button("Run log", href="/ai-governance", icon="list", variant="secondary") }}
+  {{ ui.button("Review queue", href="/ai-governance/queue", icon="inbox", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('AI runs', total_runs, icon='brain-circuit', color='violet', hint='last ' ~ months ~ ' month(s)') }}
+  {{ ui.stat('Total cost (USD)', '%.4f'|format(total_cost), icon='dollar-sign', color='amber') }}
+  {{ ui.stat('Tokens', '{:,}'.format(total_tokens), icon='binary', color='indigo') }}
+  {{ ui.stat('Average latency', avg_latency ~ ' ms', icon='timer', color='sky') }}
+  {{ ui.stat('False positives', fp_total, icon='flag-off', color='rose') }}
+</div>
+
+<form method="get" action="/ai-governance/dashboard" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-44">{{ ui.select('months', 'Window', [('3','Last 3 months'),('6','Last 6 months'),('12','Last 12 months')], months, placeholder=None) }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+  <a href="/ai-governance/dashboard" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+<div class="mb-6 grid gap-5 lg:grid-cols-2">
+  {% call ui.card('Runs per month by module', 'Where the AI workload actually sits') %}{{ ui.chart('moduleMonths', 280) }}{% endcall %}
+  {% call ui.card('Cost per month (USD)', 'Simulated provider costs nothing — this is the shape real spend would take') %}{{ ui.chart('costMonths', 280) }}{% endcall %}
+</div>
+
+<div class="mb-6">
+  {% call ui.card('By module', 'Volume, cost, latency and how often a human called it wrong') %}
+  {{ ui.table_start(['Module','Runs','Tokens','Cost (USD)','Avg latency','Reviewed','False positives','FP rate','']) }}
+  {% for m in by_module %}
+  <tr>
+    <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ labels.get(m.module, m.module|titleize) }}</td>
+    <td class="px-4 py-2 text-xs">{{ m.runs }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ '{:,}'.format(m.tokens) }}</td>
+    <td class="px-4 py-2 text-xs">{{ '%.4f'|format(m.cost) }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ m.avg_latency }} ms</td>
+    <td class="px-4 py-2 text-xs">{{ m.reviewed }}</td>
+    <td class="px-4 py-2 text-xs">{{ m.false_positive }}</td>
+    <td class="px-4 py-2">
+      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset
+        {{ 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300' if m.fp_rate >= 15 else ('bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300' if m.fp_rate >= 5 else 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300') }}">
+        {{ m.fp_rate }}%</span>
+    </td>
+    <td class="px-4 py-2 text-right">{{ ui.button('Runs', href='/ai-governance?module=' ~ m.module, variant='ghost', size='sm') }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No AI runs in this window.', 9, 'brain-circuit') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% call ui.card('By model', 'Every model and version the platform has actually called') %}
+{{ ui.table_start(['Model','Provider','Runs','Tokens','Cost (USD)','Avg latency']) }}
+{% for m in by_model %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs text-slate-700 dark:text-slate-200">{{ m.model }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(m.provider) }}</td>
+  <td class="px-4 py-2 text-xs">{{ m.runs }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ '{:,}'.format(m.tokens) }}</td>
+  <td class="px-4 py-2 text-xs">{{ '%.4f'|format(m.cost) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ m.avg_latency }} ms</td>
+</tr>
+{% else %}{{ ui.empty('No models called in this window.', 6, 'cpu') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  OQC.bar('moduleMonths', {{ month_labels|tojson }}, {{ module_series|tojson }}, {scales: {x: {stacked: true}, y: {stacked: true, beginAtZero: true}}, plugins: {legend: {display: true, position: 'bottom'}}});
+  OQC.line('costMonths', {{ month_labels|tojson }}, [{label: 'Cost (USD)', data: {{ monthly_cost|tojson }}}, {label: 'Runs', data: {{ monthly_runs|tojson }}, yAxisID: 'y1'}], {scales: {y1: {position: 'right', beginAtZero: true, grid: {display: false}}}});
+</script>
+{% endblock %}

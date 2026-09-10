@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New case{% endblock %}
+{% block content %}
+{{ ui.page_header('Open a case', 'AI classifies the category, priority and owning department, then applies the SLA and assigns the department head.', back='/cases') }}
+<form method="post" action="/cases/new" class="max-w-3xl space-y-6">
+  {% call ui.card('Case') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True, placeholder='Teacher was 10 minutes late three times this week') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=5, placeholder='What happened, when, and what the family expects…') }}</div>
+    {{ ui.select('case_type', 'Type', types, 'complaint', placeholder=None) }}
+    {{ ui.select('priority', 'Priority', priorities, '', placeholder='Let the AI decide') }}
+    {{ ui.select('source', 'Source', ['portal','whatsapp','phone','staff','feedback'], 'portal', placeholder=None) }}
+    {{ ui.select('department_id', 'Department', department_options, '', placeholder='AI routing') }}
+  </div>
+  {% endcall %}
+  {% call ui.card('Who is affected') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('client_id', 'Family', client_options, client_id or '', placeholder='Not linked') }}
+    {{ ui.select('student_id', 'Student', student_options, student_id or '', placeholder='Not linked') }}
+    {{ ui.select('teacher_id', 'Teacher involved', teacher_options, '', placeholder='Not linked') }}
+    {{ ui.select('assigned_to_id', 'Assign to', staff_options, '', placeholder='Department head (default)') }}
+  </div>
+  {% endcall %}
+  {{ ui.button('Open case', icon='check') }}
+</form>
+{% endblock %}

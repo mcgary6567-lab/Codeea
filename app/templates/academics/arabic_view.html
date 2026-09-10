@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Arabic lesson view{% endblock %}
+{% block content %}
+{% call ui.page_header("Shared Arabic Lesson View", s.full_name ~ " · " ~ s.student_code ~ " · " ~ path, back="/academics/progress/" ~ s.id) %}
+  {% if prev %}{{ ui.button('Previous lesson', href='/academics/arabic-view/' ~ s.id ~ '?lesson_id=' ~ prev.id, icon='chevron-left', variant='secondary', size='sm') }}{% endif %}
+  {% if next %}{{ ui.button('Next lesson', href='/academics/arabic-view/' ~ s.id ~ '?lesson_id=' ~ next.id, icon='chevron-right', variant='secondary', size='sm') }}{% endif %}
+  <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+    <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span><span x-data x-text="$store.sync ? $store.sync.label : 'Live'">Live</span>
+  </span>
+{% endcall %}
+
+{% if not les %}
+  {{ ui.empty_state('This student has no current lesson with Arabic text yet.', 'book-open') }}
+{% else %}
+<div class="grid gap-5 lg:grid-cols-3" x-data="arabicView({{ s.id }}, {{ les.id }}, {{ can_annotate|tojson }})" x-init="start()">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card(les.title, (les.surah_number|string ~ ':' ~ les.ayah_from|string ~ ('-' ~ les.ayah_to|string if les.ayah_to and les.ayah_to != les.ayah_from else '')) if les.surah_number else path) %}
+    <div dir="rtl" lang="ar" class="space-y-4">
+      {% for line in lines %}
+      <div class="rounded-lg bg-slate-50 px-4 py-4 dark:bg-slate-800/40">
+        <div class="font-arabic text-3xl leading-[2.9] text-slate-900 dark:text-white">
+          {% for w in line.words %}{% if w.sign %}<span class="text-slate-400">{{ w.text }}</span> {% else %}<span class="quran-word" data-word="{{ w.index }}"
+             :class="cls({{ w.index }})" @click="select({{ w.index }}, $event)" :title="tip({{ w.index }})">{{ w.html|safe }}</span> {% endif %}{% endfor %}
+          <span class="text-base text-slate-400">﴿{{ line.ayah }}﴾</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs dark:border-slate-800">
+      <span class="font-semibold text-slate-500">Tajweed:</span>
+      {% for cls, label in legend %}<span class="flex items-center gap-1.5"><span class="{{ cls }} font-arabic text-base">نّ</span><span class="text-slate-500">{{ label }}</span></span>{% endfor %}
+    </div>
+    {% endcall %}
+
+    {% if les.translation %}
+    {% call ui.card('Translation') %}<div class="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ les.translation }}</div>{% endcall %}
+    {% endif %}
+    {% if les.tajweed_notes %}
+    {% call ui.card('Tajweed notes') %}<div class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ les.tajweed_notes }}</div>{% endcall %}
+    {% endif %}
+
+    {% call ui.card('Lesson history', 'Everything this student has worked through') %}
+    {{ ui.table_start(['Lesson', 'Status', 'When', '']) }}
+    {% for h in history %}
+    <tr><td class="px-4 py-2 text-sm">{{ h.lesson.title }}</td>
+    <td class="px-4 py-2">{{ ui.badge(h.status) }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ h.at|date if h.at else '—' }}</td>
+    <td class="px-4 py-2 text-right">{{ ui.button('View', href='/academics/arabic-view/' ~ s.id ~ '?lesson_id=' ~ h.lesson.id, variant='ghost', size='sm') }}</td></tr>
+    {% else %}{{ ui.empty('No lesson history yet.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% if can_annotate %}
+    {% call ui.card('Annotate', 'Click a word above, choose a type, then save. Both sides of the class see it within three seconds.') %}
+    <div class="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">
+      <span class="text-xs text-slate-500">Selected word:</span>
+      <span class="ml-2 font-arabic text-xl" dir="rtl" x-text="selectedText || '—'"></span>
+      <span class="ml-2 text-xs text-slate-400" x-text="selected === null ? '' : ('#' + (selected + 1))"></span>
+    </div>
+    <div class="mb-3 flex flex-wrap gap-1.5">
+      {% for a in annotation_types %}
+      <button type="button" @click="type = '{{ a }}'" :class="type === '{{ a }}' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'"
+              class="rounded-lg px-2.5 py-1.5 text-xs font-medium">{{ a|title }}</button>
+      {% endfor %}
+    </div>
+    <textarea x-model="note" rows="2" placeholder="Optional note for the student…"
+              class="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"></textarea>
+    <div class="flex gap-2">
+      <button type="button" @click="save()" :disabled="selected === null"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-40"><i data-lucide="highlighter" class="h-3.5 w-3.5"></i>Save annotation</button>
+      <button type="button" @click="clearOne()" :disabled="selected === null"
+              class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300">Clear word</button>
+    </div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Annotations', 'Synchronised every 3 seconds') %}
+    <ul class="space-y-2">
+      <template x-for="a in annotations" :key="a.id">
+        <li class="rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <span class="inline-flex items-center gap-1.5 font-medium">
+              <span class="h-2.5 w-2.5 rounded-full" :style="'background:' + (a.color || '#94a3b8')"></span>
+              <span x-text="a.type"></span>
+              <span class="text-slate-400" x-text="a.word_index === null ? '' : ('word #' + (a.word_index + 1))"></span>
+            </span>
+            <span class="text-slate-400" x-text="a.author"></span>
+          </div>
+          <div class="mt-1 text-slate-600 dark:text-slate-300" x-text="a.note"></div>
+        </li>
+      </template>
+      <li x-show="annotations.length === 0" class="py-6 text-center text-xs text-slate-400">No annotations on this lesson yet.</li>
+    </ul>
+    {% endcall %}
+
+    {% call ui.card('Student') %}
+    {{ ui.dl([('Student', s.full_name), ('Code', s.student_code), ('Course', s.course.name if s.course else '—'),
+              ('Level', s.level or '—'), ('Teacher', s.teacher.full_name if s.teacher else '—'),
+              ('Progress', progress.pct ~ '%'), ('Sabaq position', s.sabaq_position or '—')]) }}
+    <div class="mt-3">{{ ui.progress(progress.pct, 'brand') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function arabicView(studentId, lessonId, canAnnotate) {
+  return {
+    studentId: studentId, lessonId: lessonId, canAnnotate: canAnnotate,
+    annotations: {{ annotations|tojson }},
+    selected: null, selectedText: '', type: 'highlight', note: '', timer: null,
+    start() {
+      this.timer = setInterval(() => this.poll(), 3000);
+      window.addEventListener('beforeunload', () => clearInterval(this.timer));
+    },
+    byWord(i) { return this.annotations.filter(a => a.word_index === i); },
+    cls(i) {
+      const a = this.byWord(i);
+      if (!a.length) return '';
+      const t = a[a.length - 1].type;
+      if (t === 'mistake') return 'mistake';
+      if (t === 'highlight') return 'highlight';
+      return 'ring-2 ring-offset-1 ring-violet-400 rounded';
+    },
+    tip(i) { return this.byWord(i).map(a => a.type + (a.note ? ': ' + a.note : '')).join(' | '); },
+    select(i, ev) {
+      if (!this.canAnnotate) return;
+      this.selected = i;
+      this.selectedText = ev.currentTarget.innerText.trim();
+      const existing = this.byWord(i);
+      if (existing.length) { this.type = existing[existing.length - 1].type; this.note = existing[existing.length - 1].note || ''; }
+    },
+    async post(payload) {
+      const r = await fetch(`/academics/arabic-view/${this.studentId}/annotate`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin',
+        body: JSON.stringify(Object.assign({lesson_id: this.lessonId}, payload))
+      });
+      if (r.ok) { const d = await r.json(); this.annotations = d.annotations || []; }
+    },
+    save() { if (this.selected === null) return; this.post({word_index: this.selected, annotation_type: this.type, note: this.note}); this.note = ''; },
+    clearOne() { if (this.selected === null) return; this.post({word_index: this.selected, annotation_type: this.type, note: ''}); },
+    async poll() {
+      try {
+        const r = await fetch(`/academics/arabic-view/${this.studentId}/annotations.json?lesson_id=${this.lessonId}`, {credentials: 'same-origin'});
+        if (r.ok) { const d = await r.json(); this.annotations = d.annotations || []; }
+      } catch (e) { /* keep the last known state */ }
+    }
+  };
+}
+</script>
+{% endblock %}

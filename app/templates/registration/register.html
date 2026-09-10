@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Register your child{% endblock %}
+
+{% macro reg_form(v, error, course_options, countries, timezones, country_map, how_heard, preferred_times, ref, ambassador) %}
+<form method="post" action="/register" class="space-y-6"
+      x-data="{ country: '{{ v.get('country') or 'United Kingdom' }}', map: {{ country_map|tojson }}, tz: '{{ v.get('timezone') or 'Europe/London' }}', extra: {{ 2 if v.get('s2_name') else 1 }} }">
+  <input type="hidden" name="ref" value="{{ ref }}">
+  <div class="hidden" aria-hidden="true"><label>Do not fill this in<input type="text" name="website" tabindex="-1" autocomplete="off" value=""></label></div>
+
+  {% if error %}
+  <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">{{ error }}</div>
+  {% endif %}
+  {% if ambassador %}
+  <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+    <b>{{ ambassador.full_name.split()[0] }}</b> referred you — their referral code <span class="font-mono">{{ ref }}</span> has been applied to your registration.
+  </div>
+  {% endif %}
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Parent / guardian</h2>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ ui.input('full_name', 'Your full name', v.get('full_name'), required=True) }}
+      {{ ui.input('email', 'Email', v.get('email'), type='email', help='Used for the parent portal and invoices.') }}
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Country <span class="text-rose-500">*</span></label>
+        <select name="country" x-model="country" @change="if (map[country]) tz = map[country].timezone"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {% for co in countries %}<option value="{{ co }}" {% if (v.get('country') or 'United Kingdom') == co %}selected{% endif %}>{{ co }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Your timezone</label>
+        <select name="timezone" x-model="tz" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {% for t in timezones %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Set from your country — class times are always shown in your own time.</p>
+      </div>
+      {{ ui.input('phone', 'Phone number', v.get('phone'), required=True, placeholder='+44 7700 900123') }}
+      {{ ui.input('whatsapp', 'WhatsApp number', v.get('whatsapp'), placeholder='Leave blank to use the phone number') }}
+    </div>
+    <div class="mt-4">{{ ui.checkbox('whatsapp_opt_in', 'Send me class reminders, result cards and invoices on WhatsApp', True) }}</div>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="mb-1 text-base font-semibold text-slate-900 dark:text-white">Students</h2>
+    <p class="mb-4 text-xs text-slate-500">Add up to three children. You can add more once your account is open.</p>
+    {% for i in [1, 2, 3] %}
+    <div class="{{ '' if i == 1 else 'mt-4' }}" {% if i > 1 %}x-show="extra >= {{ i }}" x-cloak{% endif %}>
+      <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Student {{ i }}{% if i == 1 %} <span class="text-rose-500">*</span>{% endif %}</div>
+      <div class="grid gap-4 sm:grid-cols-4">
+        {{ ui.input('s' ~ i ~ '_name', 'Name', v.get('s' ~ i ~ '_name'), required=(i == 1)) }}
+        {{ ui.input('s' ~ i ~ '_age', 'Age', v.get('s' ~ i ~ '_age'), type='number', min=3, max=80, required=(i == 1)) }}
+        {{ ui.select('s' ~ i ~ '_gender', 'Gender', ['male','female'], v.get('s' ~ i ~ '_gender') or 'male', placeholder=None) }}
+        {{ ui.select('s' ~ i ~ '_course_id', 'Course of interest', course_options, v.get('s' ~ i ~ '_course_id'), placeholder='Not sure yet') }}
+      </div>
+    </div>
+    {% endfor %}
+    <button type="button" x-show="extra < 3" @click="extra = extra + 1" class="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:border-brand-500 hover:text-brand-600 dark:border-slate-700">
+      <i data-lucide="plus" class="h-3.5 w-3.5"></i>Add another child
+    </button>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="mb-4 text-base font-semibold text-slate-900 dark:text-white">Preferences</h2>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ ui.select('preferred_time', 'Preferred class time', preferred_times, v.get('preferred_time'), placeholder='Flexible') }}
+      {{ ui.select('how_heard', 'How did you hear about us?', how_heard, v.get('how_heard'), placeholder='— Choose —') }}
+    </div>
+    <div class="mt-4">{{ ui.textarea('message', 'Anything we should know?', v.get('message'), rows=3, placeholder='Learning needs, previous Quran study, preferred teacher gender…') }}</div>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="mb-3 text-base font-semibold text-slate-900 dark:text-white">Consent &amp; safeguarding</h2>
+    <div class="mb-4 max-h-40 overflow-y-auto rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+      <p class="mb-2">Online Quran College teaches children one-to-one over video. As the parent or legal guardian of the student(s) named above, you confirm that:</p>
+      <ul class="list-disc space-y-1 pl-5">
+        <li>You are the parent or legal guardian and are aged 18 or over, and you consent to your child attending online classes.</li>
+        <li>Every live class with a minor is <b>recorded and retained for safeguarding and quality assurance</b>, and reviewed by our QA team and automated class-monitoring systems.</li>
+        <li>Teachers must never contact a student outside the platform. Any attempt to exchange personal contact details is flagged and investigated.</li>
+        <li>We store your contact details, your child's name, age and academic progress to deliver the service, and we process them under our privacy policy. You may request access to or deletion of this data at any time.</li>
+        <li>We may contact you by WhatsApp, email or phone about classes, invoices and progress. You can withdraw consent for any channel from your parent portal.</li>
+      </ul>
+    </div>
+    {{ ui.checkbox('consent', 'I am the parent or legal guardian and I consent to the safeguarding, recording and data-protection terms above.', False) }}
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    {{ ui.button('Request a free trial class', icon='send') }}
+    <span class="text-xs text-slate-500">No payment is taken now. We will contact you to confirm a trial slot.</span>
+  </div>
+</form>
+{% endmacro %}
+
+{% macro page() %}
+<div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+  <div class="mb-8 flex items-center gap-3">
+    <img src="/static/img/logo.svg" alt="" class="h-12 w-12">
+    <div>
+      <div class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Online Quran College</div>
+      <div class="text-[11px] uppercase tracking-widest text-brand-600 dark:text-brand-300">Qaida · Nazra · Hifz · Tajweed · Tarjuma</div>
+    </div>
+  </div>
+  <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Register for a free trial class</h1>
+  <p class="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+    One-to-one live Quran lessons with verified, background-checked teachers, matched to your child's course, age, gender and timezone.
+    Fill this in and our team will call you to arrange a free trial.
+  </p>
+  <div class="mt-8">
+    {{ reg_form(values, error, course_options, countries, timezones, country_map, how_heard, preferred_times, ref, ambassador) }}
+  </div>
+  <p class="mt-8 text-center text-xs text-slate-400">Already have an account? <a href="/login" class="text-brand-600 hover:underline">Sign in</a></p>
+</div>
+{% endmacro %}
+
+{% block public %}{{ page() }}{% endblock %}
+{% block content %}{{ page() }}{% endblock %}

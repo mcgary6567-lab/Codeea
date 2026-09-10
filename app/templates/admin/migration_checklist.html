@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Cutover checklist{% endblock %}
+{% block content %}
+{% call ui.page_header("Legacy cutover checklist", "The full sequence from inventory to decommissioning the old system", back="/admin/migration") %}
+  {{ ui.button("Migration jobs", href="/admin/migration", icon="database-zap", variant="secondary") }}
+  {{ ui.button("Backups", href="/admin/backups", icon="database", variant="secondary") }}
+{% endcall %}
+
+{% set pct = (100 * done / (total or 1))|round(0)|int %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Completed", done ~ " / " ~ total, icon="list-checks", color=("emerald" if done == total else "brand")) }}
+  {{ ui.stat("Progress", pct ~ "%", icon="trending-up", color="indigo") }}
+  {{ ui.stat("Phases", phases|length, icon="layers", color="sky") }}
+  {{ ui.stat("Outstanding", total - done, icon="circle-dashed", color=("amber" if total - done else "emerald")) }}
+</div>
+
+<div class="mb-6">{{ ui.progress(pct, 'brand' if pct < 100 else 'emerald', label='Cutover readiness') }}</div>
+
+{% if done == total and total %}
+<div class="mb-6">{{ ui.alert('Every step is ticked. Confirm the reconciliation reports and the post-cutover backup before decommissioning the legacy system.', 'success', 'Ready to cut over') }}</div>
+{% endif %}
+
+<form method="post" action="/admin/migration/checklist" class="space-y-6">
+  {% for phase, items in phases.items() %}
+  {% set phase_done = items|selectattr('done')|list|length %}
+  {% call ui.card(phase, phase_done ~ " of " ~ items|length ~ " complete") %}
+    <ul class="space-y-3">
+      {% for item in items %}
+      <li class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800 {{ 'bg-emerald-50/40 dark:bg-emerald-950/10' if item.done }}">
+        <input type="checkbox" name="chk_{{ item.key }}" value="1" {% if item.done %}checked{% endif %}
+               {% if not has_perm(user, 'migration.update') %}disabled{% endif %}
+               class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-medium text-slate-900 dark:text-white">{{ item.title }}</span>
+            <code class="font-mono text-[10px] text-slate-400">{{ item.key }}</code>
+            {% if item.done %}{{ ui.badge('completed', 'Done') }}{% endif %}
+          </div>
+          <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{{ item.detail }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+  {% else %}
+  {{ ui.empty_state('No checklist items are defined.', 'list-checks') }}
+  {% endfor %}
+
+  {% if has_perm(user, 'migration.update') %}
+  <div class="sticky bottom-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
+    {{ ui.button('Save checklist', icon='save') }}
+    <span class="text-xs text-slate-500">Progress is stored in the <code class="font-mono">migration_checklist</code> setting and the change is audit-logged.</span>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ obj.name if obj else 'New webhook' }}{% endblock %}
+{% block content %}
+{% call ui.page_header(obj.name if obj else "New outbound webhook",
+                       obj.url if obj else "Push platform events to n8n, Zapier, Make or any HTTPS endpoint",
+                       back="/admin/api?tab=webhooks") %}
+  {% if obj %}
+    {{ ui.badge('active' if obj.is_active else 'inactive') }}
+    {% if obj.last_status %}{{ ui.badge(obj.last_status) }}{% endif %}
+    {% if has_perm(user, 'webhooks.execute') %}
+    <form method="post" action="/admin/api/webhooks/{{ obj.id }}/test" class="inline">{{ ui.button('Send test event', icon='zap', variant='secondary', size='sm') }}</form>
+    {% endif %}
+  {% endif %}
+{% endcall %}
+
+{% if obj %}
+{% set ok = deliveries|selectattr('status','equalto','success')|list|length %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Deliveries", deliveries|length, icon="send", color="brand", hint="most recent 50") }}
+  {{ ui.stat("Succeeded", ok, icon="check-circle", color="emerald") }}
+  {{ ui.stat("Failed / dead", deliveries|rejectattr('status','equalto','success')|rejectattr('status','equalto','pending')|list|length, icon="alert-triangle", color="rose") }}
+  {{ ui.stat("Subscribed events", (obj.events or [])|length, icon="list-checks", color="indigo", hint="all events" if '*' in (obj.events or []) else '') }}
+</div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Endpoint") %}
+      <form method="post" action="/admin/api/webhooks/save" class="space-y-4">
+        {% if obj %}<input type="hidden" name="id" value="{{ obj.id }}">{% endif %}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ ui.input('name', 'Name', obj.name if obj else '', required=True, placeholder='n8n — lead pipeline') }}
+          {{ ui.input('secret', 'Signing secret (optional)', obj.secret if obj else '',
+                      help='Sent as an HMAC-SHA256 signature in X-OQC-Signature.') }}
+          <div class="sm:col-span-2">{{ ui.input('url', 'Endpoint URL', obj.url if obj else '', required=True,
+                                                 type='url', placeholder='https://n8n.example.com/webhook/oqc') }}</div>
+        </div>
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Events to deliver</span>
+            <label class="flex items-center gap-2 text-xs text-slate-500"><input type="checkbox" onclick="document.querySelectorAll('.evbox').forEach(function(c){c.checked=this.checked}.bind(this))" class="h-4 w-4 rounded border-slate-300 text-brand-600"> Select all</label>
+          </div>
+          <div class="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 dark:border-slate-800">
+            {% for event, description in events %}
+            <label class="flex items-start gap-2.5 text-sm">
+              <input type="checkbox" class="evbox mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                     name="events" value="{{ event }}" {% if obj and event in (obj.events or []) %}checked{% endif %}>
+              <span><code class="font-mono text-xs font-medium text-slate-800 dark:text-slate-200">{{ event }}</code>
+              <span class="block text-[11px] text-slate-500">{{ description }}</span></span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {{ ui.checkbox('is_active', 'Active — deliver events to this endpoint', obj.is_active if obj else True) }}
+        {{ ui.input('rationale', 'Rationale', '', placeholder='Why is this webhook being added or changed?') }}
+        <div class="flex gap-2">
+          {{ ui.button('Save webhook', icon='save') }}
+          {{ ui.button('Cancel', href='/admin/api?tab=webhooks', variant='secondary') }}
+        </div>
+      </form>
+    {% endcall %}
+
+    {% if obj %}
+    {% call ui.card("Delivery history", "Most recent 50 attempts to this endpoint") %}
+      {{ ui.table_start(['When','Event','Status','Attempts','Code','Response','']) }}
+      {% for d in deliveries %}
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if d.status in ('failed','dead') }}">
+        <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ d.created_at|datetime }}</td>
+        <td class="px-4 py-2 font-mono text-[11px]">{{ d.event }}</td>
+        <td class="px-4 py-2">{{ ui.badge(d.status) }}</td>
+        <td class="px-4 py-2 text-center text-xs">{{ d.attempts }}</td>
+        <td class="px-4 py-2 text-xs">{{ d.response_code or '—' }}</td>
+        <td class="px-4 py-2 font-mono text-[10px] text-slate-400">{{ (d.response_body or '')|truncate(40) }}</td>
+        <td class="px-4 py-2 text-right">
+          {% if d.status in ('failed','dead','pending') and has_perm(user, 'webhooks.execute') %}
+          <form method="post" action="/admin/api/webhooks/deliveries/{{ d.id }}/retry" class="inline">{{ ui.button('Retry', icon='refresh-cw', variant='ghost', size='sm') }}</form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}{{ ui.empty('Nothing delivered yet — send a test event to check the endpoint.', 7, 'send') }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Payload shape") %}
+      <pre class="overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] leading-relaxed text-emerald-300">POST {{ obj.url if obj else 'https://your-endpoint' }}
+Content-Type: application/json
+X-OQC-Event: lead.created
+X-OQC-Signature: sha256=&lt;hmac&gt;
+
+{
+  "event": "lead.created",
+  "sent_at": "2026-09-09T10:15:00Z",
+  "data": { "id": 412, "full_name": "…" }
+}</pre>
+      <p class="mt-2 text-xs text-slate-500">Respond with any 2xx status within 10 seconds. Anything else counts as a failure.</p>
+    {% endcall %}
+
+    {% call ui.card("Retry policy") %}
+      <ul class="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
+        <li>Attempt 1 — immediate</li>
+        <li>Then 2, 4, 8, 16, 32 and 64 minutes later</li>
+        <li>After six failed attempts the delivery is marked <b>dead</b></li>
+        <li>Dead deliveries can still be replayed by hand from the delivery log</li>
+      </ul>
+    {% endcall %}
+
+    {% if obj %}
+    {% call ui.card("Danger zone") %}
+      {% if has_perm(user, 'webhooks.delete') %}
+      <form method="post" action="/admin/api/webhooks/{{ obj.id }}/delete" class="space-y-3" onsubmit="return confirm('Delete this webhook? Its delivery history goes with it.')">
+        {{ ui.input('rationale', 'Rationale', '', required=True) }}
+        {{ ui.button('Delete webhook', icon='trash-2', variant='danger') }}
+      </form>
+      {% else %}{{ ui.alert('You do not have the webhooks.delete permission.', 'info') }}{% endif %}
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

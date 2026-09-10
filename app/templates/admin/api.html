@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}API & webhooks{% endblock %}
+{% block content %}
+{% call ui.page_header("API & webhooks", "Machine access to the platform — API keys, outbound webhooks and the delivery log") %}
+  {{ ui.button("OpenAPI docs", href="/api/docs", icon="book-open", variant="secondary", attrs='target="_blank" rel="noopener"') }}
+  {% if has_perm(user, 'webhooks.add') %}{{ ui.button("New webhook", href="/admin/api/webhooks/new", icon="webhook", variant="secondary") }}{% endif %}
+  {% if has_perm(user, 'api_keys.add') %}
+  <button type="button" @click="$dispatch('open-modal','newkey')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="key-round" class="h-4 w-4"></i>New API key</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("API keys", keys|length, icon="key-round", color="brand", hint=(active_keys|string) ~ " active") }}
+  {{ ui.stat("Webhooks", hooks|length, icon="webhook", color="indigo", hint=(hooks|selectattr('is_active')|list|length|string) ~ " enabled") }}
+  {{ ui.stat("Recent deliveries", deliveries|length, icon="send", color="sky", hint="last 60 outbound") }}
+  {{ ui.stat("Succeeded", success, icon="check-circle", color="emerald", hint="on this page") }}
+  {{ ui.stat("Failed / dead", failed, icon="alert-triangle", color=("rose" if failed else "slate"), hint="all time") }}
+</div>
+
+{{ ui.tabs([
+  ('keys', 'API keys (' ~ keys|length ~ ')', '/admin/api?tab=keys'),
+  ('webhooks', 'Webhooks (' ~ hooks|length ~ ')', '/admin/api?tab=webhooks'),
+  ('deliveries', 'Delivery log (' ~ deliveries|length ~ ')', '/admin/api?tab=deliveries'),
+  ('events', 'Event catalogue (' ~ events|length ~ ')', '/admin/api?tab=events')], tab) }}
+
+{% if tab == 'keys' %}
+{{ ui.table_start(['Name','Prefix','Owner','Scopes','Rate limit','Last used','Expires','Status','']) }}
+{% for k in keys %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'opacity-60' if not k.is_active }}">
+  <td class="px-4 py-2 font-medium">{{ k.name }}</td>
+  <td class="px-4 py-2"><code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] dark:bg-slate-800">{{ k.prefix }}…</code></td>
+  <td class="px-4 py-2 text-xs">{% if k.owner %}<a href="/admin/users/{{ k.owner.id }}" class="hover:text-brand-700">{{ k.owner.full_name }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if k.scopes %}{% for s in k.scopes[:4] %}<code class="mr-1 rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] dark:bg-slate-800">{{ s }}</code>{% endfor %}
+      {% if k.scopes|length > 4 %}<span class="text-[10px] text-slate-400">+{{ k.scopes|length - 4 }}</span>{% endif %}
+    {% else %}<span class="text-[11px] text-slate-400">inherits the owner's permissions</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">{{ k.rate_limit_per_minute }}/min</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ k.last_used_at|ago if k.last_used_at else 'never' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ k.expires_at|date if k.expires_at else 'never' }}</td>
+  <td class="px-4 py-2">
+    {% if not k.is_active %}{{ ui.badge('cancelled', 'Revoked') }}
+    {% elif k.expires_at and k.expires_at <= utcnow() %}{{ ui.badge('expired', 'Expired') }}
+    {% else %}{{ ui.badge('active') }}{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right">
+    {% if k.is_active and has_perm(user, 'api_keys.delete') %}
+    {{ ui.confirm_form('/admin/api/keys/' ~ k.id ~ '/revoke', 'Revoke', icon='ban', variant='danger',
+                       message='Revoke this key? Any integration using it will start failing immediately.',
+                       hidden={'rationale': 'API key revoked from the admin console'}) }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No API keys have been issued.', 9, 'key-round') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Using a key") %}
+    <p class="mb-2 text-sm text-slate-600 dark:text-slate-300">Send the raw key in the <code class="font-mono text-xs">X-API-Key</code> header on any <code class="font-mono text-xs">/api/v1</code> request:</p>
+    <pre class="overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] leading-relaxed text-emerald-300">curl -H "X-API-Key: oqc_live_xxxxxxxx" \
+     {{ base_url }}/api/v1/auth/me</pre>
+    <p class="mt-2 text-xs text-slate-500">Interactive sessions use a bearer token instead — <code class="font-mono">POST /api/v1/auth/login</code> returns one.</p>
+  {% endcall %}
+  {% call ui.card("Key handling rules") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Only a SHA-256 hash is stored. The raw key is displayed once, at creation, and can never be recovered.</li>
+      <li class="flex gap-2"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>A key inherits its owner's permissions; scopes narrow that down but never widen it.</li>
+      <li class="flex gap-2"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Give every integration its own key so one can be revoked without breaking the rest.</li>
+      <li class="flex gap-2"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Revocation is immediate and is logged as a critical audit event.</li>
+    </ul>
+  {% endcall %}
+</div>
+
+{% elif tab == 'webhooks' %}
+{{ ui.table_start(['Name','Endpoint','Events','Secret','Last delivery','Status','']) }}
+{% for h in hooks %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-medium"><a href="/admin/api/webhooks/{{ h.id }}" class="hover:text-brand-700">{{ h.name }}</a></td>
+  <td class="px-4 py-2"><code class="font-mono text-[11px] text-slate-500">{{ h.url|truncate(46) }}</code></td>
+  <td class="px-4 py-2 text-xs">
+    {% for e in (h.events or [])[:3] %}<code class="mr-1 rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] dark:bg-slate-800">{{ e }}</code>{% endfor %}
+    {% if (h.events or [])|length > 3 %}<span class="text-[10px] text-slate-400">+{{ h.events|length - 3 }}</span>{% endif %}
+    {% if not h.events %}<span class="text-[11px] text-slate-400">none selected</span>{% endif %}
+  </td>
+  <td class="px-4 py-2">{% if h.secret %}<i data-lucide="lock" class="h-4 w-4 text-emerald-600" title="HMAC signed"></i>{% else %}<i data-lucide="unlock" class="h-4 w-4 text-slate-300" title="Unsigned"></i>{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ h.last_triggered_at|ago if h.last_triggered_at else 'never' }}{% if h.last_status %} · {{ h.last_status }}{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if h.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/admin/api/webhooks/' ~ h.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No outbound webhooks configured.', 7, 'webhook') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-4 text-xs text-slate-500">Deliveries are retried with exponential backoff (2, 4, 8, 16, 32, 64 minutes) and
+marked <b>dead</b> after six attempts. Payloads are signed with <code class="font-mono">HMAC-SHA256</code> in the
+<code class="font-mono">X-OQC-Signature</code> header whenever a secret is set.</p>
+
+{% elif tab == 'deliveries' %}
+{{ ui.table_start(['When','Webhook','Event','Status','Attempts','Code','Response','']) }}
+{% for d in deliveries %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if d.status in ('failed','dead') }}">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ d.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{% if d.webhook %}<a href="/admin/api/webhooks/{{ d.webhook.id }}" class="hover:text-brand-700">{{ d.webhook.name }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2 font-mono text-[11px]">{{ d.event }}</td>
+  <td class="px-4 py-2">{{ ui.badge(d.status) }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ d.attempts }}</td>
+  <td class="px-4 py-2 text-xs">{{ d.response_code or '—' }}</td>
+  <td class="px-4 py-2 font-mono text-[10px] text-slate-400">{{ (d.response_body or '')|truncate(44) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if d.status in ('failed','dead','pending') and has_perm(user, 'webhooks.execute') %}
+    <form method="post" action="/admin/api/webhooks/deliveries/{{ d.id }}/retry" class="inline">{{ ui.button('Retry', icon='refresh-cw', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No outbound deliveries yet.', 8, 'send') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% else %}
+<p class="mb-4 text-sm text-slate-500">Every platform event a webhook can subscribe to. Selecting <code class="font-mono">*</code> on a webhook delivers all of them.</p>
+{{ ui.table_start(['Event','What it means','Subscribed webhooks']) }}
+{% for event, description in events %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-medium">{{ event }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ description }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% set subs = [] %}
+    {% for h in hooks %}{% if event in (h.events or []) or '*' in (h.events or []) %}{% set _ = subs.append(h) %}{% endif %}{% endfor %}
+    {% for h in subs %}<a href="/admin/api/webhooks/{{ h.id }}" class="mr-1 inline-block rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-700 hover:underline dark:bg-indigo-500/10 dark:text-indigo-300">{{ h.name }}</a>
+    {% else %}<span class="text-[11px] text-slate-400">none</span>{% endfor %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('The event catalogue is empty.', 3) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+
+{% if has_perm(user, 'api_keys.add') %}
+{% set staff_options = [] %}{% for s in staff %}{% set _ = staff_options.append((s.id, s.full_name ~ ' — ' ~ s.email)) %}{% endfor %}
+{% call ui.modal('newkey', 'Issue a new API key') %}
+{{ ui.alert('The raw key is shown once in the confirmation message after saving. Copy it immediately — it cannot be recovered.', 'warning', 'Shown once') }}
+<form method="post" action="/admin/api/keys/new" class="mt-4 grid gap-4 sm:grid-cols-2">
+  {{ ui.input('name', 'Key name', '', required=True, placeholder='n8n automation') }}
+  {{ ui.select('owner_id', 'Acts as', staff_options, user.id, placeholder='— defaults to you —',
+               help='The key can never do more than this user can.') }}
+  {{ ui.input('rate_limit', 'Rate limit (requests/minute)', 120, type='number', min=1) }}
+  {{ ui.input('expires_at', 'Expires on (optional)', '', type='date') }}
+  <div class="sm:col-span-2">{{ ui.textarea('scopes', 'Scopes (comma or newline separated, optional)', '', rows=2,
+                                            placeholder='students.view, classes.view, invoices.view') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('rationale', 'Rationale', '', placeholder='Which integration is this for?') }}</div>
+  <div class="sm:col-span-2">{{ ui.button('Create key', icon='key-round') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

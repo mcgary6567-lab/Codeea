@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Improvement reports{% endblock %}
+{% block content %}
+{% call ui.page_header("Monthly Test Reports", "Improvement percentage per student, class and teacher for " ~ period_label ~ ".", back="/academics/monthly-tests?period=" ~ period) %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Tests scored", rep.n, icon="file-badge", color="brand") }}
+  {{ ui.stat("Average", rep.avg_pct ~ '%', icon="gauge", color="indigo") }}
+  {{ ui.stat("Avg improvement", ('%+.1f'|format(rep.avg_imp)) ~ ' pts', icon="trending-up", color=('emerald' if rep.avg_imp >= 0 else 'rose')) }}
+  {{ ui.stat("Declining", rep.declines, icon="trending-down", color="rose", hint="More than 10 points down") }}
+  {{ ui.stat("Grade A", rep.grade_dist.A, icon="award", color="emerald") }}
+  {{ ui.stat("Grade D", rep.grade_dist.D, icon="alert-circle", color="amber") }}
+</div>
+
+{% call ui.filter_bar('/academics/monthly-tests/reports') %}
+  <div class="w-40">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <div class="w-56">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+{% endcall %}
+
+<div class="grid gap-5 lg:grid-cols-2 mb-5">
+  {% call ui.card('Average score trend', 'Last six periods') %}{{ ui.chart('trendChart', 250) }}{% endcall %}
+  {% call ui.card('Grade distribution', period_label) %}{{ ui.chart('gradeChart', 250) }}{% endcall %}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2 mb-5">
+  {% call ui.card('Performance by teacher') %}{{ ui.chart('teacherChart', 280) }}{% endcall %}
+  {% call ui.card('Performance by class (course · division)') %}{{ ui.chart('classChart', 280) }}{% endcall %}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2">
+  <div>
+    <h3 class="mb-2 font-semibold text-slate-900 dark:text-white">By teacher</h3>
+    {{ ui.table_start(['Teacher', 'Tests', 'Avg %', 'Avg improvement', 'Declines', 'A / B / C / D']) }}
+    {% for r in rep.teachers %}
+    <tr><td class="px-4 py-2 font-medium">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ r.n }}</td>
+    <td class="px-4 py-2 text-xs font-semibold">{{ r.avg_pct }}%</td>
+    <td class="px-4 py-2 text-xs font-semibold {{ 'text-emerald-600' if r.avg_imp >= 0 else 'text-rose-600' }}">{{ '%+.1f'|format(r.avg_imp) }}</td>
+    <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-semibold' if r.declines }}">{{ r.declines }}</td>
+    <td class="px-4 py-2 text-[11px] text-slate-500">{{ r.grades.A }} / {{ r.grades.B }} / {{ r.grades.C }} / {{ r.grades.D }}</td></tr>
+    {% else %}{{ ui.empty('No scored tests in this period.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    <h3 class="mb-2 font-semibold text-slate-900 dark:text-white">By class</h3>
+    {{ ui.table_start(['Course · Division', 'Tests', 'Avg %', 'Avg improvement', 'Declines']) }}
+    {% for c in rep.classes %}
+    <tr><td class="px-4 py-2 text-sm">{{ c.label }}</td>
+    <td class="px-4 py-2 text-xs">{{ c.n }}</td>
+    <td class="px-4 py-2 text-xs font-semibold">{{ c.avg_pct }}%</td>
+    <td class="px-4 py-2 text-xs font-semibold {{ 'text-emerald-600' if c.avg_imp >= 0 else 'text-rose-600' }}">{{ '%+.1f'|format(c.avg_imp) }}</td>
+    <td class="px-4 py-2 text-xs">{{ c.declines }}</td></tr>
+    {% else %}{{ ui.empty('No scored tests in this period.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+</div>
+
+<h3 class="mb-2 mt-6 font-semibold text-slate-900 dark:text-white">Per student — weakest improvement first</h3>
+{{ ui.table_start(['Student', 'Course', 'Division', 'Teacher', 'Score', 'Previous', 'Improvement', 'Grade', '']) }}
+{% for r in rep.students %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><div class="font-medium">{{ r.student.full_name }}</div><div class="font-mono text-[11px] text-slate-400">{{ r.student.student_code }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.course }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.division }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ r.test.percentage }}%</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (r.test.previous_percentage ~ '%') if r.test.previous_percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs font-semibold {{ 'text-emerald-600' if (r.test.improvement_pct or 0) >= 0 else 'text-rose-600' }}">{{ ('%+.1f'|format(r.test.improvement_pct)) if r.test.improvement_pct is not none else '—' }}</td>
+  <td class="px-4 py-2">{% if r.test.grade %}{{ ui.badge(r.test.grade) }}{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/academics/monthly-tests/' ~ r.test.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No scored tests for this period.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.line('trendChart', {{ trend.labels|tojson }}, [{label: 'Average %', data: {{ trend.data|tojson }}}]);
+OQC.doughnut('gradeChart', ['A', 'B', 'C', 'D'], [{{ rep.grade_dist.A }}, {{ rep.grade_dist.B }}, {{ rep.grade_dist.C }}, {{ rep.grade_dist.D }}]);
+OQC.bar('teacherChart', {{ teacher_chart.labels|tojson }}, [
+  {label: 'Average %', data: {{ teacher_chart.avg|tojson }}},
+  {label: 'Improvement pts', data: {{ teacher_chart.imp|tojson }}}
+]);
+OQC.bar('classChart', {{ class_chart.labels|tojson }}, [
+  {label: 'Average %', data: {{ class_chart.avg|tojson }}},
+  {label: 'Improvement pts', data: {{ class_chart.imp|tojson }}}
+]);
+</script>
+{% endblock %}

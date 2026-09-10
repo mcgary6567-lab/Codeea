@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Student leaves{% endblock %}
+{% block content %}
+{% call ui.page_header("Student leaves", "Approved leave suspends the matching classes and notifies the family") %}
+  {{ ui.button("Post-leave absences", href="/leaves/students/post-leave", icon="user-x", variant="secondary") }}
+  {% if has_perm(user, 'leaves.add') %}{{ ui.button("Record a leave", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newLeave\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Pending", stats.pending, icon="clock", color="amber", href="/leaves/students?status=pending") }}
+  {{ ui.stat("On leave today", stats.on_leave_now, icon="palmtree", color="violet") }}
+  {{ ui.stat("Approved", stats.approved, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Rejected", stats.rejected, icon="x-circle", color="rose") }}
+</div>
+
+{% call ui.filter_bar('/leaves/students') %}
+  {{ ui.input('q', 'Student', q, placeholder='Name or code') }}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+  {{ ui.select('leave_type', 'Type', leave_types, leave_type, placeholder='All') }}
+  {{ ui.input('date_from', 'From', date_from or '', type='date') }}
+  {{ ui.input('date_to', 'To', date_to or '', type='date') }}
+{% endcall %}
+
+{{ ui.table_start(['Student','Type','From','To','Days','Reason','Status','Decided','']) }}
+{% for l in page.items %}
+<tr>
+  <td class="px-4 py-2"><div class="font-medium">{{ l.student.full_name if l.student else '—' }}</div>
+    <div class="font-mono text-[11px] text-slate-400">{{ l.student.student_code if l.student }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ l.leave_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ l.start_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ l.end_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ (l.end_date - l.start_date).days + 1 }}</td>
+  <td class="px-4 py-2 max-w-xs text-xs text-slate-500">{{ (l.reason or '—')[:140] }}</td>
+  <td class="px-4 py-2">{{ ui.badge(l.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ l.approved_at|date if l.approved_at else '—' }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'leaves.approve') and l.status in ('pending','rejected') %}
+    <div x-data="{ open: false }" class="inline-block">
+      <button type="button" @click="open = !open" class="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700">Decide</button>
+      <div x-show="open" x-cloak class="mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <form method="post" class="space-y-2">
+          <input name="note" placeholder="Decision note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+          <div class="flex gap-2">
+            <button formaction="/leaves/students/{{ l.id }}/approve" class="flex-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white">Approve</button>
+            <button formaction="/leaves/students/{{ l.id }}/reject" class="flex-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white">Reject</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% elif l.status == 'approved' and (has_perm(user, 'leaves.update') or has_perm(user, 'leaves.approve')) %}
+      {{ ui.confirm_form('/leaves/students/' ~ l.id ~ '/cancel', 'Cancel', icon='x', variant='ghost',
+                         message='Cancel this leave and restore the classes to pending?', hidden={'note': 'Leave cancelled by the college.'}) }}
+    {% else %}<span class="text-xs text-slate-400">—</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No student leave records match these filters.', 9, 'calendar-off') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'leaves.add') %}
+{% call ui.modal('newLeave', 'Record a student leave') %}
+<form method="post" action="/leaves/students/new" class="space-y-4">
+  {{ ui.select('student_id', 'Student', student_options, none, required=True, placeholder='— Select a student —') }}
+  <div class="grid gap-4 sm:grid-cols-3">
+    {{ ui.select('leave_type', 'Type', leave_types, 'vacation', placeholder=None) }}
+    {{ ui.input('start_date', 'From', today(), type='date', required=True) }}
+    {{ ui.input('end_date', 'To', today(), type='date', required=True) }}
+  </div>
+  {{ ui.textarea('reason', 'Reason', '', rows=2, required=True, placeholder='Recorded on behalf of the parent…') }}
+  {% if has_perm(user, 'leaves.approve') %}{{ ui.checkbox('auto_approve', 'Approve immediately', True, help='Suspends the matching classes and notifies the family right away.') }}{% endif %}
+  {{ ui.button('Save leave', icon='calendar-off') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

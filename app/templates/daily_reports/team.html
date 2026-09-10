@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Report compliance{% endblock %}
+{% block content %}
+{% call ui.page_header("Team reporting compliance", "Submitted, late and missing structured reports by person and department", back='/daily-reports') %}
+  {{ ui.button("My report", href="/daily-reports", icon="file-clock", variant="secondary") }}
+  {{ ui.button("Export CSV", href="/daily-reports/export?scope=team&" ~ qs, icon="download", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('People reporting', totals.people, icon='users', color='brand', hint=working_days ~ ' working day(s) in range') }}
+  {{ ui.stat('Expected reports', totals.expected, icon='list-checks', color='slate', hint=expected_per_user ~ ' per person') }}
+  {{ ui.stat('Submitted', totals.submitted, icon='file-check', color='emerald') }}
+  {{ ui.stat('Late', totals.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Compliance', totals.compliance ~ '%', icon='percent', color='sky', hint=totals.missing|string ~ ' missing') }}
+</div>
+
+<form method="get" action="/daily-reports/team" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-40">{{ ui.input('start', 'From', start.isoformat(), type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', end.isoformat(), type='date') }}</div>
+  <div class="w-52">{{ ui.select('department_id', 'Department', departments, department_id, placeholder='All departments') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/daily-reports/team" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+  <span class="ml-auto text-xs text-slate-500">Deadlines: morning <b>{{ morning }}</b> · afternoon <b>{{ afternoon }}</b> (Asia/Karachi)</span>
+</form>
+
+{% if labels %}
+<div class="mb-6 grid gap-5 lg:grid-cols-2">
+  {% call ui.card('Compliance by department', '% of expected reports actually submitted') %}{{ ui.chart('cmpChart', 260) }}{% endcall %}
+  {% call ui.card('Late submissions by department', 'Submitted, but after the deadline') %}{{ ui.chart('lateChart', 260) }}{% endcall %}
+</div>
+{% endif %}
+
+<div class="mb-6">
+  {% call ui.card('Department summary') %}
+  {{ ui.table_start(['Department','People','Expected','Submitted','Late','Missing','On-time %','Compliance']) }}
+  {% for t in dept_summary %}
+  <tr>
+    <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ t.department }}</td>
+    <td class="px-4 py-2 text-xs">{{ t.people }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ t.expected }}</td>
+    <td class="px-4 py-2 text-xs">{{ t.submitted }}</td>
+    <td class="px-4 py-2 text-xs {{ 'font-semibold text-amber-600' if t.late }}">{{ t.late }}</td>
+    <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if t.missing }}">{{ t.missing }}</td>
+    <td class="px-4 py-2 text-xs">{{ t.on_time_pct }}%</td>
+    <td class="px-4 py-2 w-40">{{ ui.progress(t.compliance, 'emerald' if t.compliance >= 90 else ('amber' if t.compliance >= 70 else 'rose'), t.compliance ~ '%') }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No reporting staff in this filter.', 8, 'users') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% call ui.card('Person by person', 'Lowest compliance first — start the conversation at the top of this list') %}
+{{ ui.table_start(['Person','Department','Expected','Submitted','On time','Late','Missing','Last report','Compliance','']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-2.5">{{ ui.avatar(r.user.full_name, 'sm') }}
+      <div class="min-w-0"><div class="truncate font-medium text-slate-800 dark:text-slate-100">{{ r.user.full_name }}</div>
+        <div class="truncate text-[11px] text-slate-400">{{ r.user.role.name if r.user.role else 'User' }}</div></div></div>
+  </td>
+  <td class="px-4 py-2 text-xs">{{ r.department }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.expected }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.submitted }}</td>
+  <td class="px-4 py-2 text-xs text-emerald-600">{{ r.on_time }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-amber-600' if r.late }}">{{ r.late }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if r.missing }}">{{ r.missing }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.last|date('%d %b') if r.last else 'never' }}</td>
+  <td class="px-4 py-2 w-36">{{ ui.progress(r.compliance, 'emerald' if r.compliance >= 90 else ('amber' if r.compliance >= 70 else 'rose'), r.compliance ~ '%') }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('History', href='/daily-reports/history?user_id=' ~ r.user.id ~ '&start=' ~ start ~ '&end=' ~ end, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No reporting staff in this filter.', 10, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <b class="text-slate-700 dark:text-slate-200">How compliance is calculated.</b>
+  Two slots per working day (Sundays excluded) per active admin- or teacher-portal user. A report is late when it was
+  submitted after the configured deadline for that slot, evaluated in Asia/Karachi time. Missing means no report exists
+  at all — that is the number to act on first.
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if labels %}
+<script>
+  OQC.bar('cmpChart', {{ labels|tojson }}, [{label: 'Compliance %', data: {{ series_compliance|tojson }}}],
+          {scales: {y: {beginAtZero: true, max: 100}}});
+  OQC.bar('lateChart', {{ labels|tojson }}, [{label: 'Late reports', data: {{ series_late|tojson }}}]);
+</script>
+{% endif %}
+{% endblock %}

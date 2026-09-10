@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ inv.invoice_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(inv.invoice_number, (inv.client.full_name if inv.client else '') ~ ' · ' ~ (inv.student.full_name if inv.student else 'Family account'), back='/finance/invoices') %}
+  {{ ui.button("PDF", href="/finance/invoices/" ~ inv.id ~ "/pdf", icon="file-text", variant="secondary") }}
+  {% if has_perm(user, 'billing.update') and inv.status not in ('void',) %}
+    {{ ui.confirm_form('/finance/invoices/' ~ inv.id ~ '/send', 'Send', icon='send', variant='secondary', message='Send this invoice to the family?', size='md') }}
+    {% if inv.status not in ('paid',) %}{{ ui.confirm_form('/finance/invoices/' ~ inv.id ~ '/reminder', 'Send reminder', icon='bell', variant='warning', message='Send a WhatsApp payment reminder?', size='md') }}{% endif %}
+    {% if inv.status in ('sent', 'partial') %}{{ ui.confirm_form('/finance/invoices/' ~ inv.id ~ '/overdue', 'Mark overdue', icon='alarm-clock', variant='secondary', message='Mark this invoice overdue?', size='md') }}{% endif %}
+  {% endif %}
+  {% if has_perm(user, 'payments.add') and inv.status not in ('paid', 'void') %}
+  <button type="button" @click="$dispatch('open-modal','recordpay')" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="banknote" class="h-4 w-4"></i>Record payment</button>
+  {% endif %}
+  {% if has_perm(user, 'billing.delete') and inv.status != 'void' %}
+  <button type="button" @click="$dispatch('open-modal','voidinv')" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="ban" class="h-4 w-4"></i>Void</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  {{ ui.badge(inv.status) }}
+  <span class="text-slate-500">Issued {{ inv.issue_date|date }} · due {{ inv.due_date|date }}
+    {% if inv.due_date < today_d and inv.status not in ('paid', 'void') %}<b class="text-rose-600">({{ (today_d - inv.due_date).days }} days past due)</b>{% endif %}</span>
+  {% if inv.subscription %}<a href="/finance/subscriptions/{{ inv.subscription_id }}" class="font-mono text-xs text-brand-700 dark:text-brand-300">{{ inv.subscription.subscription_code }}</a>{% endif %}
+  <span class="ml-auto text-slate-500">Family balance <b class="{{ 'text-rose-600' if balance > 0 else 'text-emerald-600' }}">{{ balance|money(inv.client.currency if inv.client else inv.currency) }}</b></span>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card("Line items") %}
+    {{ ui.table_start(['Description', 'Qty', 'Unit price', 'Amount']) }}
+    {% for it in inv.items %}
+    <tr><td class="px-4 py-2">{{ it.description }}</td>
+      <td class="px-4 py-2 text-center text-slate-500">{{ it.quantity|round(0)|int }}</td>
+      <td class="px-4 py-2 text-right text-slate-500">{{ it.unit_price|money(inv.currency) }}</td>
+      <td class="px-4 py-2 text-right font-medium {{ 'text-emerald-600' if it.amount|float < 0 }}">{{ it.amount|money }}</td></tr>
+    {% else %}{{ ui.empty('No line items.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+    <div class="mt-4 ml-auto w-full max-w-xs space-y-1.5 text-sm">
+      <div class="flex justify-between"><span class="text-slate-500">Subtotal</span><span>{{ inv.subtotal|money(inv.currency) }}</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Discount / scholarship</span><span class="text-amber-600">−{{ inv.discount|money }}</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Account credit applied</span><span class="text-violet-600">−{{ inv.credit_applied|money }}</span></div>
+      <div class="flex justify-between border-t border-slate-200 pt-1.5 font-semibold dark:border-slate-700"><span>Total</span><span class="text-lg">{{ inv.total|money(inv.currency) }}</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Paid</span><span class="text-emerald-600">{{ inv.paid_amount|money }}</span></div>
+      <div class="flex justify-between font-semibold"><span>Balance</span><span class="{{ 'text-rose-600' if inv.balance > 0 else 'text-emerald-600' }}">{{ inv.balance|money }}</span></div>
+      <div class="flex justify-between text-xs text-slate-400"><span>Consolidated</span><span>{{ inv.total_in_base|money(base) }}</span></div>
+    </div>
+    {% endcall %}
+
+    {% call ui.card("Payments") %}
+    {{ ui.table_start(['Number', 'Received', 'Amount', 'Method', 'Reference', 'Status', '']) }}
+    {% for p in payments %}
+    <tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ p.received_at|datetime }}</td>
+      <td class="px-4 py-2 text-right">{{ p.amount|money(p.currency) }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.method|titleize }}{% if p.gateway %} · {{ p.gateway }}{% endif %}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ p.reference or '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+      <td class="px-4 py-2 text-right">{% if p.receipt %}<a href="/finance/payments/{{ p.id }}/receipt" class="text-xs text-brand-600 hover:underline">Receipt</a>{% endif %}</td></tr>
+    {% else %}{{ ui.empty('No payments recorded against this invoice.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card("Activity") %}
+    <ul class="space-y-2 text-xs">
+      {% for e in events %}
+      <li class="flex gap-3"><span class="w-32 shrink-0 text-slate-400">{{ e.created_at|datetime }}</span>
+        <span class="flex-1"><b>{{ e.actor_name }}</b> — {{ e.description }}{% if e.rationale %}<span class="block text-slate-500">Rationale: {{ e.rationale }}</span>{% endif %}</span></li>
+      {% else %}<li class="text-slate-400">No activity recorded.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card("Billing details") %}
+    {{ ui.dl([('Family', (inv.client.client_code ~ ' — ' ~ inv.client.full_name) if inv.client else '—'),
+              ('Student', inv.student.full_name if inv.student else '—'),
+              ('Currency', inv.currency), ('Period', (inv.period_start|date ~ ' → ' ~ inv.period_end|date) if inv.period_start else '—'),
+              ('Sent at', inv.sent_at|datetime if inv.sent_at else 'Not sent'),
+              ('Reminders', inv.reminder_count),
+              ('Last reminder', inv.last_reminder_at|datetime if inv.last_reminder_at else '—'),
+              ('Billing rep', inv.client.billing_rep.full_name if inv.client and inv.client.billing_rep else '—'),
+              ('Paid at', inv.paid_at|datetime if inv.paid_at else '—')]) }}
+    <div class="mt-4 flex gap-2">
+      {{ ui.button('Statement', href='/finance/ledger/' ~ inv.client_id, variant='secondary', size='sm', icon='book-open') }}
+      {{ ui.button('Family', href='/clients/' ~ inv.client_id, variant='ghost', size='sm', icon='users') }}
+    </div>
+    {% endcall %}
+
+    {% call ui.card("Ledger postings") %}
+    <ul class="space-y-1.5 text-xs">
+      {% for e in ledger %}
+      <li class="flex justify-between gap-2"><span class="text-slate-500">{{ e.entry_date|date }} · {{ e.entry_type|titleize }}</span>
+        <span>{% if e.debit|float %}Dr {{ e.debit|money(e.currency) }}{% else %}Cr {{ e.credit|money(e.currency) }}{% endif %}</span></li>
+      {% else %}<li class="text-slate-400">No ledger entries.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+
+    {% if has_perm(user, 'billing.update') %}
+    {% call ui.card("Remarks") %}
+    <form method="post" action="/finance/invoices/{{ inv.id }}/remarks" class="space-y-3">
+      {{ ui.textarea('remarks', None, inv.remarks or '', rows=4, placeholder='Internal note shown on the PDF footer') }}
+      {{ ui.button('Save remarks', icon='save', variant='secondary', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% call ui.modal('recordpay', 'Record a payment') %}
+<form method="post" action="/finance/invoices/{{ inv.id }}/payment" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('amount', 'Amount', inv.balance, type='number', step='0.01', required=True) }}
+    {{ ui.select('currency', 'Currency', [inv.currency], inv.currency, required=True, placeholder=None) }}
+    {{ ui.select('method', 'Method', methods, 'bank_transfer', required=True, placeholder=None) }}
+    {{ ui.select('gateway', 'Gateway', gateways, None, placeholder='None / manual') }}
+    {{ ui.input('reference', 'Reference', '', placeholder='Bank or gateway reference') }}
+    {{ ui.input('received_at', 'Received on', today_d.isoformat(), type='date', required=True) }}
+  </div>
+  {{ ui.select('status', 'Outcome', ['completed', 'pending', 'failed'], 'completed', required=True, placeholder=None) }}
+  {{ ui.button('Record payment', icon='banknote', variant='success') }}
+</form>
+{% endcall %}
+
+{% call ui.modal('voidinv', 'Void invoice') %}
+<form method="post" action="/finance/invoices/{{ inv.id }}/void" class="space-y-4">
+  {{ ui.alert('Voiding reverses the charge on the family ledger. Payments must be refunded first.', 'warning') }}
+  {{ ui.textarea('rationale', 'Rationale', '', rows=3, required=True) }}
+  {{ ui.button('Void invoice', icon='ban', variant='danger') }}
+</form>
+{% endcall %}
+{% endblock %}

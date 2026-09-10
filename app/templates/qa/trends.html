@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA trends{% endblock %}
+{% block content %}
+{{ ui.page_header("QA trends", t.total ~ " scored reviews · college average " ~ t.overall_avg ~ "/100", back="/qa") }}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Reviews scored", t.total, icon="shield-check", color="emerald") }}
+  {{ ui.stat("College average", t.overall_avg, icon="gauge", color="sky") }}
+  {{ ui.stat("Teachers covered", t.by_teacher|length, icon="user-check", color="indigo") }}
+  {{ ui.stat("Below threshold", threshold, icon="alert-triangle", color="amber", hint="score requiring HOD approval") }}
+</div>
+
+{% if t.by_month %}
+<div class="mb-6">
+{% call ui.card("Monthly average") %}{{ ui.chart('qaMonth', 240) }}{% endcall %}
+</div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-2">
+  {% for title, rows, icon in [('By teacher', t.by_teacher, 'user-check'), ('By supervisor', t.by_supervisor, 'radio'),
+                               ('By course', t.by_course, 'book-open'), ('By shift', t.by_shift, 'clock')] %}
+  {% call ui.card(title) %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for name, avg, n in rows[:15] %}
+      <li class="flex items-center gap-3 py-2">
+        <span class="flex-1 truncate">{{ name }}</span>
+        <span class="w-28">{{ ui.progress(avg, 'emerald' if avg >= 80 else ('amber' if avg >= threshold else 'rose')) }}</span>
+        <span class="w-10 text-right font-semibold">{{ avg }}</span>
+        <span class="w-8 text-right text-xs text-slate-400">{{ n }}</span>
+      </li>
+      {% else %}<li class="py-6 text-center text-slate-400">No scored reviews yet.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if t.by_month %}
+<script>
+  OQC.line('qaMonth', {{ t.by_month|map(attribute=0)|list|tojson }},
+    [{label: 'Average QA score', data: {{ t.by_month|map(attribute=1)|list|tojson }}}]);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ c.code }}{% endblock %}
+{% block content %}
+{% call ui.page_header(c.code ~ " — " ~ c.name, "Exchange rate history and exposure.", back='/finance/currencies') %}{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Rate to " ~ base, c.rate_to_base|round(4), icon="coins", color="brand") }}
+  {{ ui.stat("Active subscriptions", subs, icon="repeat", color="emerald") }}
+  {{ ui.stat("Invoiced (all time)", invoiced|money(c.code), icon="receipt", color="sky") }}
+  {{ ui.stat("Rate changes", history|length, icon="history", color="violet") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Rate history") %}
+    {{ ui.chart('rateChart', 300) }}
+    {% endcall %}
+  </div>
+  <div class="space-y-5">
+    {% if can_edit and not c.is_base %}
+    {% call ui.card("Set a new rate") %}
+    <form method="post" action="/finance/currencies/{{ c.code }}/rate" class="space-y-3">
+      {{ ui.input('rate', '1 ' ~ c.code ~ ' = ? ' ~ base, c.rate_to_base|round(4), type='number', step='0.0001', required=True) }}
+      {{ ui.select('source', 'Source', [('manual', 'Manual override'), ('api', 'Rate feed')], 'manual', placeholder=None) }}
+      {{ ui.button('Update rate', icon='save') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card("History") %}
+    {{ ui.table_start(['When', 'Rate', 'Source']) }}
+    {% for h in history|reverse %}
+    <tr><td class="px-4 py-2 text-xs">{{ h.effective_at|datetime }}</td>
+      <td class="px-4 py-2 text-right">{{ h.rate_to_base|round(4) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ h.source|titleize }}</td></tr>
+    {% else %}{{ ui.empty('No history yet.', 3) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>OQC.line('rateChart', {{ labels|tojson }}, [{ label: '{{ c.code }} → {{ base }}', data: {{ values|tojson }} }]);</script>
+{% endblock %}

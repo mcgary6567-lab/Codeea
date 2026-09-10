@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Profile & consent{% endblock %}
+{% block content %}
+{{ ui.page_header('Profile & consent', 'Keep your contact details and timezone up to date — class times in this portal are converted to the timezone you set here.') }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <form method="post" action="/portal/profile" class="space-y-6">
+      {% call ui.card('Contact details') %}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ ui.input('full_name_display', 'Full name', c.full_name, attrs='disabled', help='Contact us if your name needs to change.') }}
+          {{ ui.input('email_display', 'Email', c.email, attrs='disabled', help='Your sign-in address.') }}
+          {{ ui.input('phone', 'Phone', c.phone) }}
+          {{ ui.input('whatsapp', 'WhatsApp', c.whatsapp) }}
+          {{ ui.input('city', 'City', c.city) }}
+          {{ ui.select('timezone', 'Timezone', timezones, c.timezone, placeholder=None) }}
+        </div>
+        <div class="mt-4">{{ ui.input('address', 'Address', c.address) }}</div>
+      {% endcall %}
+      {% call ui.card('How we contact you') %}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ ui.select('preferred_contact_time', 'Best time to reach you', ['morning','afternoon','evening','anytime'], (c.preferences or {}).get('preferred_contact_time') or 'evening', placeholder=None) }}
+          {{ ui.select('preferred_language', 'Preferred language', ['English','Urdu','Arabic'], (c.preferences or {}).get('preferred_language') or 'English', placeholder=None) }}
+        </div>
+        <div class="mt-4 space-y-3">
+          {{ ui.checkbox('whatsapp_opt_in', 'WhatsApp messages', c.whatsapp_opt_in, help='Class reminders, result cards, invoices and important notices.') }}
+          {{ ui.checkbox('email_opt_in', 'Email', (prefs.get('email').opted_in if prefs.get('email') else True), help='Monthly statements and result cards.') }}
+        </div>
+        <div class="mt-4">{{ ui.button('Save changes', icon='save') }}</div>
+      {% endcall %}
+    </form>
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Your family account') %}
+      {{ ui.dl([('Family code', c.client_code), ('Country', c.country), ('Currency', c.currency),
+                ('Relationship', c.relationship_to_student|titleize if c.relationship_to_student else '—'),
+                ('Joined', c.joined_at|date), ('Status', c.status|titleize)]) }}
+    {% endcall %}
+    {% call ui.card('Children') %}
+      <ul class="space-y-2">
+      {% for s in children %}
+        <li class="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <div><div class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ s.full_name }}</div>
+            <div class="text-xs text-slate-500">{{ s.student_code }} · {{ s.course.name if s.course else 'course TBD' }}</div></div>
+          {{ ui.badge(s.status) }}
+        </li>
+      {% else %}<li class="py-4 text-center text-sm text-slate-400">No children linked yet.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+    {% call ui.card('Consent record') %}
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between"><span class="text-slate-500">Safeguarding &amp; recording policy</span>
+          {% if c.consent_given %}{{ ui.badge('approved', 'Accepted') }}{% else %}{{ ui.badge('pending', 'Not recorded') }}{% endif %}</div>
+        <div class="flex items-center justify-between"><span class="text-slate-500">Accepted on</span><span>{{ c.consent_at|datetime if c.consent_at else '—' }}</span></div>
+        {% for ch, p in prefs.items() %}
+        <div class="flex items-center justify-between"><span class="text-slate-500">{{ ch|titleize }} consent</span>
+          <span class="text-xs">{{ 'Opted in' if p.opted_in else 'Opted out' }}{% if p.consent_at %} · {{ p.consent_at|date }}{% endif %}</span></div>
+        {% endfor %}
+      </div>
+      <p class="mt-3 text-xs text-slate-500">Live classes with children are recorded and retained for safeguarding and quality assurance. To request access to or deletion of your data, open a request from the portal.</p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

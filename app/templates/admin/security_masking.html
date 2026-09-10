@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Data masking policy{% endblock %}
+{% block content %}
+{% call ui.page_header("Data masking policy", "Which sensitive fields are hidden, who may unmask them and how access is recorded", back="/admin/security") %}
+  {{ ui.button("Retention policy", href="/admin/security/retention", icon="calendar-clock", variant="secondary") }}
+  {{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Protected areas", policy|length, icon="eye-off", color="violet") }}
+  {{ ui.stat("Never displayed", 2, icon="key-square", color="rose", hint="password hashes, 2FA secrets") }}
+  {{ ui.stat("Access logged", 2, icon="scroll-text", color="indigo", hint="recordings, safeguarding") }}
+  {{ ui.stat("CEO only", 1, icon="crown", color="amber", hint="confidential staff feedback") }}
+</div>
+
+{{ ui.alert('Masking is applied in the presentation layer by the mask filter and enforced again at the route level by the permission checks named below. A field that is masked in a list is never included in an export unless the exporting role also holds the matching export permission.', 'info', 'How it works') }}
+
+<div class="mt-6">
+{{ ui.table_start(['Area','Protected fields','Who may see the full value','Behaviour']) }}
+{% for area, fields, who, behaviour in policy %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 align-top">
+  <td class="whitespace-nowrap px-4 py-3 font-medium text-slate-900 dark:text-white">{{ area }}</td>
+  <td class="px-4 py-3"><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ fields }}</span></td>
+  <td class="px-4 py-3"><code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] dark:bg-slate-800">{{ who }}</code></td>
+  <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">{{ behaviour }}</td>
+</tr>
+{% else %}{{ ui.empty('No masking rules configured.', 4) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  {% call ui.card("Masking format") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li><b>Phone / WhatsApp</b> — <span class="font-mono text-xs">*******123</span> (last three digits kept)</li>
+      <li><b>Email</b> — <span class="font-mono text-xs">a****d@example.com</span></li>
+      <li><b>CNIC / national ID</b> — <span class="font-mono text-xs">*******-****-*</span></li>
+      <li><b>Bank account</b> — last four digits only</li>
+      <li><b>Password hash / TOTP secret</b> — never rendered, never audited</li>
+    </ul>
+  {% endcall %}
+  {% call ui.card("Minor safeguarding") %}
+    <p class="text-sm text-slate-600 dark:text-slate-300">Students are minors. Outside of their own teacher, academics and
+    safeguarding staff, students appear by student code only — in QA reviews, AI monitoring, recordings and analytics.
+    Recording playback and safeguarding case access are consequential audit events with the reason recorded.</p>
+    <div class="mt-3">{{ ui.button('Audit safeguarding access', href='/admin/audit?module=safeguarding', icon='scroll-text', variant='secondary', size='sm') }}</div>
+  {% endcall %}
+  {% call ui.card("Subject rights") %}
+    <p class="text-sm text-slate-600 dark:text-slate-300">A parent may ask for a copy of their data or its erasure. Both
+    are handled from the Security Centre: the export builds a ZIP of every record linked to the client, and anonymisation
+    scrubs names, contacts and addresses while keeping the financial history intact for statutory reporting.</p>
+    <div class="mt-3 flex gap-2">
+      {{ ui.button('Export', href='/admin/security/export', icon='download', variant='secondary', size='sm') }}
+      {{ ui.button('Anonymise', href='/admin/security/retention', icon='user-x', variant='secondary', size='sm') }}
+    </div>
+  {% endcall %}
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Supervisor live{% endblock %}
+{% block content %}
+{% call ui.page_header("Supervisor live board", "Real-time class execution · " ~ scope) %}
+  {{ ui.button("Teachers", href="/supervisor/teachers", icon="user-check", variant="secondary") }}
+  {{ ui.button("Weekly coverage", href="/supervisor/weekly", icon="bar-chart-3", variant="secondary") }}
+  {{ ui.button("Day calendar", href="/classes/day?date=" ~ sel_date, icon="calendar-range", variant="secondary") }}
+{% endcall %}
+
+<form method="get" action="/supervisor" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  {{ ui.input('day', 'Date', sel_date, type='date') }}
+  {{ ui.select('shift_id', 'Shift', shift_options, shift_id, placeholder='All shifts') }}
+  {{ ui.input('q', 'Find a class', q, placeholder='Student name, code or room') }}
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="search" class="h-3.5 w-3.5"></i>Search</button>
+  <a href="/supervisor" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{% include "supervisor/_board.html" %}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  {% call ui.card("Absent students today", (absent_today|length) ~ " student(s) did not attend") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for s in absent_today %}
+      <li class="flex items-center gap-2 py-2">
+        <span class="font-mono text-xs text-slate-500">{{ s.start_time|time }}</span>
+        <a href="/classes/{{ s.id }}" class="flex-1 truncate hover:text-brand-700">{{ s.student.full_name if s.student else '—' }}</a>
+        {% if has_perm(user, 'calling.execute') or has_perm(user, 'supervisor.update') %}
+        <form method="post" action="/supervisor/call" class="inline">
+          <input type="hidden" name="callee_type" value="client">
+          <input type="hidden" name="callee_id" value="{{ s.student.client_id if s.student else 0 }}">
+          <input type="hidden" name="context" value="absence on {{ s.date }}">
+          <input type="hidden" name="notes" value="Called the parent about today's absence.">
+          <input type="hidden" name="back" value="/supervisor?day={{ sel_date }}">
+          <button class="rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300"><i data-lucide="phone" class="inline h-3 w-3"></i> Call</button>
+        </form>
+        {% endif %}
+      </li>
+      {% else %}<li class="py-6 text-center text-slate-400">No absences today.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+
+  {% call ui.card("Teachers on approved leave", "Cover must be arranged for their classes") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for l in teachers_on_leave %}
+      <li class="py-2">
+        <div class="font-medium">{{ l.employee.full_name if l.employee else '—' }}</div>
+        <div class="text-xs text-slate-500">{{ l.leave_type|titleize }} · {{ l.start_date|date }} → {{ l.end_date|date }}</div>
+      </li>
+      {% else %}<li class="py-6 text-center text-slate-400">No teachers on leave today.</li>{% endfor %}
+    </ul>
+    <div class="mt-3"><a href="/schedules/bulk-teacher-change" class="text-xs font-medium text-brand-600 hover:underline">Arrange substitute cover →</a></div>
+  {% endcall %}
+
+  {% call ui.card("Cancelled today", (cancelled_today|length) ~ " cancellation(s)") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for s in cancelled_today %}
+      <li class="py-2"><a href="/classes/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.start_time|time }} · {{ s.student.full_name if s.student else '—' }}</a>
+        <div class="text-xs text-slate-500">{{ s.status_reason or 'No reason recorded' }}</div></li>
+      {% else %}<li class="py-6 text-center text-slate-400">Nothing cancelled today.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+</div>
+
+<div class="mt-6">
+  {% call ui.card("Operational alerts", "Missed classes, punctuality and anomaly signals for your scope") %}
+    {{ ui.table_start(['Severity','Alert','Type','Raised','Status',''], compact=True) }}
+    {% for a in alerts %}
+    <tr>
+      <td class="px-4 py-2">{{ ui.badge(a.severity) }}</td>
+      <td class="px-4 py-2"><div class="font-medium">{{ a.title }}</div><div class="max-w-xl text-xs text-slate-500">{{ a.message }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ a.alert_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ a.created_at|ago }}</td>
+      <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+      <td class="px-4 py-2 text-right">{% if a.entity_type == 'ClassSession' %}{{ ui.button('Class', href='/classes/' ~ a.entity_id, size='sm', variant='ghost') }}{% endif %}</td>
+    </tr>
+    {% else %}{{ ui.empty('No open operational alerts.', 6, 'shield-check') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endblock %}

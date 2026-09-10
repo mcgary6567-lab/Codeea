@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Teacher created{% endblock %}
+{% block content %}
+{{ ui.page_header('Teacher created', 'The login, employee record and teaching profile were provisioned together. Share the password through a secure channel — it is shown only once.', back='/teachers') }}
+<div class="max-w-lg">
+{% call ui.card(t.full_name ~ ' · ' ~ t.teacher_code) %}
+  {{ ui.alert('This teacher is NOT verified yet. Until the background check is approved (teachers.approve) they will not appear in any teacher-match shortlist and cannot be assigned live classes.', 'warning', 'Safeguarding gate') }}
+  <dl class="mt-4 space-y-3 text-sm">
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Sign-in URL</dt><dd class="font-mono">{{ base_url }}/login</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Email / username</dt><dd class="font-mono">{{ login_email }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Temporary password</dt><dd class="font-mono text-lg font-bold tracking-wide text-brand-700 dark:text-brand-300 select-all">{{ password }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Employee code</dt><dd class="font-mono">{{ t.employee.employee_code if t.employee else '—' }}</dd></div>
+  </dl>
+  <div class="mt-5 flex gap-2">{{ ui.button('Open teacher', href='/teachers/' ~ t.id, icon='arrow-right') }}{{ ui.button('Back to roster', href='/teachers', variant='secondary') }}</div>
+{% endcall %}
+</div>
+{% endblock %}

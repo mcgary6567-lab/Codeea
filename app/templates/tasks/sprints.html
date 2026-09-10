@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% import "tasks/_fields.html" as tf %}
+{% block title %}Sprints — {{ p.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Sprint board", p.name, back="/tasks/projects/" ~ p.id) %}
+  {% if active %}{{ ui.badge(active.status) }}{% endif %}
+{% endcall %}
+
+<div class="mb-4 flex flex-wrap items-center gap-2">
+  {% for s in sprints %}
+  <a href="/tasks/projects/{{ p.id }}/sprints?sprint_id={{ s.id }}"
+     class="rounded-lg border px-3 py-1.5 text-xs font-medium {{ 'border-brand-600 bg-brand-600 text-white' if active and s.id == active.id else 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300' }}">
+    {{ s.name }} <span class="opacity-70">· {{ s.status|titleize }}</span>
+  </a>
+  {% endfor %}
+  {% if not sprints %}<span class="text-sm text-slate-400">No sprints defined for this project yet.</span>{% endif %}
+</div>
+
+{% if active %}
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Sprint tasks', tasks|length, icon='list-checks', color='brand') }}
+  {{ ui.stat('Completed', done, icon='check-circle-2', color='emerald', hint=pct ~ '% complete') }}
+  {{ ui.stat('Window', active.start_date|date('%d %b') ~ ' – ' ~ active.end_date|date('%d %b'), icon='calendar-range', color='sky') }}
+  {{ ui.stat('Status', active.status|titleize, icon='flag', color='indigo') }}
+</div>
+
+<div class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <div><div class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ active.name }}</div>
+      <p class="text-xs text-slate-500">{{ active.goal or 'No sprint goal recorded.' }}</p></div>
+    <div class="flex gap-2">
+      {% for st in ['planned','active','completed'] %}{% if st != active.status %}
+      <form method="post" action="/tasks/sprints/{{ active.id }}/status"><input type="hidden" name="status" value="{{ st }}">
+        {{ ui.button('Mark ' ~ st, size='sm', variant='secondary') }}</form>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+  {{ ui.progress(pct, 'brand', 'Sprint progress') }}
+</div>
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  {% for key, label, color in columns %}
+  <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
+    <div class="mb-3 flex items-center justify-between text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-{{ color }}-500"></span>{{ label }}</span>
+      <span class="rounded-full bg-white px-2 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800">{{ board[key]|length }}</span>
+    </div>
+    <div class="space-y-2.5">
+      {% for t in board[key] %}{{ tf.task_card(t, today()) }}{% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 py-8 text-center text-xs text-slate-400 dark:border-slate-700">Nothing here</div>{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state('Create a sprint from the project page to start planning.', 'rocket') }}
+{% endif %}
+{% endblock %}

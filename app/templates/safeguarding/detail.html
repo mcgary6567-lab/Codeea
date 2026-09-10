@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Safeguarding flag #{{ f.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Safeguarding flag #" ~ f.id, f.flag_type|titleize ~ " · " ~ f.source|titleize ~ " source", back="/safeguarding") %}
+  {{ ui.badge(f.severity) }} {{ ui.badge(f.status) }}
+  {% if f.visibility == 'ceo_only' %}<span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">CEO only</span>{% endif %}
+{% endcall %}
+
+{{ ui.alert('This page is access-controlled and every visit is written to the immutable audit log. Do not share its contents outside the safeguarding process.', 'warning', 'Confidential') }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Evidence") %}
+      <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{{ f.evidence or 'No evidence recorded.' }}</p>
+      {% if f.resolution %}<div class="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800"><b>Resolution:</b> {{ f.resolution }}</div>{% endif %}
+    {% endcall %}
+
+    {% if an %}
+    {% call ui.card("Linked AI analysis", "Advisory signal — a human decision is required") %}
+      {{ ui.dl([('AI overall', an.overall_score|round(1)), ('Risk level', an.risk_level|titleize),
+                ('Confidence', an.confidence|round(2)), ('Contact exchange', 'Detected' if an.contact_exchange_detected else 'Not detected'),
+                ('Conduct flags', an.conduct_flags|join(', ') if an.conduct_flags else '—'),
+                ('Review status', an.review_status|titleize)]) }}
+      <div class="mt-3"><a href="/ai-monitoring/{{ an.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the AI monitoring record →</a></div>
+    {% endcall %}
+    {% endif %}
+
+    {% if has_perm(user, 'safeguarding.update') or has_perm(user, 'safeguarding.approve') %}
+    {% call ui.card("Investigation outcome") %}
+      <form method="post" action="/safeguarding/{{ f.id }}/status" class="space-y-3">
+        {{ ui.select('status', 'Status', statuses, f.status, placeholder=None) }}
+        {{ ui.textarea('resolution', 'Resolution / decision note', f.resolution or '', rows=3,
+                       help='Required to confirm or dismiss. Recorded as a consequential audit event.') }}
+        {{ ui.button('Record the decision', icon='gavel', variant='warning') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Record") %}
+      {{ ui.dl([('Type', f.flag_type|titleize), ('Severity', f.severity|titleize), ('Source', f.source|titleize),
+                ('Visibility', f.visibility|titleize), ('Teacher', f.teacher.full_name if f.teacher else '—'),
+                ('Student', f.student.full_name if f.student else '—'),
+                ('Class session', ('#' ~ f.session_id) if f.session_id else '—'),
+                ('AI run', ('#' ~ f.ai_run_id) if f.ai_run_id else '—'),
+                ('Raised', f.created_at|datetime), ('Handled by', f.handled_by_id or '—')]) }}
+      {% if s %}<div class="mt-3"><a href="/classes/{{ s.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the class record →</a></div>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Other flags for this teacher") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for h in history %}
+        <li class="flex items-center justify-between py-2"><a href="/safeguarding/{{ h.id }}" class="hover:text-brand-700">{{ h.flag_type|titleize }}</a>
+          <span class="text-xs">{{ ui.badge(h.status) }}</span></li>
+        {% else %}<li class="py-6 text-center text-slate-400">No other flags recorded.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

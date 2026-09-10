@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Record payment{% endblock %}
+{% block content %}
+{% call ui.page_header("Record a payment", "Unallocated payments are applied to the oldest open invoice first; any surplus is kept as family credit.", back='/finance/payments') %}{% endcall %}
+
+<form method="post" action="/finance/payments/new" class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card("Payment") %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ ui.select('client_id', 'Family', clients, client_id, required=True) }}
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Apply to invoice (optional)</label>
+        <select name="invoice_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="">— Oldest open invoice first —</option>
+          {% for i in invoices %}<option value="{{ i.id }}" {{ 'selected' if invoice_id and invoice_id|string == i.id|string }}>{{ i.invoice_number }} · {{ i.client.client_code if i.client else '' }} · {{ i.currency }} {{ i.balance|money }} due {{ i.due_date|date }}</option>{% endfor %}
+        </select>
+      </div>
+      {{ ui.input('amount', 'Amount', '', type='number', step='0.01', required=True) }}
+      {{ ui.select('currency', 'Currency', currencies, None, required=True) }}
+      {{ ui.select('method', 'Method', methods, 'bank_transfer', required=True, placeholder=None) }}
+      {{ ui.select('gateway', 'Gateway', gateways, None, placeholder='None / manual') }}
+      {{ ui.input('reference', 'Reference', '', placeholder='Bank or gateway reference') }}
+      {{ ui.input('received_at', 'Received on', today_d.isoformat(), type='date', required=True) }}
+      {{ ui.select('status', 'Outcome', ['completed', 'pending', 'failed'], 'completed', required=True, placeholder=None) }}
+    </div>
+    <div class="mt-4">{{ ui.textarea('notes', 'Notes', '', rows=2) }}</div>
+    {% endcall %}
+  </div>
+  <div class="space-y-5">
+    {% call ui.card("What happens next") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-600"></i>The invoice balance and status are updated.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-600"></i>A credit line is posted to the family ledger.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-600"></i>A journal entry debits Cash/Bank and credits Tuition Revenue.</li>
+      <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 text-emerald-600"></i>A numbered receipt PDF is issued and the family is notified.</li>
+    </ul>
+    <div class="mt-4 flex gap-2">{{ ui.button('Record payment', icon='banknote') }}{{ ui.button('Cancel', href='/finance/payments', variant='secondary') }}</div>
+    {% endcall %}
+  </div>
+</form>
+{% endblock %}

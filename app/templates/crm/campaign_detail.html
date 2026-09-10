@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(c.name, (c.platform|titleize) ~ ' · ' ~ (c.country or 'Global') ~ ' · ' ~ (c.offer or 'no offer'), back='/crm/campaigns') %}
+  {{ ui.badge(c.status) }}
+  {% if has_perm(user, 'campaigns.update') %}<button @click="$dispatch('open-modal','metrics')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Add metrics for a date</button>{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Spend', totals.spend|money(c.currency), icon='wallet', color='amber', hint='Budget ' ~ (c.budget|money(c.currency))) }}
+  {{ ui.stat('Leads', totals.leads, icon='funnel', color='sky', hint=totals.crm_leads ~ ' attributed in CRM') }}
+  {{ ui.stat('CPL', totals.cpl|money, icon='tag', color='indigo') }}
+  {{ ui.stat('Conversions', totals.conversions, icon='trophy', color='emerald') }}
+  {{ ui.stat('CAC', totals.cac|money, icon='user-plus', color='violet') }}
+  {{ ui.stat('ROAS', totals.roas ~ 'x', icon='trending-up', color='emerald' if totals.roas >= 1 else 'rose', hint='ROI ' ~ totals.roi ~ '%') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Daily performance', 'Spend and leads over the last ' ~ metrics|length ~ ' recorded days') %}
+      {% if metrics %}{{ ui.chart('perf', 260) }}{% else %}{{ ui.empty_state('No daily metrics recorded yet.', 'bar-chart-3') }}{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Daily metrics') %}
+    {{ ui.table_start(['Date','Impressions','Clicks','CTR','Leads','Spend','Conversions','Revenue'], compact=True) }}
+    {% for m in metrics %}
+    <tr><td class="px-4 py-1.5 text-xs">{{ m.date|date }}</td><td class="px-4 py-1.5">{{ '{:,}'.format(m.impressions) }}</td>
+      <td class="px-4 py-1.5">{{ m.clicks }}</td><td class="px-4 py-1.5 text-xs">{{ (100 * m.clicks / m.impressions)|round(2) if m.impressions else 0 }}%</td>
+      <td class="px-4 py-1.5 font-medium">{{ m.leads }}</td><td class="px-4 py-1.5">{{ m.spend|money(c.currency) }}</td>
+      <td class="px-4 py-1.5 text-emerald-600">{{ m.conversions }}</td><td class="px-4 py-1.5">{{ m.revenue|money(c.currency) }}</td></tr>
+    {% else %}{{ ui.empty('No metrics recorded.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card('Attributed leads', leads|length ~ ' leads carry this campaign') %}
+    {{ ui.table_start(['Lead','Country','Stage','Score','Owner','Created'], compact=True) }}
+    {% for l in leads %}
+    <tr><td class="px-4 py-1.5"><a href="/crm/leads/{{ l.id }}" class="font-medium hover:text-brand-600">{{ l.full_name }}</a>
+      <span class="ml-1 font-mono text-[10px] text-slate-400">{{ l.lead_code }}</span></td>
+      <td class="px-4 py-1.5 text-xs">{{ l.country or '—' }}</td><td class="px-4 py-1.5">{{ ui.badge(l.stage) }}</td>
+      <td class="px-4 py-1.5">{{ l.score }}</td><td class="px-4 py-1.5 text-xs">{{ l.assigned_to.full_name if l.assigned_to else '—' }}</td>
+      <td class="px-4 py-1.5 text-xs">{{ l.created_at|date }}</td></tr>
+    {% else %}{{ ui.empty('No leads attributed to this campaign yet.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% if has_perm(user, 'campaigns.update') %}
+    {% call ui.card('Edit campaign') %}
+    <form method="post" action="/crm/campaigns/{{ c.id }}/edit" class="space-y-3">
+      {{ ui.input('name', 'Name', c.name, required=True) }}
+      {{ ui.select('platform', 'Platform', platforms, c.platform, placeholder=None) }}
+      {{ ui.select('status', 'Status', statuses, c.status, placeholder=None) }}
+      {{ ui.select('country', 'Country', countries, c.country, placeholder='Global') }}
+      {{ ui.input('offer', 'Offer', c.offer or '') }}
+      {{ ui.input('objective', 'Objective', c.objective or '') }}
+      {{ ui.input('budget', 'Budget', c.budget, type='number', step='0.01') }}
+      {{ ui.input('currency', 'Currency', c.currency) }}
+      {{ ui.input('utm_source', 'UTM source', c.utm_source or '') }}
+      {{ ui.input('utm_campaign', 'UTM campaign', c.utm_campaign or '') }}
+      {{ ui.input('start_date', 'Start', c.start_date, type='date') }}
+      {{ ui.input('end_date', 'End', c.end_date, type='date') }}
+      {{ ui.input('external_id', 'Platform ID', c.external_id or '') }}
+      {{ ui.button('Save', icon='check', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Funnel efficiency') %}
+      {{ ui.dl([('Impressions', '{:,}'.format(totals.impressions)), ('Clicks', '{:,}'.format(totals.clicks)), ('CTR', totals.ctr ~ '%'),
+                ('Leads', totals.leads), ('CRM leads', totals.crm_leads), ('Won in CRM', totals.crm_won),
+                ('Lead → won', totals.conversion ~ '%'), ('Revenue', totals.revenue|money(c.currency))]) }}
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('metrics', 'Add / update daily metrics') %}
+<form method="post" action="/crm/campaigns/{{ c.id }}/metrics" class="grid gap-4 sm:grid-cols-2">
+  {{ ui.input('date', 'Date', today()|string, type='date', required=True) }}
+  {{ ui.input('spend', 'Spend', '0', type='number', step='0.01') }}
+  {{ ui.input('impressions', 'Impressions', '0', type='number') }}
+  {{ ui.input('clicks', 'Clicks', '0', type='number') }}
+  {{ ui.input('leads', 'Leads', '0', type='number') }}
+  {{ ui.input('conversions', 'Conversions', '0', type='number') }}
+  {{ ui.input('revenue', 'Revenue', '0', type='number', step='0.01') }}
+  <div class="sm:col-span-2">{{ ui.button('Save metrics', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+{% if metrics %}
+<script>
+  OQC.line('perf', {{ labels|tojson }}, [{label:'Spend', data: {{ spend_series|tojson }}}, {label:'Leads', data: {{ leads_series|tojson }}}]);
+</script>
+{% endif %}
+{% endblock %}

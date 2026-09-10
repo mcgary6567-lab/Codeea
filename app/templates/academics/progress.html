@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Progress — {{ s.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Progress — " ~ s.full_name,
+                       s.student_code ~ " · " ~ (s.course.name if s.course else 'no course') ~ " · " ~ (s.level or 'no level') ~ " · " ~ (s.teacher.full_name if s.teacher else 'no teacher'),
+                       back="/students/" ~ s.id) %}
+  {{ ui.badge(s.status) }}
+  {{ ui.button('Arabic view', href='/academics/arabic-view/' ~ s.id, icon='book-open', variant='secondary', size='sm') }}
+  {{ ui.button('New lesson plan', href='/academics/lesson-plans/new?student_id=' ~ s.id, icon='notebook-pen', size='sm') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Course completion", summary.pct ~ '%', icon="trending-up", color="brand", hint=summary.completed ~ ' of ' ~ summary.total ~ ' lessons') }}
+  {{ ui.stat("In progress", summary.in_progress, icon="loader", color="indigo") }}
+  {{ ui.stat("Revision", summary.revision, icon="repeat", color="violet") }}
+  {{ ui.stat("Sabaq / Sabqi / Dor", type_counts.sabaq ~ ' · ' ~ type_counts.sabqi ~ ' · ' ~ type_counts.dor, icon="layers", color="sky") }}
+  {{ ui.stat("Last test", (summary.last_test.percentage ~ '%') if summary.last_test else '—', icon="file-badge",
+             color="emerald" if summary.last_test and summary.last_test.percentage >= 70 else "amber",
+             hint=(summary.last_test.period) if summary.last_test else 'No scored test') }}
+  {{ ui.stat("Dor quota", 'Met' if summary.dor_quota_met else 'Blocked', icon="shield-check",
+             color=('emerald' if summary.dor_quota_met else 'rose'),
+             hint=(dor.completed|string ~ '/' ~ dor.quota|string ~ ' revision items') if dor else 'No schedule') }}
+</div>
+
+{% if not summary.dor_quota_met %}
+<div class="mb-5">{{ ui.alert('New sabaq is blocked for this student until the monthly dor (revision) quota is met. A supervisor may override with a written rationale.', 'warning', 'Dor quota not met') }}</div>
+{% endif %}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% if chart.labels %}
+    {% call ui.card('Completion by book') %}{{ ui.chart('bookChart', 240) }}{% endcall %}
+    {% endif %}
+
+    {% for b in books %}
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" x-data="{ open: {{ 'true' if loop.first else 'false' }} }">
+      <button type="button" @click="open=!open" class="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left">
+        <div class="min-w-0">
+          <div class="font-semibold text-slate-900 dark:text-white">{{ b.book.title }}</div>
+          <div class="text-xs text-slate-500">{{ b.completed }} of {{ b.total }} lessons completed{% if b.in_progress %} · {{ b.in_progress }} in progress{% endif %}{% if b.revision %} · {{ b.revision }} in revision{% endif %}</div>
+        </div>
+        <div class="w-40 shrink-0">{{ ui.progress(b.pct, 'emerald' if b.pct >= 80 else ('brand' if b.pct >= 30 else 'amber'), label=b.pct ~ '%') }}</div>
+      </button>
+      <div x-show="open" x-cloak class="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+        {% for ch in b.chapters %}
+        <div class="px-5 py-3">
+          <div class="mb-2 flex items-center justify-between text-sm">
+            <span class="font-medium text-slate-700 dark:text-slate-200">{{ ch.chapter.title }}</span>
+            <span class="text-xs text-slate-400">{{ ch.completed }}/{{ ch.total }}</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            {% for row in ch.lessons %}
+            <a href="/academics/curriculum/lessons/{{ row.lesson.id }}" title="{{ row.lesson.title }} — {{ row.status|replace('_',' ') }}"
+               class="rounded-md px-2 py-1 text-[11px] font-medium
+               {% if row.status == 'completed' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300
+               {% elif row.status == 'in_progress' %}bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300
+               {% elif row.status == 'revision' %}bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300
+               {% else %}bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400{% endif %}">
+              {{ row.lesson.title[:34] }}{% if row.lesson.title|length > 34 %}…{% endif %}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    {{ ui.empty_state('No curriculum published for this student’s course yet.', 'library') }}
+    {% endfor %}
+
+    {% call ui.card('Timeline', 'Evaluations, monthly tests and lesson plans') %}
+    <ol class="space-y-3">
+      {% for e in timeline %}
+      <li class="flex gap-3">
+        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full
+          {% if e.kind == 'test' %}bg-amber-500{% elif e.kind == 'evaluation' %}bg-indigo-500{% else %}bg-brand-500{% endif %}"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ e.url }}" class="text-sm font-medium text-slate-800 hover:text-brand-600 dark:text-slate-100">{{ e.title }}</a>
+            {{ ui.badge(e.badge) }}
+            <span class="text-xs text-slate-400">{{ e.date|date }}</span>
+          </div>
+          <div class="truncate text-xs text-slate-500">{{ e.detail }}</div>
+        </div>
+      </li>
+      {% else %}<li class="py-6 text-center text-xs text-slate-400">Nothing recorded yet.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% if can_update %}
+    {% call ui.card('Mark lesson status', 'Records a StudentProgress row and moves the sabaq pointer.') %}
+    <form method="post" action="/academics/progress/{{ s.id }}/lesson" class="space-y-3">
+      {{ ui.select('lesson_id', 'Lesson', lesson_options, summary.current_lesson.id if summary.current_lesson else None, required=True, placeholder='Select a lesson') }}
+      <div class="grid grid-cols-2 gap-3">
+        {{ ui.select('status', 'Status', statuses, 'completed', placeholder=None) }}
+        {{ ui.select('progress_type', 'Type', types, 'sabaq', placeholder=None) }}
+      </div>
+      {{ ui.input('score', 'Score (0–10)', '', type='number', step='0.1', min=0, max=10) }}
+      {{ ui.textarea('notes', 'Notes', '', rows=2) }}
+      {{ ui.button('Save progress', icon='check') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Dor schedule', (dor.period ~ ' · ' ~ dor.completed|string ~ '/' ~ dor.quota|string) if dor else 'None yet') %}
+    {% if dor %}
+      {{ ui.progress(100 * dor.completed / dor.quota if dor.quota else 0, 'emerald' if dor.quota_met else 'amber') }}
+      <ul class="mt-3 space-y-1">
+        {% for item in dor['items'][:10] %}
+        <li class="flex items-start gap-2 text-xs">
+          <i data-lucide="{{ 'check-circle-2' if item.done else 'circle' }}" class="mt-0.5 h-3.5 w-3.5 shrink-0 {{ 'text-emerald-500' if item.done else 'text-slate-300' }}"></i>
+          <span class="{{ 'text-slate-400 line-through' if item.done else 'text-slate-600 dark:text-slate-300' }}">{{ item.content }} <span class="text-slate-400">· {{ item.due }}</span></span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-xs text-slate-500">A revision schedule is generated automatically after each monthly test.</p>
+    {% endif %}
+    {% endcall %}
+
+    {% if can_override and not summary.dor_quota_met %}
+    {% call ui.card('Override dor quota', 'Consequential action — the rationale is stored in the audit log.') %}
+    <form method="post" action="/academics/progress/{{ s.id }}/dor-override" class="space-y-3" onsubmit="return confirm('Record a dor quota override for this student?')">
+      {{ ui.textarea('reason', 'Rationale', '', rows=3, required=True) }}
+      {{ ui.button('Record override', icon='shield-alert', variant='warning', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Current position') %}
+    {{ ui.dl([('Current lesson', summary.current_lesson_title), ('Sabaq position', summary.sabaq_position or '—'),
+              ('Last evaluation', (summary.last_evaluation.score|string ~ ' on ' ~ summary.last_evaluation.date.strftime('%d %b %Y')) if summary.last_evaluation else '—'),
+              ('Last test', (summary.last_test.percentage|string ~ '% (' ~ summary.last_test.grade ~ ')') if summary.last_test else '—')]) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if chart.labels %}
+<script>OQC.bar('bookChart', {{ chart.labels|tojson }}, [{label: 'Completion %', data: {{ chart.data|tojson }}}]);</script>
+{% endif %}
+{% endblock %}

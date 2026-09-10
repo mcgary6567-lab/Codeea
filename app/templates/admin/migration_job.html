@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ job.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(job.name, entity_meta.get('label', job.entity|titleize) ~ " · source " ~ job.source_system, back="/admin/migration") %}
+  {{ ui.badge(job.status) }}
+  {% if job.errors %}{{ ui.button('Error CSV', href='/admin/migration/' ~ job.id ~ '/errors.csv', icon='download', variant='secondary', size='sm') }}{% endif %}
+  {{ ui.button('CSV template', href='/admin/migration/template/' ~ job.entity ~ '.csv', icon='file-down', variant='secondary', size='sm') }}
+{% endcall %}
+
+{% set steps = [(1,'Upload','upload'),(2,'Map fields','git-merge'),(3,'Validate','shield-check'),(4,'Import','database-zap'),(5,'Reconcile','scale')] %}
+<div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <ol class="flex min-w-[40rem] items-center gap-2">
+    {% for n, label, icon in steps %}
+    <li class="flex flex-1 items-center gap-2">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+        {{ 'bg-brand-600 text-white' if n < step else ('bg-brand-100 text-brand-700 ring-2 ring-brand-500 dark:bg-brand-500/20 dark:text-brand-200' if n == step else 'bg-slate-100 text-slate-400 dark:bg-slate-800') }}">
+        <i data-lucide="{{ 'check' if n < step else icon }}" class="h-4 w-4"></i></span>
+      <span class="text-xs font-medium {{ 'text-slate-900 dark:text-white' if n <= step else 'text-slate-400' }}">{{ label }}</span>
+      {% if not loop.last %}<span class="h-0.5 flex-1 {{ 'bg-brand-500' if n < step else 'bg-slate-200 dark:bg-slate-800' }}"></span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Rows in file", job.records_total, icon="rows-3", color="brand") }}
+  {{ ui.stat("Mapped columns", (mapping|length) ~ " / " ~ columns|length, icon="git-merge", color="indigo") }}
+  {{ ui.stat("Imported", job.records_imported, icon="check-circle", color="emerald") }}
+  {{ ui.stat("Skipped", job.records_skipped, icon="skip-forward", color=("amber" if job.records_skipped else "slate")) }}
+  {{ ui.stat("Duplicates", job.duplicates_found, icon="copy", color=("amber" if job.duplicates_found else "slate")) }}
+</div>
+
+{% if not headers %}
+{{ ui.alert('The uploaded file could not be read from disk. It may have been removed. Upload it again to continue.', 'error', 'File missing') }}
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Field mapping", "Match each OQC column to a column in your file") %}
+      {% if has_perm(user, 'migration.update') %}
+      <form method="post" action="/admin/migration/{{ job.id }}/mapping" class="space-y-4">
+        <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">OQC field</th>
+            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</th>
+            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Your column</th>
+          </tr></thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          {% for target, label, kind, required in columns %}
+          <tr class="{{ 'bg-amber-50/40 dark:bg-amber-950/10' if required and not mapping.get(target) }}">
+            <td class="px-3 py-1.5"><span class="font-medium text-slate-800 dark:text-slate-200">{{ label }}</span>
+              {% if required %}<span class="text-rose-500">*</span>{% endif %}
+              <span class="block font-mono text-[10px] text-slate-400">{{ target }}</span></td>
+            <td class="px-3 py-1.5"><code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-800">{{ kind }}</code></td>
+            <td class="px-3 py-1.5">
+              <select name="map_{{ target }}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+                <option value="">— not mapped —</option>
+                {% for h in headers %}<option value="{{ h }}" {% if mapping.get(target) == h %}selected{% endif %}>{{ h }}</option>{% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="px-4 py-8 text-center text-slate-400">This entity has no importable columns.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {{ ui.button('Save mapping', icon='save') }}
+      </form>
+      {% else %}
+      {{ ui.alert('You do not have the migration.update permission, so the mapping is read-only.', 'info') }}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("File preview", "First 20 data rows exactly as parsed") %}
+      {% if headers %}
+      <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <table class="min-w-full text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+            <th class="px-2 py-1.5 text-left font-semibold text-slate-400">#</th>
+            {% for h in headers %}<th class="whitespace-nowrap px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-slate-500">{{ h }}</th>{% endfor %}
+          </tr></thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          {% for row in rows %}
+          <tr><td class="px-2 py-1 text-slate-400">{{ loop.index + 1 }}</td>
+            {% for h in headers %}<td class="whitespace-nowrap px-2 py-1 text-slate-700 dark:text-slate-200">{{ (row.get(h) or '')|truncate(28) }}</td>{% endfor %}
+          </tr>
+          {% else %}<tr><td colspan="{{ headers|length + 1 }}" class="px-4 py-8 text-center text-slate-400">The file has a header row but no data rows.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}{{ ui.empty_state('Nothing to preview — the source file is not readable.', 'file-x') }}{% endif %}
+    {% endcall %}
+
+    {% if errors %}
+    {% call ui.card("Validation findings", errors|length ~ " issue(s) — first 200 shown") %}
+      {{ ui.table_start(['Row','Field','Severity','Message'], compact=True) }}
+      {% for e in errors %}
+      <tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/10' if e.get('severity') == 'error' }}">
+        <td class="px-4 py-1.5 font-mono text-xs">{{ e.get('row') }}</td>
+        <td class="px-4 py-1.5 font-mono text-[11px]">{{ e.get('field') }}</td>
+        <td class="px-4 py-1.5">{{ ui.badge('failed' if e.get('severity') == 'error' else 'pending', e.get('severity')|titleize) }}</td>
+        <td class="px-4 py-1.5 text-xs text-slate-600 dark:text-slate-300">{{ e.get('message') }}</td>
+      </tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+      <p class="mt-3 text-xs text-slate-500">Errors block a row from importing. Warnings — mostly duplicates — cause the
+      row to be skipped so nothing is overwritten.</p>
+    {% endcall %}
+    {% endif %}
+
+    {% if report %}
+    {% call ui.card("Reconciliation report", "Compare the file against what landed in the database") %}
+      <div class="mb-4 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-lg border border-slate-200 p-3 text-center dark:border-slate-800">
+          <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ report.file_rows }}</div>
+          <div class="text-[11px] uppercase tracking-wide text-slate-500">Rows in file</div></div>
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center dark:border-emerald-900 dark:bg-emerald-950/30">
+          <div class="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{{ report.records_imported }}</div>
+          <div class="text-[11px] uppercase tracking-wide text-emerald-600">Imported</div></div>
+        <div class="rounded-lg border border-slate-200 p-3 text-center dark:border-slate-800">
+          <div class="text-2xl font-bold text-slate-900 dark:text-white">{{ report.success_pct }}%</div>
+          <div class="text-[11px] uppercase tracking-wide text-slate-500">Success rate</div></div>
+      </div>
+      {{ ui.dl([('Mapped fields', report.mapped_fields), ('Records skipped', report.records_skipped),
+                ('Duplicates found', report.duplicates), ('Hard errors', report.hard_errors),
+                ('Warnings', report.warnings), ('Records total on job', report.records_total)]) }}
+      {% if report.financial_field %}
+      <div class="mt-4 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Financial reconciliation ({{ report.financial_field }})</div>
+        <div class="grid gap-3 sm:grid-cols-3 text-sm">
+          <div><div class="text-xs text-slate-500">Total in file</div><div class="text-lg font-bold">{{ report.file_total }}</div></div>
+          <div><div class="text-xs text-slate-500">Total imported (legacy-tagged)</div><div class="text-lg font-bold">{{ report.imported_total }}</div></div>
+          <div><div class="text-xs text-slate-500">Variance</div>
+            <div class="text-lg font-bold {{ 'text-rose-600' if report.variance else 'text-emerald-600' }}">{{ report.variance }}</div></div>
+        </div>
+        {% if report.variance %}
+        <p class="mt-2 text-xs text-amber-600">A non-zero variance is expected when the file contains rows that were skipped as duplicates. Investigate before signing off the cutover.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Run the wizard") %}
+      <div class="space-y-4">
+        {% if has_perm(user, 'migration.execute') %}
+        <form method="post" action="/admin/migration/{{ job.id }}/validate">
+          <div class="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Step 3 — Validate</div>
+          <p class="mb-2 text-xs text-slate-500">Checks required fields, data types, in-file duplicates and existing database records. Nothing is written.</p>
+          {{ ui.button('Validate file', icon='shield-check', variant='secondary') }}
+        </form>
+        <form method="post" action="/admin/migration/{{ job.id }}/import" class="border-t border-slate-100 pt-4 dark:border-slate-800"
+              onsubmit="return confirm('Import these records into the live database?')">
+          <div class="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Step 4 — Import</div>
+          <p class="mb-2 text-xs text-slate-500">Writes valid rows into the live database, one savepoint per row.</p>
+          {{ ui.input('rationale', 'Rationale (required)', '', required=True, placeholder='Cutover batch 1 approved by the CEO') }}
+          <div class="mt-3">{{ ui.button('Import records', icon='database-zap') }}</div>
+        </form>
+        {% else %}
+        {{ ui.alert('You do not have the migration.execute permission.', 'info') }}
+        {% endif %}
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Job") %}
+      {{ ui.dl([('Job id', job.id), ('Entity', entity_meta.get('label', job.entity)), ('Match on', entity_meta.get('match_on', '—')),
+                ('Source system', job.source_system), ('Status', job.status|titleize),
+                ('Created', job.created_at|datetime), ('Completed', (job.completed_at|datetime) if job.completed_at else '—'),
+                ('File', (job.file_path or '—').split('/')[-1].split('\\')[-1])]) }}
+    {% endcall %}
+
+    {% call ui.card("Required fields") %}
+      <div class="flex flex-wrap gap-1.5">
+        {% for target, label, kind, required in columns %}{% if required %}
+        <code class="rounded px-1.5 py-0.5 font-mono text-[11px] {{ 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' if mapping.get(target) else 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' }}">{{ target }}</code>
+        {% endif %}{% endfor %}
+      </div>
+      <p class="mt-2 text-xs text-slate-500">Green means mapped. Any red field will fail every row on validation.</p>
+    {% endcall %}
+
+    {% if has_perm(user, 'migration.delete') %}
+    {% call ui.card("Danger zone") %}
+      <form method="post" action="/admin/migration/{{ job.id }}/delete" class="space-y-3"
+            onsubmit="return confirm('Delete this migration job? Imported records are kept.')">
+        {{ ui.input('rationale', 'Rationale', '', required=True) }}
+        {{ ui.button('Delete job', icon='trash-2', variant='danger') }}
+      </form>
+      <p class="mt-2 text-xs text-slate-500">Deleting a job removes the job record and its error log only. Records that were already imported stay in the database.</p>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

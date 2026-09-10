@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Sessions{% endblock %}
+{% block content %}
+{% call ui.page_header("Active sessions", "Every issued login token, where it was issued and when it was last seen", back="/admin/security") %}
+  {% if has_perm(user, 'security.execute') %}
+  <button type="button" @click="$dispatch('open-modal','revokeall')" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="power" class="h-4 w-4"></i>Revoke all sessions</button>
+  {% endif %}
+  {{ ui.button("Login history", href="/admin/security/logins", icon="key-round", variant="secondary") }}
+{% endcall %}
+
+{% set live = page.items|rejectattr('revoked')|list %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Sessions listed", page.total, icon="monitor-smartphone", color="brand", hint="active only" if only_active == '1' else "including revoked and expired") }}
+  {{ ui.stat("Live on this page", live|length, icon="wifi", color="emerald") }}
+  {{ ui.stat("Distinct users", page.items|map(attribute='user_id')|unique|list|length, icon="users", color="indigo") }}
+  {{ ui.stat("Distinct IPs", page.items|map(attribute='ip')|unique|list|length, icon="globe", color="sky") }}
+</div>
+
+{% call ui.filter_bar('/admin/security/sessions') %}
+  {{ ui.select('only_active', 'Show', [('1','Active sessions only'),('0','All sessions')], only_active, placeholder=None) }}
+{% endcall %}
+
+{{ ui.table_start(['User','Session','IP','Device / user agent','Created','Last seen','Expires','State','']) }}
+{% for s in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2">
+    {% if s.user %}<a href="/admin/users/{{ s.user.id }}" class="flex items-center gap-2.5 hover:text-brand-700">{{ ui.avatar(s.user.full_name, 'sm') }}
+      <span class="min-w-0"><span class="block truncate font-medium">{{ s.user.full_name }}</span><span class="block truncate text-xs text-slate-500">{{ s.user.email }}</span></span></a>
+    {% else %}<span class="text-slate-400">user #{{ s.user_id }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ s.token_jti[:12] }}…</td>
+  <td class="px-4 py-2 font-mono text-[11px]">{{ s.ip or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (s.user_agent or '—')|truncate(46) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ s.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.last_seen_at|ago }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ s.expires_at|datetime }}</td>
+  <td class="px-4 py-2">
+    {% if s.revoked %}{{ ui.badge('cancelled', 'Revoked') }}
+    {% elif s.expires_at <= now %}{{ ui.badge('expired', 'Expired') }}
+    {% else %}{{ ui.badge('active') }}{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right">
+    {% if not s.revoked and has_perm(user, 'security.execute') %}
+    {{ ui.confirm_form('/admin/security/sessions/revoke', 'Revoke', icon='x-circle', variant='secondary',
+                       message='Revoke this session? The user will be signed out immediately.',
+                       hidden={'session_id': s.id, 'rationale': 'Session revoked from the Security Centre'}) }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No sessions match this filter.', 9, 'monitor-off') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('revokeall', 'Revoke every active session') %}
+{{ ui.alert('Every signed-in user except you will be logged out immediately and must sign in again. Use this after a credential leak or a suspected compromise.', 'warning', 'Platform-wide sign-out') }}
+<form method="post" action="/admin/security/sessions/revoke" class="mt-4 space-y-4">
+  {{ ui.textarea('rationale', 'Rationale (recorded on the audit trail)', '', rows=3, required=True) }}
+  {{ ui.button('Revoke all sessions', icon='power', variant='danger') }}
+</form>
+{% endcall %}
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="info" class="mr-1 inline h-3.5 w-3.5"></i>
+Sessions expire on their own after the configured session lifetime. Expired and revoked rows are purged nightly according
+to the <a href="/admin/security/retention" class="text-brand-600 hover:underline">retention policy</a>.</p>
+{% endblock %}

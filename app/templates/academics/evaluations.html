@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Evaluations{% endblock %}
+{% block content %}
+{% call ui.page_header("Evaluations", "Manual, weekly and level-completion assessments scored on Tajweed, fluency, memorisation and understanding.") %}
+  {% if can_add %}{{ ui.button("New evaluation", icon="plus", attrs="@click=\"$dispatch('open-modal','newEval')\"") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Evaluations", stats.total, icon="clipboard-check", color="brand") }}
+  {{ ui.stat("Passed", stats.passed, icon="check-circle-2", color="emerald", href="/academics/evaluations?result=pass") }}
+  {{ ui.stat("Failed", stats.failed, icon="x-circle", color="rose", href="/academics/evaluations?result=fail") }}
+  {{ ui.stat("Pending", stats.pending, icon="clock", color="amber", href="/academics/evaluations?result=pending") }}
+  {{ ui.stat("Average score", stats.avg, icon="gauge", color="indigo") }}
+</div>
+
+{% call ui.filter_bar('/academics/evaluations') %}
+  <div class="w-56">{{ ui.select('student', 'Student', student_options, student, placeholder='All students') }}</div>
+  <div class="w-48">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('type', 'Type', types, type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('result', 'Result', results, result, placeholder='All results') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Date', 'Student', 'Type', 'Tajweed', 'Fluency', 'Memorisation', 'Understanding', 'Score', 'Result', '']) }}
+{% for e in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 whitespace-nowrap text-xs">{{ e.date|date }}</td>
+  <td class="px-4 py-2"><a href="/academics/evaluations/{{ e.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ e.student.full_name if e.student else '—' }}</a>
+    <div class="text-[11px] text-slate-400">{{ e.teacher.full_name if e.teacher else 'no teacher' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ e.evaluation_type|titleize }}</td>
+  {% for k in criteria %}<td class="px-4 py-2 text-center text-xs">{{ (e.criteria or {}).get(k, '—') }}</td>{% endfor %}
+  <td class="px-4 py-2 text-sm font-semibold">{{ e.score if e.score is not none else '—' }}<span class="text-xs font-normal text-slate-400">/{{ e.max_score|int }}</span></td>
+  <td class="px-4 py-2">{{ ui.badge(e.result) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/academics/evaluations/' ~ e.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No evaluations match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_add %}
+{% call ui.modal('newEval', 'New evaluation', 'lg') %}
+<form method="post" action="/academics/evaluations/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.select('student_id', 'Student', student_options, None, required=True, placeholder='Select a student') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, None, placeholder="Student's assigned teacher") }}
+  {{ ui.select('evaluation_type', 'Type', types, 'manual', placeholder=None) }}
+  {{ ui.input('date', 'Date', today_iso, type='date', required=True) }}
+  <div class="sm:col-span-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Criteria (0–10 each)</div>
+    <div class="grid gap-3 sm:grid-cols-4">
+      {% for k in criteria %}{{ ui.input('criteria_' ~ k, k|titleize, 7, type='number', min=0, max=10, step='0.5') }}{% endfor %}
+    </div>
+    <p class="mt-2 text-[11px] text-slate-500">Leave the score blank to compute it as the criteria average out of 100.</p>
+  </div>
+  {{ ui.input('score', 'Score', '', type='number', step='0.1', min=0, help='Optional — computed from criteria if blank.') }}
+  {{ ui.select('result', 'Result', ['pass','fail','pending'], None, placeholder='Automatic (pass at 55%)') }}
+  <div class="sm:col-span-2">{{ ui.textarea('teacher_comment', 'Teacher comment', '', rows=2, required=True) }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('academic_comment', 'Academic / HOD comment', '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save evaluation', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

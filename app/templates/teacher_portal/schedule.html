@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My schedule{% endblock %}
+{% block content %}
+{% call ui.page_header('My weekly schedule', 'Week of ' ~ monday.strftime('%d %B %Y') ~ ' · times are shown in the college timezone (Asia/Karachi)') %}
+  {{ ui.button('Previous', href='/teacher/schedule?week=' ~ (week - 1), icon='chevron-left', variant='secondary', size='sm') }}
+  {{ ui.button('This week', href='/teacher/schedule', variant='secondary', size='sm') }}
+  {{ ui.button('Next', href='/teacher/schedule?week=' ~ (week + 1), icon='chevron-right', variant='secondary', size='sm') }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Classes this week', total, icon='calendar-days', color='brand') }}
+  {{ ui.stat('Active schedules', schedules|length, icon='repeat', color='sky') }}
+  {{ ui.stat('Time slots used', slots|length, icon='clock', color='indigo') }}
+</div>
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+      <th class="w-20 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Time</th>
+      {% for d in days %}
+      <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider {{ 'text-brand-600' if d == today_d else 'text-slate-500' }}">
+        {{ day_labels[loop.index0][:3] }}<span class="ml-1 font-normal normal-case">{{ d.strftime('%d/%m') }}</span></th>
+      {% endfor %}
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for slot in slots %}
+      <tr>
+        <td class="px-3 py-1.5 font-mono text-xs text-slate-500">{{ slot }}</td>
+        {% for i in range(7) %}
+        <td class="px-1.5 py-1.5 align-top">
+          {% for c in (grid.get(slot, {}).get(i, [])) %}
+          <a href="/teacher/classes" class="mb-1 block rounded-lg border-l-4 px-2 py-1.5 text-xs
+             {{ {'done':'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30','pending':'border-sky-500 bg-sky-50 dark:bg-sky-950/30','missed':'border-rose-500 bg-rose-50 dark:bg-rose-950/30','absent':'border-orange-500 bg-orange-50 dark:bg-orange-950/30','leave':'border-violet-500 bg-violet-50 dark:bg-violet-950/30'}.get(c.status, 'border-slate-400 bg-slate-50 dark:bg-slate-800') }}">
+            <div class="truncate font-medium text-slate-800 dark:text-slate-100">{{ c.student.full_name if c.student else 'Student' }}</div>
+            <div class="truncate text-[10px] text-slate-500">{{ c.course.code if c.course else '' }} · {{ c.status }}</div>
+          </a>
+          {% endfor %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-12 text-center text-slate-400">No classes have been generated for this week yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="mt-6">
+{% call ui.card('Recurring schedules') %}
+  {{ ui.table_start(['Days', 'Time', 'Duration', 'Student', 'Course', 'From', 'Room']) }}
+  {% for sc in schedules %}
+  <tr><td class="px-4 py-2 text-xs">{% for d in sc.days_of_week %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} {% endfor %}</td>
+    <td class="px-4 py-2">{{ sc.start_time|time }}</td><td class="px-4 py-2 text-xs">{{ sc.duration_minutes }} min</td>
+    <td class="px-4 py-2 text-sm">{{ sc.student.full_name if sc.student else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ sc.course.name if sc.course else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ sc.start_date|date }}</td>
+    <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ sc.room_name or '—' }}</td></tr>
+  {% else %}{{ ui.empty('No active schedules yet.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+{% endblock %}

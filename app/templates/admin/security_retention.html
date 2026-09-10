@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Retention policy{% endblock %}
+{% block content %}
+{% call ui.page_header("Data retention & erasure", "How long each class of personal data is kept, and the right-to-be-forgotten workflow", back="/admin/security") %}
+  {{ ui.button("Data masking", href="/admin/security/masking", icon="eye-off", variant="secondary") }}
+  {{ ui.button("Subject access export", href="/admin/security/export", icon="file-archive", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Retention keys", rows|length, icon="calendar-clock", color="brand") }}
+  {{ ui.stat("Churned clients", churned|length, icon="user-minus", color="amber", hint="candidates for anonymisation") }}
+  {{ ui.stat("Clients on file", clients|length, icon="users", color="sky", hint="first 400 shown") }}
+  {{ ui.stat("Audit retention", "Forever", icon="lock", color="indigo", hint="the trail is never purged") }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Retention windows", "Nightly jobs purge or anonymise anything older than these values") %}
+      <form method="post" action="/admin/security/retention" class="space-y-4">
+        {{ ui.table_start(['Data class','Owning group','Days kept','Effect']) }}
+        {% for r in rows %}
+        <tr class="align-top">
+          <td class="px-4 py-2"><span class="font-medium text-slate-900 dark:text-white">{{ r.label }}</span>
+            <span class="block font-mono text-[11px] text-slate-400">{{ r.key }}</span></td>
+          <td class="px-4 py-2">{{ ui.badge(r.group) }}</td>
+          <td class="px-4 py-2 w-36">
+            <input type="number" min="0" name="{{ r.key }}" value="{{ r.value }}"
+                   class="w-28 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+          </td>
+          <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ r.note }}</td>
+        </tr>
+        {% else %}{{ ui.empty('No retention keys defined.', 4) }}{% endfor %}
+        {{ ui.table_end() }}
+        <div class="flex items-end gap-3">
+          <div class="flex-1">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is the retention policy changing?') }}</div>
+          {{ ui.button('Save retention policy', icon='save') }}
+        </div>
+        <p class="text-xs text-slate-500">Set a value to <b>0</b> to keep the data indefinitely. Shortening a window takes
+        effect on the next nightly run and cannot be undone.</p>
+      </form>
+    {% endcall %}
+
+    {% call ui.card("Right to erasure", "Anonymise a client and every student attached to them") %}
+      {{ ui.alert('Anonymisation is irreversible. Names, emails, phone numbers and addresses are replaced with a coded placeholder; invoices, payments and ledger entries are kept so the financial record stays complete and auditable.', 'warning', 'Irreversible') }}
+      {% set client_options = [] %}{% for c in clients %}{% set _ = client_options.append((c.id, c.client_code ~ ' — ' ~ c.full_name)) %}{% endfor %}
+      <form method="post" action="/admin/security/anonymise" class="mt-4 grid gap-4 sm:grid-cols-2"
+            onsubmit="return confirm('Permanently anonymise this client and their students? This cannot be undone.')">
+        {{ ui.select('client_id', 'Client', client_options, none, required=True, placeholder='— select a client —') }}
+        {{ ui.input('rationale', 'Rationale (required)', '', required=True, placeholder='Erasure request received on …') }}
+        <div class="sm:col-span-2">{{ ui.button('Anonymise client', icon='user-x', variant='danger') }}</div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Churned clients", "Inactive, cancelled or churned — review these for erasure") %}
+      <ul class="max-h-96 divide-y divide-slate-100 overflow-y-auto text-sm dark:divide-slate-800">
+        {% for c in churned %}
+        <li class="flex items-center justify-between gap-2 py-2">
+          <a href="/clients/{{ c.id }}" class="min-w-0 hover:text-brand-700">
+            <span class="block truncate font-medium">{{ c.full_name }}</span>
+            <span class="block font-mono text-[11px] text-slate-500">{{ c.client_code }}</span></a>
+          {{ ui.badge(c.status) }}
+        </li>
+        {% else %}<li class="py-6 text-center text-slate-400">No churned clients on file.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+    {% call ui.card("What is never deleted") %}
+      <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 shrink-0 text-indigo-600"></i><span><b>Audit events</b> — append-only and retained indefinitely by default.</span></li>
+        <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 shrink-0 text-indigo-600"></i><span><b>Invoices, payments and ledger entries</b> — statutory financial records.</span></li>
+        <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 shrink-0 text-indigo-600"></i><span><b>Safeguarding cases</b> — retained per the safeguarding policy, access always logged.</span></li>
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

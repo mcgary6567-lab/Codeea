@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ m.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(m.title, m.meeting_date|date('%A %d %b %Y') ~ ' · ' ~ (m.attendees|length) ~ ' attendee(s)', back='/transformation/meetings') %}
+  {{ ui.badge(m.status) }}
+  {{ ui.button("Edit minutes", icon="pencil", type="button", variant="secondary", attrs='@click="$dispatch(\'open-modal\',\'editMeeting\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Agenda items', agenda_lines|length, icon='list', color='brand') }}
+  {{ ui.stat('Decisions recorded', decisions|length, icon='gavel', color='indigo') }}
+  {{ ui.stat('Actions', actions|length, icon='list-checks', color='emerald', hint=done_actions|string ~ ' completed') }}
+  {{ ui.stat('Attendees', m.attendees|length, icon='users', color='sky') }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="space-y-5 lg:col-span-2">
+    {% call ui.card('Agenda', 'Worked through in order — no item is skipped without a decision to skip it') %}
+    {% if agenda_lines %}
+    <ol class="space-y-2 text-sm">
+      {% for line in agenda_lines %}
+      <li class="flex gap-3">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ loop.index }}</span>
+        <span class="text-slate-700 dark:text-slate-200">{{ line }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="text-sm text-slate-400">No agenda was recorded for this meeting.</p>{% endif %}
+    {% if m.attendees %}
+    <div class="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+      {% for a in m.attendees %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ a }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% endcall %}
+
+    {% if m.notes %}
+    {% call ui.card('Minutes') %}
+    <div class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ m.notes }}</div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Decisions', 'Each one carries an owner and a written rationale') %}
+    {% if decisions %}
+    <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for d in decisions %}
+      <li class="py-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/decisions/{{ d.id }}" class="font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ d.title }}</a>
+          {{ ui.badge(d.status) }}{{ ui.badge(d.category) }}
+          {% if d.due_date %}<span class="text-xs {{ 'font-semibold text-rose-600' if d.due_date < today and d.status not in ('implemented','reversed') }}">due {{ d.due_date|date('%d %b') }}</span>{% endif %}
+        </div>
+        <p class="mt-1 text-xs text-slate-500">Owner: {{ d.owner.full_name if d.owner else 'unassigned' }}</p>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ d.rationale }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-slate-400">No decisions recorded yet. A meeting that produces none should say so explicitly.</p>{% endif %}
+    <form method="post" action="/transformation/meetings/{{ m.id }}/decision" class="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Record a decision</div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2">{{ ui.input('title', 'Decision', '', required=True, placeholder='What was decided, in one line') }}</div>
+        {{ ui.select('owner_id', 'Owner', opts.users, None, required=True, placeholder='— Select an owner —') }}
+        {{ ui.select('category', 'Category', categories, 'operational', placeholder=None) }}
+        {{ ui.select('department_id', 'Department', opts.departments, None, placeholder='— None —') }}
+        {{ ui.input('due_date', 'Due date', '', type='date') }}
+        <div class="sm:col-span-2">{{ ui.textarea('rationale', 'Rationale', '', rows=3, required=True, placeholder='Why this, why now, what was traded off') }}</div>
+      </div>
+      <div class="flex justify-end">{{ ui.button('Record decision', icon='gavel', size='sm') }}</div>
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Actions', 'Each action is created as a task with an assignee and a due date') %}
+    {% if actions %}
+    {{ ui.table_start(['Action','Assignee','Due','Priority','Status','']) }}
+    {% for a in actions %}
+    <tr>
+      <td class="px-4 py-2"><a href="/tasks/{{ a.id }}" class="font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ a.title }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ a.assignee.full_name if a.assignee else '—' }}</td>
+      <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if a.due_date and a.due_date < today and a.status not in ('done','cancelled') }}">{{ a.due_date|date('%d %b') if a.due_date else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(a.priority) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/tasks/' ~ a.id, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    {% else %}<p class="text-sm text-slate-400">No actions yet.</p>{% endif %}
+    <form method="post" action="/transformation/meetings/{{ m.id }}/action" class="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Add an action</div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2">{{ ui.input('title', 'Action', '', required=True, placeholder='What must happen before the next meeting') }}</div>
+        {{ ui.select('assignee_id', 'Assignee', opts.users, None, placeholder='— Me —') }}
+        {{ ui.select('priority', 'Priority', ['low','medium','high','urgent'], 'high', placeholder=None) }}
+        {{ ui.input('due_date', 'Due date', '', type='date', help='Defaults to seven days after the meeting.') }}
+      </div>
+      <div class="flex justify-end">{{ ui.button('Create action', icon='plus', size='sm') }}</div>
+    </form>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Scorecards · ' ~ period_label, 'Read before the meeting starts') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for s in scorecards %}
+      <li class="flex items-center gap-2 py-2">
+        <span class="h-2 w-2 shrink-0 rounded-full bg-{{ s.band[1] }}-500"></span>
+        <span class="flex-1 truncate">{{ s.department.name }}</span>
+        <span class="w-8 text-right text-xs font-semibold text-slate-600 dark:text-slate-300">{{ s.score if s.score is not none else '—' }}</span>
+        {{ ui.badge(s.status, 'Submitted' if s.status == 'submitted' else ('Draft' if s.status == 'draft' else 'Missing')) }}
+      </li>
+      {% else %}<li class="py-6 text-center text-xs text-slate-400">No departments configured.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+
+    {% call ui.card('Meeting record') %}
+    {{ ui.dl([('Date', m.meeting_date|date), ('Status', m.status|titleize), ('Decisions', decisions|length),
+              ('Actions', actions|length ~ ' (' ~ done_actions ~ ' done)'), ('Created', m.created_at|date)]) }}
+    <p class="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800">
+      This page is the record of the meeting. A decision that is not written here did not happen — free chat is not a record.
+    </p>
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('editMeeting', 'Edit meeting', 'lg') %}
+<form method="post" action="/transformation/meetings/{{ m.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('title', 'Title', m.title, required=True) }}
+    {{ ui.input('meeting_date', 'Date', m.meeting_date.isoformat(), type='date', required=True) }}
+    {{ ui.select('chaired_by_id', 'Chair', opts.users, m.chaired_by_id, placeholder='— None —') }}
+    {{ ui.select('status', 'Status', opts.meeting_statuses, m.status, placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.textarea('attendees', 'Attendees', m.attendees|join(', '), rows=2, help='Comma separated.') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('agenda', 'Agenda', m.agenda, rows=9) }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Minutes', m.notes, rows=6, placeholder='What was said, what changed, what everyone agreed to.') }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save minutes', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

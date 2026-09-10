@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Report history{% endblock %}
+{% block content %}
+{% call ui.page_header("Report history", (target.full_name if target else 'My') ~ " — structured daily reports", back='/daily-reports') %}
+  {% if can_team %}{{ ui.button("Team compliance", href="/daily-reports/team", icon="users", variant="secondary") }}{% endif %}
+  {{ ui.button("Export CSV", href="/daily-reports/export?scope=mine&start=" ~ start ~ "&end=" ~ end, icon="download", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Reports in range', page.total, icon='file-check', color='brand') }}
+  {{ ui.stat('Late', total_late, icon='alarm-clock', color='rose' if total_late else 'emerald') }}
+  {{ ui.stat('From', start|date('%d %b %Y'), icon='calendar', color='slate') }}
+  {{ ui.stat('To', end|date('%d %b %Y'), icon='calendar-check', color='slate') }}
+</div>
+
+<form method="get" action="/daily-reports/history" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-40">{{ ui.input('start', 'From', start.isoformat(), type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', end.isoformat(), type='date') }}</div>
+  <div class="w-36">{{ ui.select('slot', 'Slot', slots, slot, placeholder='Both') }}</div>
+  <div class="w-36">{{ ui.select('late', 'Timeliness', [('1','Late only')], late if late else '', placeholder='All') }}</div>
+  {% if can_team %}<div class="w-48">{{ ui.select('user_id', 'Person', users, user_id, placeholder='Me') }}</div>{% endif %}
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/daily-reports/history" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{{ ui.table_start(['Date','Slot','Submitted at','Timeliness','Report']) }}
+{% for r in page.items %}
+<tr class="align-top">
+  <td class="px-4 py-2 whitespace-nowrap text-xs">{{ r.report_date|date('%a %d %b %Y') }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.slot|titleize }}</td>
+  <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ r.submitted_at|datetime if r.submitted_at else '—' }}</td>
+  <td class="px-4 py-2">{% if r.is_late %}{{ ui.badge('late', 'Late') }}{% else %}{{ ui.badge('done', 'On time') }}{% endif %}</td>
+  <td class="px-4 py-2">
+    <dl class="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+      {% for k, v in (r.content or {}).items() %}
+      <div><dt class="font-semibold text-slate-500">{{ k|titleize }}</dt><dd class="whitespace-pre-line text-slate-700 dark:text-slate-200">{{ v }}</dd></div>
+      {% else %}<div class="text-slate-400">No fields recorded.</div>{% endfor %}
+    </dl>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No reports in this range.', 5, 'file-clock') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/daily-reports/history?' ~ qs) }}
+{% endblock %}

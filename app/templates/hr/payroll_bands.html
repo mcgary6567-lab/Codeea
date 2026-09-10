@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Salary bands{% endblock %}
+{% block content %}
+{% call ui.page_header('Salary bands & grade rules', 'Teacher basic pay follows the grade band. Grades are recomputed from QA, punctuality and retention — never manually, except through a promotion gate.', back='/hr/payroll') %}
+  {{ ui.button('Grading board', href='/hr/teacher-development', icon='sparkles', variant='secondary') }}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Band mapping', 'Basic salary in PKR per month') %}
+  {% if can_configure %}
+  <form method="post" action="/hr/payroll/bands" class="space-y-3">
+    {% for g, amount in bands.items() %}
+    <div class="flex items-center gap-2">
+      <input name="band_key" value="{{ g }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm font-semibold dark:border-slate-700 dark:bg-slate-800">
+      <input name="band_value" value="{{ amount }}" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <span class="w-28 text-xs text-slate-500">{{ counts.get(g, 0) }} teacher(s)</span>
+    </div>
+    {% endfor %}
+    <div class="flex items-center gap-2">
+      <input name="band_key" placeholder="D" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <input name="band_value" placeholder="0" type="number" step="500" class="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <span class="w-28 text-xs text-slate-400">new band</span>
+    </div>
+    {{ ui.input('rationale', 'Rationale', '', placeholder='Annual band review, inflation adjustment …') }}
+    {{ ui.button('Save bands', icon='save') }}
+  </form>
+  {% else %}
+  {{ ui.table_start(['Grade', 'Basic salary', 'Teachers']) }}
+  {% for g, amount in bands.items() %}
+  <tr><td class="px-4 py-2">{{ ui.badge(g) }}</td><td class="px-4 py-2 text-xs font-semibold">{{ amount|money('PKR') }}</td><td class="px-4 py-2 text-xs">{{ counts.get(g, 0) }}</td></tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  <p class="mt-3 text-xs text-slate-500">You need payroll.configure to edit bands.</p>
+  {% endif %}
+  {% endcall %}
+  {% call ui.card('Grade thresholds', 'A teacher earns a grade when every input clears the threshold; otherwise they fall to the next grade down.') %}
+  {{ ui.table_start(['Grade', 'QA average', 'Punctuality', 'Retention']) }}
+  {% for g, r in rules.items() %}
+  <tr><td class="px-4 py-2">{{ ui.badge(g) }}</td><td class="px-4 py-2 text-xs">≥ {{ r.qa }}</td><td class="px-4 py-2 text-xs">≥ {{ r.punctuality }}%</td><td class="px-4 py-2 text-xs">≥ {{ r.retention }}%</td></tr>
+  {% endfor %}
+  <tr><td class="px-4 py-2">{{ ui.badge('C') }}</td><td class="px-4 py-2 text-xs text-slate-500" colspan="3">Everyone who does not meet grade B — development plan and training required, never automatic termination.</td></tr>
+  {{ ui.table_end() }}
+  <p class="mt-3 text-xs text-slate-500">Thresholds live in the <code>teacher_grade_rules</code> setting and are edited in System Settings.</p>
+  {% endcall %}
+</div>
+{% endblock %}

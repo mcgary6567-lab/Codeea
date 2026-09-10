@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Portal login{% endblock %}
+{% block content %}
+{{ ui.page_header('Portal login ' ~ ('reset' if reset else 'created'), 'Share these credentials with the parent through a secure channel. The password is shown only once.', back='/clients/' ~ client.id) }}
+<div class="max-w-lg">
+{% call ui.card(client.full_name ~ ' · ' ~ client.client_code) %}
+  {{ ui.alert('The parent must change this temporary password at first sign-in.', 'warning') }}
+  <dl class="mt-4 space-y-3 text-sm">
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Sign-in URL</dt><dd class="font-mono">{{ base_url }}/login</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Email / username</dt><dd class="font-mono">{{ login_email }}</dd></div>
+    <div><dt class="text-xs font-semibold uppercase text-slate-500">Temporary password</dt><dd class="font-mono text-lg font-bold tracking-wide text-brand-700 dark:text-brand-300 select-all">{{ password }}</dd></div>
+  </dl>
+  <div class="mt-5 flex gap-2">{{ ui.button('Back to client', href='/clients/' ~ client.id, icon='arrow-left', variant='secondary') }}{{ ui.button('Open students', href='/clients/' ~ client.id ~ '?tab=students', icon='graduation-cap') }}</div>
+{% endcall %}
+</div>
+{% endblock %}

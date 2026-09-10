@@ -1,0 +1,21 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+jinja2>=3.1
+python-multipart>=0.0.9
+pydantic>=2.7
+pydantic-settings>=2.3
+passlib>=1.7
+bcrypt>=4.1
+pyjwt>=2.8
+itsdangerous>=2.2
+reportlab>=4.2
+openpyxl>=3.1
+apscheduler>=3.10
+httpx>=0.27
+python-dotenv>=1.0
+pytest>=8.2
+alembic>=1.13
+# PostgreSQL driver. No 3.14 wheels yet, so it is skipped on a 3.14 dev machine
+# (which uses SQLite) and installed on the 3.12 runtime used in production.
+psycopg[binary]>=3.1 ; python_version < "3.14"

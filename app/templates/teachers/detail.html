@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ t.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(t.full_name, (t.qualifications or 'Quran teacher')|truncate(110), back='/teachers') %}
+  {% if has_perm(user, 'teachers.update') %}{{ ui.button('Edit', href='/teachers/' ~ t.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
+  {% if can_approve %}{{ ui.button('Verification', icon='shield-check', attrs='type="button" @click="$dispatch(\'open-modal\',\'verifyModal\')"', variant=('secondary' if t.is_verified else 'primary')) }}{% endif %}
+  {% if has_perm(user, 'teachers.update') %}{{ ui.button('Status', icon='shuffle', variant='secondary', attrs='type="button" @click="$dispatch(\'open-modal\',\'statusModal\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  <span class="rounded-lg bg-slate-900 px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-white dark:bg-slate-700">{{ t.teacher_code }}</span>
+  {{ ui.badge(t.grade, 'Grade ' ~ t.grade) }}
+  {{ ui.badge(t.status) }}
+  {% if t.is_verified %}<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20"><i data-lucide="shield-check" class="h-3 w-3"></i>Background verified</span>
+  {% else %}<span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20"><i data-lucide="shield-alert" class="h-3 w-3"></i>Not verified — cannot take live classes</span>{% endif %}
+  <span class="text-xs text-slate-500">{{ t.shift|titleize }} shift · {{ load }} students · QA {{ t.qa_score_avg|round(1) if t.qa_score_avg else '—' }}</span>
+</div>
+
+{% if not t.is_verified %}{{ ui.alert('This teacher is excluded from every teacher-match shortlist and cannot be assigned students or live classes until the background check is verified.', 'error', 'Safeguarding gate active') }}<div class="mb-5"></div>{% endif %}
+
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'overview' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Students', load, icon='graduation-cap', color='brand', href='/teachers/' ~ t.id ~ '?tab=students') }}
+  {{ ui.stat('Classes done (30d)', stats30.done, icon='check-circle', color='emerald', hint=stats30.completion_rate ~ '% completion') }}
+  {{ ui.stat('Missed (30d)', stats30.missed, icon='x-circle', color='rose', hint=stats30.missed_rate ~ '% of classes') }}
+  {{ ui.stat('Open corrective actions', open_actions, icon='clipboard-list', color='amber') }}
+</div>
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Teaching profile') %}
+      {{ ui.dl([('Teacher code', t.teacher_code), ('Gender', t.gender|titleize), ('Shift', t.shift|titleize),
+                ('Courses', (t.courses or [])|join(', ') or '—'), ('Languages', (t.languages or [])|join(', ')),
+                ('Max classes / day', t.max_classes_per_day), ('Timezone', t.timezone),
+                ('Supervisor', t.supervisor.full_name if t.supervisor else '—'),
+                ('Grade computed', t.grade_computed_at|datetime if t.grade_computed_at else 'never'),
+                ('Teacher matches won', matches)]) }}
+      {% if t.bio %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ t.bio }}</p>{% endif %}
+    {% endcall %}
+    {% call ui.card('Availability (org time)') %}
+      <div class="grid gap-2 sm:grid-cols-4 lg:grid-cols-7 text-sm">
+      {% for d in ['mon','tue','wed','thu','fri','sat','sun'] %}
+        {% set slots = (t.availability or {}).get(d) %}
+        <div class="rounded-lg border border-slate-200 p-2 text-center dark:border-slate-800">
+          <div class="text-xs font-semibold uppercase text-slate-500">{{ d|title }}</div>
+          <div class="mt-1 text-xs {{ 'text-slate-800 dark:text-slate-200' if slots else 'text-slate-400' }}">{{ slots|join(', ') if slots else 'off' }}</div>
+        </div>
+      {% endfor %}
+      </div>
+    {% endcall %}
+    {% call ui.card('Recent activity') %}
+      <ol class="space-y-3">
+      {% for e in recent_audit %}
+        <li class="flex gap-3 text-sm"><i data-lucide="dot" class="mt-1 h-4 w-4 text-slate-400"></i>
+          <div><div class="text-slate-700 dark:text-slate-200">{{ e.description }}</div>
+            <div class="text-xs text-slate-500">{{ e.actor_name }} · {{ e.created_at|ago }}{% if e.rationale %} · <i>{{ e.rationale }}</i>{% endif %}</div></div></li>
+      {% else %}<li class="py-6 text-center text-sm text-slate-400">No recorded activity yet.</li>{% endfor %}
+      </ol>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Employment') %}
+      {% if emp %}
+      {{ ui.dl([('Employee code', emp.employee_code), ('Designation', emp.designation), ('Department', emp.department.name if emp.department else '—'),
+                ('Join date', emp.join_date|date), ('Employment', emp.employment_type|titleize), ('Status', emp.status|titleize),
+                ('CNIC', emp.cnic|mask if emp.cnic else '—'), ('Background check', emp.background_check_status|titleize),
+                ('Device', emp.device_name or '—')]) }}
+      {% else %}<p class="text-sm text-slate-400">No employee record linked.</p>{% endif %}
+    {% endcall %}
+    {% call ui.card('Quality signals') %}
+      <div class="space-y-3">
+        {{ ui.progress(t.qa_score_avg or 0, 'emerald', 'QA average') }}
+        {{ ui.progress(t.punctuality_score or 0, 'sky', 'Punctuality') }}
+        {{ ui.progress(t.retention_rate or 0, 'indigo', 'Student retention') }}
+      </div>
+      <dl class="mt-4 space-y-1.5 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Complaints</dt><dd>{{ complaints }}</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Parent rating</dt><dd>{{ t.rating|round(1) if t.rating else '—' }}</dd></div>
+      </dl>
+    {% endcall %}
+    {% call ui.card('Portal login') %}
+      {% if t.user %}{{ ui.dl([('Email', t.user.email), ('Active', 'Yes' if t.user.is_active else 'No'), ('Last sign-in', t.user.last_login_at|datetime if t.user.last_login_at else 'never'), ('MFA', 'On' if t.user.two_factor_enabled else 'Off')]) }}
+      {% else %}<p class="text-sm text-slate-400">No login provisioned.</p>{% endif %}
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'students' %}
+{{ ui.table_start(['Code', 'Student', 'Course', 'Level', 'Risk', 'Status', 'Parent', '']) }}
+{% for s in students %}
+<tr><td class="px-4 py-2 font-mono text-xs"><a href="/students/{{ s.id }}" class="text-brand-700 dark:text-brand-300">{{ s.student_code }}</a></td>
+  <td class="px-4 py-2 text-sm">{{ s.full_name }}</td><td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.level or '—' }}</td><td class="px-4 py-2">{{ ui.badge(s.risk_level) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm') }}</td></tr>
+{% else %}{{ ui.empty('No students assigned to this teacher.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'schedule' %}
+{% call ui.card("Today's classes") %}
+  {{ ui.table_start(['Time', 'Student', 'Course', 'Status']) }}
+  {% for c in today_sessions %}
+  <tr><td class="px-4 py-2">{{ c.start_time|time }}</td><td class="px-4 py-2 text-sm">{{ c.student.full_name if c.student else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ c.course.name if c.course else '—' }}</td><td class="px-4 py-2">{{ ui.badge(c.status) }}</td></tr>
+  {% else %}{{ ui.empty('No classes scheduled today.', 4) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+<div class="mt-6">
+{% call ui.card('Active recurring schedules') %}
+  {{ ui.table_start(['Days', 'Time', 'Duration', 'Student', 'Course', 'Room']) }}
+  {% for sc in schedules %}
+  <tr><td class="px-4 py-2 text-xs">{% for d in sc.days_of_week %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} {% endfor %}</td>
+    <td class="px-4 py-2">{{ sc.start_time|time }}</td><td class="px-4 py-2 text-xs">{{ sc.duration_minutes }} min</td>
+    <td class="px-4 py-2 text-sm">{{ sc.student.full_name if sc.student else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ sc.course.name if sc.course else '—' }}</td>
+    <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ sc.room_name or '—' }}</td></tr>
+  {% else %}{{ ui.empty('No active schedules.', 6) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+
+{% elif tab == 'performance' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Completion (90d)', stats90.completion_rate ~ '%', icon='check-circle', color='emerald') }}
+  {{ ui.stat('Punctuality (90d)', stats90.punctuality_rate ~ '%', icon='timer', color='sky') }}
+  {{ ui.stat('Missed (90d)', stats90.missed, icon='x-circle', color='rose') }}
+  {{ ui.stat('QA average', t.qa_score_avg|round(1) if t.qa_score_avg else '—', icon='shield-check', color='indigo') }}
+  {{ ui.stat('AI class score', ai_score if ai_score else '—', icon='brain-circuit', color='violet') }}
+</div>
+{% call ui.card('Delivery over the last 8 weeks') %}{{ ui.chart('perfChart', 240) }}{% endcall %}
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Complaints & cases') %}
+    {{ ui.table_start(['Case', 'Title', 'Priority', 'Status']) }}
+    {% for c in complaints %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ c.case_number }}</td><td class="px-4 py-2 text-sm">{{ c.title|truncate(50) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(c.priority) }}</td><td class="px-4 py-2">{{ ui.badge(c.status) }}</td></tr>
+    {% else %}{{ ui.empty('No complaints recorded.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card('Corrective actions') %}
+    {{ ui.table_start(['Description', 'Due', 'Status']) }}
+    {% for a in actions %}
+    <tr><td class="px-4 py-2 text-sm">{{ a.description|truncate(60) }}</td><td class="px-4 py-2 text-xs">{{ a.due_date|date if a.due_date else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(a.status) }}</td></tr>
+    {% else %}{{ ui.empty('No corrective actions.', 3) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'qa' %}
+{% call ui.card('QA reviews') %}
+  {{ ui.table_start(['Date', 'Sample', 'Tajweed', 'Method', 'Engagement', 'Overall', 'Status']) }}
+  {% for r in reviews %}
+  <tr><td class="px-4 py-2 text-xs">{{ r.created_at|date }}</td><td class="px-4 py-2 text-xs">{{ r.sample_type|titleize }}</td>
+    <td class="px-4 py-2">{{ r.tajweed_score or '—' }}</td><td class="px-4 py-2">{{ r.methodology_score or '—' }}</td>
+    <td class="px-4 py-2">{{ r.engagement_score or '—' }}</td>
+    <td class="px-4 py-2 font-semibold">{{ r.overall_score|round(1) if r.overall_score else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(r.status) }}</td></tr>
+  {% else %}{{ ui.empty('No QA reviews yet.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+<div class="mt-6">
+{% call ui.card('AI class analyses') %}
+  {{ ui.table_start(['Date', 'Camera %', 'Active teaching %', 'Engagement', 'Overall', 'Risk', 'Review']) }}
+  {% for a in analyses %}
+  <tr><td class="px-4 py-2 text-xs">{{ a.created_at|date }}</td><td class="px-4 py-2">{{ a.camera_presence_pct|round|int }}</td>
+    <td class="px-4 py-2">{{ a.active_teaching_pct|round|int }}</td><td class="px-4 py-2">{{ a.student_engagement_score|round(1) }}</td>
+    <td class="px-4 py-2 font-semibold">{{ a.overall_score|round(1) }}</td><td class="px-4 py-2">{{ ui.badge(a.risk_level) }}</td>
+    <td class="px-4 py-2">{{ ui.badge(a.review_status) }}</td></tr>
+  {% else %}{{ ui.empty('No AI analyses recorded.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+
+{% elif tab == 'training' %}
+{% if has_perm(user, 'teacher_dev.add') %}
+{% call ui.card('Assign training (Ustaadh Lab)') %}
+  <form method="post" action="/teachers/{{ t.id }}/training" class="grid gap-4 sm:grid-cols-5 items-end">
+    {{ ui.input('title', 'Title', '', required=True, placeholder='Tajweed refresher: rules of Madd') }}
+    {{ ui.select('category', 'Category', ['tajweed','methodology','engagement','technology','conduct'], 'tajweed', placeholder=None) }}
+    {{ ui.input('due_date', 'Due', '', type='date') }}
+    <div class="pt-5">{{ ui.checkbox('is_promotion_gate', 'Promotion gate', False) }}</div>
+    <div>{{ ui.button('Assign', icon='sparkles') }}</div>
+  </form>
+{% endcall %}
+<div class="mt-6"></div>
+{% endif %}
+{{ ui.table_start(['Title', 'Category', 'Assigned', 'Due', 'Score', 'Gate', 'Status']) }}
+{% for a in training %}
+<tr><td class="px-4 py-2 text-sm">{{ a.title }}</td><td class="px-4 py-2 text-xs">{{ a.category|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.created_at|date }}</td><td class="px-4 py-2 text-xs">{{ a.due_date|date if a.due_date else '—' }}</td>
+  <td class="px-4 py-2">{{ a.score if a.score is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ 'Yes' if a.is_promotion_gate else '—' }}</td><td class="px-4 py-2">{{ ui.badge(a.status) }}</td></tr>
+{% else %}{{ ui.empty('No training assigned.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'income' %}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Classes done (' ~ income.period ~ ')', income.classes, icon='video', color='emerald') }}
+  {{ ui.stat('Per-class rate', income.rate|money('PKR'), icon='coins', color='sky') }}
+  {{ ui.stat('Class pay this month', income.class_pay|money('PKR'), icon='banknote', color='brand') }}
+  {{ ui.stat('Base salary', (structure.basic if structure else 0)|money('PKR'), icon='wallet', color='indigo') }}
+</div>
+{% call ui.card('Payslips') %}
+  {{ ui.table_start(['Period', 'Classes', 'Class pay', 'Basic', 'Deductions', 'Net', 'Status']) }}
+  {% for p in payslips %}
+  <tr><td class="px-4 py-2 font-mono text-xs">{{ p.payroll_run.period if p.payroll_run else '—' }}</td>
+    <td class="px-4 py-2">{{ p.classes_taught }}</td><td class="px-4 py-2">{{ p.class_pay|money(p.currency) }}</td>
+    <td class="px-4 py-2">{{ p.basic|money(p.currency) }}</td><td class="px-4 py-2">{{ p.deductions|money(p.currency) }}</td>
+    <td class="px-4 py-2 font-semibold">{{ p.net|money(p.currency) }}</td><td class="px-4 py-2">{{ ui.badge(p.status) }}</td></tr>
+  {% else %}{{ ui.empty('No payslips generated yet.', 7) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+
+{% elif tab == 'audit' %}
+{{ ui.table_start(['When', 'Actor', 'Action', 'Description', 'Rationale']) }}
+{% for e in events %}
+<tr><td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ e.actor_name }}</td>
+  <td class="px-4 py-2">{{ ui.badge(e.action) }}</td><td class="px-4 py-2 text-xs">{{ e.description }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ e.rationale or '—' }}</td></tr>
+{% else %}{{ ui.empty('No audit events.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+
+{% if can_approve %}
+{% call ui.modal('verifyModal', 'Background check & verification') %}
+<form method="post" action="/teachers/{{ t.id }}/verify" class="space-y-4">
+  {{ ui.alert('Verification controls whether this teacher may be matched to students and take live classes with minors. Every change is a consequential audit event.', 'warning') }}
+  {{ ui.select('verified', 'Verification state', [('1','Verified — may take live classes'),('0','Not verified — blocked')], '1' if t.is_verified else '0', placeholder=None) }}
+  {{ ui.textarea('rationale', 'Rationale (required)', '', rows=3, required=True, placeholder='Reference of the DBS / police clearance, interview panel decision, or the reason for withdrawal.') }}
+  <div class="flex gap-2">{{ ui.button('Save verification', icon='shield-check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% if has_perm(user, 'teachers.update') %}
+{% call ui.modal('statusModal', 'Change teacher status') %}
+<form method="post" action="/teachers/{{ t.id }}/status" class="space-y-4">
+  {{ ui.select('status', 'Status', statuses, t.status, placeholder=None) }}
+  {{ ui.textarea('reason', 'Reason (required)', '', rows=3, required=True) }}
+  <div class="flex gap-2">{{ ui.button('Apply', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if tab == 'performance' %}
+<script>
+OQC.bar('perfChart', {{ chart.labels|tojson }}, [
+  {label: 'Done', data: {{ chart.done|tojson }}, backgroundColor: '#10b981'},
+  {label: 'Missed', data: {{ chart.missed|tojson }}, backgroundColor: '#f43f5e'}
+]);
+</script>
+{% endif %}
+{% endblock %}

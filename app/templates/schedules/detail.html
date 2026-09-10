@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Schedule #{{ s.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header((s.student.full_name if s.student else 'Schedule') ~ ' · ' ~ s.start_time.strftime('%H:%M'),
+                       day_label ~ ' · ' ~ s.duration_minutes ~ ' minutes · ' ~ (s.teacher.full_name if s.teacher else 'no teacher'),
+                       back='/schedules') %}
+  {% if has_perm(user, 'schedules.update') %}{{ ui.button('Edit', href='/schedules/' ~ s.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
+  {{ ui.button('Classes', href='/classes?student_id=' ~ s.student_id, icon='video', variant='secondary') }}
+{% endcall %}
+
+<div class="mb-6 flex flex-wrap items-center gap-2">
+  {{ ui.badge(s.status) }}
+  {% if s.is_trial %}{{ ui.badge('trial') }}{% endif %}
+  <span class="text-xs text-slate-500">Room <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">{{ s.room_name }}</code></span>
+  {% if s.shift %}<span class="text-xs text-slate-500">· {{ s.shift.name }}</span>{% endif %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Upcoming classes", "Next 20 generated sessions") %}
+      {{ ui.table_start(['Date','Time','Status','Late','Room',''], compact=True) }}
+      {% for c in upcoming %}
+      <tr>
+        <td class="px-4 py-2 text-xs">{{ c.date|date }}</td>
+        <td class="px-4 py-2 font-mono text-xs">{{ c.start_time|time }}–{{ c.end_time|time }}</td>
+        <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+        <td class="px-4 py-2 text-xs">{{ (c.teacher_late_minutes ~ ' min') if c.teacher_late_minutes else '—' }}</td>
+        <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ c.room_name }}</td>
+        <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/classes/' ~ c.id, size='sm', variant='ghost') }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No upcoming classes. Use “Generate sessions” to materialise them.', 6, 'calendar-plus') }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card("Recent history") %}
+      {{ ui.table_start(['Date','Time','Status','Reason',''], compact=True) }}
+      {% for c in history %}
+      <tr>
+        <td class="px-4 py-2 text-xs">{{ c.date|date }}</td>
+        <td class="px-4 py-2 font-mono text-xs">{{ c.start_time|time }}</td>
+        <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ c.status_reason or '—' }}</td>
+        <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/classes/' ~ c.id, size='sm', variant='ghost') }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No history yet.', 5) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card("Student week", "All schedules for this student across the week") %}
+      {% with scope='student', create_base=None %}{% include "schedules/_grid.html" %}{% endwith %}
+    {% endcall %}
+
+    {% call ui.card("Audit trail") %}
+      <ul class="space-y-3 text-sm">
+        {% for e in events %}
+        <li class="flex gap-3">
+          <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+          <div><div class="text-slate-800 dark:text-slate-100">{{ e.description }}</div>
+            <div class="text-xs text-slate-500">{{ e.actor_name }} · {{ e.created_at|datetime }}{% if e.rationale %} · <i>{{ e.rationale }}</i>{% endif %}</div></div>
+        </li>
+        {% else %}<li class="py-4 text-center text-slate-400">No recorded changes.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Definition") %}
+      {{ ui.dl([('Student', s.student.full_name if s.student else '—'), ('Teacher', s.teacher.full_name if s.teacher else '—'),
+                ('Course', s.course.name if s.course else '—'), ('Days', day_label), ('Start', s.start_time|time),
+                ('Duration', s.duration_minutes ~ ' min'), ('Timezone', s.timezone), ('Start date', s.start_date|date),
+                ('End date', s.end_date|date if s.end_date else 'Open-ended'), ('Shift', s.shift.name if s.shift else '—')]) }}
+      {% if s.notes %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ s.notes }}</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Session totals") %}
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        {% for st, n in counts.items() %}
+        <div class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-1.5 dark:border-slate-800">
+          <span class="text-xs text-slate-500">{{ st|titleize }}</span><b>{{ n }}</b>
+        </div>
+        {% else %}<div class="col-span-2 py-3 text-center text-slate-400">No sessions yet.</div>{% endfor %}
+      </div>
+    {% endcall %}
+
+    {% if has_perm(user, 'schedules.update') %}
+    {% call ui.card("Actions") %}
+      <form method="post" action="/schedules/{{ s.id }}/generate" class="mb-4 flex items-end gap-2">
+        {{ ui.input('days', 'Generate days ahead', 14, type='number', min=1, max=60) }}
+        {{ ui.button('Generate', icon='calendar-plus', variant='secondary', size='sm') }}
+      </form>
+      <form method="post" action="/schedules/{{ s.id }}/status" class="space-y-3">
+        {{ ui.select('status', 'Change status', [('active','Resume (active)'),('paused','Pause'),('ended','End')], s.status, placeholder=None) }}
+        {{ ui.textarea('reason', 'Reason', '', rows=2, required=True, help='Required — future pending classes are cancelled and parents notified.') }}
+        {{ ui.button('Apply', icon='refresh-cw', variant='warning') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

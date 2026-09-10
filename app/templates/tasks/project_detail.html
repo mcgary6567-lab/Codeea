@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% import "tasks/_fields.html" as tf %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(p.name, (p.code or 'Project') ~ " · " ~ (p.owner.full_name if p.owner else 'no owner') ~ (" · " ~ p.department.name if p.department else ''), back="/tasks/projects") %}
+  {{ ui.badge(p.status) }} {{ ui.badge(p.priority) }}
+  {{ ui.button('Sprint board', href='/tasks/projects/' ~ p.id ~ '/sprints', icon='rocket', variant='secondary') }}
+  {{ ui.button('Edit', icon='pencil', variant='secondary', type='button', attrs='@click="$dispatch(\'open-modal\',\'editProject\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('Progress', pct ~ '%', icon='trending-up', color='brand', hint=done ~ ' of ' ~ total ~ ' tasks done') }}
+  {{ ui.stat('Tasks', total, icon='list-checks', color='sky') }}
+  {{ ui.stat('Sprints', sprints|length, icon='rocket', color='indigo') }}
+  {{ ui.stat('Milestones achieved', achieved, icon='flag', color='emerald', hint=missed ~ ' missed') }}
+  {{ ui.stat('Target end', p.end_date|date if p.end_date else '—', icon='calendar', color='amber') }}
+</div>
+
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Board", "Tasks in this project") %}
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {% for key, label, color in columns %}
+      <div class="rounded-lg bg-slate-50/70 p-2.5 dark:bg-slate-800/40">
+        <div class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+          <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-{{ color }}-500"></span>{{ label }}</span>
+          <span class="text-slate-400">{{ board[key]|length }}</span>
+        </div>
+        <div class="space-y-2">
+          {% for t in board[key] %}{{ tf.task_card(t, today()) }}{% else %}<div class="py-4 text-center text-[11px] text-slate-400">Empty</div>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Milestones", achieved ~ " achieved · " ~ missed ~ " missed") %}
+      <ul class="mb-4 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for m in milestones %}
+        <li class="flex items-center gap-2 py-2">
+          <div class="min-w-0 flex-1">
+            <div class="truncate font-medium text-slate-800 dark:text-slate-100">{{ m.title }}</div>
+            <div class="text-xs text-slate-500">{{ m.due_date|date if m.due_date else 'no date' }}{% if m.achieved_at %} · achieved {{ m.achieved_at|date }}{% endif %}</div>
+          </div>
+          {{ ui.badge(m.status) }}
+          {% if m.status == 'pending' %}
+          <form method="post" action="/tasks/milestones/{{ m.id }}/status"><input type="hidden" name="status" value="achieved">
+            <button class="rounded-md px-1.5 py-1 text-slate-400 hover:text-emerald-600" title="Mark achieved"><i data-lucide="check" class="h-3.5 w-3.5"></i></button></form>
+          <form method="post" action="/tasks/milestones/{{ m.id }}/status"><input type="hidden" name="status" value="missed">
+            <button class="rounded-md px-1.5 py-1 text-slate-400 hover:text-rose-600" title="Mark missed"><i data-lucide="x" class="h-3.5 w-3.5"></i></button></form>
+          {% endif %}
+        </li>
+        {% else %}<li class="py-4 text-center text-xs text-slate-400">No milestones defined.</li>{% endfor %}
+      </ul>
+      <form method="post" action="/tasks/projects/{{ p.id }}/milestones/create" class="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+        {{ ui.input('title', 'New milestone', '', required=True) }}
+        {{ ui.input('due_date', 'Due date', '', type='date') }}
+        {{ ui.button('Add milestone', icon='flag', size='sm', variant='secondary') }}
+      </form>
+    {% endcall %}
+
+    {% call ui.card("Sprints") %}
+      <ul class="mb-4 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for s in sprints %}
+        <li class="flex items-center gap-2 py-2">
+          <a href="/tasks/projects/{{ p.id }}/sprints?sprint_id={{ s.id }}" class="min-w-0 flex-1 hover:text-brand-700">
+            <div class="truncate font-medium text-slate-800 dark:text-slate-100">{{ s.name }}</div>
+            <div class="text-xs text-slate-500">{{ s.start_date|date('%d %b') }} – {{ s.end_date|date('%d %b') }}</div>
+          </a>
+          {{ ui.badge(s.status) }}
+        </li>
+        {% else %}<li class="py-4 text-center text-xs text-slate-400">No sprints yet.</li>{% endfor %}
+      </ul>
+      <form method="post" action="/tasks/projects/{{ p.id }}/sprints/create" class="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+        {{ ui.input('name', 'Sprint name', '', required=True, placeholder='Sprint 4') }}
+        <div class="grid grid-cols-2 gap-2">{{ ui.input('start_date', 'Start', '', type='date') }}{{ ui.input('end_date', 'End', '', type='date') }}</div>
+        {{ ui.textarea('goal', 'Goal', '', rows=2) }}
+        {{ ui.button('Add sprint', icon='rocket', size='sm', variant='secondary') }}
+      </form>
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('editProject', 'Edit project') %}
+<form method="post" action="/tasks/projects/{{ p.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('name', 'Project name', p.name, required=True) }}</div>
+    {{ ui.select('status', 'Status', ['planning','active','on_hold','completed','cancelled'], p.status, placeholder=None) }}
+    {{ ui.select('priority', 'Priority', opts.priorities, p.priority, placeholder=None) }}
+    {{ ui.select('owner_id', 'Owner', opts.users, p.owner_id, placeholder='— None —') }}
+    {{ ui.select('department_id', 'Department', opts.departments, p.department_id, placeholder='— None —') }}
+    {{ ui.input('start_date', 'Start', p.start_date, type='date') }}
+    {{ ui.input('end_date', 'Target end', p.end_date, type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', p.description, rows=3) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

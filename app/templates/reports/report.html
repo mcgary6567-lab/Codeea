@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ meta.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(meta.name, meta.description, back='/reports') %}
+  {{ ui.button("XLSX", href='/reports/' ~ meta.key ~ '/export?format=xlsx&' ~ qs, icon="file-spreadsheet", variant="secondary") }}
+  {{ ui.button("CSV", href='/reports/' ~ meta.key ~ '/export?format=csv&' ~ qs, icon="download", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Rows', total, icon='rows-3', color='brand') }}
+  {{ ui.stat('Columns', headers|length, icon='columns-3', color='indigo') }}
+  {{ ui.stat('Period', p.start.strftime('%d %b') ~ ' – ' ~ p.end.strftime('%d %b %Y'), icon='calendar', color='sky', hint=((p.end - p.start).days + 1)|string ~ ' days') }}
+  {{ ui.stat('Group', meta.group, icon='layers', color='violet') }}
+</div>
+
+<form method="get" action="/reports/{{ meta.key }}" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  {% if 'range' in meta.params or not meta.params %}
+  <div class="w-40">{{ ui.input('start', 'From', p.start.isoformat(), type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', p.end.isoformat(), type='date') }}</div>
+  {% endif %}
+  {% if 'department' in meta.params %}<div class="w-48">{{ ui.select('department_id', 'Department', opts.departments, p.department_id, placeholder='All') }}</div>{% endif %}
+  {% if 'teacher' in meta.params %}<div class="w-52">{{ ui.select('teacher_id', 'Teacher', opts.teachers, p.teacher_id, placeholder='All teachers') }}</div>{% endif %}
+  {% if 'course' in meta.params %}<div class="w-48">{{ ui.select('course_id', 'Course', opts.courses, p.course_id, placeholder='All courses') }}</div>{% endif %}
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Run report</button>
+  <a href="/reports/{{ meta.key }}" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{% if note %}<div class="mb-4">{{ ui.alert(note, 'warning') }}</div>{% endif %}
+
+{% if headers %}
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+    <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+      {% for h in headers %}<th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">{{ h }}</th>{% endfor %}
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for row in rows %}
+      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+        {% for cell in row %}
+        <td class="px-4 py-2 {{ 'font-medium text-slate-800 dark:text-slate-100' if loop.first else 'text-slate-600 dark:text-slate-300' }} {{ 'text-right tabular-nums' if cell is number and not loop.first }} whitespace-nowrap">
+          {% if cell is none or cell == '' %}<span class="text-slate-300">—</span>{% else %}{{ cell }}{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ headers|length }}" class="px-4 py-12 text-center text-slate-400">
+        <i data-lucide="inbox" class="mx-auto mb-2 h-8 w-8 opacity-50"></i>No rows for these parameters.</td></tr>
+      {% endfor %}
+      {% if totals and rows %}
+      <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60">
+        {% for cell in totals %}<td class="px-4 py-2 whitespace-nowrap text-slate-800 dark:text-slate-100">{{ cell if cell not in (None, '') else '' }}</td>{% endfor %}
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<div class="mt-4 flex items-center justify-between text-sm text-slate-500">
+  <div>Showing <b>{{ start_index }}</b>–<b>{{ end_index }}</b> of <b>{{ total }}</b> rows</div>
+  <div class="inline-flex items-center gap-1">
+    <a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no - 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if page_no <= 1 }} dark:border-slate-700">‹</a>
+    <span class="px-2">Page {{ page_no }} of {{ pages }}</span>
+    <a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no + 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if page_no >= pages }} dark:border-slate-700">›</a>
+  </div>
+</div>
+{% elif total %}<div class="mt-3 text-xs text-slate-500">{{ total }} row{{ 's' if total != 1 }}</div>{% endif %}
+{% else %}
+{{ ui.empty_state('This report could not be built with the current data.', 'bar-chart-3') }}
+{% endif %}
+
+{% if related %}
+<div class="mt-6">
+  {% call ui.card('Related reports', meta.group) %}
+  <div class="flex flex-wrap gap-2">
+    {% for r in related %}
+    <a href="/reports/{{ r.key }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:text-slate-300">
+      <i data-lucide="{{ r.icon }}" class="h-3.5 w-3.5"></i>{{ r.name }}</a>
+    {% endfor %}
+  </div>
+  {% endcall %}
+</div>
+{% endif %}
+{% endblock %}

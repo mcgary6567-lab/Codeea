@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ustaadh Lab{% endblock %}
+{% block content %}
+{{ ui.page_header('Ustaadh Lab', 'Your development assignments. Items marked as a promotion gate must be completed before a grade change is considered.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Assigned', rows|length, icon='sparkles', color='brand') }}
+  {{ ui.stat('In progress', rows|selectattr('status', 'equalto', 'in_progress')|list|length, icon='loader', color='sky') }}
+  {{ ui.stat('Completed', rows|selectattr('status', 'equalto', 'completed')|list|length, icon='check-circle', color='emerald') }}
+  {{ ui.stat('Promotion gates', rows|selectattr('is_promotion_gate')|list|length, icon='lock', color='amber') }}
+</div>
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+{% for a in rows %}
+<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-start justify-between gap-2">
+    <div class="min-w-0">
+      <div class="font-medium text-slate-900 dark:text-white">{{ a.title }}</div>
+      <div class="mt-0.5 text-xs text-slate-500">{{ a.category|titleize }}{% if a.is_promotion_gate %} · <span class="font-medium text-amber-600">promotion gate</span>{% endif %}</div>
+    </div>
+    {{ ui.badge(a.status) }}
+  </div>
+  {% if a.description %}<p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ a.description }}</p>{% endif %}
+  <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+    <span>Due {{ a.due_date|date if a.due_date else 'no deadline' }}</span>
+    {% if a.score is not none %}<span class="font-semibold text-brand-700 dark:text-brand-300">Score {{ a.score }}</span>{% endif %}
+  </div>
+  {% if a.status in ['assigned', 'in_progress'] %}
+  <div class="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+    {% if a.status == 'assigned' %}
+    <form method="post" action="/teacher/training/{{ a.id }}/status"><input type="hidden" name="status" value="in_progress">{{ ui.button('Start', size='sm', variant='secondary', icon='play') }}</form>
+    {% endif %}
+    <form method="post" action="/teacher/training/{{ a.id }}/status"><input type="hidden" name="status" value="completed">{{ ui.button('Mark complete', size='sm', variant='success', icon='check') }}</form>
+  </div>
+  {% elif a.completed_at %}
+  <div class="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800">Completed {{ a.completed_at|date }}</div>
+  {% endif %}
+</div>
+{% else %}
+<div class="sm:col-span-2 xl:col-span-3">{{ ui.empty_state('No training assigned right now.', 'sparkles') }}</div>
+{% endfor %}
+</div>
+{% endblock %}

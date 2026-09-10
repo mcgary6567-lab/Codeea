@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Failed messages{% endblock %}
+{% block content %}
+{% call ui.page_header('Failed messages', 'Delivery failures from the WhatsApp Cloud API adapter', back='/crm/inbox') %}
+  <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ring-inset {{ integration.health|badge }}">
+    <i data-lucide="plug" class="h-3 w-3"></i>{{ integration.name }}: {{ integration.status|titleize }}</span>
+{% endcall %}
+{% if integration.last_error %}{{ ui.alert(integration.last_error, 'error', 'Last provider error') }}<div class="mb-4"></div>{% endif %}
+{{ ui.table_start(['Contact','Message','Template','Error','When','']) }}
+{% for m in messages %}
+<tr>
+  <td class="px-4 py-2"><a href="/crm/inbox?c={{ m.conversation_id }}" class="font-medium hover:text-brand-600">{{ m.conversation.contact_name if m.conversation else '—' }}</a>
+    <div class="text-[11px] text-slate-400">{{ m.conversation.contact_phone if m.conversation else '' }}</div></td>
+  <td class="px-4 py-2 text-xs max-w-md truncate">{{ m.body }}</td>
+  <td class="px-4 py-2 text-xs">{{ m.template_name or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ m.error or 'Unknown error' }}</td>
+  <td class="px-4 py-2 text-xs">{{ m.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'inbox.update') %}{{ ui.confirm_form('/crm/inbox/failed/' ~ m.id ~ '/retry', 'Retry', icon='refresh-cw', variant='secondary', message='Retry sending this message?') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No failed messages — the outbound queue is healthy.', 6, 'check-circle-2') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

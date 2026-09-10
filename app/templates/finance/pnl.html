@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Profit & loss{% endblock %}
+{% block content %}
+{% call ui.page_header("Profit & loss", label ~ " · consolidated in " ~ base) %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<form method="get" action="/finance/accounts/pnl" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-40">{{ ui.select('scope', 'Scope', [('month', 'Month'), ('quarter', 'Quarter to date'), ('ytd', 'Year to date')], scope, placeholder=None) }}</div>
+  <div class="w-40">{{ ui.select('period', 'Month', periods, period, placeholder=None) }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Apply</button>
+</form>
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Income", pl.total_income|money(base), icon="trending-up", color="emerald") }}
+  {{ ui.stat("Expenses", pl.total_expenses|money(base), icon="trending-down", color="rose") }}
+  {{ ui.stat("Net result", pl.net|money(base), icon="scale", color=('emerald' if pl.net >= 0 else 'rose')) }}
+  {{ ui.stat("Net margin", pl.margin_pct|string ~ "%", icon="percent", color="brand") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="space-y-5">
+    {% call ui.card("Income", pl.period_start|string ~ ' → ' ~ pl.period_end|string) %}
+    {{ ui.table_start(['Code', 'Account', 'Amount']) }}
+    {% for r in pl.income %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ r.code }}</td><td class="px-4 py-2 text-sm">{{ r.name }}</td>
+      <td class="px-4 py-2 text-right font-medium text-emerald-600">{{ r.amount|money }}</td></tr>
+    {% else %}{{ ui.empty('No income posted in this period.', 3) }}{% endfor %}
+    <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2" colspan="2">Total income</td><td class="px-4 py-2 text-right">{{ pl.total_income|money }}</td></tr>
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div class="space-y-5">
+    {% call ui.card("Expenses") %}
+    {{ ui.table_start(['Code', 'Account', 'Amount']) }}
+    {% for r in pl.expenses %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ r.code }}</td><td class="px-4 py-2 text-sm">{{ r.name }}</td>
+      <td class="px-4 py-2 text-right font-medium text-rose-600">{{ r.amount|money }}</td></tr>
+    {% else %}{{ ui.empty('No expenses posted in this period.', 3) }}{% endfor %}
+    <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2" colspan="2">Total expenses</td><td class="px-4 py-2 text-right">{{ pl.total_expenses|money }}</td></tr>
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("Six-month trend") %}
+    {{ ui.chart('pnlChart', 300) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('pnlChart', {{ months|map(attribute='label')|list|tojson }}, [
+  { label: 'Income', data: {{ months|map(attribute='income')|list|tojson }} },
+  { label: 'Expenses', data: {{ months|map(attribute='expenses')|list|tojson }} }
+]);
+</script>
+{% endblock %}

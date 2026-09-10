@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My certificates{% endblock %}
+{% block content %}
+{{ ui.page_header('My certificates', 'Certificates you have earned. Each one carries a verifiable number.') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+{% for cert in rows %}
+<div class="rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/10"><i data-lucide="award" class="h-6 w-6"></i></div>
+  <div class="font-semibold text-slate-900 dark:text-white">{{ cert.title }}</div>
+  {% if cert.course %}<div class="mt-1 text-xs text-slate-500">{{ cert.course.name }}</div>{% endif %}
+  <div class="mt-2 font-mono text-[11px] text-slate-400">{{ cert.certificate_number }}</div>
+  <div class="mt-1 text-xs text-slate-500">Issued {{ cert.issued_at|date }}</div>
+  {% if cert.pdf_path %}<div class="mt-4">{{ ui.button('Download', href='/storage/' ~ cert.pdf_path, icon='download', size='sm', variant='secondary') }}</div>{% endif %}
+</div>
+{% else %}
+<div class="sm:col-span-2 xl:col-span-4">{{ ui.empty_state('No certificates yet — keep going, they are issued when you finish a level.', 'award') }}</div>
+{% endfor %}
+</div>
+{% endblock %}

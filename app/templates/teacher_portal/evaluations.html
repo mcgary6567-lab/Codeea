@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Evaluations{% endblock %}
+{% block content %}
+{{ ui.page_header('Evaluations', 'Weekly and level-completion assessments. Parents are notified as soon as you save one.') }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div>
+    {% call ui.card('New evaluation') %}
+      <form method="post" action="/teacher/evaluations" class="space-y-3">
+        {{ ui.select('student_id', 'Student', student_options, None, required=True) }}
+        {{ ui.select('evaluation_type', 'Type', ['weekly','monthly','level_completion','trial','manual'], 'weekly', placeholder=None) }}
+        {{ ui.input('date', 'Date', today_d.isoformat(), type='date') }}
+        <div class="grid grid-cols-2 gap-3">
+          {{ ui.input('tajweed', 'Tajweed /10', '', type='number', min=0, max=10, step='0.5') }}
+          {{ ui.input('fluency', 'Fluency /10', '', type='number', min=0, max=10, step='0.5') }}
+          {{ ui.input('memorisation', 'Memorisation /10', '', type='number', min=0, max=10, step='0.5') }}
+          {{ ui.input('attitude', 'Attitude /10', '', type='number', min=0, max=10, step='0.5') }}
+        </div>
+        {{ ui.textarea('teacher_comment', 'Comment for the parent', '', rows=3, placeholder='Strengths, what to practise at home…') }}
+        <div class="flex gap-2">{{ ui.button('Save evaluation', icon='clipboard-check') }}</div>
+      </form>
+    {% endcall %}
+  </div>
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Date', 'Student', 'Type', 'Score', 'Criteria', 'Result', 'Comment']) }}
+    {% for e in page.items %}
+    <tr><td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.date|date }}</td>
+      <td class="px-4 py-2 text-sm">{{ e.student.full_name if e.student else '—' }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.evaluation_type|titleize }}</td>
+      <td class="px-4 py-2 font-semibold">{{ e.score if e.score is not none else '—' }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{% for k, v in (e.criteria or {}).items() %}{{ k|titleize }} {{ v }} · {% endfor %}</td>
+      <td class="px-4 py-2">{{ ui.badge(e.result) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ (e.teacher_comment or '—')|truncate(50) }}</td></tr>
+    {% else %}{{ ui.empty('No evaluations recorded yet.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+</div>
+{% endblock %}

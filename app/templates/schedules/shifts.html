@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Shifts{% endblock %}
+{% block content %}
+{% call ui.page_header("Shifts", "Operating windows with the accountable manager and supervisor", back="/schedules") %}
+  {% if has_perm(user, 'schedules.add') %}{{ ui.button("New shift", icon="plus", attrs='@click="$dispatch(\'open-modal\',\'newShift\')" type="button"') }}{% endif %}
+{% endcall %}
+
+{{ ui.table_start(['Shift','Group','Window','Manager','Supervisor','Active schedules','Status','']) }}
+{% for s in shifts %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-medium">{{ s.name }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.group|titleize }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }} – {{ s.end_time|time }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.manager.full_name if s.manager else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.supervisor.full_name if s.supervisor else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ load.get(s.id, 0) }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if s.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'schedules.update') %}<button type="button" @click="edit = !edit" class="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+  </td>
+</tr>
+{% if has_perm(user, 'schedules.update') %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4 dark:bg-slate-800/50">
+  <form method="post" action="/schedules/shifts/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    {{ ui.input('name', 'Name', s.name, required=True) }}
+    {{ ui.select('group', 'Group', groups, s.group, placeholder=None) }}
+    {{ ui.input('start_time', 'Start', s.start_time.strftime('%H:%M'), type='time') }}
+    {{ ui.input('end_time', 'End', s.end_time.strftime('%H:%M'), type='time') }}
+    {{ ui.select('manager_id', 'Manager', staff_options, s.manager_id, placeholder='—') }}
+    {{ ui.select('supervisor_id', 'Supervisor', staff_options, s.supervisor_id, placeholder='—') }}
+    <div class="flex items-end gap-3 sm:col-span-3">
+      {{ ui.checkbox('is_active', 'Active', s.is_active) }}
+      {{ ui.button('Save shift', icon='save', size='sm') }}
+    </div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No shifts configured yet.', 8, 'clock') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if has_perm(user, 'schedules.add') %}
+{% call ui.modal('newShift', 'New shift') %}
+<form method="post" action="/schedules/shifts/new" class="space-y-4">
+  {{ ui.input('name', 'Shift name', '', required=True, placeholder='e.g. Late Night Shift') }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('group', 'Group', groups, 'morning', placeholder=None) }}
+    <div></div>
+    {{ ui.input('start_time', 'Start time', '20:00', type='time', required=True) }}
+    {{ ui.input('end_time', 'End time', '04:00', type='time', required=True) }}
+    {{ ui.select('manager_id', 'Manager', staff_options, none, placeholder='— Select —') }}
+    {{ ui.select('supervisor_id', 'Supervisor', staff_options, none, placeholder='— Select —') }}
+  </div>
+  {{ ui.button('Create shift', icon='plus') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

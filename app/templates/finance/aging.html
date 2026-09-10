@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Receivables aging{% endblock %}
+{% block content %}
+{% call ui.page_header("Receivables aging", "Open invoice balances bucketed by days past due, consolidated in " ~ base ~ ".") %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Total receivable", data.total|money(base), icon="receipt", color="brand", hint=data.count|string ~ " open invoices") }}
+  {{ ui.stat("Not yet due", data.buckets.current.amount|money(base), icon="clock", color="sky", hint=data.buckets.current.count|string ~ " invoices") }}
+  {{ ui.stat("1–30 days", data.buckets['1_30'].amount|money(base), icon="alarm-clock", color="amber", hint=data.buckets['1_30'].count|string ~ " invoices") }}
+  {{ ui.stat("31–60 days", data.buckets['31_60'].amount|money(base), icon="alarm-clock", color="orange", hint=data.buckets['31_60'].count|string ~ " invoices") }}
+  {{ ui.stat("60+ days", data.buckets['60_plus'].amount|money(base), icon="triangle-alert", color="rose", hint=data.buckets['60_plus'].count|string ~ " invoices") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% for key, b in data.buckets.items() %}
+    {% call ui.card(b.label, (b.count|string) ~ ' invoices · ' ~ (b.amount|money(base))) %}
+    {{ ui.table_start(['Invoice', 'Family', 'Due', 'Total', 'Balance', 'Status']) }}
+    {% for i in b.invoices[:15] %}
+    <tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/invoices/{{ i.id }}">{{ i.invoice_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ i.client.full_name if i.client else '' }}</td>
+      <td class="px-4 py-2 text-xs">{{ i.due_date|date }}</td>
+      <td class="px-4 py-2 text-right">{{ i.total|money(i.currency) }}</td>
+      <td class="px-4 py-2 text-right font-medium">{{ i.balance|money }}</td>
+      <td class="px-4 py-2">{{ ui.badge(i.status) }}</td></tr>
+    {% else %}{{ ui.empty('Nothing in this bucket.', 6, icon='check-circle-2') }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% endfor %}
+  </div>
+  <div>
+    {% call ui.card("Distribution") %}
+    {{ ui.chart('ageChart', 300) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>OQC.doughnut('ageChart', {{ labels|tojson }}, {{ values|tojson }});</script>
+{% endblock %}

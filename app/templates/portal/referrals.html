@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Refer a family{% endblock %}
+{% block content %}
+{{ ui.page_header('Refer a family', 'Share your personal link. When a family you refer starts paid classes, a credit is applied to your account automatically.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Referrals', rows|length, icon='gift', color='brand') }}
+  {{ ui.stat('Signed up', rows|selectattr('status', 'in', ['signed_up','qualified','credited'])|list|length, icon='user-check', color='sky') }}
+  {{ ui.stat('Qualified', qualified, icon='check-circle', color='emerald') }}
+  {{ ui.stat('Credits earned', total_credit|money(c.currency), icon='wallet', color='amber') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Your referral link') %}
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="rounded-lg bg-slate-900 px-4 py-2 font-mono text-lg font-bold tracking-widest text-white dark:bg-slate-700">{{ c.referral_code }}</div>
+        <div class="min-w-0 flex-1">
+          <input readonly value="{{ link }}" onclick="this.select()"
+                 class="w-full select-all rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-800">
+          <p class="mt-1 text-xs text-slate-500">Send this link on WhatsApp. It opens the registration form with your code already applied.</p>
+        </div>
+      </div>
+      <div class="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+        <b>How it works:</b> the family registers with your link, takes a free trial and starts classes. Once their first month is paid, the referral is marked qualified and the credit is posted to your account statement.
+      </div>
+    {% endcall %}
+    {% call ui.card('Referral ledger') %}
+      {{ ui.table_start(['Referred family', 'Invited', 'Qualified', 'Credit', 'Status']) }}
+      {% for r in rows %}
+      <tr><td class="px-4 py-2 text-sm">{{ r.referred_name or (r.referred_client.full_name if r.referred_client else '—') }}
+          <div class="text-xs text-slate-500">{{ r.referred_phone|mask if r.referred_phone else '' }}</div></td>
+        <td class="px-4 py-2 text-xs">{{ r.invited_at|date if r.invited_at else r.created_at|date }}</td>
+        <td class="px-4 py-2 text-xs">{{ r.qualified_at|date if r.qualified_at else '—' }}</td>
+        <td class="px-4 py-2">{{ r.credit_amount|money(r.credit_currency) if r.credit_amount else '—' }}</td>
+        <td class="px-4 py-2">{{ ui.badge(r.status) }}</td></tr>
+      {% else %}{{ ui.empty('No referrals yet — share your link to get started.', 5) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Credits on your account') %}
+      <ol class="space-y-3">
+      {% for e in credits %}
+        <li class="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 dark:border-slate-800">
+          <div><div class="text-sm text-slate-700 dark:text-slate-200">{{ e.description }}</div>
+            <div class="text-xs text-slate-500">{{ e.entry_date|date }}</div></div>
+          <div class="shrink-0 font-semibold text-emerald-600">{{ e.credit|money(e.currency) }}</div>
+        </li>
+      {% else %}<li class="py-6 text-center text-sm text-slate-400">No credits yet.</li>{% endfor %}
+      </ol>
+      <div class="mt-4">{{ ui.button('View statement', href='/portal/billing', variant='secondary', size='sm', icon='receipt') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

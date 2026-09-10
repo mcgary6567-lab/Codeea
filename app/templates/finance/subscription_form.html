@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New subscription{% endblock %}
+{% block content %}
+{% call ui.page_header("New subscription", "Pricing is governed: discounts follow the approval ladder and no price may fall below the teacher-cost floor.", back='/finance/subscriptions') %}{% endcall %}
+
+<form method="post" action="/finance/subscriptions/new"
+      x-data="subForm({{ students_by_client|tojson }}, {{ client_meta|tojson }}, {{ packages|tojson }}, {{ teacher_rates|tojson }}, {{ rates|tojson }}, {{ thresholds|tojson }}, '{{ client_id }}', '{{ student_id }}')"
+      class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card("Family & student") %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Client / family <span class="text-rose-500">*</span></label>
+        <select name="client_id" required x-model="clientId" @change="onClient()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="">— Select family —</option>
+          {% for cid, label in client_options %}<option value="{{ cid }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Student <span class="text-rose-500">*</span></label>
+        <select name="student_id" required x-model="studentId" @change="onStudent()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="">— Select student —</option>
+          <template x-for="s in students" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+        </select>
+        <p class="mt-1 text-xs text-slate-500" x-show="clientId" x-text="'Country: ' + country + ' · default currency ' + currency"></p>
+      </div>
+    </div>
+    {% endcall %}
+
+    {% call ui.card("Package & schedule") %}
+    <div class="grid gap-4 sm:grid-cols-3">
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Package</label>
+        <select name="package_id" x-model="packageId" @change="onPackage()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="">— Custom pricing —</option>
+          <template x-for="p in packagesForCountry" :key="p.id">
+            <option :value="p.id" x-text="p.name + ' — ' + p.currency + ' ' + p.price.toLocaleString() + (p.country ? ' · ' + p.country : '')"></option>
+          </template>
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Packages matching the family's country are listed first.</p>
+      </div>
+      <div>{{ ui.input('sessions_per_week', 'Sessions / week', '', type='number', attrs='x-model.number="spw" min="1" max="7"', required=True) }}</div>
+      <div>{{ ui.input('price', 'List price (monthly)', '', type='number', step='0.01', attrs='x-model.number="price"', required=True) }}</div>
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Currency <span class="text-rose-500">*</span></label>
+        <select name="currency" required x-model="currency" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          {% for c in currencies %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>{{ ui.input('start_date', 'Start date', today().isoformat() if today else '', type='date', required=True) }}</div>
+    </div>
+    {% endcall %}
+
+    {% call ui.card("Teacher") %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Assigned teacher (verified only) <span class="text-rose-500">*</span></label>
+        <select name="teacher_id" required x-model="teacherId" @change="recalc()" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="">— Select teacher —</option>
+          {% for tid, label in teacher_options %}<option value="{{ tid }}">{{ label }}</option>{% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Defaults to the student's current teacher. Only background-checked teachers appear.</p>
+      </div>
+      <div class="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
+        <div class="flex justify-between py-0.5"><span class="text-slate-500">Teacher monthly cost</span><b x-text="fmt(cost) + ' {{ base }}'"></b></div>
+        <div class="flex justify-between py-0.5"><span class="text-slate-500">Cost floor (+{{ thresholds.floor_margin|round(0)|int }}%)</span><b x-text="fmt(floor) + ' {{ base }}'"></b></div>
+        <div class="flex justify-between py-0.5"><span class="text-slate-500">Final price in base</span><b x-text="fmt(finalBase) + ' {{ base }}'"></b></div>
+        <div class="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700" :class="finalBase >= floor ? 'text-emerald-600' : 'text-rose-600'">
+          <span x-text="finalBase >= floor ? 'Margin ' + margin + '% — above the floor' : 'Below the teacher-cost floor — this will be rejected'"></span>
+        </div>
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card("Discount & financial aid") %}
+    <div class="space-y-4">
+      {{ ui.input('discount_pct', 'Discount %', '0', type='number', step='0.5', attrs='x-model.number="discount" min="0" max="100"') }}
+      <div class="rounded-lg border px-3 py-2 text-xs font-medium"
+           :class="tierClass">
+        <span x-text="tierText"></span>
+      </div>
+      <p class="text-[11px] leading-relaxed text-slate-500">0–{{ thresholds.manager_max|round(0)|int }}% manager · {{ (thresholds.manager_max + 1)|round(0)|int }}–{{ thresholds.ceo_max|round(0)|int }}% CEO · &gt;{{ thresholds.ceo_max|round(0)|int }}% blocked</p>
+      {{ ui.select('scholarship_id', 'Scholarship (recorded separately)', scholarship_options, None, placeholder='— No scholarship —', help='Financial aid is never recorded as a discount.') }}
+      {{ ui.textarea('rationale', 'Rationale', '', rows=3, help='Required whenever a discount is applied. Stored on the audit trail.') }}
+    </div>
+    {% endcall %}
+
+    {% call ui.card("Summary") %}
+    <dl class="space-y-1.5 text-sm">
+      <div class="flex justify-between"><dt class="text-slate-500">List price</dt><dd x-text="fmt(price) + ' ' + currency"></dd></div>
+      <div class="flex justify-between"><dt class="text-slate-500">Discount</dt><dd class="text-amber-600" x-text="'-' + fmt(discountAmount) + ' ' + currency"></dd></div>
+      <div class="flex justify-between border-t border-slate-200 pt-1.5 font-semibold dark:border-slate-700"><dt>Monthly price</dt><dd x-text="fmt(finalPrice) + ' ' + currency"></dd></div>
+    </dl>
+    <div class="mt-4 flex gap-2">
+      {{ ui.button('Create subscription', icon='check') }}
+      {{ ui.button('Cancel', href='/finance/subscriptions', variant='secondary') }}
+    </div>
+    {% endcall %}
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function subForm(studentsByClient, clientMeta, packages, teacherRates, rates, thresholds, preClient, preStudent) {
+  return {
+    studentsByClient, clientMeta, packages, teacherRates, rates, thresholds,
+    clientId: preClient || '', studentId: preStudent || '', packageId: '', teacherId: '',
+    price: 0, currency: 'GBP', spw: 3, discount: 0, country: '',
+    init() { if (this.clientId) { this.onClient(); if (preStudent) { this.studentId = preStudent; this.onStudent(); } } },
+    get students() { return this.studentsByClient[this.clientId] || []; },
+    get packagesForCountry() {
+      var c = this.country;
+      return this.packages.slice().sort(function (a, b) { return (b.country === c) - (a.country === c); });
+    },
+    onClient() {
+      var m = this.clientMeta[this.clientId] || {};
+      this.country = m.country || ''; this.currency = m.currency || this.currency;
+      this.studentId = ''; this.packageId = '';
+      var best = this.packagesForCountry[0];
+      if (best && best.country === this.country) { this.packageId = String(best.id); this.onPackage(); }
+    },
+    onStudent() {
+      var s = (this.students || []).find(function (x) { return String(x.id) === String(this.studentId); }.bind(this));
+      if (s && s.teacher_id) { this.teacherId = String(s.teacher_id); }
+      this.recalc();
+    },
+    onPackage() {
+      var p = this.packages.find(function (x) { return String(x.id) === String(this.packageId); }.bind(this));
+      if (p) { this.price = p.price; this.currency = p.currency; this.spw = p.spw; }
+      this.recalc();
+    },
+    recalc() {},
+    get rate() { return this.rates[this.currency] || 1; },
+    get discountAmount() { return Math.round(this.price * (this.discount || 0)) / 100; },
+    get finalPrice() { return Math.max(0, Math.round((this.price - this.discountAmount) * 100) / 100); },
+    get finalBase() { return Math.round(this.finalPrice * this.rate * 100) / 100; },
+    get cost() { return Math.round((this.teacherRates[this.teacherId] || 0) * (this.spw || 0) * 4.33 * 100) / 100; },
+    get floor() { return Math.round(this.cost * (1 + this.thresholds.floor_margin / 100) * 100) / 100; },
+    get margin() { return this.finalBase > 0 ? Math.round((this.finalBase - this.cost) / this.finalBase * 100) : 0; },
+    get tier() {
+      var d = this.discount || 0;
+      if (d <= 0) return 'none';
+      if (d <= this.thresholds.manager_max) return 'manager';
+      if (d <= this.thresholds.ceo_max) return 'ceo';
+      return 'prohibited';
+    },
+    get tierText() {
+      return { none: 'No discount — the subscription activates immediately.',
+               manager: 'Manager approval required (0–' + this.thresholds.manager_max + '%). The subscription starts as pending approval.',
+               ceo: 'CEO approval required (' + (this.thresholds.manager_max + 1) + '–' + this.thresholds.ceo_max + '%). The subscription starts as pending approval.',
+               prohibited: 'Blocked — discounts above ' + this.thresholds.ceo_max + '% are prohibited.' }[this.tier];
+    },
+    get tierClass() {
+      return { none: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800',
+               manager: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40',
+               ceo: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40',
+               prohibited: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40' }[this.tier];
+    },
+    fmt(v) { return (Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  };
+}
+</script>
+{% endblock %}

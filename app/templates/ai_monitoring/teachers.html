@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI teacher trends{% endblock %}
+{% block content %}
+{{ ui.page_header("AI trends by teacher", "Weekly and monthly movement of AI class scores across the last eight weeks", back="/ai-monitoring") }}
+
+{{ ui.alert(disclaimer, 'warning', 'Governance rule') }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Weekly average by teacher") %}
+      {% if rows %}{{ ui.chart('aiTrend', 300) }}{% else %}{{ ui.empty_state('No AI analyses in this period.', 'brain-circuit') }}{% endif %}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("AI usage & cost") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for u in usage %}
+        <li class="flex items-center justify-between py-2"><span>{{ u.month }}</span>
+          <span class="text-xs text-slate-500">{{ u.runs }} runs · {{ u.reviewed }} reviewed · ${{ '%.4f'|format(u.cost) }}</span></li>
+        {% else %}<li class="py-6 text-center text-slate-400">No model runs recorded.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+
+<div class="mt-6">
+{{ ui.table_start(['Teacher','Analyses','Average score','Avg late','Flagged classes','Weekly trend','Monthly trend','']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2 font-medium">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.n }}</td>
+  <td class="px-4 py-2"><span class="text-sm font-bold">{{ r.avg }}</span></td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-semibold' if r.avg_late > 5 }}">{{ r.avg_late }} min</td>
+  <td class="px-4 py-2 text-xs {{ 'text-orange-600 font-semibold' if r.flags }}">{{ r.flags }}</td>
+  <td class="px-4 py-2 text-[11px] font-mono text-slate-500">{{ r.weekly|join(' → ') }}</td>
+  <td class="px-4 py-2 text-[11px] font-mono text-slate-500">{% for m, v in r.monthly %}{{ m }}:{{ v }} {% endfor %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Classes', href='/ai-monitoring?teacher_id=' ~ (r.teacher.id if r.teacher else ''), size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No teacher has AI-analysed classes in this window.', 8, 'brain-circuit') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if rows %}
+<script>
+  OQC.bar('aiTrend', {{ rows|map(attribute='teacher')|map(attribute='full_name')|list|tojson }},
+    [{label: 'Average AI score', data: {{ rows|map(attribute='avg')|list|tojson }}}]);
+</script>
+{% endif %}
+{% endblock %}

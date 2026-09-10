@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trial follow-ups{% endblock %}
+{% block content %}
+{{ ui.page_header('Trial follow-ups due', 'Trials whose follow-up date falls today or within the next two days', back='/trials') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Due now', stats.follow_ups_due, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Attended awaiting decision', stats.attended, icon='clock', color='sky') }}
+  {{ ui.stat('Trial → paid', stats.trial_to_paid ~ '%', icon='trending-up', color='emerald') }}
+</div>
+{{ ui.table_start(['Student','Trial date','Status','Teacher','Follow-up','Owner','']) }}
+{% for t in rows %}
+<tr class="{{ 'bg-rose-50/50 dark:bg-rose-950/20' if t.follow_up_date and t.follow_up_date < today() }}">
+  <td class="px-4 py-2"><a href="/trials/{{ t.id }}" class="font-medium hover:text-brand-600">{{ t.student_name }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ t.scheduled_at|datetime if t.scheduled_at else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.teacher.full_name if t.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs font-medium">{{ t.follow_up_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.lead.assigned_to.full_name if t.lead and t.lead.assigned_to else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/trials/' ~ t.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('Nothing due — every trial has been followed up.', 7, 'check-circle-2') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Your feedback{% endblock %}
+{% block public %}
+<div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="mx-auto max-w-2xl px-4 py-10 sm:py-16">
+    <div class="mb-8 flex items-center gap-3">
+      <img src="/static/img/logo.svg" alt="" class="h-11 w-11">
+      <div>
+        <div class="text-lg font-bold text-slate-900 dark:text-white">Online Quran College</div>
+        <div class="text-[11px] uppercase tracking-widest text-brand-600">Your voice shapes our teaching</div>
+      </div>
+    </div>
+
+    {% for f in flash_messages %}
+    <div class="mb-6 rounded-lg border px-4 py-3 text-sm
+      {% if f.level == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif f.level == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}">{{ f.message }}</div>
+    {% endfor %}
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+      {% if done %}
+        <div class="py-8 text-center">
+          <div dir="rtl" class="font-arabic text-3xl leading-loose text-brand-700 dark:text-brand-300">جَزَاكَ اللهُ خَيْرًا</div>
+          <h1 class="mt-4 text-2xl font-bold text-slate-900 dark:text-white">JazakAllah Khair</h1>
+          <p class="mt-2 text-sm text-slate-500">Your feedback has been recorded. If you raised a concern, our Quality team will contact you shortly.</p>
+        </div>
+      {% else %}
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{{ survey.name if survey else 'How are we doing?' }}</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          {% if student %}About {{ student }}'s classes. {% endif %}It takes about a minute and stays confidential within our Quality team.
+        </p>
+
+        <form method="post" action="/survey/{{ token }}" class="mt-8 space-y-8">
+          {% for q in questions %}
+            {% if q.type == 'nps' %}
+            <div>
+              <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text }}</label>
+              <p class="mt-0.5 text-xs text-slate-500">0 = not at all likely · 10 = extremely likely</p>
+              <div class="mt-3 grid grid-cols-11 gap-1.5" x-data="{ v: null }">
+                {% for n in range(11) %}
+                <label class="cursor-pointer">
+                  <input type="radio" name="nps" value="{{ n }}" class="peer sr-only" x-on:change="v = {{ n }}">
+                  <span class="flex h-11 items-center justify-center rounded-lg border text-sm font-semibold transition
+                    {% if n <= 6 %}border-rose-200 text-rose-700 peer-checked:bg-rose-600 peer-checked:text-white peer-checked:border-rose-600
+                    {% elif n <= 8 %}border-amber-200 text-amber-700 peer-checked:bg-amber-500 peer-checked:text-white peer-checked:border-amber-500
+                    {% else %}border-emerald-200 text-emerald-700 peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600{% endif %}">{{ n }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% elif q.type == 'rating' %}
+            <div>
+              <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text }}</label>
+              <div class="mt-3 flex gap-2">
+                {% for n in range(1, 6) %}
+                <label class="cursor-pointer">
+                  <input type="radio" name="rating" value="{{ n }}" class="peer sr-only">
+                  <span class="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 text-xl text-slate-400 transition peer-checked:border-amber-400 peer-checked:bg-amber-50 peer-checked:text-amber-500 dark:border-slate-700">★</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% elif q.type == 'text' %}
+            <div>
+              <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text }}</label>
+              <textarea name="comment" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800" placeholder="Tell us what went well and what we should improve…"></textarea>
+            </div>
+            {% else %}
+            <div>
+              <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.text or q.key }}</label>
+              <input name="{{ q.key }}" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+            </div>
+            {% endif %}
+          {% endfor %}
+
+          <button class="w-full rounded-lg bg-brand-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">Submit my feedback</button>
+          <p class="text-center text-[11px] text-slate-400">Online Quran College · Your response is linked to your family record so we can follow up.</p>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

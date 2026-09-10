@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI analysis #{{ an.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header("AI analysis · session #" ~ an.session_id,
+                       (s.date.strftime('%d %b %Y') ~ ' ' ~ s.start_time.strftime('%H:%M') if s else '') ~ ' · ' ~ (an.teacher.full_name if an.teacher else '—'),
+                       back='/ai-monitoring') %}
+  {{ ui.badge(an.risk_level, 'Risk: ' ~ an.risk_level|title) }}
+  {{ ui.badge(an.review_status) }}
+  {{ ui.button('Class record', href='/classes/' ~ an.session_id, icon='video', variant='secondary') }}
+{% endcall %}
+
+{{ ui.alert(disclaimer, 'warning', 'Governance rule') }}
+
+<div class="my-6 grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Metrics") %}
+      <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {% for label, value, suffix in [('Overall score', an.overall_score, ''), ('Camera presence', an.camera_presence_pct, '%'),
+                                        ('Active teaching', an.active_teaching_pct, '%'), ('Idle', an.idle_pct, '%'),
+                                        ('Engagement', an.student_engagement_score, ''), ('Curriculum coverage', an.curriculum_coverage_pct, '%'),
+                                        ('Duration compliance', an.duration_compliance_pct, '%'), ('Punctuality', an.punctuality_minutes, ' min')] %}
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <div class="text-[11px] uppercase tracking-wide text-slate-500">{{ label }}</div>
+          <div class="text-2xl font-bold tracking-tight">{{ value|round(1) }}{{ suffix }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-4 flex flex-wrap gap-1.5">
+        {% for f in an.tone_flags %}<span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Tone: {{ f|titleize }}</span>{% endfor %}
+        {% for f in an.conduct_flags %}<span class="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 ring-1 ring-inset ring-orange-600/20">Conduct: {{ f|titleize }}</span>{% endfor %}
+        {% if an.contact_exchange_detected %}<span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Possible off-platform contact exchange</span>{% endif %}
+        {% if not (an.tone_flags or an.conduct_flags or an.contact_exchange_detected) %}<span class="text-xs text-slate-400">No conduct or safeguarding flags.</span>{% endif %}
+      </div>
+      {% if an.summary %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ an.summary }}</p>{% endif %}
+      {% if an.recommended_feedback %}<p class="mt-2 text-sm text-slate-600 dark:text-slate-300"><b>Recommended feedback:</b> {{ an.recommended_feedback }}</p>{% endif %}
+    {% endcall %}
+
+    {% if has_perm(user, 'ai_monitoring.update') %}
+    {% call ui.card("Human review", "Approve, override the values or dismiss the finding") %}
+      <form method="post" action="/ai-monitoring/{{ an.id }}/review" class="space-y-4" x-data="{ act: '{{ an.review_status if an.review_status != 'pending' else 'approved' }}' }">
+        <div class="flex flex-wrap gap-3">
+          {% for value, label, color in [('approved','Approve as accurate','emerald'), ('overridden','Override values','amber'), ('false_positive','False positive','slate')] %}
+          <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">
+            <input type="radio" name="action" value="{{ value }}" x-model="act" class="h-4 w-4 text-{{ color }}-600"> {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        <div x-show="act === 'overridden'" x-cloak class="grid gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3 sm:grid-cols-3 dark:border-amber-900 dark:bg-amber-950/20">
+          {% for f in override_fields %}
+          {{ ui.input('corrected_' ~ f, f|titleize, (an|attr(f)) if (an|attr(f)) is not none else '', type='number', step='0.1') }}
+          {% endfor %}
+          {{ ui.select('corrected_risk_level', 'Risk level', ['low','medium','high'], an.risk_level, placeholder='Keep') }}
+        </div>
+        {{ ui.textarea('note', 'Reviewer note', an.review_note or '', rows=3,
+                       help='Required when overriding or dismissing. Stored on the AI governance record.') }}
+        {{ ui.button('Record the review', icon='shield-check') }}
+      </form>
+    {% endcall %}
+
+    {% call ui.card("Teacher feedback") %}
+      <form method="post" action="/ai-monitoring/{{ an.id }}/feedback" class="space-y-3">
+        {{ ui.textarea('message', 'Message to the teacher', an.recommended_feedback or '', rows=3) }}
+        {{ ui.button('Send feedback', icon='send', variant='secondary') }}
+      </form>
+      <form method="post" action="/ai-monitoring/{{ an.id }}/queue-qa" class="mt-3">{{ ui.button('Queue a QA review', icon='shield-check', variant='ghost') }}</form>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Model provenance", "AI governance record") %}
+      {% if run %}
+      {{ ui.dl([('Provider', run.provider), ('Model', run.model), ('Model version', run.model_version),
+                ('Prompt version', run.prompt_version), ('Confidence', an.confidence|round(2)),
+                ('Latency', run.latency_ms ~ ' ms'), ('Tokens', (run.tokens_in or 0) + (run.tokens_out or 0)),
+                ('Cost (USD)', '%.4f'|format(run.cost_usd|float)), ('Run status', run.review_status|titleize),
+                ('Run at', run.created_at|datetime)]) }}
+      {% else %}<p class="text-sm text-slate-400">No model run is linked to this analysis.</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Review status") %}
+      {{ ui.dl([('Status', an.review_status|titleize), ('Reviewed at', an.reviewed_at|datetime),
+                ('Note', an.review_note)]) }}
+    {% endcall %}
+
+    {% call ui.card("Linked records") %}
+      <ul class="space-y-2 text-sm">
+        <li><a href="/classes/{{ an.session_id }}" class="text-brand-600 hover:underline">Class session #{{ an.session_id }}</a></li>
+        {% if an.recording_id %}<li><a href="/recordings/{{ an.recording_id }}" class="text-brand-600 hover:underline">Recording #{{ an.recording_id }}</a></li>{% endif %}
+        {% for r in reviews %}<li><a href="/qa/{{ r.id }}" class="text-brand-600 hover:underline">QA review #{{ r.id }} ({{ r.status|titleize }})</a></li>{% endfor %}
+        {% for f in flags %}<li><span class="text-rose-600">Safeguarding flag #{{ f.id }} — {{ f.flag_type|titleize }} ({{ f.status|titleize }})</span></li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+{% call ui.page_header("Invoices", "Monthly tuition billing, credit application, reminders and collections.") %}
+  {{ ui.button("Client ledger", href="/finance/ledger", icon="book-open", variant="secondary") }}
+  {% if has_perm(user, 'billing.add') %}
+  <button type="button" @click="$dispatch('open-modal','bulkgen')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="layers" class="h-4 w-4"></i>Generate invoices for a period</button>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Outstanding (" ~ stats.base ~ ")", stats.outstanding|money, icon="receipt", color="amber", hint=stats.open_count|string ~ " open invoices") }}
+  {{ ui.stat("Overdue", stats.overdue_count, icon="alarm-clock", color="rose", hint=stats.overdue_amount|money(stats.base), href="/finance/invoices?status=overdue") }}
+  {{ ui.stat("Collected this month", stats.collected_month|money(stats.base), icon="banknote", color="emerald") }}
+  {{ ui.stat("Collection rate", stats.collection_rate|string ~ "%", icon="target", color="brand", hint="Cash collected vs invoiced this month") }}
+</div>
+
+{% call ui.filter_bar('/finance/invoices') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='INV-, family, code') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-32">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Number', 'Family / student', 'Period', 'Issued', 'Due', 'Total', 'Paid', 'Balance', 'Status', '']) }}
+{% for i in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if i.status == 'overdue' }}">
+  <td class="px-4 py-2 font-mono text-xs font-semibold"><a class="text-brand-700 dark:text-brand-300" href="/finance/invoices/{{ i.id }}">{{ i.invoice_number }}</a>
+    {% if i.reminder_count %}<div class="text-[10px] text-slate-400">{{ i.reminder_count }} reminder(s)</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs"><a href="/finance/ledger/{{ i.client_id }}" class="font-medium text-slate-800 hover:text-brand-600 dark:text-slate-200">{{ i.client.full_name if i.client else '' }}</a>
+    <div class="text-slate-500">{{ i.client.client_code if i.client else '' }}{% if i.student %} · {{ i.student.full_name }}{% endif %}</div></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ i.period_start|date if i.period_start else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ i.issue_date|date }}</td>
+  <td class="px-4 py-2 text-xs {{ 'font-semibold text-rose-600' if i.due_date and i.due_date < today_d and i.status not in ('paid','void') }}">{{ i.due_date|date }}</td>
+  <td class="px-4 py-2 text-right font-medium whitespace-nowrap">{{ i.total|money(i.currency) }}</td>
+  <td class="px-4 py-2 text-right text-emerald-600">{{ i.paid_amount|money }}</td>
+  <td class="px-4 py-2 text-right font-semibold">{{ i.balance|money }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    <a href="/finance/invoices/{{ i.id }}/pdf" class="inline-flex items-center rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="PDF"><i data-lucide="file-text" class="h-4 w-4"></i></a>
+    {{ ui.button('Open', href='/finance/invoices/' ~ i.id, variant='ghost', size='sm') }}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No invoices match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('bulkgen', 'Generate invoices for a period') %}
+<form method="post" action="/finance/invoices/generate" class="space-y-4">
+  <p class="text-sm text-slate-600 dark:text-slate-300">Issues one invoice per active subscription that is due in the selected month and does not already have one. Existing invoices are never duplicated.</p>
+  {{ ui.select('period', 'Billing period', periods, periods[0], required=True, placeholder=None) }}
+  {{ ui.button('Generate invoices', icon='layers') }}
+</form>
+{% endcall %}
+{% endblock %}

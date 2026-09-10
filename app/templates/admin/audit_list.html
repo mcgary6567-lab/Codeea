@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+{% call ui.page_header("Audit log", "Immutable trail of every create, update, delete, approval, export and login across the platform") %}
+  {{ ui.button("Export CSV", href="/admin/audit/export.csv?" ~ params, icon="download", variant="secondary") }}
+  {{ ui.button("Security centre", href="/admin/security", icon="shield", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Events (30 days)", stats.total, icon="scroll-text", color="brand", hint=(stats.all_time|string) ~ " all time") }}
+  {{ ui.stat("Consequential", stats.consequential, icon="gavel", color="indigo", hint="approvals, overrides, exports") }}
+  {{ ui.stat("Warnings", stats.by_severity.get('warning', 0), icon="alert-triangle", color="amber", href="/admin/audit?severity=warning") }}
+  {{ ui.stat("Critical", stats.by_severity.get('critical', 0), icon="shield-alert", color="rose", href="/admin/audit?severity=critical") }}
+  {{ ui.stat("Matching filter", page.total, icon="filter", color="sky") }}
+</div>
+
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Daily volume", "Events per day over the last 30 days") %}{{ ui.chart('c_audit', 220) }}{% endcall %}
+  </div>
+  {% call ui.card("By module", "Last 30 days") %}
+    <div class="space-y-2">
+      {% for m, n in stats.by_module[:9] %}
+      <div>
+        <div class="flex justify-between text-xs"><span class="font-medium text-slate-700 dark:text-slate-200">{{ m|titleize }}</span><span class="text-slate-500">{{ n }}</span></div>
+        {{ ui.progress(100 * n / (stats.by_module[0][1] or 1), 'brand') }}
+      </div>
+      {% else %}<p class="py-6 text-center text-sm text-slate-400">No events recorded yet.</p>{% endfor %}
+    </div>
+  {% endcall %}
+</div>
+
+{% call ui.filter_bar('/admin/audit') %}
+  {{ ui.input('q', 'Search', q, placeholder='Description or rationale') }}
+  {{ ui.input('actor', 'Actor', actor, placeholder='Name or user id') }}
+  {{ ui.select('module', 'Module', modules, module, placeholder='All modules') }}
+  {{ ui.select('action', 'Action', actions, action, placeholder='All actions') }}
+  {{ ui.select('entity_type', 'Entity type', entity_types, entity_type, placeholder='All entities') }}
+  {{ ui.input('entity_id', 'Entity id', entity_id, placeholder='e.g. 42') }}
+  {{ ui.select('severity', 'Severity', [('info','Info'),('warning','Warning'),('critical','Critical')], severity, placeholder='Any') }}
+  {{ ui.select('consequential', 'Consequential', [('1','Consequential only')], consequential, placeholder='Any') }}
+  {{ ui.input('start', 'From', start, type='date') }}
+  {{ ui.input('end', 'To', end, type='date') }}
+{% endcall %}
+
+{{ ui.table_start(['When','Actor','Action','Module','Entity','Severity','Description','IP','']) }}
+{% for e in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if e.severity == 'critical' }}">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500" title="{{ e.created_at }}">{{ e.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if e.actor_id %}<a href="/admin/users/{{ e.actor_id }}" class="font-medium hover:text-brand-700">{{ e.actor_name or 'user #' ~ e.actor_id }}</a>
+    {% else %}<span class="text-slate-400">{{ e.actor_name or 'system' }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs"><span class="font-mono">{{ e.action }}</span>{% if e.is_consequential %} <i data-lucide="gavel" class="ml-0.5 inline h-3 w-3 text-indigo-500" title="Consequential"></i>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ e.module|titleize }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if e.entity_type %}<a href="/admin/audit/entity/{{ e.entity_type }}/{{ e.entity_id or 0 }}" class="font-mono text-[11px] text-slate-600 hover:text-brand-700 dark:text-slate-300">{{ e.entity_type }}#{{ e.entity_id or '—' }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}
+  </td>
+  <td class="px-4 py-2">{{ ui.badge(e.severity) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ (e.description or '—')|truncate(90) }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ e.ip or '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('View', href='/admin/audit/' ~ e.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No audit events match these filters.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Busiest actors", "Last 30 days") %}
+    {{ ui.table_start(['Actor','Events'], compact=True) }}
+    {% for name, n in stats.by_actor %}
+    <tr><td class="px-4 py-1.5 text-xs">{{ name or 'system' }}</td><td class="px-4 py-1.5 text-xs font-semibold">{{ n }}</td></tr>
+    {% else %}{{ ui.empty('No activity yet.', 2) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  {% call ui.card("Most frequent actions", "Last 30 days") %}
+    {{ ui.table_start(['Action','Events'], compact=True) }}
+    {% for name, n in stats.by_action %}
+    <tr><td class="px-4 py-1.5 font-mono text-xs">{{ name }}</td><td class="px-4 py-1.5 text-xs font-semibold">{{ n }}</td></tr>
+    {% else %}{{ ui.empty('No activity yet.', 2) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="lock" class="mr-1 inline h-3.5 w-3.5"></i>
+Audit events are append-only. The application never updates or deletes a row in this table, and the retention policy for
+audit data defaults to <b>never purge</b> — see the <a href="/admin/security/retention" class="text-brand-600 hover:underline">retention policy</a>.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+OQC.line('c_audit', {{ stats.labels|tojson }}, [{label: 'Audit events', data: {{ stats.series|tojson }}}]);
+</script>
+{% endblock %}

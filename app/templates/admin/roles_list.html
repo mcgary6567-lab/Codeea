@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Roles & permissions{% endblock %}
+{% block content %}
+{% call ui.page_header("Roles & permissions", "Module 22 — " ~ modules|length ~ " modules x " ~ actions|length ~ " actions = " ~ total_perms ~ " distinct permissions") %}
+  {{ ui.button("Permission test", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
+  {{ ui.button("Compare roles", href="/admin/roles/compare", icon="git-compare", variant="secondary") }}
+  {% if has_perm(user, 'roles.add') %}{{ ui.button("New role", href="/admin/roles/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Roles", rows|length, icon="shield", color="brand") }}
+  {{ ui.stat("System roles", rows|selectattr('role.is_system')|list|length, icon="lock", color="slate", hint="editable, never deletable") }}
+  {{ ui.stat("Custom roles", rows|rejectattr('role.is_system')|list|length, icon="sparkles", color="indigo") }}
+  {{ ui.stat("Permissions", total_perms, icon="key-round", color="emerald", hint=modules|length ~ " modules") }}
+</div>
+
+{{ ui.table_start(['Role','Slug','Portal','Users','Permissions','Coverage','Type','']) }}
+{% for row in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><a href="/admin/roles/{{ row.role.id }}" class="font-medium text-slate-900 hover:text-brand-700 dark:text-white">{{ row.role.name }}</a>
+    {% if row.role.description %}<span class="block max-w-md truncate text-xs text-slate-500">{{ row.role.description }}</span>{% endif %}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ row.role.slug }}</td>
+  <td class="px-4 py-2">{{ ui.badge(row.role.portal) }}</td>
+  <td class="px-4 py-2 text-sm font-semibold">{{ row.users }}</td>
+  <td class="px-4 py-2 text-sm">{{ row.perms }}</td>
+  <td class="px-4 py-2 w-40">{{ ui.progress((100 * row.perms / total_perms)|round(0, 'floor')|int, 'brand') }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if row.role.is_system else 'draft', 'System' if row.role.is_system else 'Custom') }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Open', href='/admin/roles/' ~ row.role.id, variant='ghost', size='sm') }}
+    {% if has_perm(user, 'roles.add') %}{{ ui.button('Clone', href='/admin/roles/new?clone=' ~ row.role.id, variant='ghost', size='sm', icon='copy') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No roles defined.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6">{{ ui.alert('System roles ship with the platform and can be edited, but they can never be deleted — the seed re-creates them and users would be orphaned. Create a custom role by cloning the closest system role, then trim its matrix.', 'info', 'System vs custom roles') }}</div>
+{% endblock %}

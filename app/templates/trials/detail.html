@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trial — {{ t.student_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Trial — ' ~ t.student_name, (t.scheduled_at|datetime if t.scheduled_at else 'Not scheduled') ~ ' · ' ~ (t.teacher.full_name if t.teacher else 'no teacher yet'), back='/trials') %}
+  {{ ui.badge(t.status) }}
+  {% if t.status != 'converted' and has_perm(user, 'trials.update') %}
+  <form method="post" action="/trials/{{ t.id }}/convert" class="inline" onsubmit="return confirm('Convert this trial into a paying client? A client, portal login and student records will be created.')">
+    {{ ui.button('Convert to client', icon='user-plus', variant='success', size='sm') }}
+  </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Trial record') %}
+      {{ ui.dl([('Student', t.student_name), ('Status', t.status|titleize),
+                ('Scheduled', t.scheduled_at|datetime if t.scheduled_at else '—'),
+                ('Teacher', t.teacher.full_name if t.teacher else '—'),
+                ('Course', t.course.name if t.course else '—'),
+                ('Lead', t.lead.lead_code if t.lead else '—'),
+                ('Closer', t.lead.assigned_to.full_name if t.lead and t.lead.assigned_to else '—'),
+                ('Follow-up date', t.follow_up_date|date if t.follow_up_date else '—'),
+                ('Follow-ups made', t.follow_up_count), ('Outcome', t.outcome or '—')]) }}
+      {% if t.teacher_feedback %}<p class="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60"><b>Teacher feedback:</b> {{ t.teacher_feedback }}</p>{% endif %}
+      {% if t.notes %}<p class="mt-3 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{{ t.notes }}</p>{% endif %}
+    {% endcall %}
+
+    {% if session %}
+    {% call ui.card('Trial class session') %}
+      {{ ui.dl([('Date', session.date|date), ('Time', session.start_time|time ~ ' – ' ~ (session.end_time|time)),
+                ('Room', session.room_name or '—'), ('Status', session.status|titleize)]) }}
+      {% if session.join_url %}<div class="mt-3">{{ ui.button('Open classroom', href=session.join_url, icon='video', variant='secondary', size='sm') }}</div>{% endif %}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% if has_perm(user, 'trials.update') %}
+    {% call ui.card('Schedule / reschedule') %}
+    <form method="post" action="/trials/{{ t.id }}/schedule" class="space-y-3">
+      {{ ui.input('scheduled_at', 'Date & time', (t.scheduled_at.strftime('%Y-%m-%dT%H:%M') if t.scheduled_at else ''), type='datetime-local', required=True) }}
+      {{ ui.select('teacher_id', 'Teacher', teacher_options, t.teacher_id, placeholder='Assign later') }}
+      {{ ui.select('course_id', 'Course', course_options, t.course_id, placeholder='Not specified') }}
+      {{ ui.button('Save schedule', icon='calendar-check', size='sm') }}
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Record outcome') %}
+    <form method="post" action="/trials/{{ t.id }}/outcome" class="space-y-3">
+      {{ ui.select('status', 'Outcome', [('attended','Attended'),('no_show','No-show'),('lost','Lost')], '', placeholder='Select', required=True) }}
+      {{ ui.input('outcome', 'Summary', t.outcome or '', placeholder='Parent happy, wants 3 classes a week') }}
+      {{ ui.textarea('teacher_feedback', 'Teacher feedback', t.teacher_feedback or '', rows=3) }}
+      {{ ui.input('follow_up_date', 'Follow-up date', t.follow_up_date, type='date') }}
+      {{ ui.button('Save outcome', icon='clipboard-check', size='sm', variant='secondary') }}
+    </form>
+    <p class="mt-2 text-xs text-slate-500">Recording an outcome enrols the contact in the trial follow-up sequence.</p>
+    {% endcall %}
+
+    {% call ui.card('Log a follow-up') %}
+    <form method="post" action="/trials/{{ t.id }}/follow-up" class="space-y-3">
+      {{ ui.input('follow_up_date', 'Next follow-up', t.follow_up_date, type='date') }}
+      {{ ui.input('note', 'Call note', '', placeholder='Left a voicemail, will retry tomorrow') }}
+      {{ ui.button('Log', icon='phone', size='sm', variant='secondary') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

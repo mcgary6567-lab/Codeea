@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(c.name, (c.description or 'Course configuration, levels and pricing.'), back="/academics/courses") %}
+  {{ ui.badge('active' if c.is_active else 'inactive') }}
+  {% if can_edit %}
+  <form method="post" action="/academics/courses/{{ c.id }}/toggle" class="inline" onsubmit="return confirm('{{ 'Deactivate' if c.is_active else 'Activate' }} this course?')">
+    <input type="hidden" name="reason" value="Catalogue maintenance">
+    {{ ui.button('Deactivate' if c.is_active else 'Activate', icon='power', variant='secondary', size='sm') }}
+  </form>
+  {% endif %}
+  {{ ui.button('Curriculum', href='/academics/curriculum?course_id=' ~ c.id, icon='library', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Code", c.code, icon="hash", color="brand") }}
+  {{ ui.stat("Divisions", c.divisions|length, icon="layers", color="indigo") }}
+  {{ ui.stat("Lessons", lessons|length, icon="file-text", color="violet") }}
+  {{ ui.stat("Students", students|length, icon="graduation-cap", color="emerald") }}
+  {{ ui.stat("Target", (c.completion_target_months|string ~ ' months') if c.completion_target_months else '—', icon="calendar-clock", color="amber") }}
+</div>
+
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'divisions' %}
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['#', 'Division', 'Expected weeks', 'Students', '']) }}
+    {% for d in c.divisions %}
+    <tr x-data="{ edit:false }">
+      <td class="px-4 py-2 text-xs text-slate-400">{{ loop.index }}</td>
+      <td class="px-4 py-2"><div class="font-medium text-slate-900 dark:text-white">{{ d.name }}</div><div class="text-xs text-slate-500">{{ d.description or '' }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ d.expected_weeks or '—' }}</td>
+      <td class="px-4 py-2 text-center text-xs">{{ students|selectattr('division_id','equalto',d.id)|list|length }}</td>
+      <td class="px-4 py-2 text-right whitespace-nowrap">
+        {% if can_edit %}
+        <form method="post" action="/academics/courses/{{ c.id }}/divisions/{{ d.id }}/move" class="inline"><input type="hidden" name="direction" value="up">{{ ui.button('', icon='chevron-up', variant='ghost', size='sm') }}</form>
+        <form method="post" action="/academics/courses/{{ c.id }}/divisions/{{ d.id }}/move" class="inline"><input type="hidden" name="direction" value="down">{{ ui.button('', icon='chevron-down', variant='ghost', size='sm') }}</form>
+        <button type="button" @click="edit=!edit" class="rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+        {{ ui.confirm_form('/academics/courses/' ~ c.id ~ '/divisions/' ~ d.id ~ '/delete', '', icon='trash-2', variant='ghost', message='Delete this division?') }}
+        {% endif %}
+      </td>
+    </tr>
+    {% if can_edit %}
+    <tr x-show="edit" x-cloak><td colspan="5" class="bg-slate-50 px-4 py-3 dark:bg-slate-800/40">
+      <form method="post" action="/academics/courses/{{ c.id }}/divisions/{{ d.id }}/edit" class="grid gap-3 sm:grid-cols-4 items-end">
+        {{ ui.input('name', 'Name', d.name, required=True) }}
+        {{ ui.input('expected_weeks', 'Expected weeks', d.expected_weeks or '', type='number', min=1) }}
+        <div class="sm:col-span-2">{{ ui.input('description', 'Description', d.description or '') }}</div>
+        <div>{{ ui.button('Save', icon='save', size='sm') }}</div>
+      </form>
+    </td></tr>
+    {% endif %}
+    {% else %}{{ ui.empty('No divisions defined for this course.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div class="space-y-5">
+    {% if can_edit %}
+    {% call ui.card('Add a division', 'Levels are taught and certified in order.') %}
+    <form method="post" action="/academics/courses/{{ c.id }}/divisions" class="space-y-3">
+      {{ ui.input('name', 'Division name', '', required=True, placeholder='e.g. Juz 26–30') }}
+      {{ ui.input('expected_weeks', 'Expected weeks', 12, type='number', min=1) }}
+      {{ ui.textarea('description', 'Description', '', rows=2) }}
+      {{ ui.button('Add division', icon='plus', size='sm') }}
+    </form>
+    {% endcall %}
+    {% call ui.card('Course settings') %}
+    <form method="post" action="/academics/courses/{{ c.id }}/edit" class="space-y-3">
+      {{ ui.input('name', 'Name', c.name, required=True) }}
+      {{ ui.input('arabic_name', 'Arabic name', c.arabic_name or '', attrs='dir="rtl" class="font-arabic"') }}
+      {{ ui.input('urdu_name', 'Urdu name', c.urdu_name or '') }}
+      <div class="grid grid-cols-2 gap-3">
+        {{ ui.input('default_session_minutes', 'Session minutes', c.default_session_minutes, type='number', min=15, max=120) }}
+        {{ ui.input('completion_target_months', 'Target months', c.completion_target_months or '', type='number', min=1) }}
+      </div>
+      {{ ui.input('order', 'Sort order', c.order, type='number') }}
+      {{ ui.textarea('description', 'Description', c.description or '', rows=3) }}
+      {{ ui.button('Save course', icon='save', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% elif tab == 'packages' %}
+{{ ui.table_start(['Package', 'Country', 'Sessions', 'Price', 'Cycle', 'Status']) }}
+{% for p in packages %}
+<tr><td class="px-4 py-2 font-medium">{{ p.name }}</td><td class="px-4 py-2 text-xs">{{ p.country or 'Global' }}</td>
+<td class="px-4 py-2 text-xs">{{ p.sessions_per_week }}×{{ p.session_minutes }}m</td>
+<td class="px-4 py-2 font-semibold">{{ p.price|money(p.currency) }}</td>
+<td class="px-4 py-2 text-xs">{{ p.billing_cycle|titleize }}</td><td class="px-4 py-2">{{ ui.badge('active' if p.is_active else 'inactive') }}</td></tr>
+{% else %}{{ ui.empty('No packages linked to this course. Global packages apply instead.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-3 text-xs text-slate-500">Manage pricing on the <a href="/academics/courses#packages" class="text-brand-600 hover:underline">Courses & Packages</a> page.</p>
+
+{% elif tab == 'curriculum' %}
+<div class="grid gap-4 lg:grid-cols-2">
+  {% for b in books %}
+  {% call ui.card(b.title, b.arabic_title) %}
+  <ul class="space-y-1 text-sm">
+    {% for ch in b.chapters %}
+    <li class="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <span class="text-slate-700 dark:text-slate-200">{{ ch.title }}</span>
+      <span class="text-xs text-slate-400">{{ ch.lessons|length }} lesson{{ 's' if ch.lessons|length != 1 }}</span>
+    </li>
+    {% else %}<li class="text-xs text-slate-400">No chapters yet.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+  {% else %}
+  <div class="lg:col-span-2">{{ ui.empty_state('No curriculum content published for this course yet.', 'library') }}</div>
+  {% endfor %}
+</div>
+<div class="mt-4">{{ ui.button('Open curriculum builder', href='/academics/curriculum?course_id=' ~ c.id, icon='library') }}</div>
+
+{% elif tab == 'students' %}
+{{ ui.table_start(['Code', 'Student', 'Division', 'Teacher', 'Status', 'Joined', '']) }}
+{% for s in students %}
+<tr><td class="px-4 py-2 font-mono text-xs">{{ s.student_code }}</td>
+<td class="px-4 py-2 font-medium">{{ s.full_name }}</td>
+<td class="px-4 py-2 text-xs">{{ s.division.name if s.division else '—' }}</td>
+<td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+<td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+<td class="px-4 py-2 text-xs text-slate-500">{{ s.join_date|date }}</td>
+<td class="px-4 py-2 text-right">{{ ui.button('Progress', href='/academics/progress/' ~ s.id, variant='ghost', size='sm') }}</td></tr>
+{% else %}{{ ui.empty('No students enrolled on this course.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'versions' %}
+{{ ui.table_start(['Version', 'Published', 'By', 'Notes', 'Current']) }}
+{% for v in versions %}
+<tr><td class="px-4 py-2 font-mono text-xs font-semibold">{{ v.version }}</td>
+<td class="px-4 py-2 text-xs">{{ v.published_at|datetime if v.published_at else v.created_at|date }}</td>
+<td class="px-4 py-2 text-xs">{{ v.published_by_id or '—' }}</td>
+<td class="px-4 py-2 text-xs text-slate-500">{{ v.notes or '—' }}</td>
+<td class="px-4 py-2">{% if v.is_current %}{{ ui.badge('active', 'Current') }}{% endif %}</td></tr>
+{% else %}{{ ui.empty('No curriculum versions recorded.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% else %}
+{{ ui.table_start(['When', 'Action', 'Actor', 'Description']) }}
+{% for e in events %}
+<tr><td class="px-4 py-2 text-xs text-slate-500">{{ e.created_at|datetime }}</td>
+<td class="px-4 py-2">{{ ui.badge(e.action) }}</td>
+<td class="px-4 py-2 text-xs">{{ e.actor_name or 'System' }}</td>
+<td class="px-4 py-2 text-xs">{{ e.description }}</td></tr>
+{% else %}{{ ui.empty('No audit events for this course.', 4) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI review queue{% endblock %}
+{% block content %}
+{% call ui.page_header("Human review queue", "AI outputs waiting for a person to approve, override or dismiss — lowest confidence first") %}
+  {{ ui.button("Run log", href="/ai-governance", icon="list", variant="secondary") }}
+  {{ ui.button("Policy", href="/ai-governance/policy", icon="scale", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Awaiting review', total, icon='inbox', color='amber') }}
+  {{ ui.stat('Below threshold', below_threshold, icon='alert-triangle', color='rose', hint='confidence under the module policy') }}
+  {{ ui.stat('Oldest item', oldest ~ 'd', icon='clock', color='slate', hint='days waiting') }}
+  {{ ui.stat('Modules affected', by_module|length, icon='layers', color='indigo') }}
+</div>
+
+<form method="get" action="/ai-governance/queue" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-52">{{ ui.select('module', 'Module', modules, module, placeholder='All modules') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/ai-governance/queue" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+  <div class="ml-auto flex flex-wrap gap-1.5">
+    {% for m, n in by_module.items() %}
+    <a href="/ai-governance/queue?module={{ m }}" class="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:text-slate-300">{{ labels.get(m, m|titleize) }} <b>{{ n }}</b></a>
+    {% endfor %}
+  </div>
+</form>
+
+{{ ui.table_start(['When','Module','Task','Entity','Confidence','Threshold','Waiting','Summary','Review']) }}
+{% for row in rows %}
+<tr class="{{ 'bg-rose-50/40 dark:bg-rose-500/5' if row.below }}">
+  <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ row.r.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200">{{ labels.get(row.r.module, row.r.module|titleize) }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ row.r.task }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ row.r.entity_type or '—' }}{{ ' #' ~ row.r.entity_id if row.r.entity_id else '' }}</td>
+  <td class="px-4 py-2 text-xs font-semibold {{ 'text-rose-600' if row.below else 'text-slate-700 dark:text-slate-200' }}">{{ '%.2f'|format(row.r.confidence) if row.r.confidence is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-400">{{ '%.2f'|format(row.threshold) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ row.age_days }}d</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300"><span class="line-clamp-1">{{ (row.r.output or {}).get('summary') or (row.r.output or {}).get('risk_level') or '—' }}</span></td>
+  <td class="px-4 py-2">
+    <div class="flex items-center justify-end gap-1">
+      {% if can_review %}
+      {% for status, label, icon, variant in actions %}
+      <form method="post" action="/ai-governance/{{ row.r.id }}/review" class="inline">
+        <input type="hidden" name="status" value="{{ status }}">
+        <input type="hidden" name="back" value="/ai-governance/queue{{ '?module=' ~ module if module else '' }}">
+        {% if status in ('approved', 'false_positive') %}
+        <button class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium {{ 'text-emerald-700 ring-1 ring-inset ring-emerald-600/20 hover:bg-emerald-50 dark:text-emerald-300' if status == 'approved' else 'text-slate-600 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 dark:text-slate-300 dark:ring-slate-700' }}" title="{{ label }}">
+          <i data-lucide="{{ icon }}" class="h-3.5 w-3.5"></i>{{ label }}</button>
+        {% endif %}
+      </form>
+      {% endfor %}
+      {% endif %}
+      {{ ui.button('Open', href='/ai-governance/' ~ row.r.id, variant='ghost', size='sm') }}
+    </div>
+  </td>
+</tr>
+{% else %}{{ ui.empty('Nothing waiting for human review. Every AI output has been judged.', 9, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <b class="text-slate-700 dark:text-slate-200">Reject and override need a written reason.</b>
+  Approving in bulk from this queue is fine for routine, high-confidence outputs; anything you reject, override or mark a
+  false positive is opened individually so the reason is captured. That reason is what improves the prompts.
+</div>
+{% endblock %}

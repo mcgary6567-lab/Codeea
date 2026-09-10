@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+{% call ui.page_header("Projects", "Delivery portfolio with sprints, milestones and progress", back="/tasks") %}
+  {{ ui.button("New project", icon="plus", type='button', attrs='@click="$dispatch(\'open-modal\',\'newProject\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Projects', rows|length, icon='folder-kanban', color='brand') }}
+  {{ ui.stat('Active', rows|selectattr('p.status','equalto','active')|list|length, icon='play', color='emerald') }}
+  {{ ui.stat('Tasks', rows|sum(attribute='total'), icon='list-checks', color='sky') }}
+  {{ ui.stat('Overdue tasks', rows|sum(attribute='overdue'), icon='alarm-clock', color='rose') }}
+</div>
+
+{% call ui.filter_bar('/tasks/projects') %}
+  {{ ui.input('q', 'Search', q) }}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+{% endcall %}
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+{% for r in rows %}
+<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-start justify-between gap-2">
+    <div class="min-w-0">
+      <a href="/tasks/projects/{{ r.p.id }}" class="truncate font-semibold text-slate-900 hover:text-brand-700 dark:text-white">{{ r.p.name }}</a>
+      <div class="text-xs text-slate-500">{{ r.p.code or '—' }} · {{ r.p.owner.full_name if r.p.owner else 'no owner' }}{% if r.p.department %} · {{ r.p.department.name }}{% endif %}</div>
+    </div>
+    {{ ui.badge(r.p.status) }}
+  </div>
+  <p class="mt-2 line-clamp-2 text-xs text-slate-500">{{ r.p.description or '' }}</p>
+  <div class="mt-3">{{ ui.progress(r.pct, 'brand', 'Progress') }}</div>
+  <div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+    <div><div class="font-bold text-slate-900 dark:text-white">{{ r.total }}</div><div class="text-slate-500">tasks</div></div>
+    <div><div class="font-bold text-emerald-600">{{ r.done }}</div><div class="text-slate-500">done</div></div>
+    <div><div class="font-bold {{ 'text-rose-600' if r.overdue else 'text-slate-900 dark:text-white' }}">{{ r.overdue }}</div><div class="text-slate-500">overdue</div></div>
+    <div><div class="font-bold text-slate-900 dark:text-white">{{ r.milestones }}</div><div class="text-slate-500">milestones</div></div>
+  </div>
+  <div class="mt-4 flex gap-2">
+    {{ ui.button('Open', href='/tasks/projects/' ~ r.p.id, variant='secondary', size='sm', icon='folder-open') }}
+    {{ ui.button('Sprints (' ~ r.sprints ~ ')', href='/tasks/projects/' ~ r.p.id ~ '/sprints', variant='ghost', size='sm', icon='rocket') }}
+  </div>
+</div>
+{% else %}
+<div class="md:col-span-2 xl:col-span-3">{{ ui.empty_state('No projects yet. Create the first delivery project.', 'folder-kanban') }}</div>
+{% endfor %}
+</div>
+
+{% call ui.modal('newProject', 'New project') %}
+<form method="post" action="/tasks/projects/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('name', 'Project name', '', required=True) }}</div>
+    {{ ui.input('code', 'Code', '', placeholder='PRJ-01') }}
+    {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+    {{ ui.select('owner_id', 'Owner', opts.users, None, placeholder='— Me —') }}
+    {{ ui.select('department_id', 'Department', opts.departments, None, placeholder='— None —') }}
+    {{ ui.select('priority', 'Priority', opts.priorities, 'medium', placeholder=None) }}
+    {{ ui.input('start_date', 'Start', '', type='date') }}
+    {{ ui.input('end_date', 'Target end', '', type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=3) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Create project', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

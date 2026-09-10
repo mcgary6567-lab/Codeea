@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Security incidents{% endblock %}
+{% block content %}
+{% call ui.page_header("Security incidents", "Failed logins, lockouts, blocked IPs, denied permissions and suspicious exports", back="/admin/security") %}
+  {{ ui.button("Login history", href="/admin/security/logins", icon="key-round", variant="secondary") }}
+  {{ ui.button("Sessions", href="/admin/security/sessions", icon="monitor-smartphone", variant="secondary") }}
+{% endcall %}
+
+{% set open_n = page.items|selectattr('status','equalto','open')|list|length %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Matching incidents", page.total, icon="siren", color="brand") }}
+  {{ ui.stat("Open on this page", open_n, icon="alert-circle", color=("rose" if open_n else "emerald")) }}
+  {{ ui.stat("Distinct types", types|length, icon="tags", color="indigo") }}
+  {{ ui.stat("Critical on this page", page.items|selectattr('severity','equalto','critical')|list|length, icon="shield-alert", color="rose") }}
+</div>
+
+{% call ui.filter_bar('/admin/security/incidents') %}
+  {{ ui.select('status', 'Status', [('open','Open'),('resolved','Resolved'),('dismissed','Dismissed')], status, placeholder='Any status') }}
+  {{ ui.select('severity', 'Severity', [('low','Low'),('medium','Medium'),('high','High'),('critical','Critical')], severity, placeholder='Any severity') }}
+  {{ ui.select('incident_type', 'Type', types, incident_type, placeholder='Any type') }}
+{% endcall %}
+
+{{ ui.table_start(['When','Type','Severity','User','IP','Description','Status','Resolved','']) }}
+{% for i in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-rose-50/40 dark:bg-rose-950/10' if i.severity == 'critical' and i.status == 'open' }}">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500" title="{{ i.created_at }}">{{ i.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs font-medium">{{ i.incident_type|titleize }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.severity) }}</td>
+  <td class="px-4 py-2 text-xs">{% if i.user %}<a href="/admin/users/{{ i.user.id }}" class="hover:text-brand-700">{{ i.user.full_name }}</a>{% else %}<span class="text-slate-400">unknown</span>{% endif %}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ i.ip or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ (i.description or '—')|truncate(80) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ i.resolved_at|datetime if i.resolved_at else '—' }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if i.status == 'open' and has_perm(user, 'security.update') %}
+    <button type="button" @click="$dispatch('open-modal','inc{{ i.id }}')" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700">Resolve</button>
+    {% elif i.resolved_by_id %}<span class="text-[11px] text-slate-400">closed</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No incidents match these filters.', 9, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% for i in page.items %}{% if i.status == 'open' and has_perm(user, 'security.update') %}
+{% call ui.modal('inc' ~ i.id, 'Resolve incident #' ~ i.id) %}
+<div class="mb-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800">
+  <div class="font-medium">{{ i.incident_type|titleize }} · {{ i.severity|titleize }}</div>
+  <div class="mt-1 text-xs text-slate-500">{{ i.created_at|datetime }}{% if i.ip %} · from {{ i.ip }}{% endif %}{% if i.user %} · {{ i.user.email }}{% endif %}</div>
+  {% if i.description %}<p class="mt-2 whitespace-pre-line text-xs text-slate-600 dark:text-slate-300">{{ i.description }}</p>{% endif %}
+</div>
+<form method="post" action="/admin/security/incidents/{{ i.id }}/resolve" class="space-y-4">
+  {{ ui.select('status', 'Outcome', [('resolved','Resolved'),('dismissed','Dismissed as false positive')], 'resolved', placeholder=None) }}
+  {{ ui.textarea('note', 'Triage note (appended to the incident and stored as the audit rationale)', '', rows=3, required=True) }}
+  {{ ui.button('Close incident', icon='check') }}
+</form>
+{% endcall %}
+{% endif %}{% endfor %}
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="info" class="mr-1 inline h-3.5 w-3.5"></i>
+Unlocking an account from its user page automatically resolves the matching <code class="font-mono">lockout</code> and
+<code class="font-mono">brute_force</code> incidents.</p>
+{% endblock %}

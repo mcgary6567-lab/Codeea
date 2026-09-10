@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Safeguarding{% endblock %}
+{% block content %}
+{% call ui.page_header("Safeguarding", "Child protection, conduct and anti-poaching signals · every access is logged") %}
+  {{ ui.button("Recording access", href="/safeguarding/recording-access", icon="scroll-text", variant="secondary") }}
+  {{ ui.button("Verification gate", href="/safeguarding/unverified", icon="shield-alert", variant="secondary") }}
+  {{ ui.button("Policy", href="/safeguarding/policy", icon="book-lock", variant="secondary") }}
+  {{ ui.button("Report a concern", icon="flag", variant="danger", attrs='type="button" @click="$dispatch(\'open-modal\',\'reportConcern\')"') }}
+{% endcall %}
+
+{% if restricted %}
+{{ ui.alert('You are seeing conduct signals only. ' ~ ceo_only_count ~ ' anti-poaching record(s) (contact exchange, off-platform contact, social discovery) are restricted to the CEO / General Manager.', 'info', 'Restricted view') }}
+{% endif %}
+
+<div class="my-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Open", stats.open, icon="flag", color="rose", href="/safeguarding?status=open") }}
+  {{ ui.stat("Investigating", stats.investigating, icon="search", color="amber", href="/safeguarding?status=investigating") }}
+  {{ ui.stat("Confirmed", stats.confirmed, icon="alert-octagon", color="orange", href="/safeguarding?status=confirmed") }}
+  {{ ui.stat("Dismissed", stats.dismissed, icon="x-circle", color="slate", href="/safeguarding?status=dismissed") }}
+</div>
+
+{% call ui.filter_bar('/safeguarding') %}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+  {{ ui.select('flag_type', 'Type', flag_types, flag_type, placeholder='All') }}
+  {{ ui.select('severity', 'Severity', severities, severity, placeholder='All') }}
+{% endcall %}
+
+{{ ui.table_start(['Type','Severity','Teacher','Student','Source','Raised','Status','']) }}
+{% for f in page.items %}
+<tr>
+  <td class="px-4 py-2"><div class="font-medium">{{ f.flag_type|titleize }}</div>
+    <div class="max-w-md truncate text-xs text-slate-500">{{ f.evidence }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(f.severity) }}</td>
+  <td class="px-4 py-2 text-xs">{{ f.teacher.full_name if f.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ f.student.full_name if f.student else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ f.source|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ f.created_at|ago }}</td>
+  <td class="px-4 py-2">{{ ui.badge(f.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/safeguarding/' ~ f.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No safeguarding flags in this view.', 8, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('reportConcern', 'Report a safeguarding concern') %}
+<form method="post" action="/safeguarding/report" class="space-y-4">
+  <p class="text-sm text-slate-500">Concerns are recorded immediately and escalated to the safeguarding lead. Anti-poaching
+    reports are visible to the CEO / General Manager only.</p>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.select('flag_type', 'Type of concern', flag_types, 'conduct', placeholder=None) }}
+    {{ ui.select('severity', 'Severity', severities, 'medium', placeholder=None) }}
+    {{ ui.input('teacher_id', 'Teacher ID (optional)', '', type='number') }}
+    {{ ui.input('student_id', 'Student ID (optional)', '', type='number') }}
+    {{ ui.input('session_id', 'Class session ID (optional)', '', type='number') }}
+  </div>
+  {{ ui.textarea('evidence', 'What happened', '', rows=4, required=True,
+                 placeholder='Describe the observation, who was involved, when it happened and any evidence available.') }}
+  {{ ui.button('Submit the concern', icon='flag', variant='danger') }}
+</form>
+{% endcall %}
+{% endblock %}

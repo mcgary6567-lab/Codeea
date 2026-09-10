@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Monthly test{% endblock %}
+{% block content %}
+{% call ui.page_header(t.student.full_name ~ " — " ~ period_label,
+                       t.student.student_code ~ " · " ~ (t.student.course.name if t.student.course else 'no course') ~ " · " ~ (t.teacher.full_name if t.teacher else 'no teacher'),
+                       back="/academics/monthly-tests?period=" ~ t.period) %}
+  {{ ui.badge(t.status) }}
+  {% if t.grade %}{{ ui.badge(t.grade, 'Grade ' ~ t.grade) }}{% endif %}
+  {% if card_exists %}{{ ui.button('Download card', href='/academics/monthly-tests/' ~ t.id ~ '/card', icon='file-down', variant='secondary', size='sm') }}{% endif %}
+  {% if can_deliver and t.percentage is not none %}
+  <form method="post" action="/academics/monthly-tests/{{ t.id }}/deliver" class="inline" onsubmit="return confirm('Send the result card to the guardian on in-app and WhatsApp?')">
+    {{ ui.button('Deliver to guardian', icon='send', size='sm') }}
+  </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Percentage", (t.percentage ~ '%') if t.percentage is not none else '—', icon="gauge",
+             color=('emerald' if t.percentage is not none and t.percentage >= 70 else ('amber' if t.percentage is not none and t.percentage >= 55 else 'rose')),
+             hint=(t.score|string ~ ' of ' ~ t.max_score|int|string) if t.score is not none else 'Not scored') }}
+  {{ ui.stat("Previous month", (t.previous_percentage ~ '%') if t.previous_percentage is not none else '—', icon="history", color="slate") }}
+  {{ ui.stat("Improvement", ('%+.1f'|format(t.improvement_pct) ~ ' pts') if t.improvement_pct is not none else '—', icon="trending-up",
+             color=('emerald' if (t.improvement_pct or 0) >= 0 else 'rose')) }}
+  {{ ui.stat("Grade", t.grade or '—', icon="award", color="indigo") }}
+  {{ ui.stat("Delivered", (t.delivered_at|date) if t.delivered_at else 'Not sent', icon="send",
+             color=('emerald' if t.delivered_at else 'amber'), hint=(t.delivery_channels|join(', ')) if t.delivery_channels else 'in_app + whatsapp on delivery') }}
+</div>
+
+{% if t.improvement_pct is not none and t.improvement_pct < -10 %}
+<div class="mb-5">{{ ui.alert('Score dropped by more than 10 points against last month. A retention cohort call has been scheduled and an operations risk alert raised.', 'error', 'Declining performance') }}</div>
+{% endif %}
+{% if not progress.dor_quota_met %}
+<div class="mb-5">{{ ui.alert('This student has not met the monthly dor (revision) quota — starting a new sabaq is blocked until the quota is met or a supervisor records an override with a rationale.', 'warning', 'Dor quota not met') }}</div>
+{% endif %}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card('Test items', 'Generated from the curriculum position on ' ~ (t.created_at|date)) %}
+    {% if can_score %}
+    <form method="post" action="/academics/monthly-tests/{{ t.id }}/score" class="space-y-4">
+      {{ ui.table_start(['#', 'Item', 'Type', 'Max', 'Score'], compact=True) }}
+      {% for q in t.questions %}
+      <tr>
+        <td class="px-4 py-2 text-xs text-slate-400">{{ loop.index }}</td>
+        <td class="px-4 py-2 text-sm">{{ q.item }}{% if q.lesson %}<div class="text-[11px] text-slate-400">{{ q.lesson }}</div>{% endif %}</td>
+        <td class="px-4 py-2 text-xs">{{ (q.type or 'recitation')|titleize }}</td>
+        <td class="px-4 py-2 text-xs">{{ q.max }}</td>
+        <td class="px-4 py-2 w-28"><input type="number" step="0.5" min="0" max="{{ q.max }}" name="score_{{ loop.index0 }}" value="{{ q.score if q.score is not none else '' }}"
+          class="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
+      </tr>
+      {% else %}{{ ui.empty('This test has no items.', 5) }}{% endfor %}
+      {{ ui.table_end() }}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ ui.textarea('teacher_remarks', 'Teacher remarks (English)', t.teacher_remarks or '', rows=3, required=True) }}
+        {{ ui.textarea('teacher_remarks_urdu', 'Teacher remarks (Urdu)', t.teacher_remarks_urdu or '', rows=3, attrs='dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-urdu text-sm leading-[2.2] dark:border-slate-700 dark:bg-slate-800"') }}
+      </div>
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-slate-500">Saving computes the percentage, grade and improvement, generates the bilingual result card and builds next month's dor schedule.</p>
+        {{ ui.button('Save scores', icon='check') }}
+      </div>
+    </form>
+    {% else %}
+      {{ ui.table_start(['#', 'Item', 'Max', 'Score'], compact=True) }}
+      {% for q in t.questions %}
+      <tr><td class="px-4 py-2 text-xs text-slate-400">{{ loop.index }}</td><td class="px-4 py-2 text-sm">{{ q.item }}</td>
+      <td class="px-4 py-2 text-xs">{{ q.max }}</td><td class="px-4 py-2 text-xs font-semibold">{{ q.score if q.score is not none else '—' }}</td></tr>
+      {% else %}{{ ui.empty('This test has no items.', 4) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endif %}
+    {% endcall %}
+
+    {% if t.teacher_remarks or t.teacher_remarks_urdu %}
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% call ui.card('Remarks (English)') %}<p class="text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ t.teacher_remarks or '—' }}</p>{% endcall %}
+      {% call ui.card('Remarks (Urdu)') %}{{ ui.urdu(t.teacher_remarks_urdu or '—') }}{% endcall %}
+    </div>
+    {% endif %}
+
+    {% if chart.labels|length > 1 %}
+    {% call ui.card('Score trend', 'Monthly test percentage over time') %}{{ ui.chart('testTrend', 240) }}{% endcall %}
+    {% endif %}
+
+    {% call ui.card('Test history') %}
+    {{ ui.table_start(['Period', 'Percentage', 'Improvement', 'Grade', 'Status']) }}
+    {% for h in history %}
+    <tr class="{{ 'bg-brand-50/50 dark:bg-brand-500/5' if h.id == t.id }}">
+      <td class="px-4 py-2 text-xs"><a href="/academics/monthly-tests/{{ h.id }}" class="text-brand-600 hover:underline">{{ h.period }}</a></td>
+      <td class="px-4 py-2 text-xs font-semibold">{{ (h.percentage ~ '%') if h.percentage is not none else '—' }}</td>
+      <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if (h.improvement_pct or 0) >= 0 else 'text-rose-600' }}">{{ ('%+.1f'|format(h.improvement_pct)) if h.improvement_pct is not none else '—' }}</td>
+      <td class="px-4 py-2">{% if h.grade %}{{ ui.badge(h.grade) }}{% endif %}</td>
+      <td class="px-4 py-2">{{ ui.badge(h.status) }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No test history.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Dor (revision) schedule', (dor.period ~ ' · ' ~ dor.completed|string ~ '/' ~ dor.quota|string ~ ' complete') if dor else 'Generated after scoring') %}
+    {% if dor %}
+      {{ ui.progress(100 * dor.completed / dor.quota if dor.quota else 0, 'emerald' if dor.quota_met else 'amber', label='Quota progress') }}
+      <ul class="mt-3 space-y-1.5">
+        {% for item in dor['items'] %}
+        <li class="flex items-start justify-between gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/50">
+          <div class="min-w-0">
+            <div class="truncate {{ 'text-slate-400 line-through' if item.done else 'text-slate-700 dark:text-slate-200' }}">{{ item.content }}</div>
+            <div class="text-[11px] text-slate-400">Due {{ item.due }}</div>
+          </div>
+          {% if can_score %}
+          <form method="post" action="/academics/monthly-tests/{{ t.id }}/dor/{{ loop.index0 }}" class="shrink-0">
+            <input type="hidden" name="done" value="{{ '0' if item.done else '1' }}">
+            {{ ui.button('Undo' if item.done else 'Done', icon='rotate-ccw' if item.done else 'check', variant='ghost', size='sm') }}
+          </form>
+          {% endif %}
+        </li>
+        {% else %}<li class="text-xs text-slate-400">No revision items.</li>{% endfor %}
+      </ul>
+      {% if dor.override_reason %}
+      <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        Override recorded {{ dor.override_at|date }}: {{ dor.override_reason }}
+      </div>
+      {% endif %}
+    {% else %}
+      <p class="text-xs text-slate-500">The revision schedule is generated automatically when the test is scored.</p>
+    {% endif %}
+    {% endcall %}
+
+    {% if can_override %}
+    {% call ui.card('Override dor quota', 'Unblocks a new sabaq although the revision quota is unmet. Audited as consequential.') %}
+    <form method="post" action="/academics/monthly-tests/{{ t.id }}/dor-override" class="space-y-3" onsubmit="return confirm('Record a dor quota override for this student?')">
+      {{ ui.textarea('reason', 'Rationale', '', rows=3, required=True, placeholder='Why is the student allowed to move on before the revision quota is met?') }}
+      {{ ui.button('Record override', icon='shield-alert', variant='warning', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Student') %}
+    {{ ui.dl([('Student', t.student.full_name), ('Code', t.student.student_code),
+              ('Course', t.student.course.name if t.student.course else '—'), ('Level', t.student.level or '—'),
+              ('Progress', progress.pct ~ '%'), ('Current lesson', progress.current_lesson_title),
+              ('Guardian', t.student.client.full_name if t.student.client else '—')]) }}
+    <div class="mt-3 flex flex-wrap gap-2">
+      {{ ui.button('Progress', href='/academics/progress/' ~ t.student_id, icon='trending-up', variant='secondary', size='sm') }}
+      {{ ui.button('Arabic view', href='/academics/arabic-view/' ~ t.student_id, icon='book-open', variant='ghost', size='sm') }}
+    </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if chart.labels|length > 1 %}
+<script>OQC.line('testTrend', {{ chart.labels|tojson }}, [{label: 'Percentage', data: {{ chart.data|tojson }}}]);</script>
+{% endif %}
+{% endblock %}

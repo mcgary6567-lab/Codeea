@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Schedule & classes{% endblock %}
+{% block content %}
+{% call ui.page_header('Schedule & classes', 'Week of ' ~ monday.strftime('%d %B %Y') ~ ' — all times converted from the college timezone (' ~ org_tz ~ ') to yours (' ~ c.timezone ~ ').') %}
+  {{ ui.button('Previous', href='/portal/schedule?week=' ~ (week - 1) ~ ('&student_id=' ~ child.id if child else ''), icon='chevron-left', variant='secondary', size='sm') }}
+  {{ ui.button('This week', href='/portal/schedule' ~ ('?student_id=' ~ child.id if child else ''), variant='secondary', size='sm') }}
+  {{ ui.button('Next', href='/portal/schedule?week=' ~ (week + 1) ~ ('&student_id=' ~ child.id if child else ''), icon='chevron-right', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap gap-2">
+  <a href="/portal/schedule" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if not child else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">All children</a>
+  {% for s in children %}
+  <a href="/portal/schedule?student_id={{ s.id }}" class="rounded-full px-3 py-1.5 text-xs font-medium {{ 'bg-brand-600 text-white' if child and child.id == s.id else 'border border-slate-300 text-slate-600 dark:border-slate-700' }}">{{ s.full_name }}</a>
+  {% endfor %}
+</div>
+
+{{ ui.table_start(['Your local time', 'Child', 'Course', 'Teacher', 'Duration', 'Status', '']) }}
+{% for it in items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2">
+    <div class="font-medium text-slate-900 dark:text-white">{{ it.local.strftime('%a %d %b · %H:%M') }}</div>
+    <div class="text-[11px] text-slate-500">{{ it.cs.date|date }} {{ it.cs.start_time|time }} college time</div>
+  </td>
+  <td class="px-4 py-2 text-sm">{{ it.cs.student.full_name if it.cs.student else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ it.cs.course.name if it.cs.course else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ it.cs.teacher.full_name if it.cs.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ it.cs.duration_minutes }} min</td>
+  <td class="px-4 py-2">{{ ui.badge(it.cs.status) }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if it.can_join %}{{ ui.button('Join', href='/classroom/' ~ it.cs.id, icon='video', size='sm') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No classes are scheduled in this week.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6">
+{% call ui.card('Regular weekly pattern') %}
+  {{ ui.table_start(['Child', 'Days', 'College time', 'Your time', 'Duration', 'Teacher']) }}
+  {% for sc in schedules %}
+  <tr><td class="px-4 py-2 text-sm">{{ sc.student.full_name if sc.student else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{% for d in sc.days_of_week %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d] }} {% endfor %}</td>
+    <td class="px-4 py-2">{{ sc.start_time|time }}</td>
+    <td class="px-4 py-2 font-medium">{{ (sc.start_time|string)[:5] }}<span class="ml-1 text-[11px] text-slate-400">see the list above for exact local times</span></td>
+    <td class="px-4 py-2 text-xs">{{ sc.duration_minutes }} min</td>
+    <td class="px-4 py-2 text-xs">{{ sc.teacher.full_name if sc.teacher else '—' }}</td></tr>
+  {% else %}{{ ui.empty('No recurring schedule set yet.', 6) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+</div>
+{% endblock %}

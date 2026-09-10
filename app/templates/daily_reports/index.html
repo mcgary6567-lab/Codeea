@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Daily report{% endblock %}
+{% block content %}
+{% call ui.page_header("My daily report", "Two structured slots a day — the written record that replaces reporting by chat") %}
+  {{ ui.button("History", href="/daily-reports/history", icon="history", variant="secondary") }}
+  {% if can_team %}{{ ui.button("Team compliance", href="/daily-reports/team", icon="users", variant="secondary") }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Reports (30 days)', submitted_30, icon='file-check', color='brand', hint=working_days ~ ' day(s) covered') }}
+  {{ ui.stat('Late submissions', late_30, icon='alarm-clock', color='rose' if late_30 else 'emerald', hint='last 30 days') }}
+  {{ ui.stat('Complete-day streak', streak, icon='flame', color='amber', hint='both slots filed') }}
+  {{ ui.stat('Department template', dept_code|titleize, icon='layout-list', color='indigo', hint='fields adapt to your department') }}
+</div>
+
+<div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <a href="/daily-reports?day={{ prev_day }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"><i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>Previous day</a>
+  <div class="px-2 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ report_date|date('%A %d %b %Y') }}
+    {% if report_date == today %}<span class="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">Today</span>{% endif %}
+  </div>
+  {% if next_day %}<a href="/daily-reports?day={{ next_day }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Next day<i data-lucide="chevron-right" class="h-3.5 w-3.5"></i></a>{% endif %}
+  <span class="ml-auto text-xs text-slate-500">Organisation time (Asia/Karachi): <b>{{ now.strftime('%H:%M') }}</b></span>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2">
+  {% for r in rows %}
+  <div class="rounded-xl border {{ 'border-emerald-200 dark:border-emerald-900' if r.record else ('border-rose-200 dark:border-rose-900' if r.past_deadline else 'border-slate-200 dark:border-slate-800') }} bg-white shadow-sm dark:bg-slate-900">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+      <div>
+        <h3 class="font-semibold text-slate-900 dark:text-white">{{ r.label }}</h3>
+        <p class="text-xs text-slate-500">Deadline {{ r.deadline }} · Asia/Karachi</p>
+      </div>
+      {% if r.record %}
+        {% if r.record.is_late %}{{ ui.badge('late', 'Submitted late') }}{% else %}{{ ui.badge('done', 'Submitted on time') }}{% endif %}
+      {% elif r.past_deadline %}{{ ui.badge('missed', 'Past deadline') }}
+      {% else %}{{ ui.badge('pending', 'Due') }}{% endif %}
+    </div>
+    <div class="px-5 py-4">
+      {% if r.record %}
+      <p class="mb-3 text-xs text-slate-500">Submitted {{ r.record.submitted_at|datetime }} — you can update it; the change is audit-logged.</p>
+      {% endif %}
+      <form method="post" action="/daily-reports/submit" class="space-y-3">
+        <input type="hidden" name="slot" value="{{ r.slot }}">
+        <input type="hidden" name="report_date" value="{{ report_date.isoformat() }}">
+        {% for f in r.fields %}
+          {% if f.type == 'textarea' %}
+            {{ ui.textarea(f.name, f.label, r.content.get(f.name, ''), rows=3, placeholder=f.get('placeholder', '')) }}
+          {% elif f.type == 'number' %}
+            {{ ui.input(f.name, f.label, r.content.get(f.name, ''), type='number', placeholder=f.get('placeholder', '')) }}
+          {% else %}
+            {{ ui.input(f.name, f.label, r.content.get(f.name, ''), placeholder=f.get('placeholder', '')) }}
+          {% endif %}
+        {% endfor %}
+        <div class="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+          <span class="text-[11px] text-slate-400">Free chat is not a record — only this is.</span>
+          {{ ui.button('Update report' if r.record else 'Submit report', icon='send', size='sm') }}
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-6">
+  {% call ui.card('My recent submissions', 'Last 30 days') %}
+  {{ ui.table_start(['Date','Slot','Submitted at','Timeliness','Summary']) }}
+  {% for r in mine %}
+  <tr>
+    <td class="px-4 py-2 whitespace-nowrap text-xs">{{ r.report_date|date('%a %d %b') }}</td>
+    <td class="px-4 py-2 text-xs">{{ r.slot|titleize }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ r.submitted_at|datetime if r.submitted_at else '—' }}</td>
+    <td class="px-4 py-2">{% if r.is_late %}{{ ui.badge('late', 'Late') }}{% else %}{{ ui.badge('done', 'On time') }}{% endif %}</td>
+    <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300"><span class="line-clamp-1">{{ r.summary or '—' }}</span></td>
+  </tr>
+  {% else %}{{ ui.empty('No reports submitted in the last 30 days.', 5, 'file-clock') }}{% endfor %}
+  {{ ui.table_end() }}
+  <div class="mt-3 flex justify-end gap-2">
+    {{ ui.button('Full history', href='/daily-reports/history', icon='history', variant='secondary', size='sm') }}
+    {{ ui.button('Export CSV', href='/daily-reports/export?scope=mine', icon='download', variant='secondary', size='sm') }}
+  </div>
+  {% endcall %}
+</div>
+{% endblock %}

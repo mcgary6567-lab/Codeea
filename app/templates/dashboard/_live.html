@@ -1,0 +1,56 @@
+{% import "macros.html" as ui %}
+<div id="live-board" hx-get="/dashboard/partial/live?day={{ sel_date }}" hx-trigger="every 30s" hx-swap="outerHTML"
+     class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+    <div>
+      <h3 class="font-semibold text-slate-900 dark:text-white">Today's status</h3>
+      <p class="text-xs text-slate-500">Hour-by-hour class execution around {{ now.strftime('%H:%M') }} (Asia/Karachi)</p>
+    </div>
+    <div class="flex items-center gap-2 text-xs text-slate-500">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
+        Live
+      </span>
+      <span>refreshes every 30s</span>
+    </div>
+  </div>
+  <div class="divide-y divide-slate-100 dark:divide-slate-800">
+    {% for row in timeline %}
+    {% set is_now = row.hour == now.hour %}
+    <div class="flex gap-4 px-5 py-3 {{ 'bg-brand-50/60 dark:bg-brand-900/10' if is_now }}">
+      <div class="w-16 shrink-0 pt-0.5">
+        <div class="text-sm font-bold {{ 'text-brand-700 dark:text-brand-300' if is_now else 'text-slate-700 dark:text-slate-200' }}">{{ row.label }}</div>
+        <div class="text-[11px] text-slate-400">{{ row['items']|length }} class{{ 'es' if row['items']|length != 1 }}</div>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="mb-1.5 flex flex-wrap gap-1.5">
+          {% for st, n in row['counts'].items() if n %}
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ st|badge }}">{{ st|titleize }} {{ n }}</span>
+          {% endfor %}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          {% for s in row['items'][:14] %}
+          <a href="/classes/{{ s.id }}" title="{{ s.teacher.full_name if s.teacher }} → {{ s.student.full_name if s.student }}"
+             class="inline-flex max-w-[15rem] items-center gap-1.5 truncate rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] hover:border-brand-400 dark:border-slate-700 dark:bg-slate-800">
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-{{ s.status|status_color }}-500"></span>
+            <span class="font-mono text-slate-500">{{ s.start_time|time }}</span>
+            <span class="truncate">{{ s.student.full_name if s.student else '—' }}</span>
+            {% if s.teacher_late_minutes and s.teacher_late_minutes > 5 %}<span class="text-rose-600">+{{ s.teacher_late_minutes }}m</span>{% endif %}
+          </a>
+          {% endfor %}
+          {% if row['items']|length > 14 %}<a href="/classes?date={{ sel_date }}" class="px-2 py-1 text-[11px] text-brand-600 hover:underline">+{{ row['items']|length - 14 }} more</a>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="px-5 py-12 text-center text-sm text-slate-400">
+      <i data-lucide="calendar-check" class="mx-auto mb-2 h-8 w-8 opacity-50"></i>
+      No classes scheduled in this window.
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex items-center justify-between border-t border-slate-100 px-5 py-2 text-[11px] text-slate-400 dark:border-slate-800">
+    <span>Pending {{ counters.pending }} · Started {{ counters.started }} · Done {{ counters.done }} · Missed {{ counters.missed }} · Absent {{ counters.absent }}</span>
+    <a href="/classes?date={{ sel_date }}" class="text-brand-600 hover:underline">Open class list</a>
+  </div>
+</div>

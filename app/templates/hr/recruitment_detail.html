@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ r.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(r.title, (r.department.name if r.department else 'No department') ~ ' · ' ~ r.positions ~ ' position(s)', back='/hr/recruitment') %}
+  {{ ui.badge(r.status) }}
+  {% if has_perm(user, 'recruitment.approve') and r.status == 'open' %}
+  <form method="post" action="/hr/recruitment/{{ r.id }}/approve" class="inline"><input type="hidden" name="decision" value="approve">{{ ui.button('Approve request', icon='check', variant='success', size='sm') }}</form>
+  {% endif %}
+  {% if has_perm(user, 'recruitment.approve') and r.status not in ('cancelled','filled') %}
+  {{ ui.confirm_form('/hr/recruitment/' ~ r.id ~ '/approve', 'Cancel request', icon='x', variant='secondary', message='Cancel this recruitment request?', hidden={'decision':'cancel'}) }}
+  {% endif %}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Candidate', 'Applied for', 'Source', 'Score', 'Stage', '']) }}
+    {% for c in candidates %}
+    <tr>
+      <td class="px-4 py-2 text-xs"><a href="/hr/recruitment/candidates/{{ c.id }}" class="font-medium hover:text-brand-600">{{ c.full_name }}</a>
+        <div class="text-[11px] text-slate-500">{{ c.email or c.phone or '' }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ c.applied_for }}</td>
+      <td class="px-4 py-2 text-xs">{{ c.source or '—' }}</td>
+      <td class="px-4 py-2 text-xs">{{ c.score or '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(c.stage) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/recruitment/candidates/' ~ c.id, size='sm', variant='ghost') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No candidates linked to this request.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Request') %}
+    {{ ui.dl([('Positions', r.positions), ('Department', r.department.name if r.department else '—'),
+              ('Target date', r.target_date|date if r.target_date else '—'), ('Raised', r.created_at|date),
+              ('Status', r.status|titleize)]) }}
+    <div class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-line dark:bg-slate-800">{{ r.description or 'No description.' }}</div>
+    {% endcall %}
+    {% if has_perm(user, 'recruitment.add') %}
+    {% call ui.card('Add a candidate to this request') %}
+    <form method="post" action="/hr/recruitment/candidates/new" class="space-y-3">
+      <input type="hidden" name="request_id" value="{{ r.id }}">
+      <input type="hidden" name="applied_for" value="{{ r.title }}">
+      {{ ui.input('full_name', 'Full name', '', required=True) }}
+      {{ ui.input('email', 'Email', '', type='email') }}
+      {{ ui.input('phone', 'Phone', '') }}
+      {{ ui.select('source', 'Source', ['Website','Referral','Facebook','LinkedIn','Walk-in','Job board','Madrasa network'], 'Website', placeholder=None) }}
+      {{ ui.button('Add candidate', icon='user-plus', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

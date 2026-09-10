@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Grievance #{{ g.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Grievance #' ~ g.id ~ ' — ' ~ g.subject, g.category|titleize ~ ' · raised ' ~ (g.created_at|date), back='/hr/grievances') %}
+  {{ ui.badge(g.status) }}
+  {% if g.is_anonymous %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">Anonymous</span>{% endif %}
+{% endcall %}
+{% if g.status in ('open','investigating') and g.sla_due_at and g.sla_due_at < now %}
+<div class="mb-4">{{ ui.alert('This case has passed its ' ~ sla_days ~ '-day service level. Please act today.', 'error', 'SLA breached') }}</div>
+{% endif %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('The complaint') %}
+    <div class="rounded-lg bg-slate-50 px-4 py-3 text-sm whitespace-pre-line text-slate-800 dark:bg-slate-800 dark:text-slate-100">{{ g.description }}</div>
+    {% endcall %}
+    {% if g.resolution %}
+    {% call ui.card('Resolution') %}
+    <div class="rounded-lg bg-emerald-50 px-4 py-3 text-sm whitespace-pre-line text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">{{ g.resolution }}</div>
+    <p class="mt-2 text-xs text-slate-500">Closed {{ g.resolved_at|datetime if g.resolved_at else '—' }}</p>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Investigation') %}
+    <form method="post" action="/hr/grievances/{{ g.id }}/update" class="space-y-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.select('status', 'Status', statuses, g.status, placeholder=None) }}
+        {{ ui.select('handler_id', 'Handler', handlers, g.handler_id) }}
+      </div>
+      {{ ui.textarea('resolution', 'Findings / resolution', g.resolution or '', rows=5,
+                     help='Shared with the complainant unless the case is anonymous.') }}
+      {{ ui.button('Save', icon='save') }}
+    </form>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Case') %}
+    {{ ui.dl([('Category', g.category|titleize), ('Status', g.status|titleize),
+              ('Raised', g.created_at|datetime), ('SLA due', g.sla_due_at|datetime if g.sla_due_at else '—'),
+              ('Anonymous', 'Yes' if g.is_anonymous else 'No'),
+              ('Employee', (employee.full_name ~ ' (' ~ employee.employee_code ~ ')') if employee else ('Withheld' if g.is_anonymous else '—')),
+              ('Department', employee.department.name if employee and employee.department else '—'),
+              ('Handler', g.handler_id or 'Unassigned')]) }}
+    {% endcall %}
+    {% call ui.card('Confidentiality') %}
+    <p class="text-xs text-slate-500">This record is restricted to the Head of People &amp; Culture and the CEO. HR officers see it only when it is non-anonymous and assigned to them. Every view and status change is written to the audit trail.</p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

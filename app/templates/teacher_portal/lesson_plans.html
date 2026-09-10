@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lesson plans{% endblock %}
+{% block content %}
+{{ ui.page_header('Lesson plans', 'Plan sabaq, sabqi and dor before the class; record what was actually delivered afterwards. Variance feeds the syllabus-compliance report.') }}
+
+{% if request.query_params.get('suggestion') %}
+{{ ui.alert(request.query_params.get('suggestion'), 'info', 'AI recommendation') }}
+<div class="mb-5"></div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div>
+    {% call ui.card('New daily plan') %}
+      <form method="post" action="/teacher/lesson-plans" class="space-y-3">
+        {{ ui.select('student_id', 'Student', student_options, student_id or None, required=True) }}
+        {{ ui.input('plan_date', 'Date', today_d.isoformat(), type='date', required=True) }}
+        {{ ui.select('plan_type', 'Type', ['daily','weekly'], 'daily', placeholder=None) }}
+        {{ ui.input('sabaq', 'Sabaq (new lesson)', '', placeholder='Al-Baqarah 30-35') }}
+        {{ ui.input('sabqi', 'Sabqi (recent revision)', '', placeholder='Al-Baqarah 20-29') }}
+        {{ ui.input('dor', 'Dor (old revision)', '', placeholder='Juz 1 first half') }}
+        {{ ui.textarea('planned_content', 'Planned content', '', rows=3, required=True, placeholder='Objectives, tajweed focus, homework…') }}
+        {{ ui.textarea('next_objectives', 'Next objectives', '', rows=2) }}
+        <div class="flex gap-2">{{ ui.button('Save plan', icon='save') }}</div>
+      </form>
+      <form method="post" action="/teacher/lesson-plans/recommend" class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+        {{ ui.select('student_id', 'Ask the AI what to teach next', student_options, student_id or None) }}
+        <div class="mt-2">{{ ui.button('Recommend next lesson', icon='sparkles', variant='secondary', size='sm') }}</div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <div class="lg:col-span-2">
+    {% call ui.filter_bar('/teacher/lesson-plans') %}
+      <div class="w-64">{{ ui.select('student_id', 'Student', student_options, student_id or None, placeholder='All students') }}</div>
+    {% endcall %}
+    {{ ui.table_start(['Date', 'Student', 'Sabaq / sabqi / dor', 'Delivered', 'Variance', 'Status', '']) }}
+    {% for p in page.items %}
+    <tr x-data="{ open: false }">
+      <td class="px-4 py-2 text-xs whitespace-nowrap">{{ p.plan_date|date }}</td>
+      <td class="px-4 py-2 text-sm">{{ p.student.full_name if p.student else '—' }}</td>
+      <td class="px-4 py-2 text-xs">
+        {% if p.sabaq %}<div><b>Sabaq:</b> {{ p.sabaq }}</div>{% endif %}
+        {% if p.sabqi %}<div><b>Sabqi:</b> {{ p.sabqi }}</div>{% endif %}
+        {% if p.dor %}<div><b>Dor:</b> {{ p.dor }}</div>{% endif %}
+        {% if not (p.sabaq or p.sabqi or p.dor) %}<span class="text-slate-500">{{ p.planned_content|truncate(60) }}</span>{% endif %}
+      </td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ (p.delivered_content or '—')|truncate(50) }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.variance_pct if p.variance_pct is not none else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+      <td class="px-4 py-2 text-right align-top">
+        {% if p.status in ['planned', 'partially_delivered', 'not_delivered'] %}
+        {{ ui.button('Deliver', variant='ghost', size='sm', icon='check', attrs='type="button" @click="open = !open"') }}
+        <div x-show="open" x-cloak class="mt-2 w-72 text-left">
+          <form method="post" action="/teacher/lesson-plans/{{ p.id }}/deliver" class="space-y-2">
+            {{ ui.textarea('delivered_content', 'Delivered', p.planned_content, rows=3, required=True) }}
+            {{ ui.textarea('teacher_notes', 'Notes', p.teacher_notes, rows=2) }}
+            {{ ui.button('Mark delivered', size='sm', icon='check') }}
+          </form>
+        </div>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No lesson plans yet — create one on the left.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Campaigns{% endblock %}
+{% block content %}
+{% call ui.page_header('Campaigns', 'Paid and organic acquisition with daily metrics, CPL, CAC, ROI and ROAS') %}
+  {{ ui.button('Marketing analytics', href='/crm/marketing', icon='trending-up', variant='secondary') }}
+  {% if has_perm(user, 'campaigns.add') %}{{ ui.button('New campaign', href='/crm/campaigns/new', icon='plus') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Spend (page)', agg.spend|money, icon='wallet', color='amber') }}
+  {{ ui.stat('Leads', agg.leads, icon='funnel', color='sky') }}
+  {{ ui.stat('Conversions', agg.won, icon='trophy', color='emerald') }}
+  {{ ui.stat('CPL', agg.cpl|money, icon='tag', color='indigo') }}
+  {{ ui.stat('CAC', agg.cac|money, icon='user-plus', color='violet') }}
+</div>
+
+{% call ui.filter_bar('/crm/campaigns') %}
+  <div class="w-48">{{ ui.input('q', 'Search', q, placeholder='Name, UTM, offer') }}</div>
+  <div class="w-40">{{ ui.select('platform', 'Platform', platforms, platform, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Campaign','Platform','Country / offer','Dates','Spend','Leads','CPL','Won','CAC','ROAS','Status','']) }}
+{% for c in page.items %}
+{% set t = totals[c.id] %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><a href="/crm/campaigns/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ c.name }}</a>
+    <div class="text-[11px] text-slate-400">{{ c.utm_campaign or c.objective or '' }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(c.platform) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.country or 'Global' }}<div class="text-slate-400">{{ c.offer or '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ c.start_date|date if c.start_date else '—' }}<div class="text-slate-400">{{ c.end_date|date if c.end_date else 'open' }}</div></td>
+  <td class="px-4 py-2 font-medium">{{ t.spend|money(c.currency) }}</td>
+  <td class="px-4 py-2">{{ t.leads }}</td>
+  <td class="px-4 py-2">{{ t.cpl|money }}</td>
+  <td class="px-4 py-2 text-emerald-600 font-semibold">{{ t.conversions }}</td>
+  <td class="px-4 py-2">{{ t.cac|money }}</td>
+  <td class="px-4 py-2 {{ 'text-emerald-600' if t.roas >= 1 else 'text-rose-600' }}">{{ t.roas }}x</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/crm/campaigns/' ~ c.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No campaigns yet. Create one to start attributing leads.', 12) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

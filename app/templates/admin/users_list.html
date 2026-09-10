@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Users{% endblock %}
+{% block content %}
+{% call ui.page_header("Users", "Every account on the platform — staff, teachers, parents and students") %}
+  {{ ui.button("Roles & permissions", href="/admin/roles", icon="shield", variant="secondary") }}
+  {% if has_perm(user, 'users.add') %}{{ ui.button("New user", href="/admin/users/new", icon="user-plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Total accounts", stats.total, icon="users", color="brand", hint=(stats.must_change|string) ~ " must change password") }}
+  {{ ui.stat("Active", stats.active, icon="user-check", color="emerald", hint=(stats.inactive|string) ~ " deactivated") }}
+  {{ ui.stat("2FA enrolled", stats.twofa_pct ~ "%", icon="shield-check", color="indigo", hint=(stats.twofa|string) ~ " of " ~ stats.total) }}
+  {{ ui.stat("Locked out", stats.locked, icon="lock", color=("rose" if stats.locked else "slate"), href="/admin/users?status=locked") }}
+  {{ ui.stat("Staff portal", stats.by_portal.get('admin', 0), icon="briefcase", color="sky", hint="teacher " ~ stats.by_portal.get('teacher', 0) ~ " · client " ~ stats.by_portal.get('client', 0) ~ " · student " ~ stats.by_portal.get('student', 0)) }}
+</div>
+
+{% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r.slug, r.name)) %}{% endfor %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% set branch_options = [] %}{% for b in branches %}{% set _ = branch_options.append((b.id, b.name)) %}{% endfor %}
+{% call ui.filter_bar('/admin/users') %}
+  {{ ui.input('q', 'Search', q, placeholder='Name, email, username, phone') }}
+  {{ ui.select('role', 'Role', role_options, role, placeholder='All roles') }}
+  {{ ui.select('department', 'Department', dept_options, department, placeholder='All departments') }}
+  {{ ui.select('branch', 'Branch', branch_options, branch, placeholder='All branches') }}
+  {{ ui.select('status', 'Status', [('active','Active'),('inactive','Deactivated'),('locked','Locked')], status, placeholder='Any status') }}
+  {{ ui.select('twofa', '2FA', [('1','Enrolled'),('0','Not enrolled')], twofa, placeholder='Any') }}
+{% endcall %}
+
+{{ ui.table_start(['User','Role','Portal','Department','Branch','2FA','Last login','Status','']) }}
+{% for u in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2">
+    <a href="/admin/users/{{ u.id }}" class="flex items-center gap-2.5">
+      {{ ui.avatar(u.full_name, 'sm') }}
+      <span class="min-w-0"><span class="block truncate font-medium text-slate-900 dark:text-white">{{ u.full_name }}</span>
+      <span class="block truncate text-xs text-slate-500">{{ u.email }}</span></span>
+    </a>
+  </td>
+  <td class="px-4 py-2 text-xs">{{ u.role.name if u.role else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(u.portal) }}</td>
+  <td class="px-4 py-2 text-xs">{{ u.department.name if u.department else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ u.branch.name if u.branch else '—' }}</td>
+  <td class="px-4 py-2 text-center">
+    {% if u.two_factor_enabled %}<i data-lucide="shield-check" class="h-4 w-4 text-emerald-600"></i>{% else %}<i data-lucide="shield-off" class="h-4 w-4 text-slate-300"></i>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ u.last_login_at|ago if u.last_login_at else 'never' }}</td>
+  <td class="px-4 py-2">
+    {% if not u.is_active %}{{ ui.badge('inactive', 'Deactivated') }}
+    {% elif u.locked_until and u.locked_until > utcnow() %}{{ ui.badge('blocked', 'Locked') }}
+    {% elif u.must_change_password %}{{ ui.badge('pending', 'Must reset') }}
+    {% else %}{{ ui.badge('active') }}{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/admin/users/' ~ u.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No users match these filters.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="info" class="mr-1 inline h-3.5 w-3.5"></i>
+Impersonation ("log in as this user") is deliberately <b>not offered</b> anywhere in this platform. Administrators
+support users through the audit trail, session management and password resets instead, so every action in the system
+is always attributable to the person who actually performed it.</p>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Scholarships{% endblock %}
+{% block content %}
+{% call ui.page_header("Scholarships & learning support", "A dignified path for families who need help. Recorded separately from commercial discounts.") %}
+  {% if has_perm(user, 'scholarships.add') %}
+  <button type="button" @click="$dispatch('open-modal','newschol')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="heart-handshake" class="h-4 w-4"></i>Record a support request</button>
+  {% endif %}
+{% endcall %}
+
+{{ ui.tabs([('queue', 'Approval queue', '/finance/discounts'), ('register', 'Weekly register', '/finance/discounts/register'),
+            ('scholarships', 'Scholarships', '/finance/discounts/scholarships')], tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Approved", counts.get('approved', 0), icon="heart-handshake", color="emerald", href="/finance/discounts/scholarships?status=approved") }}
+  {{ ui.stat("Awaiting review", counts.get('pending', 0), icon="hourglass", color="amber", href="/finance/discounts/scholarships?status=pending") }}
+  {{ ui.stat("Not proceeded", counts.get('rejected', 0), icon="file-x", color="slate") }}
+  {{ ui.stat("Monthly support (" ~ base ~ ")", awarded_base|money, icon="hand-heart", color="violet") }}
+</div>
+
+<div class="mb-4">{{ ui.alert('Support is a trust (amanah). Never describe an assisted family as “discounted” — reports and invoices show a scholarship award.', 'info', 'House rule') }}</div>
+
+{% call ui.filter_bar('/finance/discounts/scholarships') %}
+  <div class="w-48">{{ ui.select('status', 'Status', ['pending', 'approved', 'rejected', 'ended'], status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Family', 'Student', 'Type', 'Coverage', 'Period', 'Status', 'Reason', '']) }}
+{% for s in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 text-xs"><a class="font-mono font-semibold text-brand-700 dark:text-brand-300" href="/clients/{{ s.client_id }}">{{ s.client.client_code if s.client else '' }}</a>
+    <div>{{ s.client.full_name if s.client else '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ s.student.full_name if s.student else 'All students' }}</td>
+  <td class="px-4 py-2">{{ ui.badge('approved' if s.scholarship_type == 'merit' else 'sky', s.scholarship_type|titleize) }}</td>
+  <td class="px-4 py-2 text-right text-sm">{% if s.coverage_pct %}{{ s.coverage_pct|round(0)|int }}%{% else %}{{ s.monthly_amount|money(s.currency) }}{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ s.start_date|date }} → {{ s.end_date|date if s.end_date else 'open' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500 max-w-[18rem]"><div class="line-clamp-2">{{ s.reason or '—' }}</div></td>
+  <td class="px-4 py-2 text-right">
+    {% if s.status == 'pending' and can_approve %}
+    <form method="post" action="/finance/discounts/scholarships/{{ s.id }}/decide" class="flex items-center justify-end gap-1.5">
+      <input name="note" placeholder="Decision note" required class="w-36 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+      <button name="decision" value="approve" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">Approve</button>
+      <button name="decision" value="reject" class="rounded-lg bg-slate-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-600">Decline</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No support requests recorded yet.', 8, icon='heart-handshake') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% call ui.modal('newschol', 'Record a support request') %}
+<form method="post" action="/finance/discounts/scholarships/new" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('client_id', 'Family', clients, None, required=True) }}
+    {{ ui.select('student_id', 'Student (optional)', students, None, placeholder='All students in the family') }}
+    {{ ui.select('scholarship_type', 'Type', types, 'need_based', required=True, placeholder=None) }}
+    {{ ui.select('currency', 'Currency', currencies, None, placeholder="Family's currency") }}
+    {{ ui.input('coverage_pct', 'Coverage %', '', type='number', step='1', min=0, max=100, help='Or set a fixed monthly amount instead.') }}
+    {{ ui.input('monthly_amount', 'Fixed monthly amount', '', type='number', step='0.01') }}
+    {{ ui.input('start_date', 'From', today().isoformat(), type='date', required=True) }}
+    {{ ui.input('end_date', 'Until (optional)', '', type='date') }}
+  </div>
+  {{ ui.textarea('reason', 'Circumstances (kept confidential)', '', rows=3, required=True) }}
+  {{ ui.button('Submit for approval', icon='send') }}
+</form>
+{% endcall %}
+{% endblock %}

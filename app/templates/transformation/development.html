@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Development plans{% endblock %}
+{% block content %}
+{% call ui.page_header("Department development plans", "Six-month growth journeys per department, with AI fluency tracked across the organisation") %}
+  {{ ui.button("New plan", icon="plus", type="button", attrs='@click="$dispatch(\'open-modal\',\'newPlan\')"') }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Department plans', plan_count, icon='route', color='brand', hint='six-month journeys') }}
+  {{ ui.stat('Individual plans', individual_count, icon='users', color='indigo') }}
+  {{ ui.stat('Average AI fluency', avg_fluency, icon='brain-circuit', color='violet', hint='level 1–5') }}
+  {{ ui.stat('Goals achieved', rows|sum(attribute='done'), icon='check-circle-2', color='emerald', hint=rows|sum(attribute='total')|string ~ ' goals set') }}
+</div>
+
+<form method="get" action="/transformation/development" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-56">{{ ui.select('department_id', 'Department', opts.departments, department_id, placeholder='All departments') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/transformation/development" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+<div class="mb-6 grid gap-5 lg:grid-cols-2">
+  {% call ui.card('AI fluency distribution', 'How many staff development plans sit at each level') %}
+    {{ ui.chart('fluencyLevels', 260) }}
+  {% endcall %}
+  {% call ui.card('Average AI fluency by department', 'Level 1 = aware · Level 5 = builds and ships automations') %}
+    {{ ui.chart('fluencyDept', 260) }}
+  {% endcall %}
+</div>
+
+<div class="grid gap-5 xl:grid-cols-2">
+{% for r in rows %}
+<div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+    <div class="min-w-0">
+      <h3 class="font-semibold text-slate-900 dark:text-white">{{ r.p.title }}</h3>
+      <p class="text-xs text-slate-500">{{ r.p.department.name if r.p.department else 'Organisation-wide' }} ·
+        {{ r.p.start_date|date('%b %Y') }} – {{ r.p.end_date|date('%b %Y') if r.p.end_date else 'open' }} ·
+        AI fluency target level {{ r.p.ai_fluency_level }}</p>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      {{ ui.badge(r.p.status) }}
+      <button type="button" class="text-slate-400 hover:text-brand-600" @click="$dispatch('open-modal','plan{{ r.p.id }}')" title="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+    </div>
+  </div>
+  <div class="px-5 py-3">
+    {{ ui.progress(r.p.progress_pct, 'brand', 'Journey progress') }}
+    <ol class="mt-3 space-y-2">
+      {% for g in r.goals %}
+      <li class="flex gap-3">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold
+          {{ 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' if g.status in ('done','achieved') else ('bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' if g.status == 'in_progress' else 'bg-slate-100 text-slate-500 dark:bg-slate-800') }}">M{{ g.month }}</span>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm text-slate-700 dark:text-slate-200">{{ g.goal }}</div>
+          <div class="text-[11px] text-slate-400">{{ (g.status or 'planned')|titleize }}</div>
+        </div>
+      </li>
+      {% else %}
+      <li class="rounded-lg border border-dashed border-slate-300 py-4 text-center text-xs text-slate-400 dark:border-slate-700">No monthly goals defined.</li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+{% else %}
+<div class="xl:col-span-2">{{ ui.empty_state('No department development plans yet. Create the first six-month journey.', 'route') }}</div>
+{% endfor %}
+</div>
+
+{% if individual %}
+<div class="mt-6">
+  {% call ui.card('Individual growth journeys', 'Highest AI fluency first — these are the people who can build the next system') %}
+  {{ ui.table_start(['Employee','Plan','Department','AI fluency','Progress','Status']) }}
+  {% for p in individual %}
+  <tr>
+    <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ p.employee.full_name if p.employee else '—' }}</td>
+    <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ p.title }}</td>
+    <td class="px-4 py-2 text-xs">{{ p.department.name if p.department else '—' }}</td>
+    <td class="px-4 py-2">
+      <span class="inline-flex items-center gap-1">
+        {% for n in range(1, 6) %}<span class="h-1.5 w-4 rounded-full {{ 'bg-violet-500' if n <= p.ai_fluency_level else 'bg-slate-200 dark:bg-slate-700' }}"></span>{% endfor %}
+        <span class="ml-1 text-xs text-slate-500">L{{ p.ai_fluency_level }}</span>
+      </span>
+    </td>
+    <td class="px-4 py-2 w-40">{{ ui.progress(p.progress_pct, 'brand') }}</td>
+    <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+  </tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endif %}
+
+{% call ui.modal('newPlan', 'New six-month development plan', 'lg') %}
+<form method="post" action="/transformation/development/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('title', 'Plan title', '', required=True, placeholder='e.g. Academics — six-month capability journey') }}</div>
+    {{ ui.select('department_id', 'Department', opts.departments, None, placeholder='— Organisation-wide —') }}
+    {{ ui.select('owner_id', 'Owner', opts.users, None, placeholder='— Me —') }}
+    {{ ui.input('start_date', 'Start date', '', type='date') }}
+    {{ ui.input('ai_fluency_level', 'Target AI fluency (1–5)', 3, type='number', min=1, max=5) }}
+  </div>
+  <div class="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Monthly goals</div>
+    {% for m in range(1, 7) %}{{ ui.input('goal_' ~ m, 'Month ' ~ m, '', placeholder='What must be true by the end of month ' ~ m) }}{% endfor %}
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Create plan', icon='plus') }}</div>
+</form>
+{% endcall %}
+
+{% for r in rows %}
+{% call ui.modal('plan' ~ r.p.id, 'Edit — ' ~ r.p.title, 'lg') %}
+<form method="post" action="/transformation/development/{{ r.p.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('title', 'Plan title', r.p.title, required=True) }}</div>
+    {{ ui.select('department_id', 'Department', opts.departments, r.p.department_id, placeholder='— Organisation-wide —') }}
+    {{ ui.select('status', 'Status', ['active','completed','paused','cancelled'], r.p.status, placeholder=None) }}
+    {{ ui.input('ai_fluency_level', 'Target AI fluency (1–5)', r.p.ai_fluency_level, type='number', min=1, max=5) }}
+    {{ ui.input('progress_pct', 'Progress %', r.p.progress_pct, type='number', min=0, max=100) }}
+  </div>
+  <div class="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Monthly goals</div>
+    {% for m in range(1, 7) %}
+    {% set g = (r.goals|selectattr('month', 'equalto', m)|list|first) %}
+    <div class="grid gap-2 sm:grid-cols-[1fr,10rem]">
+      {{ ui.input('goal_' ~ m, 'Month ' ~ m, g.goal if g else '') }}
+      {{ ui.select('goal_status_' ~ m, 'Status', ['planned','in_progress','done'], g.status if g else 'planned', placeholder=None) }}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save plan', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  OQC.doughnut('fluencyLevels', {{ fluency_labels|tojson }}, {{ fluency_data|tojson }});
+  OQC.bar('fluencyDept', {{ dept_fluency|map(attribute='name')|list|tojson }},
+          [{label: 'Average level', data: {{ dept_fluency|map(attribute='avg')|list|tojson }}}],
+          {scales: {y: {beginAtZero: true, max: 5}}});
+</script>
+{% endblock %}

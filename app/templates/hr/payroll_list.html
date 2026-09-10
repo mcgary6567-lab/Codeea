@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payroll{% endblock %}
+{% block content %}
+{% call ui.page_header('Payroll', 'Monthly runs: draft → pending approval → approved (Finance/People head) → paid. Approved runs post to the ledger automatically.') %}
+  {{ ui.button('Teacher cost vs output', href='/hr/payroll/teachers', icon='scale', variant='secondary') }}
+  {{ ui.button('Salary bands', href='/hr/payroll/bands', icon='layers', variant='secondary') }}
+  {{ ui.button('Advances', href='/hr/payroll/advances', icon='hand-coins', variant='secondary') }}
+  {{ ui.button('Bonuses', href='/hr/payroll/bonuses', icon='gift', variant='secondary') }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Runs', stats.runs, icon='calendar-range', color='brand') }}
+  {{ ui.stat('Paid', stats.paid, icon='check-check', color='emerald') }}
+  {{ ui.stat('Awaiting action', stats.pending, icon='hourglass', color='amber') }}
+  {{ ui.stat('Pending advances', stats.advances, icon='hand-coins', color='sky', href='/hr/payroll/advances?status=pending') }}
+  {{ ui.stat('Pending bonuses', stats.bonuses, icon='gift', color='violet', href='/hr/payroll/bonuses?status=pending') }}
+</div>
+{% if has_perm(user, 'payroll.add') %}
+<form method="post" action="/hr/payroll/generate" class="mb-6 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-44">{{ ui.input('period', 'Period', suggested_period, type='month') }}</div>
+  {{ ui.button('Generate draft payroll', icon='calculator') }}
+  <p class="ml-2 text-xs text-slate-500">Regenerating a period replaces the existing draft only; approved and paid runs are never touched.</p>
+</form>
+{% endif %}
+{{ ui.table_start(['Period', 'Payslips', 'Gross', 'Deductions', 'Net', 'Status', 'Approved by', 'Paid', '']) }}
+{% for r in runs %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 text-xs font-semibold"><a href="/hr/payroll/{{ r.id }}" class="text-brand-700 hover:underline dark:text-brand-300">{{ r.period }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ counts.get(r.id, 0) }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.total_gross|float|money(r.currency) }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ r.total_deductions|float|money }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ r.total_net|float|money(r.currency) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.approved_at|date if r.approved_at else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.paid_at|date if r.paid_at else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/payroll/' ~ r.id, size='sm', variant='ghost', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No payroll runs yet — generate one for last month.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

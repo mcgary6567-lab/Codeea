@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ambassadors{% endblock %}
+{% block content %}
+{% call ui.page_header('Ambassador families', 'Invite gate: tenure milestone + NPS (or no negative feedback) + attendance at least 75%', back='/crm/referrals') %}
+{% endcall %}
+
+{% call ui.filter_bar('/crm/referrals/ambassadors') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name, code, referral code') }}</div>
+  <div class="w-48">{{ ui.select('eligible', 'Show', [('','All active families'), ('ambassadors','Ambassadors only')], eligible, placeholder=None) }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Family','Country','Tenure','Latest NPS','Attendance','Referrals','Credited','Status','']) }}
+{% for c in page.items %}
+{% set e = elig[c.id] %}
+<tr>
+  <td class="px-4 py-2"><a href="/clients/{{ c.id }}" class="font-medium hover:text-brand-600">{{ c.full_name }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ c.client_code }}{% if c.referral_code %} · {{ c.referral_code }}{% endif %}</div></td>
+  <td class="px-4 py-2 text-xs">{{ c.country }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if e.tenure_days >= e.min_tenure else 'text-slate-500' }}">{{ e.tenure_days }}d <span class="text-slate-400">/ {{ e.min_tenure }}</span></td>
+  <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if e.nps_ok else 'text-rose-600' }}">{{ e.nps if e.nps is not none else 'no score' }}</td>
+  <td class="px-4 py-2 w-28">{{ ui.progress(e.attendance, 'emerald' if e.attendance_ok else 'rose', label=(e.attendance|round(0)) ~ '%') }}</td>
+  <td class="px-4 py-2">{{ counts.get(c.id, 0) }}</td>
+  <td class="px-4 py-2 text-emerald-600 font-medium">{{ credited.get(c.id, 0) }}</td>
+  <td class="px-4 py-2">
+    {% if c.is_ambassador %}{{ ui.badge('active', 'Ambassador') }}
+    {% elif e.eligible %}{{ ui.badge('qualified', 'Eligible') }}
+    {% else %}<span class="text-[11px] text-slate-400">{{ e.reasons|join('; ') }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right">
+    {% if not c.is_ambassador and has_perm(user, 'referrals.update') %}
+      {% if e.eligible %}
+      {{ ui.confirm_form('/crm/referrals/invite/' ~ c.id, 'Invite', icon='gift', variant='primary', message='Send the ambassador invitation with their referral link?') }}
+      {% else %}
+      <details class="inline-block text-left">
+        <summary class="cursor-pointer rounded-lg border border-amber-300 px-2.5 py-1 text-xs text-amber-700">Override</summary>
+        <div class="absolute z-20 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <form method="post" action="/crm/referrals/invite/{{ c.id }}" class="space-y-2">
+            <input type="hidden" name="force" value="1">
+            {{ ui.input('rationale', 'Override rationale', '', required=True, help='Logged as a consequential action') }}
+            {{ ui.button('Invite anyway', icon='shield-alert', size='sm', variant='warning') }}
+          </form>
+        </div>
+      </details>
+      {% endif %}
+    {% elif c.is_ambassador %}
+      <span class="text-[11px] text-slate-400">Invited {{ c.ambassador_invited_at|date if c.ambassador_invited_at else '' }}</span>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No families found.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

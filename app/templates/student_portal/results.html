@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My results{% endblock %}
+{% block content %}
+{{ ui.page_header('My results', 'Your monthly tests and result cards. Keep improving — every month is compared with the last.') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('Tests taken', tests|selectattr('score')|list|length, icon='file-badge', color='brand') }}
+  {{ ui.stat('Best score', (tests|selectattr('percentage')|map(attribute='percentage')|list|max) if (tests|selectattr('percentage')|list) else '—', icon='trophy', color='amber') }}
+  {{ ui.stat('Result cards', tests|selectattr('result_card_path')|list|length, icon='download', color='sky') }}
+</div>
+{{ ui.table_start(['Period', 'Score', '%', 'Previous', 'Improvement', 'Grade', 'Teacher remarks', '']) }}
+{% for t in tests %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">{{ t.period }}</td>
+  <td class="px-4 py-2">{{ t.score if t.score is not none else '—' }}<span class="text-xs text-slate-400">/{{ t.max_score|int }}</span></td>
+  <td class="px-4 py-2 font-semibold">{{ t.percentage if t.percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ t.previous_percentage if t.previous_percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-sm font-medium {{ 'text-emerald-600' if (t.improvement_pct or 0) > 0 else ('text-rose-600' if (t.improvement_pct or 0) < 0 else 'text-slate-500') }}">
+    {% if t.improvement_pct is not none %}{{ '+' if t.improvement_pct > 0 else '' }}{{ t.improvement_pct }} pts{% else %}—{% endif %}</td>
+  <td class="px-4 py-2"><span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold dark:bg-slate-800">{{ t.grade or '—' }}</span></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (t.teacher_remarks or '—')|truncate(70) }}</td>
+  <td class="px-4 py-2 text-right">{% if t.result_card_path %}<a href="/storage/{{ t.result_card_path }}" class="text-xs text-brand-600 hover:underline">Download</a>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No monthly tests yet — your first one comes after a full month of classes.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

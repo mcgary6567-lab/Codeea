@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Client ledger{% endblock %}
+{% block content %}
+{% call ui.page_header("Client ledger", "Family account balances — charges, payments, credits, refunds and adjustments.") %}
+  {{ ui.button("Credits issued", href="/finance/ledger/credits", icon="gift", variant="secondary") }}
+  {{ ui.button("Invoices", href="/finance/invoices", icon="receipt", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Families owing", totals.owing, icon="user-round-minus", color="amber") }}
+  {{ ui.stat("Total owed (" ~ base ~ ")", totals.owed_base|money, icon="banknote", color="rose") }}
+  {{ ui.stat("Families in credit", totals.credit, icon="gift", color="emerald") }}
+  {{ ui.stat("Overdue invoices", totals.overdue, icon="alarm-clock", color="orange", href="/finance/invoices?status=overdue") }}
+</div>
+
+{% call ui.filter_bar('/finance/ledger') %}
+  <div class="w-72">{{ ui.input('q', 'Search families', q, placeholder='Name, code or email') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Code', 'Family', 'Country', 'Currency', 'Balance', 'Credit available', 'Last payment', 'Overdue', '']) }}
+{% for r in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/finance/ledger/{{ r.client.id }}">{{ r.client.client_code }}</a></td>
+  <td class="px-4 py-2"><a href="/finance/ledger/{{ r.client.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ r.client.full_name }}</a></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.client.country }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.client.currency }}</td>
+  <td class="px-4 py-2 text-right font-semibold {{ 'text-rose-600' if r.balance > 0 else ('text-emerald-600' if r.balance < 0 else 'text-slate-400') }}">{{ r.balance|money(r.client.currency) }}</td>
+  <td class="px-4 py-2 text-right text-emerald-600">{{ r.credit|money if r.credit else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.last_payment|date if r.last_payment else 'Never' }}</td>
+  <td class="px-4 py-2 text-center">{% if r.overdue %}<span class="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ r.overdue }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Statement', href='/finance/ledger/' ~ r.client.id, variant='ghost', size='sm', icon='book-open') }}</td>
+</tr>
+{% else %}{{ ui.empty('No families found.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

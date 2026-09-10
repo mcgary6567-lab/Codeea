@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Retention & Churn{% endblock %}
+{% block content %}
+{% call ui.page_header('Retention & Churn risk board', 'Module 33 — AI churn scoring, win-back automation and pre-emptive retention actions') %}
+  {{ ui.button('Actions', href='/retention/actions', icon='list-checks', variant='secondary') }}
+  {{ ui.button('Freezes', href='/retention/freezes', icon='snowflake', variant='secondary') }}
+  {{ ui.button('Analytics', href='/retention/analytics', icon='bar-chart-3', variant='secondary') }}
+  {% if has_perm(user, 'retention.update') %}{{ ui.confirm_form('/retention/recompute', 'Recompute all', icon='refresh-cw', variant='primary', size='md', message='Recompute churn risk for every active student? This may take a moment.') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('High risk', stats.high, icon='flame', color='rose', href='/retention?level=high') }}
+  {{ ui.stat('Medium risk', stats.medium, icon='alert-triangle', color='amber', href='/retention?level=medium') }}
+  {{ ui.stat('Low risk', stats.low, icon='shield-check', color='emerald', href='/retention?level=low') }}
+  {{ ui.stat('Open actions', stats.open_actions, icon='list-checks', color='sky') }}
+  {{ ui.stat('Save rate', stats.save_rate ~ '%', icon='heart-pulse', color='violet', hint=stats.saved ~ ' saved') }}
+  {{ ui.stat('Churn (30d)', stats.churn_rate_30d ~ '%', icon='trending-down', color='orange', hint=stats.cancelled_30d ~ ' cancellations') }}
+</div>
+
+{% call ui.filter_bar('/retention') %}
+  <div class="w-44">{{ ui.input('q', 'Student', q) }}</div>
+  <div class="w-36">{{ ui.select('level', 'Risk level', levels, level, placeholder='All levels') }}</div>
+  <div class="w-48">
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Teacher</label>
+    <select name="teacher" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <option value="">All teachers</option>
+      {% for t in teachers %}<option value="{{ t.id }}" {% if teacher == t.id|string %}selected{% endif %}>{{ t.full_name }}</option>{% endfor %}
+    </select>
+  </div>
+{% endcall %}
+
+{{ ui.table_start(['Student','Risk','Factors','Attendance 30d','Test trend','Complaints','Overdue','Computed','']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/10' if r.level == 'high' }}">
+  <td class="px-4 py-2">
+    <a href="/students/{{ r.student.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ r.student.full_name }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ r.student.student_code }} · {{ r.student.status|titleize }}{% if r.frozen %} · frozen{% endif %}</div>
+  </td>
+  <td class="px-4 py-2 w-36">{{ ui.progress(r.score, 'rose' if r.level == 'high' else ('amber' if r.level == 'medium' else 'emerald'), label=(r.score|round(0)) ~ ' · ' ~ r.level) }}</td>
+  <td class="px-4 py-2">
+    {% for f in r.factors[:3] %}<span class="mr-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ f|titleize }}</span>{% endfor %}
+    {% if not r.factors %}<span class="text-xs text-slate-400">none</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">{{ r.attendance if r.attendance is not none else '—' }}%</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600' if r.test_trend and r.test_trend < 0 else 'text-emerald-600' }}">{{ r.test_trend if r.test_trend is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.complaints if r.complaints is not none else 0 }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.overdue if r.overdue is not none else 0 }}</td>
+  <td class="px-4 py-2 text-[11px] text-slate-400">{{ r.computed_at|ago if r.computed_at else 'never' }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if has_perm(user, 'retention.update') %}
+    <form method="post" action="/retention/students/{{ r.student.id }}/recompute" class="inline">{{ ui.button('Recompute', icon='refresh-cw', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No students match. Run "Recompute all" to score the current cohort.', 9, 'heart-pulse') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if has_perm(user, 'retention.update') %}
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Schedule a retention action') %}
+  <form method="post" action="/retention/actions/new" class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Student</label>
+      <select name="student_id" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+        {% for r in rows %}<option value="{{ r.student.id }}">{{ r.student.full_name }} ({{ r.student.student_code }}) — {{ r.level }}</option>{% endfor %}
+      </select>
+    </div>
+    {{ ui.select('action_type', 'Action', action_types, 'call', placeholder=None) }}
+    {{ ui.input('scheduled_at', 'When', '', type='datetime-local') }}
+    <div>
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Owner</label>
+      <select name="owner_id" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+        {% for o in owners %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', '', rows=2) }}</div>
+    <div class="sm:col-span-2">{{ ui.button('Schedule action', icon='calendar-plus', size='sm') }}</div>
+  </form>
+  <p class="mt-2 text-xs text-slate-500">Choosing <b>pre-leave offer</b> or <b>win-back sequence</b> also enrols the family in the matching WhatsApp sequence.</p>
+  {% endcall %}
+
+  {% call ui.card('COO monthly cohort calls') %}
+  <form method="post" action="/retention/cohort-calls" class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('level', 'Risk cohort', levels, 'medium', placeholder=None) }}
+    {{ ui.input('scheduled_at', 'When', '', type='datetime-local') }}
+    <div class="sm:col-span-2">
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Owner</label>
+      <select name="owner_id" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+        {% for o in owners %}<option value="{{ o.id }}">{{ o.full_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="sm:col-span-2">{{ ui.button('Bulk schedule cohort calls', icon='phone-call', size='sm', variant='secondary') }}</div>
+  </form>
+  <p class="mt-2 text-xs text-slate-500">Students who already have an open cohort call are skipped.</p>
+  {% endcall %}
+</div>
+{% endif %}
+{% endblock %}

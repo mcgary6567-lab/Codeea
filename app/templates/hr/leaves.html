@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Staff Leaves{% endblock %}
+{% block content %}
+{% call ui.page_header('Staff Leaves', 'Employee leave requests, approvals and the next 30 days of cover. Class propagation for teachers is handled by the scheduling module.') %}
+  {% if has_perm(user, 'leaves.add') %}{{ ui.button('Request on behalf', href='/hr/leaves/new', icon='plus') }}{% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Pending', counts.get('pending', 0), icon='hourglass', color='amber', href='/hr/leaves?status=pending') }}
+  {{ ui.stat('Approved', counts.get('approved', 0), icon='check', color='emerald', href='/hr/leaves?status=approved') }}
+  {{ ui.stat('Rejected', counts.get('rejected', 0), icon='x', color='rose', href='/hr/leaves?status=rejected') }}
+  {{ ui.stat('On leave today', on_leave_today|length, icon='plane', color='violet') }}
+</div>
+{% if on_leave_today %}
+<div class="mb-6 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm dark:border-violet-900 dark:bg-violet-950/30">
+  <b class="text-violet-800 dark:text-violet-200">Out today:</b>
+  {% for l in on_leave_today %}<a href="/hr/leaves/{{ l.id }}" class="ml-1 inline-block rounded bg-white px-2 py-0.5 text-xs text-violet-800 dark:bg-slate-900 dark:text-violet-200">{{ l.employee.full_name if l.employee else '—' }} ({{ l.leave_type }})</a>{% endfor %}
+</div>
+{% endif %}
+{% call ui.filter_bar('/hr/leaves') %}
+  <div class="w-56">{{ ui.input('q', 'Employee', q, placeholder='Name or code') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-40">{{ ui.select('leave_type', 'Type', leave_types, leave_type, placeholder='All types') }}</div>
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Employee', 'Type', 'From', 'To', 'Days', 'Substitute', 'Status', '']) }}
+    {% for l in page.items %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ l.employee_id }}" class="font-medium hover:text-brand-600">{{ l.employee.full_name if l.employee else '—' }}</a>
+        <div class="text-[11px] text-slate-500">{{ l.employee.designation if l.employee else '' }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ l.leave_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs">{{ l.start_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ l.end_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ leave_days(l) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ l.substitute_teacher_id or '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(l.status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/leaves/' ~ l.id, size='sm', variant='ghost', icon='arrow-right') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No leave requests match these filters.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+  <div>
+    {% call ui.card('Upcoming 30 days', 'Approved and pending cover') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for l in upcoming %}
+      <li class="py-2">
+        <div class="flex items-center justify-between gap-2">
+          <a href="/hr/leaves/{{ l.id }}" class="font-medium hover:text-brand-600">{{ l.employee.full_name if l.employee else '—' }}</a>
+          {{ ui.badge(l.status) }}
+        </div>
+        <div class="text-xs text-slate-500">{{ l.leave_type|titleize }} · {{ l.start_date|date }} → {{ l.end_date|date }} ({{ leave_days(l) }}d)
+          {% if l.start_date <= today_date and l.end_date >= today_date %}<span class="ml-1 rounded bg-violet-100 px-1 text-[10px] text-violet-700">today</span>{% endif %}</div>
+      </li>
+      {% else %}<li class="py-6 text-center text-xs text-slate-400">Nobody is scheduled to be away.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ etype }} #{{ eid }} history{% endblock %}
+{% block content %}
+{% call ui.page_header(etype ~ " #" ~ eid, "Complete audit history for this record — every change, who made it and why", back="/admin/audit") %}
+  {{ ui.button("Export CSV", href="/admin/audit/export.csv?entity_type=" ~ etype ~ "&entity_id=" ~ eid, icon="download", variant="secondary") }}
+  {{ ui.button("Filter the log", href="/admin/audit?entity_type=" ~ etype ~ "&entity_id=" ~ eid, icon="filter", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Events", events|length, icon="history", color="brand", hint="most recent 200") }}
+  {{ ui.stat("Consequential", events|selectattr('is_consequential')|list|length, icon="gavel", color="indigo") }}
+  {{ ui.stat("Critical", events|selectattr('severity','equalto','critical')|list|length, icon="shield-alert", color="rose") }}
+  {{ ui.stat("Last change", (events[0].created_at|ago) if events else '—', icon="clock", color="sky", hint=(events[0].actor_name or 'system') if events else '') }}
+</div>
+
+{% if events %}
+{% call ui.card("Timeline") %}
+<ol class="relative space-y-5 border-l border-slate-200 pl-6 dark:border-slate-800">
+  {% for e in events %}
+  <li class="relative">
+    <span class="absolute -left-[31px] flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-white dark:ring-slate-900
+      {{ 'bg-rose-500' if e.severity == 'critical' else ('bg-amber-500' if e.severity == 'warning' else 'bg-brand-500') }}">
+      <i data-lucide="{{ 'shield-alert' if e.severity == 'critical' else ('alert-triangle' if e.severity == 'warning' else 'check') }}" class="h-3 w-3 text-white"></i>
+    </span>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/audit/{{ e.id }}" class="font-medium text-slate-900 hover:text-brand-700 dark:text-white">{{ e.description or e.action|titleize }}</a>
+      {{ ui.badge(e.severity) }}
+      {% if e.is_consequential %}{{ ui.badge('approved', 'Consequential') }}{% endif %}
+    </div>
+    <div class="mt-0.5 text-xs text-slate-500">
+      <span class="font-mono">{{ e.action }}</span> in {{ e.module|titleize }} ·
+      {% if e.actor_id %}<a href="/admin/users/{{ e.actor_id }}" class="hover:text-brand-600">{{ e.actor_name }}</a>{% else %}{{ e.actor_name or 'system' }}{% endif %}
+      · {{ e.created_at|datetime }}{% if e.ip %} · <span class="font-mono">{{ e.ip }}</span>{% endif %}
+    </div>
+    {% if e.rationale %}<div class="mt-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"><b>Rationale:</b> {{ e.rationale }}</div>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endcall %}
+{% else %}
+{{ ui.empty_state('No audit events are recorded against ' ~ etype ~ ' #' ~ eid ~ ' yet.', 'history') }}
+{% endif %}
+{% endblock %}

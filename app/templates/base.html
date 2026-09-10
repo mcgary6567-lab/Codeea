@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" class="h-full" x-data="{ dark: localStorage.getItem('oqc-theme') === 'dark', sidebarOpen: false }" :class="{ 'dark': dark }">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %} · Online Quran College</title>
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#0f766e">
+  <script src="/static/vendor/tailwind.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'], arabic: ['"Amiri Quran"', '"Scheherazade New"', 'Amiri', 'serif'], urdu: ['"Noto Nastaliq Urdu"', 'serif'] },
+        colors: { brand: { 50:'#f0fdfa',100:'#ccfbf1',200:'#99f6e4',300:'#5eead4',400:'#2dd4bf',500:'#14b8a6',600:'#0d9488',700:'#0f766e',800:'#115e59',900:'#134e4a',950:'#042f2e' } }
+      } },
+      safelist: [{ pattern: /(bg|text|ring|border)-(emerald|slate|amber|rose|sky|indigo|orange|violet|teal|brand)-(50|100|200|300|400|500|600|700|800|900)/, variants: ['dark', 'hover'] },
+                 { pattern: /(ring|bg|text)-(emerald|slate|amber|rose|sky|indigo|orange|violet|teal)-(500|600)\/(10|20|30)/, variants: ['dark'] }]
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" media="print" onload="this.media='all'"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri+Quran&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script defer src="/static/vendor/alpine.js"></script>
+  <script src="/static/vendor/chart.umd.min.js"></script>
+  <script src="/static/vendor/htmx.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100 font-sans">
+{% if user %}
+<div class="min-h-full flex">
+  <!-- Sidebar -->
+  <div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-900/60 lg:hidden" @click="sidebarOpen=false" x-cloak></div>
+  <aside class="fixed inset-y-0 left-0 z-50 w-64 transform bg-slate-900 text-slate-200 transition-transform lg:translate-x-0 lg:static lg:inset-auto flex flex-col"
+         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+    <a href="{{ home_url }}" class="flex items-center gap-3 px-5 h-16 border-b border-slate-800">
+      <img src="/static/img/logo.svg" alt="" class="h-9 w-9">
+      <div class="leading-tight">
+        <div class="font-bold text-white tracking-tight">Online Quran College</div>
+        <div class="text-[11px] uppercase tracking-widest text-brand-300">Digital Operating System</div>
+      </div>
+    </a>
+    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-5 sidebar-scroll">
+      {% for section in nav %}
+      <div>
+        <div class="px-2 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{{ section.label }}</div>
+        <ul class="space-y-0.5">
+          {% for item in section["items"] %}
+          {% set active = current_path == item.url or (item.url != '/' and current_path.startswith(item.url + '/')) or (item.url != '/' and current_path.startswith(item.url) and item.url|length > 6) %}
+          <li><a href="{{ item.url }}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] transition {{ 'bg-brand-600/20 text-white font-medium' if active else 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+            <i data-lucide="{{ item.icon }}" class="h-4 w-4 shrink-0 {{ 'text-brand-300' if active else 'text-slate-500' }}"></i><span class="truncate">{{ item.label }}</span></a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </nav>
+    <div class="border-t border-slate-800 p-3">
+      <div class="flex items-center gap-3 px-2">
+        <div class="h-9 w-9 rounded-full bg-brand-600 flex items-center justify-center text-sm font-bold text-white">{{ user.initials }}</div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium text-white">{{ user.full_name }}</div>
+          <div class="truncate text-xs text-slate-400">{{ user.role.name if user.role else 'User' }}</div>
+        </div>
+        <a href="/logout" title="Sign out" class="text-slate-400 hover:text-white"><i data-lucide="log-out" class="h-4 w-4"></i></a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:px-6">
+      <button class="lg:hidden rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" @click="sidebarOpen=true"><i data-lucide="menu" class="h-5 w-5"></i></button>
+      <form action="/search" method="get" class="hidden md:flex flex-1 max-w-md items-center">
+        <div class="relative w-full">
+          <i data-lucide="search" class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400"></i>
+          <input name="q" placeholder="Search students, clients, leads, invoices…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+        </div>
+      </form>
+      <div class="ml-auto flex items-center gap-1.5">
+        <span class="hidden sm:inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300" id="clock"></span>
+        <button @click="dark=!dark; localStorage.setItem('oqc-theme', dark?'dark':'light')" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Toggle theme">
+          <i data-lucide="sun" class="h-5 w-5 hidden dark:block"></i><i data-lucide="moon" class="h-5 w-5 dark:hidden"></i>
+        </button>
+        <a href="/notifications" class="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="Notifications">
+          <i data-lucide="bell" class="h-5 w-5"></i>
+          {% if unread_count %}<span class="absolute -top-0.5 -right-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">{{ unread_count if unread_count < 100 else '99+' }}</span>{% endif %}
+        </a>
+        <a href="/profile" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" title="My profile"><i data-lucide="circle-user" class="h-5 w-5"></i></a>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      {% for f in flash_messages %}
+      <div x-data="{show:true}" x-show="show" class="mb-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-sm
+        {% if f.level == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200{% elif f.level == 'error' %}border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200{% elif f.level == 'warning' %}border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200{% else %}border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-200{% endif %}">
+        <i data-lucide="{{ 'check-circle-2' if f.level=='success' else ('alert-circle' if f.level=='error' else 'info') }}" class="h-4 w-4 mt-0.5 shrink-0"></i>
+        <div class="flex-1">{{ f.message }}</div>
+        <button @click="show=false" class="opacity-60 hover:opacity-100"><i data-lucide="x" class="h-4 w-4"></i></button>
+      </div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="px-6 py-4 text-xs text-slate-400 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+      <span>© {{ current_year }} Online Quran College · Digital Operating System v1.1</span>
+      <span class="hidden sm:inline">{{ app_env|title }} · <a href="/api/docs" class="hover:text-brand-600">API Docs</a> · <a href="/health" class="hover:text-brand-600">Health</a></span>
+    </footer>
+  </div>
+</div>
+{% else %}
+{% block public %}{% endblock %}
+{% endif %}
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Syllabus compliance{% endblock %}
+{% block content %}
+{% call ui.page_header("Syllabus Compliance", "Planned versus delivered curriculum per student: what the course target says should be finished by now against what is actually completed.", back="/academics/curriculum") %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Students assessed", summary.n, icon="users", color="brand") }}
+  {{ ui.stat("On track", summary.on_track, icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("Behind", summary.behind, icon="alert-circle", color="amber") }}
+  {{ ui.stat("At risk", summary.at_risk, icon="triangle-alert", color="rose") }}
+  {{ ui.stat("Avg compliance", summary.avg_compliance ~ '%', icon="gauge", color="indigo", hint='Plan delivery ' ~ summary.avg_delivery ~ '%') }}
+</div>
+
+{% call ui.filter_bar('/academics/curriculum/compliance') %}
+  <div class="w-56">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+{% endcall %}
+
+{% if chart.labels %}
+{% call ui.card('Average compliance by course', 'Percentage of the expected curriculum position actually completed.') %}
+{{ ui.chart('complianceChart', 240) }}
+{% endcall %}
+<div class="mb-5"></div>
+{% endif %}
+
+{{ ui.table_start(['Student', 'Course', 'Teacher', 'Completed', 'Expected', 'Gap', 'Compliance', 'Plans delivered', 'Status', '']) }}
+{% for r in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><div class="font-medium text-slate-900 dark:text-white">{{ r.student.full_name }}</div><div class="font-mono text-[11px] text-slate-400">{{ r.student.student_code }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.course.name if r.course else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.teacher.full_name if r.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.completed }} / {{ r.total }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.expected }}</td>
+  <td class="px-4 py-2 text-xs font-semibold {{ 'text-emerald-600' if r.gap >= 0 else 'text-rose-600' }}">{{ '%+d'|format(r.gap) }}</td>
+  <td class="px-4 py-2 w-40">{{ ui.progress(r.compliance, 'emerald' if r.compliance >= 95 else ('amber' if r.compliance >= 70 else 'rose'), label=r.compliance ~ '%') }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.delivered_plans }} / {{ r.plans }} <span class="text-slate-400">({{ r.delivery_rate }}%)</span></td>
+  <td class="px-4 py-2">{{ ui.badge('active' if r.status == 'on_track' else ('pending' if r.status == 'behind' else 'critical'), r.status|titleize) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/academics/progress/' ~ r.student.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No students match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}
+{% block scripts %}
+{% if chart.labels %}
+<script>OQC.bar('complianceChart', {{ chart.labels|tojson }}, [{label: 'Compliance %', data: {{ chart.data|tojson }}}]);</script>
+{% endif %}
+{% endblock %}

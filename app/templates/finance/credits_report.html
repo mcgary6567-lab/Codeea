@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Credits issued{% endblock %}
+{% block content %}
+{% call ui.page_header("Credits issued", "Referral rewards, goodwill and service-recovery credits posted to family accounts.", back='/finance/ledger') %}{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("Credit entries", entries|length, icon="gift", color="violet") }}
+  {{ ui.stat("Total credited (" ~ base ~ ")", total_base|money, icon="banknote", color="emerald") }}
+  {{ ui.stat("Referral credits (" ~ base ~ ")", referral_base|money, icon="users", color="sky") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Date', 'Family', 'Description', 'Source', 'Amount', 'Balance after']) }}
+    {% for e in entries %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 text-xs">{{ e.entry_date|date }}</td>
+      <td class="px-4 py-2 text-xs"><a href="/finance/ledger/{{ e.client_id }}" class="font-mono text-brand-700 dark:text-brand-300">{{ e.client.client_code if e.client else '' }}</a>
+        <div>{{ e.client.full_name if e.client else '' }}</div></td>
+      <td class="px-4 py-2 text-sm">{{ e.description }}</td>
+      <td class="px-4 py-2">{{ ui.badge('qualified' if e.id in referral_ids else 'draft', 'Referral' if e.id in referral_ids else (e.reference_type or 'manual')|titleize) }}</td>
+      <td class="px-4 py-2 text-right font-medium text-emerald-600">{{ e.credit|money(e.currency) }}</td>
+      <td class="px-4 py-2 text-right text-slate-500">{{ e.balance_after|money }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No credits have been issued yet.', 6, icon='gift') }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card("Credited referrals", "Ambassador programme") %}
+    <ul class="space-y-2 text-xs">
+      {% for r in referrals %}
+      <li class="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800">
+        <div class="flex justify-between"><b>{{ r.ambassador.full_name if r.ambassador else '' }}</b><span class="text-emerald-600">{{ r.credit_amount|money(r.credit_currency) }}</span></div>
+        <div class="text-slate-500">referred {{ r.referred_name or (r.referred_client.full_name if r.referred_client else '—') }}</div>
+      </li>
+      {% else %}<li class="text-slate-400">No credited referrals yet.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

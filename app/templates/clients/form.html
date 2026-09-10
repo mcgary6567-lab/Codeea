@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'Edit client' if mode == 'edit' else 'New client' }}{% endblock %}
+{% block content %}
+{% set c = client %}
+{% set p = (c.preferences if c else {}) or {} %}
+{{ ui.page_header(('Edit ' ~ c.client_code) if mode == 'edit' else 'New client / parent', 'Full guardian profile with consent, timezone and communication preferences.', back=('/clients/' ~ c.id) if c else '/clients') }}
+<form method="post" class="space-y-6 max-w-5xl" x-data="{ country: '{{ c.country if c else 'United Kingdom' }}', map: {{ country_map|tojson }}, tz: '{{ c.timezone if c else 'Europe/London' }}', cur: '{{ c.currency if c else 'GBP' }}' }">
+  {% call ui.card("Identity") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {{ ui.input('full_name', 'Full name', c.full_name if c else '', required=True) }}
+    {{ ui.select('relationship_to_student', 'Relationship to student', relationships, c.relationship_to_student if c else 'father', placeholder=None) }}
+    {{ ui.select('status', 'Status', statuses, c.status if c else 'trial', placeholder=None) }}
+    {{ ui.input('email', 'Email', c.email if c else '', type='email', help='Used for the portal login and invoices.') }}
+    {{ ui.input('phone', 'Phone', c.phone if c else '', placeholder='+44 7...') }}
+    {{ ui.input('whatsapp', 'WhatsApp number', c.whatsapp if c else '', placeholder='Defaults to phone') }}
+  </div>
+  {% endcall %}
+  {% call ui.card("Location & billing") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div>
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Country <span class="text-rose-500">*</span></label>
+      <select name="country" x-model="country" @change="if (map[country]) { tz = map[country].timezone; cur = map[country].currency }" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+        {% for co in countries %}<option value="{{ co }}" {% if c and c.country == co %}selected{% endif %}>{{ co }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Timezone</label>
+      <select name="timezone" x-model="tz" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        {% for t in timezones %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+      </select>
+      <p class="mt-1 text-xs text-slate-500">Auto-filled from country; class times in the portal are shown in this zone.</p>
+    </div>
+    <div>
+      <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Billing currency</label>
+      <select name="currency" x-model="cur" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        {% for cu in currencies %}<option value="{{ cu }}">{{ cu }}</option>{% endfor %}
+      </select>
+    </div>
+    {{ ui.input('city', 'City', c.city if c else '') }}
+    {{ ui.input('address', 'Address', c.address if c else '') }}
+    {{ ui.select('billing_rep_id', 'Billing representative', billing_rep_options, c.billing_rep_id if c else None, placeholder='Unassigned') }}
+    {{ ui.select('source', 'Acquisition source', sources, c.source if c else 'Manual', placeholder='Unknown') }}
+    {{ ui.select('household_id', 'Household', household_options, c.household_id if c else None, placeholder='No household / create new below') }}
+    {{ ui.input('household_name', 'New household name', '', placeholder='e.g. Khan Family', help='Leave blank to keep the selected household.') }}
+  </div>
+  {% endcall %}
+  {% call ui.card("Preferences & consent") %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.select('preferred_contact_time', 'Preferred contact time', ['morning','afternoon','evening','anytime'], p.get('preferred_contact_time') or 'evening', placeholder=None) }}
+    {{ ui.select('preferred_channel', 'Preferred channel', ['whatsapp','email','call','in_app'], p.get('preferred_channel') or 'whatsapp', placeholder=None) }}
+    {{ ui.select('preferred_language', 'Preferred language', ['English','Urdu','Arabic'], p.get('preferred_language') or 'English', placeholder=None) }}
+    {{ ui.select('invoice_delivery', 'Invoice delivery', ['email','whatsapp','both'], p.get('invoice_delivery') or 'email', placeholder=None) }}
+  </div>
+  <div class="mt-4 space-y-3">
+    {{ ui.checkbox('whatsapp_opt_in', 'WhatsApp opt-in', c.whatsapp_opt_in if c else True, help='Class reminders, result cards and invoices via WhatsApp. Creates a communication-preference record.') }}
+    {{ ui.checkbox('email_opt_in', 'Email opt-in', (comm_prefs.get('email', True) if comm_prefs is defined else True), help='Monthly statements and result cards by email.') }}
+    {{ ui.checkbox('consent_given', 'Consent to the safeguarding, data-protection and recording policy', c.consent_given if c else False, help='Required. Live classes with minors are recorded for safeguarding; the guardian confirms they have read the policy. Timestamp is stored.') }}
+    {% if mode == 'new' %}{{ ui.checkbox('create_portal', 'Create parent portal login now', True, help='A temporary password is shown once; the parent must change it at first sign-in.') }}{% endif %}
+  </div>
+  {% endcall %}
+  {% call ui.card("Internal notes") %}
+    {{ ui.textarea('notes', None, c.notes if c else '', rows=3, placeholder='Anything the team should know (never shown to the parent).') }}
+  {% endcall %}
+  <div class="flex items-center gap-3">
+    {{ ui.button('Save client' if mode == 'edit' else 'Create client', icon='save') }}
+    {{ ui.button('Cancel', href=('/clients/' ~ c.id) if c else '/clients', variant='secondary') }}
+  </div>
+</form>
+{% endblock %}

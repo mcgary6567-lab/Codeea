@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subscription economics{% endblock %}
+{% block content %}
+{% call ui.page_header("Subscription economics", "Recurring revenue and margin over teacher cost, consolidated in " ~ base ~ ".", back='/finance/subscriptions') %}{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Subscriptions", totals.count, icon="repeat", color="brand") }}
+  {{ ui.stat("MRR", totals.mrr|money(base), icon="trending-up", color="emerald") }}
+  {{ ui.stat("Teacher cost", totals.cost|money(base), icon="user-check", color="amber") }}
+  {{ ui.stat("Gross margin", totals.margin|money(base), icon="percent", color="indigo",
+             hint=((totals.margin / totals.mrr * 100)|round(1)|string ~ '% of MRR') if totals.mrr else 'No revenue yet') }}
+</div>
+
+{{ ui.tabs([('course', 'By course', '/finance/subscriptions/report?group_by=course'),
+            ('package', 'By package', '/finance/subscriptions/report?group_by=package'),
+            ('country', 'By country', '/finance/subscriptions/report?group_by=country'),
+            ('teacher', 'By teacher', '/finance/subscriptions/report?group_by=teacher')], group_by) }}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Group', 'Subscriptions', 'Currencies', 'MRR (' ~ base ~ ')', 'Avg / student', 'Teacher cost', 'Margin', 'Margin %']) }}
+    {% for r in rows %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-medium">{{ r.key }}</td>
+      <td class="px-4 py-2 text-center">{{ r.count }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ r.currencies }}</td>
+      <td class="px-4 py-2 text-right font-semibold">{{ r.mrr|money }}</td>
+      <td class="px-4 py-2 text-right text-slate-500">{{ r.avg|money }}</td>
+      <td class="px-4 py-2 text-right text-amber-600">{{ r.cost|money }}</td>
+      <td class="px-4 py-2 text-right">{{ r.margin|money }}</td>
+      <td class="px-4 py-2 text-right font-semibold {{ 'text-emerald-600' if r.margin_pct >= 20 else 'text-rose-600' }}">{{ r.margin_pct }}%</td>
+    </tr>
+    {% else %}{{ ui.empty('No active subscriptions to report on yet.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card("MRR distribution") %}
+    {{ ui.chart('mrrChart', 320) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>OQC.doughnut('mrrChart', {{ labels|tojson }}, {{ values|tojson }});</script>
+{% endblock %}

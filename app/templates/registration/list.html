@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Registrations{% endblock %}
+{% block content %}
+{% call ui.page_header("Online registrations", "Families who registered through the public /register form. Convert an approved registration into a client, a portal login and trial students in one action.") %}
+  {{ ui.button("Open public form", href="/register", icon="external-link", variant="secondary") }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Registrations", stats.total, icon="clipboard-list", color="brand") }}
+  {{ ui.stat("Awaiting contact", stats.new, icon="inbox", color="sky", href="/registrations?stage=new") }}
+  {{ ui.stat("Converted", stats.converted, icon="user-check", color="emerald") }}
+  {{ ui.stat("Possible duplicates", stats.duplicates, icon="copy", color="amber", href="/registrations?dup=yes") }}
+  {{ ui.stat("Avg lead score", stats.avg_score, icon="gauge", color="indigo", hint=stats.students|string ~ ' students requested') }}
+</div>
+{% call ui.filter_bar('/registrations') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Parent, child, code, phone, email') }}</div>
+  <div class="w-44">{{ ui.select('stage', 'Stage', stages, stage, placeholder='All stages') }}</div>
+  <div class="w-40">{{ ui.select('dup', 'Duplicates', [('yes','Only duplicates')], dup, placeholder='All') }}</div>
+{% endcall %}
+{{ ui.table_start(['Code', 'Parent', 'Students', 'Country', 'Preferred time', 'Score', 'Referral', 'Stage', 'Received', '']) }}
+{% for l in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/registrations/{{ l.id }}">{{ l.lead_code }}</a></td>
+  <td class="px-4 py-2"><div class="font-medium text-slate-900 dark:text-white">{{ l.full_name }}</div>
+    <div class="text-xs text-slate-500">{{ l.phone|mask }} · {{ l.email|mask }}</div>
+    {% if l.is_duplicate_of_id %}<span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><i data-lucide="copy" class="h-3 w-3"></i>possible duplicate</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ l.student_name or '—' }}{% if (l.students_count or 1) > 1 %} <span class="text-slate-400">+{{ l.students_count - 1 }}</span>{% endif %}
+    <div class="text-slate-500">{{ l.course_interest.name if l.course_interest else 'course TBD' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ l.country or '—' }}<div class="text-slate-500">{{ l.timezone or '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ l.preferred_time or '—' }}</td>
+  <td class="px-4 py-2"><span class="font-bold {{ 'text-emerald-600' if (l.score or 0) >= 70 else ('text-amber-600' if (l.score or 0) >= 40 else 'text-slate-500') }}">{{ l.score or 0 }}</span></td>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ l.referral_code or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(l.stage) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ l.created_at|ago }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if l.converted_client_id %}{{ ui.button('Client', href='/clients/' ~ l.converted_client_id, variant='ghost', size='sm', icon='user') }}
+    {% else %}{{ ui.button('Review', href='/registrations/' ~ l.id, variant='ghost', size='sm', icon='arrow-right') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No website registrations yet. Share the public form at /register.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA feedback{% endblock %}
+{% block content %}
+{{ ui.page_header('Quality feedback', 'Reviews of your classes by the QA team and the AI class-monitoring service, plus any corrective actions assigned to you.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Reviews', reviews|length, icon='shield-check', color='brand') }}
+  {{ ui.stat('QA average', t.qa_score_avg|round(1) if t.qa_score_avg else '—', icon='star', color='amber') }}
+  {{ ui.stat('AI analyses', analyses|length, icon='brain-circuit', color='violet') }}
+  {{ ui.stat('Open actions', actions|rejectattr('status', 'equalto', 'closed')|list|length, icon='clipboard-list', color='rose') }}
+</div>
+
+{% call ui.card('Corrective actions', 'Close an action once you have changed what was asked. Your closure note goes to the QA reviewer.') %}
+  <div class="space-y-3">
+  {% for a in actions %}
+    <div class="rounded-lg border {{ 'border-slate-200 dark:border-slate-800' if a.status == 'closed' else 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20' }} p-3" x-data="{ open: false }">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-sm text-slate-800 dark:text-slate-100">{{ a.description }}</div>
+          <div class="mt-0.5 text-xs text-slate-500">Due {{ a.due_date|date if a.due_date else 'no deadline' }}
+            {% if a.closure_note %} · closed: {{ a.closure_note|truncate(60) }}{% endif %}</div>
+        </div>
+        <div class="flex items-center gap-2">{{ ui.badge(a.status) }}
+          {% if a.status != 'closed' %}{{ ui.button('Mark done', variant='success', size='sm', icon='check', attrs='type="button" @click="open = !open"') }}{% endif %}</div>
+      </div>
+      {% if a.status != 'closed' %}
+      <form method="post" action="/teacher/corrective-actions/{{ a.id }}/done" x-show="open" x-cloak class="mt-3 space-y-2 border-t border-amber-200 pt-3 dark:border-amber-900">
+        {{ ui.textarea('closure_note', 'What did you change?', '', rows=2, required=True, placeholder='Reviewed the makhaarij drills; started every class with 3 minutes of tajweed warm-up.') }}
+        {{ ui.button('Close action', size='sm', icon='check') }}
+      </form>
+      {% endif %}
+    </div>
+  {% else %}
+    {{ ui.empty_state('No corrective actions — keep it up.', 'shield-check') }}
+  {% endfor %}
+  </div>
+{% endcall %}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('QA reviews') %}
+    <div class="space-y-3">
+    {% for r in reviews %}
+      <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-sm font-medium">{{ r.created_at|date }} · {{ r.sample_type|titleize }}</div>
+          <div class="text-lg font-bold text-brand-700 dark:text-brand-300">{{ r.overall_score|round(1) if r.overall_score else '—' }}</div>
+        </div>
+        <div class="mt-1 grid grid-cols-3 gap-2 text-[11px] text-slate-500">
+          <span>Tajweed {{ r.tajweed_score or '—' }}</span><span>Method {{ r.methodology_score or '—' }}</span><span>Engagement {{ r.engagement_score or '—' }}</span>
+          <span>Punctuality {{ r.punctuality_score or '—' }}</span><span>Environment {{ r.environment_score or '—' }}</span><span>Professionalism {{ r.professionalism_score or '—' }}</span>
+        </div>
+        {% if r.strengths %}<p class="mt-2 text-xs text-emerald-700 dark:text-emerald-300"><b>Strengths:</b> {{ r.strengths }}</p>{% endif %}
+        {% if r.weaknesses %}<p class="mt-1 text-xs text-amber-700 dark:text-amber-300"><b>To improve:</b> {{ r.weaknesses }}</p>{% endif %}
+        {% if r.comments %}<p class="mt-1 text-xs text-slate-500">{{ r.comments }}</p>{% endif %}
+      </div>
+    {% else %}{{ ui.empty_state('No completed QA reviews yet.', 'shield-check') }}{% endfor %}
+    </div>
+  {% endcall %}
+  {% call ui.card('AI class analysis') %}
+    {{ ui.table_start(['Date', 'Camera', 'Active', 'Engagement', 'Overall', 'Risk']) }}
+    {% for a in analyses %}
+    <tr><td class="px-4 py-2 text-xs">{{ a.created_at|date }}</td>
+      <td class="px-4 py-2">{{ a.camera_presence_pct|round|int }}%</td>
+      <td class="px-4 py-2">{{ a.active_teaching_pct|round|int }}%</td>
+      <td class="px-4 py-2">{{ a.student_engagement_score|round(1) }}</td>
+      <td class="px-4 py-2 font-semibold">{{ a.overall_score|round(1) }}</td>
+      <td class="px-4 py-2">{{ ui.badge(a.risk_level) }}</td></tr>
+    {% else %}{{ ui.empty('No AI analyses yet.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% for a in analyses[:3] %}
+      {% if a.recommended_feedback %}
+      <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+        <b>{{ a.created_at|date }}:</b> {{ a.recommended_feedback }}
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% endcall %}
+</div>
+{% endblock %}

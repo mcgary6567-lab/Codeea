@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Recordings{% endblock %}
+{% block content %}
+{% call ui.page_header("Class recordings", "Retention " ~ retention_days ~ " days · every open is purpose-logged for safeguarding") %}
+  {{ ui.button("Ingest recordings", href="/recordings/ingest", icon="download", variant="secondary") }}
+  {{ ui.button("Access log", href="/safeguarding/recording-access", icon="scroll-text", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Recordings", stats.total, icon="film", color="violet") }}
+  {{ ui.stat("Available", stats.available, icon="play-circle", color="emerald") }}
+  {{ ui.stat("AI analysed", stats.analysed, icon="brain-circuit", color="indigo") }}
+  {{ ui.stat("Expiring in 30 days", stats.expiring, icon="timer", color="amber") }}
+</div>
+
+{% call ui.filter_bar('/recordings') %}
+  {{ ui.input('q', 'Search', q, placeholder='Student or room') }}
+  {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+  {{ ui.select('source', 'Source', sources, source, placeholder='All') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}
+  {{ ui.select('analysed', 'AI analysis', [('1','Analysed'),('0','Not analysed')], analysed, placeholder='All') }}
+  {{ ui.input('date_from', 'From', date_from or '', type='date') }}
+  {{ ui.input('date_to', 'To', date_to or '', type='date') }}
+{% endcall %}
+
+{{ ui.table_start(['Class','Student','Teacher','Source','Duration','Status','Retention','Opens','']) }}
+{% for r in page.items %}
+<tr>
+  <td class="px-4 py-2 text-xs"><a href="/classes/{{ r.session_id }}" class="hover:text-brand-700">{{ r.session.date|date if r.session }} {{ r.session.start_time|time if r.session }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ r.session.room_name if r.session }}</div></td>
+  <td class="px-4 py-2 text-xs font-medium">{{ r.session.student.full_name if r.session and r.session.student else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.session.teacher.full_name if r.session and r.session.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.source|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ (r.duration_seconds // 60) }} min</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-amber-600' if r.retention_until and r.retention_until <= today() }}">{{ r.retention_until|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.access_count }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/recordings/' ~ r.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No recordings match these filters.', 9, 'film') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

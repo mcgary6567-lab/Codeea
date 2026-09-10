@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Pay now{% endblock %}
+{% block content %}
+{{ ui.page_header('Pay now', 'How to settle your account. Once you have paid, our billing team confirms the payment and a receipt appears in your portal.', back='/portal/billing') }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% if invoice %}
+    {% call ui.card('Invoice ' ~ invoice.invoice_number) %}
+      {{ ui.dl([('Issued', invoice.issue_date|date), ('Due', invoice.due_date|date),
+                ('Period', ((invoice.period_start|date) ~ ' → ' ~ (invoice.period_end|date)) if invoice.period_start else '—'),
+                ('Total', invoice.total|money(invoice.currency)), ('Already paid', invoice.paid_amount|money(invoice.currency)),
+                ('Outstanding', (invoice.total - invoice.paid_amount)|money(invoice.currency)), ('Status', invoice.status|titleize)]) }}
+    {% endcall %}
+    {% else %}
+    {% call ui.card('Account balance') %}
+      <div class="text-center">
+        <div class="text-4xl font-bold {{ 'text-rose-600' if balance > 0 else 'text-emerald-600' }}">{{ balance|money(c.currency) }}</div>
+        <div class="mt-1 text-sm text-slate-500">{{ 'currently due' if balance > 0 else 'your account is in credit' }}</div>
+      </div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Bank transfer') %}
+      <dl class="grid gap-3 sm:grid-cols-2 text-sm">
+        {% for k, v in bank.items() %}
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ k|replace('_', ' ')|title }}</dt>
+          <dd class="mt-0.5 select-all font-mono text-slate-800 dark:text-slate-200">{{ v }}</dd></div>
+        {% endfor %}
+      </dl>
+      <div class="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        Please quote your family code <b class="font-mono">{{ c.client_code }}</b>{% if invoice %} and the invoice number <b class="font-mono">{{ invoice.invoice_number }}</b>{% endif %} as the payment reference so we can match it automatically.
+      </div>
+    {% endcall %}
+
+    {% call ui.card('Other ways to pay') %}
+      <ul class="space-y-2 text-sm">
+        {% for m in methods %}
+        <li class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+          <i data-lucide="credit-card" class="h-4 w-4 text-slate-400"></i><span class="text-slate-700 dark:text-slate-200">{{ m }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="mt-3 text-xs text-slate-500">Ask your billing representative on WhatsApp for a card payment link. We never ask for card details by message.</p>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Already paid?') %}
+      <p class="text-sm text-slate-600 dark:text-slate-300">Send us the transfer reference and we will confirm it within one working day.</p>
+      <div class="mt-4">{{ ui.button('Tell us about a payment', href='/portal/cases', icon='life-buoy', variant='secondary') }}</div>
+    {% endcall %}
+    {% call ui.card('Need more time?') %}
+      <p class="text-sm text-slate-600 dark:text-slate-300">If money is tight, please talk to us before classes lapse. We can pause the subscription, adjust the plan or discuss a scholarship.</p>
+      <div class="mt-4">{{ ui.button('Open a billing request', href='/portal/cases', icon='message-square', variant='secondary') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

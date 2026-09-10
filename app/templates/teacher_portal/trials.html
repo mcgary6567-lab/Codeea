@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My trials{% endblock %}
+{% block content %}
+{{ ui.page_header('Trial classes', 'Deliver the trial, then record your feedback and recommendation — the closer is notified immediately.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Assigned', rows|length, icon='flask-conical', color='brand') }}
+  {{ ui.stat('Scheduled', rows|selectattr('status', 'equalto', 'scheduled')|list|length, icon='calendar-check', color='sky') }}
+  {{ ui.stat('Attended', rows|selectattr('status', 'equalto', 'attended')|list|length, icon='check-circle', color='emerald') }}
+  {{ ui.stat('Converted', rows|selectattr('status', 'equalto', 'converted')|list|length, icon='user-check', color='indigo') }}
+</div>
+<div class="space-y-3">
+{% for tr in rows %}
+<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900" x-data="{ open: false }">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <div class="font-medium text-slate-900 dark:text-white">{{ tr.student_name }}</div>
+      <div class="mt-0.5 text-xs text-slate-500">
+        {{ tr.scheduled_at|datetime if tr.scheduled_at else 'Not scheduled yet' }}
+        {% if tr.course %} · {{ tr.course.name }}{% endif %}
+        {% if tr.lead %} · lead {{ tr.lead.lead_code }} ({{ tr.lead.country or '—' }}){% endif %}
+      </div>
+      {% if tr.teacher_feedback %}<p class="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ tr.teacher_feedback }}</p>{% endif %}
+    </div>
+    <div class="flex items-center gap-2">{{ ui.badge(tr.status) }}
+      {{ ui.button('Feedback', variant='secondary', size='sm', icon='message-square', attrs='type="button" @click="open = !open"') }}</div>
+  </div>
+  <form method="post" action="/teacher/trials/{{ tr.id }}/feedback" x-show="open" x-cloak class="mt-3 space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ ui.select('outcome', 'Did the student attend?', [('attended','Attended'),('no_show','No show')], tr.status, placeholder='No change') }}
+      {{ ui.input('recommendation', 'Recommendation', tr.outcome, placeholder='Start at Qaida level 2, evening slot') }}
+    </div>
+    {{ ui.textarea('teacher_feedback', 'Feedback for the closer and the parent', tr.teacher_feedback, rows=3, placeholder='Reading level, attitude, suggested course and pace.') }}
+    <div class="flex gap-2">{{ ui.button('Save feedback', icon='send', size='sm') }}</div>
+  </form>
+</div>
+{% else %}
+{{ ui.empty_state('No trial classes are assigned to you.', 'flask-conical') }}
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Journal{% endblock %}
+{% block content %}
+{% call ui.page_header("Journal entries", "Every posting in the general ledger, in " ~ base ~ ".") %}
+  {% if has_perm(user, 'accounts.add') %}
+  <button type="button" @click="$dispatch('open-modal','newje')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Manual journal</button>
+  {% endif %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+{% call ui.filter_bar('/finance/accounts/journal') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='JE-, description') }}</div>
+  <div class="w-40">{{ ui.select('period', 'Period', periods, period, placeholder='All periods') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Entry', 'Date', 'Description', 'Reference', 'Period', 'Total', 'Status', '']) }}
+{% for je in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold"><a class="text-brand-700 dark:text-brand-300" href="/finance/accounts/journal/{{ je.id }}">{{ je.entry_number }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ je.entry_date|date }}</td>
+  <td class="px-4 py-2 text-sm">{{ je.description }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ je.reference_type|titleize if je.reference_type else '—' }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ je.period }}</td>
+  <td class="px-4 py-2 text-right font-medium">{{ je.total|money(je.currency) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(je.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/accounts/journal/' ~ je.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No journal entries yet.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('newje', 'Post a manual journal', 'lg') %}
+<form method="post" action="/finance/accounts/journal/new" class="space-y-4" x-data="{ lines: [0,1,2,3] }">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('entry_date', 'Entry date', today_d.isoformat(), type='date', required=True) }}
+    {{ ui.input('description', 'Description', '', required=True) }}
+  </div>
+  <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+        <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase text-slate-500">Account</th>
+        <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase text-slate-500">Debit</th>
+        <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase text-slate-500">Credit</th>
+      </tr></thead>
+      <tbody>
+      <template x-for="i in lines" :key="i">
+        <tr>
+          <td class="px-3 py-1.5">
+            <select name="account_code" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+              <option value="">— none —</option>
+              {% for a in accounts %}<option value="{{ a.code }}">{{ a.code }} · {{ a.name }}</option>{% endfor %}
+            </select>
+          </td>
+          <td class="px-3 py-1.5"><input name="debit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
+          <td class="px-3 py-1.5"><input name="credit" type="number" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></td>
+        </tr>
+      </template>
+      </tbody>
+    </table>
+  </div>
+  <button type="button" @click="lines.push(lines.length)" class="text-xs text-brand-600 hover:underline">+ add line</button>
+  {{ ui.textarea('rationale', 'Rationale', '', rows=2, help='Debits must equal credits and the period must be open.') }}
+  {{ ui.button('Post journal', icon='check') }}
+</form>
+{% endcall %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trial analytics{% endblock %}
+{% macro group_table(title, rows, label) %}
+{% call ui.card(title) %}
+{{ ui.table_start([label,'Trials','Attended','No-show','Converted','Trial → paid'], compact=True) }}
+{% for r in rows %}
+<tr><td class="px-4 py-1.5 font-medium">{{ r.key }}</td><td class="px-4 py-1.5">{{ r.trials }}</td><td class="px-4 py-1.5">{{ r.attended }}</td>
+  <td class="px-4 py-1.5 text-rose-600">{{ r.no_show }}</td><td class="px-4 py-1.5 text-emerald-600 font-semibold">{{ r.converted }}</td>
+  <td class="px-4 py-1.5 w-32">{{ ui.progress(r.rate, 'emerald' if r.rate >= 40 else 'amber', label=r.rate ~ '%') }}</td></tr>
+{% else %}{{ ui.empty('No trials recorded.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endmacro %}
+{% block content %}
+{{ ui.page_header('Trial analytics', 'Trial-to-paid conversion by teacher, course and lead source', back='/trials') }}
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Total trials', stats.total, icon='flask-conical', color='sky') }}
+  {{ ui.stat('Attended', stats.attended, icon='check', color='indigo') }}
+  {{ ui.stat('No-show', stats.no_show, icon='user-x', color='rose') }}
+  {{ ui.stat('Converted', stats.converted, icon='trophy', color='emerald') }}
+  {{ ui.stat('Show rate', stats.show_rate ~ '%', icon='eye', color='violet') }}
+  {{ ui.stat('Trial → paid', stats.trial_to_paid ~ '%', icon='trending-up', color='brand') }}
+</div>
+<div class="grid gap-6 lg:grid-cols-2 mb-6">
+  {% call ui.card('Conversion by teacher') %}{{ ui.chart('byteacher', 260) }}{% endcall %}
+  {% call ui.card('Trials by source') %}{{ ui.chart('bysource', 260) }}{% endcall %}
+</div>
+<div class="space-y-6">
+  {{ group_table('By teacher', a.by_teacher, 'Teacher') }}
+  {{ group_table('By course', a.by_course, 'Course') }}
+  {{ group_table('By lead source', a.by_source, 'Source') }}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.bar('byteacher', {{ a.by_teacher|map(attribute='key')|list|tojson }}, [{label:'Trial → paid %', data: {{ a.by_teacher|map(attribute='rate')|list|tojson }}}]);
+  OQC.doughnut('bysource', {{ a.by_source|map(attribute='key')|list|tojson }}, {{ a.by_source|map(attribute='trials')|list|tojson }});
+</script>
+{% endblock %}

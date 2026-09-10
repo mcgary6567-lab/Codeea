@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Curriculum{% endblock %}
+{% block content %}
+{% call ui.page_header("Curriculum Builder", "Books → chapters → lessons. Lessons carry the Arabic text with tashkeel, translation, objectives and Tajweed notes used by the shared lesson view.") %}
+  {{ ui.button("Syllabus compliance", href="/academics/curriculum/compliance", icon="clipboard-check", variant="secondary") }}
+  {% if can_add and course %}{{ ui.button("New book", icon="plus", attrs="@click=\"$dispatch('open-modal','newBook')\"") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Books", stats.books, icon="book", color="brand") }}
+  {{ ui.stat("Chapters", stats.chapters, icon="list-tree", color="indigo") }}
+  {{ ui.stat("Lessons", stats.lessons, icon="file-text", color="violet") }}
+  {{ ui.stat("Teaching hours", stats.hours, icon="clock", color="amber", hint="Sum of expected lesson minutes") }}
+  {{ ui.stat("Students on course", stats.students, icon="graduation-cap", color="emerald") }}
+</div>
+
+{% call ui.filter_bar('/academics/curriculum') %}
+  <div class="w-64">
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Course</label>
+    <select name="course_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      {% for c in courses %}<option value="{{ c.id }}" {% if c.id == course_id %}selected{% endif %}>{{ c.code }} — {{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="w-64">{{ ui.input('q', 'Search lessons', q, placeholder='Lesson title or Arabic text') }}</div>
+{% endcall %}
+
+{% if not course %}
+  {{ ui.empty_state('Create a course first, then build its curriculum here.', 'library') }}
+{% else %}
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    {% for node in tree %}
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" x-data="{ open:true, editBook:false }">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+        <div class="min-w-0">
+          <button type="button" @click="open=!open" class="flex items-center gap-2 text-left">
+            <i data-lucide="book" class="h-4 w-4 text-brand-600"></i>
+            <span class="font-semibold text-slate-900 dark:text-white">{{ node.book.title }}</span>
+          </button>
+          {% if node.book.arabic_title %}<div dir="rtl" class="font-arabic text-sm text-slate-500">{{ node.book.arabic_title }}</div>{% endif %}
+          <div class="text-xs text-slate-500">{{ node.chapters|length }} chapters · {{ node.lessons }} lessons</div>
+        </div>
+        <div class="flex shrink-0 items-center gap-1">
+          {% if can_edit %}<button type="button" @click="editBook=!editBook" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+          {% if can_delete %}{{ ui.confirm_form('/academics/curriculum/books/' ~ node.book.id ~ '/delete', '', icon='trash-2', variant='ghost', message='Delete this book with all its chapters and lessons?') }}{% endif %}
+        </div>
+      </div>
+      {% if can_edit %}
+      <div x-show="editBook" x-cloak class="border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-800/40">
+        <form method="post" action="/academics/curriculum/books/{{ node.book.id }}/edit" class="grid gap-3 sm:grid-cols-4 items-end">
+          {{ ui.input('title', 'Title', node.book.title, required=True) }}
+          {{ ui.input('arabic_title', 'Arabic title', node.book.arabic_title or '', attrs='dir="rtl" class="font-arabic"') }}
+          {{ ui.input('order', 'Order', node.book.order, type='number') }}
+          <div>{{ ui.button('Save book', icon='save', size='sm') }}</div>
+        </form>
+      </div>
+      {% endif %}
+      <div x-show="open" class="divide-y divide-slate-100 dark:divide-slate-800">
+        {% for cnode in node.chapters %}
+        <div class="px-5 py-3" x-data="{ chOpen:true, editCh:false, addLesson:false }">
+          <div class="flex items-center justify-between gap-2">
+            <button type="button" @click="chOpen=!chOpen" class="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-100">
+              <i data-lucide="chevron-right" class="h-3.5 w-3.5 transition" :class="chOpen && 'rotate-90'"></i>
+              {{ cnode.chapter.title }}
+              {% if cnode.chapter.arabic_title %}<span dir="rtl" class="font-arabic text-xs text-slate-400">{{ cnode.chapter.arabic_title }}</span>{% endif %}
+              <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800">{{ cnode.lessons|length }}</span>
+            </button>
+            <div class="flex items-center gap-1">
+              {% if can_add %}<button type="button" @click="addLesson=!addLesson" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" title="Add lesson"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>{% endif %}
+              {% if can_edit %}<button type="button" @click="editCh=!editCh" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+              {% if can_delete %}{{ ui.confirm_form('/academics/curriculum/chapters/' ~ cnode.chapter.id ~ '/delete', '', icon='trash-2', variant='ghost', message='Delete this chapter and its lessons?') }}{% endif %}
+            </div>
+          </div>
+          {% if can_edit %}
+          <form x-show="editCh" x-cloak method="post" action="/academics/curriculum/chapters/{{ cnode.chapter.id }}/edit" class="mt-3 grid gap-3 sm:grid-cols-4 items-end rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
+            {{ ui.input('title', 'Title', cnode.chapter.title, required=True) }}
+            {{ ui.input('arabic_title', 'Arabic title', cnode.chapter.arabic_title or '', attrs='dir="rtl" class="font-arabic"') }}
+            {{ ui.input('order', 'Order', cnode.chapter.order, type='number') }}
+            <div>{{ ui.button('Save', icon='save', size='sm') }}</div>
+          </form>
+          {% endif %}
+          {% if can_add %}
+          <form x-show="addLesson" x-cloak method="post" action="/academics/curriculum/lessons" class="mt-3 grid gap-3 sm:grid-cols-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
+            <input type="hidden" name="chapter_id" value="{{ cnode.chapter.id }}">
+            {{ ui.input('title', 'Lesson title', '', required=True) }}
+            {{ ui.input('expected_minutes', 'Expected minutes', 30, type='number', min=5, max=180) }}
+            <div class="sm:col-span-2">{{ ui.textarea('arabic_text', 'Arabic text (with tashkeel)', '', rows=3, attrs='dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-arabic text-lg leading-loose dark:border-slate-700 dark:bg-slate-800"') }}</div>
+            <div class="sm:col-span-2">{{ ui.textarea('translation', 'Translation', '', rows=2) }}</div>
+            <div class="sm:col-span-2">{{ ui.textarea('objectives', 'Objectives', '', rows=2) }}</div>
+            <div class="sm:col-span-2">{{ ui.textarea('tajweed_notes', 'Tajweed notes', '', rows=2) }}</div>
+            {{ ui.input('surah_number', 'Surah number', '', type='number', min=1, max=114) }}
+            <div class="grid grid-cols-2 gap-3">{{ ui.input('ayah_from', 'Ayah from', '', type='number', min=1) }}{{ ui.input('ayah_to', 'Ayah to', '', type='number', min=1) }}</div>
+            <div class="sm:col-span-2">{{ ui.button('Add lesson', icon='plus', size='sm') }}</div>
+          </form>
+          {% endif %}
+          <ul x-show="chOpen" class="mt-2 space-y-0.5">
+            {% for l in cnode.lessons %}
+            <li>
+              <a href="/academics/curriculum/lessons/{{ l.id }}" class="flex items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-sm hover:bg-brand-50 dark:hover:bg-slate-800">
+                <span class="flex min-w-0 items-center gap-2">
+                  <i data-lucide="file-text" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                  <span class="truncate text-slate-700 dark:text-slate-200">{{ l.title }}</span>
+                  {% if l.surah_number %}<span class="shrink-0 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">{{ l.surah_number }}:{{ l.ayah_from }}{% if l.ayah_to and l.ayah_to != l.ayah_from %}-{{ l.ayah_to }}{% endif %}</span>{% endif %}
+                </span>
+                <span class="shrink-0 text-xs text-slate-400">{{ l.expected_minutes }} min</span>
+              </a>
+            </li>
+            {% else %}<li class="px-3 py-1.5 text-xs text-slate-400">No lessons in this chapter.</li>{% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+        {% if can_add %}
+        <div class="px-5 py-3">
+          <form method="post" action="/academics/curriculum/chapters" class="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="book_id" value="{{ node.book.id }}">
+            <div class="w-56">{{ ui.input('title', 'New chapter', '', placeholder='Chapter title') }}</div>
+            <div class="w-44">{{ ui.input('arabic_title', 'Arabic title', '', attrs='dir="rtl" class="font-arabic"') }}</div>
+            {{ ui.button('Add chapter', icon='plus', size='sm', variant='secondary') }}
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    {{ ui.empty_state('No books yet for ' ~ course.name ~ '. Add the first book to start building the curriculum.', 'book') }}
+    {% endfor %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Curriculum version', 'Publishing freezes a version label; rolling back restores an earlier one.') %}
+      {% if current_version %}
+      <div class="mb-3 flex items-center gap-2">
+        <span class="rounded-lg bg-brand-50 px-2.5 py-1 font-mono text-sm font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">v{{ current_version.version }}</span>
+        <span class="text-xs text-slate-500">{{ current_version.published_at|date if current_version.published_at else '—' }}</span>
+      </div>
+      <p class="mb-4 text-xs text-slate-500">{{ current_version.notes or 'No notes recorded.' }}</p>
+      {% endif %}
+      {% if can_edit %}
+      <form method="post" action="/academics/curriculum/publish" class="space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <input type="hidden" name="course_id" value="{{ course_id }}">
+        {{ ui.input('version', 'New version', '', required=True, placeholder='e.g. 1.2') }}
+        {{ ui.textarea('notes', 'Publish notes', '', rows=2, placeholder='What changed in this version?') }}
+        {{ ui.button('Publish version', icon='upload', size='sm') }}
+      </form>
+      {% endif %}
+      <div class="mt-4 space-y-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+        {% for v in versions %}
+        <div class="flex items-center justify-between gap-2 text-xs">
+          <span class="font-mono {{ 'font-bold text-brand-700 dark:text-brand-300' if v.is_current else 'text-slate-500' }}">v{{ v.version }}</span>
+          <span class="truncate text-slate-400">{{ v.published_at|date if v.published_at else v.created_at|date }}</span>
+          {% if can_edit and not v.is_current %}
+          <form method="post" action="/academics/curriculum/versions/{{ v.id }}/rollback" onsubmit="return confirm('Roll back the curriculum to v{{ v.version }}?')" class="inline">
+            <input type="hidden" name="reason" value="Rollback requested from the curriculum builder">
+            {{ ui.button('Roll back', icon='undo-2', variant='ghost', size='sm') }}
+          </form>
+          {% endif %}
+        </div>
+        {% else %}<p class="text-xs text-slate-400">No versions recorded.</p>{% endfor %}
+      </div>
+    {% endcall %}
+
+    {% call ui.card('Tajweed legend', 'Applied automatically to Arabic lesson text in the shared view.') %}
+    <ul class="space-y-1.5 text-sm">
+      {% for cls, label in [('tj-ghunna','Ghunna'), ('tj-ikhfa','Ikhfa'), ('tj-idgham','Idgham'), ('tj-iqlab','Iqlab'), ('tj-qalqala','Qalqala'), ('tj-madd','Madd')] %}
+      <li class="flex items-center gap-2"><span class="{{ cls }} font-arabic text-lg">نّ</span><span class="text-xs text-slate-500">{{ label }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% if can_add %}
+{% call ui.modal('newBook', 'New book') %}
+<form method="post" action="/academics/curriculum/books" class="grid gap-3 sm:grid-cols-2">
+  <input type="hidden" name="course_id" value="{{ course_id }}">
+  {{ ui.input('title', 'Book title', '', required=True, placeholder='e.g. Juz Amma — Reading, Part 3') }}
+  {{ ui.input('arabic_title', 'Arabic title', '', attrs='dir="rtl" class="font-arabic"') }}
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create book', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Leads & Pipeline{% endblock %}
+{% block content %}
+{% call ui.page_header("Leads & Pipeline", "Module 3 — capture, score, assign, convert. " ~ stats.total ~ " leads in view.") %}
+  {{ ui.button('KPIs', href='/crm/leads/kpis', icon='target', variant='secondary') }}
+  {{ ui.button('Export', href='/crm/leads/export', icon='download', variant='secondary') }}
+  {{ ui.button('New lead', href='/crm/leads/new', icon='plus') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('New this week', stats.new_week, icon='sparkles', color='sky') }}
+  {{ ui.stat('Conversion', stats.conversion ~ '%', icon='trending-up', color='emerald', hint=stats.won ~ ' won / ' ~ stats.lost ~ ' lost') }}
+  {{ ui.stat('Average score', stats.avg_score, icon='gauge', color='indigo') }}
+  {{ ui.stat('Overdue follow-ups', stats.overdue_follow_ups, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Open pipeline', stats.total - stats.won - stats.lost, icon='funnel', color='violet', hint=stats.total ~ ' total') }}
+</div>
+
+{% if stats.top_lost %}
+<div class="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Top lost reasons</span>
+  <span class="ml-3 inline-flex flex-wrap gap-2">
+    {% for reason, n in stats.top_lost %}<span class="rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300">{{ reason }} · {{ n }}</span>{% endfor %}
+  </span>
+</div>
+{% endif %}
+
+{{ ui.tabs([('kanban','Kanban board','/crm/leads?view=kanban'), ('list','List & filters','/crm/leads?view=list')], view) }}
+
+{% call ui.filter_bar('/crm/leads') %}
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='Name, code, phone…') }}</div>
+  <div class="w-36">{{ ui.select('stage', 'Stage', stages, stage, placeholder='All stages') }}</div>
+  <div class="w-40">{{ ui.select('source', 'Source', source_options, source, placeholder='All sources') }}</div>
+  <div class="w-40">{{ ui.select('campaign', 'Campaign', campaign_options, campaign, placeholder='All campaigns') }}</div>
+  <div class="w-40">{{ ui.select('assigned', 'Closer', [('unassigned','Unassigned')] + closer_options, assigned, placeholder='Anyone') }}</div>
+  <div class="w-40">{{ ui.select('generator', 'Generator', generator_options, generator, placeholder='Anyone') }}</div>
+  <div class="w-36">{{ ui.select('country', 'Country', countries, country, placeholder='All') }}</div>
+  <div class="w-28">{{ ui.input('min_score', 'Min score', min_score, type='number', min=0, max=100) }}</div>
+  <div class="w-36">{{ ui.input('start', 'From', start, type='date') }}</div>
+  <div class="w-36">{{ ui.input('end', 'To', end, type='date') }}</div>
+{% endcall %}
+
+{% if view == 'list' %}
+{{ ui.table_start(['Lead','Contact','Source / campaign','Stage','Score','Owner','Next follow-up','']) }}
+{% for l in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2">
+    <a href="/crm/leads/{{ l.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ l.full_name }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ l.lead_code }}{% if l.is_duplicate_of_id %} · <span class="text-amber-600">duplicate</span>{% endif %}</div>
+  </td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ l.phone or l.email or '—' }}<div>{{ l.country or '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ l.source.name if l.source else '—' }}<div class="text-slate-400">{{ l.campaign.name if l.campaign else '' }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(l.stage) }}</td>
+  <td class="px-4 py-2 w-32">{{ ui.progress(l.score, 'brand' if l.score >= 70 else ('amber' if l.score >= 45 else 'slate'), label=l.score ~ '/100') }}</td>
+  <td class="px-4 py-2 text-xs">{{ l.assigned_to.full_name if l.assigned_to else '—' }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-medium' if l.next_follow_up and l.next_follow_up < utcnow() and l.stage not in ('won','lost') }}">{{ l.next_follow_up|datetime if l.next_follow_up else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/crm/leads/' ~ l.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No leads match these filters.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% else %}
+<div class="flex gap-3 overflow-x-auto pb-4">
+  {% for col in columns %}
+  <div class="w-72 shrink-0">
+    <div class="mb-2 flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+      <div class="flex items-center gap-2">{{ ui.badge(col.stage) }}</div>
+      <span class="text-xs font-bold text-slate-500">{{ col.count }}</span>
+    </div>
+    <div class="space-y-2">
+      {% for l in col['items'] %}
+      <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:shadow transition dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-start justify-between gap-2">
+          <a href="/crm/leads/{{ l.id }}" class="text-sm font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ l.full_name }}</a>
+          <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold {{ 'bg-emerald-100 text-emerald-700' if l.score >= 70 else ('bg-amber-100 text-amber-700' if l.score >= 45 else 'bg-slate-100 text-slate-600') }}">{{ l.score }}</span>
+        </div>
+        <div class="mt-1 text-[11px] text-slate-500">{{ l.country or 'Unknown' }} · {{ l.source.name if l.source else 'Direct' }}</div>
+        <div class="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+          <i data-lucide="user" class="h-3 w-3"></i>{{ l.assigned_to.full_name.split()[0] if l.assigned_to else 'Unassigned' }}
+          {% if l.next_follow_up %}<i data-lucide="clock" class="h-3 w-3 ml-1"></i>{{ l.next_follow_up|date('%d %b') }}{% endif %}
+        </div>
+        {% if has_perm(user, 'leads.update') %}
+        <form method="post" action="/crm/leads/{{ l.id }}/stage" class="mt-2 flex items-center gap-1">
+          <input type="hidden" name="next" value="{{ base_url }}">
+          <select name="stage" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+            {% for s in stages %}<option value="{{ s }}" {% if s == l.stage %}selected{% endif %}>{{ s|titleize }}</option>{% endfor %}
+          </select>
+          <input type="hidden" name="reason" value="Moved from the pipeline board">
+          <button class="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-700">Move</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 py-6 text-center text-[11px] text-slate-400 dark:border-slate-700">Empty</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

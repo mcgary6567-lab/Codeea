@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'Edit student' if mode == 'edit' else 'New student' }}{% endblock %}
+{% block content %}
+{% set v = values %}
+{{ ui.page_header(('Edit ' ~ student.student_code) if mode == 'edit' else 'Enrol a student',
+   'Module 44 — the system recommends a teacher from course fit, gender safeguarding, timezone/shift overlap, current load and grade. Unverified teachers are never offered.',
+   back=('/students/' ~ student.id) if student else '/students') }}
+
+{% macro detail_fields(v) %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {{ ui.input('full_name', 'Student full name', v.full_name, required=True) }}
+  {{ ui.select('gender', 'Gender', ['male','female'], v.gender or 'male', placeholder=None, help='Female students are matched to female teachers.') }}
+  {{ ui.input('date_of_birth', 'Date of birth', v.date_of_birth, type='date') }}
+  {{ ui.input('age', 'Age', v.age, type='number', min=3, max=80, help='Left blank it is derived from the date of birth.') }}
+  <div>
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Course <span class="text-rose-500">*</span></label>
+    <select name="course_id" x-model="course" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <option value="">— Select —</option>
+      {% for cid, cname in course_options %}<option value="{{ cid }}">{{ cname }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Division / level</label>
+    <select name="division_id" x-model="division" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <option value="">— Any —</option>
+      <template x-for="d in divisions.filter(x => String(x.course_id) === String(course))" :key="d.id">
+        <option :value="d.id" x-text="d.name"></option>
+      </template>
+    </select>
+  </div>
+  {{ ui.select('timezone', 'Student timezone', timezones, v.timezone or 'Europe/London', placeholder=None, help='Drives the shift/overlap score.') }}
+  {{ ui.select('preferred_shift', 'Preferred shift', ['morning','evening','night'], v.preferred_shift, placeholder='No preference') }}
+  {{ ui.select('preferred_language', 'Language', languages, v.preferred_language or 'English', placeholder=None) }}
+  {{ ui.select('status', 'Enrolment status', statuses, v.status or 'trial', placeholder=None) }}
+  {{ ui.input('sabaq_position', 'Starting sabaq position', v.sabaq_position, placeholder='e.g. Juz 1, Surah Al-Baqarah 1-20') }}
+  {{ ui.input('level', 'Level label', v.level, placeholder='Defaults to the division name') }}
+</div>
+<div class="mt-4">{{ ui.textarea('notes', 'Notes', v.notes, rows=2, placeholder='Learning needs, timings, family context…') }}</div>
+{% endmacro %}
+
+{% if mode == 'edit' %}
+<form method="post" action="/students/{{ student.id }}/edit" class="space-y-6 max-w-5xl"
+      x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson }} }">
+  {% call ui.card("Student details") %}{{ detail_fields(values) }}{% endcall %}
+  {% call ui.card("Family & consent") %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ ui.select('client_id', 'Parent / client', client_options, v.client_id, placeholder=None, help='Changing the family requires students.assign.') }}
+      <div class="space-y-3 pt-6">
+        {{ ui.checkbox('guardian_consent', 'Guardian consent on file', student.guardian_consent) }}
+        {{ ui.checkbox('dor_quota_met', 'Revision (dor) quota met', student.dor_quota_met) }}
+      </div>
+    </div>
+  {% endcall %}
+  <div class="flex items-center gap-2">
+    {{ ui.button('Save changes', icon='save') }}
+    {{ ui.button('Cancel', href='/students/' ~ student.id, variant='secondary') }}
+    {{ ui.button('Change teacher', href='/students/' ~ student.id ~ '/change-teacher', variant='secondary', icon='repeat') }}
+  </div>
+</form>
+
+{% else %}
+<div class="grid gap-6 xl:grid-cols-5">
+  <div class="xl:col-span-3 space-y-6">
+    <form method="get" action="/students/new" class="space-y-6"
+          x-data="{ course: '{{ v.course_id }}', division: '{{ v.division_id }}', divisions: {{ divisions|tojson }} }">
+      {% call ui.card("1 · Student details", "Fill these in, then ask the matcher for a ranked teacher shortlist.") %}
+        {{ detail_fields(values) }}
+      {% endcall %}
+      {% call ui.card("2 · Family", "Attach to an existing client or capture a new parent (a portal login is created for them).") %}
+        <div x-data="{ mode: '{{ 'new' if v.new_client_name else 'existing' }}' }">
+          <div class="mb-4 inline-flex rounded-lg border border-slate-200 p-1 text-xs dark:border-slate-700">
+            <button type="button" @click="mode='existing'" :class="mode==='existing' ? 'bg-brand-600 text-white' : 'text-slate-500'" class="rounded-md px-3 py-1.5 font-medium">Existing client</button>
+            <button type="button" @click="mode='new'" :class="mode==='new' ? 'bg-brand-600 text-white' : 'text-slate-500'" class="rounded-md px-3 py-1.5 font-medium">New parent</button>
+          </div>
+          <div x-show="mode==='existing'">{{ ui.select('client_id', 'Client / parent', client_options, v.client_id, placeholder='— Search and select —') }}</div>
+          <div x-show="mode==='new'" x-cloak class="grid gap-4 sm:grid-cols-2">
+            {{ ui.input('new_client_name', "Parent full name", v.new_client_name) }}
+            {{ ui.input('new_client_email', 'Parent email', v.new_client_email, type='email') }}
+            {{ ui.input('new_client_phone', 'Parent phone / WhatsApp', v.new_client_phone) }}
+            {{ ui.select('new_client_country', 'Country', countries, v.new_client_country or 'United Kingdom', placeholder=None) }}
+          </div>
+        </div>
+      {% endcall %}
+      <div class="flex items-center gap-2">
+        {{ ui.button('Find matching teachers', icon='sparkles', type='submit') }}
+        {{ ui.button('Cancel', href='/students', variant='secondary') }}
+      </div>
+    </form>
+  </div>
+
+  <div class="xl:col-span-2">
+    {% if ranked %}
+    <form method="post" action="/students/new" x-data="{ chosen: '{{ v.teacher_id or ranked[0].teacher_id }}', top: '{{ ranked[0].teacher_id }}' }">
+      {% for k in ['full_name','gender','date_of_birth','age','course_id','division_id','level','timezone','preferred_shift','preferred_language','status','notes','sabaq_position','client_id','new_client_name','new_client_email','new_client_phone','new_client_country'] %}
+      <input type="hidden" name="{{ k }}" value="{{ v[k] }}">
+      {% endfor %}
+      {% call ui.card("3 · Recommended teachers", "Ranked by course fit, safeguarding/gender fit, timezone overlap, load and grade.") %}
+        <div class="space-y-2.5">
+        {% for r in ranked[:6] %}
+          <label class="block cursor-pointer rounded-lg border p-3 transition"
+                 :class="chosen === '{{ r.teacher_id }}' ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-900/20' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700'">
+            <div class="flex items-start gap-3">
+              <input type="radio" name="teacher_id" value="{{ r.teacher_id }}" x-model="chosen" class="mt-1 h-4 w-4 text-brand-600">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-medium text-slate-900 dark:text-white">{{ r.name }}
+                    {% if loop.first %}<span class="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700">Best match</span>{% endif %}
+                  </div>
+                  <div class="shrink-0 text-sm font-bold text-brand-700 dark:text-brand-300">{{ r.score }}</div>
+                </div>
+                <div class="mt-0.5 font-mono text-[11px] text-slate-500">{{ r.code }} · {{ r.gender|titleize }} · {{ r.shift|titleize }} shift · Grade {{ r.grade }} · {{ r.load }} students</div>
+                <ul class="mt-1.5 space-y-0.5 text-xs text-slate-500">
+                  {% for reason in r.reasons %}<li class="flex gap-1.5"><i data-lucide="dot" class="h-3.5 w-3.5 shrink-0"></i><span>{{ reason }}</span></li>{% endfor %}
+                </ul>
+              </div>
+            </div>
+          </label>
+        {% endfor %}
+        </div>
+        <div class="mt-4" x-show="chosen !== top" x-cloak>
+          {{ ui.textarea('override_reason', 'Override reason (required)', '', rows=2, placeholder='Why is the top recommendation not being used?') }}
+          <p class="mt-1 text-xs text-amber-600">Choosing another teacher is recorded as a consequential override on the student audit trail.</p>
+        </div>
+        <div class="mt-4 space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+          {{ ui.checkbox('guardian_consent', 'Guardian consent recorded', True) }}
+          {{ ui.checkbox('create_portal', 'Create a student portal login', False, help='Parents always get a portal; students optionally.') }}
+        </div>
+        <div class="mt-5 flex gap-2">{{ ui.button('Create student & assign teacher', icon='user-plus') }}</div>
+      {% endcall %}
+    </form>
+    {% else %}
+    {% call ui.card("Teacher match") %}
+      {{ ui.empty_state('Complete the student details on the left and press "Find matching teachers".', 'sparkles') }}
+      <p class="mt-3 text-xs text-slate-500">Safeguarding gate: teachers whose background check is not verified are excluded from every recommendation and cannot be assigned live classes.</p>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

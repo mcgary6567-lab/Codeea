@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Retention analytics{% endblock %}
+{% block content %}
+{{ ui.page_header('Cohort & retention analytics', 'Retention by join-month cohort at 30 / 60 / 90 days, churn reasons and monthly flow', back='/retention') }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Active students', d.stats.active_students, icon='graduation-cap', color='sky') }}
+  {{ ui.stat('High risk', d.stats.high, icon='flame', color='rose') }}
+  {{ ui.stat('Churn (30d)', d.stats.churn_rate_30d ~ '%', icon='trending-down', color='orange') }}
+  {{ ui.stat('Save rate', d.stats.save_rate ~ '%', icon='heart-pulse', color='emerald') }}
+  {{ ui.stat('Frozen', d.stats.frozen, icon='snowflake', color='violet') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2 mb-6">
+  {% call ui.card('Cohort retention', 'Percentage still enrolled at each milestone') %}{{ ui.chart('cohort', 260) }}{% endcall %}
+  {% call ui.card('Joiners vs leavers by month') %}{{ ui.chart('flow', 260) }}{% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+  {% call ui.card('Cohort table') %}
+  {{ ui.table_start(['Join month','Cohort size','30-day','60-day','90-day'], compact=True) }}
+  {% for c in d.cohorts %}
+  <tr><td class="px-4 py-1.5 font-medium">{{ c.cohort }}</td><td class="px-4 py-1.5">{{ c.size }}</td>
+    <td class="px-4 py-1.5">{% if c.d30 is not none %}{{ c.d30 }}% <span class="text-[10px] text-slate-400">({{ c.d30_n }})</span>{% else %}—{% endif %}</td>
+    <td class="px-4 py-1.5">{% if c.d60 is not none %}{{ c.d60 }}% <span class="text-[10px] text-slate-400">({{ c.d60_n }})</span>{% else %}—{% endif %}</td>
+    <td class="px-4 py-1.5">{% if c.d90 is not none %}{{ c.d90 }}% <span class="text-[10px] text-slate-400">({{ c.d90_n }})</span>{% else %}—{% endif %}</td></tr>
+  {% else %}{{ ui.empty('No cohorts yet.', 5) }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+  </div>
+  {% call ui.card('Churn reasons', 'Last 12 months') %}
+    {% if d.reasons %}
+    <ul class="space-y-2 text-sm">
+      {% for reason, n in d.reasons %}
+      <li><div class="flex justify-between"><span class="text-slate-600 dark:text-slate-300">{{ reason }}</span><b>{{ n }}</b></div>
+        {{ ui.progress(100 * n / d.reasons[0][1], 'rose') }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}{{ ui.empty_state('No cancellations recorded.', 'thumbs-up') }}{% endif %}
+  {% endcall %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.line('cohort', {{ d.cohorts|map(attribute='cohort')|list|tojson }}, [
+    {label:'30-day', data: {{ d.cohorts|map(attribute='d30')|list|tojson }}},
+    {label:'60-day', data: {{ d.cohorts|map(attribute='d60')|list|tojson }}},
+    {label:'90-day', data: {{ d.cohorts|map(attribute='d90')|list|tojson }}}]);
+  OQC.bar('flow', {{ d.monthly.labels|tojson }}, [
+    {label:'Joined', data: {{ d.monthly.joined|tojson }}},
+    {label:'Left', data: {{ d.monthly.left|tojson }}}]);
+</script>
+{% endblock %}

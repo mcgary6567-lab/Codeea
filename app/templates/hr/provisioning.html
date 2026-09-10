@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Provisioning{% endblock %}
+{% block content %}
+{% call ui.page_header('Onboarding & offboarding', 'One action provisions or revokes Google Workspace, the password vault, Drive folders, ClickUp/Slack, MFA and the assigned device.') %}
+  {% if has_perm(user, 'provisioning.execute') %}
+  {{ ui.button('Run provisioning', icon='key-round', type='button', attrs='@click="$dispatch(\'open-modal\',\'runProv\')"') }}
+  {% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Provisioning records', stats.records, icon='key-round', color='brand') }}
+  {{ ui.stat('Onboarded', stats.onboards, icon='user-plus', color='emerald') }}
+  {{ ui.stat('Offboarded', stats.offboards, icon='user-minus', color='rose') }}
+  {{ ui.stat('Never provisioned', stats.not_provisioned, icon='shield-alert', color='amber', hint='active staff with no record') }}
+</div>
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'board' %}
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {% for r in records %}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-3 flex items-start justify-between gap-2">
+      <div>
+        <a href="/hr/employees/{{ r.employee_id }}?tab=provisioning" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ r.employee.full_name if r.employee else '—' }}</a>
+        <div class="text-[11px] text-slate-500">{{ r.employee.employee_code if r.employee else '' }} · {{ r.created_at|datetime }}</div>
+      </div>
+      {{ ui.badge('approved' if r.action == 'onboard' else 'rejected', r.action|titleize) }}
+    </div>
+    <ul class="space-y-1.5 text-xs">
+      {% for it in r.items[:6] %}
+      <li class="flex items-start justify-between gap-2">
+        <span class="text-slate-600 dark:text-slate-300">{{ it.system }}</span>
+        <span class="shrink-0 text-[10px] font-medium {{ 'text-emerald-600' if it.status in ('done',) else ('text-rose-600' if it.status in ('revoked','returned') else 'text-slate-400') }}">{{ it.status|titleize }}</span>
+      </li>
+      {% endfor %}
+      {% if r.items|length > 6 %}<li class="text-[11px] text-slate-400">+{{ r.items|length - 6 }} more</li>{% endif %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="md:col-span-2 xl:col-span-3">{{ ui.empty_state('No provisioning has been run yet.', 'key-round') }}</div>
+  {% endfor %}
+</div>
+
+{% elif tab == 'policy' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-4">
+    {% call ui.card('Provisioning policy') %}
+    <ul class="space-y-3 text-xs">
+      {% for title, detail in policy %}<li><div class="font-semibold text-slate-700 dark:text-slate-200">{{ title }}</div><div class="text-slate-500">{{ detail }}</div></li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% call ui.card('MFA coverage') %}
+    {{ ui.progress(100 * mfa_ok / mfa_rows|length if mfa_rows else 0, 'emerald', mfa_ok ~ ' of ' ~ mfa_rows|length ~ ' accounts have 2FA active') }}
+    <p class="mt-3 text-xs text-slate-500">MFA is enforced on every account; "enforced" means the platform will demand enrolment, "active" means the user has completed it.</p>
+    {% endcall %}
+  </div>
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Employee', 'Login', 'MFA enforced', '2FA active', 'Device']) }}
+    {% for r in mfa_rows %}
+    <tr>
+      <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ r.employee.id }}" class="font-medium hover:text-brand-600">{{ r.employee.full_name }}</a>
+        <div class="text-[11px] text-slate-500">{{ r.employee.employee_code }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ r.user.email if r.user else 'No account' }}</td>
+      <td class="px-4 py-2">{{ ui.badge('approved' if r.mfa_enforced else 'pending', 'Enforced' if r.mfa_enforced else 'Not enforced') }}</td>
+      <td class="px-4 py-2">{{ ui.badge('approved' if r.two_factor else 'rejected', 'Active' if r.two_factor else 'Not enrolled') }}</td>
+      <td class="px-4 py-2 font-mono text-[11px]">{{ r.device or '—' }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No active employees.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+</div>
+
+{% elif tab == 'checklist' %}
+{{ ui.table_start(['Employee', 'Status', 'Exit date', 'Reason', 'Offboarding run', 'Login', '']) }}
+{% for r in leavers %}
+<tr>
+  <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ r.employee.id }}?tab=provisioning" class="font-medium hover:text-brand-600">{{ r.employee.full_name }}</a>
+    <div class="text-[11px] text-slate-500">{{ r.employee.employee_code }} · {{ r.employee.designation }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(r.employee.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.employee.exit_date|date if r.employee.exit_date else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.employee.exit_reason or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge('approved' if r.done else 'pending', 'Completed ' ~ (r.record.created_at|date) if r.done else 'Outstanding') }}</td>
+  <td class="px-4 py-2">{{ ui.badge('rejected' if r.user_active else 'approved', 'Still active' if r.user_active else 'Revoked') }}</td>
+  <td class="px-4 py-2 text-right">{% if not r.done and has_perm(user, 'provisioning.execute') %}
+    <form method="post" action="/hr/employees/{{ r.employee.id }}/provision" class="inline" onsubmit="return confirm('Offboard {{ r.employee.full_name }}?')">
+      <input type="hidden" name="action" value="offboard">{{ ui.button('Offboard now', icon='user-minus', variant='danger', size='sm') }}
+    </form>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('Nobody has left — nothing to offboard.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'audit' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  {% call ui.card('Active logins without an employee record', 'Staff-portal accounts that nobody owns in HR') %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for u in orphan_users %}
+    <li class="py-2"><div class="font-medium">{{ u.full_name }}</div><div class="text-xs text-slate-500">{{ u.email }} · {{ u.role_slug }}</div></li>
+    {% else %}<li class="py-6 text-center text-xs text-slate-400">Every admin login maps to an employee.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+  {% call ui.card('Employees without a login', 'Cannot check in, receive payslips or notifications') %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for e in no_user %}
+    <li class="py-2"><a href="/hr/employees/{{ e.id }}" class="font-medium hover:text-brand-600">{{ e.full_name }}</a><div class="text-xs text-slate-500">{{ e.employee_code }} · {{ e.designation }}</div></li>
+    {% else %}<li class="py-6 text-center text-xs text-slate-400">Everyone has an account.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+  {% call ui.card('Leavers with an active login', 'Immediate action required') %}
+  <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+    {% for e in active_after_exit %}
+    <li class="py-2"><a href="/hr/employees/{{ e.id }}?tab=provisioning" class="font-medium text-rose-600 hover:underline">{{ e.full_name }}</a>
+      <div class="text-xs text-slate-500">{{ e.status|titleize }} since {{ e.exit_date|date if e.exit_date else '—' }}</div></li>
+    {% else %}<li class="py-6 text-center text-xs text-slate-400">No dormant access.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+</div>
+{% endif %}
+
+{% if has_perm(user, 'provisioning.execute') %}
+{% call ui.modal('runProv', 'One-action provisioning') %}
+<form method="post" action="/hr/provisioning/run" class="space-y-4">
+  {{ ui.select('employee_id', 'Employee', employee_options, None, required=True) }}
+  {{ ui.select('action', 'Action', ['onboard','offboard'], 'onboard', placeholder=None) }}
+  {{ ui.input('rationale', 'Reason (required for offboarding)', '', help='Recorded on the consequential audit event') }}
+  {{ ui.button('Run', icon='key-round') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ c.full_name }}{% endblock %}
+{% block content %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id, d.name)) %}{% endfor %}
+{% call ui.page_header(c.full_name, c.applied_for ~ ' · sourced from ' ~ (c.source or 'unknown'), back='/hr/recruitment?tab=pipeline') %}
+  {{ ui.badge(c.stage) }}{% if c.score %}<span class="text-xs text-slate-500">Score {{ c.score }}</span>{% endif %}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Candidate') %}
+    {{ ui.dl([('Applied for', c.applied_for), ('Request', c.request.title if c.request else '—'), ('Email', c.email or '—'),
+              ('Phone', c.phone or '—'), ('Gender', c.gender|titleize if c.gender else '—'), ('Source', c.source or '—'),
+              ('Applied', c.created_at|date), ('Average interview score', c.score or '—'),
+              ('Hired as', c.hired_employee_id or '—')]) }}
+    <div class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-line dark:bg-slate-800">{{ c.notes or 'No notes yet.' }}</div>
+    {% endcall %}
+    {% call ui.card('Interviews') %}
+    {{ ui.table_start(['When', 'Type', 'Interviewer', 'Status', 'Score', 'Feedback']) }}
+    {% for iv in interviews %}
+    <tr>
+      <td class="px-4 py-2 text-xs whitespace-nowrap">{{ iv.scheduled_at|datetime }}</td>
+      <td class="px-4 py-2 text-xs">{{ iv.interview_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs">{{ iv.interviewer.full_name if iv.interviewer else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(iv.status) }}</td>
+      <td class="px-4 py-2 text-xs">{{ iv.score if iv.score is not none else '—' }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">
+        {% if iv.feedback %}{{ iv.feedback }}
+        {% elif has_perm(user, 'recruitment.update') %}
+        <form method="post" action="/hr/recruitment/interviews/{{ iv.id }}/feedback" class="flex items-center gap-1">
+          <input name="score" type="number" step="0.5" min="0" max="10" placeholder="score" class="w-16 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <input name="feedback" placeholder="feedback" class="w-44 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white">Save</button>
+        </form>
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No interviews scheduled.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% if has_perm(user, 'recruitment.update') %}
+    <form method="post" action="/hr/recruitment/candidates/{{ c.id }}/interview" class="mt-4 flex flex-wrap items-end gap-2">
+      <div class="w-40">{{ ui.input('scheduled_date', 'Date', today()|string, type='date') }}</div>
+      <div class="w-28">{{ ui.input('scheduled_time', 'Time', '10:00') }}</div>
+      <div class="w-40">{{ ui.select('interview_type', 'Type', ['screening','technical','demo_class','final'], 'screening', placeholder=None) }}</div>
+      <div class="w-56">{{ ui.select('interviewer_id', 'Interviewer', interviewers, None) }}</div>
+      {{ ui.button('Schedule', icon='calendar-plus', size='sm') }}
+    </form>
+    {% endif %}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% if has_perm(user, 'recruitment.update') %}
+    {% call ui.card('Move stage') %}
+    <form method="post" action="/hr/recruitment/candidates/{{ c.id }}/stage" class="space-y-3">
+      {{ ui.select('stage', 'Stage', stages, c.stage, placeholder=None) }}
+      {{ ui.input('score', 'Score', c.score or '', type='number', step='0.5') }}
+      {{ ui.textarea('notes', 'Note', '', rows=2) }}
+      {{ ui.button('Update pipeline', icon='move-right', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% if has_perm(user, 'employees.add') and not c.hired_employee_id %}
+    {% call ui.card('Hire', 'Creates the employee record, onboarding checklist and salary structure. Teachers also get an unverified teacher profile.') %}
+    <form method="post" action="/hr/recruitment/candidates/{{ c.id }}/hire" class="space-y-3" onsubmit="return confirm('Create an employee record for {{ c.full_name }}?')">
+      {{ ui.input('designation', 'Designation', c.applied_for) }}
+      {{ ui.select('department_id', 'Department', dept_options, None) }}
+      {{ ui.input('join_date', 'Join date', today()|string, type='date') }}
+      {{ ui.select('employment_type', 'Employment type', ['full_time','part_time','contract'], 'full_time', placeholder=None) }}
+      {{ ui.select('shift', 'Shift', ['morning','evening','night'], 'evening', placeholder=None) }}
+      {{ ui.input('base_salary', 'Base salary (PKR)', '', type='number', step='1000') }}
+      {{ ui.checkbox('create_login', 'Create a platform login', True) }}
+      {{ ui.button('Hire candidate', icon='user-check', variant='success') }}
+    </form>
+    {% endcall %}
+    {% elif c.hired_employee_id %}
+    {% call ui.card('Hired') %}
+    <p class="text-sm text-slate-600 dark:text-slate-300">This candidate was hired.</p>
+    {{ ui.button('Open employee record', href='/hr/employees/' ~ c.hired_employee_id, icon='id-card', size='sm', variant='secondary') }}
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Currencies{% endblock %}
+{% block content %}
+{% call ui.page_header("Currencies & exchange rates", "Families pay in their own currency; every report consolidates into " ~ base ~ ".") %}{% endcall %}
+
+<div class="mb-5">{{ ui.alert('The base currency is ' ~ base ~ ' and always has a rate of 1.00. A rate is “1 unit of this currency = X ' ~ base ~ '”. Changing a rate records an exchange-rate history entry and marks the currency as manually overridden.', 'info', 'Base currency') }}</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Code', 'Currency', 'Symbol', 'Rate to ' ~ base, 'Active subs', 'Source', 'Set rate']) }}
+    {% for c in rows %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-sm font-bold text-brand-700 dark:text-brand-300"><a href="/finance/currencies/{{ c.code }}">{{ c.code }}</a>{% if c.is_base %} <span class="ml-1 rounded bg-brand-600 px-1.5 py-0.5 text-[10px] text-white">BASE</span>{% endif %}</td>
+      <td class="px-4 py-2">{{ c.name }}</td>
+      <td class="px-4 py-2 text-center">{{ c.symbol }}</td>
+      <td class="px-4 py-2 text-right font-semibold">{{ c.rate_to_base|round(4) }}</td>
+      <td class="px-4 py-2 text-center text-slate-500">{{ usage.get(c.code, 0) }}</td>
+      <td class="px-4 py-2 text-xs">{{ ui.badge('overridden' if c.manual_override else 'active', 'Manual' if c.manual_override else 'Seeded') }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if can_edit and not c.is_base %}
+        <form method="post" action="/finance/currencies/{{ c.code }}/rate" class="flex items-center justify-end gap-1.5">
+          <input name="rate" type="number" step="0.0001" value="{{ c.rate_to_base|round(4) }}" required class="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
+          <button class="rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-700">Save</button>
+        </form>
+        {% elif c.is_base %}<span class="text-xs text-slate-400">fixed at 1.0000</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+
+    <div class="mt-5">
+    {% call ui.card("Recent rate changes") %}
+    {{ ui.table_start(['When', 'Currency', 'Rate', 'Source']) }}
+    {% for h in history %}
+    <tr><td class="px-4 py-2 text-xs">{{ h.effective_at|datetime }}</td>
+      <td class="px-4 py-2 font-mono text-xs">{{ h.currency_code }}</td>
+      <td class="px-4 py-2 text-right">{{ h.rate_to_base|round(4) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ h.source|titleize }}</td></tr>
+    {% else %}{{ ui.empty('No rate changes recorded.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    </div>
+  </div>
+
+  <div>
+    {% call ui.card("Country → default currency", "Used when a new family is created") %}
+    <div class="max-h-[28rem] overflow-y-auto">
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for country, code in country_map.items() %}
+        <li class="flex items-center justify-between py-1.5"><span class="text-slate-600 dark:text-slate-300">{{ country }}</span>
+          <span class="font-mono text-xs font-semibold text-brand-700 dark:text-brand-300">{{ code }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Score test{% endblock %}
+{% block content %}
+{{ ui.page_header('Monthly test — ' ~ (student.full_name if student else 'student') ~ ' (' ~ test.period ~ ')',
+   'Enter a score for each item. The percentage, grade, improvement and the next revision schedule are computed automatically and the result card is issued to the parent.',
+   back='/teacher/monthly-tests') }}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <form method="post" action="/teacher/monthly-tests/{{ test.id }}/score" class="space-y-6">
+      {% call ui.card('Test items') %}
+        <div class="space-y-3">
+        {% for q in test.questions or [] %}
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ loop.index }}. {{ q.get('item') or q.get('title') or 'Item' }}</div>
+              {% if q.get('type') %}<div class="text-xs text-slate-500">{{ q.get('type')|titleize }}</div>{% endif %}
+            </div>
+            <div class="w-32">
+              <input name="q{{ loop.index0 }}" type="number" step="0.5" min="0" max="{{ q.get('max', 10) }}"
+                     value="{{ q.get('score') if q.get('score') is not none else '' }}"
+                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800"
+                     placeholder="/ {{ q.get('max', 10) }}">
+            </div>
+          </div>
+        {% else %}
+          {{ ui.empty_state('This test has no generated items. Ask the academics team to regenerate it.', 'file-question') }}
+        {% endfor %}
+        </div>
+      {% endcall %}
+      {% call ui.card('Remarks') %}
+        {{ ui.textarea('teacher_remarks', 'Remarks for the parent (English)', test.teacher_remarks, rows=3, placeholder='Consistent effort; tajweed improving. Focus next month on rules of ikhfa.') }}
+        <div class="mt-4">
+          <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Remarks (Urdu)</label>
+          <textarea name="teacher_remarks_urdu" rows="3" dir="rtl" lang="ur"
+                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-urdu text-sm leading-[2.4] shadow-sm dark:border-slate-700 dark:bg-slate-800">{{ test.teacher_remarks_urdu or '' }}</textarea>
+        </div>
+      {% endcall %}
+      <div class="flex gap-2">{{ ui.button('Save scores & issue result card', icon='file-badge') }}{{ ui.button('Cancel', href='/teacher/monthly-tests', variant='secondary') }}</div>
+    </form>
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Current result') %}
+      <div class="text-center">
+        <div class="text-5xl font-bold text-brand-700 dark:text-brand-300">{{ test.percentage if test.percentage is not none else '—' }}<span class="text-2xl">%</span></div>
+        <div class="mt-1 text-sm text-slate-500">Grade {{ test.grade or '—' }}</div>
+      </div>
+      {{ ui.dl([('Period', test.period), ('Score', (test.score if test.score is not none else '—')|string ~ ' / ' ~ (test.max_score|int)|string),
+                ('Previous month', (test.previous_percentage|string ~ '%') if test.previous_percentage is not none else '—'),
+                ('Improvement', (test.improvement_pct|string ~ ' pts') if test.improvement_pct is not none else '—'),
+                ('Status', test.status|titleize), ('Scored at', test.scored_at|datetime if test.scored_at else 'not scored')]) }}
+    {% endcall %}
+    {% if student %}
+    {% call ui.card('Student') %}
+      {{ ui.dl([('Name', student.full_name), ('Code', student.student_code), ('Course', student.course.name if student.course else '—'),
+                ('Level', student.level or '—'), ('Sabaq position', student.sabaq_position or '—'),
+                ('Dor quota', 'Met' if student.dor_quota_met else 'Not met')]) }}
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lesson Plans{% endblock %}
+{% block content %}
+{% call ui.page_header("Lesson Plans", "Daily and weekly plans per student with sabaq / sabqi / dor, delivery variance and academic review.") %}
+  {{ ui.button("Variance report", href="/academics/lesson-plans/variance", icon="bar-chart-3", variant="secondary") }}
+  {% if can_add %}{{ ui.button("New plan", href="/academics/lesson-plans/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Plans", stats.total, icon="notebook-pen", color="brand") }}
+  {{ ui.stat("Planned", stats.planned, icon="calendar", color="slate", href="/academics/lesson-plans?status=planned") }}
+  {{ ui.stat("Delivered", stats.delivered, icon="check-circle-2", color="emerald", href="/academics/lesson-plans?status=delivered") }}
+  {{ ui.stat("Partial", stats.partial, icon="alert-circle", color="amber", href="/academics/lesson-plans?status=partially_delivered") }}
+  {{ ui.stat("Avg variance", stats.avg_variance ~ '%', icon="git-compare", color="indigo", hint="Planned content not delivered") }}
+  {{ ui.stat("Awaiting review", stats.unreviewed, icon="eye", color="violet") }}
+</div>
+
+{% call ui.filter_bar('/academics/lesson-plans') %}
+  <div class="w-56">{{ ui.select('student', 'Student', student_options, student, placeholder='All students') }}</div>
+  <div class="w-48">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Date', 'Student', 'Teacher', 'Type', 'Planned', 'Sabaq / Sabqi / Dor', 'Variance', 'Status', 'Review', '']) }}
+{% for p in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 whitespace-nowrap text-xs font-medium">{{ p.plan_date|date }}</td>
+  <td class="px-4 py-2"><a href="/academics/progress/{{ p.student_id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ p.student.full_name if p.student else '—' }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ p.student.student_code if p.student else '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ p.teacher.full_name if p.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.plan_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300 max-w-xs"><div class="truncate">{{ p.planned_content }}</div></td>
+  <td class="px-4 py-2 text-[11px] text-slate-500"><div class="truncate max-w-[16rem]">{{ p.sabaq or '—' }}</div><div class="truncate max-w-[16rem] text-slate-400">{{ p.sabqi or '—' }} · {{ p.dor or '—' }}</div></td>
+  <td class="px-4 py-2 text-xs">{% if p.variance_pct is not none %}<span class="font-semibold {{ 'text-emerald-600' if p.variance_pct <= 25 else ('text-amber-600' if p.variance_pct < 95 else 'text-rose-600') }}">{{ p.variance_pct }}%</span>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+  <td class="px-4 py-2 text-xs">{% if p.reviewed_at %}<span class="text-emerald-600">Reviewed</span>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/academics/lesson-plans/' ~ p.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No lesson plans match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

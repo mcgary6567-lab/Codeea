@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ingest recordings{% endblock %}
+{% block content %}
+{{ ui.page_header("Ingest recordings", "Completed classes from the last 30 days that have no recording yet", back="/recordings") }}
+
+<form method="post" action="/recordings/ingest">
+<div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  {{ ui.select('source', 'Source platform', sources, 'platform', placeholder=None) }}
+  <div class="text-xs text-slate-500">Retention is set to <b>{{ retention_days }} days</b> from the class date.</div>
+  <div class="ml-auto">{{ ui.button('Ingest selected', icon='download') }}</div>
+</div>
+
+{{ ui.table_start(['', 'Date','Time','Student','Teacher','Duration','Room'], compact=True) }}
+{% for s in rows %}
+<tr>
+  <td class="px-3 py-2"><input type="checkbox" name="session_id" value="{{ s.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600"></td>
+  <td class="px-4 py-2 text-xs">{{ s.date|date }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }}</td>
+  <td class="px-4 py-2 text-xs font-medium">{{ s.student.full_name if s.student else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.actual_duration_minutes or s.duration_minutes }} min</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-400">{{ s.room_name }}</td>
+</tr>
+{% else %}{{ ui.empty('Every completed class in the last 30 days already has a recording.', 7, 'check-circle-2') }}{% endfor %}
+{{ ui.table_end() }}
+</form>
+{% endblock %}

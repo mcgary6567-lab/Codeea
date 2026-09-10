@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New lesson plan{% endblock %}
+{% block content %}
+{% call ui.page_header("New lesson plan", "Pick the student, then plan the sabaq (new lesson), sabqi (recent revision) and dor (long-term revision).", back="/academics/lesson-plans") %}
+{% endcall %}
+
+<form method="get" action="/academics/lesson-plans/new" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-72">{{ ui.select('student_id', 'Student', student_options, student.id if student else None, placeholder='Select a student', required=True) }}</div>
+  {{ ui.button('Load student', icon='user-search', variant='secondary', size='sm') }}
+  {% if student %}
+  <button name="recommend" value="1" class="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"><i data-lucide="sparkles" class="h-3.5 w-3.5"></i>AI recommend</button>
+  {% endif %}
+</form>
+
+{% if not student %}
+  {{ ui.empty_state('Select a student above to build their plan.', 'user-search') }}
+{% else %}
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card('Plan for ' ~ student.full_name, student.student_code ~ ' · ' ~ (student.course.name if student.course else 'no course') ~ ' · ' ~ (student.teacher.full_name if student.teacher else 'no teacher')) %}
+    <form method="post" action="/academics/lesson-plans/new" class="grid gap-4 sm:grid-cols-2">
+      <input type="hidden" name="student_id" value="{{ student.id }}">
+      <input type="hidden" name="ai_recommendation" value="{{ ai_text or '' }}">
+      {{ ui.input('plan_date', 'Plan date', today_iso, type='date', required=True) }}
+      {{ ui.select('plan_type', 'Plan type', [('daily','Daily'),('weekly','Weekly')], 'daily', placeholder=None) }}
+      {{ ui.select('teacher_id', 'Teacher', teacher_options, student.teacher_id, placeholder='Unassigned') }}
+      {{ ui.select('lesson_id', 'Curriculum lesson', lesson_options, lesson.id if lesson else None, placeholder='No specific lesson') }}
+      <div class="sm:col-span-2">{{ ui.textarea('planned_content', 'Planned content', (('Sabaq: ' ~ lesson.title ~ '. ' ~ (lesson.objectives or '')) if lesson else ''), rows=4, required=True, help='What you intend to cover. Delivery variance is measured against this text.') }}</div>
+      {{ ui.input('sabaq', 'Sabaq (new lesson)', lesson.title if lesson else '') }}
+      {{ ui.input('sabqi', 'Sabqi (recent revision)', 'Previous two lessons') }}
+      {{ ui.input('dor', 'Dor (long-term revision)', 'Current revision block') }}
+      {{ ui.input('next_objectives', 'Next objectives', '') }}
+      <div class="sm:col-span-2">{{ ui.textarea('teacher_notes', 'Teacher notes', '', rows=2) }}</div>
+      <div class="sm:col-span-2 flex justify-end gap-2">
+        {{ ui.button('Cancel', href='/academics/lesson-plans', variant='secondary') }}
+        {{ ui.button('Create lesson plan', icon='plus') }}
+      </div>
+    </form>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% if ai_text %}
+    <div class="rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/40">
+      <div class="mb-2 flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200"><i data-lucide="sparkles" class="h-4 w-4"></i>AI recommendation</div>
+      <p class="text-sm leading-relaxed text-violet-900 dark:text-violet-100">{{ ai_text }}</p>
+      <p class="mt-2 text-[11px] text-violet-600 dark:text-violet-300">Advisory only — the teacher decides what is delivered. Stored with the plan and logged in AI governance.</p>
+    </div>
+    {% endif %}
+    {% if progress %}
+    {% call ui.card('Curriculum position') %}
+    {{ ui.progress(progress.pct, 'brand', label='Course completion') }}
+    <div class="mt-3">{{ ui.dl([('Current lesson', progress.current_lesson_title), ('Completed', progress.completed ~ ' / ' ~ progress.total),
+                                ('Sabaq position', progress.sabaq_position or '—'),
+                                ('Dor quota', 'Met' if progress.dor_quota_met else 'Not met — new sabaq is blocked')]) }}</div>
+    {% if not progress.dor_quota_met %}
+    <div class="mt-3">{{ ui.alert('This student has not met their monthly revision (dor) quota. Starting a new sabaq requires a supervisor override with a rationale.', 'warning') }}</div>
+    {% endif %}
+    {% endcall %}
+    {% endif %}
+    {% if lesson and lesson.arabic_text %}
+    {% call ui.card('Lesson text', lesson.title) %}
+      {{ ui.arabic(lesson.arabic_text.split('\n')[0], 'xl') }}
+      <p class="mt-2 text-xs text-slate-500">{{ (lesson.translation or '').split('\n')[0] }}</p>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

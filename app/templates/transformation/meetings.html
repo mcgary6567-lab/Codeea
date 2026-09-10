@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trajectory meetings{% endblock %}
+{% block content %}
+{% call ui.page_header("Trajectory meetings", "The weekly forum where the numbers are read, decisions are recorded and actions get an owner") %}
+  {{ ui.button("Operating rhythm", href="/transformation/governance", icon="clock", variant="secondary") }}
+  {{ ui.button("Schedule meeting", icon="plus", type="button", attrs='@click="$dispatch(\'open-modal\',\'newMeeting\')"') }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Meetings recorded', rows|length, icon='calendar-check', color='brand', hint=held|string ~ ' held') }}
+  {{ ui.stat('Upcoming', upcoming|length, icon='calendar-clock', color='sky') }}
+  {{ ui.stat('Decisions minuted', total_decisions, icon='gavel', color='indigo') }}
+  {{ ui.stat('Actions created', total_actions, icon='list-checks', color='emerald') }}
+</div>
+
+{% if upcoming %}
+<div class="mb-5 grid gap-4 sm:grid-cols-2">
+  {% for r in upcoming %}
+  <a href="/transformation/meetings/{{ r.m.id }}" class="rounded-xl border border-brand-200 bg-brand-50/60 p-4 shadow-sm transition hover:shadow-md dark:border-brand-900 dark:bg-brand-500/10">
+    <div class="flex items-center justify-between">
+      <span class="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">Upcoming</span>{{ ui.badge(r.m.status) }}
+    </div>
+    <div class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{{ r.m.title }}</div>
+    <div class="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{{ r.m.meeting_date|date('%A %d %b %Y') }} · {{ r.attendees }} attendee(s)</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{{ ui.table_start(['Date','Meeting','Chair','Attendees','Decisions','Actions','Status','']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2 whitespace-nowrap text-xs {{ 'font-semibold text-brand-700 dark:text-brand-300' if r.m.meeting_date >= today }}">{{ r.m.meeting_date|date }}</td>
+  <td class="px-4 py-2"><a href="/transformation/meetings/{{ r.m.id }}" class="font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ r.m.title }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ r.chair or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.attendees }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.decisions }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.actions }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.m.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/transformation/meetings/' ~ r.m.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No trajectory meetings recorded yet. Schedule the first one.', 8, 'calendar-check') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% call ui.modal('newMeeting', 'Schedule a trajectory meeting', 'lg') %}
+<form method="post" action="/transformation/meetings/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('title', 'Title', 'Weekly Trajectory Meeting', required=True) }}
+    {{ ui.input('meeting_date', 'Date', today.isoformat(), type='date', required=True) }}
+    {{ ui.select('chaired_by_id', 'Chair', opts.users, None, placeholder='— Me —') }}
+    {{ ui.select('status', 'Status', opts.meeting_statuses, 'scheduled', placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.textarea('attendees', 'Attendees', '', rows=2, placeholder='Comma separated names', help='Who is expected in the room.') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('agenda', 'Agenda', agenda_default, rows=9) }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Pre-read notes', '', rows=2) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Schedule meeting', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

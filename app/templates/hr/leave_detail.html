@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Leave request{% endblock %}
+{% block content %}
+{% call ui.page_header((e.full_name if e else 'Leave') ~ ' — ' ~ l.leave_type|titleize ~ ' leave', (l.start_date|date) ~ ' → ' ~ (l.end_date|date) ~ ' (' ~ days ~ ' day' ~ ('s' if days != 1 else '') ~ ')', back='/hr/leaves') %}
+  {{ ui.badge(l.status) }}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Request') %}
+    {{ ui.dl([('Employee', (e.full_name ~ ' (' ~ e.employee_code ~ ')') if e else '—'), ('Designation', e.designation if e else '—'),
+              ('Department', e.department.name if e and e.department else '—'), ('Type', l.leave_type|titleize),
+              ('From', l.start_date|date), ('To', l.end_date|date), ('Days', days),
+              ('Requested', l.created_at|datetime), ('Decided', l.approved_at|datetime if l.approved_at else '—'),
+              ('Decided by', l.approved_by.full_name if l.approved_by else '—')]) }}
+    <div class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 whitespace-pre-line dark:bg-slate-800 dark:text-slate-200">{{ l.reason or 'No reason given.' }}</div>
+    {% endcall %}
+    {% if e and e.teacher %}
+    {% call ui.card('Substitute suggestions', 'Verified teachers sharing courses and shift, ranked by fit and current load. Class rescheduling itself is handled by the scheduling module.') %}
+    {{ ui.table_start(['Teacher', 'Shared courses', 'Shift', 'Students', 'Fit', '']) }}
+    {% for s in subs %}
+    <tr>
+      <td class="px-4 py-2 text-xs font-medium">{{ s.teacher.full_name }}<div class="text-[11px] text-slate-500">{{ s.teacher.teacher_code }} · grade {{ s.teacher.grade }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ s.shared_courses|join(', ') }}</td>
+      <td class="px-4 py-2 text-xs">{{ s.teacher.shift|titleize }}{% if s.same_shift %} <span class="text-emerald-600">match</span>{% endif %}</td>
+      <td class="px-4 py-2 text-xs">{{ s.load }}</td>
+      <td class="px-4 py-2 text-xs font-semibold">{{ s.score }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if has_perm(user, 'leaves.approve') and l.status == 'pending' %}
+        <form method="post" action="/hr/leaves/{{ l.id }}/decide" class="inline">
+          <input type="hidden" name="decision" value="approve"><input type="hidden" name="substitute_teacher_id" value="{{ s.teacher.id }}">
+          <input type="hidden" name="note" value="Approved with {{ s.teacher.full_name }} as substitute">
+          {{ ui.button('Approve with cover', icon='user-check', size='sm') }}
+        </form>{% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No verified teacher shares this teacher\'s courses.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Leave history') %}
+    {{ ui.table_start(['Type', 'From', 'To', 'Status']) }}
+    {% for h in history %}
+    <tr><td class="px-4 py-2 text-xs">{{ h.leave_type|titleize }}</td><td class="px-4 py-2 text-xs">{{ h.start_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ h.end_date|date }}</td><td class="px-4 py-2">{{ ui.badge(h.status) }}</td></tr>
+    {% else %}{{ ui.empty('First leave request.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% if l.status == 'pending' and has_perm(user, 'leaves.approve') %}
+    {% call ui.card('Decision') %}
+    <form method="post" action="/hr/leaves/{{ l.id }}/decide" class="space-y-3">
+      {{ ui.textarea('note', 'Note to the employee', '', rows=3) }}
+      <div class="flex gap-2">
+        <button name="decision" value="approve" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Approve</button>
+        <button name="decision" value="reject" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>Reject</button>
+      </div>
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Balance ' ~ today().year) %}
+    <ul class="space-y-3">
+      {% for t, b in balance.items() %}
+      <li><div class="flex justify-between text-xs"><span class="font-medium">{{ t|titleize }}</span><span>{{ b.used }} / {{ b.allowed }}</span></div>
+        {{ ui.progress(100 * b.used / b.allowed if b.allowed else 0, 'brand' if b.remaining > 3 else 'amber') }}</li>
+      {% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

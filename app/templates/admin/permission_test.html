@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Permission test{% endblock %}
+{% block content %}
+{% call ui.page_header("Permission test", "Ask the platform whether a specific user holds a specific permission — and exactly why", back="/admin/roles") %}
+  {{ ui.button("Compare roles", href="/admin/roles/compare", icon="git-compare", variant="secondary") }}
+  {{ ui.button("All roles", href="/admin/roles", icon="shield", variant="secondary") }}
+{% endcall %}
+
+{% set user_options = [] %}{% for u in users %}{% set _ = user_options.append((u.id, u.full_name ~ ' — ' ~ (u.role.name if u.role else 'no role'))) %}{% endfor %}
+{% call ui.filter_bar('/admin/roles/permission-test') %}
+  {{ ui.select('test_user_id', 'User', user_options, target.id if target else none, required=True, placeholder='— select a user —') }}
+  {{ ui.select('perm', 'Permission', permissions, perm, required=True, placeholder='— select a permission —') }}
+{% endcall %}
+
+{% if result %}
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Evaluation", target.full_name ~ " · " ~ perm) %}
+      <div class="mb-4 flex items-center gap-3 rounded-xl border p-4
+        {{ 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' if result.allowed else 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30' }}">
+        <i data-lucide="{{ 'check-circle-2' if result.allowed else 'x-circle' }}" class="h-8 w-8 {{ 'text-emerald-600' if result.allowed else 'text-rose-600' }}"></i>
+        <div>
+          <div class="text-lg font-bold {{ 'text-emerald-800 dark:text-emerald-200' if result.allowed else 'text-rose-800 dark:text-rose-200' }}">{{ 'ALLOWED' if result.allowed else 'DENIED' }}</div>
+          <div class="text-xs {{ 'text-emerald-700 dark:text-emerald-300' if result.allowed else 'text-rose-700 dark:text-rose-300' }}">
+            {{ target.full_name }} {{ 'may' if result.allowed else 'may not' }} perform <code class="font-mono">{{ perm }}</code>.</div>
+        </div>
+      </div>
+      <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Reason chain</h4>
+      <ol class="space-y-2">
+        {% for step in result.steps %}
+        <li class="flex gap-3 text-sm">
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">{{ loop.index }}</span>
+          <span class="text-slate-700 dark:text-slate-200">{{ step }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card("Subject") %}
+      <a href="/admin/users/{{ target.id }}" class="mb-3 flex items-center gap-3 hover:text-brand-700">
+        {{ ui.avatar(target.full_name, 'lg') }}
+        <span><span class="block font-semibold">{{ target.full_name }}</span><span class="block text-xs text-slate-500">{{ target.email }}</span></span>
+      </a>
+      {{ ui.dl([('Role', target.role.name if target.role else '—'), ('Portal', target.portal),
+                ('Superuser', 'Yes' if target.is_superuser else 'No'), ('Active', 'Yes' if target.is_active else 'No'),
+                ('Extra grants', (target.extra_permissions or [])|length), ('Explicit denies', (target.denied_permissions or [])|length)]) }}
+    {% endcall %}
+    {% call ui.card("Matching patterns") %}
+      <div class="space-y-3 text-sm">
+        <div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">From the role</div>
+          {% if result.role_hits %}{% for p in result.role_hits %}<code class="mr-1 inline-block rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[11px] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{{ p }}</code>{% endfor %}
+          {% else %}<span class="text-slate-400">none</span>{% endif %}</div>
+        <div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">User-level extras</div>
+          {% if result.extra_hits %}{% for p in result.extra_hits %}<code class="mr-1 inline-block rounded bg-sky-50 px-1.5 py-0.5 font-mono text-[11px] text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">{{ p }}</code>{% endfor %}
+          {% else %}<span class="text-slate-400">none</span>{% endif %}</div>
+        <div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Explicit denies on the user</div>
+          {% if target.denied_permissions %}{% for p in target.denied_permissions %}<code class="mr-1 inline-block rounded bg-rose-50 px-1.5 py-0.5 font-mono text-[11px] text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ p }}</code>{% endfor %}
+          {% else %}<span class="text-slate-400">none</span>{% endif %}</div>
+      </div>
+      <div class="mt-4">{{ ui.button('Edit overrides', href='/admin/users/' ~ target.id ~ '?tab=permissions', icon='sliders-horizontal', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% else %}
+{{ ui.empty_state('Pick a user and a permission above to evaluate the full grant chain.', 'flask-conical') }}
+{% endif %}
+
+{% call ui.card("How a permission is resolved") %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+  <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="mb-1 font-semibold text-slate-900 dark:text-white">1. Account state</div>
+    <p class="text-xs text-slate-500">An inactive account fails every check before anything else is considered.</p></div>
+  <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="mb-1 font-semibold text-slate-900 dark:text-white">2. Superuser</div>
+    <p class="text-xs text-slate-500">The <code class="font-mono">is_superuser</code> flag grants everything unconditionally.</p></div>
+  <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="mb-1 font-semibold text-slate-900 dark:text-white">3. Denies</div>
+    <p class="text-xs text-slate-500">A matching <code class="font-mono">denied_permissions</code> pattern always wins, even over the role.</p></div>
+  <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="mb-1 font-semibold text-slate-900 dark:text-white">4. Grants</div>
+    <p class="text-xs text-slate-500">The role's patterns, then the user's <code class="font-mono">extra_permissions</code>. Patterns support <code class="font-mono">module.*</code> and <code class="font-mono">*.view</code>.</p></div>
+</div>
+<p class="mt-4 text-xs text-slate-500">Record-level scoping runs <i>after</i> this check: a teacher with
+<code class="font-mono">students.view</code> still only sees their own students, and a parent only their own family.</p>
+{% endcall %}
+{% endblock %}

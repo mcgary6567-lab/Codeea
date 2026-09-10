@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ e.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(e.full_name, e.employee_code ~ ' · ' ~ e.designation ~ ' · ' ~ (e.department.name if e.department else 'No department'), back='/hr/employees') %}
+  {{ ui.badge(e.status) }}
+  {% if e.is_teacher %}{{ ui.badge(e.salary_band or 'B', 'Band ' ~ (e.salary_band or 'B')) }}{% endif %}
+  {{ ui.badge(e.background_check_status, 'BG: ' ~ e.background_check_status|titleize) }}
+  {% if has_perm(user, 'employees.update') %}{{ ui.button('Edit', href='/hr/employees/' ~ e.id ~ '/edit', icon='pencil', variant='secondary') }}{% endif %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'overview' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Attendance ' ~ month, kpis.attendance_pct ~ '%', icon='clock', color='emerald', hint=kpis.late ~ ' late · ' ~ kpis.absent ~ ' absent') }}
+  {{ ui.stat('Leave days', kpis.leave_days, icon='plane', color='violet', hint='approved this month') }}
+  {{ ui.stat('Violations', kpis.violations, icon='triangle-alert', color='rose', hint='this month') }}
+  {{ ui.stat('Last net pay', kpis.last_net|money(e.currency) if kpis.last_net else '—', icon='banknote', color='brand') }}
+</div>
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Employee record') %}
+    {{ ui.dl([
+      ('Employee code', e.employee_code), ('Designation', e.designation),
+      ('Department', e.department.name if e.department else '—'), ('Branch', e.branch.name if e.branch else '—'),
+      ('Reports to', e.manager.full_name if e.manager else '—'), ('Employment type', e.employment_type|titleize),
+      ('Shift', e.shift|titleize ~ ' (' ~ (e.shift_start or '?') ~ '–' ~ (e.shift_end or '?') ~ ')'),
+      ('Joined', e.join_date|date), ('Probation ends', e.probation_end|date if e.probation_end else '—'),
+      ('Phone', e.phone if show_sensitive else e.phone|mask), ('Email', e.email if show_sensitive else e.email|mask),
+      ('CNIC', (e.cnic if show_sensitive else e.cnic|mask) if e.cnic else '—'),
+      ('Device name', e.device_name or 'Not assigned'), ('MFA enforced', 'Yes' if e.mfa_enforced else 'No'),
+      ('Platform login', e.user.email if e.user else 'No account'),
+      ('Address', e.address or '—'),
+    ]) }}
+    {% endcall %}
+    {% if kpis.classes_done is not none %}
+    {% call ui.card('Teaching this month') %}
+    <div class="grid gap-4 sm:grid-cols-3 text-sm">
+      <div><div class="text-xs uppercase text-slate-500">Classes delivered</div><div class="text-2xl font-bold">{{ kpis.classes_done }}</div></div>
+      <div><div class="text-xs uppercase text-slate-500">Punctuality</div><div class="text-2xl font-bold">{{ kpis.punctuality }}%</div></div>
+      <div><div class="text-xs uppercase text-slate-500">Grade</div><div class="text-2xl font-bold">{{ e.teacher.grade if e.teacher else '—' }}</div></div>
+    </div>
+    {% endcall %}
+    {% endif %}
+    {% if reports %}
+    {% call ui.card('Direct reports') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for r in reports %}<li class="flex items-center justify-between py-2"><a href="/hr/employees/{{ r.id }}" class="font-medium hover:text-brand-600">{{ r.full_name }}</a><span class="text-xs text-slate-500">{{ r.designation }}</span></li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% endif %}
+  </div>
+  <div class="space-y-6">
+    {% if has_perm(user, 'employees.update') %}
+    {% call ui.card('Background check', 'A verified check is the gate for live classes.') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/background-check" class="space-y-3">
+      {{ ui.select('status', 'Result', ['verified','pending','failed'], e.background_check_status, placeholder=None) }}
+      {{ ui.textarea('rationale', 'Rationale (required)', '', rows=2, required=True, placeholder='Documents seen, referee checked, police clearance reference …') }}
+      {{ ui.button('Record background check', icon='shield-check', size='sm') }}
+    </form>
+    <p class="mt-3 text-xs text-slate-500">Last checked {{ e.background_check_date|date if e.background_check_date else 'never' }}.</p>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Recent activity') %}
+    <ul class="space-y-3 text-xs">
+      {% for ev in recent_audit %}
+      <li><div class="font-medium text-slate-700 dark:text-slate-200">{{ ev.action|titleize }}</div>
+        <div class="text-slate-500">{{ ev.description }}</div>
+        <div class="text-slate-400">{{ ev.actor_name }} · {{ ev.created_at|ago }}</div></li>
+      {% else %}<li class="text-slate-400">No audit events yet.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'attendance' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Attendance', summary.pct ~ '%', icon='clock', color='emerald') }}
+  {{ ui.stat('Present', summary.present, icon='check', color='emerald') }}
+  {{ ui.stat('Late', summary.late, icon='alarm-clock', color='amber', hint=summary.late_minutes ~ ' minutes total') }}
+  {{ ui.stat('Absent', summary.absent, icon='user-x', color='rose') }}
+  {{ ui.stat('Leave', summary.leave, icon='plane', color='violet') }}
+</div>
+<form method="get" class="mb-4 flex items-end gap-2">
+  <input type="hidden" name="tab" value="attendance">
+  <div class="w-40">{{ ui.input('month', 'Month', month, type='month') }}</div>
+  {{ ui.button('Show', icon='calendar', size='sm', variant='secondary') }}
+</form>
+{{ ui.table_start(['Date', 'AM', 'PM', 'Late', 'Correction']) }}
+{% for day, sessions in grid %}
+<tr>
+  <td class="px-4 py-2 text-xs font-medium">{{ day|date }}</td>
+  {% for s in ['am','pm'] %}
+  {% set r = sessions.get(s) %}
+  <td class="px-4 py-2 text-xs">{% if r %}{{ ui.badge(r.status) }}
+    <span class="ml-1 text-slate-500">{{ r.check_in|time if r.check_in else '—' }} → {{ r.check_out|time if r.check_out else '—' }}</span>
+    {% else %}<span class="text-slate-300">no record</span>{% endif %}</td>
+  {% endfor %}
+  <td class="px-4 py-2 text-xs">{% set lm = (sessions.get('am').late_minutes if sessions.get('am') else 0) + (sessions.get('pm').late_minutes if sessions.get('pm') else 0) %}{{ lm if lm else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{% for s in ['am','pm'] %}{% set r = sessions.get(s) %}{% if r and r.correction_requested %}{{ ui.badge(r.correction_status or 'pending', s|upper ~ ' ' ~ (r.correction_status or 'pending')) }}{% endif %}{% endfor %}</td>
+</tr>
+{% else %}{{ ui.empty('No attendance recorded for ' ~ month, 5) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'leaves' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Type', 'From', 'To', 'Days', 'Status', 'Reason', '']) }}
+    {% for l in leaves %}
+    <tr>
+      <td class="px-4 py-2 text-xs">{{ l.leave_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs">{{ l.start_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ l.end_date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ (l.end_date - l.start_date).days + 1 }}</td>
+      <td class="px-4 py-2">{{ ui.badge(l.status) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500 max-w-xs truncate">{{ l.reason or '—' }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/leaves/' ~ l.id, size='sm', variant='ghost') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No leave records.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div class="space-y-4">
+    {% call ui.card('Leave balance ' ~ today().year) %}
+    <ul class="space-y-3 text-sm">
+      {% for t, b in balance.items() %}
+      <li><div class="flex justify-between text-xs"><span class="font-medium">{{ t|titleize }}</span><span>{{ b.used }} / {{ b.allowed }}</span></div>
+        {{ ui.progress(100 * b.used / b.allowed if b.allowed else 0, 'brand' if b.remaining > 3 else 'amber') }}</li>
+      {% endfor %}
+    </ul>
+    {% endcall %}
+    {% if has_perm(user, 'leaves.add') %}
+    {% call ui.card('Request leave on behalf') %}
+    <form method="post" action="/hr/leaves/new" class="space-y-3">
+      <input type="hidden" name="employee_id" value="{{ e.id }}">
+      {{ ui.select('leave_type', 'Type', leave_types, 'casual', placeholder=None) }}
+      <div class="grid grid-cols-2 gap-2">{{ ui.input('start_date', 'From', '', type='date', required=True) }}{{ ui.input('end_date', 'To', '', type='date') }}</div>
+      {{ ui.textarea('reason', 'Reason', '', rows=2) }}
+      {{ ui.button('Submit request', icon='send', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% elif tab == 'salary' %}
+{% call ui.card('Salary structure', 'Every change is a consequential audit event and requires a rationale.') %}
+{% if has_perm(user, 'payroll.update') %}
+<form method="post" action="/hr/employees/{{ e.id }}/salary" class="space-y-5">
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ ui.input('basic', 'Basic salary', structure.basic|float if structure else 0, type='number', step='100') }}
+    {{ ui.input('per_class_rate', 'Per-class rate', structure.per_class_rate|float if structure else 0, type='number', step='10') }}
+    {{ ui.input('absence_deduction_per_day', 'Absence deduction / day', structure.absence_deduction_per_day|float if structure else 0, type='number', step='10') }}
+    {{ ui.input('late_deduction_per_instance', 'Late deduction / instance', structure.late_deduction_per_instance|float if structure else 0, type='number', step='10') }}
+    {{ ui.input('effective_from', 'Effective from', (structure.effective_from|string if structure and structure.effective_from else today()|string), type='date') }}
+    {{ ui.input('currency', 'Currency', structure.currency if structure else e.currency) }}
+  </div>
+  <div class="grid gap-6 sm:grid-cols-2">
+    <div>
+      <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Allowances</h4>
+      <div id="allow-rows" class="space-y-2">
+        {% for k, v in (structure.allowances if structure else {}).items() %}
+        <div class="flex gap-2"><input name="allow_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        {% endfor %}
+        <div class="flex gap-2"><input name="allow_key" placeholder="new allowance" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input name="allow_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+      </div>
+    </div>
+    <div>
+      <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recurring deductions</h4>
+      <div class="space-y-2">
+        {% for k, v in (structure.deductions if structure else {}).items() %}
+        <div class="flex gap-2"><input name="ded_key" value="{{ k }}" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input name="ded_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+        {% endfor %}
+        <div class="flex gap-2"><input name="ded_key" placeholder="new deduction" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <input name="ded_value" placeholder="0" type="number" step="100" class="w-1/2 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"></div>
+      </div>
+    </div>
+  </div>
+  {{ ui.textarea('rationale', 'Rationale (required)', '', rows=2, required=True, placeholder='Annual review, band change, market adjustment …') }}
+  {{ ui.button('Save salary structure', icon='save') }}
+</form>
+{% else %}
+{{ ui.dl([('Basic', (structure.basic|float if structure else 0)|money(e.currency)), ('Per-class rate', (structure.per_class_rate|float if structure else 0)|money(e.currency)),
+          ('Allowances', (structure.allowances if structure else {})|tojson), ('Deductions', (structure.deductions if structure else {})|tojson)]) }}
+{% endif %}
+{% endcall %}
+
+{% elif tab == 'payslips' %}
+{{ ui.table_start(['Period', 'Basic', 'Class pay', 'Classes', 'Allowances', 'Bonus', 'Deductions', 'Net', 'Status', '']) }}
+{% for p in payslips %}
+<tr>
+  <td class="px-4 py-2 text-xs font-medium">{{ p.payroll_run.period }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.basic|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.class_pay|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.classes_taught }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.allowances|float|money }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.bonus|float|money }}</td>
+  <td class="px-4 py-2 text-xs text-rose-600">{{ (p.deductions|float + p.attendance_deduction|float + p.advance_deduction|float)|money }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ p.net|float|money(p.currency) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('View', href='/hr/payslips/' ~ p.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No payslips yet.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'violations' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Date', 'Type', 'Severity', 'Description', 'Deduction', 'Status', '']) }}
+    {% for v in violations %}
+    <tr>
+      <td class="px-4 py-2 text-xs">{{ v.date|date }}</td>
+      <td class="px-4 py-2 text-xs">{{ v.violation_type|titleize }}</td>
+      <td class="px-4 py-2">{{ ui.badge(v.severity) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500 max-w-sm">{{ v.description or '—' }}</td>
+      <td class="px-4 py-2 text-xs text-rose-600">{{ v.deduction_amount|float|money if v.deduction_amount else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(v.status) }}</td>
+      <td class="px-4 py-2 text-right">{% if v.status == 'open' and has_perm(user, 'violations.update') %}
+        {{ ui.confirm_form('/hr/violations/' ~ v.id ~ '/close', 'Close', icon='check', variant='secondary', message='Close this violation?', hidden={'next': '/hr/employees/' ~ e.id ~ '?tab=violations'}) }}{% endif %}</td>
+    </tr>
+    {% else %}{{ ui.empty('A clean record — no violations.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  {% if has_perm(user, 'violations.add') %}
+  <div>{% call ui.card('Record a violation') %}
+  <form method="post" action="/hr/violations/new" class="space-y-3">
+    <input type="hidden" name="employee_id" value="{{ e.id }}">
+    <input type="hidden" name="next" value="/hr/employees/{{ e.id }}?tab=violations">
+    {{ ui.select('violation_type', 'Type', violation_types, 'late', placeholder=None) }}
+    {{ ui.select('severity', 'Severity', severities, 'minor', placeholder=None) }}
+    {{ ui.input('date', 'Date', today()|string, type='date') }}
+    {{ ui.textarea('description', 'What happened', '', rows=2, required=True) }}
+    {{ ui.input('action_taken', 'Action taken', '') }}
+    {{ ui.input('deduction_amount', 'Deduction applied in payroll', 0, type='number', step='100') }}
+    {{ ui.button('Record violation', icon='triangle-alert', variant='warning', size='sm') }}
+  </form>
+  {% endcall %}</div>
+  {% endif %}
+</div>
+
+{% elif tab == 'comp' %}
+<div class="grid gap-6 lg:grid-cols-2">
+  <div class="space-y-4">
+    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Bonuses</h3>
+    {{ ui.table_start(['Period', 'Type', 'Amount', 'Status', 'Reason']) }}
+    {% for b in bonuses %}
+    <tr><td class="px-4 py-2 text-xs">{{ b.period or '—' }}</td><td class="px-4 py-2 text-xs">{{ b.bonus_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs font-medium">{{ b.amount|float|money(b.currency) }}</td><td class="px-4 py-2">{{ ui.badge(b.status) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ b.reason or '—' }}</td></tr>
+    {% else %}{{ ui.empty('No bonuses recorded.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% if has_perm(user, 'payroll.add') %}
+    {% call ui.card('Propose a bonus') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/bonus" class="grid gap-3 sm:grid-cols-2">
+      {{ ui.input('amount', 'Amount', '', type='number', step='500', required=True) }}
+      {{ ui.select('bonus_type', 'Type', ['performance','referral','eid','retention','other'], 'performance', placeholder=None) }}
+      {{ ui.input('period', 'Period', today().strftime('%Y-%m'), type='month') }}
+      {{ ui.input('reason', 'Reason', '') }}
+      <div class="sm:col-span-2">{{ ui.button('Propose bonus', icon='gift', size='sm') }}</div>
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+  <div class="space-y-4">
+    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Salary advances</h3>
+    {{ ui.table_start(['Amount', 'Installments', 'Remaining', 'Status', 'Reason']) }}
+    {% for a in advances %}
+    <tr><td class="px-4 py-2 text-xs font-medium">{{ a.amount|float|money(a.currency) }}</td><td class="px-4 py-2 text-xs">{{ a.installments }}</td>
+      <td class="px-4 py-2 text-xs">{{ a.remaining|float|money }}</td><td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ a.reason or '—' }}</td></tr>
+    {% else %}{{ ui.empty('No advances taken.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% if has_perm(user, 'payroll.add') %}
+    {% call ui.card('Request an advance') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/advance" class="grid gap-3 sm:grid-cols-2">
+      {{ ui.input('amount', 'Amount', '', type='number', step='1000', required=True) }}
+      {{ ui.input('installments', 'Installments', 3, type='number', min=1, max=12) }}
+      <div class="sm:col-span-2">{{ ui.input('reason', 'Reason', '') }}</div>
+      <div class="sm:col-span-2">{{ ui.button('Request advance', icon='hand-coins', size='sm', variant='secondary') }}</div>
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% elif tab == 'onboarding' %}
+{% set done = tasks|selectattr('status', 'equalto', 'completed')|list|length %}
+<div class="mb-4">{{ ui.progress(100 * done / tasks|length if tasks else 0, 'emerald', 'Onboarding checklist — ' ~ done ~ ' of ' ~ tasks|length ~ ' complete') }}</div>
+{{ ui.table_start(['', 'Task', 'Category', 'Due', 'Owner', 'Status']) }}
+{% for t in tasks %}
+<tr>
+  <td class="px-4 py-2">{% if has_perm(user, 'employees.update') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/onboarding/{{ t.id }}">
+      <button class="rounded border px-1.5 py-0.5 text-xs {{ 'border-emerald-300 bg-emerald-50 text-emerald-700' if t.status == 'completed' else 'border-slate-300 text-slate-500' }}">
+        <i data-lucide="{{ 'check' if t.status == 'completed' else 'square' }}" class="h-3.5 w-3.5"></i></button>
+    </form>{% endif %}</td>
+  <td class="px-4 py-2 text-xs {{ 'line-through text-slate-400' if t.status == 'completed' }}">{{ t.title }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.category|titleize }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600' if t.due_date and t.due_date < today() and t.status != 'completed' }}">{{ t.due_date|date if t.due_date else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ t.assigned_to_id or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+</tr>
+{% else %}{{ ui.empty('No onboarding tasks.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{% if has_perm(user, 'employees.update') %}
+<form method="post" action="/hr/employees/{{ e.id }}/onboarding" class="mt-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-72">{{ ui.input('title', 'Add a task', '', required=True) }}</div>
+  <div class="w-40">{{ ui.select('category', 'Category', ['accounts','documents','training','equipment','policy','general'], 'general', placeholder=None) }}</div>
+  <div class="w-40">{{ ui.input('due_date', 'Due', '', type='date') }}</div>
+  {{ ui.button('Add', icon='plus', size='sm') }}
+</form>
+{% endif %}
+
+{% elif tab == 'provisioning' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    {% for r in records %}
+    {% call ui.card(r.action|titleize ~ ' — ' ~ r.created_at|datetime, r.items|length ~ ' systems · ' ~ r.status|titleize) %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for it in r.items %}
+      <li class="flex items-start justify-between gap-3 py-2">
+        <div><div class="font-medium text-slate-700 dark:text-slate-200">{{ it.system }}</div><div class="text-xs text-slate-500">{{ it.detail }}</div></div>
+        {{ ui.badge(it.status) }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endcall %}
+    {% else %}
+    {{ ui.empty_state('This employee has not been provisioned yet.', 'key-round') }}
+    {% endfor %}
+  </div>
+  <div class="space-y-4">
+    {% if has_perm(user, 'provisioning.execute') %}
+    {% call ui.card('One-action provisioning') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/provision" class="space-y-3" onsubmit="return confirm('Run provisioning for {{ e.full_name }}?')">
+      {{ ui.select('action', 'Action', ['onboard','offboard'], 'onboard', placeholder=None) }}
+      {{ ui.button('Run provisioning', icon='key-round', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Policy') %}
+    <ul class="space-y-3 text-xs">
+      {% for title, detail in policy %}<li><div class="font-semibold text-slate-700 dark:text-slate-200">{{ title }}</div><div class="text-slate-500">{{ detail }}</div></li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'development' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card('Six-month growth journey') %}
+    {% if has_perm(user, 'employees.update') %}
+    <form method="post" action="/hr/employees/{{ e.id }}/development-plan" class="space-y-4">
+      {{ ui.input('title', 'Plan title', plan.title if plan else 'Six-month growth journey — ' ~ e.full_name) }}
+      <div class="grid gap-4 sm:grid-cols-4">
+        {{ ui.select('ai_fluency_level', 'AI fluency (1-5)', [1,2,3,4,5], plan.ai_fluency_level if plan else 1, placeholder=None) }}
+        {{ ui.input('start_date', 'Start', (plan.start_date|string if plan and plan.start_date else today()|string), type='date') }}
+        {{ ui.input('end_date', 'End', (plan.end_date|string if plan and plan.end_date else ''), type='date') }}
+        {{ ui.input('progress_pct', 'Progress %', plan.progress_pct if plan else 0, type='number', min=0, max=100) }}
+      </div>
+      {{ ui.textarea('goals', 'Goals (one per line, or a JSON array of {goal, month, status})', (plan.goals|tojson if plan and plan.goals else ''), rows=6) }}
+      {{ ui.select('status', 'Status', ['active','completed','paused'], plan.status if plan else 'active', placeholder=None) }}
+      {{ ui.button('Save plan', icon='save') }}
+    </form>
+    {% elif plan %}
+    {{ ui.dl([('Title', plan.title), ('AI fluency', plan.ai_fluency_level), ('Progress', plan.progress_pct ~ '%'), ('Status', plan.status)]) }}
+    {% else %}{{ ui.empty_state('No development plan yet.', 'sprout') }}{% endif %}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Training assignments') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for a in trainings %}
+      <li class="py-2"><div class="flex items-center justify-between gap-2"><span class="font-medium">{{ a.title }}</span>{{ ui.badge(a.status) }}</div>
+        <div class="text-xs text-slate-500">{{ a.category|titleize }} · due {{ a.due_date|date if a.due_date else '—' }}{% if a.is_promotion_gate %} · <span class="text-amber-600">promotion gate</span>{% endif %}</div></li>
+      {% else %}<li class="py-4 text-center text-xs text-slate-400">No training assigned.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% elif tab == 'documents' %}
+{% call ui.card('Documents', 'Google Drive is the single source of truth. This panel records what is on file.') %}
+{% set folder = 'Drive:/OQC/' ~ (e.department.name if e.department else 'General') ~ '/' ~ e.employee_code %}
+<p class="mb-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ folder }}</p>
+{{ ui.table_start(['Document', 'Status']) }}
+{% for name in ['CNIC copy', 'Photograph', 'Address proof', 'Signed contract', 'Educational certificates', 'Reference letters', 'Police clearance'] %}
+{% set key = name|lower|replace(' ', '_') %}
+<tr><td class="px-4 py-2 text-xs">{{ name }}</td>
+  <td class="px-4 py-2">{{ ui.badge('verified' if (e.documents or {}).get(key) else 'pending', 'On file' if (e.documents or {}).get(key) else 'Not recorded') }}</td></tr>
+{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+{% elif tab == 'audit' %}
+{{ ui.table_start(['When', 'Actor', 'Action', 'Description', 'Rationale']) }}
+{% for ev in events %}
+<tr class="{{ 'bg-amber-50/50 dark:bg-amber-500/5' if ev.is_consequential }}">
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ ev.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ ev.actor_name }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(ev.action, ev.action|titleize) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ ev.description }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ ev.rationale or '—' }}</td>
+</tr>
+{% else %}{{ ui.empty('No audit events.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+{% endblock %}

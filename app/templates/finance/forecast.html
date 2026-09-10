@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+{% call ui.page_header("Three-month forecast", "Projected from current MRR and the average expense run-rate of the last three months.") %}{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Current MRR", data.mrr|money(base), icon="trending-up", color="emerald") }}
+  {{ ui.stat("Avg monthly expenses", data.avg_expenses|money(base), icon="wallet", color="amber") }}
+  {{ ui.stat("Assumed growth", data.growth_pct|string ~ "%", icon="rocket", color="sky", hint="per month") }}
+  {{ ui.stat("Projected net (3 mo)", (data.rows|sum(attribute='net'))|money(base), icon="scale", color="brand") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("History and projection") %}
+    {{ ui.chart('fcChart', 300) }}
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card("Projection") %}
+    {{ ui.table_start(['Month', 'Revenue', 'Expenses', 'Net']) }}
+    {% for r in data.rows %}
+    <tr><td class="px-4 py-2 text-xs">{{ r.label }}</td>
+      <td class="px-4 py-2 text-right text-emerald-600">{{ r.revenue|money }}</td>
+      <td class="px-4 py-2 text-right text-rose-600">{{ r.expenses|money }}</td>
+      <td class="px-4 py-2 text-right font-semibold">{{ r.net|money }}</td></tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    <p class="mt-3 text-xs text-slate-500">Projections are indicative only — they assume no churn beyond current trends and stable exchange rates.</p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.line('fcChart', {{ labels|tojson }}, [
+  { label: 'Revenue / inflow', data: {{ revenue|tojson }} },
+  { label: 'Expenses / outflow', data: {{ expenses|tojson }} }
+]);
+</script>
+{% endblock %}

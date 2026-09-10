@@ -1,0 +1,182 @@
+{# ---------------------------------------------------------------- UI MACROS (import with: {% import "macros.html" as ui %}) #}
+
+{% macro page_header(title, subtitle=None, back=None) %}
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div class="min-w-0">
+    {% if back %}<a href="{{ back }}" class="mb-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-brand-600"><i data-lucide="arrow-left" class="h-3.5 w-3.5"></i> Back</a>{% endif %}
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{{ title }}</h1>
+    {% if subtitle %}<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ subtitle }}</p>{% endif %}
+  </div>
+  <div class="flex flex-wrap items-center gap-2">{{ caller() if caller }}</div>
+</div>
+{% endmacro %}
+
+{% macro stat(label, value, icon='activity', color='brand', hint=None, href=None, delta=None) %}
+<{{ 'a href="' ~ href ~ '"' if href else 'div' }} class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-center justify-between">
+    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</div>
+    <span class="rounded-lg bg-{{ color }}-50 p-2 text-{{ color }}-600 dark:bg-{{ color }}-500/10 dark:text-{{ color }}-300"><i data-lucide="{{ icon }}" class="h-4 w-4"></i></span>
+  </div>
+  <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{{ value }}</div>
+  {% if hint or delta is not none %}<div class="mt-1 flex items-center gap-2 text-xs text-slate-500">
+    {% if delta is not none %}<span class="inline-flex items-center gap-0.5 font-medium {{ 'text-emerald-600' if delta >= 0 else 'text-rose-600' }}"><i data-lucide="{{ 'trending-up' if delta >= 0 else 'trending-down' }}" class="h-3 w-3"></i>{{ delta }}%</span>{% endif %}
+    {% if hint %}<span>{{ hint }}</span>{% endif %}
+  </div>{% endif %}
+</{{ 'a' if href else 'div' }}>
+{% endmacro %}
+
+{% macro card(title=None, subtitle=None, padding=True, id=None) %}
+<div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" {% if id %}id="{{ id }}"{% endif %}>
+  {% if title %}<div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+    <div><h3 class="font-semibold text-slate-900 dark:text-white">{{ title }}</h3>{% if subtitle %}<p class="text-xs text-slate-500">{{ subtitle }}</p>{% endif %}</div>
+    {% if kwargs.actions %}<div class="flex items-center gap-2">{{ kwargs.actions }}</div>{% endif %}
+  </div>{% endif %}
+  <div class="{{ 'p-5' if padding else '' }}">{{ caller() }}</div>
+</div>
+{% endmacro %}
+
+{% macro badge(value, label=None) %}<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ value|badge }}">{{ label if label is not none else value|titleize }}</span>{% endmacro %}
+
+{% macro button(label, href=None, icon=None, variant='primary', type='submit', size='md', attrs='') %}
+{% set base = 'inline-flex items-center gap-1.5 rounded-lg font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-50 ' ~ ('px-3 py-1.5 text-xs' if size=='sm' else 'px-3.5 py-2 text-sm') %}
+{% set styles = {'primary':'bg-brand-600 text-white hover:bg-brand-700 shadow-sm','secondary':'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700','danger':'bg-rose-600 text-white hover:bg-rose-700','ghost':'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800','success':'bg-emerald-600 text-white hover:bg-emerald-700','warning':'bg-amber-500 text-white hover:bg-amber-600'} %}
+{% if href %}<a href="{{ href }}" class="{{ base }} {{ styles[variant] }}" {{ attrs|safe }}>{% if icon %}<i data-lucide="{{ icon }}" class="h-4 w-4"></i>{% endif %}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ base }} {{ styles[variant] }}" {{ attrs|safe }}>{% if icon %}<i data-lucide="{{ icon }}" class="h-4 w-4"></i>{% endif %}{{ label }}</button>{% endif %}
+{% endmacro %}
+
+{% macro input(name, label=None, value='', type='text', placeholder='', required=False, help=None, attrs='', step=None, min=None, max=None) %}
+<div>
+  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <input id="f_{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {% if step %}step="{{ step }}"{% endif %} {% if min is not none %}min="{{ min }}"{% endif %} {% if max is not none %}max="{{ max }}"{% endif %} {{ attrs|safe }}
+         class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+  {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro textarea(name, label=None, value='', rows=3, placeholder='', required=False, help=None, attrs='') %}
+<div>
+  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <textarea id="f_{{ name }}" name="{{ name }}" rows="{{ rows }}" placeholder="{{ placeholder }}" {% if required %}required{% endif %} {{ attrs|safe }}
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">{{ value if value is not none else '' }}</textarea>
+  {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro select(name, label=None, options=[], value=None, required=False, placeholder='— Select —', help=None, attrs='') %}
+{# options: list of (value, label) tuples OR list of scalars #}
+<div>
+  {% if label %}<label for="f_{{ name }}" class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">{{ label }}{% if required %} <span class="text-rose-500">*</span>{% endif %}</label>{% endif %}
+  <select id="f_{{ name }}" name="{{ name }}" {% if required %}required{% endif %} {{ attrs|safe }}
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+    {% if placeholder is not none %}<option value="">{{ placeholder }}</option>{% endif %}
+    {% for opt in options %}
+      {% if opt is string or opt is number %}{% set ov, ol = opt, opt|string|titleize %}{% else %}{% set ov, ol = opt[0], opt[1] %}{% endif %}
+      <option value="{{ ov }}" {% if value is not none and (ov|string == value|string) %}selected{% endif %}>{{ ol }}</option>
+    {% endfor %}
+  </select>
+  {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro checkbox(name, label, checked=False, help=None) %}
+<label class="flex items-start gap-2.5 text-sm">
+  <input type="checkbox" name="{{ name }}" value="1" {% if checked %}checked{% endif %} class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+  <span><span class="font-medium text-slate-700 dark:text-slate-200">{{ label }}</span>{% if help %}<span class="block text-xs text-slate-500">{{ help }}</span>{% endif %}</span>
+</label>
+{% endmacro %}
+
+{% macro table_start(headers=[], compact=False) %}
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+<table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+  <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+    {% for h in headers %}<th class="px-4 {{ 'py-2' if compact else 'py-2.5' }} text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">{{ h }}</th>{% endfor %}
+  </tr></thead>
+  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+{% endmacro %}
+
+{% macro table_end() %}</tbody></table></div>{% endmacro %}
+
+{% macro empty(message='Nothing here yet.', colspan=6, icon='inbox') %}
+<tr><td colspan="{{ colspan }}" class="px-4 py-12 text-center text-slate-400"><i data-lucide="{{ icon }}" class="mx-auto mb-2 h-8 w-8 opacity-50"></i>{{ message }}</td></tr>
+{% endmacro %}
+
+{% macro empty_state(message='Nothing here yet.', icon='inbox') %}
+<div class="rounded-xl border border-dashed border-slate-300 py-12 text-center text-slate-400 dark:border-slate-700"><i data-lucide="{{ icon }}" class="mx-auto mb-2 h-8 w-8 opacity-50"></i>{{ message }}</div>
+{% endmacro %}
+
+{% macro pagination(page, base_url) %}
+{% if page.pages > 1 %}
+{% set sep = '&' if '?' in base_url else '?' %}
+<div class="mt-4 flex items-center justify-between text-sm text-slate-500">
+  <div>Showing <b>{{ page.start }}</b>–<b>{{ page.end }}</b> of <b>{{ page.total }}</b></div>
+  <div class="inline-flex items-center gap-1">
+    <a href="{{ base_url }}{{ sep }}page={{ page.page - 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if not page.has_prev }} dark:border-slate-700">‹</a>
+    {% for n in page.page_numbers() %}<a href="{{ base_url }}{{ sep }}page={{ n }}" class="rounded-md border px-2.5 py-1 dark:border-slate-700 {{ 'bg-brand-600 text-white border-brand-600' if n == page.page }}">{{ n }}</a>{% endfor %}
+    <a href="{{ base_url }}{{ sep }}page={{ page.page + 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if not page.has_next }} dark:border-slate-700">›</a>
+  </div>
+</div>
+{% elif page.total %}<div class="mt-3 text-xs text-slate-500">{{ page.total }} record{{ 's' if page.total != 1 }}</div>{% endif %}
+{% endmacro %}
+
+{% macro modal(id, title, size='md') %}
+{# usage: {% call ui.modal('newX', 'Title') %} ...form... {% endcall %}  open with: $dispatch('open-modal', 'newX') or x-on:click="$dispatch('open-modal','newX')" #}
+<div x-data="{ open: false }" x-on:open-modal.window="if ($event.detail === '{{ id }}') open = true" x-on:keydown.escape.window="open=false" x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-900/60" @click="open=false"></div>
+  <div class="relative w-full {{ {'sm':'max-w-md','md':'max-w-xl','lg':'max-w-3xl','xl':'max-w-5xl'}[size] }} max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-slate-900" x-show="open" x-transition>
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+      <h3 class="font-semibold text-slate-900 dark:text-white">{{ title }}</h3>
+      <button @click="open=false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    <div class="p-5">{{ caller() }}</div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro confirm_form(action, label, icon='trash-2', variant='danger', message='Are you sure?', size='sm', hidden={}) %}
+<form method="post" action="{{ action }}" class="inline" onsubmit="return confirm('{{ message }}')">
+  {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  {{ button(label, icon=icon, variant=variant, size=size) }}
+</form>
+{% endmacro %}
+
+{% macro dl(items) %}
+{# items: list of (label, value) #}
+<dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-sm">
+  {% for label, value in items %}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</dt><dd class="mt-0.5 text-slate-800 dark:text-slate-200">{{ value if value not in (None, '') else '—' }}</dd></div>{% endfor %}
+</dl>
+{% endmacro %}
+
+{% macro avatar(name, size='md') %}
+{% set s = {'sm':'h-7 w-7 text-[10px]','md':'h-9 w-9 text-xs','lg':'h-14 w-14 text-lg'}[size] %}
+{% set parts = (name or '?').split() %}
+<span class="inline-flex {{ s }} shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700 dark:bg-brand-900 dark:text-brand-200">{{ (parts[0][0] ~ (parts[1][0] if parts|length > 1 else ''))|upper }}</span>
+{% endmacro %}
+
+{% macro progress(value, color='brand', label=None) %}
+<div>{% if label %}<div class="mb-1 flex justify-between text-xs text-slate-500"><span>{{ label }}</span><span>{{ value }}%</span></div>{% endif %}
+<div class="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-{{ color }}-500 transition-all" style="width: {{ [100, [0, value|float]|max]|min }}%"></div></div></div>
+{% endmacro %}
+
+{% macro tabs(items, current) %}
+{# items: list of (key, label, url) #}
+<div class="mb-5 border-b border-slate-200 dark:border-slate-800"><nav class="-mb-px flex gap-5 overflow-x-auto text-sm">
+  {% for key, label, url in items %}<a href="{{ url }}" class="whitespace-nowrap border-b-2 px-1 pb-3 font-medium {{ 'border-brand-600 text-brand-700 dark:text-brand-300' if key == current else 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">{{ label }}</a>{% endfor %}
+</nav></div>
+{% endmacro %}
+
+{% macro filter_bar(action='') %}
+<form method="get" action="{{ action }}" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  {{ caller() }}
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="{{ action or '?' }}" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+{% endmacro %}
+
+{% macro alert(message, level='info', title=None) %}
+{% set c = {'info':'sky','success':'emerald','warning':'amber','error':'rose'}[level] %}
+<div class="rounded-lg border border-{{ c }}-200 bg-{{ c }}-50 px-4 py-3 text-sm text-{{ c }}-800 dark:border-{{ c }}-900 dark:bg-{{ c }}-950/40 dark:text-{{ c }}-200">{% if title %}<b>{{ title }}</b> {% endif %}{{ message }}</div>
+{% endmacro %}
+
+{% macro chart(id, height=260) %}<div class="relative" style="height: {{ height }}px"><canvas id="{{ id }}"></canvas></div>{% endmacro %}
+
+{% macro arabic(text, size='2xl') %}<div dir="rtl" lang="ar" class="font-arabic text-{{ size }} leading-loose text-slate-900 dark:text-white">{{ text }}</div>{% endmacro %}
+{% macro urdu(text) %}<div dir="rtl" lang="ur" class="font-urdu leading-[2.4] text-slate-800 dark:text-slate-100">{{ text }}</div>{% endmacro %}

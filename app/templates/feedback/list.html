@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Feedback & VoC{% endblock %}
+{% block content %}
+{% call ui.page_header('Feedback & Voice of Customer', 'Module 42 — NPS, sentiment, negative routing to cases and staff eNPS') %}
+  {{ ui.button('Surveys', href='/feedback/surveys', icon='clipboard-list', variant='secondary') }}
+  {% if can_enps %}{{ ui.button('Staff eNPS', href='/feedback/enps', icon='lock', variant='secondary') }}{% endif %}
+  {% if has_perm(user, 'feedback.update') %}<button @click="$dispatch('open-modal','send')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="send" class="h-4 w-4"></i>Send a survey</button>{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('NPS (30d)', summary.nps if summary.nps is not none else '—', icon='gauge', color='emerald', hint=summary.promoters ~ 'P / ' ~ summary.passives ~ 'N / ' ~ summary.detractors ~ 'D') }}
+  {{ ui.stat('Responses', summary.responses, icon='message-square-heart', color='sky', hint=summary.response_rate ~ '% response rate') }}
+  {{ ui.stat('Avg rating', summary.avg_rating, icon='star', color='amber') }}
+  {{ ui.stat('Appreciation', summary.appreciation_ratio ~ '%', icon='thumbs-up', color='indigo') }}
+  {{ ui.stat('Open negative', open_negative, icon='triangle-alert', color='rose', hint=resolved_negative ~ ' resolved') }}
+  {{ ui.stat('Resolution rate', summary.resolution_rate ~ '%', icon='check-circle-2', color='violet') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2 mb-6">
+  {% call ui.card('NPS distribution', 'Detractors 0–6 · Passives 7–8 · Promoters 9–10') %}{{ ui.chart('dist', 240) }}{% endcall %}
+  {% call ui.card('NPS trend', 'Rolling monthly score') %}{{ ui.chart('trend', 240) }}{% endcall %}
+</div>
+
+{% call ui.filter_bar('/feedback') %}
+  <div class="w-44">{{ ui.input('q', 'Comment contains', q) }}</div>
+  <div class="w-36">{{ ui.select('sentiment', 'Sentiment', sentiments, sentiment, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('trigger', 'Trigger', triggers, trigger, placeholder='All') }}</div>
+  <div class="w-48">
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Survey</label>
+    <select name="survey" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <option value="">All surveys</option>
+      {% for s in surveys %}<option value="{{ s.id }}" {% if survey == s.id|string %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+  </div>
+{% endcall %}
+
+{{ ui.table_start(['Respondent','Trigger','NPS','Rating','Sentiment','Comment','Status','Sent','']) }}
+{% for f in page.items %}
+<tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/10' if f.is_negative and f.status != 'resolved' }}">
+  <td class="px-4 py-2 text-sm">{{ f.client.full_name if f.client else (f.student.full_name if f.student else 'Anonymous') }}
+    <div class="text-[11px] text-slate-400">{{ f.respondent_type|titleize }}{% if f.teacher %} · {{ f.teacher.full_name }}{% endif %}</div></td>
+  <td class="px-4 py-2 text-xs">{{ f.trigger|titleize }}</td>
+  <td class="px-4 py-2"><span class="font-bold {{ 'text-emerald-600' if f.nps and f.nps >= 9 else ('text-rose-600' if f.nps is not none and f.nps <= 6 else 'text-slate-600') }}">{{ f.nps if f.nps is not none else '—' }}</span></td>
+  <td class="px-4 py-2 text-xs">{{ '★' * f.rating if f.rating else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(f.sentiment) }}</td>
+  <td class="px-4 py-2 max-w-sm truncate text-xs text-slate-600 dark:text-slate-300">{{ f.comment or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(f.status) }}{% if f.case_id %}<a href="/cases/{{ f.case_id }}" class="block text-[10px] text-brand-600">case</a>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ f.sent_at|date if f.sent_at else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/feedback/' ~ f.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No feedback responses yet.', 9, 'message-square-heart') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('send', 'Send a survey') %}
+<form method="post" action="/feedback/send" class="space-y-4">
+  <div><label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Survey</label>
+    <select name="survey_id" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+      {% for s in surveys %}{% if s.audience != 'staff' %}<option value="{{ s.id }}">{{ s.name }} ({{ s.trigger|titleize }})</option>{% endif %}{% endfor %}
+    </select></div>
+  <div><label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Family</label>
+    <select name="client_id" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+      {% for c in clients %}<option value="{{ c.id }}">{{ c.full_name }} ({{ c.client_code }})</option>{% endfor %}
+    </select></div>
+  <p class="text-xs text-slate-500">A signed one-time link is sent on WhatsApp and in the family portal.</p>
+  {{ ui.button('Send survey', icon='send') }}
+</form>
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.bar('dist', ['0','1','2','3','4','5','6','7','8','9','10'], [{label:'Responses', data: {{ dist|tojson }}}]);
+  OQC.line('trend', {{ trend.labels|tojson }}, [{label:'NPS', data: {{ trend.scores|tojson }}}]);
+</script>
+{% endblock %}

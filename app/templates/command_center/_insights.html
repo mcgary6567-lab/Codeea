@@ -1,0 +1,22 @@
+{% import "macros.html" as ui %}
+<div id="insightsPanel">
+  <ul class="space-y-3">
+    {% for i in insights['items'] %}
+    <li class="flex gap-3 rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+      <span class="mt-0.5 h-7 w-7 shrink-0 rounded-lg bg-{{ i.color }}-50 p-1.5 text-{{ i.color }}-600 dark:bg-{{ i.color }}-500/10 dark:text-{{ i.color }}-300"><i data-lucide="{{ i.icon }}" class="h-4 w-4"></i></span>
+      <div class="min-w-0">
+        <span class="mb-1 inline-flex items-center rounded-full bg-{{ i.color }}-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-{{ i.color }}-700 dark:bg-{{ i.color }}-500/10 dark:text-{{ i.color }}-300">{{ i.label }}</span>
+        <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ i.text }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500 dark:border-slate-800">
+    <span><b class="text-slate-700 dark:text-slate-200">Model</b> {{ insights.model or 'n/a' }} ({{ insights.provider or 'n/a' }} v{{ insights.model_version or '-' }})</span>
+    <span><b class="text-slate-700 dark:text-slate-200">Prompt</b> v{{ insights.prompt_version or '-' }}</span>
+    <span><b class="text-slate-700 dark:text-slate-200">Confidence</b> {{ '%.0f%%'|format((insights.confidence or 0) * 100) }}</span>
+    <span>Human review: {{ ui.badge(insights.review_status or 'pending') }}</span>
+    {% if insights.generated_at %}<span>Generated {{ insights.generated_at|ago }}</span>{% endif %}
+    {% if insights.run %}<a href="/ai-governance/{{ insights.run.id }}" class="font-medium text-brand-600 hover:underline">Governance record &rarr;</a>{% endif %}
+  </div>
+</div>

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ lead.lead_code }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Registration ' ~ lead.lead_code, lead.full_name ~ ' · ' ~ (lead.country or 'unknown country'), back='/registrations') %}
+  {{ ui.badge(lead.stage) }}
+{% endcall %}
+
+{% if dup %}
+{{ ui.alert('This registration matches an earlier lead ' ~ dup.lead_code ~ ' (' ~ dup.full_name ~ ', received ' ~ (dup.created_at|date) ~ '). Check before converting so the family is not duplicated.', 'warning', 'Possible duplicate') }}
+<div class="mb-5"></div>
+{% endif %}
+{% if converted %}
+{{ ui.alert('Already converted to client ' ~ converted.client_code ~ '.', 'success') }}
+<div class="mb-5"></div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% if not converted and can_convert %}
+    {% call ui.card('Convert to client & students', 'Creates the client record, a parent portal login and one trial student per row. No re-typing of the family details.') %}
+      <form method="post" action="/registrations/{{ lead.id }}/convert" class="space-y-4">
+        <div class="grid gap-4 sm:grid-cols-3">
+          {{ ui.select('relationship_to_student', 'Relationship', relationships, 'father', placeholder=None) }}
+          {{ ui.select('country', 'Country', countries, lead.country or 'United Kingdom', placeholder=None) }}
+          {{ ui.select('timezone', 'Timezone', timezones, lead.timezone or 'Europe/London', placeholder=None) }}
+        </div>
+        <div>
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Students to enrol (status: trial)</div>
+          <div class="space-y-3">
+          {% for k in kids %}
+            <div class="grid gap-3 sm:grid-cols-4 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              {{ ui.input('student_name', 'Name', k.name, placeholder='Leave blank to skip') }}
+              {{ ui.input('student_age', 'Age', k.age, type='number', min=3, max=80) }}
+              {{ ui.select('student_gender', 'Gender', ['male','female'], k.gender, placeholder=None) }}
+              {{ ui.select('student_course_id', 'Course', course_options, lead.course_interest_id, placeholder='Decide later') }}
+            </div>
+          {% endfor %}
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          {{ ui.button('Convert to client & student(s)', icon='user-plus') }}
+          <span class="text-xs text-slate-500">Requires <code>registration.approve</code>. The temporary portal password is shown in the confirmation message.</span>
+        </div>
+      </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('What the family submitted') %}
+      {{ ui.dl([('Parent / guardian', lead.full_name), ('Email', lead.email or '—'), ('Phone', lead.phone or '—'),
+                ('WhatsApp', lead.whatsapp or '—'), ('WhatsApp opt-in', 'Yes' if lead.whatsapp_opt_in else 'No'),
+                ('Country', lead.country or '—'), ('Timezone', lead.timezone or '—'),
+                ('Students requested', lead.students_count), ('Course interest', lead.course_interest.name if lead.course_interest else '—'),
+                ('Preferred time', lead.preferred_time or '—'), ('Referral code', lead.referral_code or '—'),
+                ('Received', lead.created_at|datetime)]) }}
+      {% if lead.notes %}<pre class="mt-4 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{{ lead.notes }}</pre>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Trial requests') %}
+      {{ ui.table_start(['Student', 'Scheduled', 'Teacher', 'Follow-up', 'Status']) }}
+      {% for tr in trials %}
+      <tr><td class="px-4 py-2 text-sm">{{ tr.student_name }}</td><td class="px-4 py-2 text-xs">{{ tr.scheduled_at|datetime if tr.scheduled_at else 'not scheduled' }}</td>
+        <td class="px-4 py-2 text-xs">{{ tr.teacher.full_name if tr.teacher else '—' }}</td>
+        <td class="px-4 py-2 text-xs">{{ tr.follow_up_date|date if tr.follow_up_date else '—' }}</td>
+        <td class="px-4 py-2">{{ ui.badge(tr.status) }}</td></tr>
+      {% else %}{{ ui.empty('No trial request recorded.', 5) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('Lead score') %}
+      <div class="text-center">
+        <div class="text-5xl font-bold {{ 'text-emerald-600' if (lead.score or 0) >= 70 else ('text-amber-600' if (lead.score or 0) >= 40 else 'text-slate-500') }}">{{ lead.score or 0 }}</div>
+        <div class="mt-1 text-xs text-slate-500">out of 100</div>
+      </div>
+      {% if lead.score_factors %}
+      <dl class="mt-4 space-y-1.5 text-sm">
+        {% for k, v in lead.score_factors.items() %}
+        <div class="flex justify-between gap-3"><dt class="text-slate-500">{{ k|replace('_',' ')|trim|title }}</dt><dd class="text-right">{{ v }}</dd></div>
+        {% endfor %}
+      </dl>
+      {% endif %}
+    {% endcall %}
+    {% if referral %}
+    {% call ui.card('Referral') %}
+      {{ ui.dl([('Code', referral.referral_code), ('Ambassador', referral.ambassador.full_name if referral.ambassador else '—'),
+                ('Status', referral.status|titleize), ('Credit', referral.credit_amount|money(referral.credit_currency))]) }}
+    {% endcall %}
+    {% endif %}
+    {% if not converted and has_perm(user, 'registration.update') %}
+    {% call ui.card('Dismiss') %}
+      <form method="post" action="/registrations/{{ lead.id }}/dismiss" class="space-y-3">
+        {{ ui.textarea('reason', 'Reason (required)', '', rows=2, required=True, placeholder='Spam, duplicate of L-000xx, out of scope…') }}
+        {{ ui.button('Mark as lost', icon='x', variant='danger') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subscriptions{% endblock %}
+{% block content %}
+{% call ui.page_header("Subscriptions", "Recurring tuition agreements — pricing governance, teacher-cost floor and monthly recurring revenue.") %}
+  {{ ui.button("Economics report", href="/finance/subscriptions/report", icon="bar-chart-3", variant="secondary") }}
+  {% if has_perm(user, 'subscriptions.add') %}{{ ui.button("New subscription", href="/finance/subscriptions/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Active", stats.active, icon="repeat", color="emerald", href="/finance/subscriptions?status=active") }}
+  {{ ui.stat("MRR (" ~ stats.base ~ ")", stats.mrr|money, icon="trending-up", color="brand", hint="Consolidated in base currency") }}
+  {{ ui.stat("Pending approval", stats.pending, icon="hourglass", color="amber", href="/finance/subscriptions?status=pending_approval") }}
+  {{ ui.stat("Frozen", stats.frozen, icon="snowflake", color="violet", href="/finance/subscriptions?status=frozen") }}
+  {{ ui.stat("Churned this month", stats.churned_this_month, icon="user-x", color="rose") }}
+</div>
+
+{% if stats.by_currency %}
+<div class="mb-6 flex flex-wrap gap-2">
+  {% for row in stats.by_currency %}
+  <span class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <b class="font-mono text-brand-700 dark:text-brand-300">{{ row.currency }}</b>
+    <span class="text-slate-500">{{ row.count }} active</span>
+    <span class="font-semibold">{{ row.amount|money(row.currency) }}</span>
+    <span class="text-slate-400">= {{ row.base|money(stats.base) }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% call ui.filter_bar('/finance/subscriptions') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Family, code, SUB-') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', courses, course_id, placeholder='All courses') }}</div>
+  <div class="w-52">{{ ui.select('package_id', 'Package', packages, package_id, placeholder='All packages') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-32">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Code', 'Family / student', 'Package', 'Teacher', 'Price', 'Discount', 'Margin', 'Next bill', 'Status', '']) }}
+{% for s in page.items %}
+{% set margin = ((s.price_in_base|float - s.teacher_cost_base|float) / s.price_in_base|float * 100) if s.price_in_base|float > 0 else 0 %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/finance/subscriptions/{{ s.id }}">{{ s.subscription_code }}</a></td>
+  <td class="px-4 py-2">
+    <a href="/finance/subscriptions/{{ s.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ s.student.full_name if s.student else '—' }}</a>
+    <div class="text-xs text-slate-500">{{ s.client.client_code if s.client else '' }} · {{ s.client.full_name if s.client else '' }} · {{ s.client.country if s.client else '' }}</div>
+  </td>
+  <td class="px-4 py-2 text-xs">{{ s.package.name if s.package else 'Custom' }}<div class="text-slate-500">{{ s.sessions_per_week }} × {{ s.session_minutes }} min/wk</div></td>
+  <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-right font-semibold whitespace-nowrap">{{ s.price|money(s.currency) }}<div class="text-[11px] font-normal text-slate-400">{{ s.price_in_base|money(stats.base) }}</div></td>
+  <td class="px-4 py-2 text-center text-xs">{% if s.discount_pct %}<span class="rounded bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ s.discount_pct|round(0)|int }}%</span>{% else %}<span class="text-slate-300">—</span>{% endif %}
+    {% if s.scholarship_amount|float > 0 %}<div class="mt-0.5 text-[10px] text-violet-600">scholarship</div>{% endif %}</td>
+  <td class="px-4 py-2 text-center text-xs {{ 'text-rose-600 font-semibold' if margin < 20 else 'text-emerald-600' }}">{{ margin|round(0)|int }}%</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ s.next_billing_date|date }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/subscriptions/' ~ s.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No subscriptions match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

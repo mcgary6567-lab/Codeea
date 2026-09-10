@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Request leave{% endblock %}
+{% block content %}
+{% call ui.page_header('Request leave on behalf of an employee', 'People & Culture may raise a request for anyone; the approval still runs through the normal queue.', back='/hr/leaves') %}{% endcall %}
+<form method="post" action="/hr/leaves/new" class="max-w-2xl space-y-6">
+  {% call ui.card('Request') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, employee_id or None, required=True) }}</div>
+    {{ ui.select('leave_type', 'Leave type', leave_types, 'casual', placeholder=None) }}
+    {{ ui.input('substitute_teacher_id', 'Substitute teacher id (optional)', '', help='Suggestions appear on the request page once saved') }}
+    {{ ui.input('start_date', 'From', today()|string, type='date', required=True) }}
+    {{ ui.input('end_date', 'To', today()|string, type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}</div>
+  </div>
+  {% endcall %}
+  <div class="flex gap-2">{{ ui.button('Create request', icon='send') }}{{ ui.button('Cancel', href='/hr/leaves', variant='secondary') }}</div>
+</form>
+{% endblock %}

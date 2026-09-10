@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header('Assalamu alaikum, ' ~ t.full_name.split()[0], today_d.strftime('%A %d %B %Y') ~ ' · ' ~ t.shift|titleize ~ ' shift · ' ~ t.teacher_code) %}
+  {{ ui.button('My schedule', href='/teacher/schedule', icon='calendar-days', variant='secondary') }}
+  {{ ui.button('Lesson plans', href='/teacher/lesson-plans', icon='notebook-pen', variant='secondary') }}
+{% endcall %}
+{% if not t.is_verified %}{{ ui.alert('Your background check is not verified yet, so new students cannot be matched to you. Contact People &amp; Culture.', 'warning') }}<div class="mb-5"></div>{% endif %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Today', sessions|length, icon='calendar-check', color='brand', hint='classes scheduled') }}
+  {{ ui.stat('Done', counts.get('done', 0), icon='check-circle', color='emerald') }}
+  {{ ui.stat('Pending', counts.get('pending', 0), icon='clock', color='sky') }}
+  {{ ui.stat('Missed', counts.get('missed', 0), icon='x-circle', color='rose') }}
+  {{ ui.stat('My students', students_total, icon='graduation-cap', color='indigo', href='/teacher/students') }}
+  {{ ui.stat('At risk', high_risk, icon='heart-pulse', color='amber', hint='high churn risk') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Today's classes", 'Start, complete or report an absence. Every action is timestamped and audited.') %}
+      <div class="space-y-3">
+      {% for c in sessions %}
+        <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800" x-data="{ open: false }">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-center text-white dark:bg-slate-700">
+                <div class="text-sm font-bold leading-none">{{ c.start_time|time }}</div>
+                <div class="mt-0.5 text-[10px] uppercase tracking-wide text-slate-300">{{ c.duration_minutes }}m</div>
+              </div>
+              <div>
+                <div class="font-medium text-slate-900 dark:text-white">{{ c.student.full_name if c.student else 'Student' }}
+                  {% if c.is_trial %}<span class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-700">Trial</span>{% endif %}</div>
+                <div class="text-xs text-slate-500">{{ c.course.name if c.course else 'Course' }} · {{ c.student.level if c.student else '' }} · {{ c.student.student_code if c.student else '' }}</div>
+                {% if c.status == 'pending' %}
+                <div class="mt-1 text-xs font-medium text-brand-600" data-countdown="{{ c.scheduled_start.isoformat() }}"></div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              {{ ui.badge(c.status) }}
+              {% if c.status in ['pending', 'started'] %}
+                {{ ui.button('Join', href='/teacher/sessions/' ~ c.id ~ '/join', icon='video', size='sm') }}
+                {% if c.status == 'pending' %}
+                <form method="post" action="/teacher/sessions/{{ c.id }}/status" class="inline"><input type="hidden" name="action" value="started">{{ ui.button('Start', icon='play', variant='success', size='sm') }}</form>
+                {% endif %}
+                {{ ui.button('Done', icon='check', variant='secondary', size='sm', attrs='type="button" @click="open = !open"') }}
+                <form method="post" action="/teacher/sessions/{{ c.id }}/status" class="inline" onsubmit="return confirm('Mark the student absent for this class?')">
+                  <input type="hidden" name="action" value="absent">{{ ui.button('Student absent', icon='user-x', variant='warning', size='sm') }}</form>
+              {% endif %}
+            </div>
+          </div>
+          <form method="post" action="/teacher/sessions/{{ c.id }}/status" x-show="open" x-cloak class="mt-3 space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <input type="hidden" name="action" value="done">
+            {{ ui.textarea('delivered_content', 'What was delivered (sabaq / sabqi / dor)', '', rows=2, required=True, placeholder='Sabaq: Al-Baqarah 30-35 · Sabqi: 20-29 · Dor: Juz 1 first half') }}
+            {{ ui.textarea('teacher_notes', 'Notes for the parent and the academics team', '', rows=2, placeholder='Fluency improving; needs work on madd rules.') }}
+            <div class="flex gap-2">{{ ui.button('Complete class', icon='check', variant='success', size='sm') }}</div>
+          </form>
+        </div>
+      {% else %}
+        {{ ui.empty_state('No classes scheduled for today.', 'calendar-off') }}
+      {% endfor %}
+      </div>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('Needs your attention') %}
+      <ul class="space-y-2 text-sm">
+        <li class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <a href="/teacher/lesson-plans" class="text-slate-700 hover:text-brand-600 dark:text-slate-200">Lesson plans due today</a>
+          <span class="font-bold {{ 'text-rose-600' if plans_due else 'text-slate-400' }}">{{ plans_due }}</span></li>
+        <li class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <a href="/teacher/monthly-tests" class="text-slate-700 hover:text-brand-600 dark:text-slate-200">Monthly tests to score</a>
+          <span class="font-bold {{ 'text-amber-600' if unscored else 'text-slate-400' }}">{{ unscored }}</span></li>
+        <li class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <a href="/teacher/qa" class="text-slate-700 hover:text-brand-600 dark:text-slate-200">Open corrective actions</a>
+          <span class="font-bold {{ 'text-rose-600' if open_actions else 'text-slate-400' }}">{{ open_actions|length }}</span></li>
+        <li class="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <a href="/teacher/trials" class="text-slate-700 hover:text-brand-600 dark:text-slate-200">Trials to deliver</a>
+          <span class="font-bold {{ 'text-sky-600' if trials else 'text-slate-400' }}">{{ trials }}</span></li>
+      </ul>
+      {% if tasks %}
+      <div class="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">My tasks</div>
+        <ul class="space-y-1.5 text-sm">
+          {% for task in tasks %}<li class="flex items-center justify-between gap-2"><a href="/tasks" class="truncate text-slate-600 hover:text-brand-600 dark:text-slate-300">{{ task.title }}</a>{{ ui.badge(task.priority) }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    {% endcall %}
+    {% call ui.card('My month so far') %}
+      <div class="grid grid-cols-2 gap-3 text-center">
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-2xl font-bold text-emerald-600">{{ month.done }}</div><div class="text-xs text-slate-500">classes done</div></div>
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60"><div class="text-2xl font-bold text-rose-600">{{ month.missed }}</div><div class="text-xs text-slate-500">missed</div></div>
+      </div>
+      <div class="mt-4 space-y-3">
+        {{ ui.progress(month.completion_rate, 'emerald', 'Completion rate') }}
+        {{ ui.progress(month.punctuality_rate, 'sky', 'Punctuality') }}
+        {{ ui.progress(t.qa_score_avg or 0, 'indigo', 'QA average') }}
+      </div>
+      <div class="mt-4 flex gap-2">{{ ui.button('Performance', href='/teacher/performance', variant='secondary', size='sm', icon='trending-up') }}{{ ui.button('Income', href='/teacher/income', variant='secondary', size='sm', icon='banknote') }}</div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function tick() {
+    document.querySelectorAll('[data-countdown]').forEach(function (el) {
+      var diff = new Date(el.dataset.countdown + 'Z') - new Date();
+      if (diff <= 0) { el.textContent = 'starting now'; return; }
+      var h = Math.floor(diff / 3600000), m = Math.floor(diff / 60000) % 60, s = Math.floor(diff / 1000) % 60;
+      el.textContent = 'starts in ' + (h ? h + 'h ' : '') + m + 'm ' + s + 's';
+    });
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+{% endblock %}

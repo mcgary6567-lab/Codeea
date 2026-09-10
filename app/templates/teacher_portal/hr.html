@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance & leaves{% endblock %}
+{% block content %}
+{{ ui.page_header('My attendance & leaves', 'Twice-daily check-in/out, correction requests, leave applications with a substitute suggestion, and your violation record.') }}
+{% if not emp %}{{ ui.alert('No employee record is linked to your login. Ask People & Culture to link it before you check in.', 'warning') }}{% endif %}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Present (30d)', summary.present, icon='check-circle', color='emerald') }}
+  {{ ui.stat('Late (30d)', summary.late, icon='timer', color='amber') }}
+  {{ ui.stat('Absent (30d)', summary.absent, icon='user-x', color='rose') }}
+  {{ ui.stat('Attendance rate', summary.pct ~ '%', icon='percent', color='sky') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6">
+    {% call ui.card("Today — " ~ today_d.strftime('%d %b %Y')) %}
+      {% for session in ['am', 'pm'] %}
+      {% set row = todays.get(session) %}
+      <div class="mb-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div class="flex items-center justify-between">
+          <div class="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">{{ session }}</div>
+          {% if row %}{{ ui.badge(row.status) }}{% else %}<span class="text-xs text-slate-400">not recorded</span>{% endif %}
+        </div>
+        <div class="mt-1 text-xs text-slate-500">
+          In {{ row.check_in|time if row and row.check_in else '—' }} · Out {{ row.check_out|time if row and row.check_out else '—' }}
+          {% if row and row.late_minutes %} · <span class="text-amber-600">{{ row.late_minutes }} min late</span>{% endif %}
+        </div>
+        {% if emp %}
+        <div class="mt-2 flex gap-2">
+          <form method="post" action="/teacher/hr/check"><input type="hidden" name="session" value="{{ session }}"><input type="hidden" name="action" value="in">
+            {{ ui.button('Check in', size='sm', icon='log-in', variant=('secondary' if row and row.check_in else 'primary')) }}</form>
+          <form method="post" action="/teacher/hr/check"><input type="hidden" name="session" value="{{ session }}"><input type="hidden" name="action" value="out">
+            {{ ui.button('Check out', size='sm', icon='log-out', variant='secondary') }}</form>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% endcall %}
+
+    {% if emp %}
+    {% call ui.card('Request leave') %}
+      <form method="post" action="/teacher/hr/leave" class="space-y-3">
+        {{ ui.select('leave_type', 'Type', ['casual','sick','annual','emergency'], 'casual', placeholder=None) }}
+        <div class="grid grid-cols-2 gap-3">
+          {{ ui.input('start_date', 'From', '', type='date', required=True) }}
+          {{ ui.input('end_date', 'To', '', type='date', required=True) }}
+        </div>
+        {{ ui.textarea('reason', 'Reason', '', rows=2, required=True) }}
+        {% if subs %}
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Suggested substitute</label>
+          <select name="substitute_teacher_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <option value="">— None —</option>
+            {% for s in subs %}<option value="{{ s.teacher.id }}">{{ s.teacher.full_name }} — {{ s.shared_courses|join(', ') }}{{ ', same shift' if s.same_shift else '' }} ({{ s.load }} students)</option>{% endfor %}
+          </select>
+          <p class="mt-1 text-xs text-slate-500">Ranked by shared courses, shift overlap and current load.</p>
+        </div>
+        {% endif %}
+        <div class="flex gap-2">{{ ui.button('Submit request', icon='plane') }}</div>
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Attendance — last 30 days') %}
+      {{ ui.table_start(['Date', 'Session', 'In', 'Out', 'Late', 'Status', 'Correction', '']) }}
+      {% for r in rows %}
+      <tr x-data="{ open: false }">
+        <td class="px-4 py-2 text-xs whitespace-nowrap">{{ r.date|date }}</td>
+        <td class="px-4 py-2 text-xs uppercase">{{ r.session }}</td>
+        <td class="px-4 py-2 text-xs">{{ r.check_in|time if r.check_in else '—' }}</td>
+        <td class="px-4 py-2 text-xs">{{ r.check_out|time if r.check_out else '—' }}</td>
+        <td class="px-4 py-2 text-xs {{ 'text-amber-600' if r.late_minutes else 'text-slate-400' }}">{{ r.late_minutes or 0 }}</td>
+        <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+        <td class="px-4 py-2 text-xs">{% if r.correction_requested %}{{ ui.badge(r.correction_status or 'pending') }}{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+        <td class="px-4 py-2 text-right align-top">
+          {% if not r.correction_requested %}
+          {{ ui.button('Correct', variant='ghost', size='sm', icon='pencil', attrs='type="button" @click="open = !open"') }}
+          <div x-show="open" x-cloak class="mt-2 w-64 text-left">
+            <form method="post" action="/teacher/hr/correction" class="space-y-2">
+              <input type="hidden" name="attendance_id" value="{{ r.id }}">
+              {{ ui.textarea('reason', None, '', rows=2, required=True, placeholder='Power outage; checked in from mobile at 14:05.') }}
+              {{ ui.button('Request correction', size='sm', icon='send') }}
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}{{ ui.empty('No attendance recorded in the last 30 days.', 8) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card('My leaves') %}
+      {{ ui.table_start(['Type', 'From', 'To', 'Days', 'Substitute', 'Status', 'Decided by']) }}
+      {% for l in leaves %}
+      <tr><td class="px-4 py-2 text-xs">{{ l.leave_type|titleize }}</td><td class="px-4 py-2 text-xs">{{ l.start_date|date }}</td>
+        <td class="px-4 py-2 text-xs">{{ l.end_date|date }}</td><td class="px-4 py-2">{{ (l.end_date - l.start_date).days + 1 }}</td>
+        <td class="px-4 py-2 text-xs">{{ l.substitute_teacher_id or '—' }}</td>
+        <td class="px-4 py-2">{{ ui.badge(l.status) }}</td>
+        <td class="px-4 py-2 text-xs">{{ l.approved_by.full_name if l.approved_by else '—' }}</td></tr>
+      {% else %}{{ ui.empty('No leave requests.', 7) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card('Violations', 'Read-only. Raise a grievance with People & Culture if you disagree with a record.') %}
+      {{ ui.table_start(['Date', 'Type', 'Severity', 'Description', 'Action taken', 'Status']) }}
+      {% for v in violations %}
+      <tr><td class="px-4 py-2 text-xs">{{ v.date|date }}</td><td class="px-4 py-2 text-xs">{{ v.violation_type|titleize }}</td>
+        <td class="px-4 py-2">{{ ui.badge(v.severity) }}</td>
+        <td class="px-4 py-2 text-xs text-slate-500">{{ (v.description or '—')|truncate(60) }}</td>
+        <td class="px-4 py-2 text-xs">{{ v.action_taken or '—' }}</td><td class="px-4 py-2">{{ ui.badge(v.status) }}</td></tr>
+      {% else %}{{ ui.empty('No violations on record. Alhamdulillah.', 6) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

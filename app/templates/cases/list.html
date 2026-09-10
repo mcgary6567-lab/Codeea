@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Cases & Complaints{% endblock %}
+{% block content %}
+{% call ui.page_header('Cases & Complaints', 'Module 32 — AI-classified, SLA-tracked, escalated when breached') %}
+  {{ ui.button('Trends', href='/cases/trends', icon='bar-chart-3', variant='secondary') }}
+  {% if has_perm(user, 'cases.add') %}{{ ui.button('New case', href='/cases/new', icon='plus') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Open', stats.open, icon='life-buoy', color='sky', href='/cases?status=open_all') }}
+  {{ ui.stat('SLA breached', stats.breached, icon='alarm-clock-off', color='rose', href='/cases?breached=1') }}
+  {{ ui.stat('Urgent', stats.urgent, icon='siren', color='orange', href='/cases?priority=urgent') }}
+  {{ ui.stat('Assigned to me', stats.mine, icon='user', color='indigo', href='/cases?assignee=mine') }}
+  {{ ui.stat('Resolved / closed', stats.resolved, icon='check-circle-2', color='emerald', hint=stats.total ~ ' cases in total') }}
+</div>
+
+{% call ui.filter_bar('/cases') %}
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='Title, number, text') }}</div>
+  <div class="w-40">{{ ui.select('case_type', 'Type', types, case_type, placeholder='All types') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', [('open_all','Any open')] + statuses, status, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('priority', 'Priority', priorities, priority, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('department', 'Department', department_options, department, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('assignee', 'Assignee', [('mine','Assigned to me')] + staff_options, assignee, placeholder='Anyone') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Case','Type / category','Family','Priority','Assignee','SLA','Status','']) }}
+{% for c in page.items %}
+{% set s = sla_state(c) %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2">
+    <a href="/cases/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ c.title }}</a>
+    <div class="font-mono text-[11px] text-slate-400">{{ c.case_number }} · {{ c.created_at|date }}</div>
+  </td>
+  <td class="px-4 py-2 text-xs">{{ c.case_type|titleize }}<div class="text-slate-400">{{ c.category|titleize if c.category else '' }}</div></td>
+  <td class="px-4 py-2 text-xs">{% if c.client %}<a href="/clients/{{ c.client_id }}" class="hover:text-brand-600">{{ c.client.full_name }}</a>{% else %}—{% endif %}
+    <div class="text-slate-400">{{ c.student.full_name if c.student else '' }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(c.priority) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.assigned_to.full_name if c.assigned_to else 'Unassigned' }}
+    <div class="text-slate-400">{{ c.department.name if c.department else '' }}</div></td>
+  <td class="px-4 py-2"><span class="inline-flex items-center rounded-full bg-{{ s.level }}-50 px-2 py-0.5 text-[11px] font-medium text-{{ s.level }}-700 ring-1 ring-inset ring-{{ s.level }}-600/20 dark:bg-{{ s.level }}-500/10 dark:text-{{ s.level }}-300">{{ s.label }}</span></td>
+  <td class="px-4 py-2">{{ ui.badge(c.status) }}{% if c.escalated %}<div class="text-[10px] text-rose-500">escalated</div>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/cases/' ~ c.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No cases match these filters.', 8, 'life-buoy') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

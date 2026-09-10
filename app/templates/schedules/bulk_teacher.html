@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Teacher change{% endblock %}
+{% block content %}
+{{ ui.page_header("Bulk teacher change", "Reassign or cover a teacher's classes for a date range with automatic parent and teacher notifications", back="/schedules") }}
+
+<form method="post" action="/schedules/bulk-teacher-change" class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Teachers") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.select('from_teacher_id', 'Current teacher', teacher_options, from_teacher_id, required=True, placeholder='— Select —') }}
+        {{ ui.select('to_teacher_id', 'New / substitute teacher', verified_teacher_options, none, required=True, placeholder='— Select —',
+                     help='Only background-verified teachers can take live classes.') }}
+      </div>
+    {% endcall %}
+    {% call ui.card("Period", "Leave the end date empty for a permanent reassignment") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.input('start_date', 'From', today(), type='date', required=True) }}
+        {{ ui.input('end_date', 'To (optional)', '', type='date', help='With an end date the change is treated as temporary cover.') }}
+      </div>
+    {% endcall %}
+    {% call ui.card("Rationale") %}
+      {{ ui.textarea('reason', 'Reason for the change', '', rows=3, required=True,
+                     placeholder='e.g. Teacher on approved medical leave 12–20 Oct; cover agreed with the supervisor.') }}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card("What happens") %}
+      <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="repeat" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Pending sessions in the range move to the new teacher.</li>
+        <li class="flex gap-2"><i data-lucide="shield-alert" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Slots that clash with the new teacher's own classes are skipped and listed back to you.</li>
+        <li class="flex gap-2"><i data-lucide="send" class="mt-0.5 h-4 w-4 shrink-0 text-sky-600"></i>Parents, students and both teachers are notified (in-app plus WhatsApp for opted-in parents).</li>
+        <li class="flex gap-2"><i data-lucide="scroll-text" class="mt-0.5 h-4 w-4 shrink-0 text-slate-500"></i>The change is recorded as a consequential audit event with your rationale.</li>
+      </ul>
+      <div class="mt-5 flex gap-2">
+        {{ ui.button('Apply teacher change', icon='users', variant='warning') }}
+        {{ ui.button('Cancel', href='/schedules', variant='secondary') }}
+      </div>
+    {% endcall %}
+  </div>
+</form>
+{% endblock %}

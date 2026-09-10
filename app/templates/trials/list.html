@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trials{% endblock %}
+{% block content %}
+{% call ui.page_header('Trial classes', 'Module 7 — request, schedule, outcome and conversion to a paying family') %}
+  {{ ui.button('Follow-ups due', href='/trials/follow-ups', icon='alarm-clock', variant='secondary') }}
+  {{ ui.button('Analytics', href='/trials/analytics', icon='bar-chart-3', variant='secondary') }}
+  {% if has_perm(user, 'trials.add') %}{{ ui.button('New trial', href='/trials/new', icon='plus') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Requested', stats.requested, icon='inbox', color='amber') }}
+  {{ ui.stat('Scheduled', stats.scheduled, icon='calendar-clock', color='sky') }}
+  {{ ui.stat('Attended', stats.attended, icon='check', color='indigo') }}
+  {{ ui.stat('No-show', stats.no_show, icon='user-x', color='rose', hint='Show rate ' ~ stats.show_rate ~ '%') }}
+  {{ ui.stat('Converted', stats.converted, icon='trophy', color='emerald') }}
+  {{ ui.stat('Trial → paid', stats.trial_to_paid ~ '%', icon='trending-up', color='brand', hint=stats.follow_ups_due ~ ' follow-ups due') }}
+</div>
+
+{% call ui.filter_bar('/trials') %}
+  <div class="w-44">{{ ui.input('q', 'Student', q) }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-48">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.input('start', 'From', start, type='date') }}</div>
+  <div class="w-36">{{ ui.input('end', 'To', end, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Student','Lead / client','Scheduled','Teacher','Course','Status','Follow-up','']) }}
+{% for t in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><a href="/trials/{{ t.id }}" class="font-medium hover:text-brand-600">{{ t.student_name }}</a></td>
+  <td class="px-4 py-2 text-xs">
+    {% if t.lead_id %}<a href="/crm/leads/{{ t.lead_id }}" class="text-brand-600">{{ t.lead.lead_code if t.lead else 'lead' }}</a>{% endif %}
+    {% if t.client_id %}<a href="/clients/{{ t.client_id }}" class="ml-1 text-brand-600">client</a>{% endif %}
+    {% if not t.lead_id and not t.client_id %}—{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">{{ t.scheduled_at|datetime if t.scheduled_at else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.teacher.full_name if t.teacher else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.course.name if t.course else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-medium' if t.follow_up_date and t.follow_up_date <= today() and t.status in ('attended','no_show') }}">{{ t.follow_up_date|date if t.follow_up_date else '—' }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/trials/' ~ t.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No trials match these filters.', 8, 'flask-conical') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

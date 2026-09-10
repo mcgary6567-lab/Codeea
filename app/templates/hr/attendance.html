@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}HR Attendance{% endblock %}
+{% block content %}
+{% call ui.page_header('HR Attendance', 'Twice-daily staff attendance (AM / PM), corrections and the late report.') %}
+  {{ ui.button('Export month', href='/hr/attendance/export.csv?month=' ~ month, icon='download', variant='secondary') }}
+  {{ ui.button('My attendance', href='/hr/me?tab=attendance', icon='user', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'today' %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Present', counts.present, icon='check', color='emerald') }}
+  {{ ui.stat('Late', counts.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Absent', counts.absent, icon='user-x', color='rose') }}
+  {{ ui.stat('On leave', counts.leave, icon='plane', color='violet') }}
+  {{ ui.stat('No record', counts.missing, icon='help-circle', color='slate', hint='sessions not yet marked') }}
+</div>
+<div class="mb-4 flex flex-wrap items-end gap-2">
+  <form method="get" class="flex items-end gap-2"><input type="hidden" name="tab" value="today">
+    <div class="w-44">{{ ui.input('day', 'Date', day|string, type='date') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
+  {% if has_perm(user, 'hr_attendance.update') %}
+  <form method="post" action="/hr/attendance/mark-absent" onsubmit="return confirm('Mark every missing session on {{ day }} as absent (or leave where approved)?')">
+    <input type="hidden" name="day" value="{{ day }}">{{ ui.button('End of day: mark absent for missing', icon='gavel', variant='warning', size='sm') }}
+  </form>
+  {% endif %}
+</div>
+{{ ui.table_start(['Employee', 'Shift', 'AM', 'PM', 'Late minutes', 'Quick mark']) }}
+{% for row in board %}
+{% set e = row.employee %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2"><a href="/hr/employees/{{ e.id }}" class="text-xs font-medium hover:text-brand-600">{{ e.full_name }}</a>
+    <div class="text-[11px] text-slate-500">{{ e.employee_code }} · {{ e.designation }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ e.shift|titleize }}<div class="text-slate-500">{{ e.shift_start or '' }}–{{ e.shift_end or '' }}</div></td>
+  {% for s in ['am','pm'] %}
+  {% set r = row[s] %}
+  <td class="px-4 py-2 text-xs">{% if r %}{{ ui.badge(r.status) }}<div class="text-slate-500">{{ r.check_in|time if r.check_in else '—' }} → {{ r.check_out|time if r.check_out else '—' }}</div>
+    {% else %}<span class="text-slate-300">not marked</span>{% endif %}</td>
+  {% endfor %}
+  <td class="px-4 py-2 text-xs">{{ (row.am.late_minutes if row.am else 0) + (row.pm.late_minutes if row.pm else 0) }}</td>
+  <td class="px-4 py-2">
+    {% if has_perm(user, 'hr_attendance.update') %}
+    <form method="post" action="/hr/attendance/set" class="flex items-center gap-1">
+      <input type="hidden" name="employee_id" value="{{ e.id }}"><input type="hidden" name="day" value="{{ day }}">
+      <input type="hidden" name="next" value="/hr/attendance?tab=today&day={{ day }}">
+      <select name="session" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800"><option value="am">AM</option><option value="pm">PM</option></select>
+      <select name="status" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+        {% for s in statuses %}<option value="{{ s }}">{{ s|titleize }}</option>{% endfor %}</select>
+      <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white hover:bg-slate-600">Set</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No active employees.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'monthly' %}
+<form method="get" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+  <input type="hidden" name="tab" value="monthly">
+  <div class="w-72">{{ ui.select('employee_id', 'Employee', employees, employee.id if employee else None, placeholder=None) }}</div>
+  <div class="w-40">{{ ui.input('month', 'Month', month, type='month') }}</div>
+  {{ ui.button('Show grid', icon='table', size='sm') }}
+</form>
+{% if employee %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Attendance', summary.pct ~ '%', icon='clock', color='emerald') }}
+  {{ ui.stat('Present', summary.present, icon='check', color='emerald') }}
+  {{ ui.stat('Late', summary.late, icon='alarm-clock', color='amber', hint=summary.late_minutes ~ ' min') }}
+  {{ ui.stat('Absent', summary.absent, icon='user-x', color='rose') }}
+  {{ ui.stat('Leave', summary.leave, icon='plane', color='violet') }}
+</div>
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="mb-3 text-sm font-semibold">{{ employee.full_name }} — {{ month }}</div>
+  <div class="flex min-w-max gap-1">
+    {% for d, sessions in days %}
+    <div class="w-9 text-center">
+      <div class="mb-1 text-[10px] text-slate-400">{{ d.strftime('%d') }}</div>
+      {% for s in ['am','pm'] %}
+      {% set r = sessions.get(s) %}
+      {% set c = (r.status|status_color) if r else 'slate' %}
+      <div title="{{ d }} {{ s|upper }} — {{ r.status if r else 'no record' }}" class="mb-0.5 h-4 rounded bg-{{ c }}-{{ '400' if r else '100' }} dark:bg-{{ c }}-{{ '500' if r else '800' }}"></div>
+      {% endfor %}
+      <div class="mt-1 text-[9px] text-slate-400">{{ d.strftime('%a')[0] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-4 flex flex-wrap gap-3 text-[11px] text-slate-500">
+    {% for s in ['present','late','absent','leave','half_day','holiday'] %}
+    <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-{{ s|status_color }}-400"></span>{{ s|titleize }}</span>
+    {% endfor %}
+    <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-slate-100"></span>No record</span>
+  </div>
+</div>
+{% else %}{{ ui.empty_state('Select an employee to see the monthly grid.', 'calendar') }}{% endif %}
+
+{% elif tab == 'corrections' %}
+<div class="mb-4">{{ ui.alert(pending_count ~ ' correction request(s) awaiting a decision. Approving a correction rewrites the attendance status and clears late minutes.', 'info' if not pending_count else 'warning') }}</div>
+{{ ui.table_start(['Employee', 'Date', 'Session', 'Current', 'Reason', 'Correction', 'Decision']) }}
+{% for r in corrections %}
+<tr>
+  <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ r.employee_id }}" class="font-medium hover:text-brand-600">{{ r.employee.full_name }}</a>
+    <div class="text-[11px] text-slate-500">{{ r.employee.employee_code }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.session|upper }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500 max-w-sm">{{ r.correction_reason or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.correction_status or 'pending') }}</td>
+  <td class="px-4 py-2">
+    {% if r.correction_status == 'pending' and has_perm(user, 'hr_attendance.approve') %}
+    <form method="post" action="/hr/attendance/corrections/{{ r.id }}" class="flex items-center gap-1">
+      <select name="new_status" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+        {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == 'present' }}>{{ s|titleize }}</option>{% endfor %}</select>
+      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
+      <button name="decision" value="reject" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
+    </form>
+    {% else %}<span class="text-xs text-slate-400">{{ r.correction_status|titleize if r.correction_status else '—' }}</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No correction requests.', 7) }}{% endfor %}
+{{ ui.table_end() }}
+
+{% elif tab == 'late' %}
+<form method="get" class="mb-4 flex items-end gap-2"><input type="hidden" name="tab" value="late">
+  <div class="w-40">{{ ui.input('month', 'Month', month, type='month') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
+{{ ui.table_start(['Employee', 'Department', 'Late sessions', 'Total minutes', 'Average', '']) }}
+{% for r in late_rows %}
+<tr>
+  <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ r.employee.id }}" class="font-medium hover:text-brand-600">{{ r.employee.full_name }}</a>
+    <div class="text-[11px] text-slate-500">{{ r.employee.employee_code }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ r.employee.department.name if r.employee.department else '—' }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ r.count }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.minutes }}</td>
+  <td class="px-4 py-2 text-xs">{{ (r.minutes / r.count)|round(1) }} min</td>
+  <td class="px-4 py-2 text-right">{% if has_perm(user, 'violations.add') and r.count >= 3 %}
+    <form method="post" action="/hr/violations/new" class="inline">
+      <input type="hidden" name="employee_id" value="{{ r.employee.id }}"><input type="hidden" name="violation_type" value="late">
+      <input type="hidden" name="severity" value="{{ 'major' if r.count >= 5 else 'minor' }}">
+      <input type="hidden" name="description" value="{{ r.count }} late arrivals in {{ month }} ({{ r.minutes }} minutes)">
+      <input type="hidden" name="next" value="/hr/attendance?tab=late&month={{ month }}">
+      {{ ui.button('Record violation', icon='triangle-alert', variant='warning', size='sm') }}
+    </form>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No late arrivals in ' ~ month ~ '.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+{% endblock %}

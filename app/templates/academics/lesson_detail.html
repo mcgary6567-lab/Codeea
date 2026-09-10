@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ les.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(les.title, path, back="/academics/curriculum?course_id=" ~ (course.id if course else 0)) %}
+  {% if prev %}{{ ui.button('Previous', href='/academics/curriculum/lessons/' ~ prev.id, icon='chevron-left', variant='secondary', size='sm') }}{% endif %}
+  {% if next %}{{ ui.button('Next', href='/academics/curriculum/lessons/' ~ next.id, icon='chevron-right', variant='secondary', size='sm') }}{% endif %}
+  {% if can_delete %}{{ ui.confirm_form('/academics/curriculum/lessons/' ~ les.id ~ '/delete', 'Delete', icon='trash-2', variant='danger', message='Delete this lesson and all student progress rows on it?') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Expected minutes", les.expected_minutes, icon="clock", color="amber") }}
+  {{ ui.stat("Completed by", counts.get('completed', 0), icon="check-circle-2", color="emerald") }}
+  {{ ui.stat("In progress", counts.get('in_progress', 0), icon="loader", color="indigo") }}
+  {{ ui.stat("Reference", (les.surah_number|string ~ ':' ~ (les.ayah_from|string) ~ ('-' ~ les.ayah_to|string if les.ayah_to and les.ayah_to != les.ayah_from else '')) if les.surah_number else '—', icon="book-marked", color="violet") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% if lines %}
+    {% call ui.card('Arabic text', 'Tajweed colouring is applied automatically.') %}
+    <div dir="rtl" class="space-y-4">
+      {% for line in lines %}
+      <div class="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800/40">
+        <div class="font-arabic text-2xl leading-[2.6] text-slate-900 dark:text-white">
+          {% for w in line.words %}<span class="quran-word">{{ w.html|safe }}</span> {% endfor %}
+          <span class="text-sm text-slate-400">﴿{{ line.ayah }}﴾</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs dark:border-slate-800">
+      {% for cls, label in legend %}<span class="flex items-center gap-1.5"><span class="{{ cls }} font-arabic text-base">نّ</span><span class="text-slate-500">{{ label }}</span></span>{% endfor %}
+    </div>
+    {% endcall %}
+    {% endif %}
+
+    {% if les.translation %}
+    {% call ui.card('Translation') %}<div class="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ les.translation }}</div>{% endcall %}
+    {% endif %}
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% call ui.card('Learning objectives') %}<div class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ les.objectives or 'No objectives recorded.' }}</div>{% endcall %}
+      {% call ui.card('Tajweed notes') %}<div class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{{ les.tajweed_notes or 'No Tajweed notes recorded.' }}</div>{% endcall %}
+    </div>
+
+    {% call ui.card('Students on this lesson') %}
+    {{ ui.table_start(['Student', 'Status', 'Type', 'Score', 'Updated', '']) }}
+    {% for p in learners %}
+    <tr><td class="px-4 py-2 text-sm">{{ p.student.full_name if p.student else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+    <td class="px-4 py-2 text-xs">{{ p.progress_type|titleize }}</td>
+    <td class="px-4 py-2 text-xs">{{ p.score if p.score is not none else '—' }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ p.updated_at|ago }}</td>
+    <td class="px-4 py-2 text-right">{{ ui.button('Progress', href='/academics/progress/' ~ p.student_id, variant='ghost', size='sm') }}</td></tr>
+    {% else %}{{ ui.empty('No student has reached this lesson yet.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-5">
+    {% if can_edit %}
+    {% call ui.card('Edit lesson') %}
+    <form method="post" action="/academics/curriculum/lessons/{{ les.id }}/edit" class="space-y-3">
+      {{ ui.input('title', 'Title', les.title, required=True) }}
+      {{ ui.textarea('arabic_text', 'Arabic text (tashkeel, one ayah per line)', les.arabic_text or '', rows=6, attrs='dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-arabic text-lg leading-loose dark:border-slate-700 dark:bg-slate-800"') }}
+      {{ ui.textarea('translation', 'Translation', les.translation or '', rows=4) }}
+      {{ ui.textarea('objectives', 'Objectives', les.objectives or '', rows=3) }}
+      {{ ui.textarea('tajweed_notes', 'Tajweed notes', les.tajweed_notes or '', rows=3) }}
+      <div class="grid grid-cols-2 gap-3">
+        {{ ui.input('expected_minutes', 'Expected minutes', les.expected_minutes, type='number', min=5, max=180) }}
+        {{ ui.input('order', 'Order', les.order, type='number') }}
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        {{ ui.input('surah_number', 'Surah', les.surah_number or '', type='number', min=1, max=114) }}
+        {{ ui.input('ayah_from', 'Ayah from', les.ayah_from or '', type='number', min=1) }}
+        {{ ui.input('ayah_to', 'Ayah to', les.ayah_to or '', type='number', min=1) }}
+      </div>
+      {{ ui.button('Save lesson', icon='save') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+    {% call ui.card('Placement') %}
+    {{ ui.dl([('Course', course.name if course else '—'), ('Book', les.chapter.book.title if les.chapter and les.chapter.book else '—'),
+              ('Chapter', les.chapter.title if les.chapter else '—'), ('Order', les.order),
+              ('Previous', prev.title if prev else '—'), ('Next', next.title if next else '—')]) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

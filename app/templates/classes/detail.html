@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class #{{ s.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header((s.student.full_name if s.student else 'Class') ~ ' · ' ~ s.date.strftime('%d %b %Y') ~ ' ' ~ s.start_time.strftime('%H:%M'),
+                       (s.teacher.full_name if s.teacher else 'No teacher') ~ ' · ' ~ (s.course.name if s.course else 'No course') ~ ' · ' ~ s.duration_minutes ~ ' minutes',
+                       back='/classes') %}
+  {% if s.status in ('pending','started') %}{{ ui.button('Open classroom', href='/classroom/' ~ s.id, icon='video') }}{% endif %}
+  {% if s.recording %}{{ ui.button('Recording', href='/recordings/' ~ s.recording.id, icon='film', variant='secondary') }}{% endif %}
+  {% if s.ai_analysis %}{{ ui.button('AI analysis', href='/ai-monitoring/' ~ s.ai_analysis.id, icon='brain-circuit', variant='secondary') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 flex flex-wrap items-center gap-2">
+  {{ ui.badge(s.status) }}
+  {% if s.is_trial %}{{ ui.badge('trial') }}{% endif %}
+  {% if (s.teacher_late_minutes or 0) > 5 %}<span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Teacher {{ s.teacher_late_minutes }} min late</span>{% endif %}
+  {% if s.substitute_for_teacher_id %}<span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Substitute cover</span>{% endif %}
+  <span class="text-xs text-slate-500">Room <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">{{ s.room_name }}</code></span>
+  {% if s.status_reason %}<span class="text-xs text-slate-500">· {{ s.status_reason }}</span>{% endif %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Parties and timings") %}
+      <div class="grid gap-6 sm:grid-cols-2">
+        <div>
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Teacher</div>
+          <div class="flex items-center gap-3">{{ ui.avatar(s.teacher.full_name if s.teacher else '?') }}
+            <div><div class="font-medium">{{ s.teacher.full_name if s.teacher else '—' }}</div>
+              <div class="text-xs text-slate-500">{{ s.teacher.teacher_code if s.teacher }} · grade {{ s.teacher.grade if s.teacher }} · QA {{ s.teacher.qa_score_avg|round(1) if s.teacher else '—' }}</div></div></div>
+          {{ ui.dl([('Joined', s.teacher_joined_at|datetime), ('Left', s.teacher_left_at|datetime),
+                    ('Late', (s.teacher_late_minutes ~ ' min') if s.teacher_late_minutes else 'On time'),
+                    ('30-day completion', teacher_stats.completion_rate ~ '%')]) }}
+        </div>
+        <div>
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Student</div>
+          <div class="flex items-center gap-3">{{ ui.avatar(s.student.full_name if s.student else '?') }}
+            <div><div class="font-medium">{{ s.student.full_name if s.student else '—' }}</div>
+              <div class="text-xs text-slate-500">{{ s.student.student_code if s.student }} · {{ s.student.status|titleize if s.student }}</div></div></div>
+          {{ ui.dl([('Joined', s.student_joined_at|datetime), ('Left', s.student_left_at|datetime),
+                    ('30-day attendance', attendance_pct ~ '%'),
+                    ('Parent', s.student.client.full_name if s.student and s.student.client else '—')]) }}
+        </div>
+      </div>
+      <hr class="my-4 border-slate-100 dark:border-slate-800">
+      {{ ui.dl([('Scheduled', s.scheduled_start|datetime), ('Window', (s.start_time|time) ~ ' – ' ~ (s.end_time|time)),
+                ('Planned duration', s.duration_minutes ~ ' min'), ('Actual duration', (s.actual_duration_minutes ~ ' min') if s.actual_duration_minutes else '—'),
+                ('Schedule', ('#' ~ s.schedule_id) if s.schedule_id else 'Ad-hoc'), ('Status changed', s.status_changed_at|datetime)]) }}
+    {% endcall %}
+
+    {% call ui.card("Lesson plan & notes") %}
+      {% if plan %}
+        {{ ui.dl([('Planned content', plan.planned_content), ('Sabaq', plan.sabaq), ('Sabqi', plan.sabqi), ('Dor', plan.dor),
+                  ('Status', plan.status|titleize), ('Teacher notes', plan.teacher_notes)]) }}
+      {% else %}
+        <p class="text-sm text-slate-400">No lesson plan was recorded for this class.</p>
+      {% endif %}
+      {% if has_perm(user, 'classes.update') %}
+      <form method="post" action="/classes/{{ s.id }}/notes" class="mt-4 space-y-3">
+        {{ ui.textarea('teacher_notes', 'Class notes', s.teacher_notes or '', rows=3, placeholder='What was covered, corrections, homework…') }}
+        {{ ui.button('Save notes', icon='save', size='sm', variant='secondary') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+
+    {% if s.ai_analysis %}
+    {% call ui.card("AI class analysis", "Human review required — no disciplinary action is taken on an AI score alone") %}
+      {% set an = s.ai_analysis %}
+      <div class="grid gap-3 sm:grid-cols-4">
+        {% for label, value in [('Overall', an.overall_score), ('Camera %', an.camera_presence_pct), ('Active teaching %', an.active_teaching_pct), ('Engagement', an.student_engagement_score)] %}
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="text-[11px] uppercase text-slate-500">{{ label }}</div><div class="text-xl font-bold">{{ value|round(1) }}</div></div>
+        {% endfor %}
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        {{ ui.badge(an.risk_level, 'Risk: ' ~ an.risk_level|title) }} {{ ui.badge(an.review_status) }}
+        {% if an.contact_exchange_detected %}<span class="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Contact-exchange signal</span>{% endif %}
+      </div>
+      {% if an.summary %}<p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ an.summary }}</p>{% endif %}
+      <div class="mt-3"><a href="/ai-monitoring/{{ an.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the full analysis →</a></div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Audit trail") %}
+      <ul class="space-y-3 text-sm">
+        {% for e in events %}
+        <li class="flex gap-3"><span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>
+          <div><div class="text-slate-800 dark:text-slate-100">{{ e.description }}</div>
+            <div class="text-xs text-slate-500">{{ e.actor_name }} · {{ e.created_at|datetime }}{% if e.rationale %} · <i>{{ e.rationale }}</i>{% endif %}</div></div></li>
+        {% else %}<li class="py-4 text-center text-slate-400">No recorded activity.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% if has_perm(user, 'classes.update') %}
+    {% call ui.card("Change status") %}
+      <form method="post" action="/classes/{{ s.id }}/status" class="space-y-3">
+        {{ ui.select('status', 'New status', action_statuses, s.status, placeholder=None) }}
+        {{ ui.textarea('reason', 'Reason', '', rows=2, help='Required for missed, absent, cancelled and leave.') }}
+        {{ ui.button('Apply status', icon='check-check') }}
+      </form>
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {% for st in ['started','done','absent','missed'] %}
+        <form method="post" action="/classes/{{ s.id }}/status" class="inline">
+          <input type="hidden" name="status" value="{{ st }}">
+          <input type="hidden" name="reason" value="Marked {{ st }} from the class record">
+          {{ ui.button(st|title, size='sm', variant='secondary') }}
+        </form>
+        {% endfor %}
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Reschedule") %}
+      {% if rescheduled_to %}
+        <p class="text-sm">This class was rescheduled to <a class="font-medium text-brand-600 hover:underline" href="/classes/{{ rescheduled_to.id }}">{{ rescheduled_to.date|date }} {{ rescheduled_to.start_time|time }}</a>.</p>
+      {% else %}
+      <form method="post" action="/classes/{{ s.id }}/reschedule" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          {{ ui.input('new_date', 'New date', s.date, type='date', required=True) }}
+          {{ ui.input('new_time', 'New time', s.start_time.strftime('%H:%M'), type='time', required=True) }}
+        </div>
+        {{ ui.textarea('reason', 'Reason', '', rows=2, required=True) }}
+        {{ ui.button('Reschedule', icon='calendar-clock', variant='warning') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Attendance") %}
+      {% if attendance %}
+        {{ ui.dl([('Student', attendance.student_status|titleize), ('Teacher', attendance.teacher_status|titleize),
+                  ('Marked by', attendance.marked_by_id or 'system'), ('Remarks', attendance.remarks)]) }}
+      {% else %}<p class="text-sm text-slate-400">No attendance record yet — it is created when the class reaches a terminal status.</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card("Recording & QA") %}
+      {% if s.recording %}
+        {{ ui.dl([('Recording', s.recording.status|titleize), ('Duration', (s.recording.duration_seconds // 60) ~ ' min'),
+                  ('Retention until', s.recording.retention_until|date), ('Accesses', s.recording.access_count)]) }}
+        <div class="mt-3"><a href="/recordings/{{ s.recording.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the recording (purpose required) →</a></div>
+      {% else %}<p class="text-sm text-slate-400">No recording ingested for this class.</p>{% endif %}
+      <hr class="my-4 border-slate-100 dark:border-slate-800">
+      {% for r in reviews %}
+      <div class="mb-2 flex items-center justify-between text-sm">
+        <a href="/qa/{{ r.id }}" class="hover:text-brand-700">QA review #{{ r.id }} · {{ r.sample_type|titleize }}</a>
+        <span>{{ ui.badge(r.status) }} {% if r.overall_score is not none %}<b class="ml-1">{{ r.overall_score }}</b>{% endif %}</span>
+      </div>
+      {% else %}<p class="text-sm text-slate-400">No QA review for this class.</p>{% endfor %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

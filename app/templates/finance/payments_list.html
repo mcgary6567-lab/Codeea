@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+{% call ui.page_header("Payments & receipts", "Every receipt, allocation and refund with bank reconciliation.") %}
+  {{ ui.button("Reconciliation", href="/finance/payments/reconciliation", icon="check-check", variant="secondary") }}
+  {{ ui.button("Failed payments", href="/finance/payments/failed", icon="triangle-alert", variant="secondary") }}
+  {% if has_perm(user, 'payments.add') %}{{ ui.button("Record payment", href="/finance/payments/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Collected this month", stats.month_total|money(stats.base), icon="banknote", color="emerald", hint=stats.count_month|string ~ " payments") }}
+  {{ ui.stat("Unreconciled", stats.unreconciled, icon="check-check", color="amber", href="/finance/payments?reconciled=no") }}
+  {{ ui.stat("Failed", stats.failed, icon="triangle-alert", color="rose", href="/finance/payments/failed") }}
+  {{ ui.stat("Refunded (" ~ stats.base ~ ")", stats.refunded|money, icon="undo-2", color="slate") }}
+</div>
+
+{% call ui.filter_bar('/finance/payments') %}
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='PAY-, family, reference') }}</div>
+  <div class="w-40">{{ ui.select('method', 'Method', methods, method, placeholder='All methods') }}</div>
+  <div class="w-36">{{ ui.select('gateway', 'Gateway', gateways, gateway, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('reconciled', 'Reconciled', [('yes', 'Yes'), ('no', 'No')], reconciled, placeholder='Any') }}</div>
+  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Number', 'Received', 'Family', 'Invoice', 'Amount', 'Base', 'Method', 'Status', 'Rec.', '']) }}
+{% for p in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold"><a class="text-brand-700 dark:text-brand-300" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ p.received_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.client.full_name if p.client else '—' }}<div class="text-slate-500 font-mono">{{ p.client.client_code if p.client else '' }}</div></td>
+  <td class="px-4 py-2 font-mono text-xs">{% if p.invoice %}<a class="text-brand-700 dark:text-brand-300" href="/finance/invoices/{{ p.invoice_id }}">{{ p.invoice.invoice_number }}</a>{% else %}<span class="text-slate-400">On account</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right font-medium whitespace-nowrap">{{ p.amount|money(p.currency) }}</td>
+  <td class="px-4 py-2 text-right text-xs text-slate-500">{{ p.amount_in_base|money(stats.base) }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.method|titleize }}{% if p.gateway %}<div class="text-slate-400">{{ p.gateway }}</div>{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
+  <td class="px-4 py-2 text-center">{% if p.reconciled %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if p.receipt %}<a href="/finance/payments/{{ p.id }}/receipt" class="inline-flex rounded-md p-1.5 text-slate-400 hover:text-brand-600" title="Receipt PDF"><i data-lucide="file-text" class="h-4 w-4"></i></a>{% endif %}
+    {{ ui.button('Open', href='/finance/payments/' ~ p.id, variant='ghost', size='sm') }}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No payments match these filters.', 10) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

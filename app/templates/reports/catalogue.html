@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+{% call ui.page_header("Reports & exports", "Every operational question the institution asks, answered from live data and exportable to XLSX or CSV") %}
+  {{ ui.button("Export history", href="/reports/runs", icon="history", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Reports available', total, icon='bar-chart-3', color='brand') }}
+  {{ ui.stat('Groups', all_groups|length, icon='layers', color='indigo') }}
+  {{ ui.stat('Exports (30 days)', exports_30, icon='download', color='emerald') }}
+  {{ ui.stat('Matching filter', shown, icon='filter', color='sky') }}
+</div>
+
+<form method="get" action="/reports" class="mb-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-64">{{ ui.input('q', 'Search reports', q, placeholder='e.g. attendance, revenue, leads') }}</div>
+  <div class="w-48">{{ ui.select('group', 'Group', all_groups, group, placeholder='All groups') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/reports" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{% for group_name, items in groups %}
+<div class="mb-6">
+  <h2 class="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+    <i data-lucide="chevron-right" class="h-4 w-4"></i>{{ group_name }}
+    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800">{{ items|length }}</span>
+  </h2>
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% for r in items %}
+    <a href="/reports/{{ r.key }}" class="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-start gap-3">
+        <span class="rounded-lg bg-brand-50 p-2 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"><i data-lucide="{{ r.icon }}" class="h-4 w-4"></i></span>
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white">{{ r.name }}</div>
+          <p class="mt-0.5 text-xs leading-relaxed text-slate-500">{{ r.description }}</p>
+          <div class="mt-2 flex flex-wrap gap-1">
+            {% for prm in r.params %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800">{{ param_labels.get(prm, prm) }}</span>{% endfor %}
+            {% if not r.params %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400 dark:bg-slate-800">no parameters</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+{{ ui.empty_state('No reports match that search.', 'bar-chart-3') }}
+{% endfor %}
+
+<div class="mt-6">
+  {% call ui.card('Recent exports', 'Every export is logged with the user, parameters and row count') %}
+  {{ ui.table_start(['Generated','Report','Format','Rows','By','Parameters']) }}
+  {% for r in runs %}
+  <tr>
+    <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ r.generated_at|datetime }}</td>
+    <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ r.name }}</td>
+    <td class="px-4 py-2 text-xs uppercase">{{ r.format }}</td>
+    <td class="px-4 py-2 text-xs">{{ r.row_count }}</td>
+    <td class="px-4 py-2 text-xs">{{ names.get(r.generated_by_id, 'system') }}</td>
+    <td class="px-4 py-2 text-[11px] text-slate-400">{% for k, v in (r.params or {}).items() %}{% if v %}{{ k }}={{ v }} {% endif %}{% endfor %}</td>
+  </tr>
+  {% else %}{{ ui.empty('No reports have been exported yet.', 6, 'download') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endblock %}

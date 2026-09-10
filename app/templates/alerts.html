@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Alerts{% endblock %}
+{% block content %}
+{{ ui.page_header("Risk & Operational Alerts", "Missed classes, anomalies, integration failures, safeguarding signals") }}
+{% call ui.filter_bar('/alerts') %}
+  {{ ui.select('status', 'Status', ['open','acknowledged','resolved','dismissed'], status, placeholder='All') }}
+  {{ ui.select('severity', 'Severity', ['low','medium','high','critical'], severity, placeholder='All') }}
+{% endcall %}
+{{ ui.table_start(['Severity','Alert','Type','Visibility','Raised','Status','']) }}
+{% for a in page.items %}
+<tr>
+  <td class="px-4 py-2">{{ ui.badge(a.severity) }}</td>
+  <td class="px-4 py-2"><div class="font-medium">{{ a.title }}</div>{% if a.message %}<div class="text-xs text-slate-500 max-w-md">{{ a.message }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ a.alert_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.visibility|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ a.created_at|ago }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if a.status == 'open' %}<form method="post" action="/alerts/{{ a.id }}/acknowledge" class="inline">{{ ui.button('Ack', size='sm', variant='secondary') }}</form>{% endif %}
+    {% if a.status in ('open','acknowledged') %}<form method="post" action="/alerts/{{ a.id }}/resolve" class="inline">{{ ui.button('Resolve', size='sm', variant='success') }}</form>
+    <form method="post" action="/alerts/{{ a.id }}/dismiss" class="inline">{{ ui.button('Dismiss', size='sm', variant='ghost') }}</form>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No alerts. All quiet.', 7, 'shield-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/alerts?status=' ~ status ~ '&severity=' ~ severity) }}
+{% endblock %}

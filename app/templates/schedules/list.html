@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Schedules{% endblock %}
+{% block content %}
+{% call ui.page_header("Schedules", "Recurring class slots on a 24-hour, 30-minute grid (Asia/Karachi)") %}
+  {{ ui.button("Shifts", href="/schedules/shifts", icon="clock", variant="secondary") }}
+  {% if has_perm(user, 'schedules.update') %}{{ ui.button("Teacher change", href="/schedules/bulk-teacher-change", icon="users", variant="secondary") }}{% endif %}
+  {% if has_perm(user, 'schedules.add') %}{{ ui.button("New schedule", href="/schedules/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Active schedules", stats.active, icon="calendar-check", color="emerald") }}
+  {{ ui.stat("Paused", stats.paused, icon="pause-circle", color="amber") }}
+  {{ ui.stat("Ended", stats.ended, icon="square", color="slate") }}
+  {{ ui.stat("Trial slots", stats.trial, icon="flask-conical", color="sky") }}
+</div>
+
+{{ ui.tabs([('list','List',  '/schedules?view=list'), ('teacher','By teacher','/schedules?view=teacher'), ('student','By student','/schedules?view=student'), ('free','Unscheduled students','/schedules?free=1')], view) }}
+
+{% if view == 'teacher' %}
+  <form method="get" action="/schedules" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <input type="hidden" name="view" value="teacher">
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder=None, attrs='onchange="this.form.submit()"') }}
+    <a href="/schedules?view=list" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Back to list</a>
+  </form>
+  {% if grid and selected_teacher %}
+    <div class="mb-3 flex flex-wrap items-center gap-3 text-sm">
+      {{ ui.avatar(selected_teacher.full_name) }}
+      <div><b>{{ selected_teacher.full_name }}</b> · {{ selected_teacher.teacher_code }} · {{ selected_teacher.shift|titleize }} shift · grade {{ selected_teacher.grade }}
+      {% if not selected_teacher.is_verified %}<span class="ml-2 text-rose-600">not verified — cannot take new classes</span>{% endif %}</div>
+      <a href="/supervisor/teachers?teacher_id={{ selected_teacher.id }}" class="ml-auto text-xs text-brand-600 hover:underline">Teacher performance →</a>
+    </div>
+    {% with scope='teacher', create_base='/schedules/new?teacher_id=' ~ selected_teacher.id %}{% include "schedules/_grid.html" %}{% endwith %}
+  {% else %}
+    {{ ui.empty_state('Select a teacher to see the weekly grid.', 'calendar-days') }}
+  {% endif %}
+
+{% elif view == 'student' %}
+  <form method="get" action="/schedules" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <input type="hidden" name="view" value="student">
+    {{ ui.select('student_id', 'Student', student_options, student_id, placeholder='— Select a student —', attrs='onchange="this.form.submit()"') }}
+  </form>
+  {% if grid and selected_student %}
+    <div class="mb-3 text-sm"><b>{{ selected_student.full_name }}</b> · {{ selected_student.student_code }} · {{ selected_student.status|titleize }}
+      {% if selected_student.teacher %} · teacher {{ selected_student.teacher.full_name }}{% endif %}</div>
+    {% with scope='student', create_base='/schedules/new?student_id=' ~ selected_student.id %}{% include "schedules/_grid.html" %}{% endwith %}
+  {% else %}
+    {{ ui.empty_state('Select a student to see their weekly grid.', 'graduation-cap') }}
+  {% endif %}
+
+{% elif view == 'free' %}
+  {{ ui.table_start(['Code','Student','Status','Course','Teacher','Joined','']) }}
+  {% for s in free_students %}
+  <tr>
+    <td class="px-4 py-2 font-mono text-xs">{{ s.student_code }}</td>
+    <td class="px-4 py-2 font-medium">{{ s.full_name }}</td>
+    <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '— unassigned —' }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ s.join_date|date }}</td>
+    <td class="px-4 py-2 text-right">{% if has_perm(user, 'schedules.add') %}{{ ui.button('Schedule', href='/schedules/new?student_id=' ~ s.id, size='sm', icon='calendar-plus') }}{% endif %}</td>
+  </tr>
+  {% else %}{{ ui.empty('Every enrolled student has an active schedule.', 7, 'calendar-check') }}{% endfor %}
+  {{ ui.table_end() }}
+
+{% else %}
+  {% call ui.filter_bar('/schedules') %}
+    <input type="hidden" name="view" value="list">
+    {{ ui.input('q', 'Student', q, placeholder='Name or code') }}
+    {{ ui.select('status', 'Status', statuses, status, placeholder='All') }}
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}
+    {{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}
+    {{ ui.select('shift_id', 'Shift', shift_options, shift_id, placeholder='All shifts') }}
+  {% endcall %}
+  {{ ui.table_start(['Student','Teacher','Course','Days','Time','Duration','Shift','Status','']) }}
+  {% for s in page.items %}
+  <tr>
+    <td class="px-4 py-2"><a href="/schedules/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.student.full_name if s.student else '—' }}</a>
+      <div class="font-mono text-[11px] text-slate-400">{{ s.student.student_code if s.student }}{% if s.is_trial %} · trial{% endif %}</div></td>
+    <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
+    <td class="px-4 py-2 text-xs">{% for d in day_names %}<span class="mr-0.5 inline-block rounded px-1 {{ 'bg-brand-600 text-white' if loop.index0 in (s.days_of_week or []) else 'bg-slate-100 text-slate-400 dark:bg-slate-800' }}">{{ d[0] }}</span>{% endfor %}</td>
+    <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }}</td>
+    <td class="px-4 py-2 text-xs">{{ s.duration_minutes }} min</td>
+    <td class="px-4 py-2 text-xs">{{ s.shift.name if s.shift else '—' }}</td>
+    <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+    <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/schedules/' ~ s.id, variant='ghost', size='sm') }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No schedules match these filters.', 9, 'calendar-days') }}{% endfor %}
+  {{ ui.table_end() }}
+  {{ ui.pagination(page, base_url) }}
+{% endif %}
+{% endblock %}

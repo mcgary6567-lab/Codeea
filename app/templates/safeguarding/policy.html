@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Contact-masking policy{% endblock %}
+{% block content %}
+{{ ui.page_header("Contact-masking & safeguarding policy", "How the platform protects families, teachers and the college", back="/safeguarding") }}
+
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Contact masking") %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="eye-off" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Parent and teacher phone numbers are never shown in full in the admin UI; they render as masked values such as <code class="font-mono">+44 7** *** *431</code>.</li>
+      <li class="flex gap-2"><i data-lucide="phone" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Calls are placed through the in-platform masked calling service, so neither party learns the other's real number. Every call creates a CallLog entry.</li>
+      <li class="flex gap-2"><i data-lucide="message-circle" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Messaging runs through the college WhatsApp number and the portal. Off-platform contact is a policy breach for staff.</li>
+      <li class="flex gap-2"><i data-lucide="user-round-x" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Students are identified by code (S-00001) in operational reports where a name is not required.</li>
+    </ul>
+  {% endcall %}
+
+  {% call ui.card("Recording governance") %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Opening a recording requires a stated professional purpose. {{ access_events }} access event(s) are on record.</li>
+      <li class="flex gap-2"><i data-lucide="scroll-text" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Every open writes a RecordingAccessLog row plus a consequential audit event naming the viewer, the purpose and the IP address.</li>
+      <li class="flex gap-2"><i data-lucide="timer" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Recordings expire automatically at the end of the retention period configured in system settings.</li>
+      <li class="flex gap-2"><i data-lucide="user-check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>Only QA, the teacher who taught the class and safeguarding leads can open a recording.</li>
+    </ul>
+  {% endcall %}
+
+  {% call ui.card("Anti-poaching") %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="shield-alert" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"></i>AI class monitoring raises a CEO-only flag when a possible off-platform contact exchange is detected.</li>
+      <li class="flex gap-2"><i data-lucide="user-cog" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"></i>Anti-poaching records are visible to the CEO and General Manager only; managers see conduct signals.</li>
+      <li class="flex gap-2"><i data-lucide="gavel" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"></i>An AI signal is never sufficient on its own — a human investigation records the outcome before any action is taken.</li>
+    </ul>
+  {% endcall %}
+
+  {% call ui.card("Child protection") %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="badge-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Background verification is a hard gate: an unverified teacher cannot be selected for a live schedule.</li>
+      <li class="flex gap-2"><i data-lucide="video" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Classes take place in a college-managed room; join and leave times are recorded for every participant.</li>
+      <li class="flex gap-2"><i data-lucide="flag" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Anyone can report a concern from the Safeguarding page; reports escalate immediately to the safeguarding lead.</li>
+      <li class="flex gap-2"><i data-lucide="file-lock" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Parental consent is captured at registration and stored on the client record.</li>
+    </ul>
+  {% endcall %}
+</div>
+{% endblock %}

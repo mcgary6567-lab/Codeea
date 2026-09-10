@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ obj.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(obj.name, "Permission matrix · " ~ user_count ~ " user(s) on this role", back="/admin/roles") %}
+  {{ ui.badge(obj.portal) }}
+  {{ ui.badge('active' if obj.is_system else 'draft', 'System role' if obj.is_system else 'Custom role') }}
+  {{ ui.button('Clone', href='/admin/roles/new?clone=' ~ obj.id, icon='copy', variant='secondary', size='sm') }}
+  {{ ui.button('Compare', href='/admin/roles/compare?a=' ~ obj.id, icon='git-compare', variant='secondary', size='sm') }}
+{% endcall %}
+
+<form method="post" action="/admin/roles/{{ obj.id }}">
+<div class="mb-5 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-4">
+  {{ ui.input('name', 'Role name', obj.name, required=True) }}
+  {{ ui.select('portal', 'Portal', portals, obj.portal, placeholder=None, help='Decides which sidebar the user sees.') }}
+  {{ ui.input('description', 'Description', obj.description) }}
+  {{ ui.input('rationale', 'Rationale (required)', '', required=True) }}
+  <div class="lg:col-span-4 flex flex-wrap items-center gap-3">
+    {{ ui.button('Save permission matrix', icon='save') }}
+    <span class="text-xs text-slate-500">Stored patterns: <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] dark:bg-slate-800">{{ (obj.permissions or [])|join(', ') or 'none' }}</code></span>
+    <label class="ml-auto flex items-center gap-2 text-xs text-slate-500"><input type="checkbox" onclick="document.querySelectorAll('.permbox').forEach(c => c.checked = this.checked)" class="h-4 w-4 rounded border-slate-300 text-brand-600"> Select every permission</label>
+  </div>
+</div>
+
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <table class="min-w-full text-xs">
+    <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+      <th class="px-3 py-2 text-left font-semibold uppercase tracking-wider text-slate-500">Module</th>
+      {% for a in ACTIONS %}<th class="px-2 py-2 text-center font-semibold uppercase tracking-wider text-slate-500">{{ a }}</th>{% endfor %}
+      <th class="px-2 py-2 text-center font-semibold uppercase tracking-wider text-slate-500">Row</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+    {% for m, label in MODULES.items() %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+      <td class="whitespace-nowrap px-3 py-1.5"><span class="font-medium text-slate-800 dark:text-slate-200">{{ label }}</span>
+        <span class="ml-1 font-mono text-[10px] text-slate-400">{{ m }}</span></td>
+      {% for a in ACTIONS %}
+      <td class="px-2 py-1.5 text-center">
+        <input type="checkbox" class="permbox row-{{ m }} h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+               name="p__{{ m }}__{{ a }}" value="1" {% if (m ~ '.' ~ a) in checked %}checked{% endif %}>
+      </td>
+      {% endfor %}
+      <td class="px-2 py-1.5 text-center">
+        <input type="checkbox" onclick="document.querySelectorAll('.row-{{ m }}').forEach(c => c.checked = this.checked)"
+               class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" title="Select the whole row (saved as {{ m }}.*)">
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+</form>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Members", "First 50 users on this role") %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for m in members %}
+      <li class="flex items-center gap-3 py-2"><a href="/admin/users/{{ m.id }}" class="flex flex-1 items-center gap-2.5 hover:text-brand-700">{{ ui.avatar(m.full_name, 'sm') }}<span><span class="block font-medium">{{ m.full_name }}</span><span class="block text-xs text-slate-500">{{ m.email }}</span></span></a>{{ ui.badge('active' if m.is_active else 'inactive') }}</li>
+      {% else %}<li class="py-6 text-center text-slate-400">No users hold this role.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+  {% call ui.card("Danger zone") %}
+    {% if obj.is_system %}
+      {{ ui.alert('This is a system role. It can be edited but never deleted.', 'warning', 'Protected') }}
+    {% elif user_count %}
+      {{ ui.alert('Reassign the ' ~ user_count ~ ' user(s) on this role before it can be deleted.', 'warning', 'In use') }}
+    {% elif has_perm(user, 'roles.delete') %}
+      <form method="post" action="/admin/roles/{{ obj.id }}/delete" onsubmit="return confirm('Delete this custom role?')" class="space-y-3">
+        {{ ui.input('rationale', 'Rationale', '', required=True) }}
+        {{ ui.button('Delete role', icon='trash-2', variant='danger') }}
+      </form>
+    {% else %}
+      {{ ui.alert('You do not have the roles.delete permission.', 'info') }}
+    {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

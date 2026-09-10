@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Operating rhythm{% endblock %}
+{% block content %}
+{% call ui.page_header("Governance & operating rhythm", "The fixed cadence the institution runs on — reporting deadlines, the weekly trajectory meeting, and scorecard accountability") %}
+  {{ ui.button("Daily reports", href="/daily-reports", icon="file-clock", variant="secondary") }}
+  {{ ui.button("Trajectory meetings", href="/transformation/meetings", icon="calendar-check", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('Morning deadline', morning, icon='sunrise', color='amber', hint='Asia/Karachi') }}
+  {{ ui.stat('Afternoon deadline', afternoon, icon='sunset', color='orange', hint='Asia/Karachi') }}
+  {{ ui.stat('Reporting staff', reporting_users, icon='users', color='brand', hint='two slots each working day') }}
+  {{ ui.stat('Reports this week', submitted, icon='file-check', color='emerald', hint=late|string ~ ' submitted late') }}
+  {{ ui.stat('Compliance', compliance ~ '%', icon='percent', color='sky', hint='since ' ~ week_start.strftime('%d %b')) }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card('Weekly trajectory meeting agenda', 'The standing template every meeting starts from') %}
+    <ol class="space-y-2 text-sm">
+      {% for line in agenda %}
+      <li class="flex gap-3">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ loop.index }}</span>
+        <span class="text-slate-700 dark:text-slate-200">{{ line }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% if meeting %}
+    <div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-brand-50 px-4 py-3 text-sm dark:bg-brand-500/10">
+      <i data-lucide="calendar-check" class="h-4 w-4 text-brand-700 dark:text-brand-300"></i>
+      <span class="text-brand-900 dark:text-brand-200">Next meeting: <b>{{ meeting.title }}</b> on {{ meeting.meeting_date|date('%A %d %b %Y') }}</span>
+      <a href="/transformation/meetings/{{ meeting.id }}" class="ml-auto text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300">Open agenda →</a>
+    </div>
+    {% else %}
+    <div class="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 dark:border-slate-700">
+      No upcoming trajectory meeting is scheduled. <a href="/transformation/meetings" class="font-semibold text-brand-700 hover:underline">Schedule one →</a>
+    </div>
+    {% endif %}
+    {% endcall %}
+
+    {% if can_configure %}
+    {% call ui.card('Configure the rhythm', 'Deadlines are evaluated in Asia/Karachi time and drive late-report flags and reminders') %}
+    <form method="post" action="/transformation/governance/rhythm" class="space-y-4">
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ ui.input('morning', 'Morning report deadline', morning, type='time', required=True, help='Reports submitted after this time are flagged late.') }}
+        {{ ui.input('afternoon', 'Afternoon report deadline', afternoon, type='time', required=True, help='Reminders go out 30 minutes before each deadline.') }}
+      </div>
+      {{ ui.textarea('agenda', 'Agenda template', agenda|join('\n'), rows=9, help='One agenda item per line. Used as the default agenda for every new trajectory meeting.') }}
+      <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save operating rhythm', icon='save') }}</div>
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Scorecard accountability · ' ~ period_label, 'Submitted before the meeting, not during it') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for s in scorecards %}
+      <li class="py-2">
+        <div class="flex items-center gap-2">
+          <span class="h-2 w-2 shrink-0 rounded-full bg-{{ s.band[1] }}-500"></span>
+          <a href="/kpis/scorecards?period={{ period }}&department_id={{ s.department.id }}" class="flex-1 truncate font-medium hover:text-brand-700">{{ s.department.name }}</a>
+          {{ ui.badge(s.status, 'Submitted' if s.status == 'submitted' else ('Draft' if s.status == 'draft' else 'Missing')) }}
+        </div>
+        <div class="mt-0.5 pl-4 text-[11px] text-slate-400">{{ s.department.hod.full_name if s.department.hod else 'no HOD assigned' }}{% if s.score is not none %} · score {{ s.score }}{% endif %}</div>
+      </li>
+      {% else %}<li class="py-6 text-center text-xs text-slate-400">No departments configured.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+
+    {% call ui.card('The rules of the rhythm') %}
+    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="clock" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i><span>Two structured reports a day — <b>{{ morning }}</b> and <b>{{ afternoon }}</b>. Anything later is recorded as late, not forgiven.</span></li>
+      <li class="flex gap-2"><i data-lucide="message-square-off" class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"></i><span>Free chat is not a record. A message in a group is not a report, and a verbal update is not a decision.</span></li>
+      <li class="flex gap-2"><i data-lucide="gavel" class="mt-0.5 h-4 w-4 shrink-0 text-indigo-600"></i><span>Every decision leaves the meeting with a named owner, a written rationale and a due date.</span></li>
+      <li class="flex gap-2"><i data-lucide="list-checks" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i><span>Every action becomes a task with an assignee — the meeting ends when the tasks exist.</span></li>
+      <li class="flex gap-2"><i data-lucide="layout-grid" class="mt-0.5 h-4 w-4 shrink-0 text-violet-600"></i><span>HODs submit the department scorecard with highlights and risks before the meeting starts.</span></li>
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}KPIs{% endblock %}
+{% block content %}
+{% call ui.page_header("KPI framework", "Every role, department and institutional metric with target, direction and RAG status · " ~ period_label) %}
+  {{ ui.button("Department scorecards", href="/kpis/scorecards?period=" ~ period, icon="layout-grid", variant="secondary") }}
+  {{ ui.button("Role scorecards", href="/kpis/roles?period=" ~ period, icon="users", variant="secondary") }}
+  <form method="post" action="/kpis/snapshot"><input type="hidden" name="period" value="{{ period }}">{{ ui.button('Run snapshot', icon='camera', variant='secondary') }}</form>
+  {{ ui.button("New KPI", icon="plus", type='button', attrs='@click="$dispatch(\'open-modal\',\'newKpi\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('KPIs tracked', rows|length, icon='target', color='brand') }}
+  {{ ui.stat('On target', counts.green, icon='check-circle-2', color='emerald') }}
+  {{ ui.stat('At risk', counts.amber, icon='alert-triangle', color='amber') }}
+  {{ ui.stat('Off target', counts.red, icon='x-circle', color='rose') }}
+  {{ ui.stat('No data', counts.grey + counts.blue, icon='help-circle', color='slate') }}
+</div>
+
+<form method="get" action="/kpis" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-40">{{ ui.select('period', 'Period', periods, period, placeholder=None) }}</div>
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='Name or code') }}</div>
+  <div class="w-40">{{ ui.select('role', 'Role', opts.roles, role, placeholder='All roles') }}</div>
+  <div class="w-44">{{ ui.select('department_id', 'Department', opts.departments, department_id, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('frequency', 'Frequency', opts.frequencies, frequency, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('inactive', 'Include', [('1','Inactive too')], inactive if inactive else '', placeholder='Active only') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/kpis" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+{% for group, grows in groups.items() %}
+<div class="mb-6">
+  <h2 class="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+    <i data-lucide="chevron-right" class="h-4 w-4"></i>{{ group|titleize }} <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:bg-slate-800">{{ grows|length }}</span>
+  </h2>
+  {{ ui.table_start(['Code','KPI','Unit','Value','Target','Direction','Status','Source','Frequency','']) }}
+  {% for r in grows %}
+  <tr class="{{ 'opacity-60' if not r.kpi.is_active }}">
+    <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.kpi.code }}</td>
+    <td class="px-4 py-2"><a href="/kpis/{{ r.kpi.id }}?period={{ period }}" class="font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100">{{ r.kpi.name }}</a>
+      {% if r.kpi.is_custom %}<span class="ml-1 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-500/10">custom</span>{% endif %}
+      {% if not r.kpi.formula_key %}<span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800">manual</span>{% endif %}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ r.unit }}</td>
+    <td class="px-4 py-2 font-bold text-slate-900 dark:text-white">{{ format_value(r.value, r.unit) }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ format_value(r.target, r.unit) if r.target is not none else '—' }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ 'Higher' if r.direction == 'higher' else 'Lower' }} is better</td>
+    <td class="px-4 py-2"><span class="inline-flex items-center gap-1.5 rounded-full bg-{{ r.color }}-50 px-2 py-0.5 text-[11px] font-semibold text-{{ r.color }}-700 ring-1 ring-inset ring-{{ r.color }}-600/20 dark:bg-{{ r.color }}-500/10 dark:text-{{ r.color }}-300"><span class="h-1.5 w-1.5 rounded-full bg-{{ r.color }}-500"></span>{{ r.label }}</span></td>
+    <td class="px-4 py-2 text-xs text-slate-400">{{ r.source }}</td>
+    <td class="px-4 py-2 text-xs text-slate-500">{{ r.kpi.frequency|titleize }}</td>
+    <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/kpis/' ~ r.kpi.id ~ '?period=' ~ period, variant='ghost', size='sm') }}</td>
+  </tr>
+  {% endfor %}
+  {{ ui.table_end() }}
+</div>
+{% else %}
+{{ ui.empty_state('No KPIs match these filters. Seed the catalogue or create a custom KPI.', 'target') }}
+{% endfor %}
+
+{% call ui.modal('newKpi', 'New KPI', 'lg') %}
+<form method="post" action="/kpis/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('code', 'Code', '', required=True, placeholder='teacher_classes_completed') }}
+    {{ ui.input('name', 'Name', '', required=True) }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Definition / formula description', '', rows=2) }}</div>
+    {{ ui.select('role_slug', 'Role', opts.roles, None, placeholder='— Institutional —') }}
+    {{ ui.select('department_id', 'Department', opts.departments, None, placeholder='— None —') }}
+    {{ ui.select('unit', 'Unit', opts.units, '%', placeholder=None) }}
+    {{ ui.input('target', 'Target', '', type='number', step='0.01') }}
+    {{ ui.select('direction', 'Direction', opts.directions, 'higher', placeholder=None) }}
+    {{ ui.select('frequency', 'Frequency', opts.frequencies, 'monthly', placeholder=None) }}
+    {{ ui.select('formula_key', 'Computed formula', opts.formulas, None, placeholder='— Manual entry —', help='Leave blank for manual entry KPIs.') }}
+    {{ ui.select('owner_id', 'Owner', opts.users, None, placeholder='— Me —') }}
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Create KPI', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+{{ ui.page_header("My profile", user.email) }}
+{{ ui.tabs([('profile','Profile','/profile'),('password','Password','/profile?tab=password'),('2fa','Two-factor auth','/profile?tab=2fa'),('sessions','Sessions','/profile?tab=sessions')], tab) }}
+<div class="max-w-2xl">
+{% if tab == 'profile' %}
+{% call ui.card("Personal details") %}
+<form method="post" class="space-y-4"><input type="hidden" name="action" value="profile">
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('full_name', 'Full name', user.full_name, required=True) }}
+    {{ ui.input('phone', 'Phone', user.phone or '') }}
+    {{ ui.input('timezone', 'Timezone', user.timezone, help='IANA name, e.g. Europe/London') }}
+    {{ ui.select('language', 'Language', [('en','English'),('ur','Urdu')], user.language, placeholder=None) }}
+  </div>
+  {{ ui.dl([('Role', user.role.name if user.role else '—'), ('Department', user.department.name if user.department else '—'), ('Last login', user.last_login_at|datetime), ('Last login IP', user.last_login_ip)]) }}
+  <div>{{ ui.button('Save changes', icon='save') }}</div>
+</form>
+{% endcall %}
+{% elif tab == 'password' %}
+{% call ui.card("Change password", "Minimum 8 characters with letters and digits. Other sessions will be signed out.") %}
+{% if user.must_change_password %}{{ ui.alert('You must set a new password before continuing.', 'warning') }}<div class="h-3"></div>{% endif %}
+<form method="post" class="space-y-4"><input type="hidden" name="action" value="password">
+  {{ ui.input('current_password', 'Current password', type='password', required=True) }}
+  {{ ui.input('new_password', 'New password', type='password', required=True) }}
+  {{ ui.input('confirm_password', 'Confirm new password', type='password', required=True) }}
+  <div>{{ ui.button('Update password', icon='key-round') }}</div>
+</form>
+{% endcall %}
+{% elif tab == '2fa' %}
+{% call ui.card("Two-factor authentication", "Required for privileged users. Works with Google Authenticator, Authy, 1Password.") %}
+{% if user.two_factor_enabled %}
+  {{ ui.alert('Two-factor authentication is enabled on this account.', 'success') }}
+  <form method="post" class="mt-4 flex items-end gap-3"><input type="hidden" name="action" value="disable_2fa">
+    <div class="flex-1">{{ ui.input('password', 'Confirm password to disable', type='password', required=True) }}</div>
+    {{ ui.button('Disable 2FA', variant='danger', icon='shield-off') }}
+  </form>
+{% else %}
+  <div class="grid gap-6 sm:grid-cols-2 items-start">
+    <div class="rounded-lg border p-4 text-center dark:border-slate-700">
+      <div id="qr" class="mx-auto h-44 w-44"></div>
+      <div class="mt-2 text-xs text-slate-500">Scan with your authenticator app</div>
+      <div class="mt-2 break-all font-mono text-xs text-slate-700 dark:text-slate-300">{{ totp_secret }}</div>
+    </div>
+    <form method="post" class="space-y-3"><input type="hidden" name="action" value="enable_2fa"><input type="hidden" name="secret" value="{{ totp_secret }}">
+      {{ ui.input('code', 'Enter the 6-digit code', required=True, attrs='inputmode="numeric" maxlength="6" autocomplete="one-time-code"') }}
+      {{ ui.button('Enable 2FA', icon='shield-check') }}
+    </form>
+  </div>
+  <script src="/static/vendor/qrcode.min.js"></script>
+  <script>new QRCode(document.getElementById('qr'), {text: {{ totp_uri|tojson }}, width: 176, height: 176});</script>
+{% endif %}
+{% endcall %}
+{% elif tab == 'sessions' %}
+{% call ui.card("Active sessions", "Sign out of devices you don't recognise.") %}
+{{ ui.table_start(['Device', 'IP', 'Started', 'Last seen', '']) }}
+{% for s in sessions %}
+<tr><td class="px-4 py-2 max-w-xs truncate text-xs">{{ s.user_agent }} {% if s.token_jti == current_jti %}{{ ui.badge('active', 'This device') }}{% endif %}</td><td class="px-4 py-2">{{ s.ip }}</td><td class="px-4 py-2">{{ s.created_at|datetime }}</td><td class="px-4 py-2">{{ s.last_seen_at|ago }}</td>
+<td class="px-4 py-2 text-right">{% if s.token_jti != current_jti %}<form method="post" class="inline"><input type="hidden" name="action" value="revoke_session"><input type="hidden" name="session_id" value="{{ s.id }}">{{ ui.button('Revoke', variant='ghost', size='sm', icon='log-out') }}</form>{% endif %}</td></tr>
+{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endif %}
+</div>
+{% endblock %}

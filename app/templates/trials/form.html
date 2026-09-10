@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New trial{% endblock %}
+{% block content %}
+{{ ui.page_header('New trial class', 'Create from an existing lead (recommended) or capture a walk-in request manually.', back='/trials') }}
+<form method="post" action="/trials/new" class="max-w-2xl space-y-6">
+  {% call ui.card('Trial details') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.select('lead_id', 'From lead', lead_options, lead.id if lead else '', placeholder='Manual — no lead') }}</div>
+    <div class="sm:col-span-2">{{ ui.input('student_name', 'Student name', (lead.student_name if lead else ''), help='Leave blank to use the lead student name') }}</div>
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, '', placeholder='Assign later') }}
+    {{ ui.select('course_id', 'Course', course_options, (lead.course_interest_id if lead else ''), placeholder='Not specified') }}
+    <div class="sm:col-span-2">{{ ui.input('scheduled_at', 'Date & time', '', type='datetime-local', help='Leave blank to record the trial as requested only') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', '', rows=3) }}</div>
+  </div>
+  {% endcall %}
+  {{ ui.button('Create trial', icon='check') }}
+</form>
+{% endblock %}

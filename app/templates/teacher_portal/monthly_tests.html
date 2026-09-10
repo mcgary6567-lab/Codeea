@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Monthly tests{% endblock %}
+{% block content %}
+{{ ui.page_header('Monthly tests & result cards', 'Score each generated test; the system computes the percentage, grade, improvement against last month and the next revision (dor) schedule.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Tests', rows|length, icon='file-badge', color='brand') }}
+  {{ ui.stat('Awaiting score', rows|selectattr('score', 'none')|list|length, icon='pencil', color='amber') }}
+  {{ ui.stat('Current period', current_period, icon='calendar', color='sky') }}
+  {{ ui.stat('Revision blocked', blocked|length, icon='lock', color='rose', hint='students whose dor quota is unmet') }}
+</div>
+
+{% if blocked %}
+{% call ui.card('Revision (dor) quota not met', 'These students cannot move to new sabaq until the quota is met. A supervisor-level override is possible with a written reason and is audited as consequential.') %}
+  <div class="space-y-2">
+  {% for s in blocked %}
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/30" x-data="{ open: false }">
+      <div>
+        <div class="font-medium text-slate-900 dark:text-white">{{ s.full_name }} <span class="font-mono text-xs text-slate-500">{{ s.student_code }}</span></div>
+        <div class="text-xs text-slate-600 dark:text-slate-300">
+          {% set d = dor.get(s.id) %}{% if d %}Completed {{ d.completed }} of {{ d.quota }} revision items for {{ d.period }}.{% else %}No revision schedule generated for this month.{% endif %}
+        </div>
+      </div>
+      {{ ui.button('Override quota', variant='warning', size='sm', icon='unlock', attrs='type="button" @click="open = !open"') }}
+      <form method="post" action="/teacher/students/{{ s.id }}/dor-override" x-show="open" x-cloak class="w-full space-y-2 border-t border-amber-200 pt-2 dark:border-amber-900">
+        {{ ui.textarea('reason', 'Reason for the override (required)', '', rows=2, required=True, placeholder='Student was ill for two weeks; parent requested to keep pace with the class.') }}
+        {{ ui.button('Confirm override', variant='warning', size='sm', icon='unlock') }}
+      </form>
+    </div>
+  {% endfor %}
+  </div>
+{% endcall %}
+<div class="mb-6"></div>
+{% endif %}
+
+{% call ui.filter_bar('/teacher/monthly-tests') %}
+  <div class="w-44">{{ ui.select('period', 'Period', periods, period, placeholder='All periods') }}</div>
+{% endcall %}
+{{ ui.table_start(['Period', 'Student', 'Score', '%', 'Previous', 'Improvement', 'Grade', 'Status', '']) }}
+{% for t2 in rows %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">{{ t2.period }}</td>
+  <td class="px-4 py-2 text-sm">{{ t2.student.full_name if t2.student else '—' }}</td>
+  <td class="px-4 py-2">{{ t2.score if t2.score is not none else '—' }}{% if t2.max_score %}<span class="text-xs text-slate-400">/{{ t2.max_score|int }}</span>{% endif %}</td>
+  <td class="px-4 py-2 font-semibold">{{ t2.percentage if t2.percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ t2.previous_percentage if t2.previous_percentage is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs {{ 'text-emerald-600' if (t2.improvement_pct or 0) > 0 else ('text-rose-600' if (t2.improvement_pct or 0) < 0 else 'text-slate-500') }}">
+    {{ t2.improvement_pct if t2.improvement_pct is not none else '—' }}</td>
+  <td class="px-4 py-2">{{ t2.grade or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t2.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Score' if t2.score is none else 'Review', href='/teacher/monthly-tests/' ~ t2.id, variant=('primary' if t2.score is none else 'ghost'), size='sm', icon='pencil') }}
+    {% if t2.result_card_path %}<a href="/storage/{{ t2.result_card_path }}" class="ml-2 text-xs text-brand-600 hover:underline">Card</a>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No monthly tests have been generated for your students yet.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

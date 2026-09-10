@@ -1,0 +1,41 @@
+{% import "macros.html" as ui %}
+
+{% macro task_fields(opts, t=None) %}
+<div class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', t.title if t else '', required=True, placeholder='What needs to be done?') }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', t.description if t else '', rows=3, placeholder='Context, definition of done, links…') }}</div>
+  {{ ui.select('assignee_id', 'Assignee', opts.users, t.assignee_id if t else None, placeholder='— Unassigned —') }}
+  {{ ui.select('department_id', 'Department', opts.departments, t.department_id if t else None, placeholder='From assignee') }}
+  {{ ui.select('project_id', 'Project', opts.projects, t.project_id if t else None, placeholder='— No project —') }}
+  {{ ui.select('sprint_id', 'Sprint', opts.sprints, t.sprint_id if t else None, placeholder='— No sprint —') }}
+  {{ ui.select('milestone_id', 'Milestone', opts.milestones, t.milestone_id if t else None, placeholder='— No milestone —') }}
+  {{ ui.select('priority', 'Priority', opts.priorities, t.priority if t else 'medium', placeholder=None) }}
+  {{ ui.input('due_date', 'Due date', (t.due_date if t else ''), type='date') }}
+  {{ ui.input('estimate_hours', 'Estimate (hours)', (t.estimate_hours if t else ''), type='number', step='0.5', min=0) }}
+  {{ ui.select('recurrence', 'Recurrence', opts.recurrences, (t.recurrence if t else ''), placeholder=None, help='Recurring tasks regenerate after completion.') }}
+  {{ ui.select('depends_on_id', 'Depends on', opts.tasks, t.depends_on_id if t else None, placeholder='— No dependency —', help='Blocks the move to In progress until done.') }}
+  {{ ui.select('kpi_id', 'Linked KPI', opts.kpis, t.kpi_id if t else None, placeholder='— None —') }}
+  <div class="grid grid-cols-2 gap-2">
+    {{ ui.input('entity_type', 'Linked record type', t.entity_type if t else '', placeholder='case / lead / student') }}
+    {{ ui.input('entity_id', 'Record ID', t.entity_id if t else '', type='number', min=0) }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro task_card(t, today, back='') %}
+<a href="/tasks/{{ t.id }}" class="block rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-brand-300 hover:shadow dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-start justify-between gap-2">
+    <div class="text-sm font-medium leading-snug text-slate-800 dark:text-slate-100">{{ t.title }}</div>
+    <span class="shrink-0">{{ ui.badge(t.priority) }}</span>
+  </div>
+  <div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+    {% if t.assignee %}<span class="inline-flex items-center gap-1">{{ ui.avatar(t.assignee.full_name, 'sm') }}{{ t.assignee.full_name }}</span>{% endif %}
+    {% if t.due_date %}<span class="{{ 'font-semibold text-rose-600' if t.due_date < today and t.status not in ('done','cancelled') }}"><i data-lucide="calendar" class="inline h-3 w-3"></i> {{ t.due_date|date('%d %b') }}</span>{% endif %}
+    {% if t.project %}<span class="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{{ t.project.name[:22] }}</span>{% endif %}
+    {% if t.escalated %}<span class="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-600 dark:bg-rose-500/10">Escalated</span>{% endif %}
+    {% if t.depends_on and t.depends_on.status != 'done' %}<span class="rounded bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700 dark:bg-amber-500/10">Blocked</span>{% endif %}
+    {% if t.recurrence %}<span class="inline-flex items-center gap-0.5"><i data-lucide="repeat" class="h-3 w-3"></i>{{ t.recurrence }}</span>{% endif %}
+    {% if t.assessment_score %}<span class="inline-flex items-center gap-0.5 text-amber-600"><i data-lucide="star" class="h-3 w-3"></i>{{ t.assessment_score }}/5</span>{% endif %}
+  </div>
+</a>
+{% endmacro %}

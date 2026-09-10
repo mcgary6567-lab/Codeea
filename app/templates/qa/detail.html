@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA review #{{ r.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header("QA review #" ~ r.id,
+                       (r.teacher.full_name if r.teacher else '—') ~ " · " ~ r.sample_type|replace('_',' ')|title ~ " sample"
+                       ~ (" · class " ~ s.date.strftime('%d %b %Y') ~ " " ~ s.start_time.strftime('%H:%M') if s else ""),
+                       back='/qa') %}
+  {{ ui.badge(r.status) }}
+  {% if s %}{{ ui.button('Class record', href='/classes/' ~ s.id, icon='video', variant='secondary') }}{% endif %}
+  {% if s and s.recording %}{{ ui.button('Recording', href='/recordings/' ~ s.recording.id, icon='film', variant='secondary') }}{% endif %}
+{% endcall %}
+
+{% if needs_approval %}
+{{ ui.alert('This review scored ' ~ r.overall_score ~ '/100, below the ' ~ threshold ~ ' threshold. It does not count toward the teacher average until the HOD QA approves it.', 'warning', 'Approval required') }}
+{% endif %}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Scorecard", "0–10 per criterion, weighted to a score out of 100") %}
+      {% if has_perm(user, 'qa.update') or has_perm(user, 'qa.add') %}
+      <form method="post" action="/qa/{{ r.id }}/complete" class="space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for key, label in criteria %}
+          {{ ui.input(key ~ '_score', label ~ ' (weight ' ~ (weights[key] * 100)|round(0)|int ~ '%)',
+                      (r|attr(key ~ '_score')) if (r|attr(key ~ '_score')) is not none else '',
+                      type='number', step='0.5', min=0, max=10, required=True) }}
+          {% endfor %}
+        </div>
+        {{ ui.textarea('strengths', 'Strengths', r.strengths or '', rows=2) }}
+        {{ ui.textarea('weaknesses', 'Areas to improve', r.weaknesses or '', rows=2) }}
+        {{ ui.textarea('comments', 'Reviewer comments', r.comments or '', rows=3) }}
+        {{ ui.checkbox('send_feedback', 'Send this feedback to the teacher on completion', True) }}
+        <div class="flex flex-wrap gap-2">
+          {{ ui.button('Complete review', icon='check-check') }}
+          {% if r.status == 'queued' %}<span></span>{% endif %}
+        </div>
+      </form>
+      {% else %}
+      <dl class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        {% for key, label in criteria %}
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</dt>
+          <dd class="mt-0.5 text-slate-800 dark:text-slate-200">{{ (r|attr(key ~ '_score')) if (r|attr(key ~ '_score')) is not none else '—' }} / 10</dd></div>
+        {% endfor %}
+      </dl>
+      {% if r.strengths %}<p class="mt-4 text-sm"><b>Strengths:</b> {{ r.strengths }}</p>{% endif %}
+      {% if r.weaknesses %}<p class="mt-1 text-sm"><b>Areas to improve:</b> {{ r.weaknesses }}</p>{% endif %}
+      {% if r.comments %}<p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ r.comments }}</p>{% endif %}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("AI-assisted panel", "Suggestions from the automated analysis of this class — advisory only") %}
+      {% if an %}
+      <div class="grid gap-3 sm:grid-cols-4">
+        {% for label, value in [('AI overall', an.overall_score), ('Camera %', an.camera_presence_pct),
+                                ('Active teaching %', an.active_teaching_pct), ('Engagement', an.student_engagement_score)] %}
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="text-[11px] uppercase text-slate-500">{{ label }}</div>
+          <div class="text-xl font-bold">{{ value|round(1) }}</div></div>
+        {% endfor %}
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        {{ ui.badge(an.risk_level, 'Risk: ' ~ an.risk_level|title) }} {{ ui.badge(an.review_status) }}
+        <span class="text-slate-500">Punctuality {{ an.punctuality_minutes }} min · coverage {{ an.curriculum_coverage_pct|round(0) }}%</span>
+      </div>
+      {% if an.summary %}<p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ an.summary }}</p>{% endif %}
+      {% if an.recommended_feedback %}<p class="mt-2 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800"><b>Suggested feedback:</b> {{ an.recommended_feedback }}</p>{% endif %}
+      <p class="mt-3 text-xs text-slate-500">No disciplinary action is taken on an AI score alone — the reviewer's judgement is the record of truth.</p>
+      <div class="mt-2"><a href="/ai-monitoring/{{ an.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the AI record →</a></div>
+      {% else %}
+      <p class="text-sm text-slate-400">No AI analysis is available for this class. Score it from the recording and your own observation.</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card("Corrective actions") %}
+      <ul class="mb-4 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for a in actions %}
+        <li class="flex items-start justify-between gap-3 py-2">
+          <div><div>{{ a.description }}</div><div class="text-xs text-slate-500">Due {{ a.due_date|date }}{% if a.closure_note %} · closed: {{ a.closure_note }}{% endif %}</div></div>
+          {{ ui.badge(a.status) }}
+        </li>
+        {% else %}<li class="py-4 text-center text-slate-400">No corrective actions assigned from this review.</li>{% endfor %}
+      </ul>
+      {% if has_perm(user, 'qa.add') or has_perm(user, 'qa.update') %}
+      <form method="post" action="/qa/{{ r.id }}/corrective-action" class="grid gap-3 sm:grid-cols-3">
+        <div class="sm:col-span-2">{{ ui.input('description', 'New corrective action', '', required=True, placeholder='e.g. Complete the Ustaadh Lab module on pacing') }}</div>
+        {{ ui.input('due_date', 'Due date', '', type='date') }}
+        <div class="sm:col-span-3">{{ ui.button('Assign action', icon='list-plus', size='sm', variant='secondary') }}</div>
+      </form>
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Result") %}
+      <div class="text-center">
+        <div class="text-5xl font-bold tracking-tight {{ 'text-rose-600' if (r.overall_score or 0) < threshold else 'text-emerald-600' }}">
+          {{ r.overall_score if r.overall_score is not none else '—' }}</div>
+        <div class="text-xs uppercase tracking-wide text-slate-500">weighted score out of 100</div>
+      </div>
+      <hr class="my-4 border-slate-100 dark:border-slate-800">
+      {{ ui.dl([('Sample type', r.sample_type|titleize), ('Reviewer', r.reviewer.full_name if r.reviewer else 'Unassigned'),
+                ('Completed', r.completed_at|datetime), ('Approved by', r.approved_by_id or '—'),
+                ('Feedback sent', 'Yes' if r.teacher_feedback_sent else 'No')]) }}
+    {% endcall %}
+
+    {% if has_perm(user, 'qa.approve') and r.status == 'completed' %}
+    {% call ui.card("HOD approval") %}
+      <form method="post" action="/qa/{{ r.id }}/approve" class="space-y-3">
+        {{ ui.textarea('note', 'Approval note', '', rows=2) }}
+        {{ ui.button('Approve review', icon='shield-check', variant='success') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+
+    {% if has_perm(user, 'qa.update') %}
+    {% call ui.card("Actions") %}
+      <div class="space-y-3">
+        {% if r.status == 'queued' %}
+        <form method="post" action="/qa/{{ r.id }}/claim">{{ ui.button('Claim for review', icon='hand', variant='secondary', size='sm') }}</form>
+        {% endif %}
+        <form method="post" action="/qa/{{ r.id }}/feedback" class="space-y-2">
+          {{ ui.textarea('message', 'Feedback to the teacher', '', rows=2) }}
+          {{ ui.button('Send feedback', icon='send', variant='secondary', size='sm') }}
+        </form>
+        {% if has_perm(user, 'qa.add') %}
+        <form method="post" action="/qa/{{ r.id }}/re-evaluate">{{ ui.button('Request a re-evaluation', icon='repeat', variant='ghost', size='sm') }}</form>
+        {% endif %}
+      </div>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Teacher history", "Last 10 scored reviews") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for h in history %}
+        <li class="flex items-center justify-between py-2"><a href="/qa/{{ h.id }}" class="hover:text-brand-700">#{{ h.id }} · {{ h.sample_type|titleize }}</a>
+          <span class="font-semibold {{ 'text-rose-600' if (h.overall_score or 0) < threshold }}">{{ h.overall_score }}</span></li>
+        {% else %}<li class="py-4 text-center text-slate-400">No previous scored reviews.</li>{% endfor %}
+      </ul>
+      {% if re_evaluations %}
+      <div class="mt-3 text-xs text-slate-500">Re-evaluations: {% for x in re_evaluations %}<a href="/qa/{{ x.id }}" class="text-brand-600 hover:underline">#{{ x.id }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>
+      {% endif %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

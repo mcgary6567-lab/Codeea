@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Certificate verification{% endblock %}
+{% block public %}
+<div class="flex min-h-full items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
+  <div class="w-full max-w-2xl">
+    <div class="mb-8 text-center">
+      <img src="/static/img/logo.svg" alt="" class="mx-auto h-12 w-12">
+      <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Online Quran College</h1>
+      <p class="text-xs uppercase tracking-[0.3em] text-brand-700 dark:text-brand-300">Certificate verification</p>
+    </div>
+
+    {% if cert and not cert.is_revoked %}
+    <div class="rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm dark:border-emerald-900 dark:bg-slate-900">
+      <div class="mb-6 flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-950/40">
+        <i data-lucide="badge-check" class="h-6 w-6 text-emerald-600"></i>
+        <div><div class="font-semibold text-emerald-800 dark:text-emerald-200">This certificate is valid</div>
+          <div class="text-xs text-emerald-700 dark:text-emerald-300">Issued by Online Quran College and not revoked.</div></div>
+      </div>
+      <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2 text-sm">
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Certificate number</dt><dd class="mt-0.5 font-mono font-semibold text-slate-900 dark:text-white">{{ cert.certificate_number }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Date of issue</dt><dd class="mt-0.5 text-slate-800 dark:text-slate-200">{{ cert.issued_at|date }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Awarded to</dt><dd class="mt-0.5 font-semibold text-slate-900 dark:text-white">{{ student_name or '—' }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Course</dt><dd class="mt-0.5 text-slate-800 dark:text-slate-200">{{ course_name or '—' }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Award</dt><dd class="mt-0.5 text-slate-800 dark:text-slate-200">{{ cert.title }}</dd></div>
+        {% if cert.description %}<div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</dt><dd class="mt-0.5 text-slate-600 dark:text-slate-300">{{ cert.description }}</dd></div>{% endif %}
+      </dl>
+      <p class="mt-6 border-t border-slate-100 pt-4 text-xs text-slate-400 dark:border-slate-800">This record has been checked {{ cert.verification_count }} time{{ 's' if cert.verification_count != 1 }}.</p>
+    </div>
+
+    {% elif cert and cert.is_revoked %}
+    <div class="rounded-2xl border border-rose-200 bg-white p-8 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+      <div class="mb-6 flex items-center gap-3 rounded-xl bg-rose-50 px-4 py-3 dark:bg-rose-950/40">
+        <i data-lucide="ban" class="h-6 w-6 text-rose-600"></i>
+        <div><div class="font-semibold text-rose-800 dark:text-rose-200">This certificate has been revoked</div>
+          <div class="text-xs text-rose-700 dark:text-rose-300">It is no longer recognised by Online Quran College.</div></div>
+      </div>
+      <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2 text-sm">
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Certificate number</dt><dd class="mt-0.5 font-mono font-semibold">{{ cert.certificate_number }}</dd></div>
+        <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Originally issued</dt><dd class="mt-0.5">{{ cert.issued_at|date }}</dd></div>
+      </dl>
+    </div>
+
+    {% elif searched %}
+    <div class="rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-900 dark:bg-slate-900">
+      <i data-lucide="search-x" class="mx-auto h-10 w-10 text-amber-500"></i>
+      <h2 class="mt-3 text-lg font-semibold text-slate-900 dark:text-white">No certificate found</h2>
+      <p class="mt-1 text-sm text-slate-500">No certificate has been issued with the number <span class="font-mono">{{ number }}</span>.</p>
+    </div>
+    {% endif %}
+
+    <form method="get" action="/verify" class="mt-6 flex gap-2">
+      <input name="number" value="{{ number }}" placeholder="OQC-2026-00001" required
+             class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800">
+      <button class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="search" class="h-4 w-4"></i>Verify</button>
+    </form>
+    <p class="mt-6 text-center text-xs text-slate-400">© {{ current_year }} Online Quran College · <a href="/login" class="hover:text-brand-600">Staff sign in</a></p>
+  </div>
+</div>
+{% endblock %}

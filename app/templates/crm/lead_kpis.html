@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lead KPIs{% endblock %}
+{% block content %}
+{% call ui.page_header('Closer KPIs & acquisition cost', 'Last ' ~ days ~ ' days (since ' ~ since|date ~ ')', back='/crm/leads') %}
+  {{ ui.button('30 days', href='/crm/leads/kpis?days=30', variant='secondary', size='sm') }}
+  {{ ui.button('90 days', href='/crm/leads/kpis?days=90', variant='secondary', size='sm') }}
+  {{ ui.button('365 days', href='/crm/leads/kpis?days=365', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Leads', leads, icon='funnel', color='sky') }}
+  {{ ui.stat('Won', won, icon='trophy', color='emerald') }}
+  {{ ui.stat('Ad spend', spend|money, icon='wallet', color='amber') }}
+  {{ ui.stat('CPL', cpl|money, icon='tag', color='indigo', hint='Cost per lead') }}
+  {{ ui.stat('CAC', cac|money, icon='user-plus', color='violet', hint='Cost per acquired client') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3 mb-6">
+  <div class="lg:col-span-2">
+  {{ ui.table_start(['Closer','Leads','Contacted < 1h','Trials','Won','Lost','Conversion','Avg days to close','Open']) }}
+  {% for k in kpis %}
+  <tr>
+    <td class="px-4 py-2 font-medium">{{ k.user.full_name }}<div class="text-[11px] text-slate-400">{{ k.user.role.name if k.user.role else '' }}</div></td>
+    <td class="px-4 py-2">{{ k.leads }}</td>
+    <td class="px-4 py-2 w-32">{{ ui.progress(k.contacted_1h_pct, 'emerald' if k.contacted_1h_pct >= 80 else 'amber', label=k.contacted_1h_pct ~ '%') }}</td>
+    <td class="px-4 py-2">{{ k.trials }}</td>
+    <td class="px-4 py-2 font-semibold text-emerald-600">{{ k.won }}</td>
+    <td class="px-4 py-2 text-rose-600">{{ k.lost }}</td>
+    <td class="px-4 py-2">{{ k.conversion }}%</td>
+    <td class="px-4 py-2">{{ k.avg_days_to_close }}</td>
+    <td class="px-4 py-2">{{ k.open }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No closers configured.', 9) }}{% endfor %}
+  {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card('Lost reasons') %}
+      {% if lost_rows %}
+      <ul class="space-y-2 text-sm">
+        {% for reason, n in lost_rows %}
+        <li><div class="flex justify-between"><span class="text-slate-600 dark:text-slate-300">{{ reason }}</span><b>{{ n }}</b></div>
+        {{ ui.progress(100 * n / lost_rows[0][1], 'rose') }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}{{ ui.empty_state('No lost leads in this window.', 'thumbs-up') }}{% endif %}
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.card('Leads by source', 'Volume in the selected window') %}
+  {{ ui.chart('src', 240) }}
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+<script>
+  OQC.bar('src', {{ source_labels|tojson }}, [{label:'Leads', data: {{ source_values|tojson }}}]);
+</script>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ je.entry_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(je.entry_number, je.description, back='/finance/accounts/journal') %}
+  {% if has_perm(user, 'accounts.approve') and je.status == 'posted' and not closed %}
+  <button type="button" @click="$dispatch('open-modal','revje')" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="undo-2" class="h-4 w-4"></i>Reverse</button>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  {{ ui.badge(je.status) }}
+  {% if closed %}{{ ui.badge('closed', 'Period ' ~ je.period ~ ' closed') }}{% endif %}
+  <span class="text-slate-500">{{ je.entry_date|date }} · {{ je.reference_type|titleize if je.reference_type else 'manual' }} · {{ je.currency }}</span>
+  <span class="ml-auto text-xl font-bold">{{ je.total|money(je.currency) }}</span>
+</div>
+
+{% call ui.card("Lines") %}
+{{ ui.table_start(['Account', 'Name', 'Type', 'Debit', 'Credit']) }}
+{% for l in je.lines %}
+<tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/accounts/{{ l.account_id }}">{{ l.account.code }}</a></td>
+  <td class="px-4 py-2">{{ l.account.name }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ l.account.account_type|titleize }}</td>
+  <td class="px-4 py-2 text-right">{{ l.debit|money if l.debit|float else '' }}</td>
+  <td class="px-4 py-2 text-right">{{ l.credit|money if l.credit|float else '' }}</td></tr>
+{% endfor %}
+<tr class="bg-slate-50 font-semibold dark:bg-slate-800/60">
+  <td class="px-4 py-2" colspan="3">Totals</td>
+  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='debit'))|money }}</td>
+  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='credit'))|money }}</td></tr>
+{{ ui.table_end() }}
+{% endcall %}
+
+{% call ui.modal('revje', 'Reverse journal entry') %}
+<form method="post" action="/finance/accounts/journal/{{ je.id }}/reverse" class="space-y-4">
+  {{ ui.alert('A mirror-image entry will be posted and this entry marked reversed.', 'warning') }}
+  {{ ui.textarea('rationale', 'Rationale', '', rows=3, required=True) }}
+  {{ ui.button('Reverse entry', icon='undo-2', variant='danger') }}
+</form>
+{% endcall %}
+{% endblock %}

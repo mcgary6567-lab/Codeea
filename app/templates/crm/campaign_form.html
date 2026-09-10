@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}New campaign{% endblock %}
+{% block content %}
+{{ ui.page_header('New campaign', 'Budget, offer and UTM tags drive attribution across the marketing dashboard.', back='/crm/campaigns') }}
+<form method="post" action="/crm/campaigns/new" class="max-w-3xl space-y-6">
+  {% call ui.card('Campaign details') %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('name', 'Campaign name', '', required=True, placeholder='UK Hifz — Ramadan offer') }}</div>
+    {{ ui.select('platform', 'Platform', platforms, 'meta', placeholder=None) }}
+    {{ ui.input('objective', 'Objective', '', placeholder='Lead generation') }}
+    {{ ui.select('country', 'Country', countries, '', placeholder='Global') }}
+    {{ ui.input('offer', 'Offer', '', placeholder='2 free trial classes') }}
+    {{ ui.input('budget', 'Budget', '0', type='number', step='0.01') }}
+    {{ ui.input('currency', 'Currency', 'USD', placeholder='USD') }}
+    {{ ui.input('utm_source', 'UTM source', '', placeholder='facebook') }}
+    {{ ui.input('utm_campaign', 'UTM campaign', '', placeholder='uk-hifz-ramadan') }}
+    {{ ui.input('start_date', 'Start date', '', type='date') }}
+    {{ ui.input('end_date', 'End date', '', type='date') }}
+    {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+    {{ ui.input('external_id', 'Platform campaign ID', '', help='Used to attribute Meta lead-form webhooks') }}
+  </div>
+  {% endcall %}
+  {{ ui.button('Create campaign', icon='check') }}
+</form>
+{% endblock %}

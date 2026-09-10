@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Reconciliation{% endblock %}
+{% block content %}
+{% call ui.page_header("Bank reconciliation", "Tick off received payments against the bank statement and review daily takings by method.", back='/finance/payments') %}{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("Unreconciled payments", rows|length, icon="check-check", color="amber") }}
+  {{ ui.stat("Unreconciled value (" ~ base ~ ")", unreconciled_base|money, icon="banknote", color="rose") }}
+  {{ ui.stat("Collected this month", stats.month_total|money(base), icon="trending-up", color="emerald") }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% call ui.card("Unreconciled payments", "Select the lines that appear on your bank statement.") %}
+    <form method="post" action="/finance/payments/reconcile" class="space-y-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="w-72">{{ ui.input('bank_reference', 'Bank statement reference', '', placeholder='e.g. HSBC 2026-09 page 3', required=True) }}</div>
+        {{ ui.button('Mark selected reconciled', icon='check-check', variant='success') }}
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+          <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
+            <th class="px-3 py-2"><input type="checkbox" onclick="document.querySelectorAll('.recbox').forEach(function(c){c.checked=this.checked}.bind(this))" class="h-4 w-4 rounded border-slate-300"></th>
+            {% for h in ['Payment', 'Received', 'Family', 'Amount', 'Base', 'Method', 'Reference'] %}
+            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">{{ h }}</th>{% endfor %}
+          </tr></thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          {% for p in rows %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <td class="px-3 py-2"><input type="checkbox" class="recbox h-4 w-4 rounded border-slate-300" name="payment_ids" value="{{ p.id }}"></td>
+            <td class="px-3 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a></td>
+            <td class="px-3 py-2 text-xs">{{ p.received_at|date }}</td>
+            <td class="px-3 py-2 text-xs">{{ p.client.full_name if p.client else '' }}</td>
+            <td class="px-3 py-2 text-right">{{ p.amount|money(p.currency) }}</td>
+            <td class="px-3 py-2 text-right text-xs text-slate-500">{{ p.amount_in_base|money(base) }}</td>
+            <td class="px-3 py-2 text-xs">{{ p.method|titleize }}</td>
+            <td class="px-3 py-2 text-xs text-slate-500">{{ p.reference or '—' }}</td>
+          </tr>
+          {% else %}<tr><td colspan="8" class="px-4 py-12 text-center text-slate-400"><i data-lucide="check-circle-2" class="mx-auto mb-2 h-8 w-8 opacity-50"></i>Everything is reconciled.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+    {% endcall %}
+  </div>
+
+  <div>
+    {% call ui.card("Daily totals by method", "Last 14 days, consolidated in " ~ base) %}
+    {{ ui.table_start(['Day', 'Payments', 'Total']) }}
+    {% for d in totals %}
+    <tr><td class="px-4 py-2 text-xs">{{ d.day }}<div class="text-[10px] text-slate-400">{% for m, v in d.methods.items() %}{{ m|titleize }} {{ v|money }}{{ ' · ' if not loop.last }}{% endfor %}</div></td>
+      <td class="px-4 py-2 text-center">{{ d.count }}</td>
+      <td class="px-4 py-2 text-right font-medium">{{ d.total|money }}</td></tr>
+    {% else %}{{ ui.empty('No payments in the last 14 days.', 3) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

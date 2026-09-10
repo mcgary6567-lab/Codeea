@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Retention actions{% endblock %}
+{% block content %}
+{% call ui.page_header('Retention actions', 'Scheduled → in progress → completed, with succeeded / failed outcomes for the save rate', back='/retention') %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Scheduled', stats.actions.get('scheduled', 0), icon='calendar-clock', color='sky') }}
+  {{ ui.stat('In progress', stats.actions.get('in_progress', 0), icon='loader', color='indigo') }}
+  {{ ui.stat('Succeeded', stats.actions.get('succeeded', 0), icon='heart-pulse', color='emerald') }}
+  {{ ui.stat('Failed', stats.actions.get('failed', 0), icon='x-circle', color='rose') }}
+  {{ ui.stat('Save rate', stats.save_rate ~ '%', icon='trending-up', color='violet') }}
+</div>
+
+{% call ui.filter_bar('/retention/actions') %}
+  <div class="w-48">{{ ui.select('action_type', 'Action type', action_types, action_type, placeholder='All types') }}</div>
+  <div class="w-44">
+    <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Owner</label>
+    <select name="owner" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <option value="">Anyone</option>
+      <option value="mine" {% if owner == 'mine' %}selected{% endif %}>Mine</option>
+      {% for o in owners %}<option value="{{ o.id }}" {% if owner == o.id|string %}selected{% endif %}>{{ o.full_name }}</option>{% endfor %}
+    </select>
+  </div>
+{% endcall %}
+
+<div class="flex gap-3 overflow-x-auto pb-4">
+  {% for col in columns %}
+  <div class="w-80 shrink-0">
+    <div class="mb-2 flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+      {{ ui.badge(col.status) }}<span class="text-xs font-bold text-slate-500">{{ col['items']|length }}</span>
+    </div>
+    <div class="space-y-2">
+      {% for a in col['items'] %}
+      <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-start justify-between gap-2">
+          <a href="/students/{{ a.student_id }}" class="text-sm font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ a.student.full_name if a.student else 'Student #' ~ a.student_id }}</a>
+          {% if a.risk_score_at_trigger %}<span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold {{ 'bg-rose-100 text-rose-700' if a.risk_score_at_trigger >= 65 else 'bg-amber-100 text-amber-700' }}">{{ a.risk_score_at_trigger|round(0) }}</span>{% endif %}
+        </div>
+        <div class="mt-1 text-[11px] text-slate-500">{{ a.action_type|titleize }} · {{ a.trigger|titleize }}</div>
+        <div class="mt-1 text-[11px] text-slate-400">
+          <i data-lucide="calendar" class="inline h-3 w-3"></i> {{ a.scheduled_at|date if a.scheduled_at else 'unscheduled' }}
+          · {{ a.owner.full_name.split()[0] if a.owner else 'unassigned' }}
+        </div>
+        {% if a.notes %}<p class="mt-1 text-[11px] text-slate-500">{{ a.notes }}</p>{% endif %}
+        {% if a.outcome %}<p class="mt-1 rounded bg-slate-50 p-1.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ a.outcome }}</p>{% endif %}
+        {% if has_perm(user, 'retention.update') %}
+        <form method="post" action="/retention/actions/{{ a.id }}/status" class="mt-2 space-y-1.5">
+          <select name="status" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+            {% for s in statuses %}<option value="{{ s }}" {% if s == a.status %}selected{% endif %}>{{ s|titleize }}</option>{% endfor %}
+          </select>
+          <input name="outcome" value="{{ a.outcome or '' }}" placeholder="Outcome (required to close)" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+          <button class="w-full rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-700">Update</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-dashed border-slate-300 py-6 text-center text-[11px] text-slate-400 dark:border-slate-700">Empty</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

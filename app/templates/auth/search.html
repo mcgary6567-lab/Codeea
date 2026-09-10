@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Search{% endblock %}
+{% block content %}
+{{ ui.page_header("Search", ("Results for “" ~ q ~ "”") if q else "Type in the search bar to find records across the platform") }}
+<form action="/search" method="get" class="mb-6 max-w-xl md:hidden"><input name="q" value="{{ q }}" placeholder="Search…" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"></form>
+{% if q and not results %}{{ ui.empty_state('No matches found.', 'search-x') }}{% endif %}
+<div class="grid gap-4 md:grid-cols-2">
+{% for group, rows in results.items() %}
+{% call ui.card(group, padding=False) %}
+<ul class="divide-y divide-slate-100 dark:divide-slate-800">
+  {% for title, sub, url in rows %}<li><a href="{{ url }}" class="flex items-center justify-between px-5 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"><span class="font-medium">{{ title }}</span><span class="text-xs text-slate-500">{{ sub }}</span></a></li>{% endfor %}
+</ul>
+{% endcall %}
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Login history{% endblock %}
+{% block content %}
+{% call ui.page_header("Login history", "Sign-ins, sign-outs, failed attempts and lockouts drawn straight from the audit trail", back="/admin/security") %}
+  {{ ui.button("Export CSV", href="/admin/audit/export.csv?module=security", icon="download", variant="secondary") }}
+  {{ ui.button("Incidents", href="/admin/security/incidents", icon="siren", variant="secondary") }}
+{% endcall %}
+
+{% set failed = page.items|selectattr('action','equalto','login_failed')|list|length %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Events matching", page.total, icon="key-round", color="brand") }}
+  {{ ui.stat("Successful sign-ins", page.items|selectattr('action','equalto','login')|list|length, icon="log-in", color="emerald", hint="on this page") }}
+  {{ ui.stat("Failed attempts", failed, icon="x-circle", color=("rose" if failed else "slate"), hint="on this page") }}
+  {{ ui.stat("Lockouts", page.items|selectattr('action','equalto','lockout')|list|length, icon="lock", color="amber", hint="on this page") }}
+</div>
+
+{% call ui.filter_bar('/admin/security/logins') %}
+  {{ ui.input('q', 'Search', q, placeholder='Actor name, IP address or description') }}
+{% endcall %}
+
+{{ ui.table_start(['When','Event','Actor','IP','Detail','Severity','']) }}
+{% for e in page.items %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500" title="{{ e.created_at }}">{{ e.created_at|datetime }}</td>
+  <td class="px-4 py-2">
+    {% if e.action == 'login' %}{{ ui.badge('active', 'Signed in') }}
+    {% elif e.action == 'logout' %}{{ ui.badge('inactive', 'Signed out') }}
+    {% elif e.action == 'login_failed' %}{{ ui.badge('failed', 'Failed') }}
+    {% else %}{{ ui.badge('blocked', 'Lockout') }}{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">
+    {% if e.actor_id %}<a href="/admin/users/{{ e.actor_id }}" class="font-medium hover:text-brand-700">{{ e.actor_name }}</a>
+    {% else %}<span class="text-slate-400">{{ e.actor_name or 'unknown' }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 font-mono text-[11px]">{{ e.ip or '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ (e.description or '—')|truncate(90) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(e.severity) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('View', href='/admin/audit/' ~ e.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No login events match this search.', 7, 'key-round') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="info" class="mr-1 inline h-3.5 w-3.5"></i>
+Repeated failures raise a <code class="font-mono">login_failed</code> incident, and crossing the lockout threshold raises a
+<code class="font-mono">lockout</code> incident and disables sign-in for the configured window. Clear a lockout from the
+user's detail page.</p>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Chart of accounts{% endblock %}
+{% block content %}
+{% call ui.page_header("Accounts & finance", "Double-entry chart of accounts, journals, statements, budgets and the financial close.") %}
+  {% if has_perm(user, 'accounts.add') %}
+  <button type="button" @click="$dispatch('open-modal','newacct')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New account</button>
+  {% endif %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {% for type in types %}
+    {% set group = accounts|selectattr('account_type', 'equalto', type)|list %}
+    {% if group %}
+    <div class="mb-5">
+    {% call ui.card(type|titleize ~ ' accounts', (group|length)|string ~ ' accounts') %}
+    {{ ui.table_start(['Code', 'Name', 'Parent', 'Net movement (' ~ base ~ ')', 'Active', '']) }}
+    {% for a in group %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/finance/accounts/{{ a.id }}">{{ a.code }}</a></td>
+      <td class="px-4 py-2">{{ a.name }}{% if a.description %}<div class="text-xs text-slate-500">{{ a.description }}</div>{% endif %}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ a.parent.code ~ ' ' ~ a.parent.name if a.parent else '—' }}</td>
+      <td class="px-4 py-2 text-right font-medium">{{ balances.get(a.id, 0)|money }}</td>
+      <td class="px-4 py-2 text-center">{% if a.is_active %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/accounts/' ~ a.id, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card("How the ledger is fed") %}
+    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <li class="flex gap-2"><i data-lucide="banknote" class="mt-0.5 h-4 w-4 text-emerald-600"></i>Payments debit Cash/Bank and credit Tuition Revenue.</li>
+      <li class="flex gap-2"><i data-lucide="undo-2" class="mt-0.5 h-4 w-4 text-rose-600"></i>Refunds reverse that entry.</li>
+      <li class="flex gap-2"><i data-lucide="wallet" class="mt-0.5 h-4 w-4 text-amber-600"></i>Approved expenses debit their category account and credit Bank.</li>
+      <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 text-slate-500"></i>Closed periods refuse new entries dated inside them.</li>
+    </ul>
+    {% endcall %}
+    {% call ui.card("Balances by type") %}
+    <ul class="space-y-1.5 text-sm">
+      {% for type in types %}
+      {% set ns = namespace(total=0) %}
+      {% for a in accounts if a.account_type == type %}{% set ns.total = ns.total + balances.get(a.id, 0) %}{% endfor %}
+      <li class="flex justify-between"><span class="text-slate-500">{{ type|titleize }}</span><b>{{ ns.total|money(base) }}</b></li>
+      {% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('newacct', 'New account') %}
+<form method="post" action="/finance/accounts/new" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('code', 'Code', '', required=True, placeholder='e.g. 5700') }}
+    {{ ui.input('name', 'Name', '', required=True) }}
+    {{ ui.select('account_type', 'Type', types, 'expense', required=True, placeholder=None) }}
+    {{ ui.select('parent_id', 'Parent account', parent_options, None, placeholder='— None —') }}
+  </div>
+  {{ ui.textarea('description', 'Description', '', rows=2) }}
+  {{ ui.button('Create account', icon='plus') }}
+</form>
+{% endcall %}
+{% endblock %}

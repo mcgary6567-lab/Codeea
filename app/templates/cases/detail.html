@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ c.case_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(c.title, c.case_number ~ ' · ' ~ c.case_type|titleize ~ ' · opened ' ~ (c.created_at|datetime), back='/cases') %}
+  {{ ui.badge(c.status) }}{{ ui.badge(c.priority) }}
+  <span class="inline-flex items-center rounded-full bg-{{ sla.level }}-50 px-2.5 py-1 text-[11px] font-medium text-{{ sla.level }}-700 ring-1 ring-inset ring-{{ sla.level }}-600/20 dark:bg-{{ sla.level }}-500/10 dark:text-{{ sla.level }}-300">SLA {{ sla.label }}</span>
+{% endcall %}
+
+{% if c.sla_breached and c.status not in ('resolved','closed') %}
+{{ ui.alert('This case has breached its ' ~ c.sla_hours ~ '-hour SLA. It was auto-escalated to the department head and a risk alert was raised.', 'error', 'SLA breached') }}
+<div class="mb-4"></div>
+{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Case detail') %}
+      <p class="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{{ c.description or 'No description provided.' }}</p>
+      <div class="mt-4">
+      {{ ui.dl([('Category (AI)', c.category|titleize if c.category else '—'), ('Department', c.department.name if c.department else '—'),
+                ('Family', c.client.full_name if c.client else '—'), ('Student', c.student.full_name if c.student else '—'),
+                ('Teacher', c.teacher.full_name if c.teacher else '—'), ('Raised by', c.raised_by_type|titleize ~ ' · ' ~ c.source|titleize),
+                ('SLA due', c.sla_due_at|datetime if c.sla_due_at else '—'), ('Assignee', c.assigned_to.full_name if c.assigned_to else 'Unassigned'),
+                ('Resolved', c.resolved_at|datetime if c.resolved_at else '—'), ('Root cause', c.root_cause or '—')]) }}
+      </div>
+      {% if c.resolution %}<p class="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200"><b>Resolution:</b> {{ c.resolution }}</p>{% endif %}
+    {% endcall %}
+
+    {% if has_perm(user, 'cases.update') %}
+    {% call ui.card('Add a comment') %}
+    <form method="post" action="/cases/{{ c.id }}/comment" class="space-y-3">
+      {{ ui.textarea('text', None, '', rows=3, required=True, placeholder='Update for the team or a message for the family…') }}
+      <div class="flex items-center justify-between">
+        {{ ui.checkbox('is_internal', 'Internal only (not visible to the family)', checked=True) }}
+        {{ ui.button('Post comment', icon='message-square', size='sm') }}
+      </div>
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Timeline', c.comments|length ~ ' entries') %}
+    <ol class="space-y-3">
+      {% for cm in c.comments|reverse %}
+      <li class="rounded-lg border p-3 {{ 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30' if cm.is_internal else 'border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30' }}">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="font-semibold uppercase tracking-wide {{ 'text-amber-700 dark:text-amber-300' if cm.is_internal else 'text-sky-700 dark:text-sky-300' }}">{{ 'Internal' if cm.is_internal else 'Client visible' }}</span>
+          <span class="text-slate-500">{{ cm.user.full_name if cm.user else 'system' }} · {{ cm.created_at|datetime }}</span>
+        </div>
+        <p class="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{{ cm.text }}</p>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">No comments yet.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+
+    {% if tasks %}
+    {% call ui.card('Linked tasks') %}
+    {{ ui.table_start(['Task','Assignee','Due','Status'], compact=True) }}
+    {% for t in tasks %}
+    <tr><td class="px-4 py-1.5">{{ t.title }}</td><td class="px-4 py-1.5 text-xs">{{ t.assignee.full_name if t.assignee else '—' }}</td>
+      <td class="px-4 py-1.5 text-xs">{{ t.due_date|date if t.due_date else '—' }}</td><td class="px-4 py-1.5">{{ ui.badge(t.status) }}</td></tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+
+    {% if feedback %}
+    {% call ui.card('Originating feedback') %}
+      {% for f in feedback %}
+      <div class="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
+        NPS {{ f.nps if f.nps is not none else '—' }} · rating {{ f.rating or '—' }} · {{ ui.badge(f.sentiment) }}
+        <p class="mt-1 text-slate-600 dark:text-slate-300">{{ f.comment or 'No comment.' }}</p>
+      </div>
+      {% endfor %}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% if has_perm(user, 'cases.update') %}
+    {% call ui.card('Workflow') %}
+    <form method="post" action="/cases/{{ c.id }}/status" class="space-y-3" x-data="{ st: '{{ c.status }}' }">
+      {{ ui.select('status', 'Move to', statuses, c.status, placeholder=None, attrs='x-model="st"') }}
+      <div x-show="st === 'resolved' || st === 'closed'" x-cloak class="space-y-3">
+        {{ ui.textarea('resolution', 'Resolution', c.resolution or '', rows=3, help='Required to resolve or close') }}
+        {{ ui.input('root_cause', 'Root cause', c.root_cause or '', help='Required to resolve or close') }}
+      </div>
+      {{ ui.input('note', 'Note', '') }}
+      {{ ui.button('Update status', icon='arrow-right', size='sm') }}
+    </form>
+    <p class="mt-2 text-xs text-slate-500">Resolving notifies the family in-app and on WhatsApp.</p>
+    {% endcall %}
+
+    {% call ui.card('Assignment') %}
+    <form method="post" action="/cases/{{ c.id }}/assign" class="space-y-3">
+      {{ ui.select('assigned_to_id', 'Assignee', staff_options, c.assigned_to_id, placeholder='Unassigned') }}
+      {{ ui.select('department_id', 'Department', department_options, c.department_id, placeholder='Unchanged') }}
+      {{ ui.select('priority', 'Priority', priorities, c.priority, placeholder=None) }}
+      {{ ui.button('Save', icon='user-check', size='sm', variant='secondary') }}
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Escalate') %}
+    <form method="post" action="/cases/{{ c.id }}/escalate" class="space-y-3">
+      {{ ui.select('escalated_to_id', 'Escalate to', staff_options, '', placeholder='Department head (default)') }}
+      {{ ui.input('rationale', 'Rationale', '', required=True, help='Recorded as a consequential audit event and a risk alert') }}
+      {{ ui.button('Escalate', icon='trending-up', size='sm', variant='warning') }}
+    </form>
+    {% if c.escalated %}<p class="mt-2 text-xs text-rose-600">Already escalated{{ ' to user #' ~ c.escalated_to_id if c.escalated_to_id else '' }}.</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Create a linked task') %}
+    <form method="post" action="/cases/{{ c.id }}/task" class="space-y-3">
+      {{ ui.input('title', 'Task', '', placeholder='Call the family and confirm the new slot') }}
+      {{ ui.select('assignee_id', 'Assignee', staff_options, c.assigned_to_id, placeholder='Case assignee') }}
+      {{ ui.input('due_date', 'Due', '', type='date') }}
+      {{ ui.button('Create task', icon='list-checks', size='sm', variant='secondary') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Audit trail') %}
+    <ul class="space-y-2 text-xs">
+      {% for e in events %}
+      <li class="border-l-2 border-slate-200 pl-2 dark:border-slate-700">
+        <span class="font-medium">{{ e.action|titleize }}</span> — {{ e.description }}
+        <div class="text-[10px] text-slate-400">{{ e.actor_name }} · {{ e.created_at|datetime }}</div></li>
+      {% else %}<li class="text-slate-400">No audit events yet.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

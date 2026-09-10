@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+data/*.db
+data/*.db-wal
+data/*.db-shm
+storage/recordings/*
+storage/certificates/*
+storage/uploads/*
+storage/backups/*
+storage/invoices/*
+storage/receipts/*
+storage/payslips/*
+storage/reports/*
+storage/result_cards/*
+!storage/**/.gitkeep
+.pytest_cache/
+*.log
+.DS_Store
+!migrations/versions/*.py
+
+# Vendored front-end libraries ARE committed (the app must not depend on CDNs).
+!app/static/vendor/*.js

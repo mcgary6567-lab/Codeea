@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}AI run #{{ r.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header('AI run #' ~ r.id ~ ' · ' ~ labels.get(r.module, r.module|titleize), r.task ~ ' · ' ~ (r.created_at|datetime), back='/ai-governance') %}
+  {{ ui.badge(r.review_status) }}
+  {% if entity_link %}{{ ui.button('Open ' ~ r.entity_type, href=entity_link, icon='external-link', variant='secondary') }}{% endif %}
+{% endcall %}
+
+{% if below %}
+<div class="mb-5">{{ ui.alert('Confidence ' ~ ('%.2f'|format(r.confidence)) ~ ' is below the ' ~ ('%.2f'|format(threshold)) ~ ' threshold configured for this module. Treat the output as a prompt for investigation, not a conclusion.', 'warning', 'Low confidence') }}</div>
+{% endif %}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat('Confidence', '%.2f'|format(r.confidence) if r.confidence is not none else '—', icon='gauge', color='rose' if below else 'emerald', hint='threshold ' ~ ('%.2f'|format(threshold))) }}
+  {{ ui.stat('Tokens', tokens, icon='binary', color='indigo', hint=r.tokens_in ~ ' in / ' ~ r.tokens_out ~ ' out') }}
+  {{ ui.stat('Cost (USD)', '%.4f'|format(cost), icon='dollar-sign', color='amber') }}
+  {{ ui.stat('Latency', r.latency_ms ~ ' ms', icon='timer', color='sky') }}
+  {{ ui.stat('Provider', r.provider|titleize, icon='plug', color='violet', hint=r.model) }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="space-y-5 lg:col-span-2">
+    {% call ui.card('Output', 'Exactly what the model returned — stored verbatim') %}
+    <pre class="max-h-[28rem] overflow-auto rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">{{ pretty }}</pre>
+    {% endcall %}
+
+    {% call ui.card('Input summary', 'The payload the gateway sent') %}
+    <pre class="max-h-72 overflow-auto rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">{{ payload }}</pre>
+    {% endcall %}
+
+    {% if siblings %}
+    {% call ui.card('Other runs on this record', r.entity_type ~ ' #' ~ r.entity_id) %}
+    {{ ui.table_start(['When','Module','Task','Confidence','Review','']) }}
+    {% for s in siblings %}
+    <tr>
+      <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ s.created_at|datetime }}</td>
+      <td class="px-4 py-2 text-xs">{{ labels.get(s.module, s.module|titleize) }}</td>
+      <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ s.task }}</td>
+      <td class="px-4 py-2 text-xs">{{ '%.2f'|format(s.confidence) if s.confidence is not none else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(s.review_status) }}</td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/ai-governance/' ~ s.id, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Traceability') %}
+    {{ ui.dl([('Module', labels.get(r.module, r.module|titleize)), ('Task', r.task), ('Provider', r.provider),
+              ('Model', r.model), ('Model version', r.model_version), ('Prompt version', r.prompt_version),
+              ('Entity', (r.entity_type ~ ' #' ~ r.entity_id) if r.entity_type else '—'),
+              ('Created', r.created_at|datetime)]) }}
+    {% endcall %}
+
+    {% call ui.card('Human review', 'AI advises, a person decides') %}
+    {% if r.review_status != 'pending' %}
+    <div class="mb-4 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/60">
+      <div class="font-semibold text-slate-600 dark:text-slate-300">{{ r.review_status|titleize }}
+        {% if reviewer %}by {{ reviewer.full_name }}{% endif %}{% if r.reviewed_at %} · {{ r.reviewed_at|datetime }}{% endif %}</div>
+      {% if r.review_note %}<p class="mt-1 text-slate-600 dark:text-slate-300">{{ r.review_note }}</p>{% endif %}
+    </div>
+    {% endif %}
+    {% if can_review %}
+    <form method="post" action="/ai-governance/{{ r.id }}/review" class="space-y-3">
+      {{ ui.textarea('note', 'Reviewer note', '', rows=3, placeholder='Required when rejecting or overriding — what the AI got wrong and what you did instead') }}
+      <div class="grid grid-cols-2 gap-2">
+        {% for status, label, icon, variant in actions %}
+        <button name="status" value="{{ status }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium
+          {{ {'success':'bg-emerald-600 text-white hover:bg-emerald-700','danger':'bg-rose-600 text-white hover:bg-rose-700','warning':'bg-amber-500 text-white hover:bg-amber-600','secondary':'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'}[variant] }}">
+          <i data-lucide="{{ icon }}" class="h-3.5 w-3.5"></i>{{ label }}</button>
+        {% endfor %}
+      </div>
+    </form>
+    {% else %}
+    <p class="text-xs text-slate-500">You have read access to this record but not the permission to review it.</p>
+    {% endif %}
+    {% endcall %}
+
+    {% call ui.card('The rule') %}
+    <p class="text-xs leading-relaxed text-slate-500">
+      No disciplinary action, grade change or contract decision may rest on an AI score alone. This page is the evidence;
+      the decision belongs in the <a href="/decisions" class="font-semibold text-brand-700 hover:underline dark:text-brand-300">decision register</a>
+      with a human owner and a written rationale.
+    </p>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Recording #{{ r.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Recording · " ~ (s.date.strftime('%d %b %Y') if s else '') ~ " " ~ (s.start_time.strftime('%H:%M') if s else ''),
+                       (s.student.full_name if s and s.student else '—') ~ " with " ~ (s.teacher.full_name if s and s.teacher else '—'),
+                       back='/recordings') %}
+  {{ ui.badge(r.status) }}
+  {% if has_perm(user, 'ai_monitoring.update') or has_perm(user, 'recordings.update') %}
+  <form method="post" action="/recordings/{{ r.id }}/analyse" class="inline">{{ ui.button('Run AI analysis', icon='brain-circuit', variant='secondary') }}</form>
+  {% endif %}
+{% endcall %}
+
+{% if not opened %}
+<div class="mx-auto max-w-2xl">
+  {% call ui.card("Purpose required", "Opening a class recording is a consequential, audited action") %}
+    <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      Recordings contain children's voices and faces. Access is limited to a stated professional purpose (QA sampling,
+      complaint investigation, safeguarding review or teacher coaching) and is recorded permanently against your name.
+    </div>
+    <form method="post" action="/recordings/{{ r.id }}/access" class="space-y-4">
+      {{ ui.textarea('purpose', 'Purpose of access', '', rows=2, required=True,
+                     placeholder='e.g. QA sampling review for the weekly quality report', help='At least ' ~ min_purpose ~ ' characters.') }}
+      {{ ui.button('Open the recording', icon='unlock') }}
+    </form>
+    <hr class="my-5 border-slate-100 dark:border-slate-800">
+    {{ ui.dl([('Class', (s.date|date) ~ ' ' ~ (s.start_time|time) if s else '—'), ('Source', r.source|titleize),
+              ('Duration', (r.duration_seconds // 60) ~ ' min'), ('Retention until', r.retention_until|date),
+              ('Previous opens', r.access_count)]) }}
+  {% endcall %}
+</div>
+{% else %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card("Playback", "Stated purpose: " ~ purpose) %}
+      <div class="flex h-64 flex-col items-center justify-center rounded-lg bg-slate-900 text-center text-slate-300">
+        <i data-lucide="play-circle" class="mb-2 h-10 w-10 opacity-70"></i>
+        <div class="text-sm">Stored at <code class="font-mono text-xs">{{ r.file_path or r.external_url }}</code></div>
+        <div class="mt-1 text-xs text-slate-500">{{ (r.size_bytes / 1048576)|round(1) }} MB · {{ (r.duration_seconds // 60) }} minutes · {{ r.source|titleize }}</div>
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Transcript") %}
+      {% if r.transcript %}
+      <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ r.transcript }}</pre>
+      {% else %}<p class="text-sm text-slate-400">No transcript has been produced for this recording.</p>{% endif %}
+    {% endcall %}
+
+    {% if analysis %}
+    {% call ui.card("AI analysis", "Advisory only — a human review is required before any action") %}
+      <div class="grid gap-3 sm:grid-cols-4">
+        {% for label, value in [('Overall', analysis.overall_score), ('Camera %', analysis.camera_presence_pct),
+                                ('Active teaching %', analysis.active_teaching_pct), ('Engagement', analysis.student_engagement_score)] %}
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-800"><div class="text-[11px] uppercase text-slate-500">{{ label }}</div>
+          <div class="text-xl font-bold">{{ value|round(1) }}</div></div>
+        {% endfor %}
+      </div>
+      <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ analysis.summary }}</p>
+      <div class="mt-3"><a href="/ai-monitoring/{{ analysis.id }}" class="text-xs font-medium text-brand-600 hover:underline">Open the AI monitoring record →</a></div>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Metadata") %}
+      {{ ui.dl([('Session', '#' ~ r.session_id), ('Room', s.room_name if s else '—'), ('Source', r.source|titleize),
+                ('Status', r.status|titleize), ('Duration', (r.duration_seconds // 60) ~ ' min'),
+                ('Size', ((r.size_bytes / 1048576)|round(1)) ~ ' MB'), ('Retention until', r.retention_until|date),
+                ('Policy', retention_days ~ ' days'), ('Total opens', r.access_count)]) }}
+    {% endcall %}
+    {% call ui.card("Access log", "Who opened this recording and why") %}
+      <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        {% for l in logs %}
+        <li class="py-2"><div class="flex items-center justify-between"><span class="font-medium">{{ l.user.full_name if l.user else 'System' }}</span>
+            <span class="text-xs text-slate-400">{{ l.accessed_at|ago }}</span></div>
+          <div class="text-xs text-slate-500">{{ l.purpose or '—' }}{% if l.ip %} · {{ l.ip }}{% endif %}</div></li>
+        {% else %}<li class="py-6 text-center text-slate-400">This is the first recorded access.</li>{% endfor %}
+      </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

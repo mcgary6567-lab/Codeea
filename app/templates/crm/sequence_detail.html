@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ s.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(s.name, s.sequence_type|titleize ~ ' · ' ~ (s.steps|length) ~ ' steps · ' ~ s.channel|titleize, back='/crm/sequences') %}
+  {{ ui.badge('active' if s.is_active else 'inactive') }}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Steps') %}
+    <ol class="space-y-3">
+      {% for step in (s.steps or []) %}
+      <li class="flex gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <span class="shrink-0 rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">Day {{ step.day }}</span>
+        <div class="min-w-0 text-sm">
+          {% if step.template %}<div class="font-medium text-slate-800 dark:text-slate-100">Template: {{ step.template }}</div>{% endif %}
+          {% if step.body %}<p class="text-slate-600 dark:text-slate-300">{{ step.body }}</p>{% endif %}
+        </div>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">No steps defined — enrolments complete immediately.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+
+    {% call ui.card('Enrolments', page.total ~ ' total') %}
+    {% call ui.filter_bar('/crm/sequences/' ~ s.id) %}
+      <div class="w-44">{{ ui.select('status', 'Status', ['active','completed','stopped','replied'], status, placeholder='All') }}</div>
+    {% endcall %}
+    {{ ui.table_start(['Contact','Type','Step','Next run','Status','Enrolled by','']) }}
+    {% for e in page.items %}
+    <tr>
+      <td class="px-4 py-2">{{ contacts[e.id].full_name if contacts.get(e.id) else 'Contact #' ~ e.contact_id }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.contact_type|titleize }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.current_step }} / {{ s.steps|length }}</td>
+      <td class="px-4 py-2 text-xs">{{ e.next_run_at|datetime if e.next_run_at else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(e.status) }}{% if e.stop_reason %}<div class="text-[10px] text-slate-400">{{ e.stop_reason }}</div>{% endif %}</td>
+      <td class="px-4 py-2 text-xs">{{ e.enrolled_by }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if e.status == 'active' and has_perm(user, 'sequences.update') %}
+        {{ ui.confirm_form('/crm/sequences/enrollments/' ~ e.id ~ '/stop', 'Stop', icon='octagon-x', variant='secondary', message='Stop this enrolment?', hidden={'reason': 'Stopped manually', 'next': '/crm/sequences/' ~ s.id}) }}
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No enrolments yet.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% if has_perm(user, 'sequences.update') %}
+    {% call ui.card('Edit sequence') %}
+    <form method="post" action="/crm/sequences/{{ s.id }}/edit" class="space-y-3">
+      {{ ui.input('name', 'Name', s.name, required=True) }}
+      {{ ui.select('sequence_type', 'Type', types, s.sequence_type, placeholder=None) }}
+      {{ ui.textarea('steps', 'Steps (JSON)', steps_json, rows=10) }}
+      {{ ui.checkbox('is_active', 'Active', checked=s.is_active) }}
+      {{ ui.button('Save', icon='check', size='sm') }}
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Manual enrolment') %}
+    <form method="post" action="/crm/sequences/{{ s.id }}/enroll" class="space-y-3" x-data="{ t: 'lead' }">
+      {{ ui.select('contact_type', 'Contact type', [('lead','Lead'),('student','Student')], 'lead', placeholder=None, attrs='x-model="t"') }}
+      <div x-show="t === 'lead'">
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Lead</label>
+        <select name="contact_id" x-bind:disabled="t !== 'lead'" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+          {% for l in leads %}<option value="{{ l.id }}">{{ l.full_name }} ({{ l.lead_code }})</option>{% endfor %}
+        </select>
+      </div>
+      <div x-show="t === 'student'" x-cloak>
+        <label class="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Student</label>
+        <select name="contact_id" x-bind:disabled="t !== 'student'" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+          {% for st in students %}<option value="{{ st.id }}">{{ st.full_name }} ({{ st.student_code }})</option>{% endfor %}
+        </select>
+      </div>
+      {{ ui.button('Enrol contact', icon='user-plus', size='sm', variant='secondary') }}
+    </form>
+    <p class="mt-2 text-xs text-slate-500">Enrolment is idempotent: a contact can hold only one active enrolment per sequence type.</p>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payslip {{ ps.payroll_run.period }}{% endblock %}
+{% block content %}
+{% set d = ps.details or {} %}
+{% set att = d.get('attendance') or {} %}
+{% call ui.page_header('Payslip ' ~ ps.payroll_run.period, (ps.employee.full_name if ps.employee else '') ~ ' · ' ~ (ps.employee.employee_code if ps.employee else ''),
+      back='/hr/me?tab=payslips' if own else '/hr/payroll/' ~ ps.payroll_run_id) %}
+  {{ ui.badge(ps.status) }}
+  {{ ui.button('Download PDF', href='/hr/payslips/' ~ ps.id ~ '/pdf', icon='download', variant='secondary') }}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Earnings') %}
+    {{ ui.table_start(['Item', 'Amount']) }}
+    <tr><td class="px-4 py-2 text-xs">Basic salary{% if d.get('band') %} (band {{ d.get('band') }}){% endif %}</td><td class="px-4 py-2 text-xs text-right">{{ ps.basic|float|money(ps.currency) }}</td></tr>
+    {% if ps.class_pay|float %}<tr><td class="px-4 py-2 text-xs">Class pay — {{ ps.classes_taught }} classes delivered</td><td class="px-4 py-2 text-xs text-right">{{ ps.class_pay|float|money(ps.currency) }}</td></tr>{% endif %}
+    {% for k, v in (d.get('allowances') or {}).items() %}
+    <tr><td class="px-4 py-2 text-xs">Allowance — {{ k|titleize }}</td><td class="px-4 py-2 text-xs text-right">{{ v|float|money(ps.currency) }}</td></tr>
+    {% endfor %}
+    {% for b in d.get('bonuses') or [] %}
+    <tr><td class="px-4 py-2 text-xs">Bonus — {{ b.type|titleize }}</td><td class="px-4 py-2 text-xs text-right">{{ b.amount|money(ps.currency) }}</td></tr>
+    {% endfor %}
+    {% for a in d.get('adjustments') or [] %}
+    <tr><td class="px-4 py-2 text-xs">Adjustment — {{ a.reason }} <span class="text-slate-400">({{ a.by }})</span></td><td class="px-4 py-2 text-xs text-right">{{ a.amount|money(ps.currency) }}</td></tr>
+    {% endfor %}
+    <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2 text-xs">Gross</td><td class="px-4 py-2 text-xs text-right">{{ ps.gross|float|money(ps.currency) }}</td></tr>
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% call ui.card('Deductions') %}
+    {{ ui.table_start(['Item', 'Amount']) }}
+    {% for k, v in (d.get('deductions') or {}).items() %}
+    <tr><td class="px-4 py-2 text-xs">{{ k|titleize }}</td><td class="px-4 py-2 text-xs text-right text-rose-600">{{ v|float|money(ps.currency) }}</td></tr>
+    {% endfor %}
+    {% for v in d.get('violations') or [] %}
+    <tr><td class="px-4 py-2 text-xs">Violation — {{ v.type|titleize }}</td><td class="px-4 py-2 text-xs text-right text-rose-600">{{ v.amount|money(ps.currency) }}</td></tr>
+    {% endfor %}
+    {% if ps.attendance_deduction|float %}
+    <tr><td class="px-4 py-2 text-xs">Attendance — {{ att.get('absent_days', 0) }} absent day(s), {{ att.get('unapproved_leave_days', 0) }} unapproved leave day(s), {{ att.get('late_instances', 0) }} late arrival(s)</td>
+      <td class="px-4 py-2 text-xs text-right text-rose-600">{{ ps.attendance_deduction|float|money(ps.currency) }}</td></tr>
+    {% endif %}
+    {% if ps.advance_deduction|float %}
+    <tr><td class="px-4 py-2 text-xs">Salary advance instalment</td><td class="px-4 py-2 text-xs text-right text-rose-600">{{ ps.advance_deduction|float|money(ps.currency) }}</td></tr>
+    {% endif %}
+    <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2 text-xs">Total deductions</td>
+      <td class="px-4 py-2 text-xs text-right text-rose-600">{{ (ps.deductions|float + ps.attendance_deduction|float + ps.advance_deduction|float)|money(ps.currency) }}</td></tr>
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    <div class="rounded-xl bg-brand-600 p-6 text-white shadow-sm">
+      <div class="text-xs font-semibold uppercase tracking-wide opacity-80">Net pay</div>
+      <div class="mt-1 text-3xl font-bold">{{ ps.net|float|money(ps.currency) }}</div>
+      <div class="mt-2 text-xs opacity-80">{{ ps.payroll_run.period }} · {{ ps.status|titleize }}</div>
+    </div>
+    {% call ui.card('Details') %}
+    {{ ui.dl([('Period', (d.get('period_start') or '—') ~ ' → ' ~ (d.get('period_end') or '—')),
+              ('Designation', d.get('designation') or '—'), ('Department', d.get('department') or '—'),
+              ('Run status', ps.payroll_run.status|titleize), ('Approved', ps.payroll_run.approved_at|date if ps.payroll_run.approved_at else '—'),
+              ('Paid', ps.payroll_run.paid_at|date if ps.payroll_run.paid_at else '—'),
+              ('PDF', 'Generated' if ps.pdf_path else 'On demand')]) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

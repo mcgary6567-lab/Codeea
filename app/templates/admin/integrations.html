@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Integration hub{% endblock %}
+{% block content %}
+{% call ui.page_header("Integration hub", "Every third-party service the platform talks to — status, health, usage and inbound endpoints") %}
+  {% if has_perm(user, 'integrations.execute') %}
+  <form method="post" action="/admin/integrations/health-check" class="inline">{{ ui.button('Run health check', icon='activity', variant='secondary') }}</form>
+  <form method="post" action="/admin/integrations/counters/reset" class="inline" onsubmit="return confirm('Reset today\'s call and failure counters for every provider?')">{{ ui.button('Reset counters', icon='rotate-ccw', variant='secondary') }}</form>
+  {% endif %}
+  {{ ui.button("API & webhooks", href="/admin/api", icon="webhook") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Providers", cards|length, icon="plug", color="brand") }}
+  {{ ui.stat("Healthy", healthy, icon="check-circle", color="emerald") }}
+  {{ ui.stat("Degraded / down", degraded, icon="alert-triangle", color=("rose" if degraded else "slate")) }}
+  {{ ui.stat("Calls today", calls, icon="arrow-left-right", color="sky") }}
+  {{ ui.stat("Failures today", failures, icon="x-circle", color=("amber" if failures else "slate")) }}
+</div>
+
+<div class="mb-6">
+  {% call ui.card("Traffic today", "Calls and failures per provider") %}{{ ui.chart('c_integ', 240) }}{% endcall %}
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  {% for c in cards %}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="rounded-lg bg-{{ c.meta.get('color', 'slate') }}-50 p-2 text-{{ c.meta.get('color', 'slate') }}-600 dark:bg-{{ c.meta.get('color', 'slate') }}-500/10 dark:text-{{ c.meta.get('color', 'slate') }}-300">
+          <i data-lucide="{{ c.meta.get('icon', 'plug') }}" class="h-5 w-5"></i></span>
+        <div><a href="/admin/integrations/{{ c.provider }}" class="font-semibold text-slate-900 hover:text-brand-700 dark:text-white">{{ c.name }}</a>
+          <div class="font-mono text-[11px] text-slate-400">{{ c.provider }}</div></div>
+      </div>
+      <div class="text-right">{{ ui.badge(c.integ.status) }}<div class="mt-1">{{ ui.badge(c.integ.health) }}</div></div>
+    </div>
+    <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-lg bg-slate-50 py-1.5 dark:bg-slate-800"><div class="text-sm font-bold">{{ c.integ.calls_today or 0 }}</div><div class="text-[10px] uppercase tracking-wide text-slate-500">Calls</div></div>
+      <div class="rounded-lg bg-slate-50 py-1.5 dark:bg-slate-800"><div class="text-sm font-bold {{ 'text-rose-600' if c.integ.failures_today }}">{{ c.integ.failures_today or 0 }}</div><div class="text-[10px] uppercase tracking-wide text-slate-500">Failures</div></div>
+      <div class="rounded-lg bg-slate-50 py-1.5 dark:bg-slate-800"><div class="text-sm font-bold">{{ (c.integ.config or {})|length }}</div><div class="text-[10px] uppercase tracking-wide text-slate-500">Config</div></div>
+    </div>
+    {% if c.integ.last_error %}<p class="mt-2 truncate text-[11px] text-rose-600" title="{{ c.integ.last_error }}"><i data-lucide="alert-circle" class="mr-0.5 inline h-3 w-3"></i>{{ c.integ.last_error|truncate(60) }}</p>{% endif %}
+    <div class="mt-3 flex items-center justify-between">
+      <span class="text-[11px] text-slate-400">{{ ('checked ' ~ c.integ.last_health_check_at|ago) if c.integ.last_health_check_at else 'never health-checked' }}</span>
+      {{ ui.button('Configure', href='/admin/integrations/' ~ c.provider, variant='ghost', size='sm', icon='settings') }}
+    </div>
+  </div>
+  {% else %}
+  <div class="sm:col-span-2 xl:col-span-3">{{ ui.empty_state('No integration providers are registered.', 'plug') }}</div>
+  {% endfor %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Failed deliveries", "Outbound events that did not reach their destination") %}
+    {{ ui.table_start(['When','Event','Webhook','Attempts','Code','Status',''], compact=True) }}
+    {% for d in failed %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="whitespace-nowrap px-4 py-1.5 text-xs text-slate-500">{{ d.created_at|ago }}</td>
+      <td class="px-4 py-1.5 font-mono text-[11px]">{{ d.event }}</td>
+      <td class="px-4 py-1.5 text-xs">{{ d.webhook.name if d.webhook else '—' }}</td>
+      <td class="px-4 py-1.5 text-center text-xs">{{ d.attempts }}</td>
+      <td class="px-4 py-1.5 text-xs">{{ d.response_code or '—' }}</td>
+      <td class="px-4 py-1.5">{{ ui.badge(d.status) }}</td>
+      <td class="px-4 py-1.5 text-right">
+        {% if has_perm(user, 'integrations.execute') %}
+        <form method="post" action="/admin/integrations/deliveries/{{ d.id }}/retry" class="inline">{{ ui.button('Retry', icon='refresh-cw', variant='ghost', size='sm') }}</form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No failed deliveries — everything left the building.', 7, 'check-circle') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card("Inbound events", "Payloads received from providers on the public webhook endpoints") %}
+    {{ ui.table_start(['When','Event','Status','Code','Payload'], compact=True) }}
+    {% for d in inbound %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="whitespace-nowrap px-4 py-1.5 text-xs text-slate-500">{{ d.created_at|ago }}</td>
+      <td class="px-4 py-1.5 font-mono text-[11px]">{{ d.event }}</td>
+      <td class="px-4 py-1.5">{{ ui.badge(d.status) }}</td>
+      <td class="px-4 py-1.5 text-xs">{{ d.response_code or '—' }}</td>
+      <td class="px-4 py-1.5 font-mono text-[10px] text-slate-400">{{ (d.payload|tojson_safe)|truncate(48) }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No inbound webhook traffic recorded.', 5, 'inbox') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+<p class="mt-4 text-xs text-slate-500"><i data-lucide="shield" class="mr-1 inline h-3.5 w-3.5"></i>
+Secrets (API keys, tokens, client secrets) live in <code class="font-mono">.env</code> and are never written to the
+database or shown in this console. Only non-secret configuration — IDs, channels, limits — is editable here.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+OQC.bar('c_integ', {{ chart_labels|tojson }}, [
+  {label: 'Calls today', data: {{ chart_calls|tojson }}},
+  {label: 'Failures today', data: {{ chart_failures|tojson }}, backgroundColor: '#ef4444'}
+]);
+</script>
+{% endblock %}

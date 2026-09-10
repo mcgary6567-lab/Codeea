@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Model registry{% endblock %}
+{% block content %}
+{% call ui.page_header("Model registry", "Every AI capability the platform ships with, its prompt version, and what it has actually been used for") %}
+  {{ ui.button("Policy", href="/ai-governance/policy", icon="scale", variant="secondary") }}
+  {{ ui.button("Integrations", href="/admin/integrations", icon="plug", variant="secondary") }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Registered capabilities', rows|length, icon='cpu', color='violet') }}
+  {{ ui.stat('Total runs', total_runs, icon='brain-circuit', color='indigo') }}
+  {{ ui.stat('Providers in use', providers|length, icon='plug', color='sky', hint=providers|join(', ')) }}
+  {{ ui.stat('Gateway status', integration.status|titleize if integration else 'Not configured', icon='shield', color='emerald' if integration and integration.status in ('connected','simulated') else 'slate', hint=integration.health|titleize if integration else 'no integration record') }}
+</div>
+
+{% if integration %}
+<div class="mb-5">
+  {% call ui.card('AI gateway integration', integration.name) %}
+  {{ ui.dl([('Provider', integration.provider), ('Status', integration.status|titleize), ('Health', integration.health|titleize),
+            ('Last health check', integration.last_health_check_at|datetime if integration.last_health_check_at else 'never'),
+            ('Calls today', integration.calls_today), ('Failures today', integration.failures_today),
+            ('Last error', integration.last_error or 'none')]) }}
+  {% if integration.status == 'simulated' %}
+  <p class="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+    Running on the deterministic simulated provider: outputs are reproducible heuristics, cost is zero, and no data leaves
+    this server. Configure a provider key to switch to a live model — the registry, thresholds and review workflow do not change.
+  </p>
+  {% endif %}
+  {% endcall %}
+</div>
+{% else %}
+<div class="mb-5">{{ ui.alert('No “ai” integration record exists yet. The gateway falls back to the simulated provider.', 'info') }}</div>
+{% endif %}
+
+{{ ui.table_start(['Capability','Module key','Prompt version','Model version','Provider','Models used','Threshold','Runs','Avg confidence','Last run']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-100">{{ r.label }}</td>
+  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.module }}</td>
+  <td class="px-4 py-2"><span class="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">v{{ r.prompt_version }}</span></td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.model_version }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.provider) }}</td>
+  <td class="px-4 py-2 font-mono text-[10px] text-slate-500">{{ r.models|join(', ') if r.models else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ '%.2f'|format(r.threshold) if r.threshold is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.runs }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.avg_confidence if r.avg_confidence is not none else '—' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ r.last.created_at|datetime if r.last else 'never' }}</td>
+</tr>
+{% else %}{{ ui.empty('No AI capabilities registered.', 10, 'cpu') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <b class="text-slate-700 dark:text-slate-200">Why prompt versions are pinned.</b>
+  Every run stores the prompt version that produced it, so a score from three months ago can be explained by the prompt that
+  existed then rather than the one running today. When a prompt changes, the version changes with it — that is what makes
+  the false-positive rate above meaningful over time.
+</div>
+{% endblock %}

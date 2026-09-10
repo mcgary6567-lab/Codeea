@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Statement · {{ c.client_code }}{% endblock %}
+{% block content %}
+{% call ui.page_header("Statement — " ~ c.full_name, c.client_code ~ ' · ' ~ c.country ~ ' · ' ~ c.currency, back='/finance/ledger') %}
+  {% if has_perm(user, 'ledger.export') %}{{ ui.button("Export CSV", href="/finance/ledger/" ~ c.id ~ "/export.csv", icon="download", variant="secondary") }}{% endif %}
+  {% if has_perm(user, 'ledger.update') %}
+  <button type="button" @click="$dispatch('open-modal','adjust')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Credit / adjustment</button>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Balance due", balance|money(c.currency), icon="scale", color=('rose' if balance > 0 else 'emerald')) }}
+  {{ ui.stat("Credit available", credit|money(c.currency), icon="gift", color="violet") }}
+  {{ ui.stat("Entries", all_count, icon="list", color="slate") }}
+  {{ ui.stat("Subscriptions", subscriptions|length, icon="repeat", color="brand", href="/finance/subscriptions?q=" ~ c.client_code) }}
+</div>
+
+{% call ui.filter_bar('/finance/ledger/' ~ c.id) %}
+  <div class="w-44">{{ ui.select('entry_type', 'Entry type', types, entry_type, placeholder='All types') }}</div>
+  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+
+<div class="grid gap-5 lg:grid-cols-4">
+  <div class="lg:col-span-3">
+    {{ ui.table_start(['Date', 'Type', 'Description', 'Debit', 'Credit', 'Running balance']) }}
+    {% for e in entries %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.entry_date|date }}</td>
+      <td class="px-4 py-2">{{ ui.badge('overdue' if e.entry_type == 'refund' else ('paid' if e.entry_type == 'payment' else ('approved' if e.entry_type == 'credit' else 'draft')), e.entry_type|titleize) }}</td>
+      <td class="px-4 py-2 text-sm">{{ e.description }}
+        {% if e.reference_type == 'invoice' %}<a href="/finance/invoices/{{ e.reference_id }}" class="ml-1 text-xs text-brand-600 hover:underline">view</a>
+        {% elif e.reference_type == 'payment' %}<a href="/finance/payments/{{ e.reference_id }}" class="ml-1 text-xs text-brand-600 hover:underline">view</a>{% endif %}</td>
+      <td class="px-4 py-2 text-right text-rose-600">{{ e.debit|money if e.debit|float else '' }}</td>
+      <td class="px-4 py-2 text-right text-emerald-600">{{ e.credit|money if e.credit|float else '' }}</td>
+      <td class="px-4 py-2 text-right font-semibold">{{ e.balance_after|money(e.currency) }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No ledger entries for this filter.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card("Recent invoices") %}
+    <ul class="space-y-2 text-xs">
+      {% for i in invoices %}
+      <li class="flex items-center justify-between gap-2">
+        <a href="/finance/invoices/{{ i.id }}" class="font-mono text-brand-700 dark:text-brand-300">{{ i.invoice_number }}</a>
+        <span class="text-slate-500">{{ i.total|money(i.currency) }}</span>{{ ui.badge(i.status) }}
+      </li>
+      {% else %}<li class="text-slate-400">No invoices.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% call ui.card("Subscriptions") %}
+    <ul class="space-y-2 text-xs">
+      {% for s in subscriptions %}
+      <li class="flex items-center justify-between gap-2">
+        <a href="/finance/subscriptions/{{ s.id }}" class="font-mono text-brand-700 dark:text-brand-300">{{ s.subscription_code }}</a>
+        <span class="text-slate-500">{{ s.price|money(s.currency) }}</span>{{ ui.badge(s.status) }}
+      </li>
+      {% else %}<li class="text-slate-400">No subscriptions.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+
+{% call ui.modal('adjust', 'Post a credit or adjustment') %}
+<form method="post" action="/finance/ledger/{{ c.id }}/adjustment" class="space-y-4">
+  {{ ui.alert('Manual ledger movements are consequential: a rationale is stored on the audit trail.', 'warning') }}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('kind', 'Type', [('credit', 'Credit (reduces what the family owes)'), ('debit', 'Debit (increases what the family owes)')], 'credit', required=True, placeholder=None) }}
+    {{ ui.select('currency', 'Currency', currencies, c.currency, required=True, placeholder=None) }}
+    {{ ui.input('amount', 'Amount', '', type='number', step='0.01', required=True) }}
+    {{ ui.input('description', 'Description', '', required=True, placeholder='Referral reward, goodwill, service recovery…') }}
+  </div>
+  {{ ui.textarea('rationale', 'Rationale', '', rows=3, required=True) }}
+  {{ ui.button('Post to ledger', icon='book-open') }}
+</form>
+{% endcall %}
+{% endblock %}

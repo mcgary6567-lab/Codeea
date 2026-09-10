@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ 'Edit schedule' if mode == 'edit' else 'New schedule' }}{% endblock %}
+{% block content %}
+{{ ui.page_header('Edit schedule' if mode == 'edit' else 'New schedule',
+                  'Conflicts are checked for both the teacher and the student before the slot is saved',
+                  back='/schedules/' ~ schedule.id if schedule else '/schedules') }}
+
+<form method="post" action="{{ '/schedules/' ~ schedule.id ~ '/edit' if mode == 'edit' else '/schedules/new' }}" class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card("Parties") %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.select('student_id', 'Student', student_options, prefill.student_id, required=True, placeholder='— Select a student —',
+                     attrs='disabled' if mode == 'edit' else '') }}
+        {% if mode == 'edit' %}<input type="hidden" name="student_id" value="{{ prefill.student_id }}">{% endif %}
+        {{ ui.select('teacher_id', 'Teacher (verified only)', verified_teacher_options, prefill.teacher_id, required=True,
+                     placeholder='— Select a teacher —', help='Teachers without a completed background check cannot take live classes.') }}
+        {{ ui.select('course_id', 'Course', course_options, schedule.course_id if schedule else None, placeholder='Use the student course') }}
+        {{ ui.select('subscription_id', 'Subscription', subscription_options, schedule.subscription_id if schedule else None, placeholder='Not linked') }}
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Recurrence", "30-minute slot boundaries on the 24-hour grid") %}
+      <div class="mb-4">
+        <div class="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">Days of the week <span class="text-rose-500">*</span></div>
+        <div class="flex flex-wrap gap-2">
+          {% for i, name in days %}
+          <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+            <input type="checkbox" name="day_{{ i }}" value="1" {% if i in prefill.days %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+            {{ name[:3] }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {{ ui.select('start_time', 'Start slot', slot_options, prefill.start_time or '17:00', required=True, placeholder=None) }}
+        {{ ui.select('duration', 'Duration', duration_options, schedule.duration_minutes if schedule else 30, placeholder=None) }}
+        {{ ui.select('shift_id', 'Shift', shift_options, schedule.shift_id if schedule else None, placeholder='Auto-detect from time') }}
+        {{ ui.input('start_date', 'Start date', (schedule.start_date if schedule else today()), type='date', required=True) }}
+        {{ ui.input('end_date', 'End date', schedule.end_date if schedule else '', type='date', help='Leave empty for an open-ended schedule') }}
+        <div class="flex items-end pb-2">{{ ui.checkbox('is_trial', 'Trial slot', schedule.is_trial if schedule else False) }}</div>
+      </div>
+    {% endcall %}
+
+    {% call ui.card("Notes") %}
+      {{ ui.textarea('notes', 'Internal notes', schedule.notes if schedule else '', rows=3, placeholder='Level, parent preferences, timezone notes…') }}
+      {% if mode == 'edit' %}
+      <div class="mt-4">{{ ui.textarea('reason', 'Reason for the change', '', rows=2, required=True,
+                        help='Recorded in the audit trail. Future pending classes are regenerated from the new definition.') }}</div>
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card("Before you save") %}
+      <ul class="space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
+        <li class="flex gap-2"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"></i>Only background-verified teachers appear in the list.</li>
+        <li class="flex gap-2"><i data-lucide="alert-triangle" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i>The slot is rejected if the teacher <b>or</b> the student already has an overlapping class.</li>
+        <li class="flex gap-2"><i data-lucide="calendar-plus" class="mt-0.5 h-4 w-4 shrink-0 text-brand-600"></i>Saving generates the next 14 days of class sessions automatically.</li>
+        <li class="flex gap-2"><i data-lucide="bell" class="mt-0.5 h-4 w-4 shrink-0 text-sky-600"></i>Reminders go to the teacher, the student and the parent before each class.</li>
+      </ul>
+      <div class="mt-5 flex gap-2">
+        {{ ui.button('Save schedule', icon='save') }}
+        {{ ui.button('Cancel', href='/schedules', variant='secondary') }}
+      </div>
+    {% endcall %}
+    {% if schedule %}
+    {% call ui.card("Current definition") %}
+      {{ ui.dl([('Room', schedule.room_name), ('Status', schedule.status|titleize), ('Timezone', schedule.timezone),
+                ('Created', schedule.created_at|datetime)]) }}
+    {% endcall %}
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}My students{% endblock %}
+{% block content %}
+{{ ui.page_header('My students', 'Curriculum progress, attendance and churn risk for every learner assigned to you.') }}
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Total', rows|length, icon='graduation-cap', color='brand') }}
+  {{ ui.stat('Active', rows|selectattr('s.status', 'equalto', 'active')|list|length, icon='user-check', color='emerald') }}
+  {{ ui.stat('Trial', rows|selectattr('s.status', 'equalto', 'trial')|list|length, icon='flask-conical', color='sky') }}
+  {{ ui.stat('High risk', rows|selectattr('s.risk_level', 'equalto', 'high')|list|length, icon='heart-pulse', color='rose') }}
+</div>
+{% call ui.filter_bar('/teacher/students') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name or code') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+{{ ui.table_start(['Code', 'Student', 'Course / level', 'Progress', 'Attendance 30d', 'Last attendance', 'Risk', 'Status']) }}
+{% for r in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs text-brand-700 dark:text-brand-300">{{ r.s.student_code }}</td>
+  <td class="px-4 py-2"><div class="flex items-center gap-2">{{ ui.avatar(r.s.full_name, 'sm') }}
+    <div><div class="font-medium text-slate-900 dark:text-white">{{ r.s.full_name }}</div>
+      <div class="text-xs text-slate-500">{{ r.s.gender|titleize }}{% if r.s.age %} · {{ r.s.age }}y{% endif %} · {{ r.s.timezone }}</div></div></div></td>
+  <td class="px-4 py-2 text-xs">{{ r.s.course.name if r.s.course else '—' }}<div class="text-slate-500">{{ r.s.level or '—' }}</div></td>
+  <td class="px-4 py-2 w-40">{{ ui.progress(r.progress, 'brand') }}<div class="mt-0.5 text-[11px] text-slate-500">{{ r.progress }}%</div></td>
+  <td class="px-4 py-2 w-40">{{ ui.progress(r.attendance, 'emerald' if r.attendance >= 80 else ('amber' if r.attendance >= 60 else 'rose')) }}<div class="mt-0.5 text-[11px] text-slate-500">{{ r.attendance }}%</div></td>
+  <td class="px-4 py-2 text-xs">{% if r.last_attendance %}{{ r.last_attendance.date|date }} {{ ui.badge(r.last_attendance.student_status) }}{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.s.risk_level) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.s.status) }}</td>
+</tr>
+{% else %}{{ ui.empty('No students are assigned to you yet.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

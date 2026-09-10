@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Message templates{% endblock %}
+{% block content %}
+{% call ui.page_header('WhatsApp message templates', 'Placeholders name, student, link and teacher are substituted at send time', back='/crm/inbox') %}
+  {% if has_perm(user, 'inbox.update') %}<button @click="$dispatch('open-modal','newtpl')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New template</button>{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {% for t in templates %}
+  {% call ui.card(t.name, t.category|titleize ~ ' · ' ~ t.language|upper) %}
+    <p class="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">{{ t.body }}</p>
+    <div class="mt-2 flex items-center gap-2">{{ ui.badge('approved' if t.is_approved else 'pending', 'Approved' if t.is_approved else 'Pending approval') }}</div>
+    {% if has_perm(user, 'inbox.update') %}
+    <details class="mt-3">
+      <summary class="cursor-pointer text-xs font-medium text-brand-600">Edit</summary>
+      <form method="post" action="/crm/inbox/templates/{{ t.id }}/edit" class="mt-2 space-y-2">
+        {{ ui.textarea('body', 'Body', t.body, rows=4) }}
+        {{ ui.select('category', 'Category', categories, t.category, placeholder=None) }}
+        {{ ui.input('language', 'Language', t.language) }}
+        {{ ui.checkbox('is_approved', 'Approved for sending', checked=t.is_approved) }}
+        <div class="flex gap-2">{{ ui.button('Save', icon='check', size='sm') }}
+          {{ ui.confirm_form('/crm/inbox/templates/' ~ t.id ~ '/delete', 'Delete', message='Delete this template permanently?') }}</div>
+      </form>
+    </details>
+    {% endif %}
+  {% endcall %}
+  {% else %}
+  <div class="md:col-span-2 xl:col-span-3">{{ ui.empty_state('No templates yet. Create one to speed up replies.', 'file-text') }}</div>
+  {% endfor %}
+</div>
+
+{% call ui.modal('newtpl', 'New message template') %}
+<form method="post" action="/crm/inbox/templates/new" class="space-y-4">
+  {{ ui.input('name', 'Template name', '', required=True, placeholder='trial_reminder') }}
+  {{ ui.select('category', 'Category', categories, 'follow_up', placeholder=None) }}
+  {{ ui.input('language', 'Language', 'en') }}
+  {{ ui.textarea('body', 'Body', '', rows=5, required=True, placeholder='Assalamu Alaikum ...') }}
+  {{ ui.checkbox('is_approved', 'Approved for sending', checked=True) }}
+  {{ ui.button('Create template', icon='check') }}
+</form>
+{% endcall %}
+{% endblock %}

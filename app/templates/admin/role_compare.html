@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Compare roles{% endblock %}
+{% block content %}
+{% call ui.page_header("Compare roles", "Side-by-side permission diff — useful before merging two roles or promoting someone", back="/admin/roles") %}
+  {{ ui.button("Permission test", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
+  {{ ui.button("All roles", href="/admin/roles", icon="shield", variant="secondary") }}
+{% endcall %}
+
+{% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r.id, r.name ~ ' (' ~ r.portal ~ ')')) %}{% endfor %}
+{% call ui.filter_bar('/admin/roles/compare') %}
+  {{ ui.select('a', 'Role A', role_options, ra.id if ra else none, placeholder='— select role A —') }}
+  {{ ui.select('b', 'Role B', role_options, rb.id if rb else none, placeholder='— select role B —') }}
+{% endcall %}
+
+{% if ra and rb %}
+{% set only_a = rows|selectattr('a')|rejectattr('b')|list %}
+{% set only_b = rows|selectattr('b')|rejectattr('a')|list %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat(ra.name, rows|selectattr('a')|list|length, icon="shield", color="brand", hint="permissions granted", href="/admin/roles/" ~ ra.id) }}
+  {{ ui.stat(rb.name, rows|selectattr('b')|list|length, icon="shield", color="indigo", hint="permissions granted", href="/admin/roles/" ~ rb.id) }}
+  {{ ui.stat("Differences", diff, icon="git-compare", color=("amber" if diff else "emerald"), hint="permissions held by only one role") }}
+  {{ ui.stat("In common", rows|selectattr('same')|list|length, icon="equal", color="sky") }}
+</div>
+
+<div class="mb-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Only " ~ ra.name ~ " has these", only_a|length ~ " permission(s)") %}
+    <div class="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
+      {% for r in only_a %}<code class="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[11px] text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ r.perm }}</code>
+      {% else %}<span class="text-sm text-slate-400">Nothing exclusive to this role.</span>{% endfor %}
+    </div>
+  {% endcall %}
+  {% call ui.card("Only " ~ rb.name ~ " has these", only_b|length ~ " permission(s)") %}
+    <div class="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
+      {% for r in only_b %}<code class="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[11px] text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">{{ r.perm }}</code>
+      {% else %}<span class="text-sm text-slate-400">Nothing exclusive to this role.</span>{% endfor %}
+    </div>
+  {% endcall %}
+</div>
+
+{{ ui.table_start(['Permission','Module','Action', ra.name, rb.name, 'Difference']) }}
+{% for r in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 {{ 'bg-amber-50/40 dark:bg-amber-950/10' if not r.same }}">
+  <td class="px-4 py-1.5 font-mono text-xs font-medium">{{ r.perm }}</td>
+  <td class="px-4 py-1.5 text-xs text-slate-500">{{ MODULES.get(r.module, r.module) }}</td>
+  <td class="px-4 py-1.5 text-xs">{{ r.action }}</td>
+  <td class="px-4 py-1.5 text-center">{% if r.a %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<i data-lucide="minus" class="h-4 w-4 text-slate-300"></i>{% endif %}</td>
+  <td class="px-4 py-1.5 text-center">{% if r.b %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<i data-lucide="minus" class="h-4 w-4 text-slate-300"></i>{% endif %}</td>
+  <td class="px-4 py-1.5">{% if r.same %}<span class="text-[11px] text-slate-400">identical</span>
+    {% elif r.a %}{{ ui.badge('new', ra.name ~ ' only') }}{% else %}{{ ui.badge('pending', rb.name ~ ' only') }}{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('Neither role grants any permission.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card("Stored patterns — " ~ ra.name) %}
+    <code class="block break-words rounded bg-slate-50 p-3 font-mono text-[11px] dark:bg-slate-800">{{ (ra.permissions or [])|join(', ') or 'none' }}</code>
+    <p class="mt-2 text-xs text-slate-500">{{ ra.description or 'No description.' }}</p>
+  {% endcall %}
+  {% call ui.card("Stored patterns — " ~ rb.name) %}
+    <code class="block break-words rounded bg-slate-50 p-3 font-mono text-[11px] dark:bg-slate-800">{{ (rb.permissions or [])|join(', ') or 'none' }}</code>
+    <p class="mt-2 text-xs text-slate-500">{{ rb.description or 'No description.' }}</p>
+  {% endcall %}
+</div>
+{% else %}
+{{ ui.empty_state('Pick two roles above to see exactly where their permissions diverge.', 'git-compare') }}
+<div class="mt-6">
+{{ ui.table_start(['Role','Portal','Type','Description','']) }}
+{% for r in roles %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-medium"><a href="/admin/roles/{{ r.id }}" class="hover:text-brand-700">{{ r.name }}</a>
+    <span class="block font-mono text-[11px] text-slate-400">{{ r.slug }}</span></td>
+  <td class="px-4 py-2">{{ ui.badge(r.portal) }}</td>
+  <td class="px-4 py-2 text-xs">{{ 'System' if r.is_system else 'Custom' }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ (r.description or '—')|truncate(70) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Compare as A', href='/admin/roles/compare?a=' ~ r.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No roles defined.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{% endif %}
+{% endblock %}

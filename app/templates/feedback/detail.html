@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Feedback #{{ fb.id }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Feedback #' ~ fb.id, (survey.name if survey else fb.trigger|titleize) ~ ' · ' ~ fb.respondent_type|titleize, back='/feedback') %}
+  {{ ui.badge(fb.status) }}{{ ui.badge(fb.sentiment) }}
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Response') %}
+      <div class="flex items-center gap-6">
+        <div class="text-center"><div class="text-4xl font-bold {{ 'text-emerald-600' if fb.nps and fb.nps >= 9 else ('text-rose-600' if fb.nps is not none and fb.nps <= 6 else 'text-slate-700') }}">{{ fb.nps if fb.nps is not none else '—' }}</div><div class="text-xs uppercase text-slate-500">NPS</div></div>
+        <div class="text-center"><div class="text-4xl font-bold text-amber-500">{{ '★' * fb.rating if fb.rating else '—' }}</div><div class="text-xs uppercase text-slate-500">Rating</div></div>
+      </div>
+      <p class="mt-4 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60">{{ fb.comment or 'No comment provided.' }}</p>
+      {% if fb.answers %}
+      <dl class="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+        {% for k, v in fb.answers.items() %}<div><dt class="text-xs font-semibold uppercase text-slate-500">{{ k|titleize }}</dt><dd>{{ v }}</dd></div>{% endfor %}
+      </dl>
+      {% endif %}
+    {% endcall %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('Context') %}
+      {{ ui.dl([('Family', fb.client.full_name if fb.client else '—'), ('Student', fb.student.full_name if fb.student else '—'),
+                ('Teacher', fb.teacher.full_name if fb.teacher else '—'), ('Trigger', fb.trigger|titleize),
+                ('Sent', fb.sent_at|datetime if fb.sent_at else '—'), ('Submitted', fb.submitted_at|datetime if fb.submitted_at else '—'),
+                ('Negative', 'Yes' if fb.is_negative else 'No'), ('Confidential', 'Yes' if fb.is_confidential else 'No')]) }}
+    {% endcall %}
+    {% if case %}
+    {% call ui.card('Routed case') %}
+      <p class="text-sm">{{ case.title }}</p>
+      <div class="mt-2 flex items-center gap-2">{{ ui.badge(case.status) }}{{ ui.badge(case.priority) }}</div>
+      <div class="mt-3">{{ ui.button('Open case ' ~ case.case_number, href='/cases/' ~ case.id, icon='life-buoy', variant='secondary', size='sm') }}</div>
+    {% endcall %}
+    {% endif %}
+    {% if has_perm(user, 'feedback.update') and fb.status != 'resolved' %}
+    {% call ui.card('Close the loop') %}
+    <form method="post" action="/feedback/{{ fb.id }}/resolve" class="space-y-3">
+      {{ ui.input('rationale', 'What was done', '', placeholder='Called the family, teacher changed') }}
+      {{ ui.button('Mark resolved', icon='check', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

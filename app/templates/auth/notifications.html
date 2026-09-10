@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% call ui.page_header("Notifications", "In-app alerts, reminders and approvals addressed to you") %}
+<form method="post" action="/notifications/read">{{ ui.button('Mark all read', icon='check-check', variant='secondary') }}</form>
+{% endcall %}
+<div class="space-y-2 max-w-3xl">
+{% for n in page.items %}
+<div class="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900 {{ 'border-brand-200 dark:border-brand-900' if not n.is_read else 'border-slate-200 dark:border-slate-800' }}">
+  <span class="mt-1 h-2 w-2 rounded-full {{ 'bg-brand-500' if not n.is_read else 'bg-slate-300' }}"></span>
+  <div class="min-w-0 flex-1">
+    <div class="flex items-center gap-2"><span class="font-medium {{ 'text-slate-900 dark:text-white' if not n.is_read else 'text-slate-600' }}">{{ n.title }}</span>{{ ui.badge(n.event_type) }}</div>
+    {% if n.body %}<p class="mt-0.5 text-sm text-slate-500 whitespace-pre-line">{{ n.body }}</p>{% endif %}
+    <div class="mt-1 flex items-center gap-3 text-xs text-slate-400"><span>{{ n.created_at|ago }}</span>
+      {% if n.link %}<form method="post" action="/notifications/read" class="inline"><input type="hidden" name="id" value="{{ n.id }}"><input type="hidden" name="next" value="{{ n.link }}"><button class="text-brand-600 hover:underline">Open →</button></form>{% endif %}
+      {% if not n.is_read %}<form method="post" action="/notifications/read" class="inline"><input type="hidden" name="id" value="{{ n.id }}"><button class="hover:underline">Mark read</button></form>{% endif %}
+    </div>
+  </div>
+</div>
+{% else %}{{ ui.empty_state('No notifications yet.', 'bell-off') }}{% endfor %}
+</div>
+{{ ui.pagination(page, '/notifications') }}
+{% endblock %}

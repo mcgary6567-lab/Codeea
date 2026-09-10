@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Failed payments{% endblock %}
+{% block content %}
+{% call ui.page_header("Failed payments", "Every failure raises a risk alert and notifies the family's billing representative.", back='/finance/payments') %}{% endcall %}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Payment', 'Attempted', 'Family', 'Invoice', 'Amount', 'Method', 'Notes', '']) }}
+    {% for p in rows %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a></td>
+      <td class="px-4 py-2 text-xs">{{ p.received_at|datetime }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.client.full_name if p.client else '' }}<div class="font-mono text-slate-500">{{ p.client.client_code if p.client else '' }}</div></td>
+      <td class="px-4 py-2 font-mono text-xs">{{ p.invoice.invoice_number if p.invoice else '—' }}</td>
+      <td class="px-4 py-2 text-right">{{ p.amount|money(p.currency) }}</td>
+      <td class="px-4 py-2 text-xs">{{ p.method|titleize }}{% if p.gateway %} · {{ p.gateway }}{% endif %}</td>
+      <td class="px-4 py-2 text-xs text-slate-500 max-w-[18rem]"><div class="line-clamp-2 whitespace-pre-line">{{ p.notes or '—' }}</div></td>
+      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/payments/' ~ p.id, variant='ghost', size='sm') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No failed payments — alhamdulillah.', 8, icon='check-circle-2') }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {% call ui.card("Risk alerts raised") %}
+    <ul class="space-y-3 text-xs">
+      {% for a in alerts %}
+      <li class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div class="flex items-center justify-between"><b class="text-slate-800 dark:text-slate-100">{{ a.title }}</b>{{ ui.badge(a.status) }}</div>
+        <p class="mt-1 text-slate-500">{{ a.message }}</p>
+        <p class="mt-1 text-slate-400">{{ a.created_at|datetime }}</p>
+      </li>
+      {% else %}<li class="text-slate-400">No alerts.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

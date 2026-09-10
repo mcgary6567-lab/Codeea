@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}WhatsApp Inbox{% endblock %}
+{% block content %}
+{% call ui.page_header('WhatsApp Shared Inbox', 'Section 7 — one team inbox for every family and lead conversation') %}
+  <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ring-inset {{ integration.health|badge }}">
+    <i data-lucide="plug" class="h-3 w-3"></i>WhatsApp API: {{ integration.status|titleize }} ({{ integration.health }})</span>
+  {{ ui.button('Failed (' ~ failed_count ~ ')', href='/crm/inbox/failed', icon='triangle-alert', variant='secondary' if not failed_count else 'danger', size='sm') }}
+  {{ ui.button('Templates', href='/crm/inbox/templates', icon='file-text', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="grid gap-4 lg:grid-cols-12" style="min-height: 70vh">
+  <!-- pane 1: conversation list -->
+  <div class="lg:col-span-3 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col">
+    <form method="get" action="/crm/inbox" class="border-b border-slate-100 p-3 space-y-2 dark:border-slate-800">
+      <input name="q" value="{{ q }}" placeholder="Search conversations…" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+      <div class="flex gap-2">
+        <select name="status" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+          <option value="">All ({{ counts.open + counts.pending + counts.closed }})</option>
+          {% for s in statuses %}<option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s|titleize }} ({{ counts[s] }})</option>{% endfor %}
+        </select>
+        <select name="owner" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+          <option value="">Anyone</option>
+          <option value="mine" {% if owner == 'mine' %}selected{% endif %}>Mine</option>
+          <option value="unassigned" {% if owner == 'unassigned' %}selected{% endif %}>Unassigned</option>
+        </select>
+      </div>
+      {% if all_tags %}
+      <select name="tag" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+        <option value="">All tags</option>
+        {% for t in all_tags %}<option value="{{ t }}" {% if t == tag %}selected{% endif %}>#{{ t }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <button class="w-full rounded-lg bg-slate-800 py-1.5 text-xs font-medium text-white hover:bg-slate-700">Filter</button>
+    </form>
+    <div class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800" style="max-height: 62vh">
+      {% for cv in conversations %}
+      <a href="/crm/inbox?c={{ cv.id }}&status={{ status }}&owner={{ owner }}&tag={{ tag }}&q={{ q }}"
+         class="block px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 {{ 'bg-brand-50 dark:bg-brand-900/20' if current and cv.id == current.id }}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="truncate text-sm font-medium text-slate-900 dark:text-white">{{ cv.contact_name }}</span>
+          <span class="shrink-0 text-[10px] text-slate-400">{{ cv.last_message_at|ago if cv.last_message_at else '' }}</span>
+        </div>
+        <div class="truncate text-xs text-slate-500">{{ cv.last_message_preview or 'No messages yet' }}</div>
+        <div class="mt-1 flex items-center gap-1">
+          {{ ui.badge(cv.status) }}
+          {% for t in (cv.tags or [])[:2] %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">#{{ t }}</span>{% endfor %}
+          {% if cv.unread_count %}<span class="ml-auto rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">{{ cv.unread_count }}</span>{% endif %}
+        </div>
+      </a>
+      {% else %}
+      <div class="p-6 text-center text-xs text-slate-400">No conversations match.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- pane 2: thread -->
+  <div class="lg:col-span-6 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col">
+  {% if current %}
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+      <div class="flex items-center gap-3">{{ ui.avatar(current.contact_name) }}
+        <div><div class="font-semibold text-slate-900 dark:text-white">{{ current.contact_name }}</div>
+          <div class="text-xs text-slate-500">{{ current.contact_phone or 'no number' }} · {{ current.channel|titleize }}</div></div>
+      </div>
+      <div class="flex items-center gap-2">{{ ui.badge(current.status) }}
+        {% if not opted_in %}<span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Opted out</span>{% endif %}
+      </div>
+    </div>
+    <div class="flex-1 space-y-3 overflow-y-auto p-4" style="max-height: 48vh">
+      {% for m in messages %}
+      {% if m.message_type == 'system' %}
+        <div class="text-center text-[11px] text-slate-400">{{ m.body }}</div>
+      {% else %}
+      <div class="flex {{ 'justify-end' if m.direction == 'out' else 'justify-start' }}">
+        <div class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm {{ 'bg-brand-600 text-white' if m.direction == 'out' else 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100' }}">
+          <div class="whitespace-pre-wrap">{{ m.body }}</div>
+          <div class="mt-1 flex items-center justify-end gap-1 text-[10px] {{ 'text-brand-100' if m.direction == 'out' else 'text-slate-400' }}">
+            {% if m.template_name %}<span class="opacity-80">{{ m.template_name }}</span>{% endif %}
+            <span>{{ m.created_at|date('%d %b %H:%M') }}</span>
+            {% if m.direction == 'out' %}
+              {% if m.status == 'failed' %}<i data-lucide="alert-circle" class="h-3 w-3 text-rose-200"></i>
+              {% elif m.status == 'read' %}<i data-lucide="check-check" class="h-3 w-3"></i>
+              {% elif m.status == 'delivered' %}<i data-lucide="check-check" class="h-3 w-3 opacity-70"></i>
+              {% else %}<i data-lucide="check" class="h-3 w-3 opacity-70"></i>{% endif %}
+            {% endif %}
+          </div>
+          {% if m.error %}<div class="mt-1 text-[10px] text-rose-200">{{ m.error }}</div>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="py-10 text-center text-sm text-slate-400">No messages in this conversation yet.</div>
+      {% endfor %}
+    </div>
+    {% if has_perm(user, 'inbox.update') %}
+    <div class="border-t border-slate-100 p-3 dark:border-slate-800">
+      <form method="post" action="/crm/inbox/{{ current.id }}/send" class="space-y-2">
+        <textarea name="body" rows="2" placeholder="Write a reply..."  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"></textarea>
+        <div class="flex items-center gap-2">
+          <select name="template_name" class="w-56 rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+            <option value="">No template</option>
+            {% for t in templates %}<option value="{{ t.name }}">{{ t.name }}</option>{% endfor %}
+          </select>
+          <button class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="send" class="h-4 w-4"></i>Send</button>
+          <span class="ml-auto text-[11px] text-slate-400">Sending a template with no body renders the template text</span>
+        </div>
+      </form>
+      <form method="post" action="/crm/inbox/{{ current.id }}/simulate" class="mt-2 flex items-center gap-2">
+        <input name="body" placeholder="Simulate an inbound reply (dev)" class="flex-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+        <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Simulate inbound</button>
+      </form>
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="flex flex-1 items-center justify-center text-sm text-slate-400">Select a conversation to open the thread.</div>
+  {% endif %}
+  </div>
+
+  <!-- pane 3: contact -->
+  <div class="lg:col-span-3 space-y-4">
+  {% if current %}
+    {% call ui.card('Contact') %}
+      {{ ui.dl([('Name', current.contact_name), ('Phone', current.contact_phone or '—'),
+                ('Type', contact_type|titleize if contact_type else 'Unknown'),
+                ('Opt-in', 'Yes' if opted_in else 'No'),
+                ('Assigned', current.assigned_to.full_name if current.assigned_to else 'Unassigned'),
+                ('Last message', current.last_message_at|datetime if current.last_message_at else '—')]) }}
+      <div class="mt-3 flex flex-wrap gap-2">
+        {% if current.lead_id %}{{ ui.button('Open lead', href='/crm/leads/' ~ current.lead_id, icon='funnel', variant='secondary', size='sm') }}{% endif %}
+        {% if current.client_id %}{{ ui.button('Open client', href='/clients/' ~ current.client_id, icon='users', variant='secondary', size='sm') }}{% endif %}
+      </div>
+    {% endcall %}
+
+    {% if has_perm(user, 'inbox.update') %}
+    {% call ui.card('Manage') %}
+    <form method="post" action="/crm/inbox/{{ current.id }}/assign" class="space-y-2">
+      {{ ui.select('assigned_to_id', 'Assign to', agent_options, current.assigned_to_id, placeholder='Unassigned') }}
+      {{ ui.button('Assign', icon='user-check', size='sm', variant='secondary') }}
+    </form>
+    <form method="post" action="/crm/inbox/{{ current.id }}/status" class="mt-3 space-y-2">
+      {{ ui.select('status', 'Status', statuses, current.status, placeholder=None) }}
+      {{ ui.button('Update status', icon='check', size='sm', variant='secondary') }}
+    </form>
+    <form method="post" action="/crm/inbox/{{ current.id }}/tags" class="mt-3 space-y-2">
+      {{ ui.input('tags', 'Tags (comma separated)', (current.tags or [])|join(', ')) }}
+      {{ ui.button('Save tags', icon='tag', size='sm', variant='secondary') }}
+    </form>
+    <form method="post" action="/crm/inbox/{{ current.id }}/opt-in" class="mt-3">
+      <input type="hidden" name="opted_in" value="{{ '0' if opted_in else '1' }}">
+      <button class="w-full rounded-lg border px-3 py-2 text-xs font-medium {{ 'border-rose-300 text-rose-600 hover:bg-rose-50' if opted_in else 'border-emerald-300 text-emerald-600 hover:bg-emerald-50' }}">
+        {{ 'Record opt-out' if opted_in else 'Record opt-in' }}</button>
+    </form>
+    {% endcall %}
+
+    {% call ui.card('Internal notes', 'Never sent to the contact') %}
+    <form method="post" action="/crm/inbox/{{ current.id }}/note" class="space-y-2">
+      {{ ui.textarea('text', None, '', rows=2, placeholder='Context for the team…') }}
+      {{ ui.button('Add note', icon='sticky-note', size='sm', variant='secondary') }}
+    </form>
+    <ul class="mt-3 space-y-2 text-xs">
+      {% for n in notes %}
+      <li class="rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        {{ n.text }}<div class="mt-0.5 text-[10px] opacity-70">{{ n.user.full_name if n.user else 'system' }} · {{ n.created_at|datetime }}</div></li>
+      {% else %}<li class="text-slate-400">No internal notes.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% endif %}
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Violations{% endblock %}
+{% block content %}
+{% call ui.page_header('Violations & discipline', 'Late arrivals, absence, missed classes, conduct and policy breaches. Deductions recorded here are applied by payroll for the month of the violation.') %}
+  {% if has_perm(user, 'violations.add') %}{{ ui.button('Record violation', icon='plus', type='button', attrs='@click="$dispatch(\'open-modal\',\'newViolation\')"') }}{% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Open', stats.open, icon='folder-open', color='amber', href='/hr/violations?status=open') }}
+  {{ ui.stat('Last 30 days', stats.month, icon='calendar', color='brand') }}
+  {{ ui.stat('Critical open', stats.critical, icon='siren', color='rose', href='/hr/violations?severity=critical') }}
+  {{ ui.stat('Deductions (30d)', stats.deductions|money('PKR'), icon='banknote', color='indigo') }}
+</div>
+{% call ui.filter_bar('/hr/violations') %}
+  <div class="w-52">{{ ui.input('q', 'Employee', q, placeholder='Name or code') }}</div>
+  <div class="w-40">{{ ui.select('violation_type', 'Type', types, violation_type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('severity', 'Severity', severities, severity, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Date', 'Employee', 'Type', 'Severity', 'Action taken', 'Deduction', 'Status', '']) }}
+    {% for v in page.items %}
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-2 text-xs">{{ v.date|date }}</td>
+      <td class="px-4 py-2 text-xs"><a href="/hr/employees/{{ v.employee_id }}?tab=violations" class="font-medium hover:text-brand-600">{{ v.employee.full_name if v.employee else '—' }}</a>
+        <div class="text-[11px] text-slate-500 max-w-xs truncate">{{ v.description or '' }}</div></td>
+      <td class="px-4 py-2 text-xs">{{ v.violation_type|titleize }}</td>
+      <td class="px-4 py-2">{{ ui.badge(v.severity) }}</td>
+      <td class="px-4 py-2 text-xs text-slate-500">{{ v.action_taken or '—' }}</td>
+      <td class="px-4 py-2 text-xs text-rose-600">{{ v.deduction_amount|float|money if v.deduction_amount else '—' }}</td>
+      <td class="px-4 py-2">{{ ui.badge(v.status) }}</td>
+      <td class="px-4 py-2 text-right">{% if v.status == 'open' and has_perm(user, 'violations.update') %}
+        {{ ui.confirm_form('/hr/violations/' ~ v.id ~ '/close', 'Close', icon='check', variant='secondary', message='Close this violation?') }}{% endif %}</td>
+    </tr>
+    {% else %}{{ ui.empty('No violations match these filters.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+  <div>
+    {% call ui.card('Repeat offenders', '3 or more violations in the last 90 days') %}
+    <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+      {% for r in repeat %}
+      <li class="py-2">
+        <div class="flex items-center justify-between gap-2">
+          <a href="/hr/employees/{{ r.employee.id }}?tab=violations" class="font-medium hover:text-brand-600">{{ r.employee.full_name if r.employee else '—' }}</a>
+          <span class="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ r.count }}</span>
+        </div>
+        <div class="text-xs text-slate-500">{{ r.types|join(', ') }}{% if r.deductions %} · {{ r.deductions|money('PKR') }} deducted{% endif %}</div>
+      </li>
+      {% else %}<li class="py-6 text-center text-xs text-slate-400">No repeat offenders — a healthy sign.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
+{% if has_perm(user, 'violations.add') %}
+{% call ui.modal('newViolation', 'Record a violation') %}
+<form method="post" action="/hr/violations/new" class="space-y-4">
+  {{ ui.select('employee_id', 'Employee', employees, None, required=True) }}
+  <div class="grid gap-4 sm:grid-cols-3">
+    {{ ui.select('violation_type', 'Type', types, 'late', placeholder=None) }}
+    {{ ui.select('severity', 'Severity', severities, 'minor', placeholder=None) }}
+    {{ ui.input('date', 'Date', today()|string, type='date') }}
+  </div>
+  {{ ui.textarea('description', 'What happened', '', rows=3, required=True) }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ ui.input('action_taken', 'Action taken', '', placeholder='Verbal warning, written warning …') }}
+    {{ ui.input('deduction_amount', 'Deduction applied in payroll (PKR)', 0, type='number', step='100') }}
+  </div>
+  {{ ui.button('Record violation', icon='triangle-alert', variant='warning') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

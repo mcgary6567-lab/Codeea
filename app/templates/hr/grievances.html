@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Grievances{% endblock %}
+{% block content %}
+{% call ui.page_header('Confidential grievances', 'This channel bypasses department heads. Only the Head of People & Culture and the CEO see every case; HR officers see only the non-anonymous cases assigned to them.') %}
+  {{ ui.button('Raise a grievance', href='/hr/grievances/new', icon='lock') }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Open', stats.open, icon='folder-open', color='sky', href='/hr/grievances?status=open') }}
+  {{ ui.stat('Investigating', stats.investigating, icon='search', color='amber', href='/hr/grievances?status=investigating') }}
+  {{ ui.stat('Resolved', stats.resolved, icon='check-check', color='emerald') }}
+  {{ ui.stat('SLA breached', stats.breached, icon='alarm-clock', color='rose', hint=sla_days ~ '-day SLA') }}
+  {{ ui.stat('Anonymous', stats.anonymous, icon='venetian-mask', color='violet') }}
+</div>
+{% call ui.filter_bar('/hr/grievances') %}
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+{% endcall %}
+{{ ui.table_start(['#', 'Subject', 'Category', 'From', 'Raised', 'SLA', 'Handler', 'Status', '']) }}
+{% for g in rows %}
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+  <td class="px-4 py-2 font-mono text-xs">{{ g.id }}</td>
+  <td class="px-4 py-2 text-xs"><a href="/hr/grievances/{{ g.id }}" class="font-medium hover:text-brand-600">{{ g.subject }}</a></td>
+  <td class="px-4 py-2 text-xs">{{ g.category|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{% if g.is_anonymous %}<span class="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">Anonymous</span>{% else %}{{ g.employee_id or g.submitted_by_id or '—' }}{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ g.created_at|date }}</td>
+  <td class="px-4 py-2 text-xs">{% if g.status in ('open','investigating') and g.sla_due_at %}
+      <span class="{{ 'font-semibold text-rose-600' if g.sla_due_at < now else 'text-slate-500' }}">{{ g.sla_due_at|date }}</span>
+    {% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ g.handler_id or 'Unassigned' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(g.status) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/hr/grievances/' ~ g.id, size='sm', variant='ghost', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No grievances visible to you.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

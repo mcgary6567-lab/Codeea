@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Role transitions{% endblock %}
+{% block content %}
+{% call ui.page_header("Transition tracker", "Nobody leaves a role without a written handover — checklist, notes and a named successor") %}
+  {{ ui.button("New transition", icon="plus", type="button", attrs='@click="$dispatch(\'open-modal\',\'newTransition\')"') }}
+{% endcall %}
+
+{{ ui.tabs(tabs, tab) }}
+
+<div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat('Transitions', rows|length, icon='repeat', color='brand') }}
+  {{ ui.stat('Planned', counts.planned, icon='calendar', color='slate') }}
+  {{ ui.stat('In progress', counts.in_progress, icon='loader', color='indigo') }}
+  {{ ui.stat('Completed', counts.completed, icon='check-circle-2', color='emerald') }}
+</div>
+
+<form method="get" action="/transformation/transitions" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="w-48">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <button class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"><i data-lucide="filter" class="h-3.5 w-3.5"></i>Filter</button>
+  <a href="/transformation/transitions" class="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+</form>
+
+<div class="grid gap-5 xl:grid-cols-2">
+{% for r in rows %}
+<div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+    <div class="min-w-0">
+      <h3 class="font-semibold text-slate-900 dark:text-white">{{ r.t.role_title }}</h3>
+      <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+        <span>{{ r['from'].full_name if r['from'] else 'vacant' }}</span>
+        <i data-lucide="arrow-right" class="h-3 w-3"></i>
+        <span class="font-medium text-slate-700 dark:text-slate-200">{{ r.to.full_name if r.to else 'to be appointed' }}</span>
+        {% if r.t.start_date %}<span class="text-slate-400">· from {{ r.t.start_date|date('%d %b %Y') }}</span>{% endif %}
+      </p>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      {{ ui.badge(r.t.status) }}
+      <button type="button" class="text-slate-400 hover:text-brand-600" @click="$dispatch('open-modal','tr{{ r.t.id }}')" title="Edit"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+    </div>
+  </div>
+  <div class="px-5 py-3">
+    {{ ui.progress(r.pct, 'emerald' if r.pct == 100 else 'indigo', 'Handover checklist — ' ~ r.done ~ '/' ~ r.total) }}
+    {% if r.checklist %}
+    <ul class="mt-3 space-y-1">
+      {% for c in r.checklist %}
+      <li class="flex items-center gap-2 text-sm">
+        <form method="post" action="/transformation/transitions/{{ r.t.id }}/check" class="inline-flex">
+          <input type="hidden" name="index" value="{{ loop.index0 }}">
+          <button class="flex h-5 w-5 items-center justify-center rounded border {{ 'border-emerald-500 bg-emerald-500 text-white' if c.done else 'border-slate-300 text-transparent hover:border-brand-500 dark:border-slate-600' }}" title="Toggle">
+            <i data-lucide="check" class="h-3 w-3"></i>
+          </button>
+        </form>
+        <span class="{{ 'text-slate-400 line-through' if c.done else 'text-slate-700 dark:text-slate-200' }}">{{ c.item }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mt-3 rounded-lg border border-dashed border-slate-300 py-4 text-center text-xs text-slate-400 dark:border-slate-700">No checklist yet — edit this record and add one.</p>
+    {% endif %}
+    {% if r.t.handover_notes %}
+    <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+      <div class="mb-1 font-semibold text-slate-500">Handover notes</div>{{ r.t.handover_notes }}
+    </div>
+    {% endif %}
+    {% if r.t.completed_at %}<p class="mt-2 text-[11px] text-emerald-600">Completed {{ r.t.completed_at|date }}</p>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="xl:col-span-2">{{ ui.empty_state('No role transitions recorded. Create one before anyone changes seat.', 'repeat') }}</div>
+{% endfor %}
+</div>
+
+{% call ui.modal('newTransition', 'New role transition', 'lg') %}
+<form method="post" action="/transformation/transitions/create" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('role_title', 'Role title', '', required=True, placeholder='e.g. Supervisor — Evening shift') }}</div>
+    {{ ui.select('from_employee_id', 'Outgoing', opts.employees, None, placeholder='— Vacant —') }}
+    {{ ui.select('to_employee_id', 'Incoming', opts.employees, None, placeholder='— To be appointed —') }}
+    {{ ui.input('start_date', 'Start date', '', type='date') }}
+    {{ ui.select('status', 'Status', opts.transition_statuses, 'planned', placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.textarea('checklist', 'Handover checklist', '', rows=6, placeholder='One item per line, or paste JSON: [{"item": "Hand over WhatsApp inbox", "done": false}]', help='Plain lines are converted into checklist items automatically.') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('handover_notes', 'Handover notes', '', rows=3, placeholder='Context the successor needs: open issues, relationships, risks.') }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Create transition', icon='plus') }}</div>
+</form>
+{% endcall %}
+
+{% for r in rows %}
+{% call ui.modal('tr' ~ r.t.id, 'Edit transition — ' ~ r.t.role_title, 'lg') %}
+<form method="post" action="/transformation/transitions/{{ r.t.id }}/edit" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.input('role_title', 'Role title', r.t.role_title, required=True) }}</div>
+    {{ ui.select('from_employee_id', 'Outgoing', opts.employees, r.t.from_employee_id, placeholder='— Vacant —') }}
+    {{ ui.select('to_employee_id', 'Incoming', opts.employees, r.t.to_employee_id, placeholder='— To be appointed —') }}
+    {{ ui.input('start_date', 'Start date', r.t.start_date.isoformat() if r.t.start_date else '', type='date') }}
+    {{ ui.select('status', 'Status', opts.transition_statuses, r.t.status, placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.textarea('checklist', 'Handover checklist (JSON)', r.checklist|tojson_safe, rows=8, help='Edit the JSON directly, or replace it with one item per line.') }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('handover_notes', 'Handover notes', r.t.handover_notes, rows=3) }}</div>
+  </div>
+  <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">{{ ui.button('Save transition', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endfor %}
+{% endblock %}
