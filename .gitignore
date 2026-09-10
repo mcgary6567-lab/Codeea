@@ -22,3 +22,7 @@ storage/result_cards/*
 
 # Vendored front-end libraries ARE committed (the app must not depend on CDNs).
 !app/static/vendor/*.js
+
+# Tailwind standalone binary (40MB) - download via build/build-css.sh instructions
+build/tailwindcss.exe
+build/tailwindcss
