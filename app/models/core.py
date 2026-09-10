@@ -35,7 +35,10 @@ class Department(Base, PKMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(120))
     code: Mapped[str] = mapped_column(String(30), unique=True)  # people, finance, academics, qa, technology, marketing
     description: Mapped[Optional[str]] = mapped_column(Text)
-    hod_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    hod_user_id: Mapped[Optional[int]] = mapped_column(
+        # use_alter: departments <-> users reference each other, so PostgreSQL needs this
+        # constraint added after both tables exist rather than inline at CREATE time.
+        ForeignKey("users.id", ondelete="SET NULL", use_alter=True, name="fk_departments_hod_user_id"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     hod = relationship("User", foreign_keys=[hod_user_id], post_update=True)

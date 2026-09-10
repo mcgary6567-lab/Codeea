@@ -1,8 +1,8 @@
 """baseline schema v1.1
 
-Revision ID: fecbd7480131
+Revision ID: 6d42e23b4b1a
 Revises: 
-Create Date: 2026-09-09 12:22:29.332283
+Create Date: 2026-09-10 03:49:03.238821
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'fecbd7480131'
+revision: str = '6d42e23b4b1a'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -67,103 +67,6 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('class_sessions',
-    sa.Column('schedule_id', sa.Integer(), nullable=True),
-    sa.Column('student_id', sa.Integer(), nullable=False),
-    sa.Column('teacher_id', sa.Integer(), nullable=False),
-    sa.Column('course_id', sa.Integer(), nullable=True),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('start_time', sa.Time(), nullable=False),
-    sa.Column('end_time', sa.Time(), nullable=False),
-    sa.Column('scheduled_start', sa.DateTime(), nullable=False),
-    sa.Column('duration_minutes', sa.Integer(), nullable=False),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('is_trial', sa.Boolean(), nullable=False),
-    sa.Column('room_name', sa.String(length=120), nullable=True),
-    sa.Column('join_url', sa.String(length=400), nullable=True),
-    sa.Column('teacher_joined_at', sa.DateTime(), nullable=True),
-    sa.Column('teacher_left_at', sa.DateTime(), nullable=True),
-    sa.Column('student_joined_at', sa.DateTime(), nullable=True),
-    sa.Column('student_left_at', sa.DateTime(), nullable=True),
-    sa.Column('actual_duration_minutes', sa.Integer(), nullable=True),
-    sa.Column('teacher_late_minutes', sa.Integer(), nullable=False),
-    sa.Column('status_changed_by_id', sa.Integer(), nullable=True),
-    sa.Column('status_changed_at', sa.DateTime(), nullable=True),
-    sa.Column('status_reason', sa.Text(), nullable=True),
-    sa.Column('rescheduled_to_id', sa.Integer(), nullable=True),
-    sa.Column('lesson_plan_id', sa.Integer(), nullable=True),
-    sa.Column('lesson_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_notes', sa.Text(), nullable=True),
-    sa.Column('student_feedback', sa.Text(), nullable=True),
-    sa.Column('student_rating', sa.Integer(), nullable=True),
-    sa.Column('reminder_sent_teacher', sa.Boolean(), nullable=False),
-    sa.Column('reminder_sent_student', sa.Boolean(), nullable=False),
-    sa.Column('substitute_for_teacher_id', sa.Integer(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lesson_plan_id'], ['lesson_plans.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['rescheduled_to_id'], ['class_sessions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['schedule_id'], ['schedules.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['status_changed_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['substitute_for_teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('class_sessions', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_class_sessions_date'), ['date'], unique=False)
-        batch_op.create_index(batch_op.f('ix_class_sessions_schedule_id'), ['schedule_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_class_sessions_scheduled_start'), ['scheduled_start'], unique=False)
-        batch_op.create_index(batch_op.f('ix_class_sessions_status'), ['status'], unique=False)
-        batch_op.create_index(batch_op.f('ix_class_sessions_student_id'), ['student_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_class_sessions_teacher_id'), ['teacher_id'], unique=False)
-
-    op.create_table('clients',
-    sa.Column('client_code', sa.String(length=20), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('household_id', sa.Integer(), nullable=True),
-    sa.Column('full_name', sa.String(length=150), nullable=False),
-    sa.Column('email', sa.String(length=200), nullable=True),
-    sa.Column('phone', sa.String(length=50), nullable=True),
-    sa.Column('whatsapp', sa.String(length=50), nullable=True),
-    sa.Column('country', sa.String(length=80), nullable=False),
-    sa.Column('city', sa.String(length=80), nullable=True),
-    sa.Column('timezone', sa.String(length=64), nullable=False),
-    sa.Column('currency', sa.String(length=3), nullable=False),
-    sa.Column('address', sa.String(length=300), nullable=True),
-    sa.Column('relationship_to_student', sa.String(length=50), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('lead_id', sa.Integer(), nullable=True),
-    sa.Column('source', sa.String(length=60), nullable=True),
-    sa.Column('billing_rep_id', sa.Integer(), nullable=True),
-    sa.Column('consent_given', sa.Boolean(), nullable=False),
-    sa.Column('consent_at', sa.DateTime(), nullable=True),
-    sa.Column('whatsapp_opt_in', sa.Boolean(), nullable=False),
-    sa.Column('preferences', sa.JSON(), nullable=False),
-    sa.Column('referral_code', sa.String(length=20), nullable=True),
-    sa.Column('is_ambassador', sa.Boolean(), nullable=False),
-    sa.Column('ambassador_invited_at', sa.DateTime(), nullable=True),
-    sa.Column('notes', sa.Text(), nullable=True),
-    sa.Column('ghl_contact_id', sa.String(length=80), nullable=True),
-    sa.Column('joined_at', sa.Date(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['billing_rep_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['household_id'], ['households.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('referral_code'),
-    sa.UniqueConstraint('user_id')
-    )
-    with op.batch_alter_table('clients', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_clients_client_code'), ['client_code'], unique=True)
-        batch_op.create_index(batch_op.f('ix_clients_email'), ['email'], unique=False)
-
     op.create_table('courses',
     sa.Column('code', sa.String(length=20), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
@@ -203,7 +106,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['hod_user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['hod_user_id'], ['users.id'], name='fk_departments_hod_user_id', ondelete='SET NULL', use_alter=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('code')
     )
@@ -242,93 +145,6 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
-    op.create_table('leads',
-    sa.Column('lead_code', sa.String(length=20), nullable=False),
-    sa.Column('full_name', sa.String(length=150), nullable=False),
-    sa.Column('email', sa.String(length=200), nullable=True),
-    sa.Column('phone', sa.String(length=50), nullable=True),
-    sa.Column('whatsapp', sa.String(length=50), nullable=True),
-    sa.Column('country', sa.String(length=80), nullable=True),
-    sa.Column('timezone', sa.String(length=64), nullable=True),
-    sa.Column('student_name', sa.String(length=150), nullable=True),
-    sa.Column('student_age', sa.Integer(), nullable=True),
-    sa.Column('students_count', sa.Integer(), nullable=False),
-    sa.Column('course_interest_id', sa.Integer(), nullable=True),
-    sa.Column('preferred_time', sa.String(length=100), nullable=True),
-    sa.Column('source_id', sa.Integer(), nullable=True),
-    sa.Column('campaign_id', sa.Integer(), nullable=True),
-    sa.Column('referral_code', sa.String(length=20), nullable=True),
-    sa.Column('stage', sa.String(length=30), nullable=False),
-    sa.Column('score', sa.Integer(), nullable=False),
-    sa.Column('score_factors', sa.JSON(), nullable=False),
-    sa.Column('generator_id', sa.Integer(), nullable=True),
-    sa.Column('assigned_to_id', sa.Integer(), nullable=True),
-    sa.Column('next_follow_up', sa.DateTime(), nullable=True),
-    sa.Column('follow_up_count', sa.Integer(), nullable=False),
-    sa.Column('last_contacted_at', sa.DateTime(), nullable=True),
-    sa.Column('lost_reason', sa.String(length=200), nullable=True),
-    sa.Column('converted_client_id', sa.Integer(), nullable=True),
-    sa.Column('converted_at', sa.DateTime(), nullable=True),
-    sa.Column('is_duplicate_of_id', sa.Integer(), nullable=True),
-    sa.Column('ghl_contact_id', sa.String(length=80), nullable=True),
-    sa.Column('whatsapp_opt_in', sa.Boolean(), nullable=False),
-    sa.Column('notes', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['assigned_to_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['converted_client_id'], ['clients.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['course_interest_id'], ['courses.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['generator_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['is_duplicate_of_id'], ['leads.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['source_id'], ['lead_sources.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('leads', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_leads_assigned_to_id'), ['assigned_to_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_leads_email'), ['email'], unique=False)
-        batch_op.create_index(batch_op.f('ix_leads_lead_code'), ['lead_code'], unique=True)
-        batch_op.create_index(batch_op.f('ix_leads_phone'), ['phone'], unique=False)
-        batch_op.create_index(batch_op.f('ix_leads_stage'), ['stage'], unique=False)
-
-    op.create_table('lesson_plans',
-    sa.Column('student_id', sa.Integer(), nullable=False),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.Column('session_id', sa.Integer(), nullable=True),
-    sa.Column('plan_date', sa.Date(), nullable=False),
-    sa.Column('plan_type', sa.String(length=20), nullable=False),
-    sa.Column('lesson_id', sa.Integer(), nullable=True),
-    sa.Column('planned_content', sa.Text(), nullable=False),
-    sa.Column('delivered_content', sa.Text(), nullable=True),
-    sa.Column('sabaq', sa.String(length=200), nullable=True),
-    sa.Column('sabqi', sa.String(length=200), nullable=True),
-    sa.Column('dor', sa.String(length=200), nullable=True),
-    sa.Column('teacher_notes', sa.Text(), nullable=True),
-    sa.Column('next_objectives', sa.Text(), nullable=True),
-    sa.Column('ai_recommendation', sa.Text(), nullable=True),
-    sa.Column('ai_run_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('variance_pct', sa.Float(), nullable=True),
-    sa.Column('reviewed_by_id', sa.Integer(), nullable=True),
-    sa.Column('reviewed_at', sa.DateTime(), nullable=True),
-    sa.Column('review_comment', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['ai_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['reviewed_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('lesson_plans', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_lesson_plans_plan_date'), ['plan_date'], unique=False)
-        batch_op.create_index(batch_op.f('ix_lesson_plans_student_id'), ['student_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_lesson_plans_teacher_id'), ['teacher_id'], unique=False)
-
     op.create_table('message_templates',
     sa.Column('name', sa.String(length=80), nullable=False),
     sa.Column('channel', sa.String(length=20), nullable=False),
@@ -418,6 +234,114 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('webhooks',
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('url', sa.String(length=500), nullable=False),
+    sa.Column('events', sa.JSON(), nullable=False),
+    sa.Column('secret', sa.String(length=120), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('last_status', sa.String(length=20), nullable=True),
+    sa.Column('last_triggered_at', sa.DateTime(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('books',
+    sa.Column('course_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=150), nullable=False),
+    sa.Column('arabic_title', sa.String(length=150), nullable=True),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('order', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('budgets',
+    sa.Column('department_id', sa.Integer(), nullable=True),
+    sa.Column('category', sa.String(length=60), nullable=False),
+    sa.Column('period', sa.String(length=7), nullable=False),
+    sa.Column('amount', sa.Numeric(precision=14, scale=2), nullable=False),
+    sa.Column('currency', sa.String(length=3), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('budgets', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_budgets_period'), ['period'], unique=False)
+
+    op.create_table('campaign_metrics',
+    sa.Column('campaign_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('impressions', sa.Integer(), nullable=False),
+    sa.Column('clicks', sa.Integer(), nullable=False),
+    sa.Column('leads', sa.Integer(), nullable=False),
+    sa.Column('spend', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('conversions', sa.Integer(), nullable=False),
+    sa.Column('revenue', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('campaign_metrics', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_campaign_metrics_campaign_id'), ['campaign_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_campaign_metrics_date'), ['date'], unique=False)
+
+    op.create_table('divisions',
+    sa.Column('course_id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('order', sa.Integer(), nullable=False),
+    sa.Column('expected_weeks', sa.Integer(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('packages',
+    sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('course_id', sa.Integer(), nullable=True),
+    sa.Column('sessions_per_week', sa.Integer(), nullable=False),
+    sa.Column('session_minutes', sa.Integer(), nullable=False),
+    sa.Column('price', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('currency', sa.String(length=3), nullable=False),
+    sa.Column('country', sa.String(length=80), nullable=True),
+    sa.Column('billing_cycle', sa.String(length=20), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('is_trial', sa.Boolean(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('sequence_enrollments',
+    sa.Column('sequence_id', sa.Integer(), nullable=False),
+    sa.Column('contact_type', sa.String(length=20), nullable=False),
+    sa.Column('contact_id', sa.Integer(), nullable=False),
+    sa.Column('current_step', sa.Integer(), nullable=False),
+    sa.Column('next_run_at', sa.DateTime(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('stop_reason', sa.String(length=120), nullable=True),
+    sa.Column('enrolled_by', sa.String(length=20), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['sequence_id'], ['sequences.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('sequence_enrollments', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_sequence_enrollments_contact_id'), ['contact_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_sequence_enrollments_next_run_at'), ['next_run_at'], unique=False)
+        batch_op.create_index(batch_op.f('ix_sequence_enrollments_sequence_id'), ['sequence_id'], unique=False)
+
     op.create_table('users',
     sa.Column('email', sa.String(length=200), nullable=False),
     sa.Column('username', sa.String(length=80), nullable=False),
@@ -454,17 +378,19 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_users_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_users_username'), ['username'], unique=True)
 
-    op.create_table('webhooks',
-    sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('url', sa.String(length=500), nullable=False),
-    sa.Column('events', sa.JSON(), nullable=False),
-    sa.Column('secret', sa.String(length=120), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('last_status', sa.String(length=20), nullable=True),
-    sa.Column('last_triggered_at', sa.DateTime(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    op.create_table('webhook_deliveries',
+    sa.Column('webhook_id', sa.Integer(), nullable=True),
+    sa.Column('direction', sa.String(length=10), nullable=False),
+    sa.Column('event', sa.String(length=80), nullable=False),
+    sa.Column('payload', sa.JSON(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('attempts', sa.Integer(), nullable=False),
+    sa.Column('response_code', sa.Integer(), nullable=True),
+    sa.Column('response_body', sa.Text(), nullable=True),
+    sa.Column('next_retry_at', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['webhook_id'], ['webhooks.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('ai_model_runs',
@@ -554,34 +480,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['created_by_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('books',
-    sa.Column('course_id', sa.Integer(), nullable=False),
-    sa.Column('title', sa.String(length=150), nullable=False),
-    sa.Column('arabic_title', sa.String(length=150), nullable=True),
-    sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('order', sa.Integer(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('budgets',
-    sa.Column('department_id', sa.Integer(), nullable=True),
-    sa.Column('category', sa.String(length=60), nullable=False),
-    sa.Column('period', sa.String(length=7), nullable=False),
-    sa.Column('amount', sa.Numeric(precision=14, scale=2), nullable=False),
-    sa.Column('currency', sa.String(length=3), nullable=False),
-    sa.Column('notes', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('budgets', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_budgets_period'), ['period'], unique=False)
-
     op.create_table('call_logs',
     sa.Column('caller_id', sa.Integer(), nullable=True),
     sa.Column('callee_type', sa.String(length=20), nullable=False),
@@ -597,64 +495,17 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['caller_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('campaign_metrics',
-    sa.Column('campaign_id', sa.Integer(), nullable=False),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('impressions', sa.Integer(), nullable=False),
-    sa.Column('clicks', sa.Integer(), nullable=False),
-    sa.Column('leads', sa.Integer(), nullable=False),
-    sa.Column('spend', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('conversions', sa.Integer(), nullable=False),
-    sa.Column('revenue', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('campaign_metrics', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_campaign_metrics_campaign_id'), ['campaign_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_campaign_metrics_date'), ['date'], unique=False)
-
-    op.create_table('communication_preferences',
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('client_id', sa.Integer(), nullable=True),
-    sa.Column('channel', sa.String(length=20), nullable=False),
-    sa.Column('opted_in', sa.Boolean(), nullable=False),
-    sa.Column('consent_at', sa.DateTime(), nullable=True),
+    op.create_table('chapters',
+    sa.Column('book_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=150), nullable=False),
+    sa.Column('arabic_title', sa.String(length=150), nullable=True),
+    sa.Column('order', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('conversations',
-    sa.Column('channel', sa.String(length=20), nullable=False),
-    sa.Column('contact_type', sa.String(length=20), nullable=False),
-    sa.Column('lead_id', sa.Integer(), nullable=True),
-    sa.Column('client_id', sa.Integer(), nullable=True),
-    sa.Column('contact_name', sa.String(length=150), nullable=False),
-    sa.Column('contact_phone', sa.String(length=50), nullable=True),
-    sa.Column('assigned_to_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('tags', sa.JSON(), nullable=False),
-    sa.Column('unread_count', sa.Integer(), nullable=False),
-    sa.Column('last_message_at', sa.DateTime(), nullable=True),
-    sa.Column('last_message_preview', sa.String(length=200), nullable=True),
-    sa.Column('external_thread_id', sa.String(length=120), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['assigned_to_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('conversations', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_conversations_assigned_to_id'), ['assigned_to_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_conversations_client_id'), ['client_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_conversations_last_message_at'), ['last_message_at'], unique=False)
-        batch_op.create_index(batch_op.f('ix_conversations_lead_id'), ['lead_id'], unique=False)
-
     op.create_table('curriculum_versions',
     sa.Column('course_id', sa.Integer(), nullable=False),
     sa.Column('version', sa.String(length=20), nullable=False),
@@ -709,18 +560,6 @@ def upgrade() -> None:
     with op.batch_alter_table('department_scorecards', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_department_scorecards_period'), ['period'], unique=False)
 
-    op.create_table('divisions',
-    sa.Column('course_id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=120), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('order', sa.Integer(), nullable=False),
-    sa.Column('expected_weeks', sa.Integer(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('employees',
     sa.Column('employee_code', sa.String(length=20), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -881,41 +720,55 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('code')
     )
-    op.create_table('lead_activities',
-    sa.Column('lead_id', sa.Integer(), nullable=False),
-    sa.Column('activity_type', sa.String(length=30), nullable=False),
-    sa.Column('note', sa.Text(), nullable=True),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    op.create_table('leads',
+    sa.Column('lead_code', sa.String(length=20), nullable=False),
+    sa.Column('full_name', sa.String(length=150), nullable=False),
+    sa.Column('email', sa.String(length=200), nullable=True),
+    sa.Column('phone', sa.String(length=50), nullable=True),
+    sa.Column('whatsapp', sa.String(length=50), nullable=True),
+    sa.Column('country', sa.String(length=80), nullable=True),
+    sa.Column('timezone', sa.String(length=64), nullable=True),
+    sa.Column('student_name', sa.String(length=150), nullable=True),
+    sa.Column('student_age', sa.Integer(), nullable=True),
+    sa.Column('students_count', sa.Integer(), nullable=False),
+    sa.Column('course_interest_id', sa.Integer(), nullable=True),
+    sa.Column('preferred_time', sa.String(length=100), nullable=True),
+    sa.Column('source_id', sa.Integer(), nullable=True),
+    sa.Column('campaign_id', sa.Integer(), nullable=True),
+    sa.Column('referral_code', sa.String(length=20), nullable=True),
+    sa.Column('stage', sa.String(length=30), nullable=False),
+    sa.Column('score', sa.Integer(), nullable=False),
+    sa.Column('score_factors', sa.JSON(), nullable=False),
+    sa.Column('generator_id', sa.Integer(), nullable=True),
+    sa.Column('assigned_to_id', sa.Integer(), nullable=True),
+    sa.Column('next_follow_up', sa.DateTime(), nullable=True),
+    sa.Column('follow_up_count', sa.Integer(), nullable=False),
+    sa.Column('last_contacted_at', sa.DateTime(), nullable=True),
+    sa.Column('lost_reason', sa.String(length=200), nullable=True),
+    sa.Column('converted_client_id', sa.Integer(), nullable=True),
+    sa.Column('converted_at', sa.DateTime(), nullable=True),
+    sa.Column('is_duplicate_of_id', sa.Integer(), nullable=True),
+    sa.Column('ghl_contact_id', sa.String(length=80), nullable=True),
+    sa.Column('whatsapp_opt_in', sa.Boolean(), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['assigned_to_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['converted_client_id'], ['clients.id'], name='fk_leads_converted_client_id', ondelete='SET NULL', use_alter=True),
+    sa.ForeignKeyConstraint(['course_interest_id'], ['courses.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['generator_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['is_duplicate_of_id'], ['leads.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['source_id'], ['lead_sources.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('lead_activities', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_lead_activities_lead_id'), ['lead_id'], unique=False)
-
-    op.create_table('ledger_entries',
-    sa.Column('client_id', sa.Integer(), nullable=False),
-    sa.Column('entry_date', sa.Date(), nullable=False),
-    sa.Column('entry_type', sa.String(length=20), nullable=False),
-    sa.Column('description', sa.String(length=250), nullable=False),
-    sa.Column('debit', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('credit', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('currency', sa.String(length=3), nullable=False),
-    sa.Column('balance_after', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('reference_type', sa.String(length=30), nullable=True),
-    sa.Column('reference_id', sa.Integer(), nullable=True),
-    sa.Column('created_by_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['created_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_ledger_entries_client_id'), ['client_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_ledger_entries_entry_date'), ['entry_date'], unique=False)
+    with op.batch_alter_table('leads', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_leads_assigned_to_id'), ['assigned_to_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_leads_email'), ['email'], unique=False)
+        batch_op.create_index(batch_op.f('ix_leads_lead_code'), ['lead_code'], unique=True)
+        batch_op.create_index(batch_op.f('ix_leads_phone'), ['phone'], unique=False)
+        batch_op.create_index(batch_op.f('ix_leads_stage'), ['stage'], unique=False)
 
     op.create_table('migration_jobs',
     sa.Column('name', sa.String(length=150), nullable=False),
@@ -960,24 +813,6 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_notifications_event_type'), ['event_type'], unique=False)
         batch_op.create_index(batch_op.f('ix_notifications_user_id'), ['user_id'], unique=False)
 
-    op.create_table('packages',
-    sa.Column('name', sa.String(length=120), nullable=False),
-    sa.Column('course_id', sa.Integer(), nullable=True),
-    sa.Column('sessions_per_week', sa.Integer(), nullable=False),
-    sa.Column('session_minutes', sa.Integer(), nullable=False),
-    sa.Column('price', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('currency', sa.String(length=3), nullable=False),
-    sa.Column('country', sa.String(length=80), nullable=True),
-    sa.Column('billing_cycle', sa.String(length=20), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('is_trial', sa.Boolean(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('payroll_runs',
     sa.Column('period', sa.String(length=7), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
@@ -1017,24 +852,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('recordings',
-    sa.Column('session_id', sa.Integer(), nullable=False),
-    sa.Column('file_path', sa.String(length=500), nullable=True),
-    sa.Column('external_url', sa.String(length=500), nullable=True),
-    sa.Column('source', sa.String(length=20), nullable=False),
-    sa.Column('duration_seconds', sa.Integer(), nullable=False),
-    sa.Column('size_bytes', sa.Integer(), nullable=False),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('retention_until', sa.Date(), nullable=True),
-    sa.Column('transcript', sa.Text(), nullable=True),
-    sa.Column('access_count', sa.Integer(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('session_id')
     )
     op.create_table('recruitment_requests',
     sa.Column('title', sa.String(length=120), nullable=False),
@@ -1118,26 +935,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('sequence_enrollments',
-    sa.Column('sequence_id', sa.Integer(), nullable=False),
-    sa.Column('contact_type', sa.String(length=20), nullable=False),
-    sa.Column('contact_id', sa.Integer(), nullable=False),
-    sa.Column('current_step', sa.Integer(), nullable=False),
-    sa.Column('next_run_at', sa.DateTime(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('stop_reason', sa.String(length=120), nullable=True),
-    sa.Column('enrolled_by', sa.String(length=20), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['sequence_id'], ['sequences.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('sequence_enrollments', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_sequence_enrollments_contact_id'), ['contact_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_sequence_enrollments_next_run_at'), ['next_run_at'], unique=False)
-        batch_op.create_index(batch_op.f('ix_sequence_enrollments_sequence_id'), ['sequence_id'], unique=False)
-
     op.create_table('shifts',
     sa.Column('name', sa.String(length=60), nullable=False),
     sa.Column('group', sa.String(length=20), nullable=False),
@@ -1203,21 +1000,6 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_user_sessions_token_jti'), ['token_jti'], unique=True)
         batch_op.create_index(batch_op.f('ix_user_sessions_user_id'), ['user_id'], unique=False)
 
-    op.create_table('webhook_deliveries',
-    sa.Column('webhook_id', sa.Integer(), nullable=True),
-    sa.Column('direction', sa.String(length=10), nullable=False),
-    sa.Column('event', sa.String(length=80), nullable=False),
-    sa.Column('payload', sa.JSON(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('attempts', sa.Integer(), nullable=False),
-    sa.Column('response_code', sa.Integer(), nullable=True),
-    sa.Column('response_body', sa.Text(), nullable=True),
-    sa.Column('next_retry_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['webhook_id'], ['webhooks.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('bonuses',
     sa.Column('employee_id', sa.Integer(), nullable=False),
     sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
@@ -1254,17 +1036,49 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['request_id'], ['recruitment_requests.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('chapters',
-    sa.Column('book_id', sa.Integer(), nullable=False),
-    sa.Column('title', sa.String(length=150), nullable=False),
-    sa.Column('arabic_title', sa.String(length=150), nullable=True),
-    sa.Column('order', sa.Integer(), nullable=False),
+    op.create_table('clients',
+    sa.Column('client_code', sa.String(length=20), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('household_id', sa.Integer(), nullable=True),
+    sa.Column('full_name', sa.String(length=150), nullable=False),
+    sa.Column('email', sa.String(length=200), nullable=True),
+    sa.Column('phone', sa.String(length=50), nullable=True),
+    sa.Column('whatsapp', sa.String(length=50), nullable=True),
+    sa.Column('country', sa.String(length=80), nullable=False),
+    sa.Column('city', sa.String(length=80), nullable=True),
+    sa.Column('timezone', sa.String(length=64), nullable=False),
+    sa.Column('currency', sa.String(length=3), nullable=False),
+    sa.Column('address', sa.String(length=300), nullable=True),
+    sa.Column('relationship_to_student', sa.String(length=50), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('lead_id', sa.Integer(), nullable=True),
+    sa.Column('source', sa.String(length=60), nullable=True),
+    sa.Column('billing_rep_id', sa.Integer(), nullable=True),
+    sa.Column('consent_given', sa.Boolean(), nullable=False),
+    sa.Column('consent_at', sa.DateTime(), nullable=True),
+    sa.Column('whatsapp_opt_in', sa.Boolean(), nullable=False),
+    sa.Column('preferences', sa.JSON(), nullable=False),
+    sa.Column('referral_code', sa.String(length=20), nullable=True),
+    sa.Column('is_ambassador', sa.Boolean(), nullable=False),
+    sa.Column('ambassador_invited_at', sa.DateTime(), nullable=True),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('ghl_contact_id', sa.String(length=80), nullable=True),
+    sa.Column('joined_at', sa.Date(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['billing_rep_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['household_id'], ['households.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('referral_code'),
+    sa.UniqueConstraint('user_id')
     )
+    with op.batch_alter_table('clients', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_clients_client_code'), ['client_code'], unique=True)
+        batch_op.create_index(batch_op.f('ix_clients_email'), ['email'], unique=False)
+
     op.create_table('decisions',
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('category', sa.String(length=40), nullable=False),
@@ -1353,16 +1167,6 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_hr_attendance_date'), ['date'], unique=False)
         batch_op.create_index(batch_op.f('ix_hr_attendance_employee_id'), ['employee_id'], unique=False)
 
-    op.create_table('internal_notes',
-    sa.Column('conversation_id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('text', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['conversation_id'], ['conversations.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('journal_lines',
     sa.Column('entry_id', sa.Integer(), nullable=False),
     sa.Column('account_id', sa.Integer(), nullable=False),
@@ -1396,26 +1200,38 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_kpi_values_kpi_id'), ['kpi_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_kpi_values_period'), ['period'], unique=False)
 
-    op.create_table('messages',
-    sa.Column('conversation_id', sa.Integer(), nullable=False),
-    sa.Column('direction', sa.String(length=10), nullable=False),
-    sa.Column('body', sa.Text(), nullable=False),
-    sa.Column('message_type', sa.String(length=20), nullable=False),
-    sa.Column('template_name', sa.String(length=80), nullable=True),
-    sa.Column('sender_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('external_id', sa.String(length=120), nullable=True),
-    sa.Column('error', sa.Text(), nullable=True),
+    op.create_table('lead_activities',
+    sa.Column('lead_id', sa.Integer(), nullable=False),
+    sa.Column('activity_type', sa.String(length=30), nullable=False),
+    sa.Column('note', sa.Text(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['conversation_id'], ['conversations.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('messages', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_messages_conversation_id'), ['conversation_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_messages_created_at'), ['created_at'], unique=False)
+    with op.batch_alter_table('lead_activities', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_lead_activities_lead_id'), ['lead_id'], unique=False)
 
+    op.create_table('lessons',
+    sa.Column('chapter_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=150), nullable=False),
+    sa.Column('arabic_text', sa.Text(), nullable=True),
+    sa.Column('translation', sa.Text(), nullable=True),
+    sa.Column('objectives', sa.Text(), nullable=True),
+    sa.Column('tajweed_notes', sa.Text(), nullable=True),
+    sa.Column('expected_minutes', sa.Integer(), nullable=False),
+    sa.Column('order', sa.Integer(), nullable=False),
+    sa.Column('surah_number', sa.Integer(), nullable=True),
+    sa.Column('ayah_from', sa.Integer(), nullable=True),
+    sa.Column('ayah_to', sa.Integer(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['chapter_id'], ['chapters.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('milestones',
     sa.Column('project_id', sa.Integer(), nullable=False),
     sa.Column('title', sa.String(length=150), nullable=False),
@@ -1483,52 +1299,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['performed_by_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('recording_access_logs',
-    sa.Column('recording_id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('purpose', sa.String(length=200), nullable=True),
-    sa.Column('ip', sa.String(length=64), nullable=True),
-    sa.Column('accessed_at', sa.DateTime(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['recording_id'], ['recordings.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('recording_access_logs', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_recording_access_logs_recording_id'), ['recording_id'], unique=False)
-
-    op.create_table('referrals',
-    sa.Column('ambassador_client_id', sa.Integer(), nullable=False),
-    sa.Column('referral_code', sa.String(length=20), nullable=False),
-    sa.Column('referred_name', sa.String(length=150), nullable=True),
-    sa.Column('referred_phone', sa.String(length=50), nullable=True),
-    sa.Column('referred_lead_id', sa.Integer(), nullable=True),
-    sa.Column('referred_client_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('invited_at', sa.DateTime(), nullable=True),
-    sa.Column('qualified_at', sa.DateTime(), nullable=True),
-    sa.Column('credit_amount', sa.Numeric(precision=12, scale=2), nullable=False),
-    sa.Column('credit_currency', sa.String(length=3), nullable=False),
-    sa.Column('ambassador_credit_ledger_id', sa.Integer(), nullable=True),
-    sa.Column('referred_credit_ledger_id', sa.Integer(), nullable=True),
-    sa.Column('ghl_source_tag', sa.String(length=80), nullable=True),
-    sa.Column('owner_id', sa.Integer(), nullable=True),
-    sa.Column('notes', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['ambassador_client_id'], ['clients.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['ambassador_credit_ledger_id'], ['ledger_entries.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['referred_client_id'], ['clients.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['referred_credit_ledger_id'], ['ledger_entries.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['referred_lead_id'], ['leads.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('referrals', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_referrals_ambassador_client_id'), ['ambassador_client_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_referrals_referral_code'), ['referral_code'], unique=False)
-
     op.create_table('salary_advances',
     sa.Column('employee_id', sa.Integer(), nullable=False),
     sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
@@ -1646,43 +1416,46 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['reported_by_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('ai_class_analyses',
-    sa.Column('session_id', sa.Integer(), nullable=False),
-    sa.Column('recording_id', sa.Integer(), nullable=True),
-    sa.Column('model_run_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.Column('camera_presence_pct', sa.Float(), nullable=False),
-    sa.Column('punctuality_minutes', sa.Integer(), nullable=False),
-    sa.Column('duration_compliance_pct', sa.Float(), nullable=False),
-    sa.Column('active_teaching_pct', sa.Float(), nullable=False),
-    sa.Column('idle_pct', sa.Float(), nullable=False),
-    sa.Column('student_engagement_score', sa.Float(), nullable=False),
-    sa.Column('curriculum_coverage_pct', sa.Float(), nullable=False),
-    sa.Column('tone_flags', sa.JSON(), nullable=False),
-    sa.Column('conduct_flags', sa.JSON(), nullable=False),
-    sa.Column('contact_exchange_detected', sa.Boolean(), nullable=False),
-    sa.Column('overall_score', sa.Float(), nullable=False),
-    sa.Column('confidence', sa.Float(), nullable=False),
-    sa.Column('summary', sa.Text(), nullable=True),
-    sa.Column('recommended_feedback', sa.Text(), nullable=True),
-    sa.Column('risk_level', sa.String(length=10), nullable=False),
-    sa.Column('review_status', sa.String(length=20), nullable=False),
-    sa.Column('reviewed_by_id', sa.Integer(), nullable=True),
-    sa.Column('reviewed_at', sa.DateTime(), nullable=True),
-    sa.Column('review_note', sa.Text(), nullable=True),
+    op.create_table('communication_preferences',
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('client_id', sa.Integer(), nullable=True),
+    sa.Column('channel', sa.String(length=20), nullable=False),
+    sa.Column('opted_in', sa.Boolean(), nullable=False),
+    sa.Column('consent_at', sa.DateTime(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['model_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['recording_id'], ['recordings.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['reviewed_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('session_id')
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('ai_class_analyses', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_ai_class_analyses_teacher_id'), ['teacher_id'], unique=False)
+    op.create_table('conversations',
+    sa.Column('channel', sa.String(length=20), nullable=False),
+    sa.Column('contact_type', sa.String(length=20), nullable=False),
+    sa.Column('lead_id', sa.Integer(), nullable=True),
+    sa.Column('client_id', sa.Integer(), nullable=True),
+    sa.Column('contact_name', sa.String(length=150), nullable=False),
+    sa.Column('contact_phone', sa.String(length=50), nullable=True),
+    sa.Column('assigned_to_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('tags', sa.JSON(), nullable=False),
+    sa.Column('unread_count', sa.Integer(), nullable=False),
+    sa.Column('last_message_at', sa.DateTime(), nullable=True),
+    sa.Column('last_message_preview', sa.String(length=200), nullable=True),
+    sa.Column('external_thread_id', sa.String(length=120), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['assigned_to_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('conversations', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_conversations_assigned_to_id'), ['assigned_to_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_conversations_client_id'), ['client_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_conversations_last_message_at'), ['last_message_at'], unique=False)
+        batch_op.create_index(batch_op.f('ix_conversations_lead_id'), ['lead_id'], unique=False)
 
     op.create_table('interviews',
     sa.Column('candidate_id', sa.Integer(), nullable=False),
@@ -1699,24 +1472,74 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['interviewer_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('lessons',
-    sa.Column('chapter_id', sa.Integer(), nullable=False),
-    sa.Column('title', sa.String(length=150), nullable=False),
-    sa.Column('arabic_text', sa.Text(), nullable=True),
-    sa.Column('translation', sa.Text(), nullable=True),
-    sa.Column('objectives', sa.Text(), nullable=True),
-    sa.Column('tajweed_notes', sa.Text(), nullable=True),
-    sa.Column('expected_minutes', sa.Integer(), nullable=False),
-    sa.Column('order', sa.Integer(), nullable=False),
-    sa.Column('surah_number', sa.Integer(), nullable=True),
-    sa.Column('ayah_from', sa.Integer(), nullable=True),
-    sa.Column('ayah_to', sa.Integer(), nullable=True),
+    op.create_table('ledger_entries',
+    sa.Column('client_id', sa.Integer(), nullable=False),
+    sa.Column('entry_date', sa.Date(), nullable=False),
+    sa.Column('entry_type', sa.String(length=20), nullable=False),
+    sa.Column('description', sa.String(length=250), nullable=False),
+    sa.Column('debit', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('credit', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('currency', sa.String(length=3), nullable=False),
+    sa.Column('balance_after', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('reference_type', sa.String(length=30), nullable=True),
+    sa.Column('reference_id', sa.Integer(), nullable=True),
+    sa.Column('created_by_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['created_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_ledger_entries_client_id'), ['client_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_ledger_entries_entry_date'), ['entry_date'], unique=False)
+
+    op.create_table('students',
+    sa.Column('student_code', sa.String(length=20), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('client_id', sa.Integer(), nullable=False),
+    sa.Column('full_name', sa.String(length=150), nullable=False),
+    sa.Column('gender', sa.String(length=10), nullable=False),
+    sa.Column('date_of_birth', sa.Date(), nullable=True),
+    sa.Column('age', sa.Integer(), nullable=True),
+    sa.Column('is_minor', sa.Boolean(), nullable=False),
+    sa.Column('course_id', sa.Integer(), nullable=True),
+    sa.Column('division_id', sa.Integer(), nullable=True),
+    sa.Column('level', sa.String(length=60), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('timezone', sa.String(length=64), nullable=False),
+    sa.Column('preferred_language', sa.String(length=20), nullable=False),
+    sa.Column('join_date', sa.Date(), nullable=False),
+    sa.Column('cancelled_at', sa.Date(), nullable=True),
+    sa.Column('cancel_reason', sa.String(length=200), nullable=True),
+    sa.Column('risk_score', sa.Float(), nullable=False),
+    sa.Column('risk_level', sa.String(length=10), nullable=False),
+    sa.Column('risk_factors', sa.JSON(), nullable=False),
+    sa.Column('risk_computed_at', sa.DateTime(), nullable=True),
+    sa.Column('current_lesson_id', sa.Integer(), nullable=True),
+    sa.Column('sabaq_position', sa.String(length=120), nullable=True),
+    sa.Column('dor_quota_met', sa.Boolean(), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('guardian_consent', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['chapter_id'], ['chapters.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['current_lesson_id'], ['lessons.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['division_id'], ['divisions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
     )
+    with op.batch_alter_table('students', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_students_client_id'), ['client_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_students_status'), ['status'], unique=False)
+        batch_op.create_index(batch_op.f('ix_students_student_code'), ['student_code'], unique=True)
+        batch_op.create_index(batch_op.f('ix_students_teacher_id'), ['teacher_id'], unique=False)
+
     op.create_table('tasks',
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
@@ -1777,122 +1600,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('qa_reviews',
-    sa.Column('session_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=False),
-    sa.Column('reviewer_id', sa.Integer(), nullable=True),
-    sa.Column('ai_analysis_id', sa.Integer(), nullable=True),
-    sa.Column('sample_type', sa.String(length=20), nullable=False),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('tajweed_score', sa.Float(), nullable=True),
-    sa.Column('methodology_score', sa.Float(), nullable=True),
-    sa.Column('engagement_score', sa.Float(), nullable=True),
-    sa.Column('punctuality_score', sa.Float(), nullable=True),
-    sa.Column('environment_score', sa.Float(), nullable=True),
-    sa.Column('professionalism_score', sa.Float(), nullable=True),
-    sa.Column('overall_score', sa.Float(), nullable=True),
-    sa.Column('strengths', sa.Text(), nullable=True),
-    sa.Column('weaknesses', sa.Text(), nullable=True),
-    sa.Column('comments', sa.Text(), nullable=True),
-    sa.Column('teacher_feedback_sent', sa.Boolean(), nullable=False),
-    sa.Column('re_evaluation_of_id', sa.Integer(), nullable=True),
-    sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
-    sa.Column('completed_at', sa.DateTime(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['ai_analysis_id'], ['ai_class_analyses.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['approved_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['re_evaluation_of_id'], ['qa_reviews.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['reviewer_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('qa_reviews', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_qa_reviews_session_id'), ['session_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_qa_reviews_teacher_id'), ['teacher_id'], unique=False)
-
-    op.create_table('students',
-    sa.Column('student_code', sa.String(length=20), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('client_id', sa.Integer(), nullable=False),
-    sa.Column('full_name', sa.String(length=150), nullable=False),
-    sa.Column('gender', sa.String(length=10), nullable=False),
-    sa.Column('date_of_birth', sa.Date(), nullable=True),
-    sa.Column('age', sa.Integer(), nullable=True),
-    sa.Column('is_minor', sa.Boolean(), nullable=False),
-    sa.Column('course_id', sa.Integer(), nullable=True),
-    sa.Column('division_id', sa.Integer(), nullable=True),
-    sa.Column('level', sa.String(length=60), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('timezone', sa.String(length=64), nullable=False),
-    sa.Column('preferred_language', sa.String(length=20), nullable=False),
-    sa.Column('join_date', sa.Date(), nullable=False),
-    sa.Column('cancelled_at', sa.Date(), nullable=True),
-    sa.Column('cancel_reason', sa.String(length=200), nullable=True),
-    sa.Column('risk_score', sa.Float(), nullable=False),
-    sa.Column('risk_level', sa.String(length=10), nullable=False),
-    sa.Column('risk_factors', sa.JSON(), nullable=False),
-    sa.Column('risk_computed_at', sa.DateTime(), nullable=True),
-    sa.Column('current_lesson_id', sa.Integer(), nullable=True),
-    sa.Column('sabaq_position', sa.String(length=120), nullable=True),
-    sa.Column('dor_quota_met', sa.Boolean(), nullable=False),
-    sa.Column('notes', sa.Text(), nullable=True),
-    sa.Column('guardian_consent', sa.Boolean(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['current_lesson_id'], ['lessons.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['division_id'], ['divisions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id')
-    )
-    with op.batch_alter_table('students', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_students_client_id'), ['client_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_students_status'), ['status'], unique=False)
-        batch_op.create_index(batch_op.f('ix_students_student_code'), ['student_code'], unique=True)
-        batch_op.create_index(batch_op.f('ix_students_teacher_id'), ['teacher_id'], unique=False)
-
-    op.create_table('task_comments',
-    sa.Column('task_id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('text', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('attendance',
-    sa.Column('session_id', sa.Integer(), nullable=False),
-    sa.Column('student_id', sa.Integer(), nullable=False),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('student_status', sa.String(length=20), nullable=False),
-    sa.Column('teacher_status', sa.String(length=20), nullable=False),
-    sa.Column('marked_by_id', sa.Integer(), nullable=True),
-    sa.Column('remarks', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['marked_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('attendance', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_attendance_date'), ['date'], unique=False)
-        batch_op.create_index(batch_op.f('ix_attendance_session_id'), ['session_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_attendance_student_id'), ['student_id'], unique=False)
-
     op.create_table('cases',
     sa.Column('case_number', sa.String(length=20), nullable=False),
     sa.Column('case_type', sa.String(length=30), nullable=False),
@@ -1963,26 +1670,6 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_certificates_certificate_number'), ['certificate_number'], unique=True)
         batch_op.create_index(batch_op.f('ix_certificates_student_id'), ['student_id'], unique=False)
 
-    op.create_table('corrective_actions',
-    sa.Column('qa_review_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=False),
-    sa.Column('description', sa.Text(), nullable=False),
-    sa.Column('assigned_by_id', sa.Integer(), nullable=True),
-    sa.Column('due_date', sa.Date(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('closed_at', sa.DateTime(), nullable=True),
-    sa.Column('closure_note', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['assigned_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['qa_review_id'], ['qa_reviews.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('corrective_actions', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_corrective_actions_teacher_id'), ['teacher_id'], unique=False)
-
     op.create_table('evaluations',
     sa.Column('student_id', sa.Integer(), nullable=False),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -2006,6 +1693,16 @@ def upgrade() -> None:
     with op.batch_alter_table('evaluations', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_evaluations_student_id'), ['student_id'], unique=False)
 
+    op.create_table('internal_notes',
+    sa.Column('conversation_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('text', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['conversation_id'], ['conversations.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('leaves',
     sa.Column('person_type', sa.String(length=10), nullable=False),
     sa.Column('employee_id', sa.Integer(), nullable=True),
@@ -2035,24 +1732,63 @@ def upgrade() -> None:
     with op.batch_alter_table('leaves', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_leaves_person_type'), ['person_type'], unique=False)
 
-    op.create_table('lesson_annotations',
+    op.create_table('lesson_plans',
+    sa.Column('student_id', sa.Integer(), nullable=False),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
     sa.Column('session_id', sa.Integer(), nullable=True),
+    sa.Column('plan_date', sa.Date(), nullable=False),
+    sa.Column('plan_type', sa.String(length=20), nullable=False),
     sa.Column('lesson_id', sa.Integer(), nullable=True),
-    sa.Column('student_id', sa.Integer(), nullable=True),
-    sa.Column('author_id', sa.Integer(), nullable=True),
-    sa.Column('word_index', sa.Integer(), nullable=True),
-    sa.Column('annotation_type', sa.String(length=30), nullable=False),
-    sa.Column('color', sa.String(length=20), nullable=True),
-    sa.Column('note', sa.Text(), nullable=True),
+    sa.Column('planned_content', sa.Text(), nullable=False),
+    sa.Column('delivered_content', sa.Text(), nullable=True),
+    sa.Column('sabaq', sa.String(length=200), nullable=True),
+    sa.Column('sabqi', sa.String(length=200), nullable=True),
+    sa.Column('dor', sa.String(length=200), nullable=True),
+    sa.Column('teacher_notes', sa.Text(), nullable=True),
+    sa.Column('next_objectives', sa.Text(), nullable=True),
+    sa.Column('ai_recommendation', sa.Text(), nullable=True),
+    sa.Column('ai_run_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('variance_pct', sa.Float(), nullable=True),
+    sa.Column('reviewed_by_id', sa.Integer(), nullable=True),
+    sa.Column('reviewed_at', sa.DateTime(), nullable=True),
+    sa.Column('review_comment', sa.Text(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['author_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['ai_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['reviewed_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], name='fk_lesson_plans_session_id', ondelete='SET NULL', use_alter=True),
     sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
+    with op.batch_alter_table('lesson_plans', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_lesson_plans_plan_date'), ['plan_date'], unique=False)
+        batch_op.create_index(batch_op.f('ix_lesson_plans_student_id'), ['student_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_lesson_plans_teacher_id'), ['teacher_id'], unique=False)
+
+    op.create_table('messages',
+    sa.Column('conversation_id', sa.Integer(), nullable=False),
+    sa.Column('direction', sa.String(length=10), nullable=False),
+    sa.Column('body', sa.Text(), nullable=False),
+    sa.Column('message_type', sa.String(length=20), nullable=False),
+    sa.Column('template_name', sa.String(length=80), nullable=True),
+    sa.Column('sender_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('external_id', sa.String(length=120), nullable=True),
+    sa.Column('error', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['conversation_id'], ['conversations.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('messages', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_messages_conversation_id'), ['conversation_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_messages_created_at'), ['created_at'], unique=False)
+
     op.create_table('monthly_tests',
     sa.Column('student_id', sa.Integer(), nullable=False),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -2084,6 +1820,38 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_monthly_tests_period'), ['period'], unique=False)
         batch_op.create_index(batch_op.f('ix_monthly_tests_student_id'), ['student_id'], unique=False)
 
+    op.create_table('referrals',
+    sa.Column('ambassador_client_id', sa.Integer(), nullable=False),
+    sa.Column('referral_code', sa.String(length=20), nullable=False),
+    sa.Column('referred_name', sa.String(length=150), nullable=True),
+    sa.Column('referred_phone', sa.String(length=50), nullable=True),
+    sa.Column('referred_lead_id', sa.Integer(), nullable=True),
+    sa.Column('referred_client_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('invited_at', sa.DateTime(), nullable=True),
+    sa.Column('qualified_at', sa.DateTime(), nullable=True),
+    sa.Column('credit_amount', sa.Numeric(precision=12, scale=2), nullable=False),
+    sa.Column('credit_currency', sa.String(length=3), nullable=False),
+    sa.Column('ambassador_credit_ledger_id', sa.Integer(), nullable=True),
+    sa.Column('referred_credit_ledger_id', sa.Integer(), nullable=True),
+    sa.Column('ghl_source_tag', sa.String(length=80), nullable=True),
+    sa.Column('owner_id', sa.Integer(), nullable=True),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['ambassador_client_id'], ['clients.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['ambassador_credit_ledger_id'], ['ledger_entries.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['referred_client_id'], ['clients.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['referred_credit_ledger_id'], ['ledger_entries.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['referred_lead_id'], ['leads.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('referrals', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_referrals_ambassador_client_id'), ['ambassador_client_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_referrals_referral_code'), ['referral_code'], unique=False)
+
     op.create_table('retention_actions',
     sa.Column('student_id', sa.Integer(), nullable=False),
     sa.Column('client_id', sa.Integer(), nullable=True),
@@ -2109,29 +1877,6 @@ def upgrade() -> None:
     with op.batch_alter_table('retention_actions', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_retention_actions_student_id'), ['student_id'], unique=False)
 
-    op.create_table('safeguarding_flags',
-    sa.Column('flag_type', sa.String(length=40), nullable=False),
-    sa.Column('severity', sa.String(length=20), nullable=False),
-    sa.Column('session_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.Column('student_id', sa.Integer(), nullable=True),
-    sa.Column('evidence', sa.Text(), nullable=True),
-    sa.Column('source', sa.String(length=20), nullable=False),
-    sa.Column('ai_run_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('visibility', sa.String(length=20), nullable=False),
-    sa.Column('handled_by_id', sa.Integer(), nullable=True),
-    sa.Column('resolution', sa.Text(), nullable=True),
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['ai_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['handled_by_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
     op.create_table('scholarships',
     sa.Column('client_id', sa.Integer(), nullable=False),
     sa.Column('student_id', sa.Integer(), nullable=True),
@@ -2175,6 +1920,16 @@ def upgrade() -> None:
     with op.batch_alter_table('student_progress', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_student_progress_student_id'), ['student_id'], unique=False)
 
+    op.create_table('task_comments',
+    sa.Column('task_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('text', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('teacher_matches',
     sa.Column('student_id', sa.Integer(), nullable=False),
     sa.Column('recommended_teacher_id', sa.Integer(), nullable=True),
@@ -2411,39 +2166,59 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_schedules_student_id'), ['student_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_schedules_teacher_id'), ['teacher_id'], unique=False)
 
-    op.create_table('trials',
-    sa.Column('lead_id', sa.Integer(), nullable=True),
-    sa.Column('client_id', sa.Integer(), nullable=True),
-    sa.Column('student_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    op.create_table('class_sessions',
+    sa.Column('schedule_id', sa.Integer(), nullable=True),
+    sa.Column('student_id', sa.Integer(), nullable=False),
+    sa.Column('teacher_id', sa.Integer(), nullable=False),
     sa.Column('course_id', sa.Integer(), nullable=True),
-    sa.Column('session_id', sa.Integer(), nullable=True),
-    sa.Column('student_name', sa.String(length=150), nullable=False),
-    sa.Column('scheduled_at', sa.DateTime(), nullable=True),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('start_time', sa.Time(), nullable=False),
+    sa.Column('end_time', sa.Time(), nullable=False),
+    sa.Column('scheduled_start', sa.DateTime(), nullable=False),
+    sa.Column('duration_minutes', sa.Integer(), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('outcome', sa.String(length=200), nullable=True),
-    sa.Column('teacher_feedback', sa.Text(), nullable=True),
-    sa.Column('follow_up_date', sa.Date(), nullable=True),
-    sa.Column('follow_up_count', sa.Integer(), nullable=False),
-    sa.Column('converted_subscription_id', sa.Integer(), nullable=True),
-    sa.Column('closer_id', sa.Integer(), nullable=True),
-    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('is_trial', sa.Boolean(), nullable=False),
+    sa.Column('room_name', sa.String(length=120), nullable=True),
+    sa.Column('join_url', sa.String(length=400), nullable=True),
+    sa.Column('teacher_joined_at', sa.DateTime(), nullable=True),
+    sa.Column('teacher_left_at', sa.DateTime(), nullable=True),
+    sa.Column('student_joined_at', sa.DateTime(), nullable=True),
+    sa.Column('student_left_at', sa.DateTime(), nullable=True),
+    sa.Column('actual_duration_minutes', sa.Integer(), nullable=True),
+    sa.Column('teacher_late_minutes', sa.Integer(), nullable=False),
+    sa.Column('status_changed_by_id', sa.Integer(), nullable=True),
+    sa.Column('status_changed_at', sa.DateTime(), nullable=True),
+    sa.Column('status_reason', sa.Text(), nullable=True),
+    sa.Column('rescheduled_to_id', sa.Integer(), nullable=True),
+    sa.Column('lesson_plan_id', sa.Integer(), nullable=True),
+    sa.Column('lesson_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_notes', sa.Text(), nullable=True),
+    sa.Column('student_feedback', sa.Text(), nullable=True),
+    sa.Column('student_rating', sa.Integer(), nullable=True),
+    sa.Column('reminder_sent_teacher', sa.Boolean(), nullable=False),
+    sa.Column('reminder_sent_student', sa.Boolean(), nullable=False),
+    sa.Column('substitute_for_teacher_id', sa.Integer(), nullable=True),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['closer_id'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['converted_subscription_id'], ['subscriptions.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lesson_plan_id'], ['lesson_plans.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['rescheduled_to_id'], ['class_sessions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['schedule_id'], ['schedules.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['status_changed_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['substitute_for_teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('trials', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_trials_lead_id'), ['lead_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_trials_scheduled_at'), ['scheduled_at'], unique=False)
+    with op.batch_alter_table('class_sessions', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_class_sessions_date'), ['date'], unique=False)
+        batch_op.create_index(batch_op.f('ix_class_sessions_schedule_id'), ['schedule_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_class_sessions_scheduled_start'), ['scheduled_start'], unique=False)
+        batch_op.create_index(batch_op.f('ix_class_sessions_status'), ['status'], unique=False)
+        batch_op.create_index(batch_op.f('ix_class_sessions_student_id'), ['student_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_class_sessions_teacher_id'), ['teacher_id'], unique=False)
 
     op.create_table('invoice_items',
     sa.Column('invoice_id', sa.Integer(), nullable=False),
@@ -2485,6 +2260,47 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_payments_payment_number'), ['payment_number'], unique=True)
         batch_op.create_index(batch_op.f('ix_payments_received_at'), ['received_at'], unique=False)
 
+    op.create_table('attendance',
+    sa.Column('session_id', sa.Integer(), nullable=False),
+    sa.Column('student_id', sa.Integer(), nullable=False),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('student_status', sa.String(length=20), nullable=False),
+    sa.Column('teacher_status', sa.String(length=20), nullable=False),
+    sa.Column('marked_by_id', sa.Integer(), nullable=True),
+    sa.Column('remarks', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['marked_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('attendance', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_attendance_date'), ['date'], unique=False)
+        batch_op.create_index(batch_op.f('ix_attendance_session_id'), ['session_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_attendance_student_id'), ['student_id'], unique=False)
+
+    op.create_table('lesson_annotations',
+    sa.Column('session_id', sa.Integer(), nullable=True),
+    sa.Column('lesson_id', sa.Integer(), nullable=True),
+    sa.Column('student_id', sa.Integer(), nullable=True),
+    sa.Column('author_id', sa.Integer(), nullable=True),
+    sa.Column('word_index', sa.Integer(), nullable=True),
+    sa.Column('annotation_type', sa.String(length=30), nullable=False),
+    sa.Column('color', sa.String(length=20), nullable=True),
+    sa.Column('note', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['author_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('receipts',
     sa.Column('receipt_number', sa.String(length=30), nullable=False),
     sa.Column('payment_id', sa.Integer(), nullable=False),
@@ -2499,16 +2315,254 @@ def upgrade() -> None:
     with op.batch_alter_table('receipts', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_receipts_receipt_number'), ['receipt_number'], unique=True)
 
+    op.create_table('recordings',
+    sa.Column('session_id', sa.Integer(), nullable=False),
+    sa.Column('file_path', sa.String(length=500), nullable=True),
+    sa.Column('external_url', sa.String(length=500), nullable=True),
+    sa.Column('source', sa.String(length=20), nullable=False),
+    sa.Column('duration_seconds', sa.Integer(), nullable=False),
+    sa.Column('size_bytes', sa.Integer(), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('retention_until', sa.Date(), nullable=True),
+    sa.Column('transcript', sa.Text(), nullable=True),
+    sa.Column('access_count', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('session_id')
+    )
+    op.create_table('safeguarding_flags',
+    sa.Column('flag_type', sa.String(length=40), nullable=False),
+    sa.Column('severity', sa.String(length=20), nullable=False),
+    sa.Column('session_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('student_id', sa.Integer(), nullable=True),
+    sa.Column('evidence', sa.Text(), nullable=True),
+    sa.Column('source', sa.String(length=20), nullable=False),
+    sa.Column('ai_run_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('visibility', sa.String(length=20), nullable=False),
+    sa.Column('handled_by_id', sa.Integer(), nullable=True),
+    sa.Column('resolution', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['ai_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['handled_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('trials',
+    sa.Column('lead_id', sa.Integer(), nullable=True),
+    sa.Column('client_id', sa.Integer(), nullable=True),
+    sa.Column('student_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('course_id', sa.Integer(), nullable=True),
+    sa.Column('session_id', sa.Integer(), nullable=True),
+    sa.Column('student_name', sa.String(length=150), nullable=False),
+    sa.Column('scheduled_at', sa.DateTime(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('outcome', sa.String(length=200), nullable=True),
+    sa.Column('teacher_feedback', sa.Text(), nullable=True),
+    sa.Column('follow_up_date', sa.Date(), nullable=True),
+    sa.Column('follow_up_count', sa.Integer(), nullable=False),
+    sa.Column('converted_subscription_id', sa.Integer(), nullable=True),
+    sa.Column('closer_id', sa.Integer(), nullable=True),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['closer_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['converted_subscription_id'], ['subscriptions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('trials', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_trials_lead_id'), ['lead_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_trials_scheduled_at'), ['scheduled_at'], unique=False)
+
+    op.create_table('ai_class_analyses',
+    sa.Column('session_id', sa.Integer(), nullable=False),
+    sa.Column('recording_id', sa.Integer(), nullable=True),
+    sa.Column('model_run_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('camera_presence_pct', sa.Float(), nullable=False),
+    sa.Column('punctuality_minutes', sa.Integer(), nullable=False),
+    sa.Column('duration_compliance_pct', sa.Float(), nullable=False),
+    sa.Column('active_teaching_pct', sa.Float(), nullable=False),
+    sa.Column('idle_pct', sa.Float(), nullable=False),
+    sa.Column('student_engagement_score', sa.Float(), nullable=False),
+    sa.Column('curriculum_coverage_pct', sa.Float(), nullable=False),
+    sa.Column('tone_flags', sa.JSON(), nullable=False),
+    sa.Column('conduct_flags', sa.JSON(), nullable=False),
+    sa.Column('contact_exchange_detected', sa.Boolean(), nullable=False),
+    sa.Column('overall_score', sa.Float(), nullable=False),
+    sa.Column('confidence', sa.Float(), nullable=False),
+    sa.Column('summary', sa.Text(), nullable=True),
+    sa.Column('recommended_feedback', sa.Text(), nullable=True),
+    sa.Column('risk_level', sa.String(length=10), nullable=False),
+    sa.Column('review_status', sa.String(length=20), nullable=False),
+    sa.Column('reviewed_by_id', sa.Integer(), nullable=True),
+    sa.Column('reviewed_at', sa.DateTime(), nullable=True),
+    sa.Column('review_note', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['model_run_id'], ['ai_model_runs.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['recording_id'], ['recordings.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['reviewed_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('session_id')
+    )
+    with op.batch_alter_table('ai_class_analyses', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_ai_class_analyses_teacher_id'), ['teacher_id'], unique=False)
+
+    op.create_table('recording_access_logs',
+    sa.Column('recording_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('purpose', sa.String(length=200), nullable=True),
+    sa.Column('ip', sa.String(length=64), nullable=True),
+    sa.Column('accessed_at', sa.DateTime(), nullable=False),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['recording_id'], ['recordings.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('recording_access_logs', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_recording_access_logs_recording_id'), ['recording_id'], unique=False)
+
+    op.create_table('qa_reviews',
+    sa.Column('session_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=False),
+    sa.Column('reviewer_id', sa.Integer(), nullable=True),
+    sa.Column('ai_analysis_id', sa.Integer(), nullable=True),
+    sa.Column('sample_type', sa.String(length=20), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('tajweed_score', sa.Float(), nullable=True),
+    sa.Column('methodology_score', sa.Float(), nullable=True),
+    sa.Column('engagement_score', sa.Float(), nullable=True),
+    sa.Column('punctuality_score', sa.Float(), nullable=True),
+    sa.Column('environment_score', sa.Float(), nullable=True),
+    sa.Column('professionalism_score', sa.Float(), nullable=True),
+    sa.Column('overall_score', sa.Float(), nullable=True),
+    sa.Column('strengths', sa.Text(), nullable=True),
+    sa.Column('weaknesses', sa.Text(), nullable=True),
+    sa.Column('comments', sa.Text(), nullable=True),
+    sa.Column('teacher_feedback_sent', sa.Boolean(), nullable=False),
+    sa.Column('re_evaluation_of_id', sa.Integer(), nullable=True),
+    sa.Column('approved_by_id', sa.Integer(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(), nullable=True),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['ai_analysis_id'], ['ai_class_analyses.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['approved_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['re_evaluation_of_id'], ['qa_reviews.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['reviewer_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['session_id'], ['class_sessions.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('qa_reviews', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_qa_reviews_session_id'), ['session_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_qa_reviews_teacher_id'), ['teacher_id'], unique=False)
+
+    op.create_table('corrective_actions',
+    sa.Column('qa_review_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=False),
+    sa.Column('description', sa.Text(), nullable=False),
+    sa.Column('assigned_by_id', sa.Integer(), nullable=True),
+    sa.Column('due_date', sa.Date(), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('closed_at', sa.DateTime(), nullable=True),
+    sa.Column('closure_note', sa.Text(), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['assigned_by_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['qa_review_id'], ['qa_reviews.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('corrective_actions', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_corrective_actions_teacher_id'), ['teacher_id'], unique=False)
+
+
+    # --- Circular foreign keys -------------------------------------------------
+    # These three pairs of tables reference each other, so the constraints are declared
+    # use_alter=True and omitted from CREATE TABLE. Alembic does not re-add them, so they
+    # are attached explicitly here, once every table exists. PostgreSQL rejects an inline
+    # reference to a table that does not exist yet; SQLite tolerates it, which is why this
+    # only surfaced on the production database.
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":  # SQLite cannot ALTER TABLE ADD CONSTRAINT
+        op.create_foreign_key("fk_departments_hod_user_id", "departments", "users",
+                              ["hod_user_id"], ["id"], ondelete="SET NULL")
+        op.create_foreign_key("fk_leads_converted_client_id", "leads", "clients",
+                              ["converted_client_id"], ["id"], ondelete="SET NULL")
+        op.create_foreign_key("fk_lesson_plans_session_id", "lesson_plans", "class_sessions",
+                              ["session_id"], ["id"], ondelete="SET NULL")
+
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.drop_constraint("fk_lesson_plans_session_id", "lesson_plans", type_="foreignkey")
+        op.drop_constraint("fk_leads_converted_client_id", "leads", type_="foreignkey")
+        op.drop_constraint("fk_departments_hod_user_id", "departments", type_="foreignkey")
+
+    with op.batch_alter_table('corrective_actions', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_corrective_actions_teacher_id'))
+
+    op.drop_table('corrective_actions')
+    with op.batch_alter_table('qa_reviews', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_qa_reviews_teacher_id'))
+        batch_op.drop_index(batch_op.f('ix_qa_reviews_session_id'))
+
+    op.drop_table('qa_reviews')
+    with op.batch_alter_table('recording_access_logs', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_recording_access_logs_recording_id'))
+
+    op.drop_table('recording_access_logs')
+    with op.batch_alter_table('ai_class_analyses', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_ai_class_analyses_teacher_id'))
+
+    op.drop_table('ai_class_analyses')
+    with op.batch_alter_table('trials', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_trials_scheduled_at'))
+        batch_op.drop_index(batch_op.f('ix_trials_lead_id'))
+
+    op.drop_table('trials')
+    op.drop_table('safeguarding_flags')
+    op.drop_table('recordings')
     with op.batch_alter_table('receipts', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_receipts_receipt_number'))
 
     op.drop_table('receipts')
+    op.drop_table('lesson_annotations')
+    with op.batch_alter_table('attendance', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_attendance_student_id'))
+        batch_op.drop_index(batch_op.f('ix_attendance_session_id'))
+        batch_op.drop_index(batch_op.f('ix_attendance_date'))
+
+    op.drop_table('attendance')
     with op.batch_alter_table('payments', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_payments_received_at'))
         batch_op.drop_index(batch_op.f('ix_payments_payment_number'))
@@ -2517,11 +2571,15 @@ def downgrade() -> None:
 
     op.drop_table('payments')
     op.drop_table('invoice_items')
-    with op.batch_alter_table('trials', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_trials_scheduled_at'))
-        batch_op.drop_index(batch_op.f('ix_trials_lead_id'))
+    with op.batch_alter_table('class_sessions', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_class_sessions_teacher_id'))
+        batch_op.drop_index(batch_op.f('ix_class_sessions_student_id'))
+        batch_op.drop_index(batch_op.f('ix_class_sessions_status'))
+        batch_op.drop_index(batch_op.f('ix_class_sessions_scheduled_start'))
+        batch_op.drop_index(batch_op.f('ix_class_sessions_schedule_id'))
+        batch_op.drop_index(batch_op.f('ix_class_sessions_date'))
 
-    op.drop_table('trials')
+    op.drop_table('class_sessions')
     with op.batch_alter_table('schedules', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_schedules_teacher_id'))
         batch_op.drop_index(batch_op.f('ix_schedules_student_id'))
@@ -2561,34 +2619,46 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_teacher_matches_student_id'))
 
     op.drop_table('teacher_matches')
+    op.drop_table('task_comments')
     with op.batch_alter_table('student_progress', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_student_progress_student_id'))
 
     op.drop_table('student_progress')
     op.drop_table('scholarships')
-    op.drop_table('safeguarding_flags')
     with op.batch_alter_table('retention_actions', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_retention_actions_student_id'))
 
     op.drop_table('retention_actions')
+    with op.batch_alter_table('referrals', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_referrals_referral_code'))
+        batch_op.drop_index(batch_op.f('ix_referrals_ambassador_client_id'))
+
+    op.drop_table('referrals')
     with op.batch_alter_table('monthly_tests', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_monthly_tests_student_id'))
         batch_op.drop_index(batch_op.f('ix_monthly_tests_period'))
 
     op.drop_table('monthly_tests')
-    op.drop_table('lesson_annotations')
+    with op.batch_alter_table('messages', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_messages_created_at'))
+        batch_op.drop_index(batch_op.f('ix_messages_conversation_id'))
+
+    op.drop_table('messages')
+    with op.batch_alter_table('lesson_plans', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_lesson_plans_teacher_id'))
+        batch_op.drop_index(batch_op.f('ix_lesson_plans_student_id'))
+        batch_op.drop_index(batch_op.f('ix_lesson_plans_plan_date'))
+
+    op.drop_table('lesson_plans')
     with op.batch_alter_table('leaves', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_leaves_person_type'))
 
     op.drop_table('leaves')
+    op.drop_table('internal_notes')
     with op.batch_alter_table('evaluations', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_evaluations_student_id'))
 
     op.drop_table('evaluations')
-    with op.batch_alter_table('corrective_actions', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_corrective_actions_teacher_id'))
-
-    op.drop_table('corrective_actions')
     with op.batch_alter_table('certificates', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_certificates_student_id'))
         batch_op.drop_index(batch_op.f('ix_certificates_certificate_number'))
@@ -2602,25 +2672,6 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_cases_assigned_to_id'))
 
     op.drop_table('cases')
-    with op.batch_alter_table('attendance', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_attendance_student_id'))
-        batch_op.drop_index(batch_op.f('ix_attendance_session_id'))
-        batch_op.drop_index(batch_op.f('ix_attendance_date'))
-
-    op.drop_table('attendance')
-    op.drop_table('task_comments')
-    with op.batch_alter_table('students', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_students_teacher_id'))
-        batch_op.drop_index(batch_op.f('ix_students_student_code'))
-        batch_op.drop_index(batch_op.f('ix_students_status'))
-        batch_op.drop_index(batch_op.f('ix_students_client_id'))
-
-    op.drop_table('students')
-    with op.batch_alter_table('qa_reviews', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_qa_reviews_teacher_id'))
-        batch_op.drop_index(batch_op.f('ix_qa_reviews_session_id'))
-
-    op.drop_table('qa_reviews')
     op.drop_table('training_assignments')
     with op.batch_alter_table('tasks', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_tasks_status'))
@@ -2630,12 +2681,27 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_tasks_assignee_id'))
 
     op.drop_table('tasks')
-    op.drop_table('lessons')
-    op.drop_table('interviews')
-    with op.batch_alter_table('ai_class_analyses', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_ai_class_analyses_teacher_id'))
+    with op.batch_alter_table('students', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_students_teacher_id'))
+        batch_op.drop_index(batch_op.f('ix_students_student_code'))
+        batch_op.drop_index(batch_op.f('ix_students_status'))
+        batch_op.drop_index(batch_op.f('ix_students_client_id'))
 
-    op.drop_table('ai_class_analyses')
+    op.drop_table('students')
+    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_ledger_entries_entry_date'))
+        batch_op.drop_index(batch_op.f('ix_ledger_entries_client_id'))
+
+    op.drop_table('ledger_entries')
+    op.drop_table('interviews')
+    with op.batch_alter_table('conversations', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_conversations_lead_id'))
+        batch_op.drop_index(batch_op.f('ix_conversations_last_message_at'))
+        batch_op.drop_index(batch_op.f('ix_conversations_client_id'))
+        batch_op.drop_index(batch_op.f('ix_conversations_assigned_to_id'))
+
+    op.drop_table('conversations')
+    op.drop_table('communication_preferences')
     op.drop_table('violations')
     op.drop_table('transition_records')
     with op.batch_alter_table('teachers', schema=None) as batch_op:
@@ -2645,15 +2711,6 @@ def downgrade() -> None:
     op.drop_table('sprints')
     op.drop_table('salary_structures')
     op.drop_table('salary_advances')
-    with op.batch_alter_table('referrals', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_referrals_referral_code'))
-        batch_op.drop_index(batch_op.f('ix_referrals_ambassador_client_id'))
-
-    op.drop_table('referrals')
-    with op.batch_alter_table('recording_access_logs', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_recording_access_logs_recording_id'))
-
-    op.drop_table('recording_access_logs')
     op.drop_table('provisioning_records')
     with op.batch_alter_table('payslips', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_payslips_employee_id'))
@@ -2661,11 +2718,11 @@ def downgrade() -> None:
     op.drop_table('payslips')
     op.drop_table('onboarding_tasks')
     op.drop_table('milestones')
-    with op.batch_alter_table('messages', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_messages_created_at'))
-        batch_op.drop_index(batch_op.f('ix_messages_conversation_id'))
+    op.drop_table('lessons')
+    with op.batch_alter_table('lead_activities', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_lead_activities_lead_id'))
 
-    op.drop_table('messages')
+    op.drop_table('lead_activities')
     with op.batch_alter_table('kpi_values', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_kpi_values_period'))
         batch_op.drop_index(batch_op.f('ix_kpi_values_kpi_id'))
@@ -2675,7 +2732,6 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_journal_lines_account_id'))
 
     op.drop_table('journal_lines')
-    op.drop_table('internal_notes')
     with op.batch_alter_table('hr_attendance', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_hr_attendance_employee_id'))
         batch_op.drop_index(batch_op.f('ix_hr_attendance_date'))
@@ -2687,10 +2743,13 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_decisions_owner_id'))
 
     op.drop_table('decisions')
-    op.drop_table('chapters')
+    with op.batch_alter_table('clients', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_clients_email'))
+        batch_op.drop_index(batch_op.f('ix_clients_client_code'))
+
+    op.drop_table('clients')
     op.drop_table('candidates')
     op.drop_table('bonuses')
-    op.drop_table('webhook_deliveries')
     with op.batch_alter_table('user_sessions', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_user_sessions_user_id'))
         batch_op.drop_index(batch_op.f('ix_user_sessions_token_jti'))
@@ -2702,12 +2761,6 @@ def downgrade() -> None:
 
     op.drop_table('trajectory_meetings')
     op.drop_table('shifts')
-    with op.batch_alter_table('sequence_enrollments', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_sequence_id'))
-        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_next_run_at'))
-        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_contact_id'))
-
-    op.drop_table('sequence_enrollments')
     op.drop_table('security_incidents')
     with op.batch_alter_table('risk_alerts', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_risk_alerts_alert_type'))
@@ -2719,13 +2772,11 @@ def downgrade() -> None:
 
     op.drop_table('reminder_logs')
     op.drop_table('recruitment_requests')
-    op.drop_table('recordings')
     op.drop_table('projects')
     with op.batch_alter_table('payroll_runs', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_payroll_runs_period'))
 
     op.drop_table('payroll_runs')
-    op.drop_table('packages')
     with op.batch_alter_table('notifications', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_notifications_user_id'))
         batch_op.drop_index(batch_op.f('ix_notifications_event_type'))
@@ -2733,15 +2784,14 @@ def downgrade() -> None:
 
     op.drop_table('notifications')
     op.drop_table('migration_jobs')
-    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_ledger_entries_entry_date'))
-        batch_op.drop_index(batch_op.f('ix_ledger_entries_client_id'))
+    with op.batch_alter_table('leads', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_leads_stage'))
+        batch_op.drop_index(batch_op.f('ix_leads_phone'))
+        batch_op.drop_index(batch_op.f('ix_leads_lead_code'))
+        batch_op.drop_index(batch_op.f('ix_leads_email'))
+        batch_op.drop_index(batch_op.f('ix_leads_assigned_to_id'))
 
-    op.drop_table('ledger_entries')
-    with op.batch_alter_table('lead_activities', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_lead_activities_lead_id'))
-
-    op.drop_table('lead_activities')
+    op.drop_table('leads')
     op.drop_table('kpis')
     with op.batch_alter_table('journal_entries', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_journal_entries_period'))
@@ -2762,7 +2812,6 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_employees_employee_code'))
 
     op.drop_table('employees')
-    op.drop_table('divisions')
     with op.batch_alter_table('department_scorecards', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_department_scorecards_period'))
 
@@ -2773,25 +2822,8 @@ def downgrade() -> None:
 
     op.drop_table('daily_reports')
     op.drop_table('curriculum_versions')
-    with op.batch_alter_table('conversations', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_conversations_lead_id'))
-        batch_op.drop_index(batch_op.f('ix_conversations_last_message_at'))
-        batch_op.drop_index(batch_op.f('ix_conversations_client_id'))
-        batch_op.drop_index(batch_op.f('ix_conversations_assigned_to_id'))
-
-    op.drop_table('conversations')
-    op.drop_table('communication_preferences')
-    with op.batch_alter_table('campaign_metrics', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_campaign_metrics_date'))
-        batch_op.drop_index(batch_op.f('ix_campaign_metrics_campaign_id'))
-
-    op.drop_table('campaign_metrics')
+    op.drop_table('chapters')
     op.drop_table('call_logs')
-    with op.batch_alter_table('budgets', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_budgets_period'))
-
-    op.drop_table('budgets')
-    op.drop_table('books')
     op.drop_table('backup_records')
     with op.batch_alter_table('audit_events', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_audit_events_module'))
@@ -2809,12 +2841,31 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_ai_model_runs_created_at'))
 
     op.drop_table('ai_model_runs')
-    op.drop_table('webhooks')
+    op.drop_table('webhook_deliveries')
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_users_username'))
         batch_op.drop_index(batch_op.f('ix_users_email'))
 
     op.drop_table('users')
+    with op.batch_alter_table('sequence_enrollments', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_sequence_id'))
+        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_next_run_at'))
+        batch_op.drop_index(batch_op.f('ix_sequence_enrollments_contact_id'))
+
+    op.drop_table('sequence_enrollments')
+    op.drop_table('packages')
+    op.drop_table('divisions')
+    with op.batch_alter_table('campaign_metrics', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_campaign_metrics_date'))
+        batch_op.drop_index(batch_op.f('ix_campaign_metrics_campaign_id'))
+
+    op.drop_table('campaign_metrics')
+    with op.batch_alter_table('budgets', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_budgets_period'))
+
+    op.drop_table('budgets')
+    op.drop_table('books')
+    op.drop_table('webhooks')
     op.drop_table('surveys')
     op.drop_table('settings')
     op.drop_table('sequences')
@@ -2825,40 +2876,12 @@ def downgrade() -> None:
 
     op.drop_table('notification_templates')
     op.drop_table('message_templates')
-    with op.batch_alter_table('lesson_plans', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_lesson_plans_teacher_id'))
-        batch_op.drop_index(batch_op.f('ix_lesson_plans_student_id'))
-        batch_op.drop_index(batch_op.f('ix_lesson_plans_plan_date'))
-
-    op.drop_table('lesson_plans')
-    with op.batch_alter_table('leads', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_leads_stage'))
-        batch_op.drop_index(batch_op.f('ix_leads_phone'))
-        batch_op.drop_index(batch_op.f('ix_leads_lead_code'))
-        batch_op.drop_index(batch_op.f('ix_leads_email'))
-        batch_op.drop_index(batch_op.f('ix_leads_assigned_to_id'))
-
-    op.drop_table('leads')
     op.drop_table('lead_sources')
     op.drop_table('integrations')
     op.drop_table('households')
     op.drop_table('departments')
     op.drop_table('currencies')
     op.drop_table('courses')
-    with op.batch_alter_table('clients', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_clients_email'))
-        batch_op.drop_index(batch_op.f('ix_clients_client_code'))
-
-    op.drop_table('clients')
-    with op.batch_alter_table('class_sessions', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_class_sessions_teacher_id'))
-        batch_op.drop_index(batch_op.f('ix_class_sessions_student_id'))
-        batch_op.drop_index(batch_op.f('ix_class_sessions_status'))
-        batch_op.drop_index(batch_op.f('ix_class_sessions_scheduled_start'))
-        batch_op.drop_index(batch_op.f('ix_class_sessions_schedule_id'))
-        batch_op.drop_index(batch_op.f('ix_class_sessions_date'))
-
-    op.drop_table('class_sessions')
     op.drop_table('campaigns')
     op.drop_table('branches')
     op.drop_table('accounts')

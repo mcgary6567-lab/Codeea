@@ -126,7 +126,9 @@ class LessonPlan(Base, PKMixin, TimestampMixin):
     __tablename__ = "lesson_plans"
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), index=True)
-    session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("class_sessions.id", ondelete="SET NULL"))
+    session_id: Mapped[Optional[int]] = mapped_column(
+        # use_alter: lesson_plans <-> class_sessions reference each other.
+        ForeignKey("class_sessions.id", ondelete="SET NULL", use_alter=True, name="fk_lesson_plans_session_id"))
     plan_date: Mapped[date] = mapped_column(Date, index=True)
     plan_type: Mapped[str] = mapped_column(String(20), default="daily")  # daily | weekly
     lesson_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"))

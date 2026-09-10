@@ -77,7 +77,9 @@ class Lead(Base, PKMixin, TimestampMixin):
     follow_up_count: Mapped[int] = mapped_column(Integer, default=0)
     last_contacted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     lost_reason: Mapped[Optional[str]] = mapped_column(String(200))
-    converted_client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"))
+    converted_client_id: Mapped[Optional[int]] = mapped_column(
+        # use_alter: leads <-> clients reference each other (see Client.lead_id).
+        ForeignKey("clients.id", ondelete="SET NULL", use_alter=True, name="fk_leads_converted_client_id"))
     converted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     is_duplicate_of_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leads.id", ondelete="SET NULL"))
     ghl_contact_id: Mapped[Optional[str]] = mapped_column(String(80))
