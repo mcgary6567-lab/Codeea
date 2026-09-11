@@ -1,2 +1,4 @@
 # live licence list - server-side data, never deploy over it
 licdata/
+licenses.txt
+licenses.txt.local-copy-*
