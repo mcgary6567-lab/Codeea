@@ -16,12 +16,20 @@
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
-$LICENSE_FILE = __DIR__ . '/licenses.txt';
+$LICENSE_FILE = __DIR__ . '/licdata/licenses.txt';   // outside the deployed tree - see the note below
 $META_FILE    = __DIR__ . '/.accounts.json';      // dotfile -> denied by root .htaccess
 $LOG_FILE     = __DIR__ . '/.activations.log';    // dotfile -> denied
 $RATE_FILE    = __DIR__ . '/.activate_rate.json'; // dotfile -> denied
 $RATE_MAX     = 8;        // max submissions per IP ...
 $RATE_WINDOW  = 3600;     // ... per hour
+
+// One-time migration: the list used to live in the deployed tree (licenses.txt at the
+// site root) and every git push overwrote it. It now lives in licdata/, which is NOT in
+// the repo. If licdata/ does not exist yet, seed it from the old file so nothing is lost.
+if (!is_file($LICENSE_FILE) && is_file(__DIR__ . '/licenses.txt')) {
+  @mkdir(dirname($LICENSE_FILE), 0755, true);
+  @copy(__DIR__ . '/licenses.txt', $LICENSE_FILE);
+}
 
 function out($ok, $msg, $extra = array()) {
   echo json_encode(array_merge(array('success' => $ok, 'message' => $msg), $extra));

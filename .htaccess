@@ -29,6 +29,10 @@ RewriteRule ^ / [R=301,L,NE]
 # --- Keep the Google verification file at its exact URL ---
 RewriteRule ^google[0-9a-f]+\.html$ - [L]
 
+# --- Licence list: served from licdata/ (NOT in git), so a deploy can never overwrite activations ---
+RewriteCond %{DOCUMENT_ROOT}/licdata/licenses.txt -f
+RewriteRule ^licenses\.txt$ licdata/licenses.txt [L]
+
 # --- Block internal strategy docs (was /.agents/* -> 404 in _redirects) ---
 RewriteRule ^\.agents(/.*)?$ - [R=404,L]
 
@@ -82,6 +86,11 @@ RewriteRule ^(.+)$ $1.html [L]
   <FilesMatch "\.(zip|rar|ex4|ex5|mq4|mq5|set)$">
     Header set Cache-Control "public, max-age=3600"
   </FilesMatch>
+  # The licence list is read by the EAs every start-up - never let a proxy serve a stale copy
+  <Files "licenses.txt">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set X-Robots-Tag "noindex, nofollow"
+  </Files>
 </IfModule>
 
 # ------------------------------------------------------------
