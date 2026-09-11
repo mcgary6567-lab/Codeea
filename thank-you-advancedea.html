@@ -171,21 +171,6 @@ a:hover{color:#B45309}
 /* ADVANCED identity */
 .adv-pill{display:inline-flex;align-items:center;gap:0.45rem;background:#0A0F1A;color:#38BDF8;border:1px solid #1E3A5F;font-weight:800;font-size:0.74rem;letter-spacing:0.12em;text-transform:uppercase;padding:0.4rem 0.95rem;border-radius:99px;margin-bottom:1rem;box-shadow:0 4px 14px rgba(10,15,26,0.25)}
 .adv-pill i{width:8px;height:8px;border-radius:50%;background:#34D399;display:inline-block;box-shadow:0 0 0 3px rgba(52,211,153,0.2)}
-.adv-strip{max-width:760px;margin:0 auto 1.4rem;background:#0A0F1A;border-radius:16px;padding:1.5rem 1.7rem;color:#E4EAF2;position:relative;overflow:hidden;border:1px solid #1E3A5F}
-.adv-strip::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,#38BDF8,#34D399)}
-.adv-strip h3{font-size:1.05rem;font-weight:800;color:#38BDF8;margin-bottom:0.9rem;letter-spacing:-0.01em}
-.adv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.9rem}
-.adv-item{background:#111A2B;border:1px solid #1E3A5F;border-radius:12px;padding:0.9rem 1rem}
-.adv-item strong{display:block;color:#fff;font-size:0.9rem;margin-bottom:0.25rem}
-.adv-item span{font-size:0.8rem;color:#8092AC;line-height:1.5;display:block}
-.adv-item .g{color:#34D399;font-weight:700}.adv-item .r{color:#F87171;font-weight:700}
-.adv-check{max-width:760px;margin:0 auto 1rem;background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.5rem 1.7rem;box-shadow:var(--shadow-sm)}
-.adv-check h3{font-size:1.05rem;font-weight:800;margin-bottom:0.8rem}
-.adv-check ol{list-style:none;counter-reset:st;display:grid;grid-template-columns:1fr 1fr;gap:0.55rem 1.4rem}
-.adv-check li{counter-increment:st;position:relative;padding-left:2.1rem;font-size:0.88rem;color:var(--text);line-height:1.5}
-.adv-check li::before{content:counter(st);position:absolute;left:0;top:0.05rem;width:1.5rem;height:1.5rem;border-radius:50%;background:#0A0F1A;color:#38BDF8;font-weight:800;font-size:0.72rem;display:flex;align-items:center;justify-content:center}
-.adv-check code{background:#F1F5F9;border:1px solid #E2E8F0;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.82rem;color:#0F4C81}
-@media(max-width:640px){.adv-grid{grid-template-columns:1fr}.adv-check ol{grid-template-columns:1fr}}
 .sec-ico{display:inline-block;width:1.15em;height:1.15em;vertical-align:-0.16em;margin-right:.5rem;stroke:#F59E0B;color:#F59E0B;flex-shrink:0}
 </style>
 </head>
@@ -265,28 +250,6 @@ a:hover{color:#B45309}
       <h3>Activate your account</h3>
       <p>Submit your MT5 login number below. It is authorised automatically within about two minutes, 24/7.</p>
     </div>
-  </div>
-
-  <!-- WHAT YOU BOUGHT -->
-  <div class="adv-strip">
-    <h3>What Gold Scalpers EA Advanced does</h3>
-    <div class="adv-grid">
-      <div class="adv-item"><strong>One entry rule</strong><span>The Slope Direction Line turns <span class="g">GREEN</span> → BUY. Turns <span class="r">RED</span> → SELL. Read on closed M5 candles, so no false starts.</span></div>
-      <div class="adv-item"><strong>Stop from the turn</strong><span>The stop sits beyond the candles where the colour changed, plus a buffer. Target 1200 pips, break-even lock once in profit.</span></div>
-      <div class="adv-item"><strong>Same pro engine</strong><span>Daily target, drawdown lock, prop-firm mode, sessions, news filter, alerts, dashboard and licence — identical to Gold Scalpers Pro.</span></div>
-    </div>
-  </div>
-
-  <div class="adv-check">
-    <h3>Five-minute setup</h3>
-    <ol>
-      <li>Unzip the download. Copy <code>Gold Scalpers EA Advanced.ex5</code> to <code>MQL5 › Experts</code>, restart MT5.</li>
-      <li>Open a <strong>XAUUSD M5</strong> chart and switch <strong>Algo Trading</strong> on (green button).</li>
-      <li>Drag the EA onto the chart, tick <strong>Allow Algo Trading</strong>, click OK — defaults are the tuned gold settings.</li>
-      <li>Allow <code>https://goldscalpers.com</code> under Tools › Options › Expert Advisors › <strong>Allow WebRequest</strong>.</li>
-      <li>Submit your account number in the form below. The panel switches from "Licence not active" to live within ~2 minutes.</li>
-      <li>Read the pre-flight PASS / WARN / FAIL list in the <strong>Experts</strong> tab. It names anything that still needs fixing.</li>
-    </ol>
   </div>
 
   <!-- AUTO-SETUP REASSURANCE -->
