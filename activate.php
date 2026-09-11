@@ -69,6 +69,10 @@ if (trim((string)($in['website_url_extra'] ?? '')) !== '') out(true, 'Received.'
 $name  = trim((string)($in['Name'] ?? $in['name'] ?? ''));
 $email = trim((string)($in['Email'] ?? $in['email'] ?? ''));
 $real  = preg_replace('/\D/', '', (string)($in['Real Account'] ?? $in['real'] ?? $in['account'] ?? ''));
+// Which product the page belongs to (thank-you = Pro, thank-you-advancedea = Advanced). Same licence file,
+// same EA-side check; the tag only makes the /panel and licenses.txt say which EA the customer bought.
+$product = strtolower(trim((string)($in['product'] ?? '')));
+if (!in_array($product, array('pro', 'advanced'), true)) $product = '';
 
 if (!preg_match('/^\d{5,12}$/', $real)) out(false, 'Please enter a valid MT5 account number (5-12 digits).');
 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) out(false, 'Please enter a valid email address.');
@@ -89,7 +93,7 @@ foreach ($rate as $k => $ts) {
 
 // ---- build a safe label for the public licence file ----
 $labelName = trim(mb_substr(preg_replace('/[#\r\n]/', '', $name), 0, 40));
-$label = 'web ' . date('Y-m-d') . ($labelName !== '' ? ' ' . $labelName : '');
+$label = 'web ' . date('Y-m-d') . ($product !== '' ? ' ' . $product : '') . ($labelName !== '' ? ' ' . $labelName : '');
 
 // ---- append the account to licenses.txt (dedupe / re-enable) ----
 $content = is_file($LICENSE_FILE) ? (string)file_get_contents($LICENSE_FILE) : '';
@@ -113,7 +117,7 @@ $meta[$real] = array(
   'ip'     => $ip,
   'cc'     => $cc,
   'added'  => ($meta[$real]['added'] ?? date('c')),
-  'source' => 'web',
+  'source' => 'web' . ($product !== '' ? ' / ' . $product : ''),
 );
 @file_put_contents($META_FILE, json_encode($meta, JSON_PRETTY_PRINT), LOCK_EX);
 
