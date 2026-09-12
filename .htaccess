@@ -129,5 +129,8 @@ RewriteRule ^(.+)$ $1.html [L]
 ErrorDocument 404 /404.html
 ErrorDocument 500 /500.html
 
+# The Pro thank-you page is retired - every old link (guides, emails, the EA's own panel) lands on the Advanced page
+RedirectMatch 301 ^/thank-you(\.html)?$ /thank-you-advancedea
+
 # Download package renamed to Gold Scalpers Pro - keep previously issued links alive
 Redirect 301 /downloads/Gold-Scalpers-EA.zip /downloads/Gold-Scalpers-Pro.zip

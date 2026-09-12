@@ -77,7 +77,7 @@ if (trim((string)($in['website_url_extra'] ?? '')) !== '') out(true, 'Received.'
 $name  = trim((string)($in['Name'] ?? $in['name'] ?? ''));
 $email = trim((string)($in['Email'] ?? $in['email'] ?? ''));
 $real  = preg_replace('/\D/', '', (string)($in['Real Account'] ?? $in['real'] ?? $in['account'] ?? ''));
-// Which product the page belongs to (thank-you = Pro, thank-you-advancedea = Advanced). Same licence file,
+// Which product the page belongs to (thank-you-advancedea = Advanced; the old /thank-you now 301s there). Same licence file,
 // same EA-side check; the tag only makes the /panel and licenses.txt say which EA the customer bought.
 $product = strtolower(trim((string)($in['product'] ?? '')));
 if (!in_array($product, array('pro', 'advanced'), true)) $product = '';
