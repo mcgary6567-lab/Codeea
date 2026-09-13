@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import rbac
-from app.core.nav import nav_for, home_for
+from app.core.nav import nav_for, home_for, breadcrumbs_for, TILE, palette
 from app.core.security import mask
 from app.core.utils import pop_flash, money, humanize_delta, pct
 
@@ -100,6 +100,7 @@ templates.env.globals.update({
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
     "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,
+    "TILE": TILE, "palette": palette,
 })
 
 
@@ -121,6 +122,7 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
     ctx["user"] = user
     ctx["nav"] = nav_for(user) if user else []
     ctx["home_url"] = home_for(user) if user else "/login"
+    ctx["crumbs"] = breadcrumbs_for(user, request.url.path) if user else []
     ctx["flash_messages"] = pop_flash(request)
     ctx["current_path"] = request.url.path
     ctx.update(_layout_globals())

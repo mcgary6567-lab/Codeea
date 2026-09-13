@@ -3,7 +3,7 @@
 This document is the contract every module follows. Read it fully before writing code.
 
 ## Stack
-- Python 3.14, FastAPI, SQLAlchemy 2 (declarative, `Mapped[]`), Jinja2 server-rendered pages, Tailwind (CDN), Alpine.js, HTMX, Chart.js, Lucide icons.
+- Python 3.14, FastAPI, SQLAlchemy 2 (declarative, `Mapped[]`), Jinja2 server-rendered pages, Tailwind (compiled ahead of time to app/static/css/tailwind.css), Alpine.js, HTMX, Chart.js, Lucide icons — all vendored locally, no CDN at runtime.
 - SQLite locally (`data/oqc.db`), PostgreSQL on the server via `DATABASE_URL`. **Never use SQLite-only SQL.** Use SQLAlchemy ORM / `func`.
 - Run the app: `.venv/Scripts/python.exe run.py` (Windows). Seed: `.venv/Scripts/python.exe seed.py --reset`.
 - Test quickly with `fastapi.testclient.TestClient(app)` after logging in via `POST /login` (form: `username`, `password`). Always verify your pages return 200 and forms redirect 303.
@@ -18,7 +18,7 @@ app/core/audit.py           log_action(db, actor, action, module, entity=..., de
 app/core/notify.py          notify(db, user_or_id, title, body, event_type=..., link=..., channels=("in_app",))
 app/core/templating.py      render(request, "template.html", {...})  + filters: date, datetime, time, money, titleize, badge, mask, ago, pct
 app/core/utils.py           next_code(db, Model, "field", "S-"), paginate(query, page, per_page) -> Page, redirect(url, flash, level), parse_date/int/float/bool, month_key, month_bounds
-app/core/nav.py             sidebar items (URLs you must implement are listed here — do not rename them)
+app/core/nav.py             launchpad sections/items + breadcrumbs (URLs you must implement are listed here — do not rename them)
 app/services/classes.py     shared class-session service (generate_sessions, set_status, mark_join, counters_for_date, has_conflict, teacher_stats, student_attendance_pct)
 app/services/ai_gateway.py  ai(db, module, task, payload, entity) -> (result, AIModelRun). Simulated deterministic output on localhost.
 app/services/integrations.py send_whatsapp, send_email, ghl_upsert_contact, emit_event (outbound webhooks), build_join_url
@@ -88,7 +88,15 @@ async def edit(id: int, request: Request, db: Session = Depends(get_db), user: U
 {{ ui.pagination(page, '/students?q=' ~ q) }}
 {% endblock %}
 ```
-Available macros (`macros.html`): `page_header(title, subtitle, back)` (use `{% call %}` for action buttons), `stat(label, value, icon, color, hint, href, delta)`, `card(title, subtitle, padding)` (with `{% call %}`), `badge(value, label)`, `button(label, href, icon, variant, type, size, attrs)`, `input`, `textarea`, `select(name,label,options,value,required,placeholder,help)`, `checkbox`, `table_start(headers)`, `table_end()`, `empty(msg, colspan)`, `empty_state`, `pagination(page, base_url)`, `modal(id, title, size)` (open with `@click="$dispatch('open-modal','id')"`), `confirm_form(action, label, icon, variant, message, hidden)`, `dl([(label,value),...])`, `avatar(name)`, `progress(value, color, label)`, `tabs([(key,label,url)], current)`, `filter_bar(action)`, `alert(message, level, title)`, `chart(id, height)`, `arabic(text)`, `urdu(text)`.
+**Design language (matches the college's existing ERP).** Blue top bar, no sidebar. Navigation is a drill-down
+launchpad: `/home` shows one card per section, `/home/<slug>` one card per page (both driven by `app/core/nav.py`,
+which also produces the breadcrumb bar). Stat rows are saturated colour tiles; use `ui.stat(label, value, color=palette(loop.index0))`
+in a loop to get the rainbow ordering, or a named colour (`sky`, `emerald`, `amber`, `rose`…). Section cards use
+`ui.module_card(title, href, icon, color)`. Tables are bordered with a light-blue header. Add a page by adding an item to
+`nav.py` — it becomes reachable, gets a card, and breadcrumbs work without any other change. Tailwind is compiled ahead of
+time: run `build/build-css.sh` after adding classes to templates.
+
+Available macros (`macros.html`): `section_label(text)`, `module_card(title, href, icon, color, subtitle, tall)`, `page_header(title, subtitle, back)` (use `{% call %}` for action buttons), `stat(label, value, icon, color, hint, href, delta)`, `card(title, subtitle, padding)` (with `{% call %}`), `badge(value, label)`, `button(label, href, icon, variant, type, size, attrs)`, `input`, `textarea`, `select(name,label,options,value,required,placeholder,help)`, `checkbox`, `table_start(headers)`, `table_end()`, `empty(msg, colspan)`, `empty_state`, `pagination(page, base_url)`, `modal(id, title, size)` (open with `@click="$dispatch('open-modal','id')"`), `confirm_form(action, label, icon, variant, message, hidden)`, `dl([(label,value),...])`, `avatar(name)`, `progress(value, color, label)`, `tabs([(key,label,url)], current)`, `filter_bar(action)`, `alert(message, level, title)`, `chart(id, height)`, `arabic(text)`, `urdu(text)`.
 - Charts: `{{ ui.chart('c1') }}` then in `{% block scripts %}<script>OQC.line('c1', {{ labels|tojson }}, [{label:'Revenue', data: {{ data|tojson }}}]);</script>{% endblock %}`. Also `OQC.bar`, `OQC.doughnut`.
 - Forms: plain `<form method="post">` with `ui.input` etc. Detail pages use `ui.tabs`. Use `ui.modal` for quick-add forms. Colors: brand(teal), emerald, sky, indigo, amber, rose, violet, orange, slate.
 - Icons: `<i data-lucide="icon-name" class="h-4 w-4"></i>` (Lucide names).

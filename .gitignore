@@ -26,3 +26,7 @@ storage/result_cards/*
 # Tailwind standalone binary (40MB) - download via build/build-css.sh instructions
 build/tailwindcss.exe
 build/tailwindcss
+
+# Contains live account names / credentials - never commit
+live_accounts.json
+Online Quran College - User Accounts.xlsx

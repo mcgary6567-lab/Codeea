@@ -15,8 +15,9 @@ module.exports = {
       },
       colors: {
         brand: {
-          50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf',
-          500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a', 950: '#042f2e',
+          // Blue, matching the college's existing ERP theme
+          50: '#eef5fd', 100: '#d9e8fa', 200: '#b6d2f4', 300: '#86b3ea', 400: '#4f8fde',
+          500: '#2b7fd3', 600: '#1d6fcf', 700: '#1a5bab', 800: '#184c8c', 900: '#173f72', 950: '#0f2747',
         },
       },
     },
