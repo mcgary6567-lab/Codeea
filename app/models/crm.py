@@ -250,6 +250,8 @@ class Feedback(Base, PKMixin, TimestampMixin):
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     token: Mapped[Optional[str]] = mapped_column(String(64), unique=True)
     is_confidential: Mapped[bool] = mapped_column(Boolean, default=False)  # staff eNPS → P&C and CEO only
+    feedback_source: Mapped[str] = mapped_column(String(20), default="client_portal")  # manual | app | web_portal | client_portal
+    session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("class_sessions.id", ondelete="SET NULL"))
 
     client = relationship("Client")
     student = relationship("Student")
@@ -284,6 +286,10 @@ class Case(Base, PKMixin, TimestampMixin):
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     ai_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ai_model_runs.id", ondelete="SET NULL"))
     source: Mapped[str] = mapped_column(String(20), default="portal")  # portal | whatsapp | feedback | staff | phone
+    # ERP "Complaints" request fields (docs/AUDIT_ACADEMICS.md 3.3)
+    complaint_type: Mapped[Optional[str]] = mapped_column(String(60))  # Teacher | Timing | Billing | Technical | Behaviour | Other
+    company_response: Mapped[Optional[str]] = mapped_column(Text)
+    approval_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | approved | rejected | cancelled
 
     client = relationship("Client")
     student = relationship("Student")

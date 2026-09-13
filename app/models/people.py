@@ -48,11 +48,28 @@ class Client(Base, PKMixin, TimestampMixin):
     notes: Mapped[Optional[str]] = mapped_column(Text)
     ghl_contact_id: Mapped[Optional[str]] = mapped_column(String(80))
     joined_at: Mapped[date] = mapped_column(Date, default=date.today)
+    # ERP parity (see docs/AUDIT_ACADEMICS.md 3.2)
+    fee_recurrence: Mapped[str] = mapped_column(String(20), default="monthly")  # monthly | quarterly | half_yearly | yearly | per_class
+    legacy_code: Mapped[Optional[str]] = mapped_column(String(40), index=True)
+    opening_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    shift: Mapped[str] = mapped_column(String(20), default="night")  # morning | night (which staff shift serves the family)
+    state: Mapped[Optional[str]] = mapped_column(String(80))
+    referred_by_client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"))
+    status_remarks: Mapped[Optional[str]] = mapped_column(String(200))
+    academic_manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    academic_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("client_academic_groups.id", ondelete="SET NULL"))
+    lead_added_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    converted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    converted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    photo_path: Mapped[Optional[str]] = mapped_column(String(300))
 
     user = relationship("User", foreign_keys=[user_id])
     household = relationship("Household", back_populates="clients")
     students = relationship("Student", back_populates="client")
     billing_rep = relationship("User", foreign_keys=[billing_rep_id])
+    academic_manager = relationship("User", foreign_keys=[academic_manager_id])
+    referred_by = relationship("Client", remote_side="Client.id", foreign_keys=[referred_by_client_id])
+    academic_group = relationship("ClientAcademicGroup")
 
     @property
     def masked_phone(self) -> str:
@@ -89,6 +106,14 @@ class Student(Base, PKMixin, TimestampMixin):
     dor_quota_met: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     guardian_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    # ERP parity (see docs/AUDIT_ACADEMICS.md 3.4)
+    email: Mapped[Optional[str]] = mapped_column(String(200))
+    trial_days: Mapped[int] = mapped_column(Integer, default=3)
+    legacy_code: Mapped[Optional[str]] = mapped_column(String(40), index=True)
+    drop_date: Mapped[Optional[date]] = mapped_column(Date)
+    referred_by: Mapped[Optional[str]] = mapped_column(String(150))
+    grade: Mapped[Optional[str]] = mapped_column(String(40))  # school grade / level label
+    photo_path: Mapped[Optional[str]] = mapped_column(String(300))
 
     client = relationship("Client", back_populates="students")
     user = relationship("User", foreign_keys=[user_id])
@@ -130,6 +155,8 @@ class Employee(Base, PKMixin, TimestampMixin):
     documents: Mapped[dict] = mapped_column(JSON, default=dict)
     exit_date: Mapped[Optional[date]] = mapped_column(Date)
     exit_reason: Mapped[Optional[str]] = mapped_column(String(200))
+    father_name: Mapped[Optional[str]] = mapped_column(String(150))
+    sort_no: Mapped[int] = mapped_column(Integer, default=0)  # "Change Staff Sorting": order in teacher lists
 
     user = relationship("User", foreign_keys=[user_id])
     department = relationship("Department")
@@ -281,6 +308,9 @@ class Leave(Base, PKMixin, TimestampMixin):
     reminder_sent_start: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_sent_end: Mapped[bool] = mapped_column(Boolean, default=False)
     post_leave_absence_flagged: Mapped[bool] = mapped_column(Boolean, default=False)
+    leave_for_all: Mapped[bool] = mapped_column(Boolean, default=False)  # student leave applies to every student of the family
+    apply_date: Mapped[Optional[date]] = mapped_column(Date)
+    leave_detail: Mapped[Optional[str]] = mapped_column(Text)
 
     employee = relationship("Employee")
     student = relationship("Student")

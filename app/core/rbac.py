@@ -43,6 +43,9 @@ MODULES = {
     "retention": "Retention & Churn",
     "trials": "Trial Management",
     "registration": "Online Registration",
+    "requests": "Client Requests (leave, time/teacher change, references, complaints)",
+    "dashboards": "Academic & Billing Dashboards",
+    "academic_config": "Academic Configuration",
     # people
     "clients": "Clients / Parents",
     "students": "Students",
@@ -104,14 +107,17 @@ _HR = ["employees.*", "hr_attendance.*", "leaves.*", "recruitment.*", "violation
        "decisions.*", "daily_reports.*", "transformation.*", "dashboard.view", "reports.*", "notifications.*"]
 _FINANCE = ["subscriptions.*", "discounts.*", "scholarships.*", "billing.*", "payments.*", "ledger.*", "accounts.*",
             "expenses.*", "currencies.*", "payroll.*", "clients.view", "students.view", "packages.*", "kpis.*",
-            "reports.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view", "notifications.*", "cases.view"]
+            "reports.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view", "notifications.*", "cases.view",
+            "dashboards.*", "academic_config.view", "academic_config.configure"]
 _ACADEMIC = ["courses.*", "packages.view", "curriculum.*", "lesson_plans.*", "evaluations.*", "monthly_tests.*",
              "certificates.*", "arabic_view.*", "students.*", "clients.view", "teachers.view", "schedules.*",
              "classes.*", "attendance.*", "leaves.*", "qa.view", "ai_monitoring.view", "kpis.*", "tasks.*",
-             "decisions.*", "daily_reports.*", "dashboard.*", "reports.*", "notifications.*", "cases.*", "supervisor.*"]
+             "decisions.*", "daily_reports.*", "dashboard.*", "reports.*", "notifications.*", "cases.*", "supervisor.*",
+             "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view"]
 _QA = ["qa.*", "ai_monitoring.*", "recordings.*", "classes.view", "teachers.view", "students.view", "teacher_dev.*",
-       "cases.*", "feedback.view", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
-       "reports.*", "notifications.*", "safeguarding.view", "monthly_tests.view", "evaluations.view"]
+       "cases.*", "feedback.*", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
+       "reports.*", "notifications.*", "safeguarding.view", "monthly_tests.view", "evaluations.view", "dashboards.view",
+       "requests.view"]
 _MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "referrals.*", "trials.*",
               "registration.*", "clients.view", "clients.add", "students.view", "feedback.view", "kpis.*", "tasks.*",
               "decisions.*", "daily_reports.*", "dashboard.view", "reports.*", "notifications.*", "calling.*"]
@@ -130,22 +136,27 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "supervisor.*", "leaves.*", "cases.*", "trials.*", "subscriptions.*", "discounts.view", "discounts.add",
         "discounts.approve", "billing.view", "ledger.view", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*",
         "reports.*", "notifications.*", "referrals.*", "retention.*", "feedback.view", "qa.view",
-        "ai_monitoring.view", "lesson_plans.view", "evaluations.view", "monthly_tests.view", "calling.*", "leads.view"]},
+        "ai_monitoring.view", "lesson_plans.view", "evaluations.view", "monthly_tests.view", "calling.*", "leads.view",
+        "requests.*", "dashboards.view", "academic_config.view", "payments.view", "billing.add", "billing.update",
+        "ledger.add", "registration.*"]},
     "supervisor": {"name": "Supervisor", "portal": "admin", "permissions": [
         "dashboard.*", "supervisor.*", "classes.*", "attendance.*", "schedules.view", "schedules.update",
         "students.view", "teachers.view", "clients.view", "leaves.view", "leaves.add", "cases.view", "cases.add",
         "cases.update", "referrals.*", "tasks.*", "daily_reports.*", "notifications.*", "recordings.view",
-        "lesson_plans.view", "calling.*", "kpis.view", "retention.view", "trials.view", "trials.update"]},
+        "lesson_plans.view", "calling.*", "kpis.view", "retention.view", "trials.view", "trials.update",
+        "requests.view", "requests.update", "requests.approve", "dashboards.view", "subscriptions.view", "qa.view"]},
     "teacher": {"name": "Teacher", "portal": "teacher", "permissions": [
         "portal_teacher.*", "classes.view", "classes.execute", "classes.update", "attendance.add", "attendance.view",
         "lesson_plans.*", "evaluations.add", "evaluations.view", "evaluations.update", "monthly_tests.view",
         "monthly_tests.update", "students.view", "leaves.add", "leaves.view", "arabic_view.*", "teacher_dev.view",
         "hr_attendance.add", "hr_attendance.view", "notifications.*", "tasks.view", "tasks.update", "curriculum.view",
-        "daily_reports.add", "daily_reports.view", "grievances.add", "recordings.view", "trials.view", "trials.update"]},
+        "daily_reports.add", "daily_reports.view", "grievances.add", "recordings.view", "trials.view", "trials.update",
+        "requests.add", "requests.view"]},
     "billing_rep": {"name": "Billing Representative", "portal": "admin", "permissions": [
         "dashboard.view", "billing.*", "payments.*", "ledger.*", "clients.view", "clients.update", "students.view",
         "subscriptions.view", "subscriptions.update", "inbox.*", "cases.add", "cases.view", "tasks.*",
-        "daily_reports.*", "notifications.*", "calling.*", "currencies.view", "reports.view", "reports.export"]},
+        "daily_reports.*", "notifications.*", "calling.*", "currencies.view", "reports.view", "reports.export",
+        "dashboards.view", "requests.view", "academic_config.view"]},
     "lead_generator": {"name": "Lead Generator", "portal": "admin", "permissions": [
         "dashboard.view", "leads.view", "leads.add", "leads.update", "campaigns.view", "inbox.*", "tasks.*",
         "daily_reports.*", "notifications.*", "marketing.view", "calling.*", "trials.view"]},
@@ -153,15 +164,17 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "dashboard.view", "leads.*", "trials.*", "inbox.*", "sequences.view", "registration.*", "clients.add",
         "clients.view", "students.add", "students.view", "subscriptions.add", "subscriptions.view", "discounts.add",
         "discounts.view", "packages.view", "teachers.view", "schedules.add", "schedules.view", "tasks.*",
-        "daily_reports.*", "notifications.*", "calling.*", "marketing.view", "referrals.view"]},
+        "daily_reports.*", "notifications.*", "calling.*", "marketing.view", "referrals.view", "dashboards.view",
+        "requests.view", "requests.add"]},
     "accountant": {"name": "Accountant", "portal": "admin", "permissions": [
         "dashboard.view", "accounts.*", "expenses.*", "payments.*", "ledger.*", "billing.view", "billing.export",
         "payroll.view", "currencies.*", "subscriptions.view", "clients.view", "reports.*", "tasks.*",
-        "daily_reports.*", "notifications.*", "scholarships.view", "discounts.view"]},
+        "daily_reports.*", "notifications.*", "scholarships.view", "discounts.view", "dashboards.view",
+        "academic_config.view"]},
     "qa_officer": {"name": "QA Officer", "portal": "admin", "permissions": [
         "dashboard.view", "qa.*", "ai_monitoring.view", "ai_monitoring.update", "recordings.view", "classes.view",
         "teachers.view", "students.view", "teacher_dev.view", "teacher_dev.add", "cases.view", "tasks.*",
-        "daily_reports.*", "notifications.*", "monthly_tests.view", "evaluations.view"]},
+        "daily_reports.*", "notifications.*", "monthly_tests.view", "evaluations.view", "feedback.*", "dashboards.view"]},
     "hr_officer": {"name": "HR Officer", "portal": "admin", "permissions": [
         "dashboard.view", "employees.*", "hr_attendance.*", "leaves.*", "recruitment.*", "violations.*",
         "grievances.*", "provisioning.*", "payroll.view", "payroll.add", "teachers.view", "tasks.*",
@@ -170,7 +183,8 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "dashboard.*", "courses.*", "curriculum.*", "packages.view", "lesson_plans.*", "evaluations.*",
         "monthly_tests.*", "certificates.*", "arabic_view.*", "students.view", "students.update", "clients.view",
         "teachers.view", "schedules.*", "classes.view", "classes.update", "attendance.*", "leaves.view",
-        "tasks.*", "daily_reports.*", "notifications.*", "trials.view", "trials.update"]},
+        "tasks.*", "daily_reports.*", "notifications.*", "trials.view", "trials.update", "requests.*",
+        "academic_config.*", "dashboards.view", "subscriptions.view", "subscriptions.add"]},
     "client": {"name": "Client / Parent", "portal": "client", "permissions": ["portal_client.*", "notifications.*"]},
     "student": {"name": "Student", "portal": "student", "permissions": ["portal_student.*", "notifications.*"]},
     "auditor": {"name": "External Auditor (read-only)", "portal": "admin", "permissions": _VIEW_ALL + ["audit.view", "reports.view", "reports.export"]},

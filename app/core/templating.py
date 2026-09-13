@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import rbac
-from app.core.nav import nav_for, home_for, breadcrumbs_for, TILE, palette
+from app.core.nav import nav_for, home_for, breadcrumbs_for, TILE, palette  # noqa: F401
 from app.core.security import mask
 from app.core.utils import pop_flash, money, humanize_delta, pct
 
@@ -50,7 +50,42 @@ STATUS_COLORS = {
     "succeeded": "emerald", "waiting": "amber", "reversed": "rose", "posted": "emerald", "implemented": "emerald",
     "decided": "indigo", "proposed": "amber", "achieved": "emerald", "processing": "amber", "available": "emerald",
     "analysed": "indigo", "overridden": "amber", "false_positive": "slate",
+    # ERP vocabularies
+    "regular": "emerald", "freeze": "violet", "on_leave": "violet", "drop_out": "rose", "black_list": "slate",
+    "pass_out": "indigo", "available": "sky", "flagged": "orange", "unmapped": "slate", "mapped": "sky",
+    "in_review": "indigo", "add": "emerald", "minus": "rose", "forward_to_verifier": "amber",
 }
+
+# Display labels that match the college's existing ERP vocabulary. Use ``{{ value|label('student') }}``.
+STATUS_LABELS: dict[str, dict[str, str]] = {
+    "client": {"trial": "Trial", "active": "Regular", "regular": "Regular", "inactive": "Black List", "black_list": "Black List",
+               "churned": "Drop Out", "drop_out": "Drop Out", "on_leave": "On Leave", "frozen": "On Leave", "pass_out": "Pass Out"},
+    "student": {"trial": "Trial", "active": "Regular", "regular": "Regular", "frozen": "On Leave", "on_leave": "On Leave",
+                "cancelled": "Drop Out", "drop_out": "Drop Out", "graduated": "Pass Out", "pass_out": "Pass Out",
+                "black_list": "Black List", "free": "Free"},
+    "subscription": {"pending_approval": "Pending Approval", "trial": "Trial", "active": "Regular", "regular": "Regular",
+                     "frozen": "Freeze", "freeze": "Freeze", "cancelled": "Cancelled", "expired": "Completed", "completed": "Completed"},
+    "invoice": {"draft": "Draft", "sent": "Pending", "pending": "Pending", "confirmed": "Confirmed", "partial": "Partially Paid",
+                "paid": "Paid", "overdue": "Overdue", "void": "Cancelled", "cancelled": "Cancelled"},
+    "receipt": {"pending": "Pending", "completed": "Confirmed", "confirmed": "Confirmed", "failed": "Failed",
+                "refunded": "Refunded", "cancelled": "Cancelled"},
+    "class": {"pending": "Pending", "available": "Teacher is Available", "started": "Started", "done": "Done", "missed": "Missed",
+              "absent": "Student Absent", "leave": "Student On-Leave", "cancelled": "Cancelled", "rescheduled": "Rescheduled",
+              "free": "Free"},
+    "qa": {"queued": "Pending", "pending": "Pending", "in_review": "In-Progress", "in_progress": "In-Progress",
+           "completed": "Completed", "approved": "Approved", "flagged": "Flagged", "rejected": "Rejected"},
+    "request": {"pending": "Pending", "approved": "Approved", "rejected": "Rejected", "cancelled": "Cancelled"},
+    "registration": {"new": "Pending", "contacted": "Forward to Verifier", "trial_scheduled": "Trial Scheduled",
+                     "trial_done": "Trial Done", "negotiation": "Negotiation", "won": "Converted", "lost": "Lost"},
+}
+
+
+def label(value: Any, kind: str = "") -> str:
+    """ERP-style display label for a status value (falls back to Title Case)."""
+    if value is None:
+        return "-"
+    table = STATUS_LABELS.get(kind, {})
+    return table.get(str(value), titleize(value))
 
 
 def status_color(value: Any) -> str:
@@ -94,13 +129,13 @@ def tojson_safe(value: Any) -> str:
 templates.env.filters.update({
     "date": fmt_date, "datetime": fmt_datetime, "time": fmt_time, "money": money, "titleize": titleize,
     "badge": badge_class, "status_color": status_color, "mask": mask, "ago": humanize_delta, "tojson_safe": tojson_safe,
-    "pct": pct,
+    "pct": pct, "label": label,
 })
 templates.env.globals.update({
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
     "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,
-    "TILE": TILE, "palette": palette,
+    "TILE": TILE, "palette": palette, "STATUS_LABELS": STATUS_LABELS,
 })
 
 

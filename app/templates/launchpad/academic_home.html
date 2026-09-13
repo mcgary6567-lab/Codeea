@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Academic Home{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl">
+  {{ ui.page_header("Academic Home") }}
+
+  {{ ui.section_label("Client's Pending Requests") }}
+  <div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    {% for c in pending_requests %}
+      {{ ui.stat(c.label, c.value, color=palette(loop.index0), href=c.href) }}
+    {% endfor %}
+  </div>
+
+  {{ ui.section_label("Today's Class Status Summary") }}
+  <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+    {% for c in class_status %}
+      {{ ui.stat(c.label, c.value, color=palette(loop.index0 + 5), href=c.href) }}
+    {% endfor %}
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for g in section.groups %}
+      {{ ui.module_card(g.label, g.url, icon=g.icon, color=g.color) }}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

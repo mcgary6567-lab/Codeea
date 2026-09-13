@@ -5,9 +5,15 @@
 <div class="mx-auto max-w-7xl">
   {{ ui.page_header(section.label, section.blurb) }}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for item in section["items"] %}
-      {{ ui.module_card(item.label, item.url, icon=item.icon, color=item.color) }}
-    {% endfor %}
+    {% if section.groups %}
+      {% for g in section.groups %}
+        {{ ui.module_card(g.label, g.url, icon=g.icon, color=g.color, subtitle=g.blurb) }}
+      {% endfor %}
+    {% else %}
+      {% for item in section["items"] %}
+        {{ ui.module_card(item.label, item.url, icon=item.icon, color=item.color) }}
+      {% endfor %}
+    {% endif %}
   </div>
 </div>
 {% endblock %}

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
 
-SESSION_STATUSES = ["pending", "started", "done", "missed", "absent", "leave", "cancelled", "rescheduled", "free"]
+SESSION_STATUSES = ["pending", "available", "started", "done", "missed", "absent", "leave", "cancelled", "rescheduled", "free"]
 
 
 class Shift(Base, PKMixin, TimestampMixin):
@@ -83,8 +83,18 @@ class ClassSession(Base, PKMixin, TimestampMixin):
     reminder_sent_teacher: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_sent_student: Mapped[bool] = mapped_column(Boolean, default=False)
     substitute_for_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"))
+    # ERP parity (docs/AUDIT_ACADEMICS.md 3.6)
+    slot_id: Mapped[Optional[int]] = mapped_column(ForeignKey("session_slots.id", ondelete="SET NULL"), index=True)
+    subscription_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subscriptions.id", ondelete="SET NULL"), index=True)
+    teacher_available_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # "Teacher is Available" marker
+    arrangement_id: Mapped[Optional[int]] = mapped_column(ForeignKey("class_arrangements.id", ondelete="SET NULL"))
+    done_by_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"))
+    activity_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)  # last class activity ("No Activity" highlight)
 
     schedule = relationship("Schedule", back_populates="sessions")
+    slot = relationship("SessionSlot")
+    subscription = relationship("Subscription")
+    arrangement = relationship("ClassArrangement")
     student = relationship("Student")
     teacher = relationship("Teacher", foreign_keys=[teacher_id])
     course = relationship("Course")
@@ -175,8 +185,15 @@ class QAReview(Base, PKMixin, TimestampMixin):
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id", ondelete="CASCADE"), index=True)
     reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     ai_analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ai_class_analyses.id", ondelete="SET NULL"))
-    sample_type: Mapped[str] = mapped_column(String(20), default="random")  # random | risk_based | scheduled | complaint | re_evaluation
-    status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | in_review | completed | approved
+    sample_type: Mapped[str] = mapped_column(String(20), default="random")  # random | risk_based | scheduled | complaint | re_evaluation | call
+    status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | in_review | completed | approved | flagged | rejected
+    # ERP call-review fields (docs/AUDIT_ACADEMICS.md 3.9)
+    call_record_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)  # call_records.id (no FK: avoids a cycle)
+    overall_rating: Mapped[Optional[float]] = mapped_column(Float)  # 1-5 stars
+    remarks: Mapped[Optional[str]] = mapped_column(Text)
+    parameter_scores: Mapped[dict] = mapped_column(JSON, default=dict)  # {"Engagement": 4, "Tajweed Accuracy": 3, ...}
+    issues: Mapped[list] = mapped_column(JSON, default=list)  # [{"type": "Adab", "critical": false, "note": "..."}]
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     tajweed_score: Mapped[Optional[float]] = mapped_column(Float)
     methodology_score: Mapped[Optional[float]] = mapped_column(Float)
     engagement_score: Mapped[Optional[float]] = mapped_column(Float)

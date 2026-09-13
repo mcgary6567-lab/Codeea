@@ -1,9 +1,12 @@
 """Navigation model.
 
-The UI follows a drill-down launchpad pattern: Home shows one large card per *section*, a section page
-shows one card per *item*, and every item is a real page. Breadcrumbs are derived from the same data,
-so adding an item here is all that is needed to make it reachable and labelled correctly.
-Items are gated by permission (see rbac). Icons are Lucide icon names.
+The UI follows the drill-down launchpad pattern of the college's existing ERP:
+
+    Home  →  section (one card per section)  →  group (one card per group, e.g. "Class Management")  →  page
+
+A section may list pages directly (``items``) or be organised into ``groups``; every leaf item is a real page.
+Breadcrumbs are derived from the same data, so adding an item here is all that is needed to make it reachable
+and labelled correctly. Items are gated by permission (see rbac). Icons are Lucide icon names.
 """
 from __future__ import annotations
 
@@ -26,141 +29,239 @@ def palette(i: int) -> str:
     return PALETTE[i % len(PALETTE)]
 
 
-# Each section: {"slug", "label", "icon", "blurb", "items": [{"label", "url", "icon", "perm"}]}
+def _i(label: str, url: str, icon: str, perm: str) -> dict:
+    return {"label": label, "url": url, "icon": icon, "perm": perm}
+
+
+# --------------------------------------------------------------------------- Online Academics (mirrors the ERP)
+ACADEMIC_GROUPS = [
+    {"slug": "dashboards", "label": "Dashboards", "icon": "gauge", "blurb": "Clients, subscriptions, billing, performance", "items": [
+        _i("Client Management", "/dashboards/clients", "users", "dashboards.view"),
+        _i("Subscriptions (Count)", "/dashboards/subscriptions", "repeat", "dashboards.view"),
+        _i("Subscriptions (Amount)", "/dashboards/subscriptions/amount", "coins", "dashboards.view"),
+        _i("Billing Management", "/dashboards/billing", "landmark", "dashboards.view"),
+        _i("Monthly Performance Dashboard", "/dashboards/monthly-performance", "bar-chart-3", "dashboards.view"),
+        _i("Financial Summary", "/dashboards/financial-summary", "pie-chart", "dashboards.view"),
+        _i("Monthly Performance Insights", "/dashboards/monthly-insights", "trending-up", "dashboards.view"),
+        _i("CEO Command Center", "/command-center", "crown", "command_center.view"),
+    ]},
+    {"slug": "clients", "label": "Client Management", "icon": "users", "blurb": "Families, trial clients, online registrations", "items": [
+        _i("Client List", "/clients", "users", "clients.view"),
+        _i("Trial Client List", "/clients/trial", "flask-conical", "clients.view"),
+        _i("Online Registrations", "/registrations", "clipboard-list", "registration.view"),
+        _i("Clients Users List", "/clients/users", "key-round", "clients.view"),
+    ]},
+    {"slug": "requests", "label": "Client Requests", "icon": "inbox", "blurb": "Leave, time and teacher changes, references, complaints", "items": [
+        _i("Leave Applications", "/requests/leaves", "calendar-off", "requests.view"),
+        _i("Time Change Requests", "/requests/time-change", "clock", "requests.view"),
+        _i("Teacher Change Requests", "/requests/teacher-change", "user-cog", "requests.view"),
+        _i("Refer New Contacts", "/requests/references", "gift", "requests.view"),
+        _i("Complaints", "/requests/complaints", "life-buoy", "requests.view"),
+    ]},
+    {"slug": "students", "label": "Student Management", "icon": "graduation-cap", "blurb": "Students, referrals, leaves", "items": [
+        _i("Student List", "/students", "graduation-cap", "students.view"),
+        _i("Student Referred List", "/students/referred", "share-2", "students.view"),
+        _i("Student Leaves", "/leaves/students", "calendar-off", "leaves.view"),
+        _i("On Leave Students", "/students/on-leave", "plane", "students.view"),
+        _i("Retention & Churn", "/retention", "heart-pulse", "retention.view"),
+    ]},
+    {"slug": "subscriptions", "label": "Subscription Management", "icon": "repeat", "blurb": "Create, allocate and report on subscriptions", "items": [
+        _i("Create Subscription", "/subscriptions/new", "plus-square", "subscriptions.add"),
+        _i("Faculty Allocation", "/subscriptions/allocation", "arrow-left-right", "subscriptions.view"),
+        _i("All Subscriptions", "/subscriptions", "file-text", "subscriptions.view"),
+        _i("All Subscriptions Value Report", "/subscriptions/value-report", "file-spreadsheet", "subscriptions.view"),
+        _i("Subscription Detail Report", "/subscriptions/detail-report", "line-chart", "subscriptions.view"),
+        _i("Cancelled Subscriptions", "/subscriptions/cancelled", "x-square", "subscriptions.view"),
+    ]},
+    {"slug": "classes", "label": "Class Management", "icon": "video", "blurb": "Trials, schedules, arrangements, queries", "items": [
+        _i("Running Trials", "/trials/running", "flask-conical", "trials.view"),
+        _i("Class Schedules", "/classes", "calendar-days", "classes.view"),
+        _i("Class Arrangements", "/classes/arrangements", "arrow-left-right", "classes.update"),
+        _i("Rescheduled Classes", "/classes/rescheduled", "calendar-clock", "classes.view"),
+        _i("Class Status Summary", "/classes/status-summary", "layout-grid", "classes.view"),
+        _i("Class Queries", "/classes/queries", "message-square-warning", "classes.view"),
+        _i("Schedule Summary Report", "/classes/schedule-summary", "table", "classes.view"),
+        _i("Recurring Schedules", "/schedules", "calendar-range", "schedules.view"),
+    ]},
+    {"slug": "billing", "label": "Billing Management", "icon": "receipt", "blurb": "Invoices, receipts, ledger", "items": [
+        _i("Invoice List", "/finance/invoices", "receipt", "billing.view"),
+        _i("Receipts", "/finance/receipts", "badge-check", "payments.view"),
+        _i("Ledger Additions", "/finance/ledger-additions", "plus-minus", "ledger.view"),
+        _i("Client Ledger Report", "/finance/ledger", "book-open-text", "ledger.view"),
+    ]},
+    {"slug": "evaluation", "label": "Evaluation", "icon": "clipboard-check", "blurb": "Evaluations, tests, lesson plans, certificates", "items": [
+        _i("Evaluations", "/academics/evaluations", "clipboard-check", "evaluations.view"),
+        _i("Pending Evaluations", "/academics/evaluations/pending", "clipboard-list", "evaluations.view"),
+        _i("Lesson Plans", "/academics/lesson-plans", "notebook-pen", "lesson_plans.view"),
+        _i("Monthly Tests", "/academics/monthly-tests", "file-badge", "monthly_tests.view"),
+        _i("Certificates", "/academics/certificates", "award", "certificates.view"),
+        _i("Curriculum", "/academics/curriculum", "library", "curriculum.view"),
+    ]},
+    {"slug": "quality", "label": "Quality Management", "icon": "shield-check", "blurb": "Call reviews, feedback, teacher QA", "items": [
+        _i("QA Dashboard", "/qa/dashboard", "gauge", "qa.view"),
+        _i("Client Feedbacks", "/qa/feedbacks", "message-square-heart", "feedback.view"),
+        _i("Call Recordings", "/qa/calls", "phone-call", "qa.view"),
+        _i("Agent Un-Matched Calls", "/qa/calls/unmatched", "phone-missed", "qa.view"),
+        _i("QA Review Queue", "/qa/queue", "list-checks", "qa.view"),
+        _i("Reviewed Calls", "/qa/reviewed", "check-check", "qa.view"),
+        _i("Teacher QA Performance", "/qa/teacher-performance", "trending-up", "qa.view"),
+        _i("Configurations", "/qa/config", "settings-2", "qa.configure"),
+        _i("AI Class Monitoring", "/ai-monitoring", "brain-circuit", "ai_monitoring.view"),
+        _i("Class Recordings", "/recordings", "film", "recordings.view"),
+    ]},
+    {"slug": "teacher-portal", "label": "Teacher Portal", "icon": "user-check", "blurb": "Today's classes and activity", "items": [
+        _i("Class Schedule", "/teacher/online-class", "video", "classes.view"),
+    ]},
+    {"slug": "supervisor-portal", "label": "Supervisor Portal", "icon": "radio", "blurb": "Live monitoring", "items": [
+        _i("Monitoring Dashboard", "/supervisor", "radio", "supervisor.view"),
+    ]},
+    {"slug": "hod-portal", "label": "HOD Portal", "icon": "briefcase", "blurb": "Academic manager view", "items": [
+        _i("Monitoring Dashboard", "/hod", "briefcase", "supervisor.view"),
+    ]},
+    {"slug": "config", "label": "Academic Configuration", "icon": "settings", "blurb": "Sessions, courses, packages, books, accounts", "items": [
+        _i("Sessions", "/academics/config/sessions", "clock", "academic_config.view"),
+        _i("Courses", "/academics/config/courses", "book-open", "academic_config.view"),
+        _i("Packages", "/academics/config/packages", "package", "academic_config.view"),
+        _i("Define Books", "/academics/config/books", "book", "academic_config.view"),
+        _i("Change Staff Sorting", "/academics/config/staff-sorting", "arrow-up-down", "academic_config.view"),
+        _i("Invoice Addition List", "/academics/config/invoice-additions", "list-plus", "academic_config.view"),
+        _i("Invoice Additions Master", "/academics/config/invoice-addition-rules", "sliders-horizontal", "academic_config.view"),
+        _i("Receipt Beneficiary Accounts", "/academics/config/beneficiary-accounts", "landmark", "academic_config.view"),
+        _i("Client Academic Groups", "/academics/config/client-groups", "users-round", "academic_config.view"),
+        _i("MS Team Users", "/academics/config/teams-users", "monitor", "academic_config.view"),
+        _i("Question Bank", "/academics/config/question-bank", "help-circle", "academic_config.view"),
+        _i("Define Assessment", "/academics/config/assessments", "file-check", "academic_config.view"),
+        _i("Course Divisions", "/academics/courses", "layers", "courses.view"),
+    ]},
+]
+
+# Each section: {"slug", "label", "icon", "blurb", "items": [...]} or {"slug", ..., "groups": [...]}
 ADMIN_NAV = [
-    {"slug": "overview", "label": "Overview", "icon": "layout-dashboard", "blurb": "Live operations and executive view", "items": [
-        {"label": "Academic Home", "url": "/dashboard", "icon": "layout-dashboard", "perm": "dashboard.view"},
-        {"label": "CEO Command Center", "url": "/command-center", "icon": "gauge", "perm": "command_center.view"},
-        {"label": "Supervisor Live", "url": "/supervisor", "icon": "radio", "perm": "supervisor.view"},
-        {"label": "Alerts", "url": "/alerts", "icon": "bell-ring", "perm": "dashboard.view"},
-    ]},
-    {"slug": "crm", "label": "CRM & Growth", "icon": "megaphone", "blurb": "Leads, WhatsApp, trials, campaigns", "items": [
-        {"label": "Leads & Pipeline", "url": "/crm/leads", "icon": "funnel", "perm": "leads.view"},
-        {"label": "WhatsApp Inbox", "url": "/crm/inbox", "icon": "message-circle", "perm": "inbox.view"},
-        {"label": "Trials", "url": "/trials", "icon": "flask-conical", "perm": "trials.view"},
-        {"label": "Campaigns", "url": "/crm/campaigns", "icon": "megaphone", "perm": "campaigns.view"},
-        {"label": "Marketing Analytics", "url": "/crm/marketing", "icon": "trending-up", "perm": "marketing.view"},
-        {"label": "Sequences", "url": "/crm/sequences", "icon": "workflow", "perm": "sequences.view"},
-        {"label": "Ambassadors", "url": "/crm/referrals", "icon": "gift", "perm": "referrals.view"},
-    ]},
-    {"slug": "people", "label": "Clients & Students", "icon": "users", "blurb": "Families, students, requests, retention", "items": [
-        {"label": "Clients / Parents", "url": "/clients", "icon": "users", "perm": "clients.view"},
-        {"label": "Students", "url": "/students", "icon": "graduation-cap", "perm": "students.view"},
-        {"label": "Registrations", "url": "/registrations", "icon": "clipboard-list", "perm": "registration.view"},
-        {"label": "Retention & Churn", "url": "/retention", "icon": "heart-pulse", "perm": "retention.view"},
-        {"label": "Cases & Complaints", "url": "/cases", "icon": "life-buoy", "perm": "cases.view"},
-        {"label": "Feedback & VoC", "url": "/feedback", "icon": "message-square-heart", "perm": "feedback.view"},
-    ]},
-    {"slug": "academics", "label": "Academics", "icon": "book-open", "blurb": "Schedules, classes, curriculum, tests", "items": [
-        {"label": "Schedules", "url": "/schedules", "icon": "calendar-days", "perm": "schedules.view"},
-        {"label": "Class Sessions", "url": "/classes", "icon": "video", "perm": "classes.view"},
-        {"label": "Student Leaves", "url": "/leaves/students", "icon": "calendar-off", "perm": "leaves.view"},
-        {"label": "Courses & Packages", "url": "/academics/courses", "icon": "book-open", "perm": "courses.view"},
-        {"label": "Curriculum", "url": "/academics/curriculum", "icon": "library", "perm": "curriculum.view"},
-        {"label": "Lesson Plans", "url": "/academics/lesson-plans", "icon": "notebook-pen", "perm": "lesson_plans.view"},
-        {"label": "Evaluations", "url": "/academics/evaluations", "icon": "clipboard-check", "perm": "evaluations.view"},
-        {"label": "Monthly Tests", "url": "/academics/monthly-tests", "icon": "file-badge", "perm": "monthly_tests.view"},
-        {"label": "Certificates", "url": "/academics/certificates", "icon": "award", "perm": "certificates.view"},
-    ]},
-    {"slug": "quality", "label": "Quality & AI", "icon": "shield-check", "blurb": "QA reviews, AI monitoring, safeguarding", "items": [
-        {"label": "QA Queue", "url": "/qa", "icon": "shield-check", "perm": "qa.view"},
-        {"label": "AI Class Monitoring", "url": "/ai-monitoring", "icon": "brain-circuit", "perm": "ai_monitoring.view"},
-        {"label": "Recordings", "url": "/recordings", "icon": "film", "perm": "recordings.view"},
-        {"label": "Safeguarding", "url": "/safeguarding", "icon": "shield-alert", "perm": "safeguarding.view"},
-        {"label": "AI Governance", "url": "/ai-governance", "icon": "scale", "perm": "ai_governance.view"},
-    ]},
-    {"slug": "finance", "label": "Billing & Finance", "icon": "landmark", "blurb": "Subscriptions, invoices, accounts", "items": [
-        {"label": "Subscriptions", "url": "/finance/subscriptions", "icon": "repeat", "perm": "subscriptions.view"},
-        {"label": "Invoices", "url": "/finance/invoices", "icon": "receipt", "perm": "billing.view"},
-        {"label": "Payments", "url": "/finance/payments", "icon": "credit-card", "perm": "payments.view"},
-        {"label": "Discounts & Scholarships", "url": "/finance/discounts", "icon": "percent", "perm": "discounts.view"},
-        {"label": "Accounts & P&L", "url": "/finance/accounts", "icon": "landmark", "perm": "accounts.view"},
-        {"label": "Expenses", "url": "/finance/expenses", "icon": "wallet", "perm": "expenses.view"},
-        {"label": "Currencies", "url": "/finance/currencies", "icon": "coins", "perm": "currencies.view"},
+    {"slug": "academics", "label": "Online Academics", "icon": "book-open", "blurb": "Clients, students, subscriptions, classes, quality",
+     "home": "/dashboard", "groups": ACADEMIC_GROUPS},
+    {"slug": "finance", "label": "Billing Management", "icon": "receipt", "blurb": "Subscriptions, invoices, receipts, discounts", "items": [
+        _i("Invoice List", "/finance/invoices", "receipt", "billing.view"),
+        _i("Receipts", "/finance/receipts", "badge-check", "payments.view"),
+        _i("Payments & Reconciliation", "/finance/payments", "credit-card", "payments.view"),
+        _i("Ledger Additions", "/finance/ledger-additions", "plus-minus", "ledger.view"),
+        _i("Client Ledger Report", "/finance/ledger", "book-open-text", "ledger.view"),
+        _i("All Subscriptions", "/subscriptions", "repeat", "subscriptions.view"),
+        _i("Discounts & Scholarships", "/finance/discounts", "percent", "discounts.view"),
+        _i("Currencies", "/finance/currencies", "coins", "currencies.view"),
+        _i("Billing Dashboard", "/dashboards/billing", "gauge", "dashboards.view"),
+        _i("Financial Summary", "/dashboards/financial-summary", "pie-chart", "dashboards.view"),
     ]},
     {"slug": "hr", "label": "Human Resource", "icon": "id-card", "blurb": "Teachers, employees, payroll", "items": [
-        {"label": "Teachers", "url": "/teachers", "icon": "user-check", "perm": "teachers.view"},
-        {"label": "Employees", "url": "/hr/employees", "icon": "id-card", "perm": "employees.view"},
-        {"label": "HR Attendance", "url": "/hr/attendance", "icon": "clock", "perm": "hr_attendance.view"},
-        {"label": "Staff Leaves", "url": "/hr/leaves", "icon": "plane", "perm": "leaves.view"},
-        {"label": "Recruitment", "url": "/hr/recruitment", "icon": "briefcase", "perm": "recruitment.view"},
-        {"label": "Payroll", "url": "/hr/payroll", "icon": "banknote", "perm": "payroll.view"},
-        {"label": "Violations", "url": "/hr/violations", "icon": "triangle-alert", "perm": "violations.view"},
-        {"label": "Grievances", "url": "/hr/grievances", "icon": "lock", "perm": "grievances.view"},
-        {"label": "Ustaadh Lab", "url": "/hr/teacher-development", "icon": "sparkles", "perm": "teacher_dev.view"},
-        {"label": "Provisioning", "url": "/hr/provisioning", "icon": "key-round", "perm": "provisioning.view"},
+        _i("Teachers", "/teachers", "user-check", "teachers.view"),
+        _i("Employees", "/hr/employees", "id-card", "employees.view"),
+        _i("HR Attendance", "/hr/attendance", "clock", "hr_attendance.view"),
+        _i("Staff Leaves", "/hr/leaves", "plane", "leaves.view"),
+        _i("Recruitment", "/hr/recruitment", "briefcase", "recruitment.view"),
+        _i("Payroll", "/hr/payroll", "banknote", "payroll.view"),
+        _i("Violations", "/hr/violations", "triangle-alert", "violations.view"),
+        _i("Grievances", "/hr/grievances", "lock", "grievances.view"),
+        _i("Ustaadh Lab", "/hr/teacher-development", "sparkles", "teacher_dev.view"),
+        _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view"),
+        _i("Change Staff Sorting", "/academics/config/staff-sorting", "arrow-up-down", "academic_config.view"),
+    ]},
+    {"slug": "accounts", "label": "Accounts", "icon": "landmark", "blurb": "Chart of accounts, journal, expenses, P&L", "items": [
+        _i("Accounts & P&L", "/finance/accounts", "landmark", "accounts.view"),
+        _i("Journal", "/finance/accounts/journal", "book", "accounts.view"),
+        _i("Expenses", "/finance/expenses", "wallet", "expenses.view"),
+        _i("Budgets", "/finance/accounts/budget", "calculator", "accounts.view"),
+        _i("Receivables Aging", "/finance/accounts/aging", "hourglass", "accounts.view"),
+        _i("Cash Flow", "/finance/accounts/cash-flow", "waves", "accounts.view"),
+        _i("Period Close", "/finance/accounts/close", "lock", "accounts.view"),
+    ]},
+    {"slug": "crm", "label": "CRM & Growth", "icon": "megaphone", "blurb": "Leads, WhatsApp, trials, campaigns", "items": [
+        _i("Leads & Pipeline", "/crm/leads", "funnel", "leads.view"),
+        _i("WhatsApp Inbox", "/crm/inbox", "message-circle", "inbox.view"),
+        _i("Trials", "/trials", "flask-conical", "trials.view"),
+        _i("Online Registrations", "/registrations", "clipboard-list", "registration.view"),
+        _i("Campaigns", "/crm/campaigns", "megaphone", "campaigns.view"),
+        _i("Marketing Analytics", "/crm/marketing", "trending-up", "marketing.view"),
+        _i("Sequences", "/crm/sequences", "workflow", "sequences.view"),
+        _i("Ambassadors", "/crm/referrals", "gift", "referrals.view"),
+        _i("Cases & Complaints", "/cases", "life-buoy", "cases.view"),
+        _i("Feedback & VoC", "/feedback", "message-square-heart", "feedback.view"),
     ]},
     {"slug": "operations", "label": "Operations", "icon": "list-checks", "blurb": "Tasks, KPIs, governance, reports", "items": [
-        {"label": "Tasks & Projects", "url": "/tasks", "icon": "list-checks", "perm": "tasks.view"},
-        {"label": "KPIs", "url": "/kpis", "icon": "target", "perm": "kpis.view"},
-        {"label": "Transformation OS", "url": "/transformation", "icon": "rocket", "perm": "transformation.view"},
-        {"label": "Decision Register", "url": "/decisions", "icon": "gavel", "perm": "decisions.view"},
-        {"label": "Daily Reports", "url": "/daily-reports", "icon": "file-clock", "perm": "daily_reports.view"},
-        {"label": "Reports & Exports", "url": "/reports", "icon": "bar-chart-3", "perm": "reports.view"},
+        _i("Supervisor Live", "/supervisor", "radio", "supervisor.view"),
+        _i("Alerts", "/alerts", "bell-ring", "dashboard.view"),
+        _i("Tasks & Projects", "/tasks", "list-checks", "tasks.view"),
+        _i("KPIs", "/kpis", "target", "kpis.view"),
+        _i("Transformation OS", "/transformation", "rocket", "transformation.view"),
+        _i("Decision Register", "/decisions", "gavel", "decisions.view"),
+        _i("Daily Reports", "/daily-reports", "file-clock", "daily_reports.view"),
+        _i("Reports & Exports", "/reports", "bar-chart-3", "reports.view"),
+        _i("Safeguarding", "/safeguarding", "shield-alert", "safeguarding.view"),
+        _i("AI Governance", "/ai-governance", "scale", "ai_governance.view"),
     ]},
     {"slug": "system", "label": "Configuration", "icon": "settings", "blurb": "Users, roles, integrations, security", "items": [
-        {"label": "Users", "url": "/admin/users", "icon": "user-cog", "perm": "users.view"},
-        {"label": "Roles & Permissions", "url": "/admin/roles", "icon": "shield", "perm": "roles.view"},
-        {"label": "Settings", "url": "/admin/settings", "icon": "settings", "perm": "settings.view"},
-        {"label": "Notifications", "url": "/admin/notifications", "icon": "send", "perm": "notifications.configure"},
-        {"label": "Integration Hub", "url": "/admin/integrations", "icon": "plug", "perm": "integrations.view"},
-        {"label": "API & Webhooks", "url": "/admin/api", "icon": "code-2", "perm": "api_keys.view"},
-        {"label": "Security Center", "url": "/admin/security", "icon": "lock-keyhole", "perm": "security.view"},
-        {"label": "Backups & DR", "url": "/admin/backups", "icon": "database-backup", "perm": "backups.view"},
-        {"label": "Data Migration", "url": "/admin/migration", "icon": "database-zap", "perm": "migration.view"},
-        {"label": "Audit Log", "url": "/admin/audit", "icon": "scroll-text", "perm": "audit.view"},
+        _i("Users", "/admin/users", "user-cog", "users.view"),
+        _i("Roles & Permissions", "/admin/roles", "shield", "roles.view"),
+        _i("Settings", "/admin/settings", "settings", "settings.view"),
+        _i("Notifications", "/admin/notifications", "send", "notifications.configure"),
+        _i("Integration Hub", "/admin/integrations", "plug", "integrations.view"),
+        _i("API & Webhooks", "/admin/api", "code-2", "api_keys.view"),
+        _i("Security Center", "/admin/security", "lock-keyhole", "security.view"),
+        _i("Backups & DR", "/admin/backups", "database-backup", "backups.view"),
+        _i("Data Migration", "/admin/migration", "database-zap", "migration.view"),
+        _i("Audit Log", "/admin/audit", "scroll-text", "audit.view"),
     ]},
 ]
 
 TEACHER_NAV = [
     {"slug": "teaching", "label": "Teaching", "icon": "book-open", "blurb": "Your classes and students", "items": [
-        {"label": "My Dashboard", "url": "/teacher", "icon": "layout-dashboard", "perm": "portal_teacher.view"},
-        {"label": "My Schedule", "url": "/teacher/schedule", "icon": "calendar-days", "perm": "portal_teacher.view"},
-        {"label": "My Classes", "url": "/teacher/classes", "icon": "video", "perm": "portal_teacher.view"},
-        {"label": "My Students", "url": "/teacher/students", "icon": "graduation-cap", "perm": "portal_teacher.view"},
-        {"label": "Lesson Plans", "url": "/teacher/lesson-plans", "icon": "notebook-pen", "perm": "portal_teacher.view"},
-        {"label": "Evaluations", "url": "/teacher/evaluations", "icon": "clipboard-check", "perm": "portal_teacher.view"},
-        {"label": "Monthly Tests", "url": "/teacher/monthly-tests", "icon": "file-badge", "perm": "portal_teacher.view"},
-        {"label": "Trials", "url": "/teacher/trials", "icon": "flask-conical", "perm": "portal_teacher.view"},
+        _i("Online Class", "/teacher/online-class", "video", "portal_teacher.view"),
+        _i("My Dashboard", "/teacher", "layout-dashboard", "portal_teacher.view"),
+        _i("My Schedule", "/teacher/schedule", "calendar-days", "portal_teacher.view"),
+        _i("My Classes", "/teacher/classes", "video", "portal_teacher.view"),
+        _i("My Students", "/teacher/students", "graduation-cap", "portal_teacher.view"),
+        _i("Lesson Plans", "/teacher/lesson-plans", "notebook-pen", "portal_teacher.view"),
+        _i("Evaluations", "/teacher/evaluations", "clipboard-check", "portal_teacher.view"),
+        _i("Monthly Tests", "/teacher/monthly-tests", "file-badge", "portal_teacher.view"),
+        _i("Trials", "/teacher/trials", "flask-conical", "portal_teacher.view"),
     ]},
     {"slug": "me", "label": "Employee Self Portal", "icon": "user", "blurb": "Performance, attendance, payslips", "items": [
-        {"label": "Performance", "url": "/teacher/performance", "icon": "trending-up", "perm": "portal_teacher.view"},
-        {"label": "QA Feedback", "url": "/teacher/qa", "icon": "shield-check", "perm": "portal_teacher.view"},
-        {"label": "Ustaadh Lab", "url": "/teacher/training", "icon": "sparkles", "perm": "portal_teacher.view"},
-        {"label": "Attendance & Leaves", "url": "/teacher/hr", "icon": "clock", "perm": "portal_teacher.view"},
-        {"label": "Income & Payslips", "url": "/teacher/income", "icon": "banknote", "perm": "portal_teacher.view"},
-        {"label": "Daily Report", "url": "/daily-reports", "icon": "file-clock", "perm": "daily_reports.view"},
-        {"label": "Tasks", "url": "/tasks", "icon": "list-checks", "perm": "tasks.view"},
+        _i("Performance", "/teacher/performance", "trending-up", "portal_teacher.view"),
+        _i("QA Feedback", "/teacher/qa", "shield-check", "portal_teacher.view"),
+        _i("Ustaadh Lab", "/teacher/training", "sparkles", "portal_teacher.view"),
+        _i("Attendance & Leaves", "/teacher/hr", "clock", "portal_teacher.view"),
+        _i("Income & Payslips", "/teacher/income", "banknote", "portal_teacher.view"),
+        _i("Daily Report", "/daily-reports", "file-clock", "daily_reports.view"),
+        _i("Tasks", "/tasks", "list-checks", "tasks.view"),
     ]},
 ]
 
 CLIENT_NAV = [
     {"slug": "family", "label": "My Family", "icon": "users", "blurb": "Classes, progress and results", "items": [
-        {"label": "Home", "url": "/portal", "icon": "home", "perm": "portal_client.view"},
-        {"label": "Schedule & Classes", "url": "/portal/schedule", "icon": "calendar-days", "perm": "portal_client.view"},
-        {"label": "Attendance", "url": "/portal/attendance", "icon": "clipboard-check", "perm": "portal_client.view"},
-        {"label": "Progress", "url": "/portal/progress", "icon": "trending-up", "perm": "portal_client.view"},
-        {"label": "Result Cards", "url": "/portal/result-cards", "icon": "file-badge", "perm": "portal_client.view"},
-        {"label": "Certificates", "url": "/portal/certificates", "icon": "award", "perm": "portal_client.view"},
-        {"label": "Leave Requests", "url": "/portal/leaves", "icon": "calendar-off", "perm": "portal_client.view"},
+        _i("Home", "/portal", "home", "portal_client.view"),
+        _i("Schedule & Classes", "/portal/schedule", "calendar-days", "portal_client.view"),
+        _i("Attendance", "/portal/attendance", "clipboard-check", "portal_client.view"),
+        _i("Progress", "/portal/progress", "trending-up", "portal_client.view"),
+        _i("Result Cards", "/portal/result-cards", "file-badge", "portal_client.view"),
+        _i("Certificates", "/portal/certificates", "award", "portal_client.view"),
+        _i("Leave Requests", "/portal/leaves", "calendar-off", "portal_client.view"),
     ]},
     {"slug": "account", "label": "My Account", "icon": "receipt", "blurb": "Billing, requests, referrals", "items": [
-        {"label": "Invoices & Payments", "url": "/portal/billing", "icon": "receipt", "perm": "portal_client.view"},
-        {"label": "Requests & Complaints", "url": "/portal/cases", "icon": "life-buoy", "perm": "portal_client.view"},
-        {"label": "Feedback", "url": "/portal/feedback", "icon": "message-square-heart", "perm": "portal_client.view"},
-        {"label": "Refer a Family", "url": "/portal/referrals", "icon": "gift", "perm": "portal_client.view"},
-        {"label": "Profile & Consent", "url": "/portal/profile", "icon": "user", "perm": "portal_client.view"},
+        _i("Invoices & Payments", "/portal/billing", "receipt", "portal_client.view"),
+        _i("Change Requests", "/portal/requests", "clock", "portal_client.view"),
+        _i("Requests & Complaints", "/portal/cases", "life-buoy", "portal_client.view"),
+        _i("Feedback", "/portal/feedback", "message-square-heart", "portal_client.view"),
+        _i("Refer a Family", "/portal/referrals", "gift", "portal_client.view"),
+        _i("Profile & Consent", "/portal/profile", "user", "portal_client.view"),
     ]},
 ]
 
 STUDENT_NAV = [
     {"slug": "learning", "label": "My Learning", "icon": "book-open", "blurb": "Classes, lessons and results", "items": [
-        {"label": "Home", "url": "/student", "icon": "home", "perm": "portal_student.view"},
-        {"label": "My Classes", "url": "/student/classes", "icon": "video", "perm": "portal_student.view"},
-        {"label": "My Progress", "url": "/student/progress", "icon": "trending-up", "perm": "portal_student.view"},
-        {"label": "Lesson View", "url": "/student/lesson", "icon": "book-open", "perm": "portal_student.view"},
-        {"label": "Results", "url": "/student/results", "icon": "file-badge", "perm": "portal_student.view"},
-        {"label": "Certificates", "url": "/student/certificates", "icon": "award", "perm": "portal_student.view"},
+        _i("Home", "/student", "home", "portal_student.view"),
+        _i("My Classes", "/student/classes", "video", "portal_student.view"),
+        _i("My Progress", "/student/progress", "trending-up", "portal_student.view"),
+        _i("Lesson View", "/student/lesson", "book-open", "portal_student.view"),
+        _i("Results", "/student/results", "file-badge", "portal_student.view"),
+        _i("Certificates", "/student/certificates", "award", "portal_student.view"),
     ]},
 ]
 
@@ -173,13 +274,32 @@ def _source(user) -> list[dict]:
     return {"teacher": TEACHER_NAV, "client": CLIENT_NAV, "student": STUDENT_NAV}.get(portal, ADMIN_NAV)
 
 
+def _allowed(user, items: list[dict]) -> list[dict]:
+    return [dict(item, color=palette(j)) for j, item in enumerate(items) if rbac.has_permission(user, item["perm"])]
+
+
 def nav_for(user) -> list[dict]:
-    """Sections and items the user may see, with a palette colour attached to each section and item."""
+    """Sections (with groups/items) the user may see, with a palette colour attached to every card.
+
+    Every section carries a flat ``items`` list (all leaf pages) so breadcrumbs and search work uniformly;
+    sections organised in groups also carry ``groups`` with their own filtered items.
+    """
     out = []
     for i, section in enumerate(_source(user)):
-        items = [dict(item, color=palette(j)) for j, item in enumerate(section["items"]) if rbac.has_permission(user, item["perm"])]
-        if items:
-            out.append(dict(section, items=items, color=palette(i)))
+        if section.get("groups"):
+            groups = []
+            for j, g in enumerate(section["groups"]):
+                items = _allowed(user, g["items"])
+                if items:
+                    groups.append(dict(g, items=items, color=palette(j), url=f"/home/{section['slug']}/{g['slug']}"))
+            if not groups:
+                continue
+            flat = [it for g in groups for it in g["items"]]
+            out.append(dict(section, groups=groups, items=flat, color=palette(i)))
+        else:
+            items = _allowed(user, section["items"])
+            if items:
+                out.append(dict(section, items=items, color=palette(i)))
     return out
 
 
@@ -190,21 +310,40 @@ def section_for(user, slug: str) -> dict | None:
     return None
 
 
+def group_for(user, slug: str, group_slug: str) -> tuple[dict | None, dict | None]:
+    section = section_for(user, slug)
+    if not section:
+        return None, None
+    for g in section.get("groups", []):
+        if g["slug"] == group_slug:
+            return section, g
+    return section, None
+
+
 def breadcrumbs_for(user, path: str) -> list[dict]:
-    """Home › Section › Item for the current path, using the longest matching item URL."""
+    """Home › Section › Group › Item for the current path, using the longest matching item URL."""
     crumbs = [{"label": "Home", "url": "/home"}]
     if path in ("/home", "/"):
         return crumbs
-    best, best_section, best_len = None, None, -1
+    best, best_section, best_group, best_len = None, None, None, -1
     for section in nav_for(user):
         if path == f"/home/{section['slug']}":
             return crumbs + [{"label": section["label"], "url": path}]
-        for item in section["items"]:
+        for g in section.get("groups", []):
+            if path == g["url"]:
+                return crumbs + [{"label": section["label"], "url": f"/home/{section['slug']}"}, {"label": g["label"], "url": path}]
+            for item in g["items"]:
+                u = item["url"]
+                if (path == u or path.startswith(u.rstrip("/") + "/")) and len(u) > best_len:
+                    best, best_section, best_group, best_len = item, section, g, len(u)
+        for item in section["items"] if not section.get("groups") else []:
             u = item["url"]
             if (path == u or path.startswith(u.rstrip("/") + "/")) and len(u) > best_len:
-                best, best_section, best_len = item, section, len(u)
+                best, best_section, best_group, best_len = item, section, None, len(u)
     if best_section:
         crumbs.append({"label": best_section["label"], "url": f"/home/{best_section['slug']}"})
+    if best_group:
+        crumbs.append({"label": best_group["label"], "url": best_group["url"]})
     if best:
         crumbs.append({"label": best["label"], "url": best["url"]})
     return crumbs

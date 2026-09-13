@@ -19,6 +19,10 @@ class Course(Base, PKMixin, TimestampMixin):
     completion_target_months: Mapped[Optional[int]] = mapped_column(Integer)
     order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    course_type: Mapped[str] = mapped_column(String(40), default="Islamic Courses")  # Islamic Courses | Academics Tutoring
+    fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # default monthly fee (base currency)
+    attendance_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    curriculum_link: Mapped[Optional[str]] = mapped_column(String(300))
 
     divisions = relationship("Division", back_populates="course", order_by="Division.order")
     books = relationship("Book", back_populates="course", order_by="Book.order")
@@ -50,6 +54,8 @@ class Package(Base, PKMixin, TimestampMixin):
     description: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_trial: Mapped[bool] = mapped_column(Boolean, default=False)
+    min_days: Mapped[int] = mapped_column(Integer, default=1)  # days per week the package allows
+    max_days: Mapped[int] = mapped_column(Integer, default=5)
 
     course = relationship("Course", back_populates="packages")
 
@@ -73,6 +79,9 @@ class Book(Base, PKMixin, TimestampMixin):
     arabic_title: Mapped[Optional[str]] = mapped_column(String(150))
     description: Mapped[Optional[str]] = mapped_column(Text)
     order: Mapped[int] = mapped_column(Integer, default=0)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)  # Internal Books vs Public Books
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    file_path: Mapped[Optional[str]] = mapped_column(String(300))
 
     course = relationship("Course", back_populates="books")
     chapters = relationship("Chapter", back_populates="book", order_by="Chapter.order", cascade="all, delete-orphan")
@@ -165,9 +174,13 @@ class Evaluation(Base, PKMixin, TimestampMixin):
     teacher_comment: Mapped[Optional[str]] = mapped_column(Text)
     academic_comment: Mapped[Optional[str]] = mapped_column(Text)
     reviewed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    assessment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assessment_definitions.id", ondelete="SET NULL"))
+    is_manual: Mapped[bool] = mapped_column(Boolean, default=False)  # "Manual Evaluations" tab
+    due_date: Mapped[Optional[date]] = mapped_column(Date)  # pending evaluations = past due without a score
 
     student = relationship("Student")
     teacher = relationship("Teacher")
+    assessment = relationship("AssessmentDefinition")
 
 
 class MonthlyTest(Base, PKMixin, TimestampMixin):

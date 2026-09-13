@@ -114,3 +114,16 @@ Your seed must build on these (query them) and be idempotent. Make the data real
 
 ## Definition of done (Appendix B of the SRS)
 A module is complete only when it has: data model usage, permissions, workflows, validation, audit logging, notifications, API endpoints, error handling, reports/exports where relevant, seed data, and you have exercised every page and form with TestClient (200 on GET, 303 on POST, no template errors). Run `.venv/Scripts/python.exe -c "from app.main import app"` and fix any import errors before finishing.
+
+## ERP parity (added 13 Sep 2026)
+The platform now mirrors the college's existing ERP page by page — see `docs/AUDIT_ACADEMICS.md` for the exact
+columns, filters, actions and vocabularies of every page. Rules:
+- Models for the new areas live in `app/models/erp.py`; ERP fields were appended to Client, Student, Employee, Leave,
+  Course, Package, Book, Evaluation, Subscription, Invoice, Payment, ClassSession, QAReview, Case and Feedback.
+- Display statuses with the `label` filter so the UI speaks the ERP's language: `{{ s.status|label('student') }}`
+  (kinds: client, student, subscription, invoice, receipt, class, qa, request, registration). Keep internal values.
+- Navigation is three levels (`nav.py`: section → groups → items). Every URL listed there must exist. Define static
+  paths (e.g. `/clients/trial`) **before** `/{id}` routes in the same router.
+- ERP list pages: a row of status tiles (`ui.stat(..., href=...)` filtering the list), a filter bar, a bordered table
+  with the ERP's column labels, a **Create** button, and where the ERP has it an **Actions → Change Status** form
+  (checkbox-selected rows + new status + remarks → one POST).

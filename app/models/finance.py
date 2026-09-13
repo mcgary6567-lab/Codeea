@@ -59,6 +59,21 @@ class Subscription(Base, PKMixin, TimestampMixin):
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    # ERP parity (see docs/AUDIT_ACADEMICS.md 3.5). Status vocabulary additionally allows
+    # trial | regular | freeze | completed (labels in app.core.templating.STATUS_LABELS).
+    slot_id: Mapped[Optional[int]] = mapped_column(ForeignKey("session_slots.id", ondelete="SET NULL"), index=True)
+    days_of_week: Mapped[list] = mapped_column(JSON, default=list)  # [0..6] Monday=0
+    language: Mapped[str] = mapped_column(String(30), default="English")
+    course_method: Mapped[str] = mapped_column(String(20), default="one_on_one")  # one_on_one | group
+    session_category: Mapped[str] = mapped_column(String(20), default="30 Minutes")
+    session_type: Mapped[str] = mapped_column(String(30), default="Job Time Session")
+    trial_days: Mapped[int] = mapped_column(Integer, default=3)
+    completion_date: Mapped[Optional[date]] = mapped_column(Date)
+    remarks: Mapped[Optional[str]] = mapped_column(Text)
+    schedule_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)  # schedules.id (no FK: avoids a cycle)
+    supervisor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    books: Mapped[list] = mapped_column(JSON, default=list)  # course book ids chosen at creation
+    follow_up_date: Mapped[Optional[date]] = mapped_column(Date, index=True)  # "Coming Follow Ups"
 
     client = relationship("Client")
     student = relationship("Student")
@@ -66,6 +81,8 @@ class Subscription(Base, PKMixin, TimestampMixin):
     course = relationship("Course")
     teacher = relationship("Teacher")
     scholarship = relationship("Scholarship", foreign_keys=[scholarship_id])
+    slot = relationship("SessionSlot")
+    supervisor = relationship("User", foreign_keys=[supervisor_id])
 
 
 class DiscountRequest(Base, PKMixin, TimestampMixin):
@@ -126,8 +143,16 @@ class Invoice(Base, PKMixin, TimestampMixin):
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     paid_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     total_in_base: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)  # draft | sent | partial | paid | overdue | void
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)  # draft | pending | confirmed | partial | paid | overdue | cancelled (legacy: sent, void)
     remarks: Mapped[Optional[str]] = mapped_column(Text)
+    subs_total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # sum of subscription lines before additions
+    subs_discount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    subs_tax: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    confirmed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    cancel_reason: Mapped[Optional[str]] = mapped_column(String(200))
+    is_bulk: Mapped[bool] = mapped_column(Boolean, default=False)
     billing_rep_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -168,8 +193,18 @@ class Payment(Base, PKMixin, TimestampMixin):
     method: Mapped[str] = mapped_column(String(30), default="bank_transfer")  # bank_transfer | card | paypal | stripe | cash | wise | other
     gateway: Mapped[Optional[str]] = mapped_column(String(30))
     reference: Mapped[Optional[str]] = mapped_column(String(120))
-    status: Mapped[str] = mapped_column(String(20), default="completed")  # pending | completed | failed | refunded
+    status: Mapped[str] = mapped_column(String(20), default="completed")  # pending | confirmed | completed | failed | refunded | cancelled
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    # ERP "Receipts" fields (docs/AUDIT_ACADEMICS.md 3.7)
+    receipt_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
+    receiver_name: Mapped[Optional[str]] = mapped_column(String(150))
+    receiving_destination: Mapped[Optional[str]] = mapped_column(String(150))
+    description: Mapped[Optional[str]] = mapped_column(String(250))
+    category: Mapped[Optional[str]] = mapped_column(String(60))  # Stripe | PayPal | UBL | Meezan Bank | Wise | Cash ...
+    beneficiary_account_id: Mapped[Optional[int]] = mapped_column(ForeignKey("beneficiary_accounts.id", ondelete="SET NULL"))
+    billing_rep_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    confirmed_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     received_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
     reconciled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -178,6 +213,8 @@ class Payment(Base, PKMixin, TimestampMixin):
     invoice = relationship("Invoice", back_populates="payments")
     client = relationship("Client")
     receipt = relationship("Receipt", back_populates="payment", uselist=False)
+    beneficiary_account = relationship("BeneficiaryAccount")
+    billing_rep = relationship("User", foreign_keys=[billing_rep_id])
 
 
 class Receipt(Base, PKMixin):
