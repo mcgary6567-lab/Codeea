@@ -1,6 +1,8 @@
 """Generate the account & access workbook for the live deployment.
 
-    .venv/Scripts/python.exe build/make_credentials_xlsx.py
+    ADMIN_PASSWORD=... DEMO_PASSWORD=... .venv/Scripts/python.exe build/make_credentials_xlsx.py
+
+Passwords are read from the environment and must never be written into this file.
 
 Reads live_accounts.json (pulled from the deployed API) and writes
 "Online Quran College - User Accounts.xlsx".
@@ -8,6 +10,7 @@ Reads live_accounts.json (pulled from the deployed API) and writes
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -17,8 +20,8 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = "https://oqc.onrender.com"
-ADMIN_PW = "UEs6t8gS4+3/7GfWCNW0Wx73585GnvyU0qLjsIZvVgA="
-DEMO_PW = "jz97UqlDbrIStPPI91uFthratTrtqM5yMcAG/VqO5XY="
+ADMIN_PW = os.environ.get("ADMIN_PASSWORD", "<set ADMIN_PASSWORD env var>")
+DEMO_PW = os.environ.get("DEMO_PASSWORD", "<set DEMO_PASSWORD env var>")
 
 FONT = "Arial"
 NAVY = "0F172A"
