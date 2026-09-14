@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "oqc",
-      "runtimeExecutable": ".venv\Scripts\python.exe",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["run.py"],
       "port": 8000
     }

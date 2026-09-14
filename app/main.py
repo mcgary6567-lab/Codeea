@@ -22,6 +22,32 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("oqc")
 
 
+class DropEmptyQueryParamsMiddleware:
+    """Drop query parameters that carry an empty value, before FastAPI validates them.
+
+    Every filter bar in the app submits its whole form, so an unset dropdown arrives as
+    ``?course_id=&package_id=``. FastAPI will not coerce "" to None for an ``int | None``
+    parameter - it answers 422 and the page never renders, which is never what an empty filter
+    should mean here: throughout this codebase an empty filter means "do not filter".
+
+    Removing the key instead lets the parameter fall back to its declared default, so
+    ``int | None`` becomes None, ``str = ""`` is unchanged, and ``page: int = 1`` stays 1.
+    This is an ASGI middleware rather than a BaseHTTPMiddleware because the query string has to
+    be rewritten on the scope before routing and validation see it.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("query_string"):
+            raw = scope["query_string"]
+            if b"=&" in raw or raw.endswith(b"="):
+                kept = [p for p in raw.split(b"&") if p and not p.endswith(b"=")]
+                scope = dict(scope, query_string=b"&".join(kept))
+        await self.app(scope, receive, send)
+
+
 class DBSessionMiddleware(BaseHTTPMiddleware):
     """One SQLAlchemy session per request, available as request.state.db."""
 
@@ -78,6 +104,8 @@ def create_app() -> FastAPI:
                   openapi_url="/api/openapi.json", lifespan=lifespan)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(DBSessionMiddleware)
+    # Added last so it runs first: the query string must be cleaned before routing and validation.
+    app.add_middleware(DropEmptyQueryParamsMiddleware)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
     (BASE_DIR / "storage").mkdir(exist_ok=True)
     app.mount("/storage", StaticFiles(directory=str(BASE_DIR / "storage")), name="storage")

@@ -28,6 +28,15 @@ class Settings(BaseSettings):
             v = "postgresql://" + v[len("postgres://"):]
         if v.startswith("postgresql://"):
             v = "postgresql+psycopg://" + v[len("postgresql://"):]
+        # A relative SQLite path is resolved against the current working directory, so the app only
+        # starts when it happens to be launched from the project root ("unable to open database
+        # file" otherwise). Anchor it to the project instead, so any launcher works.
+        for prefix in ("sqlite:///./", "sqlite:///"):
+            if v.startswith(prefix):
+                rest = v[len(prefix):]
+                if rest and not rest.startswith("/") and not (len(rest) > 1 and rest[1] == ":"):
+                    return "sqlite:///" + (BASE_DIR / rest).as_posix()
+                break
         return v
     HOST: str = "127.0.0.1"
     PORT: int = 8000
