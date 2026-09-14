@@ -439,14 +439,14 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_call_records_teacher_id'), ['teacher_id'], unique=False)
 
     with op.batch_alter_table('books', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('is_public', sa.Boolean(), nullable=False))
-        batch_op.add_column(sa.Column('status', sa.String(length=20), nullable=False))
+        batch_op.add_column(sa.Column('is_public', sa.Boolean(), nullable=False, server_default=sa.text('false')))
+        batch_op.add_column(sa.Column('status', sa.String(length=20), nullable=False, server_default=sa.text("'active'")))
         batch_op.add_column(sa.Column('file_path', sa.String(length=300), nullable=True))
 
     with op.batch_alter_table('cases', schema=None) as batch_op:
         batch_op.add_column(sa.Column('complaint_type', sa.String(length=60), nullable=True))
         batch_op.add_column(sa.Column('company_response', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('approval_status', sa.String(length=20), nullable=False))
+        batch_op.add_column(sa.Column('approval_status', sa.String(length=20), nullable=False, server_default=sa.text("'pending'")))
         batch_op.create_index(batch_op.f('ix_cases_approval_status'), ['approval_status'], unique=False)
 
     with op.batch_alter_table('class_sessions', schema=None) as batch_op:
@@ -464,10 +464,10 @@ def upgrade() -> None:
         batch_op.create_foreign_key('fk_class_sessions_slot_id', 'session_slots', ['slot_id'], ['id'], ondelete='SET NULL')
 
     with op.batch_alter_table('clients', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('fee_recurrence', sa.String(length=20), nullable=False))
+        batch_op.add_column(sa.Column('fee_recurrence', sa.String(length=20), nullable=False, server_default=sa.text("'monthly'")))
         batch_op.add_column(sa.Column('legacy_code', sa.String(length=40), nullable=True))
-        batch_op.add_column(sa.Column('opening_balance', sa.Numeric(precision=12, scale=2), nullable=False))
-        batch_op.add_column(sa.Column('shift', sa.String(length=20), nullable=False))
+        batch_op.add_column(sa.Column('opening_balance', sa.Numeric(precision=12, scale=2), nullable=False, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('shift', sa.String(length=20), nullable=False, server_default=sa.text("'night'")))
         batch_op.add_column(sa.Column('state', sa.String(length=80), nullable=True))
         batch_op.add_column(sa.Column('referred_by_client_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('status_remarks', sa.String(length=200), nullable=True))
@@ -485,45 +485,45 @@ def upgrade() -> None:
         batch_op.create_foreign_key('fk_clients_referred_by_client_id', 'clients', ['referred_by_client_id'], ['id'], ondelete='SET NULL')
 
     with op.batch_alter_table('courses', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('course_type', sa.String(length=40), nullable=False))
-        batch_op.add_column(sa.Column('fee', sa.Numeric(precision=12, scale=2), nullable=False))
-        batch_op.add_column(sa.Column('attendance_required', sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column('course_type', sa.String(length=40), nullable=False, server_default=sa.text("'Islamic Courses'")))
+        batch_op.add_column(sa.Column('fee', sa.Numeric(precision=12, scale=2), nullable=False, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('attendance_required', sa.Boolean(), nullable=False, server_default=sa.text('true')))
         batch_op.add_column(sa.Column('curriculum_link', sa.String(length=300), nullable=True))
 
     with op.batch_alter_table('employees', schema=None) as batch_op:
         batch_op.add_column(sa.Column('father_name', sa.String(length=150), nullable=True))
-        batch_op.add_column(sa.Column('sort_no', sa.Integer(), nullable=False))
+        batch_op.add_column(sa.Column('sort_no', sa.Integer(), nullable=False, server_default=sa.text('0')))
 
     with op.batch_alter_table('evaluations', schema=None) as batch_op:
         batch_op.add_column(sa.Column('assessment_id', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('is_manual', sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column('is_manual', sa.Boolean(), nullable=False, server_default=sa.text('false')))
         batch_op.add_column(sa.Column('due_date', sa.Date(), nullable=True))
         batch_op.create_foreign_key('fk_evaluations_assessment_id', 'assessment_definitions', ['assessment_id'], ['id'], ondelete='SET NULL')
 
     with op.batch_alter_table('feedback', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('feedback_source', sa.String(length=20), nullable=False))
+        batch_op.add_column(sa.Column('feedback_source', sa.String(length=20), nullable=False, server_default=sa.text("'client_portal'")))
         batch_op.add_column(sa.Column('session_id', sa.Integer(), nullable=True))
         batch_op.create_foreign_key('fk_feedback_session_id', 'class_sessions', ['session_id'], ['id'], ondelete='SET NULL')
 
     with op.batch_alter_table('invoices', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('subs_total', sa.Numeric(precision=12, scale=2), nullable=False))
-        batch_op.add_column(sa.Column('subs_discount', sa.Numeric(precision=12, scale=2), nullable=False))
-        batch_op.add_column(sa.Column('subs_tax', sa.Numeric(precision=12, scale=2), nullable=False))
+        batch_op.add_column(sa.Column('subs_total', sa.Numeric(precision=12, scale=2), nullable=False, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('subs_discount', sa.Numeric(precision=12, scale=2), nullable=False, server_default=sa.text('0')))
+        batch_op.add_column(sa.Column('subs_tax', sa.Numeric(precision=12, scale=2), nullable=False, server_default=sa.text('0')))
         batch_op.add_column(sa.Column('confirmed_by_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('confirmed_at', sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column('cancelled_at', sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column('cancel_reason', sa.String(length=200), nullable=True))
-        batch_op.add_column(sa.Column('is_bulk', sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column('is_bulk', sa.Boolean(), nullable=False, server_default=sa.text('false')))
         batch_op.create_foreign_key('fk_invoices_confirmed_by_id', 'users', ['confirmed_by_id'], ['id'], ondelete='SET NULL')
 
     with op.batch_alter_table('leaves', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('leave_for_all', sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column('leave_for_all', sa.Boolean(), nullable=False, server_default=sa.text('false')))
         batch_op.add_column(sa.Column('apply_date', sa.Date(), nullable=True))
         batch_op.add_column(sa.Column('leave_detail', sa.Text(), nullable=True))
 
     with op.batch_alter_table('packages', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('min_days', sa.Integer(), nullable=False))
-        batch_op.add_column(sa.Column('max_days', sa.Integer(), nullable=False))
+        batch_op.add_column(sa.Column('min_days', sa.Integer(), nullable=False, server_default=sa.text('1')))
+        batch_op.add_column(sa.Column('max_days', sa.Integer(), nullable=False, server_default=sa.text('5')))
 
     with op.batch_alter_table('payments', schema=None) as batch_op:
         batch_op.add_column(sa.Column('receipt_date', sa.Date(), nullable=True))
@@ -544,14 +544,14 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('call_record_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('overall_rating', sa.Float(), nullable=True))
         batch_op.add_column(sa.Column('remarks', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('parameter_scores', sa.JSON(), nullable=False))
-        batch_op.add_column(sa.Column('issues', sa.JSON(), nullable=False))
+        batch_op.add_column(sa.Column('parameter_scores', sa.JSON(), nullable=False, server_default=sa.text("'{}'")))
+        batch_op.add_column(sa.Column('issues', sa.JSON(), nullable=False, server_default=sa.text("'[]'")))
         batch_op.add_column(sa.Column('reviewed_at', sa.DateTime(), nullable=True))
         batch_op.create_index(batch_op.f('ix_qa_reviews_call_record_id'), ['call_record_id'], unique=False)
 
     with op.batch_alter_table('students', schema=None) as batch_op:
         batch_op.add_column(sa.Column('email', sa.String(length=200), nullable=True))
-        batch_op.add_column(sa.Column('trial_days', sa.Integer(), nullable=False))
+        batch_op.add_column(sa.Column('trial_days', sa.Integer(), nullable=False, server_default=sa.text('3')))
         batch_op.add_column(sa.Column('legacy_code', sa.String(length=40), nullable=True))
         batch_op.add_column(sa.Column('drop_date', sa.Date(), nullable=True))
         batch_op.add_column(sa.Column('referred_by', sa.String(length=150), nullable=True))
@@ -561,17 +561,17 @@ def upgrade() -> None:
 
     with op.batch_alter_table('subscriptions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('slot_id', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('days_of_week', sa.JSON(), nullable=False))
-        batch_op.add_column(sa.Column('language', sa.String(length=30), nullable=False))
-        batch_op.add_column(sa.Column('course_method', sa.String(length=20), nullable=False))
-        batch_op.add_column(sa.Column('session_category', sa.String(length=20), nullable=False))
-        batch_op.add_column(sa.Column('session_type', sa.String(length=30), nullable=False))
-        batch_op.add_column(sa.Column('trial_days', sa.Integer(), nullable=False))
+        batch_op.add_column(sa.Column('days_of_week', sa.JSON(), nullable=False, server_default=sa.text("'[]'")))
+        batch_op.add_column(sa.Column('language', sa.String(length=30), nullable=False, server_default=sa.text("'English'")))
+        batch_op.add_column(sa.Column('course_method', sa.String(length=20), nullable=False, server_default=sa.text("'one_on_one'")))
+        batch_op.add_column(sa.Column('session_category', sa.String(length=20), nullable=False, server_default=sa.text("'30 Minutes'")))
+        batch_op.add_column(sa.Column('session_type', sa.String(length=30), nullable=False, server_default=sa.text("'Job Time Session'")))
+        batch_op.add_column(sa.Column('trial_days', sa.Integer(), nullable=False, server_default=sa.text('3')))
         batch_op.add_column(sa.Column('completion_date', sa.Date(), nullable=True))
         batch_op.add_column(sa.Column('remarks', sa.Text(), nullable=True))
         batch_op.add_column(sa.Column('schedule_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('supervisor_id', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('books', sa.JSON(), nullable=False))
+        batch_op.add_column(sa.Column('books', sa.JSON(), nullable=False, server_default=sa.text("'[]'")))
         batch_op.add_column(sa.Column('follow_up_date', sa.Date(), nullable=True))
         batch_op.create_index(batch_op.f('ix_subscriptions_follow_up_date'), ['follow_up_date'], unique=False)
         batch_op.create_index(batch_op.f('ix_subscriptions_schedule_id'), ['schedule_id'], unique=False)
