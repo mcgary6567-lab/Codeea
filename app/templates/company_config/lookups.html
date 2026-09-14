@@ -10,7 +10,7 @@
   {{ ui.stat("All Lookups", stats.total, color=palette(0), href="/config/lookups") }}
   {{ ui.stat("Active", stats.active, color=palette(3), href="/config/lookups?status=active") }}
   {{ ui.stat("System Lookups", stats.system, color=palette(6), hint="read by code") }}
-  {{ ui.stat("Configured Values", stats.values, color=palette(9)) }}
+  {{ ui.stat("Configured Values", stats.value_total, color=palette(9)) }}
 </div>
 
 {% call ui.filter_bar('/config/lookups') %}

@@ -88,6 +88,15 @@ def _purge_test_artifacts() -> None:
             u = s.get(User, uid)
             if u is not None:
                 s.delete(u)
+        # The payroll tests open a month, generate it, post it or cancel it. Left behind they fill the
+        # payroll list with test months, which is what an administrator opens the page to read.
+        runs = (s.query(PayrollRun)
+                .filter(PayrollRun.description.in_(["First"])
+                        | PayrollRun.description.like("Test payroll %")
+                        | PayrollRun.description.like("Cancelled test %")).all())
+        for run in runs:
+            s.query(Payslip).filter(Payslip.payroll_run_id == run.id).delete(synchronize_session=False)
+            s.delete(run)
         s.commit()
     except Exception:
         s.rollback()

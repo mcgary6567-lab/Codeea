@@ -51,7 +51,8 @@ MODULE = "configuration"
 STATUSES = [("active", "Active"), ("inactive", "Inactive")]
 VALUE_TYPES = [("text", "Text"), ("number", "Number"), ("boolean", "Yes / No"), ("json", "JSON"),
                ("html", "HTML"), ("image", "Image URL")]
-# Branch Properties tabs, exactly as their Setup screen shows them.
+# Branch Properties tabs, exactly as their Setup screen shows them. Settings our own modules add carry
+# other groups, and property_tabs() appends those, so nothing is reachable only under Show All.
 PROPERTY_TABS = [("all", "Show All"), ("general", "General"), ("hr", "HR"), ("academics", "Academics"),
                  ("accounts", "Accounts"), ("billing", "Billing")]
 OTP_CHANNELS = [("email", "Email"), ("whatsapp", "WhatsApp"), ("sms", "SMS")]
@@ -269,7 +270,7 @@ def lookups_page(request: Request, app: str = "", status: str = "", q: str = "",
     stats = {"total": db.query(func.count(Lookup.id)).scalar() or 0,
              "active": db.query(func.count(Lookup.id)).filter(Lookup.status == "active").scalar() or 0,
              "system": db.query(func.count(Lookup.id)).filter(Lookup.is_system.is_(True)).scalar() or 0,
-             "values": db.query(func.count(LookupValue.id)).scalar() or 0}
+             "value_total": db.query(func.count(LookupValue.id)).scalar() or 0}
     by_app = dict(db.query(Lookup.app, func.count(Lookup.id)).group_by(Lookup.app).all())
     return render(request, "company_config/lookups.html", {
         "user": user, "groups": groups, "value_counts": value_counts, "stats": stats, "by_app": by_app,
@@ -460,10 +461,18 @@ async def value_move(lid: int, vid: int, request: Request, db: Session = Depends
 
 
 # =============================================================================== 3. branch properties
+def property_tabs(db: Session) -> list[tuple[str, str]]:
+    """The ERP's tabs first, then every other group in use, so every setting sits under a tab."""
+    known = {k for k, _ in PROPERTY_TABS}
+    extra = sorted({g for (g,) in db.query(Setting.group).distinct().all() if g and g not in known})
+    return PROPERTY_TABS + [(g, g.replace("_", " ").title()) for g in extra]
+
+
 @router.get("/branch-properties", include_in_schema=False)
 def branch_properties(request: Request, tab: str = "all", q: str = "", reveal: int = 0,
                       db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
-    tab = tab if tab in [k for k, _ in PROPERTY_TABS] else "all"
+    tabs = property_tabs(db)
+    tab = tab if tab in [k for k, _ in tabs] else "all"
     rows = _property_rows(db, tab, q)
     by_group = dict(db.query(Setting.group, func.count(Setting.id)).group_by(Setting.group).all())
     items = []
@@ -474,7 +483,7 @@ def branch_properties(request: Request, tab: str = "all", q: str = "", reveal: i
                       "text": json.dumps(value, indent=2, default=str) if vt == "json" else ("" if value is None else str(value)),
                       "revealed": bool(reveal and reveal == s.id)})
     return render(request, "company_config/branch_properties.html", {
-        "user": user, "items": items, "tab": tab, "q": q, "tabs": PROPERTY_TABS, "by_group": by_group,
+        "user": user, "items": items, "tab": tab, "q": q, "tabs": tabs, "by_group": by_group,
         "reveal": reveal, "value_types": VALUE_TYPES,
         "stats": {"total": db.query(func.count(Setting.id)).scalar() or 0,
                   "editable": db.query(func.count(Setting.id)).filter(Setting.is_editable.is_(True)).scalar() or 0,

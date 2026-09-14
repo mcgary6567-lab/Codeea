@@ -87,7 +87,7 @@ SETTINGS = [
     ("churn_thresholds", {"medium": 40, "high": 65}, "retention", "Risk score thresholds"),
     ("teacher_grade_rules", {"A": {"qa": 85, "punctuality": 95, "retention": 90}, "B": {"qa": 70, "punctuality": 85, "retention": 75}}, "teacher_dev", "Grade thresholds"),
     ("salary_bands", {"A": 45000, "B": 35000, "C": 27000}, "payroll", "Base salary band by teacher grade (PKR)"),
-    ("dor_quota_default", {"value": 8}, "academic", "Default monthly dor (revision) quota items"),
+    ("dor_quota_default", {"value": 8}, "academics", "Default monthly dor (revision) quota items"),
 ]
 
 
