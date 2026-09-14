@@ -176,9 +176,16 @@ class CommunicationPreference(Base, PKMixin, TimestampMixin):
 class Setting(Base, PKMixin, TimestampMixin):
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(String(100), unique=True)
-    value: Mapped[Optional[dict]] = mapped_column(JSON)
-    group: Mapped[str] = mapped_column(String(40), default="general")
+    value: Mapped[Optional[dict]] = mapped_column(JSON)   # holds any JSON value, including a plain scalar
+    group: Mapped[str] = mapped_column(String(40), default="general")  # general | hr | academics | accounts | billing
     description: Mapped[Optional[str]] = mapped_column(String(300))
+    # Branch Properties (docs/AUDIT_ACCOUNTS_CONFIG.md)
+    label: Mapped[Optional[str]] = mapped_column(String(150))
+    value_type: Mapped[str] = mapped_column(String(20), default="text")  # text | number | boolean | json | html | image
+    unit: Mapped[Optional[str]] = mapped_column(String(20))              # minutes, days, percent
+    is_editable: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_secret: Mapped[bool] = mapped_column(Boolean, default=False)      # masked in the UI, reveal is audited
+    sort_no: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class ApiKey(Base, PKMixin, TimestampMixin):

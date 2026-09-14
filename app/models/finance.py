@@ -256,6 +256,11 @@ class Account(Base, PKMixin, TimestampMixin):
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"))
     description: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Accounts Heads: a head groups postable accounts and is not itself posted to
+    is_head: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_postable: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_no: Mapped[int] = mapped_column(Integer, default=0)
+    opening_balance: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
 
     parent = relationship("Account", remote_side="Account.id")
 
@@ -269,11 +274,26 @@ class JournalEntry(Base, PKMixin, TimestampMixin):
     reference_id: Mapped[Optional[int]] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="PKR")
     total: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
-    status: Mapped[str] = mapped_column(String(20), default="posted")  # draft | posted | reversed
+    status: Mapped[str] = mapped_column(String(20), default="posted")  # draft | posted | reversed | cancelled
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     period: Mapped[Optional[str]] = mapped_column(String(7), index=True)
+    # Voucher entry (docs/AUDIT_ACCOUNTS_CONFIG.md). A payment or receipt voucher is this same entry with
+    # a type and the party it was paid to or received from, so one set of lines feeds every statement.
+    voucher_type: Mapped[str] = mapped_column(String(20), default="journal", index=True)  # journal | payment | receipt
+    voucher_number: Mapped[Optional[str]] = mapped_column(String(30), index=True)  # JV-00001 / PV-00001 / RV-00001
+    party_type: Mapped[Optional[str]] = mapped_column(String(20))  # client | employee | vendor | other
+    party_id: Mapped[Optional[int]] = mapped_column(Integer)
+    party_name: Mapped[Optional[str]] = mapped_column(String(150))
+    payment_mode: Mapped[Optional[str]] = mapped_column(String(30))
+    beneficiary_account_id: Mapped[Optional[int]] = mapped_column(ForeignKey("beneficiary_accounts.id", ondelete="SET NULL"))
+    reference_no: Mapped[Optional[str]] = mapped_column(String(120))
+    exchange_rate: Mapped[float] = mapped_column(Numeric(14, 6), default=1)
+    posted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    posted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    cancel_reason: Mapped[Optional[str]] = mapped_column(String(200))
 
     lines = relationship("JournalLine", back_populates="entry", cascade="all, delete-orphan")
+    beneficiary_account = relationship("BeneficiaryAccount")
 
 
 class JournalLine(Base, PKMixin):
