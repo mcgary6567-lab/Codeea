@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lead Closers{% endblock %}
+{% block content %}
+{% call ui.page_header("Lead Closers", "The people who close leads, the short name their reports are signed with, and the representative answerable for each book.", back="/home/finance/config") %}
+  {{ ui.button("Verify Leads", href="/crm/leads/verify", icon="badge-check", variant="secondary") }}
+  {% if can_edit %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newCloser\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("All Closers", stats.total, color=palette(0), href="/finance/lead-closers") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/finance/lead-closers?status=active") }}
+  {{ ui.stat("In-Active", stats.inactive, color=palette(7), href="/finance/lead-closers?status=inactive") }}
+  {{ ui.stat("With a Representative", stats.represented, color=palette(4)) }}
+</div>
+
+{% call ui.filter_bar('/finance/lead-closers') %}
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Closer / sudo name') }}</div>
+  <div class="w-64">{{ ui.select('representative', 'Representative Name', representative_options, representative, placeholder='All representatives') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% macro closer_form(action, c, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+  {{ ui.input('name', 'Closer Name', c.name if c else '', required=True, placeholder='e.g. Bilal Ahmed') }}
+  {{ ui.input('pseudo_name', 'Sudo Name', c.pseudo_name if c else '', placeholder='e.g. Br. Bilal', help='The short name shown on reports') }}
+  {{ ui.select('representative_id', 'Representative Name', representative_options, c.representative_id if c else None, placeholder='— Select user —') }}
+  {{ ui.select('status', 'Status', statuses, c.status if c else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-4 flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start(['ID', 'Closer Name', 'Sudo Name', 'Representative Name', 'Status', '']) }}
+{% for c in rows %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ c.id }}</td>
+  <td class="px-4 py-2 font-medium text-slate-900">{{ c.name }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.pseudo_name or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.representative %}<div class="flex items-center gap-2">{{ ui.avatar(c.representative.full_name, 'sm') }}<span>{{ c.representative.full_name }}</span></div>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status, 'Active' if c.status == 'active' else 'In-Active') }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" onclick="document.getElementById('closer-edit-{{ c.id }}').classList.toggle('hidden')" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/finance/lead-closers/{{ c.id }}/toggle" class="inline">{{ ui.button('Deactivate' if c.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr id="closer-edit-{{ c.id }}" class="hidden"><td colspan="6" class="bg-slate-50 px-4 py-4">{{ closer_form('/finance/lead-closers/' ~ c.id ~ '/edit', c, 'Save closer') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No lead closers match these filters.', 6, 'handshake') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} closer{{ 's' if rows|length != 1 }}</div>
+
+{% if can_edit %}
+{% call ui.modal('newCloser', 'Create Lead Closer', 'lg') %}
+{{ closer_form('/finance/lead-closers/new', None, 'Create closer') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

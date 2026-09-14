@@ -62,6 +62,11 @@ class Client(Base, PKMixin, TimestampMixin):
     converted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     converted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     photo_path: Mapped[Optional[str]] = mapped_column(String(300))
+    # Clients Financial Summary (docs/AUDIT_BILLING.md). How far a family may run into debit before the
+    # billing desk chases it, which day of the month their invoice falls on, and the desk's own note.
+    balance_limit: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    payment_day: Mapped[Optional[int]] = mapped_column(Integer)
+    billing_remarks: Mapped[Optional[str]] = mapped_column(String(300))
 
     user = relationship("User", foreign_keys=[user_id])
     household = relationship("Household", back_populates="clients")

@@ -25,7 +25,7 @@
 
 {{ ui.table_start(['Value', 'Label', 'Label Urdu', 'Amount', 'Sort No', 'Status', '']) }}
 {% for v in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2 font-mono text-xs font-semibold text-slate-900">{{ v.value }}</td>
   <td class="px-3 py-2">{{ v.label }}</td>
   <td class="px-3 py-2">{% if v.label_urdu %}<span dir="rtl" lang="ur" class="font-urdu">{{ v.label_urdu }}</span>{% else %}<span class="text-slate-400">&mdash;</span>{% endif %}</td>
@@ -36,13 +36,13 @@
     {% if can_edit %}
     <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="up">{{ ui.button('', icon='arrow-up', variant='ghost', size='sm') }}</form>
     <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="down">{{ ui.button('', icon='arrow-down', variant='ghost', size='sm') }}</form>
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/toggle" class="inline">{{ ui.button('Deactivate' if v.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.input('value', 'Value', v.value, required=True, help='Stored on the record') }}
     {{ ui.input('label', 'Label', v.label, required=True) }}
@@ -50,7 +50,7 @@
     {{ ui.input('amount', 'Amount', v.amount if v.amount is not none else '', type='number', step='0.01') }}
     {{ ui.input('sort_no', 'Sort No', v.sort_no, type='number') }}
     {{ ui.select('status', 'Status', statuses, v.status, placeholder=None) }}
-    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save value', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save value', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

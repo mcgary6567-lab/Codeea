@@ -20,7 +20,7 @@
 
 {{ ui.table_start(['ID', 'Description', 'Bonus Amount', 'Used', 'Status', '']) }}
 {% for b in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ b.id }}</td>
   <td class="px-3 py-2">
     <div class="font-medium text-slate-900">{{ b.description }}</div>
@@ -31,20 +31,20 @@
   <td class="px-3 py-2">{{ ui.badge(b.status) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/hr/config/bonus-types/{{ b.id }}/toggle" class="inline">{{ ui.button('Deactivate' if b.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/hr/config/bonus-types/{{ b.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
     <div class="lg:col-span-2">{{ ui.input('description', 'Description', b.description, required=True) }}</div>
     {{ ui.input('bonus_amount', 'Bonus Amount', b.bonus_amount, type='number', step='100', min=0) }}
     {{ ui.select('status', 'Status', statuses, b.status, placeholder=None) }}
     <div class="lg:col-span-2">{{ ui.input('description_urdu', 'Description (Urdu)', b.description_urdu or '') }}</div>
     {{ ui.input('sort_no', 'Sort No', b.sort_no, type='number') }}
-    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save type', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save type', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

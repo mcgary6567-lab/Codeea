@@ -22,7 +22,7 @@ from app.models.academic import Course
 from app.models.core import User, Role, Integration, AuditEvent
 from app.models.crm import (LEAD_STAGES, Lead, LeadActivity, LeadSource, Campaign, CampaignMetric, Conversation, Message, InternalNote,
                             MessageTemplate, Sequence, SequenceEnrollment, Referral, Case, Feedback)
-from app.models.people import Client, Student, Teacher
+from app.models.people import Client, Employee, Student, Teacher
 from app.models.scheduling import Trial
 from app.services import crm as svc
 
@@ -194,6 +194,197 @@ async def create_lead(request: Request, db: Session = Depends(get_db), user: Use
     return redirect(f"/crm/leads/{lead.id}", f"Lead {lead.lead_code} created and scored {lead.score}/100.")
 
 
+# ============================================================================= VERIFY LEADS (docs/AUDIT_BILLING.md)
+# "The queue between a raw lead and a family." A lead is checked before it becomes a client; the
+# conversion records the client code it became, and the queue records who checked it and why.
+VERIFICATION_STATUSES = ["unverified", "forwarded", "verified", "rejected", "converted"]
+VERIFICATION_LABELS = {"unverified": "Unverified", "forwarded": "Forward to Verifier", "verified": "Verified",
+                       "rejected": "Rejected", "converted": "Converted"}
+# Statuses a verifier may write by hand. "converted" is only ever written by the conversion itself.
+DECIDABLE_STATUSES = ["unverified", "forwarded", "verified", "rejected"]
+VERIFY_DECISIONS = {"verify": "verified", "forward": "forwarded", "reject": "rejected"}
+VERIFY_TILES = [("Unverified", "unverified", "circle-dashed"), ("Forwarded", "forwarded", "send"),
+                ("Verified", "verified", "badge-check"), ("Rejected", "rejected", "circle-x"),
+                ("Converted", "converted", "user-round-check")]
+# The ERP carries a Morning / Night shift on the lead; we hold the family's preferred time in words.
+MORNING_HINTS = ("morning", "early", "fajr", "dawn")
+NIGHT_HINTS = ("evening", "night", "maghrib", "isha", "late")
+SHIFTS = ["Morning", "Night"]
+VERIFY_BASE = "/crm/leads/verify"
+
+
+def _lead_shift(lead: Lead) -> str:
+    t = (lead.preferred_time or "").lower()
+    if any(w in t for w in MORNING_HINTS):
+        return "Morning"
+    if any(w in t for w in NIGHT_HINTS):
+        return "Night"
+    return ""
+
+
+def _shift_filter(query, shift: str):
+    hints = MORNING_HINTS if shift == "Morning" else NIGHT_HINTS
+    return query.filter(or_(*[Lead.preferred_time.ilike(f"%{w}%") for w in hints]))
+
+
+def _lead_is_incomplete(lead: Lead) -> bool:
+    """A lead pushed in by the external marketing tool before anyone spoke to the family."""
+    return not (lead.phone or lead.whatsapp or lead.email)
+
+
+def _employee_codes(db: Session) -> dict:
+    """user id -> employee code, so Referred By reads `E-00007 - Name` the way the ERP prints it."""
+    return {e.user_id: e.employee_code for e in db.query(Employee).filter(Employee.user_id.isnot(None)).all()}
+
+
+def _record_decision(db: Session, lead: Lead, new_status: str, remarks: str, user: User, request: Request) -> str:
+    """Stamp the verifier and the time on one lead and write the audit event. Returns the previous status."""
+    before = lead.verification_status or "unverified"
+    lead.verification_status = new_status
+    lead.verifier_remarks = remarks
+    lead.verified_by_id = user.id
+    lead.verified_at = datetime.utcnow()
+    svc.add_activity(db, lead, "note",
+                     f"Verification: {VERIFICATION_LABELS.get(before, before)} → {VERIFICATION_LABELS[new_status]}. {remarks}", user)
+    log_action(db, user, "verify" if new_status == "verified" else "status_change", "leads", entity=lead,
+               description=f"Lead {lead.lead_code} marked {VERIFICATION_LABELS[new_status]}",
+               rationale=remarks, before={"verification_status": before}, after={"verification_status": new_status},
+               request=request, consequential=True)
+    return before
+
+
+@router.get("/leads/verify", include_in_schema=False)
+def verify_leads(request: Request, page: int = 1, q: str = "", vstatus: str = "", shift: str = "", country: str = "",
+                 source: str = "", start: str = "", end: str = "",
+                 db: Session = Depends(get_db), user: User = Depends(require("leads.view"))):
+    base = scope_leads(db.query(Lead), user)
+    if q:
+        like = f"%{q}%"
+        base = base.filter(or_(Lead.full_name.ilike(like), Lead.lead_code.ilike(like), Lead.email.ilike(like),
+                               Lead.phone.ilike(like), Lead.whatsapp.ilike(like), Lead.ghl_contact_id.ilike(like)))
+    if country:
+        base = base.filter(Lead.country == country)
+    if parse_int(source):
+        base = base.filter(Lead.source_id == int(source))
+    if shift in SHIFTS:
+        base = _shift_filter(base, shift)
+    d1, d2 = parse_date(start), parse_date(end)
+    if d1:
+        base = base.filter(Lead.created_at >= datetime.combine(d1, datetime.min.time()))
+    if d2:
+        base = base.filter(Lead.created_at <= datetime.combine(d2, datetime.max.time()))
+
+    counts = {s: base.filter(Lead.verification_status == s).count() for s in VERIFICATION_STATUSES}
+    counts["total"] = base.count()
+    listing = base.filter(Lead.verification_status == vstatus) if vstatus in VERIFICATION_STATUSES else base
+    pg = paginate(listing.order_by(Lead.created_at.desc(), Lead.id.desc()), page, 25)
+
+    client_ids = [l.converted_client_id for l in pg.items if l.converted_client_id]
+    codes = dict(db.query(Client.id, Client.client_code).filter(Client.id.in_(client_ids)).all()) if client_ids else {}
+    ecodes = _employee_codes(db)
+    rows = []
+    for l in pg.items:
+        ref = l.generator or l.assigned_to
+        rows.append({
+            "lead": l, "id": l.id, "status": l.verification_status or "unverified",
+            "client_code": codes.get(l.converted_client_id),
+            "shift": _lead_shift(l),
+            "referred_by": (f"{ecodes[ref.id]} - {ref.full_name}" if ref and ref.id in ecodes
+                            else (ref.full_name if ref else "")),
+            "incomplete": _lead_is_incomplete(l),
+            "source_name": l.source.name if l.source else "",
+        })
+
+    filters = {"q": q, "vstatus": vstatus, "shift": shift, "country": country, "source": source, "start": start, "end": end}
+    qs = "&".join(f"{k}={v}" for k, v in filters.items() if v)
+    tile_qs = "&".join(f"{k}={v}" for k, v in filters.items() if v and k != "vstatus")
+    sources = db.query(LeadSource).order_by(LeadSource.name).all()
+    return render(request, "crm/verify_leads.html", {
+        "user": user, "page": pg, "rows": rows, "counts": counts, "tiles": VERIFY_TILES, "filters": filters,
+        "labels": VERIFICATION_LABELS, "decidable": [(s, VERIFICATION_LABELS[s]) for s in DECIDABLE_STATUSES],
+        "status_options": [(s, VERIFICATION_LABELS[s]) for s in VERIFICATION_STATUSES],
+        "source_options": _opts(sources), "shifts": SHIFTS, "countries": list(svc.COUNTRY_CURRENCY.keys()),
+        "base_path": VERIFY_BASE, "base_url": VERIFY_BASE + (f"?{qs}" if qs else ""),
+        "tile_url": f"{VERIFY_BASE}?{tile_qs + '&' if tile_qs else ''}vstatus=",
+        "can_decide": rbac.has_permission(user, "leads.update"),
+        "can_convert": rbac.has_permission(user, "clients.add") or rbac.has_permission(user, "leads.update")})
+
+
+@router.post("/leads/verify/change-status", include_in_schema=False)
+async def verify_leads_change_status(request: Request, db: Session = Depends(get_db),
+                                     user: User = Depends(require("leads.update"))):
+    """Bulk change of verification status over the checkbox-selected rows."""
+    form = await request.form()
+    status = (form.get("verification_status") or form.get("status") or "").strip()
+    remarks = (form.get("remarks") or form.get("rationale") or "").strip()
+    ids = [int(v) for v in form.getlist("ids") if str(v).isdigit()]
+    if status not in DECIDABLE_STATUSES:
+        return redirect(VERIFY_BASE, "Choose the new verification status. Converted is written by the conversion itself.", "error")
+    if not ids:
+        return redirect(VERIFY_BASE, "Select at least one lead first.", "error")
+    if not remarks:
+        return redirect(VERIFY_BASE, "Remarks are required for a verification decision.", "error")
+    changed, blocked = 0, 0
+    for lead in scope_leads(db.query(Lead), user).filter(Lead.id.in_(ids)).all():
+        if lead.verification_status == "converted":
+            blocked += 1
+            continue
+        if status == "verified" and _lead_is_incomplete(lead):
+            blocked += 1
+            continue
+        _record_decision(db, lead, status, remarks, user, request)
+        changed += 1
+    db.commit()
+    msg = f"{changed} lead(s) marked {VERIFICATION_LABELS[status]}."
+    if blocked:
+        msg += f" {blocked} left alone — already converted, or with no contact details to verify."
+    return redirect(f"{VERIFY_BASE}?vstatus={status}", msg, "success" if changed else "warning")
+
+
+@router.post("/leads/verify/{lead_id}/decision", include_in_schema=False)
+async def verify_lead_decision(lead_id: int, request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("leads.update"))):
+    """Verify · Forward to verifier · Reject, one lead at a time, each with remarks."""
+    lead = _lead(db, lead_id, user)
+    form = await request.form()
+    decision = (form.get("decision") or "").strip()
+    remarks = (form.get("remarks") or form.get("rationale") or "").strip()
+    if decision not in VERIFY_DECISIONS:
+        return redirect(VERIFY_BASE, "Choose Verify, Forward to verifier or Reject.", "error")
+    if not remarks:
+        return redirect(VERIFY_BASE, "Remarks are required for a verification decision.", "error")
+    if lead.verification_status == "converted":
+        return redirect(VERIFY_BASE, f"{lead.lead_code} is already a family; its verification can no longer change.", "warning")
+    new_status = VERIFY_DECISIONS[decision]
+    # An incomplete lead from the marketing tool can be rejected or forwarded, but never verified.
+    if new_status == "verified" and _lead_is_incomplete(lead):
+        return redirect(VERIFY_BASE, f"{lead.lead_code} has no mobile, WhatsApp or email yet — complete the record first, "
+                                     "or reject it.", "error")
+    _record_decision(db, lead, new_status, remarks, user, request)
+    db.commit()
+    return redirect(f"{VERIFY_BASE}?vstatus={new_status}", f"{lead.lead_code} marked {VERIFICATION_LABELS[new_status]}.")
+
+
+@router.post("/leads/verify/{lead_id}/convert", include_in_schema=False)
+async def verify_lead_convert(lead_id: int, request: Request, db: Session = Depends(get_db),
+                              user: User = Depends(require("clients.add", "leads.update", any_of=True))):
+    """Convert a verified lead straight from the queue, reusing the one conversion the platform has."""
+    lead = _lead(db, lead_id, user)
+    if lead.converted_client_id:
+        return redirect(f"/clients/{lead.converted_client_id}", "This lead has already been converted.", "warning")
+    if lead.verification_status != "verified":
+        return redirect(VERIFY_BASE, f"{lead.lead_code} must be verified before it is converted from this queue "
+                                     f"(it is {VERIFICATION_LABELS.get(lead.verification_status or 'unverified')}).", "error")
+    form = await request.form()
+    client, pwd = svc.convert_lead_to_client(db, lead, user, {"email": form.get("email"),
+                                                              "relationship": form.get("relationship")}, request=request)
+    db.commit()
+    msg = f"Client {client.client_code} created from {lead.lead_code}."
+    if pwd:
+        msg += f" Portal login: {client.user.email if client.user else client.email} / {pwd}"
+    return redirect(f"/clients/{client.id}", msg)
+
+
 @router.get("/leads/{id}", include_in_schema=False)
 def lead_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("leads.view"))):
     lead = _lead(db, id, user)
@@ -346,12 +537,17 @@ async def lead_convert(id: int, request: Request, db: Session = Depends(get_db),
     form = await request.form()
     if lead.converted_client_id:
         return redirect(f"/clients/{lead.converted_client_id}", "This lead has already been converted.", "warning")
+    # Converting from the lead record does not require the Verify Leads queue to have passed it.
+    # That stays true, but it is said out loud rather than waved through silently.
+    was_unverified = (lead.verification_status or "unverified") != "verified"
     client, pwd = svc.convert_lead_to_client(db, lead, user, {"email": form.get("email"), "relationship": form.get("relationship")}, request=request)
     db.commit()
     msg = f"Client {client.client_code} created from {lead.lead_code}."
+    if was_unverified:
+        msg += " This lead had not been verified — it was converted straight from the lead record."
     if pwd:
         msg += f" Portal login: {client.user.email if client.user else client.email} / {pwd}"
-    return redirect(f"/clients/{client.id}", msg)
+    return redirect(f"/clients/{client.id}", msg, "warning" if was_unverified else "success")
 
 
 # ============================================================================= CAMPAIGNS

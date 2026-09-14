@@ -21,7 +21,7 @@
 
 {{ ui.table_start(['Session Category', 'Session Label', 'UTC', 'Duration', 'Start Time', 'Status', 'Sort No', '']) }}
 {% for s in slots %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 text-xs">{{ s.category }}</td>
   <td class="px-4 py-2 font-mono text-xs font-semibold text-slate-900">{{ s.label }}</td>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ s.utc_label }}</td>
@@ -31,13 +31,13 @@
   <td class="px-4 py-2 text-xs text-center">{{ s.sort_no|int if s.sort_no == s.sort_no|int else s.sort_no }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/sessions/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/academics/config/sessions/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.select('category', 'Session Category', categories, s.category, placeholder=None) }}
     {{ ui.input('start_time', 'Start Time', s.start_time.strftime('%H:%M'), type='time', required=True) }}
@@ -45,7 +45,7 @@
     {{ ui.input('label', 'Session Label', s.label, help='Leave blank to rebuild from start time + duration') }}
     {{ ui.select('status', 'Status', statuses, s.status, placeholder=None) }}
     {{ ui.input('sort_no', 'Sort No', s.sort_no|int if s.sort_no == s.sort_no|int else s.sort_no, type='number', step='0.5') }}
-    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save session', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save session', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

@@ -25,7 +25,7 @@
   {{ g.app }} <span class="font-normal text-slate-500">— {{ g.rows|length }} lookup{{ 's' if g.rows|length != 1 }}</span>
 </td></tr>
 {% for l in g.rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ l.id }}</td>
   <td class="px-3 py-2">
     <a href="/config/lookups/{{ l.id }}" class="font-semibold text-brand-700 hover:underline">{{ l.description }}</a>
@@ -37,13 +37,13 @@
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {{ ui.button('Values', href='/config/lookups/' ~ l.id, icon='list', variant='ghost', size='sm') }}
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/config/lookups/{{ l.id }}/toggle" class="inline">{{ ui.button('Deactivate' if l.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/config/lookups/{{ l.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
     {{ ui.select('app', 'App', apps, l.app, placeholder=None) }}
     {% if l.is_system %}
@@ -57,7 +57,7 @@
     {{ ui.select('status', 'Status', statuses, l.status, placeholder=None) }}
     {{ ui.input('sort_no', 'Sort No', l.sort_no, type='number') }}
     <div class="lg:col-span-4">{{ ui.input('notes', 'Notes', l.notes or '', placeholder='What reads this list?') }}</div>
-    <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

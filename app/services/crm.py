@@ -330,6 +330,11 @@ def convert_lead_to_client(db: Session, lead: Lead, user: Optional[User], overri
     lead.stage = "won"
     lead.converted_at = datetime.utcnow()
     lead.converted_client_id = client.id
+    # Verify Leads (docs/AUDIT_BILLING.md): a converted row leaves the queue carrying the client code it
+    # became and the date it converted. Whoever converted it is the last hand on the record.
+    lead.verification_status = "converted"
+    lead.verified_by_id = lead.verified_by_id or (user.id if user else None)
+    lead.verified_at = lead.verified_at or lead.converted_at
     for conv in db.query(Conversation).filter(Conversation.lead_id == lead.id):
         conv.client_id = client.id
         conv.contact_type = "client"

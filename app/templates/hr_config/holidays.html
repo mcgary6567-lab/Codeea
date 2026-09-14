@@ -22,7 +22,7 @@
 
 {{ ui.table_start(['ID', 'Name', 'Date', 'End Date', 'Shift', 'Paid', 'Days', 'Status', '']) }}
 {% for h in rows %}
-<tr x-data="{ edit: false }" class="{{ 'bg-amber-50/60' if h.holiday_date >= today }}">
+<tr class="{{ 'bg-amber-50/60' if h.holiday_date >= today }}">
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ h.id }}</td>
   <td class="px-3 py-2 font-semibold text-slate-900">{{ h.name }}</td>
   <td class="px-3 py-2 text-xs">{{ h.holiday_date|date }}</td>
@@ -33,13 +33,13 @@
   <td class="px-3 py-2">{{ ui.badge(h.status) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/hr/config/holidays/{{ h.id }}/toggle" class="inline">{{ ui.button('Deactivate' if h.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/hr/config/holidays/{{ h.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
     {{ ui.input('name', 'Name', h.name, required=True) }}
     {{ ui.input('holiday_date', 'Date', h.holiday_date, type='date', required=True) }}
@@ -48,7 +48,7 @@
     <div class="lg:col-span-2">{{ ui.input('notes', 'Notes', h.notes or '') }}</div>
     {{ ui.select('status', 'Status', statuses, h.status, placeholder=None) }}
     <div class="pb-1">{{ ui.checkbox('is_paid', 'Paid holiday', h.is_paid) }}</div>
-    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save holiday', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save holiday', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

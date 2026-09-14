@@ -1776,3 +1776,121 @@ def client_balances(db: Session, q: str = "") -> list[dict]:
         out.append({"client": c, "balance": balances.get(c.id, 0.0), "last_payment": last_pay.get(c.id),
                     "overdue": overdue.get(c.id, 0), "credit": max(0.0, -balances.get(c.id, 0.0))})
     return out
+
+
+# ============================================================================ Clients Financial Summary
+# The ERP's money view of every family (docs/AUDIT_BILLING.md). Only the balance limit, the payment day and
+# the billing remarks are stored — and they sit on the family itself. Every other figure on that page is
+# derived here from the ledger, the invoices and the receipts.
+
+# The ERP's report selector, as ``?view=`` values.
+CLIENT_SUMMARY_VIEWS = [("all", "Primary Report"), ("receivables", "Receivables"),
+                        ("exceeded", "Exceeded > 0"), ("all-dues", "All Dues")]
+
+
+def client_balance_map(db: Session, client_ids: Optional[list[int]] = None) -> dict[int, float]:
+    """``client_balance`` for many families at once: debits minus credits, keyed by client id.
+
+    Families with no ledger entry at all are absent from the map; read it with ``.get(id, 0.0)``.
+    """
+    q = db.query(LedgerEntry.client_id, func.coalesce(func.sum(LedgerEntry.debit), 0),
+                 func.coalesce(func.sum(LedgerEntry.credit), 0))
+    if client_ids is not None:
+        q = q.filter(LedgerEntry.client_id.in_(client_ids or [-1]))
+    return {cid: round(float(d) - float(c), 2) for cid, d, c in q.group_by(LedgerEntry.client_id).all()}
+
+
+def exceeded_amount(balance: float, balance_limit: float) -> float:
+    """How far past its balance limit a family has run — the ERP's "Exceeded" column.
+
+    A family whose limit is 0 is never counted as exceeded. Zero means "no limit agreed with this family",
+    not "may owe nothing": the college leaves it at zero for families it does not credit-control, and
+    reading it the other way would flag every one of them the moment they were invoiced.
+    """
+    limit = round(float(balance_limit or 0), 2)
+    if limit <= 0:
+        return 0.0
+    return round(max(0.0, round(float(balance or 0), 2) - limit), 2)
+
+
+def client_financial_summary(db: Session, clients: list[Client], date_from: Optional[date] = None,
+                             date_to: Optional[date] = None) -> list[dict]:
+    """One row of the Clients Financial Summary per family, in the family's own currency.
+
+    ``date_from`` / ``date_to`` bound the two period figures the ERP shows — Received Amount and Invoices
+    Total. Balance, Pending Amount and Last Payment are position figures: what the family owes and when it
+    last paid *today*, whatever window the page is filtered to.
+    """
+    ids = [c.id for c in clients] or [-1]
+    balances = client_balance_map(db, ids)
+    students = dict(db.query(Student.client_id, func.count(Student.id))
+                    .filter(Student.client_id.in_(ids)).group_by(Student.client_id).all())
+    regular_subs = dict(db.query(Subscription.client_id, func.count(Subscription.id))
+                        .filter(Subscription.client_id.in_(ids),
+                                Subscription.status.in_(SUBSCRIPTION_REGULAR_SET))
+                        .group_by(Subscription.client_id).all())
+    # Pending = the unpaid portion of every invoice that is still collectable (confirmed / sent / partial / overdue).
+    pending = dict(db.query(Invoice.client_id, func.coalesce(func.sum(Invoice.total - Invoice.paid_amount), 0))
+                   .filter(Invoice.client_id.in_(ids), Invoice.status.in_(INVOICE_OPEN_SET))
+                   .group_by(Invoice.client_id).all())
+    invoiced_q = (db.query(Invoice.client_id, func.coalesce(func.sum(Invoice.total), 0))
+                  .filter(Invoice.client_id.in_(ids), Invoice.status.notin_(INVOICE_CANCELLED_SET)))
+    if date_from:
+        invoiced_q = invoiced_q.filter(Invoice.issue_date >= date_from)
+    if date_to:
+        invoiced_q = invoiced_q.filter(Invoice.issue_date <= date_to)
+    invoiced = dict(invoiced_q.group_by(Invoice.client_id).all())
+    received_q = (db.query(Payment.client_id, func.coalesce(func.sum(Payment.amount), 0))
+                  .filter(Payment.client_id.in_(ids), Payment.status.in_(PAYMENT_CONFIRMED_SET)))
+    if date_from:
+        received_q = received_q.filter(Payment.received_at >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        received_q = received_q.filter(Payment.received_at <= datetime.combine(date_to, datetime.max.time()))
+    received = dict(received_q.group_by(Payment.client_id).all())
+    last_payment = dict(db.query(Payment.client_id, func.max(Payment.received_at))
+                        .filter(Payment.client_id.in_(ids), Payment.status.in_(PAYMENT_CONFIRMED_SET))
+                        .group_by(Payment.client_id).all())
+    rates: dict[str, float] = {}
+    rows = []
+    for c in clients:
+        currency = c.currency or base_currency(db)
+        if currency not in rates:
+            rates[currency] = get_rate(db, currency)
+        balance = balances.get(c.id, 0.0)
+        limit = round(float(c.balance_limit or 0), 2)
+        rows.append({
+            "client": c, "currency": currency, "rate": rates[currency],
+            "balance": balance, "balance_limit": limit, "exceeded": exceeded_amount(balance, limit),
+            "pending": round(float(pending.get(c.id, 0) or 0), 2),
+            "received": round(float(received.get(c.id, 0) or 0), 2),
+            "invoices_total": round(float(invoiced.get(c.id, 0) or 0), 2),
+            "last_payment": last_payment.get(c.id),
+            "students": students.get(c.id, 0), "regular_subscriptions": regular_subs.get(c.id, 0),
+            "payment_day": c.payment_day, "billing_remarks": c.billing_remarks or "",
+            "fee_recurrence": c.fee_recurrence or "monthly",
+        })
+    return rows
+
+
+def apply_summary_view(rows: list[dict], view: str = "all") -> list[dict]:
+    """The ERP's saved reports, as a filter over the derived rows (no stored report rows)."""
+    if view == "receivables":
+        return [r for r in rows if r["balance"] > 0]
+    if view == "exceeded":
+        return [r for r in rows if r["exceeded"] > 0]
+    if view == "all-dues":
+        return [r for r in rows if r["balance"] > 0 or r["pending"] > 0]
+    return rows
+
+
+def client_summary_totals(db: Session, rows: list[dict]) -> dict:
+    """Tiles for the Clients Financial Summary. Money totals are converted to the base currency."""
+    def in_base(key: str) -> float:
+        return round(sum(r[key] * (r["rate"] or 1.0) for r in rows), 2)
+
+    return {"families": len(rows),
+            "exceeded_count": sum(1 for r in rows if r["exceeded"] > 0),
+            "with_dues": sum(1 for r in rows if r["balance"] > 0),
+            "balance": in_base("balance"), "exceeded": in_base("exceeded"),
+            "received": in_base("received"), "pending": in_base("pending"),
+            "invoices_total": in_base("invoices_total"), "base": base_currency(db)}

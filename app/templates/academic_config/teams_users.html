@@ -36,7 +36,7 @@
 
 {{ ui.table_start([('Employee' if tab == 'staff' else 'Client'), 'Teams Email', 'Display Name', 'Status', '']) }}
 {% for t in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2">
     {% if t.person_type == 'staff' and t.employee %}<a href="/hr/employees/{{ t.employee_id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ t.employee.full_name }}</a><div class="font-mono text-[11px] text-slate-500">{{ t.employee.employee_code }} · {{ t.employee.designation }}</div>
     {% elif t.person_type == 'client' and t.client %}<a href="/clients/{{ t.client_id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ t.client.full_name }}</a><div class="font-mono text-[11px] text-slate-500">{{ t.client.client_code }} · {{ t.client.country }}</div>
@@ -47,13 +47,13 @@
   <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/teams-users/{{ t.id }}/toggle" class="inline">{{ ui.button('Deactivate' if t.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="5" class="bg-slate-50 px-4 py-4">{{ teams_form('/academics/config/teams-users/' ~ t.id ~ '/edit', t, 'Save account', t.person_type) }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="5" class="bg-slate-50 px-4 py-4">{{ teams_form('/academics/config/teams-users/' ~ t.id ~ '/edit', t, 'Save account', t.person_type) }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No ' ~ ('staff' if tab == 'staff' else 'client') ~ ' Teams accounts match these filters.', 5, 'monitor') }}{% endfor %}
 {{ ui.table_end() }}

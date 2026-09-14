@@ -2292,3 +2292,162 @@ def currency_detail(code: str, request: Request, db: Session = Depends(get_db), 
         "base": billing.base_currency(db),
         "labels": [h.effective_at.strftime("%d %b") for h in history], "values": [float(h.rate_to_base) for h in history],
         "can_edit": rbac.has_permission(user, "currencies.update")})
+
+
+# ============================================================================ Clients Financial Summary
+# The ERP's "Clients Financial Summary" (docs/AUDIT_BILLING.md): balance, balance limit, exceeded, pending,
+# received, invoices total and last payment on one line per family, with the ERP's Notify action over the
+# ticked rows. Every figure is derived in app/services/billing.py; only the balance limit, the payment day
+# and the billing remarks are stored, and they live on the family.
+SUMMARY_STATUSES = ["trial", "active", "on_leave", "pass_out", "inactive", "churned"]
+SUMMARY_SHIFTS = [("morning", "Morning"), ("night", "Night")]
+SUMMARY_HEADERS = ["ID", "Client Name", "Status", "Reg Date", "Shift Name", "B.R", "Students",
+                   "Regular Subscriptions", "Payment Day", "Currency", "Currency Rate", "Balance",
+                   "Balance Limit", "Exceeded", "Pending Amount", "Received Amount", "Invoices Total",
+                   "Billing Remarks", "Last Payment", "Fee Recurrence"]
+
+
+def _summary_rows(db: Session, q: str, status: str, shift: str, currency: str, date_from: str, date_to: str,
+                  view: str) -> list[dict]:
+    """Families matching the Search Options, with their derived money figures, in the ERP's report order."""
+    query = db.query(Client)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(Client.full_name.ilike(like), Client.client_code.ilike(like),
+                                 Client.email.ilike(like), Client.legacy_code.ilike(like)))
+    if status == "on_leave":                   # our stored vocabulary carries two spellings for each of these
+        query = query.filter(Client.status.in_(["on_leave", "frozen"]))          # two statuses; the ERP has one
+    elif status == "pass_out":
+        query = query.filter(Client.status.in_(["pass_out", "graduated"]))
+    elif status:
+        query = query.filter(Client.status == status)
+    if shift:
+        query = query.filter(Client.shift == shift)
+    if currency:
+        query = query.filter(Client.currency == currency)
+    clients = query.order_by(Client.client_code).all()
+    rows = billing.client_financial_summary(db, clients, parse_date(date_from), parse_date(date_to))
+    return billing.apply_summary_view(rows, view)
+
+
+def _summary_qs(q: str, status: str, shift: str, currency: str, date_from: str, date_to: str, view: str) -> str:
+    return (f"q={q}&status={status}&shift={shift}&currency={currency}"
+            f"&date_from={date_from}&date_to={date_to}&view={view}")
+
+
+@router.get("/clients-summary", include_in_schema=False)
+def clients_financial_summary(request: Request, page: int = 1, q: str = "", status: str = "", shift: str = "",
+                              currency: str = "", date_from: str = "", date_to: str = "", view: str = "all",
+                              format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                              user: User = Depends(require("billing.view"))):
+    from app.core.templating import label as status_label
+    from app.core.utils import Page          # paginate() wants a query; these rows are derived in Python
+    from app.models.core import NotificationTemplate
+    view = view if view in dict(billing.CLIENT_SUMMARY_VIEWS) else "all"
+    rows = _summary_rows(db, q, status, shift, currency, date_from, date_to, view)
+    totals = billing.client_summary_totals(db, rows)
+    if format == "csv":
+        out = [["Clients Financial Summary", dict(billing.CLIENT_SUMMARY_VIEWS)[view],
+                f"{date_from or 'all time'} to {date_to or 'today'}"], SUMMARY_HEADERS]
+        for r in rows:
+            c = r["client"]
+            out.append([c.client_code, c.full_name, status_label(c.status, "client"),
+                        c.joined_at.isoformat() if c.joined_at else "", _shift_label(c),
+                        c.billing_rep.full_name if c.billing_rep else "", r["students"], r["regular_subscriptions"],
+                        r["payment_day"] or "", r["currency"], f"{r['rate']:.4f}", f"{r['balance']:.2f}",
+                        f"{r['balance_limit']:.2f}", f"{r['exceeded']:.2f}", f"{r['pending']:.2f}",
+                        f"{r['received']:.2f}", f"{r['invoices_total']:.2f}", r["billing_remarks"],
+                        r["last_payment"].date().isoformat() if r["last_payment"] else "",
+                        (r["fee_recurrence"] or "").replace("_", " ").title()])
+        return _csv(out, f"clients-financial-summary-{view}.csv")
+    per_page = 500 if print_view else 25
+    start = (max(1, page) - 1) * per_page
+    pg = Page(rows[start:start + per_page], len(rows), max(1, page), per_page)
+    qs = _summary_qs(q, status, shift, currency, date_from, date_to, view)
+    notification_templates = (db.query(NotificationTemplate).filter(NotificationTemplate.is_active.is_(True))
+                              .order_by(NotificationTemplate.event_type).all())
+    return render(request, "finance/clients_summary.html", {
+        "user": user, "page": pg, "rows": pg.items, "totals": totals, "headers": SUMMARY_HEADERS,
+        "q": q, "status": status, "shift": shift, "currency": currency, "date_from": date_from,
+        "date_to": date_to, "view": view, "views": billing.CLIENT_SUMMARY_VIEWS, "qs": qs,
+        "statuses": SUMMARY_STATUSES, "shifts": SUMMARY_SHIFTS, "currencies": _currency_codes(db),
+        "base_url": f"/finance/clients-summary?{qs}", "print_view": bool(print_view),
+        "notify_templates": [(t.id, t.event_type.replace("_", " ").title() + " (" + t.channel + ") - " + t.subject)
+                             for t in notification_templates],
+        "can_notify": rbac.has_permission(user, "billing.update")})
+
+
+def _personalise(text: str, row: dict) -> str:
+    """Fill the notification-template placeholders this page can answer for."""
+    c = row["client"]
+    for key, value in (("name", c.full_name), ("code", c.client_code), ("currency", row["currency"]),
+                       ("amount", f"{row['currency']} {row['balance']:,.2f}"),
+                       ("balance", f"{row['balance']:,.2f}"), ("limit", f"{row['balance_limit']:,.2f}"),
+                       ("pending", f"{row['pending']:,.2f}"), ("link", "/portal/billing")):
+        text = text.replace("{{" + key + "}}", str(value))
+    return text
+
+
+@router.post("/clients-summary/notify", include_in_schema=False)
+async def clients_summary_notify(request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require("billing.update"))):
+    """The ERP's Notify action: chase every ticked family through the existing notification path."""
+    from app.core.notify import notify, notify_many
+    from app.models.core import NotificationTemplate
+    from app.web.company_config import pick_sender
+    form = await request.form()
+    back = form.get("back") or "/finance/clients-summary"
+    ids = [int(v) for v in form.getlist("ids") if str(v).isdigit()]
+    if not ids:
+        return redirect(back, "Tick at least one family to notify.", "error")
+    channel = "whatsapp" if (form.get("channel") or "in_app") == "whatsapp" else "in_app"
+    tpl = db.query(NotificationTemplate).get(parse_int(form.get("template_id"))) if form.get("template_id") else None
+    subject = (form.get("subject") or "").strip() or (tpl.subject if tpl else "")
+    body = (form.get("body") or "").strip() or (tpl.body if tpl else "")
+    rationale = (form.get("rationale") or "").strip() or f"Billing notice: {subject}"
+    if not subject or not body:
+        return redirect(back, "Choose a template, or type a subject and a message.", "error")
+    clients = db.query(Client).filter(Client.id.in_(ids)).all()
+    if not clients:
+        return redirect(back, "None of the selected families could be found.", "error")
+    rows = {r["client"].id: r for r in billing.client_financial_summary(db, clients)}
+    sender = pick_sender(db, "billing") if channel == "whatsapp" else None
+    note = ""
+    if channel == "whatsapp" and not sender:
+        channel = "in_app"
+        note = " No WhatsApp sender is connected and ready, so the notice went to the portal only."
+    sent, no_account, opted_out, plain = 0, 0, 0, []
+    for c in clients:
+        row = rows[c.id]
+        if not c.user_id:
+            no_account += 1
+            continue
+        wa = channel == "whatsapp" and bool(c.whatsapp_opt_in and c.whatsapp)
+        if channel == "whatsapp" and not wa:
+            opted_out += 1
+            continue
+        title, text = _personalise(subject, row), _personalise(body, row)
+        if wa:
+            notify(db, c.user_id, title, text, event_type="billing_notice", link="/portal/billing",
+                   channels=("in_app", "whatsapp"), recipient_address=c.whatsapp)
+        elif (title, text) == (subject, body):
+            plain.append(c.user_id)        # nothing was personalised: one batched in-app send for all of them
+        else:
+            notify(db, c.user_id, title, text, event_type="billing_notice", link="/portal/billing")
+        sent += 1
+        log_action(db, user, "notify", "billing", entity=c,
+                   description=f"Billing notice sent to {c.client_code} by {channel}"
+                               + (f" via {sender.description}" if wa and sender else "") + f": {title}",
+                   rationale=rationale, request=request)
+    if plain:
+        notify_many(db, plain, subject, body, event_type="billing_notice", link="/portal/billing")
+    if sender and channel == "whatsapp" and sent:
+        sender.last_message_sent_at = datetime.utcnow()
+    db.commit()
+    skipped = []
+    if no_account:
+        skipped.append(f"{no_account} with no portal account")
+    if opted_out:
+        skipped.append(f"{opted_out} opted out of WhatsApp")
+    message = f"{sent} family(ies) notified." + (f" Skipped {', '.join(skipped)}." if skipped else "") + note
+    return redirect(back, message, "success" if sent else "warning")

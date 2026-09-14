@@ -59,7 +59,7 @@
 {% else %}
   {{ ui.table_start(['ID', 'Job Title', 'Job Type', 'Department', 'Job Categories', 'Skills', 'Total Positions', 'Status', 'Start Date', 'End Date', 'Job Location', '']) }}
   {% for r in rows %}
-  <tr x-data="{ edit: false }">
+  <tr>
     <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ r.id }}</td>
     <td class="px-3 py-2 font-medium"><a class="text-brand-700 hover:underline" href="/hr/recruitment/{{ r.id }}">{{ r.title }}</a>
       <div class="text-[11px] text-slate-500">{{ per_job.get(r.id, {}).get('applications', 0) }} application(s)</div></td>
@@ -73,12 +73,12 @@
     <td class="px-3 py-2 text-xs">{{ r.end_date|date if r.end_date else '—' }}</td>
     <td class="px-3 py-2 text-xs">{{ r.job_location or '—' }}</td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      {% if has_perm(user, 'recruitment.update') %}<button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+      {% if has_perm(user, 'recruitment.update') %}<button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
       {{ ui.button('Open', href='/hr/recruitment/' ~ r.id, variant='ghost', size='sm') }}
     </td>
   </tr>
   {% if has_perm(user, 'recruitment.update') %}
-  <tr x-show="edit" x-cloak><td colspan="12" class="bg-slate-50 px-4 py-4">
+  <tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="12" class="bg-slate-50 px-4 py-4">
     <form method="post" action="/hr/recruitment/{{ r.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
       {{ ui.input('title', 'Job Title', r.title, required=True) }}
       {{ ui.select('job_type', 'Job Type', job_types, r.job_type, placeholder=None) }}
@@ -91,7 +91,7 @@
       <div class="lg:col-span-2">{{ ui.input('job_categories_text', 'Job Categories', (r.job_categories or [])|join(', '), help='Comma separated') }}</div>
       <div class="lg:col-span-2">{{ ui.input('skills', 'Skills', (r.skills or [])|join(', '), help='Comma separated') }}</div>
       <div class="lg:col-span-4">{{ ui.textarea('description', 'Description', r.description or '', rows=2) }}</div>
-      <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save requisition', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+      <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save requisition', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
     </form>
   </td></tr>
   {% endif %}

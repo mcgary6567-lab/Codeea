@@ -85,6 +85,13 @@ class Lead(Base, PKMixin, TimestampMixin):
     ghl_contact_id: Mapped[Optional[str]] = mapped_column(String(80))
     whatsapp_opt_in: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    # Verify Leads (docs/AUDIT_BILLING.md): the queue between a raw lead and a family. A verified lead
+    # records who checked it; a converted one already records the client it became.
+    verification_status: Mapped[str] = mapped_column(String(30), default="unverified", index=True)
+    # unverified | forwarded | verified | rejected | converted
+    verified_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    verifier_remarks: Mapped[Optional[str]] = mapped_column(String(300))
 
     source = relationship("LeadSource")
     campaign = relationship("Campaign")

@@ -22,7 +22,7 @@
 
 {{ ui.table_start(['ID', 'Payment Gateway Name', 'Default Transaction Fee %', 'Fixed Fee', 'Currency', 'Gateway Company', 'Beneficiary Account', 'Live Mode', 'Fee On ' ~ ('%.2f'|format(sample|float)), 'Status', '']) }}
 {% for g in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ g.id }}</td>
   <td class="px-3 py-2 font-semibold text-slate-800">{{ g.name }}</td>
   <td class="px-3 py-2 text-right text-xs">{{ '%.2f'|format(g.default_transaction_fee_pct|float) }} %</td>
@@ -35,13 +35,13 @@
   <td class="px-3 py-2">{{ ui.badge(g.status) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/config/payment-gateways/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/config/payment-gateways/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 items-end">
     {{ ui.input('name', 'Payment Gateway Name', g.name, required=True) }}
     {{ ui.select('gateway_company', 'Gateway Company', companies, g.gateway_company, placeholder=None) }}
@@ -52,7 +52,7 @@
     {{ ui.select('status', 'Status', statuses, g.status, placeholder=None) }}
     <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', g.live_mode) }}</div>
     <div class="lg:col-span-3">{{ ui.input('notes', 'Notes', g.notes or '') }}</div>
-    <div class="flex gap-2">{{ ui.button('Save gateway', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="flex gap-2">{{ ui.button('Save gateway', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

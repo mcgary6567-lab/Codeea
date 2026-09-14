@@ -58,6 +58,20 @@ class ClientAcademicGroup(Base, PKMixin, TimestampMixin):
     representative = relationship("User")
 
 
+class LeadCloser(Base, PKMixin, TimestampMixin):
+    """A person who closes leads, with the short name their reports are signed with.
+
+    Shaped exactly like ClientAcademicGroup, which is what their Billing Groups page edits.
+    """
+    __tablename__ = "lead_closers"
+    name: Mapped[str] = mapped_column(String(80))
+    pseudo_name: Mapped[Optional[str]] = mapped_column(String(80))
+    representative_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(20), default="active")
+
+    representative = relationship("User")
+
+
 class TeamsUser(Base, PKMixin, TimestampMixin):
     """MS Teams account mapping for staff and clients."""
     __tablename__ = "teams_users"

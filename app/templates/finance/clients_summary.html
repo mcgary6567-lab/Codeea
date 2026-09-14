@@ -1,0 +1,121 @@
+{# ERP "Clients Financial Summary" (docs/AUDIT_BILLING.md): the money view of every family — balance,
+   balance limit, exceeded, pending, received, invoices total and last payment on one line — with the
+   ERP's saved reports as ?view= and its Notify action over the ticked rows. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Clients Financial Summary{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+{% set base_qs = 'q=' ~ q ~ '&status=' ~ status ~ '&shift=' ~ shift ~ '&currency=' ~ currency ~ '&date_from=' ~ date_from ~ '&date_to=' ~ date_to %}
+
+<div class="no-print">
+{% call ui.page_header("Clients Financial Summary", "What every family owes, what they have paid and who has run past their balance limit.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/clients-summary?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+  {{ ui.button('Client List', href='/clients', icon='users', variant='secondary') }}
+{% endcall %}
+
+{% set view_tabs = [] %}{% for vk, vl in views %}{% set _ = view_tabs.append((vk, vl, '/finance/clients-summary?' ~ base_qs ~ '&view=' ~ vk)) %}{% endfor %}
+{{ ui.tabs(view_tabs, view) }}
+
+{{ ui.section_label('Balances and Collection') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("All Families", totals.families, icon="users", color=palette(0), href='/finance/clients-summary?' ~ base_qs ~ '&view=all') }}
+  {{ ui.stat("Exceeded", totals.exceeded_count, icon="alert-triangle", color=palette(7), hint=totals.base ~ ' ' ~ '{:,.0f}'.format(totals.exceeded), href='/finance/clients-summary?' ~ base_qs ~ '&view=exceeded') }}
+  {{ ui.stat("With Dues", totals.with_dues, icon="wallet", color=palette(3), hint=totals.base ~ ' ' ~ '{:,.0f}'.format(totals.balance), href='/finance/clients-summary?' ~ base_qs ~ '&view=receivables') }}
+  {{ ui.stat("Received", '{:,.0f}'.format(totals.received), icon="banknote", color=palette(2), hint=totals.base ~ ' in range', href='/finance/clients-summary?' ~ base_qs ~ '&view=all') }}
+  {{ ui.stat("Pending", '{:,.0f}'.format(totals.pending), icon="clock", color=palette(5), hint=totals.base ~ ' on open invoices', href='/finance/clients-summary?' ~ base_qs ~ '&view=all-dues') }}
+</div>
+
+{% set status_options = [] %}{% for s in statuses %}{% set _ = status_options.append((s, s|label('client'))) %}{% endfor %}
+{% call ui.filter_bar('/finance/clients-summary') %}
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name, code or email') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+  <div class="w-32">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', status_options, status, placeholder='All statuses') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Clients Financial Summary</h1>
+  <p style="font-size:11px">{{ dict(views)[view] if views else view }} &middot; {{ date_from or 'all time' }} to {{ date_to or 'today' }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+<form method="post" action="/finance/clients-summary/notify" x-data="{ picked: 0 }">
+<input type="hidden" name="back" value="/finance/clients-summary?{{ qs }}">
+<p class="mb-2 text-xs text-slate-500 no-print">
+  {{ page.total }} family(ies){% if page.total %} — showing {{ page.start }}-{{ page.end }}{% endif %}.
+  Balance, Balance Limit and Exceeded are shown in each family's own currency; Received Amount and Invoices Total cover the date range, everything else is the position today.
+</p>
+
+<div class="overflow-x-auto rounded-md border border-slate-300 bg-white">
+<table class="min-w-full border-collapse text-[13px]">
+  <thead><tr class="bg-[#e8f1fb]">
+    {% if can_notify %}<th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700 no-print">
+      <input type="checkbox" title="Select all" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+             @change="$el.closest('form').querySelectorAll('input[name=ids]').forEach(function (cb) { cb.checked = $event.target.checked }); picked = $el.closest('form').querySelectorAll('input[name=ids]:checked').length">
+    </th>{% endif %}
+    {% for h in headers %}<th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700 whitespace-nowrap">{{ h }}</th>{% endfor %}
+  </tr></thead>
+  <tbody class="[&>tr:nth-child(even)]:bg-[#fafbfd] [&>tr:hover]:bg-[#f1f6fc] [&_td]:border [&_td]:border-slate-200 [&_td]:align-middle">
+  {% for r in rows %}
+  {% set c = r.client %}
+  <tr {% if r.exceeded > 0 %}style="background: #fef2f2"{% endif %}>
+    {% if can_notify %}<td class="px-3 py-2 text-center no-print"><input type="checkbox" name="ids" value="{{ c.id }}" @change="picked = $el.closest('form').querySelectorAll('input[name=ids]:checked').length" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
+    <td class="px-3 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
+    <td class="px-3 py-2 text-xs"><a href="/clients/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.full_name }}</a></td>
+    <td class="px-3 py-2">{{ ui.badge(c.status, c.status|label('client')) }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ c.joined_at|date }}</td>
+    <td class="px-3 py-2 text-xs">{{ c.shift|titleize }}</td>
+    <td class="px-3 py-2 text-xs">{{ c.billing_rep.full_name if c.billing_rep else '—' }}</td>
+    <td class="px-3 py-2 text-xs text-right">{{ r.students }}</td>
+    <td class="px-3 py-2 text-xs text-right">{{ r.regular_subscriptions }}</td>
+    <td class="px-3 py-2 text-xs text-right">{{ r.payment_day or '—' }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.currency }}</td>
+    <td class="px-3 py-2 text-xs text-right text-slate-500">{{ '%.4f'|format(r.rate) }}</td>
+    <td class="px-3 py-2 text-xs text-right font-medium {{ 'text-rose-700' if r.balance > 0 else 'text-emerald-700' }} whitespace-nowrap">{{ r.balance|money(r.currency) }}</td>
+    <td class="px-3 py-2 text-xs text-right whitespace-nowrap">{{ r.balance_limit|money(r.currency) if r.balance_limit else '—' }}</td>
+    <td class="px-3 py-2 text-xs text-right whitespace-nowrap">{% if r.exceeded > 0 %}<span class="font-semibold text-rose-700">{{ r.exceeded|money(r.currency) }}</span>{% else %}—{% endif %}</td>
+    <td class="px-3 py-2 text-xs text-right whitespace-nowrap">{{ r.pending|money(r.currency) if r.pending else '—' }}</td>
+    <td class="px-3 py-2 text-xs text-right whitespace-nowrap">{{ r.received|money(r.currency) if r.received else '—' }}</td>
+    <td class="px-3 py-2 text-xs text-right whitespace-nowrap">{{ r.invoices_total|money(r.currency) if r.invoices_total else '—' }}</td>
+    <td class="px-3 py-2 text-xs max-w-[14rem] truncate" title="{{ r.billing_remarks }}">{{ r.billing_remarks or '—' }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.last_payment|date if r.last_payment else '—' }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.fee_recurrence|titleize }}</td>
+  </tr>
+  {% else %}
+  {{ ui.empty('No family matches these filters.', headers|length + (1 if can_notify else 0), 'wallet') }}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="no-print">{{ ui.pagination(page, base_url) }}</div>
+
+{% if can_notify %}
+<div class="mt-4 no-print" id="notify">
+{% call ui.card('Notify', 'Tick the families above, choose a seeded template or write the message, and every ticked family is messaged through their portal account. Each send is written to the audit trail.') %}
+  <div class="grid gap-3 sm:grid-cols-4">
+    {{ ui.select('template_id', 'Notification Template', notify_templates, None, placeholder='— Write my own —') }}
+    {{ ui.select('channel', 'Channel', [('in_app', 'Portal only'), ('whatsapp', 'Portal + WhatsApp')], 'in_app', placeholder=None, help='WhatsApp goes out through the connected senders; families who opted out are skipped.') }}
+    <div class="sm:col-span-2">{{ ui.input('subject', 'Subject', '', placeholder='Leave blank to use the template subject') }}</div>
+    <div class="sm:col-span-3">{{ ui.textarea('body', 'Message', '', rows=3, placeholder='Leave blank to use the template body. The template placeholders name, code, balance, limit and pending are filled in per family.') }}</div>
+    <div>{{ ui.input('rationale', 'Rationale', '', placeholder='Why these families are being chased') }}</div>
+  </div>
+  <div class="mt-3 flex items-center justify-end gap-3">
+    <span class="text-xs text-slate-500"><span x-text="picked">0</span> family(ies) ticked</span>
+    {{ ui.button('Notify', icon='send') }}
+  </div>
+{% endcall %}
+</div>
+{% endif %}
+</form>
+
+<p class="mt-2 text-xs text-slate-500">Exceeded is Balance minus Balance Limit, never below zero; a family with no limit set is never counted as exceeded. Tile totals are converted to {{ totals.base }} at the stored currency rates.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

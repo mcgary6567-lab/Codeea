@@ -21,7 +21,7 @@
 
 {{ ui.table_start(['ID', 'Description', 'Minimum Days', 'Maximum Days', 'Session', 'Price', 'Course', 'Status', '']) }}
 {% for p in packages %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ p.id }}</td>
   <td class="px-4 py-2"><div class="font-medium text-slate-900">{{ p.name }}</div>{% if p.description %}<div class="text-xs text-slate-500">{{ p.description[:70] }}</div>{% endif %}</td>
   <td class="px-4 py-2 text-center text-xs">{{ p.min_days }}</td>
@@ -32,13 +32,13 @@
   <td class="px-4 py-2">{{ ui.badge('active' if p.is_active else 'inactive') }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/packages/{{ p.id }}/toggle" class="inline">{{ ui.button('Deactivate' if p.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/academics/config/packages/{{ p.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.input('name', 'Description', p.name, required=True) }}
     {{ ui.input('min_days', 'Minimum Days', p.min_days, type='number', min=1, max=7) }}
@@ -50,7 +50,7 @@
     {{ ui.select('status', 'Status', statuses, 'active' if p.is_active else 'inactive', placeholder=None) }}
     {{ ui.input('reason', 'Reason for the change', '', placeholder='Required for pricing changes') }}
     <div class="pb-1.5">{{ ui.checkbox('is_trial', 'Trial package', p.is_trial) }}</div>
-    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save package', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save package', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

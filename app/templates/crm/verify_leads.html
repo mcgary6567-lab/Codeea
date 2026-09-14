@@ -1,0 +1,163 @@
+{# Verify Leads — the queue between a raw lead and a family (docs/AUDIT_BILLING.md).
+   Verification tiles -> filter bar -> the ERP's eighteen columns -> per-row decision -> bulk Change Status. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Verify Leads{% endblock %}
+{% set COLS = 20 %}
+{% block content %}
+{% call ui.page_header("Verify Leads", "Check a lead before it becomes a family. A converted row carries the client code it became and the date it converted.", back="/home/finance/clients") %}
+  {{ ui.button("Leads List", href="/crm/leads?view=list", icon="sprout", variant="secondary") }}
+  {{ ui.button("Lead Closers", href="/finance/lead-closers", icon="handshake", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-4">
+  {{ ui.alert("Converting a lead from its own record does not go through this queue — it still works, and the confirmation says so. Only a verified lead can be converted from here. Leads pushed in by the marketing tool arrive with no contact details; they can be forwarded or rejected but never verified until someone fills the record in.", "info", "How this queue behaves") }}
+</div>
+
+{{ ui.section_label('Verification Status') }}
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, counts.get(key, 0), icon=icon, color=palette(loop.index0), href=tile_url ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar(base_path) %}
+  <div class="w-52">{{ ui.input('q', 'Search', filters.q, placeholder='Name / code / phone / tool id') }}</div>
+  <div class="w-36">{{ ui.input('start', 'From Date', filters.start, type='date') }}</div>
+  <div class="w-36">{{ ui.input('end', 'To Date', filters.end, type='date') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, filters.shift, placeholder='All shifts') }}</div>
+  <div class="w-44">{{ ui.select('country', 'Country', countries, filters.country, placeholder='All countries') }}</div>
+  <div class="w-44">{{ ui.select('vstatus', 'Status', status_options, filters.vstatus, placeholder='All statuses') }}</div>
+  <div class="w-44">{{ ui.select('source', 'How Came To Us', source_options, filters.source, placeholder='All sources') }}</div>
+{% endcall %}
+
+<form method="post" action="/crm/leads/verify/change-status">
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} lead(s) — showing {{ page.start }}-{{ page.end }}. The ERP's State, City and Zip Code are not held on our lead record yet.</p>
+{{ ui.table_start((['#'] if can_decide else []) + ['ID', 'Guardian Name', 'Client Code', 'Converted At', 'Mobile No', 'Whatsapp No',
+    'Shift', 'Referred By', 'Country', 'State', 'City', 'Email', 'How Came To Us', 'Zip Code', 'Followup Date',
+    'Status', 'Extra Query', 'Create At', '']) }}
+{% for r in rows %}
+{% set l = r.lead %}
+<tr>
+  {% if can_decide %}
+  <td class="px-3 py-2 text-center">
+    <input type="checkbox" name="ids" value="{{ l.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+  </td>
+  {% endif %}
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ l.id }}</td>
+  <td class="px-3 py-2 whitespace-nowrap">
+    <a href="/crm/leads/{{ l.id }}" class="font-medium text-brand-700 hover:underline">{{ l.full_name }}</a>
+    <div class="text-[11px] text-slate-400">{{ l.lead_code }}</div>
+    {% if r.incomplete %}<span class="mt-0.5 inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20"><i data-lucide="alert-triangle" class="h-3 w-3"></i>Incomplete — from the marketing tool</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 font-mono text-xs">{% if r.client_code %}<a href="/clients/{{ l.converted_client_id }}" class="text-brand-700 hover:underline">{{ r.client_code }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.converted_at|datetime if l.converted_at else '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.phone %}{{ l.phone }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if l.whatsapp %}{{ l.whatsapp }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ r.shift or '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.referred_by or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ l.country or '—' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
+  <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
+  <td class="px-3 py-2 text-xs">{% if l.email %}{{ l.email }}{% elif r.incomplete %}<span class="text-amber-700">Not supplied</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ r.source_name or '—' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-300" title="Not held on our lead record">—</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.next_follow_up|date if l.next_follow_up else '—' }}</td>
+  <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(r.status, labels.get(r.status, r.status)) }}</td>
+  <td class="px-3 py-2 text-xs">
+    <div class="max-w-[16rem] truncate" title="{{ l.notes or '' }}">{{ l.notes or '—' }}</div>
+    {% if l.ghl_contact_id %}<div class="text-[10.5px] text-slate-400">Marketing tool id {{ l.ghl_contact_id }}</div>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.created_at|date }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_decide and r.status != 'converted' %}
+    <button type="button" onclick="document.getElementById('decide-{{ l.id }}').classList.toggle('hidden')"
+            class="rounded px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">Decide</button>
+    {% elif r.status == 'converted' %}<span class="text-[11px] text-slate-400">Closed</span>{% endif %}
+  </td>
+</tr>
+{% if can_decide and r.status != 'converted' %}
+<tr id="decide-{{ l.id }}" class="hidden">
+  <td colspan="{{ COLS }}" class="bg-slate-50 px-4 py-3">
+    <div class="grid gap-3 lg:grid-cols-2">
+      <div>
+        <div class="mb-1 text-xs font-semibold text-slate-600">Verification decision — {{ l.full_name }} ({{ l.lead_code }})</div>
+        <div class="flex flex-wrap items-end gap-2">
+          <div class="flex-1 min-w-[16rem]">
+            <label class="mb-1 block text-xs font-medium text-slate-600" for="rem-{{ l.id }}">Remarks</label>
+            <input id="rem-{{ l.id }}" form="decide-form-{{ l.id }}" name="remarks" required
+                   placeholder="What was checked, and what was found."
+                   class="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+          </div>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button form="decide-form-{{ l.id }}" name="decision" value="verify" {{ 'disabled' if r.incomplete }}
+                  title="{{ 'This lead has no contact details yet' if r.incomplete else 'Mark this lead verified' }}"
+                  class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+            <i data-lucide="badge-check" class="h-4 w-4"></i>Verify</button>
+          <button form="decide-form-{{ l.id }}" name="decision" value="forward"
+                  class="inline-flex items-center gap-1.5 rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+            <i data-lucide="send" class="h-4 w-4"></i>Forward to verifier</button>
+          <button form="decide-form-{{ l.id }}" name="decision" value="reject"
+                  class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">
+            <i data-lucide="circle-x" class="h-4 w-4"></i>Reject</button>
+        </div>
+      </div>
+      {% if can_convert %}
+      <div class="border-t border-slate-200 pt-3">
+        <div class="mb-1 text-xs font-semibold text-slate-600">Convert to a family</div>
+        {% if r.status == 'verified' %}
+        <div class="flex flex-wrap items-end gap-2">
+          <div class="w-56">
+            <label class="mb-1 block text-xs font-medium text-slate-600" for="cmail-{{ l.id }}">Portal Email</label>
+            <input id="cmail-{{ l.id }}" form="convert-form-{{ l.id }}" name="email" value="{{ l.email or '' }}"
+                   placeholder="Leave blank to generate one"
+                   class="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+          </div>
+          <div class="w-40">
+            <label class="mb-1 block text-xs font-medium text-slate-600" for="crel-{{ l.id }}">Relationship</label>
+            <select id="crel-{{ l.id }}" form="convert-form-{{ l.id }}" name="relationship"
+                    class="w-full rounded border border-slate-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+              {% for rel in ['father', 'mother', 'guardian', 'self'] %}<option value="{{ rel }}">{{ rel|titleize }}</option>{% endfor %}
+            </select>
+          </div>
+          <button form="convert-form-{{ l.id }}"
+                  class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700">
+            <i data-lucide="user-round-check" class="h-4 w-4"></i>Convert</button>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-500">Creates the client, the portal login and the student records, and fills the Client Code column.</p>
+        {% else %}
+        <p class="text-xs text-slate-500">Only a verified lead can be converted from this queue. Verify it first, or use the lead record itself.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% endif %}
+{% else %}{{ ui.empty('No leads match these filters.', COLS, 'badge-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_decide %}
+<div class="mt-4">
+  {% call ui.card('Actions — Change Status', 'Tick the rows above, choose the new verification status and record why. Every decision stamps the verifier and the time, and is written to the audit trail.') %}
+    <div class="grid gap-3 sm:grid-cols-3">
+      {{ ui.select('verification_status', 'New Status', decidable, None, required=True, placeholder='— Select —') }}
+      <div class="sm:col-span-2">{{ ui.textarea('remarks', 'Remarks', '', rows=2, required=True, placeholder='Why are these leads being verified / forwarded / rejected?') }}</div>
+    </div>
+    <div class="mt-3 flex justify-end">{{ ui.button('Change Status', icon='check-check') }}</div>
+  {% endcall %}
+</div>
+{% endif %}
+</form>
+
+{# The per-row decision and conversion forms live outside the bulk form: a form may not nest inside
+   another, so the controls above are attached to these with the HTML `form` attribute. #}
+{% if can_decide %}
+{% for r in rows %}{% if r.status != 'converted' %}
+<form method="post" action="/crm/leads/verify/{{ r.id }}/decision" id="decide-form-{{ r.id }}"></form>
+{% if can_convert and r.status == 'verified' %}<form method="post" action="/crm/leads/verify/{{ r.id }}/convert" id="convert-form-{{ r.id }}"></form>{% endif %}
+{% endif %}{% endfor %}
+{% endif %}
+{% endblock %}

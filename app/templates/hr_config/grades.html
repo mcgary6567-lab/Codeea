@@ -20,7 +20,7 @@
 
 {{ ui.table_start(['Grade Name', 'Description', 'Basic Min', 'Basic Max', 'Allowances', 'Employees', 'Status', '']) }}
 {% for g in rows %}
-<tr x-data="{ edit: false, assign: false }">
+<tr>
   <td class="px-3 py-2 font-semibold text-slate-900">{{ g.name }}</td>
   <td class="px-3 py-2 text-xs text-slate-600">{{ g.description or '—' }}</td>
   <td class="px-3 py-2 text-right font-mono text-xs">{{ g.basic_min|money('PKR') }}</td>
@@ -34,14 +34,14 @@
   <td class="px-3 py-2">{{ ui.badge(g.status) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="assign = !assign" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50" title="Assign to an employee"><i data-lucide="user-plus" class="h-3.5 w-3.5"></i></button>
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="assignRow = assignRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50" title="Assign to an employee"><i data-lucide="user-plus" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/hr/config/grades/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/hr/config/grades/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
     {{ ui.input('name', 'Grade Name', g.name, required=True) }}
     {{ ui.input('basic_min', 'Basic Min', g.basic_min, type='number', step='500', min=0) }}
@@ -57,13 +57,13 @@
         <div class="flex gap-1"><input name="allow_key" placeholder="new allowance" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
       </div>
     </div>
-    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save grade', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save grade', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
-<tr x-show="assign" x-cloak><td colspan="8" class="bg-brand-50/50 px-4 py-4">
+<tr x-show="assignRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-brand-50/50 px-4 py-4">
   <form method="post" action="/hr/config/grades/{{ g.id }}/assign" class="grid gap-3 sm:grid-cols-3 items-end">
     <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, None, required=True, placeholder='— Select employee —') }}</div>
-    <div class="flex gap-2">{{ ui.button('Assign grade', icon='user-plus', size='sm') }}<button type="button" @click="assign=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="flex gap-2">{{ ui.button('Assign grade', icon='user-plus', size='sm') }}<button type="button" @click="assignRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
     <p class="sm:col-span-3 text-xs text-slate-500">The grade's allowances are copied onto the employee's salary structure and the basic is clamped to the grade's range.</p>
   </form>
 </td></tr>

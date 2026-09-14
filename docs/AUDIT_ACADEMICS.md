@@ -14,11 +14,11 @@ Status legend: **Have** = exists in the new platform · **Partial** = exists wit
 | Card | Notes |
 |---|---|
 | Online Academics | Audited below |
-| Billing Management | Separate area (not part of this audit) |
-| Human Resource | Separate area |
+| Billing Management | Audited in `AUDIT_BILLING.md` |
+| Human Resource | Audited in `AUDIT_HUMAN_RESOURCE.md` |
 | Employee Self Portal | Separate area |
-| Accounts | Separate area |
-| Configuration | Separate area |
+| Accounts | Audited in `AUDIT_ACCOUNTS_CONFIG.md` |
+| Configuration | Audited in `AUDIT_ACCOUNTS_CONFIG.md` |
 
 ## Level 2 — Academic Home
 

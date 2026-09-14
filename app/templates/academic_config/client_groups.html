@@ -33,7 +33,7 @@
 
 {{ ui.table_start(['ID', 'Group Name', 'Sudo Name', 'Shift', 'Representative Name', 'Status', '']) }}
 {% for g in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ g.id }}</td>
   <td class="px-4 py-2 font-medium text-slate-900">{{ g.name }}</td>
   <td class="px-4 py-2 text-xs">{{ g.pseudo_name or '—' }}</td>
@@ -42,13 +42,13 @@
   <td class="px-4 py-2">{{ ui.badge(g.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/client-groups/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ group_form('/academics/config/client-groups/' ~ g.id ~ '/edit', g, 'Save group') }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ group_form('/academics/config/client-groups/' ~ g.id ~ '/edit', g, 'Save group') }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No client academic groups match these filters.', 7, 'users-round') }}{% endfor %}
 {{ ui.table_end() }}

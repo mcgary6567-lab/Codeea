@@ -30,7 +30,7 @@
 {{ ui.table_start(['API Status', 'Description', 'WhatsApp Number', 'Live Mode', 'Last Message Sent Time', 'Interval In Seconds', 'Messages Per Cycle', 'Next Send', 'Purpose', 'Status', 'Qr Code', '']) }}
 {% for it in items %}
 {% set s = it.s %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2">{{ ui.badge(s.api_status) }}</td>
   <td class="px-3 py-2 font-semibold text-slate-800">{{ s.description }}</td>
   <td class="px-3 py-2 font-mono text-xs">{{ s.number }}</td>
@@ -56,13 +56,13 @@
       {% endif %}
     {% endif %}
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/config/whatsapp-senders/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="12" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="12" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/config/whatsapp-senders/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.input('description', 'Description', s.description, required=True) }}
     {{ ui.input('number', 'WhatsApp Number', s.number, required=True) }}
@@ -71,7 +71,7 @@
     {{ ui.input('messages_per_cycle', 'Messages Per Cycle', s.messages_per_cycle, type='number', min=1) }}
     {{ ui.select('status', 'Status', statuses, s.status, placeholder=None) }}
     <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', s.live_mode) }}</div>
-    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save sender', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save sender', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

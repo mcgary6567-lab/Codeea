@@ -40,7 +40,7 @@
 
 {{ ui.table_start(['ID', 'Book', 'Assessment', 'Question', 'Type', 'Marks', 'Status', '']) }}
 {% for item in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ item.id }}</td>
   <td class="px-4 py-2 text-xs">{{ item.book.title if item.book else '—' }}</td>
   <td class="px-4 py-2 text-xs">{% if item.assessment %}<a href="/academics/config/assessments/{{ item.assessment_id }}" class="text-brand-700 hover:underline">{{ item.assessment.title }}</a>{% else %}—{% endif %}</td>
@@ -50,13 +50,13 @@
   <td class="px-4 py-2">{{ ui.badge(item.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline"><input type="hidden" name="next" value="{{ here }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No questions match these filters.', 8, 'help-circle') }}{% endfor %}
 {{ ui.table_end() }}

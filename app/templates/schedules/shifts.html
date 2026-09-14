@@ -8,7 +8,7 @@
 
 {{ ui.table_start(['Shift','Group','Window','Manager','Supervisor','Active schedules','Status','']) }}
 {% for s in shifts %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-medium">{{ s.name }}</td>
   <td class="px-4 py-2 text-xs">{{ s.group|titleize }}</td>
   <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }} – {{ s.end_time|time }}</td>
@@ -17,11 +17,11 @@
   <td class="px-4 py-2 text-xs">{{ load.get(s.id, 0) }}</td>
   <td class="px-4 py-2">{{ ui.badge('active' if s.is_active else 'inactive') }}</td>
   <td class="px-4 py-2 text-right">
-    {% if has_perm(user, 'schedules.update') %}<button type="button" @click="edit = !edit" class="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+    {% if has_perm(user, 'schedules.update') %}<button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
   </td>
 </tr>
 {% if has_perm(user, 'schedules.update') %}
-<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4 dark:bg-slate-800/50">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4 dark:bg-slate-800/50">
   <form method="post" action="/schedules/shifts/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
     {{ ui.input('name', 'Name', s.name, required=True) }}
     {{ ui.select('group', 'Group', groups, s.group, placeholder=None) }}

@@ -44,7 +44,7 @@
 
 {{ ui.table_start(['ID', 'Level', 'From Date', 'To Date', 'Invoice Addition List', 'Implementation Type', 'Addition Type', 'Amount', 'Status', 'Auto Assigned?', '']) }}
 {% for r in rules %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ r.id }}</td>
   <td class="px-4 py-2 text-xs">
     <div class="font-medium">{{ r.level|titleize }}</div>
@@ -61,13 +61,13 @@
   <td class="px-4 py-2 text-center text-xs">{{ ui.badge('active' if r.auto_assigned else 'inactive', 'Yes' if r.auto_assigned else 'No') }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/invoice-addition-rules/{{ r.id }}/toggle" class="inline">{{ ui.button('Deactivate' if r.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">{{ rule_form('/academics/config/invoice-addition-rules/' ~ r.id ~ '/edit', r, 'Save rule') }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">{{ rule_form('/academics/config/invoice-addition-rules/' ~ r.id ~ '/edit', r, 'Save rule') }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No invoice addition rules match these filters.', 11, 'sliders-horizontal') }}{% endfor %}
 {{ ui.table_end() }}

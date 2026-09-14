@@ -45,7 +45,10 @@
                 ('Billing Representative', c.billing_rep.full_name if c.billing_rep else None), ('Academic Manager', c.academic_manager.full_name if c.academic_manager else None),
                 ('Academic Group', c.academic_group.name if c.academic_group else None), ('Opening Balance', c.opening_balance|money(c.currency)),
                 ('Relationship', c.relationship_to_student|titleize), ('Household', c.household.name if c.household else None),
-                ('Source', c.source), ('Referral code', c.referral_code)]) }}
+                ('Source', c.source), ('Referral code', c.referral_code),
+                ('Balance Limit', (c.balance_limit|money(c.currency)) if c.balance_limit else 'No limit'),
+                ('Payment Day', c.payment_day)]) }}
+      {% if c.billing_remarks %}<div class="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-sm"><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Billing Remarks</div><p class="mt-1 text-slate-700">{{ c.billing_remarks }}</p></div>{% endif %}
       </div>
     </div>
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -93,24 +96,24 @@
 </div>
 {{ ui.table_start(['Contact Type', 'Contact Detail', 'Remarks', 'Status', 'Log', '']) }}
 {% for r in contacts %}
-<tr x-data="{ edit: false }">
-  <td class="px-3 py-2 text-xs" colspan="3" x-show="edit" x-cloak>
+<tr>
+  <td class="px-3 py-2 text-xs" colspan="3" x-show="editRow === {{ loop.index }}" x-cloak>
     <form method="post" action="/clients/{{ c.id }}/contacts/{{ r.id }}" class="flex flex-wrap items-end gap-2">
       <div class="w-32">{{ ui.select('contact_type', 'Contact Type', contact_types, r.contact_type, placeholder=None) }}</div>
       <div class="w-56">{{ ui.input('detail', 'Contact Detail', r.detail, required=True) }}</div>
       <div class="w-56">{{ ui.input('remarks', 'Remarks', r.remarks or '') }}</div>
       {{ ui.button('Save', icon='save', size='sm') }}
-      <button type="button" @click="edit=false" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
+      <button type="button" @click="editRow = null" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
     </form>
   </td>
-  <td class="px-3 py-2 text-xs" x-show="!edit">{{ r.contact_type|titleize }}</td>
-  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{{ r.detail if show_contact else r.detail|mask }}</td>
-  <td class="px-3 py-2 text-xs text-slate-500" x-show="!edit">{{ r.remarks or '—' }}</td>
+  <td class="px-3 py-2 text-xs" x-show="editRow !== {{ loop.index }}">{{ r.contact_type|titleize }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ r.detail if show_contact else r.detail|mask }}</td>
+  <td class="px-3 py-2 text-xs text-slate-500" x-show="editRow !== {{ loop.index }}">{{ r.remarks or '—' }}</td>
   <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
   <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{{ r.updated_at|datetime if r.updated_at else r.created_at|datetime }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if has_perm(user, 'clients.update') %}
-      <button type="button" @click="edit=!edit" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
+      <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
       {{ ui.confirm_form('/clients/' ~ c.id ~ '/contacts/' ~ r.id, 'Deactivate' if r.status == 'active' else 'Activate', icon='toggle-left' if r.status == 'active' else 'toggle-right', variant='ghost', message='Toggle this contact row?', hidden={'toggle': '1'}) }}
     {% endif %}
   </td>
@@ -175,26 +178,26 @@
 </div>
 {{ ui.table_start(['Credential Type', 'Login', 'Password', 'Remarks', 'Status', '']) }}
 {% for r in credentials %}
-<tr x-data="{ edit: false }">
-  <td class="px-3 py-2 text-xs" colspan="4" x-show="edit" x-cloak>
+<tr>
+  <td class="px-3 py-2 text-xs" colspan="4" x-show="editRow === {{ loop.index }}" x-cloak>
     <form method="post" action="/clients/{{ c.id }}/credentials/{{ r.id }}" class="flex flex-wrap items-end gap-2">
       <div class="w-32">{{ ui.select('credential_type', 'Credential Type', credential_types, r.credential_type, placeholder=None) }}</div>
       <div class="w-56">{{ ui.input('login', 'Login', r.login, required=True) }}</div>
       <div class="w-40">{{ ui.input('secret', 'New password', '', type='password', placeholder='leave blank to keep') }}</div>
       <div class="w-48">{{ ui.input('remarks', 'Remarks', r.remarks or '') }}</div>
       {{ ui.button('Save', icon='save', size='sm') }}
-      <button type="button" @click="edit=false" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
+      <button type="button" @click="editRow = null" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
     </form>
   </td>
-  <td class="px-3 py-2 text-xs" x-show="!edit">{{ r.credential_type|titleize }}</td>
-  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{{ r.login }}</td>
-  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{% if r.secret %}<span>••••••••</span>
+  <td class="px-3 py-2 text-xs" x-show="editRow !== {{ loop.index }}">{{ r.credential_type|titleize }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{{ r.login }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="editRow !== {{ loop.index }}">{% if r.secret %}<span>••••••••</span>
     {% if has_perm(user, 'clients.update') %}<a href="/clients/{{ c.id }}/credentials/{{ r.id }}/reveal" hx-get="/clients/{{ c.id }}/credentials/{{ r.id }}/reveal" hx-target="closest td" hx-swap="innerHTML" class="ml-1 text-brand-600 hover:underline" title="Reveal (audited)">View</a>{% endif %}{% else %}—{% endif %}</td>
-  <td class="px-3 py-2 text-xs text-slate-500" x-show="!edit">{{ r.remarks or '—' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-500" x-show="editRow !== {{ loop.index }}">{{ r.remarks or '—' }}</td>
   <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if has_perm(user, 'clients.update') %}
-      <button type="button" @click="edit=!edit" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
+      <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
       {{ ui.confirm_form('/clients/' ~ c.id ~ '/credentials/' ~ r.id, 'Deactivate' if r.status == 'active' else 'Activate', icon='toggle-left' if r.status == 'active' else 'toggle-right', variant='ghost', message='Toggle this credential row?', hidden={'toggle': '1'}) }}
     {% endif %}
   </td>

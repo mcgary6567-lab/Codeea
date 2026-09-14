@@ -37,7 +37,7 @@
 
 {{ ui.table_start(['ID', 'Payment Mode', 'Category', 'Beneficiary Account', 'Auto', 'Status', '']) }}
 {% for a in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
   <td class="px-4 py-2 text-xs">{{ a.payment_mode }}</td>
   <td class="px-4 py-2 text-xs">{{ a.category }}</td>
@@ -46,13 +46,13 @@
   <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/beneficiary-accounts/{{ a.id }}/toggle" class="inline">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ account_form('/academics/config/beneficiary-accounts/' ~ a.id ~ '/edit', a, 'Save account') }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ account_form('/academics/config/beneficiary-accounts/' ~ a.id ~ '/edit', a, 'Save account') }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No beneficiary accounts match these filters.', 7, 'landmark') }}{% endfor %}
 {{ ui.table_end() }}

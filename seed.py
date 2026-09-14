@@ -17,7 +17,7 @@ from app.database import Base, engine, SessionLocal, init_db
 # Order matters: later modules depend on earlier ones.
 # "academic" builds courses/packages and the curriculum tree; "academic_curriculum" runs again after
 # "people" so the per-student academic history (progress, plans, tests, certificates) has students to attach to.
-SEED_MODULES = ["core", "academic", "erp_config", "people", "erp_people", "academic_curriculum", "scheduling", "crm", "finance", "accounts_erp", "erp_classes", "erp_billing", "hr", "hr_erp", "hr_attendance", "hr_recruitment", "ops", "config_erp", "erp_quality", "erp_statuses"]
+SEED_MODULES = ["core", "academic", "erp_config", "people", "erp_people", "academic_curriculum", "scheduling", "crm", "leads_erp", "finance", "billing_erp", "accounts_erp", "erp_classes", "erp_billing", "hr", "hr_erp", "hr_attendance", "hr_recruitment", "ops", "config_erp", "erp_quality", "erp_statuses"]
 
 
 def main() -> None:
@@ -29,15 +29,18 @@ def main() -> None:
     if "--reset" in args:
         removed = False
         if settings.is_sqlite:
-            db_path = BASE_DIR / settings.DATABASE_URL.replace("sqlite:///./", "")
+            # Ask the engine where the file is. Rebuilding the path from the URL string used to produce
+            # nonsense whenever the URL was already absolute -- which app/config.py makes it -- and the
+            # reset then quietly removed nothing, kept the old data and skipped the drop_all fallback.
+            db_path = Path(engine.url.database or (BASE_DIR / "data" / "oqc.db"))
             engine.dispose()
             try:
                 for suffix in ("", "-wal", "-shm"):
                     p = Path(str(db_path) + suffix)
                     if p.exists():
                         p.unlink()
-                removed = True
-                print(f"Removed {db_path}")
+                removed = not db_path.exists()
+                print(f"Removed {db_path}" if removed else f"Could not remove {db_path}")
             except PermissionError:
                 print(f"{db_path} is in use by another process - dropping and recreating tables instead.")
                 print("Tip: set DATABASE_URL=sqlite:///./data/oqc_<name>.db to use a private database while developing.")

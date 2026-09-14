@@ -21,7 +21,7 @@
 
 {{ ui.table_start(['ID', 'Shift Name', 'Shift Type', 'Shift Code', 'Start Time', 'End Time', 'Staff', 'Status', '']) }}
 {% for s in rows %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ s.id }}</td>
   <td class="px-3 py-2 font-semibold text-slate-900">{{ s.name }}</td>
   <td class="px-3 py-2 text-xs">{{ s.group|titleize }}</td>
@@ -32,20 +32,20 @@
   <td class="px-3 py-2">{{ ui.badge('active' if s.is_active else 'inactive', 'Active' if s.is_active else 'In-active') }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/hr/config/shifts/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/hr/config/shifts/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
     {{ ui.input('name', 'Shift Name', s.name, required=True) }}
     {{ ui.select('group', 'Shift Type', groups, s.group, placeholder=None) }}
     {{ ui.input('start_time', 'Start Time', s.start_time.strftime('%H:%M'), type='time', required=True) }}
     {{ ui.input('end_time', 'End Time', s.end_time.strftime('%H:%M'), type='time', required=True) }}
     {{ ui.select('status', 'Status', statuses, 'active' if s.is_active else 'inactive', placeholder=None) }}
-    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save shift', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save shift', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

@@ -230,29 +230,45 @@ ACCOUNT_GROUPS = [
     ]},
 ]
 
-# Each section: {"slug", "label", "icon", "blurb", "items": [...]} or {"slug", ..., "groups": [...]}
-ADMIN_NAV = [
-    {"slug": "academics", "label": "Online Academics", "icon": "book-open", "blurb": "Clients, students, subscriptions, classes, quality",
-     "home": "/dashboard", "groups": ACADEMIC_GROUPS},
-    {"slug": "finance", "label": "Billing Management", "icon": "receipt", "blurb": "Subscriptions, invoices, receipts, discounts", "items": [
-        _i("Invoice List", "/finance/invoices", "receipt", "billing.view"),
+# --------------------------------------------------------------------------- Billing Management (mirrors the ERP)
+BILLING_GROUPS = [
+    {"slug": "clients", "label": "Client Management", "icon": "users", "blurb": "Families, their money, and leads", "items": [
+        _i("Clients List", "/clients", "users", "clients.view"),
+        _i("Clients Financial Summary", "/finance/clients-summary", "wallet", "billing.view"),
+        _i("Leads List", "/crm/leads", "sprout", "leads.view"),
+        _i("Verify Leads", "/crm/leads/verify", "badge-check", "leads.update"),
+    ]},
+    {"slug": "billing", "label": "Billing", "icon": "receipt", "blurb": "Invoices, receipts, ledger", "items": [
+        _i("Invoices", "/finance/invoices", "receipt", "billing.view"),
         _i("Receipts", "/finance/receipts", "badge-check", "payments.view"),
-        _i("Payments & Reconciliation", "/finance/payments", "credit-card", "payments.view"),
         _i("Ledger Additions", "/finance/ledger-additions", "plus-minus", "ledger.view"),
-        _i("Client Ledger Report", "/finance/ledger", "book-open-text", "ledger.view"),
-        _i("All Subscriptions", "/subscriptions", "repeat", "subscriptions.view"),
+        _i("Client Ledger", "/finance/ledger", "book-open-text", "ledger.view"),
         _i("Bulk Invoice Generation", "/finance/invoices/bulk", "layers", "billing.add"),
         _i("Credit Notes", "/finance/ledger/credits", "file-minus", "ledger.view"),
+        _i("Payments & Reconciliation", "/finance/payments", "credit-card", "payments.view"),
         _i("Payment Reconciliation", "/finance/payments/reconciliation", "scale", "payments.view"),
         _i("Failed Payments", "/finance/payments/failed", "circle-x", "payments.view"),
-        _i("Discount Register", "/finance/discounts/register", "list-checks", "discounts.view"),
-        _i("Scholarships", "/finance/discounts/scholarships", "graduation-cap", "discounts.view"),
+        _i("All Subscriptions", "/subscriptions", "repeat", "subscriptions.view"),
         _i("Subscriptions Report", "/finance/subscriptions/report", "file-spreadsheet", "subscriptions.view"),
         _i("Discounts & Scholarships", "/finance/discounts", "percent", "discounts.view"),
+        _i("Discount Register", "/finance/discounts/register", "list-checks", "discounts.view"),
+        _i("Scholarships", "/finance/discounts/scholarships", "graduation-cap", "discounts.view"),
         _i("Currencies", "/finance/currencies", "coins", "currencies.view"),
         _i("Billing Dashboard", "/dashboards/billing", "gauge", "dashboards.view"),
         _i("Financial Summary", "/dashboards/financial-summary", "pie-chart", "dashboards.view"),
     ]},
+    {"slug": "config", "label": "Configurations", "icon": "settings", "blurb": "Billing groups and lead closers", "items": [
+        _i("Billing Groups", "/academics/config/client-groups", "users-round", "academic_config.view"),
+        _i("Lead Closers", "/finance/lead-closers", "handshake", "leads.update"),
+    ]},
+]
+
+# Each section: {"slug", "label", "icon", "blurb", "items": [...]} or {"slug", ..., "groups": [...]}
+ADMIN_NAV = [
+    {"slug": "academics", "label": "Online Academics", "icon": "book-open", "blurb": "Clients, students, subscriptions, classes, quality",
+     "home": "/dashboard", "groups": ACADEMIC_GROUPS},
+    {"slug": "finance", "label": "Billing Management", "icon": "receipt",
+     "blurb": "Families, invoices, receipts, ledger", "groups": BILLING_GROUPS},
     {"slug": "hr", "label": "Human Resource", "icon": "id-card",
      "blurb": "Employees, attendance, recruitment, payroll", "groups": HR_GROUPS},
     {"slug": "self", "label": "Employee Self Portal", "icon": "user", "blurb": "Your attendance, leaves, payslips and record", "items": [

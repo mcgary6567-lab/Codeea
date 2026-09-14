@@ -43,7 +43,7 @@
 {% call ui.card('Questions', 'Questions drawn from the bank for this assessment', padding=False) %}
 {{ ui.table_start(['#', 'Question', 'Type', 'Marks', 'Status', '']) }}
 {% for item in questions %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ loop.index }}</td>
   <td class="px-4 py-2"><div class="text-slate-900">{{ item.question }}</div>{% if item.answer %}<div class="text-xs text-slate-500">{{ item.answer }}</div>{% endif %}</td>
   <td class="px-4 py-2 text-xs">{{ item.question_type|upper if item.question_type == 'mcq' else item.question_type|titleize }}</td>
@@ -51,13 +51,13 @@
   <td class="px-4 py-2">{{ ui.badge(item.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline"><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
 {% endif %}
 {% else %}{{ ui.empty('No questions yet. Add the first question for this assessment.', 6, 'help-circle') }}{% endfor %}
 {{ ui.table_end() }}

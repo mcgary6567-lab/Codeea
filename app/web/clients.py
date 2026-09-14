@@ -229,7 +229,10 @@ def _read_form(form) -> dict:
             "state": (form.get("state") or "").strip() or None, "opening_balance": parse_float(form.get("opening_balance"), 0.0),
             "legacy_code": (form.get("legacy_code") or "").strip() or None, "shift": form.get("shift") or "night",
             "referred_by_client_id": parse_int(form.get("referred_by_client_id")), "status_remarks": (form.get("status_remarks") or "").strip() or None,
-            "academic_manager_id": parse_int(form.get("academic_manager_id")), "academic_group_id": parse_int(form.get("academic_group_id"))}
+            "academic_manager_id": parse_int(form.get("academic_manager_id")), "academic_group_id": parse_int(form.get("academic_group_id")),
+            # Clients Financial Summary (docs/AUDIT_BILLING.md) — only a billing hand may change these three
+            "balance_limit": parse_float(form.get("balance_limit"), 0.0), "payment_day": parse_int(form.get("payment_day")),
+            "billing_remarks": (form.get("billing_remarks") or "").strip() or None}
 
 
 def _apply_erp_fields(c: Client, data: dict) -> None:
@@ -243,6 +246,25 @@ def _apply_erp_fields(c: Client, data: dict) -> None:
     c.status_remarks = data.get("status_remarks")
     c.academic_manager_id = data.get("academic_manager_id")
     c.academic_group_id = data.get("academic_group_id")
+
+
+def can_set_billing_limit(user: User) -> bool:
+    """The balance limit, payment day and billing remarks are the billing desk's fields, not the front desk's.
+
+    ``billing.update`` exists in rbac.MODULES, so it is the guard; ``clients.update`` only opens the rest of
+    the form.
+    """
+    return rbac.has_permission(user, "billing.update")
+
+
+def _apply_billing_fields(c: Client, data: dict, user: User) -> None:
+    """Clients Financial Summary fields (docs/AUDIT_BILLING.md). Ignored for anyone without billing.update."""
+    if not can_set_billing_limit(user):
+        return
+    c.balance_limit = max(0.0, round(float(data.get("balance_limit") or 0), 2))
+    day = data.get("payment_day")
+    c.payment_day = day if day and 1 <= day <= 31 else None
+    c.billing_remarks = data.get("billing_remarks")
 
 
 def _post_opening_balance(db: Session, c: Client, amount: float, user: User) -> None:
@@ -278,6 +300,7 @@ async def create_client(request: Request, db: Session = Depends(get_db), user: U
         data["status"] = "trial"
     c, pwd = svc.create_client_with_portal(db, data, user, request=request, with_portal=parse_bool(form.get("create_portal")))
     _apply_erp_fields(c, data)
+    _apply_billing_fields(c, data, user)
     c.lead_added_by_id = user.id
     if c.status != "trial":
         c.converted_by_id, c.converted_at = user.id, datetime.utcnow()
@@ -393,6 +416,7 @@ async def update_client(id: int, request: Request, db: Session = Depends(get_db)
     c.currency = c.currency or before["currency"]
     c.billing_rep_id = int(data["billing_rep_id"]) if data.get("billing_rep_id") else None
     _apply_erp_fields(c, data)
+    _apply_billing_fields(c, data, user)
     if data["consent_given"] and not c.consent_given:
         c.consent_at = datetime.utcnow()
     c.consent_given = data["consent_given"]

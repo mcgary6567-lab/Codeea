@@ -17,25 +17,25 @@
 {% call ui.card("QA Review Parameters", "Weighted parameters; the overall rating is the weighted mean normalised to 5 stars") %}
 {{ ui.table_start(['Name','Description','Weight','Max Rating','Sort No','Status','']) }}
 {% for p in params %}
-<tr x-data="{ edit: false }" class="{{ 'opacity-60' if p.status != 'active' }}">
-  <td class="px-4 py-2 text-sm font-medium" colspan="6" x-show="edit" x-cloak>
+<tr class="{{ 'opacity-60' if p.status != 'active' }}">
+  <td class="px-4 py-2 text-sm font-medium" colspan="6" x-show="editRow === {{ loop.index }}" x-cloak>
     <form method="post" action="/qa/config/parameters/{{ p.id }}/edit" class="grid gap-2 sm:grid-cols-6 items-end">
       {{ ui.input('name', 'Name', p.name, required=True) }}
       <div class="sm:col-span-2">{{ ui.input('description', 'Description', p.description or '') }}</div>
       {{ ui.input('weight', 'Weight', p.weight, type='number', step='0.05', min=0.1, max=10) }}
       {{ ui.input('max_rating', 'Max Rating', p.max_rating, type='number', min=1, max=10) }}
       {{ ui.input('sort_no', 'Sort No', p.sort_no, type='number', min=0) }}
-      <div class="sm:col-span-6 flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
+      <div class="sm:col-span-6 flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
     </form>
   </td>
-  <td class="px-4 py-2 text-sm font-medium" x-show="!edit">{{ p.name }}</td>
-  <td class="px-4 py-2 text-xs text-slate-600" x-show="!edit">{{ p.description or '-' }}</td>
-  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.weight }}</td>
-  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.max_rating }}</td>
-  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.sort_no }}</td>
-  <td class="px-4 py-2" x-show="!edit">{{ ui.badge(p.status) }}</td>
+  <td class="px-4 py-2 text-sm font-medium" x-show="editRow !== {{ loop.index }}">{{ p.name }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600" x-show="editRow !== {{ loop.index }}">{{ p.description or '-' }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="editRow !== {{ loop.index }}">{{ p.weight }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="editRow !== {{ loop.index }}">{{ p.max_rating }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="editRow !== {{ loop.index }}">{{ p.sort_no }}</td>
+  <td class="px-4 py-2" x-show="editRow !== {{ loop.index }}">{{ ui.badge(p.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
-    <button type="button" @click="edit=!edit" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
     <form method="post" action="/qa/config/parameters/{{ p.id }}/toggle" class="inline">{{ ui.button('Deactivate' if p.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
   </td>
 </tr>
@@ -47,21 +47,21 @@
 {% call ui.card("QA Issue Type", "Checklist shown on every call review; critical issues flag the review and reduce the teacher score") %}
 {{ ui.table_start(['Name','Severity','Description','Status','']) }}
 {% for i in issues %}
-<tr x-data="{ edit: false }" class="{{ 'opacity-60' if i.status != 'active' }}">
-  <td class="px-4 py-2" colspan="4" x-show="edit" x-cloak>
+<tr class="{{ 'opacity-60' if i.status != 'active' }}">
+  <td class="px-4 py-2" colspan="4" x-show="editRow === {{ loop.index }}" x-cloak>
     <form method="post" action="/qa/config/issue-types/{{ i.id }}/edit" class="grid gap-2 sm:grid-cols-5 items-end">
       {{ ui.input('name', 'Name', i.name, required=True) }}
       {{ ui.select('severity', 'Severity', ['normal','critical'], i.severity, placeholder=None) }}
       <div class="sm:col-span-2">{{ ui.input('description', 'Description', i.description or '') }}</div>
-      <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
+      <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
     </form>
   </td>
-  <td class="px-4 py-2 text-sm font-medium" x-show="!edit">{{ i.name }}</td>
-  <td class="px-4 py-2" x-show="!edit">{{ ui.badge('high' if i.severity == 'critical' else 'low', i.severity|titleize) }}</td>
-  <td class="px-4 py-2 text-xs text-slate-600" x-show="!edit">{{ i.description or '-' }}</td>
-  <td class="px-4 py-2" x-show="!edit">{{ ui.badge(i.status) }}</td>
+  <td class="px-4 py-2 text-sm font-medium" x-show="editRow !== {{ loop.index }}">{{ i.name }}</td>
+  <td class="px-4 py-2" x-show="editRow !== {{ loop.index }}">{{ ui.badge('high' if i.severity == 'critical' else 'low', i.severity|titleize) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600" x-show="editRow !== {{ loop.index }}">{{ i.description or '-' }}</td>
+  <td class="px-4 py-2" x-show="editRow !== {{ loop.index }}">{{ ui.badge(i.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
-    <button type="button" @click="edit=!edit" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
     <form method="post" action="/qa/config/issue-types/{{ i.id }}/toggle" class="inline">{{ ui.button('Deactivate' if i.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
   </td>
 </tr>

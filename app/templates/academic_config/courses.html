@@ -23,7 +23,7 @@
 
 {{ ui.table_start(['ID', 'Name', 'Type', 'Fee', 'Attendance Required', 'Curriculum Link', 'Status', '']) }}
 {% for c in courses %}
-<tr x-data="{ edit: false }">
+<tr>
   <td class="px-4 py-2 font-mono text-xs"><span class="text-slate-500">{{ c.id }}</span> · <a href="/academics/courses/{{ c.id }}" class="font-semibold text-brand-700">{{ c.code }}</a></td>
   <td class="px-4 py-2"><a href="/academics/courses/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.name }}</a>
     {% if c.arabic_name %}<div class="text-xs text-slate-500"><span dir="rtl" class="font-arabic">{{ c.arabic_name }}</span></div>{% endif %}</td>
@@ -34,13 +34,13 @@
   <td class="px-4 py-2">{{ ui.badge('active' if c.is_active else 'inactive') }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
-    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
     <form method="post" action="/academics/config/courses/{{ c.id }}/toggle" class="inline">{{ ui.button('Deactivate' if c.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
-<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
   <form method="post" action="/academics/config/courses/{{ c.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
     {{ ui.input('name', 'Name', c.name, required=True) }}
     {{ ui.select('course_type', 'Type', course_types, c.course_type, placeholder=None) }}
@@ -48,7 +48,7 @@
     {{ ui.input('curriculum_link', 'Curriculum Link', c.curriculum_link or '', placeholder='https://…') }}
     {{ ui.select('status', 'Status', statuses, 'active' if c.is_active else 'inactive', placeholder=None) }}
     <div class="pb-1.5">{{ ui.checkbox('attendance_required', 'Attendance Required', c.attendance_required) }}</div>
-    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save course', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save course', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
   </form>
 </td></tr>
 {% endif %}

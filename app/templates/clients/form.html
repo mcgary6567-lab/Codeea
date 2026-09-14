@@ -43,6 +43,12 @@
       <div><label class="mb-1 block text-xs font-semibold text-slate-600">Opening Balance</label>
         <div class="rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">{{ c.opening_balance|money(c.currency) }} <span class="text-xs text-slate-400">(posted on creation)</span></div></div>
     {% endif %}
+    {% if has_perm(user, 'billing.update') %}
+    {# Clients Financial Summary (docs/AUDIT_BILLING.md): the billing desk's three fields on the family. #}
+    {{ ui.input('balance_limit', 'Balance Limit', ('%.2f'|format(c.balance_limit|float)) if c else '0.00', type='number', step='0.01', min=0, help='How far the family may run into debit before the summary flags them. 0 = no limit.') }}
+    {{ ui.input('payment_day', 'Payment Day', c.payment_day if c and c.payment_day else '', type='number', min=1, max=31, placeholder='1-31', help='Day of the month their invoice falls due.') }}
+    {{ ui.input('billing_remarks', 'Billing Remarks', c.billing_remarks if c else '', placeholder='Note shown on the Clients Financial Summary') }}
+    {% endif %}
     {{ ui.input('legacy_code', 'Legacy Code', c.legacy_code if c else '', placeholder='Code in the previous ERP') }}
     {{ ui.select('shift', 'Shift', shifts, c.shift if c else 'night', placeholder=None, help='Morning or Night team serves the family.') }}
     {{ ui.select('referred_by_client_id', 'Referred By', referrer_options, c.referred_by_client_id if c else None, placeholder='— Not referred —') }}
