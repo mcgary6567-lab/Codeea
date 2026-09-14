@@ -23,4 +23,9 @@ if (!is_file($LICENSE_FILE) && is_file(__DIR__ . '/../licenses.txt')) {
 // Private metadata (name / email / date-time per account). Never web-served
 // (dotfile, denied by the root .htaccess). Keeps customer PII out of the
 // public licenses.txt.
-$META_FILE = __DIR__ . '/../.accounts.json';
+// licdata/ survives deploys; the site root does not - see activate.php.
+$META_FILE = __DIR__ . '/../licdata/.accounts.json';
+if (!is_file($META_FILE) && is_file(__DIR__ . '/../.accounts.json')) {
+  @mkdir(dirname($META_FILE), 0755, true);
+  @copy(__DIR__ . '/../.accounts.json', $META_FILE);
+}

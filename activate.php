@@ -17,9 +17,14 @@ header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
 $LICENSE_FILE = __DIR__ . '/licdata/licenses.txt';   // outside the deployed tree - see the note below
-$META_FILE    = __DIR__ . '/.accounts.json';      // dotfile -> denied by root .htaccess
-$LOG_FILE     = __DIR__ . '/.activations.log';    // dotfile -> denied
-$RATE_FILE    = __DIR__ . '/.activate_rate.json'; // dotfile -> denied
+// All three of these live in licdata/ for the same reason the licence list does:
+// the deploy rewrites the site root on every push, which silently wiped the
+// customer metadata (email, country, date) and made the panel fall back to the
+// licence-file label. licdata/ is not part of the repo and survives deploys.
+// They stay dotfiles so the root .htaccess denies them over HTTP as well.
+$META_FILE    = __DIR__ . '/licdata/.accounts.json';
+$LOG_FILE     = __DIR__ . '/licdata/.activations.log';
+$RATE_FILE    = __DIR__ . '/licdata/.activate_rate.json';
 $RATE_MAX     = 8;        // max submissions per IP ...
 $RATE_WINDOW  = 3600;     // ... per hour
 
@@ -29,6 +34,13 @@ $RATE_WINDOW  = 3600;     // ... per hour
 if (!is_file($LICENSE_FILE) && is_file(__DIR__ . '/licenses.txt')) {
   @mkdir(dirname($LICENSE_FILE), 0755, true);
   @copy(__DIR__ . '/licenses.txt', $LICENSE_FILE);
+}
+// Same one-time move for the metadata, log and rate files. Whatever is still in
+// the site root is carried over; anything a previous deploy already removed is
+// gone and those rows simply show no email or flag.
+@mkdir(dirname($META_FILE), 0755, true);
+foreach (array($META_FILE => '/.accounts.json', $LOG_FILE => '/.activations.log', $RATE_FILE => '/.activate_rate.json') as $dst => $oldRel) {
+  if (!is_file($dst) && is_file(__DIR__ . $oldRel)) @copy(__DIR__ . $oldRel, $dst);
 }
 
 function out($ok, $msg, $extra = array()) {
