@@ -149,11 +149,19 @@ cd /opt/oqc/app
 
 ```bash
 .venv/Scripts/python.exe build/name_migration_fks.py migrations/versions/<new_file>.py
+.venv/Scripts/python.exe build/add_server_defaults.py migrations/versions/<new_file>.py
 ```
 
-which names each one `fk_<table>_<column>` and fills in the matching `drop_constraint` calls in the downgrade.
-Then apply it to a scratch database and autogenerate once more: a second revision with no operations in it proves
-the migration captures the models exactly.
+The first names each foreign key `fk_<table>_<column>` and fills in the matching `drop_constraint` calls in the
+downgrade. The second gives every `NOT NULL` column a server default read from the model's own `default=`.
+
+**Both steps are required, and SQLite will not tell you if you skip the second one.** Adding a non-null column
+to a table that already holds rows is the single most common way to break a deploy: SQLite's batch mode quietly
+rebuilds the whole table, so the migration passes locally, while PostgreSQL runs a real `ALTER TABLE` and fails
+with `NotNullViolation ... contains null values`. This happened on the first ERP parity deploy.
+
+Then apply the revision to a scratch database and autogenerate once more: a second revision with no operations
+in it proves the migration captures the models exactly.
 
 
 After changing a model, generate and review a revision before deploying it:
