@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}OTP Configuration{% endblock %}
+{% block content %}
+{% call ui.page_header("OTP Configuration", "One-time passwords: how they behave, and which member of staff is using one.", back="/config") %}
+  {{ ui.badge('active' if cfg.is_enabled else 'inactive', 'Enabled' if cfg.is_enabled else 'Disabled') }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Staff Users", stats.staff, color=palette(0)) }}
+  {{ ui.stat("Token Enabled", stats.enabled, color=palette(3), href="/config/otp?tab=users&token=enabled") }}
+  {{ ui.stat("Token Disabled", stats.disabled, color=palette(7), href="/config/otp?tab=users&token=disabled") }}
+  {{ ui.stat("Roles Required", stats.required_roles, color=palette(9)) }}
+</div>
+
+{{ ui.tabs([('setup', 'Setup', '/config/otp?tab=setup'), ('users', 'User Wise', '/config/otp?tab=users')], tab) }}
+
+{% if tab == 'setup' %}
+{% call ui.card('Setup', 'One row governs every one-time password the platform issues.') %}
+<form method="post" action="/config/otp/setup" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="flex items-end">{{ ui.checkbox('is_enabled', 'One-time passwords enabled', cfg.is_enabled, help='Off by default') }}</div>
+  {{ ui.select('channel', 'Channel', channels, cfg.channel, placeholder=None) }}
+  {{ ui.select('whatsapp_sender_id', 'WhatsApp Sender', senders, cfg.whatsapp_sender_id, placeholder='None — email only') }}
+  {{ ui.input('code_length', 'Code Length', cfg.code_length, type='number', min=4, max=10) }}
+  {{ ui.input('validity_minutes', 'Validity (minutes)', cfg.validity_minutes, type='number', min=1, max=120) }}
+  {{ ui.input('max_attempts', 'Max Attempts', cfg.max_attempts, type='number', min=1, max=20) }}
+  {{ ui.input('resend_after_seconds', 'Resend After (seconds)', cfg.resend_after_seconds, type='number', min=10, max=900) }}
+  <div class="sm:col-span-2 lg:col-span-3">
+    <label class="mb-1 block text-xs font-semibold text-slate-600">Roles that must use a one-time password</label>
+    <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 rounded border border-slate-200 p-3">
+      {% for slug, name in roles %}
+      <label class="flex items-center gap-2 text-xs">
+        <input type="checkbox" name="required_for_roles" value="{{ slug }}" {% if slug in (cfg.required_for_roles or []) %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+        <span class="text-slate-700">{{ name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="sm:col-span-2">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is this changing? (written to the audit log)') }}</div>
+  <div class="flex items-end justify-end">{% if can_configure %}{{ ui.button('Save setup', icon='save') }}{% endif %}</div>
+</form>
+{% endcall %}
+
+{% else %}
+
+{% call ui.filter_bar('/config/otp') %}
+  <input type="hidden" name="tab" value="users">
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Name, user name or email') }}</div>
+  <div class="w-44">{{ ui.select('token', 'Token Status', [('enabled','Enabled'),('disabled','Disabled')], token, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['User Name', 'First Name', 'Email', 'Role', 'Token Status', '']) }}
+{% for u in page.items %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs">{{ u.username }}</td>
+  <td class="px-3 py-2">{{ u.full_name }}</td>
+  <td class="px-3 py-2 text-xs">{{ u.email }}</td>
+  <td class="px-3 py-2 text-xs">{{ u.role.name if u.role else '—' }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if u.two_factor_enabled else 'inactive', 'Enabled' if u.two_factor_enabled else 'Disabled') }}</td>
+  <td class="px-3 py-2 text-right">
+    {% if can_configure %}
+    <form method="post" action="/config/otp/users/{{ u.id }}/toggle" class="inline">
+      <input type="hidden" name="q" value="{{ q }}">
+      {{ ui.button('Disable two-factor' if u.two_factor_enabled else 'Enable two-factor', icon='key-round', variant='ghost', size='sm') }}
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No staff users match these filters.', 6, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/config/otp?tab=users&q=' ~ q ~ '&token=' ~ token) }}
+<p class="mt-2 text-xs text-slate-500">Enabling or disabling a token writes to the user record and to the audit log.</p>
+{% endif %}
+{% endblock %}

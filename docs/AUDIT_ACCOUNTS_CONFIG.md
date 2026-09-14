@@ -104,3 +104,38 @@ Ticket Type includes New Feature; Module names the area of the system; Priority 
 3. **Payment gateway catalogue and WhatsApp senders**, which make the billing and messaging work configurable
    rather than fixed.
 4. **Support tickets and OTP**, which are self-contained and can follow.
+
+---
+
+## Status after the build
+
+Everything in the gap list above is now built, seeded and tested.
+
+**Accounts.** Accounts Heads, Chart of Accounts (type, head, postable and search filters, with head, postable
+and opening-balance columns) and Accounts Tree View. Journal, Payment and Receipt Vouchers share one entry:
+a voucher is a journal entry with a type and the party and payment details a payment or receipt needs, so the
+ledger, trial balance and the statements all read one set of lines. Reports: Ledger, Trial Balance, Income
+Statement, Balance Sheet, Payables Summary, Account Wise Summary and Approved Advances, each with a date
+range, a print view and CSV. Our own Profit and Loss, Cash Flow, Receivables Aging, Budgets, Period Close,
+Payables Detail, Consolidated Statement and Forecast are kept and are now on the launchpad.
+
+Cancelling a posted voucher posts a mirror contra voucher of the same type referencing the original and marks
+the original cancelled, so the two net to zero and the ledger stays balanced. Cancelling a draft writes no
+reversal. A receipt against a family with an invoice selected goes through the billing service and the journal
+it posts is adopted as the receipt voucher, so nothing is posted twice.
+
+On the seeded data the trial balance balances and so does the balance sheet; the seed asserts both and says so.
+
+**Configuration.** Lookups (14 lists, 85 values) with a single service every module reads through, Branch
+Properties with the tabs they use and a masked, audited reveal for secrets, Currency Rates with a manual entry
+and a rate feed, Payment Gateways, WhatsApp Numbers with a per-sender send throttle, Support Tickets, OTP
+Configuration, and a Roles page grouped by application alongside our own permission editor.
+
+### Deliberate differences from the ERP
+
+| Theirs | Ours | Why |
+|---|---|---|
+| Three separate voucher ledgers | One journal entry carrying a voucher type | A single set of lines means the trial balance and the statements cannot disagree with the vouchers |
+| Cancelling edits the original | Cancelling posts a mirror reversal | The original stays readable and the audit trail is complete |
+| Secrets shown in the settings list | Masked, with an audited reveal | A settings page is read by more people than the secret is meant for |
+| Rate feed live | Rate feed simulated, and says so on screen | We have no contract with a rate provider; the screen does not pretend otherwise |

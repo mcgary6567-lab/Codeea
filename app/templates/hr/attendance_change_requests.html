@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance Change Requests{% endblock %}
+{% block content %}
+{% call ui.page_header('Attendance Change Requests', 'Staff ask to correct a punch. Approving rewrites the attendance row it names and recomputes the late minutes.') %}
+  {% if can_add %}{{ ui.button('Create', icon='plus', attrs="@click=\"$dispatch('open-modal','newChange')\"") }}{% endif %}
+  {{ ui.button('Daily Attendance', href='/hr/attendance', icon='clock', variant='secondary') }}
+{% endcall %}
+
+<div class="mb-2 text-[12.5px] font-medium text-slate-600">Approval Status</div>
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, counts[key], icon=icon, color=palette(loop.index0), href='/hr/attendance/change-requests?status=' ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/hr/attendance/change-requests') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+  <div class="w-60">{{ ui.select('employee', 'Employee', employees, filters.employee, placeholder='All employees') }}</div>
+  <div class="w-36">{{ ui.select('shift', 'Shift Name', shifts, filters.shift, placeholder='All shifts') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Hr Approval Status', statuses, filters.status, placeholder='All statuses') }}</div>
+  <div class="w-44">{{ ui.input('q', 'Search', filters.q, placeholder='Name or code') }}</div>
+{% endcall %}
+
+<form method="post" action="/hr/attendance/change-requests/change-status">
+  <p class="mb-2 text-xs text-slate-500">{{ page.total }} request(s) - showing {{ page.start }}-{{ page.end }}</p>
+  {{ ui.table_start(['', 'ID', 'Employee Name', 'Shift Name', 'Attendance Date', 'Old Attendance Type', 'Old Login Time',
+                     'Old Logout Time', 'New Attendance Type', 'New Login Time', 'New Logout Time', 'User Remarks',
+                     'Hr Approval Status', 'Request Date']) }}
+  {% for r in page.items %}
+  {% set hl = '#fef9c3' if r.status == 'pending' else ('#fee2e2' if r.status == 'rejected' else ('#f1f5f9' if r.status == 'cancelled' else '')) %}
+  <tr {% if hl %}style="background: {{ hl }}"{% endif %}>
+    <td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
+    <td class="px-3 py-2 text-xs font-mono">{{ r.id }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.employee.full_name if r.employee else '-' }}
+      <div class="text-[10px] text-slate-500">{{ r.employee.employee_code if r.employee else '' }} · {{ r.session|upper }}</div></td>
+    <td class="px-3 py-2 text-xs">{{ (r.employee.shift|titleize) if r.employee else '-' }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.attendance_date|date }}</td>
+    <td class="px-3 py-2 text-xs">{{ type_labels.get(r.old_status, r.old_status|titleize) if r.old_status else '-' }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.old_check_in.strftime('%H:%M') if r.old_check_in else '-' }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.old_check_out.strftime('%H:%M') if r.old_check_out else '-' }}</td>
+    <td class="px-3 py-2 text-xs font-medium">{{ type_labels.get(r.new_status, r.new_status|titleize) }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.new_check_in.strftime('%H:%M') if r.new_check_in else '-' }}</td>
+    <td class="px-3 py-2 text-xs">{{ r.new_check_out.strftime('%H:%M') if r.new_check_out else '-' }}</td>
+    <td class="px-3 py-2 text-xs max-w-[16rem] truncate" title="{{ r.user_remarks or '' }}">{{ r.user_remarks or '-' }}
+      {% if r.hr_remarks %}<div class="text-[10px] text-slate-500 truncate" title="{{ r.hr_remarks }}">HR: {{ r.hr_remarks }}</div>{% endif %}</td>
+    <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No attendance change requests match these filters.', 14) }}{% endfor %}
+  {{ ui.table_end() }}
+  {{ ui.pagination(page, base_url) }}
+
+  {% if can_change %}
+  <div class="mt-4">
+    {% call ui.card('Actions - Change Status', 'Tick the rows above, choose the new approval status and record why. Approving rewrites the attendance row, recomputes late minutes and notifies the employee.') %}
+      <div class="grid gap-3 sm:grid-cols-3">
+        {{ ui.select('status', 'New Status', approval_options, None, required=True, placeholder='- Select -') }}
+        <div class="sm:col-span-2">{{ ui.textarea('hr_remarks', 'HR Remarks', '', rows=2, required=True, placeholder='Why is this request being approved / rejected / cancelled?') }}</div>
+      </div>
+      <div class="mt-3 flex justify-end">{{ ui.button('Change Status', icon='check-check') }}</div>
+    {% endcall %}
+  </div>
+  {% endif %}
+</form>
+
+{% if can_add %}
+{% call ui.modal('newChange', 'Create Attendance Change Request', 'lg') %}
+<form method="post" action="/hr/attendance/change-requests/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, None, required=True) }}</div>
+  {{ ui.input('attendance_date', 'Attendance Date', today_iso, type='date', required=True) }}
+  {{ ui.select('session', 'Session', [('am','AM'),('pm','PM')], 'am', placeholder=None) }}
+  {{ ui.select('new_status', 'New Attendance Type', type_options, 'present', placeholder=None) }}
+  <div></div>
+  {{ ui.input('new_check_in', 'New Login Time', '', type='time') }}
+  {{ ui.input('new_check_out', 'New Logout Time', '', type='time') }}
+  <div class="sm:col-span-2">{{ ui.textarea('user_remarks', 'User Remarks', '', rows=2, required=True, placeholder='What went wrong with the punch?') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

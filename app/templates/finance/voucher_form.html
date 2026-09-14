@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ voucher_labels[type] }}{% endblock %}
+{% block content %}
+{% set blurb = {'journal': 'A balanced entry across two or more accounts. Debits must equal credits before it can be posted.',
+                'payment': 'Money leaving the college. Debits the expense or liability account and credits the bank, gateway or cash account the money left from.',
+                'receipt': 'Money arriving. Debits the bank, gateway or cash account and credits the income or receivable account.'} %}
+{% call ui.page_header(voucher_labels[type], blurb[type], back='/finance/accounts/vouchers') %}
+  {% for t in voucher_types %}{% if t != type %}{{ ui.button(voucher_labels[t], href='/finance/accounts/vouchers/new?type=' ~ t, variant='secondary', size='sm') }}{% endif %}{% endfor %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<form method="post" action="/finance/accounts/vouchers/new" class="space-y-5"
+      x-data="{ lines: [0,1], party: '{{ 'client' if type == 'receipt' else ('vendor' if type == 'payment' else '') }}', apply: false, rate: 1, currency: '{{ base_currency }}', rates: {{ rates|tojson }} }">
+<input type="hidden" name="type" value="{{ type }}">
+
+{% call ui.card(voucher_labels[type] ~ ' header') %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {{ ui.input('entry_date', 'Voucher Date', today_d.isoformat(), type='date', required=True) }}
+  {{ ui.select('currency', 'Currency', currencies, base_currency, placeholder=None, required=True,
+               attrs='x-model="currency" @change="rate = rates[currency] || 1"') }}
+  {{ ui.input('exchange_rate', 'Exchange Rate', 1, type='number', step='0.000001',
+              help='1 unit of the voucher currency in ' ~ base_currency, attrs='x-model="rate"') }}
+  {{ ui.input('reference_no', 'Reference No', '', placeholder='Cheque / transfer / gateway reference') }}
+</div>
+<div class="mt-3">{{ ui.input('description', 'Description / Narration', '', required=True, placeholder='What this voucher is for') }}</div>
+{% endcall %}
+
+{% if type != 'journal' %}
+{% call ui.card('Who ' ~ ('was paid' if type == 'payment' else 'paid') ~ ', and how') %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {{ ui.select('party_type', ('Paid To' if type == 'payment' else 'Received From'), party_types,
+               'vendor' if type == 'payment' else 'client', placeholder=None, required=True, attrs='x-model="party"') }}
+  <div x-show="party === 'client'" x-cloak>{{ ui.select('client_id', 'Client / Family', clients, client_id, placeholder='— Select family —') }}</div>
+  <div x-show="party === 'employee'" x-cloak>{{ ui.select('employee_id', 'Employee', employees, None, placeholder='— Select employee —') }}</div>
+  <div x-show="party === 'vendor' || party === 'other'" x-cloak>{{ ui.input('party_name', 'Name', '', placeholder='Vendor or other party') }}</div>
+  {{ ui.select('payment_mode', 'Payment Mode', payment_modes, 'Bank', placeholder=None, required=True) }}
+  {{ ui.select('beneficiary_account_id', 'Beneficiary Account', beneficiaries, None,
+               placeholder='— Bank / gateway / cash —', help='Cash modes settle through 1000 Cash, everything else through 1010 Bank.') }}
+</div>
+{% if type == 'receipt' %}
+<div class="mt-4 rounded border border-slate-200 bg-slate-50 p-3" x-show="party === 'client'" x-cloak>
+  <label class="flex items-start gap-2.5 text-sm">
+    <input type="checkbox" x-model="apply" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600">
+    <span><span class="font-medium text-slate-700">Apply this receipt to an outstanding invoice</span>
+      <span class="block text-xs text-slate-500">The billing service allocates it, writes the client ledger, issues the receipt and notifies the family. The voucher is the journal it posts.</span></span>
+  </label>
+  <div class="mt-3" x-show="apply" x-cloak>{{ ui.select('invoice_id', 'Invoice', open_invoices, invoice.id if invoice else None, placeholder='— Select invoice —') }}</div>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call ui.card('Amount and account') %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {{ ui.input('amount', 'Amount', '', type='number', step='0.01', min='0.01', required=True) }}
+  {% if type == 'payment' %}
+    {{ ui.select('account_id', 'Debit Account (expense or liability)', debit_accounts, None, placeholder='— Select account —', required=True) }}
+  {% else %}
+    {{ ui.select('account_id', 'Credit Account (income or receivable)', credit_accounts, None, placeholder='— Select account —', required=True) }}
+  {% endif %}
+  {{ ui.input('memo', 'Memo', '', placeholder='Shown on the ledger line') }}
+</div>
+{{ ui.alert("The other side of the entry is posted automatically to the ledger account behind the beneficiary account you chose.", 'info') }}
+{% endcall %}
+
+{% else %}
+
+{% call ui.card('Voucher lines', 'At least two lines must carry an amount and the debits must equal the credits.') %}
+<div class="overflow-x-auto rounded border border-slate-300">
+  <table class="min-w-full border-collapse text-[13px]">
+    <thead><tr class="bg-[#e8f1fb]">
+      <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Account</th>
+      <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Debit</th>
+      <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Credit</th>
+      <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Memo</th>
+    </tr></thead>
+    <tbody>
+    <template x-for="i in lines" :key="i">
+      <tr>
+        <td class="border border-slate-200 px-2 py-1.5">
+          <select name="account_id" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">— none —</option>
+            {% for id, label in accounts %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
+          </select>
+        </td>
+        <td class="border border-slate-200 px-2 py-1.5"><input name="debit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+        <td class="border border-slate-200 px-2 py-1.5"><input name="credit" type="number" step="0.01" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+        <td class="border border-slate-200 px-2 py-1.5"><input name="memo" type="text" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
+</div>
+<button type="button" @click="lines.push(lines.length)" class="mt-2 text-xs font-medium text-brand-600 hover:underline">+ add line</button>
+{% endcall %}
+{% endif %}
+
+{% call ui.card('Rationale') %}
+{{ ui.textarea('rationale', 'Why this voucher is being raised', '', rows=2, help='Recorded on the audit trail with the voucher.') }}
+<div class="mt-4 flex flex-wrap gap-2">
+  <button type="submit" name="action" value="post" class="inline-flex items-center gap-1.5 rounded bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="check" class="h-4 w-4"></i>Save &amp; Post</button>
+  <button type="submit" name="action" value="draft" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="save" class="h-4 w-4"></i>Save as Draft</button>
+  <a href="/finance/accounts/vouchers" class="rounded px-3 py-1.5 text-sm text-slate-500 hover:text-slate-800">Cancel</a>
+</div>
+{% endcall %}
+</form>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Leave Assignment{% endblock %}
+{% block content %}
+{% call ui.page_header('Leave Assignment', 'How many days of each leave type a member of staff holds this year, and how many they have used.') %}
+  {% if can_add %}{{ ui.button('Create', icon='plus', attrs="@click=\"$dispatch('open-modal','newEnt')\"") }}
+  {{ ui.button('Assign to all active employees', icon='users', variant='secondary', attrs="@click=\"$dispatch('open-modal','bulkEnt')\"") }}{% endif %}
+  {{ ui.button('Leave Management', href='/hr/leaves', icon='plane', variant='secondary') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Assignments', page.total, icon='calendar-check', color='sky') }}
+  {{ ui.stat('Active', active_count, icon='check', color='emerald') }}
+  {{ ui.stat('Days assigned', totals.assigned, icon='calendar-days', color='indigo') }}
+  {{ ui.stat('Days consumed', totals.consumed, icon='calendar-minus', color='amber') }}
+</div>
+
+{% call ui.filter_bar('/hr/leave-entitlements') %}
+  <div class="w-60">{{ ui.select('employee', 'Employee', employees, filters.employee, placeholder='All employees') }}</div>
+  <div class="w-36">{{ ui.select('leave_type', 'Leave Type', leave_types, filters.leave_type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('shift', 'Shift', shifts, filters.shift, placeholder='All shifts') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, filters.status, placeholder='All statuses') }}</div>
+  <div class="w-44">{{ ui.input('q', 'Search', filters.q, placeholder='Name or code') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Employee', 'Employee Status', 'Shift', 'Leave Type', 'Total Assigned Leaves',
+                   'Consumed Leaves', 'Remaining', 'Expiry Date', 'Status', '']) }}
+{% for ent in page.items %}
+{% set e = ent.employee %}
+<tr {% if ent.remaining <= 0 %}style="background:#fee2e2"{% elif ent.remaining <= 2 %}style="background:#fef3c7"{% endif %}>
+  <td class="px-3 py-2 text-xs font-mono">{{ ent.id }}</td>
+  <td class="px-3 py-2 text-xs">{% if e %}<a href="/hr/employees/{{ e.id }}" class="font-medium hover:text-brand-600">{{ e.full_name }}</a>
+    <div class="text-[10px] text-slate-500">{{ e.employee_code }} · {{ e.designation }}</div>{% else %}-{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge(e.status) if e else '-' }}</td>
+  <td class="px-3 py-2 text-xs">{{ (e.shift|titleize) if e else '-' }}{% if e and e.shift_code %} <span class="text-slate-400">({{ e.shift_code }})</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ ent.leave_type|titleize }}</td>
+  <td class="px-3 py-2 text-xs">{{ ent.total_assigned }}</td>
+  <td class="px-3 py-2 text-xs">{{ ent.consumed }}</td>
+  <td class="px-3 py-2 text-xs font-semibold">{{ ent.remaining }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ ent.expiry_date|date if ent.expiry_date else '-' }}</td>
+  <td class="px-3 py-2">{{ ui.badge(ent.status) }}</td>
+  <td class="px-3 py-2 text-right">
+    {% if can_update %}
+    {{ ui.button('Edit', icon='pencil', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','ent" ~ ent.id ~ "')\"") }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No leave assignments match these filters.', 11) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_update %}
+{% for ent in page.items %}
+{% call ui.modal('ent' ~ ent.id, 'Edit leave assignment #' ~ ent.id) %}
+<form method="post" action="/hr/leave-entitlements/{{ ent.id }}/edit" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2 text-xs text-slate-500">{{ ent.employee.employee_code ~ ' - ' ~ ent.employee.full_name if ent.employee else 'Employee' }}</div>
+  {{ ui.select('leave_type', 'Leave Type', leave_types, ent.leave_type, placeholder=None) }}
+  {{ ui.select('status', 'Status', statuses, ent.status, placeholder=None) }}
+  {{ ui.input('total_assigned', 'Total Assigned Leaves', ent.total_assigned, type='number', step='0.5', min=0) }}
+  {{ ui.input('consumed', 'Consumed Leaves', ent.consumed, type='number', step='0.5', min=0) }}
+  {{ ui.input('expiry_date', 'Expiry Date', ent.expiry_date|string if ent.expiry_date else '', type='date') }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', ent.notes or '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endfor %}
+{% endif %}
+
+{% if can_add %}
+{% call ui.modal('newEnt', 'Create leave assignment') %}
+<form method="post" action="/hr/leave-entitlements/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, None, required=True) }}</div>
+  {{ ui.select('leave_type', 'Leave Type', leave_types, 'casual', placeholder=None) }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  {{ ui.input('total_assigned', 'Total Assigned Leaves', '12', type='number', step='0.5', min=0, required=True) }}
+  {{ ui.input('consumed', 'Consumed Leaves', '0', type='number', step='0.5', min=0) }}
+  {{ ui.input('expiry_date', 'Expiry Date', year_end, type='date') }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+
+{% call ui.modal('bulkEnt', 'Assign to all active employees') %}
+<form method="post" action="/hr/leave-entitlements/bulk-assign" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2 text-xs text-slate-500">Anyone who already holds this leave type for the period is skipped, so the action is safe to repeat.</div>
+  {{ ui.select('leave_type', 'Leave Type', leave_types, 'casual', placeholder=None) }}
+  {{ ui.input('total_assigned', 'Total Assigned Leaves', '12', type='number', step='0.5', min=0, required=True) }}
+  {{ ui.input('expiry_date', 'Expiry Date', year_end, type='date') }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('notes', 'Notes', '', rows=2, placeholder='Recorded against the audit entry.') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Assign', icon='users') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

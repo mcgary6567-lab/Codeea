@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Approved Advances{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Approved Advances", "Staff salary advances that are approved or still outstanding, with the instalment plan, what has been recovered and what is left.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/approved-advances?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/approved-advances') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='Approved & outstanding') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Approved Advances</h1>
+  <p style="font-size:11px">{{ date_from }} to {{ date_to }} &middot; {{ rows|length }} advance(s) &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Advances", rows|length, color=palette(0)) }}
+  {{ ui.stat("Approved Amount", totals.amount|round(0)|int, color=palette(3), hint=base) }}
+  {{ ui.stat("Recovered", totals.recovered|round(0)|int, color=palette(5), hint=base) }}
+  {{ ui.stat("Outstanding", totals.balance|round(0)|int, color=palette(7), hint=base) }}
+</div>
+
+{{ ui.table_start(['Employee Code', 'Employee', 'Designation', 'Request Date', 'Amount', 'Instalments', 'Per Instalment', 'Recovered', 'Balance', 'Recovery', 'Status']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.employee_code or '—' }}</td>
+  <td class="px-3 py-1.5 font-medium">{{ r.employee_name }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.designation or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money(r.currency) }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.installments }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ r.per_installment|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.recovered|money }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold">{{ r.balance|money }}</td>
+  <td class="px-3 py-1.5 w-32">{{ ui.progress(r.recovered_pct, 'emerald' if r.recovered_pct >= 100 else 'amber') }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td>
+</tr>
+{% else %}{{ ui.empty('No approved advances in this range.', 11, 'hand-coins') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2" colspan="4">TOTAL</td>
+  <td class="px-3 py-2 text-right">{{ totals.amount|money }}</td>
+  <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+  <td class="px-3 py-2 text-right">{{ totals.recovered|money }}</td>
+  <td class="px-3 py-2 text-right">{{ totals.balance|money }}</td>
+  <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Advances are raised and approved in Human Resource; this report is the accounting view of what is still to be recovered from payroll.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

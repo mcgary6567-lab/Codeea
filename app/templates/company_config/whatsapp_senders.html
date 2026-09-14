@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}WhatsApp Numbers{% endblock %}
+{% block content %}
+{% call ui.page_header("WhatsApp Numbers", "Connected senders, each with its own send throttle and QR reconnection.", back="/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newSender\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("All Senders", stats.total, color=palette(0), href="/config/whatsapp-senders") }}
+  {{ ui.stat("Connected", stats.connected, color=palette(3), href="/config/whatsapp-senders?api_status=connected") }}
+  {{ ui.stat("Disconnected", stats.disconnected, color=palette(7), href="/config/whatsapp-senders?api_status=disconnected") }}
+  {{ ui.stat("Live Mode", stats.live, color=palette(9)) }}
+</div>
+
+<div class="mb-4">{{ ui.alert("Connecting a sender here is SIMULATED: it generates a QR token and marks the number connected without opening a WhatsApp session. The throttle below is real — anything that sends asks pick_sender() for a number whose interval has elapsed.", "info", "Simulated connection") }}</div>
+
+{% call ui.filter_bar('/config/whatsapp-senders') %}
+  <div class="w-44">{{ ui.select('api_status', 'API Status', api_statuses, api_status, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('purpose', 'Purpose', purposes, purpose, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% if picked %}
+<p class="mb-3 text-xs text-slate-600">Next message for <b>{{ (purpose or 'general')|titleize }}</b> would go out through <b>{{ picked.description }}</b> ({{ picked.number }}).</p>
+{% else %}
+<p class="mb-3 text-xs text-amber-700">No connected sender is ready for <b>{{ (purpose or 'general')|titleize }}</b> right now — every candidate is inside its throttle window.</p>
+{% endif %}
+
+{{ ui.table_start(['API Status', 'Description', 'WhatsApp Number', 'Live Mode', 'Last Message Sent Time', 'Interval In Seconds', 'Messages Per Cycle', 'Next Send', 'Purpose', 'Status', 'Qr Code', '']) }}
+{% for it in items %}
+{% set s = it.s %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2">{{ ui.badge(s.api_status) }}</td>
+  <td class="px-3 py-2 font-semibold text-slate-800">{{ s.description }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ s.number }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ 'Yes' if s.live_mode else 'No' }}</td>
+  <td class="px-3 py-2 text-xs">{{ s.last_message_sent_at|datetime if s.last_message_sent_at else 'Never' }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ s.interval_seconds }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ s.messages_per_cycle }}</td>
+  <td class="px-3 py-2 text-xs">{% if it.ready %}<span class="font-semibold text-emerald-700">Ready</span>{% else %}{{ it.next_at|datetime }}{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ s.purpose|titleize }}</td>
+  <td class="px-3 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-3 py-2 text-xs">
+    {% if s.qr_token %}
+      <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{{ s.qr_token[:10] }}…</code>
+      <div class="text-[10px] text-slate-400">{{ s.qr_refreshed_at|datetime if s.qr_refreshed_at else '' }}</div>
+    {% else %}<span class="text-slate-400">No QR</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_configure %}
+      {% if s.api_status == 'connected' %}
+        <form method="post" action="/config/whatsapp-senders/{{ s.id }}/disconnect" class="inline">{{ ui.button('Disconnect', icon='unplug', variant='ghost', size='sm') }}</form>
+      {% else %}
+        <form method="post" action="/config/whatsapp-senders/{{ s.id }}/connect" class="inline">{{ ui.button('Connect', icon='qr-code', variant='ghost', size='sm') }}</form>
+      {% endif %}
+    {% endif %}
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/config/whatsapp-senders/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="12" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/config/whatsapp-senders/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+    {{ ui.input('description', 'Description', s.description, required=True) }}
+    {{ ui.input('number', 'WhatsApp Number', s.number, required=True) }}
+    {{ ui.select('purpose', 'Purpose', purposes, s.purpose, placeholder=None) }}
+    {{ ui.input('interval_seconds', 'Interval In Seconds', s.interval_seconds, type='number', min=0) }}
+    {{ ui.input('messages_per_cycle', 'Messages Per Cycle', s.messages_per_cycle, type='number', min=1) }}
+    {{ ui.select('status', 'Status', statuses, s.status, placeholder=None) }}
+    <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', s.live_mode) }}</div>
+    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save sender', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No WhatsApp senders match these filters.', 12, 'message-circle') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if can_add %}
+{% call ui.modal('newSender', 'Create WhatsApp Sender') %}
+<form method="post" action="/config/whatsapp-senders/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('description', 'Description', '', required=True, placeholder='General Sender') }}
+  {{ ui.input('number', 'WhatsApp Number', '', required=True, placeholder='+92 300 0000000') }}
+  {{ ui.select('purpose', 'Purpose', purposes, 'general', placeholder=None) }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  {{ ui.input('interval_seconds', 'Interval In Seconds', 10, type='number', min=0, help='How long one cycle lasts') }}
+  {{ ui.input('messages_per_cycle', 'Messages Per Cycle', 1, type='number', min=1, help='Messages allowed inside one cycle') }}
+  <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', True) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create sender', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

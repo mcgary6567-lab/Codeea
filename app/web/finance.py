@@ -33,12 +33,24 @@ router = APIRouter(prefix="/finance", dependencies=[Depends(csrf_protect)])
 
 UPLOAD_DIR = BASE_DIR / "storage" / "uploads"
 
-ACCOUNT_TABS = [("chart", "Chart of accounts", "/finance/accounts"), ("journal", "Journal", "/finance/accounts/journal"),
+ACCOUNT_TABS = [("chart", "Chart of accounts", "/finance/accounts"), ("heads", "Accounts heads", "/finance/accounts/heads"),
+                ("tree", "Tree view", "/finance/accounts/tree"), ("vouchers", "Vouchers", "/finance/accounts/vouchers"),
+                ("reports", "Reports", "/finance/accounts/reports/trial-balance"),
+                ("journal", "Journal", "/finance/accounts/journal"),
                 ("pnl", "P&L", "/finance/accounts/pnl"), ("cash", "Cash flow", "/finance/accounts/cash-flow"),
                 ("aging", "Receivables aging", "/finance/accounts/aging"), ("payables", "Payables", "/finance/accounts/payables"),
                 ("budget", "Budget vs actual", "/finance/accounts/budget"), ("forecast", "Forecast", "/finance/accounts/forecast"),
                 ("close", "Financial close", "/finance/accounts/close"),
                 ("consolidated", "Consolidated", "/finance/accounts/consolidated")]
+
+# The ERP's Accounts > Reports group (docs/AUDIT_ACCOUNTS_CONFIG.md). Every one is computed from JournalLine.
+REPORT_TABS = [("ledger", "Ledger Report", "/finance/accounts/reports/ledger"),
+               ("trial-balance", "Trial Balance", "/finance/accounts/reports/trial-balance"),
+               ("income-statement", "Income Statement", "/finance/accounts/reports/income-statement"),
+               ("balance-sheet", "Balance Sheet", "/finance/accounts/reports/balance-sheet"),
+               ("payables", "Payables Summary", "/finance/accounts/reports/payables"),
+               ("account-wise", "Account Wise Summary", "/finance/accounts/reports/account-wise"),
+               ("approved-advances", "Approved Advances", "/finance/accounts/reports/approved-advances")]
 
 SUB_TABS = [("overview", "Overview"), ("billing", "Billing history"), ("audit", "Audit trail")]
 
@@ -1172,14 +1184,28 @@ async def ledger_adjustment(client_id: int, request: Request, db: Session = Depe
 
 # ============================================================================ Module 19 — accounts
 @router.get("/accounts", include_in_schema=False)
-def accounts_chart(request: Request, db: Session = Depends(get_db), user: User = Depends(require("accounts.view"))):
+def accounts_chart(request: Request, q: str = "", account_type: str = "", head_id: str = "", postable: str = "",
+                   db: Session = Depends(get_db), user: User = Depends(require("accounts.view"))):
     accounting.ensure_chart_of_accounts(db)
     db.commit()
-    accounts = db.query(Account).order_by(Account.code).all()
+    all_accounts = db.query(Account).order_by(Account.account_type, Account.sort_no, Account.code).all()
+    accounts = all_accounts
+    if q:
+        needle = q.lower()
+        accounts = [a for a in accounts if needle in a.code.lower() or needle in a.name.lower()]
+    if account_type:
+        accounts = [a for a in accounts if a.account_type == account_type]
+    head = parse_int(head_id)
+    if head:
+        accounts = [a for a in accounts if a.parent_id == head]
+    if postable == "yes":
+        accounts = [a for a in accounts if a.is_postable and not a.is_head]
+    elif postable == "no":
+        accounts = [a for a in accounts if a.is_head or not a.is_postable]
     balances = dict(db.query(JournalLine.account_id,
                              func.coalesce(func.sum(JournalLine.debit), 0) - func.coalesce(func.sum(JournalLine.credit), 0))
                     .join(JournalEntry, JournalEntry.id == JournalLine.entry_id)
-                    .filter(JournalEntry.status == "posted").group_by(JournalLine.account_id).all())
+                    .filter(accounting.ledger_entry_filter()).group_by(JournalLine.account_id).all())
     tree = []
     for a in accounts:
         if a.parent_id is None:
@@ -1187,8 +1213,12 @@ def accounts_chart(request: Request, db: Session = Depends(get_db), user: User =
     return render(request, "finance/accounts_chart.html", {
         "user": user, "tabs": ACCOUNT_TABS, "tab": "chart", "accounts": accounts, "tree": tree,
         "balances": {k: round(float(v), 2) for k, v in balances.items()}, "types": accounting.ACCOUNT_TYPES,
-        "base": billing.base_currency(db),
-        "parent_options": [(a.id, f"{a.code} {a.name}") for a in accounts]})
+        "base": billing.base_currency(db), "q": q, "account_type": account_type, "head_id": head_id,
+        "postable": postable, "heads": _head_options(db),
+        "stats": {"total": len(all_accounts), "heads": len([a for a in all_accounts if a.is_head]),
+                  "postable": len([a for a in all_accounts if a.is_postable and not a.is_head]),
+                  "inactive": len([a for a in all_accounts if not a.is_active])},
+        "parent_options": [(a.id, f"{a.code} {a.name}") for a in all_accounts]})
 
 
 @router.post("/accounts/new", include_in_schema=False)
@@ -1201,7 +1231,10 @@ async def account_create(request: Request, db: Session = Depends(get_db), user: 
     if db.query(Account).filter(Account.code == code).first():
         return redirect("/finance/accounts", f"Account {code} already exists.", "error")
     a = Account(code=code, name=name, account_type=form.get("account_type") or "expense",
-                parent_id=parse_int(form.get("parent_id")) or None, description=form.get("description"), is_active=True)
+                parent_id=parse_int(form.get("parent_id")) or None, description=form.get("description"), is_active=True,
+                is_head=parse_bool(form.get("is_head")), is_postable=not parse_bool(form.get("is_head")),
+                sort_no=parse_int(form.get("sort_no"), 0) or 0,
+                opening_balance=parse_float(form.get("opening_balance"), 0))
     db.add(a)
     db.flush()
     log_action(db, user, "create", "accounts", entity=a, description=f"Account {code} {name} created", request=request)
@@ -1220,8 +1253,22 @@ async def account_edit(id: int, request: Request, db: Session = Depends(get_db),
     a.account_type = form.get("account_type") or a.account_type
     a.description = form.get("description")
     a.is_active = parse_bool(form.get("is_active"))
+    if "parent_id" in form:
+        parent = parse_int(form.get("parent_id")) or None
+        a.parent_id = None if parent == a.id else parent
+    if "sort_no" in form:
+        a.sort_no = parse_int(form.get("sort_no"), a.sort_no or 0) or 0
+    if "opening_balance" in form:
+        a.opening_balance = parse_float(form.get("opening_balance"), float(a.opening_balance or 0))
+    if "is_head" in form:
+        make_head = parse_bool(form.get("is_head"))
+        if make_head and not a.is_head and accounting.account_has_postings(db, a):
+            return redirect("/finance/accounts",
+                            f"{a.code} {a.name} already carries postings and cannot become a head.", "error")
+        a.is_head = make_head
+        a.is_postable = not make_head
     log_action(db, user, "update", "accounts", entity=a, description=f"Account {a.code} updated", before=before,
-               after=snapshot(a), request=request)
+               after=snapshot(a), rationale=form.get("rationale") or form.get("reason"), request=request)
     db.commit()
     return redirect("/finance/accounts", f"Account {a.code} updated.")
 
@@ -1459,6 +1506,610 @@ def accounts_consolidated(request: Request, period: str = "", db: Session = Depe
     return render(request, "finance/consolidated.html", {
         "user": user, "tabs": ACCOUNT_TABS, "tab": "consolidated", "data": data, "period": period,
         "periods": _period_options(12), "base": data["base"]})
+
+
+# ============================================================================ Accounts — ERP parity
+# Setup (Accounts Heads · Chart of Accounts · Accounts Tree View), Transactions (Journal / Payment / Receipt
+# Vouchers) and the statutory reports. See docs/AUDIT_ACCOUNTS_CONFIG.md.
+def _account(db: Session, id: int) -> Account:
+    a = db.query(Account).get(id)
+    if not a:
+        raise HTTPException(404, "Account not found")
+    return a
+
+
+def _voucher(db: Session, id: int) -> JournalEntry:
+    v = db.query(JournalEntry).get(id)
+    if not v:
+        raise HTTPException(404, "Voucher not found")
+    return v
+
+
+def _account_options(db: Session, types: tuple | None = None, postable_only: bool = True) -> list[tuple[int, str]]:
+    q = db.query(Account).filter(Account.is_active.is_(True))
+    if postable_only:
+        q = q.filter(Account.is_head.is_(False), Account.is_postable.is_(True))
+    if types:
+        q = q.filter(Account.account_type.in_(types))
+    return [(a.id, f"{a.code} - {a.name}") for a in q.order_by(Account.account_type, Account.sort_no, Account.code).all()]
+
+
+def _head_options(db: Session) -> list[tuple[int, str]]:
+    return [(a.id, f"{a.code} - {a.name}") for a in accounting.head_accounts(db)]
+
+
+def _beneficiary_options(db: Session) -> list[tuple[int, str]]:
+    rows = db.query(BeneficiaryAccount).filter(BeneficiaryAccount.status == "active").order_by(
+        BeneficiaryAccount.payment_mode, BeneficiaryAccount.account_name).all()
+    return [(b.id, f"{b.account_name} ({b.category})") for b in rows]
+
+
+def _employee_options(db: Session) -> list[tuple[int, str]]:
+    rows = db.query(Employee).filter(Employee.status.in_(["active", "probation"])).order_by(Employee.full_name).all()
+    return [(e.id, f"{e.employee_code} - {e.full_name}") for e in rows]
+
+
+def _report_range(date_from: str, date_to: str) -> tuple[date, date]:
+    end = parse_date(date_to) or date.today()
+    start = parse_date(date_from) or month_bounds(month_key(end))[0]
+    if start > end:
+        start, end = end, start
+    return start, end
+
+
+def _voucher_ctx(db: Session, user: User, extra: dict) -> dict:
+    ctx = {"user": user, "tabs": ACCOUNT_TABS, "base": billing.base_currency(db),
+           "voucher_types": accounting.VOUCHER_TYPES, "voucher_labels": accounting.VOUCHER_LABELS,
+           "voucher_statuses": accounting.VOUCHER_STATUSES}
+    ctx.update(extra)
+    return ctx
+
+
+# ---------------------------------------------------------------------------- Setup 1: Accounts Heads
+@router.get("/accounts/heads", include_in_schema=False)
+def accounts_heads(request: Request, q: str = "", account_type: str = "", status: str = "",
+                   db: Session = Depends(get_db), user: User = Depends(require("accounts.view"))):
+    accounting.ensure_chart_of_accounts(db)
+    db.commit()
+    query = db.query(Account).filter(Account.is_head.is_(True))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(Account.code.ilike(like), Account.name.ilike(like)))
+    if account_type:
+        query = query.filter(Account.account_type == account_type)
+    if status:
+        query = query.filter(Account.is_active.is_(status == "active"))
+    heads = query.order_by(Account.account_type, Account.sort_no, Account.code).all()
+    all_heads = db.query(Account).filter(Account.is_head.is_(True)).all()
+    child_counts = dict(db.query(Account.parent_id, func.count(Account.id))
+                        .filter(Account.parent_id.isnot(None)).group_by(Account.parent_id).all())
+    by_type = {t: len([h for h in all_heads if h.account_type == t]) for t in accounting.ACCOUNT_TYPES}
+    return render(request, "finance/accounts_heads.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "heads", "heads": heads, "q": q, "account_type": account_type,
+        "status": status, "types": accounting.ACCOUNT_TYPES, "by_type": by_type, "child_counts": child_counts,
+        "stats": {"total": len(all_heads), "active": len([h for h in all_heads if h.is_active]),
+                  "inactive": len([h for h in all_heads if not h.is_active])},
+        "parent_options": _head_options(db), "base": billing.base_currency(db),
+        "next_sort": (db.query(func.max(Account.sort_no)).filter(Account.is_head.is_(True)).scalar() or 0) + 10,
+        "can_add": rbac.has_permission(user, "accounts.add"),
+        "can_edit": rbac.has_permission(user, "accounts.update")})
+
+
+@router.post("/accounts/heads/new", include_in_schema=False)
+async def accounts_head_create(request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("accounts.add"))):
+    form = await request.form()
+    code = (form.get("code") or "").strip()
+    name = (form.get("name") or "").strip()
+    if not code or not name:
+        return redirect("/finance/accounts/heads", "A head needs a code and a name.", "error")
+    if db.query(Account).filter(Account.code == code).first():
+        return redirect("/finance/accounts/heads", f"Account {code} already exists.", "error")
+    head = Account(code=code, name=name, account_type=form.get("account_type") or "asset",
+                   parent_id=parse_int(form.get("parent_id")) or None, description=form.get("description"),
+                   is_head=True, is_postable=False, sort_no=parse_int(form.get("sort_no"), 0) or 0,
+                   is_active=True, opening_balance=0)
+    db.add(head)
+    db.flush()
+    log_action(db, user, "create", "accounts", entity=head, description=f"Accounts head {code} {name} created",
+               after=snapshot(head), request=request)
+    db.commit()
+    return redirect("/finance/accounts/heads", f"Head {code} added.")
+
+
+@router.post("/accounts/heads/{id}/edit", include_in_schema=False)
+async def accounts_head_edit(id: int, request: Request, db: Session = Depends(get_db),
+                             user: User = Depends(require("accounts.update"))):
+    head = _account(db, id)
+    form = await request.form()
+    before = snapshot(head)
+    head.name = (form.get("name") or head.name).strip()
+    head.account_type = form.get("account_type") or head.account_type
+    head.parent_id = parse_int(form.get("parent_id")) or None
+    head.sort_no = parse_int(form.get("sort_no"), head.sort_no or 0) or 0
+    head.description = form.get("description") or head.description
+    if head.parent_id == head.id:
+        head.parent_id = None
+    log_action(db, user, "update", "accounts", entity=head, description=f"Accounts head {head.code} updated",
+               before=before, after=snapshot(head), request=request)
+    db.commit()
+    return redirect("/finance/accounts/heads", f"Head {head.code} updated.")
+
+
+@router.post("/accounts/heads/{id}/toggle", include_in_schema=False)
+async def accounts_head_toggle(id: int, request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("accounts.update"))):
+    head = _account(db, id)
+    before = snapshot(head)
+    head.is_active = not head.is_active
+    log_action(db, user, "status_change", "accounts", entity=head,
+               description=f"Accounts head {head.code} marked {'active' if head.is_active else 'inactive'}",
+               before=before, after=snapshot(head), request=request)
+    db.commit()
+    return redirect("/finance/accounts/heads", f"Head {head.code} marked {'active' if head.is_active else 'inactive'}.")
+
+
+@router.post("/accounts/{id}/mark-head", include_in_schema=False)
+async def account_mark_head(id: int, request: Request, db: Session = Depends(get_db),
+                            user: User = Depends(require("accounts.update"))):
+    account = _account(db, id)
+    form = await request.form()
+    make_head = parse_bool(form.get("is_head"))
+    back = form.get("back") or "/finance/accounts"
+    if make_head and accounting.account_has_postings(db, account):
+        return redirect(back, f"{account.code} {account.name} already carries postings and cannot become a head.",
+                        "error")
+    before = snapshot(account)
+    account.is_head = make_head
+    account.is_postable = not make_head
+    log_action(db, user, "update", "accounts", entity=account,
+               description=f"Account {account.code} marked {'a head' if make_head else 'postable'}",
+               rationale=form.get("rationale") or form.get("reason"), before=before, after=snapshot(account),
+               request=request)
+    db.commit()
+    return redirect(back, f"{account.code} is now {'a head' if make_head else 'postable'}.")
+
+
+# ---------------------------------------------------------------------------- Setup 3: Accounts Tree View
+@router.get("/accounts/tree", include_in_schema=False)
+def accounts_tree(request: Request, as_of: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                  user: User = Depends(require("accounts.view"))):
+    accounting.ensure_chart_of_accounts(db)
+    db.commit()
+    on = parse_date(as_of) or date.today()
+    data = accounting.accounts_tree(db, on)
+    return render(request, "finance/accounts_tree.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "tree", "data": data, "as_of": on.isoformat(),
+        "base": data["currency"], "print_view": bool(print_view), "types": accounting.ACCOUNT_TYPES,
+        "type_label": accounting.titleize_type})
+
+
+# ---------------------------------------------------------------------------- Transactions: vouchers
+@router.get("/accounts/vouchers", include_in_schema=False)
+def vouchers_list(request: Request, page: int = 1, q: str = "", type: str = "", status: str = "",
+                  date_from: str = "", date_to: str = "", account_id: str = "", party: str = "", currency: str = "",
+                  db: Session = Depends(get_db), user: User = Depends(require("accounts.view"))):
+    query = db.query(JournalEntry).filter(JournalEntry.voucher_number.isnot(None))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(JournalEntry.voucher_number.ilike(like), JournalEntry.description.ilike(like),
+                                 JournalEntry.reference_no.ilike(like), JournalEntry.entry_number.ilike(like)))
+    if type:
+        query = query.filter(JournalEntry.voucher_type == type)
+    if status:
+        query = query.filter(JournalEntry.status == status)
+    query = _date_range(query, JournalEntry.entry_date, date_from, date_to)
+    if party:
+        query = query.filter(JournalEntry.party_name.ilike(f"%{party}%"))
+    if currency:
+        query = query.filter(JournalEntry.currency == currency)
+    acct_id = parse_int(account_id)
+    if acct_id:
+        query = query.filter(JournalEntry.id.in_(
+            db.query(JournalLine.entry_id).filter(JournalLine.account_id == acct_id)))
+    pg = paginate(query.order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc()), page, 25)
+    qs = (f"q={q}&type={type}&status={status}&date_from={date_from}&date_to={date_to}"
+          f"&account_id={account_id}&party={party}&currency={currency}")
+    counts = accounting.voucher_status_counts(db)
+    type_counts = accounting.voucher_type_counts(db)
+    poster_ids = {v.posted_by_id for v in pg.items if v.posted_by_id}
+    posters = ({u.id: u.full_name for u in db.query(User).filter(User.id.in_(poster_ids)).all()}
+               if poster_ids else {})
+    tabs = [("", f"All ({counts['total']})", f"/finance/accounts/vouchers?status={status}")]
+    tabs += [(t, f"{accounting.VOUCHER_LABELS[t]} ({type_counts.get(t, 0)})",
+              f"/finance/accounts/vouchers?type={t}&status={status}") for t in accounting.VOUCHER_TYPES]
+    return render(request, "finance/vouchers_list.html", _voucher_ctx(db, user, {
+        "tab": "vouchers", "page": pg, "q": q, "type": type, "status": status, "date_from": date_from,
+        "date_to": date_to, "account_id": account_id, "party": party, "currency": currency, "counts": counts,
+        "type_counts": type_counts, "type_tabs": tabs, "base_url": f"/finance/accounts/vouchers?{qs}", "qs": qs,
+        "posters": posters,
+        "accounts": _account_options(db, postable_only=False), "currencies": _currency_codes(db),
+        "can_add": rbac.has_permission(user, "accounts.add")}))
+
+
+@router.get("/accounts/vouchers/new", include_in_schema=False)
+def voucher_new(request: Request, type: str = "journal", client_id: str = "", invoice_id: str = "",
+                db: Session = Depends(get_db), user: User = Depends(require("accounts.add"))):
+    if type not in accounting.VOUCHER_TYPES:
+        type = "journal"
+    base = billing.base_currency(db)
+    inv = db.query(Invoice).get(parse_int(invoice_id)) if parse_int(invoice_id) else None
+    return render(request, "finance/voucher_form.html", _voucher_ctx(db, user, {
+        "tab": "vouchers", "type": type, "today_d": date.today(),
+        "accounts": _account_options(db),
+        "debit_accounts": _account_options(db, ("expense", "liability", "asset")),
+        "credit_accounts": _account_options(db, ("income", "asset", "liability")),
+        "beneficiaries": _beneficiary_options(db), "payment_modes": accounting.PAYMENT_MODES,
+        "party_types": accounting.PARTY_TYPES, "clients": _client_options(db),
+        "employees": _employee_options(db), "currencies": _currency_codes(db), "base_currency": base,
+        "rates": {c.code: float(c.rate_to_base) for c in db.query(Currency).all()},
+        "client_id": client_id, "invoice": inv,
+        "open_invoices": [(i.id, f"{i.invoice_number} - {i.currency} {float(i.total) - float(i.paid_amount):,.2f}")
+                          for i in db.query(Invoice).filter(Invoice.status.in_(["sent", "pending", "confirmed",
+                                                                                "partial", "overdue"]))
+                          .order_by(Invoice.due_date).limit(300).all()]}))
+
+
+@router.post("/accounts/vouchers/new", include_in_schema=False)
+async def voucher_create(request: Request, db: Session = Depends(get_db),
+                         user: User = Depends(require("accounts.add"))):
+    form = await request.form()
+    vtype = (form.get("type") or "journal").strip()
+    if vtype not in accounting.VOUCHER_TYPES:
+        return redirect("/finance/accounts/vouchers", "Unknown voucher type.", "error")
+    back = f"/finance/accounts/vouchers/new?type={vtype}"
+    status = "draft" if (form.get("action") or "post") == "draft" else "posted"
+    entry_date = parse_date(form.get("entry_date"), date.today())
+    base = billing.base_currency(db)
+    currency = (form.get("currency") or base).upper()
+    rate = parse_float(form.get("exchange_rate"), 0) or billing.get_rate(db, currency)
+    description = (form.get("description") or "").strip()
+    reference_no = (form.get("reference_no") or "").strip() or None
+    rationale = (form.get("rationale") or form.get("reason") or "").strip() or None
+
+    party_type = (form.get("party_type") or "").strip() or None
+    party_id, party_name = None, (form.get("party_name") or "").strip() or None
+    if party_type == "client":
+        c = db.query(Client).get(parse_int(form.get("client_id"))) if parse_int(form.get("client_id")) else None
+        if not c:
+            return redirect(back, "Choose the family this voucher is for.", "error")
+        party_id, party_name = c.id, f"{c.client_code} {c.full_name}"
+    elif party_type == "employee":
+        e = db.query(Employee).get(parse_int(form.get("employee_id"))) if parse_int(form.get("employee_id")) else None
+        if not e:
+            return redirect(back, "Choose the employee this voucher is for.", "error")
+        party_id, party_name = e.id, f"{e.employee_code} {e.full_name}"
+    elif party_type in ("vendor", "other") and not party_name:
+        return redirect(back, "Enter who was paid.", "error")
+
+    beneficiary_id = parse_int(form.get("beneficiary_account_id")) or None
+    beneficiary = db.query(BeneficiaryAccount).get(beneficiary_id) if beneficiary_id else None
+    payment_mode = (form.get("payment_mode") or (beneficiary.payment_mode if beneficiary else "")) or None
+
+    if vtype == "journal":
+        codes = form.getlist("account_id")
+        debits, credits, memos = form.getlist("debit"), form.getlist("credit"), form.getlist("memo")
+        lines = []
+        for i, aid in enumerate(codes):
+            if not aid:
+                continue
+            d = parse_float(debits[i] if i < len(debits) else 0, 0)
+            c = parse_float(credits[i] if i < len(credits) else 0, 0)
+            if d or c:
+                lines.append((parse_int(aid), d, c, memos[i] if i < len(memos) else None))
+        if not description:
+            description = "Journal voucher"
+    else:
+        amount = parse_float(form.get("amount"), 0)
+        account_id = parse_int(form.get("account_id"))
+        if amount <= 0:
+            return redirect(back, "Enter an amount greater than zero.", "error")
+        if not account_id:
+            return redirect(back, "Choose the account to post against.", "error")
+        try:
+            settle = accounting.beneficiary_ledger_account(db, beneficiary, payment_mode or "")
+        except ValueError as exc:
+            return _err(back, exc)
+        memo = (form.get("memo") or description or "").strip() or None
+        if vtype == "payment":
+            lines = [(account_id, amount, 0, memo), (settle.id, 0, amount, memo)]
+            description = description or f"Payment to {party_name or 'vendor'}"
+        else:
+            lines = [(settle.id, amount, 0, memo), (account_id, 0, amount, memo)]
+            description = description or f"Receipt from {party_name or 'client'}"
+
+        # A receipt against a family may be applied to an outstanding invoice: the billing service owns that
+        # allocation (ledger, receipt PDF, notification), so reuse it and adopt the journal it posts.
+        invoice_id = parse_int(form.get("invoice_id"))
+        if vtype == "receipt" and party_type == "client" and invoice_id:
+            inv = db.query(Invoice).get(invoice_id)
+            client = db.query(Client).get(party_id)
+            if not inv or not client or inv.client_id != client.id:
+                return redirect(back, "That invoice does not belong to the selected family.", "error")
+            try:
+                pay = billing.record_payment(
+                    db, client, amount, currency, (payment_mode or "bank_transfer").lower().replace(" ", "_"),
+                    reference_no, user=user, invoice=inv,
+                    received_at=datetime.combine(entry_date, datetime.min.time()),
+                    description=description, beneficiary_account=beneficiary, status="completed",
+                    # The Receipts list shows where the money landed and who took it. A receipt raised
+                    # through a voucher has the same columns to fill as one raised from the receipt form.
+                    receipt_date=entry_date,
+                    receiver_name=user.full_name or user.email,
+                    receiving_destination=(beneficiary.account_name if beneficiary else payment_mode),
+                    category=(beneficiary.category if beneficiary else payment_mode),
+                    billing_rep=user)
+            except ValueError as exc:
+                return _err(back, exc)
+            je = (db.query(JournalEntry).filter(JournalEntry.reference_type == "payment",
+                                                JournalEntry.reference_id == pay.id)
+                  .order_by(JournalEntry.id.desc()).first())
+            if je is None:
+                return redirect(back, "The receipt was recorded but no journal was posted.", "error")
+            accounting.adopt_as_voucher(db, je, "receipt", user=user, party_type="client", party_id=client.id,
+                                        party_name=party_name, payment_mode=payment_mode,
+                                        beneficiary_account_id=beneficiary_id, reference_no=reference_no,
+                                        exchange_rate=rate)
+            log_action(db, user, "create", "accounts", entity=je,
+                       description=f"Receipt voucher {je.voucher_number} {currency} {amount:,.2f} from {party_name}"
+                                   f" applied to {inv.invoice_number}",
+                       rationale=rationale, request=request)
+            db.commit()
+            return redirect(f"/finance/accounts/vouchers/{je.id}",
+                            f"Receipt voucher {je.voucher_number} posted and applied to {inv.invoice_number}.")
+
+    try:
+        voucher = accounting.create_voucher(
+            db, vtype, entry_date, description, lines, user=user, currency=currency, exchange_rate=rate,
+            party_type=party_type, party_id=party_id, party_name=party_name, payment_mode=payment_mode,
+            beneficiary_account_id=beneficiary_id, reference_no=reference_no, status=status)
+    except ValueError as exc:
+        return _err(back, exc)
+    log_action(db, user, "create", "accounts", entity=voucher,
+               description=f"{accounting.VOUCHER_LABELS[vtype]} {voucher.voucher_number} "
+                           f"{currency} {float(voucher.total):,.2f} saved as {status}",
+               rationale=rationale, after=snapshot(voucher), request=request,
+               consequential=(status == "posted"))
+    db.commit()
+    return redirect(f"/finance/accounts/vouchers/{voucher.id}",
+                    f"{accounting.VOUCHER_LABELS[vtype]} {voucher.voucher_number} {status}.")
+
+
+@router.get("/accounts/vouchers/{id}", include_in_schema=False)
+def voucher_detail(id: int, request: Request, print_view: int = 0, db: Session = Depends(get_db),
+                   user: User = Depends(require("accounts.view"))):
+    v = _voucher(db, id)
+    reversal = (db.query(JournalEntry).filter(JournalEntry.reference_type == "reversal",
+                                              JournalEntry.reference_id == v.id).first())
+    original = (db.query(JournalEntry).get(v.reference_id)
+                if v.reference_type == "reversal" and v.reference_id else None)
+    events = (db.query(AuditEvent).filter(AuditEvent.entity_type == "JournalEntry", AuditEvent.entity_id == v.id)
+              .order_by(AuditEvent.id.desc()).limit(20).all())
+    rate = float(v.exchange_rate or 1) or 1
+    return render(request, "finance/voucher_detail.html", _voucher_ctx(db, user, {
+        "tab": "vouchers", "v": v, "reversal": reversal, "original": original, "events": events,
+        "print_view": bool(print_view), "rate": rate,
+        "amount_in_currency": round(float(v.total or 0) / rate, 2),
+        "closed": accounting.period_is_closed(db, v.period or ""),
+        "org": billing._org(db),
+        "can_post": rbac.has_permission(user, "accounts.approve") or rbac.has_permission(user, "accounts.update"),
+        "can_cancel": rbac.has_permission(user, "accounts.approve")}))
+
+
+@router.post("/accounts/vouchers/{id}/post", include_in_schema=False)
+async def voucher_post(id: int, request: Request, db: Session = Depends(get_db),
+                       user: User = Depends(require("accounts.update"))):
+    v = _voucher(db, id)
+    form = await request.form()
+    before = snapshot(v)
+    try:
+        accounting.post_voucher(db, v, user)
+    except ValueError as exc:
+        return _err(f"/finance/accounts/vouchers/{id}", exc)
+    log_action(db, user, "post", "accounts", entity=v,
+               description=f"{v.voucher_number} posted ({float(v.total):,.2f} {v.currency})",
+               rationale=form.get("rationale") or form.get("reason"), before=before, after=snapshot(v),
+               request=request, consequential=True)
+    db.commit()
+    return redirect(f"/finance/accounts/vouchers/{id}", f"{v.voucher_number} posted.")
+
+
+@router.post("/accounts/vouchers/{id}/cancel", include_in_schema=False)
+async def voucher_cancel(id: int, request: Request, db: Session = Depends(get_db),
+                         user: User = Depends(require("accounts.approve"))):
+    v = _voucher(db, id)
+    form = await request.form()
+    reason = (form.get("reason") or form.get("rationale") or "").strip()
+    if not reason:
+        return redirect(f"/finance/accounts/vouchers/{id}", "A reason is required to cancel a voucher.", "error")
+    before = snapshot(v)
+    try:
+        reversal = accounting.cancel_voucher(db, v, user, reason)
+    except ValueError as exc:
+        return _err(f"/finance/accounts/vouchers/{id}", exc)
+    log_action(db, user, "cancel", "accounts", entity=v,
+               description=f"{v.voucher_number} cancelled"
+                           + (f"; reversed by {reversal.voucher_number}" if reversal else " (was a draft)"),
+               rationale=reason, before=before, after=snapshot(v), request=request, consequential=True)
+    db.commit()
+    return redirect(f"/finance/accounts/vouchers/{id}",
+                    f"{v.voucher_number} cancelled" + (f" and reversed by {reversal.voucher_number}." if reversal
+                                                       else "."), "warning")
+
+
+# ---------------------------------------------------------------------------- Reports
+@router.get("/accounts/reports/ledger", include_in_schema=False)
+def report_ledger(request: Request, account_id: str = "", date_from: str = "", date_to: str = "",
+                  format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                  user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    options = _account_options(db, postable_only=False)
+    aid = parse_int(account_id) or (options[0][0] if options else None)
+    account = db.query(Account).get(aid) if aid else None
+    data = accounting.ledger_report(db, account, start, end) if account else None
+    if format == "csv" and data:
+        rows = [["Ledger Report", f"{account.code} {account.name}", f"{start} to {end}"],
+                ["Date", "Voucher No", "Type", "Description", "Party", "Reference", "Debit", "Credit", "Balance"],
+                ["", "", "", "Opening balance", "", "", "", "", f"{data['opening']:.2f}"]]
+        rows += [[r["date"].isoformat(), r["voucher_number"], accounting.VOUCHER_LABELS.get(r["voucher_type"], "-"),
+                  r["description"], r["party"] or "", r["reference"] or "", f"{r['debit']:.2f}",
+                  f"{r['credit']:.2f}", f"{r['balance']:.2f}"] for r in data["rows"]]
+        rows.append(["", "", "", "Closing balance", "", "", f"{data['total_debit']:.2f}",
+                     f"{data['total_credit']:.2f}", f"{data['closing']:.2f}"])
+        return _csv(rows, f"ledger-{account.code}-{start}-{end}.csv")
+    return render(request, "finance/report_ledger.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "ledger",
+        "data": data, "account": account, "accounts": options, "account_id": str(aid or ""),
+        "date_from": start.isoformat(), "date_to": end.isoformat(), "base": billing.base_currency(db),
+        "print_view": bool(print_view),
+        "qs": f"account_id={aid or ''}&date_from={start}&date_to={end}"})
+
+
+@router.get("/accounts/reports/trial-balance", include_in_schema=False)
+def report_trial_balance(request: Request, date_from: str = "", date_to: str = "", format: str = "",
+                         include_empty: int = 0, print_view: int = 0, db: Session = Depends(get_db),
+                         user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.trial_balance(db, start, end, include_empty=bool(include_empty))
+    if format == "csv":
+        rows = [["Trial Balance Report", f"{start} to {end}"],
+                ["Account Code", "Account Name", "Type", "Head", "Opening", "Debit", "Credit", "Closing"]]
+        rows += [[r["code"], r["name"], accounting.titleize_type(r["type"]), r["head"], f"{r['opening']:.2f}",
+                  f"{r['debit']:.2f}", f"{r['credit']:.2f}", f"{r['closing']:.2f}"] for r in data["rows"]]
+        rows.append(["", "TOTAL", "", "", f"{data['total_opening']:.2f}", f"{data['total_debit']:.2f}",
+                     f"{data['total_credit']:.2f}", f"{data['total_closing']:.2f}"])
+        return _csv(rows, f"trial-balance-{start}-{end}.csv")
+    return render(request, "finance/report_trial_balance.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "trial-balance",
+        "data": data, "date_from": start.isoformat(), "date_to": end.isoformat(), "include_empty": include_empty,
+        "base": data["currency"], "print_view": bool(print_view),
+        "qs": f"date_from={start}&date_to={end}&include_empty={include_empty}"})
+
+
+@router.get("/accounts/reports/income-statement", include_in_schema=False)
+def report_income_statement(request: Request, date_from: str = "", date_to: str = "", format: str = "",
+                            print_view: int = 0, db: Session = Depends(get_db),
+                            user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.income_statement(db, start, end)
+    if format == "csv":
+        rows = [["Income Statement", f"{start} to {end}", f"compared with {data['prev_start']} to {data['prev_end']}"],
+                ["Section", "Account Code", "Account Name", "Group", "Amount", "Previous", "Change"]]
+        rows += [["Income", r["code"], r["name"], r["head"], f"{r['amount']:.2f}", f"{r['previous']:.2f}",
+                  f"{r['delta']:.2f}"] for r in data["income"]]
+        rows.append(["Income", "", "Total income", "", f"{data['total_income']:.2f}",
+                     f"{data['previous']['total_income']:.2f}", f"{data['income_delta']:.2f}"])
+        rows += [["Expense", r["code"], r["name"], r["head"], f"{r['amount']:.2f}", f"{r['previous']:.2f}",
+                  f"{r['delta']:.2f}"] for r in data["expense"]]
+        rows.append(["Expense", "", "Total expenses", "", f"{data['total_expense']:.2f}",
+                     f"{data['previous']['total_expense']:.2f}", f"{data['expense_delta']:.2f}"])
+        rows.append(["Net", "", "Net income", "", f"{data['net']:.2f}", f"{data['previous']['net']:.2f}",
+                     f"{data['net_delta']:.2f}"])
+        return _csv(rows, f"income-statement-{start}-{end}.csv")
+    return render(request, "finance/report_income_statement.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS,
+        "report": "income-statement", "data": data, "date_from": start.isoformat(), "date_to": end.isoformat(),
+        "base": data["currency"], "print_view": bool(print_view), "qs": f"date_from={start}&date_to={end}"})
+
+
+@router.get("/accounts/reports/balance-sheet", include_in_schema=False)
+def report_balance_sheet(request: Request, date_from: str = "", date_to: str = "", format: str = "",
+                         print_view: int = 0, db: Session = Depends(get_db),
+                         user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.balance_sheet(db, end)
+    if format == "csv":
+        rows = [["Balance Sheet", f"as at {end}"], ["Section", "Account Code", "Account Name", "Amount"]]
+        rows += [["Assets", r["code"], r["name"], f"{r['amount']:.2f}"] for r in data["assets"]]
+        rows.append(["Assets", "", "Total assets", f"{data['total_assets']:.2f}"])
+        rows += [["Liabilities", r["code"], r["name"], f"{r['amount']:.2f}"] for r in data["liabilities"]]
+        rows.append(["Liabilities", "", "Total liabilities", f"{data['total_liabilities']:.2f}"])
+        rows += [["Equity", r["code"], r["name"], f"{r['amount']:.2f}"] for r in data["equity"]]
+        rows.append(["Equity", "", "Retained earnings", f"{data['retained_earnings']:.2f}"])
+        rows.append(["Equity", "", "Total equity", f"{data['total_equity_with_earnings']:.2f}"])
+        rows.append(["Check", "", "Liabilities + equity", f"{data['total_liabilities_equity']:.2f}"])
+        rows.append(["Check", "", "Difference", f"{data['difference']:.2f}"])
+        return _csv(rows, f"balance-sheet-{end}.csv")
+    return render(request, "finance/report_balance_sheet.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "balance-sheet",
+        "data": data, "date_from": start.isoformat(), "date_to": end.isoformat(), "base": data["currency"],
+        "print_view": bool(print_view), "qs": f"date_from={start}&date_to={end}"})
+
+
+@router.get("/accounts/reports/payables", include_in_schema=False)
+def report_payables(request: Request, date_from: str = "", date_to: str = "", format: str = "",
+                    print_view: int = 0, db: Session = Depends(get_db),
+                    user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.payables_summary(db, end)
+    bucket_keys = [k for k, _ in data["buckets"]]
+    if format == "csv":
+        rows = [["Payables Summary", f"as at {end}"],
+                ["Vendor", "Invoices", "Total"] + [lbl for _, lbl in data["buckets"]]]
+        rows += [[v["vendor"], v["count"], f"{v['total']:.2f}"] + [f"{v['buckets'][k]:.2f}" for k in bucket_keys]
+                 for v in data["vendors"]]
+        rows.append(["TOTAL", data["count"], f"{data['total']:.2f}"] + [f"{data['totals'][k]:.2f}" for k in bucket_keys])
+        rows.append([])
+        rows.append(["Account", "Items", "Total"] + [lbl for _, lbl in data["buckets"]])
+        rows += [[a["account"], a["count"], f"{a['total']:.2f}"] + [f"{a['buckets'][k]:.2f}" for k in bucket_keys]
+                 for a in data["accounts"]]
+        return _csv(rows, f"payables-summary-{end}.csv")
+    return render(request, "finance/report_payables.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "payables",
+        "data": data, "bucket_keys": bucket_keys, "bucket_labels": [lbl for _, lbl in data["buckets"]],
+        "date_from": start.isoformat(), "date_to": end.isoformat(),
+        "base": data["currency"], "print_view": bool(print_view), "qs": f"date_from={start}&date_to={end}"})
+
+
+@router.get("/accounts/reports/account-wise", include_in_schema=False)
+def report_account_wise(request: Request, date_from: str = "", date_to: str = "", account_type: str = "",
+                        head_id: str = "", format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                        user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.account_wise_summary(db, start, end, account_type=account_type,
+                                           head_id=parse_int(head_id) or None)
+    if format == "csv":
+        rows = [["Account Wise Summary", f"{start} to {end}"],
+                ["Account Code", "Account Name", "Type", "Head", "Opening", "Debit", "Credit", "Closing"]]
+        rows += [[r["code"], r["name"], accounting.titleize_type(r["type"]), r["head"], f"{r['opening']:.2f}",
+                  f"{r['debit']:.2f}", f"{r['credit']:.2f}", f"{r['closing']:.2f}"] for r in data["rows"]]
+        rows.append(["", "TOTAL", "", "", f"{data['total_opening']:.2f}", f"{data['total_debit']:.2f}",
+                     f"{data['total_credit']:.2f}", f"{data['total_closing']:.2f}"])
+        return _csv(rows, f"account-wise-{start}-{end}.csv")
+    return render(request, "finance/report_account_wise.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS, "report": "account-wise",
+        "data": data, "date_from": start.isoformat(), "date_to": end.isoformat(), "account_type": account_type,
+        "head_id": head_id, "types": accounting.ACCOUNT_TYPES, "heads": _head_options(db),
+        "base": data["currency"], "print_view": bool(print_view),
+        "qs": f"date_from={start}&date_to={end}&account_type={account_type}&head_id={head_id}"})
+
+
+@router.get("/accounts/reports/approved-advances", include_in_schema=False)
+def report_approved_advances(request: Request, date_from: str = "", date_to: str = "", status: str = "",
+                             format: str = "", print_view: int = 0, db: Session = Depends(get_db),
+                             user: User = Depends(require("accounts.view"))):
+    start, end = _report_range(date_from, date_to)
+    data = accounting.approved_advances(db, status=status)
+    rows = [r for r in data["rows"] if not r["request_date"] or start <= r["request_date"] <= end]
+    totals = {"amount": round(sum(r["amount"] for r in rows), 2),
+              "recovered": round(sum(r["recovered"] for r in rows), 2),
+              "balance": round(sum(r["balance"] for r in rows), 2)}
+    if format == "csv":
+        out = [["Approved Advances", f"{start} to {end}"],
+               ["Employee Code", "Employee", "Request Date", "Amount", "Currency", "Instalments",
+                "Per Instalment", "Recovered", "Balance", "Status"]]
+        out += [[r["employee_code"], r["employee_name"], r["request_date"].isoformat() if r["request_date"] else "",
+                 f"{r['amount']:.2f}", r["currency"], r["installments"], f"{r['per_installment']:.2f}",
+                 f"{r['recovered']:.2f}", f"{r['balance']:.2f}", r["status"]] for r in rows]
+        out.append(["", "TOTAL", "", f"{totals['amount']:.2f}", "", "", "", f"{totals['recovered']:.2f}",
+                    f"{totals['balance']:.2f}", ""])
+        return _csv(out, f"approved-advances-{start}-{end}.csv")
+    return render(request, "finance/report_advances.html", {
+        "user": user, "tabs": ACCOUNT_TABS, "tab": "reports", "report_tabs": REPORT_TABS,
+        "report": "approved-advances", "rows": rows, "totals": totals, "status": status,
+        "statuses": ["approved", "paid", "settled"], "date_from": start.isoformat(), "date_to": end.isoformat(),
+        "base": data["currency"], "print_view": bool(print_view),
+        "qs": f"date_from={start}&date_to={end}&status={status}"})
 
 
 @router.get("/accounts/{id}", include_in_schema=False)

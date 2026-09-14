@@ -1,0 +1,70 @@
+{# ERP Downloads: HR documents published to staff (ID / Description / Link / Status). #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Downloads{% endblock %}
+{% block content %}
+{% call ui.page_header("Downloads", "HR policies and forms published to every member of staff.") %}
+  {{ ui.button('Employment Management', href='/home/hr', icon='layout-grid', variant='secondary') }}
+  {% if can_edit %}{{ ui.button("Create", icon="plus", attrs="@click=\"$dispatch('open-modal','newDownload')\"") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs(group_tabs, 'downloads') }}
+
+{{ ui.section_label('Status') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('All Documents', counts.total, icon='folder', color=palette(0), href='/hr/downloads') }}
+  {{ ui.stat('Active', counts.active, icon='check-circle-2', color=palette(1), href='/hr/downloads?status=active') }}
+  {{ ui.stat('In-Active', counts.inactive, icon='archive', color=palette(2), href='/hr/downloads?status=inactive') }}
+</div>
+
+{% call ui.filter_bar('/hr/downloads') %}
+  <div class="w-60">{{ ui.input('q', 'Search', q, placeholder='Description') }}</div>
+  <div class="w-40">{{ ui.select('category', 'Category', categories, category, placeholder='All categories') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', ['active','inactive'], status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Description', 'Category', 'Link', 'Status'] + ([''] if can_edit else [])) }}
+{% for dl in page.items %}
+<tr {% if dl.status != 'active' %}style="background: #f8fafc"{% endif %}>
+  <td class="px-3 py-2 font-mono text-xs">{{ dl.id }}</td>
+  <td class="px-3 py-2 text-sm font-medium text-slate-800">{{ dl.description }}</td>
+  <td class="px-3 py-2 text-xs">{{ dl.category|titleize }}</td>
+  <td class="px-3 py-2 text-xs">
+    {% if dl.link %}<a href="{{ dl.link }}" class="text-brand-700 hover:underline" target="_blank" rel="noreferrer noopener">Open document</a>
+    {% elif dl.file_path %}<a href="{{ dl.file_path }}" class="text-brand-700 hover:underline">Download</a>
+    {% else %}—{% endif %}
+  </td>
+  <td class="px-3 py-2">{{ ui.badge(dl.status) }}</td>
+  {% if can_edit %}
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Edit', variant='ghost', size='sm', icon='pencil', attrs="@click=\"$dispatch('open-modal','edit" ~ dl.id ~ "')\"") }}
+    {{ ui.confirm_form('/hr/downloads/' ~ dl.id ~ '/toggle', 'Active' if dl.status != 'active' else 'Retire',
+                       icon='power', variant='secondary', message='Change the visibility of this document?') }}
+  </td>
+  {% endif %}
+</tr>
+{% else %}{{ ui.empty('No documents published yet.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_edit %}
+{% for dl in page.items %}
+{% call ui.modal('edit' ~ dl.id, 'Edit document') %}
+<form method="post" action="/hr/downloads/{{ dl.id }}/edit" class="grid gap-3">
+  {{ ui.input('description', 'Description', dl.description, required=True) }}
+  {{ ui.input('link', 'Link', dl.link or '', placeholder='https://…') }}
+  {{ ui.select('category', 'Category', categories, dl.category, placeholder=None) }}
+  <div class="flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endfor %}
+{% call ui.modal('newDownload', 'Publish an HR document') %}
+<form method="post" action="/hr/downloads/new" class="grid gap-3">
+  {{ ui.input('description', 'Description', '', required=True, placeholder='HR Policy Manual 2026') }}
+  {{ ui.input('link', 'Link', '', placeholder='https://drive.google.com/…') }}
+  {{ ui.select('category', 'Category', categories, 'policy', placeholder=None) }}
+  <div class="flex justify-end">{{ ui.button('Publish', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

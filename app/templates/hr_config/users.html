@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Users{% endblock %}
+{% block content %}
+{% call ui.page_header("Users", "Branch user accounts: the staff logins behind the employee records. Accounts are created and edited in Administration.", back="/hr/config") %}
+  {{ ui.button("User Administration", href="/admin/users", icon="shield", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat("All Users", stats.total, color=palette(0), href="/hr/config/users") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/config/users?active=yes") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/config/users?active=no") }}
+  {{ ui.stat("Never Signed In", stats.never, color=palette(5)) }}
+</div>
+
+{% call ui.filter_bar('/hr/config/users') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Name or email') }}</div>
+  <div class="w-56">{{ ui.select('role', 'Role', roles, role, placeholder='All roles') }}</div>
+  <div class="w-40">{{ ui.select('active', 'Status', actives, active, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'User Name', 'Email', 'Role', 'Employee', 'Department', 'Last Login', 'Status', '']) }}
+{% for u in rows %}
+{% set emp = employees.get(u.id) %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ u.id }}</td>
+  <td class="px-3 py-2">
+    <div class="flex items-center gap-2">{{ ui.avatar(u.full_name, 'sm') }}
+      <div><div class="font-medium text-slate-900">{{ u.full_name }}</div><div class="font-mono text-[11px] text-slate-500">{{ u.username }}</div></div>
+    </div>
+  </td>
+  <td class="px-3 py-2 text-xs">{{ u.email }}</td>
+  <td class="px-3 py-2 text-xs">{{ u.role.name if u.role else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% if emp %}<a class="text-brand-700 hover:underline" href="/hr/employees/{{ emp.id }}">{{ emp.employee_code }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ u.department.name if u.department else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ u.last_login_at|datetime if u.last_login_at else 'Never' }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if u.is_active else 'inactive', 'Active' if u.is_active else 'In-active') }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/admin/users/' ~ u.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No users match these filters.', 9, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} user{{ 's' if rows|length != 1 }}</div>
+{% endblock %}

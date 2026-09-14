@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Recruitment Summary{% endblock %}
+{% block content %}
+{% call ui.page_header("Summary", "Every vacancy with its applications by status, interviews held, hires and time to hire", back="/hr/recruitment") %}
+  {{ ui.button("Job Requisitions", href="/hr/recruitment", icon="briefcase", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Positions", totals.positions, color=palette(0)) }}
+  {{ ui.stat("Applications", totals.applications, color=palette(1), href="/hr/applications") }}
+  {{ ui.stat("Interviews Held", totals.interviews, color=palette(2), href="/hr/interviews") }}
+  {{ ui.stat("Hires", totals.hires, color=palette(3)) }}
+  {{ ui.stat("Avg Time to Hire", (totals.time_to_hire ~ ' d') if totals.time_to_hire is not none else '—', color=palette(4)) }}
+</div>
+
+<div class="mb-6">
+  {% call ui.card('Pipeline') %}
+  <div class="grid gap-2 sm:grid-cols-5">
+    {% for s in statuses %}
+    <div class="rounded border border-slate-200 px-3 py-2 text-center">
+      <div class="text-xl font-bold text-slate-800">{{ funnel.get(s, 0) }}</div>
+      <div class="text-[11px] text-slate-500">{{ labels[s] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endcall %}
+</div>
+
+{{ ui.table_start(['ID', 'Job Title', 'Department', 'Positions', 'Applications', 'Applied', 'Initial Selected',
+                   'Pre-Selected', 'Interviews Marked', 'Selected', 'Rejected', 'Interviews Held', 'Hires',
+                   'Fill %', 'Time to Hire']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ r.id }}</td>
+  <td class="px-3 py-2 font-medium"><a class="text-brand-700 hover:underline" href="/hr/recruitment/{{ r.id }}">{{ r.title }}</a></td>
+  <td class="px-3 py-2 text-xs">{{ r.department }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.positions }}</td>
+  <td class="px-3 py-2 text-center text-xs font-semibold">{{ r.applications }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.counts.applied }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.counts.initial_selected }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.counts.pre_selected }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.counts.marked_1st_interview + r.counts.marked_2nd_interview + r.counts.marked_final_interview }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.counts.selected }}</td>
+  <td class="px-3 py-2 text-center text-xs text-rose-600">{{ r.counts.rejected }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.interviews }}</td>
+  <td class="px-3 py-2 text-center text-xs font-semibold text-emerald-700">{{ r.hires }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ r.fill_pct }}%</td>
+  <td class="px-3 py-2 text-center text-xs">{{ (r.time_to_hire ~ ' days') if r.time_to_hire is not none else '—' }}</td>
+</tr>
+{% else %}{{ ui.empty('No job requisitions yet.', 15, 'bar-chart-3') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

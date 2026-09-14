@@ -48,14 +48,41 @@
     {% endcall %}
   </div>
   <div class="space-y-6">
-    {% if l.status == 'pending' and has_perm(user, 'leaves.approve') %}
+    {% call ui.card('Leave assignment', 'Working days only: Sundays and holidays inside the range are not consumed.') %}
+    {{ ui.dl([('Calendar days', days), ('Working days applied', l.days_applied if l.days_applied is not none else working),
+              ('Leave type', l.leave_type|titleize),
+              ('Assignment', (check.entitlement.leave_type|titleize ~ ' #' ~ check.entitlement.id) if check.entitlement else 'None on file'),
+              ('Total assigned', check.entitlement.total_assigned if check.entitlement else '—'),
+              ('Consumed', check.entitlement.consumed if check.entitlement else '—'),
+              ('Remaining', check.remaining if check.remaining is not none else '—'),
+              ('Expiry', (check.entitlement.expiry_date|date) if check.entitlement and check.entitlement.expiry_date else '—')]) }}
+    {% if holidays %}
+    <p class="mt-3 text-xs text-slate-600"><b>Holidays in the range:</b>
+      {% for h in holidays %}<span class="ml-1 inline-block rounded bg-slate-100 px-1.5 py-0.5">{{ h.name }} ({{ h.holiday_date|date }})</span>{% endfor %}</p>
+    {% endif %}
+    {% if l.status == 'pending' and not check.fits %}
+    <div class="mt-3">{{ ui.alert('This request needs ' ~ check.days ~ ' working day(s) but only ' ~ check.remaining ~ ' remain. Approving requires the override below with a reason.', 'warning', 'Over entitlement') }}</div>
+    {% endif %}
+    {% endcall %}
+
+    {% if l.status in ('pending', 'approved') and has_perm(user, 'leaves.approve') %}
     {% call ui.card('Decision') %}
     <form method="post" action="/hr/leaves/{{ l.id }}/decide" class="space-y-3">
       {{ ui.textarea('note', 'Note to the employee', '', rows=3) }}
-      <div class="flex gap-2">
-        <button name="decision" value="approve" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Approve</button>
-        <button name="decision" value="reject" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>Reject</button>
+      {% if l.status == 'pending' %}
+      <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2">
+        {{ ui.checkbox('override', 'Override the entitlement', help='Approve even though the request exceeds the remaining days.') }}
+        <div class="mt-2">{{ ui.input('rationale', 'Override reason', '', placeholder='Recorded as the rationale in the audit trail') }}</div>
       </div>
+      {% endif %}
+      <div class="flex flex-wrap gap-2">
+        {% if l.status == 'pending' %}
+        <button name="decision" value="approve" class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Approve</button>
+        {% endif %}
+        <button name="decision" value="reject" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>{{ 'Reverse approval' if l.status == 'approved' else 'Reject' }}</button>
+        <button name="decision" value="cancel" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="ban" class="h-4 w-4"></i>Cancel</button>
+      </div>
+      <p class="text-[11px] text-slate-500">Reversing or cancelling an approved leave returns the days to the assignment.</p>
     </form>
     {% endcall %}
     {% endif %}

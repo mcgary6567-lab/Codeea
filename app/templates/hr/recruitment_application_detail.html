@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ a.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(a.full_name, (a.request.title if a.request else 'Application') ~ ' · applied ' ~ (a.application_date|date), back='/hr/applications') %}
+  {{ ui.badge(a.status, labels.get(a.status, a.status)) }}
+  {% if employee %}{{ ui.button('Employee record', href='/hr/employees/' ~ employee.id, icon='id-card', variant='secondary', size='sm') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card('Application') %}
+    {{ ui.dl([('Candidate Name', a.full_name), ('Father Name', a.father_name), ('Gender', a.gender|titleize if a.gender else None),
+              ('Application Type', 'Profile' if a.application_type == 'profile' else 'Non-Profile'),
+              ('Department', a.department.name if a.department else None), ('Job Title', a.request.title if a.request else None),
+              ('Application Date', a.application_date|date), ('NIC Number', a.nic_number|mask if a.nic_number else None),
+              ('Cell No', a.cell_no), ('Email', a.email), ('Qualification', a.qualification),
+              ('Experience', ('%g years'|format(a.experience_years)) if a.experience_years else None),
+              ('Expected Salary', a.expected_salary|money('PKR') if a.expected_salary else None), ('City', a.city),
+              ('Source', a.source), ('Interview Panel', a.panel.name if a.panel else None)]) }}
+    {% if a.remarks %}<div class="mt-4 whitespace-pre-line rounded bg-slate-50 px-3 py-2 text-sm">{{ a.remarks }}</div>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Interviews') %}
+    {{ ui.table_start(['Date', 'Type', 'Panel Member', 'Location', 'Outcome', 'Score', 'Feedback']) }}
+    {% for iv in interviews %}
+    <tr>
+      <td class="px-3 py-2 text-xs whitespace-nowrap">{{ iv.scheduled_at|datetime }}</td>
+      <td class="px-3 py-2 text-xs">{{ iv.interview_type|titleize }}</td>
+      <td class="px-3 py-2 text-xs">{{ iv.interviewer.full_name if iv.interviewer else '—' }}</td>
+      <td class="px-3 py-2 text-xs">{{ iv_location(iv) or '—' }}</td>
+      <td class="px-3 py-2">{{ ui.badge(iv.status) }}</td>
+      <td class="px-3 py-2 text-center text-xs">{{ iv.score if iv.score is not none else '—' }}</td>
+      <td class="px-3 py-2 text-xs">{{ iv_notes(iv) or '—' }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No interview has been scheduled yet.', 7, 'calendar-clock') }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% if can_process %}
+    {% call ui.card('Process this application') %}
+    <form method="post" action="/hr/applications/process" class="space-y-3">
+      <input type="hidden" name="ids" value="{{ a.id }}">
+      <input type="hidden" name="next" value="/hr/applications/{{ a.id }}">
+      {{ ui.select('status', 'Move to', status_options, next_status.get(a.status, ''), placeholder='Next step in the pipeline') }}
+      {{ ui.select('panel_id', 'Interview Panel', panels, a.panel_id or '', placeholder='— required for interviews —') }}
+      {{ ui.textarea('remark', 'Remark', '', rows=2, placeholder='Why this decision') }}
+      {{ ui.select('department_id', 'Department (on hire)', departments, a.department_id or '', placeholder='From the application') }}
+      {{ ui.input('base_salary', 'Basic salary (on hire)', a.expected_salary or '', type='number', step='1000') }}
+      {{ ui.checkbox('create_login', 'Create a login when hiring', True) }}
+      {{ ui.button('Process', icon='chevrons-right') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Pipeline') %}
+    <ol class="space-y-1.5 text-sm">
+      {% for s in statuses %}
+      <li class="flex items-center gap-2 {{ 'font-semibold text-brand-700' if s == a.status else 'text-slate-500' }}">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] {{ 'bg-brand-600 text-white' if s == a.status else 'bg-slate-100' }}">{{ loop.index }}</span>
+        {{ labels[s] }}
+      </li>
+      {% endfor %}
+    </ol>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

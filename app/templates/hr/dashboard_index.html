@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}HR Dashboards{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  {% call ui.page_header("Dashboards", "Employee Management, Attendance Management and Financial Management") %}
+    {{ ui.button("HR Configurations", href="/hr/config", icon="settings", variant="secondary") }}
+  {% endcall %}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for c in cards %}
+      {{ ui.module_card(c.title, c.url, icon=c.icon, color=palette(loop.index0), subtitle=c.blurb) }}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

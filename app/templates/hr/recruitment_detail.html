@@ -12,7 +12,24 @@
   {% endif %}
 {% endcall %}
 <div class="grid gap-6 lg:grid-cols-3">
-  <div class="lg:col-span-2">
+  <div class="space-y-6 lg:col-span-2">
+    {% call ui.card('Job applications') %}
+    {{ ui.table_start(['ID', 'Candidate Name', 'Application Date', 'Cell No', 'City', 'Status', '']) }}
+    {% for a in applications %}
+    <tr>
+      <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
+      <td class="px-3 py-2 text-xs"><a href="/hr/applications/{{ a.id }}" class="font-medium text-brand-700 hover:underline">{{ a.full_name }}</a></td>
+      <td class="px-3 py-2 text-xs">{{ a.application_date|date }}</td>
+      <td class="px-3 py-2 font-mono text-[11px]">{{ a.cell_no or '—' }}</td>
+      <td class="px-3 py-2 text-xs">{{ a.city or '—' }}</td>
+      <td class="px-3 py-2">{{ ui.badge(a.status, labels.get(a.status, a.status)) }}</td>
+      <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/hr/applications/' ~ a.id, size='sm', variant='ghost') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No applications against this vacancy yet.', 7, 'file-text') }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+
+    {% call ui.card('Candidate pipeline') %}
     {{ ui.table_start(['Candidate', 'Applied for', 'Source', 'Score', 'Stage', '']) }}
     {% for c in candidates %}
     <tr>
@@ -26,10 +43,16 @@
     </tr>
     {% else %}{{ ui.empty('No candidates linked to this request.', 6) }}{% endfor %}
     {{ ui.table_end() }}
+    {% endcall %}
   </div>
   <div class="space-y-6">
     {% call ui.card('Request') %}
-    {{ ui.dl([('Positions', r.positions), ('Department', r.department.name if r.department else '—'),
+    {{ ui.dl([('Total Positions', r.positions), ('Job Type', r.job_type|titleize),
+              ('Department', r.department.name if r.department else '—'),
+              ('Job Categories', (r.job_categories or [])|join(', ') or '—'),
+              ('Skills', (r.skills or [])|join(', ') or '—'), ('Job Location', r.job_location or '—'),
+              ('Start Date', r.start_date|date if r.start_date else '—'),
+              ('End Date', r.end_date|date if r.end_date else '—'),
               ('Target date', r.target_date|date if r.target_date else '—'), ('Raised', r.created_at|date),
               ('Status', r.status|titleize)]) }}
     <div class="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-line dark:bg-slate-800">{{ r.description or 'No description.' }}</div>

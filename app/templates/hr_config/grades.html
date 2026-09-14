@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Grades &amp; Allowances{% endblock %}
+{% block content %}
+{% call ui.page_header("Grades & Allowances", "Salary grades and the allowances that come with them. Assigning a grade to an employee fills their salary structure.", back="/hr/config") %}
+  {{ ui.button("Salary Bands", href="/hr/payroll/bands", icon="sliders-horizontal", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newGrade\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("All Grades", stats.total, color=palette(0), href="/hr/config/grades") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/config/grades?status=active") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/config/grades?status=inactive") }}
+</div>
+
+{% call ui.filter_bar('/hr/config/grades') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Grade name') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Grade Name', 'Description', 'Basic Min', 'Basic Max', 'Allowances', 'Employees', 'Status', '']) }}
+{% for g in rows %}
+<tr x-data="{ edit: false, assign: false }">
+  <td class="px-3 py-2 font-semibold text-slate-900">{{ g.name }}</td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ g.description or '—' }}</td>
+  <td class="px-3 py-2 text-right font-mono text-xs">{{ g.basic_min|money('PKR') }}</td>
+  <td class="px-3 py-2 text-right font-mono text-xs">{{ g.basic_max|money('PKR') }}</td>
+  <td class="px-3 py-2 text-xs">
+    {% for k, v in (g.allowances or {}).items() %}
+      <span class="mr-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px]">{{ k|titleize }} {{ v|money }}</span>
+    {% else %}<span class="text-slate-400">None</span>{% endfor %}
+  </td>
+  <td class="px-3 py-2 text-center text-xs">{{ assigned.get(g.id, 0) }}</td>
+  <td class="px-3 py-2">{{ ui.badge(g.status) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="assign = !assign" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50" title="Assign to an employee"><i data-lucide="user-plus" class="h-3.5 w-3.5"></i></button>
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/hr/config/grades/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/hr/config/grades/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+    {{ ui.input('name', 'Grade Name', g.name, required=True) }}
+    {{ ui.input('basic_min', 'Basic Min', g.basic_min, type='number', step='500', min=0) }}
+    {{ ui.input('basic_max', 'Basic Max', g.basic_max, type='number', step='500', min=0) }}
+    {{ ui.select('status', 'Status', statuses, g.status, placeholder=None) }}
+    <div class="lg:col-span-4">{{ ui.input('description', 'Description', g.description or '') }}</div>
+    <div class="lg:col-span-4">
+      <div class="mb-1 text-xs font-semibold text-slate-600">Allowances</div>
+      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {% for k, v in (g.allowances or {}).items() %}
+          <div class="flex gap-1"><input name="allow_key" value="{{ k }}" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" value="{{ v }}" type="number" step="100" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+        {% endfor %}
+        <div class="flex gap-1"><input name="allow_key" placeholder="new allowance" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+      </div>
+    </div>
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save grade', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+<tr x-show="assign" x-cloak><td colspan="8" class="bg-brand-50/50 px-4 py-4">
+  <form method="post" action="/hr/config/grades/{{ g.id }}/assign" class="grid gap-3 sm:grid-cols-3 items-end">
+    <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, None, required=True, placeholder='— Select employee —') }}</div>
+    <div class="flex gap-2">{{ ui.button('Assign grade', icon='user-plus', size='sm') }}<button type="button" @click="assign=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+    <p class="sm:col-span-3 text-xs text-slate-500">The grade's allowances are copied onto the employee's salary structure and the basic is clamped to the grade's range.</p>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No grades match these filters.', 8, 'layers') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} grade{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newGrade', 'Create Grade') %}
+<form method="post" action="/hr/config/grades/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('name', 'Grade Name', '', required=True, placeholder='e.g. Grade 3') }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  {{ ui.input('basic_min', 'Basic Min', '0', type='number', step='500', min=0) }}
+  {{ ui.input('basic_max', 'Basic Max', '0', type='number', step='500', min=0) }}
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '') }}</div>
+  <div class="sm:col-span-2">
+    <div class="mb-1 text-xs font-semibold text-slate-600">Allowances</div>
+    <div class="grid gap-2 sm:grid-cols-2">
+      {% for i in range(3) %}
+      <div class="flex gap-1"><input name="allow_key" placeholder="e.g. internet" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"><input name="allow_value" type="number" step="100" placeholder="0" class="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"></div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create grade', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

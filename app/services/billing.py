@@ -1178,12 +1178,19 @@ def payment_status_filter(status: str):
 
 
 # ============================================================================ payments
-def _apply_to_invoice(db: Session, invoice: Invoice, amount: float) -> float:
+def _apply_to_invoice(db: Session, invoice: Invoice, amount: float,
+                     user: Optional[User] = None) -> float:
     """Apply ``amount`` to an invoice, returning the unapplied remainder."""
     balance = round(float(invoice.total) - float(invoice.paid_amount), 2)
     applied = min(balance, amount)
     if applied <= 0:
         return amount
+    # Taking money against an invoice accepts it. An invoice that was paid but never carried a
+    # confirmation stamp read as unconfirmed on every billing report, so stamp it here.
+    if invoice.confirmed_at is None:
+        invoice.confirmed_at = datetime.utcnow()
+        if user is not None and invoice.confirmed_by_id is None:
+            invoice.confirmed_by_id = user.id
     invoice.paid_amount = round(float(invoice.paid_amount) + applied, 2)
     if round(float(invoice.paid_amount), 2) >= round(float(invoice.total), 2) - 0.01:
         invoice.status = "paid"
@@ -1253,7 +1260,7 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
     remainder = amount
     touched: list[Invoice] = []
     if invoice is not None:
-        remainder = _apply_to_invoice(db, invoice, remainder)
+        remainder = _apply_to_invoice(db, invoice, remainder, user)
         touched.append(invoice)
     if remainder > 0:
         open_invoices = (db.query(Invoice)
@@ -1266,7 +1273,7 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
             if invoice is not None and inv.id == invoice.id:
                 continue
             before = remainder
-            remainder = _apply_to_invoice(db, inv, remainder)
+            remainder = _apply_to_invoice(db, inv, remainder, user)
             if remainder != before:
                 touched.append(inv)
                 if pay.invoice_id is None:

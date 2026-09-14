@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Financial Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Financial Management", "Payroll cost by month and department, violations deducted, bonuses paid and advances outstanding", back="/hr/dashboards") %}
+  {{ ui.button("Payroll", href="/hr/payroll", icon="banknote", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/hr/dashboards/financial') %}
+  <div class="w-40">{{ ui.select('months', 'Period', [(3, 'Last 3 months'), (6, 'Last 6 months'), (12, 'Last 12 months'), (24, 'Last 24 months')], months, placeholder=None) }}</div>
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Payroll Cost", d.total_cost|money, color=palette(0)) }}
+  {{ ui.stat("Violations Deducted", d.violations_total|money, color=palette(7)) }}
+  {{ ui.stat("Bonuses Paid", d.bonuses_total|money, color=palette(3)) }}
+  {{ ui.stat("Advances Outstanding", d.advances_outstanding|money, color=palette(2), hint=d.advances_count ~ ' open') }}
+  {{ ui.stat("Months", d.months|length, color=palette(4)) }}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2 mb-6">
+  {% call ui.card('Payroll cost by month') %}
+  {{ ui.chart('costChart', 240) }}
+  {% endcall %}
+  {% call ui.card('Bonuses and violations by month') %}
+  {{ ui.chart('bvChart', 240) }}
+  {% endcall %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card('By month') %}
+  {{ ui.table_start(['Month', 'Description', 'Status', 'Payslips', 'Gross', 'Deductions', 'Net', '']) }}
+  {% for r in d.runs|reverse %}
+  <tr>
+    <td class="px-3 py-1.5 text-xs font-semibold">{{ r.period }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ r.description or '—' }}</td>
+    <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('payroll')) }}</td>
+    <td class="px-3 py-1.5 text-center text-xs">{{ r.payslips }}</td>
+    <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.gross|money }}</td>
+    <td class="px-3 py-1.5 text-right font-mono text-xs text-rose-600">{{ r.deductions|money }}</td>
+    <td class="px-3 py-1.5 text-right font-mono text-xs font-semibold">{{ r.net|money }}</td>
+    <td class="px-3 py-1.5 text-right">{% if r.id %}{{ ui.button('Detail', href='/hr/payroll/' ~ r.id, size='sm', variant='ghost') }}{% endif %}</td>
+  </tr>
+  {% else %}{{ ui.empty('No payroll runs in this period.', 8, 'banknote') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('By department') %}
+  {{ ui.table_start(['Department', 'Net Cost', 'Share']) }}
+  {% for r in d.by_department %}
+  <tr>
+    <td class="px-3 py-1.5 text-xs">{{ r.label }}</td>
+    <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.amount|money }}</td>
+    <td class="px-3 py-1.5 text-center text-xs">{{ (100 * r.amount / d.total_cost)|round(1) if d.total_cost else 0 }}%</td>
+  </tr>
+  {% else %}{{ ui.empty('No payslips in this period.', 3, 'building-2') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.line('costChart', {{ d.months|tojson }}, [{label: 'Net payroll', data: {{ d.cost_by_month|tojson }}}]);
+OQC.bar('bvChart', {{ d.months|tojson }}, [
+  {label: 'Bonuses', data: {{ d.bonuses_by_month|tojson }}},
+  {label: 'Violations', data: {{ d.violations_by_month|tojson }}}
+]);
+</script>
+{% endblock %}

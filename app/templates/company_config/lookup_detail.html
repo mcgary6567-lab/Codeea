@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ lookup.description }}{% endblock %}
+{% block content %}
+{% call ui.page_header(lookup.description, lookup.app ~ ' · read by the application as ' ~ lookup.code, back="/config/lookups") %}
+  {{ ui.badge(lookup.status) }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newValue\')"') }}{% endif %}
+{% endcall %}
+
+{% if lookup.is_system %}
+<div class="mb-4">{{ ui.alert("This is a system lookup: the application reads it by the code " ~ lookup.code ~ ". You may edit its description and its values, but the code cannot change and the lookup cannot be deleted.", "info", "System lookup") }}</div>
+{% endif %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("All Values", stats.total, color=palette(0), href="/config/lookups/" ~ lookup.id) }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/config/lookups/" ~ lookup.id ~ "?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/config/lookups/" ~ lookup.id ~ "?status=inactive") }}
+  {{ ui.stat("Sort No (next)", next_sort, color=palette(9)) }}
+</div>
+
+{% call ui.filter_bar('/config/lookups/' ~ lookup.id) %}
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Value or label') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Value', 'Label', 'Label Urdu', 'Amount', 'Sort No', 'Status', '']) }}
+{% for v in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs font-semibold text-slate-900">{{ v.value }}</td>
+  <td class="px-3 py-2">{{ v.label }}</td>
+  <td class="px-3 py-2">{% if v.label_urdu %}<span dir="rtl" lang="ur" class="font-urdu">{{ v.label_urdu }}</span>{% else %}<span class="text-slate-400">&mdash;</span>{% endif %}</td>
+  <td class="px-3 py-2 text-right text-xs">{{ '%.2f'|format(v.amount|float) if v.amount is not none else '—' }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ v.sort_no }}</td>
+  <td class="px-3 py-2">{{ ui.badge(v.status) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="up">{{ ui.button('', icon='arrow-up', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="down">{{ ui.button('', icon='arrow-down', variant='ghost', size='sm') }}</form>
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/toggle" class="inline">{{ ui.button('Deactivate' if v.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+    {{ ui.input('value', 'Value', v.value, required=True, help='Stored on the record') }}
+    {{ ui.input('label', 'Label', v.label, required=True) }}
+    {{ ui.input('label_urdu', 'Label Urdu', v.label_urdu or '') }}
+    {{ ui.input('amount', 'Amount', v.amount if v.amount is not none else '', type='number', step='0.01') }}
+    {{ ui.input('sort_no', 'Sort No', v.sort_no, type='number') }}
+    {{ ui.select('status', 'Status', statuses, v.status, placeholder=None) }}
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save value', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('This lookup has no values yet.', 7, 'list') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 grid gap-4 lg:grid-cols-2">
+  {% call ui.card('What the application sees', 'lookups.values(db, "' ~ lookup.code ~ '") — active values in sort order') %}
+    {% if preview %}
+    <div class="flex flex-wrap gap-1.5">
+      {% for o in preview %}<span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">{{ o.label }}{% if o.amount is not none %} <span class="text-slate-400">({{ '%.2f'|format(o.amount) }})</span>{% endif %}</span>{% endfor %}
+    </div>
+    {% else %}<p class="text-sm text-slate-500">No active values — callers fall back to the list they pass in, so pages keep working.</p>{% endif %}
+  {% endcall %}
+  {% call ui.card('Lookup details') %}
+    {{ ui.dl([('App', lookup.app), ('Code', lookup.code), ('Status', lookup.status|titleize),
+              ('Sort No', lookup.sort_no), ('System', 'Yes' if lookup.is_system else 'No'),
+              ('Notes', lookup.notes)]) }}
+    {% if can_configure and not lookup.is_system %}
+    <form method="post" action="/config/lookups/{{ lookup.id }}/delete" class="mt-4 flex items-end gap-2" onsubmit="return confirm('Delete this lookup and all its values?')">
+      <div class="flex-1">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is this list going away?') }}</div>
+      {{ ui.button('Delete lookup', icon='trash-2', variant='danger', size='sm') }}
+    </form>
+    {% endif %}
+  {% endcall %}
+</div>
+
+{% if can_add %}
+{% call ui.modal('newValue', 'Add Value') %}
+<form method="post" action="/config/lookups/{{ lookup.id }}/values/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('value', 'Value', '', required=True, help='Stored on the record — keep it stable') }}
+  {{ ui.input('label', 'Label', '', required=True, help='Shown to staff') }}
+  {{ ui.input('label_urdu', 'Label Urdu', '') }}
+  {{ ui.input('amount', 'Amount', '', type='number', step='0.01', help='A fine, a bonus or a fee, where the list carries one') }}
+  {{ ui.input('sort_no', 'Sort No', next_sort, type='number') }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Add value', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -50,6 +50,31 @@
   {% endcall %}</div>
 </div>
 
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">{% call ui.card('My requests', 'Certificates, equipment, shift changes — anything you need from People & Culture.') %}
+    {{ ui.table_start(['ID', 'Date', 'Req Type', 'Description', 'HR Remarks', 'Status']) }}
+    {% for r in my_requests %}
+    <tr>
+      <td class="px-3 py-2 font-mono text-xs">{{ r.id }}</td>
+      <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.request_type }}</td>
+      <td class="px-3 py-2 text-xs max-w-[18rem] truncate" title="{{ r.description or '' }}">{{ r.description or '—' }}</td>
+      <td class="px-3 py-2 text-xs max-w-[14rem] truncate" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
+      <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+    </tr>
+    {% else %}{{ ui.empty('You have not raised a request yet.', 6) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}</div>
+  <div>{% call ui.card('Raise a request') %}
+    <form method="post" action="/hr/me/request" class="space-y-3">
+      {{ ui.select('request_type', 'Req Type', request_types, 'Salary Certificate', placeholder=None) }}
+      {{ ui.textarea('description', 'Description', '', rows=4, required=True, placeholder='What do you need, and by when?') }}
+      {{ ui.button('Send to People & Culture', icon='send') }}
+    </form>
+    <p class="mt-3 text-xs text-slate-500">A complaint goes to <a href="/hr/complaints" class="text-brand-700 hover:underline">Complaints</a>; anything you want kept from your own management chain belongs in the <a href="/hr/me?tab=grievance" class="text-brand-700 hover:underline">confidential grievance channel</a>.</p>
+  {% endcall %}</div>
+</div>
+
 {% elif tab == 'attendance' %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
   {{ ui.stat('Attendance', summary.pct ~ '%', icon='clock', color='emerald') }}
@@ -85,6 +110,29 @@
 </tr>
 {% else %}{{ ui.empty('No attendance for ' ~ month, 4) }}{% endfor %}
 {{ ui.table_end() }}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  {% call ui.card('Attendance change request', 'Ask People & Culture to correct a punch. The current values are captured automatically; you only give the new ones.') %}
+  <form method="post" action="/hr/me/attendance-change" class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('attendance_date', 'Attendance Date', today()|string, type='date', required=True) }}
+    {{ ui.select('session', 'Session', [('am','AM'),('pm','PM')], 'am', placeholder=None) }}
+    {{ ui.select('new_status', 'New Attendance Type', [('present','Present'),('late','Late Coming'),('absent','Absent'),('leave','On Leave'),('half_day','Half Day')], 'present', placeholder=None) }}
+    <div></div>
+    {{ ui.input('new_check_in', 'New Login Time', '', type='time') }}
+    {{ ui.input('new_check_out', 'New Logout Time', '', type='time') }}
+    <div class="sm:col-span-2">{{ ui.textarea('user_remarks', 'User Remarks', '', rows=2, required=True, placeholder='What went wrong with the punch?') }}</div>
+    <div class="sm:col-span-2 flex justify-end">{{ ui.button('Submit request', icon='send', size='sm') }}</div>
+  </form>
+  {% endcall %}
+  {% call ui.card('My progress for today', 'One line on what you achieved. Your manager rates it on the Employees Progress Sheet.') %}
+  <form method="post" action="/hr/me/progress" class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('working_date', 'Working Date', today()|string, type='date', required=True) }}
+    <div></div>
+    <div class="sm:col-span-2">{{ ui.textarea('detail', 'Progress Detail', '', rows=3, required=True, placeholder='e.g. Completed 6 Hifz classes and updated every sabaq record.') }}</div>
+    <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save progress', icon='check', size='sm') }}</div>
+  </form>
+  {% endcall %}
+</div>
 
 {% elif tab == 'leaves' %}
 <div class="grid gap-6 lg:grid-cols-3">

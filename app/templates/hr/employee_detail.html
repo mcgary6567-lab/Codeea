@@ -33,6 +33,22 @@
       ('Address', e.address or '—'),
     ]) }}
     {% endcall %}
+    {% call ui.card('ERP employee record', 'The columns the college\'s ERP carries on its Employee Record page.') %}
+    {{ ui.dl([
+      ('Type', e.employee_type or '—'), ('Shift code', e.shift_code or '—'),
+      ('Check in time', e.shift_start or '—'), ('Check out time', e.shift_end or '—'),
+      ('Duty hours', e.duty_hours if e.duty_hours is not none else '—'),
+      ('WhatsApp', (e.whatsapp if show_sensitive else e.whatsapp|mask) if e.whatsapp else '—'),
+      ('Date of birth', (e.documents or {}).get('date_of_birth') or '—'),
+      ('Father name', e.father_name or '—'), ('Mother name', e.mother_name or '—'),
+      ('Religion', e.religion or '—'), ('Blood group', e.blood_group or '—'),
+      ('Bank name', e.bank_name or '—'),
+      ('Bank account no', (e.bank_account_no if show_sensitive else '****') if e.bank_account_no else '—'),
+      ('Grade', grade.name if grade else '—'),
+      ('Leaving date', e.exit_date|date if e.exit_date else '—'), ('Leaving reason', e.exit_reason or '—'),
+      ('Remarks', (e.documents or {}).get('remarks') or '—'),
+    ]) }}
+    {% endcall %}
     {% if kpis.classes_done is not none %}
     {% call ui.card('Teaching this month') %}
     <div class="grid gap-4 sm:grid-cols-3 text-sm">

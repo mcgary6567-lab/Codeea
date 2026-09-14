@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Schedule Interviews{% endblock %}
+{% block content %}
+{% call ui.page_header("Schedule Interviews", "An interview is booked for an application against a panel; every panel member records their own outcome and feedback.", back="/hr/recruitment") %}
+  {{ ui.button("Interview Panels", href="/hr/interview-panels", icon="users-round", variant="secondary") }}
+  {% if can_edit %}{{ ui.button("Schedule", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newIv\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat("All Interviews", total, color=palette(0), href="/hr/interviews") }}
+  {{ ui.stat("Scheduled", counts.get('scheduled', 0), color=palette(1), href="/hr/interviews?status=scheduled") }}
+  {{ ui.stat("Completed", counts.get('completed', 0), color=palette(3), href="/hr/interviews?status=completed") }}
+  {{ ui.stat("No Show", counts.get('no_show', 0), color=palette(7), href="/hr/interviews?status=no_show") }}
+</div>
+
+{% call ui.filter_bar('/hr/interviews') %}
+  <div class="w-40">{{ ui.input('from_date', 'From Date', from_date, type='date') }}</div>
+  <div class="w-40">{{ ui.input('to_date', 'To Date', to_date, type='date') }}</div>
+  <div class="w-48">{{ ui.select('panel_id', 'Panel', panels, panel_id or '', placeholder='All panels') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Outcome', outcomes, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Candidate or panel') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Date', 'Time', 'Candidate', 'Job Title', 'Type', 'Panel', 'Location', 'Panel Members', '']) }}
+{% for g in groups %}
+<tr x-data="{ open: false }">
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ g.at|date }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ g.at.strftime('%H:%M') }}</td>
+  <td class="px-3 py-2 font-medium">{% if g.application %}<a class="text-brand-700 hover:underline" href="/hr/applications/{{ g.application.id }}">{{ g.candidate.full_name if g.candidate else '—' }}</a>{% else %}{{ g.candidate.full_name if g.candidate else '—' }}{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ g.application.request.title if g.application and g.application.request else (g.candidate.applied_for if g.candidate else '—') }}</td>
+  <td class="px-3 py-2 text-xs">{{ g.type|titleize }}</td>
+  <td class="px-3 py-2 text-xs">{{ g.panel.name if g.panel else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ g.location or '—' }}</td>
+  <td class="px-3 py-2 text-xs">
+    {% for m in g.members %}
+      <span class="mr-1 inline-block rounded px-1.5 py-0.5 text-[11px] {{ m.iv.status|badge }}">{{ m.user.full_name if m.user else 'Unassigned' }}{% if m.iv.score is not none %} · {{ m.iv.score }}{% endif %}</span>
+    {% endfor %}
+  </td>
+  <td class="px-3 py-2 text-right"><button type="button" @click="open = !open" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Feedback</button></td>
+</tr>
+<tr x-show="open" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+  <div class="space-y-3">
+    {% for m in g.members %}
+    <form method="post" action="/hr/interviews/{{ m.iv.id }}/outcome" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end rounded border border-slate-200 bg-white p-3">
+      <input type="hidden" name="next" value="/hr/interviews">
+      <div class="text-xs"><div class="font-semibold text-slate-700">{{ m.user.full_name if m.user else 'Unassigned' }}</div><div class="text-slate-500">{{ m.user.role.name if m.user and m.user.role else '' }}</div></div>
+      {{ ui.select('status', 'Outcome', outcomes, m.iv.status, placeholder=None) }}
+      {{ ui.input('score', 'Score', m.iv.score if m.iv.score is not none else '', type='number', step='0.5', min=0, max=10) }}
+      <div class="lg:col-span-1">{{ ui.input('feedback', 'Feedback', m.notes) }}</div>
+      <div>{% if can_edit %}{{ ui.button('Save', icon='save', size='sm') }}{% endif %}</div>
+    </form>
+    {% endfor %}
+  </div>
+</td></tr>
+{% else %}{{ ui.empty('No interviews match these filters.', 9, 'calendar-clock') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ groups|length }} interview{{ 's' if groups|length != 1 }}</div>
+
+{% if can_edit %}
+{% call ui.modal('newIv', 'Schedule Interview') %}
+<form method="post" action="/hr/interviews/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('application_id', 'Application', applications, '', required=True, placeholder='— Select application —') }}</div>
+  {{ ui.select('panel_id', 'Interview Panel', panels, '', required=True, placeholder='— Select panel —') }}
+  {{ ui.select('interview_type', 'Type', types, 'screening', placeholder=None) }}
+  {{ ui.input('interview_date', 'Date', today, type='date', required=True) }}
+  {{ ui.input('interview_time', 'Time', '11:00', type='time', required=True) }}
+  <div class="sm:col-span-2">{{ ui.input('location', 'Location', 'Head Office - Lahore', help='Room, campus or the online meeting link') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Schedule interview', icon='calendar-plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

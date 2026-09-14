@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Setup — Branch Properties{% endblock %}
+{% block content %}
+{% call ui.page_header("Setup", "Branch Properties — the named settings this college runs on. Each row saves on its own.", back="/config") %}
+  {{ ui.button("System Settings", href="/admin/settings?tab=settings", icon="settings", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("All Properties", stats.total, color=palette(0), href="/config/branch-properties") }}
+  {{ ui.stat("Editable Here", stats.editable, color=palette(3)) }}
+  {{ ui.stat("Secret", stats.secret, color=palette(7), hint="revealing is audited") }}
+  {{ ui.stat("Shown", stats.shown, color=palette(9)) }}
+</div>
+
+<div class="mb-4 border-b border-slate-300"><nav class="-mb-px flex gap-1 overflow-x-auto text-sm">
+  {% for key, label in tabs %}
+  <a href="/config/branch-properties?tab={{ key }}{% if q %}&q={{ q }}{% endif %}"
+     class="whitespace-nowrap rounded-t border px-3 py-1.5 font-medium {{ 'border-slate-300 border-b-white bg-white text-brand-700' if key == tab else 'border-transparent text-slate-500 hover:text-slate-800' }}">
+    {{ label }}{% if key != 'all' %} <span class="ml-1 text-[11px] text-slate-400">{{ by_group.get(key, 0) }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</nav></div>
+
+{% call ui.filter_bar('/config/branch-properties') %}
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="w-72">{{ ui.input('q', 'Search', q, placeholder='Property name') }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto rounded-md border border-slate-300 bg-white">
+<table class="min-w-full border-collapse text-[13px]">
+  <thead><tr class="bg-[#e8f1fb]">
+    <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Property</th>
+    <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Description</th>
+    <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700 w-[42%]">Value</th>
+    <th class="border border-slate-300 px-3 py-2 text-left text-xs font-semibold text-slate-700">Group</th>
+    <th class="border border-slate-300 px-3 py-2 text-right text-xs font-semibold text-slate-700"></th>
+  </tr></thead>
+  <tbody class="[&>tr:nth-child(even)]:bg-[#fafbfd] [&_td]:border [&_td]:border-slate-200 [&_td]:align-top">
+  {% for it in items %}
+  {% set s = it.s %}
+  <tr>
+    <td class="px-3 py-3">
+      <div class="font-semibold text-slate-800">{{ s.label or s.key|titleize }}</div>
+      <div class="font-mono text-[11px] text-slate-500">{{ s.key }}</div>
+      {% if s.is_secret %}<span class="mt-1 inline-block rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">SECRET</span>{% endif %}
+      {% if not s.is_editable %}<span class="mt-1 ml-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">READ ONLY</span>{% endif %}
+    </td>
+    <td class="px-3 py-3 text-xs text-slate-600">{{ s.description or '—' }}</td>
+    <td class="px-3 py-3">
+      {% if s.is_secret and not it.revealed %}
+        <div class="flex items-center gap-2">
+          <code class="flex-1 rounded border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs text-slate-500">{{ (it.value|string)|mask }}</code>
+          <form method="post" action="/config/branch-properties/{{ s.id }}/reveal">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            {{ ui.button('Reveal', icon='eye', variant='secondary', size='sm') }}
+          </form>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-500">Revealing a secret property is written to the audit log.</p>
+      {% else %}
+        <form method="post" action="/config/branch-properties/{{ s.id }}/save" class="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="tab" value="{{ tab }}">
+          <div class="min-w-[14rem] flex-1">
+            {% if not s.is_editable %}
+              <div class="rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm text-slate-600">{{ it.text or '—' }}</div>
+            {% elif it.vt == 'boolean' %}
+              {{ ui.select('value', None, [('1','Yes'),('0','No')], '1' if it.value else '0', placeholder=None) }}
+            {% elif it.vt == 'number' %}
+              {{ ui.input('value', None, it.text, type='number', step='any') }}
+            {% elif it.vt in ('json', 'html') %}
+              {{ ui.textarea('value', None, it.text, rows=4) }}
+            {% elif it.vt == 'image' %}
+              {{ ui.input('value', None, it.text, placeholder='/static/img/report-header.png') }}
+            {% else %}
+              {{ ui.input('value', None, it.text) }}
+            {% endif %}
+          </div>
+          {% if s.unit %}<span class="pb-2 text-xs font-medium text-slate-500">{{ s.unit }}</span>{% endif %}
+          {% if s.is_editable %}{{ ui.button('Save', icon='save', size='sm') }}{% endif %}
+        </form>
+        {% if it.vt == 'image' and it.text %}<img src="{{ it.text }}" alt="{{ s.label or s.key }}" class="mt-2 max-h-16 rounded border border-slate-200" onerror="this.style.display='none'">{% endif %}
+        {% if it.revealed %}<p class="mt-1 text-[11px] text-rose-600">Shown in the clear — this reveal is in the audit log.</p>{% endif %}
+      {% endif %}
+    </td>
+    <td class="px-3 py-3 text-xs"><span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">{{ s.group|titleize }}</span></td>
+    <td class="px-3 py-3 text-right text-[11px] text-slate-400 whitespace-nowrap">{{ it.vt|titleize }}{% if s.unit %} ({{ s.unit }}){% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="px-4 py-10 text-center text-slate-400"><i data-lucide="sliders-horizontal" class="mx-auto mb-2 h-7 w-7 opacity-50"></i>No branch properties in this tab.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<p class="mt-3 text-xs text-slate-500">
+  Properties in groups outside these tabs (pricing, retention, payroll and the rest) appear under <b>Show All</b>
+  and are edited group-by-group on <a href="/admin/settings?tab=settings" class="text-brand-700 hover:underline">System Settings</a>.
+</p>
+{% endblock %}

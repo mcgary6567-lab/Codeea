@@ -629,3 +629,205 @@ def payroll_summary(db: Session, period: str) -> dict:
     teachers = sum(1 for p in run.payslips if (p.details or {}).get("is_teacher"))
     return {"run": run, "period": period, "payslips": len(run.payslips), "gross": _f(run.total_gross), "net": _f(run.total_net),
             "deductions": _f(run.total_deductions), "teachers": teachers, "staff": len(run.payslips) - teachers}
+
+
+# =============================================================================== ERP payroll (audit section 3, Financial Management)
+# The college's ERP runs a payroll month as Pending -> Generated -> Posted, with Cancelled as the way out.
+# These functions sit on top of the originals above (which keep the older draft / pending_approval /
+# approved / paid words alive), so both vocabularies work against the same tables.
+ERP_PAYROLL_STATUSES = ["pending", "generated", "posted", "cancelled"]
+LEGACY_PAYROLL_STATUSES = ["draft", "pending_approval", "approved", "paid"]
+ERP_STATUS_OF_LEGACY = {"draft": "pending", "pending_approval": "generated", "approved": "posted", "paid": "posted"}
+LOCKED_PAYROLL_STATUSES = ("posted", "approved", "paid", "cancelled")
+
+
+def erp_run_is_locked(run: PayrollRun) -> bool:
+    """A posted (or cancelled) run is closed: no regeneration, no payslip adjustment."""
+    return run.status in LOCKED_PAYROLL_STATUSES
+
+
+def erp_status(run: PayrollRun) -> str:
+    """The ERP word for a run however it was created."""
+    return ERP_STATUS_OF_LEGACY.get(run.status, run.status)
+
+
+def erp_create_run(db: Session, period: str, description: str, user: Optional[User], request=None) -> PayrollRun:
+    """Create the Pending payroll for a month. One open run per month."""
+    existing = db.query(PayrollRun).filter(PayrollRun.period == period).order_by(PayrollRun.id.desc()).first()
+    if existing is not None and existing.status != "cancelled":
+        raise ValueError(f"Payroll for {period} already exists ({erp_status(existing)})")
+    run = PayrollRun(period=period, status="pending", description=(description or "").strip() or f"Payroll {period}",
+                     currency="PKR", generated_by_id=user.id if user else None)
+    db.add(run)
+    db.flush()
+    log_action(db, user, "create", "payroll", entity=run,
+               description=f"Payroll run created for {period}: {run.description}",
+               after={"period": period, "status": run.status, "description": run.description}, request=request)
+    return run
+
+
+def _erp_reconcile_payslip(db: Session, ps: Payslip, period: str) -> None:
+    """Keep only approved violations as deductions, and pull in bonuses approved inside the month.
+
+    ``generate_payroll`` deducts every violation dated in the month and adds bonuses tagged with the month.
+    The ERP only fines an employee once the violation has been approved, and pays a bonus in the month it was
+    accepted, so this narrows the one and widens the other.
+    """
+    start, end = month_bounds(period)
+    details = dict(ps.details or {})
+
+    kept: list[dict] = []
+    dropped = 0.0
+    for row in list(details.get("violations", [])):
+        v = db.query(Violation).get(row.get("id")) if row.get("id") else None
+        approved = v is not None and (v.approval_status == "approved"
+                                      or (not v.approval_status and v.status in ("approved", "closed")))
+        if approved:
+            kept.append(row)
+        else:
+            dropped = round(dropped + _f(row.get("amount")), 2)
+    if dropped:
+        details["violations"] = kept
+        ps.deductions = round(max(0.0, _f(ps.deductions) - dropped), 2)
+
+    bonus_rows = list(details.get("bonuses", []))
+    seen = {r.get("id") for r in bonus_rows}
+    extra = 0.0
+    for b in db.query(Bonus).filter(Bonus.employee_id == ps.employee_id, Bonus.status == "approved"):
+        if b.id in seen or (b.period or "") == period:
+            continue
+        when = b.acceptance_date or (b.decided_at.date() if b.decided_at else None)
+        if when is None and b.updated_at:
+            when = b.updated_at.date()
+        if when is None or not (start <= when <= end):
+            continue
+        extra = round(extra + _f(b.amount), 2)
+        bonus_rows.append({"id": b.id, "type": b.bonus_type, "amount": _f(b.amount)})
+    if extra:
+        details["bonuses"] = bonus_rows
+        ps.bonus = round(_f(ps.bonus) + extra, 2)
+        ps.gross = round(_f(ps.gross) + extra, 2)
+
+    if dropped or extra:
+        ps.details = details
+        ps.net = round(_f(ps.gross) - _f(ps.deductions) - _f(ps.advance_deduction) - _f(ps.attendance_deduction), 2)
+
+
+def erp_generate_run(db: Session, run: PayrollRun, user: Optional[User], request=None) -> PayrollRun:
+    """Build the payslips for a Pending run: basic, class pay, approved bonuses and approved violations."""
+    if erp_run_is_locked(run):
+        raise ValueError(f"Payroll {run.period} is {erp_status(run)} and can no longer be generated")
+    latest = db.query(PayrollRun).filter(PayrollRun.period == run.period).order_by(PayrollRun.id.desc()).first()
+    if latest is not None and latest.id != run.id:
+        raise ValueError(f"A later payroll run exists for {run.period}; generate that one instead")
+    description = run.description
+    run.status = "draft"  # the word generate_payroll understands
+    db.flush()
+    built = generate_payroll(db, run.period, user, request=request)
+    built.description = description or built.description
+    db.flush()
+    db.expire(built, ["payslips"])  # generate_payroll adds payslips through the session, not the collection
+    for ps in built.payslips:
+        _erp_reconcile_payslip(db, ps, built.period)
+        ps.status = "generated"
+    recalc_run_totals(built)
+    built.status = "generated"
+    comp = erp_run_components(built)
+    log_action(db, user, "generate", "payroll", entity=built,
+               description=(f"Payroll {built.period} generated: {len(built.payslips)} payslip(s), class pay "
+                            f"{comp['class_pay']:,.0f}, bonuses {comp['bonuses']:,.0f}, violations "
+                            f"{comp['violations']:,.0f}, net {_f(built.total_net):,.0f} PKR"),
+               after={"status": "generated", "payslips": len(built.payslips), "total_net": _f(built.total_net)},
+               request=request)
+    db.flush()
+    return built
+
+
+def erp_post_run(db: Session, run: PayrollRun, user: User, rationale: str = "", request=None) -> PayrollRun:
+    """Post (lock) a generated run: it is approved, journalled and read-only from then on."""
+    if run.status in ("posted", "cancelled"):
+        raise ValueError(f"Payroll {run.period} is already {erp_status(run)}")
+    if not run.payslips:
+        raise ValueError("Generate the run before posting it")
+    before = {"status": run.status}
+    run.status = "draft"  # approve_payroll only accepts the legacy words
+    approve_payroll(db, run, user, rationale=rationale or f"Payroll {run.period} posted by {user.full_name}", request=request)
+    run.status = "posted"
+    run.paid_at = run.paid_at or datetime.utcnow()
+    for ps in run.payslips:
+        ps.status = "posted"
+        if ps.employee and ps.employee.user_id:
+            notify(db, ps.employee.user_id, f"Payslip available - {run.period}",
+                   f"Your payslip for {run.period} has been posted: net {ps.currency} {_f(ps.net):,.0f}.",
+                   event_type="payroll", link=f"/hr/payslips/{ps.id}")
+    log_action(db, user, "payroll_post", "payroll", entity=run,
+               description=f"Payroll {run.period} posted and locked ({_f(run.total_net):,.0f} PKR net)",
+               rationale=rationale or None, before=before, after={"status": "posted"}, consequential=True,
+               severity="warning", request=request)
+    db.flush()
+    return run
+
+
+def erp_cancel_run(db: Session, run: PayrollRun, user: User, reason: str = "", request=None) -> PayrollRun:
+    if run.status in ("posted", "approved", "paid"):
+        raise ValueError(f"Payroll {run.period} is {erp_status(run)} and cannot be cancelled")
+    before = {"status": run.status}
+    run.status = "cancelled"
+    for ps in run.payslips:
+        ps.status = "cancelled"
+    log_action(db, user, "status_change", "payroll", entity=run, description=f"Payroll {run.period} cancelled",
+               rationale=reason or None, before=before, after={"status": "cancelled"}, consequential=True, request=request)
+    db.flush()
+    return run
+
+
+def erp_run_components(run: PayrollRun) -> dict:
+    """What a generated run is made of: basic, class pay, allowances, bonuses, violations, other deductions."""
+    out = {"basic": 0.0, "class_pay": 0.0, "classes": 0, "allowances": 0.0, "bonuses": 0.0, "violations": 0.0,
+           "attendance": 0.0, "advances": 0.0, "other_deductions": 0.0, "gross": 0.0, "net": 0.0, "payslips": 0}
+    for ps in run.payslips:
+        det = ps.details or {}
+        out["payslips"] += 1
+        out["basic"] += _f(ps.basic)
+        out["class_pay"] += _f(ps.class_pay)
+        out["classes"] += int(ps.classes_taught or 0)
+        out["allowances"] += _f(ps.allowances)
+        out["bonuses"] += _f(ps.bonus)
+        violations = round(sum(_f(v.get("amount")) for v in det.get("violations", [])), 2)
+        out["violations"] += violations
+        out["other_deductions"] += round(_f(ps.deductions) - violations, 2)
+        out["attendance"] += _f(ps.attendance_deduction)
+        out["advances"] += _f(ps.advance_deduction)
+        out["gross"] += _f(ps.gross)
+        out["net"] += _f(ps.net)
+    return {k: (round(v, 2) if isinstance(v, float) else v) for k, v in out.items()}
+
+
+def erp_grade_allowances(db: Session, employee: Employee, grade, user: Optional[User] = None, request=None) -> SalaryStructure:
+    """Assigning a grade fills the employee's salary structure with that grade's allowances and basic range."""
+    structure = db.query(SalaryStructure).filter(SalaryStructure.employee_id == employee.id).first()
+    if structure is None:
+        structure = SalaryStructure(employee_id=employee.id, basic=0, allowances={}, deductions={},
+                                    currency=employee.currency or "PKR")
+        db.add(structure)
+        db.flush()
+    before = {"basic": _f(structure.basic), "allowances": dict(structure.allowances or {})}
+    allowances = dict(structure.allowances or {})
+    allowances.update({str(k): _f(v) for k, v in (grade.allowances or {}).items()})
+    structure.allowances = allowances
+    basic = _f(structure.basic) or _f(employee.base_salary)
+    low, high = _f(grade.basic_min), _f(grade.basic_max)
+    if low and basic < low:
+        basic = low
+    if high and basic > high:
+        basic = high
+    structure.basic = round(basic, 2)
+    employee.grade_id = grade.id
+    if _f(employee.base_salary) <= 0:
+        employee.base_salary = structure.basic
+    log_action(db, user, "assign", "payroll", entity=structure, entity_type="SalaryStructure",
+               description=(f"Grade {grade.name} assigned to {employee.employee_code}: basic "
+                            f"{_f(structure.basic):,.0f}, {len(allowances)} allowance(s)"),
+               before=before, after={"basic": _f(structure.basic), "allowances": allowances}, request=request)
+    db.flush()
+    return structure

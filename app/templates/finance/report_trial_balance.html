@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trial Balance{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Trial Balance Report", "Every postable account with its debit and credit totals for the range, grouped by account type. The two columns must agree.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/trial-balance?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/trial-balance') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-44">{{ ui.select('include_empty', 'Accounts', [('0','With movement only'),('1','All accounts')], include_empty|string, placeholder=None) }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Trial Balance Report</h1>
+  <p style="font-size:11px">{{ date_from }} to {{ date_to }} &middot; {{ base }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+{% if not data.balanced %}
+<div class="mb-4">{{ ui.alert('The debit and credit columns differ by ' ~ data.difference|money(base) ~ '. The ledger is out of balance and must be investigated before these books are relied on.', 'error', 'Trial balance does not balance') }}</div>
+{% else %}
+<div class="mb-4">{{ ui.alert('Debits equal credits at ' ~ data.total_debit|money(base) ~ '. The ledger balances.', 'success', 'In balance') }}</div>
+{% endif %}
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Accounts", data.rows|length, color=palette(0)) }}
+  {{ ui.stat("Total Debit", data.total_debit|round(0)|int, color=palette(3), hint=base) }}
+  {{ ui.stat("Total Credit", data.total_credit|round(0)|int, color=palette(7), hint=base) }}
+  {{ ui.stat("Difference", data.difference|round(2), color='emerald' if data.balanced else 'rose', hint=base) }}
+</div>
+
+{{ ui.table_start(['Account Code', 'Account Name', 'Head', 'Opening', 'Debit', 'Credit', 'Closing']) }}
+{% for g in data.groups %}
+<tr class="bg-[#f3f7fd] font-semibold"><td class="px-3 py-1.5" colspan="7">{{ g.label }}</td></tr>
+{% for r in g.rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+  <td class="px-3 py-1.5">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.head or '—' }}</td>
+  <td class="px-3 py-1.5 text-right text-slate-600">{{ r.opening|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.debit|money if r.debit else '' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.credit|money if r.credit else '' }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.closing|money }}</td>
+</tr>
+{% endfor %}
+<tr class="bg-slate-50 text-[12px] font-medium">
+  <td class="px-3 py-1" colspan="3">{{ g.label }} total</td>
+  <td class="px-3 py-1 text-right">{{ g.opening|money }}</td>
+  <td class="px-3 py-1 text-right">{{ g.debit|money }}</td>
+  <td class="px-3 py-1 text-right">{{ g.credit|money }}</td>
+  <td class="px-3 py-1 text-right">{{ g.closing|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No postings in this range.', 7, 'scale') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2" colspan="3">TOTAL</td>
+  <td class="px-3 py-2 text-right">{{ data.total_opening|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_debit|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_credit|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_closing|money }}</td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Closing = opening + debits - credits, shown debit-positive, so the closing column totals nil when the books balance. Amounts in {{ base }}.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

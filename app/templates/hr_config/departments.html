@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Departments{% endblock %}
+{% block content %}
+{% call ui.page_header("Departments", "The departments every employee, job requisition and application is filed under", back="/hr/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newDept\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("All Departments", stats.total, color=palette(0), href="/hr/config/departments") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/config/departments?status=active") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/config/departments?status=inactive") }}
+</div>
+
+{% call ui.filter_bar('/hr/config/departments') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Department name') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Department Name', 'Code', 'Head of Department', 'Employees', 'Status', '']) }}
+{% for d in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ d.id }}</td>
+  <td class="px-3 py-2 font-semibold text-slate-900">{{ d.name }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ d.code }}</td>
+  <td class="px-3 py-2 text-xs">{{ d.hod.full_name if d.hod else '—' }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ headcount.get(d.id, 0) }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if d.is_active else 'inactive', 'Active' if d.is_active else 'In-active') }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/hr/config/departments/{{ d.id }}/toggle" class="inline">{{ ui.button('Deactivate' if d.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/hr/config/departments/{{ d.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+    {{ ui.input('name', 'Department Name', d.name, required=True) }}
+    {{ ui.select('status', 'Status', statuses, 'active' if d.is_active else 'inactive', placeholder=None) }}
+    <div class="lg:col-span-2">{{ ui.input('description', 'Description', d.description or '') }}</div>
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save department', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No departments match these filters.', 7, 'building-2') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} department{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newDept', 'Create Department') %}
+<form method="post" action="/hr/config/departments/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('name', 'Department Name', '', required=True, placeholder='e.g. Academics') }}
+  {{ ui.input('code', 'Code', '', help='Left blank, the name is used') }}
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '') }}</div>
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create department', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

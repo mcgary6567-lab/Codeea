@@ -1,0 +1,79 @@
+{# ERP Attachments List: one store for every file or link attached to any record. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attachments{% endblock %}
+{% block content %}
+{% call ui.page_header("Attachments", "Every file or link held against an employee, candidate, payroll run or client record.") %}
+  {{ ui.button('Employment Management', href='/home/hr', icon='layout-grid', variant='secondary') }}
+  {% if can_add %}{{ ui.button("Upload Attachment", icon="upload", attrs="@click=\"$dispatch('open-modal','newAttachment')\"") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs(group_tabs, 'attachments') }}
+
+{{ ui.section_label('Status') }}
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat('All Attachments', counts.total, icon='paperclip', color=palette(0), href='/hr/attachments') }}
+  {{ ui.stat('Active', counts.active, icon='check-circle-2', color=palette(1), href='/hr/attachments?status=active') }}
+  {{ ui.stat('In-Active', counts.inactive, icon='archive', color=palette(2), href='/hr/attachments?status=inactive') }}
+</div>
+
+{% if by_entity %}
+<div class="mb-5 flex flex-wrap gap-2">
+  {% for entity, n in by_entity.items() %}
+  <a href="/hr/attachments?entity_type={{ entity }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs">
+    <span class="font-medium text-slate-700">{{ entity|titleize }}</span>
+    <span class="rounded-full bg-brand-50 px-1.5 py-0.5 font-semibold text-brand-700">{{ n }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% call ui.filter_bar('/hr/attachments') %}
+  <div class="w-60">{{ ui.input('q', 'Search', q, placeholder='Title or file name') }}</div>
+  <div class="w-44">{{ ui.select('entity_type', 'Entity', entities, entity_type, placeholder='All entities') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', ['active','inactive'], status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Title', 'Entity', 'File / Link', 'Type', 'Size', 'Uploaded By', 'Status'] + ([''] if can_edit else [])) }}
+{% for a in page.items %}
+<tr {% if a.status != 'active' %}style="background: #f8fafc"{% endif %}>
+  <td class="px-3 py-2 font-mono text-xs">{{ a.id }}</td>
+  <td class="px-3 py-2 text-sm font-medium text-slate-800">{{ a.title }}</td>
+  <td class="px-3 py-2 text-xs">{{ a.entity_type|titleize }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
+  <td class="px-3 py-2 text-xs">
+    {% if a.file_path %}<a href="{{ a.file_path }}" class="text-brand-700 hover:underline">{{ a.file_name or 'Download' }}</a>
+    {% elif a.link %}<a href="{{ a.link }}" class="text-brand-700 hover:underline" target="_blank" rel="noreferrer noopener">Open link</a>
+    {% else %}—{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs">{{ a.content_type or ('Link' if a.link else '—') }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ (a.size_bytes / 1024)|round(1) ~ ' KB' if a.size_bytes else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ a.uploaded_by.full_name if a.uploaded_by else '—' }}</td>
+  <td class="px-3 py-2">{{ ui.badge(a.status) }}</td>
+  {% if can_edit %}
+  <td class="px-3 py-2 text-right">
+    {{ ui.confirm_form('/hr/attachments/' ~ a.id ~ '/toggle', 'Active' if a.status != 'active' else 'Retire',
+                       icon='power', variant='secondary', message='Change the visibility of this attachment?') }}
+  </td>
+  {% endif %}
+</tr>
+{% else %}{{ ui.empty('No attachments stored yet.', 9) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_add %}
+{% call ui.modal('newAttachment', 'Upload Attachment') %}
+<form method="post" action="/hr/attachments/new" enctype="multipart/form-data" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True, placeholder='Signed contract, CNIC copy, degree …') }}</div>
+  {{ ui.select('entity_type', 'Entity', entities, 'employee', placeholder=None) }}
+  {{ ui.input('entity_id', 'Record ID', '', type='number', help='The employee / candidate / payroll id this belongs to (optional).') }}
+  <div class="sm:col-span-2">{{ ui.input('link', 'Link', '', placeholder='https://drive.google.com/… (or attach a file below)') }}</div>
+  <div class="sm:col-span-2">
+    <label for="f_file" class="mb-1 block text-xs font-semibold text-slate-600">File</label>
+    <input id="f_file" name="file" type="file" class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">
+    <p class="mt-1 text-xs text-slate-500">Stored under storage/attachments with its name, type and size.</p>
+  </div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Upload', icon='upload') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

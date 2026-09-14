@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Violation Types{% endblock %}
+{% block content %}
+{% call ui.page_header("Violation Types", "The catalogue of offences and the fine each one normally carries, so violations are consistent between managers.", back="/hr/config") %}
+  {{ ui.button("Staff Violations", href="/hr/violations", icon="triangle-alert", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newVT\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("All Types", stats.total, color=palette(0), href="/hr/config/violation-types") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/config/violation-types?status=active") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/config/violation-types?status=inactive") }}
+</div>
+
+{% call ui.filter_bar('/hr/config/violation-types') %}
+  <div class="w-72">{{ ui.input('q', 'Search', q, placeholder='Description') }}</div>
+  <div class="w-40">{{ ui.select('severity', 'Severity', severities, severity, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Description', 'Penalty Amount', 'Severity', 'Used', 'Status', '']) }}
+{% for v in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ v.id }}</td>
+  <td class="px-3 py-2">
+    <div class="font-medium text-slate-900">{{ v.description }}</div>
+    {% if v.description_urdu %}<div dir="rtl" lang="ur" class="font-urdu text-xs text-slate-500">{{ v.description_urdu }}</div>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-right font-mono text-xs">{{ v.penalty_amount|money('PKR') }}</td>
+  <td class="px-3 py-2">{{ ui.badge(v.severity) }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ used.get(v.id, 0) }}</td>
+  <td class="px-3 py-2">{{ ui.badge(v.status) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/hr/config/violation-types/{{ v.id }}/toggle" class="inline">{{ ui.button('Deactivate' if v.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/hr/config/violation-types/{{ v.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+    <div class="lg:col-span-2">{{ ui.input('description', 'Description', v.description, required=True) }}</div>
+    {{ ui.input('penalty_amount', 'Penalty Amount', v.penalty_amount, type='number', step='50', min=0) }}
+    {{ ui.select('severity', 'Severity', severities, v.severity, placeholder=None) }}
+    <div class="lg:col-span-2">{{ ui.input('description_urdu', 'Description (Urdu)', v.description_urdu or '') }}</div>
+    {{ ui.input('sort_no', 'Sort No', v.sort_no, type='number') }}
+    {{ ui.select('status', 'Status', statuses, v.status, placeholder=None) }}
+    <div class="sm:col-span-2 lg:col-span-4 flex gap-2">{{ ui.button('Save type', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No violation types match these filters.', 7, 'triangle-alert') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} type{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newVT', 'Create Violation Type') %}
+<form method="post" action="/hr/config/violation-types/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '', required=True, placeholder='e.g. Late arrival without notice') }}</div>
+  {{ ui.input('penalty_amount', 'Penalty Amount', '0', type='number', step='50', min=0) }}
+  {{ ui.select('severity', 'Severity', severities, 'minor', placeholder=None) }}
+  <div class="sm:col-span-2">{{ ui.input('description_urdu', 'Description (Urdu)', '') }}</div>
+  {{ ui.input('sort_no', 'Sort No', next_sort, type='number') }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create type', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

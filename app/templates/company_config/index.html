@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl">
+  {% call ui.page_header("Configuration", "Currency rates, roles, lookups, branch properties, notification templates, support tickets, WhatsApp numbers, OTP and payment gateways") %}
+    {{ ui.button("Users", href="/admin/users", icon="user-cog", variant="secondary") }}
+    {{ ui.button("Audit Log", href="/admin/audit", icon="scroll-text", variant="secondary") }}
+  {% endcall %}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {% for c in cards %}
+      {{ ui.module_card(c.title, c.url, icon=c.icon, color=palette(loop.index0),
+                        subtitle=((c.count ~ ' record' ~ ('s' if c.count != 1 else '') ~ ' · ') if c.count is not none else '') ~ c.blurb) }}
+    {% endfor %}
+  </div>
+  <p class="mt-6 text-xs text-slate-500">
+    Lookups and branch properties come first: the rest of the platform reads them. The attendance grace periods
+    decide when a late arrival attracts a fine and the advance invoice days decide how far ahead billing runs.
+  </p>
+</div>
+{% endblock %}

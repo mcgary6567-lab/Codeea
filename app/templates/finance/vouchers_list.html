@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Vouchers{% endblock %}
+{% block content %}
+{% call ui.page_header("Vouchers", "Journal, Payment and Receipt Vouchers. Every voucher writes the same journal lines, so the ledger and the statements read one set of books.") %}
+  {% if can_add %}
+  {{ ui.button("Journal Voucher", href="/finance/accounts/vouchers/new?type=journal", icon="book") }}
+  {{ ui.button("Payment Voucher", href="/finance/accounts/vouchers/new?type=payment", icon="arrow-up-right", variant="secondary") }}
+  {{ ui.button("Receipt Voucher", href="/finance/accounts/vouchers/new?type=receipt", icon="arrow-down-left", variant="secondary") }}
+  {% endif %}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("All Vouchers", counts.total, color=palette(0), href="/finance/accounts/vouchers") }}
+  {{ ui.stat("Draft", counts.draft, color=palette(4), href="/finance/accounts/vouchers?status=draft") }}
+  {{ ui.stat("Posted", counts.posted, color=palette(3), href="/finance/accounts/vouchers?status=posted") }}
+  {{ ui.stat("Cancelled", counts.cancelled, color=palette(7), href="/finance/accounts/vouchers?status=cancelled") }}
+</div>
+
+{{ ui.tabs(type_tabs, type) }}
+
+{% call ui.filter_bar('/finance/accounts/vouchers') %}
+  <input type="hidden" name="type" value="{{ type }}">
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Voucher no, description, ref') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', voucher_statuses, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('account_id', 'Account', accounts, account_id, placeholder='All accounts') }}</div>
+  <div class="w-44">{{ ui.input('party', 'Party', party, placeholder='Client, employee, vendor') }}</div>
+  <div class="w-32">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Voucher No', 'Type', 'Date', 'Party', 'Description', 'Reference', 'Currency', 'Amount', 'Status', 'Posted By', '']) }}
+{% for v in page.items %}
+{% set rate = v.exchange_rate|float if v.exchange_rate else 1 %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold"><a class="text-brand-700 hover:underline" href="/finance/accounts/vouchers/{{ v.id }}">{{ v.voucher_number }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ voucher_labels.get(v.voucher_type, 'Journal Voucher') }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ v.entry_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ v.party_name or '—' }}{% if v.party_type %}<div class="text-[11px] text-slate-400">{{ v.party_type|titleize }}</div>{% endif %}</td>
+  <td class="px-3 py-1.5">{{ v.description }}</td>
+  <td class="px-3 py-1.5 font-mono text-[11px] text-slate-500">{{ v.reference_no or '—' }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ v.currency }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ (v.total|float / (rate or 1))|round(2)|money }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(v.status) }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{% if v.posted_by_id %}{{ posters.get(v.posted_by_id, 'System') }}<div class="text-[11px] text-slate-400">{{ v.posted_at|date }}</div>{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5 text-right">{{ ui.button('Open', href='/finance/accounts/vouchers/' ~ v.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No vouchers match these filters.', 11, 'receipt') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+<p class="mt-2 text-xs text-slate-500">Amounts are shown in the voucher currency; the ledger stores every line in {{ base }}.</p>
+{% endblock %}

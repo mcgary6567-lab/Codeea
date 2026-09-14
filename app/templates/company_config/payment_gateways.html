@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payment Gateways{% endblock %}
+{% block content %}
+{% call ui.page_header("Payment Gateways", "The gateways the college collects through, each with the fee it charges.", back="/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newGateway\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("All Gateways", stats.total, color=palette(0), href="/config/payment-gateways") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/config/payment-gateways?status=active") }}
+  {{ ui.stat("Live Mode", stats.live, color=palette(6)) }}
+  {{ ui.stat("Test Mode", stats.test, color=palette(9)) }}
+</div>
+
+{% call ui.filter_bar('/config/payment-gateways') %}
+  <div class="w-48">{{ ui.select('company', 'Gateway Company', companies, company, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Gateway name') }}</div>
+  <div class="w-40">{{ ui.input('sample', 'Sample Amount', sample, type='number', step='0.01', help='Fee preview below') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Payment Gateway Name', 'Default Transaction Fee %', 'Fixed Fee', 'Currency', 'Gateway Company', 'Beneficiary Account', 'Live Mode', 'Fee On ' ~ ('%.2f'|format(sample|float)), 'Status', '']) }}
+{% for g in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ g.id }}</td>
+  <td class="px-3 py-2 font-semibold text-slate-800">{{ g.name }}</td>
+  <td class="px-3 py-2 text-right text-xs">{{ '%.2f'|format(g.default_transaction_fee_pct|float) }} %</td>
+  <td class="px-3 py-2 text-right text-xs">{{ '%.2f'|format(g.fixed_fee|float) }}</td>
+  <td class="px-3 py-2 text-center font-mono text-xs">{{ g.currency or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ g.gateway_company }}</td>
+  <td class="px-3 py-2 text-xs">{{ g.beneficiary_account.account_name if g.beneficiary_account else '—' }}</td>
+  <td class="px-3 py-2 text-center">{{ ui.badge('connected' if g.live_mode else 'simulated', 'Live' if g.live_mode else 'Test') }}</td>
+  <td class="px-3 py-2 text-right font-mono text-xs text-slate-700">{{ '%.2f'|format(g.fee_on(sample|float)) }}{% if g.currency %} {{ g.currency }}{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge(g.status) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/config/payment-gateways/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/config/payment-gateways/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 items-end">
+    {{ ui.input('name', 'Payment Gateway Name', g.name, required=True) }}
+    {{ ui.select('gateway_company', 'Gateway Company', companies, g.gateway_company, placeholder=None) }}
+    {{ ui.input('default_transaction_fee_pct', 'Default Transaction Fee %', g.default_transaction_fee_pct, type='number', step='0.01') }}
+    {{ ui.input('fixed_fee', 'Fixed Fee', '%.2f'|format(g.fixed_fee|float), type='number', step='0.01') }}
+    {{ ui.select('currency', 'Currency', currencies, g.currency or '', placeholder='Any') }}
+    {{ ui.select('beneficiary_account_id', 'Beneficiary Account', accounts, g.beneficiary_account_id, placeholder='None') }}
+    {{ ui.select('status', 'Status', statuses, g.status, placeholder=None) }}
+    <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', g.live_mode) }}</div>
+    <div class="lg:col-span-3">{{ ui.input('notes', 'Notes', g.notes or '') }}</div>
+    <div class="flex gap-2">{{ ui.button('Save gateway', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No payment gateways match these filters.', 11, 'credit-card') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">The Fee column applies each gateway's own <code class="font-mono">fee_on()</code> helper to the sample amount above: percentage fee plus fixed fee, rounded to two places.</p>
+
+{% if can_add %}
+{% call ui.modal('newGateway', 'Create Payment Gateway') %}
+<form method="post" action="/config/payment-gateways/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('name', 'Payment Gateway Name', '', required=True, placeholder='Stripe UK') }}
+  {{ ui.select('gateway_company', 'Gateway Company', companies, 'Stripe', placeholder=None, required=True) }}
+  {{ ui.input('default_transaction_fee_pct', 'Default Transaction Fee %', '2.99', type='number', step='0.01') }}
+  {{ ui.input('fixed_fee', 'Fixed Fee', '0.30', type='number', step='0.01') }}
+  {{ ui.select('currency', 'Currency', currencies, 'GBP', placeholder='Any') }}
+  {{ ui.select('beneficiary_account_id', 'Beneficiary Account', accounts, '', placeholder='None') }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="flex items-end">{{ ui.checkbox('live_mode', 'Live Mode', False) }}</div>
+  <div class="sm:col-span-2">{{ ui.input('notes', 'Notes', '') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create gateway', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

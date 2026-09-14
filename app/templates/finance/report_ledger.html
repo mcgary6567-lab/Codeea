@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ledger Report{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Ledger Report", "Every line posted to one account in a date range, with the running balance, opening and closing.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/ledger?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/ledger') %}
+  <div class="w-72">{{ ui.select('account_id', 'Account', accounts, account_id, placeholder=None) }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Ledger Report</h1>
+  <p style="font-size:11px">{% if account %}{{ account.code }} {{ account.name }} &middot; {% endif %}{{ date_from }} to {{ date_to }} &middot; {{ base }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+{% if not data %}
+{{ ui.empty_state('Choose an account to see its ledger.', 'book-open') }}
+{% else %}
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Opening Balance", data.opening|round(0)|int, color=palette(0), hint=base) }}
+  {{ ui.stat("Debits", data.total_debit|round(0)|int, color=palette(3), hint=base) }}
+  {{ ui.stat("Credits", data.total_credit|round(0)|int, color=palette(7), hint=base) }}
+  {{ ui.stat("Closing Balance", data.closing|round(0)|int, color=palette(9), hint=base) }}
+</div>
+
+<div class="mb-2 text-sm font-semibold text-slate-700">{{ account.code }} — {{ account.name }} <span class="font-normal text-slate-500">({{ account.account_type|titleize }}{% if account.parent %} · {{ account.parent.name }}{% endif %})</span></div>
+
+{{ ui.table_start(['Date', 'Voucher No', 'Type', 'Description', 'Party', 'Reference', 'Debit', 'Credit', 'Balance']) }}
+<tr class="bg-[#f3f7fd] font-medium">
+  <td class="px-3 py-1.5 text-xs" colspan="6">Opening balance at {{ data.start|date }}</td>
+  <td class="px-3 py-1.5"></td><td class="px-3 py-1.5"></td>
+  <td class="px-3 py-1.5 text-right">{{ data.opening|money }}</td>
+</tr>
+{% for r in data.rows %}
+<tr>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.date|date }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/vouchers/{{ r.entry.id }}">{{ r.voucher_number }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ r.voucher_type|titleize }}</td>
+  <td class="px-3 py-1.5">{{ r.description }}{% if r.memo %}<div class="text-[11px] text-slate-500">{{ r.memo }}</div>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.party or '—' }}</td>
+  <td class="px-3 py-1.5 font-mono text-[11px] text-slate-500">{{ r.reference or '—' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.debit|money if r.debit else '' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.credit|money if r.credit else '' }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.balance|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No postings on this account in this range.', 9, 'book-open') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-semibold">
+  <td class="px-3 py-1.5" colspan="6">Closing balance at {{ data.end|date }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.total_debit|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.total_credit|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.closing|money }}</td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">{{ data.rows|length }} line{{ 's' if data.rows|length != 1 }} · amounts in {{ base }} · a positive balance is a debit balance.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

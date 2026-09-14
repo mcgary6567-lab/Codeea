@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Candidate Database{% endblock %}
+{% block content %}
+{% call ui.page_header("Candidate Database", "Everybody who has ever applied to the college, with their applications and where they stand today", back="/hr/recruitment") %}
+  {{ ui.button("Job Applications", href="/hr/applications", icon="file-text", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat("Candidates", stats.people, color=palette(0), href="/hr/candidates") }}
+  {{ ui.stat("Applications", stats.applications, color=palette(2), href="/hr/applications") }}
+  {{ ui.stat("In Process", stats.in_process, color=palette(4)) }}
+  {{ ui.stat("Hired", stats.hired, color=palette(3), href="/hr/candidates?status=hired") }}
+</div>
+
+{% call ui.filter_bar('/hr/candidates') %}
+  <div class="w-52">{{ ui.input('q', 'Name', q, placeholder='Candidate name') }}</div>
+  <div class="w-44">{{ ui.input('skill', 'Skill', skill, placeholder='e.g. Tajweed') }}</div>
+  <div class="w-52">{{ ui.input('qualification', 'Qualification', qualification, placeholder='e.g. MA Islamic Studies') }}</div>
+  <div class="w-40">{{ ui.input('city', 'City', city, placeholder='e.g. Lahore') }}</div>
+  <div class="w-48">{{ ui.select('status', 'Current Status', status_options, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Candidate Name', 'Father Name', 'Gender', 'Cell No', 'Email', 'Qualification', 'Experience', 'City', 'Skills', 'Applications', 'Current Status', '']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-2 font-medium text-slate-900">{{ r.name }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.father_name or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.gender|titleize if r.gender else '—' }}</td>
+  <td class="px-3 py-2 font-mono text-[11px]">{{ r.cell_no or '—' }}</td>
+  <td class="px-3 py-2 text-[11px]">{{ r.email or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.qualification or '—' }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ '%g'|format(r.experience) if r.experience else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.city or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% for s in r.skills[:4] %}<span class="mr-1 inline-block rounded bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">{{ s }}</span>{% else %}—{% endfor %}</td>
+  <td class="px-3 py-2 text-xs">
+    {% for a in r.applications[:3] %}
+      <a class="block text-brand-700 hover:underline" href="/hr/applications/{{ a.id }}">{{ a.request.title if a.request else 'Vacancy' }} · {{ a.application_date|date }}</a>
+    {% else %}<span class="text-slate-400">No application on file</span>{% endfor %}
+    {% if r.applications|length > 3 %}<span class="text-[11px] text-slate-500">+{{ r.applications|length - 3 }} more</span>{% endif %}
+  </td>
+  <td class="px-3 py-2">{{ ui.badge(r.status, labels.get(r.status, r.status)) }}</td>
+  <td class="px-3 py-2 text-right">
+    {% if r.hired_employee_id %}{{ ui.button('Employee', href='/hr/employees/' ~ r.hired_employee_id, variant='ghost', size='sm') }}
+    {% elif r.candidate_id %}{{ ui.button('Open', href='/hr/recruitment/candidates/' ~ r.candidate_id, variant='ghost', size='sm') }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No candidates match this search.', 12, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} candidate{{ 's' if rows|length != 1 }}</div>
+{% endblock %}

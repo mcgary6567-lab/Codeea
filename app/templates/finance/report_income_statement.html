@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Income Statement{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Income Statement", "Income less expense for the range, by account and by group, against the previous period of the same length.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/income-statement?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/income-statement') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Income Statement</h1>
+  <p style="font-size:11px">{{ data.start|date }} to {{ data.end|date }} &middot; compared with {{ data.prev_start|date }} to {{ data.prev_end|date }} &middot; {{ base }}</p>
+</div>
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Income", data.total_income|round(0)|int, color=palette(3), hint=base) }}
+  {{ ui.stat("Expenses", data.total_expense|round(0)|int, color=palette(7), hint=base) }}
+  {{ ui.stat("Net", data.net|round(0)|int, color=palette(0), hint=base) }}
+  {{ ui.stat("Margin", data.margin_pct ~ '%', color=palette(5), hint='of income') }}
+</div>
+
+<div class="mb-2 text-xs text-slate-500">Comparison period: {{ data.prev_start|date }} to {{ data.prev_end|date }}</div>
+
+{{ ui.table_start(['Account Code', 'Account Name', 'Group', 'This Period', 'Previous Period', 'Change']) }}
+<tr class="bg-[#f3f7fd] font-semibold"><td class="px-3 py-1.5" colspan="6">Income</td></tr>
+{% for r in data.income %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+  <td class="px-3 py-1.5">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.head }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+  <td class="px-3 py-1.5 text-right text-slate-500">{{ r.previous|money }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'text-emerald-700' if r.delta >= 0 else 'text-rose-700' }}">{{ r.delta|money }}</td>
+</tr>
+{% else %}<tr><td class="px-3 py-2 text-slate-400" colspan="6">No income posted in this range.</td></tr>{% endfor %}
+<tr class="bg-slate-50 font-semibold">
+  <td class="px-3 py-1.5" colspan="3">Total income</td>
+  <td class="px-3 py-1.5 text-right">{{ data.total_income|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.previous.total_income|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.income_delta|money }}</td>
+</tr>
+
+<tr class="bg-[#f3f7fd] font-semibold"><td class="px-3 py-1.5" colspan="6">Expenses</td></tr>
+{% for r in data.expense %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+  <td class="px-3 py-1.5">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.head }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+  <td class="px-3 py-1.5 text-right text-slate-500">{{ r.previous|money }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'text-rose-700' if r.delta >= 0 else 'text-emerald-700' }}">{{ r.delta|money }}</td>
+</tr>
+{% else %}<tr><td class="px-3 py-2 text-slate-400" colspan="6">No expenses posted in this range.</td></tr>{% endfor %}
+<tr class="bg-slate-50 font-semibold">
+  <td class="px-3 py-1.5" colspan="3">Total expenses</td>
+  <td class="px-3 py-1.5 text-right">{{ data.total_expense|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.previous.total_expense|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ data.expense_delta|money }}</td>
+</tr>
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2" colspan="3">Net income</td>
+  <td class="px-3 py-2 text-right">{{ data.net|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.previous.net|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.net_delta|money }}</td>
+</tr>
+{{ ui.table_end() }}
+
+<div class="mt-5 grid gap-5 lg:grid-cols-2">
+  {% call ui.card('Income by group') %}
+  <ul class="space-y-1.5 text-sm">
+    {% for g in data.income_groups %}<li class="flex justify-between border-b border-slate-100 pb-1"><span class="text-slate-600">{{ g.head }}</span><b>{{ g.amount|money(base) }}</b></li>
+    {% else %}<li class="text-slate-400">Nothing posted.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+  {% call ui.card('Expenses by group') %}
+  <ul class="space-y-1.5 text-sm">
+    {% for g in data.expense_groups %}<li class="flex justify-between border-b border-slate-100 pb-1"><span class="text-slate-600">{{ g.head }}</span><b>{{ g.amount|money(base) }}</b></li>
+    {% else %}<li class="text-slate-400">Nothing posted.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

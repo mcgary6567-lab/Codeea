@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ v.voucher_number }}{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header(v.voucher_number ~ ' · ' ~ voucher_labels.get(v.voucher_type, 'Journal Voucher'), v.description, back='/finance/accounts/vouchers') %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {% if v.status == 'draft' and can_post %}
+  <button type="button" @click="$dispatch('open-modal','postv')" class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Post</button>
+  {% endif %}
+  {% if v.status != 'cancelled' and can_cancel %}
+  <button type="button" @click="$dispatch('open-modal','cancelv')" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="undo-2" class="h-4 w-4"></i>Cancel</button>
+  {% endif %}
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">{{ org.name if org else 'Online Quran College' }}</h1>
+  <h2 style="font-size:15px;font-weight:600">{{ voucher_labels.get(v.voucher_type, 'Journal Voucher') }} {{ v.voucher_number }}</h2>
+  <p style="font-size:11px">{{ v.entry_date|date }} &middot; {{ v.currency }} {{ amount_in_currency }} &middot; {{ v.status|titleize }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  {{ ui.badge(v.status) }}
+  {% if closed %}{{ ui.badge('closed', 'Period ' ~ v.period ~ ' closed') }}{% endif %}
+  {% if v.reference_type == 'reversal' %}{{ ui.badge('reversed', 'Contra entry') }}{% endif %}
+  <span class="text-slate-500">{{ v.entry_date|date }} · {{ v.period }}</span>
+  <span class="ml-auto text-xl font-bold">{{ amount_in_currency|money(v.currency) }}</span>
+</div>
+
+{% if v.status == 'cancelled' %}
+<div class="mb-4">{{ ui.alert('Cancelled: ' ~ (v.cancel_reason or 'no reason recorded') ~ ('. Reversed by ' ~ reversal.voucher_number if reversal else '. This voucher was a draft, so nothing was reversed.'), 'warning', 'Cancelled voucher') }}</div>
+{% endif %}
+
+<div class="grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-5">
+    {% call ui.card('Voucher lines') %}
+    {{ ui.table_start(['Account Code', 'Account Name', 'Type', 'Memo', 'Debit (' ~ base ~ ')', 'Credit (' ~ base ~ ')']) }}
+    {% for l in v.lines %}
+    <tr>
+      <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/{{ l.account_id }}">{{ l.account.code }}</a></td>
+      <td class="px-3 py-1.5">{{ l.account.name }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500">{{ l.account.account_type|titleize }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500">{{ l.memo or '—' }}</td>
+      <td class="px-3 py-1.5 text-right">{{ l.debit|money if l.debit|float else '' }}</td>
+      <td class="px-3 py-1.5 text-right">{{ l.credit|money if l.credit|float else '' }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="bg-[#e8f1fb] font-semibold">
+      <td class="px-3 py-1.5" colspan="4">Totals</td>
+      <td class="px-3 py-1.5 text-right">{{ (v.lines|sum(attribute='debit'))|money }}</td>
+      <td class="px-3 py-1.5 text-right">{{ (v.lines|sum(attribute='credit'))|money }}</td>
+    </tr>
+    {{ ui.table_end() }}
+    {% endcall %}
+
+    <div class="no-print">
+    {% call ui.card('Audit trail') %}
+    {% if events %}
+    <ul class="space-y-2 text-sm">
+      {% for e in events %}
+      <li class="border-b border-slate-100 pb-1.5">
+        <span class="font-medium text-slate-700">{{ e.action|titleize }}</span>
+        <span class="text-slate-500">{{ e.description }}</span>
+        {% if e.rationale %}<div class="text-xs text-slate-500">Rationale: {{ e.rationale }}</div>{% endif %}
+        <div class="text-[11px] text-slate-400">{{ e.created_at|datetime }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-slate-400">No audit events recorded for this voucher.</p>{% endif %}
+    {% endcall %}
+    </div>
+  </div>
+
+  <div class="space-y-5">
+    {% call ui.card('Details') %}
+    {{ ui.dl([
+      ('Voucher No', v.voucher_number),
+      ('Journal No', v.entry_number),
+      ('Type', voucher_labels.get(v.voucher_type, 'Journal Voucher')),
+      ('Date', v.entry_date|date),
+      ('Party', (v.party_name ~ ' (' ~ (v.party_type|titleize) ~ ')') if v.party_name else None),
+      ('Payment Mode', v.payment_mode),
+      ('Beneficiary Account', v.beneficiary_account.account_name if v.beneficiary_account else None),
+      ('Reference No', v.reference_no),
+      ('Currency', v.currency),
+      ('Exchange Rate', rate),
+      ('Amount (' ~ base ~ ')', v.total|money),
+      ('Status', v.status|titleize),
+      ('Posted At', v.posted_at|datetime if v.posted_at else None),
+    ]) }}
+    {% endcall %}
+
+    {% if reversal or original %}
+    {% call ui.card('Linked vouchers') %}
+    <ul class="space-y-2 text-sm">
+      {% if original %}<li><span class="text-slate-500">Reverses</span> <a class="font-medium text-brand-700 hover:underline" href="/finance/accounts/vouchers/{{ original.id }}">{{ original.voucher_number or original.entry_number }}</a></li>{% endif %}
+      {% if reversal %}<li><span class="text-slate-500">Reversed by</span> <a class="font-medium text-brand-700 hover:underline" href="/finance/accounts/vouchers/{{ reversal.id }}">{{ reversal.voucher_number }}</a></li>{% endif %}
+    </ul>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+
+{% if v.status == 'draft' and can_post %}
+{% call ui.modal('postv', 'Post voucher') %}
+<form method="post" action="/finance/accounts/vouchers/{{ v.id }}/post" class="space-y-4">
+  {{ ui.alert('Posting stamps who posted it and when, and the lines start counting towards the ledger, trial balance and statements.', 'info') }}
+  {{ ui.textarea('rationale', 'Rationale', '', rows=2) }}
+  {{ ui.button('Post voucher', icon='check', variant='success') }}
+</form>
+{% endcall %}
+{% endif %}
+
+{% if v.status != 'cancelled' and can_cancel %}
+{% call ui.modal('cancelv', 'Cancel voucher') %}
+<form method="post" action="/finance/accounts/vouchers/{{ v.id }}/cancel" class="space-y-4">
+  {{ ui.alert('A posted voucher is never deleted: a contra voucher is posted against it and this one is marked cancelled.', 'warning') }}
+  {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
+  {{ ui.button('Cancel voucher', icon='undo-2', variant='danger') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

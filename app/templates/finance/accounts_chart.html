@@ -2,43 +2,87 @@
 {% import "macros.html" as ui %}
 {% block title %}Chart of accounts{% endblock %}
 {% block content %}
-{% call ui.page_header("Accounts & finance", "Double-entry chart of accounts, journals, statements, budgets and the financial close.") %}
+{% call ui.page_header("Chart of Accounts", "Double-entry chart of accounts, vouchers, statements, budgets and the financial close.") %}
   {% if has_perm(user, 'accounts.add') %}
-  <button type="button" @click="$dispatch('open-modal','newacct')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>New account</button>
+  {{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newacct\')"') }}
   {% endif %}
+  {{ ui.button("Accounts Heads", href="/finance/accounts/heads", icon="layers", variant="secondary") }}
+  {{ ui.button("Tree View", href="/finance/accounts/tree", icon="network", variant="secondary") }}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("All Accounts", stats.total, color=palette(0), href="/finance/accounts") }}
+  {{ ui.stat("Accounts Heads", stats.heads, color=palette(2), href="/finance/accounts?postable=no") }}
+  {{ ui.stat("Postable", stats.postable, color=palette(3), href="/finance/accounts?postable=yes") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7)) }}
+</div>
+
+{% call ui.filter_bar('/finance/accounts') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Code or name') }}</div>
+  <div class="w-44">{{ ui.select('account_type', 'Account Type', types, account_type, placeholder='All types') }}</div>
+  <div class="w-56">{{ ui.select('head_id', 'Accounts Head', heads, head_id, placeholder='All heads') }}</div>
+  <div class="w-36">{{ ui.select('postable', 'Postable', [('yes','Postable'),('no','Heads only')], postable, placeholder='All') }}</div>
+{% endcall %}
+
 <div class="grid gap-5 lg:grid-cols-3">
-  <div class="lg:col-span-2">
+  <div class="lg:col-span-2 space-y-5">
+    {% if not accounts %}{{ ui.empty_state('No accounts match these filters.', 'list') }}{% endif %}
     {% for type in types %}
     {% set group = accounts|selectattr('account_type', 'equalto', type)|list %}
     {% if group %}
-    <div class="mb-5">
     {% call ui.card(type|titleize ~ ' accounts', (group|length)|string ~ ' accounts') %}
-    {{ ui.table_start(['Code', 'Name', 'Parent', 'Net movement (' ~ base ~ ')', 'Active', '']) }}
+    {{ ui.table_start(['Code', 'Name', 'Head', 'Postable', 'Opening Balance', 'Net Movement (' ~ base ~ ')', 'Status', '']) }}
     {% for a in group %}
-    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-      <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/finance/accounts/{{ a.id }}">{{ a.code }}</a></td>
-      <td class="px-4 py-2">{{ a.name }}{% if a.description %}<div class="text-xs text-slate-500">{{ a.description }}</div>{% endif %}</td>
-      <td class="px-4 py-2 text-xs text-slate-500">{{ a.parent.code ~ ' ' ~ a.parent.name if a.parent else '—' }}</td>
-      <td class="px-4 py-2 text-right font-medium">{{ balances.get(a.id, 0)|money }}</td>
-      <td class="px-4 py-2 text-center">{% if a.is_active %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
-      <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/accounts/' ~ a.id, variant='ghost', size='sm') }}</td>
+    <tr x-data="{ edit: false }">
+      <td class="px-3 py-1.5 font-mono text-xs font-semibold text-brand-700"><a href="/finance/accounts/{{ a.id }}">{{ a.code }}</a></td>
+      <td class="px-3 py-1.5 {{ 'font-semibold' if a.is_head }}">{{ a.name }}{% if a.description %}<div class="text-xs text-slate-500">{{ a.description }}</div>{% endif %}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500">{% if a.is_head %}<span class="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 ring-1 ring-brand-600/20">THIS IS A HEAD</span>{% else %}{{ (a.parent.code ~ ' ' ~ a.parent.name) if a.parent else '—' }}{% endif %}</td>
+      <td class="px-3 py-1.5 text-center">{% if a.is_postable and not a.is_head %}<i data-lucide="check" class="h-4 w-4 text-emerald-600"></i>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+      <td class="px-3 py-1.5 text-right text-slate-600">{{ a.opening_balance|money }}</td>
+      <td class="px-3 py-1.5 text-right font-medium">{{ balances.get(a.id, 0)|money }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge('active' if a.is_active else 'inactive') }}</td>
+      <td class="px-3 py-1.5 text-right whitespace-nowrap">
+        {% if has_perm(user, 'accounts.update') %}<button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>{% endif %}
+        {{ ui.button('Ledger', href='/finance/accounts/reports/ledger?account_id=' ~ a.id, variant='ghost', size='sm') }}
+      </td>
     </tr>
+    {% if has_perm(user, 'accounts.update') %}
+    <tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+      <form method="post" action="/finance/accounts/{{ a.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+        {{ ui.input('name', 'Name', a.name, required=True) }}
+        {{ ui.select('account_type', 'Account Type', types, a.account_type, placeholder=None) }}
+        {{ ui.select('parent_id', 'Accounts Head', heads, a.parent_id, placeholder='— None —') }}
+        {{ ui.input('sort_no', 'Sort No', a.sort_no, type='number') }}
+        {{ ui.input('opening_balance', 'Opening Balance', a.opening_balance, type='number', step='0.01') }}
+        {{ ui.select('is_active', 'Status', [('1','Active'),('0','Inactive')], '1' if a.is_active else '0', placeholder=None) }}
+        <div class="sm:col-span-3 lg:col-span-6 flex flex-wrap items-center gap-2">
+          {{ ui.button('Save account', icon='save', size='sm') }}
+          <button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button>
+        </div>
+      </form>
+      <form method="post" action="/finance/accounts/{{ a.id }}/mark-head" class="mt-2 flex flex-wrap items-end gap-2">
+        <input type="hidden" name="is_head" value="{{ '0' if a.is_head else '1' }}">
+        <input type="hidden" name="back" value="/finance/accounts">
+        <div class="w-64">{{ ui.input('rationale', 'Reason', '', placeholder='Why the classification changes') }}</div>
+        {{ ui.button('Make postable' if a.is_head else 'Mark as accounts head', icon='layers', variant='secondary', size='sm') }}
+        <span class="text-xs text-slate-500">A head is never posted to; an account that already carries postings cannot become one.</span>
+      </form>
+    </td></tr>
+    {% endif %}
     {% endfor %}
     {{ ui.table_end() }}
     {% endcall %}
-    </div>
     {% endif %}
     {% endfor %}
   </div>
 
   <div class="space-y-5">
     {% call ui.card("How the ledger is fed") %}
-    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+    <ul class="space-y-2 text-sm text-slate-600">
+      <li class="flex gap-2"><i data-lucide="receipt" class="mt-0.5 h-4 w-4 text-brand-600"></i>Journal, Payment and Receipt Vouchers all write the same journal lines.</li>
       <li class="flex gap-2"><i data-lucide="banknote" class="mt-0.5 h-4 w-4 text-emerald-600"></i>Payments debit Cash/Bank and credit Tuition Revenue.</li>
-      <li class="flex gap-2"><i data-lucide="undo-2" class="mt-0.5 h-4 w-4 text-rose-600"></i>Refunds reverse that entry.</li>
+      <li class="flex gap-2"><i data-lucide="undo-2" class="mt-0.5 h-4 w-4 text-rose-600"></i>A cancelled voucher is reversed by a contra entry, never deleted.</li>
       <li class="flex gap-2"><i data-lucide="wallet" class="mt-0.5 h-4 w-4 text-amber-600"></i>Approved expenses debit their category account and credit Bank.</li>
       <li class="flex gap-2"><i data-lucide="lock" class="mt-0.5 h-4 w-4 text-slate-500"></i>Closed periods refuse new entries dated inside them.</li>
     </ul>
@@ -52,6 +96,16 @@
       {% endfor %}
     </ul>
     {% endcall %}
+    {% call ui.card("Reports") %}
+    <ul class="space-y-1.5 text-sm">
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/trial-balance">Trial Balance</a></li>
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/income-statement">Income Statement</a></li>
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/balance-sheet">Balance Sheet</a></li>
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/account-wise">Account Wise Summary</a></li>
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/payables">Payables Summary</a></li>
+      <li><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/approved-advances">Approved Advances</a></li>
+    </ul>
+    {% endcall %}
   </div>
 </div>
 
@@ -60,10 +114,13 @@
   <div class="grid gap-3 sm:grid-cols-2">
     {{ ui.input('code', 'Code', '', required=True, placeholder='e.g. 5700') }}
     {{ ui.input('name', 'Name', '', required=True) }}
-    {{ ui.select('account_type', 'Type', types, 'expense', required=True, placeholder=None) }}
-    {{ ui.select('parent_id', 'Parent account', parent_options, None, placeholder='— None —') }}
+    {{ ui.select('account_type', 'Account Type', types, 'expense', required=True, placeholder=None) }}
+    {{ ui.select('parent_id', 'Accounts Head', heads, None, placeholder='— None —') }}
+    {{ ui.input('sort_no', 'Sort No', 0, type='number') }}
+    {{ ui.input('opening_balance', 'Opening Balance', 0, type='number', step='0.01') }}
   </div>
   {{ ui.textarea('description', 'Description', '', rows=2) }}
+  {{ ui.checkbox('is_head', 'This is an accounts head (not postable)') }}
   {{ ui.button('Create account', icon='plus') }}
 </form>
 {% endcall %}

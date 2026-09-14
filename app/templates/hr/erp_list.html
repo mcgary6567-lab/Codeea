@@ -1,0 +1,134 @@
+{# Shared ERP request-list layout for the Employment Management group (docs/AUDIT_HUMAN_RESOURCE.md).
+   Approval Status tiles -> filter bar -> bordered table -> Actions: Change Status -> Create modal.
+   Driven by `meta`, `rows` (cells already formatted by the router) and `kind`. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ meta.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(meta.title, meta.subtitle) %}
+  {% if meta.back %}{{ ui.button('Employment Management', href=meta.back, icon='layout-grid', variant='secondary') }}{% endif %}
+  {% if can_add %}{{ ui.button(meta.create_label or 'Create', icon='plus', attrs="@click=\"$dispatch('open-modal','createRow')\"") }}{% endif %}
+{% endcall %}
+
+{% if group_tabs %}{{ ui.tabs(group_tabs, kind) }}{% endif %}
+{% if sub_tabs %}{{ ui.tabs(sub_tabs, sub_tab) }}{% endif %}
+{% if meta.note %}<div class="mb-4">{{ ui.alert(meta.note, 'info') }}</div>{% endif %}
+
+{{ ui.section_label(meta.tile_label or 'Approval Status') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, counts.get(key, 0), icon=icon, color=palette(loop.index0), href=tile_url ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar(base_path) %}
+  {% if sub_tab %}<input type="hidden" name="tab" value="{{ sub_tab }}">{% endif %}
+  <div class="w-52">{{ ui.input('q', 'Search', filters.q, placeholder=meta.search_hint or 'Employee / code') }}</div>
+  {% if 'employee' in meta.filters %}
+  <div class="w-60">{{ ui.select('employee', 'Employee', employee_options, filters.employee, placeholder='All employees') }}</div>
+  {% endif %}
+  {% if 'shift' in meta.filters %}
+  <div class="w-36">{{ ui.select('shift', 'Shift', shift_options, filters.shift, placeholder='All shifts') }}</div>
+  {% endif %}
+  {% if 'request_type' in meta.filters %}
+  <div class="w-48">{{ ui.select('request_type', 'Req Type', request_types, filters.request_type, placeholder='All types') }}</div>
+  {% endif %}
+  {% if 'complaint_type' in meta.filters %}
+  <div class="w-44">{{ ui.select('complaint_type', 'Complaint Type', complaint_types, filters.complaint_type, placeholder='All types') }}</div>
+  {% endif %}
+  {% if 'violation_type' in meta.filters %}
+  <div class="w-64">{{ ui.select('violation_type_id', 'Penalty Description', violation_type_options, filters.violation_type_id, placeholder='All offences') }}</div>
+  {% endif %}
+  {% if 'bonus_type' in meta.filters %}
+  <div class="w-64">{{ ui.select('bonus_type_id', 'Bonus Type', bonus_type_options, filters.bonus_type_id, placeholder='All bonus types') }}</div>
+  {% endif %}
+  {% if 'acceptance' in meta.filters %}
+  <div class="w-40">{{ ui.input('acceptance_from', 'Acceptance From', filters.acceptance_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('acceptance_to', 'Acceptance To', filters.acceptance_to, type='date') }}</div>
+  {% endif %}
+  {% if 'dates' in meta.filters %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+  {% endif %}
+  <div class="w-40">{{ ui.select('status', meta.tile_label or 'Approval Status', status_options, filters.status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+<form method="post" action="{{ change_status_action }}">
+  {% if sub_tab %}<input type="hidden" name="tab" value="{{ sub_tab }}">{% endif %}
+  <p class="mb-2 text-xs text-slate-500">{{ page.total }} record(s) — showing {{ page.start }}-{{ page.end }}</p>
+  {{ ui.table_start(([''] if can_change else []) + meta.headers) }}
+  {% for r in rows %}
+  <tr {% if r.highlight %}style="background: {{ r.highlight }}"{% endif %}>
+    {% if can_change %}<td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
+    {% for cell in r.cells %}
+      {% if cell is mapping %}
+      <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(cell.value, cell.label) }}</td>
+      {% else %}
+      <td class="px-3 py-2 text-xs {{ 'max-w-[18rem] truncate' if loop.index0 > 2 }}" title="{{ cell if cell is not none else '' }}">{{ cell if cell not in (None, '') else '—' }}</td>
+      {% endif %}
+    {% endfor %}
+  </tr>
+  {% else %}{{ ui.empty('Nothing matches these filters.', meta.headers|length + (1 if can_change else 0)) }}{% endfor %}
+  {{ ui.table_end() }}
+  {{ ui.pagination(page, base_url) }}
+
+  {% if can_change %}
+  <div class="mt-4">
+    {% call ui.card('Actions — Change Status', 'Tick the rows above, choose the new status and record why. The employee is notified and the change is written to the audit trail.') %}
+      <div class="grid gap-3 sm:grid-cols-3">
+        {{ ui.select('status', 'New Status', status_options, None, required=True, placeholder='— Select —') }}
+        <div class="sm:col-span-2">{{ ui.textarea(meta.remarks_field or 'remarks', meta.remarks_label or 'Remarks', '', rows=2, required=True, placeholder='Why is this being approved / rejected / cancelled?') }}</div>
+        {% if kind == 'complaints' %}
+        <div class="sm:col-span-3">{{ ui.textarea('admin_response', 'Admin Response', '', rows=2, placeholder='The response published to the member of staff.') }}</div>
+        {% endif %}
+      </div>
+      <div class="mt-3 flex justify-end">{{ ui.button('Change Status', icon='check-check') }}</div>
+    {% endcall %}
+  </div>
+  {% endif %}
+</form>
+
+{% if can_add %}
+{% call ui.modal('createRow', meta.create_label or ('Create ' ~ meta.title), 'lg') %}
+<form method="post" action="{{ create_action }}" class="grid gap-3 sm:grid-cols-2">
+  {% if kind == 'requests' %}
+    {{ ui.select('employee_id', 'Employee', employee_options, None, required=True) }}
+    {{ ui.select('request_type', 'Req Type', request_types, 'Salary Certificate', placeholder=None) }}
+    {{ ui.input('request_date', 'Date', today_iso, type='date') }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=3, required=True) }}</div>
+  {% elif kind == 'violations' %}
+    <div x-data="{ amounts: {{ type_amounts|tojson_safe }} }" class="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+      {{ ui.select('employee_id', 'Employee', employee_options, None, required=True) }}
+      {{ ui.input('date', 'Date', today_iso, type='date') }}
+      <div class="sm:col-span-2">{{ ui.select('violation_type_id', 'Penalty Description', violation_type_options, None, required=True, attrs='@change="document.getElementById(\'f_deduction_amount\').value = amounts[$event.target.value] || 0"') }}</div>
+      {{ ui.input('deduction_amount', 'Penalty Amount (PKR)', '0', type='number', step='50', help='Pre-filled from the catalogue; edit if the manager agreed a different fine.') }}
+      {{ ui.select('severity', 'Severity', ['minor','major','critical'], 'minor', placeholder=None) }}
+      <div class="sm:col-span-2">{{ ui.textarea('remarks', 'Remarks', '', rows=2, required=True, placeholder='What happened, who reported it.') }}</div>
+    </div>
+  {% elif kind == 'bonuses' %}
+    <div x-data="{ amounts: {{ type_amounts|tojson_safe }} }" class="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+      {{ ui.select('employee_id', 'Emp Name', employee_options, None, required=True) }}
+      <div>{{ ui.select('bonus_type_id', 'Bonus Type', bonus_type_options, None, required=True, attrs='@change="document.getElementById(\'f_amount\').value = amounts[$event.target.value] || 0"') }}</div>
+      {{ ui.input('amount', 'Bonus Amount (PKR)', '0', type='number', step='50', help='Pre-filled from the catalogue; editable.') }}
+      {{ ui.input('period', 'Period', period_default, type='month') }}
+      <div class="sm:col-span-2">{{ ui.textarea('reason', 'Remarks', '', rows=2) }}</div>
+    </div>
+  {% elif kind == 'advances' %}
+    {{ ui.select('employee_id', 'Employee', employee_options, None, required=True) }}
+    {{ ui.input('request_date', 'Request Date', today_iso, type='date') }}
+    {{ ui.input('amount', 'Amount (PKR)', '', type='number', step='500', required=True) }}
+    {{ ui.input('installments', 'No Of Installments', '1', type='number', min=1, max=12) }}
+    <div class="sm:col-span-2">{{ ui.textarea('reason', 'Remarks', '', rows=2, required=True) }}</div>
+  {% elif kind == 'complaints' %}
+    {% if can_pick_employee %}{{ ui.select('employee_id', 'Employee', employee_options, None, placeholder='Myself') }}
+    {% else %}<input type="hidden" name="employee_id" value="">{% endif %}
+    {{ ui.select('complaint_type', 'Complaint Type', complaint_types, 'HR', placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True) }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=4, required=True) }}</div>
+    <div class="sm:col-span-2">{{ ui.checkbox('is_secret', 'Mark as secret', False, help='A secret complaint is readable only by People & Culture. For anything you want kept from your own management chain use the confidential grievance channel.') }}</div>
+  {% endif %}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

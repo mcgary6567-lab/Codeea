@@ -157,3 +157,37 @@ vocabulary: Pending · Generated · Posted · Cancelled.
 | Recruitment | **Partial** | We have requisitions, candidates and interviews; missing job categories, skills, locations, the ten-step application pipeline, interview panels and the summary report |
 | Payroll | **Partial** | Status vocabulary differs: theirs is Pending / Generated / Posted / Cancelled, ours draft / pending approval / approved / paid; theirs carries a free-text description per run |
 | Attendance report | **Partial** | Ours has no print view and fewer filters (no designation, employee type or department) |
+
+---
+
+## Status after the build
+
+All eight groups are built, seeded and tested.
+
+**Dashboards** — Employee Management, Attendance Management and Financial Management, with the counters the
+ERP shows: gender distribution, today's attendance per shift (total, absent, present, on leave, late coming)
+and the pending-request counts.
+
+**Employment Management** — the employee record with their 29 columns and 7 filters, employee requests, staff
+violations, bonuses, advance requests, complaints, downloads, provisioning and attachments. Approving a
+violation writes the deduction so payroll picks it up; a pending or rejected one never charges a fine.
+
+**Time and Attendance** — daily attendance with inline editing, attendance change requests, the attendance
+summary report, leave assignment (entitlements), leave management and the employees progress sheet. Approving
+a leave consumes working days, skipping holidays; cancelling or reversing returns them; an over-entitlement
+approval is refused unless it is overridden with a reason.
+
+**Recruitment and Hiring** — job requisitions, job applications across the ten-step pipeline, interview panels,
+scheduled interviews, the candidate database, onboarding and the summary.
+
+**Benefits, Financial Management, Attachments and HR Configurations** — grades and allowances, the Ustaadh Lab,
+payroll runs (create, generate, post, cancel, with posting locking the run), attachments, and the configuration
+screens for departments, shifts, holidays, violation types, bonus types and users.
+
+### Deliberate differences from the ERP
+
+| Theirs | Ours | Why |
+|---|---|---|
+| Complaints carry a Secret flag in the main list | A separate confidential channel, plus a Secret tab gated on its own permission | A flag in a shared list is read by whoever opens the list |
+| Whole-staff attendance and leave balances open to anyone who can file their own | Those two pages require the People and Culture permission | A teacher needs their own record, not everyone's |
+| Shift Type and Shift Code stored on the shift | Derived from the shift group | Adding columns was out of scope for this pass; the pages say where the value comes from |

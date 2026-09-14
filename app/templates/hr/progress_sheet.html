@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Employees Progress Sheet{% endblock %}
+{% block content %}
+{% call ui.page_header('Employees Progress Sheet', 'What each member of staff did on a working day, and what their manager made of it.') %}
+  {% if can_add %}{{ ui.button('Create', icon='plus', attrs="@click=\"$dispatch('open-modal','newProgress')\"") }}{% endif %}
+  {{ ui.button('Daily Attendance', href='/hr/attendance', icon='clock', variant='secondary') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Entries', stats.total, icon='clipboard-list', color='sky') }}
+  {{ ui.stat('Rated', stats.rated, icon='star', color='emerald') }}
+  {{ ui.stat('Awaiting a rating', stats.unrated, icon='hourglass', color='amber', href='/hr/progress-sheet?rating=unrated') }}
+  {{ ui.stat('Average rating', stats.avg, icon='gauge', color='indigo', hint='out of 5') }}
+</div>
+
+{% call ui.filter_bar('/hr/progress-sheet') %}
+  <div class="w-60">{{ ui.select('employee', 'Employee', employees, filters.employee, placeholder='All employees') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+  <div class="w-48">{{ ui.select('rating', 'Manager Rating', rating_options, filters.rating, placeholder='Any rating') }}</div>
+{% endcall %}
+
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} entry(ies) - showing {{ page.start }}-{{ page.end }}</p>
+{{ ui.table_start(['ID', 'Employee', 'Working Date', 'Progress Detail', 'Manager Rating', '']) }}
+{% for n in page.items %}
+{% set e = n.employee %}
+<tr {% if n.manager_rating is none %}style="background:#fef9c3"{% elif n.manager_rating <= 2 %}style="background:#fee2e2"{% endif %}>
+  <td class="px-3 py-2 text-xs font-mono">{{ n.id }}</td>
+  <td class="px-3 py-2 text-xs">{% if e %}<a href="/hr/employees/{{ e.id }}" class="font-medium hover:text-brand-600">{{ e.full_name }}</a>
+    <div class="text-[10px] text-slate-500">{{ e.employee_code }} · {{ e.department.name if e.department else '-' }} · {{ (e.shift|titleize) }}</div>{% else %}-{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.working_date|date }}</td>
+  <td class="px-3 py-2 text-xs max-w-[26rem]">{{ n.detail }}
+    {% if n.manager_comment %}<div class="mt-0.5 text-[10px] text-slate-500">Manager: {{ n.manager_comment }}</div>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">
+    {% if n.manager_rating %}<span class="font-semibold">{{ n.manager_rating }}/5</span>
+      <div class="text-[10px] text-slate-500">{{ n.rated_by.full_name if n.rated_by else '' }}{% if n.rated_at %} · {{ n.rated_at|date }}{% endif %}</div>
+    {% else %}<span class="text-slate-400">Not rated</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-right">
+    {% if can_rate %}
+    <form method="post" action="/hr/progress-sheet/{{ n.id }}/rate" class="flex items-center justify-end gap-1">
+      <select name="manager_rating" class="rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        {% for v, l in ratings %}<option value="{{ v }}" {{ 'selected' if n.manager_rating == v }}>{{ v }}</option>{% endfor %}
+      </select>
+      <input name="manager_comment" value="{{ n.manager_comment or '' }}" placeholder="comment" class="w-32 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+      {{ ui.button('Rate', icon='star', size='sm') }}
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No progress entries match these filters.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_add %}
+{% call ui.modal('newProgress', 'Create progress entry') %}
+<form method="post" action="/hr/progress-sheet/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, None, required=True) }}</div>
+  {{ ui.input('working_date', 'Working Date', today_iso, type='date', required=True) }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('detail', 'Progress Detail', '', rows=3, required=True, placeholder='One line on what was achieved.') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

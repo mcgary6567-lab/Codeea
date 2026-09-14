@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Roles{% endblock %}
+{% block content %}
+{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Read only — the role editor lives on Roles & Permissions.", back="/config") %}
+  {% if can_edit %}{{ ui.button("Edit roles", href="/admin/roles", icon="shield", variant="secondary") }}{% endif %}
+  {{ ui.button("Assign users", href="/admin/users", icon="user-cog", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Roles", stats.total, color=palette(0)) }}
+  {{ ui.stat("Applications", stats.apps, color=palette(3)) }}
+  {{ ui.stat("Assigned Users", stats.assigned, color=palette(6)) }}
+  {{ ui.stat("System Roles", stats.system, color=palette(9)) }}
+</div>
+
+{% call ui.filter_bar('/config/roles') %}
+  <div class="w-56">{{ ui.select('app', 'Application', apps, app, placeholder='All applications') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Role name') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Role', 'Description', 'Portal', 'Status', 'Assigned Users', '']) }}
+{% for g in groups %}
+<tr class="bg-[#e8f1fb]"><td colspan="6" class="px-3 py-1.5 text-[12px] font-semibold text-slate-700">
+  {{ g.app }} <span class="font-normal text-slate-500">— {{ g.rows|length }} role{{ 's' if g.rows|length != 1 }}</span>
+</td></tr>
+{% for row in g.rows %}
+<tr>
+  <td class="px-3 py-2">
+    <div class="font-semibold text-slate-800">{{ row.r.name }}</div>
+    <div class="font-mono text-[11px] text-slate-500">{{ row.r.slug }}{% if row.r.is_system %} <span class="ml-1 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600">SYSTEM</span>{% endif %}</div>
+  </td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ row.r.description or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ row.r.portal|titleize }}</td>
+  <td class="px-3 py-2">{{ ui.badge(row.status) }}</td>
+  <td class="px-3 py-2 text-center text-xs font-semibold">{{ row.users }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Permissions', href='/admin/roles', variant='ghost', size='sm', icon='shield') }}
+    {{ ui.button('Assign Users', href='/admin/users?role=' ~ row.r.slug, variant='ghost', size='sm', icon='user-plus') }}
+  </td>
+</tr>
+{% endfor %}
+{% else %}{{ ui.empty('No roles match these filters.', 6, 'shield') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">
+  A role counts as active once it carries at least one permission. Permissions and portal assignment are edited on
+  <a href="/admin/roles" class="text-brand-700 hover:underline">Roles &amp; Permissions</a>; this page exists so the
+  Configuration area shows the same grouping the college's ERP does.
+</p>
+{% endblock %}

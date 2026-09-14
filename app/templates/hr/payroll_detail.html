@@ -2,9 +2,18 @@
 {% import "macros.html" as ui %}
 {% block title %}Payroll {{ run.period }}{% endblock %}
 {% block content %}
-{% call ui.page_header('Payroll ' ~ run.period, summary.payslips ~ ' payslips · ' ~ summary.teachers ~ ' teachers, ' ~ summary.staff ~ ' staff', back='/hr/payroll') %}
-  {{ ui.badge(run.status) }}
+{% call ui.page_header('Payroll ' ~ run.period, (run.description or (summary.payslips ~ ' payslips')) ~ ' · ' ~ summary.teachers ~ ' teachers, ' ~ summary.staff ~ ' staff', back='/hr/payroll') %}
+  {{ ui.badge(run.status, run.status|label('payroll')) }}
   {{ ui.button('Export CSV', href='/hr/payroll/' ~ run.id ~ '/export.csv', icon='download', variant='secondary', size='sm') }}
+  {% if not locked and has_perm(user, 'payroll.add') %}
+  {{ ui.confirm_form('/hr/payroll/' ~ run.id ~ '/generate', 'Generate', icon='calculator', variant='secondary', message='Rebuild every payslip for this month?') }}
+  {% endif %}
+  {% if run.status in ('generated', 'pending', 'draft', 'pending_approval') and can_approve %}
+  <form method="post" action="/hr/payroll/{{ run.id }}/post" class="inline" onsubmit="return confirm('Post and lock this payroll run?')">
+    <input type="hidden" name="rationale" value="Month-end payroll reviewed and posted">
+    {{ ui.button('Post & lock', icon='lock', variant='success', size='sm') }}
+  </form>
+  {% endif %}
   {% if run.status == 'draft' and has_perm(user, 'payroll.update') %}
   {{ ui.confirm_form('/hr/payroll/' ~ run.id ~ '/submit', 'Submit for approval', icon='send', variant='primary', message='Submit this run for approval?') }}
   {% endif %}
@@ -22,8 +31,21 @@
   {{ ui.stat('Payslips', summary.payslips, icon='file-text', color='indigo', hint=(run.approved_at|date if run.approved_at else 'not approved')) }}
 </div>
 {% if run.notes %}<div class="mb-4">{{ ui.alert(run.notes, 'success', 'Ledger') }}</div>{% endif %}
-{% if run.status in ('draft','pending_approval') %}
-<div class="mb-4">{{ ui.alert('While a run is a draft you can adjust individual payslips — every adjustment needs a reason and is recorded as a consequential audit event.', 'info') }}</div>
+{% if locked %}
+<div class="mb-4">{{ ui.alert('This run is posted: payslips can no longer be adjusted and the month cannot be regenerated.', 'success', 'Locked') }}</div>
+{% else %}
+<div class="mb-4">{{ ui.alert('Until the run is posted you can adjust individual payslips — every adjustment needs a reason and is recorded as a consequential audit event.', 'info') }}</div>
+{% endif %}
+{% if components and components.payslips %}
+<div class="mb-6 grid gap-2 sm:grid-cols-3 lg:grid-cols-6 text-center">
+  {% for label, value in [('Basic', components.basic), ('Class pay', components.class_pay), ('Allowances', components.allowances),
+                          ('Bonuses', components.bonuses), ('Violations', components.violations), ('Advances', components.advances)] %}
+  <div class="rounded-md border border-slate-200 bg-white px-3 py-2">
+    <div class="text-[15px] font-semibold text-slate-800">{{ value|money }}</div>
+    <div class="text-[11px] text-slate-500">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
 {{ ui.table_start(['Employee', 'Basic', 'Class pay', 'Classes', 'Allowances', 'Bonus', 'Attendance', 'Advance', 'Other', 'Gross', 'Net', '']) }}
 {% for p in slips %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Onboarding{% endblock %}
+{% block content %}
+{% call ui.page_header("Onboarding", "New hires and how far through their joining checklist they are", back="/hr/recruitment") %}
+  {{ ui.button("Provisioning", href="/hr/provisioning", icon="key-round", variant="secondary") }}
+  {{ ui.button("Employee Record", href="/hr/employees", icon="id-card", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat("New Hires", stats.hires, color=palette(0), href="/hr/onboarding") }}
+  {{ ui.stat("In Progress", stats.open, color=palette(1), href="/hr/onboarding?state=open") }}
+  {{ ui.stat("Complete", stats.complete, color=palette(3), href="/hr/onboarding?state=complete") }}
+  {{ ui.stat("Overdue Tasks", stats.overdue, color=palette(7)) }}
+</div>
+
+{% call ui.filter_bar('/hr/onboarding') %}
+  <div class="w-64">{{ ui.input('q', 'Employee', q, placeholder='Name') }}</div>
+  <div class="w-48">{{ ui.select('state', 'Checklist', states, state, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Code', 'Employee', 'Designation', 'Department', 'Joining Date', 'Checklist', 'Progress', 'Overdue', '']) }}
+{% for r in rows %}
+{% set e = r.employee %}
+<tr x-data="{ open: false }">
+  <td class="px-3 py-2 font-mono text-xs">{{ e.employee_code }}</td>
+  <td class="px-3 py-2 font-medium"><a class="text-brand-700 hover:underline" href="/hr/employees/{{ e.id }}">{{ e.full_name }}</a></td>
+  <td class="px-3 py-2 text-xs">{{ e.designation }}</td>
+  <td class="px-3 py-2 text-xs">{{ e.department.name if e.department else '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ e.join_date|date }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.done }} / {{ r.total }}</td>
+  <td class="px-3 py-2 w-48">{{ ui.progress(r.pct, 'emerald' if r.pct == 100 else 'sky') }}</td>
+  <td class="px-3 py-2 text-center text-xs {{ 'font-semibold text-rose-600' if r.overdue }}">{{ r.overdue or '—' }}</td>
+  <td class="px-3 py-2 text-right"><button type="button" @click="open = !open" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Checklist</button></td>
+</tr>
+<tr x-show="open" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+  {% if r.tasks %}
+  <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    {% for t in r.tasks %}
+    <div class="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-3 py-2">
+      <div class="min-w-0">
+        <div class="truncate text-xs font-medium text-slate-800">{{ t.title }}</div>
+        <div class="text-[11px] text-slate-500">{{ t.category|titleize }}{% if t.due_date %} · due {{ t.due_date|date }}{% endif %}</div>
+      </div>
+      {% if t.status in ('completed', 'done') %}{{ ui.badge('completed', 'Done') }}
+      {% elif can_edit %}
+      <form method="post" action="/hr/employees/{{ e.id }}/onboarding/{{ t.id }}" class="inline">{{ ui.button('Complete', icon='check', variant='success', size='sm') }}</form>
+      {% else %}{{ ui.badge(t.status) }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-xs text-slate-500">No checklist yet.
+    {% if can_edit %}<a class="text-brand-700 hover:underline" href="/hr/employees/{{ e.id }}?tab=onboarding">Create one on the employee record.</a>{% endif %}
+  </div>
+  {% endif %}
+</td></tr>
+{% else %}{{ ui.empty('No new hires in the last six months.', 9, 'user-plus') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} new hire{{ 's' if rows|length != 1 }}</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Balance Sheet{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Balance Sheet", "Assets, liabilities and equity as at a date. Retained earnings are derived from income less expense to that date.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/balance-sheet?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/balance-sheet') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date', help='Used by the other reports') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'As At Date', date_to, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Balance Sheet</h1>
+  <p style="font-size:11px">as at {{ data.as_of|date }} &middot; {{ base }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+{% if data.balanced %}
+<div class="mb-4">{{ ui.alert('Assets ' ~ data.total_assets|money(base) ~ ' = liabilities ' ~ data.total_liabilities|money(base) ~ ' + equity ' ~ data.total_equity_with_earnings|money(base) ~ '.', 'success', 'The balance sheet balances') }}</div>
+{% else %}
+<div class="mb-4">{{ ui.alert('Assets less liabilities and equity leaves ' ~ data.difference|money(base) ~ ' unexplained. Check the ledger before relying on this statement.', 'error', 'The balance sheet does not balance') }}</div>
+{% endif %}
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Total Assets", data.total_assets|round(0)|int, color=palette(0), hint=base) }}
+  {{ ui.stat("Total Liabilities", data.total_liabilities|round(0)|int, color=palette(7), hint=base) }}
+  {{ ui.stat("Equity", data.total_equity_with_earnings|round(0)|int, color=palette(3), hint='incl. retained earnings') }}
+  {{ ui.stat("Retained Earnings", data.retained_earnings|round(0)|int, color=palette(5), hint=base) }}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2">
+  <div>
+  {{ ui.table_start(['Account Code', 'Assets', 'Amount (' ~ base ~ ')']) }}
+  {% for r in data.assets %}
+  <tr>
+    <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+    <td class="px-3 py-1.5">{{ r.name }}<div class="text-[11px] text-slate-400">{{ r.head }}</div></td>
+    <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No asset balances.', 3, 'landmark') }}{% endfor %}
+  <tr class="bg-[#e8f1fb] font-bold"><td class="px-3 py-2" colspan="2">Total assets</td><td class="px-3 py-2 text-right">{{ data.total_assets|money }}</td></tr>
+  {{ ui.table_end() }}
+  </div>
+
+  <div class="space-y-5">
+  {{ ui.table_start(['Account Code', 'Liabilities', 'Amount (' ~ base ~ ')']) }}
+  {% for r in data.liabilities %}
+  <tr>
+    <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+    <td class="px-3 py-1.5">{{ r.name }}<div class="text-[11px] text-slate-400">{{ r.head }}</div></td>
+    <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No liability balances.', 3, 'landmark') }}{% endfor %}
+  <tr class="bg-slate-50 font-semibold"><td class="px-3 py-1.5" colspan="2">Total liabilities</td><td class="px-3 py-1.5 text-right">{{ data.total_liabilities|money }}</td></tr>
+  {{ ui.table_end() }}
+
+  {{ ui.table_start(['Account Code', 'Equity', 'Amount (' ~ base ~ ')']) }}
+  {% for r in data.equity %}
+  <tr>
+    <td class="px-3 py-1.5 font-mono text-xs">{{ r.code }}</td>
+    <td class="px-3 py-1.5">{{ r.name }}</td>
+    <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+  </tr>
+  {% endfor %}
+  <tr>
+    <td class="px-3 py-1.5 font-mono text-xs">—</td>
+    <td class="px-3 py-1.5">Retained earnings<div class="text-[11px] text-slate-400">Income {{ data.income_total|money }} less expenses {{ data.expense_total|money }} to date</div></td>
+    <td class="px-3 py-1.5 text-right font-medium">{{ data.retained_earnings|money }}</td>
+  </tr>
+  <tr class="bg-slate-50 font-semibold"><td class="px-3 py-1.5" colspan="2">Total equity</td><td class="px-3 py-1.5 text-right">{{ data.total_equity_with_earnings|money }}</td></tr>
+  <tr class="bg-[#e8f1fb] font-bold"><td class="px-3 py-2" colspan="2">Total liabilities and equity</td><td class="px-3 py-2 text-right">{{ data.total_liabilities_equity|money }}</td></tr>
+  {{ ui.table_end() }}
+  </div>
+</div>
+
+<div class="mt-5">
+{% call ui.card('Accounting equation check') %}
+<div class="flex flex-wrap items-center gap-3 text-sm">
+  <span class="rounded bg-slate-100 px-3 py-1.5 font-mono">Assets {{ data.total_assets|money(base) }}</span>
+  <span class="font-bold">=</span>
+  <span class="rounded bg-slate-100 px-3 py-1.5 font-mono">Liabilities {{ data.total_liabilities|money(base) }}</span>
+  <span class="font-bold">+</span>
+  <span class="rounded bg-slate-100 px-3 py-1.5 font-mono">Equity {{ data.total_equity_with_earnings|money(base) }}</span>
+  <span class="font-bold">→</span>
+  <span class="rounded px-3 py-1.5 font-mono font-semibold {{ 'bg-emerald-50 text-emerald-700' if data.balanced else 'bg-rose-50 text-rose-700' }}">difference {{ data.difference|money(base) }}</span>
+</div>
+{% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Payables Summary{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Payables Summary", "What the college owes, by vendor and by account, aged from the date the liability arose.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/payables?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/payables') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date', help='Used by the other reports') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'As At Date', date_to, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Payables Summary</h1>
+  <p style="font-size:11px">as at {{ data.as_of|date }} &middot; {{ base }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Total Payable", data.total|round(0)|int, color=palette(0), hint=base) }}
+  {% for key, label in data.buckets %}{{ ui.stat(label, data.totals[key]|round(0)|int, color=palette(loop.index0 + 3), hint=base) }}{% endfor %}
+</div>
+
+<div class="mb-2 text-sm font-semibold text-slate-700">By vendor</div>
+{{ ui.table_start(['Vendor', 'Items', 'Oldest'] + bucket_labels + ['Total']) }}
+{% for v in data.vendors %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{{ v.vendor }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ v.count }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ v.oldest|date }}</td>
+  {% for key in bucket_keys %}<td class="px-3 py-1.5 text-right">{{ v.buckets[key]|money if v.buckets[key] else '' }}</td>{% endfor %}
+  <td class="px-3 py-1.5 text-right font-semibold">{{ v.total|money }}</td>
+</tr>
+{% else %}{{ ui.empty('Nothing is owed as at this date.', 9, 'wallet') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2">TOTAL</td>
+  <td class="px-3 py-2 text-center">{{ data.count }}</td>
+  <td class="px-3 py-2"></td>
+  {% for key in bucket_keys %}<td class="px-3 py-2 text-right">{{ data.totals[key]|money }}</td>{% endfor %}
+  <td class="px-3 py-2 text-right">{{ data.total|money }}</td>
+</tr>
+{{ ui.table_end() }}
+
+<div class="mt-6 mb-2 text-sm font-semibold text-slate-700">By account</div>
+{{ ui.table_start(['Account', 'Items'] + bucket_labels + ['Total']) }}
+{% for a in data.accounts %}
+<tr>
+  <td class="px-3 py-1.5">{{ a.account }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ a.count }}</td>
+  {% for key in bucket_keys %}<td class="px-3 py-1.5 text-right">{{ a.buckets[key]|money if a.buckets[key] else '' }}</td>{% endfor %}
+  <td class="px-3 py-1.5 text-right font-semibold">{{ a.total|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No approved payables.', 8, 'wallet') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6 mb-2 text-sm font-semibold text-slate-700">Liability accounts in the ledger as at {{ data.as_of|date }}</div>
+{{ ui.table_start(['Account Code', 'Account Name', 'Balance (' ~ base ~ ')']) }}
+{% for r in data.ledger_rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a class="text-brand-700 hover:underline" href="/finance/accounts/reports/ledger?account_id={{ r.account.id }}&date_to={{ date_to }}">{{ r.code }}</a></td>
+  <td class="px-3 py-1.5">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No liability balances.', 3, 'landmark') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold"><td class="px-3 py-2" colspan="2">Total liabilities</td><td class="px-3 py-2 text-right">{{ data.ledger_total|money }}</td></tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Vendor ageing is built from approved expenses that have not been paid; the ledger section is the liability side of the chart of accounts.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

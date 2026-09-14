@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Support Ticket{% endblock %}
+{% block content %}
+{% call ui.page_header("Support Ticket", "Requests raised to whoever maintains the software. Any member of staff may raise one; only a system administrator changes the status or writes developer remarks.", back="/config") %}
+  {{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newTicket\')"') }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("All Tickets", total, color=palette(0), href="/config/support-tickets") }}
+  {% for key, label in ticket_statuses %}
+    {{ ui.stat(label, counts.get(key, 0), color=palette(loop.index0 + 2), href="/config/support-tickets?status=" ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/config/support-tickets') %}
+  <div class="w-40">{{ ui.select('status', 'Status', ticket_statuses, status, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('priority', 'Priority', priorities, priority, placeholder='All') }}</div>
+  <div class="w-48">{{ ui.select('module', 'Module', modules, module, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('ticket_type', 'Ticket Type', ticket_types, ticket_type, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Subject or ticket number') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Ticket', 'Subject', 'Department', 'Message', 'WhatsApp No', 'Ticket Type', 'Module', 'Priority', 'Status', 'Developer Remarks', '']) }}
+{% for t in page.items %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs font-semibold text-slate-900">{{ t.ticket_number }}</td>
+  <td class="px-3 py-2"><a href="/config/support-tickets/{{ t.id }}" class="font-semibold text-brand-700 hover:underline">{{ t.subject }}</a>
+    <div class="text-[11px] text-slate-500">{{ t.raised_by.full_name if t.raised_by else 'Unknown' }} · {{ t.created_at|date }}</div></td>
+  <td class="px-3 py-2 text-xs">{{ t.department.name if t.department else '—' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ t.message[:70] }}{{ '…' if t.message|length > 70 }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ t.whatsapp_no or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ t.ticket_type }}</td>
+  <td class="px-3 py-2 text-xs">{{ t.module }}</td>
+  <td class="px-3 py-2">{{ ui.badge(t.priority, t.priority|titleize) }}</td>
+  <td class="px-3 py-2">{{ ui.badge(t.status, t.status|titleize) }}</td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ (t.developer_remarks or '—')[:50] }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/config/support-tickets/' ~ t.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No tickets match these filters.', 11, 'life-buoy') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, '/config/support-tickets?status=' ~ status ~ '&priority=' ~ priority ~ '&module=' ~ module ~ '&ticket_type=' ~ ticket_type ~ '&q=' ~ q) }}
+
+{% call ui.modal('newTicket', 'Raise a Support Ticket', 'lg') %}
+<form method="post" action="/config/support-tickets/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('subject', 'Subject', '', required=True, placeholder='Result card PDF is missing the Tajweed column') }}</div>
+  {{ ui.select('department_id', 'Department', departments, user.department_id, placeholder='My department') }}
+  {{ ui.input('whatsapp_no', 'WhatsApp No', user.phone or '', placeholder='+92 300 0000000') }}
+  {{ ui.select('ticket_type', 'Ticket Type', ticket_types, 'Bug', placeholder=None) }}
+  {{ ui.select('module', 'Module', modules, 'Online Academics', placeholder=None) }}
+  {{ ui.select('priority', 'Priority', priorities, 'normal', placeholder=None) }}
+  <div class="sm:col-span-2">{{ ui.textarea('message', 'Message', '', rows=5, required=True, placeholder='What happened, what you expected, and how to reproduce it.') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Raise ticket', icon='send') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

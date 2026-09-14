@@ -783,3 +783,437 @@ def hr_kpis(db: Session, period: Optional[str] = None) -> dict:
             "pending_leaves": db.query(Leave).filter(Leave.person_type == "employee", Leave.status == "pending").count(),
             "open_grievances": db.query(Grievance).filter(Grievance.status.in_(["open", "investigating"])).count(),
             "open_violations": db.query(Violation).filter(Violation.status == "open").count()}
+
+
+# ============================================================================= ERP Time and Attendance Management
+# docs/AUDIT_HUMAN_RESOURCE.md, Level 3 "Time and Attendance Management". Appended only: nothing above changes.
+#
+# Holidays, leave entitlements, attendance change requests, progress notes and the attendance report live
+# here so the web layer stays thin. ``Employee.duty_hours`` is a whole-day figure and attendance is recorded
+# twice a day (AM / PM), so one session owes half of it - see ``session_duty_hours``.
+
+WORKED_STATUSES = ("present", "late", "half_day")
+ATTENDANCE_STATUSES = ["present", "absent", "late", "leave", "half_day", "holiday"]
+CHANGE_STATUSES = ["pending", "approved", "rejected", "cancelled"]
+DEFAULT_DUTY_HOURS = 8.0
+
+
+def _hr_erp():
+    """Lazy import so this module still loads while the ERP HR models are being edited."""
+    from app.models.hr_erp import AttendanceChangeRequest, Holiday, LeaveEntitlement, ProgressNote
+    return AttendanceChangeRequest, Holiday, LeaveEntitlement, ProgressNote
+
+
+# ----------------------------------------------------------------------------- holidays / working days
+def holidays_between(db: Session, start: date, end: date, shift: Optional[str] = None) -> list:
+    """Active holidays overlapping [start, end]; a row with shift_group 'all' applies to everyone."""
+    _, Holiday, _, _ = _hr_erp()
+    rows = [h for h in db.query(Holiday).filter(Holiday.status == "active", Holiday.holiday_date <= end)
+            .order_by(Holiday.holiday_date) if h.last_day >= start]
+    if shift:
+        rows = [h for h in rows if (h.shift_group or "all") in ("all", shift)]
+    return rows
+
+
+def holiday_dates(db: Session, start: date, end: date, shift: Optional[str] = None) -> set:
+    out: set = set()
+    for h in holidays_between(db, start, end, shift):
+        d = h.holiday_date
+        while d <= h.last_day:
+            if start <= d <= end:
+                out.add(d)
+            d += timedelta(days=1)
+    return out
+
+
+def is_working_day(db: Session, day: date, employee: Optional[Employee] = None) -> bool:
+    """Sunday is closed, as is any active holiday for the employee's shift group."""
+    if day.weekday() == 6:
+        return False
+    return day not in holiday_dates(db, day, day, employee.shift if employee else None)
+
+
+def working_days(db: Session, start: date, end: date, employee: Optional[Employee] = None) -> int:
+    """Days actually owed between two dates, Sundays and holidays excluded."""
+    if end < start:
+        return 0
+    skip = holiday_dates(db, start, end, employee.shift if employee else None)
+    n, d = 0, start
+    while d <= end:
+        if d.weekday() != 6 and d not in skip:
+            n += 1
+        d += timedelta(days=1)
+    return n
+
+
+def leave_working_days(db: Session, leave: Leave) -> int:
+    return working_days(db, leave.start_date, leave.end_date, leave.employee)
+
+
+# ----------------------------------------------------------------------------- duration / shortage
+def session_duty_hours(employee: Optional[Employee]) -> float:
+    """Hours owed for a single attendance session (a day carries an AM and a PM session)."""
+    total = float(getattr(employee, "duty_hours", None) or DEFAULT_DUTY_HOURS)
+    return round(total / 2.0, 2)
+
+
+def worked_hours(row: Optional[HRAttendance]) -> float:
+    """Hours actually worked on an attendance row (0 when the staff member was not in)."""
+    if row is None or row.status not in WORKED_STATUSES:
+        return 0.0
+    if not row.check_in or not row.check_out:
+        return 0.0
+    delta = (row.check_out - row.check_in).total_seconds() / 3600.0
+    if delta < 0:
+        delta += 24.0  # a night shift that ends after midnight
+    return round(max(0.0, delta), 2)
+
+
+def shortage_hours(row: Optional[HRAttendance], employee: Optional[Employee] = None) -> float:
+    """Duty hours owed for the session minus the hours worked, when short."""
+    if row is None or row.status not in WORKED_STATUSES:
+        return 0.0
+    owed = session_duty_hours(employee if employee is not None else row.employee)
+    return round(max(0.0, owed - worked_hours(row)), 2)
+
+
+def employee_line(employee: Optional[Employee]) -> str:
+    """The ERP's staff label: ``code - name - department - shift``."""
+    if employee is None:
+        return "-"
+    dept = employee.department.name if employee.department else "-"
+    return f"{employee.employee_code} - {employee.full_name} - {dept} - {(employee.shift or '').title() or '-'}"
+
+
+def recompute_late_minutes(employee: Employee, row: HRAttendance) -> int:
+    """Late minutes implied by the row's check-in against the expected start of that session."""
+    if not row.check_in or row.status not in WORKED_STATUSES:
+        row.late_minutes = 0
+        return 0
+    expected = expected_checkin_minutes(employee, row.session)
+    actual = row.check_in.hour * 60 + row.check_in.minute
+    if employee.shift == "night" and actual < 6 * 60:
+        actual += 24 * 60
+    diff = actual - expected
+    row.late_minutes = diff if diff > LATE_GRACE_MINUTES else 0
+    if row.status in ("present", "late"):
+        row.status = "late" if row.late_minutes else "present"
+    return row.late_minutes
+
+
+def save_attendance_row(db: Session, employee: Employee, day: date, session: str, status: str,
+                        check_in: Optional[datetime], check_out: Optional[datetime], user: Optional[User],
+                        note: Optional[str] = None, request=None) -> HRAttendance:
+    """Inline edit of one Daily Attendance grid row: status, login and logout in a single audited write."""
+    session = session if session in ("am", "pm") else "am"
+    row = (db.query(HRAttendance)
+           .filter(HRAttendance.employee_id == employee.id, HRAttendance.date == day, HRAttendance.session == session)
+           .first())
+    created = row is None
+    before = None if created else snapshot(row, ["status", "check_in", "check_out", "late_minutes"])
+    if created:
+        row = HRAttendance(employee_id=employee.id, date=day, session=session, status="present")
+        db.add(row)
+    row.status = status if status in ATTENDANCE_STATUSES else "present"
+    row.check_in = check_in
+    row.check_out = check_out
+    if row.status in WORKED_STATUSES:
+        recompute_late_minutes(employee, row)
+    else:
+        row.late_minutes = 0
+    if note:
+        row.correction_reason = note
+    db.flush()
+    log_action(db, user, "create" if created else "update", "hr_attendance", entity=row, rationale=note,
+               description=f"Daily attendance {'added' if created else 'saved'} for {employee.employee_code} "
+                           f"{day} {session.upper()} -> {row.status}",
+               before=before, after=snapshot(row, ["status", "check_in", "check_out", "late_minutes"]),
+               request=request)
+    return row
+
+
+# ----------------------------------------------------------------------------- leave entitlements
+def find_entitlement(db: Session, employee: Employee, leave_type: str, on_date: Optional[date] = None):
+    """The active entitlement covering ``on_date`` for this employee and leave type (soonest expiry first)."""
+    _, _, LeaveEntitlement, _ = _hr_erp()
+    on_date = on_date or date.today()
+    rows = (db.query(LeaveEntitlement)
+            .filter(LeaveEntitlement.employee_id == employee.id, LeaveEntitlement.leave_type == leave_type,
+                    LeaveEntitlement.status == "active").all())
+    live = [r for r in rows if r.expiry_date is None or r.expiry_date >= on_date]
+    live.sort(key=lambda r: (r.expiry_date or date.max))
+    return live[0] if live else None
+
+
+def entitlement_check(db: Session, leave: Leave) -> dict:
+    """What approving this leave would consume, and whether it fits inside the entitlement."""
+    emp = leave.employee
+    days = leave_working_days(db, leave)
+    ent = find_entitlement(db, emp, leave.leave_type, leave.start_date) if emp else None
+    return {"days": days, "entitlement": ent, "remaining": ent.remaining if ent else None,
+            "fits": True if ent is None else days <= ent.remaining + 1e-9,
+            "over_by": 0.0 if ent is None else round(max(0.0, days - ent.remaining), 2)}
+
+
+def consume_entitlement(db: Session, leave: Leave, user: Optional[User], override: bool = False,
+                        rationale: Optional[str] = None, request=None) -> dict:
+    """Draw the working days of an approved leave down from the matching entitlement (idempotent)."""
+    info = entitlement_check(db, leave)
+    if leave.entitlement_id and leave.days_applied:
+        return info  # already drawn down
+    leave.days_applied = float(info["days"])
+    ent = info["entitlement"]
+    if ent is None:
+        db.flush()
+        return info
+    before = {"consumed": float(ent.consumed or 0)}
+    ent.consumed = round(float(ent.consumed or 0) + float(info["days"]), 2)
+    leave.entitlement_id = ent.id
+    db.flush()
+    log_action(db, user, "update", "leaves", entity=ent, request=request, consequential=bool(override),
+               rationale=rationale or ("Approved over the entitlement" if override else None),
+               description=f"{info['days']} {leave.leave_type} day(s) consumed from entitlement #{ent.id}"
+                           + (" (over entitlement, overridden)" if override else ""),
+               before=before, after={"consumed": float(ent.consumed)})
+    return info
+
+
+def release_entitlement(db: Session, leave: Leave, user: Optional[User], request=None) -> Optional[float]:
+    """Give the days back when an approved leave is reversed or cancelled."""
+    _, _, LeaveEntitlement, _ = _hr_erp()
+    days = float(leave.days_applied or 0)
+    ent = db.get(LeaveEntitlement, leave.entitlement_id) if leave.entitlement_id else None
+    leave.days_applied = None
+    leave.entitlement_id = None
+    if ent is None or not days:
+        db.flush()
+        return None
+    before = {"consumed": float(ent.consumed or 0)}
+    ent.consumed = round(max(0.0, float(ent.consumed or 0) - days), 2)
+    db.flush()
+    log_action(db, user, "update", "leaves", entity=ent, request=request,
+               description=f"{days} {leave.leave_type} day(s) returned to entitlement #{ent.id}",
+               before=before, after={"consumed": float(ent.consumed)})
+    return days
+
+
+def cancel_leave(db: Session, leave: Leave, user: User, note: Optional[str] = None, request=None) -> Leave:
+    """Cancel a leave request; anything already drawn down is returned to the entitlement."""
+    before = {"status": leave.status}
+    was_approved = leave.status == "approved"
+    leave.status = "cancelled"
+    if was_approved:
+        release_entitlement(db, leave, user, request=request)
+    emp = leave.employee
+    log_action(db, user, "status_change", "leaves", entity=leave, rationale=note, consequential=True,
+               description=f"Leave cancelled for {emp.employee_code if emp else leave.employee_id} "
+                           f"({leave.start_date}..{leave.end_date})",
+               before=before, after={"status": "cancelled"}, request=request)
+    if emp and emp.user_id:
+        notify(db, emp.user_id, "Leave cancelled",
+               f"Your {leave.leave_type} leave from {leave.start_date} to {leave.end_date} was cancelled. {note or ''}",
+               event_type="leave", link="/hr/me?tab=leaves")
+    db.flush()
+    return leave
+
+
+def reverse_leave_approval(db: Session, leave: Leave, user: Optional[User], request=None) -> None:
+    """A leave that was approved is being rejected: return whatever it consumed."""
+    if leave.entitlement_id or leave.days_applied:
+        release_entitlement(db, leave, user, request=request)
+
+
+def assign_entitlements(db: Session, leave_type: str, total: float, expiry: Optional[date], user: Optional[User],
+                        notes: Optional[str] = None, request=None) -> tuple:
+    """Bulk "Assign to all active employees"; anyone already holding that entitlement for the period is skipped."""
+    _, _, LeaveEntitlement, _ = _hr_erp()
+    created = skipped = 0
+    for emp in db.query(Employee).filter(Employee.status.in_(["active", "probation", "on_leave"])).order_by(Employee.id):
+        if find_entitlement(db, emp, leave_type, expiry or date.today()):
+            skipped += 1
+            continue
+        db.add(LeaveEntitlement(employee_id=emp.id, leave_type=leave_type, total_assigned=float(total), consumed=0,
+                                expiry_date=expiry, status="active", notes=notes))
+        created += 1
+    db.flush()
+    if created:
+        log_action(db, user, "create", "leaves", request=request, rationale=notes,
+                   description=f"{created} {leave_type} leave entitlement(s) of {total} day(s) assigned to active "
+                               f"employees (expiry {expiry or 'none'}); {skipped} already held one")
+    return created, skipped
+
+
+def sync_entitlement_consumption(db: Session, employee: Employee) -> None:
+    """Recompute an employee's consumed days from their approved leaves (used by the seed)."""
+    _, _, LeaveEntitlement, _ = _hr_erp()
+    ents = db.query(LeaveEntitlement).filter(LeaveEntitlement.employee_id == employee.id).all()
+    if not ents:
+        return
+    for ent in ents:
+        ent.consumed = 0.0
+    for lv in db.query(Leave).filter(Leave.person_type == "employee", Leave.employee_id == employee.id,
+                                     Leave.status == "approved").all():
+        ent = find_entitlement(db, employee, lv.leave_type, lv.start_date)
+        if ent is None:
+            continue
+        days = leave_working_days(db, lv)
+        lv.entitlement_id = ent.id
+        lv.days_applied = float(days)
+        ent.consumed = round(float(ent.consumed or 0) + days, 2)
+    db.flush()
+
+
+# ----------------------------------------------------------------------------- attendance change requests
+def create_change_request(db: Session, employee: Employee, day: date, session: str, new_status: str,
+                          new_check_in=None, new_check_out=None, remarks: Optional[str] = None,
+                          user: Optional[User] = None, request=None):
+    """Raise an Attendance Change Request, capturing the current values of the row it names."""
+    AttendanceChangeRequest, _, _, _ = _hr_erp()
+    session = session if session in ("am", "pm") else "am"
+    row = (db.query(HRAttendance)
+           .filter(HRAttendance.employee_id == employee.id, HRAttendance.date == day, HRAttendance.session == session)
+           .first())
+    req = AttendanceChangeRequest(
+        employee_id=employee.id, attendance_id=row.id if row else None, attendance_date=day, session=session,
+        old_status=row.status if row else None,
+        old_check_in=row.check_in.time() if row and row.check_in else None,
+        old_check_out=row.check_out.time() if row and row.check_out else None,
+        new_status=new_status if new_status in ATTENDANCE_STATUSES else "present",
+        new_check_in=new_check_in, new_check_out=new_check_out,
+        user_remarks=(remarks or "").strip() or None, status="pending", request_date=date.today())
+    db.add(req)
+    db.flush()
+    if row is not None:  # our own correction flag stays in step with the ERP request
+        row.correction_requested = True
+        row.correction_status = "pending"
+        if req.user_remarks:
+            row.correction_reason = req.user_remarks
+    log_action(db, user, "create", "hr_attendance", entity=req, rationale=req.user_remarks, request=request,
+               description=f"Attendance change requested for {employee.employee_code} {day} {session.upper()}")
+    for u in hr_officer_users(db):
+        notify(db, u, "Attendance change request",
+               f"{employee.full_name} asked to change {day} ({session.upper()}) to {req.new_status}.",
+               event_type="hr_attendance", link="/hr/attendance/change-requests?status=pending")
+    db.flush()
+    return req
+
+
+def decide_change_request(db: Session, req, status: str, hr_remarks: Optional[str], user: User, request=None):
+    """Approving rewrites the attendance row the request names, creating it when there is none."""
+    before = {"status": req.status}
+    req.status = status if status in CHANGE_STATUSES else "pending"
+    req.hr_remarks = (hr_remarks or "").strip() or None
+    req.decided_by_id = user.id if user else None
+    req.decided_at = datetime.utcnow()
+    emp = req.employee
+    row = db.get(HRAttendance, req.attendance_id) if req.attendance_id else None
+    if row is None:
+        row = (db.query(HRAttendance)
+               .filter(HRAttendance.employee_id == req.employee_id, HRAttendance.date == req.attendance_date,
+                       HRAttendance.session == req.session).first())
+    if req.status == "approved":
+        row_before = snapshot(row, ["status", "check_in", "check_out", "late_minutes"]) if row else None
+        if row is None:
+            row = HRAttendance(employee_id=req.employee_id, date=req.attendance_date, session=req.session,
+                               status=req.new_status)
+            db.add(row)
+            db.flush()
+        req.attendance_id = row.id
+        row.status = req.new_status
+        row.check_in = datetime.combine(req.attendance_date, req.new_check_in) if req.new_check_in else None
+        row.check_out = datetime.combine(req.attendance_date, req.new_check_out) if req.new_check_out else None
+        if row.status in WORKED_STATUSES and emp is not None:
+            recompute_late_minutes(emp, row)
+        else:
+            row.late_minutes = 0
+        row.correction_requested = False
+        row.correction_status = "approved"
+        row.approved_by_id = user.id if user else None
+        db.flush()
+        log_action(db, user, "update", "hr_attendance", entity=row, rationale=req.hr_remarks, consequential=True,
+                   description=f"Attendance rewritten from change request #{req.id} "
+                               f"({req.attendance_date} {req.session.upper()} -> {row.status})",
+                   before=row_before, after=snapshot(row, ["status", "check_in", "check_out", "late_minutes"]),
+                   request=request)
+    elif row is not None:
+        row.correction_requested = False
+        row.correction_status = req.status
+    log_action(db, user, "approve" if req.status == "approved" else "status_change", "hr_attendance", entity=req,
+               rationale=req.hr_remarks, consequential=True,
+               description=f"Attendance change request #{req.id} moved from {before['status']} to {req.status}",
+               before=before, after={"status": req.status}, request=request)
+    if emp and emp.user_id:
+        notify(db, emp.user_id, f"Attendance change {req.status}",
+               f"Your attendance change request for {req.attendance_date} ({req.session.upper()}) was "
+               f"{req.status}. {req.hr_remarks or ''}".strip(),
+               event_type="hr_attendance", link="/hr/me?tab=attendance")
+    db.flush()
+    return req
+
+
+# ----------------------------------------------------------------------------- progress sheet
+def add_progress_note(db: Session, employee: Employee, working_date: date, detail: str, user: Optional[User],
+                      request=None):
+    _, _, _, ProgressNote = _hr_erp()
+    note = ProgressNote(employee_id=employee.id, working_date=working_date, detail=(detail or "").strip(),
+                        created_by_id=user.id if user else None)
+    db.add(note)
+    db.flush()
+    log_action(db, user, "create", "employees", entity=note, request=request,
+               description=f"Progress note recorded for {employee.employee_code} on {working_date}")
+    return note
+
+
+def rate_progress_note(db: Session, note, rating: int, comment: Optional[str], user: User, request=None):
+    before = {"manager_rating": note.manager_rating}
+    note.manager_rating = max(1, min(5, int(rating)))
+    note.manager_comment = (comment or "").strip() or None
+    note.rated_by_id = user.id
+    note.rated_at = datetime.utcnow()
+    emp = note.employee
+    log_action(db, user, "update", "employees", entity=note, rationale=note.manager_comment, request=request,
+               description=f"Progress note #{note.id} rated {note.manager_rating}/5 for "
+                           f"{emp.employee_code if emp else note.employee_id}",
+               before=before, after={"manager_rating": note.manager_rating})
+    if emp and emp.user_id:
+        notify(db, emp.user_id, "Your progress note was rated",
+               f"Your progress for {note.working_date} was rated {note.manager_rating}/5. "
+               f"{note.manager_comment or ''}".strip(),
+               event_type="hr_progress", link="/hr/me")
+    db.flush()
+    return note
+
+
+# ----------------------------------------------------------------------------- attendance report
+def attendance_report(db: Session, start: date, end: date, employee_ids: Optional[list] = None) -> list:
+    """One row per employee for the Attendance Summery Report, with worked and shortage hours."""
+    if employee_ids is not None and not employee_ids:
+        return []
+    q = db.query(HRAttendance).filter(HRAttendance.date >= start, HRAttendance.date <= end)
+    if employee_ids is not None:
+        q = q.filter(HRAttendance.employee_id.in_(employee_ids))
+    by_emp: dict = {}
+    for r in q.all():
+        by_emp.setdefault(r.employee_id, []).append(r)
+    if employee_ids is not None:
+        for eid in employee_ids:
+            by_emp.setdefault(eid, [])
+    ids = list(by_emp.keys()) or [-1]
+    emap = {e.id: e for e in db.query(Employee).filter(Employee.id.in_(ids))}
+    out = []
+    for eid, rows in by_emp.items():
+        emp = emap.get(eid)
+        if emp is None:
+            continue
+        half = sum(1 for r in rows if r.status == "half_day")
+        out.append({"employee": emp,
+                    "present": sum(1 for r in rows if r.status in ("present", "late")) + half,
+                    "absent": sum(1 for r in rows if r.status == "absent"),
+                    "leave": sum(1 for r in rows if r.status == "leave"),
+                    "late": sum(1 for r in rows if r.status == "late"),
+                    "late_minutes": sum(r.late_minutes or 0 for r in rows),
+                    "worked_hours": round(sum(worked_hours(r) for r in rows), 2),
+                    "shortage_hours": round(sum(shortage_hours(r, emp) for r in rows), 2),
+                    "sessions": len(rows), "working_days": working_days(db, start, end, emp)})
+    out.sort(key=lambda r: r["employee"].full_name)
+    return out

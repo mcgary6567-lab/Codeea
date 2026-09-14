@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Accounts Tree View{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Accounts Tree View", "The chart of accounts as a hierarchy. Each node shows its own balance and the roll-up of everything beneath it.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Accounts Heads', href='/finance/accounts/heads', icon='layers', variant='secondary') }}
+  {{ ui.button('Chart of Accounts', href='/finance/accounts', icon='list', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Accounts Tree View</h1>
+  <p style="font-size:11px">Balances as at {{ data.as_of|date }} in {{ base }} &middot; {{ data.count }} accounts &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="no-print">
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Accounts", data.count, color=palette(0)) }}
+  {% for t in types %}{{ ui.stat(t|titleize, data.totals.get(t, 0)|round(0)|int, color=palette(loop.index0 + 1), hint=base) }}{% endfor %}
+</div>
+
+{% call ui.filter_bar('/finance/accounts/tree') %}
+  <div class="w-44">{{ ui.input('as_of', 'Balances As At', as_of, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div x-data="{ collapsed: {} }">
+<div class="no-print mb-2 flex items-center gap-2 text-xs">
+  <button type="button" @click="collapsed = {}" class="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Expand all</button>
+  <button type="button" @click="collapsed = {{ data.flat|selectattr('children')|map(attribute='account.id')|list|tojson }}.reduce(function (a, i) { a[i] = true; return a; }, {})" class="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50">Collapse all</button>
+  <span class="text-slate-500">Click a caret to fold a head away.</span>
+</div>
+
+{{ ui.table_start(['Code', 'Account Name', 'Type', 'Head', 'Own Balance (' ~ base ~ ')', 'Roll-up Total (' ~ base ~ ')']) }}
+{% for n in data.flat %}
+<tr {% if n.ancestors %}x-show="![{{ n.ancestors|join(',') }}].some(function (i) { return collapsed[i]; })"{% endif %} class="{{ 'bg-[#f3f7fd]' if n.account.is_head else '' }}">
+  <td class="px-3 py-1.5">
+    <div style="padding-left: {{ n.depth * 18 }}px" class="flex items-center gap-1.5">
+      {% if n.children %}
+      <button type="button" @click="collapsed[{{ n.account.id }}] = !collapsed[{{ n.account.id }}]" class="no-print rounded p-0.5 text-slate-500 hover:bg-slate-200" title="Fold">
+        <span x-text="collapsed[{{ n.account.id }}] ? '+' : '-'" class="inline-block w-3 text-center font-mono font-bold">-</span>
+      </button>
+      {% else %}<span class="inline-block w-4"></span>{% endif %}
+      <span class="font-mono text-xs font-semibold text-brand-700">{{ n.account.code }}</span>
+    </div>
+  </td>
+  <td class="px-3 py-1.5 {{ 'font-semibold text-slate-800' if n.account.is_head else '' }}"><a href="/finance/accounts/{{ n.account.id }}" class="hover:underline">{{ n.account.name }}</a>{% if n.child_count %} <span class="text-[11px] text-slate-400">({{ n.child_count }})</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ n.account.account_type|titleize }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{% if n.account.is_head %}<span class="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 ring-1 ring-brand-600/20">HEAD</span>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-right {{ 'text-slate-300' if n.account.is_head and not n.own else '' }}">{{ n.own|money }}</td>
+  <td class="px-3 py-1.5 text-right font-semibold">{{ n.total|money }}</td>
+</tr>
+{% else %}{{ ui.empty('The chart of accounts is empty.', 6, 'network') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+<p class="mt-2 text-xs text-slate-500">Balances are shown in the direction each account naturally carries: assets and expenses as debits, liabilities, equity and income as credits. A head is never posted to, so its own balance is normally nil.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ currency.code }} rate history{% endblock %}
+{% block content %}
+{% call ui.page_header(currency.code ~ " — " ~ currency.name, "Rate history against " ~ (base.code if base else 'the base currency'), back="/config/currency-rates") %}
+  {{ ui.badge('active' if currency.is_active else 'inactive') }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Current Rate", '%.6f'|format(currency.rate_to_base|float), color=palette(0)) }}
+  {{ ui.stat("History Rows", history|length, color=palette(3)) }}
+  {{ ui.stat("Mode", 'Manual' if currency.manual_override else 'Feed', color=palette(6)) }}
+  {{ ui.stat("Base Currency", base.code if base else '—', color=palette(9)) }}
+</div>
+
+{% if history|length > 1 %}
+<div class="mb-6">{% call ui.card('Rate over time') %}{{ ui.chart('rateChart', 220) }}{% endcall %}</div>
+{% endif %}
+
+{{ ui.table_start(['Effective', 'Rate To Base', 'Source', 'Set By']) }}
+{% for h in history %}
+<tr>
+  <td class="px-3 py-2 text-xs">{{ h.effective_at|datetime }}</td>
+  <td class="px-3 py-2 text-right font-mono text-xs">{{ '%.6f'|format(h.rate_to_base|float) }}</td>
+  <td class="px-3 py-2 text-xs">{{ h.source|titleize }}</td>
+  <td class="px-3 py-2 text-xs">{{ setters.get(h.set_by_id, 'System') }}</td>
+</tr>
+{% else %}{{ ui.empty('No rate has been recorded for ' ~ currency.code ~ ' yet.', 4, 'history') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if can_edit %}
+<div class="mt-6">
+{% call ui.card('Add a manual rate for ' ~ currency.code) %}
+<form method="post" action="/config/currency-rates/manual" class="grid gap-3 sm:grid-cols-4 items-end">
+  <input type="hidden" name="code" value="{{ currency.code }}">
+  {{ ui.input('rate_to_base', 'Rate To Base', '%.6f'|format(currency.rate_to_base|float), type='number', step='0.000001', required=True) }}
+  {{ ui.input('effective_at', 'Effective Date', today, type='date', required=True) }}
+  {{ ui.input('note', 'Note', '', placeholder='Recorded in the audit log') }}
+  {{ ui.button('Save rate', icon='save', size='sm') }}
+</form>
+{% endcall %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if history|length > 1 %}
+<script>
+  OQC.line('rateChart', {{ history|reverse|map(attribute='effective_at')|map('string')|list|tojson }},
+           [{label: 'Rate to base', data: {{ history|reverse|map(attribute='rate_to_base')|map('float')|list|tojson }}}]);
+</script>
+{% endif %}
+{% endblock %}

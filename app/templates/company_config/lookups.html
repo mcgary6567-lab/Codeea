@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Lookups{% endblock %}
+{% block content %}
+{% call ui.page_header("Lookups", "Every configurable value list, grouped by App. A lookup is read by its code, so the application keeps working when the labels change.", back="/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newLookup\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("All Lookups", stats.total, color=palette(0), href="/config/lookups") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/config/lookups?status=active") }}
+  {{ ui.stat("System Lookups", stats.system, color=palette(6), hint="read by code") }}
+  {{ ui.stat("Configured Values", stats.values, color=palette(9)) }}
+</div>
+
+{% call ui.filter_bar('/config/lookups') %}
+  <div class="w-56">{{ ui.select('app', 'App', apps, app, placeholder='All apps') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Description or code') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Description', 'Status', 'Sort No', 'Values', '']) }}
+{% for g in groups %}
+<tr class="bg-[#e8f1fb]"><td colspan="6" class="px-3 py-1.5 text-[12px] font-semibold text-slate-700">
+  {{ g.app }} <span class="font-normal text-slate-500">— {{ g.rows|length }} lookup{{ 's' if g.rows|length != 1 }}</span>
+</td></tr>
+{% for l in g.rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ l.id }}</td>
+  <td class="px-3 py-2">
+    <a href="/config/lookups/{{ l.id }}" class="font-semibold text-brand-700 hover:underline">{{ l.description }}</a>
+    <div class="font-mono text-[11px] text-slate-500">{{ l.code }}{% if l.is_system %} <span class="ml-1 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600">SYSTEM</span>{% endif %}</div>
+  </td>
+  <td class="px-3 py-2">{{ ui.badge(l.status) }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ l.sort_no }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ value_counts.get(l.id, 0) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Values', href='/config/lookups/' ~ l.id, icon='list', variant='ghost', size='sm') }}
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/config/lookups/{{ l.id }}/toggle" class="inline">{{ ui.button('Deactivate' if l.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/config/lookups/{{ l.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+    {{ ui.select('app', 'App', apps, l.app, placeholder=None) }}
+    {% if l.is_system %}
+      <div><label class="mb-1 block text-xs font-semibold text-slate-600">ID (code)</label>
+        <div class="rounded border border-slate-200 bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-600">{{ l.code }}</div>
+        <p class="mt-1 text-[11px] text-slate-500">System lookup — the application reads it by this code.</p></div>
+    {% else %}
+      {{ ui.input('code', 'ID (code)', l.code, help='Lowercase, no spaces') }}
+    {% endif %}
+    {{ ui.input('description', 'Description', l.description, required=True) }}
+    {{ ui.select('status', 'Status', statuses, l.status, placeholder=None) }}
+    {{ ui.input('sort_no', 'Sort No', l.sort_no, type='number') }}
+    <div class="lg:col-span-4">{{ ui.input('notes', 'Notes', l.notes or '', placeholder='What reads this list?') }}</div>
+    <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% endfor %}
+{% else %}{{ ui.empty('No lookups match these filters.', 6, 'list-tree') }}{% endfor %}
+{{ ui.table_end() }}
+
+{% if can_add %}
+{% call ui.modal('newLookup', 'Create Lookup') %}
+<form method="post" action="/config/lookups/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.select('app', 'App', apps, app or 'Configuration', placeholder=None, required=True) }}
+  {{ ui.input('code', 'ID (code)', '', required=True, placeholder='hr_shift_type', help='The stable key the application reads') }}
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '', required=True, placeholder='HR Shift Types') }}</div>
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  {{ ui.input('sort_no', 'Sort No', next_sort, type='number') }}
+  <div class="sm:col-span-2">{{ ui.input('notes', 'Notes', '', placeholder='Where is this list used?') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create lookup', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action, snapshot
@@ -397,3 +397,558 @@ def consolidated_report(db: Session, period: str) -> dict:
         return [{"currency": c, "count": n, "amount": float(a), "base": float(b), "rate": rates.get(c, 1.0)} for c, n, a, b in rows]
     return {"period": period, "rates": rates, "base": base_currency(db), "payments": pack(pay_rows), "invoices": pack(inv_rows),
             "expenses": pack(exp_rows), "pl": profit_and_loss(db, start, end)}
+
+
+# =============================================================================================================
+# ERP parity - Accounts area (docs/AUDIT_ACCOUNTS_CONFIG.md).
+#
+# A voucher IS a journal entry with a type: every Journal, Payment and Receipt Voucher writes JournalLine rows,
+# so the ledger, the trial balance and the statements all read one set of lines. Everything below is appended;
+# no signature above this banner has changed.
+# =============================================================================================================
+
+VOUCHER_TYPES = ["journal", "payment", "receipt"]
+VOUCHER_PREFIXES = {"journal": "JV-", "payment": "PV-", "receipt": "RV-"}
+VOUCHER_LABELS = {"journal": "Journal Voucher", "payment": "Payment Voucher", "receipt": "Receipt Voucher"}
+VOUCHER_STATUSES = ["draft", "posted", "cancelled"]
+VOUCHER_STATUS_LABELS = {"draft": "Draft", "posted": "Posted", "cancelled": "Cancelled", "reversed": "Reversed"}
+PAYMENT_MODES = ["Bank", "Cash", "Online Payment Gateway", "Cheque", "Wire Transfer", "Mobile Wallet"]
+PARTY_TYPES = [("client", "Client / Family"), ("employee", "Employee"), ("vendor", "Vendor"), ("other", "Other")]
+
+# Payables ageing buckets, oldest last.
+AGEING_BUCKETS = [("current", "Current"), ("d30", "1-30 Days"), ("d60", "31-60 Days"),
+                  ("d90", "61-90 Days"), ("d90plus", "Over 90 Days")]
+
+
+# ------------------------------------------------------------------------------------------------- ledger set
+def ledger_entry_filter():
+    """SQL condition selecting the entries whose lines actually sit in the ledger.
+
+    A cancelled voucher that had already been posted keeps its lines: cancelling posts a contra entry rather
+    than deleting, so both sides must be counted or the ledger would stop balancing.
+    """
+    return or_(JournalEntry.status == "posted",
+               and_(JournalEntry.status.in_(("cancelled", "reversed")), JournalEntry.posted_at.isnot(None)))
+
+
+def account_movements(db: Session, start: Optional[date] = None, end: Optional[date] = None) -> dict[int, dict]:
+    """{account_id: {"debit": x, "credit": y}} over the (inclusive) range, base currency."""
+    q = (db.query(JournalLine.account_id,
+                  func.coalesce(func.sum(JournalLine.debit), 0), func.coalesce(func.sum(JournalLine.credit), 0))
+         .join(JournalEntry, JournalEntry.id == JournalLine.entry_id)
+         .filter(ledger_entry_filter()))
+    if start:
+        q = q.filter(JournalEntry.entry_date >= start)
+    if end:
+        q = q.filter(JournalEntry.entry_date <= end)
+    return {aid: {"debit": round(float(d), 2), "credit": round(float(c), 2)}
+            for aid, d, c in q.group_by(JournalLine.account_id).all()}
+
+
+def account_openings(db: Session, before: Optional[date]) -> dict[int, float]:
+    """{account_id: signed opening balance (debit positive)} for everything dated before ``before``."""
+    if not before:
+        return {}
+    mv = account_movements(db, None, before - timedelta(days=1))
+    return {aid: round(v["debit"] - v["credit"], 2) for aid, v in mv.items()}
+
+
+def natural_balance(account_type: str, debit: float, credit: float) -> float:
+    """Balance in the direction the account normally carries (assets/expenses debit, the rest credit)."""
+    if account_type in ("asset", "expense"):
+        return round(debit - credit, 2)
+    return round(credit - debit, 2)
+
+
+def titleize_type(value: str) -> str:
+    return {"asset": "Assets", "liability": "Liabilities", "equity": "Equity", "income": "Income",
+            "expense": "Expenses"}.get(value, str(value).title())
+
+
+def account_has_postings(db: Session, account: Account) -> bool:
+    return bool(db.query(JournalLine.id).filter(JournalLine.account_id == account.id).first())
+
+
+def postable_accounts(db: Session, account_type: str = "", head_id: Optional[int] = None) -> list:
+    q = db.query(Account).filter(Account.is_head.is_(False))
+    if account_type:
+        q = q.filter(Account.account_type == account_type)
+    if head_id:
+        q = q.filter(Account.parent_id == head_id)
+    return q.order_by(Account.account_type, Account.sort_no, Account.code).all()
+
+
+def head_accounts(db: Session, account_type: str = "") -> list:
+    q = db.query(Account).filter(Account.is_head.is_(True))
+    if account_type:
+        q = q.filter(Account.account_type == account_type)
+    return q.order_by(Account.account_type, Account.sort_no, Account.code).all()
+
+
+def beneficiary_ledger_account(db: Session, beneficiary=None, payment_mode: str = "") -> Account:
+    """The chart-of-accounts account a beneficiary account (bank / gateway / cash) settles through."""
+    mode = (payment_mode or (getattr(beneficiary, "payment_mode", "") or "")).lower()
+    return get_account(db, "1000" if "cash" in mode else "1010")
+
+
+# ------------------------------------------------------------------------------------------------- vouchers
+def next_voucher_number(db: Session, voucher_type: str) -> str:
+    return next_code(db, JournalEntry, "voucher_number", VOUCHER_PREFIXES.get(voucher_type, "JV-"), 5)
+
+
+def validate_voucher_lines(lines: list) -> tuple:
+    """``lines`` = [(account, debit, credit, memo), ...]. Returns (total_debit, total_credit) or raises."""
+    priced = [l for l in lines if round(float(l[1] or 0), 2) or round(float(l[2] or 0), 2)]
+    if len(priced) < 2:
+        raise ValueError("A voucher needs at least two lines carrying an amount")
+    for l in priced:
+        if round(float(l[1] or 0), 2) and round(float(l[2] or 0), 2):
+            raise ValueError("A line may carry a debit or a credit, not both")
+    total_debit = round(sum(float(l[1] or 0) for l in priced), 2)
+    total_credit = round(sum(float(l[2] or 0) for l in priced), 2)
+    if abs(total_debit - total_credit) > 0.01:
+        raise ValueError(f"Voucher is not balanced: debit {total_debit:,.2f} vs credit {total_credit:,.2f}")
+    if total_debit <= 0:
+        raise ValueError("Voucher total must be greater than zero")
+    return total_debit, total_credit
+
+
+def create_voucher(db: Session, voucher_type: str, entry_date: date, description: str, lines: list,
+                   user: Optional[User] = None, currency: Optional[str] = None, exchange_rate: float = 1.0,
+                   party_type: Optional[str] = None, party_id: Optional[int] = None, party_name: Optional[str] = None,
+                   payment_mode: Optional[str] = None, beneficiary_account_id: Optional[int] = None,
+                   reference_no: Optional[str] = None, status: str = "draft",
+                   reference_type: Optional[str] = None, reference_id: Optional[int] = None) -> JournalEntry:
+    """Create a Journal / Payment / Receipt Voucher. ``lines`` = [(account_code_or_id, debit, credit, memo)]
+    in the voucher currency; they are stored in base currency using ``exchange_rate``."""
+    if voucher_type not in VOUCHER_TYPES:
+        raise ValueError(f"Unknown voucher type {voucher_type}")
+    if status not in ("draft", "posted"):
+        raise ValueError(f"A voucher cannot be created as {status}")
+    rate = round(float(exchange_rate or 1) or 1, 6)
+    validate_voucher_lines(lines)
+    priced = [l for l in lines if round(float(l[1] or 0), 2) or round(float(l[2] or 0), 2)]
+    base_lines = [(l[0], round(float(l[1] or 0) * rate, 2), round(float(l[2] or 0) * rate, 2)) for l in priced]
+    memos = [(l[3] if len(l) > 3 else None) for l in priced]
+    je = post_journal(db, description, base_lines, reference_type=reference_type or voucher_type,
+                      reference_id=reference_id, currency=currency or base_currency(db), entry_date=entry_date,
+                      user=user, status=status)
+    for line, memo in zip(je.lines, memos):
+        line.memo = str(memo)[:200] if memo else None
+    je.voucher_type = voucher_type
+    je.voucher_number = next_voucher_number(db, voucher_type)
+    je.party_type = party_type or None
+    je.party_id = party_id
+    je.party_name = party_name[:150] if party_name else None
+    je.payment_mode = payment_mode or None
+    je.beneficiary_account_id = beneficiary_account_id
+    je.reference_no = reference_no[:120] if reference_no else None
+    je.exchange_rate = rate
+    if status == "posted":
+        je.posted_by_id = user.id if user else None
+        je.posted_at = datetime.utcnow()
+    db.flush()
+    return je
+
+
+def adopt_as_voucher(db: Session, entry: JournalEntry, voucher_type: str, user: Optional[User] = None,
+                     party_type: Optional[str] = None, party_id: Optional[int] = None,
+                     party_name: Optional[str] = None, payment_mode: Optional[str] = None,
+                     beneficiary_account_id: Optional[int] = None, reference_no: Optional[str] = None,
+                     exchange_rate: float = 1.0) -> JournalEntry:
+    """Stamp a journal entry that another service posted (a receipt applied to an invoice by app.services.billing,
+    for example) as a voucher, so it appears in the voucher register instead of being posted twice."""
+    if entry.voucher_number:
+        return entry
+    entry.voucher_type = voucher_type
+    entry.voucher_number = next_voucher_number(db, voucher_type)
+    entry.party_type = party_type or entry.party_type
+    entry.party_id = party_id if party_id is not None else entry.party_id
+    entry.party_name = (party_name[:150] if party_name else entry.party_name)
+    entry.payment_mode = payment_mode or entry.payment_mode
+    entry.beneficiary_account_id = beneficiary_account_id or entry.beneficiary_account_id
+    entry.reference_no = (reference_no[:120] if reference_no else entry.reference_no)
+    entry.exchange_rate = round(float(exchange_rate or 1) or 1, 6)
+    if entry.status == "posted" and entry.posted_at is None:
+        entry.posted_by_id = user.id if user else None
+        entry.posted_at = datetime.utcnow()
+    db.flush()
+    return entry
+
+
+def post_voucher(db: Session, entry: JournalEntry, user: Optional[User] = None) -> JournalEntry:
+    """Draft -> posted. Re-checks the balance and refuses a closed period."""
+    if entry.status != "draft":
+        raise ValueError(f"A {entry.status} voucher cannot be posted")
+    lines = [(l.account_id, float(l.debit or 0), float(l.credit or 0), l.memo) for l in entry.lines]
+    validate_voucher_lines(lines)
+    period = entry.period or month_key(entry.entry_date)
+    if period_is_closed(db, period):
+        raise ValueError(f"Period {period} is closed; this voucher cannot be posted into it")
+    entry.status = "posted"
+    entry.posted_by_id = user.id if user else None
+    entry.posted_at = datetime.utcnow()
+    db.flush()
+    return entry
+
+
+def cancel_voucher(db: Session, entry: JournalEntry, user: Optional[User], reason: str):
+    """Cancel a voucher. A posted voucher is neutralised by a contra voucher that references the original -
+    nothing is ever deleted. Returns the reversal (None when a draft was cancelled)."""
+    if not reason:
+        raise ValueError("A reason is required to cancel a voucher")
+    if entry.status == "cancelled":
+        raise ValueError("This voucher is already cancelled")
+    reversal = None
+    if entry.status == "posted":
+        period = entry.period or month_key(entry.entry_date)
+        if period_is_closed(db, period):
+            raise ValueError(f"Period {period} is closed; the reversal cannot be dated inside it")
+        rate = float(entry.exchange_rate or 1) or 1
+        lines = [(l.account_id, round(float(l.credit or 0) / rate, 2), round(float(l.debit or 0) / rate, 2),
+                  f"Reversal of {entry.voucher_number or entry.entry_number}") for l in entry.lines]
+        reversal = create_voucher(
+            db, entry.voucher_type if entry.voucher_type in VOUCHER_TYPES else "journal", entry.entry_date,
+            f"Reversal of {entry.voucher_number or entry.entry_number}: {entry.description}", lines, user=user,
+            currency=entry.currency, exchange_rate=rate, party_type=entry.party_type, party_id=entry.party_id,
+            party_name=entry.party_name, payment_mode=entry.payment_mode,
+            beneficiary_account_id=entry.beneficiary_account_id, reference_no=entry.voucher_number,
+            status="posted", reference_type="reversal", reference_id=entry.id)
+    entry.status = "cancelled"
+    entry.cancel_reason = reason[:200]
+    db.flush()
+    return reversal
+
+
+def voucher_status_counts(db: Session) -> dict:
+    rows = (db.query(JournalEntry.status, func.count(JournalEntry.id))
+            .filter(JournalEntry.voucher_number.isnot(None)).group_by(JournalEntry.status).all())
+    counts = {s: int(n) for s, n in rows}
+    counts["total"] = sum(counts.values())
+    for key in VOUCHER_STATUSES:
+        counts.setdefault(key, 0)
+    return counts
+
+
+def voucher_type_counts(db: Session) -> dict:
+    rows = (db.query(JournalEntry.voucher_type, func.count(JournalEntry.id))
+            .filter(JournalEntry.voucher_number.isnot(None)).group_by(JournalEntry.voucher_type).all())
+    return {t or "journal": int(n) for t, n in rows}
+
+
+# ------------------------------------------------------------------------------------------------- tree view
+def accounts_tree(db: Session, as_of: Optional[date] = None) -> dict:
+    """The chart of accounts drawn from parent_id, each node carrying its own balance and the roll-up of its
+    children."""
+    as_of = as_of or date.today()
+    accounts = db.query(Account).order_by(Account.sort_no, Account.code).all()
+    mv = account_movements(db, None, as_of)
+    by_parent = defaultdict(list)
+    ids = {a.id for a in accounts}
+    for a in accounts:
+        by_parent[a.parent_id if a.parent_id in ids else None].append(a)
+
+    def build(account, depth, ancestors):
+        m = mv.get(account.id, {"debit": 0.0, "credit": 0.0})
+        own = natural_balance(account.account_type, m["debit"], m["credit"])
+        children = [build(c, depth + 1, ancestors + [account.id]) for c in by_parent.get(account.id, [])]
+        return {"account": account, "depth": depth, "own": own, "debit": m["debit"], "credit": m["credit"],
+                "children": children, "child_count": len(children), "ancestors": ancestors,
+                "total": round(own + sum(c["total"] for c in children), 2)}
+
+    roots = [build(a, 0, []) for a in by_parent.get(None, [])]
+    flat = []
+
+    def walk(nodes):
+        for n in nodes:
+            flat.append(n)
+            walk(n["children"])
+
+    walk(roots)
+    totals = defaultdict(float)
+    for n in roots:
+        totals[n["account"].account_type] += n["total"]
+    return {"nodes": roots, "flat": flat, "as_of": as_of, "count": len(accounts),
+            "totals": {k: round(v, 2) for k, v in totals.items()}, "currency": base_currency(db)}
+
+
+# ------------------------------------------------------------------------------------------------- reports
+def ledger_report(db: Session, account: Account, start: date, end: date) -> dict:
+    """Ledger Report: every line on one account in the range with a running balance."""
+    opening = account_openings(db, start).get(account.id, 0.0)
+    rows_q = (db.query(JournalLine, JournalEntry)
+              .join(JournalEntry, JournalEntry.id == JournalLine.entry_id)
+              .filter(ledger_entry_filter(), JournalLine.account_id == account.id,
+                      JournalEntry.entry_date >= start, JournalEntry.entry_date <= end)
+              .order_by(JournalEntry.entry_date, JournalEntry.id, JournalLine.id).all())
+    running = opening
+    rows = []
+    total_debit = total_credit = 0.0
+    for line, entry in rows_q:
+        debit, credit = round(float(line.debit or 0), 2), round(float(line.credit or 0), 2)
+        running = round(running + debit - credit, 2)
+        total_debit = round(total_debit + debit, 2)
+        total_credit = round(total_credit + credit, 2)
+        rows.append({"entry": entry, "line": line, "date": entry.entry_date,
+                     "voucher_number": entry.voucher_number or entry.entry_number,
+                     "voucher_type": entry.voucher_type or "journal", "description": entry.description,
+                     "memo": line.memo, "party": entry.party_name, "reference": entry.reference_no,
+                     "debit": debit, "credit": credit, "balance": running})
+    signed = 1 if account.account_type in ("asset", "expense") else -1
+    return {"account": account, "start": start, "end": end, "rows": rows,
+            "opening": opening, "closing": running, "total_debit": total_debit, "total_credit": total_credit,
+            "opening_natural": round(opening * signed, 2), "closing_natural": round(running * signed, 2),
+            "currency": base_currency(db)}
+
+
+def _account_rows(db: Session, start: Optional[date], end: date, account_type: str = "",
+                  head_id: Optional[int] = None, include_empty: bool = True) -> list:
+    accounts = db.query(Account).order_by(Account.account_type, Account.sort_no, Account.code).all()
+    mv = account_movements(db, start, end)
+    opening = account_openings(db, start) if start else {}
+    out = []
+    for a in accounts:
+        m = mv.get(a.id, {"debit": 0.0, "credit": 0.0})
+        op = opening.get(a.id, 0.0)
+        touched = bool(m["debit"] or m["credit"] or op)
+        if a.is_head and not touched:
+            continue  # a head is not postable: it only shows up if something was posted to it
+        if account_type and a.account_type != account_type:
+            continue
+        if head_id and a.parent_id != head_id:
+            continue
+        if not include_empty and not touched:
+            continue
+        closing = round(op + m["debit"] - m["credit"], 2)
+        signed = 1 if a.account_type in ("asset", "expense") else -1
+        out.append({"account": a, "code": a.code, "name": a.name, "type": a.account_type,
+                    "head": a.parent.name if a.parent else "", "opening": op, "debit": m["debit"],
+                    "credit": m["credit"], "closing": closing,
+                    "opening_natural": round(op * signed, 2), "closing_natural": round(closing * signed, 2)})
+    return out
+
+
+def trial_balance(db: Session, start: date, end: date, include_empty: bool = False) -> dict:
+    """Trial Balance: every postable account with its debit and credit totals for the range and its closing
+    balance, grouped by account type. The debit and credit columns must be equal."""
+    rows = _account_rows(db, start, end, include_empty=include_empty)
+    groups = []
+    for typ in ACCOUNT_TYPES:
+        grows = [r for r in rows if r["type"] == typ]
+        if not grows:
+            continue
+        groups.append({"type": typ, "label": titleize_type(typ), "rows": grows,
+                       "opening": round(sum(r["opening"] for r in grows), 2),
+                       "debit": round(sum(r["debit"] for r in grows), 2),
+                       "credit": round(sum(r["credit"] for r in grows), 2),
+                       "closing": round(sum(r["closing"] for r in grows), 2)})
+    total_debit = round(sum(r["debit"] for r in rows), 2)
+    total_credit = round(sum(r["credit"] for r in rows), 2)
+    difference = round(total_debit - total_credit, 2)
+    return {"start": start, "end": end, "rows": rows, "groups": groups,
+            "total_opening": round(sum(r["opening"] for r in rows), 2),
+            "total_debit": total_debit, "total_credit": total_credit,
+            "total_closing": round(sum(r["closing"] for r in rows), 2),
+            "difference": difference, "balanced": abs(difference) < 0.01, "currency": base_currency(db)}
+
+
+def _statement_section(db: Session, start: date, end: date) -> dict:
+    mv = account_movements(db, start, end)
+    accounts = {a.id: a for a in db.query(Account).all()}
+    income, expense = [], []
+    for aid, m in mv.items():
+        a = accounts.get(aid)
+        if a is None or a.account_type not in ("income", "expense"):
+            continue
+        amount = natural_balance(a.account_type, m["debit"], m["credit"])
+        row = {"account": a, "code": a.code, "name": a.name, "amount": amount,
+               "head": a.parent.name if a.parent else titleize_type(a.account_type)}
+        (income if a.account_type == "income" else expense).append(row)
+    income.sort(key=lambda r: r["code"])
+    expense.sort(key=lambda r: r["code"])
+    total_income = round(sum(r["amount"] for r in income), 2)
+    total_expense = round(sum(r["amount"] for r in expense), 2)
+    return {"income": income, "expense": expense, "total_income": total_income, "total_expense": total_expense,
+            "net": round(total_income - total_expense, 2)}
+
+
+def _group_rows(rows: list) -> list:
+    grouped = {}
+    for r in rows:
+        g = grouped.setdefault(r["head"], {"head": r["head"], "rows": [], "amount": 0.0})
+        g["rows"].append(r)
+        g["amount"] = round(g["amount"] + r["amount"], 2)
+    return sorted(grouped.values(), key=lambda g: g["head"])
+
+
+def income_statement(db: Session, start: date, end: date) -> dict:
+    """Income Statement for the range, by account and by group, against the previous period of equal length."""
+    current = _statement_section(db, start, end)
+    days = (end - start).days + 1
+    prev_end = start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=days - 1)
+    previous = _statement_section(db, prev_start, prev_end)
+    prev_income = {r["code"]: r["amount"] for r in previous["income"]}
+    prev_expense = {r["code"]: r["amount"] for r in previous["expense"]}
+    for r in current["income"]:
+        r["previous"] = prev_income.get(r["code"], 0.0)
+        r["delta"] = round(r["amount"] - r["previous"], 2)
+    for r in current["expense"]:
+        r["previous"] = prev_expense.get(r["code"], 0.0)
+        r["delta"] = round(r["amount"] - r["previous"], 2)
+    return {"start": start, "end": end, "prev_start": prev_start, "prev_end": prev_end,
+            "income": current["income"], "expense": current["expense"],
+            "income_groups": _group_rows(current["income"]), "expense_groups": _group_rows(current["expense"]),
+            "total_income": current["total_income"], "total_expense": current["total_expense"], "net": current["net"],
+            "previous": previous,
+            "income_delta": round(current["total_income"] - previous["total_income"], 2),
+            "expense_delta": round(current["total_expense"] - previous["total_expense"], 2),
+            "net_delta": round(current["net"] - previous["net"], 2),
+            "margin_pct": round(100.0 * current["net"] / current["total_income"], 1) if current["total_income"] else 0.0,
+            "currency": base_currency(db)}
+
+
+def balance_sheet(db: Session, as_of: Optional[date] = None) -> dict:
+    """Balance Sheet as at a date. Retained earnings are derived from income less expense to that date and the
+    accounting equation is checked explicitly."""
+    as_of = as_of or date.today()
+    mv = account_movements(db, None, as_of)
+    accounts = {a.id: a for a in db.query(Account).all()}
+    sections = {"asset": [], "liability": [], "equity": []}
+    income_total = expense_total = 0.0
+    for aid, m in mv.items():
+        a = accounts.get(aid)
+        if a is None:
+            continue
+        amount = natural_balance(a.account_type, m["debit"], m["credit"])
+        if a.account_type in sections:
+            if amount:
+                sections[a.account_type].append({"account": a, "code": a.code, "name": a.name, "amount": amount,
+                                                 "head": a.parent.name if a.parent else titleize_type(a.account_type)})
+        elif a.account_type == "income":
+            income_total = round(income_total + amount, 2)
+        else:
+            expense_total = round(expense_total + amount, 2)
+    for rows in sections.values():
+        rows.sort(key=lambda r: r["code"])
+    retained = round(income_total - expense_total, 2)
+    total_assets = round(sum(r["amount"] for r in sections["asset"]), 2)
+    total_liabilities = round(sum(r["amount"] for r in sections["liability"]), 2)
+    total_equity = round(sum(r["amount"] for r in sections["equity"]), 2)
+    total_equity_with_earnings = round(total_equity + retained, 2)
+    total_liab_equity = round(total_liabilities + total_equity_with_earnings, 2)
+    difference = round(total_assets - total_liab_equity, 2)
+    return {"as_of": as_of, "assets": sections["asset"], "liabilities": sections["liability"],
+            "equity": sections["equity"], "asset_groups": _group_rows(sections["asset"]),
+            "liability_groups": _group_rows(sections["liability"]), "equity_groups": _group_rows(sections["equity"]),
+            "income_total": income_total, "expense_total": expense_total, "retained_earnings": retained,
+            "total_assets": total_assets, "total_liabilities": total_liabilities, "total_equity": total_equity,
+            "total_equity_with_earnings": total_equity_with_earnings, "total_liabilities_equity": total_liab_equity,
+            "difference": difference, "balanced": abs(difference) < 0.01, "currency": base_currency(db)}
+
+
+def _ageing_key(days: int) -> str:
+    if days <= 0:
+        return "current"
+    if days <= 30:
+        return "d30"
+    if days <= 60:
+        return "d60"
+    if days <= 90:
+        return "d90"
+    return "d90plus"
+
+
+def _empty_buckets() -> dict:
+    return {key: 0.0 for key, _ in AGEING_BUCKETS}
+
+
+def payables_summary(db: Session, as_of: Optional[date] = None) -> dict:
+    """Payables Summary: what is owed, by vendor and by account, aged into current / 30 / 60 / 90 days."""
+    as_of = as_of or date.today()
+    rows = (db.query(Expense).filter(Expense.status == "approved", Expense.expense_date <= as_of)
+            .order_by(Expense.expense_date).all())
+    vendors = {}
+    by_account = {}
+    totals = _empty_buckets()
+    grand = 0.0
+    for e in rows:
+        amount = round(float(e.amount_in_base or 0), 2)
+        if amount <= 0:
+            continue
+        days = (as_of - e.expense_date).days if e.expense_date else 0
+        key = _ageing_key(days)
+        vendor = (e.vendor or "Unnamed vendor").strip()
+        v = vendors.setdefault(vendor, {"vendor": vendor, "count": 0, "total": 0.0, "buckets": _empty_buckets(),
+                                        "oldest": e.expense_date})
+        v["count"] += 1
+        v["total"] = round(v["total"] + amount, 2)
+        v["buckets"][key] = round(v["buckets"][key] + amount, 2)
+        if e.expense_date and (v["oldest"] is None or e.expense_date < v["oldest"]):
+            v["oldest"] = e.expense_date
+        acct = e.account
+        label = f"{acct.code} {acct.name}" if acct else (e.category or "Unclassified").replace("_", " ").title()
+        a = by_account.setdefault(label, {"account": label, "count": 0, "total": 0.0, "buckets": _empty_buckets()})
+        a["count"] += 1
+        a["total"] = round(a["total"] + amount, 2)
+        a["buckets"][key] = round(a["buckets"][key] + amount, 2)
+        totals[key] = round(totals[key] + amount, 2)
+        grand = round(grand + amount, 2)
+    mv = account_movements(db, None, as_of)
+    ledger_rows = []
+    for acct in db.query(Account).filter(Account.account_type == "liability").order_by(Account.code).all():
+        m = mv.get(acct.id)
+        if not m:
+            continue
+        amount = natural_balance("liability", m["debit"], m["credit"])
+        if amount:
+            ledger_rows.append({"account": acct, "code": acct.code, "name": acct.name, "amount": amount})
+    return {"as_of": as_of, "vendors": sorted(vendors.values(), key=lambda v: -v["total"]),
+            "accounts": sorted(by_account.values(), key=lambda a: -a["total"]),
+            "ledger_rows": ledger_rows, "ledger_total": round(sum(r["amount"] for r in ledger_rows), 2),
+            "buckets": AGEING_BUCKETS, "totals": totals, "total": grand, "count": len(rows),
+            "currency": base_currency(db)}
+
+
+def account_wise_summary(db: Session, start: date, end: date, account_type: str = "",
+                         head_id: Optional[int] = None) -> dict:
+    """Account Wise Summary: opening, debits, credits and closing for every account in the range."""
+    rows = _account_rows(db, start, end, account_type=account_type, head_id=head_id, include_empty=True)
+    return {"start": start, "end": end, "rows": rows, "account_type": account_type, "head_id": head_id,
+            "total_opening": round(sum(r["opening"] for r in rows), 2),
+            "total_debit": round(sum(r["debit"] for r in rows), 2),
+            "total_credit": round(sum(r["credit"] for r in rows), 2),
+            "total_closing": round(sum(r["closing"] for r in rows), 2),
+            "currency": base_currency(db)}
+
+
+def approved_advances(db: Session, status: str = "") -> dict:
+    """Approved Advances: staff salary advances that are approved or still outstanding, with the instalment
+    plan, what has been recovered and what is left. Reads the HR SalaryAdvance model lazily."""
+    from app.models.people import SalaryAdvance  # local import: the HR module owns this model
+    q = db.query(SalaryAdvance)
+    if status:
+        q = q.filter(SalaryAdvance.status == status)
+    else:
+        q = q.filter(SalaryAdvance.status.in_(["approved", "paid", "settled"]))
+    rows = []
+    for adv in q.order_by(SalaryAdvance.request_date.desc(), SalaryAdvance.id.desc()).all():
+        amount = round(float(adv.amount or 0), 2)
+        balance = round(float(adv.remaining or 0), 2)
+        recovered = round(amount - balance, 2)
+        installments = int(adv.installments or 1) or 1
+        emp = adv.employee
+        rows.append({"advance": adv, "employee": emp,
+                     "employee_name": emp.full_name if emp else "-",
+                     "employee_code": getattr(emp, "employee_code", "") if emp else "",
+                     "designation": getattr(emp, "designation", "") if emp else "",
+                     "request_date": adv.request_date, "amount": amount, "currency": adv.currency or "PKR",
+                     "installments": installments,
+                     "per_installment": round(amount / installments, 2) if installments else amount,
+                     "recovered": recovered, "balance": balance, "status": adv.status,
+                     "recovered_pct": round(100.0 * recovered / amount, 1) if amount else 0.0,
+                     "reason": adv.reason})
+    return {"rows": rows, "total": round(sum(r["amount"] for r in rows), 2),
+            "recovered": round(sum(r["recovered"] for r in rows), 2),
+            "outstanding": round(sum(r["balance"] for r in rows), 2),
+            "count": len(rows), "currency": base_currency(db)}

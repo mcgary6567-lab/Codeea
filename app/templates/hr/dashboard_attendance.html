@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Attendance Management", "Present, absent, leave and late by day and by employee, with shortage hours", back="/hr/dashboards") %}
+  {{ ui.button("Daily Attendance", href="/hr/attendance", icon="clock", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/hr/dashboards/attendance') %}
+  <div class="w-40">{{ ui.input('from_date', 'From Date', from_date, type='date') }}</div>
+  <div class="w-40">{{ ui.input('to_date', 'To Date', to_date, type='date') }}</div>
+  <div class="w-48">{{ ui.select('department_id', 'Department', departments, department_id or '', placeholder='All') }}</div>
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat("Sessions", d.totals.sessions, color=palette(0)) }}
+  {{ ui.stat("Present", d.totals.present, color=palette(3)) }}
+  {{ ui.stat("Absent", d.totals.absent, color=palette(7)) }}
+  {{ ui.stat("On Leave", d.totals.leave, color=palette(5)) }}
+  {{ ui.stat("Late Coming", d.totals.late, color=palette(2)) }}
+  {{ ui.stat("Shortage Hours", d.totals.shortage_hours, color=palette(4), hint=d.totals.attendance_pct ~ '% present') }}
+</div>
+
+<div class="mb-6">
+  {% call ui.card('By day') %}
+  {{ ui.chart('attChart', 250) }}
+  {% endcall %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3 mb-6">
+  {% call ui.card('Worst attendance') %}
+  {{ ui.table_start(['Employee', 'Present', 'Absent', '%']) }}
+  {% for r in d.worst_attendance %}
+  <tr><td class="px-3 py-1.5 text-xs">{{ r.name }}</td><td class="px-3 py-1.5 text-center text-xs">{{ r.present }}</td>
+    <td class="px-3 py-1.5 text-center text-xs text-rose-600">{{ r.absent }}</td>
+    <td class="px-3 py-1.5 text-center text-xs font-semibold">{{ r.attendance_pct }}%</td></tr>
+  {% else %}{{ ui.empty('No attendance in this range.', 4, 'clock') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Most late') %}
+  {{ ui.table_start(['Employee', 'Late', 'Minutes']) }}
+  {% for r in d.most_late %}
+  <tr><td class="px-3 py-1.5 text-xs">{{ r.name }}</td><td class="px-3 py-1.5 text-center text-xs">{{ r.late }}</td>
+    <td class="px-3 py-1.5 text-center text-xs">{{ r.late_minutes }}</td></tr>
+  {% else %}{{ ui.empty('Nobody was late in this range.', 3, 'clock') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Highest shortage') %}
+  {{ ui.table_start(['Employee', 'Shortage (h)']) }}
+  {% for r in d.highest_shortage %}
+  <tr><td class="px-3 py-1.5 text-xs">{{ r.name }}</td><td class="px-3 py-1.5 text-center text-xs font-semibold">{{ r.shortage_hours }}</td></tr>
+  {% else %}{{ ui.empty('No shortage recorded.', 2, 'hourglass') }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% call ui.card('By employee') %}
+{{ ui.table_start(['Code', 'Employee', 'Department', 'Sessions', 'Present', 'Absent', 'Leave', 'Late', 'Late Minutes', 'Shortage (h)', 'Attendance %']) }}
+{% for r in d.by_employee %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.code }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.department }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.sessions }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.present }}</td>
+  <td class="px-3 py-1.5 text-center text-xs text-rose-600">{{ r.absent }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.leave }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.late }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.late_minutes }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ r.shortage_hours }}</td>
+  <td class="px-3 py-1.5 text-center text-xs font-semibold">{{ r.attendance_pct }}%</td>
+</tr>
+{% else %}{{ ui.empty('No attendance in this range.', 11, 'clock') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('attChart', {{ d.by_day|map(attribute='day')|map('string')|list|tojson }}, [
+  {label: 'Present', data: {{ d.by_day|map(attribute='present')|list|tojson }}},
+  {label: 'Absent', data: {{ d.by_day|map(attribute='absent')|list|tojson }}},
+  {label: 'Leave', data: {{ d.by_day|map(attribute='leave')|list|tojson }}},
+  {label: 'Late', data: {{ d.by_day|map(attribute='late')|list|tojson }}}
+], {scales: {x: {stacked: false}}});
+</script>
+{% endblock %}

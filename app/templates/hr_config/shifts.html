@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Shift{% endblock %}
+{% block content %}
+{% call ui.page_header("Shift", "Morning and night shifts. Attendance, holidays and the payroll shortage calculation all read these times.", back="/hr/config") %}
+  {{ ui.button("Shift Cover", href="/schedules/shifts", icon="calendar-range", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newShift\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {{ ui.stat("All Shifts", stats.total, color=palette(0), href="/hr/config/shifts") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/config/shifts?status=active") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/config/shifts?status=inactive") }}
+</div>
+
+{% call ui.filter_bar('/hr/config/shifts') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Shift name') }}</div>
+  <div class="w-40">{{ ui.select('group', 'Shift Type', groups, group, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Shift Name', 'Shift Type', 'Shift Code', 'Start Time', 'End Time', 'Staff', 'Status', '']) }}
+{% for s in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ s.id }}</td>
+  <td class="px-3 py-2 font-semibold text-slate-900">{{ s.name }}</td>
+  <td class="px-3 py-2 text-xs">{{ s.group|titleize }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ shift_code(s) }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ s.start_time|time }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ s.end_time|time }}</td>
+  <td class="px-3 py-2 text-center text-xs">{{ staff.get(s.group, 0) }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if s.is_active else 'inactive', 'Active' if s.is_active else 'In-active') }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/hr/config/shifts/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/hr/config/shifts/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+    {{ ui.input('name', 'Shift Name', s.name, required=True) }}
+    {{ ui.select('group', 'Shift Type', groups, s.group, placeholder=None) }}
+    {{ ui.input('start_time', 'Start Time', s.start_time.strftime('%H:%M'), type='time', required=True) }}
+    {{ ui.input('end_time', 'End Time', s.end_time.strftime('%H:%M'), type='time', required=True) }}
+    {{ ui.select('status', 'Status', statuses, 'active' if s.is_active else 'inactive', placeholder=None) }}
+    <div class="sm:col-span-2 lg:col-span-5 flex gap-2">{{ ui.button('Save shift', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No shifts match these filters.', 9, 'clock') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} shift{{ 's' if rows|length != 1 }} · the shift code is built from the shift type and the row number.</div>
+
+{% if can_add %}
+{% call ui.modal('newShift', 'Create Shift') %}
+<form method="post" action="/hr/config/shifts/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('name', 'Shift Name', '', required=True, placeholder='e.g. Morning') }}
+  {{ ui.select('group', 'Shift Type', groups, 'morning', placeholder=None) }}
+  {{ ui.input('start_time', 'Start Time', '09:00', type='time', required=True) }}
+  {{ ui.input('end_time', 'End Time', '17:00', type='time', required=True) }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create shift', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

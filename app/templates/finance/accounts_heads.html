@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Accounts Heads{% endblock %}
+{% block content %}
+{% call ui.page_header("Accounts Heads", "The groups the chart of accounts hangs from. A head is never posted to - it only totals the accounts beneath it.") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newHead\')"') }}{% endif %}
+  {{ ui.button("Tree View", href="/finance/accounts/tree", icon="network", variant="secondary") }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-8 mb-6">
+  {{ ui.stat("All Heads", stats.total, color=palette(0), href="/finance/accounts/heads") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/finance/accounts/heads?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/finance/accounts/heads?status=inactive") }}
+  {% for t in types %}{{ ui.stat(t|titleize, by_type.get(t, 0), color=palette(loop.index0 + 4), href="/finance/accounts/heads?account_type=" ~ t) }}{% endfor %}
+</div>
+
+{% call ui.filter_bar('/finance/accounts/heads') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Code or name') }}</div>
+  <div class="w-44">{{ ui.select('account_type', 'Account Type', types, account_type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', [('active','Active'),('inactive','Inactive')], status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Code', 'Head Name', 'Account Type', 'Parent Head', 'Accounts', 'Sort No', 'Status', '']) }}
+{% for h in heads %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold text-brand-700">{{ h.code }}</td>
+  <td class="px-3 py-1.5 font-medium text-slate-800">{{ h.name }}{% if h.description %}<div class="text-xs text-slate-500">{{ h.description }}</div>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ h.account_type|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ (h.parent.code ~ ' ' ~ h.parent.name) if h.parent else '—' }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ child_counts.get(h.id, 0) }}</td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ h.sort_no }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge('active' if h.is_active else 'inactive') }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/finance/accounts/heads/{{ h.id }}/toggle" class="inline">{{ ui.button('Deactivate' if h.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/finance/accounts/heads/{{ h.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-5 items-end">
+    {{ ui.input('name', 'Head Name', h.name, required=True) }}
+    {{ ui.select('account_type', 'Account Type', types, h.account_type, placeholder=None) }}
+    {{ ui.select('parent_id', 'Parent Head', parent_options, h.parent_id, placeholder='— Top level —') }}
+    {{ ui.input('sort_no', 'Sort No', h.sort_no, type='number') }}
+    {{ ui.input('description', 'Description', h.description or '') }}
+    <div class="sm:col-span-3 lg:col-span-5 flex gap-2">{{ ui.button('Save head', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No accounts heads match these filters.', 8, 'layers') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ heads|length }} head{{ 's' if heads|length != 1 }} · balances shown in {{ base }}</div>
+
+{% if can_add %}
+{% call ui.modal('newHead', 'Create Accounts Head') %}
+<form method="post" action="/finance/accounts/heads/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('code', 'Code', '', required=True, placeholder='e.g. 16') }}
+  {{ ui.input('name', 'Head Name', '', required=True, placeholder='e.g. Fixed Assets') }}
+  {{ ui.select('account_type', 'Account Type', types, 'asset', placeholder=None, required=True) }}
+  {{ ui.select('parent_id', 'Parent Head', parent_options, None, placeholder='— Top level —') }}
+  {{ ui.input('sort_no', 'Sort No', next_sort, type='number') }}
+  {{ ui.input('description', 'Description', '') }}
+  <div class="sm:col-span-2">{{ ui.alert('A head is not postable. Existing accounts that already carry postings cannot be turned into heads.', 'info') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create head', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

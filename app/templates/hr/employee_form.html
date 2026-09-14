@@ -16,6 +16,11 @@
     {{ ui.select('department_id', 'Department', dept_options, e.department_id if e else None) }}
     {{ ui.select('branch_id', 'Branch', branch_options, e.branch_id if e else None) }}
     {{ ui.select('manager_id', 'Reports to', managers, e.manager_id if e else None) }}
+    {{ ui.input('father_name', 'Father name', e.father_name if e else '') }}
+    {{ ui.input('mother_name', 'Mother name', e.mother_name if e else '') }}
+    {{ ui.input('date_of_birth', 'Date of birth', docs.get('date_of_birth', ''), type='date') }}
+    {{ ui.select('religion', 'Religion', religions, e.religion if e else None) }}
+    {{ ui.select('blood_group', 'Blood group', blood_groups, e.blood_group if e else None) }}
   </div>
   {% endcall %}
   {% call ui.card('Contact & sensitive data', 'CNIC is masked everywhere except for holders of employees.update.') %}
@@ -24,6 +29,9 @@
     {{ ui.input('phone', 'Phone', e.phone if e else '') }}
     {{ ui.input('cnic', 'CNIC', e.cnic if e else '', placeholder='35202-1234567-1') }}
     {{ ui.input('device_name', 'Device name', e.device_name if e else '', help='OQC-DEPT-NNN (auto-assigned when blank)') }}
+    {{ ui.input('whatsapp', 'WhatsApp', e.whatsapp if e else '') }}
+    {{ ui.input('bank_name', 'Bank name', e.bank_name if e else '') }}
+    {{ ui.input('bank_account_no', 'Bank account no', e.bank_account_no if e else '') }}
     <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('address', 'Address', e.address if e else '', rows=2) }}</div>
   </div>
   {% endcall %}
@@ -39,7 +47,14 @@
     {{ ui.input('base_salary', 'Base salary (PKR)', (e.base_salary|float if e else ''), type='number', step='100') }}
     {{ ui.input('salary_band', 'Salary band', e.salary_band if e else '', help='A / B / C for teachers') }}
     {{ ui.input('currency', 'Currency', e.currency if e else 'PKR') }}
+    {% set grade_options = [] %}{% for g in grades %}{% set _ = grade_options.append((g.id, g.name)) %}{% endfor %}
+    {{ ui.select('employee_type', 'Type', employee_types, e.employee_type if e else 'Academics', placeholder=None) }}
+    {{ ui.select('grade_id', 'Grade', grade_options, e.grade_id if e else None) }}
+    {{ ui.input('shift_code', 'Shift code', e.shift_code if e else '', placeholder='M / N', help='Left blank it follows the shift') }}
+    {{ ui.input('duty_hours', 'Duty hours', (e.duty_hours if e and e.duty_hours is not none else ''), type='number', step='0.5') }}
+    {{ ui.input('sort_no', 'Sort no', (e.sort_no if e else 0), type='number') }}
   </div>
+  <div class="mt-4">{{ ui.textarea('remarks', 'Remarks', docs.get('remarks', ''), rows=2, placeholder='Anything People & Culture should see on the employee record.') }}</div>
   <div class="mt-4 grid gap-3 sm:grid-cols-2">
     {{ ui.checkbox('is_teacher', 'This person teaches classes', e.is_teacher if e else False, help='Teachers get per-class pay and a grade band') }}
     {% if mode == 'new' %}{{ ui.checkbox('create_login', 'Create a platform login and email a temporary password', True) }}

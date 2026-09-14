@@ -3,10 +3,19 @@
 {% block title %}Request leave{% endblock %}
 {% block content %}
 {% call ui.page_header('Request leave on behalf of an employee', 'People & Culture may raise a request for anyone; the approval still runs through the normal queue.', back='/hr/leaves') %}{% endcall %}
-<form method="post" action="/hr/leaves/new" class="max-w-2xl space-y-6">
+<form method="post" action="/hr/leaves/new" class="max-w-2xl space-y-6"
+      x-data='{ emp: "{{ employee_id or "" }}", balances: {{ balances|tojson_safe }} }'>
   {% call ui.card('Request') %}
   <div class="grid gap-4 sm:grid-cols-2">
-    <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, employee_id or None, required=True) }}</div>
+    <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', employees, employee_id or None, required=True, attrs='x-model="emp"') }}</div>
+    <div class="sm:col-span-2 rounded border border-slate-200 bg-[#f7f9fc] px-3 py-2 text-xs text-slate-700">
+      <span class="font-semibold">Leave assignment balance:</span>
+      <template x-if="!emp || !(balances[emp])"><span class="text-slate-500"> no active assignment on file for this employee.</span></template>
+      <template x-for="b in (balances[emp] || [])">
+        <span class="ml-2 inline-block rounded bg-white px-2 py-0.5" x-text="b.type + ': ' + b.remaining + ' of ' + b.total + ' left' + (b.expiry ? ' (expires ' + b.expiry + ')' : '')"></span>
+      </template>
+      <a href="/hr/leave-entitlements" class="ml-2 text-brand-700 hover:underline">Manage</a>
+    </div>
     {{ ui.select('leave_type', 'Leave type', leave_types, 'casual', placeholder=None) }}
     {{ ui.input('substitute_teacher_id', 'Substitute teacher id (optional)', '', help='Suggestions appear on the request page once saved') }}
     {{ ui.input('start_date', 'From', today()|string, type='date', required=True) }}

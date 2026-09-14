@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Employee Management Dashboard{% endblock %}
+{% macro breakdown(title, rows, colour) %}
+{% call ui.card(title) %}
+{% if rows %}
+<div class="space-y-1.5">
+  {% set top = rows[0].count or 1 %}
+  {% for r in rows[:10] %}
+  <div class="flex items-center gap-2 text-xs">
+    <div class="w-40 shrink-0 truncate text-slate-600">{{ r.label }}</div>
+    <div class="h-4 flex-1 overflow-hidden rounded bg-slate-100"><div class="h-full rounded" style="width: {{ (100 * r.count / top)|round(0)|int }}%; background: {{ TILE[colour] }}"></div></div>
+    <div class="w-8 text-right font-semibold text-slate-800">{{ r.count }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="py-4 text-center text-xs text-slate-400">No data.</div>{% endif %}
+{% endcall %}
+{% endmacro %}
+{% block content %}
+{% call ui.page_header("Employee Management", "Headcount by department, designation, employee type, shift, gender and status", back="/hr/dashboards") %}
+  {{ ui.button("Employee Record", href="/hr/employees", icon="id-card", variant="secondary") }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Headcount", d.headcount, color=palette(0), href="/hr/employees") }}
+  {{ ui.stat("On Record", d.total, color=palette(1)) }}
+  {{ ui.stat("Leavers", d.leavers_total, color=palette(7)) }}
+  {{ ui.stat("Avg Tenure (years)", d.avg_tenure_years, color=palette(3)) }}
+  {{ ui.stat("Avg Tenure, Current (years)", d.avg_tenure_live_years, color=palette(4)) }}
+</div>
+
+<div class="mb-6">
+  {% call ui.card('Joiners and leavers by month') %}
+  {{ ui.chart('joinersChart', 240) }}
+  {% endcall %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  {{ breakdown('By Department', d.by_department, 'sky') }}
+  {{ breakdown('By Designation', d.by_designation, 'indigo') }}
+  {{ breakdown('By Employee Type', d.by_employee_type, 'emerald') }}
+  {{ breakdown('By Shift', d.by_shift, 'violet') }}
+  {{ breakdown('By Gender', d.by_gender, 'amber') }}
+  {{ breakdown('By Status', d.by_status, 'rose') }}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+OQC.bar('joinersChart', {{ d.months|tojson }}, [
+  {label: 'Joiners', data: {{ d.joiners|tojson }}},
+  {label: 'Leavers', data: {{ d.leavers|tojson }}}
+]);
+</script>
+{% endblock %}

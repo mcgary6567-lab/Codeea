@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Account Wise Summary{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header("Account Wise Summary", "Opening, debits, credits and closing for every account in the range.") %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/finance/accounts/reports/account-wise?' ~ qs ~ '&format=csv', icon='download', variant='secondary') }}
+{% endcall %}
+{{ ui.tabs(tabs, tab) }}
+{{ ui.tabs(report_tabs, report) }}
+
+{% call ui.filter_bar('/finance/accounts/reports/account-wise') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-44">{{ ui.select('account_type', 'Account Type', types, account_type, placeholder='All types') }}</div>
+  <div class="w-56">{{ ui.select('head_id', 'Accounts Head', heads, head_id, placeholder='All heads') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Account Wise Summary</h1>
+  <p style="font-size:11px">{{ date_from }} to {{ date_to }} &middot; {{ base }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="no-print grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Accounts", data.rows|length, color=palette(0)) }}
+  {{ ui.stat("Opening", data.total_opening|round(0)|int, color=palette(5), hint=base) }}
+  {{ ui.stat("Debits", data.total_debit|round(0)|int, color=palette(3), hint=base) }}
+  {{ ui.stat("Credits", data.total_credit|round(0)|int, color=palette(7), hint=base) }}
+</div>
+
+{{ ui.table_start(['Account Code', 'Account Name', 'Account Type', 'Head', 'Opening', 'Debit', 'Credit', 'Closing', '']) }}
+{% for r in data.rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold text-brand-700">{{ r.code }}</td>
+  <td class="px-3 py-1.5">{{ r.name }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.type|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.head or '—' }}</td>
+  <td class="px-3 py-1.5 text-right text-slate-600">{{ r.opening|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.debit|money if r.debit else '' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ r.credit|money if r.credit else '' }}</td>
+  <td class="px-3 py-1.5 text-right font-medium">{{ r.closing|money }}</td>
+  <td class="px-3 py-1.5 text-right no-print">{{ ui.button('Ledger', href='/finance/accounts/reports/ledger?account_id=' ~ r.account.id ~ '&date_from=' ~ date_from ~ '&date_to=' ~ date_to, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No accounts match these filters.', 9, 'list') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-bold">
+  <td class="px-3 py-2" colspan="4">TOTAL</td>
+  <td class="px-3 py-2 text-right">{{ data.total_opening|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_debit|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_credit|money }}</td>
+  <td class="px-3 py-2 text-right">{{ data.total_closing|money }}</td>
+  <td class="px-3 py-2"></td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Balances are debit-positive and shown in {{ base }}. Accounts heads are excluded: nothing is ever posted to them.</p>
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

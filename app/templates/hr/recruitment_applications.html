@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Job Applications{% endblock %}
+{% block content %}
+{% call ui.page_header("Job Applications", "Applications against every vacancy, moving through the ten-step pipeline", back="/hr/recruitment") %}
+  {{ ui.button("Candidate Database", href="/hr/candidates", icon="users", variant="secondary") }}
+  {{ ui.button("Schedule Interviews", href="/hr/interviews", icon="calendar-clock", variant="secondary") }}
+  {% if has_perm(user, 'recruitment.add') %}{{ ui.button("Add Manually", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newApp\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat("All", total, color=palette(0), href="/hr/applications") }}
+  {% for s in statuses %}{{ ui.stat(labels[s], counts.get(s, 0), color=palette(loop.index0 + 1), href="/hr/applications?status=" ~ s) }}{% endfor %}
+</div>
+
+{% call ui.filter_bar('/hr/applications') %}
+  <div class="w-40">{{ ui.input('from_date', 'From Date', from_date, type='date') }}</div>
+  <div class="w-40">{{ ui.input('to_date', 'To Date', to_date, type='date') }}</div>
+  <div class="w-48">{{ ui.select('status', 'Status', status_options, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('request_id', 'Job Title', jobs, request_id or '', placeholder='All jobs') }}</div>
+  <div class="w-44">{{ ui.select('application_type', 'Application Type', application_types, application_type, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('department_id', 'Department', departments, department_id or '', placeholder='All') }}</div>
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Name, NIC, cell or email') }}</div>
+{% endcall %}
+
+<form method="post" action="/hr/applications/process" x-data="{ n: 0 }">
+  <input type="hidden" name="next" value="{{ base_url }}&page={{ page.page }}">
+  {{ ui.table_start(['', 'ID', 'Candidate Name', 'Father Name', 'Gender', 'Department', 'Application Date', 'Job Title',
+                     'NIC Number', 'Cell No', 'Email', 'Qualification', 'Experience', 'Expected Salary', 'City', 'Status', '']) }}
+  {% for a in page.items %}
+  <tr>
+    <td class="px-2 py-2 text-center">{% if can_process %}<input type="checkbox" name="ids" value="{{ a.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
+    <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
+    <td class="px-3 py-2 font-medium"><a class="text-brand-700 hover:underline" href="/hr/applications/{{ a.id }}">{{ a.full_name }}</a></td>
+    <td class="px-3 py-2 text-xs">{{ a.father_name or '—' }}</td>
+    <td class="px-3 py-2 text-xs">{{ a.gender|titleize if a.gender else '—' }}</td>
+    <td class="px-3 py-2 text-xs">{{ a.department.name if a.department else '—' }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ a.application_date|date }}</td>
+    <td class="px-3 py-2 text-xs">{{ a.request.title if a.request else '—' }}</td>
+    <td class="px-3 py-2 font-mono text-[11px]">{{ a.nic_number|mask if a.nic_number else '—' }}</td>
+    <td class="px-3 py-2 font-mono text-[11px]">{{ a.cell_no or '—' }}</td>
+    <td class="px-3 py-2 text-[11px]">{{ a.email or '—' }}</td>
+    <td class="px-3 py-2 text-xs">{{ a.qualification or '—' }}</td>
+    <td class="px-3 py-2 text-center text-xs">{{ '%g'|format(a.experience_years) if a.experience_years else '—' }}</td>
+    <td class="px-3 py-2 text-right font-mono text-xs">{{ a.expected_salary|money if a.expected_salary else '—' }}</td>
+    <td class="px-3 py-2 text-xs">{{ a.city or '—' }}</td>
+    <td class="px-3 py-2">{{ ui.badge(a.status, labels.get(a.status, a.status)) }}</td>
+    <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/hr/applications/' ~ a.id, variant='ghost', size='sm') }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No applications match these filters.', 17, 'file-text') }}{% endfor %}
+  {{ ui.table_end() }}
+
+  {% if can_process %}
+  <div class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 bg-white p-3">
+    <div class="text-xs font-semibold text-slate-600">Action &middot; Process <span class="text-brand-700" x-text="n + ' selected'"></span></div>
+    <div class="w-56">{{ ui.select('status', 'Move to', status_options, '', placeholder='Next step in the pipeline') }}</div>
+    <div class="w-56">{{ ui.select('panel_id', 'Interview Panel', panels, '', placeholder='— required for interviews —') }}</div>
+    <div class="w-72">{{ ui.input('remark', 'Remark', '', placeholder='Why this decision') }}</div>
+    {{ ui.button('Process', icon='chevrons-right') }}
+  </div>
+  <p class="mt-1 text-xs text-slate-500">Leave "Move to" empty to advance each selected application to the next step. Moving to an interview step needs a panel; moving to Hired creates the employee record.</p>
+  {% endif %}
+</form>
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'recruitment.add') %}
+{% call ui.modal('newApp', 'Add Application Manually', size='lg') %}
+<form method="post" action="/hr/applications/new" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {{ ui.input('full_name', 'Candidate Name', '', required=True) }}
+  {{ ui.input('father_name', 'Father Name', '') }}
+  {{ ui.select('gender', 'Gender', genders, 'male', placeholder=None) }}
+  {{ ui.select('request_id', 'Job Title', jobs, request_id or '', required=True, placeholder='— Select job —') }}
+  {{ ui.select('department_id', 'Department', departments, '', placeholder='From the job') }}
+  {{ ui.select('application_type', 'Application Type', application_types, 'profile', placeholder=None) }}
+  {{ ui.input('application_date', 'Application Date', today, type='date') }}
+  {{ ui.input('nic_number', 'NIC Number', '') }}
+  {{ ui.input('cell_no', 'Cell No', '') }}
+  {{ ui.input('email', 'Email', '', type='email') }}
+  {{ ui.input('qualification', 'Qualification', '') }}
+  {{ ui.input('experience_years', 'Experience (years)', '0', type='number', step='0.5', min=0) }}
+  {{ ui.input('expected_salary', 'Expected Salary', '0', type='number', step='1000', min=0) }}
+  {{ ui.input('city', 'City', '') }}
+  {{ ui.input('source', 'Source', 'Website') }}
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.textarea('remarks', 'Remarks', '', rows=2) }}</div>
+  <div class="sm:col-span-2 lg:col-span-3 flex justify-end">{{ ui.button('Save application', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

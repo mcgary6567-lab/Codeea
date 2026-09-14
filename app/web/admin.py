@@ -484,7 +484,10 @@ def settings_page(request: Request, tab: str = "organization", db: Session = Dep
         jobs.append({"id": jid, "interval": st.get("interval", minutes), "last_run": st.get("last_run"),
                      "status": st.get("status", "scheduled"), "result": st.get("result")})
     grouped: dict[str, list[Setting]] = {}
-    for s in db.query(Setting).order_by(Setting.group, Setting.key).all():
+    # Branch Properties (docs/AUDIT_ACCOUNTS_CONFIG.md) are edited one row at a time on /config/branch-properties,
+    # where each carries its label, type, unit and secrecy. This page keeps the raw group-by-group editor for the
+    # keys that predate that screen, so a secret value is never rendered here in the clear.
+    for s in db.query(Setting).filter(Setting.is_secret.is_(False)).order_by(Setting.group, Setting.sort_no, Setting.key).all():
         grouped.setdefault(s.group or "general", []).append(s)
     return render(request, "admin/settings.html", {
         "user": user, "tab": tab, "org": _org(db), "branches": _branches(db), "departments": _departments(db),
@@ -588,8 +591,14 @@ async def settings_department(request: Request, db: Session = Depends(get_db), u
 async def settings_values(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.configure"))):
     form = await request.form()
     group = form.get("group") or "general"
-    changed = []
+    changed, refused = [], []
     for s in db.query(Setting).filter(Setting.group == group).all():
+        if s.is_secret:
+            continue                      # secrets are only editable on /config/branch-properties, where reveal is audited
+        if not s.is_editable:
+            if any(f.startswith(f"s_{s.id}__") for f in form):
+                refused.append(s.key)
+            continue                      # release-managed keys cannot be changed by staff
         before = json.loads(json.dumps(s.value, default=str)) if s.value is not None else None
         value = s.value
         if isinstance(value, dict):
@@ -612,6 +621,10 @@ async def settings_values(request: Request, db: Session = Depends(get_db), user:
                    rationale=_need_rationale(form) or f"Configuration change in the '{group}' group",
                    description=f"Updated settings: {', '.join(changed[:20])}", request=request)
     db.commit()
+    if refused:
+        return redirect(f"/admin/settings?tab=settings&group={group}",
+                        f"{len(changed)} setting(s) saved. Not editable here: {', '.join(refused)}.",
+                        "warning" if changed else "error")
     return redirect(f"/admin/settings?tab=settings&group={group}",
                     f"{len(changed)} setting(s) saved." if changed else "No changes detected.")
 

@@ -1,61 +1,145 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}HR Attendance{% endblock %}
+{% block title %}Daily Attendance{% endblock %}
 {% block content %}
-{% call ui.page_header('HR Attendance', 'Twice-daily staff attendance (AM / PM), corrections and the late report.') %}
+{% call ui.page_header('Daily Attendance', 'The working day at a glance: an editable grid of every punch, and who is absent, on leave or present.') %}
+  {{ ui.button('Change Requests', href='/hr/attendance/change-requests', icon='file-clock', variant='secondary') }}
+  {{ ui.button('Attendance Report', href='/hr/attendance/report', icon='bar-chart-3', variant='secondary') }}
+  {{ ui.button('Progress Sheet', href='/hr/progress-sheet', icon='clipboard-list', variant='secondary') }}
+  {{ ui.button('Leave Assignment', href='/hr/leave-entitlements', icon='calendar-check', variant='secondary') }}
   {{ ui.button('Export month', href='/hr/attendance/export.csv?month=' ~ month, icon='download', variant='secondary') }}
-  {{ ui.button('My attendance', href='/hr/me?tab=attendance', icon='user', variant='secondary') }}
 {% endcall %}
 {{ ui.tabs(tabs, tab) }}
 
-{% if tab == 'today' %}
+{% if tab == 'daily' %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
   {{ ui.stat('Present', counts.present, icon='check', color='emerald') }}
-  {{ ui.stat('Late', counts.late, icon='alarm-clock', color='amber') }}
   {{ ui.stat('Absent', counts.absent, icon='user-x', color='rose') }}
-  {{ ui.stat('On leave', counts.leave, icon='plane', color='violet') }}
-  {{ ui.stat('No record', counts.missing, icon='help-circle', color='slate', hint='sessions not yet marked') }}
+  {{ ui.stat('On Leave', counts.leave, icon='plane', color='violet') }}
+  {{ ui.stat('Late Coming', counts.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Time Shortage', counts.shortage, icon='hourglass', color='orange') }}
 </div>
-<div class="mb-4 flex flex-wrap items-end gap-2">
-  <form method="get" class="flex items-end gap-2"><input type="hidden" name="tab" value="today">
-    <div class="w-44">{{ ui.input('day', 'Date', day|string, type='date') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
-  {% if has_perm(user, 'hr_attendance.update') %}
-  <form method="post" action="/hr/attendance/mark-absent" onsubmit="return confirm('Mark every missing session on {{ day }} as absent (or leave where approved)?')">
-    <input type="hidden" name="day" value="{{ day }}">{{ ui.button('End of day: mark absent for missing', icon='gavel', variant='warning', size='sm') }}
-  </form>
-  {% endif %}
+
+{% call ui.filter_bar('/hr/attendance') %}
+  <input type="hidden" name="tab" value="daily">
+  <div class="w-44">{{ ui.input('day', 'Date', day|string, type='date') }}</div>
+  <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+{% endcall %}
+
+{% if fallback %}
+<div class="mb-4">{{ ui.alert('Nothing has been punched for ' ~ (today_date|date) ~ ' yet, so this is the last recorded working day. Pick a date above to move.', 'info', 'Showing ' ~ (day|date)) }}</div>
+{% endif %}
+{% if is_holiday %}
+<div class="mb-4">{{ ui.alert((holidays[0].name ~ ' — ' ~ (holidays[0].holiday_date|date)) if holidays else (day|date) ~ ' is not a working day (Sunday).', 'info', 'Non-working day') }}</div>
+{% endif %}
+
+<div class="mb-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+  <span class="font-medium">Highlight rules:</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#fee2e2"></span>Absent</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#fef3c7"></span>Late Coming</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#ffedd5"></span>Time Shortage</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#ede9fe"></span>On Leave</span>
 </div>
-{{ ui.table_start(['Employee', 'Shift', 'AM', 'PM', 'Late minutes', 'Quick mark']) }}
-{% for row in board %}
-{% set e = row.employee %}
-<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2"><a href="/hr/employees/{{ e.id }}" class="text-xs font-medium hover:text-brand-600">{{ e.full_name }}</a>
-    <div class="text-[11px] text-slate-500">{{ e.employee_code }} · {{ e.designation }}</div></td>
-  <td class="px-4 py-2 text-xs">{{ e.shift|titleize }}<div class="text-slate-500">{{ e.shift_start or '' }}–{{ e.shift_end or '' }}</div></td>
-  {% for s in ['am','pm'] %}
-  {% set r = row[s] %}
-  <td class="px-4 py-2 text-xs">{% if r %}{{ ui.badge(r.status) }}<div class="text-slate-500">{{ r.check_in|time if r.check_in else '—' }} → {{ r.check_out|time if r.check_out else '—' }}</div>
-    {% else %}<span class="text-slate-300">not marked</span>{% endif %}</td>
-  {% endfor %}
-  <td class="px-4 py-2 text-xs">{{ (row.am.late_minutes if row.am else 0) + (row.pm.late_minutes if row.pm else 0) }}</td>
-  <td class="px-4 py-2">
+
+<div class="grid gap-6 xl:grid-cols-4">
+  <div class="xl:col-span-3">
+    {{ ui.table_start(['Type', 'Date', 'Details', 'Login Time', 'Logout Time', 'Late Coming', 'Duration', 'Shortage', '']) }}
+    {% for g in grid %}
+    {% set r = g.row %}
+    {% set hl = '#fee2e2' if r.status == 'absent' else ('#ede9fe' if r.status == 'leave' else ('#fef3c7' if r.status == 'late' else ('#ffedd5' if g.shortage > 0 else ''))) %}
+    <tr {% if hl %}style="background: {{ hl }}"{% endif %}>
+      <td class="px-2 py-1.5">
+        {% if has_perm(user, 'hr_attendance.update') %}
+        <select name="status" form="ar{{ r.id }}" class="w-28 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == r.status }}>{{ type_labels.get(s, s|titleize) }}</option>{% endfor %}
+        </select>
+        {% else %}{{ ui.badge(r.status, type_labels.get(r.status, r.status|titleize)) }}{% endif %}
+      </td>
+      <td class="px-2 py-1.5 text-xs whitespace-nowrap">{{ r.date|date }}<div class="text-[10px] text-slate-500">{{ r.session|upper }} session</div></td>
+      <td class="px-2 py-1.5 text-xs">{{ g.details }}</td>
+      <td class="px-2 py-1.5">
+        {% if has_perm(user, 'hr_attendance.update') %}
+        <input type="time" name="check_in" form="ar{{ r.id }}" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        {% else %}<span class="text-xs">{{ r.check_in|time if r.check_in else '-' }}</span>{% endif %}
+      </td>
+      <td class="px-2 py-1.5">
+        {% if has_perm(user, 'hr_attendance.update') %}
+        <input type="time" name="check_out" form="ar{{ r.id }}" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-24 rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
+        {% else %}<span class="text-xs">{{ r.check_out|time if r.check_out else '-' }}</span>{% endif %}
+      </td>
+      <td class="px-2 py-1.5 text-xs {{ 'font-semibold text-amber-700' if r.late_minutes }}">{{ (r.late_minutes ~ ' min') if r.late_minutes else '-' }}</td>
+      <td class="px-2 py-1.5 text-xs">{{ g.duration }} h</td>
+      <td class="px-2 py-1.5 text-xs {{ 'font-semibold text-orange-700' if g.shortage > 0 }}" title="Duty {{ g.duty }} h for this session">{{ g.shortage if g.shortage > 0 else '-' }}</td>
+      <td class="px-2 py-1.5 text-right">
+        {% if has_perm(user, 'hr_attendance.update') %}
+        <form method="post" action="/hr/attendance/row" id="ar{{ r.id }}" class="inline">
+          <input type="hidden" name="employee_id" value="{{ g.employee.id }}">
+          <input type="hidden" name="day" value="{{ r.date }}">
+          <input type="hidden" name="session" value="{{ r.session }}">
+          <input type="hidden" name="next" value="/hr/attendance?tab=daily&day={{ day }}&shift={{ shift }}">
+          {{ ui.button('Save', icon='save', size='sm') }}
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No attendance has been recorded for ' ~ (day|date) ~ ' yet. Use Add Row below, or close the day off from the button underneath.', 9) }}{% endfor %}
+    {{ ui.table_end() }}
+
     {% if has_perm(user, 'hr_attendance.update') %}
-    <form method="post" action="/hr/attendance/set" class="flex items-center gap-1">
-      <input type="hidden" name="employee_id" value="{{ e.id }}"><input type="hidden" name="day" value="{{ day }}">
-      <input type="hidden" name="next" value="/hr/attendance?tab=today&day={{ day }}">
-      <select name="session" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800"><option value="am">AM</option><option value="pm">PM</option></select>
-      <select name="status" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-        {% for s in statuses %}<option value="{{ s }}">{{ s|titleize }}</option>{% endfor %}</select>
-      <button class="rounded bg-slate-700 px-2 py-1 text-[11px] text-white hover:bg-slate-600">Set</button>
-    </form>
+    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      {% call ui.card('Add Row', 'Record a punch for a member of staff who has no row for this day.') %}
+      <form method="post" action="/hr/attendance/row" class="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="day" value="{{ day }}">
+        <input type="hidden" name="next" value="/hr/attendance?tab=daily&day={{ day }}&shift={{ shift }}">
+        <div class="sm:col-span-2">{{ ui.select('employee_id', 'Employee', staff_options, None, required=True) }}</div>
+        {{ ui.select('session', 'Session', [('am','AM'),('pm','PM')], 'am', placeholder=None) }}
+        {{ ui.select('status', 'Type', type_options, 'present', placeholder=None) }}
+        {{ ui.input('check_in', 'Login Time', '', type='time') }}
+        {{ ui.input('check_out', 'Logout Time', '', type='time') }}
+        <div class="sm:col-span-2">{{ ui.input('note', 'Remarks', '', placeholder='Why is this row being added?') }}</div>
+        <div class="sm:col-span-2 flex justify-end">{{ ui.button('Add row', icon='plus') }}</div>
+      </form>
+      {% endcall %}
+      {% call ui.card('Close the day off', 'Everyone still without a row is marked absent, or on leave where a leave is approved.') %}
+      <p class="mb-3 text-xs text-slate-500">{{ unmarked|length }} member(s) of staff have no attendance row for {{ day|date }}.</p>
+      <form method="post" action="/hr/attendance/mark-absent" onsubmit="return confirm('Mark every missing session on {{ day }} as absent (or leave where approved)?')">
+        <input type="hidden" name="day" value="{{ day }}">
+        {{ ui.button('End of day: mark absent for missing', icon='gavel', variant='warning', size='sm') }}
+      </form>
+      {% if unmarked %}
+      <ul class="mt-3 max-h-40 space-y-1 overflow-y-auto text-[11px] text-slate-600">
+        {% for u in unmarked %}<li>{{ u.line }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% endcall %}
+    </div>
     {% endif %}
-  </td>
-</tr>
-{% else %}{{ ui.empty('No active employees.', 6) }}{% endfor %}
-{{ ui.table_end() }}
+  </div>
+
+  <div class="space-y-4">
+    {% call ui.card('Absent', absent_list|length ~ ' member(s) of staff') %}
+    <ul class="max-h-56 space-y-1 overflow-y-auto text-[11px]">
+      {% for a in absent_list %}<li class="rounded px-1.5 py-1" style="background:#fee2e2"><a href="/hr/employees/{{ a.employee.id }}" class="hover:underline">{{ a.line }}</a></li>
+      {% else %}<li class="py-4 text-center text-slate-400">Nobody absent.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% call ui.card('On Leave', leave_list|length ~ ' member(s) of staff') %}
+    <ul class="max-h-56 space-y-1 overflow-y-auto text-[11px]">
+      {% for a in leave_list %}<li class="rounded px-1.5 py-1" style="background:#ede9fe"><a href="/hr/employees/{{ a.employee.id }}" class="hover:underline">{{ a.line }}</a></li>
+      {% else %}<li class="py-4 text-center text-slate-400">Nobody on leave.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+    {% call ui.card('Present', present_list|length ~ ' member(s) of staff') %}
+    <ul class="max-h-72 space-y-1 overflow-y-auto text-[11px]">
+      {% for a in present_list %}<li class="rounded px-1.5 py-1" style="background:#dcfce7"><a href="/hr/employees/{{ a.employee.id }}" class="hover:underline">{{ a.line }}</a></li>
+      {% else %}<li class="py-4 text-center text-slate-400">Nobody marked present yet.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</div>
 
 {% elif tab == 'monthly' %}
-<form method="get" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+<form method="get" class="mb-4 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 bg-white p-3">
   <input type="hidden" name="tab" value="monthly">
   <div class="w-72">{{ ui.select('employee_id', 'Employee', employees, employee.id if employee else None, placeholder=None) }}</div>
   <div class="w-40">{{ ui.input('month', 'Month', month, type='month') }}</div>
@@ -69,7 +153,7 @@
   {{ ui.stat('Absent', summary.absent, icon='user-x', color='rose') }}
   {{ ui.stat('Leave', summary.leave, icon='plane', color='violet') }}
 </div>
-<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+<div class="overflow-x-auto rounded-md border border-slate-200 bg-white p-4 shadow-sm">
   <div class="mb-3 text-sm font-semibold">{{ employee.full_name }} — {{ month }}</div>
   <div class="flex min-w-max gap-1">
     {% for d, sessions in days %}
@@ -78,7 +162,7 @@
       {% for s in ['am','pm'] %}
       {% set r = sessions.get(s) %}
       {% set c = (r.status|status_color) if r else 'slate' %}
-      <div title="{{ d }} {{ s|upper }} — {{ r.status if r else 'no record' }}" class="mb-0.5 h-4 rounded bg-{{ c }}-{{ '400' if r else '100' }} dark:bg-{{ c }}-{{ '500' if r else '800' }}"></div>
+      <div title="{{ d }} {{ s|upper }} — {{ r.status if r else 'no record' }}" class="mb-0.5 h-4 rounded bg-{{ c }}-{{ '400' if r else '100' }}"></div>
       {% endfor %}
       <div class="mt-1 text-[9px] text-slate-400">{{ d.strftime('%a')[0] }}</div>
     </div>
@@ -94,7 +178,7 @@
 {% else %}{{ ui.empty_state('Select an employee to see the monthly grid.', 'calendar') }}{% endif %}
 
 {% elif tab == 'corrections' %}
-<div class="mb-4">{{ ui.alert(pending_count ~ ' correction request(s) awaiting a decision. Approving a correction rewrites the attendance status and clears late minutes.', 'info' if not pending_count else 'warning') }}</div>
+<div class="mb-4">{{ ui.alert(pending_count ~ ' correction request(s) awaiting a decision. The full list with old and new times lives on the Attendance Change Requests page.', 'info' if not pending_count else 'warning') }}</div>
 {{ ui.table_start(['Employee', 'Date', 'Session', 'Current', 'Reason', 'Correction', 'Decision']) }}
 {% for r in corrections %}
 <tr>
@@ -108,9 +192,9 @@
   <td class="px-4 py-2">
     {% if r.correction_status == 'pending' and has_perm(user, 'hr_attendance.approve') %}
     <form method="post" action="/hr/attendance/corrections/{{ r.id }}" class="flex items-center gap-1">
-      <select name="new_status" class="rounded border border-slate-300 px-1 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <select name="new_status" class="rounded border border-slate-300 px-1 py-1 text-[11px]">
         {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == 'present' }}>{{ s|titleize }}</option>{% endfor %}</select>
-      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+      <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
       <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
       <button name="decision" value="reject" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
     </form>

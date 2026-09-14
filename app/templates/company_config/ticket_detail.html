@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ t.ticket_number }}{% endblock %}
+{% block content %}
+{% call ui.page_header(t.ticket_number ~ " — " ~ t.subject, "Raised by " ~ (t.raised_by.full_name if t.raised_by else 'Unknown'), back="/config/support-tickets") %}
+  {{ ui.badge(t.status, status_label) }}
+  {{ ui.badge(t.priority, priority_label) }}
+{% endcall %}
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    {% call ui.card('Message') %}
+      <p class="whitespace-pre-wrap text-sm text-slate-700">{{ t.message }}</p>
+    {% endcall %}
+    {% call ui.card('Developer Remarks') %}
+      {% if t.developer_remarks %}
+        <p class="whitespace-pre-wrap text-sm text-slate-700">{{ t.developer_remarks }}</p>
+      {% else %}
+        <p class="text-sm text-slate-400">Nothing has been written back on this ticket yet.</p>
+      {% endif %}
+      {% if can_manage %}
+      <form method="post" action="/config/support-tickets/{{ t.id }}/status" class="mt-4 grid gap-3 sm:grid-cols-3 items-end">
+        {{ ui.select('status', 'Status', ticket_statuses, t.status, placeholder=None, required=True) }}
+        <div class="sm:col-span-2">{{ ui.input('developer_remarks', 'Developer Remarks', '', placeholder='What was done, or what is needed from the reporter') }}</div>
+        <div class="sm:col-span-3 flex justify-end">{{ ui.button('Update ticket', icon='save') }}</div>
+      </form>
+      {% else %}
+      <p class="mt-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        Only a system administrator can change the status or write developer remarks.
+      </p>
+      {% endif %}
+    {% endcall %}
+  </div>
+  <div class="space-y-4">
+    {% call ui.card('Ticket') %}
+      {{ ui.dl([('Ticket Number', t.ticket_number), ('Subject', t.subject),
+                ('Department', t.department.name if t.department else None),
+                ('WhatsApp No', t.whatsapp_no), ('Ticket Type', t.ticket_type), ('Module', t.module),
+                ('Priority', priority_label), ('Status', status_label),
+                ('Raised By', t.raised_by.full_name if t.raised_by else None),
+                ('Raised On', t.created_at|datetime),
+                ('Resolved At', t.resolved_at|datetime if t.resolved_at else None)]) }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
