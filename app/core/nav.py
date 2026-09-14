@@ -164,6 +164,18 @@ ADMIN_NAV = [
         _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view"),
         _i("Change Staff Sorting", "/academics/config/staff-sorting", "arrow-up-down", "academic_config.view"),
     ]},
+    {"slug": "self", "label": "Employee Self Portal", "icon": "user", "blurb": "Your attendance, leaves, payslips and record", "items": [
+        _i("My Overview", "/hr/me", "layout-dashboard", "portal_self.view"),
+        _i("My Attendance", "/hr/me?tab=attendance", "clock", "portal_self.view"),
+        _i("My Leaves", "/hr/me?tab=leaves", "plane", "portal_self.view"),
+        _i("My Payslips", "/hr/me?tab=payslips", "banknote", "portal_self.view"),
+        _i("My Record", "/hr/me?tab=violations", "shield-alert", "portal_self.view"),
+        _i("My Development", "/hr/me?tab=development", "sparkles", "portal_self.view"),
+        _i("Raise a Grievance", "/hr/me?tab=grievance", "lock", "portal_self.view"),
+        _i("Daily Report", "/daily-reports", "file-clock", "daily_reports.view"),
+        _i("My Tasks", "/tasks", "list-checks", "tasks.view"),
+        _i("My Profile", "/profile", "user-cog", "portal_self.view"),
+    ]},
     {"slug": "accounts", "label": "Accounts", "icon": "landmark", "blurb": "Chart of accounts, journal, expenses, P&L", "items": [
         _i("Accounts & P&L", "/finance/accounts", "landmark", "accounts.view"),
         _i("Journal", "/finance/accounts/journal", "book", "accounts.view"),

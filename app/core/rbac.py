@@ -94,6 +94,7 @@ MODULES = {
     "expenses": "Expenses",
     "currencies": "Currencies",
     # portals
+    "portal_self": "Employee Self Portal",
     "portal_teacher": "Teacher Portal",
     "portal_client": "Client / Parent Portal",
     "portal_student": "Student Portal",
@@ -189,6 +190,12 @@ ROLE_DEFINITIONS: dict[str, dict] = {
     "student": {"name": "Student", "portal": "student", "permissions": ["portal_student.*", "notifications.*"]},
     "auditor": {"name": "External Auditor (read-only)", "portal": "admin", "permissions": _VIEW_ALL + ["audit.view", "reports.view", "reports.export"]},
 }
+
+# Every member of staff gets their own self-service portal (attendance, leaves, payslips, record).
+# Applied here rather than repeated in each role so a new staff role cannot accidentally lose it.
+for _slug, _role in ROLE_DEFINITIONS.items():
+    if _role["portal"] in ("admin", "teacher") and "*" not in _role["permissions"]:
+        _role["permissions"] = _role["permissions"] + ["portal_self.*"]
 
 # roles allowed to see CEO-only material (anti-poaching, eNPS)
 CEO_ROLES = {"super_admin"}

@@ -109,11 +109,13 @@ def test_check_in_and_out(admin, db):
 
 def test_leave_request_and_decision(admin, db):
     e = first_employee(db)
-    # Pick a start date no leave uses yet, so re-running the suite against the same database
-    # still exercises a freshly created (pending) request rather than one a previous run approved.
-    taken = {d for (d,) in db.query(Leave.start_date).filter(Leave.employee_id == e.id).all()}
+    # Pick a two-day window that overlaps no existing leave, so re-running the suite against the same
+    # database still exercises a freshly created (pending) request. Checking start dates alone is not
+    # enough: the route rejects any overlap with an approved leave, so a window landing inside an
+    # earlier run's range would be refused and nothing would be created.
+    ranges = db.query(Leave.start_date, Leave.end_date).filter(Leave.employee_id == e.id).all()
     start = date.today() + timedelta(days=180)
-    while start in taken:
+    while any(s <= start + timedelta(days=1) and start <= (en or s) for s, en in ranges):
         start += timedelta(days=3)
     r = admin.post("/hr/leaves/new", data={"employee_id": e.id, "leave_type": "casual", "start_date": str(start),
                                            "end_date": str(start + timedelta(days=1)), "reason": "Test request"},
