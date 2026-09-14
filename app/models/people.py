@@ -157,6 +157,18 @@ class Employee(Base, PKMixin, TimestampMixin):
     exit_reason: Mapped[Optional[str]] = mapped_column(String(200))
     father_name: Mapped[Optional[str]] = mapped_column(String(150))
     sort_no: Mapped[int] = mapped_column(Integer, default=0)  # "Change Staff Sorting": order in teacher lists
+    # ERP Employee Record fields (docs/AUDIT_HUMAN_RESOURCE.md)
+    mother_name: Mapped[Optional[str]] = mapped_column(String(150))
+    religion: Mapped[Optional[str]] = mapped_column(String(40))
+    blood_group: Mapped[Optional[str]] = mapped_column(String(8))
+    bank_name: Mapped[Optional[str]] = mapped_column(String(120))
+    bank_account_no: Mapped[Optional[str]] = mapped_column(String(60))
+    shift_code: Mapped[Optional[str]] = mapped_column(String(8))
+    duty_hours: Mapped[Optional[float]] = mapped_column(Float)
+    employee_type: Mapped[str] = mapped_column(String(20), default="Academics")  # Academics | Admin | Marketing
+    grade_id: Mapped[Optional[int]] = mapped_column(ForeignKey("grades.id", ondelete="SET NULL"))
+    whatsapp: Mapped[Optional[str]] = mapped_column(String(50))
+    photo_path: Mapped[Optional[str]] = mapped_column(String(300))
 
     user = relationship("User", foreign_keys=[user_id])
     department = relationship("Department")
@@ -209,6 +221,13 @@ class RecruitmentRequest(Base, PKMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="open")  # open | approved | in_progress | filled | cancelled
     approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     target_date: Mapped[Optional[date]] = mapped_column(Date)
+    # ERP Job Requisitions
+    job_type: Mapped[str] = mapped_column(String(30), default="full_time")
+    job_categories: Mapped[list] = mapped_column(JSON, default=list)
+    skills: Mapped[list] = mapped_column(JSON, default=list)
+    job_location: Mapped[Optional[str]] = mapped_column(String(120))
+    start_date: Mapped[Optional[date]] = mapped_column(Date)
+    end_date: Mapped[Optional[date]] = mapped_column(Date)
 
     department = relationship("Department")
     candidates = relationship("Candidate", back_populates="request")
@@ -311,6 +330,8 @@ class Leave(Base, PKMixin, TimestampMixin):
     leave_for_all: Mapped[bool] = mapped_column(Boolean, default=False)  # student leave applies to every student of the family
     apply_date: Mapped[Optional[date]] = mapped_column(Date)
     leave_detail: Mapped[Optional[str]] = mapped_column(Text)
+    entitlement_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leave_entitlements.id", ondelete="SET NULL"))
+    days_applied: Mapped[Optional[float]] = mapped_column(Float)  # working days, holidays excluded
 
     employee = relationship("Employee")
     student = relationship("Student")
@@ -328,8 +349,16 @@ class Violation(Base, PKMixin, TimestampMixin):
     date: Mapped[date] = mapped_column(Date, default=date.today)
     status: Mapped[str] = mapped_column(String(20), default="open")
     deduction_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    # ERP Staff Violations: the offence is picked from the catalogue, which carries the standard fine
+    violation_type_id: Mapped[Optional[int]] = mapped_column(ForeignKey("violation_types.id", ondelete="SET NULL"))
+    approval_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    remarks: Mapped[Optional[str]] = mapped_column(Text)
+    decided_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     employee = relationship("Employee")
+    # Named to avoid shadowing the free-text `violation_type` column above.
+    violation_catalogue = relationship("ViolationType")
 
 
 class Grievance(Base, PKMixin, TimestampMixin):
@@ -356,8 +385,12 @@ class SalaryAdvance(Base, PKMixin, TimestampMixin):
     reason: Mapped[Optional[str]] = mapped_column(Text)
     installments: Mapped[int] = mapped_column(Integer, default=1)
     remaining: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | approved | rejected | paid | settled
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | approved | rejected | cancelled | paid | settled
     approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # ERP Advance Requests
+    request_date: Mapped[date] = mapped_column(Date, default=date.today, index=True)
+    hr_remarks: Mapped[Optional[str]] = mapped_column(Text)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     employee = relationship("Employee")
 
@@ -370,10 +403,16 @@ class Bonus(Base, PKMixin, TimestampMixin):
     bonus_type: Mapped[str] = mapped_column(String(40), default="performance")  # performance | referral | eid | retention | other
     reason: Mapped[Optional[str]] = mapped_column(Text)
     period: Mapped[Optional[str]] = mapped_column(String(7))  # YYYY-MM
-    status: Mapped[str] = mapped_column(String(20), default="pending")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # ERP Staff Bonuses
+    bonus_type_id: Mapped[Optional[int]] = mapped_column(ForeignKey("bonus_types.id", ondelete="SET NULL"))
+    acceptance_date: Mapped[Optional[date]] = mapped_column(Date)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     employee = relationship("Employee")
+    # Named to avoid shadowing the free-text `bonus_type` column above.
+    bonus_catalogue = relationship("BonusType")
 
 
 class SalaryStructure(Base, PKMixin, TimestampMixin):
@@ -394,7 +433,10 @@ class SalaryStructure(Base, PKMixin, TimestampMixin):
 class PayrollRun(Base, PKMixin, TimestampMixin):
     __tablename__ = "payroll_runs"
     period: Mapped[str] = mapped_column(String(7), index=True)  # YYYY-MM
-    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | pending_approval | approved | paid
+    # pending | generated | posted | cancelled (the ERP's words); draft | pending_approval | approved | paid
+    # remain accepted so existing runs and tests keep working.
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    description: Mapped[Optional[str]] = mapped_column(String(200))
     total_gross: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     total_deductions: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     total_net: Mapped[float] = mapped_column(Numeric(14, 2), default=0)

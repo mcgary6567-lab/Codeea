@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import re
 import sys
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -41,6 +42,10 @@ def render_default(value) -> str | None:
                 continue
         else:
             return None
+    if isinstance(value, datetime):
+        return "sa.text('CURRENT_TIMESTAMP')"
+    if isinstance(value, date):
+        return "sa.text('CURRENT_DATE')"
     if isinstance(value, bool):
         return "sa.text('true')" if value else "sa.text('false')"
     if isinstance(value, (int, float, Decimal)):
