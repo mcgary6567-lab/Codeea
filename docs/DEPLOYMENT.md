@@ -163,6 +163,37 @@ with `NotNullViolation ... contains null values`. This happened on the first ERP
 Then apply the revision to a scratch database and autogenerate once more: a second revision with no operations
 in it proves the migration captures the models exactly.
 
+## Seeding runs again on every deploy — prove it is idempotent
+
+`render-build.sh` runs `seed.py` against the **existing production database** after the migration. Production
+is never reset, so every seed module runs a second, third and fiftieth time over data it already created.
+A module that assumes an empty table fails the build, and the service stays on the previous release.
+
+**Before pushing, run the seed twice against the same database without `--reset`:**
+
+```bash
+.venv/Scripts/python.exe seed.py
+.venv/Scripts/python.exe seed.py
+```
+
+The second run must finish with every module ticked and create nothing. `seed.py --reset` will not catch this:
+a fresh database is the one case where a non-idempotent module works.
+
+This is not hypothetical. The payroll seed listed the finished statuses it should skip (`approved`, `paid`).
+When the ERP parity work added a `posted` status, a month posted by the previous deploy no longer matched, the
+seed tried to regenerate it, and `generate_payroll` refused:
+
+```
+ValueError: Payroll for 2026-06 is already posted and cannot be regenerated
+```
+
+Two deploys failed on it before anyone looked, because a push that reports success has only reached GitHub.
+The seed now asks `payroll.REGENERABLE_STATUSES` rather than keeping its own copy of the list.
+
+**Check the deploy actually went live.** Watch the service's Events page, or compare the deployed stylesheet
+against the local build — `curl -s https://oqc.onrender.com/static/css/tailwind.css | md5sum` should match
+`md5sum app/static/css/tailwind.css` once the release is live.
+
 
 After changing a model, generate and review a revision before deploying it:
 

@@ -458,7 +458,10 @@ def _seed_payroll(db: Session, user: User | None) -> list[str]:
     done = []
     for i, period in enumerate(periods):
         existing = db.query(PayrollRun).filter(PayrollRun.period == period).first()
-        if existing and existing.status in ("approved", "paid"):
+        # Production is seeded again on every deploy and never reset, so a month seeded last time is
+        # already finished. Listing the finished statuses here went stale the moment the ERP vocabulary
+        # added "posted", and the deploy died on it; ask the service what it will still rebuild.
+        if existing and existing.status not in pay.REGENERABLE_STATUSES:
             done.append(f"{period}:{existing.status}")
             continue
         run = pay.generate_payroll(db, period, user)

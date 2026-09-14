@@ -261,11 +261,17 @@ def _release_advances(db: Session, run: PayrollRun) -> None:
     db.flush()
 
 
+# A run may only be rebuilt while it is still open. Two vocabularies reach this table -- the original
+# draft/pending_approval/approved/paid and the ERP's pending/generated/posted/cancelled -- so callers must
+# ask this set rather than list the finished states themselves and fall behind when one is added.
+REGENERABLE_STATUSES = ("draft", "pending_approval", "pending")
+
+
 def generate_payroll(db: Session, period: str, user: Optional[User], request=None) -> PayrollRun:
-    """Build (or rebuild) the draft payroll run for ``period`` (YYYY-MM). Approved/paid runs are never touched."""
+    """Build (or rebuild) the open payroll run for ``period`` (YYYY-MM). Finished runs are never touched."""
     start, end = month_bounds(period)
     run = db.query(PayrollRun).filter(PayrollRun.period == period).order_by(PayrollRun.id.desc()).first()
-    if run and run.status not in ("draft", "pending_approval"):
+    if run and run.status not in REGENERABLE_STATUSES:
         raise ValueError(f"Payroll for {period} is already {run.status} and cannot be regenerated")
     if run:
         _release_advances(db, run)
