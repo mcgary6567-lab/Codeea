@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Student Referred List{% endblock %}
+{% block content %}
+{% call ui.page_header("Student Referred List", "Students who joined through a referral, pivoted by who referred them, plus the Refer New Contact requests raised by families.") %}
+  {{ ui.button("Student List", href="/students", icon="graduation-cap", variant="secondary") }}
+  {{ ui.button("Refer New Contacts", href="/requests/references", icon="gift", variant="secondary") }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Referred students", stats.students, icon="share-2", color=palette(0)) }}
+  {{ ui.stat("Referrers", stats.referrers, icon="users", color=palette(3)) }}
+  {{ ui.stat("Referred contacts", stats.contacts, icon="gift", color=palette(5), href="/requests/references") }}
+  {{ ui.stat("Contacts approved", stats.converted, icon="user-check", color=palette(1), href="/requests/references?status=approved") }}
+</div>
+{% call ui.filter_bar('/students/referred') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Student, referrer, client') }}</div>
+{% endcall %}
+<div class="grid gap-5 xl:grid-cols-3">
+  <div class="xl:col-span-2">
+    {{ ui.table_start(['ID', 'Student Name', 'Referred By', 'Client Name', 'Status', 'Registration Date', 'Trial Days', 'Shift Name', 'Country']) }}
+    {% for s in page.items %}
+    <tr class="hover:bg-slate-50">
+      <td class="px-3 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/students/{{ s.id }}">{{ s.student_code }}</a></td>
+      <td class="px-3 py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }}</a></td>
+      <td class="px-3 py-2 text-xs font-medium">{{ s.referred_by }}</td>
+      <td class="px-3 py-2 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="hover:text-brand-600">{{ s.client.full_name }}</a>{% else %}—{% endif %}</td>
+      <td class="px-3 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
+      <td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.join_date|date }}</td>
+      <td class="px-3 py-2 text-center">{{ s.trial_days }}</td>
+      <td class="px-3 py-2 text-xs">{{ s.client.shift|titleize if s.client else '—' }}</td>
+      <td class="px-3 py-2 text-xs">{{ s.client.country if s.client else '—' }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No referred students in this period.', 9, 'share-2') }}{% endfor %}
+    {{ ui.table_end() }}
+    {{ ui.pagination(page, base_url) }}
+  </div>
+  <div class="space-y-5">
+    {% call ui.card("Pivot by referrer", "Students per referrer in the selected period", padding=False) %}
+    {{ ui.table_start(['Referred By', 'Students', 'Regular', 'Trial', 'Drop Out'], compact=True) }}
+    {% for r in pivot %}
+    <tr><td class="px-3 py-1.5 text-xs font-medium">{{ r.referrer }}</td><td class="px-3 py-1.5 text-center font-semibold">{{ r.students }}</td>
+      <td class="px-3 py-1.5 text-center text-xs">{{ r.active }}</td><td class="px-3 py-1.5 text-center text-xs">{{ r.trial }}</td><td class="px-3 py-1.5 text-center text-xs">{{ r.cancelled }}</td></tr>
+    {% else %}{{ ui.empty('Nothing to pivot.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% endcall %}
+    {% call ui.card("Refer New Contact requests", "Raised by families in the same period", padding=False) %}
+    {{ ui.table_start(['Client', 'Name', 'Type', 'Status', 'Created'], compact=True) }}
+    {% for r in contacts[:15] %}
+    <tr><td class="px-3 py-1.5 text-xs">{% if r.client %}<a href="/clients/{{ r.client_id }}" class="hover:text-brand-600">{{ r.client.full_name }}</a>{% endif %}</td>
+      <td class="px-3 py-1.5 text-xs font-medium"><a href="/requests/references/{{ r.id }}" class="hover:text-brand-600">{{ r.name }}</a></td>
+      <td class="px-3 py-1.5 text-xs">{{ r.reference_type|titleize }}</td><td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+      <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.created_at|date }}</td></tr>
+    {% else %}{{ ui.empty('No referred contacts.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+    {% if contact_pivot %}<div class="border-t border-slate-200 px-3 py-2 text-xs text-slate-600">Top referring families: {% for name, n in contact_pivot[:5] %}<span class="mr-2"><b>{{ name }}</b> ({{ n }})</span>{% endfor %}</div>{% endif %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

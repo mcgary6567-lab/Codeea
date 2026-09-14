@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Cancelled Subscriptions{% endblock %}
+{% block content %}
+{% call ui.page_header("Cancelled Subscriptions", "Why families left, by teacher and supervisor") %}
+  {{ ui.button("All Subscriptions", href="/subscriptions", icon="file-text", variant="secondary") }}
+  {{ ui.button("Retention & Churn", href="/retention", icon="heart-pulse", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+  {{ ui.stat('Cancelled (filtered)', page.total, color=palette(7)) }}
+  {{ ui.stat('Cancelled this month', this_month, color=palette(6)) }}
+  {{ ui.stat('Running Trials', '', color=palette(0), href='/trials/running', hint='open the running trials list') }}
+</div>
+
+{% call ui.filter_bar('/subscriptions/cancelled') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('supervisor_id', 'Supervisor', supervisor_options, supervisor_id, placeholder='All supervisors') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Subscription ID','Client','Student','Teacher','Course','Session','Reg. Date','Cancelled At','Reason','Supervisor'], compact=True) }}
+{% for s in page.items %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.student.full_name if s.student else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.start_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.cancelled_at|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.cancel_reason or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.supervisor.full_name if s.supervisor else (s.teacher.supervisor.full_name if s.teacher and s.teacher.supervisor else '—') }}</td>
+</tr>
+{% else %}{{ ui.empty('No cancelled subscriptions in this range.', 10, 'x-square') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

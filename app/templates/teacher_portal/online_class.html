@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Online class{% endblock %}
+{% block content %}
+{% call ui.page_header('Online class', t.full_name ~ ' - ' ~ day.strftime('%A %d %B %Y') ~ ' (times in Asia/Karachi)') %}
+  {{ ui.button('Previous day', href='/teacher/online-class?day=' ~ prev_day ~ '&teacher_id=' ~ t.id, icon='chevron-left', variant='secondary', size='sm') }}
+  {{ ui.button('Today', href='/teacher/online-class?teacher_id=' ~ t.id, variant='secondary', size='sm') }}
+  {{ ui.button('Next day', href='/teacher/online-class?day=' ~ next_day ~ '&teacher_id=' ~ t.id, icon='chevron-right', variant='secondary', size='sm') }}
+{% endcall %}
+
+{% if not is_self %}
+{% call ui.filter_bar('/teacher/online-class') %}
+  <input type="hidden" name="day" value="{{ day }}">
+  <div class="w-52">{{ ui.select('teacher_id', 'Teacher', teacher_options, t.id, placeholder=None) }}</div>
+  <div class="w-36">{{ ui.input('day', 'Working Date', day, type='date') }}</div>
+{% endcall %}
+{% endif %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat('Total Classes', tiles.total, color=palette(0)) }}
+  {{ ui.stat('Regular', tiles.regular, color=palette(1)) }}
+  {{ ui.stat('Trial', tiles.trial, color=palette(2)) }}
+  {{ ui.stat('Arrangements', tiles.arrangements, color=palette(3)) }}
+</div>
+
+<div class="grid gap-5 xl:grid-cols-3">
+  <div class="xl:col-span-2 space-y-5">
+    {% call ui.card("Today's Classes", day.strftime('%d %B %Y')) %}
+      {{ ui.table_start(['Time', 'Student', 'Client', 'Course', 'Status', 'Actions'], compact=True) }}
+      {% for c in rows %}
+      <tr class="{{ 'bg-indigo-50' if c.status == 'started' else ('bg-amber-50' if c.status in ('pending','available') else '') }}">
+        <td class="px-3 py-1.5 text-xs whitespace-nowrap font-mono">{{ c.start_time|time }}
+          <span class="block text-[10px] text-slate-400">{{ c.duration_minutes }} min</span></td>
+        <td class="px-3 py-1.5">
+          <a href="{{ base_url }}&session_id={{ c.id }}" class="font-medium hover:text-brand-700">{{ c.student.full_name if c.student else '-' }}</a>
+          <span class="ml-1">
+            {% if c.is_trial %}<span class="rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-700">Trial</span>{% endif %}
+            {% if c.arrangement_id or c.substitute_for_teacher_id %}<span class="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-700">Arrangement</span>{% endif %}
+          </span>
+        </td>
+        <td class="px-3 py-1.5 text-xs">{{ c.student.client.full_name if c.student and c.student.client else '-' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ c.course.name if c.course else '-' }}</td>
+        <td class="px-3 py-1.5">{{ ui.badge(c.status, c.status|label('class')) }}</td>
+        <td class="px-3 py-1.5">
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            {% if c.status in ('pending', 'available') %}
+            <form method="post" action="/teacher/online-class/{{ c.id }}/status" class="inline">
+              <input type="hidden" name="back" value="{{ base_url }}&session_id={{ c.id }}">
+              <input type="hidden" name="teacher_id" value="{{ t.id }}">
+              <input type="hidden" name="action" value="available">
+              {{ ui.button('Mark Available', size='sm', variant='secondary', icon='hand') }}
+            </form>
+            {{ ui.button('Start', href='/teacher/sessions/' ~ c.id ~ '/join', size='sm', variant='primary', icon='play') }}
+            {% endif %}
+            {% if c.status in ('pending', 'available', 'started') %}
+            <form method="post" action="/teacher/online-class/{{ c.id }}/status" class="inline">
+              <input type="hidden" name="back" value="{{ base_url }}&session_id={{ c.id }}">
+              <input type="hidden" name="teacher_id" value="{{ t.id }}">
+              <input type="hidden" name="action" value="done">
+              {{ ui.button('Done', size='sm', variant='success', icon='check') }}
+            </form>
+            <button type="button" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    @click="$dispatch('open-modal','absent{{ c.id }}')"><i data-lucide="user-minus" class="h-3.5 w-3.5"></i>Student Absent</button>
+            <button type="button" class="inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-700"
+                    @click="$dispatch('open-modal','missed{{ c.id }}')"><i data-lucide="user-x" class="h-3.5 w-3.5"></i>Missed</button>
+            {% else %}
+            {{ ui.button('Detail', href=base_url ~ '&session_id=' ~ c.id, size='sm', variant='ghost') }}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}{{ ui.empty('No classes on this day.', 6, 'calendar-off') }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% if current %}
+    {% call ui.card('Class Detail', current.date.strftime('%d %b %Y') ~ ' - ' ~ current.start_time.strftime('%H:%M')) %}
+      {% set sub = current.subscription %}
+      {{ ui.dl([
+        ('Student', current.student.full_name if current.student else '-'),
+        ('Get Meeting URL', current.join_url or ('/classroom/' ~ current.id)),
+        ('ID', current.student.student_code if current.student else current.id),
+        ('Age', (current.student.age or '-') if current.student else '-'),
+        ('Language', (sub.language if sub else (current.student.preferred_language if current.student else '-'))),
+        ('Method', ('Group Class' if sub and sub.course_method == 'group' else 'One on One')),
+        ('Course', current.course.name if current.course else '-'),
+        ('Course Material', (books|map(attribute='title')|join(', ')) if books else '-'),
+        ('Session', current.slot.label if current.slot else ((current.start_time|time) ~ ' - ' ~ (current.end_time|time))),
+        ('Reg. Date', (sub.start_date|date) if sub else (current.student.join_date|date if current.student else '-')),
+        ('Started Time', current.teacher_joined_at|datetime),
+        ('Ended Time', current.teacher_left_at|datetime),
+        ('Remarks', current.teacher_notes or current.status_reason or '-'),
+      ]) }}
+      <div class="mt-3 flex flex-wrap gap-2">
+        {{ ui.button('Open classroom', href='/classroom/' ~ current.id, icon='video', size='sm') }}
+        {{ ui.button('Class record', href='/classes/' ~ current.id, icon='file-text', variant='secondary', size='sm') }}
+      </div>
+    {% endcall %}
+
+    {% call ui.card('Activity Detail', 'What was covered in this class') %}
+      {{ ui.table_start(['Page No', 'Book', 'Type', 'Remarks', 'Added'], compact=True) }}
+      {% for a in activities %}
+      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ a.page_no or '-' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.book.title if a.book else '-' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.activity_type|titleize }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-600">{{ a.remarks or '-' }}</td>
+        <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.created_at|datetime }}</td></tr>
+      {% else %}{{ ui.empty('No activity recorded for this class yet.', 5, 'notebook-pen') }}{% endfor %}
+      {{ ui.table_end() }}
+      {% set book_options = [] %}{% for b in books %}{% set _ = book_options.append((b.id, b.title)) %}{% endfor %}
+      <form method="post" action="/teacher/online-class/{{ current.id }}/activity" class="mt-4 space-y-3">
+        <input type="hidden" name="back" value="{{ base_url }}&session_id={{ current.id }}">
+        <input type="hidden" name="teacher_id" value="{{ t.id }}">
+        {{ ui.section_label('Manual Activity') }}
+        <div class="grid gap-3 sm:grid-cols-3">
+          {{ ui.input('page_no', 'Page No', '', placeholder='e.g. 42 or 12-15') }}
+          {{ ui.select('book_id', 'Book', book_options, none, placeholder='- Optional -') }}
+          {{ ui.input('remarks', 'Remarks', '', placeholder='What was covered') }}
+        </div>
+        {{ ui.button('Save Manual Activity', icon='save', size='sm') }}
+      </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+
+  <div class="space-y-5">
+    {% if time_status %}
+    {% call ui.card('Client - Student Time Status') %}
+      <div class="grid grid-cols-2 gap-3 text-center">
+        <div class="rounded border border-slate-200 p-3">
+          <div class="text-[11px] font-semibold uppercase text-slate-500">College (Pakistan)</div>
+          <div class="mt-1 text-xl font-bold text-slate-800">{{ time_status.org_time.strftime('%H:%M') }}</div>
+          <div class="text-[11px] text-slate-400">{{ time_status.org_timezone }}</div>
+        </div>
+        <div class="rounded border border-slate-200 p-3">
+          <div class="text-[11px] font-semibold uppercase text-slate-500">Student local</div>
+          <div class="mt-1 text-xl font-bold text-brand-700">{{ time_status.local_time.strftime('%H:%M') }}</div>
+          <div class="text-[11px] text-slate-400">{{ time_status.timezone }}</div>
+        </div>
+      </div>
+      <p class="mt-2 text-center text-xs text-slate-500">{{ time_status.offset_label }}</p>
+    {% endcall %}
+    {% endif %}
+
+    {% if current %}
+    {% call ui.card('Raise Query') %}
+      <form method="post" action="/teacher/online-class/{{ current.id }}/query" class="space-y-3">
+        <input type="hidden" name="back" value="{{ base_url }}&session_id={{ current.id }}">
+        <input type="hidden" name="teacher_id" value="{{ t.id }}">
+        {{ ui.select('query_type', 'Class Query Type', query_type_options, none, required=True) }}
+        {{ ui.textarea('detail', 'Detail', '', rows=3, required=True) }}
+        {{ ui.button('Raise query', icon='message-square-warning', variant='warning', size='sm') }}
+      </form>
+      {% for q in queries %}
+      <div class="mt-3 rounded border border-slate-200 p-2 text-xs">
+        <div class="flex items-center justify-between"><b>{{ q.query_type }}</b> {{ ui.badge(q.status, 'Pending' if q.status == 'pending' else 'Closed') }}</div>
+        <div class="mt-0.5 text-slate-600">{{ q.detail }}</div>
+        {% if q.response %}<div class="mt-0.5 text-emerald-700">Response: {{ q.response }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Day summary') %}
+      {{ ui.dl([('Done', tiles.done), ('Pending', tiles.pending), ('Trial classes', tiles.trial),
+                ('Arrangement cover', tiles.arrangements), ('Teacher', t.full_name), ('Code', t.teacher_code)]) }}
+    {% endcall %}
+  </div>
+</div>
+
+{% for c in rows %}
+{% if c.status in ('pending', 'available', 'started') %}
+{% call ui.modal('absent' ~ c.id, 'Student Absent - ' ~ (c.student.full_name if c.student else 'class')) %}
+<form method="post" action="/teacher/online-class/{{ c.id }}/status" class="space-y-4">
+  <input type="hidden" name="back" value="{{ base_url }}&session_id={{ c.id }}">
+  <input type="hidden" name="teacher_id" value="{{ t.id }}">
+  <input type="hidden" name="action" value="absent">
+  {{ ui.textarea('reason', 'Reason', '', rows=3, required=True, help='Recorded on the class and in the audit trail.') }}
+  {{ ui.button('Mark Student Absent', icon='user-minus', variant='warning') }}
+</form>
+{% endcall %}
+{% call ui.modal('missed' ~ c.id, 'Missed class - ' ~ (c.student.full_name if c.student else 'class')) %}
+<form method="post" action="/teacher/online-class/{{ c.id }}/status" class="space-y-4">
+  <input type="hidden" name="back" value="{{ base_url }}&session_id={{ c.id }}">
+  <input type="hidden" name="teacher_id" value="{{ t.id }}">
+  <input type="hidden" name="action" value="missed">
+  {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
+  {{ ui.button('Mark Missed', icon='user-x', variant='danger') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endfor %}
+{% endblock %}

@@ -18,6 +18,11 @@
 
 {% include "supervisor/_board.html" %}
 
+<div class="mt-7">
+  {{ ui.section_label("Monitoring Dashboard - " ~ sel_date.strftime('%d %B %Y')) }}
+  {% include "supervisor/_erp_monitor.html" %}
+</div>
+
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
   {% call ui.card("Absent students today", (absent_today|length) ~ " student(s) did not attend") %}
     <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">

@@ -11,7 +11,10 @@
 {% endcall %}
 
 <div class="mb-6 flex flex-wrap items-center gap-2">
-  {{ ui.badge(s.status) }}
+  {{ ui.badge(s.status, s.status|label('class')) }}
+  {% if highlight %}<span class="inline-flex items-center rounded bg-{{ highlight.color }}-100 px-2 py-0.5 text-[11px] font-semibold text-{{ highlight.color }}-700">Under {{ highlight.limit }} minutes</span>{% endif %}
+  {% if s.status == 'done' and not s.activity_updated_at %}<span class="inline-flex items-center rounded bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">No Activity</span>{% endif %}
+  {% if s.teacher_available_at %}<span class="inline-flex items-center rounded bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700">Teacher available {{ s.teacher_available_at|datetime }}</span>{% endif %}
   {% if s.is_trial %}{{ ui.badge('trial') }}{% endif %}
   {% if (s.teacher_late_minutes or 0) > 5 %}<span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Teacher {{ s.teacher_late_minutes }} min late</span>{% endif %}
   {% if s.substitute_for_teacher_id %}<span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Substitute cover</span>{% endif %}
@@ -80,6 +83,33 @@
     {% endcall %}
     {% endif %}
 
+    {% call ui.card("Activity Detail", "What was covered in this class") %}
+      {{ ui.table_start(['Page No', 'Book', 'Type', 'Remarks', 'Added'], compact=True) }}
+      {% for a in activities %}
+      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ a.page_no or '-' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.book.title if a.book else '-' }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.activity_type|titleize }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-600">{{ a.remarks or '-' }}</td>
+        <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.created_at|datetime }}</td></tr>
+      {% else %}{{ ui.empty('No class activity recorded.', 5, 'notebook-pen') }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+
+    {% if reschedules %}
+    {% call ui.card("Reschedule requests") %}
+      {{ ui.table_start(['ID', 'New Working Date', 'New Session', 'New Teacher', 'Reason', 'Status'], compact=True) }}
+      {% for r in reschedules %}
+      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ r.id }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ r.new_date|date }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ r.new_start_time|time }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ r.new_teacher.full_name if r.new_teacher else '-' }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-600">{{ r.reason or '-' }}</td>
+        <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td></tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}
+    {% endif %}
+
     {% call ui.card("Audit trail") %}
       <ul class="space-y-3 text-sm">
         {% for e in events %}
@@ -100,14 +130,37 @@
         {{ ui.button('Apply status', icon='check-check') }}
       </form>
       <div class="mt-3 flex flex-wrap gap-1.5">
+        {% if s.status in ('pending', 'available') %}
+        <form method="post" action="/classes/{{ s.id }}/available" class="inline">
+          <input type="hidden" name="back" value="/classes/{{ s.id }}">
+          {{ ui.button('Mark Teacher Available', size='sm', variant='success', icon='hand') }}
+        </form>
+        {% endif %}
         {% for st in ['started','done','absent','missed'] %}
         <form method="post" action="/classes/{{ s.id }}/status" class="inline">
           <input type="hidden" name="status" value="{{ st }}">
           <input type="hidden" name="reason" value="Marked {{ st }} from the class record">
-          {{ ui.button(st|title, size='sm', variant='secondary') }}
+          {{ ui.button(st|label('class'), size='sm', variant='secondary') }}
         </form>
         {% endfor %}
       </div>
+    {% endcall %}
+
+    {% call ui.card("Raise Class Query") %}
+      <form method="post" action="/classes/queries/new" class="space-y-3">
+        <input type="hidden" name="session_id" value="{{ s.id }}">
+        <input type="hidden" name="back" value="/classes/{{ s.id }}">
+        {{ ui.select('query_type', 'Class Query Type', query_type_options, none, required=True) }}
+        {{ ui.textarea('detail', 'Detail', '', rows=2, required=True) }}
+        {{ ui.button('Raise query', icon='message-square-warning', size='sm', variant='warning') }}
+      </form>
+      {% for q in queries %}
+      <div class="mt-3 rounded border border-slate-200 p-2 text-xs">
+        <div class="flex items-center justify-between"><b>{{ q.query_type }}</b> {{ ui.badge(q.status, 'Pending' if q.status == 'pending' else 'Closed') }}</div>
+        <div class="mt-0.5 text-slate-600">{{ q.detail }}</div>
+        {% if q.response %}<div class="mt-0.5 text-emerald-700">Response: {{ q.response }}</div>{% endif %}
+      </div>
+      {% endfor %}
     {% endcall %}
 
     {% call ui.card("Reschedule") %}

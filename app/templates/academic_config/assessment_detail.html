@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ a.title }}{% endblock %}
+{% block content %}
+{% set passing = a.passing_marks|int if a.passing_marks == a.passing_marks|int else a.passing_marks %}
+{% set total = a.total_marks|int if a.total_marks == a.total_marks|int else a.total_marks %}
+{% set bank = marks_total|int if marks_total == marks_total|int else marks_total %}
+{% call ui.page_header(a.title, (a.book.title ~ ' · ' if a.book else '') ~ 'Passing ' ~ passing ~ ' of ' ~ total ~ ' marks', back="/academics/config/assessments") %}
+  {{ ui.badge(a.status) }}
+  {% if can_edit %}
+  {{ ui.button("Edit", icon="pencil", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'editAssessment\')"') }}
+  <form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline"><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='secondary') }}</form>
+  {% endif %}
+  {% if can_add %}{{ ui.button("Add Question", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("Questions", questions|length, color=palette(0)) }}
+  {{ ui.stat("Marks in Bank", bank, color=palette(1), hint='active questions') }}
+  {{ ui.stat("Total Marks", total, color=palette(2)) }}
+  {{ ui.stat("Passing Marks", passing, color=palette(3)) }}
+  {{ ui.stat("Pass %", ((a.passing_marks / a.total_marks * 100)|round|int if a.total_marks else 0) ~ '%', color=palette(4)) }}
+</div>
+
+{% if marks_total and marks_total != a.total_marks %}
+<div class="mb-4">{{ ui.alert('Active questions add up to ' ~ bank ~ ' marks but the assessment total is ' ~ total ~ '. Adjust the questions or the total.', 'warning') }}</div>
+{% endif %}
+
+{% macro question_form(action, item, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+  <input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">
+  <input type="hidden" name="assessment_id" value="{{ a.id }}">
+  {{ ui.select('book_id', 'Book', book_options, item.book_id if item else a.book_id, placeholder='— Same as assessment —') }}
+  {{ ui.select('question_type', 'Type', question_types, item.question_type if item else 'oral', placeholder=None) }}
+  {{ ui.input('marks', 'Marks', item.marks if item else 1, type='number', step='0.5', min=0.5, required=True) }}
+  {{ ui.select('status', 'Status', statuses, item.status if item else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('question', 'Question', item.question if item else '', rows=2, required=True) }}</div>
+  <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('answer', 'Model answer / marking note', item.answer if item else '', rows=2) }}</div>
+  <div class="sm:col-span-2 lg:col-span-4 flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{% call ui.card('Questions', 'Questions drawn from the bank for this assessment', padding=False) %}
+{{ ui.table_start(['#', 'Question', 'Type', 'Marks', 'Status', '']) }}
+{% for item in questions %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ loop.index }}</td>
+  <td class="px-4 py-2"><div class="text-slate-900">{{ item.question }}</div>{% if item.answer %}<div class="text-xs text-slate-500">{{ item.answer }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ item.question_type|upper if item.question_type == 'mcq' else item.question_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-center font-semibold">{{ item.marks|int if item.marks == item.marks|int else item.marks }}</td>
+  <td class="px-4 py-2">{{ ui.badge(item.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline"><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="6" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No questions yet. Add the first question for this assessment.', 6, 'help-circle') }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+{% if can_add %}
+{% call ui.modal('newQuestion', 'Add Question to ' ~ a.title, 'lg') %}
+{{ question_form('/academics/config/question-bank/new', None, 'Add question') }}
+{% endcall %}
+{% endif %}
+
+{% if can_edit %}
+{% call ui.modal('editAssessment', 'Edit Assessment') %}
+<form method="post" action="/academics/config/assessments/{{ a.id }}/edit" class="grid gap-3 sm:grid-cols-2">
+  <input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">
+  <div class="sm:col-span-2">{{ ui.select('book_id', 'Book', book_options, a.book_id, placeholder='— Select book —') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', a.title, required=True) }}</div>
+  {{ ui.input('passing_marks', 'Passing Marks', passing, type='number', step='0.5', min=0, required=True) }}
+  {{ ui.input('total_marks', 'Total Marks', total, type='number', step='0.5', min=1, required=True) }}
+  {{ ui.select('status', 'Status', statuses, a.status, placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save assessment', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

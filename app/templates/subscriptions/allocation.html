@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Faculty Allocation{% endblock %}
+{% block content %}
+{% call ui.page_header("Faculty Allocation", "Which teacher takes which student in which session") %}
+  {{ ui.button("All Subscriptions", href="/subscriptions", icon="file-text", variant="secondary") }}
+  {% if has_perm(user, 'subscriptions.add') %}{{ ui.button("Create Subscription", href="/subscriptions/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+{% call ui.filter_bar('/subscriptions/allocation') %}
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}</div>
+  <div class="w-36">{{ ui.select('language', 'Language', language_options, language, placeholder='All') }}</div>
+  <div class="w-72">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+  <div>
+    <div class="mb-1 text-xs font-semibold text-slate-600">Days</div>
+    <div class="flex gap-2 rounded border border-slate-200 px-2 py-1.5 text-xs">{% for d in range(7) %}<label class="inline-flex items-center gap-1"><input type="checkbox" name="day_{{ d }}" value="1" {% if d in days %}checked{% endif %} class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600">{{ day_names[d] }}</label>{% endfor %}</div>
+  </div>
+  <div class="w-48">{{ ui.select('client_id', 'Customer', client_options, client_id, placeholder='All customers') }}</div>
+  <div class="w-48">{{ ui.select('student_id', 'Student', student_options, student_id, placeholder='All students') }}</div>
+  <div class="w-32">{{ ui.select('day', 'Grid day', [(0,'Monday'),(1,'Tuesday'),(2,'Wednesday'),(3,'Thursday'),(4,'Friday'),(5,'Saturday'),(6,'Sunday')], grid_day, placeholder=None) }}</div>
+{% endcall %}
+
+<div class="mb-2 text-xs text-slate-500">{{ total }} running subscription(s) across {{ grouped|length }} teacher(s)</div>
+{{ ui.table_start(['Teacher', 'Session', 'Student Name', 'Course', 'Language', 'Days', 'Status', 'Registration Date'], compact=True) }}
+{% for g in grouped %}
+  <tr class="bg-[#f1f6fc]"><td colspan="8" class="px-3 py-1.5 text-xs font-semibold text-slate-700">{{ g.teacher.full_name if g.teacher else 'Unassigned' }} <span class="font-normal text-slate-500">· {{ g.rows|length }} subscription(s){% if g.teacher %} · {{ g.teacher.shift|titleize }} shift · {{ (g.teacher.languages or [])|join(', ') }}{% endif %}</span></td></tr>
+  {% for s in g.rows %}
+  <tr>
+    <td class="px-3 py-1.5 text-xs text-slate-500">{{ g.teacher.teacher_code if g.teacher else '—' }}</td>
+    <td class="px-3 py-1.5 font-mono text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '—' }}</td>
+    <td class="px-3 py-1.5"><a href="/subscriptions/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.student.full_name if s.student else '—' }}</a> <span class="text-xs text-slate-400">{{ s.client.full_name if s.client }}</span></td>
+    <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ s.language }}</td>
+    <td class="px-3 py-1.5 text-xs whitespace-nowrap">{% for d in s.days_of_week|sort %}{{ day_names[d|int] }}{{ ',' if not loop.last }}{% endfor %}</td>
+    <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
+    <td class="px-3 py-1.5 text-xs">{{ s.start_date|date }}</td>
+  </tr>
+  {% endfor %}
+{% else %}{{ ui.empty('No running subscriptions match these filters.', 8, 'arrow-left-right') }}{% endfor %}
+{{ ui.table_end() }}
+
+<div class="mt-6">
+{% call ui.card("Teacher x session occupancy", ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][grid_day] ~ " - one column per session that has a booking") %}
+  {% if slot_cols %}
+  <div class="overflow-x-auto">
+  <table class="min-w-full border-collapse text-[11px]">
+    <thead><tr class="bg-[#e8f1fb]"><th class="sticky left-0 z-10 border border-slate-300 bg-[#e8f1fb] px-2 py-1 text-left">Teacher</th>
+      {% for sl in slot_cols %}<th class="border border-slate-300 px-1 py-1 text-center font-mono font-normal">{{ sl.start_time.strftime('%H:%M') }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for t in grid_teachers %}
+    <tr>
+      <td class="sticky left-0 z-10 border border-slate-200 bg-white px-2 py-1 font-medium whitespace-nowrap">{{ t.full_name }}</td>
+      {% for sl in slot_cols %}{% set s = occ.get((t.id, sl.id)) %}
+      <td class="border border-slate-200 p-0.5 text-center {{ 'bg-emerald-100' if s and s.status != 'trial' else ('bg-violet-100' if s else '') }}">
+        {% if s %}<a href="/subscriptions/{{ s.id }}" title="{{ s.student.full_name if s.student }} · {{ s.course.name if s.course }}" class="block truncate px-0.5 text-[10px]">{{ (s.student.full_name.split()[0]) if s.student else 'x' }}</a>{% endif %}
+      </td>{% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="mt-2 flex gap-3 text-[11px] text-slate-500"><span><span class="inline-block h-3 w-3 rounded bg-emerald-100 align-middle"></span> regular</span><span><span class="inline-block h-3 w-3 rounded bg-violet-100 align-middle"></span> trial</span><span>empty = free</span></div>
+  {% else %}<p class="text-sm text-slate-400">No sessions are booked on this day.</p>{% endif %}
+{% endcall %}
+</div>
+{% endblock %}

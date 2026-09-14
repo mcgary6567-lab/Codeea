@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ meta.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(meta.title, meta.subtitle) %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs="@click=\"$dispatch('open-modal','newRequest')\"") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs(kind_tabs, kind) }}
+
+<div class="mb-2 text-[12.5px] font-medium text-slate-600">Approval Status</div>
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, counts[key], icon=icon, color=palette(loop.index0), href="/requests/" ~ kind ~ "?status=" ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/requests/' ~ kind) %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('client', 'Client', client_options, filters.client, placeholder='All clients') }}</div>
+  {% if kind in ('leaves', 'time-change', 'teacher-change', 'complaints') %}
+  <div class="w-56">{{ ui.select('student', 'Student', student_options, filters.student, placeholder='All students') }}</div>
+  {% endif %}
+  <div class="w-40">{{ ui.select('status', 'Approval Status', status_options, filters.status, placeholder='All statuses') }}</div>
+  {% if kind in ('references', 'complaints') %}
+  <div class="w-44">{{ ui.input('q', 'Search', filters.q, placeholder='Name / title') }}</div>
+  {% endif %}
+{% endcall %}
+
+<form method="post" action="/requests/{{ kind }}/change-status">
+  <p class="mb-2 text-xs text-slate-500">{{ page.total }} request(s) - showing {{ page.start }}-{{ page.end }}</p>
+  {{ ui.table_start([''] + meta.headers + ['Status', 'Created At']) }}
+  {% for r in rows %}
+  <tr>
+    <td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
+    {% for cell in r.cells %}
+    <td class="px-3 py-2 text-xs {{ 'max-w-[16rem] truncate' if loop.index0 > 2 }}" title="{{ cell if cell is not none else '' }}">{{ cell if cell not in (None, '') else '-' }}</td>
+    {% endfor %}
+    <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+    <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.created_at|datetime }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No requests match these filters.', meta.headers|length + 3) }}{% endfor %}
+  {{ ui.table_end() }}
+  {{ ui.pagination(page, base_url) }}
+
+  {% if can_change %}
+  <div class="mt-4">
+    {% call ui.card('Actions - Change Status', 'Tick the rows above, choose the new approval status and record why. The family is notified and the change is written to the audit trail.') %}
+      <div class="grid gap-3 sm:grid-cols-3">
+        {{ ui.select('status', 'New Status', status_options, None, required=True, placeholder='- Select -') }}
+        <div class="sm:col-span-2">{{ ui.textarea('remarks', 'Remarks', '', rows=2, required=True, placeholder='Why is this request being approved / rejected / cancelled?') }}</div>
+        {% if kind == 'complaints' %}
+        <div class="sm:col-span-3">{{ ui.textarea('company_response', 'Company Response', '', rows=2, placeholder='The response shared with the family. Approving publishes it and resolves the case.') }}</div>
+        {% endif %}
+      </div>
+      <div class="mt-3 flex justify-end">{{ ui.button('Change Status', icon='check-check') }}</div>
+    {% endcall %}
+  </div>
+  {% endif %}
+</form>
+
+{% if can_add %}
+{% call ui.modal('newRequest', 'Create ' ~ meta.title, 'lg') %}
+<form method="post" action="/requests/{{ kind }}/new" class="grid gap-3 sm:grid-cols-2">
+  {% if kind == 'leaves' %}
+    {{ ui.select('student_id', 'Student', student_options, None, required=True) }}
+    {{ ui.select('leave_type', 'Leave Type', leave_types, 'vacation', placeholder=None) }}
+    {{ ui.input('apply_date', 'Leave Apply Date', today_iso, type='date') }}
+    <div class="flex items-end pb-1">{{ ui.checkbox('leave_for_all', 'Leave For All students of the family') }}</div>
+    {{ ui.input('start_date', 'From Date', '', type='date', required=True) }}
+    {{ ui.input('end_date', 'To Date', '', type='date', required=True) }}
+    <div class="sm:col-span-2">{{ ui.textarea('reason', 'Description', '', rows=2, required=True) }}</div>
+    <div class="sm:col-span-2">{{ ui.textarea('leave_detail', 'Leave Detail', '', rows=2) }}</div>
+  {% elif kind == 'time-change' %}
+    {{ ui.select('subscription_id', 'Subscription', subscription_options, None, required=True) }}
+    {{ ui.select('new_slot_id', 'New Session', slot_options, None, required=True) }}
+    <div class="sm:col-span-2">
+      <div class="mb-1 block text-xs font-semibold text-slate-600">Days</div>
+      <div class="flex flex-wrap gap-3">
+        {% for val, lbl in day_options %}
+        <label class="inline-flex items-center gap-1.5 text-sm"><input type="checkbox" name="days" value="{{ val }}" class="h-4 w-4 rounded border-slate-300 text-brand-600">{{ lbl }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2, required=True) }}</div>
+  {% elif kind == 'teacher-change' %}
+    {{ ui.select('subscription_id', 'Subscription', subscription_options, None, required=True) }}
+    {{ ui.select('new_teacher_id', 'New Teacher', teacher_options, None, placeholder='Allocate later') }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2, required=True) }}</div>
+  {% elif kind == 'references' %}
+    {{ ui.select('client_id', 'Client', client_options, None, required=True) }}
+    {{ ui.input('name', 'Name', '', required=True) }}
+    {{ ui.input('email', 'Email', '', type='email') }}
+    {{ ui.input('contact_no', 'Contact No', '') }}
+    {{ ui.select('reference_type', 'Reference Type', reference_types, 'family', placeholder=None) }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2) }}</div>
+  {% else %}
+    {{ ui.select('client_id', 'Client', client_options, None, required=True) }}
+    {{ ui.select('student_id', 'Student', student_options, None, placeholder='Not about one child') }}
+    {{ ui.select('complaint_type', 'Complaint Type', complaint_types, 'Other', placeholder=None) }}
+    {{ ui.input('title', 'Title', '', required=True) }}
+    <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=3, required=True) }}</div>
+  {% endif %}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

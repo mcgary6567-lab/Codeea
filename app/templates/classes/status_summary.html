@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class Status Summary{% endblock %}
+{% block content %}
+{% call ui.page_header("Class Status Summary", "Teacher by session grid for one working date, with duration and activity highlights") %}
+  {{ ui.button("Refresh", href=base_url, icon="refresh-cw", variant="secondary") }}
+  {{ ui.button("Class Schedules", href="/classes?date_from=" ~ day ~ "&date_to=" ~ day, icon="calendar-days") }}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-3 gap-2.5 sm:grid-cols-5 xl:grid-cols-9">
+  {{ ui.stat("All", grid.counts.total, color=palette(0)) }}
+  {% for k in ['pending','available','started','done','missed','absent','leave','cancelled'] %}
+    {{ ui.stat(k|label('class'), grid.counts.get(k, 0), color=palette(loop.index), href="/classes?date_from=" ~ day ~ "&date_to=" ~ day ~ "&status=" ~ k) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/classes/status-summary') %}
+  <div class="w-36">{{ ui.input('date', 'Date', day, type='date') }}</div>
+  <div class="w-48">{{ ui.select('employee_id', 'Employee', teacher_options, employee_id, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.select('session_category', 'Session Category', category_options, session_category, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+{% endcall %}
+
+<div class="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+  <span class="font-semibold text-slate-700">Highlights:</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-rose-200"></span> under 15 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-orange-200"></span> under 20 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-yellow-200"></span> under 25 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-lime-200"></span> under 35 min</span>
+  <span class="inline-flex items-center gap-1"><span class="rounded bg-amber-100 px-1 font-semibold text-amber-700">Late Available</span> marked available after the class start</span>
+  <span class="inline-flex items-center gap-1"><span class="rounded bg-rose-100 px-1 font-semibold text-rose-700">No Activity</span> done with no class activity</span>
+</div>
+
+<div class="overflow-x-auto rounded-md border border-slate-300 bg-white">
+<table class="min-w-full border-collapse text-[12px]">
+  <thead><tr class="bg-[#e8f1fb]">
+    <th class="sticky left-0 z-10 border border-slate-300 bg-[#e8f1fb] px-3 py-2 text-left text-xs font-semibold text-slate-700">Employee</th>
+    {% for col in grid.columns %}<th class="border border-slate-300 px-2 py-2 text-center text-[11px] font-semibold text-slate-700 whitespace-nowrap">{{ col.label }}</th>{% endfor %}
+    <th class="border border-slate-300 px-2 py-2 text-center text-xs font-semibold text-slate-700">Total</th>
+  </tr></thead>
+  <tbody>
+  {% for row in grid.rows %}
+  <tr class="[&>td]:border [&>td]:border-slate-200 hover:bg-[#f1f6fc]">
+    <td class="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium whitespace-nowrap">{{ row.teacher.full_name if row.teacher else '-' }}
+      <span class="block text-[10px] text-slate-400">{{ row.teacher.teacher_code if row.teacher }}</span></td>
+    {% for col in grid.columns %}
+    {% set cells = row.cells.get(col.time, []) %}
+    <td class="px-1.5 py-1 text-center align-top {{ 'bg-' ~ cells[0].highlight.color ~ '-100' if cells and cells[0].highlight else '' }}">
+      {% for c in cells %}
+      <a href="/classes/{{ c.session.id }}" class="block leading-tight hover:underline">
+        <span class="font-semibold {{ 'text-' ~ (c.status|status_color) ~ '-700' }}">{{ c.status|label('class') }}</span>
+        {% if c.duration is not none %}<span class="block text-[10px] text-slate-500">{{ c.duration }} min</span>{% endif %}
+        {% if c.late_available %}<span class="mt-0.5 inline-block rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-700">Late Available</span>{% endif %}
+        {% if c.no_activity %}<span class="mt-0.5 inline-block rounded bg-rose-100 px-1 text-[9px] font-semibold text-rose-700">No Activity</span>{% endif %}
+      </a>
+      {% else %}<span class="text-slate-300">-</span>{% endfor %}
+    </td>
+    {% endfor %}
+    <td class="px-2 py-1.5 text-center text-xs font-semibold">{{ row.totals.total }}
+      <span class="block text-[10px] font-normal text-slate-500">{{ row.totals.done }} done{% if row.totals.short %} / {{ row.totals.short }} short{% endif %}</span></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="{{ grid.columns|length + 2 }}" class="border border-slate-200 px-4 py-10 text-center text-slate-400">
+    <i data-lucide="layout-grid" class="mx-auto mb-2 h-7 w-7 opacity-50"></i>No classes on {{ day|date }} for these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

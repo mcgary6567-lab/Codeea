@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Running Trials{% endblock %}
+{% block content %}
+{% call ui.page_header("Running Trials", "Trial subscriptions still in their trial window") %}
+  {{ ui.button("Trial pipeline", href="/trials", icon="flask-conical", variant="secondary") }}
+  {% if has_perm(user, 'subscriptions.add') %}{{ ui.button("Create Subscription", href="/subscriptions/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat("Running Trials", tiles.running, color=palette(0)) }}
+  {{ ui.stat("Ending In 2 Days", tiles.ending, color=palette(3)) }}
+  {{ ui.stat("Clients", tiles.clients, color=palette(1)) }}
+  {{ ui.stat("Students", tiles.students, color=palette(2)) }}
+</div>
+
+{% call ui.filter_bar('/trials/running') %}
+  <div class="w-40">{{ ui.input('q', 'Search', q, placeholder='Student or subscription') }}</div>
+  <div class="w-52">{{ ui.select('client_id', 'Client', client_options, client_id, placeholder='All clients') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}</div>
+  <div class="w-64">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', [('morning','Morning'),('night','Night')], shift, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Subscription ID', 'Client Name', 'Student', 'Shift', 'Teacher', 'Session', 'Course', 'Reg. Date',
+                   'Trial Days', 'Trial End Date', 'Language', 'Days', 'Add Date', ''], compact=True) }}
+{% for r in rows %}
+{% set s = r.sub %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="font-semibold text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="hover:text-brand-700">{{ s.client.full_name }}</a>{% else %}-{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{% if s.student %}<a href="/students/{{ s.student_id }}" class="hover:text-brand-700">{{ s.student.full_name }}</a>{% else %}-{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (s.client.shift|titleize) if s.client and s.client.shift else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.start_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs text-center">{{ s.trial_days }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap {{ 'font-semibold text-rose-600' if r.days_left is not none and r.days_left <= 2 }}">{{ r.trial_end|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.language or '-' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{% for d in s.days_of_week|sort %}{{ day_names[d|int] }}{{ ',' if not loop.last }}{% else %}-{% endfor %}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.created_at|date }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if has_perm(user, 'subscriptions.update') %}
+    <form method="post" action="/trials/running/{{ s.id }}/convert" class="inline" onsubmit="return confirm('Convert {{ s.subscription_code }} to a regular subscription?')">
+      <input type="hidden" name="back" value="{{ base_url }}">
+      {{ ui.button('Convert to Regular', size='sm', variant='success', icon='check') }}
+    </form>
+    <button type="button" class="ml-1 inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-700"
+            @click="$dispatch('open-modal','drop{{ s.id }}')"><i data-lucide="x" class="h-4 w-4"></i>Drop</button>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No running trials match these filters.', 14, 'flask-conical') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'subscriptions.update') %}
+{% for r in rows %}
+{% call ui.modal('drop' ~ r.sub.id, 'Drop trial ' ~ r.sub.subscription_code) %}
+<form method="post" action="/trials/running/{{ r.sub.id }}/drop" class="space-y-4">
+  <input type="hidden" name="back" value="{{ base_url }}">
+  <p class="text-sm text-slate-500">Cancels the trial subscription for {{ r.sub.student.full_name if r.sub.student else 'the student' }} and cancels the future classes on its schedule.</p>
+  {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
+  {{ ui.button('Drop trial', icon='x', variant='danger') }}
+</form>
+{% endcall %}
+{% endfor %}
+{% endif %}
+{% endblock %}

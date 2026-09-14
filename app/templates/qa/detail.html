@@ -3,12 +3,13 @@
 {% block title %}QA review #{{ r.id }}{% endblock %}
 {% block content %}
 {% call ui.page_header("QA review #" ~ r.id,
-                       (r.teacher.full_name if r.teacher else '—') ~ " · " ~ r.sample_type|replace('_',' ')|title ~ " sample"
+                       (r.teacher.full_name if r.teacher else '—') ~ " · " ~ ("Call review" if is_call else r.sample_type|replace('_',' ')|title ~ " sample")
                        ~ (" · class " ~ s.date.strftime('%d %b %Y') ~ " " ~ s.start_time.strftime('%H:%M') if s else ""),
-                       back='/qa') %}
-  {{ ui.badge(r.status) }}
+                       back=('/qa/queue' if is_call else '/qa')) %}
+  {{ ui.badge(r.status, r.status|label('qa')) }}
   {% if s %}{{ ui.button('Class record', href='/classes/' ~ s.id, icon='video', variant='secondary') }}{% endif %}
   {% if s and s.recording %}{{ ui.button('Recording', href='/recordings/' ~ s.recording.id, icon='film', variant='secondary') }}{% endif %}
+  {% if call and call.recording_url %}{{ ui.button('Play call', href=call.recording_url, icon='play-circle', variant='secondary', attrs='target="_blank" rel="noopener"') }}{% endif %}
 {% endcall %}
 
 {% if needs_approval %}
@@ -17,6 +18,92 @@
 
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
   <div class="space-y-6 lg:col-span-2">
+    {% if is_call %}
+    {% if call %}
+    {% call ui.card("Call recording", call.platform ~ " · " ~ call.source) %}
+      {{ ui.dl([('Call Source ID', call.external_id or call.id), ('Source Name', call.source_name), ('Recording Date', call.recording_date|date),
+                ('Start / End', (call.start_time.strftime('%H:%M') if call.start_time else '-') ~ ' - ' ~ (call.end_time.strftime('%H:%M') if call.end_time else '-')),
+                ('Duration', call.duration_minutes ~ ' min'), ('Review State', call.review_state|titleize),
+                ('Class', ('#' ~ call.session_id ~ ' · ' ~ (s.student.full_name if s and s.student else '')) if call.session_id else 'Unmatched'),
+                ('Recording Url', call.recording_url)]) }}
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card("Call review", "Rate every parameter from 1 to 5 stars, tick the issues observed, then complete the review") %}
+      {% if editable and (has_perm(user, 'qa.update') or has_perm(user, 'qa.add')) %}
+      <form method="post" action="/qa/{{ r.id }}/review" class="space-y-5" x-data="{ action: 'save' }">
+        <div class="overflow-x-auto">
+        {{ ui.table_start(['Parameter', 'Weight', 'Rating (1-5)']) }}
+        {% for p in params %}
+        {% set cur = (r.parameter_scores or {}).get(p.name) %}
+        <tr>
+          <td class="px-4 py-2 text-sm"><div class="font-medium">{{ p.name }}</div>{% if p.description %}<div class="text-[11px] text-slate-500">{{ p.description }}</div>{% endif %}</td>
+          <td class="px-4 py-2 text-center text-xs text-slate-500">{{ p.weight }}</td>
+          <td class="px-4 py-2">
+            <div class="flex items-center gap-1" x-data="{ v: {{ cur or 0 }} }">
+              {% for n in range(1, (p.max_rating or 5) + 1) %}
+              <label class="cursor-pointer text-2xl leading-none" :class="v >= {{ n }} ? 'text-amber-400' : 'text-slate-300'" @mouseenter="$el.classList.add('scale-110')" @mouseleave="$el.classList.remove('scale-110')">
+                <input type="radio" name="param_{{ p.id }}" value="{{ n }}" class="sr-only" {% if cur == n %}checked{% endif %} @change="v = {{ n }}">&#9733;</label>
+              {% endfor %}
+              <span class="ml-2 text-xs text-slate-500" x-text="v ? v + ' / {{ p.max_rating or 5 }}' : 'not rated'"></span>
+            </div>
+          </td>
+        </tr>
+        {% else %}{{ ui.empty('No active review parameters - add them under Quality Management / Configurations.', 3) }}{% endfor %}
+        {{ ui.table_end() }}
+        </div>
+
+        <div>
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Issues observed</div>
+          <div class="grid gap-2 sm:grid-cols-2">
+            {% for it in issue_types %}
+            {% set sel = selected_issues.get(it.name) %}
+            <div class="rounded border {{ 'border-rose-200 bg-rose-50/40' if it.severity == 'critical' else 'border-slate-200' }} p-2" x-data="{ on: {{ 'true' if sel else 'false' }} }">
+              <label class="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="issue_{{ it.id }}" value="1" x-model="on" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600">
+                <span><span class="font-medium">{{ it.name }}</span>{% if it.severity == 'critical' %} <span class="ml-1 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">CRITICAL</span>{% endif %}
+                  {% if it.description %}<span class="block text-[11px] text-slate-500">{{ it.description }}</span>{% endif %}</span>
+              </label>
+              <input type="text" name="issue_note_{{ it.id }}" value="{{ sel.note if sel and sel.note else '' }}" placeholder="Note (optional)" x-show="on" x-cloak
+                     class="mt-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs">
+            </div>
+            {% else %}<p class="text-xs text-slate-400">No active issue types configured.</p>{% endfor %}
+          </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-3">
+          {{ ui.input('overall_rating', 'Overall rating (1-5)', r.overall_rating if r.overall_rating is not none else '', type='number', step='0.1', min=1, max=5,
+                      help='Leave blank to use the weighted mean of the parameters.') }}
+          <div class="sm:col-span-2">{{ ui.textarea('remarks', 'Remarks', r.remarks or '', rows=3, placeholder='What went well, what must improve') }}</div>
+        </div>
+        <div x-show="action == 'flag' || action == 'reject'" x-cloak>{{ ui.input('reason', 'Reason (required to flag or reject)', '', placeholder='Why is this review being flagged / rejected?') }}</div>
+        <input type="hidden" name="action" :value="action">
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" @click="action='save'" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="save" class="h-4 w-4"></i>Save</button>
+          <button type="submit" @click="action='complete'" class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check-check" class="h-4 w-4"></i>Complete</button>
+          <button type="submit" @click.prevent="action = 'flag'; if ($el.form.reason.value.trim()) $el.form.submit()" class="inline-flex items-center gap-1.5 rounded bg-amber-500 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-amber-600"><i data-lucide="flag" class="h-4 w-4"></i>Flag</button>
+          <button type="submit" @click.prevent="action = 'reject'; if ($el.form.reason.value.trim()) $el.form.submit()" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x-circle" class="h-4 w-4"></i>Reject</button>
+        </div>
+        <p class="text-[11px] text-slate-500">Flag and Reject open the reason field first; click again once a reason is entered.</p>
+      </form>
+      {% else %}
+      {{ ui.table_start(['Parameter', 'Rating']) }}
+      {% for p in params %}
+      {% set cur = (r.parameter_scores or {}).get(p.name) %}
+      <tr><td class="px-4 py-2 text-sm">{{ p.name }}</td>
+        <td class="px-4 py-2 text-sm">{% if cur %}<span class="text-amber-500">{{ '&#9733;' * cur|int }}</span><span class="text-slate-300">{{ '&#9733;' * ((p.max_rating or 5) - cur|int) }}</span> <span class="text-xs text-slate-500">{{ cur }}/{{ p.max_rating or 5 }}</span>{% else %}<span class="text-xs text-slate-400">not rated</span>{% endif %}</td></tr>
+      {% endfor %}
+      {% for name, v in (r.parameter_scores or {}).items() if name not in params|map(attribute='name')|list %}
+      <tr><td class="px-4 py-2 text-sm">{{ name }} <span class="text-[10px] text-slate-400">(retired)</span></td><td class="px-4 py-2 text-sm">{{ v }}</td></tr>
+      {% endfor %}
+      {{ ui.table_end() }}
+      {% if r.issues %}
+      <div class="mt-4 flex flex-wrap gap-2">{% for i in r.issues %}<span class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs ring-1 ring-inset {{ 'bg-rose-50 text-rose-700 ring-rose-600/20' if i.critical else 'bg-slate-50 text-slate-700 ring-slate-600/20' }}"><i data-lucide="{{ 'alert-triangle' if i.critical else 'alert-circle' }}" class="h-3.5 w-3.5"></i>{{ i.type }}{% if i.note %}: {{ i.note }}{% endif %}</span>{% endfor %}</div>
+      {% else %}<p class="mt-4 text-xs text-slate-500">No issues recorded.</p>{% endif %}
+      {% if r.remarks %}<p class="mt-4 whitespace-pre-wrap rounded bg-slate-50 p-3 text-sm">{{ r.remarks }}</p>{% endif %}
+      {% endif %}
+    {% endcall %}
+    {% else %}
     {% call ui.card("Scorecard", "0–10 per criterion, weighted to a score out of 100") %}
       {% if has_perm(user, 'qa.update') or has_perm(user, 'qa.add') %}
       <form method="post" action="/qa/{{ r.id }}/complete" class="space-y-4">
@@ -48,6 +135,7 @@
       {% if r.comments %}<p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ r.comments }}</p>{% endif %}
       {% endif %}
     {% endcall %}
+    {% endif %}
 
     {% call ui.card("AI-assisted panel", "Suggestions from the automated analysis of this class — advisory only") %}
       {% if an %}
@@ -92,6 +180,17 @@
 
   <div class="space-y-6">
     {% call ui.card("Result") %}
+      {% if is_call %}
+      <div class="text-center">
+        <div class="text-4xl leading-none text-amber-400">{{ ('&#9733;' * (r.overall_rating|round|int))|safe if r.overall_rating is not none else '<span class="text-slate-300">&#9733;&#9733;&#9733;&#9733;&#9733;</span>'|safe }}</div>
+        <div class="mt-2 text-3xl font-bold tracking-tight {{ 'text-rose-600' if r.overall_rating is not none and r.overall_rating < 2.5 else 'text-slate-800' }}">{{ r.overall_rating if r.overall_rating is not none else '-' }}<span class="text-base font-normal text-slate-400"> / 5</span></div>
+        <div class="text-xs uppercase tracking-wide text-slate-500">overall rating</div>
+      </div>
+      <hr class="my-4 border-slate-100 dark:border-slate-800">
+      {{ ui.dl([('Status', r.status|label('qa')), ('Reviewer', r.reviewer.full_name if r.reviewer else 'Unassigned'),
+                ('Reviewed at', r.reviewed_at|datetime if r.reviewed_at else '-'), ('Issues', (r.issues or [])|length),
+                ('Critical issues', (r.issues or [])|selectattr('critical')|list|length), ('Legacy score /100', r.overall_score if r.overall_score is not none else '-')]) }}
+      {% else %}
       <div class="text-center">
         <div class="text-5xl font-bold tracking-tight {{ 'text-rose-600' if (r.overall_score or 0) < threshold else 'text-emerald-600' }}">
           {{ r.overall_score if r.overall_score is not none else '—' }}</div>
@@ -101,9 +200,10 @@
       {{ ui.dl([('Sample type', r.sample_type|titleize), ('Reviewer', r.reviewer.full_name if r.reviewer else 'Unassigned'),
                 ('Completed', r.completed_at|datetime), ('Approved by', r.approved_by_id or '—'),
                 ('Feedback sent', 'Yes' if r.teacher_feedback_sent else 'No')]) }}
+      {% endif %}
     {% endcall %}
 
-    {% if has_perm(user, 'qa.approve') and r.status == 'completed' %}
+    {% if has_perm(user, 'qa.approve') and r.status == 'completed' and not is_call %}
     {% call ui.card("HOD approval") %}
       <form method="post" action="/qa/{{ r.id }}/approve" class="space-y-3">
         {{ ui.textarea('note', 'Approval note', '', rows=2) }}
@@ -133,7 +233,7 @@
       <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
         {% for h in history %}
         <li class="flex items-center justify-between py-2"><a href="/qa/{{ h.id }}" class="hover:text-brand-700">#{{ h.id }} · {{ h.sample_type|titleize }}</a>
-          <span class="font-semibold {{ 'text-rose-600' if (h.overall_score or 0) < threshold }}">{{ h.overall_score }}</span></li>
+          <span class="font-semibold {{ 'text-rose-600' if (h.overall_score or 0) < threshold }}">{% if h.sample_type == 'call' and h.overall_rating is not none %}{{ h.overall_rating }} / 5{% else %}{{ h.overall_score }}{% endif %}</span></li>
         {% else %}<li class="py-4 text-center text-slate-400">No previous scored reviews.</li>{% endfor %}
       </ul>
       {% if re_evaluations %}

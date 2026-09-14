@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class Arrangements{% endblock %}
+{% block content %}
+{% call ui.page_header("Class Arrangements", "Substitute cover: one teacher's classes taken by another for a date range") %}
+  {{ ui.button("Absent Teachers", href="/classes/absent-teachers?date_from=" ~ date_from ~ "&date_to=" ~ date_to, icon="user-x", variant="secondary") }}
+  {% if has_perm(user, 'classes.update') %}
+  {{ ui.button("Auto Arrangement", icon="wand-2", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'autoArrange\')"') }}
+  {{ ui.button("Class Arrangement", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newArrangement\')"') }}
+  {% endif %}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat("Active", tiles.active, color=palette(0), href=tile_base ~ "&status=active") }}
+  {{ ui.stat("In-Active", tiles.inactive, color=palette(3), href=tile_base ~ "&status=inactive") }}
+  {{ ui.stat("Auto Arrangements", tiles.auto, color=palette(1), href=tile_base ~ "&status=") }}
+  {{ ui.stat("Classes Reassigned", tiles.applied, color=palette(2), href=tile_base ~ "&status=") }}
+</div>
+
+{% call ui.filter_bar('/classes/arrangements') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Working Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Working Date', date_to, type='date') }}</div>
+  <div class="w-36">{{ ui.select('session_category', 'Session Category', category_options, session_category, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+  <div class="w-44">{{ ui.select('from_teacher_id', 'From Teacher', teacher_options, from_teacher_id, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('to_teacher_id', 'To Teacher', teacher_options, to_teacher_id, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', arrangement_status_options, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'From Teacher', 'To Teacher', 'From Date', 'To Date', 'Session', 'Status', 'Applied', 'Auto?', 'Reason', ''], compact=True) }}
+{% for a in page.items %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ a.id }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ a.from_teacher.full_name if a.from_teacher else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs font-medium">{{ a.to_teacher.full_name if a.to_teacher else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.from_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.to_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.slot.label if a.slot else (a.session_category or 'All sessions') }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(a.status, 'Active' if a.status == 'active' else 'In-Active') }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ a.applied_count or 0 }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ 'Yes' if a.is_auto else 'No' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-600">{{ a.reason or '-' }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if has_perm(user, 'classes.update') %}
+    <form method="post" action="/classes/arrangements/{{ a.id }}/status" class="inline" onsubmit="return confirm('Change the status of arrangement #{{ a.id }}?')">
+      <input type="hidden" name="back" value="{{ base_url }}">
+      <input type="hidden" name="status" value="{{ 'inactive' if a.status == 'active' else 'active' }}">
+      {{ ui.button('Change Status', size='sm', variant='secondary', icon='toggle-left') }}
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No arrangements in this range.', 11, 'arrow-left-right') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'classes.update') %}
+{% call ui.modal('newArrangement', 'Class Arrangement') %}
+<form method="post" action="/classes/arrangements/new" class="space-y-4">
+  <input type="hidden" name="back" value="{{ base_url }}">
+  <p class="text-sm text-slate-500">Pending classes of the From Teacher in the range move to the To Teacher. Setting the arrangement In-Active later returns future classes to the original teacher.</p>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('from_teacher_id', 'From Teacher', teacher_options, none, required=True) }}
+    {{ ui.select('to_teacher_id', 'To Teacher', teacher_options, none, required=True) }}
+    {{ ui.input('from_date', 'From Working Date', today(), type='date', required=True) }}
+    {{ ui.input('to_date', 'To Working Date', today(), type='date', required=True) }}
+    {{ ui.select('session_category', 'Session Category', category_options, none, placeholder='All categories') }}
+    {{ ui.select('slot_id', 'Session', slot_options, none, placeholder='All sessions') }}
+  </div>
+  {{ ui.textarea('reason', 'Reason', '', rows=2, required=True) }}
+  {{ ui.button('Create arrangement', icon='arrow-left-right') }}
+</form>
+{% endcall %}
+
+{% call ui.modal('autoArrange', 'Auto Arrangement') %}
+<form method="post" action="/classes/auto-arrange" class="space-y-4">
+  <p class="text-sm text-slate-500">Creates an arrangement per absent or on-leave teacher and slot, using the first free verified teacher.</p>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('date_from', 'From Working Date', date_from, type='date', required=True) }}
+    {{ ui.input('date_to', 'To Working Date', date_to, type='date', required=True) }}
+  </div>
+  {{ ui.button('Run auto arrangement', icon='wand-2') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

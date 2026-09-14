@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA Review Queue{% endblock %}
+{% block content %}
+{% call ui.page_header("QA Review Queue", "Mapped call recordings waiting for a QA review - pick one and start the review") %}
+  {{ ui.button("Reviewed Calls", href="/qa/reviewed", icon="check-check", variant="secondary") }}
+  {{ ui.button("Un-Matched Calls", href="/qa/calls/unmatched", icon="phone-missed", variant="ghost") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Agent", stats.agent, icon="headset", color=palette(0), href="/qa/queue?source=AGENT") }}
+  {{ ui.stat("Teams", stats.teams, icon="users", color=palette(1), href="/qa/queue?source=TEAMS") }}
+  {{ ui.stat("Zoom", stats.zoom, icon="video", color=palette(2), href="/qa/queue?source=ZOOM") }}
+  {{ ui.stat("Total Que Calls", stats.total, icon="list-checks", color=palette(3), href="/qa/queue") }}
+</div>
+
+{% call ui.filter_bar('/qa/queue') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('source', 'Source', sources, source, placeholder='All') }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto">
+{{ ui.table_start(['Call Source ID','Call Source Type','Class Attendance ID','Class','Duration','Start Time','End Time','Review State','Platform','Source Name','Review']) }}
+{% for c in page.items %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">{{ c.external_id or c.id }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(c.source) }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.session_id %}<a href="/classes/{{ c.session_id }}" class="text-brand-600 hover:underline">#{{ c.session_id }}</a>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{% if c.session %}<div class="font-medium text-slate-800">{{ c.session.student.full_name if c.session.student else '-' }}</div><div class="text-[11px] text-slate-500">{{ c.session.teacher.full_name if c.session.teacher else '-' }} &middot; {{ c.session.date|date }}</div>{% else %}{{ c.teacher.full_name if c.teacher else '-' }} &middot; {{ c.recording_date|date }}{% endif %}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ c.duration_minutes }} min</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.start_time.strftime('%H:%M') if c.start_time else '-' }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.end_time.strftime('%H:%M') if c.end_time else '-' }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(c.review_state, c.review_state|titleize) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.platform }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.source_name or '-' }}</td>
+  <td class="px-4 py-2 text-right">
+    {% if has_perm(user, 'qa.add') or has_perm(user, 'qa.update') %}
+    <form method="post" action="/qa/calls/{{ c.id }}/start-review" class="inline">{{ ui.button('Start Review', icon='play', size='sm') }}</form>
+    {% else %}-{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('The review queue is empty - map un-matched calls or sync new recordings.', 11, 'list-checks') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

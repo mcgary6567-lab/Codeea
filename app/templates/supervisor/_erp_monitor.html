@@ -1,0 +1,92 @@
+{# ERP Monitoring Dashboard section (audit 3.11 / 3.12) - shared by the Supervisor Portal and the HOD Portal.
+   Expects `erp` from app.services.classes.erp_monitor. #}
+{% import "macros.html" as ui %}
+{# ERP duration highlight rules: under 15 red, under 20 orange, under 25 yellow, under 35 lime. #}
+{% macro dur_badge(s) %}
+{%- set d = s.actual_duration_minutes if s.status == 'done' else none -%}
+{%- if d is not none and d < 35 -%}
+{%- set c = 'rose' if d < 15 else ('orange' if d < 20 else ('yellow' if d < 25 else 'lime')) -%}
+<span class="rounded bg-{{ c }}-100 px-1 text-[10px] font-semibold text-{{ c }}-700">{{ d }}m</span>
+{%- endif -%}
+{% endmacro %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+  {% for tile in erp.tiles %}
+    {{ ui.stat(tile.label, tile.value, color=palette(loop.index0), href=tile.href) }}
+  {% endfor %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+  {% for p in erp.panels %}
+  {% call ui.card(p.label, (p['items']|length) ~ ' class(es)') %}
+    <ul class="divide-y divide-slate-100 text-[13px]">
+      {% for s in p['items'][:12] %}
+      <li class="flex items-center gap-2 py-1.5">
+        <span class="w-12 shrink-0 font-mono text-[11px] text-slate-500">{{ s.start_time|time }}</span>
+        <a href="/classes/{{ s.id }}" class="min-w-0 flex-1 truncate hover:text-brand-700">
+          <span class="font-medium">{{ s.teacher.full_name if s.teacher else '-' }}</span>
+          <span class="text-slate-400"> / </span>{{ s.student.full_name if s.student else '-' }}</a>
+        {{ dur_badge(s) }}
+        {% if s.status == 'done' and not s.activity_updated_at %}<span class="rounded bg-rose-100 px-1 text-[10px] font-semibold text-rose-700">No Activity</span>{% endif %}
+      </li>
+      {% else %}<li class="py-5 text-center text-slate-400">None.</li>{% endfor %}
+      {% if p['items']|length > 12 %}<li class="pt-1.5 text-center text-[11px] text-slate-500">+{{ p['items']|length - 12 }} more</li>{% endif %}
+    </ul>
+  {% endcall %}
+  {% endfor %}
+
+  {% call ui.card('Upcoming Classes', 'Starting in the next two hours') %}
+    <ul class="divide-y divide-slate-100 text-[13px]">
+      {% for s in erp.upcoming[:12] %}
+      <li class="flex items-center gap-2 py-1.5">
+        <span class="w-12 shrink-0 font-mono text-[11px] text-slate-500">{{ s.start_time|time }}</span>
+        <a href="/classes/{{ s.id }}" class="min-w-0 flex-1 truncate hover:text-brand-700">
+          <span class="font-medium">{{ s.teacher.full_name if s.teacher else '-' }}</span>
+          <span class="text-slate-400"> / </span>{{ s.student.full_name if s.student else '-' }}</a>
+        {{ ui.badge(s.status, s.status|label('class')) }}
+      </li>
+      {% else %}<li class="py-5 text-center text-slate-400">Nothing in the next two hours.</li>{% endfor %}
+    </ul>
+  {% endcall %}
+
+  {% call ui.card('Class Queries', 'Pending queries raised by teachers') %}
+    <ul class="divide-y divide-slate-100 text-[13px]">
+      {% for q in erp.queries[:12] %}
+      <li class="py-1.5">
+        <div class="flex items-center gap-2"><b class="truncate">{{ q.query_type }}</b>
+          <span class="ml-auto shrink-0 text-[11px] text-slate-500">{{ q.teacher.full_name if q.teacher else '-' }}</span></div>
+        <div class="truncate text-[12px] text-slate-600">{{ q.detail or '-' }}</div>
+      </li>
+      {% else %}<li class="py-5 text-center text-slate-400">No pending queries.</li>{% endfor %}
+    </ul>
+    <div class="mt-2"><a href="/classes/queries?status=pending" class="text-xs font-medium text-brand-600 hover:underline">Open Class Queries</a></div>
+  {% endcall %}
+
+  {% call ui.card('Reschedule Classes', 'Pending approval') %}
+    <ul class="divide-y divide-slate-100 text-[13px]">
+      {% for r in erp.reschedules[:12] %}
+      <li class="flex items-center gap-2 py-1.5">
+        <span class="w-20 shrink-0 font-mono text-[11px] text-slate-500">{{ r.new_date|date }}</span>
+        <span class="min-w-0 flex-1 truncate">{{ r.new_teacher.full_name if r.new_teacher else '-' }}
+          <span class="text-slate-400">/</span> {{ r.reason or '-' }}</span>
+        {{ ui.badge(r.status, r.status|label('request')) }}
+      </li>
+      {% else %}<li class="py-5 text-center text-slate-400">No pending reschedules.</li>{% endfor %}
+    </ul>
+    <div class="mt-2"><a href="/classes/rescheduled?status=pending" class="text-xs font-medium text-brand-600 hover:underline">Open Rescheduled Classes</a></div>
+  {% endcall %}
+
+  {% call ui.card('Upcoming Trials', 'Trial classes today') %}
+    <ul class="divide-y divide-slate-100 text-[13px]">
+      {% for s in erp.trials[:12] %}
+      <li class="flex items-center gap-2 py-1.5">
+        <span class="w-12 shrink-0 font-mono text-[11px] text-slate-500">{{ s.start_time|time }}</span>
+        <a href="/classes/{{ s.id }}" class="min-w-0 flex-1 truncate hover:text-brand-700">
+          <span class="font-medium">{{ s.teacher.full_name if s.teacher else '-' }}</span>
+          <span class="text-slate-400"> / </span>{{ s.student.full_name if s.student else '-' }}</a>
+      </li>
+      {% else %}<li class="py-5 text-center text-slate-400">No trial classes today.</li>{% endfor %}
+    </ul>
+    <div class="mt-2"><a href="/trials/running" class="text-xs font-medium text-brand-600 hover:underline">Open Running Trials</a></div>
+  {% endcall %}
+</div>

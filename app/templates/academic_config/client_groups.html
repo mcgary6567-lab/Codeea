@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Client Academic Groups{% endblock %}
+{% block content %}
+{% call ui.page_header("Client Academic Groups", "Morning and Night groups: which shift serves a family and who represents it on the academic side.", back="/academics/config") %}
+  {{ ui.button("Clients", href="/clients", icon="users", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newGroup\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat("All Groups", stats.total, color=palette(0), href="/academics/config/client-groups") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/client-groups?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/client-groups?status=inactive") }}
+  {{ ui.stat("Morning", stats.morning, color=palette(4), href="/academics/config/client-groups?shift_group=morning") }}
+  {{ ui.stat("Night", stats.night, color=palette(6), href="/academics/config/client-groups?shift_group=night") }}
+</div>
+
+{% call ui.filter_bar('/academics/config/client-groups') %}
+  <div class="w-44">{{ ui.select('shift_group', 'Shift', shift_groups, shift_group, placeholder='All shifts') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% macro group_form(action, g, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+  {{ ui.input('name', 'Group Name', g.name if g else '', required=True, placeholder='e.g. Morning Group') }}
+  {{ ui.input('pseudo_name', 'Sudo Name', g.pseudo_name if g else '', placeholder='e.g. Morning Manager', help='Shown to families instead of the real name') }}
+  {{ ui.select('shift_group', 'Shift', shift_groups, g.shift_group if g else 'morning', placeholder=None) }}
+  {{ ui.select('representative_id', 'Representative Name', representative_options, g.representative_id if g else None, placeholder='— Select user —') }}
+  {{ ui.select('status', 'Status', statuses, g.status if g else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-5 flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start(['ID', 'Group Name', 'Sudo Name', 'Shift', 'Representative Name', 'Status', '']) }}
+{% for g in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ g.id }}</td>
+  <td class="px-4 py-2 font-medium text-slate-900">{{ g.name }}</td>
+  <td class="px-4 py-2 text-xs">{{ g.pseudo_name or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ g.shift_group|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{% if g.representative %}<div class="flex items-center gap-2">{{ ui.avatar(g.representative.full_name, 'sm') }}<span>{{ g.representative.full_name }}</span></div>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(g.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/client-groups/{{ g.id }}/toggle" class="inline">{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ group_form('/academics/config/client-groups/' ~ g.id ~ '/edit', g, 'Save group') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No client academic groups match these filters.', 7, 'users-round') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} group{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newGroup', 'Create Client Academic Group', 'lg') %}
+{{ group_form('/academics/config/client-groups/new', None, 'Create group') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

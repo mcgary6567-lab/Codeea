@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Questions Bank{% endblock %}
+{% block content %}
+{% call ui.page_header("Questions Bank", "Questions per book and assessment, with type and marks. Assessments draw their papers from here.", back="/academics/config") %}
+  {{ ui.button("Define Assessment", href="/academics/config/assessments", icon="file-check", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-7 mb-6">
+  {{ ui.stat("All Questions", stats.total, color=palette(0), href="/academics/config/question-bank") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/question-bank?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/question-bank?status=inactive") }}
+  {% for key, label in question_types %}{{ ui.stat(label, stats[key], color=palette(loop.index), href="/academics/config/question-bank?question_type=" ~ key) }}{% endfor %}
+</div>
+
+{% call ui.filter_bar('/academics/config/question-bank') %}
+  <div class="w-56">{{ ui.select('book_id', 'Book', book_options, book_id, placeholder='All books') }}</div>
+  <div class="w-56">{{ ui.select('assessment_id', 'Assessment', assessment_options, assessment_id, placeholder='All assessments') }}</div>
+  <div class="w-36">{{ ui.select('question_type', 'Type', question_types, question_type, placeholder='All types') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Question text') }}</div>
+{% endcall %}
+
+{% set here = request.url.path ~ (('?' ~ request.url.query) if request.url.query else '') %}
+
+{% macro question_form(action, item, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+  <input type="hidden" name="next" value="{{ here }}">
+  {{ ui.select('book_id', 'Book', book_options, item.book_id if item else book_id, placeholder='— Select book —') }}
+  {{ ui.select('assessment_id', 'Assessment', assessment_options, item.assessment_id if item else assessment_id, placeholder='— None —') }}
+  {{ ui.select('question_type', 'Type', question_types, item.question_type if item else 'oral', placeholder=None) }}
+  {{ ui.input('marks', 'Marks', item.marks if item else 1, type='number', step='0.5', min=0.5, required=True) }}
+  <div class="sm:col-span-2 lg:col-span-4">{{ ui.textarea('question', 'Question', item.question if item else '', rows=2, required=True, placeholder='e.g. Recite Surah Al-Fatiha with correct makhaarij') }}</div>
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.textarea('answer', 'Model answer / marking note', item.answer if item else '', rows=2) }}</div>
+  {{ ui.select('status', 'Status', statuses, item.status if item else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-4 flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start(['ID', 'Book', 'Assessment', 'Question', 'Type', 'Marks', 'Status', '']) }}
+{% for item in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ item.id }}</td>
+  <td class="px-4 py-2 text-xs">{{ item.book.title if item.book else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{% if item.assessment %}<a href="/academics/config/assessments/{{ item.assessment_id }}" class="text-brand-700 hover:underline">{{ item.assessment.title }}</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 max-w-md"><div class="text-slate-900">{{ item.question }}</div>{% if item.answer %}<div class="text-xs text-slate-500 truncate">{{ item.answer }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ item.question_type|upper if item.question_type == 'mcq' else item.question_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs text-center font-semibold">{{ item.marks|int if item.marks == item.marks|int else item.marks }}</td>
+  <td class="px-4 py-2">{{ ui.badge(item.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline"><input type="hidden" name="next" value="{{ here }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/question-bank/' ~ item.id ~ '/edit', item, 'Save question') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No questions match these filters.', 8, 'help-circle') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} question{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newQuestion', 'Create Question', 'lg') %}
+{{ question_form('/academics/config/question-bank/new', None, 'Add question') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

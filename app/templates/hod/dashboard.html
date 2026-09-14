@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Academic Manager Portal{% endblock %}
+{% block content %}
+{% call ui.page_header("Academic Manager Portal", "Academics, HR, billing and team progress for the chosen dates") %}
+  {{ ui.button("Refresh", href=base_url ~ "&tab=" ~ tab, icon="refresh-cw", variant="secondary") }}
+  {{ ui.button("Supervisor board", href="/supervisor", icon="radio", variant="secondary") }}
+  {{ ui.button("Class Status Summary", href="/classes/status-summary?date=" ~ date_to, icon="layout-grid") }}
+{% endcall %}
+
+{% call ui.filter_bar('/hod') %}
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-52">{{ ui.select('employee_id', 'Employee', teacher_options, employee_id, placeholder='All teachers') }}</div>
+{% endcall %}
+
+{% include "supervisor/_erp_monitor.html" %}
+
+<div class="mt-7">
+{{ ui.tabs(tab_items, tab) }}
+
+{% if tab == 'academics' %}
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card('Academics Summary', academics.summary_total ~ ' class(es) between ' ~ (date_from|date) ~ ' and ' ~ (date_to|date)) %}
+    {{ ui.table_start(['Status', 'Count', 'Share'], compact=True) }}
+    {% for r in academics.summary %}
+    <tr><td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('class')) }}</td>
+      <td class="px-3 py-1.5 font-semibold">{{ r.count }}</td>
+      <td class="px-3 py-1.5 w-40">{{ ui.progress(((100 * r.count / academics.summary_total)|round(1)) if academics.summary_total else 0, color='brand') }}</td></tr>
+    {% else %}{{ ui.empty('No classes in this range.', 3) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Absent Staff', 'On approved leave or marked absent in the range') %}
+    {{ ui.table_start(['Teacher', 'From', 'To', 'Classes Needing Cover', 'Reason'], compact=True) }}
+    {% for r in academics.absent_staff %}
+    <tr><td class="px-3 py-1.5 font-medium">{{ r.teacher.full_name }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ r['from']|date }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ r['to']|date }}</td>
+      <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if r.pending }}">{{ r.pending }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ r.reasons|join('; ') }}</td></tr>
+    {% else %}{{ ui.empty('No absent staff.', 5, 'user-check') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Today Trials', 'Trial classes scheduled today') %}
+    {{ ui.table_start(['Time', 'Teacher', 'Student', 'Course', 'Status'], compact=True) }}
+    {% for s in academics.today_trials %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs">{{ s.start_time|time }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs"><a href="/classes/{{ s.id }}" class="hover:text-brand-700">{{ s.student.full_name if s.student else '-' }}</a></td>
+      <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '-' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('class')) }}</td></tr>
+    {% else %}{{ ui.empty('No trial classes today.', 5, 'flask-conical') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Dropped Students', 'Last 30 days') %}
+    {{ ui.table_start(['Student', 'Client', 'Drop Date', 'Reason'], compact=True) }}
+    {% for s in academics.dropped %}
+    <tr><td class="px-3 py-1.5"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.full_name }}</a></td>
+      <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ (s.drop_date or s.cancelled_at)|date }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ s.cancel_reason or '-' }}</td></tr>
+    {% else %}{{ ui.empty('No students dropped in the last 30 days.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('New Student Registration', 'Last 30 days') %}
+    {{ ui.table_start(['Student', 'Client', 'Reg. Date', 'Status', 'Teacher'], compact=True) }}
+    {% for s in academics.new_students %}
+    <tr><td class="px-3 py-1.5"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.full_name }}</a></td>
+      <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ s.join_date|date }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('student')) }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '-' }}</td></tr>
+    {% else %}{{ ui.empty('No new registrations in the last 30 days.', 5) }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'hr' %}
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat('Late Check-Ins', hr.late_total, color=palette(2)) }}
+  {{ ui.stat('Absences', hr.absent_total, color=palette(3)) }}
+  {{ ui.stat('Present', hr.present_total, color=palette(0)) }}
+  {{ ui.stat('Pending Staff Leaves', hr.pending_leaves|length, color=palette(5), href='/hr/leaves?status=pending') }}
+</div>
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card('Late and Absent Staff', 'In the selected range') %}
+    {{ ui.table_start(['Employee', 'Designation', 'Late', 'Absent', 'Present'], compact=True) }}
+    {% for b in hr.staff %}
+    <tr><td class="px-3 py-1.5 font-medium">{{ b.employee.full_name if b.employee else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ b.employee.designation if b.employee else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-amber-600' if b.late }}">{{ b.late }}</td>
+      <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if b.absent }}">{{ b.absent }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ b.present }}</td></tr>
+    {% else %}{{ ui.empty('No late or absent staff in this range.', 5, 'user-check') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Pending Staff Leaves', 'Waiting for approval') %}
+    {{ ui.table_start(['Employee', 'Type', 'From', 'To', 'Reason'], compact=True) }}
+    {% for l in hr.pending_leaves %}
+    <tr><td class="px-3 py-1.5 font-medium">{{ l.employee.full_name if l.employee else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ l.leave_type|titleize }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ l.start_date|date }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ l.end_date|date }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ l.reason or '-' }}</td></tr>
+    {% else %}{{ ui.empty('No leave requests waiting.', 5, 'calendar-check') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% elif tab == 'billing' %}
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat('Pending Invoices', billing.pending_count, color=palette(2), href='/finance/invoices?status=pending') }}
+  {{ ui.stat('Pending Amount', billing.pending_amount|money, color=palette(3)) }}
+  {{ ui.stat('Receipts Today', billing.receipts_today|length, color=palette(0), href='/finance/receipts') }}
+  {{ ui.stat('Received Today', billing.receipts_today_amount|money, color=palette(1)) }}
+</div>
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card('Pending Invoices', billing.pending_count ~ ' invoice(s) issued in the range') %}
+    {{ ui.table_start(['Invoice', 'Client', 'Issue Date', 'Due Date', 'Status', 'Outstanding'], compact=True) }}
+    {% for i in billing.invoices %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs"><a href="/finance/invoices/{{ i.id }}" class="text-brand-700 hover:underline">{{ i.invoice_number }}</a></td>
+      <td class="px-3 py-1.5 text-xs">{{ i.client.full_name if i.client else '-' }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ i.issue_date|date }}</td>
+      <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if i.due_date < current_date }}">{{ i.due_date|date }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(i.status, i.status|label('invoice')) }}</td>
+      <td class="px-3 py-1.5 text-right text-xs">{{ (i.total - i.paid_amount)|money(i.currency) }}</td></tr>
+    {% else %}{{ ui.empty('No pending invoices in this range.', 6, 'receipt') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+
+  {% call ui.card('Receipts Today', billing.receipts_today_amount|money ~ ' received today; ' ~ billing.receipts_period ~ ' receipt(s) in the range') %}
+    {{ ui.table_start(['Receipt', 'Client', 'Amount', 'Mode', 'Received'], compact=True) }}
+    {% for p in billing.receipts_today %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs">{{ p.payment_number }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ p.client.full_name if p.client else '-' }}</td>
+      <td class="px-3 py-1.5 text-right text-xs">{{ p.amount|money(p.currency) }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ p.method|titleize }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ p.received_at|datetime }}</td></tr>
+    {% else %}{{ ui.empty('No receipts recorded today.', 5, 'badge-check') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+</div>
+
+{% else %}
+<div class="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+  <span class="font-semibold text-slate-700">Average duration highlights:</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-rose-200"></span> under 15 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-orange-200"></span> under 20 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-yellow-200"></span> under 25 min</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-3 rounded bg-lime-200"></span> under 35 min</span>
+</div>
+{{ ui.table_start(['Teacher', 'Total', 'Done', 'Missed', 'Student Absent', 'Avg Duration', 'Short Classes', 'No Activity', 'Pending Queries', 'Completion %'], compact=True) }}
+{% for b in progress %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{{ b.teacher.full_name if b.teacher else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ b.total }}</td>
+  <td class="px-3 py-1.5 text-xs text-emerald-700">{{ b.done }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if b.missed }}">{{ b.missed }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ b.absent }}</td>
+  <td class="px-3 py-1.5 text-xs {{ ('bg-' ~ b.highlight.color ~ '-100 font-semibold') if b.highlight else '' }}">{{ b.avg_duration }} min</td>
+  <td class="px-3 py-1.5 text-xs">{{ b.short }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if b.no_activity }}">{{ b.no_activity }}</td>
+  <td class="px-3 py-1.5 text-xs">{% if b.queries %}<a href="/classes/queries?status=pending&teacher_id={{ b.teacher.id if b.teacher }}" class="font-semibold text-amber-700 hover:underline">{{ b.queries }}</a>{% else %}0{% endif %}</td>
+  <td class="px-3 py-1.5 w-40">{{ ui.progress(b.completion, color=('emerald' if b.completion >= 90 else ('amber' if b.completion >= 75 else 'rose'))) }}</td>
+</tr>
+{% else %}{{ ui.empty('No classes in this range.', 10, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+{% endif %}
+</div>
+{% endblock %}

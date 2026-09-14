@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Agent Un-Matched Calls{% endblock %}
+{% block content %}
+{% call ui.page_header("Agent Un-Matched Calls", "Recordings the platforms could not link to a class - map each one to the class it belongs to") %}
+  {{ ui.button("View Mapped Classes", href="/qa/calls?review_state=mapped", icon="link", variant="secondary") }}
+  {{ ui.button("All Call Recordings", href="/qa/calls", icon="phone-call", variant="ghost") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+  {{ ui.stat("Un-Matched Calls", stats.unmatched, icon="phone-missed", color=palette(1)) }}
+  {{ ui.stat("Agent Un-Matched", stats.agent, icon="headset", color=palette(3)) }}
+  {{ ui.stat("Mapped Classes", stats.mapped, icon="link", color=palette(2), href="/qa/calls?review_state=mapped") }}
+</div>
+
+{% call ui.filter_bar('/qa/calls/unmatched') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Row Id','Source Name','Platform','Recording Date','Employee','Start Time','Durations Minuts','Recording Url','Map to class']) }}
+{% for c in page.items %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs">{{ c.id }}</td>
+  <td class="px-4 py-2 text-sm">{{ c.source_name or '-' }}<div class="text-[10px] text-slate-400">{{ c.external_id }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(c.source) }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.recording_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.teacher.full_name if c.teacher else (c.employee.full_name if c.employee else '-') }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.start_time.strftime('%H:%M') if c.start_time else '-' }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ c.duration_minutes }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.recording_url %}<a href="{{ c.recording_url }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">Play</a>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2">
+    {% if has_perm(user, 'qa.update') or has_perm(user, 'qa.add') %}
+    {% set opts = candidates.get(c.id, []) %}
+    {% if opts %}
+    <form method="post" action="/qa/calls/{{ c.id }}/map" class="flex items-end gap-2">
+      <select name="session_id" required class="w-72 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+        <option value="">Select class session</option>
+        {% for s in opts %}<option value="{{ s.id }}">#{{ s.id }} {{ s.date.strftime('%d %b') }} {{ s.start_time.strftime('%H:%M') }} - {{ s.student.full_name if s.student else 'student' }} / {{ s.teacher.full_name if s.teacher else 'teacher' }}</option>{% endfor %}
+      </select>
+      {{ ui.button('Map', icon='link', size='sm') }}
+    </form>
+    {% else %}<span class="text-xs text-slate-400">No done class on {{ c.recording_date|date }} for this teacher.</span>{% endif %}
+    {% else %}<span class="text-xs text-slate-400">-</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('Every call is mapped to a class. Nothing to do here.', 9, 'check-circle-2') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

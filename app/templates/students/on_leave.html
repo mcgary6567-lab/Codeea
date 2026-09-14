@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}On Leave Students{% endblock %}
+{% block content %}
+{% call ui.page_header("On Leave Students", "Students whose approved leave covers today, or whose enrolment is frozen. Classes in the range are marked Student On-Leave.") %}
+  {{ ui.button("Student Leaves", href="/leaves/students", icon="calendar-off", variant="secondary") }}
+  {{ ui.button("Leave Applications", href="/requests/leaves?status=pending", icon="inbox", variant="secondary") }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("On leave today", stats.on_leave, icon="plane", color=palette(0), href="/students/on-leave") }}
+  {{ ui.stat("Approved leave", stats.approved_today, icon="check-circle-2", color=palette(1)) }}
+  {{ ui.stat("Frozen enrolments", stats.frozen, icon="pause", color=palette(4), href="/students?status=frozen") }}
+  {{ ui.stat("Upcoming leaves", stats.upcoming, icon="calendar", color=palette(3), href="/leaves/students?status=approved") }}
+  {{ ui.stat("Pending applications", stats.pending, icon="clock", color=palette(5), href="/requests/leaves?status=pending") }}
+</div>
+{% call ui.filter_bar('/students/on-leave') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Student, ID, client') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+{% endcall %}
+{{ ui.table_start(['Student', 'Client', 'Shift', 'Leave Start', 'Leave End', 'Reason', 'Leave For All', 'Status', '']) }}
+{% for s in page.items %}
+{% set lv = leaves.get(s.id) %}
+<tr class="hover:bg-slate-50">
+  <td class="px-3 py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }}</a> <span class="font-mono text-[11px] text-slate-400">{{ s.student_code }}</span></td>
+  <td class="px-3 py-2 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="hover:text-brand-600">{{ s.client.full_name }}</a>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{% if s.client %}<span class="rounded px-1.5 py-0.5 text-[11px] font-semibold {{ 'bg-amber-100 text-amber-800' if s.client.shift == 'morning' else 'bg-indigo-100 text-indigo-800' }}">{{ s.client.shift|titleize }}</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ lv.start_date|date if lv else '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ lv.end_date|date if lv else 'until unfrozen' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-600 max-w-xs">{{ (lv.reason or lv.leave_detail or '—')|truncate(80) if lv else 'Enrolment frozen' }}</td>
+  <td class="px-3 py-2 text-xs">{{ 'Yes' if lv and lv.leave_for_all else 'No' }}</td>
+  <td class="px-3 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">{% if lv %}{{ ui.button('Leave', href='/requests/leaves/' ~ lv.id, variant='ghost', size='sm', icon='calendar-off') }}{% endif %}{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+</tr>
+{% else %}{{ ui.empty('No students are on leave today.', 9, 'plane') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

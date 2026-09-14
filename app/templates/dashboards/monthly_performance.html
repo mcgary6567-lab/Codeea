@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Monthly Performance Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Monthly Performance Dashboard", "Academics, marketing, billing and HR activity for the selected window.") %}
+  {{ ui.button("Financial Summary", href="/dashboards/financial-summary", icon="pie-chart", variant="secondary") }}
+  {{ ui.button("Monthly Insights", href="/dashboards/monthly-insights", icon="trending-up", variant="secondary") }}
+{% endcall %}
+
+<form method="get" action="/dashboards/monthly-performance" class="mb-4 rounded-md border border-slate-200 bg-white p-2.5">
+  <div class="flex flex-wrap items-end gap-2">
+    <div class="w-36">{{ ui.input('start', 'Start Date', start, type='date') }}</div>
+    <div class="w-36">{{ ui.input('end', 'End Date', end, type='date') }}</div>
+    <div class="w-64">
+      <label for="f_employee_ids" class="mb-1 block text-xs font-semibold text-slate-600">Employees</label>
+      <select id="f_employee_ids" name="employee_ids" multiple size="1"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+        {% for eid, ename in opts.employees %}
+        <option value="{{ eid }}" {% if eid in employee_ids %}selected{% endif %}>{{ ename }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <input type="hidden" name="department" value="{{ department }}">
+    <button class="inline-flex items-center gap-1 rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"><i data-lucide="search" class="h-3.5 w-3.5"></i>Go</button>
+    <a href="/dashboards/monthly-performance" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Reset</a>
+  </div>
+</form>
+
+{% set base_q = 'start=' ~ start ~ '&end=' ~ end %}
+{{ ui.tabs([('all', 'Show All', '/dashboards/monthly-performance?' ~ base_q ~ '&department=all'),
+            ('academics', 'Academics', '/dashboards/monthly-performance?' ~ base_q ~ '&department=academics'),
+            ('marketing', 'Marketing', '/dashboards/monthly-performance?' ~ base_q ~ '&department=marketing'),
+            ('billing', 'Billing', '/dashboards/monthly-performance?' ~ base_q ~ '&department=billing'),
+            ('hr', 'HR', '/dashboards/monthly-performance?' ~ base_q ~ '&department=hr')], department) }}
+
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+  {% for p in d.panels %}
+  <div class="rounded-md border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-start justify-between border-b border-slate-200 bg-[#f7f9fc] px-3 py-2">
+      <div class="min-w-0">
+        <div class="truncate text-[12.5px] font-semibold text-slate-700">{{ p.label }}</div>
+        <div class="text-[11px] text-slate-500">{{ p.department|titleize }}{% if p.kind == 'amount' %} · {{ d.base }}{% endif %}</div>
+      </div>
+      <div class="text-right text-[22px] font-bold leading-none text-brand-700">
+        {% if p.kind == 'amount' %}{{ p.value|money }}{% else %}{{ p.value }}{% endif %}
+      </div>
+    </div>
+    <div class="px-2 pb-2 pt-1">
+      <div class="relative" style="height: 92px"><canvas id="mp{{ p.key }}"></canvas></div>
+      {% if p.breakdown %}
+      <div class="mt-1 flex flex-wrap gap-1">
+        {% for k, v in p.breakdown.items() %}
+        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] text-slate-600">{{ k }} <b>{{ v }}</b></span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="sm:col-span-2 lg:col-span-3 xl:col-span-4">{{ ui.empty_state('No panels for this department.') }}</div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var series = {{ d.panels|map(attribute='key')|list|tojson }};
+  var payload = {
+  {% for p in d.panels %}"{{ p.key }}": {labels: {{ p.series.labels|tojson }}, data: {{ p.series.data|tojson }}}{{ ',' if not loop.last }}
+  {% endfor %}};
+  var opts = {plugins: {legend: {display: false}}, scales: {x: {display: false}, y: {display: false, beginAtZero: true}}};
+  series.forEach(function (k) {
+    OQC.bar('mp' + k, payload[k].labels, [{label: k, data: payload[k].data, backgroundColor: '#2b7fd3'}], opts);
+  });
+})();
+</script>
+{% endblock %}

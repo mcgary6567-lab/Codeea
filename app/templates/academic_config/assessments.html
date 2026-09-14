@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Define Assessment{% endblock %}
+{% block content %}
+{% call ui.page_header("Define Assessment", "Assessments per book with passing and total marks. Open an assessment to manage its questions.", back="/academics/config") %}
+  {{ ui.button("Questions Bank", href="/academics/config/question-bank", icon="help-circle", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newAssessment\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("All Assessments", stats.total, color=palette(0), href="/academics/config/assessments") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/assessments?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/assessments?status=inactive") }}
+  {{ ui.stat("Questions Assigned", stats.questions, color=palette(1), href="/academics/config/question-bank") }}
+</div>
+
+{% call ui.filter_bar('/academics/config/assessments') %}
+  <div class="w-56">{{ ui.select('book_id', 'Book', book_options, book_id, placeholder='All books') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Assessment title') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Book', 'Title', 'Passing Marks', 'Total Marks', 'Questions', 'Add Date', 'Status', '']) }}
+{% for a in rows %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.book.title if a.book else '—' }}</td>
+  <td class="px-4 py-2"><a href="/academics/config/assessments/{{ a.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ a.title }}</a></td>
+  <td class="px-4 py-2 text-xs text-center">{{ a.passing_marks|int if a.passing_marks == a.passing_marks|int else a.passing_marks }}</td>
+  <td class="px-4 py-2 text-xs text-center">{{ a.total_marks|int if a.total_marks == a.total_marks|int else a.total_marks }}</td>
+  <td class="px-4 py-2 text-xs text-center">{{ qcounts.get(a.id, 0) }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.created_at|date }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Open', href='/academics/config/assessments/' ~ a.id, variant='ghost', size='sm', icon='arrow-right') }}
+    {% if can_edit %}<form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No assessments match these filters.', 9, 'file-check') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} assessment{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newAssessment', 'Create Assessment') %}
+<form method="post" action="/academics/config/assessments/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('book_id', 'Book', book_options, book_id, placeholder='— Select book —') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True, placeholder='e.g. Iqra Book Assessment no 1') }}</div>
+  {{ ui.input('passing_marks', 'Passing Marks', 18, type='number', step='0.5', min=0, required=True) }}
+  {{ ui.input('total_marks', 'Total Marks', 30, type='number', step='0.5', min=1, required=True) }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create assessment', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Billing Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Billing Management Dashboard", "Business volume, family receivables, confirmed invoices and payroll.") %}
+  {{ ui.button("Invoice List", href="/finance/invoices", icon="file-text", variant="secondary") }}
+  {{ ui.button("Receipts", href="/finance/receipts", icon="badge-check", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/dashboards/billing') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Employee', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-44">{{ ui.select('country', 'Country', opts.countries, country, placeholder='All countries') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
+{% endcall %}
+
+<div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Regular Subscriptions", d.volume.count, color=palette(0), hint="families in view: " ~ d.clients) }}
+  {{ ui.stat("Monthly Business Volume", d.volume.monthly_base|money(d.base), color=palette(1)) }}
+  {{ ui.stat("Invoices Confirmed", d.invoices.confirmed_base|money(d.base), color=palette(2), hint=d.invoices.confirmed_count ~ " invoices") }}
+  {{ ui.stat("Month Payroll Amount", d.payroll.total_net|money(d.payroll.currency), color=palette(3), hint="last 3 months") }}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3">
+  {% call ui.card("Over All Business Volume", "Regular subscriptions in " ~ d.base) %}
+  {{ ui.dl([('Regular subscriptions', d.volume.count),
+            ('Monthly volume', d.volume.monthly_base|money(d.base)),
+            ('Annualised volume', d.volume.annual_base|money(d.base)),
+            ('Average per subscription', d.volume.avg_base|money(d.base))]) }}
+  {% endcall %}
+
+  {% call ui.card("Clients Receivables", "Ledger balance in " ~ d.base) %}
+  {{ ui.dl([('Opening (before ' ~ d.filters.date_from.strftime('%d %b %Y') ~ ')', d.receivables.opening|money(d.base)),
+            ('Closing (to ' ~ d.filters.date_to.strftime('%d %b %Y') ~ ')', d.receivables.closing|money(d.base)),
+            ('Difference', d.receivables.difference|money(d.base))]) }}
+  <div class="mt-3 text-xs {{ 'text-rose-600' if d.receivables.difference > 0 else 'text-emerald-600' }}">
+    {% if d.receivables.difference > 0 %}Receivables grew over the period.{% elif d.receivables.difference < 0 %}Receivables reduced over the period.{% else %}No movement in the period.{% endif %}
+  </div>
+  {% endcall %}
+
+  {% call ui.card("Invoices", "Raised between the selected dates") %}
+  {{ ui.dl([('Confirmed value', d.invoices.confirmed_base|money(d.base)),
+            ('Confirmed count', d.invoices.confirmed_count),
+            ('All invoices (net of cancelled)', d.invoices.all_base|money(d.base)),
+            ('Paid against them', d.invoices.paid_base|money(d.base))]) }}
+  {% endcall %}
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+  {% call ui.card("Month Payroll Amount", "Last three payroll runs") %}
+  {{ ui.table_start(['Period', 'Status', 'Gross', 'Net'], compact=True) }}
+  {% for r in d.payroll.rows %}
+  <tr>
+    <td class="px-3 py-1.5 font-medium text-slate-700">{{ r.label }}</td>
+    <td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td>
+    <td class="px-3 py-1.5 text-right">{{ r.gross|money(r.currency) }}</td>
+    <td class="px-3 py-1.5 text-right font-semibold">{{ r.net|money(r.currency) }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No payroll runs yet.', 4) }}{% endfor %}
+  {{ ui.table_end() }}
+  {% endcall %}
+
+  <div class="lg:col-span-2">
+  {% call ui.card("Regular / Cancelled Subscriptions flow", "New regular subscriptions against cancellations") %}
+    {{ ui.chart('bdFlow', 300) }}
+  {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  OQC.line('bdFlow', {{ d.flow.labels|tojson }}, [
+    {label: 'Regular', data: {{ d.flow.regular.data|tojson }}, borderColor: '#33b479', backgroundColor: '#33b47922'},
+    {label: 'Cancelled', data: {{ d.flow.cancelled.data|tojson }}, borderColor: '#e35a4e', backgroundColor: '#e35a4e22'}
+  ]);
+})();
+</script>
+{% endblock %}

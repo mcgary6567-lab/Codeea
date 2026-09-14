@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Call Recordings{% endblock %}
+{% block content %}
+{% call ui.page_header("Call Recordings", "Class call recordings pulled from the Agent softphone, Microsoft Teams and Zoom") %}
+  {{ ui.button("Agent Un-Matched Calls", href="/qa/calls/unmatched", icon="phone-missed", variant="secondary") }}
+  {% if has_perm(user, 'qa.execute') or has_perm(user, 'qa.add') %}
+  <form method="post" action="/qa/calls/sync" class="inline"><input type="hidden" name="days" value="14">{{ ui.button("SYNC Calls", icon="refresh-cw") }}</form>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Total", stats.total, icon="phone-call", color=palette(0), href="/qa/calls?" ~ filter_qs) }}
+  {{ ui.stat("Agent", stats.agent, icon="headset", color=palette(1), href="/qa/calls?source=AGENT&" ~ filter_qs) }}
+  {{ ui.stat("Teams", stats.teams, icon="users", color=palette(2), href="/qa/calls?source=TEAMS&" ~ filter_qs) }}
+  {{ ui.stat("Zoom", stats.zoom, icon="video", color=palette(3), href="/qa/calls?source=ZOOM&" ~ filter_qs) }}
+</div>
+
+{% call ui.filter_bar('/qa/calls') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('source', 'Source', sources, source, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('review_state', 'Review State', review_states, review_state, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='Source name / URL') }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto">
+{{ ui.table_start(['Row Id','Source Name','Platform','Recording Date','Employee','Class Session','Start Time','End Time','Durations Minuts','Meeting Status','Recording Url','Created At','Review State']) }}
+{% for c in page.items %}
+<tr class="{{ 'bg-amber-50/50' if c.review_state == 'unmapped' }}">
+  <td class="px-4 py-2 font-mono text-xs">{{ c.id }}</td>
+  <td class="px-4 py-2 text-sm">{{ c.source_name or '-' }}<div class="text-[10px] text-slate-400">{{ c.external_id }}</div></td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(c.source) }}<div class="text-[10px] text-slate-500">{{ c.platform }}</div></td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.recording_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.teacher.full_name if c.teacher else (c.employee.full_name if c.employee else '-') }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.session %}<a href="/classes/{{ c.session_id }}" class="text-brand-600 hover:underline">#{{ c.session_id }}</a><div class="text-[10px] text-slate-500">{{ c.session.student.full_name if c.session.student else '' }}</div>{% else %}<span class="text-amber-600">Unmatched</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.start_time.strftime('%H:%M') if c.start_time else '-' }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.end_time.strftime('%H:%M') if c.end_time else '-' }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ c.duration_minutes }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.meeting_status|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.recording_url %}<a href="{{ c.recording_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-brand-600 hover:underline"><i data-lucide="play-circle" class="h-3.5 w-3.5"></i>Play</a>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.created_at|datetime }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(c.review_state, c.review_state|label('qa') if c.review_state == 'in_review' else c.review_state|titleize) }}
+    {% if c.qa_review_id %}<a href="/qa/{{ c.qa_review_id }}" class="block text-[10px] text-brand-600">review #{{ c.qa_review_id }}</a>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No call recordings match these filters. Use SYNC Calls to pull the latest recordings.', 13, 'phone-call') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

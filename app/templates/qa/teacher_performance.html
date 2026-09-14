@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Teacher QA Performance{% endblock %}
+{% block content %}
+{% call ui.page_header("Teacher QA Performance", "Calls, reviews, average star rating, issues and the resulting score for each teacher") %}
+  {{ ui.button("QA Dashboard", href="/qa/dashboard", icon="gauge", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  {{ ui.stat("Teachers", summary.teachers, icon="users", color=palette(0)) }}
+  {{ ui.stat("Calls", summary.calls, icon="phone-call", color=palette(1)) }}
+  {{ ui.stat("Reviewed", summary.reviewed, icon="check-check", color=palette(2)) }}
+  {{ ui.stat("Avg Rating /5", summary.avg, icon="star", color=palette(3)) }}
+  {{ ui.stat("Critical Issues", summary.critical, icon="alert-triangle", color=palette(4)) }}
+</div>
+
+{% call ui.filter_bar('/qa/teacher-performance') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+  <div class="w-48">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+  <div class="pb-1.5">{{ ui.checkbox('overall', 'Over All Teachers Performance', overall, help='Include teachers without calls in the period') }}</div>
+{% endcall %}
+
+{% if chart_labels %}
+{% call ui.card("Score % by teacher", "Average rating / 5 x 100, minus 5 points per critical issue") %}{{ ui.chart('perfChart', 260) }}{% endcall %}
+<div class="mb-6"></div>
+{% endif %}
+
+{{ ui.table_start(['Teacher','Calls','Reviewed','Avg Rating','Issues','Critical Issues','Score %','']) }}
+{% for r in rows %}
+<tr class="{{ 'bg-rose-50/50' if r.score_pct is not none and r.score_pct < 50 }}">
+  <td class="px-4 py-2 text-sm"><div class="font-medium">{{ r.teacher.full_name }}</div><div class="text-[11px] text-slate-400">{{ r.teacher.teacher_code }} &middot; {{ r.teacher.shift|titleize }} shift</div></td>
+  <td class="px-4 py-2 text-center text-sm"><a href="/qa/calls?teacher_id={{ r.teacher.id }}&date_from={{ date_from }}&date_to={{ date_to }}" class="hover:text-brand-600">{{ r.calls }}</a></td>
+  <td class="px-4 py-2 text-center text-sm"><a href="/qa/reviewed?teacher_id={{ r.teacher.id }}&date_from={{ date_from }}&date_to={{ date_to }}" class="hover:text-brand-600">{{ r.reviewed }}</a></td>
+  <td class="px-4 py-2 text-sm">{% if r.avg_rating is not none %}<span class="text-amber-500">{{ '&#9733;' * (r.avg_rating|round|int) }}</span> <span class="text-xs text-slate-500">{{ r.avg_rating }}</span>{% else %}<span class="text-xs text-slate-400">-</span>{% endif %}</td>
+  <td class="px-4 py-2 text-center text-sm">{{ r.issues }}</td>
+  <td class="px-4 py-2 text-center text-sm {{ 'font-semibold text-rose-600' if r.critical }}">{{ r.critical }}</td>
+  <td class="px-4 py-2">{% if r.score_pct is not none %}<div class="w-40">{{ ui.progress(r.score_pct, 'emerald' if r.score_pct >= 80 else ('amber' if r.score_pct >= 50 else 'rose'), r.score_pct ~ '%') }}</div>{% else %}<span class="text-xs text-slate-400">no reviews</span>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Teacher', href='/teachers/' ~ r.teacher.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No teacher activity in this period.', 8, 'trending-up') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}
+{% block scripts %}
+{% if chart_labels %}<script>OQC.bar('perfChart', {{ chart_labels|tojson }}, [{label: 'Score %', data: {{ chart_values|tojson }}}]);</script>{% endif %}
+{% endblock %}

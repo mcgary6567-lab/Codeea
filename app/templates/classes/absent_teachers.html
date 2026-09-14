@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Absent Teachers{% endblock %}
+{% block content %}
+{% call ui.page_header("Absent Teachers", "Teachers on approved leave or marked absent in the chosen range", back="/classes") %}
+  {% if has_perm(user, 'classes.update') %}
+  <form method="post" action="/classes/auto-arrange" class="inline">
+    <input type="hidden" name="date_from" value="{{ date_from }}">
+    <input type="hidden" name="date_to" value="{{ date_to }}">
+    {{ ui.button('Auto Arrangement', icon='wand-2', variant='warning') }}
+  </form>
+  {% endif %}
+  {{ ui.button("Class Arrangements", href="/classes/arrangements?date_from=" ~ date_from ~ "&date_to=" ~ date_to, icon="arrow-left-right", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+  {{ ui.stat("Absent Teachers", rows|length, color=palette(3)) }}
+  {{ ui.stat("Classes Needing Cover", total_pending, color=palette(2)) }}
+  {{ ui.stat("Days In Range", (date_to - date_from).days + 1, color=palette(0)) }}
+</div>
+
+{% call ui.filter_bar('/classes/absent-teachers') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Working Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Working Date', date_to, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Teacher', 'Code', 'From', 'To', 'Days Absent', 'Classes Needing Cover', 'Reason', ''], compact=True) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{{ r.teacher.full_name }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.teacher.teacher_code }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r['from']|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r['to']|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.days|length }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-600' if r.pending }}">{{ r.pending }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-600">{{ r.reasons|join('; ') }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ui.button('Arrange', href='/classes/arrangements?from_teacher_id=' ~ r.teacher.id ~ '&date_from=' ~ date_from ~ '&date_to=' ~ date_to, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No teacher is on leave or marked absent in this range.', 8, 'user-check') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

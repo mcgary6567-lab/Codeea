@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Change Staff Sorting{% endblock %}
+{% block content %}
+{% call ui.page_header("Change Staff Sorting", "The sort number decides the order staff appear in teacher pickers and class lists. Only active employees are listed.", back="/academics/config") %}
+  {{ ui.button("Employees", href="/hr/employees", icon="id-card", variant="secondary") }}
+  {% if can_edit %}{{ ui.button("Save Sort Order", icon="save", attrs='form="sortForm"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Active Employees", stats.active, color=palette(0)) }}
+  {{ ui.stat("Teachers", stats.teachers, color=palette(1)) }}
+  {{ ui.stat("Other Staff", stats.staff, color=palette(2)) }}
+  {{ ui.stat("Without Sort No", stats.unsorted, color=palette(7)) }}
+</div>
+
+{% call ui.filter_bar('/academics/config/staff-sorting') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Code, name or designation') }}</div>
+  <div class="w-52">{{ ui.select('department_id', 'Department', department_options, department_id, placeholder='All departments') }}</div>
+  <div class="w-40">{{ ui.select('shift', 'Shift', shift_options, shift, placeholder='All shifts') }}</div>
+{% endcall %}
+
+<form id="sortForm" method="post" action="/academics/config/staff-sorting/save"></form>
+{{ ui.table_start(['Code', 'Name', 'Father Name', 'Designation', 'Department', 'Manager', 'Status', 'Shift', 'Sort No', '']) }}
+{% for e in staff %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs"><a href="/hr/employees/{{ e.id }}" class="text-brand-700">{{ e.employee_code }}</a></td>
+  <td class="px-4 py-2 font-medium text-slate-900">{{ e.full_name }}{% if e.is_teacher %} <span class="ml-1 rounded bg-sky-50 px-1 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20">Teacher</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ e.father_name or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.designation }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.department.name if e.department else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.manager.full_name if e.manager else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(e.status) }}</td>
+  <td class="px-4 py-2 text-xs">{{ e.shift|titleize }}</td>
+  <td class="px-4 py-2 w-24">
+    {% if can_edit %}<input form="sortForm" type="number" name="sort_{{ e.id }}" value="{{ e.sort_no }}" min="0" class="w-20 rounded border border-slate-300 px-2 py-1 text-center text-xs focus:border-brand-500 focus:outline-none">{% else %}<span class="text-xs">{{ e.sort_no }}</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <form method="post" action="/academics/config/staff-sorting/{{ e.id }}/move" class="inline"><input type="hidden" name="direction" value="up">
+      <button class="rounded px-1.5 py-1 text-slate-600 hover:bg-slate-100 {{ 'opacity-30 pointer-events-none' if loop.first }}" title="Move up"><i data-lucide="arrow-up" class="h-3.5 w-3.5"></i></button></form>
+    <form method="post" action="/academics/config/staff-sorting/{{ e.id }}/move" class="inline"><input type="hidden" name="direction" value="down">
+      <button class="rounded px-1.5 py-1 text-slate-600 hover:bg-slate-100 {{ 'opacity-30 pointer-events-none' if loop.last }}" title="Move down"><i data-lucide="arrow-down" class="h-3.5 w-3.5"></i></button></form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No active employees match these filters.', 10, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 flex items-center justify-between text-xs text-slate-500">
+  <span>{{ staff|length }} employee{{ 's' if staff|length != 1 }}</span>
+  {% if can_edit %}{{ ui.button("Save Sort Order", icon="save", size="sm", attrs='form="sortForm"') }}{% endif %}
+</div>
+{% endblock %}

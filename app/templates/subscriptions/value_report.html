@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subscriptions Value Report{% endblock %}
+{% block content %}
+{% call ui.page_header("All Subscriptions Value Report", "Running subscriptions valued in " ~ base ~ " at current exchange rates") %}
+  <form method="post" action="/subscriptions/value-report/regenerate" class="inline">{{ ui.button("Regenerate Report", icon="refresh-cw", variant="warning") }}</form>
+  {{ ui.button("Detail Report", href="/subscriptions/detail-report", icon="line-chart", variant="secondary") }}
+{% endcall %}
+{% if last_regenerated %}<div class="mb-3 text-xs text-slate-500">Last regenerated {{ last_regenerated.created_at|datetime }} by {{ last_regenerated.actor_name }}</div>{% endif %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat("Running Subscriptions", rows|length, color=palette(0)) }}
+  {{ ui.stat("Monthly Value", total_value|money, color=palette(3), hint=base) }}
+  {{ ui.stat("Teacher Cost", total_cost|money, color=palette(6), hint=base) }}
+  {{ ui.stat("Margin", total_margin|money, color=palette(2) if total_margin >= 0 else palette(7), hint=base) }}
+</div>
+
+{{ ui.tabs([('primary','Primary','/subscriptions/value-report?report=primary'),('employee','Employee Wise Summary','/subscriptions/value-report?report=employee'),('shift','Shift Wise Profit Report','/subscriptions/value-report?report=shift')], report) }}
+
+{% if report == 'primary' %}
+{{ ui.table_start(['Subscription ID','Client','Student','Teacher','Course','Status','Currency','Price','Rate','Value (' ~ base ~ ')','Teacher Cost (' ~ base ~ ')','Margin'], compact=True) }}
+{% for s in rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.student.full_name if s.student else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.currency }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ s.price|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ ((s.price_in_base or 0)|float / (s.price|float)) | round(4) if s.price and s.price|float > 0 else '—' }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ s.price_in_base|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ s.teacher_cost_base|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs {{ 'text-rose-600' if (s.price_in_base|float - s.teacher_cost_base|float) < 0 else 'text-emerald-700' }}">{{ (s.price_in_base|float - s.teacher_cost_base|float)|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No running subscriptions.', 12) }}{% endfor %}
+<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5" colspan="9">Total</td><td class="px-3 py-1.5 text-right text-xs">{{ total_value|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_cost|money }}</td><td class="px-3 py-1.5 text-right text-xs">{{ total_margin|money }}</td></tr>
+{{ ui.table_end() }}
+
+{% elif report == 'employee' %}
+{{ ui.table_start(['Teacher','Regular','Trial','Subscriptions','Monthly Value (' ~ base ~ ')','Teacher Cost (' ~ base ~ ')','Margin','Margin %']) }}
+{% for e in employees %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{{ e.teacher.full_name if e.teacher else 'Unassigned' }}</td>
+  <td class="px-3 py-1.5">{{ e.regular }}</td><td class="px-3 py-1.5">{{ e.trial }}</td><td class="px-3 py-1.5 font-semibold">{{ e.total }}</td>
+  <td class="px-3 py-1.5 text-right">{{ e.value|money }}</td><td class="px-3 py-1.5 text-right">{{ e.cost|money }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'text-rose-600' if e.margin < 0 else 'text-emerald-700' }}">{{ e.margin|money }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ((100 * e.margin / e.value)|round(1)) if e.value else 0 }}%</td>
+</tr>
+{% else %}{{ ui.empty('No running subscriptions.', 8) }}{% endfor %}
+<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5" colspan="4">Total</td><td class="px-3 py-1.5 text-right">{{ total_value|money }}</td><td class="px-3 py-1.5 text-right">{{ total_cost|money }}</td><td class="px-3 py-1.5 text-right">{{ total_margin|money }}</td><td class="px-3 py-1.5 text-right">{{ ((100 * total_margin / total_value)|round(1)) if total_value else 0 }}%</td></tr>
+{{ ui.table_end() }}
+
+{% else %}
+<div class="grid gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+  {{ ui.table_start(['Shift','Subscriptions','Revenue (' ~ base ~ ')','Teacher Cost (' ~ base ~ ')','Profit','Margin %']) }}
+  {% for r in shifts %}
+  <tr><td class="px-3 py-2 font-medium">{{ r.shift }}</td><td class="px-3 py-2">{{ r.subs }}</td><td class="px-3 py-2 text-right">{{ r.revenue|money }}</td>
+    <td class="px-3 py-2 text-right">{{ r.cost|money }}</td><td class="px-3 py-2 text-right {{ 'text-rose-600' if r.profit < 0 else 'text-emerald-700' }}">{{ r.profit|money }}</td><td class="px-3 py-2 text-right">{{ r.margin_pct }}%</td></tr>
+  {% endfor %}
+  <tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-2">Total</td><td class="px-3 py-2">{{ rows|length }}</td><td class="px-3 py-2 text-right">{{ total_value|money }}</td><td class="px-3 py-2 text-right">{{ total_cost|money }}</td><td class="px-3 py-2 text-right">{{ total_margin|money }}</td><td class="px-3 py-2 text-right">{{ ((100 * total_margin / total_value)|round(1)) if total_value else 0 }}%</td></tr>
+  {{ ui.table_end() }}
+  </div>
+  {% call ui.card("Revenue vs cost by shift") %}{{ ui.chart('shiftChart', 220) }}{% endcall %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if report == 'shift' %}
+<script>OQC.bar('shiftChart', {{ shifts|map(attribute='shift')|list|tojson }}, [{label: 'Revenue', data: {{ shifts|map(attribute='revenue')|list|tojson }}}, {label: 'Teacher cost', data: {{ shifts|map(attribute='cost')|list|tojson }}}, {label: 'Profit', data: {{ shifts|map(attribute='profit')|list|tojson }}}]);</script>
+{% endif %}
+{% endblock %}

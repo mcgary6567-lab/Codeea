@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Financial Summary{% endblock %}
+{% block content %}
+{% call ui.page_header("Financial Summary", "Invoicing, collection and family account health across the selected families.") %}
+  {{ ui.button("Client Ledger Report", href="/finance/ledger", icon="book-open-text", variant="secondary") }}
+  {{ ui.button("Billing Dashboard", href="/dashboards/billing", icon="landmark", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/dashboards/financial-summary') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('client_id', 'Client', opts.clients, client_id, placeholder='All clients') }}</div>
+  <div class="w-28">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
+  <div class="w-28">{{ ui.select('currency', 'Currency', opts.currencies, currency, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('group_id', 'Billing Group', opts.groups, group_id, placeholder='All groups') }}</div>
+  <div class="w-40">{{ ui.select('country', 'Country', opts.countries, country, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('state', 'State', opts.states, state, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', opts.client_statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+<div class="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+  {{ ui.stat("Total Invoices Amount", d.tiles.invoices_amount|money(d.base), color=palette(0)) }}
+  {{ ui.stat("Total Invoice Clients", d.tiles.invoice_clients, color=palette(1)) }}
+  {{ ui.stat("Total Pending Amount", d.tiles.pending_amount|money(d.base), color=palette(2)) }}
+  {{ ui.stat("Total Outstanding Balance", d.tiles.outstanding_balance|money(d.base), color=palette(3)) }}
+  {{ ui.stat("Total Received Amount", d.tiles.received_amount|money(d.base), color=palette(4)) }}
+</div>
+<div class="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+  {{ ui.stat("Total Clients", d.tiles.total_clients, color=palette(5)) }}
+  {{ ui.stat("Active Students", d.tiles.active_students, color=palette(6)) }}
+  {{ ui.stat("Regular Subscriptions", d.tiles.regular_subscriptions, color=palette(7)) }}
+  {{ ui.stat("Clients Without Subscription", d.tiles.clients_without_subscription, color=palette(8)) }}
+  {{ ui.stat("Exceeded Accounts", d.tiles.exceeded_accounts, color=palette(0), hint="balance over 2 months' fee") }}
+</div>
+<div class="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+  {{ ui.stat("Collection Efficiency %", d.tiles.collection_efficiency, color=palette(1)) }}
+  {{ ui.stat("Avg Revenue Per Client", d.tiles.avg_revenue_per_client|money(d.base), color=palette(2)) }}
+  {{ ui.stat("Clients Zero Students", d.tiles.clients_zero_students, color=palette(3)) }}
+  {{ ui.stat("Ledger Addition", d.tiles.ledger_addition|money(d.base), color=palette(4)) }}
+  {{ ui.stat("Ledger Deduction", d.tiles.ledger_deduction|money(d.base), color=palette(5)) }}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card("Monthly Invoice Trend", d.base) %}{{ ui.chart('fsInvoice') }}{% endcall %}
+  {% call ui.card("Monthly Collection Trend", d.base) %}{{ ui.chart('fsCollect') }}{% endcall %}
+  {% call ui.card("Clients Count Based on Currency") %}{{ ui.chart('fsCurrency') }}{% endcall %}
+  {% call ui.card("Student by Shift") %}{{ ui.chart('fsShift') }}{% endcall %}
+  {% call ui.card("Top 10 OutStanding Clients") %}{{ ui.chart('fsTop', 320) }}{% endcall %}
+  {% call ui.card("Subscription Status Breakdown") %}{{ ui.chart('fsSubStatus') }}{% endcall %}
+  <div class="lg:col-span-2">
+  {% call ui.card("Collection Efficiency Trend %") %}{{ ui.chart('fsEfficiency') }}{% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  OQC.line('fsInvoice', {{ d.charts.invoice_trend.labels|tojson }}, [{label: 'Invoiced', data: {{ d.charts.invoice_trend.data|tojson }}, borderColor: '#2b7fd3', backgroundColor: '#2b7fd322'}]);
+  OQC.line('fsCollect', {{ d.charts.collection_trend.labels|tojson }}, [{label: 'Collected', data: {{ d.charts.collection_trend.data|tojson }}, borderColor: '#33b479', backgroundColor: '#33b47922'}]);
+  OQC.doughnut('fsCurrency', {{ d.charts.currency.labels|tojson }}, {{ d.charts.currency.data|tojson }});
+  OQC.doughnut('fsShift', {{ d.charts.student_shift.labels|tojson }}, {{ d.charts.student_shift.data|tojson }});
+  OQC.bar('fsTop', {{ d.charts.top_outstanding.labels|tojson }}, [{label: 'Outstanding', data: {{ d.charts.top_outstanding.data|tojson }}, backgroundColor: '#e35a4e'}], {indexAxis: 'y', plugins: {legend: {display: false}}});
+  OQC.doughnut('fsSubStatus', {{ d.charts.subscription_status.labels|tojson }}, {{ d.charts.subscription_status.data|tojson }});
+  OQC.line('fsEfficiency', {{ d.charts.efficiency_trend.labels|tojson }}, [{label: 'Efficiency %', data: {{ d.charts.efficiency_trend.data|tojson }}, borderColor: '#8c4ca9', backgroundColor: '#8c4ca922'}], {scales: {y: {beginAtZero: true, suggestedMax: 100}}});
+})();
+</script>
+{% endblock %}

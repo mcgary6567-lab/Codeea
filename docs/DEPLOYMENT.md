@@ -137,6 +137,25 @@ cd /opt/oqc/app
 .venv/bin/python -m alembic history --verbose     # audit trail of schema changes
 ```
 
+**Revisions so far**
+
+| Revision | What it adds |
+|---|---|
+| `6d42e23b4b1a` | Baseline schema v1.1 (117 tables) |
+| `dee1fc82982b` | ERP parity: session slots, academic configuration, client contacts and credentials, client requests, class arrangements / reschedule approvals / queries / activities, ledger additions, QA call pipeline, plus the ERP columns on clients, students, employees, leaves, courses, packages, books, evaluations, subscriptions, invoices, payments, class sessions, QA reviews, cases and feedback |
+
+**Autogenerating a revision.** Alembic emits `create_foreign_key(None, ...)`, which SQLite batch mode rejects
+("Constraint must have a name"). After every `alembic revision --autogenerate`, run
+
+```bash
+.venv/Scripts/python.exe build/name_migration_fks.py migrations/versions/<new_file>.py
+```
+
+which names each one `fk_<table>_<column>` and fills in the matching `drop_constraint` calls in the downgrade.
+Then apply it to a scratch database and autogenerate once more: a second revision with no operations in it proves
+the migration captures the models exactly.
+
+
 After changing a model, generate and review a revision before deploying it:
 
 ```bash

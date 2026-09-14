@@ -207,3 +207,249 @@ def student_attendance_pct(db: Session, student_id: int, days: int = 30) -> floa
         return 100.0
     present = sum(1 for (s,) in rows if s in ("done", "missed"))
     return round(100 * present / len(rows), 1)
+
+
+# ============================================================================= ERP parity (WP-3 appendix)
+# Teacher availability marker, class activities, Class Status Summary grid and Schedule Summary report.
+DURATION_HIGHLIGHTS = [(15, "duration15", "rose"), (20, "duration20", "orange"), (25, "duration25", "yellow"), (35, "duration35", "lime")]
+
+
+def duration_highlight(actual: Optional[int]) -> Optional[dict]:
+    """ERP highlight rules: <15 red, <20 orange, <25 yellow, <35 lime (None when no actual duration or >= 35)."""
+    if actual is None:
+        return None
+    for limit, key, color in DURATION_HIGHLIGHTS:
+        if actual < limit:
+            return {"key": key, "color": color, "limit": limit}
+    return None
+
+
+def mark_available(db: Session, session: ClassSession, user: Optional[User], request=None) -> ClassSession:
+    """'Teacher is Available': the teacher is in the room waiting for the student."""
+    if session.status not in ("pending", "available"):
+        raise ValueError(f"A class in status '{session.status}' cannot be marked available.")
+    now = datetime.utcnow()
+    session.teacher_available_at = session.teacher_available_at or now
+    set_status(db, session, "available", user, reason="Teacher marked available", request=request, notify_parties=False)
+    late = int((now + timedelta(hours=5) - session.scheduled_start).total_seconds() // 60)
+    if session.student and session.student.client and session.student.client.user_id:
+        notify(db, session.student.client.user_id, "Your teacher is waiting",
+               f"{session.teacher.full_name if session.teacher else 'The teacher'} is available for the {session.start_time.strftime('%H:%M')} class.",
+               event_type="class_status", link="/portal/schedule")
+    session.teacher_late_minutes = max(0, late) if late > 0 else session.teacher_late_minutes
+    db.flush()
+    return session
+
+
+def add_activity(db: Session, session: ClassSession, user: Optional[User], page_no: Optional[str], remarks: Optional[str],
+                 book_id: Optional[int] = None, activity_type: str = "manual", request=None):
+    """Record what was covered in a class and stamp ClassSession.activity_updated_at."""
+    from app.models.erp import ClassActivity
+    if not (page_no or remarks):
+        raise ValueError("Enter a page number or remarks for the activity.")
+    act = ClassActivity(session_id=session.id, student_id=session.student_id, teacher_id=session.teacher_id,
+                        activity_type=activity_type, book_id=book_id, page_no=(page_no or None), remarks=(remarks or None),
+                        created_by_id=user.id if user else None)
+    db.add(act)
+    session.activity_updated_at = datetime.utcnow()
+    db.flush()
+    log_action(db, user, "create", "classes", entity=act, description=f"Class activity added to session #{session.id}: page {page_no or '-'}",
+               request=request)
+    return act
+
+
+def status_grid(db: Session, day: date, teacher_ids: Optional[list[int]] = None, category: Optional[str] = None,
+                slot_id: Optional[int] = None) -> dict:
+    """Class Status Summary: teachers (rows, Employee.sort_no order) x session slots (columns).
+
+    Each cell: list of {"session", "status", "duration", "highlight", "late_available", "no_activity"}.
+    """
+    from app.models.erp import SessionSlot
+    from app.models.people import Employee
+    q = db.query(ClassSession).filter(ClassSession.date == day)
+    if teacher_ids is not None:
+        q = q.filter(ClassSession.teacher_id.in_(teacher_ids or [-1]))
+    if slot_id:
+        q = q.filter(ClassSession.slot_id == slot_id)
+    if category:
+        minutes = 45 if category.startswith("45") else 30
+        q = q.filter(ClassSession.duration_minutes == minutes)
+    rows = q.order_by(ClassSession.start_time).all()
+    slot_by_time = {}
+    for s in db.query(SessionSlot).filter(SessionSlot.status == "active").order_by(SessionSlot.sort_no):
+        if category and s.category != category:
+            continue
+        slot_by_time.setdefault(s.start_time, s)
+    used_times = sorted({s.start_time for s in rows})
+    columns = []
+    for t in used_times:
+        sl = slot_by_time.get(t)
+        columns.append({"time": t, "label": sl.label if sl else t.strftime("%I:%M %p"), "slot": sl})
+    teachers: dict[int, dict] = {}
+    for s in rows:
+        row = teachers.setdefault(s.teacher_id, {"teacher": s.teacher, "cells": {}, "totals": {"total": 0, "done": 0, "missed": 0, "short": 0}})
+        actual = s.actual_duration_minutes if s.status == "done" else None
+        hl = duration_highlight(actual)
+        late_available = bool(s.teacher_available_at and s.teacher_available_at + timedelta(hours=5) > s.scheduled_start + timedelta(minutes=1))
+        no_activity = s.status == "done" and s.activity_updated_at is None
+        row["cells"].setdefault(s.start_time, []).append({
+            "session": s, "status": s.status, "duration": actual, "highlight": hl,
+            "late_available": late_available, "no_activity": no_activity})
+        row["totals"]["total"] += 1
+        if s.status == "done":
+            row["totals"]["done"] += 1
+        if s.status == "missed":
+            row["totals"]["missed"] += 1
+        if hl:
+            row["totals"]["short"] += 1
+    order = {}
+    for e in db.query(Employee).filter(Employee.is_teacher.is_(True)).all():
+        order[e.id] = e.sort_no or 0
+
+    def sort_key(item):
+        t = item["teacher"]
+        emp_sort = order.get(t.employee_id, 999) if t and t.employee_id else 999
+        return (emp_sort, t.full_name if t else "")
+
+    grid_rows = sorted(teachers.values(), key=sort_key)
+    counts = {st: sum(1 for s in rows if s.status == st) for st in SESSION_STATUSES}
+    counts["total"] = len(rows)
+    return {"columns": columns, "rows": grid_rows, "counts": counts, "day": day}
+
+
+def schedule_summary(db: Session, category: Optional[str] = None, teacher_ids: Optional[list[int]] = None) -> dict:
+    """Schedule Summary Report: per teacher, per slot Free/Total. Free = number of weekdays (of 7) with no active schedule."""
+    from app.models.erp import SessionSlot
+    from app.models.people import Employee
+    slots = db.query(SessionSlot).filter(SessionSlot.status == "active")
+    if category:
+        slots = slots.filter(SessionSlot.category == category)
+    slots = slots.order_by(SessionSlot.sort_no, SessionSlot.start_time).all()
+    # collapse to one column per start time (categories share the 48-slot grid)
+    seen, columns = set(), []
+    for s in slots:
+        if s.start_time in seen:
+            continue
+        seen.add(s.start_time)
+        columns.append(s)
+    tq = db.query(Teacher).filter(Teacher.status != "inactive")
+    if teacher_ids is not None:
+        tq = tq.filter(Teacher.id.in_(teacher_ids or [-1]))
+    teachers = tq.all()
+    sort_no = {e.id: (e.sort_no or 0) for e in db.query(Employee).filter(Employee.is_teacher.is_(True))}
+    teachers.sort(key=lambda t: (sort_no.get(t.employee_id, 999) if t.employee_id else 999, t.full_name))
+    schedules = db.query(Schedule).filter(Schedule.status == "active", Schedule.teacher_id.in_([t.id for t in teachers] or [-1])).all()
+    busy: dict[int, dict[time, set]] = {}
+    for sch in schedules:
+        st = time(sch.start_time.hour, sch.start_time.minute)
+        busy.setdefault(sch.teacher_id, {}).setdefault(st, set()).update(int(d) for d in (sch.days_of_week or []))
+    rows = []
+    total_days = 7
+    for t in teachers:
+        cells = []
+        free_sum = total_sum = 0
+        for col in columns:
+            used = len(busy.get(t.id, {}).get(col.start_time, set()))
+            free = total_days - used
+            cells.append({"slot": col, "free": free, "total": total_days, "used": used})
+            free_sum += free
+            total_sum += total_days
+        rows.append({"teacher": t, "cells": cells, "free": free_sum, "total": total_sum,
+                     "schedules": sum(1 for s in schedules if s.teacher_id == t.id)})
+    return {"columns": columns, "rows": rows, "slot_count": len(columns)}
+
+
+# ============================================================================= ERP parity (WP-3 appendix 2)
+# Status tile counters, teacher-portal tiles, student local time and the monitoring panels shared by the
+# Supervisor Portal (3.11) and the HOD / Academic Manager Portal (3.12).
+def counts_by_status(query) -> dict:
+    """status -> count for an existing ClassSession query, plus 'total'. The query is not consumed."""
+    counts = {s: 0 for s in SESSION_STATUSES}
+    rows = query.with_entities(ClassSession.status, func.count(ClassSession.id)).group_by(ClassSession.status).all()
+    for status, n in rows:
+        counts[status] = counts.get(status, 0) + n
+    counts["total"] = sum(n for _, n in rows)
+    return counts
+
+
+def student_local_time(student, when: Optional[datetime] = None) -> dict:
+    """"Client - Student Time Status": the class time (org / Asia-Karachi) rendered in the student's own zone."""
+    from datetime import timezone as _tz
+    org = "Asia/Karachi"
+    tz_name = (getattr(student, "timezone", None) or "Europe/London") if student else "Europe/London"
+    when = when or (datetime.utcnow() + timedelta(hours=5))
+    try:
+        from zoneinfo import ZoneInfo
+        aware = when.replace(tzinfo=ZoneInfo(org))
+        local = aware.astimezone(ZoneInfo(tz_name))
+        offset = (local.utcoffset() or timedelta()) - (aware.utcoffset() or timedelta())
+    except Exception:  # unknown zone / no tzdata
+        local, offset = when, timedelta()
+    hours = offset.total_seconds() / 3600.0
+    return {"timezone": tz_name, "org_timezone": org, "org_time": when, "local_time": local,
+            "offset_hours": round(hours, 1),
+            "offset_label": ("same time" if abs(hours) < 0.01 else f"{'+' if hours > 0 else ''}{hours:g} h vs Pakistan")}
+
+
+def teacher_day_tiles(db: Session, teacher_id: int, day: date) -> dict:
+    """Teacher portal tiles: Total Classes, Regular, Trial, Arrangements (for one teacher on one day)."""
+    rows = db.query(ClassSession).filter(ClassSession.teacher_id == teacher_id, ClassSession.date == day).all()
+    return {"total": len(rows), "trial": sum(1 for r in rows if r.is_trial),
+            "regular": sum(1 for r in rows if not r.is_trial),
+            "arrangements": sum(1 for r in rows if r.arrangement_id or r.substitute_for_teacher_id),
+            "done": sum(1 for r in rows if r.status == "done"), "pending": sum(1 for r in rows if r.status == "pending")}
+
+
+MONITOR_PANELS = [
+    ("pending", "Pending Classes", "clock", "amber"),
+    ("available", "Marked Available", "hand", "sky"),
+    ("started", "Started Classes", "play-circle", "indigo"),
+    ("done", "Done Classes", "check-circle-2", "emerald"),
+    ("missed", "Missed Classes", "user-x", "rose"),
+    ("absent", "Absent Students Classes", "user-minus", "orange"),
+    ("leave", "Student On Leave Classes", "palmtree", "violet"),
+    ("cancelled", "Cancelled", "ban", "slate"),
+]
+
+
+def erp_monitor(db: Session, day: date, teacher_ids: Optional[list[int]] = None, hours_ahead: int = 2) -> dict:
+    """Supervisor / HOD monitoring dashboard: ERP tiles + the per-status panels, upcoming classes and trials.
+
+    Tiles: Pending, Done, Missed, Student Absent, Student On Leave, Cancelled, Reschedule Classes.
+    """
+    from app.models.erp import ClassQuery, RescheduleRequest
+    from app.services import scheduling as sched
+    q = db.query(ClassSession).filter(ClassSession.date == day)
+    if teacher_ids is not None:
+        q = q.filter(ClassSession.teacher_id.in_(teacher_ids or [-1]))
+    rows = q.order_by(ClassSession.scheduled_start).all()
+    now = sched.org_now()
+    by_status: dict[str, list] = {}
+    for s in rows:
+        by_status.setdefault(s.status, []).append(s)
+    panels = [{"key": k, "label": lbl, "icon": ic, "color": col, "items": by_status.get(k, [])}
+              for k, lbl, ic, col in MONITOR_PANELS]
+    upcoming = [s for s in rows if s.status in ("pending", "available") and now <= s.scheduled_start <= now + timedelta(hours=hours_ahead)]
+    rq = db.query(RescheduleRequest).filter(RescheduleRequest.status == "pending")
+    if teacher_ids is not None:
+        rq = rq.filter(RescheduleRequest.old_teacher_id.in_(teacher_ids or [-1]))
+    reschedules = rq.order_by(RescheduleRequest.id.desc()).limit(50).all()
+    cq = db.query(ClassQuery).filter(ClassQuery.status == "pending")
+    if teacher_ids is not None:
+        cq = cq.filter(ClassQuery.teacher_id.in_(teacher_ids or [-1]))
+    queries = cq.order_by(ClassQuery.id.desc()).limit(50).all()
+    trials = [s for s in rows if s.is_trial and s.status in ("pending", "available", "started")]
+    counts = {k: len(by_status.get(k, [])) for k, _, _, _ in MONITOR_PANELS}
+    counts["total"] = len(rows)
+    counts["rescheduled"] = len(by_status.get("rescheduled", []))
+    tiles = [
+        {"key": "pending", "label": "Pending", "value": counts.get("pending", 0), "href": f"/classes?date={day}&status=pending"},
+        {"key": "done", "label": "Done", "value": counts.get("done", 0), "href": f"/classes?date={day}&status=done"},
+        {"key": "missed", "label": "Missed", "value": counts.get("missed", 0), "href": f"/classes?date={day}&status=missed"},
+        {"key": "absent", "label": "Student Absent", "value": counts.get("absent", 0), "href": f"/classes?date={day}&status=absent"},
+        {"key": "leave", "label": "Student On Leave", "value": counts.get("leave", 0), "href": f"/classes?date={day}&status=leave"},
+        {"key": "cancelled", "label": "Cancelled", "value": counts.get("cancelled", 0), "href": f"/classes?date={day}&status=cancelled"},
+        {"key": "reschedule", "label": "Reschedule Classes", "value": len(reschedules), "href": "/classes/rescheduled?status=pending"},
+    ]
+    return {"day": day, "rows": rows, "panels": panels, "counts": counts, "tiles": tiles, "now": now,
+            "upcoming": upcoming, "reschedules": reschedules, "queries": queries, "trials": trials}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Packages List{% endblock %}
+{% block content %}
+{% call ui.page_header("Packages List", "How many days per week a package allows, with its price and currency.", back="/academics/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newPackage\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("All Packages", stats.total, color=palette(0), href="/academics/config/packages") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/packages?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/packages?status=inactive") }}
+  {{ ui.stat("Trial Packages", stats.trial, color=palette(1)) }}
+</div>
+
+{% call ui.filter_bar('/academics/config/packages') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Package description') }}</div>
+  <div class="w-56">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='Any course') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Description', 'Minimum Days', 'Maximum Days', 'Session', 'Price', 'Course', 'Status', '']) }}
+{% for p in packages %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ p.id }}</td>
+  <td class="px-4 py-2"><div class="font-medium text-slate-900">{{ p.name }}</div>{% if p.description %}<div class="text-xs text-slate-500">{{ p.description[:70] }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ p.min_days }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ p.max_days }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.session_minutes }} min{% if p.is_trial %} · <span class="text-sky-600">Trial</span>{% endif %}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ p.price|money(p.currency) }}</td>
+  <td class="px-4 py-2 text-xs">{{ p.course.name if p.course else 'Any course' }}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if p.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/packages/{{ p.id }}/toggle" class="inline">{{ ui.button('Deactivate' if p.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="9" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/academics/config/packages/{{ p.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+    {{ ui.input('name', 'Description', p.name, required=True) }}
+    {{ ui.input('min_days', 'Minimum Days', p.min_days, type='number', min=1, max=7) }}
+    {{ ui.input('max_days', 'Maximum Days', p.max_days, type='number', min=1, max=7) }}
+    {{ ui.input('session_minutes', 'Session minutes', p.session_minutes, type='number', min=15, max=120) }}
+    {{ ui.input('price', 'Price', p.price, type='number', step='0.01', min=0) }}
+    {{ ui.select('currency', 'Currency', currencies, p.currency, placeholder=None) }}
+    {{ ui.select('course_id', 'Course', course_options, p.course_id, placeholder='Any course') }}
+    {{ ui.select('status', 'Status', statuses, 'active' if p.is_active else 'inactive', placeholder=None) }}
+    {{ ui.input('reason', 'Reason for the change', '', placeholder='Required for pricing changes') }}
+    <div class="pb-1.5">{{ ui.checkbox('is_trial', 'Trial package', p.is_trial) }}</div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save package', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No packages match these filters.', 9, 'package') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ packages|length }} package{{ 's' if packages|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newPackage', 'Create Package') %}
+<form method="post" action="/academics/config/packages/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('name', 'Description', '', required=True, placeholder='e.g. 3 Days Package') }}</div>
+  {{ ui.input('min_days', 'Minimum Days', 1, type='number', min=1, max=7, required=True) }}
+  {{ ui.input('max_days', 'Maximum Days', 3, type='number', min=1, max=7, required=True) }}
+  {{ ui.input('session_minutes', 'Session minutes', 30, type='number', min=15, max=120) }}
+  {{ ui.select('course_id', 'Course', course_options, None, placeholder='Any course') }}
+  {{ ui.input('price', 'Price', 0, type='number', step='0.01', min=0) }}
+  {{ ui.select('currency', 'Currency', currencies, 'GBP', placeholder=None) }}
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="pb-1.5 self-end">{{ ui.checkbox('is_trial', 'This is a free trial package') }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Notes', '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create package', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

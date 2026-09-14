@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Receipt Beneficiary Accounts{% endblock %}
+{% block content %}
+{% call ui.page_header("Receipt Beneficiary Accounts", "Where client money is received: payment gateways, bank accounts and cash points offered on the receipt form.", back="/academics/config") %}
+  {{ ui.button("Receipts", href="/finance/receipts", icon="badge-check", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newAccount\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat("All Accounts", stats.total, color=palette(0), href="/academics/config/beneficiary-accounts") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/beneficiary-accounts?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/beneficiary-accounts?status=inactive") }}
+  {{ ui.stat("Online Payment Gateway", stats.gateway, color=palette(1), href="/academics/config/beneficiary-accounts?payment_mode=Online+Payment+Gateway") }}
+  {{ ui.stat("Bank", stats.bank, color=palette(2), href="/academics/config/beneficiary-accounts?payment_mode=Bank") }}
+  {{ ui.stat("Cash", stats.cash, color=palette(4), href="/academics/config/beneficiary-accounts?payment_mode=Cash") }}
+</div>
+
+{% call ui.filter_bar('/academics/config/beneficiary-accounts') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Account or category') }}</div>
+  <div class="w-52">{{ ui.select('payment_mode', 'Payment Mode', payment_modes, payment_mode, placeholder='All modes') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% macro account_form(action, a, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+  {{ ui.select('payment_mode', 'Payment Mode', payment_modes, a.payment_mode if a else 'Bank', placeholder=None, required=True) }}
+  {{ ui.input('category', 'Category', a.category if a else '', required=True, placeholder='Stripe, PayPal, UBL, Meezan Bank, Wise', attrs='list="categoryList"') }}
+  {{ ui.input('account_name', 'Beneficiary Account', a.account_name if a else '', required=True, placeholder='e.g. Company Account') }}
+  {{ ui.select('status', 'Status', statuses, a.status if a else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('account_details', 'Account details', a.account_details if a else '', placeholder='IBAN / account number / gateway account id (optional)') }}</div>
+  <div class="pb-1.5">{{ ui.checkbox('is_auto', 'Auto receipts', a.is_auto if a else False, help='Gateway posts receipts automatically') }}</div>
+  <div class="sm:col-span-2 lg:col-span-4 flex justify-end gap-2">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+<datalist id="categoryList">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+
+{{ ui.table_start(['ID', 'Payment Mode', 'Category', 'Beneficiary Account', 'Auto', 'Status', '']) }}
+{% for a in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.payment_mode }}</td>
+  <td class="px-4 py-2 text-xs">{{ a.category }}</td>
+  <td class="px-4 py-2"><div class="font-medium text-slate-900">{{ a.account_name }}</div>{% if a.account_details %}<div class="text-xs text-slate-500">{{ a.account_details|mask }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge('active' if a.is_auto else 'inactive', 'Auto' if a.is_auto else 'Manual') }}</td>
+  <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/beneficiary-accounts/{{ a.id }}/toggle" class="inline">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">{{ account_form('/academics/config/beneficiary-accounts/' ~ a.id ~ '/edit', a, 'Save account') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No beneficiary accounts match these filters.', 7, 'landmark') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} account{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newAccount', 'Create Beneficiary Account', 'lg') %}
+{{ account_form('/academics/config/beneficiary-accounts/new', None, 'Create account') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

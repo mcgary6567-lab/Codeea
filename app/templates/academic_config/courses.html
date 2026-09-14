@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Courses List{% endblock %}
+{% block content %}
+{% call ui.page_header("Courses List", "Type, default fee, attendance requirement and curriculum link per course. Divisions and curriculum are managed on the course page.", back="/academics/config") %}
+  {{ ui.button("Course Divisions", href="/academics/courses", icon="layers", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newCourse\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("All Courses", stats.total, color=palette(0), href="/academics/config/courses") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/courses?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/courses?status=inactive") }}
+  {{ ui.stat("Islamic Courses", stats.islamic, color=palette(2), href="/academics/config/courses?course_type=Islamic+Courses") }}
+  {{ ui.stat("Academics Tutoring", stats.tutoring, color=palette(10), href="/academics/config/courses?course_type=Academics+Tutoring") }}
+</div>
+
+{% call ui.filter_bar('/academics/config/courses') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Course name or code') }}</div>
+  <div class="w-48">{{ ui.select('course_type', 'Type', course_types, course_type, placeholder='All types') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Name', 'Type', 'Fee', 'Attendance Required', 'Curriculum Link', 'Status', '']) }}
+{% for c in courses %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs"><span class="text-slate-500">{{ c.id }}</span> · <a href="/academics/courses/{{ c.id }}" class="font-semibold text-brand-700">{{ c.code }}</a></td>
+  <td class="px-4 py-2"><a href="/academics/courses/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.name }}</a>
+    {% if c.arabic_name %}<div class="text-xs text-slate-500"><span dir="rtl" class="font-arabic">{{ c.arabic_name }}</span></div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ c.course_type }}</td>
+  <td class="px-4 py-2 text-xs font-semibold">{{ c.fee|money('PKR') }}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge('active' if c.attendance_required else 'inactive', 'Yes' if c.attendance_required else 'No') }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.curriculum_link %}<a href="{{ c.curriculum_link }}" target="_blank" rel="noopener" class="text-brand-700 hover:underline">Open link</a>{% else %}<a href="/academics/curriculum?course_id={{ c.id }}" class="text-slate-500 hover:text-brand-700">Curriculum</a>{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if c.is_active else 'inactive') }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/courses/{{ c.id }}/toggle" class="inline">{{ ui.button('Deactivate' if c.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/academics/config/courses/{{ c.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+    {{ ui.input('name', 'Name', c.name, required=True) }}
+    {{ ui.select('course_type', 'Type', course_types, c.course_type, placeholder=None) }}
+    {{ ui.input('fee', 'Fee (PKR)', c.fee, type='number', step='0.01', min=0) }}
+    {{ ui.input('curriculum_link', 'Curriculum Link', c.curriculum_link or '', placeholder='https://…') }}
+    {{ ui.select('status', 'Status', statuses, 'active' if c.is_active else 'inactive', placeholder=None) }}
+    <div class="pb-1.5">{{ ui.checkbox('attendance_required', 'Attendance Required', c.attendance_required) }}</div>
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save course', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No courses match these filters.', 8, 'book-open') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ courses|length }} course{{ 's' if courses|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newCourse', 'Create Course') %}
+<form method="post" action="/academics/config/courses/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('code', 'Course code', '', required=True, placeholder='e.g. TAFSEER', help='Short uppercase identifier, unique.') }}
+  {{ ui.input('name', 'Name', '', required=True, placeholder='e.g. Tafseer-ul-Quran') }}
+  {{ ui.select('course_type', 'Type', course_types, 'Islamic Courses', placeholder=None, required=True) }}
+  {{ ui.input('fee', 'Fee (PKR)', 4000, type='number', step='0.01', min=0) }}
+  {{ ui.input('arabic_name', 'Arabic name', '', attrs='dir="rtl" class="font-arabic"') }}
+  {{ ui.input('default_session_minutes', 'Session minutes', 30, type='number', min=15, max=120) }}
+  <div class="sm:col-span-2">{{ ui.input('curriculum_link', 'Curriculum Link', '', placeholder='https://…') }}</div>
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="pb-1.5 self-end">{{ ui.checkbox('attendance_required', 'Attendance Required', True) }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=2) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create course', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

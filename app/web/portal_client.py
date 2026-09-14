@@ -16,8 +16,9 @@ from app.database import get_db
 from app.models.academic import Certificate, Evaluation, MonthlyTest
 from app.models.core import User, Notification, CommunicationPreference, Setting
 from app.models.crm import Case, CaseComment, Feedback, Referral
+from app.models.erp import ReferredContact, SessionSlot, TeacherChangeRequest, TimeChangeRequest
 from app.models.finance import Invoice, LedgerEntry, Payment, Subscription, Receipt
-from app.models.people import Client, Student, Leave
+from app.models.people import Client, Student, Leave, Teacher
 from app.models.scheduling import ClassSession, Attendance, Schedule
 from app.services import people as svc
 from app.services.classes import student_attendance_pct
@@ -167,6 +168,8 @@ async def request_leave(request: Request, db: Session = Depends(get_db), user: U
         return redirect("/portal/leaves", "Please give a valid start and end date.", "error")
     lv = Leave(person_type="student", student_id=s.id, leave_type=form.get("leave_type") or "vacation",
                start_date=start, end_date=end, reason=(form.get("reason") or "").strip() or None,
+               leave_detail=(form.get("leave_detail") or "").strip() or None,
+               leave_for_all=parse_bool(form.get("leave_for_all")), apply_date=date.today(),
                status="pending", requested_by_id=user.id)
     db.add(lv)
     db.flush()
@@ -177,6 +180,99 @@ async def request_leave(request: Request, db: Session = Depends(get_db), user: U
                f"{start} to {end}. {(lv.reason or '')}", event_type="leave", link="/teacher/students")
     db.commit()
     return redirect("/portal/leaves", "Leave request submitted. You will be notified once it is approved.")
+
+
+# --------------------------------------------------------------------------- change requests (ERP audit 3.3)
+REFERENCE_TYPES = ["family", "friend", "colleague", "community", "other"]
+DAY_OPTIONS = [(0, "Mon"), (1, "Tue"), (2, "Wed"), (3, "Thu"), (4, "Fri"), (5, "Sat"), (6, "Sun")]
+
+
+def _my_subscription(db: Session, c: Client, subscription_id) -> Subscription | None:
+    sid = parse_int(subscription_id)
+    if not sid:
+        return None
+    return db.query(Subscription).filter(Subscription.id == sid, Subscription.client_id == c.id).first()
+
+
+@router.get("/requests", include_in_schema=False)
+def portal_requests(request: Request, db: Session = Depends(get_db), user: User = Depends(require("portal_client.view")),
+                    ctx: UserContext = Depends(get_user_context)):
+    c = me(ctx)
+    subs = (db.query(Subscription).filter(Subscription.client_id == c.id,
+                                          Subscription.status.notin_(["cancelled", "expired"]))
+            .order_by(Subscription.id.desc()).all())
+    slots = db.query(SessionSlot).filter(SessionSlot.status == "active").order_by(SessionSlot.category, SessionSlot.start_time).all()
+    teachers = db.query(Teacher).filter(Teacher.status == "active").order_by(Teacher.full_name).all()
+    time_rows = db.query(TimeChangeRequest).filter(TimeChangeRequest.client_id == c.id).order_by(TimeChangeRequest.id.desc()).all()
+    teacher_rows = db.query(TeacherChangeRequest).filter(TeacherChangeRequest.client_id == c.id).order_by(TeacherChangeRequest.id.desc()).all()
+    ref_rows = db.query(ReferredContact).filter(ReferredContact.client_id == c.id).order_by(ReferredContact.id.desc()).all()
+    return render(request, "portal/requests.html", {
+        "user": user, "c": c, "children": my_students(db, c),
+        "sub_options": [(s.id, f"{s.subscription_code} - {s.student.full_name if s.student else ''}"
+                              f"{' - ' + s.course.name if s.course else ''}") for s in subs],
+        "slot_options": [(s.id, f"{s.category}: {s.label}") for s in slots],
+        "teacher_options": [(t.id, t.full_name) for t in teachers],
+        "day_options": DAY_OPTIONS, "reference_types": REFERENCE_TYPES,
+        "time_rows": time_rows, "teacher_rows": teacher_rows, "ref_rows": ref_rows,
+        "pending": sum(1 for r in list(time_rows) + list(teacher_rows) + list(ref_rows) if r.status == "pending")})
+
+
+@router.post("/requests", include_in_schema=False)
+async def portal_request_create(request: Request, db: Session = Depends(get_db),
+                                user: User = Depends(require("portal_client.view")),
+                                ctx: UserContext = Depends(get_user_context)):
+    c = me(ctx)
+    form = await request.form()
+    kind = form.get("kind") or ""
+    description = (form.get("description") or "").strip() or None
+    if kind == "time_change":
+        sub = _my_subscription(db, c, form.get("subscription_id"))
+        if not sub:
+            return redirect("/portal/requests", "Choose which subscription should move.", "error")
+        slot_id = parse_int(form.get("new_slot_id"))
+        if not slot_id:
+            return redirect("/portal/requests", "Choose the new class time.", "error")
+        days = [int(d) for d in form.getlist("days") if str(d).isdigit()]
+        req = TimeChangeRequest(client_id=c.id, student_id=sub.student_id, subscription_id=sub.id,
+                                current_slot_id=sub.slot_id, new_slot_id=slot_id,
+                                days=days or list(sub.days_of_week or []), description=description,
+                                status="pending", requested_by_id=user.id)
+        db.add(req)
+        db.flush()
+        log_action(db, user, "create", "requests", entity=req, request=request, rationale=description,
+                   description=f"Parent requested a time change for {sub.subscription_code}")
+        msg = "Time change request submitted. The academic team will confirm the new time."
+    elif kind == "teacher_change":
+        sub = _my_subscription(db, c, form.get("subscription_id"))
+        if not sub:
+            return redirect("/portal/requests", "Choose which subscription needs a different teacher.", "error")
+        req = TeacherChangeRequest(client_id=c.id, student_id=sub.student_id, subscription_id=sub.id,
+                                   current_teacher_id=sub.teacher_id, new_teacher_id=parse_int(form.get("new_teacher_id")),
+                                   description=description, status="pending", requested_by_id=user.id)
+        db.add(req)
+        db.flush()
+        log_action(db, user, "create", "requests", entity=req, request=request, rationale=description,
+                   description=f"Parent requested a teacher change for {sub.subscription_code}")
+        msg = "Teacher change request submitted. Our academic manager will call you."
+    elif kind == "reference":
+        name = (form.get("name") or "").strip()
+        if not name:
+            return redirect("/portal/requests", "Please tell us the name of the person you are referring.", "error")
+        req = ReferredContact(client_id=c.id, name=name[:150], email=(form.get("email") or "").strip() or None,
+                              contact_no=(form.get("contact_no") or "").strip() or None, description=description,
+                              reference_type=form.get("reference_type") or "family", status="pending")
+        db.add(req)
+        db.flush()
+        log_action(db, user, "create", "requests", entity=req, request=request, rationale=description,
+                   description=f"Parent referred a new contact ({name})")
+        msg = "JazakAllahu khairan - we will contact them and your referral credit follows once they join."
+    else:
+        return redirect("/portal/requests", "Choose which kind of request you want to make.", "error")
+    if c.academic_manager_id:
+        notify(db, c.academic_manager_id, f"New client request from {c.full_name}",
+               description or "No further detail was given.", event_type="request", link="/requests/time-change")
+    db.commit()
+    return redirect("/portal/requests", msg)
 
 
 # --------------------------------------------------------------------------- billing
@@ -262,6 +358,7 @@ async def open_case(request: Request, db: Session = Depends(get_db), user: User 
         return redirect("/portal/cases", "Please give your request a short title.", "error")
     student = scoped_student(db, ctx, form.get("student_id"))
     case_type = form.get("case_type") or "request"
+    complaint_type = (form.get("complaint_type") or "").strip() or None
     case = None
     try:
         from app.services.crm import open_case as _open
@@ -278,6 +375,9 @@ async def open_case(request: Request, db: Session = Depends(get_db), user: User 
         db.flush()
         log_action(db, user, "create", "cases", entity=case, request=request,
                    description=f"Case {case.case_number} opened from the parent portal ({case_type})")
+    if case is not None and case_type == "complaint":
+        case.complaint_type = complaint_type or "Other"
+        case.approval_status = case.approval_status or "pending"
     db.commit()
     return redirect(f"/portal/cases/{case.id}", f"Case {case.case_number} opened. We will respond within {case.sla_hours} hours.")
 

@@ -1,35 +1,52 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Clients{% endblock %}
+{% block title %}Client List{% endblock %}
 {% block content %}
-{% call ui.page_header("Clients / Parents", "Paying families and guardians. Institutional codes (C-XXXXX) are the canonical identity; contact details are masked by role.") %}
-  {% if has_perm(user, 'clients.add') %}{{ ui.button("New client", href="/clients/new", icon="plus") }}{% endif %}
+{% call ui.page_header("Client List", "Families and guardians. Status tiles filter the list; contact details are masked and every reveal is audited.") %}
+  {{ ui.button("Trial Client List", href="/clients/trial", icon="flask-conical", variant="secondary") }}
+  {{ ui.button("Clients Users List", href="/clients/users", icon="key-round", variant="secondary") }}
+  {% if has_perm(user, 'clients.add') %}{{ ui.button("Create", href="/clients/new", icon="plus") }}{% endif %}
 {% endcall %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
-  {{ ui.stat("Total clients", stats.total, icon="users", color="brand") }}
-  {{ ui.stat("Active", stats.active, icon="user-check", color="emerald", href="/clients?status=active") }}
-  {{ ui.stat("Trial", stats.trial, icon="flask-conical", color="sky", href="/clients?status=trial") }}
-  {{ ui.stat("Churned / inactive", stats.churned, icon="user-x", color="rose", href="/clients?status=churned") }}
-  {{ ui.stat("Countries", stats.countries, icon="globe", color="indigo") }}
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, stats[key], icon=icon, color=palette(loop.index0), href="/clients?status=" ~ key) }}
+  {% endfor %}
 </div>
 {% call ui.filter_bar('/clients') %}
-  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Name, code, email, phone, city') }}</div>
-  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
-  <div class="w-48">{{ ui.select('country', 'Country', countries, country, placeholder='All countries') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name, ID, email, cell, legacy code') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', status_options, status, placeholder='All statuses') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+  <div class="w-44">{{ ui.select('country', 'Country', countries, country, placeholder='All countries') }}</div>
+  <div class="w-44">{{ ui.select('billing_rep', 'Billing Representative', billing_rep_options, billing_rep, placeholder='Any') }}</div>
+  <div class="w-44">{{ ui.select('academic_manager', 'Academic Manager', manager_options, academic_manager, placeholder='Any') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'Registered from', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'Registered to', date_to, type='date') }}</div>
 {% endcall %}
-{{ ui.table_start(['Code', 'Client', 'Contact', 'Country / TZ', 'Students', 'Status', 'Joined', '']) }}
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} client(s) · showing {{ page.start }}–{{ page.end }}</p>
+{{ ui.table_start(['ID', 'Client Name', 'Status', 'Registration Date', 'Students', 'Currency', 'Balance', 'Fee Recurrence', 'Email', 'Cell', 'WhatsApp', 'State', 'Shift Name', 'Referred By', 'Status Remarks', 'Billing Representative', '']) }}
 {% for c in page.items %}
-<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
-  <td class="px-4 py-2"><div class="flex items-center gap-2">{{ ui.avatar(c.full_name, 'sm') }}<div><a href="/clients/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ c.full_name }}</a><div class="text-xs text-slate-500">{{ c.relationship_to_student|titleize }}{% if c.is_ambassador %} · <span class="text-amber-600">Ambassador</span>{% endif %}</div></div></div></td>
-  <td class="px-4 py-2 text-xs"><div>{{ (c.phone if show_contact else c.phone|mask) }}</div><div class="text-slate-500">{{ (c.email if show_contact else c.email|mask) }}</div></td>
-  <td class="px-4 py-2 text-xs">{{ c.country }}<div class="text-slate-500">{{ c.timezone }} · {{ c.currency }}</div></td>
+<tr class="hover:bg-slate-50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
+  <td class="px-4 py-2"><a href="/clients/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.full_name }}</a>
+    <div class="text-xs text-slate-500">{{ c.country }}{% if c.is_ambassador %} · <span class="text-amber-600">Ambassador</span>{% endif %}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(c.status, c.status|label('client')) }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.joined_at|date }}</td>
   <td class="px-4 py-2 text-center">{{ student_counts.get(c.id, 0) }}</td>
-  <td class="px-4 py-2">{{ ui.badge(c.status) }}</td>
-  <td class="px-4 py-2 text-xs text-slate-500">{{ c.joined_at|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.currency }}</td>
+  <td class="px-4 py-2 text-xs font-medium whitespace-nowrap {{ 'text-rose-600' if balances.get(c.id, 0) > 0 else 'text-emerald-600' }}">{{ balances.get(c.id, 0)|money(c.currency) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.fee_recurrence|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.email if show_contact else c.email|mask }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.phone if show_contact else c.phone|mask }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{% if c.whatsapp %}<span>{{ c.whatsapp|mask }}</span>
+    <a href="/clients/{{ c.id }}/reveal/whatsapp" hx-get="/clients/{{ c.id }}/reveal/whatsapp" hx-target="closest td" hx-swap="innerHTML" class="ml-1 text-brand-600 hover:underline" title="Reveal (audited)">View</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ c.state or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.shift|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{% if c.referred_by %}<a href="/clients/{{ c.referred_by.id }}" class="hover:text-brand-600">{{ c.referred_by.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ c.status_remarks or '' }}">{{ c.status_remarks or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.billing_rep.full_name if c.billing_rep else '—' }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">{{ ui.button('Open', href='/clients/' ~ c.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
 </tr>
-{% else %}{{ ui.empty('No clients match these filters.', 8) }}{% endfor %}
+{% else %}{{ ui.empty('No clients match these filters.', 17) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

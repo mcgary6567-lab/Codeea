@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set money_mode = d.amount %}
+{% call ui.page_header(title, "Subscription mix by month, country, status, shift, teacher, supervisor and course.") %}
+  {% if money_mode %}
+    {{ ui.button("Switch to count", href="/dashboards/subscriptions", icon="hash", variant="secondary") }}
+  {% else %}
+    {{ ui.button("Switch to amount", href="/dashboards/subscriptions/amount", icon="coins", variant="secondary") }}
+  {% endif %}
+  {{ ui.button("All Subscriptions", href="/subscriptions", icon="repeat", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  {% if money_mode %}
+  {{ ui.stat("Total Amount Of Regular", d.tiles.regular|money(d.base), color=palette(0)) }}
+  {{ ui.stat("Total Amount Of Trial", d.tiles.trial|money(d.base), color=palette(1)) }}
+  {{ ui.stat("Total Amount Of Cancelled", d.tiles.cancelled|money(d.base), color=palette(2)) }}
+  {{ ui.stat("Total Amount Of Completed", d.tiles.completed|money(d.base), color=palette(3)) }}
+  {% else %}
+  {{ ui.stat("Total Regular Subscriptions", d.tiles.regular, color=palette(0)) }}
+  {{ ui.stat("Total Trial Subscriptions", d.tiles.trial, color=palette(1)) }}
+  {{ ui.stat("Total Cancelled Subscriptions", d.tiles.cancelled, color=palette(2)) }}
+  {{ ui.stat("Total Completed Subscriptions", d.tiles.completed, color=palette(3)) }}
+  {% endif %}
+</div>
+
+{% call ui.filter_bar(action) %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('teacher_id', 'Employee', opts.teachers, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', opts.subscription_statuses, status, placeholder='All statuses') }}</div>
+  {% if money_mode %}<div class="w-44">{{ ui.select('country', 'Country', opts.countries, country, placeholder='All countries') }}</div>{% endif %}
+{% endcall %}
+
+<div class="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Subscriptions in view <b>{{ d.count }}</b></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">
+    {% if money_mode %}Total value <b>{{ d.total|money(d.base) }}</b>{% else %}Total <b>{{ d.total }}</b>{% endif %}</span>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card("Month Wise") %}{{ ui.chart('sdMonth') }}{% endcall %}
+  {% call ui.card("Country wise") %}{{ ui.chart('sdCountry') }}{% endcall %}
+  {% call ui.card("Status Wise") %}{{ ui.chart('sdStatus') }}{% endcall %}
+  {% call ui.card("Shift wise") %}{{ ui.chart('sdShift') }}{% endcall %}
+  {% call ui.card("Teacher wise") %}{{ ui.chart('sdTeacher', 320) }}{% endcall %}
+  {% call ui.card("Supervisor wise") %}{{ ui.chart('sdSupervisor') }}{% endcall %}
+  {% call ui.card("Course wise") %}{{ ui.chart('sdCourse') }}{% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var unit = {{ (d.base if d.amount else 'Subscriptions')|tojson }};
+  OQC.bar('sdMonth', {{ d.charts.month.labels|tojson }}, [{label: unit, data: {{ d.charts.month.data|tojson }}}]);
+  OQC.bar('sdCountry', {{ d.charts.country.labels|tojson }}, [{label: unit, data: {{ d.charts.country.data|tojson }}}], {indexAxis: 'y'});
+  OQC.doughnut('sdStatus', {{ d.charts.status.labels|tojson }}, {{ d.charts.status.data|tojson }});
+  OQC.doughnut('sdShift', {{ d.charts.shift.labels|tojson }}, {{ d.charts.shift.data|tojson }});
+  OQC.bar('sdTeacher', {{ d.charts.teacher.labels|tojson }}, [{label: unit, data: {{ d.charts.teacher.data|tojson }}}], {indexAxis: 'y'});
+  OQC.bar('sdSupervisor', {{ d.charts.supervisor.labels|tojson }}, [{label: unit, data: {{ d.charts.supervisor.data|tojson }}}], {indexAxis: 'y'});
+  OQC.doughnut('sdCourse', {{ d.charts.course.labels|tojson }}, {{ d.charts.course.data|tojson }});
+})();
+</script>
+{% endblock %}

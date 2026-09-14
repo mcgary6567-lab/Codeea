@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Class Queries{% endblock %}
+{% block content %}
+{% call ui.page_header("Class Queries", "Issues raised by teachers during or after a class") %}
+  {{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuery\')"') }}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
+  {{ ui.stat("Pending", tiles.get('pending', 0), color=palette(2), href=tile_base ~ "&status=pending") }}
+  {{ ui.stat("Closed", tiles.get('closed', 0), color=palette(0), href=tile_base ~ "&status=closed") }}
+  {{ ui.stat("All Queries", (tiles.get('pending', 0) + tiles.get('closed', 0)), color=palette(4), href=tile_base ~ "&status=") }}
+</div>
+
+{% call ui.filter_bar('/classes/queries') %}
+  <div class="w-36">{{ ui.select('status', 'Status', [('pending','Pending'),('closed','Closed')], status, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID', 'Class Attendance ID', 'Class Query Type', 'Detail', 'Teacher', 'Created At', 'Shift', 'Status', ''], compact=True) }}
+{% for q in page.items %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ q.id }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{% if q.session_id %}<a href="/classes/{{ q.session_id }}" class="text-brand-700 hover:underline">{{ q.session_id }}</a>{% else %}-{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs font-medium">{{ q.query_type }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-600">{{ q.detail or '-' }}{% if q.response %}<div class="mt-0.5 text-[11px] text-emerald-700">Response: {{ q.response }}</div>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ q.teacher.full_name if q.teacher else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ q.created_at|datetime }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (q.teacher.shift|titleize) if q.teacher else '-' }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(q.status, 'Pending' if q.status == 'pending' else 'Closed') }}</td>
+  <td class="px-3 py-1.5 text-right">
+    {% if q.status == 'pending' and has_perm(user, 'classes.update') %}
+    <form method="post" action="/classes/queries/{{ q.id }}/close" class="flex items-center justify-end gap-1">
+      <input type="hidden" name="back" value="{{ base_url }}">
+      <input name="response" required placeholder="Response" class="w-48 rounded border border-slate-300 px-2 py-1 text-xs">
+      {{ ui.button('Close', size='sm', variant='success', icon='check') }}
+    </form>
+    {% else %}<span class="text-[11px] text-slate-400">{{ q.closed_at|datetime if q.closed_at else '' }}</span>{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No class queries match these filters.', 9, 'message-square-warning') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% call ui.modal('newQuery', 'Raise a class query') %}
+<form method="post" action="/classes/queries/new" class="space-y-4">
+  <input type="hidden" name="back" value="{{ base_url }}">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('session_id', 'Class Attendance ID', session_options, none, placeholder='- Optional: pick a class -') }}
+    {{ ui.select('query_type', 'Class Query Type', query_type_options, none, required=True) }}
+    {{ ui.select('teacher_id', 'Teacher', teacher_options, none, placeholder='Taken from the class') }}
+  </div>
+  {{ ui.textarea('detail', 'Detail', '', rows=3, required=True) }}
+  {{ ui.button('Create query', icon='message-square-warning') }}
+</form>
+{% endcall %}
+{% endblock %}

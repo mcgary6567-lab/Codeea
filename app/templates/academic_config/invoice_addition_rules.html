@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Invoice Addition Master List{% endblock %}
+{% block content %}
+{% call ui.page_header("Invoice Addition Master List", "When and how an addition is applied to generated invoices: for one subscription, one client, or globally.", back="/academics/config") %}
+  {{ ui.button("Invoice Addition List", href="/academics/config/invoice-additions", icon="list-plus", variant="secondary") }}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newRule\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-7 mb-6">
+  {{ ui.stat("All Rules", stats.total, color=palette(0), href="/academics/config/invoice-addition-rules") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/invoice-addition-rules?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/invoice-addition-rules?status=inactive") }}
+  {{ ui.stat("Subscription", stats.subscription, color=palette(1), href="/academics/config/invoice-addition-rules?level=subscription") }}
+  {{ ui.stat("Client", stats.client, color=palette(2), href="/academics/config/invoice-addition-rules?level=client") }}
+  {{ ui.stat("Global", stats['global'], color=palette(4), href="/academics/config/invoice-addition-rules?level=global") }}
+  {{ ui.stat("Auto Assigned", stats.auto, color=palette(5)) }}
+</div>
+
+{% call ui.filter_bar('/academics/config/invoice-addition-rules') %}
+  <div class="w-44">{{ ui.select('level', 'Level', levels, level, placeholder='All levels') }}</div>
+  <div class="w-60">{{ ui.select('addition_type_id', 'Invoice Addition List', type_options, addition_type_id, placeholder='All additions') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% macro rule_form(action, r, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end"
+      x-data="{ level: '{{ r.level if r else 'global' }}' }">
+  {{ ui.select('level', 'Level', levels, r.level if r else 'global', placeholder=None, required=True, attrs='x-model="level"') }}
+  <div x-show="level === 'subscription'">{{ ui.select('subscription_id', 'Subscription', subscription_options, r.subscription_id if r else None, placeholder='— Select subscription —') }}</div>
+  <div x-show="level === 'client'">{{ ui.select('client_id', 'Client', client_options, r.client_id if r else None, placeholder='— Select client —') }}</div>
+  <div x-show="level === 'global'" class="text-xs text-slate-500 pb-2">Applies to every invoice generated in the date range.</div>
+  {{ ui.select('addition_type_id', 'Invoice Addition List', type_options, r.addition_type_id if r else None, placeholder='— Select —', required=True) }}
+  {{ ui.input('from_date', 'From Date', (r.from_date if r else today)|string, type='date', required=True) }}
+  {{ ui.input('to_date', 'To Date', (r.to_date|string if r and r.to_date else ''), type='date', help='Leave blank for open-ended') }}
+  {{ ui.select('implementation_type', 'Implementation Type', implementation_types, r.implementation_type if r else 'fixed', placeholder=None) }}
+  {{ ui.input('amount', 'Amount', r.amount if r else 0, type='number', step='0.01', min=0, required=True, help='Fixed amount in the invoice currency, or a percentage of the invoice') }}
+  {{ ui.select('status', 'Status', statuses, r.status if r else 'active', placeholder=None) }}
+  <div class="pb-1.5">{{ ui.checkbox('auto_assigned', 'Auto Assigned?', r.auto_assigned if r else False, help='Applied automatically during bulk invoice generation') }}</div>
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('reason', 'Reason', '', placeholder='Why this addition applies (kept in the audit log)') }}</div>
+  <div class="flex gap-2 justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start(['ID', 'Level', 'From Date', 'To Date', 'Invoice Addition List', 'Implementation Type', 'Addition Type', 'Amount', 'Status', 'Auto Assigned?', '']) }}
+{% for r in rules %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ r.id }}</td>
+  <td class="px-4 py-2 text-xs">
+    <div class="font-medium">{{ r.level|titleize }}</div>
+    {% if r.level == 'subscription' and r.subscription %}<a href="/subscriptions/{{ r.subscription_id }}" class="text-brand-700 hover:underline">{{ r.subscription.subscription_code }}</a>
+    {% elif r.level == 'client' and r.client %}<a href="/clients/{{ r.client_id }}" class="text-brand-700 hover:underline">{{ r.client.client_code }} · {{ r.client.full_name }}</a>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">{{ r.from_date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.to_date|date if r.to_date else 'Open' }}</td>
+  <td class="px-4 py-2 font-medium text-slate-900">{{ r.addition_type.description if r.addition_type else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.implementation_type|titleize }}</td>
+  <td class="px-4 py-2">{% if r.addition_type %}{{ ui.badge({'discount':'active','charge':'pending','tax':'info'}.get(r.addition_type.addition_type, 'info'), r.addition_type.addition_type|titleize) }}{% endif %}</td>
+  <td class="px-4 py-2 text-xs font-semibold text-right">{% if r.implementation_type == 'percent' %}{{ r.amount|float|round(2) }}%{% else %}{{ '%.2f'|format(r.amount|float) }}{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-4 py-2 text-center text-xs">{{ ui.badge('active' if r.auto_assigned else 'inactive', 'Yes' if r.auto_assigned else 'No') }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/invoice-addition-rules/{{ r.id }}/toggle" class="inline">{{ ui.button('Deactivate' if r.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">{{ rule_form('/academics/config/invoice-addition-rules/' ~ r.id ~ '/edit', r, 'Save rule') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No invoice addition rules match these filters.', 11, 'sliders-horizontal') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rules|length }} rule{{ 's' if rules|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newRule', 'Create Invoice Addition Rule', 'lg') %}
+{{ rule_form('/academics/config/invoice-addition-rules/new', None, 'Create rule') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

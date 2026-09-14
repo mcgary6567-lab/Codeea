@@ -19,7 +19,9 @@
           {{ ui.input('start_date', 'From', '', type='date', required=True) }}
           {{ ui.input('end_date', 'To', '', type='date', required=True) }}
         </div>
+        {{ ui.checkbox('leave_for_all', 'Leave For All', help='Apply this leave to every child in the family.') }}
         {{ ui.textarea('reason', 'Details', '', rows=3, placeholder='School exams, family travel, illness…') }}
+        {{ ui.textarea('leave_detail', 'Leave Detail', '', rows=2, placeholder='Anything the teacher should know (travel dates, catch-up plan).') }}
         <div class="flex gap-2">{{ ui.button('Submit request', icon='calendar-plus') }}</div>
       </form>
     {% endcall %}

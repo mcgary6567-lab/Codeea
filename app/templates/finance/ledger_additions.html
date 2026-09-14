@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ledger Additions{% endblock %}
+{% block content %}
+{% call ui.page_header("Ledger Additions", "Manual credits and charges on a family's account — teacher gifts, leave discounts, adjustments.") %}
+  {{ ui.button("Client Ledger Report", href="/finance/ledger", icon="book-open-text", variant="secondary") }}
+  {% if has_perm(user, 'ledger.add') %}
+  <button type="button" @click="$dispatch('open-modal','newaddition')" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"><i data-lucide="plus" class="h-4 w-4"></i>Create</button>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-3 sm:grid-cols-3 mb-5">
+  {{ ui.stat("Pending", tiles.tile_pending, color=palette(5), href="/finance/ledger-additions?status=pending") }}
+  {{ ui.stat("Confirmed", tiles.tile_confirmed, color=palette(3), href="/finance/ledger-additions?status=confirmed") }}
+  {{ ui.stat("Cancelled", tiles.tile_cancelled, color=palette(7), href="/finance/ledger-additions?status=cancelled") }}
+</div>
+
+{% call ui.filter_bar('/finance/ledger-additions') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('client_id', 'Client', clients, client_id, placeholder='All clients') }}</div>
+  <div class="w-48">{{ ui.select('addition_type', 'Ledger Addition Type', types, addition_type, placeholder='All types') }}</div>
+  <div class="w-40">{{ ui.select('effect', 'Effect', effects, effect, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', ['pending', 'confirmed', 'cancelled'], status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto">
+{{ ui.table_start(['ID', 'Client', 'Shift', 'Currency', 'Currency Rate', 'Amount', 'L.C Amount', 'Status', 'Ledger Addition Date', 'Ledger Addition Type', 'Reference Employee', 'B.R', 'Effect', ''], compact=True) }}
+{% for la in page.items %}
+<tr class="hover:bg-slate-50">
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold">{{ la.id }}</td>
+  <td class="px-3 py-1.5 text-xs"><a href="/finance/ledger?client_id={{ la.client_id }}" class="font-medium text-slate-800 hover:text-brand-600">{{ la.client.full_name if la.client else '' }}</a>
+    <div class="text-slate-500">{{ la.client.client_code if la.client else '' }}</div></td>
+  <td class="px-3 py-1.5 text-xs">{{ shift_label(la.client) }}</td>
+  <td class="px-3 py-1.5 text-xs font-mono">{{ la.currency }}</td>
+  <td class="px-3 py-1.5 text-right text-xs text-slate-600">{{ '%.4f'|format(la.currency_rate|float) }}</td>
+  <td class="px-3 py-1.5 text-right text-xs font-semibold whitespace-nowrap {{ 'text-rose-600' if la.effect == 'add' else 'text-emerald-600' }}">{{ '+' if la.effect == 'add' else '−' }}{{ la.amount|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs text-slate-600 whitespace-nowrap">{{ la.lc_amount|money(base) }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(la.status) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ la.addition_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ la.addition_type }}
+    {% if la.remarks %}<div class="text-slate-500 max-w-[14rem] truncate" title="{{ la.remarks }}">{{ la.remarks }}</div>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ la.reference_employee.full_name if la.reference_employee else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ la.billing_rep.full_name.split(' ')[0] if la.billing_rep else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ 'Add' if la.effect == 'add' else 'Minus' }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {% if la.status == 'pending' and has_perm(user, 'ledger.update') %}
+      <form method="post" action="/finance/ledger-additions/{{ la.id }}/confirm" class="inline">
+        <button class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100">Confirm</button>
+      </form>
+    {% endif %}
+    {% if la.status != 'cancelled' and has_perm(user, 'ledger.update') %}
+      {{ ui.confirm_form('/finance/ledger-additions/' ~ la.id ~ '/cancel', 'Cancel', variant='ghost', size='sm',
+                         message='Cancel this ledger addition? A confirmed one is reversed in the ledger.') }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No ledger additions match these filters.', 14) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'ledger.add') %}
+{% call ui.modal('newaddition', 'Create Ledger Addition', size='lg') %}
+<form method="post" action="/finance/ledger-additions/new" x-data="{
+        client: '', currency: '', rate: 1, amount: 0,
+        meta: {{ client_meta|tojson_safe }}, rates: {{ rates|tojson_safe }},
+        pick() { const m = this.meta[this.client]; if (m) { this.currency = m.currency; this.setRate(); } },
+        setRate() { this.rate = this.rates[this.currency] || 1; },
+        get lc() { return (parseFloat(this.amount || 0) * parseFloat(this.rate || 1)).toFixed(2); } }">
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="sm:col-span-2">{{ ui.select('client_id', 'Client', clients, required=True, attrs='x-model="client" @change="pick()"') }}</div>
+    {{ ui.select('currency', 'Currency', currencies, required=True, attrs='x-model="currency" @change="setRate()"') }}
+    {{ ui.input('currency_rate', 'Currency Rate', type='number', step='0.000001', attrs='x-model="rate"') }}
+    {{ ui.input('amount', 'Amount', type='number', step='0.01', required=True, attrs='x-model="amount"') }}
+    <div>
+      <label class="mb-1 block text-xs font-medium text-slate-600">L.C Amount ({{ base }})</label>
+      <input name="lc_amount" type="number" step="0.01" :value="lc" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    {{ ui.input('addition_date', 'Ledger Addition Date', today_d, type='date', required=True) }}
+    {{ ui.select('addition_type', 'Ledger Addition Type', types, required=True) }}
+    {{ ui.select('effect', 'Effect', effects, 'minus', required=True) }}
+    {{ ui.select('status', 'Status', [('pending', 'Pending'), ('confirmed', 'Confirmed — post to ledger now')], 'pending') }}
+    {{ ui.select('reference_employee_id', 'Reference Employee', employees, placeholder='— None —') }}
+    {{ ui.select('billing_rep_id', 'B.R (Billing Representative)', rep_options, placeholder='— None —') }}
+    <div class="sm:col-span-2">{{ ui.textarea('remarks', 'Remarks', rows=2) }}</div>
+  </div>
+  <div class="mt-4 flex justify-end gap-2">
+    <button type="button" @click="open=false" class="rounded-lg border border-slate-300 px-3.5 py-2 text-sm">Cancel</button>
+    {{ ui.button('Save Ledger Addition', icon='check') }}
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Trial Client List{% endblock %}
+{% block content %}
+{% call ui.page_header("Trial Client List", "Families still on trial: who added the lead, when it was converted and which closer owns it. Rows are highlighted by shift.") %}
+  {{ ui.button("Client List", href="/clients", icon="users", variant="secondary") }}
+  {% if has_perm(user, 'clients.add') %}{{ ui.button("Create", href="/clients/new?status=trial", icon="plus") }}{% endif %}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("Trial", stats.trial, icon="flask-conical", color=palette(0), href="/clients/trial") }}
+  {{ ui.stat("Morning shift", stats.morning, icon="sunrise", color=palette(5), href="/clients/trial?shift=morning") }}
+  {{ ui.stat("Night shift", stats.night, icon="moon", color=palette(10), href="/clients/trial?shift=night") }}
+  {{ ui.stat("Regular", stats.active, icon="user-check", color=palette(3), href="/clients?status=active") }}
+</div>
+{% call ui.filter_bar('/clients/trial') %}
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name, ID, email, cell') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+  <div class="w-44">{{ ui.select('country', 'Country', countries, country, placeholder='All countries') }}</div>
+  <div class="w-44">{{ ui.select('billing_rep', 'Billing Representative', billing_rep_options, billing_rep, placeholder='Any') }}</div>
+  <div class="w-44">{{ ui.select('academic_manager', 'Academic Manager', manager_options, academic_manager, placeholder='Any') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'Registered from', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'Registered to', date_to, type='date') }}</div>
+{% endcall %}
+{{ ui.table_start(['ID', 'Client Name', 'Registration Date', 'Students', 'Currency', 'Status', 'Country', 'State', 'Shift Name', 'Referred By', 'Remarks', 'Billing Representative', 'Academic Manager', 'Lead Added By', 'Lead Add Date', 'Converted At', 'Converted By', 'Lead Closer']) }}
+{% for c in page.items %}
+{% set lead = leads.get(c.lead_id) %}
+<tr class="{{ 'bg-amber-50/60' if c.shift == 'morning' else 'bg-indigo-50/40' }} hover:bg-slate-50">
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
+  <td class="px-4 py-2"><a href="/clients/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.full_name }}</a></td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.joined_at|date }}</td>
+  <td class="px-4 py-2 text-center">{{ student_counts.get(c.id, 0) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.currency }}</td>
+  <td class="px-4 py-2">{{ ui.badge(c.status, c.status|label('client')) }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.country }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.state or '—' }}</td>
+  <td class="px-4 py-2 text-xs"><span class="rounded px-1.5 py-0.5 text-[11px] font-semibold {{ 'bg-amber-100 text-amber-800' if c.shift == 'morning' else 'bg-indigo-100 text-indigo-800' }}">{{ c.shift|titleize }}</span></td>
+  <td class="px-4 py-2 text-xs">{% if c.referred_by %}<a href="/clients/{{ c.referred_by.id }}" class="hover:text-brand-600">{{ c.referred_by.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-4 py-2 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ c.notes or '' }}">{{ c.notes or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.billing_rep.full_name if c.billing_rep else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ c.academic_manager.full_name if c.academic_manager else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ user_names.get(c.lead_added_by_id) or (user_names.get(lead.generator_id) if lead and lead.generator_id else '—') }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ lead.created_at|date if lead else (c.created_at|date) }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.converted_at|datetime if c.converted_at else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ user_names.get(c.converted_by_id, '—') if c.converted_by_id else '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ user_names.get(closers.get(c.lead_id), '—') if c.lead_id and closers.get(c.lead_id) else (user_names.get(lead.assigned_to_id) if lead and lead.assigned_to_id else '—') }}</td>
+</tr>
+{% else %}{{ ui.empty('No trial clients right now.', 18) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

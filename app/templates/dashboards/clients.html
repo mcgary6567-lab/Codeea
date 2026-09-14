@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Client Management Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header("Client Management Dashboard", "Registrations, statuses and the family mix across the college.") %}
+  {{ ui.button("Client list", href="/clients", icon="users", variant="secondary") }}
+  {{ ui.button("Financial Summary", href="/dashboards/financial-summary", icon="pie-chart", variant="secondary") }}
+{% endcall %}
+
+<div class="mb-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("Regular", d.tiles.regular, color=palette(0), href="/dashboards/clients?status=regular" ~ ('&' ~ qs if qs else '')) }}
+  {{ ui.stat("Trial", d.tiles.trial, color=palette(1), href="/dashboards/clients?status=trial" ~ ('&' ~ qs if qs else '')) }}
+  {{ ui.stat("On Leave", d.tiles.on_leave, color=palette(2), href="/dashboards/clients?status=on_leave" ~ ('&' ~ qs if qs else '')) }}
+  {{ ui.stat("Passed Out", d.tiles.pass_out, color=palette(3), href="/dashboards/clients?status=pass_out" ~ ('&' ~ qs if qs else '')) }}
+  {{ ui.stat("Dropped Out", d.tiles.drop_out, color=palette(4), href="/dashboards/clients?status=drop_out" ~ ('&' ~ qs if qs else '')) }}
+  {{ ui.stat("Black Listed", d.tiles.black_list, color=palette(5), href="/dashboards/clients?status=black_list" ~ ('&' ~ qs if qs else '')) }}
+</div>
+
+{% call ui.filter_bar('/dashboards/clients') %}
+  <div class="w-36">{{ ui.input('date_from', 'Reg. From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'Reg. To Date', date_to, type='date') }}</div>
+  <div class="w-60">{{ ui.select('client_id', 'Client', opts.clients, client_id, placeholder='All clients') }}</div>
+  <div class="w-44">{{ ui.select('country', 'Country', opts.countries, country, placeholder='All countries') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', opts.shifts, shift, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', opts.client_statuses, status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+<div class="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Families in view <b>{{ d.total }}</b></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Countries <b>{{ d.charts.country.labels|length }}</b></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Currencies <b>{{ d.charts.currency.labels|length }}</b></span>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  {% call ui.card("Month Wise Registrations") %}{{ ui.chart('cdMonth') }}{% endcall %}
+  {% call ui.card("Country Wise") %}{{ ui.chart('cdCountry') }}{% endcall %}
+  {% call ui.card("Shift Wise") %}{{ ui.chart('cdShift') }}{% endcall %}
+  {% call ui.card("Status Wise") %}{{ ui.chart('cdStatus') }}{% endcall %}
+  {% call ui.card("State Wise") %}{{ ui.chart('cdState') }}{% endcall %}
+  {% call ui.card("Gateway Wise", "Receipts by payment gateway / category") %}{{ ui.chart('cdGateway') }}{% endcall %}
+  {% call ui.card("Currency Wise") %}{{ ui.chart('cdCurrency') }}{% endcall %}
+  {% call ui.card("Billing Representative Wise") %}{{ ui.chart('cdRep') }}{% endcall %}
+  {% call ui.card("Academic Manager Wise") %}{{ ui.chart('cdManager') }}{% endcall %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  OQC.bar('cdMonth', {{ d.charts.month.labels|tojson }}, [{label: 'Registrations', data: {{ d.charts.month.data|tojson }}}]);
+  OQC.bar('cdCountry', {{ d.charts.country.labels|tojson }}, [{label: 'Families', data: {{ d.charts.country.data|tojson }}}], {indexAxis: 'y'});
+  OQC.doughnut('cdShift', {{ d.charts.shift.labels|tojson }}, {{ d.charts.shift.data|tojson }});
+  OQC.doughnut('cdStatus', {{ d.charts.status.labels|tojson }}, {{ d.charts.status.data|tojson }});
+  OQC.bar('cdState', {{ d.charts.state.labels|tojson }}, [{label: 'Families', data: {{ d.charts.state.data|tojson }}}], {indexAxis: 'y'});
+  OQC.doughnut('cdGateway', {{ d.charts.gateway.labels|tojson }}, {{ d.charts.gateway.data|tojson }});
+  OQC.doughnut('cdCurrency', {{ d.charts.currency.labels|tojson }}, {{ d.charts.currency.data|tojson }});
+  OQC.bar('cdRep', {{ d.charts.billing_rep.labels|tojson }}, [{label: 'Families', data: {{ d.charts.billing_rep.data|tojson }}}], {indexAxis: 'y'});
+  OQC.bar('cdManager', {{ d.charts.academic_manager.labels|tojson }}, [{label: 'Families', data: {{ d.charts.academic_manager.data|tojson }}}], {indexAxis: 'y'});
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Receipts{% endblock %}
+{% block content %}
+{% call ui.page_header("Receipts", "Billing Management — money received against invoices and on account.") %}
+  {{ ui.button("Invoice List", href="/finance/invoices", icon="receipt", variant="secondary") }}
+  {{ ui.button("Client Ledger Report", href="/finance/ledger", icon="book-open-text", variant="secondary") }}
+  {% if has_perm(user, 'payments.add') %}
+  <form method="post" action="/finance/receipts/sync-gateway" class="inline">
+    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-slate-800"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Sync Gateway Receipts</button>
+  </form>
+  {{ ui.button("Create", href="/finance/receipts/new", icon="plus") }}
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-3 sm:grid-cols-3 xl:grid-cols-5 mb-5">
+  {{ ui.stat("Confirmed", stats.tile_confirmed, color=palette(0), href="/finance/receipts?status=confirmed") }}
+  {{ ui.stat("Over All Pending", stats.tile_pending, color=palette(1), href="/finance/receipts?status=pending") }}
+  {{ ui.stat("Cancelled", stats.tile_cancelled, color=palette(2), href="/finance/receipts?status=cancelled") }}
+  {{ ui.stat("Failed", stats.tile_failed, color=palette(7), href="/finance/receipts?status=failed") }}
+  {{ ui.stat("Refunded", stats.tile_refunded, color=palette(9), href="/finance/receipts?status=refunded") }}
+</div>
+<div class="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Received this month <b class="text-emerald-600">{{ stats.month_total|money(stats.base) }}</b> over {{ stats.count_month }} receipts</span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Unreconciled <b>{{ stats.unreconciled }}</b></span>
+  <span class="rounded border border-slate-200 bg-white px-2.5 py-1">Refunded <b>{{ stats.refunded|money(stats.base) }}</b></span>
+</div>
+
+{% call ui.filter_bar('/finance/receipts') %}
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.select('client_id', 'Client', clients, client_id, placeholder='All clients') }}</div>
+  <div class="w-28">{{ ui.select('currency', 'Currency', currencies, currency, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All statuses') }}</div>
+  <div class="w-40">{{ ui.select('method', 'Payment Mode', methods, method, placeholder='All modes') }}</div>
+  <div class="w-56">{{ ui.select('beneficiary_account_id', 'Beneficiary Account', beneficiaries, beneficiary_account_id, placeholder='All accounts') }}</div>
+  <div class="w-44">{{ ui.input('q', 'Search', q, placeholder='PAY-, ref, family') }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto">
+{{ ui.table_start(['ID', 'Receipt Date', 'Client', 'Shift', 'Currency', 'Total Amount', 'L.c Amount', 'Ref No', 'Receiver Name', 'Receiving Destination', 'Description', 'Payment Mode', 'Category', 'Payment Getway', 'Beneficiary Account', 'Status', 'Received Date', 'B.R', 'Print'], compact=True) }}
+{% for p in page.items %}
+<tr class="hover:bg-slate-50">
+  <td class="px-3 py-1.5 font-mono text-xs font-semibold whitespace-nowrap"><a class="text-brand-700" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a>
+    {% if p.beneficiary_account and p.beneficiary_account.is_auto %}<span class="ml-1 rounded bg-emerald-50 px-1 text-[10px] text-emerald-700 ring-1 ring-emerald-600/20">auto</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ (p.receipt_date or p.received_at)|date }}</td>
+  <td class="px-3 py-1.5 text-xs"><a href="/finance/ledger?client_id={{ p.client_id }}" class="font-medium text-slate-800 hover:text-brand-600">{{ p.client.full_name if p.client else '' }}</a>
+    <div class="text-slate-500">{{ p.client.client_code if p.client else '' }}{% if p.invoice %} · {{ p.invoice.invoice_number }}{% endif %}</div></td>
+  <td class="px-3 py-1.5 text-xs">{{ shift_label(p.client) }}</td>
+  <td class="px-3 py-1.5 text-xs font-mono">{{ p.currency }}</td>
+  <td class="px-3 py-1.5 text-right text-xs font-semibold whitespace-nowrap">{{ p.amount|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs text-slate-600 whitespace-nowrap">{{ p.amount_in_base|money(base) }}</td>
+  <td class="px-3 py-1.5 text-xs font-mono">{{ p.reference or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.receiver_name or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.receiving_destination or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs max-w-[16rem] truncate" title="{{ p.description or '' }}">{{ p.description or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.method|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.category or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.gateway|titleize if p.gateway else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.beneficiary_account.account_name if p.beneficiary_account else '—' }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(p.status, p.status|label('receipt')) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ p.received_at|date }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.billing_rep.full_name.split(' ')[0] if p.billing_rep else (p.client.billing_rep.full_name.split(' ')[0] if p.client and p.client.billing_rep else '—') }}</td>
+  <td class="px-3 py-1.5 text-center"><a href="/finance/payments/{{ p.id }}/receipt" class="inline-flex rounded-md p-1 text-slate-400 hover:text-brand-600" title="Print receipt"><i data-lucide="printer" class="h-4 w-4"></i></a></td>
+</tr>
+{% else %}{{ ui.empty('No receipts match these filters.', 19) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}MS Teams Users{% endblock %}
+{% block content %}
+{% call ui.page_header("MS Teams Users", "Microsoft Teams accounts mapped to staff and clients so class calls can be matched to people.", back="/academics/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newTeamsUser\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat("All Accounts", stats.total, color=palette(0)) }}
+  {{ ui.stat("Staff", stats.staff, color=palette(1), href="/academics/config/teams-users?tab=staff") }}
+  {{ ui.stat("Clients", stats.client, color=palette(2), href="/academics/config/teams-users?tab=client") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/teams-users?tab=" ~ tab ~ "&status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/teams-users?tab=" ~ tab ~ "&status=inactive") }}
+</div>
+
+{{ ui.tabs(tabs, tab) }}
+
+{% call ui.filter_bar('/academics/config/teams-users') %}
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Teams email or display name') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{% macro teams_form(action, t, submit_label, person_type) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end" x-data="{ pt: '{{ person_type }}' }">
+  {{ ui.select('person_type', 'Account for', [('staff', 'Staff'), ('client', 'Client')], person_type, placeholder=None, attrs='x-model="pt"') }}
+  <div x-show="pt === 'staff'">{{ ui.select('employee_id', 'Employee', employee_options, t.employee_id if t else None, placeholder='— Select employee —') }}</div>
+  <div x-show="pt === 'client'">{{ ui.select('client_id', 'Client', client_options, t.client_id if t else None, placeholder='— Select client —') }}</div>
+  {{ ui.input('teams_email', 'Teams email', t.teams_email if t else '', type='email', required=True, placeholder='name@quran-college.org') }}
+  {{ ui.input('display_name', 'Display name', t.display_name if t else '', placeholder='Defaults to the person name') }}
+  {{ ui.select('status', 'Status', statuses, t.status if t else 'active', placeholder=None) }}
+  <div class="sm:col-span-2 lg:col-span-2 flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start([('Employee' if tab == 'staff' else 'Client'), 'Teams Email', 'Display Name', 'Status', '']) }}
+{% for t in rows %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2">
+    {% if t.person_type == 'staff' and t.employee %}<a href="/hr/employees/{{ t.employee_id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ t.employee.full_name }}</a><div class="font-mono text-[11px] text-slate-500">{{ t.employee.employee_code }} · {{ t.employee.designation }}</div>
+    {% elif t.person_type == 'client' and t.client %}<a href="/clients/{{ t.client_id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ t.client.full_name }}</a><div class="font-mono text-[11px] text-slate-500">{{ t.client.client_code }} · {{ t.client.country }}</div>
+    {% else %}<span class="text-slate-400">Unlinked</span>{% endif %}
+  </td>
+  <td class="px-4 py-2 font-mono text-xs">{{ t.teams_email }}</td>
+  <td class="px-4 py-2 text-xs">{{ t.display_name or '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/teams-users/{{ t.id }}/toggle" class="inline">{{ ui.button('Deactivate' if t.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="5" class="bg-slate-50 px-4 py-4">{{ teams_form('/academics/config/teams-users/' ~ t.id ~ '/edit', t, 'Save account', t.person_type) }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No ' ~ ('staff' if tab == 'staff' else 'client') ~ ' Teams accounts match these filters.', 5, 'monitor') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} account{{ 's' if rows|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newTeamsUser', 'Create MS Teams User', 'lg') %}
+{{ teams_form('/academics/config/teams-users/new', None, 'Create account', tab) }}
+{% endcall %}
+{% endif %}
+{% endblock %}

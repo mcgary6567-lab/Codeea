@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Clients Users List{% endblock %}
+{% block content %}
+{% call ui.page_header("Clients Users List", "Every family with a parent-portal login: last sign-in, active flag and password tools.") %}
+  {{ ui.button("Client List", href="/clients", icon="users", variant="secondary") }}
+{% endcall %}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat("With portal login", stats.with_login, icon="key-round", color=palette(0), href="/clients/users") }}
+  {{ ui.stat("Active logins", stats.active, icon="user-check", color=palette(3), href="/clients/users?active=yes") }}
+  {{ ui.stat("Disabled", stats.with_login - stats.active, icon="user-x", color=palette(7), href="/clients/users?active=no") }}
+  {{ ui.stat("Signed in (30 days)", stats.logged_in_30d, icon="log-in", color=palette(9)) }}
+</div>
+{% call ui.filter_bar('/clients/users') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Client, ID, username, email') }}</div>
+  <div class="w-40">{{ ui.select('active', 'Active', [('yes','Active'),('no','Disabled')], active, placeholder='All') }}</div>
+{% endcall %}
+{% if stats.without_login %}<p class="mb-2 text-xs text-slate-500">{{ stats.without_login }} client(s) have no portal login yet — create one from the Client Form.</p>{% endif %}
+{{ ui.table_start(['Client', 'Username / Email', 'Last Login', 'Active', 'Must change password', '']) }}
+{% for c in page.items %}
+<tr class="hover:bg-slate-50">
+  <td class="px-4 py-2"><a href="/clients/{{ c.id }}" class="font-medium hover:text-brand-600">{{ c.full_name }}</a> <span class="font-mono text-xs text-slate-400">{{ c.client_code }}</span>
+    <div class="text-xs text-slate-500">{{ ui.badge(c.status, c.status|label('client')) }}</div></td>
+  <td class="px-4 py-2 text-xs"><div class="font-mono">{{ c.user.username }}</div><div class="text-slate-500">{{ c.user.email }}</div></td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ c.user.last_login_at|datetime if c.user.last_login_at else 'Never' }}{% if c.user.last_login_ip %}<div class="text-slate-400">{{ c.user.last_login_ip }}</div>{% endif %}</td>
+  <td class="px-4 py-2">{{ ui.badge('active' if c.user.is_active else 'inactive', 'Yes' if c.user.is_active else 'No') }}</td>
+  <td class="px-4 py-2 text-xs">{{ 'Yes' if c.user.must_change_password else 'No' }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_update %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reset-portal-password', 'Reset password', icon='key-round', variant='secondary', message='Reset the portal password? A new temporary password is shown once.', size='sm') }}{% endif %}
+    {{ ui.button('Open', href='/clients/' ~ c.id, variant='ghost', size='sm', icon='arrow-right') }}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No client users match.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

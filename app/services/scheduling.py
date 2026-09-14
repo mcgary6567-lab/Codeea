@@ -443,3 +443,308 @@ def missed_response_times(db: Session, since: date) -> list[float]:
     rows = db.query(RiskAlert).filter(RiskAlert.alert_type == "missed_class", RiskAlert.created_at >= datetime.combine(since, time.min),
                                       RiskAlert.status.in_(["acknowledged", "resolved"])).all()
     return [max(0.0, (a.updated_at - a.created_at).total_seconds() / 60) for a in rows if a.updated_at and a.created_at]
+
+
+# ============================================================================= ERP parity (docs/AUDIT_ACADEMICS.md 3.5 / 3.6)
+# Session slots, subscription <-> schedule synchronisation and teacher availability search (WP-3).
+SLOT_CATEGORIES = ["30 Minutes", "45 Minutes"]
+LANGUAGES = ["Arabic", "Chinese", "English", "French", "Japanese", "Pashto", "Punjabi", "Sindhi", "Urdu"]
+COURSE_METHODS = [("one_on_one", "One on One"), ("group", "Group Class")]
+SESSION_TYPES = ["Job Time Session", "Free Session"]
+SUBSCRIPTION_STATUS_OPTIONS = [("cancelled", "Cancelled"), ("completed", "Completed"), ("freeze", "Freeze"),
+                               ("regular", "Regular"), ("trial", "Trial")]
+# ERP vocabulary -> every internal value that means the same thing (existing rows use active/frozen/expired).
+SUBSCRIPTION_STATUS_ALIASES = {
+    "regular": ["regular", "active"], "active": ["regular", "active"],
+    "freeze": ["freeze", "frozen"], "frozen": ["freeze", "frozen"],
+    "completed": ["completed", "expired"], "expired": ["completed", "expired"],
+    "trial": ["trial"], "cancelled": ["cancelled"], "pending_approval": ["pending_approval"],
+}
+LIVE_SUBSCRIPTION_STATUSES = ["regular", "active", "trial", "freeze", "frozen", "pending_approval"]
+RUNNING_SUBSCRIPTION_STATUSES = ["regular", "active", "trial"]
+
+
+def status_values(status: str) -> list[str]:
+    """All internal status values that the ERP label ``status`` covers."""
+    return SUBSCRIPTION_STATUS_ALIASES.get((status or "").lower(), [status]) if status else []
+
+
+def category_for_minutes(minutes: Optional[int]) -> str:
+    return "45 Minutes" if (minutes or 30) >= 45 else "30 Minutes"
+
+
+def minutes_for_category(category: Optional[str]) -> int:
+    return 45 if str(category or "").startswith("45") else 30
+
+
+def slot_label(start: time, duration: int) -> str:
+    """ERP session label: "07:00 AM - 07:30 AM"."""
+    total = start.hour * 60 + start.minute + (duration or 30)
+    end = time((total // 60) % 24, total % 60)
+    return f"{start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
+
+
+def slot_display(slot) -> str:
+    """Filter / select label: "07:00 AM - 07:30 AM (PST) / 02:00 AM UTC"."""
+    if not slot:
+        return "-"
+    return f"{slot.label} (PST) / {slot.utc_label} UTC"
+
+
+def ensure_slots(db: Session, category: str = "30 Minutes") -> int:
+    """Create the 48 half-hour session slots of a category when none exist (idempotent). Returns rows created."""
+    from app.models.erp import SessionSlot
+    if db.query(SessionSlot).filter(SessionSlot.category == category).count():
+        return 0
+    minutes = minutes_for_category(category)
+    n = 0
+    for i, st in enumerate(SLOTS):
+        db.add(SessionSlot(category=category, label=slot_label(st, minutes), start_time=st, duration_minutes=minutes,
+                           status="active", sort_no=i + 1))
+        n += 1
+    db.flush()
+    return n
+
+
+def ensure_default_slots(db: Session) -> int:
+    return sum(ensure_slots(db, c) for c in SLOT_CATEGORIES)
+
+
+def slots_for(db: Session, category: Optional[str] = None, active_only: bool = True) -> list:
+    from app.models.erp import SessionSlot
+    q = db.query(SessionSlot)
+    if category:
+        q = q.filter(SessionSlot.category == category)
+    if active_only:
+        q = q.filter(SessionSlot.status == "active")
+    return q.order_by(SessionSlot.category, SessionSlot.start_time, SessionSlot.sort_no).all()
+
+
+def slot_options(db: Session, category: Optional[str] = None) -> list[tuple[int, str]]:
+    return [(s.id, (slot_display(s) if category else f"{s.category}: {slot_display(s)}")) for s in slots_for(db, category)]
+
+
+def slot_for_time(db: Session, t: Optional[time], category: Optional[str] = "30 Minutes"):
+    """The SessionSlot starting at ``t`` for the category (falls back to any category, then the closest earlier slot)."""
+    from app.models.erp import SessionSlot
+    if t is None:
+        return None
+    if not isinstance(t, time):
+        t = _parse_time(t)
+    t = time(t.hour, t.minute)
+    q = db.query(SessionSlot).filter(SessionSlot.start_time == t)
+    slot = q.filter(SessionSlot.category == category).first() if category else None
+    slot = slot or q.order_by(SessionSlot.category).first()
+    if slot:
+        return slot
+    q = db.query(SessionSlot).filter(SessionSlot.start_time <= t)
+    if category:
+        q = q.filter(SessionSlot.category == category)
+    return q.order_by(SessionSlot.start_time.desc()).first()
+
+
+def backfill_session_slots(db: Session, schedule: Schedule, subscription_id: Optional[int] = None) -> int:
+    """Set ClassSession.slot_id / subscription_id on a schedule's sessions where missing."""
+    n = 0
+    for s in db.query(ClassSession).filter(ClassSession.schedule_id == schedule.id).all():
+        changed = False
+        if not s.slot_id:
+            slot = slot_for_time(db, s.start_time, category_for_minutes(s.duration_minutes))
+            if slot:
+                s.slot_id = slot.id
+                changed = True
+        sid = subscription_id or schedule.subscription_id
+        if sid and not s.subscription_id:
+            s.subscription_id = sid
+            changed = True
+        n += 1 if changed else 0
+    db.flush()
+    return n
+
+
+# ----------------------------------------------------------------------------- teacher availability
+def teacher_matches(teacher: Teacher, course=None, language: str = "") -> bool:
+    ok = True
+    if course is not None and teacher.courses:
+        ok = ok and (course.code in (teacher.courses or []))
+    if language and teacher.languages:
+        ok = ok and (language in (teacher.languages or []))
+    return ok
+
+
+def teacher_slot_busy(db: Session, teacher_id: int, days: list[int], slot, horizon_days: int = 14,
+                      exclude_schedule_id: Optional[int] = None) -> bool:
+    """True when the teacher has an active schedule or a pending class in the slot on any of the days."""
+    if class_svc.has_conflict(db, teacher_id, days, slot.start_time, slot.duration_minutes or 30, exclude_schedule_id=exclude_schedule_id):
+        return True
+    today = date.today()
+    q = db.query(ClassSession).filter(ClassSession.teacher_id == teacher_id, ClassSession.date >= today,
+                                      ClassSession.date <= today + timedelta(days=horizon_days),
+                                      ClassSession.status.in_(["pending", "available", "started"]))
+    if exclude_schedule_id:
+        q = q.filter(or_(ClassSession.schedule_id != exclude_schedule_id, ClassSession.schedule_id.is_(None)))
+    st_min = slot.start_time.hour * 60 + slot.start_time.minute
+    en_min = st_min + (slot.duration_minutes or 30)
+    for s in q.all():
+        if s.date.weekday() not in days:
+            continue
+        o_st = s.start_time.hour * 60 + s.start_time.minute
+        o_en = o_st + (s.duration_minutes or 30)
+        if o_st < en_min and st_min < o_en:
+            return True
+    return False
+
+
+def available_teachers(db: Session, slot, days: list[int], course=None, language: str = "", gender: str = "",
+                       exclude_schedule_id: Optional[int] = None) -> tuple[list[Teacher], bool]:
+    """Verified active teachers free in the slot on the days. Returns (teachers, strict) where strict=False means
+    the course/language match produced nobody and every free teacher is listed instead."""
+    if slot is None or not days:
+        return [], True
+    pool = db.query(Teacher).filter(Teacher.status == "active", Teacher.is_verified.is_(True)).order_by(Teacher.full_name).all()
+    free = [t for t in pool if not teacher_slot_busy(db, t.id, days, slot, exclude_schedule_id=exclude_schedule_id)]
+    strict = [t for t in free if teacher_matches(t, course, language)]
+    if strict:
+        return strict, True
+    return free, False
+
+
+def teacher_week_sessions(db: Session, teacher_id: int) -> dict[int, list[Schedule]]:
+    """Booked slots per weekday for the Teacher's Sessions panel: {weekday: [schedules...]} sorted by time."""
+    out: dict[int, list[Schedule]] = {d: [] for d in range(7)}
+    for sch in db.query(Schedule).filter(Schedule.teacher_id == teacher_id, Schedule.status == "active").all():
+        for d in sch.days_of_week or []:
+            out[int(d)].append(sch)
+    for d in out:
+        out[d].sort(key=lambda s: (s.start_time, s.id))
+    return out
+
+
+# ----------------------------------------------------------------------------- subscription <-> schedule
+def subscription_schedule(db: Session, sub) -> Optional[Schedule]:
+    sch = db.get(Schedule, sub.schedule_id) if sub.schedule_id else None
+    if not sch:
+        sch = (db.query(Schedule).filter(Schedule.subscription_id == sub.id).order_by(Schedule.status == "active", Schedule.id.desc()).first())
+    if not sch:
+        sch = (db.query(Schedule).filter(Schedule.student_id == sub.student_id, Schedule.status == "active")
+               .order_by(Schedule.id.desc()).first())
+    return sch
+
+
+def sync_subscription_schedule(db: Session, user: Optional[User], sub, *, reason: str = "", request=None,
+                               horizon_days: int = 14) -> Optional[Schedule]:
+    """Create or refresh the recurring Schedule of a subscription from its slot / days / teacher / course and
+    (re)generate the pending sessions. Sessions carry slot_id and subscription_id."""
+    slot = sub.slot
+    if not slot or not sub.teacher_id or not sub.days_of_week:
+        return subscription_schedule(db, sub)
+    days = sorted({int(d) for d in sub.days_of_week})
+    is_trial = sub.status == "trial"
+    sch = subscription_schedule(db, sub)
+    if sch is None:
+        sch = create_schedule(db, user, student_id=sub.student_id, teacher_id=sub.teacher_id, days=days, start_time=slot.start_time,
+                              duration=slot.duration_minutes or 30, course_id=sub.course_id, subscription_id=sub.id,
+                              start_date=date.today(), is_trial=is_trial, notes=sub.remarks, request=request, horizon_days=horizon_days)
+    else:
+        sch.subscription_id = sub.id
+        sch.is_trial = is_trial
+        changed = (sch.teacher_id != sub.teacher_id or sorted(int(d) for d in (sch.days_of_week or [])) != days
+                   or sch.start_time != slot.start_time or (sch.duration_minutes or 30) != (slot.duration_minutes or 30)
+                   or (sub.course_id and sch.course_id != sub.course_id))
+        if changed:
+            update_schedule(db, user, sch, teacher_id=sub.teacher_id, days=days, start_time=slot.start_time,
+                            duration=slot.duration_minutes or 30, course_id=sub.course_id, subscription_id=sub.id,
+                            shift_id=sch.shift_id, start_date=sch.start_date, end_date=None, notes=sch.notes,
+                            reason=reason or f"Subscription {sub.subscription_code} updated", request=request)
+        if sch.status != "active" and sub.status in RUNNING_SUBSCRIPTION_STATUSES:
+            change_schedule_status(db, user, sch, "active", reason or f"Subscription {sub.subscription_code} active", request=request)
+    sub.schedule_id = sch.id
+    backfill_session_slots(db, sch, sub.id)
+    return sch
+
+
+def end_subscription_schedule(db: Session, user: Optional[User], sub, status: str, reason: str, request=None) -> int:
+    """Pause (freeze) or end (cancel / complete) the subscription's schedule; future pending classes are cancelled."""
+    sch = subscription_schedule(db, sub)
+    if not sch or sch.status == status:
+        return 0
+    return change_schedule_status(db, user, sch, status, reason, request=request)
+
+
+def subscription_price(db: Session, package, course, currency: str) -> float:
+    """List price: the package price (converted into the client's currency) or the course fee (base currency)."""
+    from app.services import billing
+    if package and float(package.price or 0) > 0:
+        return billing.convert(db, float(package.price), package.currency or billing.base_currency(db), currency)
+    if course and float(course.fee or 0) > 0:
+        return billing.convert(db, float(course.fee), billing.base_currency(db), currency)
+    return 0.0
+
+
+def create_erp_subscription(db: Session, user: Optional[User], *, student, course, package, teacher: Teacher, slot, days: list[int],
+                            language: str = "English", course_method: str = "one_on_one", session_category: str = "30 Minutes",
+                            session_type: str = "Job Time Session", status: str = "trial", trial_days: int = 3,
+                            remarks: Optional[str] = None, books: Optional[list[int]] = None, grade: Optional[str] = None,
+                            follow_up_date: Optional[date] = None, request=None):
+    """ERP "Create Subscription": subscription + recurring schedule + generated sessions + audit + client notice."""
+    from app.core.utils import next_code
+    from app.models.finance import Subscription
+    from app.services import billing
+    if not student or not student.client:
+        raise ValueError("Choose a student that belongs to a client.")
+    if not teacher or not teacher.is_verified:
+        raise ValueError("Choose a verified teacher.")
+    if slot is None:
+        raise ValueError("Choose a session time.")
+    days = sorted({int(d) for d in days if 0 <= int(d) < 7})
+    if not days:
+        raise ValueError("Select at least one day of the week.")
+    if status not in ("trial", "regular"):
+        status = "trial"
+    if teacher_slot_busy(db, teacher.id, days, slot):
+        raise ValueError(f"{teacher.full_name} already has a class in {slot.label} on one of the selected days.")
+    client = student.client
+    currency = (client.currency or "GBP").upper()
+    price = round(subscription_price(db, package, course, currency), 2)
+    trial_days = int(trial_days or 3)
+    sub = Subscription(
+        subscription_code=next_code(db, Subscription, "subscription_code", "SUB-"), client_id=client.id, student_id=student.id,
+        package_id=package.id if package else None, course_id=course.id if course else student.course_id, teacher_id=teacher.id,
+        sessions_per_week=len(days), session_minutes=slot.duration_minutes or 30, list_price=price, discount_pct=0, discount_amount=0,
+        price=price, currency=currency, price_in_base=billing.convert_to_base(db, price, currency),
+        teacher_cost_base=billing.teacher_monthly_cost(db, teacher, len(days)), billing_cycle=(package.billing_cycle if package else "monthly"),
+        start_date=date.today(), next_billing_date=(date.today() + timedelta(days=trial_days)) if status == "trial" else date.today(),
+        status=status, auto_renew=status == "regular", created_by_id=user.id if user else None, notes=remarks,
+        slot_id=slot.id, days_of_week=days, language=language or "English", course_method=course_method or "one_on_one",
+        session_category=session_category or category_for_minutes(slot.duration_minutes), session_type=session_type or "Job Time Session",
+        trial_days=trial_days, remarks=remarks, supervisor_id=teacher.supervisor_id, books=[int(b) for b in (books or [])],
+        follow_up_date=follow_up_date or ((date.today() + timedelta(days=trial_days)) if status == "trial" else None))
+    db.add(sub)
+    db.flush()
+    # keep the student record aligned with its subscription
+    student.teacher_id = teacher.id
+    student.course_id = sub.course_id
+    student.preferred_language = sub.language
+    if grade:
+        student.grade = grade
+    if status == "trial":
+        student.status = "trial"
+        student.trial_days = trial_days
+    elif student.status in ("trial", "free", "frozen", "cancelled"):
+        student.status = "active"
+    sch = sync_subscription_schedule(db, user, sub, reason=f"Subscription {sub.subscription_code} created", request=request)
+    n_sessions = db.query(ClassSession).filter(ClassSession.schedule_id == sch.id).count() if sch else 0
+    log_action(db, user, "create", "subscriptions", entity=sub,
+               description=(f"Subscription {sub.subscription_code} created for {student.full_name}: {course.name if course else '-'} with "
+                            f"{teacher.full_name} at {slot.label} on {day_label(days)} ({status}); {n_sessions} class(es) generated"),
+               rationale=remarks, after={"status": status, "slot": slot.label, "days": days, "price": float(price), "currency": currency},
+               request=request, consequential=True)
+    if client.user_id:
+        notify(db, client.user_id, "New subscription",
+               f"{student.full_name}'s {course.name if course else 'course'} classes with {teacher.full_name} start at {slot.label} PKT "
+               f"on {day_label(days)} ({'trial' if status == 'trial' else 'regular'}).", event_type="subscription", link="/portal/schedule")
+    if teacher.user_id:
+        notify(db, teacher.user_id, "New student assigned", f"{student.full_name} - {slot.label} on {day_label(days)} ({status}).",
+               event_type="subscription", link="/teacher/online-class")
+    db.flush()
+    return sub

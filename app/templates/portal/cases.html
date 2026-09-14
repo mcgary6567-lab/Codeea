@@ -15,6 +15,7 @@
             {% for s in children %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}
           </select>
         </div>
+        {{ ui.select('complaint_type', 'Complaint Type', ['Teacher','Timing','Billing','Technical','Behaviour','Other'], 'Other', placeholder=None, help='Used when the case above is a complaint.') }}
         {{ ui.input('title', 'Short title', '', required=True, placeholder='Please move Aisha to 6pm') }}
         {{ ui.textarea('description', 'Tell us more', '', rows=5, placeholder='The more detail you give, the faster we can fix it.') }}
         <div class="flex gap-2">{{ ui.button('Submit', icon='send') }}</div>

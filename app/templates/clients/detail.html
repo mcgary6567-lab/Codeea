@@ -2,36 +2,62 @@
 {% import "macros.html" as ui %}
 {% block title %}{{ c.client_code }} · {{ c.full_name }}{% endblock %}
 {% block content %}
-{% call ui.page_header(c.full_name, None, back='/clients') %}
+{% call ui.page_header(c.full_name, 'Client Form · ' ~ c.client_code ~ (' · legacy ' ~ c.legacy_code if c.legacy_code else ''), back='/clients') %}
+  {{ ui.button('Change Log', href=change_log_url, icon='history', variant='secondary') }}
   {% if has_perm(user, 'students.add') %}{{ ui.button('Add student', href='/students/new?client_id=' ~ c.id, icon='user-plus', variant='secondary') }}{% endif %}
   {% if has_perm(user, 'clients.update') %}
-    {{ ui.button('Edit', href='/clients/' ~ c.id ~ '/edit', icon='pencil', variant='secondary') }}
+    {{ ui.button('Basic Detail', href='/clients/' ~ c.id ~ '/edit', icon='pencil', variant='secondary') }}
     {% if not c.user %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/portal-login', 'Create portal login', icon='key-round', variant='primary', message='Create a parent portal login? A temporary password will be shown once.', size='md') }}
     {% else %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reset-portal-password', 'Reset portal password', icon='key-round', variant='secondary', message='Reset the portal password? The parent will need the new temporary password.', size='md') }}{% endif %}
-    {% if c.status in ('inactive', 'churned') %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reactivate', 'Reactivate', icon='rotate-ccw', variant='success', message='Reactivate this client and their portal login?', size='md') }}
-    {% else %}<button type="button" @click="$dispatch('open-modal','deactivate')" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="user-x" class="h-4 w-4"></i>Deactivate</button>{% endif %}
+    {% if c.status in ('inactive', 'churned') %}{{ ui.confirm_form('/clients/' ~ c.id ~ '/reactivate', 'Reactivate', icon='rotate-ccw', variant='success', message='Reactivate this client (Regular) and their portal login?', size='md') }}
+    {% else %}<button type="button" @click="$dispatch('open-modal','deactivate')" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="user-x" class="h-4 w-4"></i>Drop Out / Black List</button>{% endif %}
   {% endif %}
 {% endcall %}
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
   <span class="rounded-md bg-brand-600 px-2.5 py-1 font-mono text-sm font-bold text-white tracking-wide">{{ c.client_code }}</span>
-  {{ ui.badge(c.status) }}
+  {{ ui.badge(c.status, c.status|label('client')) }}
+  <span class="rounded px-1.5 py-0.5 text-[11px] font-semibold {{ 'bg-amber-100 text-amber-800' if c.shift == 'morning' else 'bg-indigo-100 text-indigo-800' }}">{{ c.shift|titleize }} shift</span>
   {% if c.is_ambassador %}{{ ui.badge('qualified', 'Ambassador') }}{% endif %}
   {% if c.consent_given %}{{ ui.badge('verified', 'Consent ' ~ (c.consent_at|date)) }}{% else %}{{ ui.badge('pending', 'No consent') }}{% endif %}
   {% if c.user %}{{ ui.badge('active' if c.user.is_active else 'inactive', 'Portal ' ~ ('active' if c.user.is_active else 'disabled')) }}{% else %}{{ ui.badge('draft', 'No portal login') }}{% endif %}
-  <span class="text-slate-500">{{ c.country }} · {{ c.timezone }} · {{ c.currency }}</span>
-  <span class="ml-auto text-slate-500">Balance due: <b class="{{ 'text-rose-600' if balance > 0 else 'text-emerald-600' }}">{{ balance|money(c.currency) }}</b></span>
+  <span class="text-slate-500">{{ c.country }}{% if c.state %} · {{ c.state }}{% endif %} · {{ c.timezone }} · {{ c.currency }}</span>
+  <span class="ml-auto text-slate-500">Balance: <b class="{{ 'text-rose-600' if balance > 0 else 'text-emerald-600' }}">{{ balance|money(c.currency) }}</b></span>
 </div>
 {{ ui.tabs(tabs, tab) }}
 
 {% if tab == 'overview' %}
 <div class="grid gap-5 lg:grid-cols-3">
   <div class="lg:col-span-2 space-y-5">
-    {% call ui.card("Profile", "Contact details " ~ ('(full access)' if show_contact else 'are masked for your role')) %}
-    {{ ui.dl([('Full name', c.full_name), ('Relationship', c.relationship_to_student|titleize), ('Email', c.email if show_contact else c.email|mask), ('Phone', c.phone if show_contact else c.phone|mask),
-              ('WhatsApp', (c.whatsapp if show_contact else c.whatsapp|mask) ~ (' · opted in' if c.whatsapp_opt_in else ' · opted out')), ('City / Country', (c.city ~ ', ' if c.city else '') ~ c.country),
-              ('Timezone', c.timezone), ('Currency', c.currency), ('Household', c.household.name if c.household else None), ('Source', c.source),
-              ('Billing rep', c.billing_rep.full_name if c.billing_rep else None), ('Joined', c.joined_at|date), ('Address', c.address if show_contact else ('—' if not c.address else '••••••')),
-              ('Referral code', c.referral_code)]) }}
+    {% call ui.card("Client Form", "Read-only summary — use Basic Detail to change these values.") %}
+    <div class="flex flex-col gap-5 sm:flex-row">
+      <div class="shrink-0 text-center">
+        {% if c.photo_path %}<img src="/storage/{{ c.photo_path }}" alt="{{ c.full_name }}" class="h-28 w-28 rounded-md border border-slate-200 object-cover">
+        {% else %}<div class="flex h-28 w-28 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400"><i data-lucide="user" class="h-10 w-10"></i></div>{% endif %}
+        <div class="mt-1 text-[11px] text-slate-400">Photo</div>
+      </div>
+      <div class="min-w-0 flex-1">
+      {{ ui.dl([('Primary Email', c.email if show_contact else c.email|mask), ('Fee Recurrence Type', c.fee_recurrence|titleize),
+                ('Primary Cell', c.phone if show_contact else c.phone|mask), ('Currency', c.currency),
+                ('Registration Date', c.joined_at|date), ('Status', c.status|label('client')),
+                ('State', c.state), ('Legacy Code', c.legacy_code),
+                ('WhatsApp', (c.whatsapp if show_contact else c.whatsapp|mask) ~ (' · opted in' if c.whatsapp_opt_in else ' · opted out')), ('Country', c.country),
+                ('Shift', c.shift|titleize), ('Referred By', (c.referred_by.client_code ~ ' - ' ~ c.referred_by.full_name) if c.referred_by else None),
+                ('Billing Representative', c.billing_rep.full_name if c.billing_rep else None), ('Academic Manager', c.academic_manager.full_name if c.academic_manager else None),
+                ('Academic Group', c.academic_group.name if c.academic_group else None), ('Opening Balance', c.opening_balance|money(c.currency)),
+                ('Relationship', c.relationship_to_student|titleize), ('Household', c.household.name if c.household else None),
+                ('Source', c.source), ('Referral code', c.referral_code)]) }}
+      </div>
+    </div>
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      <div class="rounded border border-slate-200 bg-slate-50 p-3 text-sm"><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Remarks</div><p class="mt-1 whitespace-pre-line text-slate-700">{{ c.notes or '—' }}</p></div>
+      <div class="rounded border border-slate-200 bg-slate-50 p-3 text-sm"><div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status Remarks</div><p class="mt-1 text-slate-700">{{ c.status_remarks or '—' }}</p></div>
+    </div>
+    {% endcall %}
+    {% call ui.card("Contacts", "Active contact rows (all rows under the Contacts tab).") %}
+    {{ ui.table_start(['Contact Type', 'Contact Detail', 'Remarks', 'Status'], compact=True) }}
+    {% for r in contacts %}<tr><td class="px-3 py-1.5 text-xs">{{ r.contact_type|titleize }}</td><td class="px-3 py-1.5 font-mono text-xs">{{ r.detail if show_contact else r.detail|mask }}</td><td class="px-3 py-1.5 text-xs text-slate-500">{{ r.remarks or '—' }}</td><td class="px-3 py-1.5">{{ ui.badge(r.status) }}</td></tr>
+    {% else %}{{ ui.empty('No extra contacts recorded.', 4) }}{% endfor %}
+    {{ ui.table_end() }}
     {% endcall %}
     {% call ui.card("Preferences & consent") %}
     {% set p = c.preferences or {} %}
@@ -39,35 +65,151 @@
               ('Consent given', ('Yes, ' ~ (c.consent_at|datetime)) if c.consent_given else 'No'), ('Communication channels', prefs|map(attribute='channel')|join(', ') if prefs else 'none recorded')]) }}
     <div class="mt-3 flex flex-wrap gap-2">{% for pr in prefs %}{{ ui.badge('active' if pr.opted_in else 'inactive', pr.channel|titleize ~ (' on' if pr.opted_in else ' off')) }}{% endfor %}</div>
     {% endcall %}
-    {% if c.notes %}{% call ui.card("Internal notes") %}<p class="whitespace-pre-line text-sm">{{ c.notes }}</p>{% endcall %}{% endif %}
   </div>
   <div class="space-y-5">
-    <div class="grid gap-3">
-      {{ ui.stat('Students', students|length, icon='graduation-cap', color='brand', href='/clients/' ~ c.id ~ '?tab=students') }}
-      {{ ui.stat('Open cases', open_cases, icon='life-buoy', color='amber' if open_cases else 'emerald', href='/clients/' ~ c.id ~ '?tab=cases') }}
-      {{ ui.stat('Overdue invoices', overdue, icon='receipt', color='rose' if overdue else 'emerald', href='/clients/' ~ c.id ~ '?tab=billing') }}
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      {{ ui.stat('Students', students|length, icon='graduation-cap', color=palette(0), href='/clients/' ~ c.id ~ '?tab=students') }}
+      {{ ui.stat('Subscriptions', subscriptions_count, icon='repeat', color=palette(3), href='/clients/' ~ c.id ~ '?tab=billing') }}
+      {{ ui.stat('Open cases', open_cases, icon='life-buoy', color=palette(5) if open_cases else palette(1), href='/clients/' ~ c.id ~ '?tab=cases') }}
+      {{ ui.stat('Overdue invoices', overdue, icon='receipt', color=palette(7) if overdue else palette(1), href='/clients/' ~ c.id ~ '?tab=billing') }}
     </div>
     {% call ui.card("Students") %}
-    <ul class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-      {% for s in students %}<li class="flex items-center justify-between py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }} <span class="font-mono text-xs text-slate-400">{{ s.student_code }}</span></a><span class="flex items-center gap-2 text-xs text-slate-500">{{ s.course.name if s.course else '—' }} {{ ui.badge(s.status) }}</span></li>
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for s in students %}<li class="flex items-center justify-between py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }} <span class="font-mono text-xs text-slate-400">{{ s.student_code }}</span></a><span class="flex items-center gap-2 text-xs text-slate-500">{{ s.course.name if s.course else '—' }} {{ ui.badge(s.status, s.status|label('student')) }}</span></li>
       {% else %}<li class="py-3 text-slate-400">No students yet.</li>{% endfor %}
     </ul>
     {% endcall %}
     {% call ui.card("Recent activity") %}
     <ul class="space-y-2 text-xs">{% for e in recent_audit %}<li><span class="font-medium">{{ e.action|titleize }}</span> · {{ e.description }}<div class="text-slate-400">{{ e.actor_name }} · {{ e.created_at|ago }}</div></li>{% else %}<li class="text-slate-400">No activity yet.</li>{% endfor %}</ul>
+    <a href="{{ change_log_url }}" class="mt-2 inline-block text-xs text-brand-600 hover:underline">Full change log</a>
     {% endcall %}
   </div>
 </div>
 
-{% elif tab == 'students' %}
-{{ ui.table_start(['Code', 'Student', 'Course / Level', 'Teacher', 'Age', 'Risk', 'Status', '']) }}
-{% for s in students %}
-<tr><td class="px-4 py-2 font-mono text-xs">{{ s.student_code }}</td><td class="px-4 py-2 font-medium"><a href="/students/{{ s.id }}" class="hover:text-brand-600">{{ s.full_name }}</a><div class="text-xs text-slate-500">{{ s.gender|titleize }}{% if s.is_minor %} · minor{% endif %}</div></td>
-<td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}<div class="text-slate-500">{{ s.level or '' }}</div></td><td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td><td class="px-4 py-2">{{ s.age or '—' }}</td>
-<td class="px-4 py-2">{{ ui.badge(s.risk_level, s.risk_level|titleize ~ ' ' ~ (s.risk_score|round|int)) }}</td><td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
-<td class="px-4 py-2 text-right">{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm') }}</td></tr>
-{% else %}{{ ui.empty('No students linked to this client.', 8) }}{% endfor %}
+{% elif tab == 'contacts' %}
+<div class="mb-3 flex items-center justify-between">
+  <p class="text-xs text-slate-500">Additional ways to reach the family. Inactive rows are kept for the record.</p>
+  {% if has_perm(user, 'clients.update') %}{{ ui.button('Add Row', icon='plus', attrs='type="button" @click="$dispatch(\'open-modal\',\'newContact\')"') }}{% endif %}
+</div>
+{{ ui.table_start(['Contact Type', 'Contact Detail', 'Remarks', 'Status', 'Log', '']) }}
+{% for r in contacts %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 text-xs" colspan="3" x-show="edit" x-cloak>
+    <form method="post" action="/clients/{{ c.id }}/contacts/{{ r.id }}" class="flex flex-wrap items-end gap-2">
+      <div class="w-32">{{ ui.select('contact_type', 'Contact Type', contact_types, r.contact_type, placeholder=None) }}</div>
+      <div class="w-56">{{ ui.input('detail', 'Contact Detail', r.detail, required=True) }}</div>
+      <div class="w-56">{{ ui.input('remarks', 'Remarks', r.remarks or '') }}</div>
+      {{ ui.button('Save', icon='save', size='sm') }}
+      <button type="button" @click="edit=false" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
+    </form>
+  </td>
+  <td class="px-3 py-2 text-xs" x-show="!edit">{{ r.contact_type|titleize }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{{ r.detail if show_contact else r.detail|mask }}</td>
+  <td class="px-3 py-2 text-xs text-slate-500" x-show="!edit">{{ r.remarks or '—' }}</td>
+  <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{{ r.updated_at|datetime if r.updated_at else r.created_at|datetime }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if has_perm(user, 'clients.update') %}
+      <button type="button" @click="edit=!edit" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
+      {{ ui.confirm_form('/clients/' ~ c.id ~ '/contacts/' ~ r.id, 'Deactivate' if r.status == 'active' else 'Activate', icon='toggle-left' if r.status == 'active' else 'toggle-right', variant='ghost', message='Toggle this contact row?', hidden={'toggle': '1'}) }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No contact rows yet. Use Add Row.', 6) }}{% endfor %}
 {{ ui.table_end() }}
+{% call ui.modal('newContact', 'Add contact row') %}
+<form method="post" action="/clients/{{ c.id }}/contacts" class="space-y-3">
+  {{ ui.select('contact_type', 'Contact Type', contact_types, 'phone', placeholder=None) }}
+  {{ ui.input('detail', 'Contact Detail', '', required=True, placeholder='+44 7..., name@example.com, skype id') }}
+  {{ ui.input('remarks', 'Remarks', '', placeholder='e.g. Father\'s office number, call after 6pm') }}
+  <div class="flex justify-end gap-2">{{ ui.button('Save', icon='save') }}</div>
+</form>
+{% endcall %}
+
+{% elif tab == 'students' %}
+<div class="mb-3 flex items-center justify-between">
+  <p class="text-xs text-slate-500">Every learner in the family. Click a name to open the Student Form.</p>
+  {% if has_perm(user, 'students.add') %}
+  <div class="flex gap-2">{{ ui.button('Add Row', icon='plus', variant='secondary', attrs='type="button" @click="$dispatch(\'open-modal\',\'quickStudent\')"') }}
+  {{ ui.button('Full enrolment (teacher match)', href='/students/new?client_id=' ~ c.id, icon='sparkles') }}</div>
+  {% endif %}
+</div>
+{{ ui.table_start(['Name', 'Status', 'Registration Date', 'Gender', 'Trial Days', 'Email', 'Referred By', 'D.O.B', 'Drop Date', 'Teacher', 'Course']) }}
+{% for s in students %}
+<tr><td class="px-3 py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }}</a> <span class="font-mono text-[11px] text-slate-400">{{ s.student_code }}</span></td>
+<td class="px-3 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
+<td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.join_date|date }}</td>
+<td class="px-3 py-2 text-xs">{{ s.gender|titleize }}</td>
+<td class="px-3 py-2 text-center">{{ s.trial_days }}</td>
+<td class="px-3 py-2 text-xs">{{ s.email or '—' }}</td>
+<td class="px-3 py-2 text-xs">{{ s.referred_by or '—' }}</td>
+<td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.date_of_birth|date if s.date_of_birth else '—' }}</td>
+<td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.drop_date|date if s.drop_date else (s.cancelled_at|date if s.cancelled_at else '—') }}</td>
+<td class="px-3 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+<td class="px-3 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td></tr>
+{% else %}{{ ui.empty('No students linked to this client.', 11) }}{% endfor %}
+{{ ui.table_end() }}
+{% if has_perm(user, 'students.add') %}
+{% call ui.modal('quickStudent', 'Add student row') %}
+<form method="post" action="/clients/{{ c.id }}/students/quick-add" class="space-y-3">
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.input('full_name', 'Name', '', required=True) }}
+    {{ ui.select('status', 'Status', [('trial','Trial'),('active','Regular'),('free','Free')], 'trial', placeholder=None) }}
+    {{ ui.input('join_date', 'Registration Date', today().isoformat(), type='date') }}
+    {{ ui.select('gender', 'Gender', ['male','female'], 'male', placeholder=None) }}
+    {{ ui.input('trial_days', 'Trial Days', 3, type='number', min=0, max=30) }}
+    {{ ui.input('email', 'Email', '', type='email') }}
+    {{ ui.input('referred_by', 'Referred By', '') }}
+    {{ ui.input('date_of_birth', 'D.O.B', '', type='date') }}
+  </div>
+  <p class="text-xs text-slate-500">Quick row without teacher matching — assign a teacher from the Student Form afterwards.</p>
+  <div class="flex justify-end gap-2">{{ ui.button('Save', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+
+{% elif tab == 'credentials' %}
+<div class="mb-3 flex items-center justify-between">
+  <p class="text-xs text-slate-500">Class-tool logins kept for the family. Passwords are masked; every reveal is written to the audit trail.</p>
+  {% if has_perm(user, 'clients.update') %}{{ ui.button('Add Row', icon='plus', attrs='type="button" @click="$dispatch(\'open-modal\',\'newCredential\')"') }}{% endif %}
+</div>
+{{ ui.table_start(['Credential Type', 'Login', 'Password', 'Remarks', 'Status', '']) }}
+{% for r in credentials %}
+<tr x-data="{ edit: false }">
+  <td class="px-3 py-2 text-xs" colspan="4" x-show="edit" x-cloak>
+    <form method="post" action="/clients/{{ c.id }}/credentials/{{ r.id }}" class="flex flex-wrap items-end gap-2">
+      <div class="w-32">{{ ui.select('credential_type', 'Credential Type', credential_types, r.credential_type, placeholder=None) }}</div>
+      <div class="w-56">{{ ui.input('login', 'Login', r.login, required=True) }}</div>
+      <div class="w-40">{{ ui.input('secret', 'New password', '', type='password', placeholder='leave blank to keep') }}</div>
+      <div class="w-48">{{ ui.input('remarks', 'Remarks', r.remarks or '') }}</div>
+      {{ ui.button('Save', icon='save', size='sm') }}
+      <button type="button" @click="edit=false" class="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
+    </form>
+  </td>
+  <td class="px-3 py-2 text-xs" x-show="!edit">{{ r.credential_type|titleize }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{{ r.login }}</td>
+  <td class="px-3 py-2 font-mono text-xs" x-show="!edit">{% if r.secret %}<span>••••••••</span>
+    {% if has_perm(user, 'clients.update') %}<a href="/clients/{{ c.id }}/credentials/{{ r.id }}/reveal" hx-get="/clients/{{ c.id }}/credentials/{{ r.id }}/reveal" hx-target="closest td" hx-swap="innerHTML" class="ml-1 text-brand-600 hover:underline" title="Reveal (audited)">View</a>{% endif %}{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs text-slate-500" x-show="!edit">{{ r.remarks or '—' }}</td>
+  <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if has_perm(user, 'clients.update') %}
+      <button type="button" @click="edit=!edit" class="rounded px-2 py-1 text-xs text-brand-700 hover:bg-brand-50">Edit</button>
+      {{ ui.confirm_form('/clients/' ~ c.id ~ '/credentials/' ~ r.id, 'Deactivate' if r.status == 'active' else 'Activate', icon='toggle-left' if r.status == 'active' else 'toggle-right', variant='ghost', message='Toggle this credential row?', hidden={'toggle': '1'}) }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No credentials stored for this family.', 6, 'key-round') }}{% endfor %}
+{{ ui.table_end() }}
+{% call ui.modal('newCredential', 'Add credential row') %}
+<form method="post" action="/clients/{{ c.id }}/credentials" class="space-y-3">
+  {{ ui.select('credential_type', 'Credential Type', credential_types, 'zoom', placeholder=None) }}
+  {{ ui.input('login', 'Login', '', required=True, placeholder='email / username') }}
+  {{ ui.input('secret', 'Password', '', type='password') }}
+  {{ ui.input('remarks', 'Remarks', '', placeholder='e.g. shared family Zoom account') }}
+  <div class="flex justify-end gap-2">{{ ui.button('Save', icon='save') }}</div>
+</form>
+{% endcall %}
 
 {% elif tab == 'billing' %}
 <div class="grid gap-4 sm:grid-cols-3 mb-5">
@@ -77,14 +219,14 @@
 </div>
 {% call ui.card("Subscriptions", padding=False) %}
 {{ ui.table_start(['Code', 'Student', 'Package', 'Sessions/wk', 'Price', 'Next billing', 'Status']) }}
-{% for s in subscriptions %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/finance/subscriptions/{{ s.id }}" class="hover:text-brand-600">{{ s.subscription_code }}</a></td><td class="px-4 py-2">{{ s.student.full_name if s.student else '—' }}</td><td class="px-4 py-2 text-xs">{{ s.package.name if s.package else (s.course.name if s.course else '—') }}</td><td class="px-4 py-2">{{ s.sessions_per_week }} × {{ s.session_minutes }}m</td><td class="px-4 py-2">{{ s.price|money(s.currency) }}</td><td class="px-4 py-2 text-xs">{{ s.next_billing_date|date }}</td><td class="px-4 py-2">{{ ui.badge(s.status) }}</td></tr>
+{% for s in subscriptions %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/finance/subscriptions/{{ s.id }}" class="hover:text-brand-600">{{ s.subscription_code }}</a></td><td class="px-4 py-2">{{ s.student.full_name if s.student else '—' }}</td><td class="px-4 py-2 text-xs">{{ s.package.name if s.package else (s.course.name if s.course else '—') }}</td><td class="px-4 py-2">{{ s.sessions_per_week }} × {{ s.session_minutes }}m</td><td class="px-4 py-2">{{ s.price|money(s.currency) }}</td><td class="px-4 py-2 text-xs">{{ s.next_billing_date|date }}</td><td class="px-4 py-2">{{ ui.badge(s.status, s.status|label('subscription')) }}</td></tr>
 {% else %}{{ ui.empty('No subscriptions yet.', 7) }}{% endfor %}
 {{ ui.table_end() }}
 {% endcall %}
 <div class="h-5"></div>
 {% call ui.card("Invoices", padding=False) %}
 {{ ui.table_start(['Invoice', 'Issued', 'Due', 'Total', 'Paid', 'Balance', 'Status']) }}
-{% for i in invoices %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/finance/invoices/{{ i.id }}" class="hover:text-brand-600">{{ i.invoice_number }}</a></td><td class="px-4 py-2 text-xs">{{ i.issue_date|date }}</td><td class="px-4 py-2 text-xs">{{ i.due_date|date }}</td><td class="px-4 py-2">{{ i.total|money(i.currency) }}</td><td class="px-4 py-2">{{ i.paid_amount|money(i.currency) }}</td><td class="px-4 py-2 font-medium">{{ i.balance|money(i.currency) }}</td><td class="px-4 py-2">{{ ui.badge(i.status) }}</td></tr>
+{% for i in invoices %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/finance/invoices/{{ i.id }}" class="hover:text-brand-600">{{ i.invoice_number }}</a></td><td class="px-4 py-2 text-xs">{{ i.issue_date|date }}</td><td class="px-4 py-2 text-xs">{{ i.due_date|date }}</td><td class="px-4 py-2">{{ i.total|money(i.currency) }}</td><td class="px-4 py-2">{{ i.paid_amount|money(i.currency) }}</td><td class="px-4 py-2 font-medium">{{ i.balance|money(i.currency) }}</td><td class="px-4 py-2">{{ ui.badge(i.status, i.status|label('invoice')) }}</td></tr>
 {% else %}{{ ui.empty('No invoices yet.', 7) }}{% endfor %}
 {{ ui.table_end() }}
 {% endcall %}
@@ -97,9 +239,9 @@
 {% endcall %}
 
 {% elif tab == 'cases' %}
-{{ ui.table_start(['Case', 'Type', 'Title', 'Student', 'Priority', 'Status', 'SLA due', 'Opened']) }}
-{% for k in cases %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/cases/{{ k.id }}" class="hover:text-brand-600">{{ k.case_number }}</a></td><td class="px-4 py-2">{{ ui.badge(k.case_type) }}</td><td class="px-4 py-2">{{ k.title }}</td><td class="px-4 py-2 text-xs">{{ k.student.full_name if k.student else '—' }}</td><td class="px-4 py-2">{{ ui.badge(k.priority) }}</td><td class="px-4 py-2">{{ ui.badge(k.status) }}</td><td class="px-4 py-2 text-xs {{ 'text-rose-600' if k.sla_breached }}">{{ k.sla_due_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ k.created_at|ago }}</td></tr>
-{% else %}{{ ui.empty('No cases raised by this client.', 8) }}{% endfor %}
+{{ ui.table_start(['Case', 'Type', 'Complaint Type', 'Title', 'Student', 'Priority', 'Status', 'Approval', 'SLA due', 'Opened']) }}
+{% for k in cases %}<tr><td class="px-4 py-2 font-mono text-xs"><a href="/cases/{{ k.id }}" class="hover:text-brand-600">{{ k.case_number }}</a></td><td class="px-4 py-2">{{ ui.badge(k.case_type) }}</td><td class="px-4 py-2 text-xs">{{ k.complaint_type or '—' }}</td><td class="px-4 py-2">{{ k.title }}</td><td class="px-4 py-2 text-xs">{{ k.student.full_name if k.student else '—' }}</td><td class="px-4 py-2">{{ ui.badge(k.priority) }}</td><td class="px-4 py-2">{{ ui.badge(k.status) }}</td><td class="px-4 py-2">{{ ui.badge(k.approval_status, k.approval_status|label('request')) }}</td><td class="px-4 py-2 text-xs {{ 'text-rose-600' if k.sla_breached }}">{{ k.sla_due_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ k.created_at|ago }}</td></tr>
+{% else %}{{ ui.empty('No cases raised by this client.', 10) }}{% endfor %}
 {{ ui.table_end() }}
 
 {% elif tab == 'feedback' %}
@@ -110,8 +252,8 @@
 
 {% elif tab == 'conversations' %}
 <div class="grid gap-5 lg:grid-cols-3">
-  <div>{% call ui.card("Threads") %}<ul class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">{% for cv in conversations %}<li class="py-2"><a href="/crm/inbox/{{ cv.id }}" class="font-medium hover:text-brand-600">{{ cv.channel|titleize }} · {{ cv.contact_name }}</a><div class="text-xs text-slate-500">{{ ui.badge(cv.status) }} {{ cv.last_message_at|ago }} · {{ cv.last_message_preview or '' }}</div></li>{% else %}<li class="py-3 text-slate-400">No conversations.</li>{% endfor %}</ul>{% endcall %}</div>
-  <div class="lg:col-span-2">{% call ui.card("Recent messages") %}<ul class="space-y-2">{% for m in messages %}<li class="flex {{ 'justify-end' if m.direction == 'out' else '' }}"><div class="max-w-lg rounded-xl px-3 py-2 text-sm {{ 'bg-brand-600 text-white' if m.direction == 'out' else 'bg-slate-100 dark:bg-slate-800' }}">{{ m.body }}<div class="mt-1 text-[10px] opacity-70">{{ m.created_at|datetime }} · {{ m.status }}</div></div></li>{% else %}<li class="text-slate-400 text-sm">No messages exchanged yet.</li>{% endfor %}</ul>{% endcall %}</div>
+  <div>{% call ui.card("Threads") %}<ul class="divide-y divide-slate-100 text-sm">{% for cv in conversations %}<li class="py-2"><a href="/crm/inbox/{{ cv.id }}" class="font-medium hover:text-brand-600">{{ cv.channel|titleize }} · {{ cv.contact_name }}</a><div class="text-xs text-slate-500">{{ ui.badge(cv.status) }} {{ cv.last_message_at|ago }} · {{ cv.last_message_preview or '' }}</div></li>{% else %}<li class="py-3 text-slate-400">No conversations.</li>{% endfor %}</ul>{% endcall %}</div>
+  <div class="lg:col-span-2">{% call ui.card("Recent messages") %}<ul class="space-y-2">{% for m in messages %}<li class="flex {{ 'justify-end' if m.direction == 'out' else '' }}"><div class="max-w-lg rounded-xl px-3 py-2 text-sm {{ 'bg-brand-600 text-white' if m.direction == 'out' else 'bg-slate-100' }}">{{ m.body }}<div class="mt-1 text-[10px] opacity-70">{{ m.created_at|datetime }} · {{ m.status }}</div></div></li>{% else %}<li class="text-slate-400 text-sm">No messages exchanged yet.</li>{% endfor %}</ul>{% endcall %}</div>
 </div>
 
 {% elif tab == 'referrals' %}
@@ -134,17 +276,17 @@
 
 {% elif tab == 'audit' %}
 {{ ui.table_start(['When', 'Actor', 'Action', 'Entity', 'Description', 'Rationale']) }}
-{% for e in events %}<tr class="{{ 'bg-amber-50/50 dark:bg-amber-950/20' if e.is_consequential }}"><td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ e.actor_name }}</td><td class="px-4 py-2">{{ ui.badge(e.severity, e.action|titleize) }}</td><td class="px-4 py-2 text-xs">{{ e.entity_type }} #{{ e.entity_id }}</td><td class="px-4 py-2 text-xs">{{ e.description }}</td><td class="px-4 py-2 text-xs text-slate-500">{{ e.rationale or '' }}</td></tr>
+{% for e in events %}<tr class="{{ 'bg-amber-50/50' if e.is_consequential }}"><td class="px-4 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td><td class="px-4 py-2 text-xs">{{ e.actor_name }}</td><td class="px-4 py-2">{{ ui.badge(e.severity, e.action|titleize) }}</td><td class="px-4 py-2 text-xs">{{ e.entity_type }} #{{ e.entity_id }}</td><td class="px-4 py-2 text-xs">{{ e.description }}</td><td class="px-4 py-2 text-xs text-slate-500">{{ e.rationale or '' }}</td></tr>
 {% else %}{{ ui.empty('No audit events.', 6) }}{% endfor %}
 {{ ui.table_end() }}
 {% endif %}
 
-{% call ui.modal('deactivate', 'Deactivate client') %}
+{% call ui.modal('deactivate', 'Change client status') %}
 <form method="post" action="/clients/{{ c.id }}/deactivate" class="space-y-3">
-  {{ ui.select('mode', 'Mark as', [('inactive','Inactive (temporary)'),('churned','Churned (left the college)')], 'inactive', placeholder=None) }}
-  {{ ui.textarea('reason', 'Reason (recorded in the audit trail)', required=True, rows=3) }}
-  <p class="text-xs text-slate-500">The parent portal login will be disabled. Students keep their records; freeze or cancel them separately.</p>
-  <div class="flex justify-end gap-2">{{ ui.button('Deactivate', variant='danger', icon='user-x') }}</div>
+  {{ ui.select('mode', 'Mark as', [('inactive','Black List (inactive)'),('churned','Drop Out (left the college)')], 'churned', placeholder=None) }}
+  {{ ui.textarea('reason', 'Reason (recorded in the audit trail and as Status Remarks)', required=True, rows=3) }}
+  <p class="text-xs text-slate-500">The parent portal login will be disabled. Students keep their records; freeze or drop them separately.</p>
+  <div class="flex justify-end gap-2">{{ ui.button('Apply', variant='danger', icon='user-x') }}</div>
 </form>
 {% endcall %}
 {% endblock %}

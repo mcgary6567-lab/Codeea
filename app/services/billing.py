@@ -35,10 +35,39 @@ WEEKS_PER_MONTH = 4.33
 INVOICE_TERMS_DAYS = 7
 PAYMENT_METHODS = ["bank_transfer", "card", "paypal", "stripe", "cash", "wise", "other"]
 GATEWAYS = ["stripe", "paypal", "wise", "manual", "gocardless"]
-INVOICE_STATUSES = ["draft", "sent", "partial", "paid", "overdue", "void"]
+# ERP vocabulary (docs/AUDIT_ACADEMICS.md 3.7). Legacy values are still accepted: sent == pending, void == cancelled,
+# completed == confirmed. Use the *_SET constants in queries so both spellings match.
+INVOICE_STATUSES = ["draft", "pending", "confirmed", "partial", "paid", "overdue", "cancelled"]
+INVOICE_FILTER_STATUSES = ["pending", "draft", "paid", "confirmed", "cancelled"]  # ERP filter order
+INVOICE_PENDING_SET = ("pending", "sent")
+INVOICE_CANCELLED_SET = ("cancelled", "void")
+INVOICE_OPEN_SET = ("pending", "sent", "confirmed", "partial", "overdue")  # still collectable
+INVOICE_OVERALL_PENDING_SET = ("pending", "sent", "overdue", "partial")  # ERP "Over All Pending" tile
+PAYMENT_STATUSES = ["pending", "confirmed", "completed", "failed", "refunded", "cancelled"]
+RECEIPT_STATUSES = ["pending", "confirmed", "cancelled"]
+PAYMENT_CONFIRMED_SET = ("confirmed", "completed")
+PAYMENT_CATEGORIES = ["Stripe", "PayPal", "Wise", "UBL", "Meezan Bank", "HBL", "Cash", "Other"]
 SUBSCRIPTION_STATUSES = ["pending_approval", "active", "frozen", "cancelled", "expired"]
+SUBSCRIPTION_REGULAR_SET = ("active", "regular")
 SCHOLARSHIP_TYPES = ["need_based", "merit", "hafiz", "orphan", "staff"]
 LEDGER_TYPES = ["charge", "payment", "credit", "refund", "adjustment", "scholarship"]
+LEDGER_ADDITION_EFFECTS = [("add", "Add (client owes more)"), ("minus", "Minus (credit to client)")]
+FEE_RECURRENCES = ["monthly", "quarterly", "half_yearly", "yearly", "per_class"]
+
+
+def is_confirmed_payment(status: Optional[str]) -> bool:
+    return (status or "") in PAYMENT_CONFIRMED_SET
+
+
+def normalise_invoice_status(status: Optional[str]) -> str:
+    """Map legacy spellings onto the ERP vocabulary."""
+    s = (status or "").lower()
+    return {"sent": "pending", "void": "cancelled"}.get(s, s)
+
+
+def normalise_payment_status(status: Optional[str]) -> str:
+    s = (status or "").lower()
+    return {"completed": "confirmed"}.get(s, s)
 
 INVOICE_DIR = BASE_DIR / "storage" / "invoices"
 RECEIPT_DIR = BASE_DIR / "storage" / "receipts"
@@ -508,6 +537,185 @@ def post_adjustment(db: Session, client: Client, amount: float, currency: str, d
     return entry
 
 
+def ledger_report(db: Session, client: Client, date_from: Optional[date] = None, date_to: Optional[date] = None,
+                  entry_type: Optional[str] = None) -> dict:
+    """ERP "Client Ledger Report": rows (Srl, Date, Transaction Type, Description, signed Amount, Balance) with a
+    Previous Balance (opening balance + movements before ``date_from``), Total and In Words footer."""
+    entries = client_statement(db, client)
+    opening = round(float(client.opening_balance or 0), 2)
+    previous = opening
+    rows = []
+    running = opening
+    total = 0.0
+    for e in entries:
+        signed = round(float(e.debit or 0) - float(e.credit or 0), 2)
+        if date_from and e.entry_date < date_from:
+            previous = round(previous + signed, 2)
+            running = previous
+            continue
+        if date_to and e.entry_date > date_to:
+            continue
+        if entry_type and e.entry_type != entry_type:
+            continue
+        running = round(running + signed, 2)
+        total = round(total + signed, 2)
+        rows.append({"srl": len(rows) + 1, "entry": e, "date": e.entry_date, "type": e.entry_type,
+                     "description": e.description, "amount": signed, "balance": running})
+    closing = round(previous + total, 2)
+    currency = client.currency or "GBP"
+    return {"client": client, "rows": rows, "opening_balance": opening, "previous_balance": previous, "total": total,
+            "closing_balance": closing, "currency": currency, "base": base_currency(db),
+            "closing_base": convert_to_base(db, closing, currency),
+            "in_words": number_to_words(closing, currency),
+            "in_words_base": number_to_words(convert_to_base(db, closing, currency), base_currency(db)),
+            "date_from": date_from, "date_to": date_to, "all_count": len(entries)}
+
+
+_ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
+         "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+_TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+CURRENCY_WORDS = {"PKR": ("Rupees", "Paisa"), "GBP": ("Pounds", "Pence"), "USD": ("Dollars", "Cents"),
+                  "EUR": ("Euros", "Cents"), "CAD": ("Dollars", "Cents"), "AUD": ("Dollars", "Cents"),
+                  "AED": ("Dirhams", "Fils"), "SAR": ("Riyals", "Halalas"), "INR": ("Rupees", "Paise"),
+                  "MYR": ("Ringgit", "Sen"), "NOK": ("Kroner", "Ore"), "SEK": ("Kronor", "Ore")}
+
+
+def _words_below_thousand(n: int) -> str:
+    parts = []
+    if n >= 100:
+        parts.append(f"{_ONES[n // 100]} Hundred")
+        n %= 100
+    if n >= 20:
+        parts.append(_TENS[n // 10] + (f" {_ONES[n % 10]}" if n % 10 else ""))
+    elif n > 0:
+        parts.append(_ONES[n])
+    return " ".join(parts)
+
+
+def integer_to_words(n: int) -> str:
+    """English words for a non-negative integer (short scale, up to trillions)."""
+    n = int(abs(n))
+    if n == 0:
+        return "Zero"
+    scales = [(10 ** 12, "Trillion"), (10 ** 9, "Billion"), (10 ** 6, "Million"), (1000, "Thousand")]
+    parts = []
+    for value, name in scales:
+        if n >= value:
+            parts.append(f"{_words_below_thousand(n // value)} {name}")
+            n %= value
+    if n:
+        parts.append(_words_below_thousand(n))
+    return " ".join(parts)
+
+
+def number_to_words(amount: float, currency: str = "") -> str:
+    """Amount in words for the ledger report footer, e.g. "Two Thousand Five Hundred Rupees and Fifty Paisa Only"."""
+    value = round(abs(float(amount or 0)), 2)
+    major = int(value)
+    minor = int(round((value - major) * 100))
+    unit, sub = CURRENCY_WORDS.get((currency or "").upper(), ((currency or "").upper() or "Units", "Cents"))
+    text = f"{integer_to_words(major)} {unit}"
+    if minor:
+        text += f" and {integer_to_words(minor)} {sub}"
+    if float(amount or 0) < 0:
+        text = "Credit " + text
+    return text + " Only"
+
+
+# ============================================================================ ledger additions (ERP)
+def create_ledger_addition(db: Session, client: Client, amount: float, currency: Optional[str], addition_type: str,
+                           effect: str, addition_date: Optional[date], user: Optional[User],
+                           reference_employee=None, billing_rep: Optional[User] = None, remarks: Optional[str] = None,
+                           currency_rate: Optional[float] = None, lc_amount: Optional[float] = None, status: str = "pending"):
+    """Record a Ledger Addition (Teacher Gift, Leave Discount, Referral Bonus, Late Fee, Adjustment, Penalty)."""
+    from app.models.erp import LedgerAddition, LEDGER_ADDITION_TYPES
+    amount = round(float(amount or 0), 2)
+    if amount <= 0:
+        raise ValueError("Amount must be greater than zero")
+    if addition_type not in LEDGER_ADDITION_TYPES:
+        raise ValueError(f"Unknown ledger addition type {addition_type}")
+    effect = (effect or "minus").lower()
+    if effect not in ("add", "minus"):
+        raise ValueError("Effect must be Add or Minus")
+    currency = (currency or client.currency or "GBP").upper()
+    rate = float(currency_rate) if currency_rate else get_rate(db, currency)
+    lc = round(float(lc_amount), 2) if lc_amount else round(amount * rate, 2)
+    la = LedgerAddition(client_id=client.id, currency=currency, currency_rate=round(rate, 6), amount=amount, lc_amount=lc,
+                        addition_type=addition_type, effect=effect, addition_date=addition_date or date.today(),
+                        status="pending", reference_employee_id=reference_employee.id if reference_employee else None,
+                        billing_rep_id=(billing_rep.id if billing_rep else (client.billing_rep_id or (user.id if user else None))),
+                        remarks=remarks, created_by_id=user.id if user else None)
+    db.add(la)
+    db.flush()
+    log_action(db, user, "create", "ledger", entity=la,
+               description=f"Ledger addition #{la.id} {addition_type} {effect} {currency} {amount:.2f} for {client.client_code}",
+               rationale=remarks)
+    if status == "confirmed":
+        post_ledger_addition(db, la, user)
+    return la
+
+
+def post_ledger_addition(db: Session, addition, user: Optional[User]):
+    """Confirm a pending Ledger Addition: posts the LedgerEntry (Add = debit adjustment, Minus = credit)."""
+    if addition.status != "pending":
+        raise ValueError(f"A {addition.status} ledger addition cannot be confirmed")
+    client = addition.client
+    amount = round(float(addition.amount or 0), 2)
+    desc = f"{addition.addition_type}" + (f": {addition.remarks}" if addition.remarks else "")
+    if addition.effect == "add":
+        entry = _post_ledger(db, client, "adjustment", desc, debit=amount, currency=addition.currency,
+                             reference_type="ledger_addition", reference_id=addition.id, user=user,
+                             entry_date=addition.addition_date)
+    else:
+        entry = _post_ledger(db, client, "credit", desc, credit=amount, currency=addition.currency,
+                             reference_type="ledger_addition", reference_id=addition.id, user=user,
+                             entry_date=addition.addition_date)
+    addition.ledger_entry_id = entry.id
+    addition.status = "confirmed"
+    addition.confirmed_by_id = user.id if user else None
+    addition.confirmed_at = datetime.utcnow()
+    log_action(db, user, "approve", "ledger", entity=addition,
+               description=f"Ledger addition #{addition.id} confirmed: {addition.effect} {addition.currency} {amount:.2f} "
+                           f"({addition.addition_type}) posted to {client.client_code}",
+               rationale=addition.remarks, before={"status": "pending"}, after={"status": "confirmed"}, consequential=True)
+    if addition.effect == "minus":
+        _notify_client(db, client, "credit_issued", "Account credit applied",
+                       f"A credit of {addition.currency} {amount:.2f} ({addition.addition_type}) has been added to your account.",
+                       link="/portal/billing", whatsapp=False)
+    return addition
+
+
+def cancel_ledger_addition(db: Session, addition, user: Optional[User], reason: str):
+    """Cancel a Ledger Addition; a confirmed one is reversed with an opposite ledger entry."""
+    if not reason:
+        raise ValueError("A reason is required to cancel a ledger addition")
+    if addition.status == "cancelled":
+        raise ValueError("This ledger addition is already cancelled")
+    before = {"status": addition.status}
+    amount = round(float(addition.amount or 0), 2)
+    if addition.status == "confirmed" and addition.ledger_entry_id:
+        desc = f"Reversal of {addition.addition_type} #{addition.id}: {reason}"[:250]
+        if addition.effect == "add":
+            _post_ledger(db, addition.client, "credit", desc, credit=amount, currency=addition.currency,
+                         reference_type="ledger_addition", reference_id=addition.id, user=user)
+        else:
+            _post_ledger(db, addition.client, "adjustment", desc, debit=amount, currency=addition.currency,
+                         reference_type="ledger_addition", reference_id=addition.id, user=user)
+    addition.status = "cancelled"
+    addition.remarks = ((addition.remarks or "") + f"\nCancelled: {reason}").strip()
+    log_action(db, user, "cancel", "ledger", entity=addition,
+               description=f"Ledger addition #{addition.id} cancelled", rationale=reason, before=before,
+               after={"status": "cancelled"}, consequential=True)
+    return addition
+
+
+def ledger_addition_tiles(db: Session) -> dict:
+    from app.models.erp import LedgerAddition
+    counts = dict(db.query(LedgerAddition.status, func.count(LedgerAddition.id)).group_by(LedgerAddition.status).all())
+    return {"tile_pending": counts.get("pending", 0), "tile_confirmed": counts.get("confirmed", 0),
+            "tile_cancelled": counts.get("cancelled", 0)}
+
+
 def credits_report(db: Session) -> dict:
     rows = (db.query(LedgerEntry).filter(LedgerEntry.entry_type == "credit")
             .order_by(LedgerEntry.entry_date.desc(), LedgerEntry.id.desc()).limit(400).all())
@@ -533,78 +741,350 @@ def next_invoice_number(db: Session, on: Optional[date] = None) -> str:
 
 def invoice_for_period(db: Session, sub: Subscription, period_start: date) -> Optional[Invoice]:
     return (db.query(Invoice).filter(Invoice.subscription_id == sub.id, Invoice.period_start == period_start,
-                                     Invoice.status != "void").first())
+                                     Invoice.status.notin_(INVOICE_CANCELLED_SET)).first())
 
 
-def generate_invoice(db: Session, subscription: Subscription, period_start: date, period_end: date,
-                     user: Optional[User] = None, issue_date: Optional[date] = None, send: bool = True) -> Invoice:
-    """Issue the monthly invoice for a subscription: items, credit application, ledger charge, PDF and notification."""
-    existing = invoice_for_period(db, subscription, period_start)
-    if existing:
-        raise ValueError(f"Invoice {existing.invoice_number} already covers {period_start:%b %Y} for {subscription.subscription_code}")
-    if subscription.status in ("cancelled",):
-        raise ValueError("A cancelled subscription cannot be invoiced")
-    client = subscription.client
+def client_invoice_for_period(db: Session, client: Client, period_start: date, bulk_only: bool = True) -> Optional[Invoice]:
+    """The (bulk) invoice already raised for a family for a billing period, if any."""
+    q = db.query(Invoice).filter(Invoice.client_id == client.id, Invoice.period_start == period_start,
+                                 Invoice.status.notin_(INVOICE_CANCELLED_SET))
+    if bulk_only:
+        q = q.filter(Invoice.is_bulk.is_(True))
+    return q.order_by(Invoice.id).first()
+
+
+def invoice_charge_entry(db: Session, invoice: Invoice) -> Optional[LedgerEntry]:
+    return (db.query(LedgerEntry).filter(LedgerEntry.reference_type == "invoice", LedgerEntry.reference_id == invoice.id,
+                                         LedgerEntry.entry_type == "charge").first())
+
+
+def invoice_gross(invoice: Invoice) -> float:
+    """Amount charged to the family ledger: total before account credit."""
+    return round(float(invoice.subtotal or 0) - float(invoice.discount or 0) + float(invoice.tax or 0), 2)
+
+
+def _recompute_invoice_totals(db: Session, inv: Invoice) -> None:
+    inv.total = round(invoice_gross(inv) - float(inv.credit_applied or 0), 2)
+    inv.total_in_base = convert_to_base(db, inv.total, inv.currency)
+
+
+def active_addition_rules(db: Session, on: date, client_id: Optional[int] = None,
+                          subscription_ids: Optional[list[int]] = None, auto_only: bool = True) -> list:
+    """Active Invoice Additions Master rows applicable on ``on`` for a family / its subscriptions."""
+    from app.models.erp import InvoiceAdditionRule
+    rows = (db.query(InvoiceAdditionRule).filter(InvoiceAdditionRule.status == "active",
+                                                 InvoiceAdditionRule.from_date <= on).all())
+    out = []
+    for r in rows:
+        if r.to_date and r.to_date < on:
+            continue
+        if auto_only and not r.auto_assigned:
+            continue
+        if not r.addition_type or r.addition_type.status != "active":
+            continue
+        if r.level == "global":
+            out.append(r)
+        elif r.level == "client" and client_id and r.client_id == client_id:
+            out.append(r)
+        elif r.level == "subscription" and subscription_ids and r.subscription_id in subscription_ids:
+            out.append(r)
+    return out
+
+
+def add_invoice_addition(db: Session, inv: Invoice, addition_type, amount: float, note: str = "") -> Optional[InvoiceItem]:
+    """Append a discount / charge / tax line from an InvoiceAdditionType and update the invoice sums."""
+    amount = round(abs(float(amount or 0)), 2)
+    if amount <= 0 or addition_type is None:
+        return None
+    kind = (addition_type.addition_type or "charge").lower()
+    label = f"{addition_type.description}" + (f" — {note}" if note else "")
+    if kind == "discount":
+        inv.discount = round(float(inv.discount or 0) + amount, 2)
+        signed = -amount
+    elif kind == "tax":
+        inv.tax = round(float(inv.tax or 0) + amount, 2)
+        signed = amount
+    else:
+        inv.subtotal = round(float(inv.subtotal or 0) + amount, 2)
+        signed = amount
+    item = InvoiceItem(invoice_id=inv.id, description=label[:250], quantity=1, unit_price=signed, amount=signed)
+    db.add(item)
+    db.flush()
+    return item
+
+
+def apply_addition_rules(db: Session, invoice: Invoice, subscription_ids: Optional[list[int]] = None) -> list[InvoiceItem]:
+    """Apply the auto-assigned Invoice Additions Master rules (global / client / subscription level) to an invoice.
+
+    Fixed rules add their amount; percent rules are a percentage of the subscription total. Returns the lines added.
+    Totals are recomputed but the ledger charge is NOT touched (call before posting, or via confirm_invoice)."""
+    if subscription_ids is None:
+        subscription_ids = [invoice.subscription_id] if invoice.subscription_id else []
+    rules = active_addition_rules(db, invoice.issue_date or date.today(), client_id=invoice.client_id,
+                                  subscription_ids=subscription_ids)
+    added: list[InvoiceItem] = []
+    base_amount = float(invoice.subs_total or invoice.subtotal or 0)
+    for r in rules:
+        if r.implementation_type == "percent":
+            amount = round(base_amount * float(r.amount or 0) / 100.0, 2)
+            note = f"{float(r.amount):g}% ({r.level})"
+        else:
+            amount = round(float(r.amount or 0), 2)
+            note = f"{r.level} rule"
+        item = add_invoice_addition(db, invoice, r.addition_type, amount, note)
+        if item:
+            added.append(item)
+    _recompute_invoice_totals(db, invoice)
+    return added
+
+
+def create_client_invoice(db: Session, client: Client, subscriptions: list[Subscription], period_start: date,
+                          period_end: date, user: Optional[User] = None, issue_date: Optional[date] = None,
+                          due_date: Optional[date] = None, status: str = "pending", is_bulk: bool = False,
+                          additions: Optional[list[tuple]] = None, remarks: Optional[str] = None,
+                          apply_rules: bool = True, notify_family: bool = True) -> Invoice:
+    """Raise one invoice for a family covering one or more subscriptions (ERP "Create Single Invoice" / bulk).
+
+    * one line per subscription (list price) plus its discount / scholarship lines -> subs_total / subs_discount
+    * auto-assigned Invoice Additions Master rules and any manual ``additions`` [(InvoiceAdditionType, amount, note)]
+    * available account credit is applied, the ledger charge is posted unless the invoice stays a draft
+    """
+    if not subscriptions:
+        raise ValueError("Select at least one subscription to invoice")
+    status = normalise_invoice_status(status) or "pending"
+    if status not in ("draft", "pending", "confirmed"):
+        raise ValueError("A new invoice can only be a draft, pending or confirmed")
+    for s in subscriptions:
+        if s.client_id != client.id:
+            raise ValueError(f"{s.subscription_code} does not belong to {client.client_code}")
+        if s.status == "cancelled":
+            raise ValueError(f"{s.subscription_code} is cancelled and cannot be invoiced")
+    currencies = {s.currency for s in subscriptions}
+    if len(currencies) > 1:
+        raise ValueError("All subscriptions on one invoice must share a currency")
+    currency = currencies.pop() or client.currency or "GBP"
     issued = issue_date or date.today()
-    currency = subscription.currency
-    list_price = round(float(subscription.list_price or subscription.price or 0), 2)
-    discount = round(float(subscription.discount_amount or 0) + float(subscription.scholarship_amount or 0), 2)
-    gross = round(list_price - discount, 2)
-    credit = min(available_credit(db, client), gross)
-    total = round(gross - credit, 2)
+    due = due_date or issued + timedelta(days=INVOICE_TERMS_DAYS)
 
-    inv = Invoice(invoice_number=next_invoice_number(db, issued), client_id=client.id, student_id=subscription.student_id,
-                  subscription_id=subscription.id, issue_date=issued, due_date=issued + timedelta(days=INVOICE_TERMS_DAYS),
-                  period_start=period_start, period_end=period_end, currency=currency, subtotal=list_price,
-                  discount=discount, credit_applied=credit, tax=0, total=total, paid_amount=0,
-                  total_in_base=convert_to_base(db, total, currency), status="sent" if send else "draft",
+    inv = Invoice(invoice_number=next_invoice_number(db, issued), client_id=client.id,
+                  student_id=subscriptions[0].student_id if len(subscriptions) == 1 else None,
+                  subscription_id=subscriptions[0].id if len(subscriptions) == 1 else None,
+                  issue_date=issued, due_date=due, period_start=period_start, period_end=period_end, currency=currency,
+                  subtotal=0, discount=0, credit_applied=0, tax=0, total=0, paid_amount=0, total_in_base=0,
+                  status=status, is_bulk=is_bulk, remarks=remarks or None,
                   billing_rep_id=(client.billing_rep_id or (user.id if user else None)),
-                  sent_at=datetime.utcnow() if send else None)
+                  sent_at=datetime.utcnow() if status != "draft" else None,
+                  confirmed_by_id=user.id if (user and status == "confirmed") else None,
+                  confirmed_at=datetime.utcnow() if status == "confirmed" else None)
     db.add(inv)
     db.flush()
 
-    pkg_name = subscription.package.name if subscription.package else "Quran tuition"
-    db.add(InvoiceItem(invoice_id=inv.id, description=(f"{pkg_name} — {subscription.sessions_per_week} x "
-                                                       f"{subscription.session_minutes} min/week — "
-                                                       f"{period_start:%d %b} to {period_end:%d %b %Y}"),
-                       quantity=1, unit_price=list_price, amount=list_price))
-    if float(subscription.discount_amount or 0) > 0:
-        db.add(InvoiceItem(invoice_id=inv.id, description=f"Approved discount ({float(subscription.discount_pct):.0f}%)",
-                           quantity=1, unit_price=-float(subscription.discount_amount), amount=-float(subscription.discount_amount)))
-    if float(subscription.scholarship_amount or 0) > 0:
-        db.add(InvoiceItem(invoice_id=inv.id, description="Scholarship award (financial aid)", quantity=1,
-                           unit_price=-float(subscription.scholarship_amount), amount=-float(subscription.scholarship_amount)))
-    if credit > 0:
-        db.add(InvoiceItem(invoice_id=inv.id, description="Account credit applied", quantity=1, unit_price=-credit, amount=-credit))
+    subs_total = subs_discount = 0.0
+    for s in subscriptions:
+        list_price = round(float(s.list_price or s.price or 0), 2)
+        pkg_name = s.package.name if s.package else (s.course.name if s.course else "Quran tuition")
+        who = f" — {s.student.full_name}" if s.student else ""
+        db.add(InvoiceItem(invoice_id=inv.id, quantity=1, unit_price=list_price, amount=list_price,
+                           description=(f"{pkg_name}{who} — {s.sessions_per_week} x {s.session_minutes} min/week — "
+                                        f"{period_start:%d %b} to {period_end:%d %b %Y}")[:250]))
+        subs_total += list_price
+        if float(s.discount_amount or 0) > 0:
+            d = round(float(s.discount_amount), 2)
+            db.add(InvoiceItem(invoice_id=inv.id, description=f"Approved discount ({float(s.discount_pct or 0):.0f}%){who}"[:250],
+                               quantity=1, unit_price=-d, amount=-d))
+            subs_discount += d
+        if float(s.scholarship_amount or 0) > 0:
+            sa = round(float(s.scholarship_amount), 2)
+            db.add(InvoiceItem(invoice_id=inv.id, description=f"Scholarship award (financial aid){who}"[:250],
+                               quantity=1, unit_price=-sa, amount=-sa))
+            subs_discount += sa
+    inv.subs_total = round(subs_total, 2)
+    inv.subs_discount = round(subs_discount, 2)
+    inv.subs_tax = 0
+    inv.subtotal = round(subs_total, 2)
+    inv.discount = round(subs_discount, 2)
+    inv.tax = 0
     db.flush()
 
-    _post_ledger(db, client, "charge", f"Invoice {inv.invoice_number} — {period_start:%b %Y}", debit=gross,
-                 currency=currency, reference_type="invoice", reference_id=inv.id, user=user, entry_date=issued)
-    subscription.next_billing_date = add_months(period_start, 1)
+    sub_ids = [s.id for s in subscriptions]
+    if apply_rules:
+        apply_addition_rules(db, inv, sub_ids)
+    for entry in additions or []:
+        atype, amount = entry[0], entry[1]
+        note = entry[2] if len(entry) > 2 else ""
+        add_invoice_addition(db, inv, atype, amount, note)
+
+    gross = invoice_gross(inv)
+    credit = round(min(available_credit(db, client), max(gross, 0.0)), 2)
+    if credit > 0:
+        inv.credit_applied = credit
+        db.add(InvoiceItem(invoice_id=inv.id, description="Account credit applied", quantity=1, unit_price=-credit, amount=-credit))
+    _recompute_invoice_totals(db, inv)
+    db.flush()
+
+    if status != "draft":
+        _post_ledger(db, client, "charge", f"Invoice {inv.invoice_number} — {period_start:%b %Y}", debit=gross,
+                     currency=currency, reference_type="invoice", reference_id=inv.id, user=user, entry_date=issued)
+    for s in subscriptions:
+        s.next_billing_date = add_months(period_start, 1)
 
     try:
         generate_invoice_pdf(db, inv)
     except Exception as exc:  # pragma: no cover - PDF must never block billing
         log.warning("invoice PDF failed for %s: %s", inv.invoice_number, exc)
 
-    if send:
+    if status != "draft" and notify_family:
         subject, body = _tpl(db, "invoice_issued", "whatsapp",
                              {"number": inv.invoice_number, "name": client.full_name,
-                              "amount": f"{currency} {total:,.2f}", "due": inv.due_date.strftime("%d %b %Y"),
-                              "link": f"/portal/billing"},
+                              "amount": f"{currency} {float(inv.total):,.2f}", "due": inv.due_date.strftime("%d %b %Y"),
+                              "link": "/portal/billing"},
                              f"Invoice {inv.invoice_number}",
-                             f"Invoice {inv.invoice_number} for {currency} {total:,.2f} is due {inv.due_date:%d %b %Y}.")
-        _notify_client(db, client, "invoice_issued", subject, body, link=f"/portal/billing")
+                             f"Invoice {inv.invoice_number} for {currency} {float(inv.total):,.2f} is due {inv.due_date:%d %b %Y}.")
+        _notify_client(db, client, "invoice_issued", subject, body, link="/portal/billing")
     log_action(db, user, "create", "billing", entity=inv,
-               description=f"Invoice {inv.invoice_number} issued to {client.client_code} for {currency} {total:.2f}"
-                           + (f" (credit {credit:.2f} applied)" if credit else ""))
+               description=(f"Invoice {inv.invoice_number} ({'bulk' if is_bulk else 'single'}, {status}) raised for "
+                            f"{client.client_code}: {len(subscriptions)} subscription(s), {currency} {float(inv.total):.2f}"
+                            + (f", credit {credit:.2f} applied" if credit else "")),
+               after=snapshot(inv))
     return inv
 
 
+def generate_invoice(db: Session, subscription: Subscription, period_start: date, period_end: date,
+                     user: Optional[User] = None, issue_date: Optional[date] = None, send: bool = True) -> Invoice:
+    """Issue the monthly invoice for one subscription (legacy entry point; delegates to ``create_client_invoice``)."""
+    existing = invoice_for_period(db, subscription, period_start)
+    if existing:
+        raise ValueError(f"Invoice {existing.invoice_number} already covers {period_start:%b %Y} for {subscription.subscription_code}")
+    if subscription.status in ("cancelled",):
+        raise ValueError("A cancelled subscription cannot be invoiced")
+    return create_client_invoice(db, subscription.client, [subscription], period_start, period_end, user=user,
+                                 issue_date=issue_date, status="pending" if send else "draft", is_bulk=False)
+
+
+def bulk_generate_invoices(db: Session, user: Optional[User], period: str, shift: Optional[str] = None,
+                           recurrence: Optional[str] = None, dry_run: bool = False) -> dict:
+    """ERP "Generate Bulk Invoices": one invoice per family for every regular subscription due in ``period``.
+
+    Idempotent per family + period (families that already hold a bulk invoice for the month are skipped) and
+    filterable by the family's shift (morning / night) and fee recurrence. ``dry_run`` only counts.
+    """
+    from app.core.utils import month_bounds
+    start, end = month_bounds(period)
+    shift = (shift or "").lower()
+    recurrence = (recurrence or "").lower()
+    subs = (db.query(Subscription).join(Client, Subscription.client_id == Client.id)
+            .filter(Subscription.status.in_(SUBSCRIPTION_REGULAR_SET),
+                    Subscription.start_date <= end,
+                    (Subscription.next_billing_date.is_(None)) | (Subscription.next_billing_date <= end))
+            .order_by(Client.client_code, Subscription.id).all())
+    by_client: dict[int, list[Subscription]] = defaultdict(list)
+    for s in subs:
+        c = s.client
+        if not c:
+            continue
+        if shift and shift != "all" and (c.shift or "night") != shift:
+            continue
+        if recurrence and recurrence != "all" and (c.fee_recurrence or "monthly") != recurrence:
+            continue
+        if invoice_for_period(db, s, start):
+            continue
+        by_client[c.id].append(s)
+
+    result = {"period": period, "start": start, "end": end, "clients": 0, "subscriptions": 0, "skipped": 0,
+              "created": [], "total_base": 0.0, "dry_run": dry_run, "preview": []}
+    for cid, group in by_client.items():
+        client = group[0].client
+        if client_invoice_for_period(db, client, start):
+            result["skipped"] += 1
+            continue
+        # one invoice per currency (families almost always have one)
+        by_ccy: dict[str, list[Subscription]] = defaultdict(list)
+        for s in group:
+            by_ccy[s.currency].append(s)
+        for ccy, part in by_ccy.items():
+            est = round(sum(float(s.price or 0) for s in part), 2)
+            result["clients"] += 1
+            result["subscriptions"] += len(part)
+            result["preview"].append({"client": client, "currency": ccy, "count": len(part), "amount": est,
+                                      "base": convert_to_base(db, est, ccy)})
+            result["total_base"] = round(result["total_base"] + convert_to_base(db, est, ccy), 2)
+            if dry_run:
+                continue
+            try:
+                inv = create_client_invoice(db, client, part, start, end, user=user, issue_date=date.today(),
+                                            status="pending", is_bulk=True)
+                result["created"].append(inv)
+            except ValueError as exc:
+                log.warning("bulk invoice skipped for %s: %s", client.client_code, exc)
+                result["skipped"] += 1
+    if not dry_run:
+        log_action(db, user, "execute", "billing", entity_type="Invoice",
+                   description=(f"Bulk invoices generated for {period}: {len(result['created'])} created, "
+                                f"{result['skipped']} skipped" + (f", shift {shift}" if shift and shift != 'all' else "")
+                                + (f", recurrence {recurrence}" if recurrence and recurrence != 'all' else "")))
+    return result
+
+
+def confirm_invoice(db: Session, invoice: Invoice, user: Optional[User]) -> Invoice:
+    """draft / pending -> confirmed; posts the ledger charge if it has not been posted yet."""
+    status = normalise_invoice_status(invoice.status)
+    if status not in ("draft", "pending"):
+        raise ValueError(f"A {status} invoice cannot be confirmed")
+    before = {"status": invoice.status}
+    invoice.status = "confirmed"
+    invoice.confirmed_by_id = user.id if user else None
+    invoice.confirmed_at = datetime.utcnow()
+    invoice.sent_at = invoice.sent_at or datetime.utcnow()
+    posted = False
+    if invoice_charge_entry(db, invoice) is None:
+        _post_ledger(db, invoice.client, "charge", f"Invoice {invoice.invoice_number} — "
+                     f"{invoice.period_start:%b %Y}" if invoice.period_start else f"Invoice {invoice.invoice_number}",
+                     debit=invoice_gross(invoice), currency=invoice.currency, reference_type="invoice",
+                     reference_id=invoice.id, user=user, entry_date=invoice.issue_date)
+        posted = True
+    log_action(db, user, "approve", "billing", entity=invoice,
+               description=f"Invoice {invoice.invoice_number} confirmed" + (" (ledger charge posted)" if posted else ""),
+               before=before, after={"status": "confirmed"}, consequential=True)
+    return invoice
+
+
+def cancel_invoice(db: Session, invoice: Invoice, user: Optional[User], reason: str) -> Invoice:
+    """Any unpaid invoice -> cancelled; reverses the ledger charge with a credit entry."""
+    if not reason:
+        raise ValueError("A reason is required to cancel an invoice")
+    if normalise_invoice_status(invoice.status) == "cancelled":
+        raise ValueError("This invoice is already cancelled")
+    if float(invoice.paid_amount or 0) > 0:
+        raise ValueError("Refund the payments before cancelling this invoice")
+    before = {"status": invoice.status}
+    invoice.status = "cancelled"
+    invoice.cancelled_at = datetime.utcnow()
+    invoice.cancel_reason = reason[:200]
+    invoice.remarks = ((invoice.remarks or "") + f"\nCancelled: {reason}").strip()
+    if invoice_charge_entry(db, invoice) is not None:
+        _post_ledger(db, invoice.client, "adjustment", f"Cancelled invoice {invoice.invoice_number}: {reason}"[:250],
+                     credit=invoice_gross(invoice), currency=invoice.currency, reference_type="invoice",
+                     reference_id=invoice.id, user=user)
+    if float(invoice.credit_applied or 0) > 0:  # give the applied credit back to the family
+        _post_ledger(db, invoice.client, "credit", f"Credit released from cancelled {invoice.invoice_number}",
+                     credit=float(invoice.credit_applied), currency=invoice.currency, reference_type="invoice",
+                     reference_id=invoice.id, user=user)
+    log_action(db, user, "cancel", "billing", entity=invoice, description=f"Invoice {invoice.invoice_number} cancelled",
+               rationale=reason, before=before, after={"status": "cancelled"}, consequential=True)
+    return invoice
+
+
 def send_invoice(db: Session, invoice: Invoice, user: Optional[User]) -> Invoice:
-    if invoice.status == "void":
-        raise ValueError("A void invoice cannot be sent")
-    invoice.status = "sent" if invoice.status == "draft" else invoice.status
+    if normalise_invoice_status(invoice.status) == "cancelled":
+        raise ValueError("A cancelled invoice cannot be sent")
+    if invoice.status == "draft":
+        invoice.status = "pending"
+        if invoice_charge_entry(db, invoice) is None:
+            _post_ledger(db, invoice.client, "charge", f"Invoice {invoice.invoice_number}", debit=invoice_gross(invoice),
+                         currency=invoice.currency, reference_type="invoice", reference_id=invoice.id, user=user,
+                         entry_date=invoice.issue_date)
+    elif invoice.status == "sent":
+        invoice.status = "pending"
     invoice.sent_at = datetime.utcnow()
     subject, body = _tpl(db, "invoice_issued", "whatsapp",
                          {"number": invoice.invoice_number, "name": invoice.client.full_name,
@@ -617,7 +1097,7 @@ def send_invoice(db: Session, invoice: Invoice, user: Optional[User]) -> Invoice
 
 
 def send_reminder(db: Session, invoice: Invoice, user: Optional[User], stage: str = "manual") -> Invoice:
-    if invoice.status in ("paid", "void"):
+    if invoice.status in ("paid", "draft") or normalise_invoice_status(invoice.status) == "cancelled":
         raise ValueError("This invoice does not need a reminder")
     invoice.reminder_count = (invoice.reminder_count or 0) + 1
     invoice.last_reminder_at = datetime.utcnow()
@@ -632,47 +1112,69 @@ def send_reminder(db: Session, invoice: Invoice, user: Optional[User], stage: st
 
 
 def mark_overdue(db: Session, invoice: Invoice, user: Optional[User] = None) -> Invoice:
-    if invoice.status not in ("sent", "partial"):
-        raise ValueError("Only sent or partially paid invoices can be marked overdue")
+    if invoice.status not in ("sent", "pending", "confirmed", "partial"):
+        raise ValueError("Only pending, confirmed or partially paid invoices can be marked overdue")
     invoice.status = "overdue"
     log_action(db, user, "update", "billing", entity=invoice, description=f"{invoice.invoice_number} marked overdue")
     return invoice
 
 
 def void_invoice(db: Session, invoice: Invoice, user: Optional[User], rationale: str) -> Invoice:
-    if not rationale:
-        raise ValueError("A rationale is required to void an invoice")
-    if invoice.status == "void":
-        raise ValueError("This invoice is already void")
-    if float(invoice.paid_amount or 0) > 0:
-        raise ValueError("Refund the payments before voiding this invoice")
-    before = {"status": invoice.status}
-    gross = round(float(invoice.subtotal or 0) - float(invoice.discount or 0), 2)
-    invoice.status = "void"
-    invoice.remarks = ((invoice.remarks or "") + f"\nVoided: {rationale}").strip()
-    _post_ledger(db, invoice.client, "adjustment", f"Void invoice {invoice.invoice_number}", credit=gross,
-                 currency=invoice.currency, reference_type="invoice", reference_id=invoice.id, user=user)
-    log_action(db, user, "delete", "billing", entity=invoice, description=f"Invoice {invoice.invoice_number} voided",
-               rationale=rationale, before=before, after={"status": "void"}, consequential=True)
-    return invoice
+    """Legacy name: voiding is the ERP's Cancel."""
+    return cancel_invoice(db, invoice, user, rationale)
 
 
 def invoice_stats(db: Session) -> dict:
-    open_rows = db.query(Invoice).filter(Invoice.status.in_(["sent", "partial", "overdue"])).all()
+    open_rows = db.query(Invoice).filter(Invoice.status.in_(INVOICE_OPEN_SET)).all()
     outstanding = round(sum((float(i.total) - float(i.paid_amount)) * get_rate(db, i.currency) for i in open_rows), 2)
     today = date.today()
     overdue = [i for i in open_rows if i.due_date and i.due_date < today]
     start_month = today.replace(day=1)
     collected = (db.query(func.coalesce(func.sum(Payment.amount_in_base), 0))
-                 .filter(Payment.status == "completed",
+                 .filter(Payment.status.in_(PAYMENT_CONFIRMED_SET),
                          Payment.received_at >= datetime.combine(start_month, datetime.min.time())).scalar() or 0)
     issued_month = (db.query(func.coalesce(func.sum(Invoice.total_in_base), 0))
-                    .filter(Invoice.status != "void", Invoice.issue_date >= start_month).scalar() or 0)
+                    .filter(Invoice.status.notin_(INVOICE_CANCELLED_SET), Invoice.issue_date >= start_month).scalar() or 0)
     rate = round(100.0 * float(collected) / float(issued_month), 1) if float(issued_month) else 0.0
     return {"outstanding": outstanding, "overdue_count": len(overdue), "base": base_currency(db),
             "overdue_amount": round(sum((float(i.total) - float(i.paid_amount)) * get_rate(db, i.currency) for i in overdue), 2),
             "collected_month": round(float(collected), 2), "issued_month": round(float(issued_month), 2),
-            "collection_rate": min(rate, 999.0), "open_count": len(open_rows)}
+            "collection_rate": min(rate, 999.0), "open_count": len(open_rows), **invoice_tiles(db)}
+
+
+def invoice_tiles(db: Session) -> dict:
+    """ERP Invoice List tiles: Confirmed / Over All Pending / Cancelled / Draft / Paid."""
+    counts = dict(db.query(Invoice.status, func.count(Invoice.id)).group_by(Invoice.status).all())
+    return {"tile_confirmed": counts.get("confirmed", 0),
+            "tile_pending": sum(counts.get(s, 0) for s in INVOICE_OVERALL_PENDING_SET),
+            "tile_cancelled": sum(counts.get(s, 0) for s in INVOICE_CANCELLED_SET),
+            "tile_draft": counts.get("draft", 0), "tile_paid": counts.get("paid", 0)}
+
+
+def receipt_tiles(db: Session) -> dict:
+    counts = dict(db.query(Payment.status, func.count(Payment.id)).group_by(Payment.status).all())
+    return {"tile_confirmed": sum(counts.get(s, 0) for s in PAYMENT_CONFIRMED_SET),
+            "tile_pending": counts.get("pending", 0), "tile_cancelled": counts.get("cancelled", 0),
+            "tile_failed": counts.get("failed", 0), "tile_refunded": counts.get("refunded", 0)}
+
+
+def invoice_status_filter(status: str):
+    """SQLAlchemy criterion for an ERP status filter value (accepts legacy spellings)."""
+    s = (status or "").lower()
+    if s in ("pending", "sent"):
+        return Invoice.status.in_(INVOICE_PENDING_SET)
+    if s in ("cancelled", "void"):
+        return Invoice.status.in_(INVOICE_CANCELLED_SET)
+    if s == "pending_all":
+        return Invoice.status.in_(INVOICE_OVERALL_PENDING_SET)
+    return Invoice.status == s
+
+
+def payment_status_filter(status: str):
+    s = (status or "").lower()
+    if s in ("confirmed", "completed"):
+        return Payment.status.in_(PAYMENT_CONFIRMED_SET)
+    return Payment.status == s
 
 
 # ============================================================================ payments
@@ -694,28 +1196,60 @@ def _apply_to_invoice(db: Session, invoice: Invoice, amount: float) -> float:
 def record_payment(db: Session, client: Client, amount: float, currency: str, method: str, reference: Optional[str],
                    user: Optional[User] = None, invoice: Optional[Invoice] = None, gateway: Optional[str] = None,
                    received_at: Optional[datetime] = None, status: str = "completed",
-                   notes: Optional[str] = None) -> Payment:
-    """Record a payment, allocate it (oldest invoice first when none is given), post the ledger and journal,
-    issue a receipt PDF and notify the family."""
+                   notes: Optional[str] = None, receipt_date: Optional[date] = None,
+                   receiver_name: Optional[str] = None, receiving_destination: Optional[str] = None,
+                   description: Optional[str] = None, category: Optional[str] = None,
+                   beneficiary_account=None, billing_rep: Optional[User] = None,
+                   amount_in_base: Optional[float] = None) -> Payment:
+    """Record a receipt. Confirmed / completed receipts are allocated (oldest invoice first when none is given),
+    posted to the ledger and journal, get a receipt PDF and notify the family. ``pending`` receipts wait for
+    ``confirm_payment``; ``failed`` ones raise a risk alert."""
     amount = round(float(amount or 0), 2)
     if amount <= 0:
         raise ValueError("Payment amount must be greater than zero")
     currency = (currency or client.currency or "GBP").upper()
     received_at = received_at or datetime.utcnow()
+    status = (status or "completed").lower()
+    if status not in PAYMENT_STATUSES:
+        raise ValueError(f"Unknown receipt status {status}")
+    if beneficiary_account is not None:
+        category = category or beneficiary_account.category
+        receiving_destination = receiving_destination or beneficiary_account.account_name
+        gateway = gateway or (beneficiary_account.category.lower() if beneficiary_account.is_auto else gateway)
 
     pay = Payment(payment_number=next_code(db, Payment, "payment_number", "PAY-"), invoice_id=invoice.id if invoice else None,
-                  client_id=client.id, amount=amount, currency=currency, amount_in_base=convert_to_base(db, amount, currency),
+                  client_id=client.id, amount=amount, currency=currency,
+                  amount_in_base=round(float(amount_in_base), 2) if amount_in_base else convert_to_base(db, amount, currency),
                   method=method or "bank_transfer", gateway=gateway, reference=reference, status=status,
-                  received_at=received_at, received_by_id=user.id if user else None, notes=notes)
+                  received_at=received_at, received_by_id=user.id if user else None, notes=notes,
+                  receipt_date=receipt_date or received_at.date(), receiver_name=receiver_name,
+                  receiving_destination=receiving_destination, description=description, category=category,
+                  beneficiary_account_id=beneficiary_account.id if beneficiary_account is not None else None,
+                  billing_rep_id=(billing_rep.id if billing_rep else (client.billing_rep_id or (user.id if user else None))))
     db.add(pay)
     db.flush()
 
-    if status != "completed":
+    if status == "failed":
         flag_failed_payment(db, pay, user, notes or "Gateway reported a failure")
         log_action(db, user, "create", "payments", entity=pay,
-                   description=f"Payment {pay.payment_number} recorded as {status} for {client.client_code}")
+                   description=f"Payment {pay.payment_number} recorded as failed for {client.client_code}")
         return pay
+    if status not in PAYMENT_CONFIRMED_SET:
+        log_action(db, user, "create", "payments", entity=pay,
+                   description=f"Receipt {pay.payment_number} {currency} {amount:.2f} from {client.client_code} recorded as {status}")
+        return pay
+    _settle_payment(db, pay, user, invoice)
+    return pay
 
+
+def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Optional[Invoice] = None) -> list[Invoice]:
+    """Allocate a confirmed receipt to invoices, post the ledger + journal, issue the receipt and notify."""
+    client = pay.client
+    amount = round(float(pay.amount), 2)
+    currency = pay.currency
+    method = pay.method or "bank_transfer"
+    received_at = pay.received_at or datetime.utcnow()
+    invoice = invoice if invoice is not None else pay.invoice
     remainder = amount
     touched: list[Invoice] = []
     if invoice is not None:
@@ -723,7 +1257,7 @@ def record_payment(db: Session, client: Client, amount: float, currency: str, me
         touched.append(invoice)
     if remainder > 0:
         open_invoices = (db.query(Invoice)
-                         .filter(Invoice.client_id == client.id, Invoice.status.in_(["sent", "partial", "overdue"]),
+                         .filter(Invoice.client_id == client.id, Invoice.status.in_(INVOICE_OPEN_SET),
                                  Invoice.currency == currency)
                          .order_by(Invoice.due_date, Invoice.id).all())
         for inv in open_invoices:
@@ -742,10 +1276,10 @@ def record_payment(db: Session, client: Client, amount: float, currency: str, me
         pay.notes = ((pay.notes or "") + "\n" + notes_extra).strip()
 
     _post_ledger(db, client, "payment",
-                 f"Payment {pay.payment_number} ({(method or 'bank_transfer').replace('_', ' ')})"
-                 + (f" ref {reference}" if reference else ""),
+                 f"Payment {pay.payment_number} ({method.replace('_', ' ')})"
+                 + (f" ref {pay.reference}" if pay.reference else ""),
                  credit=amount, currency=currency, reference_type="payment", reference_id=pay.id, user=user,
-                 entry_date=received_at.date())
+                 entry_date=pay.receipt_date or received_at.date())
 
     from app.services import accounting
     cash_code = "1000" if method == "cash" else "1010"
@@ -754,14 +1288,15 @@ def record_payment(db: Session, client: Client, amount: float, currency: str, me
                             [(cash_code, base_amount, 0), ("4000", 0, base_amount)],
                             reference_type="payment", reference_id=pay.id, entry_date=received_at.date(), user=user)
 
-    receipt = Receipt(receipt_number=next_code(db, Receipt, "receipt_number", "RCT-"), payment_id=pay.id,
-                      issued_at=received_at, sent_to=client.email or client.whatsapp)
-    db.add(receipt)
-    db.flush()
-    try:
-        generate_receipt_pdf(db, receipt)
-    except Exception as exc:  # pragma: no cover
-        log.warning("receipt PDF failed for %s: %s", receipt.receipt_number, exc)
+    if pay.receipt is None:
+        receipt = Receipt(receipt_number=next_code(db, Receipt, "receipt_number", "RCT-"), payment_id=pay.id,
+                          issued_at=received_at, sent_to=client.email or client.whatsapp)
+        db.add(receipt)
+        db.flush()
+        try:
+            generate_receipt_pdf(db, receipt)
+        except Exception as exc:  # pragma: no cover
+            log.warning("receipt PDF failed for %s: %s", receipt.receipt_number, exc)
 
     subject, body = _tpl(db, "payment_received", "whatsapp",
                          {"name": client.full_name, "amount": f"{currency} {amount:,.2f}", "link": "/portal/billing"},
@@ -770,7 +1305,92 @@ def record_payment(db: Session, client: Client, amount: float, currency: str, me
     log_action(db, user, "create", "payments", entity=pay,
                description=f"Payment {pay.payment_number} {currency} {amount:.2f} from {client.client_code} via {method}"
                            + (f"; applied to {', '.join(i.invoice_number for i in touched)}" if touched else ""))
-    return pay
+    return touched
+
+
+def confirm_payment(db: Session, payment: Payment, user: Optional[User]) -> Payment:
+    """pending -> confirmed: applies the receipt to the invoice, posts the ledger and journal, issues the receipt."""
+    if payment.status != "pending":
+        raise ValueError(f"A {payment.status} receipt cannot be confirmed")
+    before = {"status": payment.status}
+    payment.status = "confirmed"
+    payment.confirmed_by_id = user.id if user else None
+    payment.confirmed_at = datetime.utcnow()
+    touched = _settle_payment(db, payment, user, payment.invoice)
+    log_action(db, user, "approve", "payments", entity=payment,
+               description=f"Receipt {payment.payment_number} confirmed"
+                           + (f"; applied to {', '.join(i.invoice_number for i in touched)}" if touched else ""),
+               before=before, after={"status": "confirmed"}, consequential=True)
+    return payment
+
+
+def cancel_payment(db: Session, payment: Payment, user: Optional[User], reason: str) -> Payment:
+    """pending / confirmed -> cancelled. A confirmed receipt is un-applied from its invoice and the ledger and
+    journal postings are reversed."""
+    if not reason:
+        raise ValueError("A reason is required to cancel a receipt")
+    if payment.status in ("cancelled", "refunded"):
+        raise ValueError(f"This receipt is already {payment.status}")
+    before = {"status": payment.status}
+    was_confirmed = is_confirmed_payment(payment.status)
+    amount = round(float(payment.amount), 2)
+    payment.notes = ((payment.notes or "") + f"\nCancelled: {reason}").strip()
+    if was_confirmed:
+        inv = payment.invoice
+        if inv is not None:
+            inv.paid_amount = round(max(0.0, float(inv.paid_amount) - amount), 2)
+            if float(inv.paid_amount) <= 0.01:
+                inv.status = "overdue" if inv.due_date and inv.due_date < date.today() else "pending"
+                inv.paid_at = None
+            elif float(inv.paid_amount) < float(inv.total):
+                inv.status = "partial"
+                inv.paid_at = None
+        _post_ledger(db, payment.client, "adjustment", f"Cancelled receipt {payment.payment_number}: {reason}"[:250],
+                     debit=amount, currency=payment.currency, reference_type="payment", reference_id=payment.id, user=user)
+        from app.services import accounting
+        from app.models.finance import JournalEntry
+        je = (db.query(JournalEntry).filter(JournalEntry.reference_type == "payment", JournalEntry.reference_id == payment.id,
+                                            JournalEntry.status == "posted").first())
+        if je is not None:
+            accounting.reverse_journal(db, je, user, f"Receipt {payment.payment_number} cancelled: {reason}")
+    payment.status = "cancelled"
+    log_action(db, user, "cancel", "payments", entity=payment,
+               description=f"Receipt {payment.payment_number} cancelled" + (" (ledger and journal reversed)" if was_confirmed else ""),
+               rationale=reason, before=before, after={"status": "cancelled"}, consequential=True)
+    return payment
+
+
+def sync_gateway_receipts(db: Session, user: Optional[User], limit: int = 5) -> list[Payment]:
+    """Simulated gateway pull: confirmed receipts for open invoices of families paying through an auto
+    beneficiary account (Stripe / PayPal). Idempotent for an invoice: one gateway receipt per invoice."""
+    from app.models.erp import BeneficiaryAccount
+    auto = (db.query(BeneficiaryAccount).filter(BeneficiaryAccount.is_auto.is_(True), BeneficiaryAccount.status == "active")
+            .order_by(BeneficiaryAccount.id).all())
+    account = auto[0] if auto else None
+    gateway = (account.category.lower() if account else "stripe")
+    candidates = (db.query(Invoice).filter(Invoice.status.in_(INVOICE_OPEN_SET), Invoice.total > 0)
+                  .order_by(Invoice.due_date, Invoice.id).all())
+    created: list[Payment] = []
+    for inv in candidates:
+        if len(created) >= limit:
+            break
+        if db.query(Payment.id).filter(Payment.invoice_id == inv.id, Payment.gateway == gateway,
+                                       Payment.status.in_(PAYMENT_CONFIRMED_SET)).first():
+            continue
+        balance = round(float(inv.total) - float(inv.paid_amount), 2)
+        if balance <= 0:
+            continue
+        pay = record_payment(db, inv.client, balance, inv.currency, "stripe" if gateway == "stripe" else "paypal",
+                             f"{gateway.upper()}-{inv.invoice_number.replace('INV-', '')}", user=user, invoice=inv,
+                             gateway=gateway, status="confirmed", description=f"Gateway auto receipt for {inv.invoice_number}",
+                             receiver_name=account.account_name if account else "Online Payment Gateway",
+                             category=account.category if account else gateway.title(), beneficiary_account=account)
+        pay.confirmed_by_id = user.id if user else None
+        pay.confirmed_at = datetime.utcnow()
+        created.append(pay)
+    log_action(db, user, "execute", "payments", entity_type="Payment",
+               description=f"Gateway receipts synced ({gateway}): {len(created)} confirmed receipt(s) pulled")
+    return created
 
 
 def flag_failed_payment(db: Session, payment: Payment, user: Optional[User], reason: str) -> RiskAlert:
@@ -799,20 +1419,20 @@ def refund_payment(db: Session, payment: Payment, amount: float, user: Optional[
     amount = round(float(amount or 0), 2)
     if not rationale:
         raise ValueError("A rationale is required for a refund")
-    if payment.status != "completed":
+    if not is_confirmed_payment(payment.status):
         raise ValueError(f"A {payment.status} payment cannot be refunded")
     if amount <= 0 or amount > float(payment.amount) + 0.01:
         raise ValueError("The refund amount must be positive and no more than the original payment")
     before = {"status": payment.status}
     full = amount >= float(payment.amount) - 0.01
-    payment.status = "refunded" if full else "completed"
+    payment.status = "refunded" if full else payment.status
     payment.notes = ((payment.notes or "") + f"\nRefunded {payment.currency} {amount:.2f}: {rationale}").strip()
 
     inv = payment.invoice
     if inv:
         inv.paid_amount = round(max(0.0, float(inv.paid_amount) - amount), 2)
         if float(inv.paid_amount) <= 0.01:
-            inv.status = "overdue" if inv.due_date and inv.due_date < date.today() else "sent"
+            inv.status = "overdue" if inv.due_date and inv.due_date < date.today() else "pending"
             inv.paid_at = None
         elif float(inv.paid_amount) < float(inv.total):
             inv.status = "partial"
@@ -850,22 +1470,23 @@ def reconcile_payment(db: Session, payment: Payment, user: Optional[User], bank_
 def payment_stats(db: Session) -> dict:
     today = date.today()
     start_month = today.replace(day=1)
-    completed = db.query(Payment).filter(Payment.status == "completed")
+    completed = db.query(Payment).filter(Payment.status.in_(PAYMENT_CONFIRMED_SET))
     month_total = (completed.with_entities(func.coalesce(func.sum(Payment.amount_in_base), 0))
                    .filter(Payment.received_at >= datetime.combine(start_month, datetime.min.time())).scalar() or 0)
-    unreconciled = db.query(Payment).filter(Payment.status == "completed", Payment.reconciled.is_(False)).count()
+    unreconciled = db.query(Payment).filter(Payment.status.in_(PAYMENT_CONFIRMED_SET), Payment.reconciled.is_(False)).count()
     failed = db.query(Payment).filter(Payment.status == "failed").count()
     refunded = (db.query(func.coalesce(func.sum(Payment.amount_in_base), 0)).filter(Payment.status == "refunded").scalar() or 0)
     return {"month_total": round(float(month_total), 2), "unreconciled": unreconciled, "failed": failed,
             "refunded": round(float(refunded), 2), "base": base_currency(db),
-            "count_month": completed.filter(Payment.received_at >= datetime.combine(start_month, datetime.min.time())).count()}
+            "count_month": completed.filter(Payment.received_at >= datetime.combine(start_month, datetime.min.time())).count(),
+            **receipt_tiles(db)}
 
 
 def daily_totals_by_method(db: Session, days: int = 14) -> list[dict]:
     since = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
     rows = (db.query(func.date(Payment.received_at), Payment.method, func.count(Payment.id),
                      func.coalesce(func.sum(Payment.amount_in_base), 0))
-            .filter(Payment.status == "completed", Payment.received_at >= since)
+            .filter(Payment.status.in_(PAYMENT_CONFIRMED_SET), Payment.received_at >= since)
             .group_by(func.date(Payment.received_at), Payment.method).all())
     grouped: dict[str, dict] = defaultdict(lambda: {"day": "", "methods": {}, "total": 0.0, "count": 0})
     for day, method, n, amount in rows:
@@ -1136,7 +1757,7 @@ def client_balances(db: Session, q: str = "") -> list[dict]:
                      func.coalesce(func.sum(LedgerEntry.credit), 0)).group_by(LedgerEntry.client_id).all())
     balances = {cid: round(float(d) - float(c), 2) for cid, d, c in rows}
     last_pay = dict(db.query(Payment.client_id, func.max(Payment.received_at))
-                    .filter(Payment.status == "completed").group_by(Payment.client_id).all())
+                    .filter(Payment.status.in_(PAYMENT_CONFIRMED_SET)).group_by(Payment.client_id).all())
     overdue = dict(db.query(Invoice.client_id, func.count(Invoice.id))
                    .filter(Invoice.status == "overdue").group_by(Invoice.client_id).all())
     query = db.query(Client)

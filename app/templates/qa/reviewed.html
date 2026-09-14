@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Reviewed Calls{% endblock %}
+{% block content %}
+{% call ui.page_header("Reviewed Calls", "Every call review with its overall star rating, remarks and status") %}
+  {{ ui.button("QA Review Queue", href="/qa/queue", icon="list-checks", variant="secondary") }}
+  {{ ui.button("QA Dashboard", href="/qa/dashboard", icon="gauge", variant="ghost") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("Completed", stats.completed, icon="check-circle-2", color=palette(0), href="/qa/reviewed?status=completed&" ~ filter_qs) }}
+  {{ ui.stat("Inprogress", stats.in_review, icon="pencil-line", color=palette(1), href="/qa/reviewed?status=in_review&" ~ filter_qs) }}
+  {{ ui.stat("Pendings", stats.queued, icon="clock", color=palette(2), href="/qa/reviewed?status=queued&" ~ filter_qs) }}
+  {{ ui.stat("Total Reviews", stats.total, icon="list", color=palette(3), href="/qa/reviewed?" ~ filter_qs) }}
+  {{ ui.stat("Total 5 Star Rated Calls", stats.five, icon="star", color=palette(4)) }}
+  {{ ui.stat("Total 1 & 2 Star Rated Calls", stats.low, icon="star-half", color=palette(5)) }}
+</div>
+
+{% call ui.filter_bar('/qa/reviewed') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['ID','Call Source Type','Teacher','Overall Rating','Remarks','Reviewed AT','Status','']) }}
+{% for r in page.items %}
+{% set c = calls_by_id.get(r.call_record_id) %}
+<tr class="{{ 'bg-rose-50/50' if r.overall_rating is not none and r.overall_rating < 2.5 }}">
+  <td class="px-4 py-2 font-mono text-xs">#{{ r.id }}{% if c %}<div class="text-[10px] text-slate-400">call {{ c.id }}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{% if c %}{{ ui.badge(c.source) }} <span class="text-slate-500">{{ c.platform }}</span>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2 text-sm">{{ r.teacher.full_name if r.teacher else '-' }}</td>
+  <td class="px-4 py-2 text-sm">{% if r.overall_rating is not none %}<span class="text-amber-500">{{ '&#9733;' * (r.overall_rating|round|int) }}</span> <span class="text-xs text-slate-500">{{ r.overall_rating }}</span>{% else %}<span class="text-xs text-slate-400">not rated</span>{% endif %}</td>
+  <td class="px-4 py-2 max-w-md text-xs text-slate-600"><div class="truncate">{{ r.remarks or '-' }}</div>{% if r.issues %}<div class="text-[10px] text-rose-600">{{ r.issues|length }} issue(s){% for i in r.issues if i.critical %} &middot; critical: {{ i.type }}{% endfor %}</div>{% endif %}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ r.reviewed_at|datetime if r.reviewed_at else '-' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(r.status, r.status|label('qa')) }}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/qa/' ~ r.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No call reviews match these filters.', 8, 'check-check') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

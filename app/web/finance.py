@@ -21,10 +21,12 @@ from app.database import get_db
 from app.models.academic import Course, Package
 from app.models.core import User, AuditEvent, Department
 from app.models.crm import Referral
+from app.models.erp import (BeneficiaryAccount, ClientAcademicGroup, InvoiceAdditionType, LedgerAddition,
+                            LEDGER_ADDITION_TYPES)
 from app.models.finance import (Account, Budget, Currency, DiscountRequest, ExchangeRateHistory, Expense,
                                 FinancialPeriod, Invoice, InvoiceItem, JournalEntry, JournalLine, LedgerEntry,
                                 Payment, Receipt, Scholarship, Subscription)
-from app.models.people import Client, Student, Teacher
+from app.models.people import Client, Employee, Student, Teacher
 from app.services import accounting, billing
 
 router = APIRouter(prefix="/finance", dependencies=[Depends(csrf_protect)])
@@ -89,15 +91,53 @@ def _csv(rows: list[list], filename: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-def _period_options(count: int = 15) -> list[str]:
+def _period_options(count: int = 15, ahead: int = 0) -> list[str]:
     today = date.today()
     out = []
-    for i in range(count):
+    for i in range(-ahead, count):
         y, m = today.year, today.month - i
         while m <= 0:
             y, m = y - 1, m + 12
+        while m > 12:
+            y, m = y + 1, m - 12
         out.append(f"{y:04d}-{m:02d}")
     return out
+
+
+def _client_options(db: Session, statuses: tuple | None = None) -> list[tuple[int, str]]:
+    q = db.query(Client)
+    if statuses:
+        q = q.filter(Client.status.in_(statuses))
+    return [(c.id, f"{c.client_code} — {c.full_name}") for c in q.order_by(Client.client_code).all()]
+
+
+def _currency_codes(db: Session, active_only: bool = True) -> list[str]:
+    q = db.query(Currency)
+    if active_only:
+        q = q.filter(Currency.is_active.is_(True))
+    return [c.code for c in q.order_by(Currency.code).all()]
+
+
+def _rep_options(db: Session) -> list[tuple[int, str]]:
+    reps = billing._billing_reps(db)
+    if not reps:
+        reps = db.query(User).filter(User.is_active.is_(True)).order_by(User.full_name).limit(50).all()
+    return [(u.id, u.full_name) for u in reps]
+
+
+def _shift_label(client: Client | None) -> str:
+    if not client:
+        return "—"
+    return {"morning": "Morning", "night": "Night", "evening": "Evening"}.get(client.shift or "", (client.shift or "—").title())
+
+
+def _date_range(query, column, date_from: str, date_to: str, is_datetime: bool = False):
+    df, dt = parse_date(date_from), parse_date(date_to)
+    if df:
+        query = query.filter(column >= (datetime.combine(df, datetime.min.time()) if is_datetime else df))
+    if dt:
+        query = query.filter(column <= (datetime.combine(dt, datetime.max.time()) if is_datetime else dt))
+    return query
 
 
 @router.get("", include_in_schema=False)
@@ -458,61 +498,137 @@ async def scholarship_decide(id: int, request: Request, db: Session = Depends(ge
 
 
 # ============================================================================ Module 18 — invoices
+def _invoice_form_context(db: Session) -> dict:
+    """Options for the ERP "Create Single Invoice" modal."""
+    clients = db.query(Client).filter(Client.status.in_(["active", "trial", "regular"])).order_by(Client.client_code).all()
+    subs = (db.query(Subscription).filter(Subscription.status.in_(["active", "regular", "trial", "frozen", "pending_approval"]))
+            .order_by(Subscription.client_id, Subscription.id).all())
+    by_client: dict[str, list[dict]] = {}
+    for s in subs:
+        by_client.setdefault(str(s.client_id), []).append({
+            "id": s.id, "label": f"{s.subscription_code} — {s.student.full_name if s.student else ''} — "
+                                 f"{s.currency} {float(s.price or 0):,.2f}", "currency": s.currency})
+    types = db.query(InvoiceAdditionType).filter(InvoiceAdditionType.status == "active").order_by(InvoiceAdditionType.description).all()
+    return {"client_options": [(c.id, f"{c.client_code} — {c.full_name} ({c.currency})") for c in clients],
+            "subs_by_client": by_client,
+            "addition_types": [(t.id, f"{t.description} ({t.addition_type})") for t in types],
+            "rep_options": _rep_options(db)}
+
+
 @router.get("/invoices", include_in_schema=False)
 def invoices_list(request: Request, page: int = 1, q: str = "", status: str = "", currency: str = "",
-                  overdue_only: str = "", db: Session = Depends(get_db), user: User = Depends(require("billing.view"))):
+                  client_id: str = "", date_from: str = "", date_to: str = "", overdue_only: str = "",
+                  db: Session = Depends(get_db), user: User = Depends(require("billing.view"))):
     query = db.query(Invoice)
     if q:
         like = f"%{q}%"
         query = (query.join(Client, Invoice.client_id == Client.id)
                  .filter(or_(Invoice.invoice_number.ilike(like), Client.full_name.ilike(like), Client.client_code.ilike(like))))
     if status:
-        query = query.filter(Invoice.status == status)
+        query = query.filter(billing.invoice_status_filter(status))
     if currency:
         query = query.filter(Invoice.currency == currency)
+    if client_id and parse_int(client_id):
+        query = query.filter(Invoice.client_id == int(client_id))
+    query = _date_range(query, Invoice.issue_date, date_from, date_to)
     if overdue_only:
         query = query.filter(Invoice.status == "overdue")
     pg = paginate(query.order_by(Invoice.issue_date.desc(), Invoice.id.desc()), page, 25)
-    base = f"/finance/invoices?q={q}&status={status}&currency={currency}"
+    base = (f"/finance/invoices?q={q}&status={status}&currency={currency}&client_id={client_id}"
+            f"&date_from={date_from}&date_to={date_to}")
     return render(request, "finance/invoices_list.html", {
-        "user": user, "page": pg, "q": q, "status": status, "currency": currency, "base_url": base,
-        "stats": billing.invoice_stats(db), "statuses": billing.INVOICE_STATUSES,
-        "currencies": [c.code for c in db.query(Currency).order_by(Currency.code).all()],
-        "periods": _period_options(6), "today_d": date.today()})
+        "user": user, "page": pg, "q": q, "status": status, "currency": currency, "client_id": client_id,
+        "date_from": date_from, "date_to": date_to, "base_url": base,
+        "stats": billing.invoice_stats(db), "statuses": billing.INVOICE_FILTER_STATUSES,
+        "currencies": _currency_codes(db), "clients": _client_options(db),
+        "periods": _period_options(6, ahead=1), "today_d": date.today(), "base": billing.base_currency(db),
+        "shifts": [("all", "All shifts"), ("morning", "Morning"), ("night", "Night")],
+        "recurrences": [("all", "All")] + [(r, r.replace("_", " ").title()) for r in billing.FEE_RECURRENCES],
+        **_invoice_form_context(db)})
+
+
+@router.get("/invoices/bulk", include_in_schema=False)
+def invoices_bulk_preview(request: Request, period: str = "", shift: str = "all", recurrence: str = "all",
+                          db: Session = Depends(get_db), user: User = Depends(require("billing.add"))):
+    """Generate Bulk Invoices: dry-run preview of what the POST would create."""
+    period = period or month_key()
+    try:
+        preview = billing.bulk_generate_invoices(db, user, period, shift=shift, recurrence=recurrence, dry_run=True)
+    except (ValueError, IndexError):
+        return redirect("/finance/invoices", "Choose a valid billing period (YYYY-MM).", "error")
+    return render(request, "finance/invoice_bulk.html", {
+        "user": user, "period": period, "shift": shift, "recurrence": recurrence, "preview": preview,
+        "periods": _period_options(6, ahead=1), "base": billing.base_currency(db),
+        "shifts": [("all", "All shifts"), ("morning", "Morning"), ("night", "Night")],
+        "recurrences": [("all", "All")] + [(r, r.replace("_", " ").title()) for r in billing.FEE_RECURRENCES]})
 
 
 @router.post("/invoices/generate", include_in_schema=False)
 async def invoices_generate(request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.add"))):
     form = await request.form()
     period = form.get("period") or month_key()
-    start, end = month_bounds(period)
-    subs = (db.query(Subscription).filter(Subscription.status == "active",
-                                          Subscription.next_billing_date.isnot(None),
-                                          Subscription.next_billing_date <= end).all())
-    created = skipped = failed = 0
-    for s in subs:
-        if billing.invoice_for_period(db, s, start):
-            skipped += 1
-            continue
-        try:
-            billing.generate_invoice(db, s, start, end, user=user)
-            created += 1
-        except ValueError:
-            failed += 1
+    shift = form.get("shift") or "all"
+    recurrence = form.get("recurrence") or "all"
+    if parse_bool(form.get("dry_run")):
+        return redirect(f"/finance/invoices/bulk?period={period}&shift={shift}&recurrence={recurrence}")
+    try:
+        result = billing.bulk_generate_invoices(db, user, period, shift=shift, recurrence=recurrence, dry_run=False)
+    except (ValueError, IndexError) as exc:
+        return _err("/finance/invoices", exc)
     db.commit()
-    return redirect("/finance/invoices",
-                    f"{period}: {created} invoice(s) generated, {skipped} already existed, {failed} skipped.",
-                    "success" if created else "info")
+    created = len(result["created"])
+    return redirect(f"/finance/invoices?date_from={date.today().isoformat()}" if created else "/finance/invoices",
+                    f"{period}: {created} bulk invoice(s) generated for {result['clients']} famil{'y' if result['clients'] == 1 else 'ies'}, "
+                    f"{result['skipped']} skipped (already invoiced).", "success" if created else "info")
+
+
+@router.post("/invoices/new", include_in_schema=False)
+async def invoice_create_single(request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.add"))):
+    """ERP "Create Single Invoice": one family, one or more of its subscriptions, optional addition lines."""
+    form = await request.form()
+    client = db.query(Client).get(parse_int(form.get("client_id"), 0) or 0)
+    if not client:
+        return redirect("/finance/invoices", "Select the family to invoice.", "error")
+    sub_ids = [parse_int(v) for v in form.getlist("subscription_ids") if parse_int(v)]
+    subs = db.query(Subscription).filter(Subscription.id.in_(sub_ids)).all() if sub_ids else []
+    if not subs:
+        return redirect("/finance/invoices", "Select at least one subscription of that family.", "error")
+    issue = parse_date(form.get("issue_date"), date.today())
+    due = parse_date(form.get("due_date"), issue + timedelta(days=billing.INVOICE_TERMS_DAYS))
+    period = form.get("period") or month_key(issue)
+    try:
+        start, end = month_bounds(period)
+    except (ValueError, IndexError):
+        return redirect("/finance/invoices", "Choose a valid billing period (YYYY-MM).", "error")
+    additions = []
+    for tid, amt in zip(form.getlist("addition_type_id"), form.getlist("addition_amount")):
+        t = db.query(InvoiceAdditionType).get(parse_int(tid, 0) or 0) if tid else None
+        if t and parse_float(amt, 0) > 0:
+            additions.append((t, parse_float(amt, 0), "manual"))
+    try:
+        inv = billing.create_client_invoice(db, client, subs, start, end, user=user, issue_date=issue, due_date=due,
+                                            status=form.get("status") or "pending", is_bulk=False, additions=additions,
+                                            remarks=(form.get("remarks") or "").strip() or None)
+        rep = parse_int(form.get("billing_rep_id"))
+        if rep:
+            inv.billing_rep_id = rep
+    except ValueError as exc:
+        return _err("/finance/invoices", exc)
+    db.commit()
+    return redirect(f"/finance/invoices/{inv.id}", f"Invoice {inv.invoice_number} created for {client.full_name}.")
 
 
 @router.get("/invoices/{id}", include_in_schema=False)
 def invoice_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.view"))):
     inv = _invoice(db, id)
     return render(request, "finance/invoice_detail.html", {
-        "user": user, "inv": inv, "payments": inv.payments,
+        "user": user, "inv": inv, "payments": inv.payments, "status": billing.normalise_invoice_status(inv.status),
         "ledger": db.query(LedgerEntry).filter(LedgerEntry.reference_type == "invoice", LedgerEntry.reference_id == inv.id).all(),
         "balance": billing.client_balance(db, inv.client), "methods": billing.PAYMENT_METHODS,
         "gateways": billing.GATEWAYS, "base": billing.base_currency(db), "today_d": date.today(),
+        "shift": _shift_label(inv.client),
+        "beneficiaries": [(b.id, f"{b.category} — {b.account_name}") for b in
+                          db.query(BeneficiaryAccount).filter(BeneficiaryAccount.status == "active").order_by(BeneficiaryAccount.category).all()],
         "events": db.query(AuditEvent).filter(AuditEvent.entity_type == "Invoice", AuditEvent.entity_id == inv.id)
                     .order_by(AuditEvent.created_at.desc()).limit(20).all()})
 
@@ -560,16 +676,28 @@ async def invoice_overdue(id: int, request: Request, db: Session = Depends(get_d
     return redirect(f"/finance/invoices/{id}", f"{inv.invoice_number} marked overdue.", "warning")
 
 
-@router.post("/invoices/{id}/void", include_in_schema=False)
-async def invoice_void(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.delete"))):
+@router.post("/invoices/{id}/confirm", include_in_schema=False)
+async def invoice_confirm(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.update"))):
     inv = _invoice(db, id)
-    form = await request.form()
     try:
-        billing.void_invoice(db, inv, user, (form.get("rationale") or form.get("reason") or "").strip())
+        billing.confirm_invoice(db, inv, user)
     except ValueError as exc:
         return _err(f"/finance/invoices/{id}", exc)
     db.commit()
-    return redirect(f"/finance/invoices/{id}", f"{inv.invoice_number} voided.", "warning")
+    return redirect(f"/finance/invoices/{id}", f"{inv.invoice_number} confirmed.")
+
+
+@router.post("/invoices/{id}/cancel", include_in_schema=False)
+@router.post("/invoices/{id}/void", include_in_schema=False)  # legacy name
+async def invoice_cancel(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("billing.delete"))):
+    inv = _invoice(db, id)
+    form = await request.form()
+    try:
+        billing.cancel_invoice(db, inv, user, (form.get("reason") or form.get("rationale") or "").strip())
+    except ValueError as exc:
+        return _err(f"/finance/invoices/{id}", exc)
+    db.commit()
+    return redirect(f"/finance/invoices/{id}", f"{inv.invoice_number} cancelled.", "warning")
 
 
 @router.post("/invoices/{id}/remarks", include_in_schema=False)
@@ -588,16 +716,218 @@ async def invoice_remarks(id: int, request: Request, db: Session = Depends(get_d
 async def invoice_payment(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.add"))):
     inv = _invoice(db, id)
     form = await request.form()
+    ben = db.query(BeneficiaryAccount).get(parse_int(form.get("beneficiary_account_id"), 0) or 0) if form.get("beneficiary_account_id") else None
     try:
         pay = billing.record_payment(db, inv.client, parse_float(form.get("amount"), 0), form.get("currency") or inv.currency,
                                      form.get("method") or "bank_transfer", form.get("reference"), user=user, invoice=inv,
                                      gateway=form.get("gateway") or None,
                                      received_at=datetime.combine(parse_date(form.get("received_at"), date.today()), datetime.min.time()),
-                                     status=form.get("status") or "completed")
+                                     status=form.get("status") or "confirmed", beneficiary_account=ben,
+                                     receiver_name=(form.get("receiver_name") or user.full_name),
+                                     description=(form.get("description") or None))
     except ValueError as exc:
         return _err(f"/finance/invoices/{id}", exc)
     db.commit()
-    return redirect(f"/finance/invoices/{id}", f"Payment {pay.payment_number} recorded.")
+    return redirect(f"/finance/invoices/{id}", f"Receipt {pay.payment_number} recorded.")
+
+
+# ============================================================================ receipts (ERP Receipts page)
+def _receipt_filters(db: Session) -> dict:
+    return {"currencies": _currency_codes(db), "clients": _client_options(db), "methods": billing.PAYMENT_METHODS,
+            "statuses": billing.RECEIPT_STATUSES,
+            "beneficiaries": [(b.id, f"{b.category} — {b.account_name}" + (" (auto)" if b.is_auto else "")) for b in
+                              db.query(BeneficiaryAccount).filter(BeneficiaryAccount.status == "active")
+                              .order_by(BeneficiaryAccount.payment_mode, BeneficiaryAccount.category).all()]}
+
+
+@router.get("/receipts", include_in_schema=False)
+def receipts_list(request: Request, page: int = 1, q: str = "", status: str = "", currency: str = "", client_id: str = "",
+                  method: str = "", beneficiary_account_id: str = "", date_from: str = "", date_to: str = "",
+                  db: Session = Depends(get_db), user: User = Depends(require("payments.view"))):
+    query = db.query(Payment)
+    if q:
+        like = f"%{q}%"
+        query = (query.join(Client, Payment.client_id == Client.id)
+                 .filter(or_(Payment.payment_number.ilike(like), Payment.reference.ilike(like),
+                             Client.full_name.ilike(like), Client.client_code.ilike(like))))
+    if status:
+        query = query.filter(billing.payment_status_filter(status))
+    if currency:
+        query = query.filter(Payment.currency == currency)
+    if client_id and parse_int(client_id):
+        query = query.filter(Payment.client_id == int(client_id))
+    if method:
+        query = query.filter(Payment.method == method)
+    if beneficiary_account_id and parse_int(beneficiary_account_id):
+        query = query.filter(Payment.beneficiary_account_id == int(beneficiary_account_id))
+    df, dt = parse_date(date_from), parse_date(date_to)
+    if df:
+        query = query.filter(func.coalesce(Payment.receipt_date, func.date(Payment.received_at)) >= df)
+    if dt:
+        query = query.filter(func.coalesce(Payment.receipt_date, func.date(Payment.received_at)) <= dt)
+    pg = paginate(query.order_by(Payment.received_at.desc(), Payment.id.desc()), page, 25)
+    base = (f"/finance/receipts?q={q}&status={status}&currency={currency}&client_id={client_id}&method={method}"
+            f"&beneficiary_account_id={beneficiary_account_id}&date_from={date_from}&date_to={date_to}")
+    return render(request, "finance/receipts_list.html", {
+        "user": user, "page": pg, "q": q, "status": status, "currency": currency, "client_id": client_id,
+        "method": method, "beneficiary_account_id": beneficiary_account_id, "date_from": date_from, "date_to": date_to,
+        "base_url": base, "stats": billing.payment_stats(db), "base": billing.base_currency(db),
+        "shift_label": _shift_label, **_receipt_filters(db)})
+
+
+@router.get("/receipts/new", include_in_schema=False)
+def receipt_new(request: Request, client_id: str = "", invoice_id: str = "", db: Session = Depends(get_db),
+                user: User = Depends(require("payments.add"))):
+    return render(request, "finance/receipt_form.html", {
+        "user": user, "client_id": client_id, "invoice_id": invoice_id, "today_d": date.today(),
+        "invoices": db.query(Invoice).filter(Invoice.status.in_(billing.INVOICE_OPEN_SET)).order_by(Invoice.due_date).all(),
+        "gateways": billing.GATEWAYS, "categories": billing.PAYMENT_CATEGORIES, "rep_options": _rep_options(db),
+        "rates": {c.code: float(c.rate_to_base) for c in db.query(Currency).all()},
+        "client_meta": {str(c.id): {"currency": c.currency, "rep": c.billing_rep_id or ""} for c in db.query(Client).all()},
+        "base": billing.base_currency(db), **_receipt_filters(db)})
+
+
+@router.post("/receipts/new", include_in_schema=False)
+async def receipt_create(request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.add"))):
+    form = await request.form()
+    invoice = db.query(Invoice).get(parse_int(form.get("invoice_id"), 0) or 0) if form.get("invoice_id") else None
+    client = db.query(Client).get(parse_int(form.get("client_id"), 0) or 0) if form.get("client_id") else (invoice.client if invoice else None)
+    if not client:
+        return redirect("/finance/receipts/new", "Select the family that paid.", "error")
+    if invoice is not None and invoice.client_id != client.id:
+        return redirect("/finance/receipts/new", "That invoice belongs to a different family.", "error")
+    ben = db.query(BeneficiaryAccount).get(parse_int(form.get("beneficiary_account_id"), 0) or 0) if form.get("beneficiary_account_id") else None
+    rep = db.query(User).get(parse_int(form.get("billing_rep_id"), 0) or 0) if form.get("billing_rep_id") else None
+    received = parse_date(form.get("received_at"), None) or parse_date(form.get("receipt_date"), date.today())
+    try:
+        pay = billing.record_payment(
+            db, client, parse_float(form.get("amount"), 0), form.get("currency") or client.currency,
+            form.get("method") or "bank_transfer", (form.get("reference") or "").strip() or None, user=user, invoice=invoice,
+            gateway=(form.get("gateway") or None), received_at=datetime.combine(received, datetime.min.time()),
+            status=form.get("status") or "confirmed", notes=(form.get("notes") or None),
+            receipt_date=parse_date(form.get("receipt_date"), date.today()),
+            receiver_name=(form.get("receiver_name") or "").strip() or user.full_name,
+            receiving_destination=(form.get("receiving_destination") or "").strip() or None,
+            description=(form.get("description") or "").strip() or None, category=(form.get("category") or None),
+            beneficiary_account=ben, billing_rep=rep,
+            amount_in_base=parse_float(form.get("lc_amount"), 0) or None)
+    except ValueError as exc:
+        return _err("/finance/receipts/new", exc)
+    db.commit()
+    return redirect(f"/finance/payments/{pay.id}", f"Receipt {pay.payment_number} recorded ({pay.status}).")
+
+
+@router.post("/receipts/sync-gateway", include_in_schema=False)
+async def receipts_sync_gateway(request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.add"))):
+    """Simulated Stripe / PayPal pull: confirmed receipts arrive automatically for open invoices."""
+    created = billing.sync_gateway_receipts(db, user)
+    db.commit()
+    return redirect("/finance/receipts", f"Gateway sync complete: {len(created)} auto receipt(s) pulled."
+                    if created else "Gateway sync complete: nothing new to pull.", "success" if created else "info")
+
+
+@router.post("/receipts/{id}/confirm", include_in_schema=False)
+async def receipt_confirm(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.approve"))):
+    p = _payment(db, id)
+    try:
+        billing.confirm_payment(db, p, user)
+    except ValueError as exc:
+        return _err(f"/finance/payments/{id}", exc)
+    db.commit()
+    return redirect(f"/finance/payments/{id}", f"Receipt {p.payment_number} confirmed and applied.")
+
+
+@router.post("/receipts/{id}/cancel", include_in_schema=False)
+async def receipt_cancel(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.approve"))):
+    p = _payment(db, id)
+    form = await request.form()
+    try:
+        billing.cancel_payment(db, p, user, (form.get("reason") or form.get("rationale") or "").strip())
+    except ValueError as exc:
+        return _err(f"/finance/payments/{id}", exc)
+    db.commit()
+    return redirect(f"/finance/payments/{id}", f"Receipt {p.payment_number} cancelled.", "warning")
+
+
+# ============================================================================ ledger additions (ERP)
+@router.get("/ledger-additions", include_in_schema=False)
+def ledger_additions_list(request: Request, page: int = 1, status: str = "", client_id: str = "", addition_type: str = "",
+                          effect: str = "", date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
+                          user: User = Depends(require("ledger.view"))):
+    query = db.query(LedgerAddition)
+    if status:
+        query = query.filter(LedgerAddition.status == status)
+    if client_id and parse_int(client_id):
+        query = query.filter(LedgerAddition.client_id == int(client_id))
+    if addition_type:
+        query = query.filter(LedgerAddition.addition_type == addition_type)
+    if effect:
+        query = query.filter(LedgerAddition.effect == effect)
+    query = _date_range(query, LedgerAddition.addition_date, date_from, date_to)
+    pg = paginate(query.order_by(LedgerAddition.addition_date.desc(), LedgerAddition.id.desc()), page, 25)
+    base = (f"/finance/ledger-additions?status={status}&client_id={client_id}&addition_type={addition_type}"
+            f"&effect={effect}&date_from={date_from}&date_to={date_to}")
+    employees = db.query(Employee).filter(Employee.status.in_(["active", "probation"])).order_by(Employee.full_name).all()
+    return render(request, "finance/ledger_additions.html", {
+        "user": user, "page": pg, "status": status, "client_id": client_id, "addition_type": addition_type, "effect": effect,
+        "date_from": date_from, "date_to": date_to, "base_url": base, "tiles": billing.ledger_addition_tiles(db),
+        "types": LEDGER_ADDITION_TYPES, "effects": billing.LEDGER_ADDITION_EFFECTS, "clients": _client_options(db),
+        "currencies": _currency_codes(db), "rep_options": _rep_options(db), "today_d": date.today(),
+        "employees": [(e.id, f"{e.employee_code} — {e.full_name}") for e in employees],
+        "rates": {c.code: float(c.rate_to_base) for c in db.query(Currency).all()},
+        "client_meta": {str(c.id): {"currency": c.currency, "rep": c.billing_rep_id or ""} for c in db.query(Client).all()},
+        "base": billing.base_currency(db), "shift_label": _shift_label})
+
+
+@router.post("/ledger-additions/new", include_in_schema=False)
+async def ledger_addition_create(request: Request, db: Session = Depends(get_db), user: User = Depends(require("ledger.add"))):
+    form = await request.form()
+    client = db.query(Client).get(parse_int(form.get("client_id"), 0) or 0)
+    if not client:
+        return redirect("/finance/ledger-additions", "Select a family.", "error")
+    emp = db.query(Employee).get(parse_int(form.get("reference_employee_id"), 0) or 0) if form.get("reference_employee_id") else None
+    rep = db.query(User).get(parse_int(form.get("billing_rep_id"), 0) or 0) if form.get("billing_rep_id") else None
+    try:
+        la = billing.create_ledger_addition(
+            db, client, parse_float(form.get("amount"), 0), form.get("currency") or client.currency,
+            form.get("addition_type") or "Adjustment", form.get("effect") or "minus",
+            parse_date(form.get("addition_date"), date.today()), user, reference_employee=emp, billing_rep=rep,
+            remarks=(form.get("remarks") or "").strip() or None,
+            currency_rate=parse_float(form.get("currency_rate"), 0) or None,
+            lc_amount=parse_float(form.get("lc_amount"), 0) or None, status=form.get("status") or "pending")
+    except ValueError as exc:
+        return _err("/finance/ledger-additions", exc)
+    db.commit()
+    return redirect("/finance/ledger-additions", f"Ledger addition #{la.id} ({la.addition_type}) recorded as {la.status}.")
+
+
+@router.post("/ledger-additions/{id}/confirm", include_in_schema=False)
+async def ledger_addition_confirm(id: int, request: Request, db: Session = Depends(get_db),
+                                  user: User = Depends(require("ledger.approve", "ledger.update", any_of=True))):
+    la = db.query(LedgerAddition).get(id)
+    if not la:
+        raise HTTPException(404, "Ledger addition not found")
+    try:
+        billing.post_ledger_addition(db, la, user)
+    except ValueError as exc:
+        return _err("/finance/ledger-additions", exc)
+    db.commit()
+    return redirect("/finance/ledger-additions", f"Ledger addition #{la.id} confirmed and posted to {la.client.client_code}.")
+
+
+@router.post("/ledger-additions/{id}/cancel", include_in_schema=False)
+async def ledger_addition_cancel(id: int, request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require("ledger.approve", "ledger.update", any_of=True))):
+    la = db.query(LedgerAddition).get(id)
+    if not la:
+        raise HTTPException(404, "Ledger addition not found")
+    form = await request.form()
+    try:
+        billing.cancel_ledger_addition(db, la, user, (form.get("reason") or form.get("rationale") or "").strip())
+    except ValueError as exc:
+        return _err("/finance/ledger-additions", exc)
+    db.commit()
+    return redirect("/finance/ledger-additions", f"Ledger addition #{la.id} cancelled.", "warning")
 
 
 # ============================================================================ payments
@@ -616,7 +946,7 @@ def payments_list(request: Request, page: int = 1, q: str = "", method: str = ""
     if gateway:
         query = query.filter(Payment.gateway == gateway)
     if status:
-        query = query.filter(Payment.status == status)
+        query = query.filter(billing.payment_status_filter(status))
     if reconciled:
         query = query.filter(Payment.reconciled.is_(reconciled == "yes"))
     df, dt = parse_date(date_from), parse_date(date_to)
@@ -630,7 +960,8 @@ def payments_list(request: Request, page: int = 1, q: str = "", method: str = ""
         "user": user, "page": pg, "q": q, "method": method, "gateway": gateway, "status": status,
         "reconciled": reconciled, "date_from": date_from, "date_to": date_to, "base_url": base,
         "stats": billing.payment_stats(db), "methods": billing.PAYMENT_METHODS, "gateways": billing.GATEWAYS,
-        "statuses": ["pending", "completed", "failed", "refunded"]})
+        "statuses": [("pending", "Pending"), ("confirmed", "Confirmed"), ("failed", "Failed"), ("refunded", "Refunded"),
+                     ("cancelled", "Cancelled")]})
 
 
 @router.get("/payments/new", include_in_schema=False)
@@ -639,7 +970,7 @@ def payment_new(request: Request, client_id: str = "", invoice_id: str = "", db:
     return render(request, "finance/payment_form.html", {
         "user": user, "client_id": client_id, "invoice_id": invoice_id,
         "clients": [(c.id, f"{c.client_code} — {c.full_name}") for c in db.query(Client).order_by(Client.client_code).all()],
-        "invoices": db.query(Invoice).filter(Invoice.status.in_(["sent", "partial", "overdue"])).order_by(Invoice.due_date).all(),
+        "invoices": db.query(Invoice).filter(Invoice.status.in_(billing.INVOICE_OPEN_SET)).order_by(Invoice.due_date).all(),
         "methods": billing.PAYMENT_METHODS, "gateways": billing.GATEWAYS,
         "currencies": [c.code for c in db.query(Currency).order_by(Currency.code).all()], "today_d": date.today()})
 
@@ -665,7 +996,7 @@ async def payment_create(request: Request, db: Session = Depends(get_db), user: 
 
 @router.get("/payments/reconciliation", include_in_schema=False)
 def payments_reconciliation(request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.view"))):
-    rows = (db.query(Payment).filter(Payment.status == "completed", Payment.reconciled.is_(False))
+    rows = (db.query(Payment).filter(Payment.status.in_(billing.PAYMENT_CONFIRMED_SET), Payment.reconciled.is_(False))
             .order_by(Payment.received_at).limit(200).all())
     totals = billing.daily_totals_by_method(db, 14)
     return render(request, "finance/reconciliation.html", {
@@ -704,6 +1035,7 @@ def payment_detail(id: int, request: Request, db: Session = Depends(get_db), use
     p = _payment(db, id)
     return render(request, "finance/payment_detail.html", {
         "user": user, "p": p, "receipt": p.receipt, "base": billing.base_currency(db),
+        "status": billing.normalise_payment_status(p.status), "shift": _shift_label(p.client),
         "journal": db.query(JournalEntry).filter(JournalEntry.reference_type.in_(["payment", "refund"]),
                                                  JournalEntry.reference_id == p.id).all(),
         "ledger": db.query(LedgerEntry).filter(LedgerEntry.reference_type == "payment", LedgerEntry.reference_id == p.id).all(),
@@ -759,14 +1091,33 @@ async def payment_fail(id: int, request: Request, db: Session = Depends(get_db),
 
 # ============================================================================ client ledger
 @router.get("/ledger", include_in_schema=False)
-def ledger_index(request: Request, q: str = "", db: Session = Depends(get_db), user: User = Depends(require("ledger.view"))):
+def ledger_index(request: Request, q: str = "", client_id: str = "", date_from: str = "", date_to: str = "",
+                 entry_type: str = "", db: Session = Depends(get_db), user: User = Depends(require("ledger.view"))):
+    """Client Ledger Report: pick an Account (family) to see the statement; otherwise the balances overview."""
+    if client_id and parse_int(client_id):
+        return _render_ledger_report(request, db, user, _client(db, int(client_id)), date_from, date_to, entry_type)
     rows = billing.client_balances(db, q)
     owing = [r for r in rows if r["balance"] > 0.01]
     return render(request, "finance/ledger_list.html", {
-        "user": user, "rows": rows, "q": q, "base": billing.base_currency(db),
+        "user": user, "rows": rows, "q": q, "base": billing.base_currency(db), "clients": _client_options(db),
+        "date_from": date_from, "date_to": date_to,
         "totals": {"owing": len(owing), "credit": len([r for r in rows if r["balance"] < -0.01]),
                    "owed_base": round(sum(r["balance"] * billing.get_rate(db, r["client"].currency) for r in owing), 2),
                    "overdue": sum(r["overdue"] for r in rows)}})
+
+
+def _render_ledger_report(request: Request, db: Session, user: User, c: Client, date_from: str, date_to: str,
+                          entry_type: str = ""):
+    df, dt = parse_date(date_from), parse_date(date_to)
+    report = billing.ledger_report(db, c, df, dt, entry_type or None)
+    return render(request, "finance/ledger_statement.html", {
+        "user": user, "c": c, "report": report, "entries": [r["entry"] for r in report["rows"]],
+        "all_count": report["all_count"], "entry_type": entry_type, "date_from": date_from, "date_to": date_to,
+        "types": billing.LEDGER_TYPES, "balance": billing.client_balance(db, c), "credit": billing.available_credit(db, c),
+        "clients": _client_options(db), "shift": _shift_label(c),
+        "currencies": [x.code for x in db.query(Currency).order_by(Currency.code).all()],
+        "invoices": db.query(Invoice).filter(Invoice.client_id == c.id).order_by(Invoice.issue_date.desc()).limit(20).all(),
+        "subscriptions": db.query(Subscription).filter(Subscription.client_id == c.id).all(), "today_d": date.today()})
 
 
 @router.get("/ledger/credits", include_in_schema=False)
@@ -780,27 +1131,21 @@ def ledger_credits(request: Request, db: Session = Depends(get_db), user: User =
 def ledger_statement(client_id: int, request: Request, entry_type: str = "", date_from: str = "", date_to: str = "",
                      db: Session = Depends(get_db), user: User = Depends(require("ledger.view"))):
     c = _client(db, client_id)
-    entries = billing.client_statement(db, c)
-    df, dt = parse_date(date_from), parse_date(date_to)
-    shown = [e for e in entries
-             if (not entry_type or e.entry_type == entry_type) and (not df or e.entry_date >= df) and (not dt or e.entry_date <= dt)]
-    return render(request, "finance/ledger_statement.html", {
-        "user": user, "c": c, "entries": shown, "all_count": len(entries), "entry_type": entry_type,
-        "date_from": date_from, "date_to": date_to, "types": billing.LEDGER_TYPES,
-        "balance": billing.client_balance(db, c), "credit": billing.available_credit(db, c),
-        "currencies": [x.code for x in db.query(Currency).order_by(Currency.code).all()],
-        "invoices": db.query(Invoice).filter(Invoice.client_id == c.id).order_by(Invoice.issue_date.desc()).limit(20).all(),
-        "subscriptions": db.query(Subscription).filter(Subscription.client_id == c.id).all()})
+    return _render_ledger_report(request, db, user, c, date_from, date_to, entry_type)
 
 
 @router.get("/ledger/{client_id}/export.csv", include_in_schema=False)
-def ledger_statement_csv(client_id: int, db: Session = Depends(get_db), user: User = Depends(require("ledger.export"))):
+def ledger_statement_csv(client_id: int, date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
+                         user: User = Depends(require("ledger.export"))):
     c = _client(db, client_id)
-    rows = [["Date", "Type", "Description", "Debit", "Credit", "Currency", "Balance after"]]
-    for e in billing.client_statement(db, c):
-        rows.append([e.entry_date.isoformat(), e.entry_type, e.description, float(e.debit), float(e.credit),
-                     e.currency, float(e.balance_after)])
-    return _csv(rows, f"statement-{c.client_code}.csv")
+    report = billing.ledger_report(db, c, parse_date(date_from), parse_date(date_to))
+    rows = [["Srl", "Date", "Transaction Type", "Description", "Amount", "Balance", "Currency"],
+            ["", "", "Previous Balance", "", "", report["previous_balance"], report["currency"]]]
+    for r in report["rows"]:
+        rows.append([r["srl"], r["date"].isoformat(), r["type"], r["description"], r["amount"], r["balance"], report["currency"]])
+    rows.append(["", "", "Total", "", report["total"], report["closing_balance"], report["currency"]])
+    rows.append(["", "", "In Words", report["in_words"], "", "", ""])
+    return _csv(rows, f"ledger-{c.client_code}.csv")
 
 
 @router.post("/ledger/{client_id}/adjustment", include_in_schema=False)

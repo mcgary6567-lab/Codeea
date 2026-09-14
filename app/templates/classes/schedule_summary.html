@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Schedule Summary Report{% endblock %}
+{% block head %}
+<style>
+@media print {
+  body { background: #fff; }
+  .no-print, header, nav, aside, footer { display: none !important; }
+  .print-area { border: 0; }
+  table { font-size: 10px; }
+  @page { size: landscape; margin: 10mm; }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="no-print">
+{% call ui.page_header("Schedule Summary Report", "Free and total weekday slots per teacher across the session grid") %}
+  {{ ui.button("Print", icon="printer", variant="secondary", attrs='type="button" onclick="window.print()"') }}
+  {{ ui.button("Class Status Summary", href="/classes/status-summary", icon="layout-grid") }}
+{% endcall %}
+
+{% call ui.filter_bar('/classes/schedule-summary') %}
+  <div class="w-48">{{ ui.select('employee_id', 'Employee', teacher_options, employee_id, placeholder='All teachers') }}</div>
+  <div class="w-40">{{ ui.select('session_category', 'Session Category', category_options, session_category, placeholder='All') }}</div>
+{% endcall %}
+</div>
+
+<div class="mb-3 hidden text-center print:block">
+  <h1 class="text-lg font-bold">Schedule Summary Report</h1>
+  <p class="text-xs">{{ session_category or 'All categories' }} - printed {{ current_date }}</p>
+</div>
+
+<div class="print-area overflow-x-auto rounded-md border border-slate-300 bg-white">
+<table class="min-w-full border-collapse text-[11.5px]">
+  <thead>
+    <tr class="bg-[#e8f1fb]">
+      <th rowspan="2" class="border border-slate-300 px-2 py-1.5 text-left text-xs font-semibold text-slate-700">Sr#</th>
+      <th rowspan="2" class="sticky left-0 z-10 border border-slate-300 bg-[#e8f1fb] px-3 py-1.5 text-left text-xs font-semibold text-slate-700">Employee</th>
+      {% for col in report.columns %}<th colspan="2" class="border border-slate-300 px-1 py-1 text-center text-[10px] font-semibold text-slate-700 whitespace-nowrap">{{ col.start_time.strftime('%I:%M %p') }}</th>{% endfor %}
+      <th colspan="2" class="border border-slate-300 px-2 py-1 text-center text-xs font-semibold text-slate-700">Totals</th>
+    </tr>
+    <tr class="bg-[#eef4fb]">
+      {% for col in report.columns %}<th class="border border-slate-300 px-1 py-0.5 text-center text-[10px] font-medium text-slate-600">Free</th><th class="border border-slate-300 px-1 py-0.5 text-center text-[10px] font-medium text-slate-600">Total</th>{% endfor %}
+      <th class="border border-slate-300 px-1 py-0.5 text-center text-[10px] font-medium text-slate-600">Free</th>
+      <th class="border border-slate-300 px-1 py-0.5 text-center text-[10px] font-medium text-slate-600">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in report.rows %}
+  <tr class="[&>td]:border [&>td]:border-slate-200 hover:bg-[#f1f6fc]">
+    <td class="px-2 py-1 text-center text-slate-500">{{ loop.index }}</td>
+    <td class="sticky left-0 z-10 bg-white px-3 py-1 font-medium whitespace-nowrap">{{ row.teacher.full_name }}
+      <span class="block text-[10px] text-slate-400">{{ row.teacher.teacher_code }} - {{ row.schedules }} schedule(s)</span></td>
+    {% for cell in row.cells %}
+      <td class="px-1 py-1 text-center {{ 'font-semibold text-rose-600' if cell.free == 0 else ('text-emerald-700' if cell.free == cell.total else '') }}">{{ cell.free }}</td>
+      <td class="px-1 py-1 text-center text-slate-500">{{ cell.total }}</td>
+    {% endfor %}
+    <td class="px-2 py-1 text-center font-semibold">{{ row.free }}</td>
+    <td class="px-2 py-1 text-center text-slate-500">{{ row.total }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="{{ report.columns|length * 2 + 4 }}" class="border border-slate-200 px-4 py-10 text-center text-slate-400">
+    <i data-lucide="table" class="mx-auto mb-2 h-7 w-7 opacity-50"></i>No teachers match these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="mt-2 text-xs text-slate-500">Free = weekdays (of 7) with no active schedule in that session. {{ report.slot_count }} session(s) shown.</p>
+{% endblock %}

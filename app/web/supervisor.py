@@ -72,7 +72,10 @@ def board(request: Request, day: str = "", shift_id: int | None = None, q: str =
     ctx = {"user": user, "sel_date": the_day, "shift_id": shift_id, "q": q,
            "shift_options": [(s.id, s.name) for s in db.query(Shift).filter(Shift.is_active.is_(True)).order_by(Shift.start_time)],
            "scope": "My supervised teachers" if user.role_slug == "supervisor" else "All teachers",
-           "board": _board(db, user, the_day, shift_id, q), **_side_panels(db, user, the_day)}
+           "board": _board(db, user, the_day, shift_id, q),
+           # ERP Monitoring Dashboard (docs/AUDIT_ACADEMICS.md 3.11): tiles + per-status panels
+           "erp": class_svc.erp_monitor(db, the_day, svc.scoped_teacher_ids(db, user)),
+           **_side_panels(db, user, the_day)}
     return render(request, "supervisor/board.html", ctx)
 
 

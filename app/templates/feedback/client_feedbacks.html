@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Client Feedbacks{% endblock %}
+{% block content %}
+{% call ui.page_header("Client Feedbacks", "Star ratings and comments from families - from the app, portals and manual entry by staff") %}
+  {{ ui.button("Surveys & NPS", href="/feedback", icon="clipboard-list", variant="secondary") }}
+  {% if has_perm(user, 'feedback.add') or has_perm(user, 'feedback.update') %}
+  {{ ui.button("Create Manual Feedback", icon="plus", type="button", attrs="@click=\"$dispatch('open-modal','manualFeedback')\"") }}
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Total Feedback", stats.total, icon="message-square-heart", color=palette(0), href="/qa/feedbacks?" ~ filter_qs) }}
+  {{ ui.stat("Average Rating", stats.avg, icon="star", color=palette(1), hint="out of 5") }}
+  {{ ui.stat("Total 5 Star", stats.five, icon="star", color=palette(2), href="/qa/feedbacks?rating=5&" ~ filter_qs) }}
+  {{ ui.stat("Total 1 & 2 Star", stats.low, icon="star-half", color=palette(3), href="/qa/feedbacks?rating=1&" ~ filter_qs) }}
+</div>
+
+{% call ui.filter_bar('/qa/feedbacks') %}
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from or '', type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to or '', type='date') }}</div>
+  <div class="w-52">{{ ui.select('client_id', 'Client', client_options, client_id, placeholder='All clients') }}</div>
+  <div class="w-40">{{ ui.select('feedback_source', 'Feedback Resource', sources, feedback_source, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('rating', 'Rating', ratings, rating, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.input('q', 'Comment contains', q) }}</div>
+{% endcall %}
+
+<div class="overflow-x-auto">
+{{ ui.table_start(['ID','Date','Client','Student','Teacher','Class','Source','Rating','Comment','Sentiment','Status','']) }}
+{% for f in page.items %}
+<tr class="{{ 'bg-rose-50/50' if f.rating is not none and f.rating <= 2 }}">
+  <td class="px-4 py-2 font-mono text-xs">{{ f.id }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ f.submitted_at|date if f.submitted_at else (f.created_at|date) }}</td>
+  <td class="px-4 py-2 text-sm">{% if f.client %}<a href="/clients/{{ f.client_id }}" class="hover:text-brand-600">{{ f.client.full_name }}</a>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ f.student.full_name if f.student else '-' }}</td>
+  <td class="px-4 py-2 text-xs">{{ f.teacher.full_name if f.teacher else '-' }}</td>
+  <td class="px-4 py-2 text-xs">{% if f.session_id %}<a href="/classes/{{ f.session_id }}" class="text-brand-600 hover:underline">#{{ f.session_id }}</a>{% else %}-{% endif %}</td>
+  <td class="px-4 py-2 text-xs">{{ ui.badge(f.feedback_source, f.feedback_source|titleize) }}</td>
+  <td class="px-4 py-2 text-sm whitespace-nowrap">{% if f.rating %}<span class="text-amber-500">{{ '&#9733;' * f.rating }}</span><span class="text-slate-300">{{ '&#9733;' * (5 - f.rating) }}</span>{% else %}<span class="text-xs text-slate-400">-</span>{% endif %}</td>
+  <td class="px-4 py-2 max-w-sm text-xs text-slate-600"><div class="truncate" title="{{ f.comment or '' }}">{{ f.comment or '-' }}</div></td>
+  <td class="px-4 py-2">{{ ui.badge(f.sentiment) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(f.status) }}{% if f.case_id %}<a href="/cases/{{ f.case_id }}" class="block text-[10px] text-rose-600">complaint case</a>{% endif %}</td>
+  <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/feedback/' ~ f.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No client feedback matches these filters.', 12, 'message-square-heart') }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+{{ ui.pagination(page, base_url) }}
+
+{% if has_perm(user, 'feedback.add') or has_perm(user, 'feedback.update') %}
+{% call ui.modal('manualFeedback', 'Create Manual Feedback', 'lg') %}
+<form method="post" action="/qa/feedbacks/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.select('client_id', 'Client', client_options, None, required=True, placeholder='Select client') }}
+  {{ ui.select('student_id', 'Student', student_options, None, placeholder='Select student (optional)') }}
+  {{ ui.select('teacher_id', 'Teacher', teacher_options, None, placeholder="Student's teacher") }}
+  {{ ui.select('session_id', 'Class (last 14 days)', session_options, None, placeholder='Not linked to a class') }}
+  {{ ui.input('date', 'Date', today_iso, type='date', required=True) }}
+  <div>
+    <label class="mb-1 block text-xs font-semibold text-slate-600">Rating <span class="text-rose-500">*</span></label>
+    <div class="flex items-center gap-1" x-data="{ v: 0 }">
+      {% for n in range(1, 6) %}
+      <label class="cursor-pointer text-3xl leading-none" :class="v >= {{ n }} ? 'text-amber-400' : 'text-slate-300'">
+        <input type="radio" name="rating" value="{{ n }}" class="sr-only" required @change="v = {{ n }}">&#9733;</label>
+      {% endfor %}
+      <span class="ml-2 text-xs text-slate-500" x-text="v ? v + ' / 5' : 'choose'"></span>
+    </div>
+    <p class="mt-1 text-[11px] text-slate-500">1-2 stars automatically opens a complaint case for the QA team.</p>
+  </div>
+  <div class="sm:col-span-2">{{ ui.textarea('comment', 'Comment', '', rows=3, placeholder='What the family said', required=True) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save feedback', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

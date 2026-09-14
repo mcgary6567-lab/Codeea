@@ -1,46 +1,59 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Students{% endblock %}
+{% block title %}Student List{% endblock %}
 {% block content %}
-{% call ui.page_header("Students", "Every enrolled learner with course, teacher, risk and attendance at a glance.") %}
-  {% if has_perm(user, 'students.add') %}{{ ui.button("New student", href="/students/new", icon="plus") }}{% endif %}
-  {{ ui.button("Clients", href="/clients", icon="users", variant="secondary") }}
+{% call ui.page_header("Student List", "Every learner with family, shift and subscription count. Status tiles filter the list; the saved reports mirror the ERP.") %}
+  {{ ui.button("Student Referred List", href="/students/referred", icon="share-2", variant="secondary") }}
+  {{ ui.button("On Leave Students", href="/students/on-leave", icon="plane", variant="secondary") }}
+  {% if has_perm(user, 'students.add') %}{{ ui.button("Create", href="/students/new", icon="plus") }}{% endif %}
 {% endcall %}
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6 mb-6">
-  {{ ui.stat("Total", stats.total, icon="graduation-cap", color="brand", href="/students") }}
-  {{ ui.stat("Active", stats.active, icon="user-check", color="emerald", href="/students?status=active") }}
-  {{ ui.stat("Trial", stats.trial, icon="flask-conical", color="sky", href="/students?status=trial") }}
-  {{ ui.stat("Free", stats.free, icon="gift", color="violet", hint="Goodwill / scholarship classes", href="/students?status=free") }}
-  {{ ui.stat("Frozen", stats.frozen, icon="pause", color="amber", href="/students?status=frozen") }}
-  {{ ui.stat("High risk", stats.high_risk, icon="heart-pulse", color="rose", href="/students?risk=high") }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, stats[key], icon=icon, color=palette(loop.index0), href="/students?status=" ~ key ~ "&report=" ~ report) }}
+  {% endfor %}
+</div>
+<div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
+  <span class="font-semibold text-slate-600">Saved reports:</span>
+  {% for key, lbl in reports %}
+    <a href="/students?report={{ key }}" class="rounded border px-2.5 py-1 font-medium {{ 'border-brand-600 bg-brand-600 text-white' if report == key else 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}">{{ lbl }}</a>
+  {% endfor %}
+  {% if report == 'free' %}<span class="text-slate-500">Family Status in (Regular, Trial) · Status = Regular · Total Subscriptions = 0</span>{% endif %}
 </div>
 {% call ui.filter_bar('/students') %}
-  <div class="w-60">{{ ui.input('q', 'Search', q, placeholder='Student, code, parent') }}</div>
-  <div class="w-36">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
-  <div class="w-44">{{ ui.select('course', 'Course', course_options, course, placeholder='All courses') }}</div>
-  <div class="w-44">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
-  <div class="w-32">{{ ui.select('risk', 'Risk', ['low','medium','high'], risk, placeholder='Any') }}</div>
+  <input type="hidden" name="report" value="{{ report }}">
+  <div class="w-52">{{ ui.input('q', 'Search', q, placeholder='Student, ID, legacy code, client') }}</div>
+  <div class="w-32">{{ ui.select('status', 'Status', status_options, status, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('family_status', 'Family Status', family_status_options, family_status, placeholder='All') }}</div>
+  <div class="w-28">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('teacher', 'Teacher', teacher_options, teacher, placeholder='All teachers') }}</div>
+  <div class="w-40">{{ ui.select('course', 'Course', course_options, course, placeholder='All courses') }}</div>
+  <div class="w-28">{{ ui.select('gender', 'Gender', ['male','female'], gender, placeholder='Any') }}</div>
+  <div class="w-48">{{ ui.select('client', 'Client', client_options, client, placeholder='All clients') }}</div>
 {% endcall %}
-{{ ui.table_start(['Code', 'Student', 'Course / level', 'Teacher', 'Parent', 'Risk', 'Status', '']) }}
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} student(s){% if stats.high_risk %} · <a href="/students?risk=high" class="text-rose-600 hover:underline">{{ stats.high_risk }} high risk</a>{% endif %}</p>
+{{ ui.table_start(['ID', 'Student Name', 'Status', 'Registration Date', 'Trial Days', 'Email', 'Client Name', 'State Name', 'Gender', 'D.O.B', 'Legacy Code', 'Client Code', 'Shift Name', 'Country Name', 'Family Status', 'Total Subscriptions', '']) }}
 {% for s in page.items %}
-<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2 font-mono text-xs font-semibold text-brand-700 dark:text-brand-300"><a href="/students/{{ s.id }}">{{ s.student_code }}</a></td>
-  <td class="px-4 py-2">
-    <div class="flex items-center gap-2">{{ ui.avatar(s.full_name, 'sm') }}
-      <div><a href="/students/{{ s.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ s.full_name }}</a>
-        <div class="text-xs text-slate-500">{{ s.gender|titleize }}{% if s.age %} · {{ s.age }}y{% endif %}{% if s.is_minor %} · minor{% endif %}</div></div>
-    </div>
-  </td>
-  <td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}<div class="text-slate-500">{{ s.level or '—' }}</div></td>
-  <td class="px-4 py-2 text-xs">{% if s.teacher %}<a href="/teachers/{{ s.teacher_id }}" class="hover:text-brand-600">{{ s.teacher.full_name }}</a>
-    <div class="text-slate-500">{{ s.teacher.teacher_code }}</div>{% else %}<span class="text-amber-600">Unassigned</span>{% endif %}</td>
-  <td class="px-4 py-2 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="hover:text-brand-600">{{ s.client.full_name }}</a>
-    <div class="font-mono text-[11px] text-slate-500">{{ s.client.client_code }} · {{ s.client.country }}</div>{% else %}—{% endif %}</td>
-  <td class="px-4 py-2">{{ ui.badge(s.risk_level, s.risk_level|titleize ~ ' ' ~ (s.risk_score|round|int)) }}</td>
-  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
-  <td class="px-4 py-2 text-right whitespace-nowrap">{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
+<tr class="hover:bg-slate-50">
+  <td class="px-3 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/students/{{ s.id }}">{{ s.student_code }}</a></td>
+  <td class="px-3 py-2"><a href="/students/{{ s.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ s.full_name }}</a>
+    <div class="text-xs text-slate-500">{{ s.course.name if s.course else 'no course' }} · {{ s.teacher.full_name if s.teacher else 'no teacher' }}</div></td>
+  <td class="px-3 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.join_date|date }}</td>
+  <td class="px-3 py-2 text-center">{{ s.trial_days }}</td>
+  <td class="px-3 py-2 text-xs">{{ s.email or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="font-medium hover:text-brand-600">{{ s.client.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ s.client.state if s.client and s.client.state else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ s.gender|titleize }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ s.date_of_birth|date if s.date_of_birth else '—' }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ s.legacy_code or '—' }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ s.client.client_code if s.client else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% if s.client %}<span class="rounded px-1.5 py-0.5 text-[11px] font-semibold {{ 'bg-amber-100 text-amber-800' if s.client.shift == 'morning' else 'bg-indigo-100 text-indigo-800' }}">{{ s.client.shift|titleize }}</span>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ s.client.country if s.client else '—' }}</td>
+  <td class="px-3 py-2">{% if s.client %}{{ ui.badge(s.client.status, s.client.status|label('client')) }}{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-center">{{ sub_counts.get(s.id, 0) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
 </tr>
-{% else %}{{ ui.empty('No students match these filters.', 8) }}{% endfor %}
+{% else %}{{ ui.empty('No students match these filters.', 17) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 {% endblock %}

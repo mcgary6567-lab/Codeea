@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA Configurations{% endblock %}
+{% block content %}
+{% call ui.page_header("Configurations", "QA review parameters (rated 1-5 on every call review) and the issue-type checklist") %}
+  {{ ui.button("New Parameter", icon="plus", type="button", attrs="@click=\"$dispatch('open-modal','newParam')\"") }}
+  {{ ui.button("New Issue Type", icon="plus", variant="secondary", type="button", attrs="@click=\"$dispatch('open-modal','newIssue')\"") }}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Review Parameters", stats.params, icon="sliders-horizontal", color=palette(0)) }}
+  {{ ui.stat("Active Parameters", stats.params_active, icon="check-circle-2", color=palette(1)) }}
+  {{ ui.stat("Issue Types", stats.issues, icon="list", color=palette(2)) }}
+  {{ ui.stat("Critical Issue Types", stats.critical, icon="alert-triangle", color=palette(3)) }}
+</div>
+
+{% call ui.card("QA Review Parameters", "Weighted parameters; the overall rating is the weighted mean normalised to 5 stars") %}
+{{ ui.table_start(['Name','Description','Weight','Max Rating','Sort No','Status','']) }}
+{% for p in params %}
+<tr x-data="{ edit: false }" class="{{ 'opacity-60' if p.status != 'active' }}">
+  <td class="px-4 py-2 text-sm font-medium" colspan="6" x-show="edit" x-cloak>
+    <form method="post" action="/qa/config/parameters/{{ p.id }}/edit" class="grid gap-2 sm:grid-cols-6 items-end">
+      {{ ui.input('name', 'Name', p.name, required=True) }}
+      <div class="sm:col-span-2">{{ ui.input('description', 'Description', p.description or '') }}</div>
+      {{ ui.input('weight', 'Weight', p.weight, type='number', step='0.05', min=0.1, max=10) }}
+      {{ ui.input('max_rating', 'Max Rating', p.max_rating, type='number', min=1, max=10) }}
+      {{ ui.input('sort_no', 'Sort No', p.sort_no, type='number', min=0) }}
+      <div class="sm:col-span-6 flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
+    </form>
+  </td>
+  <td class="px-4 py-2 text-sm font-medium" x-show="!edit">{{ p.name }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600" x-show="!edit">{{ p.description or '-' }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.weight }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.max_rating }}</td>
+  <td class="px-4 py-2 text-center text-sm" x-show="!edit">{{ p.sort_no }}</td>
+  <td class="px-4 py-2" x-show="!edit">{{ ui.badge(p.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    <button type="button" @click="edit=!edit" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
+    <form method="post" action="/qa/config/parameters/{{ p.id }}/toggle" class="inline">{{ ui.button('Deactivate' if p.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No review parameters defined yet - add Engagement, Tajweed Accuracy, Adab, Lesson Planning ...', 7) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-6"></div>
+{% call ui.card("QA Issue Type", "Checklist shown on every call review; critical issues flag the review and reduce the teacher score") %}
+{{ ui.table_start(['Name','Severity','Description','Status','']) }}
+{% for i in issues %}
+<tr x-data="{ edit: false }" class="{{ 'opacity-60' if i.status != 'active' }}">
+  <td class="px-4 py-2" colspan="4" x-show="edit" x-cloak>
+    <form method="post" action="/qa/config/issue-types/{{ i.id }}/edit" class="grid gap-2 sm:grid-cols-5 items-end">
+      {{ ui.input('name', 'Name', i.name, required=True) }}
+      {{ ui.select('severity', 'Severity', ['normal','critical'], i.severity, placeholder=None) }}
+      <div class="sm:col-span-2">{{ ui.input('description', 'Description', i.description or '') }}</div>
+      <div class="flex gap-2">{{ ui.button('Save', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800">Cancel</button></div>
+    </form>
+  </td>
+  <td class="px-4 py-2 text-sm font-medium" x-show="!edit">{{ i.name }}</td>
+  <td class="px-4 py-2" x-show="!edit">{{ ui.badge('high' if i.severity == 'critical' else 'low', i.severity|titleize) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600" x-show="!edit">{{ i.description or '-' }}</td>
+  <td class="px-4 py-2" x-show="!edit">{{ ui.badge(i.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    <button type="button" @click="edit=!edit" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
+    <form method="post" action="/qa/config/issue-types/{{ i.id }}/toggle" class="inline">{{ ui.button('Deactivate' if i.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+  </td>
+</tr>
+{% else %}{{ ui.empty('No issue types defined yet.', 5) }}{% endfor %}
+{{ ui.table_end() }}
+{% endcall %}
+
+{% call ui.modal('newParam', 'New QA Review Parameter') %}
+<form method="post" action="/qa/config/parameters/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('name', 'Name', '', required=True, placeholder='e.g. Voice Clarity') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '', placeholder='What the reviewer should look for') }}</div>
+  {{ ui.input('weight', 'Weight', 1.0, type='number', step='0.05', min=0.1, max=10) }}
+  {{ ui.input('max_rating', 'Max Rating', 5, type='number', min=1, max=10) }}
+  {{ ui.input('sort_no', 'Sort No', params|length + 1, type='number', min=0) }}
+  {{ ui.select('status', 'Status', ['active','inactive'], 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save parameter', icon='check') }}</div>
+</form>
+{% endcall %}
+
+{% call ui.modal('newIssue', 'New QA Issue Type') %}
+<form method="post" action="/qa/config/issue-types/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('name', 'Name', '', required=True, placeholder='e.g. Camera Off') }}</div>
+  {{ ui.select('severity', 'Severity', ['normal','critical'], 'normal', placeholder=None) }}
+  {{ ui.select('status', 'Status', ['active','inactive'], 'active', placeholder=None) }}
+  <div class="sm:col-span-2">{{ ui.input('description', 'Description', '') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save issue type', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endblock %}

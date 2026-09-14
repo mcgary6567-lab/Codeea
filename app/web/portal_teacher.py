@@ -692,3 +692,154 @@ def income(request: Request, period: str = "", db: Session = Depends(get_db),
     return render(request, "teacher_portal/income.html", {
         "user": user, "t": t, "period": period, "done": done, "missed": missed, "rate": rate,
         "class_pay": round(done * rate, 2), "structure": structure, "payslips": payslips, "months": months})
+
+
+# --------------------------------------------------------------------------- Online class (ERP 3.10)
+ONLINE_ACTIONS = {"available": "Teacher is Available", "started": "Started", "done": "Done",
+                  "absent": "Student Absent", "missed": "Missed"}
+
+
+def _online_teacher(db: Session, user: User, ctx: UserContext, teacher_id: int | None = None) -> Teacher:
+    """The teacher whose day is shown. Teachers always see themselves; staff may pass ?teacher_id=."""
+    from app.core import rbac
+    if ctx.teacher:
+        return ctx.teacher
+    if not rbac.has_permission(user, "classes.view"):
+        raise PermissionDenied("portal_teacher.view (no teacher profile linked to this login)")
+    if teacher_id:
+        t = db.get(Teacher, teacher_id)
+        if t:
+            return t
+    today = date.today()
+    row = db.query(ClassSession).filter(ClassSession.date == today).order_by(ClassSession.scheduled_start).first()
+    t = db.get(Teacher, row.teacher_id) if row else db.query(Teacher).order_by(Teacher.full_name).first()
+    if not t:
+        raise HTTPException(404, "No teacher to show")
+    return t
+
+
+def _online_session(db: Session, t: Teacher, sid: int) -> ClassSession:
+    cs = db.query(ClassSession).filter(ClassSession.id == sid, ClassSession.teacher_id == t.id).first()
+    if not cs:
+        raise HTTPException(404, "Class not found")
+    return cs
+
+
+@router.get("/online-class", include_in_schema=False)
+def online_class(request: Request, day: str = "", teacher_id: int | None = None, session_id: int | None = None,
+                 db: Session = Depends(get_db), user: User = Depends(require("classes.view")),
+                 ctx: UserContext = Depends(get_user_context)):
+    """ERP Teacher Portal "Online class": today's grid, class detail, activities, queries and the time status panel."""
+    from app.models.academic import Book
+    from app.models.erp import CLASS_QUERY_TYPES, ClassActivity, ClassQuery
+    from app.services import classes as class_svc
+    from app.services import scheduling as sched
+    t = _online_teacher(db, user, ctx, teacher_id)
+    the_day = parse_date(day, date.today())
+    rows = (db.query(ClassSession).filter(ClassSession.teacher_id == t.id, ClassSession.date == the_day)
+            .order_by(ClassSession.scheduled_start).all())
+    tiles = class_svc.teacher_day_tiles(db, t.id, the_day)
+    current = None
+    if session_id:
+        current = db.query(ClassSession).filter(ClassSession.id == session_id, ClassSession.teacher_id == t.id).first()
+    if current is None:
+        current = next((r for r in rows if r.status in ("started", "available")), None) or (rows[0] if rows else None)
+    activities, queries, books, time_status = [], [], [], None
+    if current is not None:
+        activities = (db.query(ClassActivity).filter(ClassActivity.session_id == current.id)
+                      .order_by(ClassActivity.id.desc()).all())
+        queries = db.query(ClassQuery).filter(ClassQuery.session_id == current.id).order_by(ClassQuery.id.desc()).all()
+        sub = current.subscription
+        book_ids = [int(b) for b in (sub.books or [])] if sub and sub.books else []
+        if book_ids:
+            books = db.query(Book).filter(Book.id.in_(book_ids)).all()
+        elif current.course_id:
+            books = (db.query(Book).filter(Book.course_id == current.course_id, Book.status == "active")
+                     .order_by(Book.order).limit(4).all())
+        time_status = class_svc.student_local_time(current.student, current.scheduled_start)
+    return render(request, "teacher_portal/online_class.html", {
+        "user": user, "t": t, "day": the_day, "rows": rows, "tiles": tiles, "current": current,
+        "activities": activities, "queries": queries, "books": books, "time_status": time_status,
+        "is_self": bool(ctx.teacher), "query_type_options": CLASS_QUERY_TYPES, "actions": ONLINE_ACTIONS,
+        "now": sched.org_now(), "prev_day": the_day - timedelta(days=1), "next_day": the_day + timedelta(days=1),
+        "base_url": "/teacher/online-class?day=" + str(the_day) + "&teacher_id=" + str(t.id),
+        "teacher_options": ([] if ctx.teacher else
+                            [(x.id, x.full_name) for x in
+                             db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name)])})
+
+
+@router.post("/online-class/{sid}/status", include_in_schema=False)
+async def online_class_status(sid: int, request: Request, db: Session = Depends(get_db),
+                              user: User = Depends(require("classes.update")),
+                              ctx: UserContext = Depends(get_user_context)):
+    from app.services import classes as class_svc
+    form = await request.form()
+    t = _online_teacher(db, user, ctx, parse_int(form.get("teacher_id")))
+    cs = _online_session(db, t, sid)
+    back = form.get("back") or f"/teacher/online-class?session_id={cs.id}"
+    action = form.get("action") or ""
+    reason = (form.get("reason") or form.get("rationale") or "").strip()
+    if action not in ONLINE_ACTIONS:
+        return redirect(back, "Unsupported class action.", "error")
+    if action in ("absent", "missed") and not reason:
+        return redirect(back, f"A reason is required to mark a class {ONLINE_ACTIONS[action]}.", "error")
+    if action == "available":
+        try:
+            class_svc.mark_available(db, cs, user, request=request)
+        except ValueError as exc:
+            return redirect(back, str(exc), "error")
+        db.commit()
+        return redirect(back, "Marked available; the family has been told the teacher is waiting.")
+    if action == "done":
+        cs.done_by_teacher_id = t.id
+    set_status(db, cs, action, user, reason=reason or None, request=request)
+    db.commit()
+    return redirect(back, f"Class marked {ONLINE_ACTIONS[action]}.")
+
+
+@router.post("/online-class/{sid}/activity", include_in_schema=False)
+async def online_class_activity(sid: int, request: Request, db: Session = Depends(get_db),
+                                user: User = Depends(require("classes.update")),
+                                ctx: UserContext = Depends(get_user_context)):
+    """Manual Activity: Page No + Remarks; also stamps ClassSession.activity_updated_at."""
+    from app.services import classes as class_svc
+    form = await request.form()
+    t = _online_teacher(db, user, ctx, parse_int(form.get("teacher_id")))
+    cs = _online_session(db, t, sid)
+    back = form.get("back") or f"/teacher/online-class?session_id={cs.id}"
+    try:
+        class_svc.add_activity(db, cs, user, form.get("page_no"), form.get("remarks"),
+                               book_id=parse_int(form.get("book_id")) or None, activity_type="manual", request=request)
+    except ValueError as exc:
+        return redirect(back, str(exc), "error")
+    db.commit()
+    return redirect(back, "Class activity saved.")
+
+
+@router.post("/online-class/{sid}/query", include_in_schema=False)
+async def online_class_query(sid: int, request: Request, db: Session = Depends(get_db),
+                             user: User = Depends(require("classes.view")),
+                             ctx: UserContext = Depends(get_user_context)):
+    from app.models.erp import CLASS_QUERY_TYPES, ClassQuery
+    form = await request.form()
+    t = _online_teacher(db, user, ctx, parse_int(form.get("teacher_id")))
+    cs = _online_session(db, t, sid)
+    back = form.get("back") or f"/teacher/online-class?session_id={cs.id}"
+    query_type = form.get("query_type") or ""
+    detail = (form.get("detail") or "").strip()
+    if query_type not in CLASS_QUERY_TYPES:
+        return redirect(back, "Choose a class query type.", "error")
+    if not detail:
+        return redirect(back, "Describe the query.", "error")
+    cq = ClassQuery(session_id=cs.id, teacher_id=t.id, student_id=cs.student_id, query_type=query_type,
+                    detail=detail, status="pending")
+    db.add(cq)
+    db.flush()
+    log_action(db, user, "create", "classes", entity=cq,
+               description=f"Class query raised by {t.full_name} on class #{cs.id} ({query_type})",
+               rationale=detail, request=request)
+    if t.supervisor_id:
+        notify(db, t.supervisor_id, "Class query raised", f"{t.full_name}: {query_type} - {detail[:160]}",
+               event_type="class_status", link="/classes/queries")
+    db.commit()
+    return redirect(back, f"Class query #{cq.id} raised.")

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}All Subscriptions{% endblock %}
+{% block content %}
+{% call ui.page_header("All Subscriptions", "Every student subscription: teacher, session, course, package and status") %}
+  {{ ui.button("Faculty Allocation", href="/subscriptions/allocation", icon="arrow-left-right", variant="secondary") }}
+  {{ ui.button("Value Report", href="/subscriptions/value-report", icon="file-spreadsheet", variant="secondary") }}
+  {% if has_perm(user, 'subscriptions.add') %}{{ ui.button("Create Subscription", href="/subscriptions/new", icon="plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {{ ui.stat("Clients", tiles.clients, color=palette(0), href="/clients") }}
+  {{ ui.stat("Students", tiles.students, color=palette(1), href="/students") }}
+  {{ ui.stat("All Subscriptions", tiles.all, color=palette(2), href="/subscriptions") }}
+  {{ ui.stat("Coming Follow Ups", tiles.follow_ups, color=palette(6), href="/subscriptions?report=followups", hint="next 7 days") }}
+</div>
+
+{% call ui.filter_bar('/subscriptions') %}
+  <input type="hidden" name="report" value="{{ report }}">
+  <div class="w-36">{{ ui.input('sub_id', 'Subscription ID', sub_id, placeholder='SUB-00012') }}</div>
+  <div class="w-72">{{ ui.select('slot_id', 'Session', slot_options, slot_id, placeholder='All sessions') }}</div>
+  <div class="w-44">{{ ui.select('course_id', 'Course', course_options, course_id, placeholder='All courses') }}</div>
+  <div class="w-36">{{ ui.select('language', 'Language', language_options, language, placeholder='All') }}</div>
+  <div class="w-52">{{ ui.select('client_id', 'Client', client_options, client_id, placeholder='All clients') }}</div>
+  <div class="w-52">{{ ui.select('student_id', 'Student', student_options, student_id, placeholder='All students') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', status_options, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.tabs([('primary', 'Primary', base_url|replace('report=' ~ report, 'report=primary')),
+            ('employee', 'Employee Wise Summary', base_url|replace('report=' ~ report, 'report=employee')),
+            ('followups', 'Coming Follow Ups', base_url|replace('report=' ~ report, 'report=followups'))], report) }}
+
+{% if report == 'employee' %}
+{{ ui.table_start(['Teacher', 'Regular', 'Trial', 'Freeze', 'Completed', 'Cancelled', 'Total', 'Monthly Value (' ~ base ~ ')', 'Teacher Cost (' ~ base ~ ')', 'Margin']) }}
+{% set ns = namespace(v=0, c=0, t=0) %}
+{% for e in employees %}
+{% set ns.v = ns.v + e.value %}{% set ns.c = ns.c + e.cost %}{% set ns.t = ns.t + e.total %}
+<tr>
+  <td class="px-3 py-1.5 font-medium">{% if e.teacher %}<a href="/subscriptions?teacher_id={{ e.teacher.id }}" class="hover:text-brand-700">{{ e.teacher.full_name }}</a>{% else %}<span class="text-slate-400">Unassigned</span>{% endif %}</td>
+  <td class="px-3 py-1.5">{{ e.regular }}</td><td class="px-3 py-1.5">{{ e.trial }}</td><td class="px-3 py-1.5">{{ e.freeze }}</td>
+  <td class="px-3 py-1.5">{{ e.completed }}</td><td class="px-3 py-1.5">{{ e.cancelled }}</td><td class="px-3 py-1.5 font-semibold">{{ e.total }}</td>
+  <td class="px-3 py-1.5 text-right">{{ e.value|money }}</td><td class="px-3 py-1.5 text-right">{{ e.cost|money }}</td>
+  <td class="px-3 py-1.5 text-right {{ 'text-rose-600' if e.margin < 0 else 'text-emerald-700' }}">{{ e.margin|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No subscriptions match these filters.', 10) }}{% endfor %}
+{% if employees %}<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5">Total</td><td colspan="5"></td><td class="px-3 py-1.5">{{ ns.t }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ns.v|money }}</td><td class="px-3 py-1.5 text-right">{{ ns.c|money }}</td><td class="px-3 py-1.5 text-right">{{ (ns.v - ns.c)|money }}</td></tr>{% endif %}
+{{ ui.table_end() }}
+{% else %}
+{{ ui.table_start(['Subscription ID', 'Client', 'Student', 'Shift', 'Teacher', 'Session', 'Course', 'Method', 'Language', 'Days', 'Package', 'Status', 'Reg. Date', 'Next Due Date', 'Price', 'Follow Up', ''], compact=True) }}
+{% for s in page.items %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="font-semibold text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
+  <td class="px-3 py-1.5">{% if s.client %}<a href="/clients/{{ s.client_id }}" class="hover:text-brand-700">{{ s.client.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5">{% if s.student %}<a href="/students/{{ s.student_id }}" class="hover:text-brand-700">{{ s.student.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ (s.client.shift|titleize) if s.client and s.client.shift else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ 'Group Class' if s.course_method == 'group' else 'One on One' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.language or '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{% for d in s.days_of_week|sort %}{{ day_names[d|int] }}{{ ',' if not loop.last }}{% else %}—{% endfor %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.package.name if s.package else '—' }}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.start_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.next_billing_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap text-right">{{ s.price|money(s.currency) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap {{ 'font-semibold text-rose-600' if s.follow_up_date and s.follow_up_date <= today }}">{{ s.follow_up_date|date if s.follow_up_date else '—' }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ui.button('Open', href='/subscriptions/' ~ s.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No subscriptions match these filters.', 17, 'repeat') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endif %}
+{% endblock %}

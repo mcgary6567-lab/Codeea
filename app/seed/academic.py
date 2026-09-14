@@ -20,6 +20,8 @@ COURSES = [
      ["Aqeedah & Pillars", "Salah & Wudu", "Seerah", "Daily Duas & Adab"]),
 ]
 
+COURSE_FEES = {"QAIDA": 4000, "NAZRA": 5000, "HIFZ": 8000, "TAJWEED": 5500, "TARJUMA": 6500, "ISLAMIC": 4500}  # PKR / month
+
 PACKAGES = [  # name, course, sessions/week, minutes, price, currency, country
     ("Trial Class", None, 1, 30, 0, "GBP", None, True),
     ("Starter — 2 days/week", None, 2, 30, 30, "GBP", "United Kingdom", False),
@@ -39,7 +41,8 @@ def run(db: Session) -> None:
         c = db.query(Course).filter(Course.code == code).first()
         if not c:
             c = Course(code=code, name=name, arabic_name=ar, urdu_name=ur, description=desc, completion_target_months=months,
-                       order=COURSES.index((code, name, ar, ur, desc, months, divisions)))
+                       order=COURSES.index((code, name, ar, ur, desc, months, divisions)),
+                       course_type="Islamic Courses", fee=COURSE_FEES.get(code, 5000), attendance_required=True)
             db.add(c)
             db.flush()
             for i, dname in enumerate(divisions):

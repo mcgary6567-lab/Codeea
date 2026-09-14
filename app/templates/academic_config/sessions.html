@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Sessions{% endblock %}
+{% block content %}
+{% call ui.page_header("Sessions", "Bookable class times per category (Asia/Karachi, UTC+5). Labels are built from the start time and duration.", back="/academics/config") %}
+  {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newSession\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
+  {{ ui.stat("All Sessions", stats.total, color=palette(0), href="/academics/config/sessions") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/sessions?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/sessions?status=inactive") }}
+  {% for cat in categories %}{{ ui.stat(cat, by_cat.get(cat, 0), color=palette(loop.index0 + 1), href="/academics/config/sessions?category=" ~ cat|urlencode) }}{% endfor %}
+</div>
+
+{% call ui.filter_bar('/academics/config/sessions') %}
+  <div class="w-48">{{ ui.select('category', 'Session Category', categories, category, placeholder='All categories') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Session label') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Session Category', 'Session Label', 'UTC', 'Duration', 'Start Time', 'Status', 'Sort No', '']) }}
+{% for s in slots %}
+<tr x-data="{ edit: false }">
+  <td class="px-4 py-2 text-xs">{{ s.category }}</td>
+  <td class="px-4 py-2 font-mono text-xs font-semibold text-slate-900">{{ s.label }}</td>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ s.utc_label }}</td>
+  <td class="px-4 py-2 text-xs">{{ s.duration_minutes }} min</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ s.start_time.strftime('%I:%M %p') }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2 text-xs text-center">{{ s.sort_no|int if s.sort_no == s.sort_no|int else s.sort_no }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="edit = !edit" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/sessions/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="edit" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/academics/config/sessions/{{ s.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6 items-end">
+    {{ ui.select('category', 'Session Category', categories, s.category, placeholder=None) }}
+    {{ ui.input('start_time', 'Start Time', s.start_time.strftime('%H:%M'), type='time', required=True) }}
+    {{ ui.select('duration_minutes', 'Duration', durations, s.duration_minutes, placeholder=None) }}
+    {{ ui.input('label', 'Session Label', s.label, help='Leave blank to rebuild from start time + duration') }}
+    {{ ui.select('status', 'Status', statuses, s.status, placeholder=None) }}
+    {{ ui.input('sort_no', 'Sort No', s.sort_no|int if s.sort_no == s.sort_no|int else s.sort_no, type='number', step='0.5') }}
+    <div class="sm:col-span-3 lg:col-span-6 flex gap-2">{{ ui.button('Save session', icon='save', size='sm') }}<button type="button" @click="edit=false" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No sessions match these filters.', 8, 'clock') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ slots|length }} session{{ 's' if slots|length != 1 }}</div>
+
+{% if can_add %}
+{% call ui.modal('newSession', 'Create Session') %}
+<form method="post" action="/academics/config/sessions/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.select('category', 'Session Category', categories, category or '30 Minutes', placeholder=None, required=True) }}
+  {{ ui.select('duration_minutes', 'Duration', durations, 45 if category == '45 Minutes' else 30, placeholder=None) }}
+  {{ ui.input('start_time', 'Start Time', '07:00', type='time', required=True) }}
+  {{ ui.input('sort_no', 'Sort No', next_sort, type='number', step='0.5') }}
+  <div class="sm:col-span-2">{{ ui.input('label', 'Session Label', '', placeholder='Auto: 07:00 AM - 07:30 AM', help='Optional — built automatically from the start time and duration when left blank.') }}</div>
+  {{ ui.select('status', 'Status', statuses, 'active', placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Create session', icon='plus') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

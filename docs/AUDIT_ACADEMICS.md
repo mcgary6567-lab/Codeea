@@ -271,11 +271,10 @@ Today Trials · Dropped Students · New Student Registration.
 
 ## Gap list against the new platform
 
-(compiled after level 3 is complete)
+Compiled 13 Sep 2026 after the level-3 audit. Every gap below has since been built and verified; the
+"Built as" column names where it now lives. Status of the whole area is now **Have** unless noted.
 
-Compiled 13 Sep 2026 after the level-3 audit. "Build" = work package that closes the gap.
-
-| Area | Status before | Gap | Build |
+| Area | Status before | Gap that was closed | Built as |
 |---|---|---|---|
 | Navigation | Partial | ERP is Home → Online Academics → 13 groups → pages, with request/class counters on Academic Home | Done: `nav.py` groups, `/home/<section>/<group>`, `launchpad/academic_home.html`, `services/erp_home.py` |
 | Session slots | Missing | 48 half-hour sessions with category, label, sort no, PST/UTC | Done (model `SessionSlot`); WP-1 pages + seed |
@@ -290,3 +289,21 @@ Compiled 13 Sep 2026 after the level-3 audit. "Build" = work package that closes
 | Dashboards | Partial | Client management, subscriptions (count/amount), billing management, monthly performance, financial summary, monthly insights (Day/Night vs previous month) | WP-4 |
 | Evaluation | Have | Evaluations/Manual tabs, pending evaluations queue, assessment link | WP-5 |
 | Quality | Partial | Call recordings (Agent/Teams/Zoom) with sync, unmatched calls, review queue, reviews with parameters/issues/1–5 rating and Pending/In-Progress/Completed/Flagged/Rejected, reviewed calls, teacher QA performance, client feedbacks with source, configurations | WP-5 |
+
+### Verification, 13 September 2026
+
+- 622 page loads across seven roles (super admin, teacher, parent, student, supervisor, QA officer, billing
+  representative) return 200. Every URL in `app/core/nav.py` resolves to a real page.
+- 375 automated tests pass, and the suite is repeatable: running it twice against the same database gives the
+  same result.
+- Schema change captured in Alembic revision `dee1fc82982b`; a second autogenerate finds no drift.
+
+### Deliberate differences from the ERP
+
+| Their system | Ours | Why |
+|---|---|---|
+| Client list tile spelled "Trail" | "Trial" | Their label is a typo; the filter accepts both spellings. |
+| Statuses stored as numeric ids (`p41_status_id=327`) | Readable values (`?status=drop_out`) | Links stay meaningful; ERP spellings are accepted as aliases. |
+| Passwords visible in the client Credentials grid | Masked, revealed only on request and the reveal is written to the audit log | Handling of family credentials has to be accountable. |
+| Oracle APEX saved reports per user | Fixed named reports (Primary, Employee Wise Summary, Free Students List, Coming Follow Ups) | Covers the reports actually in use without rebuilding APEX's report designer. |
+| Gateway receipts arrive from a live Stripe feed | A sync action that simulates the pull | No payment credentials are configured yet; the flow and data shape are real. |

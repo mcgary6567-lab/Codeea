@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Change requests{% endblock %}
+{% block content %}
+{{ ui.page_header('Change requests', 'Ask us to move a class time, change a teacher, or recommend us to a family you know. Every request is reviewed by the academic team.') }}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Pending', pending, icon='clock', color='amber') }}
+  {{ ui.stat('Time Changes', time_rows|length, icon='clock-4', color='sky') }}
+  {{ ui.stat('Teacher Changes', teacher_rows|length, icon='user-cog', color='indigo') }}
+  {{ ui.stat('References', ref_rows|length, icon='gift', color='emerald') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div>
+    {% call ui.card('Request a time change') %}
+      <form method="post" action="/portal/requests" class="space-y-3">
+        <input type="hidden" name="kind" value="time_change">
+        {{ ui.select('subscription_id', 'Which class?', sub_options, None, required=True) }}
+        {{ ui.select('new_slot_id', 'New class time', slot_options, None, required=True, help='Times are shown in Pakistan Standard Time.') }}
+        <div>
+          <div class="mb-1 block text-xs font-semibold text-slate-600">Days (leave blank to keep the current days)</div>
+          <div class="flex flex-wrap gap-2.5">
+            {% for val, lbl in day_options %}
+            <label class="inline-flex items-center gap-1.5 text-sm"><input type="checkbox" name="days" value="{{ val }}" class="h-4 w-4 rounded border-slate-300 text-brand-600">{{ lbl }}</label>
+            {% endfor %}
+          </div>
+        </div>
+        {{ ui.textarea('description', 'Why?', '', rows=3, required=True, placeholder='School has changed our evenings...') }}
+        {{ ui.button('Submit request', icon='clock') }}
+      </form>
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Request a teacher change') %}
+      <form method="post" action="/portal/requests" class="space-y-3">
+        <input type="hidden" name="kind" value="teacher_change">
+        {{ ui.select('subscription_id', 'Which class?', sub_options, None, required=True) }}
+        {{ ui.select('new_teacher_id', 'Preferred teacher (optional)', teacher_options, None, placeholder='Let the college choose') }}
+        {{ ui.textarea('description', 'Why?', '', rows=3, required=True, placeholder='Tell us what is not working so we can match you better.') }}
+        {{ ui.button('Submit request', icon='user-cog') }}
+      </form>
+    {% endcall %}
+  </div>
+  <div>
+    {% call ui.card('Refer a new contact') %}
+      <form method="post" action="/portal/requests" class="space-y-3">
+        <input type="hidden" name="kind" value="reference">
+        {{ ui.input('name', 'Name', '', required=True) }}
+        {{ ui.input('email', 'Email', '', type='email') }}
+        {{ ui.input('contact_no', 'Contact No', '') }}
+        {{ ui.select('reference_type', 'Reference Type', reference_types, 'family', placeholder=None) }}
+        {{ ui.textarea('description', 'Anything we should know?', '', rows=3) }}
+        {{ ui.button('Refer contact', icon='gift') }}
+      </form>
+    {% endcall %}
+  </div>
+</div>
+
+<div class="mt-6 space-y-6">
+  <div>
+    {{ ui.section_label('My time change requests') }}
+    {{ ui.table_start(['ID', 'Student', 'Current Session', 'New Session', 'Days', 'Description', 'Status', 'Created At']) }}
+    {% for r in time_rows %}
+    <tr>
+      <td class="px-3 py-2 text-xs">{{ r.id }}</td>
+      <td class="px-3 py-2 text-sm">{{ r.student.full_name if r.student else '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.current_slot.label if r.current_slot else '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.new_slot.label if r.new_slot else '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ (r.days or [])|length }} day(s)</td>
+      <td class="px-3 py-2 text-xs text-slate-500">{{ (r.description or '-')|truncate(60) }}</td>
+      <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.created_at|date }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No time change requests yet.', 8) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {{ ui.section_label('My teacher change requests') }}
+    {{ ui.table_start(['ID', 'Student', 'Current Teacher', 'Preferred Teacher', 'Description', 'Status', 'Created At']) }}
+    {% for r in teacher_rows %}
+    <tr>
+      <td class="px-3 py-2 text-xs">{{ r.id }}</td>
+      <td class="px-3 py-2 text-sm">{{ r.student.full_name if r.student else '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.current_teacher.full_name if r.current_teacher else '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.new_teacher.full_name if r.new_teacher else 'College to allocate' }}</td>
+      <td class="px-3 py-2 text-xs text-slate-500">{{ (r.description or '-')|truncate(60) }}</td>
+      <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.created_at|date }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No teacher change requests yet.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+  <div>
+    {{ ui.section_label('Contacts I referred') }}
+    {{ ui.table_start(['ID', 'Name', 'Email', 'Contact No', 'Reference Type', 'Status', 'Created At']) }}
+    {% for r in ref_rows %}
+    <tr>
+      <td class="px-3 py-2 text-xs">{{ r.id }}</td>
+      <td class="px-3 py-2 text-sm">{{ r.name }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.email or '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.contact_no or '-' }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.reference_type|titleize }}</td>
+      <td class="px-3 py-2">{{ ui.badge(r.status, r.status|label('request')) }}</td>
+      <td class="px-3 py-2 text-xs">{{ r.created_at|date }}</td>
+    </tr>
+    {% else %}{{ ui.empty('You have not referred anyone yet.', 7) }}{% endfor %}
+    {{ ui.table_end() }}
+  </div>
+</div>
+{% endblock %}

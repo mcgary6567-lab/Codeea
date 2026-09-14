@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Generate Bulk Invoices{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-5xl">
+{{ ui.page_header("Generate Bulk Invoices", "Preview for " ~ period ~ " — nothing is created until you confirm.", back="/finance/invoices") }}
+
+<div class="grid gap-3 sm:grid-cols-4 mb-5">
+  {{ ui.stat("Clients", preview.clients, color=palette(0)) }}
+  {{ ui.stat("Subscriptions", preview.subscriptions, color=palette(2)) }}
+  {{ ui.stat("Already Invoiced", preview.skipped, color=palette(5), hint="Skipped for this period") }}
+  {{ ui.stat("Total Value", preview.total_base|money(base), color=palette(3)) }}
+</div>
+
+{% call ui.card("Filters") %}
+<form method="get" action="/finance/invoices/bulk" class="flex flex-wrap items-end gap-3">
+  <div class="w-40">{{ ui.select('period', 'Billing Period', periods, period) }}</div>
+  <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift) }}</div>
+  <div class="w-44">{{ ui.select('recurrence', 'Fee Recurrence', recurrences, recurrence) }}</div>
+  {{ ui.button('Refresh Preview', icon='refresh-cw', variant='secondary') }}
+</form>
+{% endcall %}
+
+<div class="mt-5 overflow-x-auto">
+{{ ui.table_start(['Client', 'Client Code', 'Shift', 'Fee Recurrence', 'Subscriptions', 'Currency', 'Invoice Amount', 'Amount ' ~ base]) }}
+{% for row in preview.preview %}
+<tr class="hover:bg-slate-50">
+  <td class="px-4 py-2 text-sm font-medium text-slate-800">{{ row.client.full_name }}</td>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ row.client.client_code }}</td>
+  <td class="px-4 py-2 text-sm">{{ (row.client.shift or '')|titleize or '—' }}</td>
+  <td class="px-4 py-2 text-sm">{{ (row.client.fee_recurrence or 'monthly')|titleize }}</td>
+  <td class="px-4 py-2 text-sm text-right">{{ row.count }}</td>
+  <td class="px-4 py-2 font-mono text-xs">{{ row.currency }}</td>
+  <td class="px-4 py-2 text-sm text-right font-semibold">{{ row.amount|money(row.currency) }}</td>
+  <td class="px-4 py-2 text-sm text-right text-slate-600">{{ row.base|money(base) }}</td>
+</tr>
+{% else %}{{ ui.empty('Nothing to invoice for this period with these filters.', 8) }}{% endfor %}
+{{ ui.table_end() }}
+</div>
+
+{% if preview.preview %}
+<form method="post" action="/finance/invoices/generate" class="mt-5 flex items-center justify-between rounded-md border border-slate-200 bg-white p-4"
+      onsubmit="return confirm('Create {{ preview.clients }} invoice(s) for {{ period }}?')">
+  <input type="hidden" name="period" value="{{ period }}">
+  <input type="hidden" name="shift" value="{{ shift }}">
+  <input type="hidden" name="recurrence" value="{{ recurrence }}">
+  <p class="text-sm text-slate-600">This creates <b>{{ preview.clients }}</b> pending invoice(s) covering
+    <b>{{ preview.subscriptions }}</b> subscription(s), worth <b>{{ preview.total_base|money(base) }}</b>.
+    Auto-assigned invoice additions are applied automatically.</p>
+  {{ ui.button('Generate ' ~ preview.clients ~ ' Invoices', icon='layers') }}
+</form>
+{% endif %}
+</div>
+{% endblock %}

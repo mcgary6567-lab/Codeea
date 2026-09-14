@@ -749,14 +749,24 @@ async def lesson_plan_delete(pid: int, request: Request, db: Session = Depends(g
 
 
 # =============================================================================== evaluations
+def _assessment_options(db: Session) -> list[tuple[int, str]]:
+    from app.models.erp import AssessmentDefinition
+    rows = (db.query(AssessmentDefinition).filter(AssessmentDefinition.status == "active")
+            .order_by(AssessmentDefinition.title).all())
+    return [(a.id, f"{a.title} ({a.passing_marks:g}/{a.total_marks:g})") for a in rows]
+
+
 @router.get("/evaluations", include_in_schema=False)
 def evaluations(request: Request, page: int = 1, student: str = "", teacher: str = "", type: str = "", result: str = "",
+                tab: str = "evaluations", assessment: str = "",
                 db: Session = Depends(get_db), user: User = Depends(require("evaluations.view")),
                 ctx: UserContext = Depends(get_user_context)):
     scope = _scope_ids(user, ctx)
+    tab = tab if tab in ("evaluations", "manual") else "evaluations"
     q = db.query(Evaluation)
     if scope is not None:
         q = q.filter(Evaluation.student_id.in_(scope or [0]))
+    q = q.filter(Evaluation.is_manual.is_(True) if tab == "manual" else Evaluation.is_manual.is_(False))
     if student:
         q = q.filter(Evaluation.student_id == int(student))
     if teacher:
@@ -765,6 +775,8 @@ def evaluations(request: Request, page: int = 1, student: str = "", teacher: str
         q = q.filter(Evaluation.evaluation_type == type)
     if result:
         q = q.filter(Evaluation.result == result)
+    if parse_int(assessment):
+        q = q.filter(Evaluation.assessment_id == int(assessment))
     pg = paginate(q.order_by(Evaluation.date.desc(), Evaluation.id.desc()), page, 25)
     scoped = db.query(Evaluation)
     if scope is not None:
@@ -774,10 +786,14 @@ def evaluations(request: Request, page: int = 1, student: str = "", teacher: str
              "failed": scoped.filter(Evaluation.result == "fail").count(),
              "pending": scoped.filter(Evaluation.result == "pending").count(),
              "avg": round(scoped.with_entities(func.avg(Evaluation.score)).scalar() or 0, 1)}
-    base = f"/academics/evaluations?student={student}&teacher={teacher}&type={type}&result={result}"
+    base = (f"/academics/evaluations?student={student}&teacher={teacher}&type={type}&result={result}"
+            f"&tab={tab}&assessment={assessment}")
     return render(request, "academics/evaluations.html", {
         "user": user, "page": pg, "stats": stats, "types": EVAL_TYPES, "results": ["pass", "fail", "pending"],
         "student": student, "teacher": teacher, "type": type, "result": result, "base_url": base,
+        "tab": tab, "assessment": assessment, "assessment_options": _assessment_options(db),
+        "tabs": [("evaluations", "Evaluations", "/academics/evaluations?tab=evaluations"),
+                 ("manual", "Manual Evaluations", "/academics/evaluations?tab=manual")],
         "criteria": svc.EVAL_CRITERIA, "student_options": _student_options(db, scope),
         "teacher_options": _teacher_options(db), "today_iso": date.today().isoformat(),
         "can_add": rbac.has_permission(user, "evaluations.add")})
@@ -797,12 +813,22 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
         criteria[key] = max(0.0, min(10.0, v))
     score = parse_float(form.get("score")) if form.get("score") else svc.evaluation_score(criteria)
     max_score = parse_float(form.get("max_score"), 100.0) or 100.0
-    result = form.get("result") or ("pass" if score >= max_score * 0.55 else "fail")
+    # An assessment definition sets the marks scheme: total_marks -> max score, passing_marks -> pass/fail line.
+    from app.models.erp import AssessmentDefinition
+    assessment = db.get(AssessmentDefinition, parse_int(form.get("assessment_id")) or 0)
+    result = form.get("result") or ""
+    if assessment is not None:
+        max_score = float(assessment.total_marks or max_score) or max_score
+        result = result or ("pass" if score >= float(assessment.passing_marks or 0) else "fail")
+    result = result or ("pass" if score >= max_score * 0.55 else "fail")
     ev = Evaluation(student_id=student.id, teacher_id=parse_int(form.get("teacher_id")) or student.teacher_id,
                     evaluation_type=form.get("evaluation_type") or "manual",
                     date=parse_date(form.get("date")) or date.today(), score=score, max_score=max_score,
                     result=result, criteria=criteria, teacher_comment=form.get("teacher_comment") or None,
                     academic_comment=form.get("academic_comment") or None,
+                    assessment_id=assessment.id if assessment else None,
+                    is_manual=parse_bool(form.get("is_manual")),
+                    due_date=parse_date(form.get("due_date")),
                     reviewed_by_id=user.id if form.get("academic_comment") else None)
     db.add(ev)
     db.flush()
@@ -818,6 +844,50 @@ async def evaluation_create(request: Request, db: Session = Depends(get_db),
                + (f"\n{ev.teacher_comment}" if ev.teacher_comment else ""), event_type="evaluation", link="/portal/progress")
     db.commit()
     return redirect(f"/academics/evaluations/{ev.id}", "Evaluation recorded and the guardian notified.")
+
+
+# NOTE: static path — must stay declared before /evaluations/{eid}.
+@router.get("/evaluations/pending", include_in_schema=False)
+def evaluations_pending(request: Request, teacher: str = "", course: str = "", db: Session = Depends(get_db),
+                        user: User = Depends(require("evaluations.view")),
+                        ctx: UserContext = Depends(get_user_context)):
+    """Students whose periodic evaluation is due: no evaluation at all, or the last one older than 30 days."""
+    scope = _scope_ids(user, ctx)
+    today = date.today()
+    cutoff = today - timedelta(days=30)
+    students = db.query(Student).filter(Student.status.in_(["active", "trial"]))
+    if scope is not None:
+        students = students.filter(Student.id.in_(scope or [0]))
+    if parse_int(teacher):
+        students = students.filter(Student.teacher_id == int(teacher))
+    if parse_int(course):
+        students = students.filter(Student.course_id == int(course))
+    students = students.order_by(Student.full_name).all()
+    last_rows = dict(db.query(Evaluation.student_id, func.max(Evaluation.date))
+                     .group_by(Evaluation.student_id).all())
+    rows, never = [], 0
+    for s in students:
+        last = last_rows.get(s.id)
+        if last and last > cutoff:
+            continue
+        days_since = (today - last).days if last else None
+        if last is None:
+            never += 1
+        rows.append({"s": s, "last": last, "days_since": days_since,
+                     "due": (last + timedelta(days=30)) if last else s.join_date})
+    rows.sort(key=lambda r: (r["days_since"] is not None, -(r["days_since"] or 0)))
+    open_q = db.query(Evaluation).filter(
+        or_(Evaluation.result == "pending",
+            (Evaluation.due_date.isnot(None)) & (Evaluation.due_date < today)))
+    if scope is not None:
+        open_q = open_q.filter(Evaluation.student_id.in_(scope or [0]))
+    open_evals = open_q.order_by(Evaluation.due_date.is_(None), Evaluation.due_date, Evaluation.id.desc()).limit(200).all()
+    stats = {"due": len(rows), "never": never, "open": len(open_evals),
+             "overdue": sum(1 for r in rows if (r["days_since"] or 999) >= 45)}
+    return render(request, "academics/evaluation_pending.html", {
+        "user": user, "rows": rows, "open_evals": open_evals, "stats": stats, "today": today,
+        "teacher": teacher, "course": course, "teacher_options": _teacher_options(db),
+        "course_options": _course_options(db), "can_add": rbac.has_permission(user, "evaluations.add")})
 
 
 @router.get("/evaluations/{eid}", include_in_schema=False)

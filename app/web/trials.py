@@ -76,6 +76,125 @@ def follow_ups(request: Request, db: Session = Depends(get_db), user: User = Dep
     return render(request, "trials/follow_ups.html", {"user": user, "rows": rows, "stats": svc.trial_stats(db)})
 
 
+# ----------------------------------------------------------------------------- Running Trials (ERP 3.6)
+@router.get("/running", include_in_schema=False)
+def running_trials(request: Request, page: int = 1, q: str = "", client_id: int | None = None, teacher_id: int | None = None,
+                   course_id: int | None = None, slot_id: int | None = None, shift: str = "",
+                   db: Session = Depends(get_db), user: User = Depends(require("trials.view", "subscriptions.view", any_of=True))):
+    """Trial subscriptions that are still running, with the calculated trial end date."""
+    from app.models.finance import Subscription
+    from app.services import scheduling as sched
+    query = db.query(Subscription).filter(Subscription.status == "trial")
+    if q:
+        like = f"%{q.strip()}%"
+        query = (query.join(Student, Student.id == Subscription.student_id)
+                 .filter(or_(Student.full_name.ilike(like), Student.student_code.ilike(like),
+                             Subscription.subscription_code.ilike(like))))
+    if client_id:
+        query = query.filter(Subscription.client_id == client_id)
+    if teacher_id:
+        query = query.filter(Subscription.teacher_id == teacher_id)
+    if course_id:
+        query = query.filter(Subscription.course_id == course_id)
+    if slot_id:
+        query = query.filter(Subscription.slot_id == slot_id)
+    if shift:
+        query = query.join(Client, Client.id == Subscription.client_id).filter(Client.shift == shift)
+    pg = paginate(query.order_by(Subscription.start_date.desc(), Subscription.id.desc()), page, 30)
+    rows = []
+    for s in pg.items:
+        end = s.start_date + timedelta(days=s.trial_days or 3) if s.start_date else None
+        rows.append({"sub": s, "trial_end": end,
+                     "days_left": (end - date.today()).days if end else None})
+    all_trials = db.query(Subscription).filter(Subscription.status == "trial").all()
+    ending = sum(1 for s in all_trials
+                 if s.start_date and 0 <= ((s.start_date + timedelta(days=s.trial_days or 3)) - date.today()).days <= 2)
+    base = (f"/trials/running?q={q}&client_id={client_id or ''}&teacher_id={teacher_id or ''}&course_id={course_id or ''}"
+            f"&slot_id={slot_id or ''}&shift={shift}")
+    return render(request, "trials/running.html", {
+        "user": user, "page": pg, "rows": rows, "q": q, "client_id": client_id, "teacher_id": teacher_id,
+        "course_id": course_id, "slot_id": slot_id, "shift": shift, "base_url": base,
+        "tiles": {"running": len(all_trials), "ending": ending,
+                  "clients": len({s.client_id for s in all_trials}), "students": len({s.student_id for s in all_trials})},
+        "day_names": sched.DAY_NAMES,
+        "slot_options": sched.slot_options(db),
+        "client_options": [(c.id, f"{c.full_name} ({c.client_code})") for c in db.query(Client).order_by(Client.full_name)],
+        "course_options": [(c.id, c.name) for c in db.query(Course).order_by(Course.name)],
+        "teacher_options": [(t.id, t.full_name) for t in db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name)]})
+
+
+@router.post("/running/{sub_id}/convert", include_in_schema=False)
+async def convert_trial_subscription(sub_id: int, request: Request, db: Session = Depends(get_db),
+                                     user: User = Depends(require("subscriptions.update"))):
+    """Convert to Regular: the trial subscription becomes a regular one and the schedule stops being a trial."""
+    from app.models.finance import Subscription
+    from app.services import scheduling as sched
+    sub = db.get(Subscription, sub_id)
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    form = await request.form()
+    back = form.get("back") or "/trials/running"
+    if sub.status != "trial":
+        return redirect(back, f"Subscription {sub.subscription_code} is not on trial.", "error")
+    reason = (form.get("reason") or form.get("rationale") or "").strip() or "Trial completed; family continuing on a regular subscription."
+    before = {"status": sub.status}
+    sub.status = "regular"
+    if sub.student and sub.student.status == "trial":
+        sub.student.status = "active"
+    if sub.client and sub.client.status == "trial":
+        sub.client.status = "active"
+    sched.sync_subscription_schedule(db, user, sub, reason=reason, request=request)
+    log_action(db, user, "convert", "subscriptions", entity=sub,
+               description=f"Trial subscription {sub.subscription_code} converted to Regular", rationale=reason,
+               before=before, after={"status": "regular"}, request=request, consequential=True)
+    if sub.client and sub.client.user_id:
+        notify(db, sub.client.user_id, "Trial converted",
+               f"{sub.student.full_name if sub.student else 'Your child'} is now on a regular subscription.",
+               event_type="subscription", link="/portal/subscriptions")
+    if sub.teacher and sub.teacher.user_id:
+        notify(db, sub.teacher.user_id, "Trial converted to regular",
+               f"{sub.student.full_name if sub.student else 'A student'} continues as a regular student.",
+               event_type="subscription", link="/teacher/students")
+    db.commit()
+    return redirect(back, f"{sub.subscription_code} converted to Regular.")
+
+
+@router.post("/running/{sub_id}/drop", include_in_schema=False)
+async def drop_trial_subscription(sub_id: int, request: Request, db: Session = Depends(get_db),
+                                  user: User = Depends(require("subscriptions.update"))):
+    """Drop: cancel the trial subscription with a reason and cancel its future classes."""
+    from app.models.finance import Subscription
+    from app.services import scheduling as sched
+    sub = db.get(Subscription, sub_id)
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    form = await request.form()
+    back = form.get("back") or "/trials/running"
+    reason = (form.get("reason") or form.get("rationale") or "").strip()
+    if not reason:
+        return redirect(back, "A reason is required to drop a trial.", "error")
+    if sub.status != "trial":
+        return redirect(back, f"Subscription {sub.subscription_code} is not on trial.", "error")
+    before = {"status": sub.status}
+    sub.status = "cancelled"
+    sub.cancelled_at = date.today()
+    sub.cancel_reason = reason[:200]
+    sub.end_date = sub.end_date or date.today()
+    cancelled = sched.end_subscription_schedule(db, user, sub, "ended", reason, request=request)
+    log_action(db, user, "cancel", "subscriptions", entity=sub,
+               description=f"Trial subscription {sub.subscription_code} dropped; {cancelled} future class(es) cancelled",
+               rationale=reason, before=before, after={"status": "cancelled"}, request=request, consequential=True)
+    if sub.teacher and sub.teacher.user_id:
+        notify(db, sub.teacher.user_id, "Trial dropped",
+               f"{sub.student.full_name if sub.student else 'A student'} dropped the trial. {reason}",
+               event_type="subscription", link="/teacher/students")
+    if sub.client and sub.client.user_id:
+        notify(db, sub.client.user_id, "Trial closed", f"The trial has been closed. {reason}",
+               event_type="subscription", link="/portal/subscriptions")
+    db.commit()
+    return redirect(back, f"{sub.subscription_code} dropped; {cancelled} future class(es) cancelled.")
+
+
 @router.get("/new", include_in_schema=False)
 def new_trial(request: Request, lead_id: int = 0, db: Session = Depends(get_db), user: User = Depends(require("trials.add"))):
     lead = db.get(Lead, lead_id) if lead_id else None

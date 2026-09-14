@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Subscription Detail Report{% endblock %}
+{% block content %}
+{% call ui.page_header("Subscription Detail Report", "Subscriptions by manager, period, country and currency") %}
+  {{ ui.button("Export CSV", href="/subscriptions/detail-report?" ~ query_string ~ "&format=csv", icon="download", variant="secondary") }}
+  {{ ui.button("Value Report", href="/subscriptions/value-report", icon="file-spreadsheet", variant="secondary") }}
+{% endcall %}
+
+{% call ui.filter_bar('/subscriptions/detail-report') %}
+  <div class="w-44">{{ ui.select('supervisor_id', 'Manager', supervisor_options, supervisor_id, placeholder='All managers') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-40">{{ ui.select('country', 'Country', country_options, country, placeholder='All countries') }}</div>
+  <div class="w-28">{{ ui.select('currency', 'Currency', currency_options, currency, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('teacher_id', 'Teacher', teacher_options, teacher_id, placeholder='All teachers') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', status_options, status, placeholder='All') }}</div>
+{% endcall %}
+
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+  {{ ui.stat('Subscriptions', rows|length, color=palette(0)) }}
+  {{ ui.stat('Total (' ~ base ~ ')', grand_base|money, color=palette(3)) }}
+  {% for t in totals[:4] %}{{ ui.stat(t.currency, t.amount|money, color=palette(loop.index + 4), hint=t.count ~ ' subscription(s)') }}{% endfor %}
+</div>
+
+{{ ui.table_start(['Subscription ID','Client','Country','Currency','Student','Teacher','Manager','Course','Session','Days','Status','Reg. Date','Next Due Date','Price','Price (' ~ base ~ ')'], compact=True) }}
+{% for s in rows %}
+<tr>
+  <td class="px-3 py-1.5 font-mono text-xs"><a href="/subscriptions/{{ s.id }}" class="text-brand-700 hover:underline">{{ s.subscription_code }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.client.country if s.client else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.currency }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.student.full_name if s.student else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.supervisor.full_name if s.supervisor else (s.teacher.supervisor.full_name if s.teacher and s.teacher.supervisor else '—') }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.course.name if s.course else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.slot.label if s.slot else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{% for d in s.days_of_week|sort %}{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d|int] }}{{ ',' if not loop.last }}{% endfor %}</td>
+  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.start_date|date }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.next_billing_date|date }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ s.price|money }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ s.price_in_base|money }}</td>
+</tr>
+{% else %}{{ ui.empty('No subscriptions match these filters.', 15) }}{% endfor %}
+{% for t in totals %}
+<tr class="bg-[#f7f9fc] text-xs font-semibold"><td class="px-3 py-1.5" colspan="13">Total {{ t.currency }} ({{ t.count }})</td><td class="px-3 py-1.5 text-right">{{ t.amount|money }}</td><td class="px-3 py-1.5 text-right">{{ t.base|money }}</td></tr>
+{% endfor %}
+{% if rows %}<tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-1.5" colspan="14">Grand total ({{ base }})</td><td class="px-3 py-1.5 text-right">{{ grand_base|money }}</td></tr>{% endif %}
+{{ ui.table_end() }}
+{% endblock %}

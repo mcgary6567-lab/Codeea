@@ -18,11 +18,13 @@ from app.database import get_db
 from app.models.core import User
 from app.models.crm import Survey, Feedback, Case
 from app.models.people import Client, Student, Employee, Teacher
+from app.models.scheduling import ClassSession
 from app.services import crm as svc
 
 router = APIRouter(dependencies=[Depends(csrf_protect)])
 
 SENTIMENTS = ["positive", "neutral", "negative"]
+FEEDBACK_SOURCES = [("manual", "Manual"), ("app", "App"), ("web_portal", "Web Portal"), ("client_portal", "Client Portal")]
 AUDIENCES = ["client", "student", "staff"]
 DEFAULT_QUESTIONS = [{"key": "nps", "type": "nps", "text": "How likely are you to recommend Online Quran College to a friend or family member?"},
                      {"key": "rating", "type": "rating", "text": "How would you rate the classes this month?"},
@@ -201,6 +203,89 @@ async def resolve_feedback(fid: int, request: Request, db: Session = Depends(get
                rationale=form.get("rationale") or form.get("note"), request=request)
     db.commit()
     return redirect(f"/feedback/{fb.id}", "Feedback marked resolved.")
+
+
+# ============================================================================= ERP: Client Feedbacks (Quality Management)
+@router.get("/qa/feedbacks", include_in_schema=False)
+def client_feedbacks(request: Request, page: int = 1, date_from: str = "", date_to: str = "", client_id: int | None = None,
+                     feedback_source: str = "", rating: int | None = None, teacher_id: int | None = None, q: str = "",
+                     db: Session = Depends(get_db), user: User = Depends(require("feedback.view"))):
+    base_q = db.query(Feedback).filter(Feedback.is_confidential.is_(False), Feedback.respondent_type != "staff",
+                                       Feedback.status.in_(["submitted", "routed", "resolved"]))
+    df, dt = parse_date(date_from), parse_date(date_to)
+    if df:
+        base_q = base_q.filter(Feedback.submitted_at >= datetime.combine(df, datetime.min.time()))
+    if dt:
+        base_q = base_q.filter(Feedback.submitted_at <= datetime.combine(dt, datetime.max.time()))
+    if client_id:
+        base_q = base_q.filter(Feedback.client_id == client_id)
+    if feedback_source:
+        base_q = base_q.filter(Feedback.feedback_source == feedback_source)
+    if teacher_id:
+        base_q = base_q.filter(Feedback.teacher_id == teacher_id)
+    if q:
+        base_q = base_q.filter(Feedback.comment.ilike(f"%{q}%"))
+    query = base_q
+    if rating:
+        query = query.filter(Feedback.rating == rating)
+    pg = paginate(query.order_by(Feedback.submitted_at.desc().nullslast(), Feedback.id.desc()), page, 25)
+    rows = base_q.with_entities(Feedback.rating).all()
+    rated = [r[0] for r in rows if r[0] is not None]
+    stats = {"total": len(rows), "avg": round(sum(rated) / len(rated), 2) if rated else 0.0,
+             "five": sum(1 for r in rated if r == 5), "low": sum(1 for r in rated if r <= 2)}
+    filter_qs = (f"date_from={date_from}&date_to={date_to}&client_id={client_id or ''}&feedback_source={feedback_source}"
+                 f"&teacher_id={teacher_id or ''}&q={q}")
+    clients = db.query(Client).filter(Client.status.in_(["active", "trial", "regular", "on_leave", "frozen"])).order_by(Client.full_name).limit(600).all()
+    students = db.query(Student).filter(Student.status.in_(["active", "trial", "frozen"])).order_by(Student.full_name).limit(800).all()
+    recent_sessions = (db.query(ClassSession).filter(ClassSession.status == "done", ClassSession.date >= date.today() - timedelta(days=14))
+                       .order_by(ClassSession.date.desc(), ClassSession.start_time.desc()).limit(300).all())
+    return render(request, "feedback/client_feedbacks.html", {
+        "user": user, "page": pg, "stats": stats, "date_from": df, "date_to": dt, "client_id": client_id, "feedback_source": feedback_source,
+        "rating": rating, "teacher_id": teacher_id, "q": q, "sources": FEEDBACK_SOURCES, "ratings": [(n, "%d Star%s" % (n, "" if n == 1 else "s")) for n in range(1, 6)],
+        "client_options": [(c.id, f"{c.client_code} - {c.full_name}") for c in clients],
+        "student_options": [(s.id, f"{s.student_code} - {s.full_name}") for s in students],
+        "teacher_options": [(t.id, t.full_name) for t in db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name)],
+        "session_options": [(s.id, f"#{s.id} {s.date.strftime('%d %b')} {s.start_time.strftime('%H:%M')} - {s.student.full_name if s.student else ''} / {s.teacher.full_name if s.teacher else ''}") for s in recent_sessions],
+        "base_url": f"/qa/feedbacks?rating={rating or ''}&{filter_qs}", "filter_qs": filter_qs, "today_iso": date.today().isoformat()})
+
+
+@router.post("/qa/feedbacks/new", include_in_schema=False)
+async def client_feedback_create(request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require("feedback.add", "feedback.update", any_of=True))):
+    form = await request.form()
+    client = db.get(Client, parse_int(form.get("client_id")) or 0)
+    student = db.get(Student, parse_int(form.get("student_id")) or 0) if form.get("student_id") else None
+    if not client and student:
+        client = student.client
+    if not client:
+        return redirect("/qa/feedbacks", "Select the client who gave the feedback.", "error")
+    if student and student.client_id != client.id:
+        return redirect("/qa/feedbacks", "That student does not belong to the selected client.", "error")
+    rating = parse_int(form.get("rating"))
+    if not rating or rating < 1 or rating > 5:
+        return redirect("/qa/feedbacks", "Choose a rating between 1 and 5 stars.", "error")
+    session = db.get(ClassSession, parse_int(form.get("session_id")) or 0) if form.get("session_id") else None
+    teacher = db.get(Teacher, parse_int(form.get("teacher_id")) or 0) if form.get("teacher_id") else None
+    if not teacher:
+        teacher = (session.teacher if session else None) or (student.teacher if student else None)
+    if not student and session:
+        student = session.student
+    fb = Feedback(trigger="manual", respondent_type="client", client_id=client.id, student_id=student.id if student else None,
+                  teacher_id=teacher.id if teacher else None, session_id=session.id if session else None, feedback_source="manual",
+                  status="pending", sent_at=datetime.utcnow(), is_confidential=False)
+    db.add(fb)
+    db.flush()
+    when = parse_date(form.get("date"))
+    submitted_at = datetime.combine(when, datetime.utcnow().time()) if when else datetime.utcnow()
+    # submit_feedback sets sentiment / is_negative and routes ratings <= 2 to a QA complaint Case
+    svc.submit_feedback(db, fb, None, rating, form.get("comment"), {"entered_by": user.full_name, "channel": "manual"}, submitted_at=submitted_at)
+    log_action(db, user, "create", "feedback", entity=fb, after=snapshot(fb), request=request,
+               description=f"Manual feedback #{fb.id} recorded for {client.full_name}: {rating}/5" + (f" (case #{fb.case_id} opened)" if fb.case_id else ""))
+    db.commit()
+    msg = f"Feedback recorded ({rating}/5)."
+    if fb.case_id:
+        msg += " A complaint case was opened for the QA team because the rating is 2 stars or lower."
+    return redirect("/qa/feedbacks", msg, "warning" if fb.case_id else "success")
 
 
 # ============================================================================= PUBLIC survey (no auth)

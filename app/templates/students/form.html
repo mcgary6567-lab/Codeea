@@ -3,9 +3,11 @@
 {% block title %}{{ 'Edit student' if mode == 'edit' else 'New student' }}{% endblock %}
 {% block content %}
 {% set v = values %}
-{{ ui.page_header(('Edit ' ~ student.student_code) if mode == 'edit' else 'Enrol a student',
+{% call ui.page_header(('Basic Detail · ' ~ student.student_code ~ ' · ' ~ student.full_name) if mode == 'edit' else 'Create Student',
    'Module 44 — the system recommends a teacher from course fit, gender safeguarding, timezone/shift overlap, current load and grade. Unverified teachers are never offered.',
-   back=('/students/' ~ student.id) if student else '/students') }}
+   back=('/students/' ~ student.id) if student else '/students') %}
+  {% if mode == 'edit' and change_log_url %}{{ ui.button('Change Log', href=change_log_url, icon='history', variant='secondary') }}{% endif %}
+{% endcall %}
 
 {% macro detail_fields(v) %}
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -32,11 +34,19 @@
   {{ ui.select('timezone', 'Student timezone', timezones, v.timezone or 'Europe/London', placeholder=None, help='Drives the shift/overlap score.') }}
   {{ ui.select('preferred_shift', 'Preferred shift', ['morning','evening','night'], v.preferred_shift, placeholder='No preference') }}
   {{ ui.select('preferred_language', 'Language', languages, v.preferred_language or 'English', placeholder=None) }}
-  {{ ui.select('status', 'Enrolment status', statuses, v.status or 'trial', placeholder=None) }}
+  {{ ui.select('status', 'Status', statuses, v.status or 'trial', placeholder=None) }}
   {{ ui.input('sabaq_position', 'Starting sabaq position', v.sabaq_position, placeholder='e.g. Juz 1, Surah Al-Baqarah 1-20') }}
   {{ ui.input('level', 'Level label', v.level, placeholder='Defaults to the division name') }}
+  {{ ui.input('email', 'Email', v.email, type='email', placeholder='Student\'s own email (optional)') }}
+  {{ ui.input('trial_days', 'Trial Days', v.trial_days if v.trial_days not in (None, '') else 3, type='number', min=0, max=30) }}
+  {{ ui.input('legacy_code', 'Legacy Code', v.legacy_code, placeholder='Code in the previous ERP') }}
+  {{ ui.input('referred_by', 'Referred By', v.referred_by, placeholder='Name of the referring family / person') }}
+  {{ ui.input('grade', 'Grade', v.grade, placeholder='School grade / level label') }}
+  {% if mode == 'edit' %}{{ ui.input('join_date', 'Registration Date', v.join_date, type='date') }}
+  {{ ui.input('drop_date', 'Drop Date', v.drop_date, type='date', help='Set automatically when the student drops out.') }}{% endif %}
 </div>
 <div class="mt-4">{{ ui.textarea('notes', 'Notes', v.notes, rows=2, placeholder='Learning needs, timings, family context…') }}</div>
+{% if mode == 'edit' %}<div class="mt-4">{{ ui.textarea('reason', 'Reason for status change (required only when the status changes)', '', rows=2, placeholder='Recorded on the audit trail; the parent and teacher are notified.') }}</div>{% endif %}
 {% endmacro %}
 
 {% if mode == 'edit' %}
@@ -53,7 +63,7 @@
     </div>
   {% endcall %}
   <div class="flex items-center gap-2">
-    {{ ui.button('Save changes', icon='save') }}
+    {{ ui.button('Apply Changes', icon='save') }}
     {{ ui.button('Cancel', href='/students/' ~ student.id, variant='secondary') }}
     {{ ui.button('Change teacher', href='/students/' ~ student.id ~ '/change-teacher', variant='secondary', icon='repeat') }}
   </div>
@@ -92,7 +102,7 @@
   <div class="xl:col-span-2">
     {% if ranked %}
     <form method="post" action="/students/new" x-data="{ chosen: '{{ v.teacher_id or ranked[0].teacher_id }}', top: '{{ ranked[0].teacher_id }}' }">
-      {% for k in ['full_name','gender','date_of_birth','age','course_id','division_id','level','timezone','preferred_shift','preferred_language','status','notes','sabaq_position','client_id','new_client_name','new_client_email','new_client_phone','new_client_country'] %}
+      {% for k in ['full_name','gender','date_of_birth','age','course_id','division_id','level','timezone','preferred_shift','preferred_language','status','notes','sabaq_position','client_id','new_client_name','new_client_email','new_client_phone','new_client_country','email','trial_days','legacy_code','referred_by','grade'] %}
       <input type="hidden" name="{{ k }}" value="{{ v[k] }}">
       {% endfor %}
       {% call ui.card("3 · Recommended teachers", "Ranked by course fit, safeguarding/gender fit, timezone overlap, load and grade.") %}
