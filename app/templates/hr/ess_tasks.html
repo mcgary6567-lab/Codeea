@@ -46,7 +46,7 @@
   <td class="px-3 py-2 text-xs max-w-[14rem] truncate" title="{{ r.collaborators|join(', ') }}">{{ r.collaborators|join(', ') if r.collaborators else '-' }}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ t.due_date|date if t.due_date else '-' }}</td>
   <td class="px-3 py-2 text-xs">{{ r.comments }}</td>
-  <td class="px-3 py-2">{{ ui.badge(t.status, t.status|label) }}</td>
+  <td class="px-3 py-2">{{ ui.badge(t.status, t.status|label('task')) }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {{ ui.button('Comment', icon='message-square', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','taskComment" ~ t.id ~ "')\"") }}
     {% if r.mine %}{{ ui.button('Status', icon='refresh-cw', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','taskStatus" ~ t.id ~ "')\"") }}{% endif %}

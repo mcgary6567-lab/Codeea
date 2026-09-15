@@ -169,3 +169,40 @@ grievance), plus Daily Report, Tasks and Profile reached from the same card.
 |---|---|---|
 | Fourteen cards, each its own page | One page with seven tabs, plus three linked pages | Fewer clicks for what one person checks about themselves; their card list is mirrored by the tab strip |
 | No confidential channel | A grievance channel separate from complaints | A complaint read by your own management chain is not a safe way to raise one about it |
+
+---
+
+## Status after the build
+
+Every gap listed above is built, seeded and tested.
+
+**Mark Attendance** sits on the overview with their Today's Attendance panel. One button clocks in, then out,
+then says the day is already marked, and it records the address the press came from. It reads the configured
+Attendance Login Time Relaxation, and the Attendance Logout Time Relaxation is taken off the shortage, so the
+portal, the Daily Attendance grid and payroll all work from one grace rule rather than three.
+
+**The attendance sheet** carries their columns, with Late Coming and Duration Shortage in minutes and negative
+when someone was early, and a **Request to Change** on every row. Raising one turns the cell into **Requested**;
+the People and Culture queue decides it and approving rewrites the row.
+
+**The account ledger** prints their columns with an opening balance for the range, a running balance, a search
+and a print view. Lines are posted from what already happens: a payroll run, an advance paid out and each
+instalment recovered, a bonus, a violation fine, and the salary payment when a run is marked paid. Each line is
+keyed by whose it is plus what it refers to, so nothing is ever posted twice.
+
+**Team Management** shows the reporting line nested to its real depth and lets a manager raise a violation or a
+bonus against anyone beneath them, checked by walking the tree rather than trusting the form. Both land pending
+on the existing People and Culture queues; nobody decides their own proposal.
+
+**Tasks** are split into mine, ones I assigned, and my team's, with collaborators and a comment count. **The
+daily progress sheet** is written, edited while it is a draft, and submitted, after which the employee can no
+longer change it and a manager can rate it. **Salary slips** print per month.
+
+### Deliberate differences from the ERP
+
+| Theirs | Ours | Why |
+|---|---|---|
+| Fourteen cards, each its own page | One page with a tab strip, plus four pages of its own | Fewer clicks for what one person checks about themselves; the card list is mirrored by the tabs |
+| No confidential channel | A grievance channel separate from complaints | A complaint read by your own management chain is not a safe way to raise one about it |
+| My Profile renders empty | A working profile page | Nothing to match, so ours stands |
+| Raising is open to whoever holds the menu | Checked against the reporting tree on every request | A form field naming somebody outside your team is refused, not trusted |

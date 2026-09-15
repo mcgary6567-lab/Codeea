@@ -58,6 +58,10 @@ STATUS_COLORS = {
 
 # Display labels that match the college's existing ERP vocabulary. Use ``{{ value|label('student') }}``.
 STATUS_LABELS: dict[str, dict[str, str]] = {
+    # Their task list reads Draft / Pending / Completed / Cancelled. Ours stores its own values; this only
+    # changes the word on screen, never what is stored.
+    "task": {"draft": "Draft", "todo": "Pending", "in_progress": "In Progress", "review": "In Review",
+             "done": "Completed", "completed": "Completed", "cancelled": "Cancelled", "blocked": "Blocked"},
     "client": {"trial": "Trial", "active": "Regular", "regular": "Regular", "inactive": "Black List", "black_list": "Black List",
                "churned": "Drop Out", "drop_out": "Drop Out", "on_leave": "On Leave", "frozen": "On Leave", "pass_out": "Pass Out"},
     "student": {"trial": "Trial", "active": "Regular", "regular": "Regular", "frozen": "On Leave", "on_leave": "On Leave",

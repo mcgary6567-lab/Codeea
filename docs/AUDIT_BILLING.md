@@ -100,3 +100,30 @@ The same shape as billing groups, for the people who close leads.
 2. **Balance limit on the family**, then **Clients Financial Summary** over it.
 3. **Notify** from the summary, reusing the existing notification templates and WhatsApp senders.
 4. **Verify Leads**, wiring the existing lead conversion so it records the client code and the verifier.
+
+---
+
+## Status after the build
+
+Everything in the gap list above is built, seeded and tested.
+
+**Clients Financial Summary** carries their twenty-one columns per family, their four saved views, the tiles,
+print and CSV. The balance limit is a column on the family, and Exceeded is derived from it; a family with no
+limit set is never counted as exceeded. **Notify** messages the selected families through the notification
+templates and WhatsApp senders that already existed, respects each family's opt-in and audits every send.
+
+**Verify Leads** is the queue between a raw lead and a family, with their columns and tiles. A decision records
+who made it and when; converting records the client code the lead became, which is what fills their Client Code
+column. A lead pushed in by the college's marketing tool arrives with no contact details, so it can be forwarded
+or rejected but never verified until someone fills the record in.
+
+**Billing Groups** turned out to be the client groups page we already had, so it is listed here rather than
+duplicated. **Lead Closers** is the catalogue beside it.
+
+### Deliberate differences from the ERP
+
+| Theirs | Ours | Why |
+|---|---|---|
+| Nothing loads until a filter is applied | The page opens on every family | Ours is fast enough to open on the whole list, and an empty screen hides the number the page exists to show |
+| Saved reports belong to a user | Four fixed views in the address | The views people actually use, without rebuilding a report designer |
+| State, City and Zip Code on a lead | Country and city only | Our lead record holds no state or postcode; the columns render a dash and the page says so |

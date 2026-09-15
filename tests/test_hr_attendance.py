@@ -150,13 +150,31 @@ def test_grid_row_saves_status_and_times(admin, db, emp, fixtures):
 
 def test_duration_and_shortage(db, emp):
     duty = svc.session_duty_hours(emp)
+    # Leaving early is forgiven up to the configured Attendance Logout Time Relaxation, the same value the
+    # portal and payroll read, so the expected figure has to allow for it rather than hard-code a number.
+    svc.sync_grace_minutes(db)
+    grace = max(0, svc.EARLY_LEAVE_GRACE_MINUTES) / 60.0
     row = HRAttendance(employee_id=emp.id, date=DAY, session="am", status="present",
                        check_in=datetime.combine(DAY, time(9, 0)),
                        check_out=datetime.combine(DAY, time(11, 0)))
     assert svc.worked_hours(row) == 2.0
-    assert svc.shortage_hours(row, emp) == round(max(0.0, duty - 2.0), 2)
+    assert svc.shortage_hours(row, emp) == round(max(0.0, duty - 2.0 - grace), 2)
     row.status = "absent"
     assert svc.worked_hours(row) == 0.0 and svc.shortage_hours(row, emp) == 0.0
+
+
+def test_leaving_within_the_logout_relaxation_is_not_a_shortage(db, emp):
+    svc.sync_grace_minutes(db)
+    grace = max(0, svc.EARLY_LEAVE_GRACE_MINUTES)
+    if grace == 0:
+        pytest.skip("no logout relaxation configured")
+    duty = svc.session_duty_hours(emp)
+    start = datetime.combine(DAY, time(9, 0))
+    row = HRAttendance(employee_id=emp.id, date=DAY, session="am", status="present", check_in=start,
+                       check_out=start + timedelta(hours=duty) - timedelta(minutes=grace))
+    assert svc.shortage_hours(row, emp) == 0.0, "within the relaxation, nothing is owed"
+    row.check_out = start + timedelta(hours=duty) - timedelta(minutes=grace + 30)
+    assert svc.shortage_hours(row, emp) == 0.5, "beyond it, only the excess counts"
 
 
 # --------------------------------------------------------------------------- Attendance Change Requests

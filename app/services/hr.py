@@ -21,6 +21,9 @@ from app.models.people import (Employee, Teacher, Student, HRAttendance, Leave, 
                                OnboardingTask, ProvisioningRecord, Candidate, DevelopmentPlan, Bonus, SalaryAdvance)
 
 LATE_GRACE_MINUTES = 10
+# Their Configuration carries a logout relaxation beside the login one: minutes of leaving early
+# that do not count as a shortage. sync_grace_minutes() points both at the configured values.
+EARLY_LEAVE_GRACE_MINUTES = 0
 GRIEVANCE_SLA_DAYS = 5
 GRIEVANCE_ROLES = {"hod_people", "super_admin"}  # confidential channel — never department heads
 DEFAULT_LEAVE_ALLOWANCE = {"casual": 20, "sick": 10, "annual": 0, "emergency": 3}
@@ -874,7 +877,8 @@ def shortage_hours(row: Optional[HRAttendance], employee: Optional[Employee] = N
     if row is None or row.status not in WORKED_STATUSES:
         return 0.0
     owed = session_duty_hours(employee if employee is not None else row.employee)
-    return round(max(0.0, owed - worked_hours(row)), 2)
+    grace = max(0, EARLY_LEAVE_GRACE_MINUTES) / 60.0
+    return round(max(0.0, owed - worked_hours(row) - grace), 2)
 
 
 def employee_line(employee: Optional[Employee]) -> str:
@@ -1248,14 +1252,15 @@ def grace_minutes(db: Session, key: str = GRACE_LOGIN_KEY, default: Optional[int
 
 
 def sync_grace_minutes(db: Session) -> int:
-    """Point this module's LATE_GRACE_MINUTES at the configured Attendance Login Time Relaxation.
+    """Point this module's grace constants at the configured Attendance Time Relaxations.
 
     recompute_late_minutes() reads the module constant, so doing it here means every caller -- the self
     portal, the Daily Attendance grid and payroll -- keeps using the one grace rule the college configured
     rather than a second one invented for the portal.
     """
-    global LATE_GRACE_MINUTES
+    global LATE_GRACE_MINUTES, EARLY_LEAVE_GRACE_MINUTES
     LATE_GRACE_MINUTES = grace_minutes(db)
+    EARLY_LEAVE_GRACE_MINUTES = grace_minutes(db, GRACE_LOGOUT_KEY, 0)
     return LATE_GRACE_MINUTES
 
 
