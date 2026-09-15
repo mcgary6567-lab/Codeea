@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.utils import next_code
 from app.core.security import hash_password
 from app.models.academic import Course, Division
 from app.models.core import User, Role, Department, Branch
@@ -82,7 +83,9 @@ def run(db: Session) -> None:
         base = {"people": 120000, "finance": 110000, "academics": 115000, "qa": 105000, "technology": 130000, "marketing": 110000, "operations": 85000}[dept]
         if "Officer" in designation or "Representative" in designation or "Generator" in designation or "Closer" in designation or "Accountant" in designation or "Coordinator" in designation or "Supervisor" in designation:
             base = 55000
-        e = Employee(employee_code=f"E-{i:05d}", user_id=u.id, full_name=u.full_name, designation=designation, department_id=depts[dept].id,
+        # The code is allocated from the next free one, never from this list's position: production keeps
+        # the codes it already issued, so inserting a name here used to renumber everybody and collide.
+        e = Employee(employee_code=next_code(db, Employee, "employee_code", "E-"), user_id=u.id, full_name=u.full_name, designation=designation, department_id=depts[dept].id,
                      branch_id=branch.id, gender="female" if any(n in u.full_name for n in ("Sana", "Ayesha", "Nadia", "Rabia", "Hina", "Maryam", "Fatima")) else "male",
                      email=email, phone=f"+92 3{rnd.randint(0, 4)}{rnd.randint(1000000, 9999999)}", join_date=date.today() - timedelta(days=rnd.randint(200, 1500)),
                      employment_type="full_time", shift="night" if "Night" in designation else "morning", shift_start="09:00", shift_end="17:00",
