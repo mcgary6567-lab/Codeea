@@ -18,7 +18,9 @@
 </form>
 {% endcall %}</div>
 {% else %}
-{{ ui.tabs(tabs, tab) }}
+{# The area sidebar lists these same pages on a wide screen, so the strip only appears where the
+   sidebar does not: no screen shows the same destinations twice. #}
+<div class="lg:hidden">{{ ui.tabs(tabs, tab) }}</div>
 
 {% if tab == 'overview' %}
 {# Today's Attendance — the panel their dashboard carries, and the button staff open the portal for. #}

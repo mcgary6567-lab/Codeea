@@ -11,7 +11,9 @@
   {{ ui.button('Create a task', href='/tasks?layout=list', icon='plus') }}
 {% endcall %}
 
-{{ ui.tabs(links, active) }}
+{# The area sidebar lists these same pages on a wide screen, so the strip only appears where the
+   sidebar does not: no screen shows the same destinations twice. #}
+<div class="lg:hidden">{{ ui.tabs(links, active) }}</div>
 
 <div class="grid gap-4 sm:grid-cols-3 mb-6">
   {% for t in tiles %}

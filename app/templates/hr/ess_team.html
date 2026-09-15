@@ -13,7 +13,9 @@
   {% endif %}
 {% endcall %}
 
-{{ ui.tabs(links, active) }}
+{# The area sidebar lists these same pages on a wide screen, so the strip only appears where the
+   sidebar does not: no screen shows the same destinations twice. #}
+<div class="lg:hidden">{{ ui.tabs(links, active) }}</div>
 
 {% if no_record %}<div class="mb-4">{{ ui.alert(no_record, 'warning') }}</div>{% endif %}
 
