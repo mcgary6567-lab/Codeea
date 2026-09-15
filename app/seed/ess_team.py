@@ -33,6 +33,7 @@ ACTIVE = ["active", "probation", "on_leave"]
 # survives the exact wording of a seeded title ("Operations Manager (Morning Shift)" and the rest).
 HEAD_PREFIX = "Head of"
 ACADEMICS_HEAD = "Head of Academics"
+CHIEF_DESIGNATION = "Chief Executive"
 
 # Demo tasks owned by teachers, so a supervisor's "Others Tasks" tab has rows. (title, days from today)
 TEAM_TASKS = [
@@ -97,6 +98,14 @@ def _reporting_line(db: Session) -> tuple[int, int]:
         if e.id in plan or (e.designation or "").startswith(HEAD_PREFIX):
             continue
         assign(e, heads.get(e.department_id) if e.department_id else None)
+    # The heads answer to the chief executive, so the tree has one root the way theirs does rather than a
+    # row of unconnected heads. The chief executive reports to nobody.
+    chief = next((e for e in staff if (e.designation or "").startswith(CHIEF_DESIGNATION)), None)
+    if chief is not None:
+        plan.pop(chief.id, None)
+        for e in staff:
+            if e.id != chief.id and (e.designation or "").startswith(HEAD_PREFIX):
+                assign(e, chief)
 
     linked = 0
     for e in staff:

@@ -565,11 +565,29 @@ def test_the_seed_built_a_reporting_line_with_depth(session):
     assert session.query(Task).filter(Task.collaborator_ids != []).count() >= 1
 
 
-def test_an_account_with_no_employee_record_is_told_so(admin, session):
-    """The administrator has no employee record; the pages say so rather than falling over."""
-    assert session.query(Employee).filter(Employee.user_id == _user(session, "admin@oqc.local").id).count() == 0
+def test_an_account_with_no_employee_record_is_told_so(session):
+    """A login with no staff record, such as the external auditor, is told so rather than falling over.
+
+    The chief executive used to be the example here. They are a member of staff now, like theirs, so the
+    account that genuinely has no employee record is the external one.
+    """
+    outsider = _user(session, "auditor@oqc.local")
+    assert session.query(Employee).filter(Employee.user_id == outsider.id).count() == 0
+    c = _client("auditor@oqc.local", "Auditor@123")
     for url in ["/hr/me/team", "/hr/me/progress"]:
-        r = admin.get(url)
+        r = c.get(url)
         assert r.status_code == 200
         assert "No employee record is linked" in r.text
-    assert admin.get("/hr/me/tasks").status_code == 200
+    assert c.get("/hr/me/tasks").status_code == 200
+
+
+def test_the_chief_executive_has_a_working_portal(session):
+    """The account the college signs in with is a member of staff, so the portal has something to show."""
+    chief = session.query(Employee).filter(
+        Employee.user_id == _user(session, "admin@oqc.local").id).one_or_none()
+    assert chief is not None, "the chief executive should be on the payroll like anyone else"
+    assert chief.manager_id is None, "and should report to nobody"
+    c = _client("admin@oqc.local", "Admin@12345")
+    body = c.get("/hr/me").text
+    assert "not linked to an employee record" not in body
+    assert c.get("/hr/me/team").status_code == 200

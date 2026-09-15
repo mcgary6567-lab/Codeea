@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import rbac
-from app.core.nav import nav_for, home_for, breadcrumbs_for, TILE, palette  # noqa: F401
+from app.core.nav import nav_for, home_for, breadcrumbs_for, section_for_path, TILE, palette  # noqa: F401
 from app.core.security import mask
 from app.core.utils import pop_flash, money, humanize_delta, pct
 
@@ -164,6 +164,8 @@ def render(request: Request, template: str, context: Optional[dict] = None, stat
     ctx["crumbs"] = breadcrumbs_for(user, request.url.path) if user else []
     ctx["flash_messages"] = pop_flash(request)
     ctx["current_path"] = request.url.path
+    # The ERP keeps a sidebar of the current area's pages beside every page; this is what it lists.
+    ctx["current_section"] = section_for_path(user, request.url.path) if user else None
     ctx.update(_layout_globals())
     if user is not None and "unread_count" not in ctx:
         db: Optional[Session] = getattr(request.state, "db", None)

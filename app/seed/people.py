@@ -29,6 +29,9 @@ TEACHERS = [  # name, gender, courses, shift, grade
 ]
 
 STAFF = [  # email (existing user), designation, dept
+    # The chief executive is a member of staff like anyone else, and signs in with the account the college
+    # actually uses. Without an employee record their self portal has nothing to show.
+    ("admin@oqc.local", "Chief Executive Officer", "operations"),
     ("hr@oqc.local", "Head of People & Culture", "people"), ("finance@oqc.local", "Head of Finance", "finance"),
     ("academics@oqc.local", "Head of Academics", "academics"), ("qa@oqc.local", "Head of QA", "qa"),
     ("tech@oqc.local", "Head of Technology", "technology"), ("marketing@oqc.local", "Head of Marketing", "marketing"),

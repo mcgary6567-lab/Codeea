@@ -481,5 +481,31 @@ def breadcrumbs_for(user, path: str) -> list[dict]:
     return crumbs
 
 
+def section_for_path(user, path: str) -> dict | None:
+    """The area the current page belongs to, for the sidebar the ERP keeps beside every page.
+
+    Matched on the longest item URL, the same way breadcrumbs_for does, so /hr/me/ledger resolves to the
+    Employee Self Portal rather than to whichever section happens to be listed first.
+    """
+    if path in ("/home", "/"):
+        return None
+    best_section, best_len = None, -1
+    for section in nav_for(user):
+        if path == f"/home/{section['slug']}":
+            return section
+        for g in section.get("groups", []):
+            if path == g["url"]:
+                return section
+            for item in g["items"]:
+                u = item["url"].split("?")[0]
+                if (path == u or path.startswith(u.rstrip("/") + "/")) and len(u) > best_len:
+                    best_section, best_len = section, len(u)
+        for item in (section["items"] if not section.get("groups") else []):
+            u = item["url"].split("?")[0]
+            if (path == u or path.startswith(u.rstrip("/") + "/")) and len(u) > best_len:
+                best_section, best_len = section, len(u)
+    return best_section
+
+
 def home_for(user) -> str:
     return PORTAL_HOME.get(user.portal if user else "admin", "/home")
