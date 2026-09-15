@@ -27,8 +27,8 @@ from app.models.core import User, Role, Department, Branch, AuditEvent, Setting
 from app.models.people import (Employee, Teacher, Student, HRAttendance, Leave, Violation, Grievance, SalaryStructure,
                                OnboardingTask, ProvisioningRecord, RecruitmentRequest, Candidate, Interview,
                                DevelopmentPlan, Bonus, SalaryAdvance, PayrollRun, Payslip, TrainingAssignment)
-from app.models.hr_erp import (DESIGNATIONS, EMPLOYEE_REQUEST_TYPES, EMPLOYEE_TYPES, EmployeeRequest, Grade,
-                               ViolationType)
+from app.models.hr_erp import (DESIGNATIONS, EMPLOYEE_REQUEST_TYPES, EMPLOYEE_TYPES, STAFF_COMPLAINT_TYPES,
+                               EmployeeRequest, Grade, ViolationType)
 from app.services import hr as svc
 from app.services import payroll as pay
 # Employment Management shares its list helpers with app/web/staff_requests.py so all eight ERP pages
@@ -45,8 +45,13 @@ EMPLOYEE_TABS = [("overview", "Overview"), ("attendance", "Attendance"), ("leave
                  ("payslips", "Payslips"), ("violations", "Violations"), ("comp", "Bonuses & Advances"),
                  ("onboarding", "Onboarding"), ("provisioning", "Provisioning"), ("development", "Development"),
                  ("documents", "Documents"), ("audit", "Audit")]
-ME_TABS = [("overview", "Overview"), ("attendance", "My attendance"), ("leaves", "My leaves"), ("payslips", "My payslips"),
-           ("violations", "My record"), ("development", "My development"), ("grievance", "Raise a grievance")]
+# The tab strip mirrors the fourteen cards of their Employee Self Portal (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md).
+# Tasks, Daily Progress Sheet and Team Management are pages of their own (/hr/me/tasks, /hr/me/progress,
+# /hr/me/team); Notifications, Downloads and My Profile are platform-wide pages the launchpad links direct.
+ME_TABS = [("overview", "Overview"), ("schedule", "My Schedule"), ("attendance", "Attendance Sheet"),
+           ("requests", "Requests"), ("leaves", "My Leaves"), ("payslips", "Salary Slips"),
+           ("violations", "Violations"), ("bonuses", "Bonuses"), ("complaints", "Complaints"),
+           ("development", "My Development"), ("grievance", "Raise a Grievance")]
 EMP_STATUSES = ["active", "probation", "on_leave", "resigned", "terminated"]
 EMPLOYMENT_TYPES = ["full_time", "part_time", "contract"]
 SHIFTS = ["morning", "evening", "night"]
@@ -568,8 +573,8 @@ async def employee_provision(id: int, request: Request, db: Session = Depends(ge
 
 # ============================================================================== SELF SERVICE
 @router.get("/me", include_in_schema=False)
-def me(request: Request, tab: str = "overview", month: str = "", db: Session = Depends(get_db),
-       ctx: UserContext = Depends(get_user_context)):
+def me(request: Request, tab: str = "overview", month: str = "", date_from: str = "", date_to: str = "",
+       attendance_type: str = "", db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context)):
     user = ctx.user
     e = ctx.employee
     month = _month_param(month)
@@ -584,12 +589,30 @@ def me(request: Request, tab: str = "overview", month: str = "", db: Session = D
     for r in rows:
         grid.setdefault(r.date, {})[r.session] = r
     today_rows = {r.session: r for r in db.query(HRAttendance).filter(HRAttendance.employee_id == e.id, HRAttendance.date == date.today())}
+    # Their Attendance Sheet filters are From Date / To Date / Attendance Type, defaulting to this month.
+    sheet_from = parse_date(date_from) or start
+    sheet_to = parse_date(date_to) or end
+    if sheet_to < sheet_from:
+        sheet_from, sheet_to = sheet_to, sheet_from
+    atype = attendance_type if attendance_type in dict(svc.ESS_ATTENDANCE_TYPES) else ""
     data.update({"summary": svc.attendance_summary(db, e.id, start, end), "grid": sorted(grid.items(), reverse=True),
                  "today_rows": today_rows, "kpis": svc.employee_kpis(db, e, month),
+                 # Today's Attendance panel and the one Mark Attendance button, as their dashboard has it.
+                 "today_attendance": svc.attendance_window(db, e),
+                 "sheet": svc.attendance_sheet(db, e, sheet_from, sheet_to, atype),
+                 "sheet_from": sheet_from.isoformat(), "sheet_to": sheet_to.isoformat(),
+                 "attendance_type": atype, "attendance_types": svc.ESS_ATTENDANCE_TYPES,
+                 "change_statuses": [("present", "Present"), ("late", "Late Coming"), ("absent", "Absent"),
+                                     ("leave", "On Leave"), ("half_day", "Half Day")],
                  "leaves": db.query(Leave).filter(Leave.person_type == "employee", Leave.employee_id == e.id).order_by(Leave.start_date.desc()).limit(30).all(),
                  "balance": svc.leave_balance(db, e),
-                 "payslips": db.query(Payslip).filter(Payslip.employee_id == e.id).order_by(Payslip.id.desc()).limit(12).all(),
+                 "payslips": db.query(Payslip).filter(Payslip.employee_id == e.id).order_by(Payslip.id.desc()).limit(24).all(),
                  "violations": db.query(Violation).filter(Violation.employee_id == e.id).order_by(Violation.date.desc()).all(),
+                 "bonuses": db.query(Bonus).filter(Bonus.employee_id == e.id).order_by(Bonus.id.desc()).all(),
+                 "advances": db.query(SalaryAdvance).filter(SalaryAdvance.employee_id == e.id).order_by(SalaryAdvance.id.desc()).all(),
+                 "complaints": _my_complaints(db, e),
+                 "complaint_types": STAFF_COMPLAINT_TYPES,
+                 "schedule": _my_schedule(db, e),
                  "plan": db.query(DevelopmentPlan).filter(DevelopmentPlan.employee_id == e.id).order_by(DevelopmentPlan.id.desc()).first(),
                  "trainings": (db.query(TrainingAssignment).filter(TrainingAssignment.teacher_id == e.teacher.id)
                                .order_by(TrainingAssignment.id.desc()).all() if e.teacher else []),
@@ -599,6 +622,39 @@ def me(request: Request, tab: str = "overview", month: str = "", db: Session = D
                                   .order_by(EmployeeRequest.id.desc()).limit(20).all(),
                  "request_types": EMPLOYEE_REQUEST_TYPES})
     return render(request, "hr/me.html", data)
+
+
+def _my_complaints(db: Session, e: Employee) -> list:
+    """The signed-in employee's own complaints (the confidential channel stays on the grievance tab)."""
+    from app.models.hr_erp import StaffComplaint
+    return (db.query(StaffComplaint).filter(StaffComplaint.employee_id == e.id)
+            .order_by(StaffComplaint.id.desc()).limit(30).all())
+
+
+def _my_schedule(db: Session, e: Employee) -> dict:
+    """My Schedule: a teacher's own upcoming classes; for everyone else, their shift and duty hours.
+
+    Theirs opens the teacher's Online Class page. A member of the admin or marketing staff has no classes,
+    so rather than an empty grid they get the working pattern the attendance rules are measured against.
+    """
+    start, end = svc.shift_minutes(e)
+    out: dict = {"is_teacher": e.teacher is not None, "sessions": [], "counts": {},
+                 "shift": (e.shift or "").title() or "-",
+                 "shift_window": f"{start // 60:02d}:{start % 60:02d} - {(end // 60) % 24:02d}:{end % 60:02d}",
+                 "duty_hours": float(getattr(e, "duty_hours", None) or svc.DEFAULT_DUTY_HOURS),
+                 "session_duty_hours": svc.session_duty_hours(e),
+                 "holidays": svc.holidays_between(db, date.today(), date.today() + timedelta(days=60), e.shift)}
+    if e.teacher is None:
+        return out
+    from app.models.scheduling import ClassSession
+    today = date.today()
+    rows = (db.query(ClassSession)
+            .filter(ClassSession.teacher_id == e.teacher.id, ClassSession.date >= today,
+                    ClassSession.date <= today + timedelta(days=14))
+            .order_by(ClassSession.date, ClassSession.start_time).limit(60).all())
+    out["sessions"] = rows
+    out["counts"] = {"upcoming": len(rows), "today": sum(1 for r in rows if r.date == today)}
+    return out
 
 
 @router.post("/me/check", include_in_schema=False)
@@ -683,6 +739,81 @@ async def me_grievance(request: Request, db: Session = Depends(get_db), ctx: Use
                        is_anonymous=parse_bool(form.get("is_anonymous")), request=request)
     db.commit()
     return redirect("/hr/me?tab=grievance", "Your grievance was sent confidentially to the Head of People & Culture.")
+
+
+# ------------------------------------------------------------------ Mark Attendance (their dashboard button)
+@router.post("/me/attendance/mark", include_in_schema=False)
+async def me_mark_attendance(request: Request, db: Session = Depends(get_db),
+                             ctx: UserContext = Depends(get_user_context)):
+    """Their **Mark Attendance** button: first press of the day clocks in, the next clocks out, a third says so.
+
+    The request IP is recorded on the attendance row, and the late figure comes from the shared
+    recompute_late_minutes so payroll reads exactly what the member of staff reads.
+    """
+    if ctx.employee is None:
+        return redirect("/hr/me", "No employee record is linked to your account.", "error")
+    row, action, message = svc.punch(db, ctx.employee, ctx.user,
+                                     ip=request.client.host if request.client else None, request=request)
+    db.commit()
+    return redirect("/hr/me", message, "success" if action != "none" else "warning")
+
+
+# ------------------------------------------------------------------ Requests: self-service advance
+@router.post("/me/advance", include_in_schema=False)
+async def me_advance(request: Request, db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context)):
+    """Their Advance Request form: Request Date, Amount, No Of Installments, Remarks. Hr Remarks is theirs."""
+    if ctx.employee is None:
+        return redirect("/hr/me", "No employee record is linked to your account.", "error")
+    form = await request.form()
+    amount = parse_float(form.get("amount"), 0)
+    if amount <= 0:
+        return redirect("/hr/me?tab=requests", "The advance amount must be greater than zero.", "error")
+    a = svc.request_advance(db, ctx.employee, amount, max(1, parse_int(form.get("installments"), 1) or 1),
+                            (form.get("reason") or form.get("remarks") or "").strip() or None, ctx.user,
+                            request=request)
+    a.request_date = parse_date(form.get("request_date")) or date.today()
+    db.commit()
+    return redirect("/hr/me?tab=requests", f"Advance request for {erp_money(a.amount)} sent to People & Culture.")
+
+
+# ------------------------------------------------------------------ Account Ledger
+@router.get("/me/ledger", include_in_schema=False)
+def me_ledger(request: Request, date_from: str = "", date_to: str = "", q: str = "", print_view: int = 0,
+              db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context)):
+    """Their Account Ledger: Srl., Date, VID, Description, Amount Dr., Amount Cr., Balance, with Print.
+
+    Scoped to the signed-in member of staff; nobody reads anyone else's account from here.
+    """
+    e = ctx.employee
+    if e is None:
+        return render(request, "hr/me_ledger.html", {"user": ctx.user, "e": None, "report": None,
+                                                     "date_from": date_from, "date_to": date_to, "q": q,
+                                                     "print_view": bool(print_view), "qs": ""})
+    df, dt_ = parse_date(date_from), parse_date(date_to)
+    if df and dt_ and dt_ < df:
+        df, dt_ = dt_, df
+    report = svc.employee_ledger(db, e, df, dt_, q)
+    qs = f"date_from={df or ''}&date_to={dt_ or ''}&q={q}"
+    return render(request, "hr/me_ledger.html", {
+        "user": ctx.user, "e": e, "report": report, "q": q,
+        "date_from": df.isoformat() if df else "", "date_to": dt_.isoformat() if dt_ else "",
+        "print_view": bool(print_view), "qs": qs})
+
+
+# ------------------------------------------------------------------ Salary Slips: per-month print
+@router.get("/me/payslips/{id}/print", include_in_schema=False)
+def me_payslip_print(id: int, request: Request, print_view: int = 0, db: Session = Depends(get_db),
+                     ctx: UserContext = Depends(get_user_context)):
+    """One month's salary slip, laid out for paper. Their Salary Slips list prints a row this way."""
+    ps = db.get(Payslip, id)
+    if not ps:
+        raise HTTPException(404, "Payslip not found")
+    own = ctx.employee is not None and ps.employee_id == ctx.employee.id
+    if not own and not rbac.has_permission(ctx.user, "payroll.view"):
+        raise PermissionDenied("payroll.view")
+    return render(request, "hr/me_payslip_print.html", {"user": ctx.user, "ps": ps, "own": own,
+                                                        "e": ps.employee, "run": ps.payroll_run,
+                                                        "print_view": bool(print_view)})
 
 
 # ============================================================================== TIME AND ATTENDANCE MANAGEMENT
@@ -2515,6 +2646,7 @@ async def payroll_post(id: int, request: Request, db: Session = Depends(get_db),
     except (ValueError, PermissionError) as exc:
         return redirect(f"/hr/payroll/{run.id}", str(exc), "error")
     pay.generate_run_pdfs(db, run)
+    pay.post_run_to_employee_ledgers(db, run, user)   # each payslip onto its employee's Account Ledger
     db.commit()
     return redirect(f"/hr/payroll/{run.id}", f"Payroll {run.period} posted and locked.")
 
@@ -2556,6 +2688,7 @@ async def payroll_approve(id: int, request: Request, db: Session = Depends(get_d
         pay.approve_payroll(db, run, user, rationale=form.get("rationale") or "", request=request)
     except (ValueError, PermissionError) as exc:
         return redirect(f"/hr/payroll/{run.id}", str(exc), "error")
+    pay.post_run_to_employee_ledgers(db, run, user)   # each payslip onto its employee's Account Ledger
     db.commit()
     return redirect(f"/hr/payroll/{run.id}", f"Payroll {run.period} approved and posted to the ledger.")
 
@@ -2763,6 +2896,9 @@ async def violations_change_status(request: Request, db: Session = Depends(get_d
         else:
             v.deduction_amount = 0
             v.status = "closed"
+        if status == "approved":
+            # The fine lands on the employee's Account Ledger as a credit; keyed, so it is written once.
+            svc.post_violation_ledger(db, v, user)
         log_action(db, user, "approve" if status == "approved" else "status_change", "violations", entity=v,
                    description=f"Staff violation #{v.id} moved from {before['approval_status']} to {status}"
                                + (f"; fine {erp_money(v.deduction_amount)} applied" if status == "approved" else ""),

@@ -1217,3 +1217,311 @@ def attendance_report(db: Session, start: date, end: date, employee_ids: Optiona
                     "sessions": len(rows), "working_days": working_days(db, start, end, emp)})
     out.sort(key=lambda r: r["employee"].full_name)
     return out
+
+
+# ============================================================================== Employee Self Portal
+# The self portal's three new pieces (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md): Mark Attendance from the
+# dashboard, the Attendance Sheet with Late Coming / Duration Shortage, and the Account Ledger. Nothing
+# here re-derives lateness or shortage: it all goes through recompute_late_minutes / shortage_hours above
+# so a member of staff reads exactly the figures payroll reads.
+
+# The ERP's Configuration -> Branch Properties carry the grace periods (seeded by app/seed/config_erp.py
+# as Setting rows). They are read through here rather than being re-implemented, so there is one grace rule.
+GRACE_LOGIN_KEY = "attendance_login_time_relaxation"
+GRACE_LOGOUT_KEY = "attendance_logout_time_relaxation"
+
+
+def branch_property(db: Session, key: str, default):
+    """One Branch Property value. They are stored as Setting rows whose value is ``{"value": ...}``."""
+    raw = setting_value(db, key, None)
+    if isinstance(raw, dict):
+        raw = raw.get("value")
+    return default if raw is None else raw
+
+
+def grace_minutes(db: Session, key: str = GRACE_LOGIN_KEY, default: Optional[int] = None) -> int:
+    fallback = LATE_GRACE_MINUTES if default is None else default
+    try:
+        return max(0, int(branch_property(db, key, fallback)))
+    except (TypeError, ValueError):
+        return int(fallback)
+
+
+def sync_grace_minutes(db: Session) -> int:
+    """Point this module's LATE_GRACE_MINUTES at the configured Attendance Login Time Relaxation.
+
+    recompute_late_minutes() reads the module constant, so doing it here means every caller -- the self
+    portal, the Daily Attendance grid and payroll -- keeps using the one grace rule the college configured
+    rather than a second one invented for the portal.
+    """
+    global LATE_GRACE_MINUTES
+    LATE_GRACE_MINUTES = grace_minutes(db)
+    return LATE_GRACE_MINUTES
+
+
+def current_session(when: Optional[datetime] = None, employee: Optional[Employee] = None) -> str:
+    """Which half of the duty day a punch belongs to."""
+    now = when or org_now()
+    if employee is not None:
+        start, end = shift_minutes(employee)
+        mid = start + (end - start) // 2
+        minutes = now.hour * 60 + now.minute
+        if minutes < start and employee.shift == "night":
+            minutes += 24 * 60
+        return "pm" if minutes >= mid else "am"
+    return "pm" if now.hour >= 13 else "am"
+
+
+def punch(db: Session, employee: Employee, user: Optional[User], ip: Optional[str] = None,
+          when: Optional[datetime] = None, request=None) -> tuple:
+    """Their dashboard's **Mark Attendance** button: one button that clocks in, then out, then refuses.
+
+    Returns ``(row, action, message)`` where action is ``in`` | ``out`` | ``none``. The first press of the
+    working day sets the check-in, the second the check-out and any press after that changes nothing.
+    """
+    sync_grace_minutes(db)
+    now = when or org_now()
+    today = now.date()
+    session = current_session(now, employee)
+    rows = (db.query(HRAttendance)
+            .filter(HRAttendance.employee_id == employee.id, HRAttendance.date == today)
+            .order_by(HRAttendance.session).all())
+    open_row = next((r for r in rows if r.check_in is not None and r.check_out is None), None)
+    done = [r for r in rows if r.check_in is not None and r.check_out is not None]
+    if open_row is not None:            # a shift is open: this press clocks out
+        row, action = open_row, "out"
+    elif done:                          # already in and out today: a third press changes nothing
+        last = max(done, key=lambda r: r.check_out)
+        return (last, "none",
+                f"Attendance for {today} is already marked: in at {last.check_in:%I:%M%p}, "
+                f"out at {last.check_out:%I:%M%p}.")
+    else:
+        row = next((r for r in rows if r.session == session), None)
+        if row is None:
+            row = HRAttendance(employee_id=employee.id, date=today, session=session, status="present")
+            db.add(row)
+        action = "in"
+    if action == "in":
+        row.check_in = now
+        if row.status not in WORKED_STATUSES:
+            row.status = "present"
+    else:
+        row.check_out = now
+    recompute_late_minutes(employee, row)   # the one late rule, shared with payroll
+    row.ip = ip or row.ip
+    db.flush()
+    log_action(db, user, f"check_{action}", "hr_attendance", entity=row, request=request,
+               description=f"{employee.employee_code} marked attendance ({row.session.upper()} check-{action}, "
+                           f"{row.status}) from {ip or 'unknown IP'}")
+    stamp = row.check_in if action == "in" else row.check_out
+    return row, action, f"Attendance marked: check-{action} at {stamp:%I:%M%p} ({row.status.replace('_', ' ')})."
+
+
+def attendance_window(db: Session, employee: Employee, day: Optional[date] = None) -> dict:
+    """Their **Today's Attendance** panel: working date and the open-ended time range (``07:10AM -``)."""
+    day = day or org_now().date()
+    rows = (db.query(HRAttendance)
+            .filter(HRAttendance.employee_id == employee.id, HRAttendance.date == day)
+            .order_by(HRAttendance.session).all())
+    ins = [r.check_in for r in rows if r.check_in]
+    outs = [r.check_out for r in rows if r.check_out]
+    first_in, last_out = (min(ins) if ins else None), (max(outs) if outs else None)
+    if first_in is None:
+        window = "-"
+    elif last_out is None:
+        window = f"{first_in:%I:%M%p} -"           # the end stays open until they clock out
+    else:
+        window = f"{first_in:%I:%M%p} - {last_out:%I:%M%p}"
+    open_row = next((r for r in rows if r.check_in is not None and r.check_out is None), None)
+    next_action = "in" if first_in is None else ("out" if open_row is not None else "none")
+    return {"day": day, "rows": rows, "check_in": first_in, "check_out": last_out, "window": window,
+            "next_action": next_action, "late_minutes": sum(r.late_minutes or 0 for r in rows),
+            "status": (rows[0].status if rows else None)}
+
+
+# --------------------------------------------------------------------------- Attendance Sheet
+# Their Attendance Type filter offers three words only; ours map onto the statuses we store.
+ESS_ATTENDANCE_TYPES = [("absent", "Absent"), ("leave", "On Leave"), ("present", "Present")]
+ESS_TYPE_STATUSES = {"absent": ["absent"], "leave": ["leave"], "present": ["present", "late", "half_day"]}
+ESS_TYPE_LABELS = {"present": "Present", "late": "Late Coming", "absent": "Absent", "leave": "On Leave",
+                   "half_day": "Half Day", "holiday": "Holiday"}
+
+
+def pending_change_requests(db: Session, employee: Employee, start: date, end: date) -> dict:
+    """``{(date, session): request}`` for every change request still awaiting a decision."""
+    AttendanceChangeRequest, _, _, _ = _hr_erp()
+    rows = (db.query(AttendanceChangeRequest)
+            .filter(AttendanceChangeRequest.employee_id == employee.id,
+                    AttendanceChangeRequest.status == "pending",
+                    AttendanceChangeRequest.attendance_date >= start,
+                    AttendanceChangeRequest.attendance_date <= end).all())
+    return {(r.attendance_date, r.session): r for r in rows}
+
+
+def attendance_sheet(db: Session, employee: Employee, start: date, end: date,
+                     attendance_type: str = "") -> list[dict]:
+    """Their Attendance Sheet rows: Attendance Date, Type, Login, Logout, Late Coming, Duration Shortage.
+
+    Late Coming and Duration Shortage are minutes and go negative when the member of staff was early or
+    worked longer than the session owed; both come from the shared helpers so payroll and the portal never
+    disagree about a figure.
+    """
+    q = (db.query(HRAttendance)
+         .filter(HRAttendance.employee_id == employee.id, HRAttendance.date >= start, HRAttendance.date <= end))
+    statuses = ESS_TYPE_STATUSES.get(attendance_type)
+    if statuses:
+        q = q.filter(HRAttendance.status.in_(statuses))
+    rows = q.order_by(HRAttendance.date.desc(), HRAttendance.session).all()
+    pending = pending_change_requests(db, employee, start, end)
+    duty = session_duty_hours(employee)
+    out: list[dict] = []
+    for r in rows:
+        worked = worked_hours(r)
+        if r.status in WORKED_STATUSES and r.check_in and r.check_out:
+            # Negative when they worked longer than the session owed, as theirs shows.
+            shortage = int(round((duty - worked) * 60))
+        elif r.status in WORKED_STATUSES:
+            shortage = int(round(shortage_hours(r, employee) * 60))
+        else:
+            shortage = 0
+        late = int(r.late_minutes or 0)
+        if not late and r.check_in and r.status in WORKED_STATUSES:
+            # Inside the grace period, or early: their sheet shows the real difference, negative when early.
+            expected = expected_checkin_minutes(employee, r.session)
+            actual = r.check_in.hour * 60 + r.check_in.minute
+            if employee.shift == "night" and actual < 6 * 60:
+                actual += 24 * 60
+            late = actual - expected
+        req = pending.get((r.date, r.session))
+        out.append({"row": r, "date": r.date, "session": r.session, "status": r.status,
+                    "type_label": ESS_TYPE_LABELS.get(r.status, (r.status or "").replace("_", " ").title()),
+                    "check_in": r.check_in, "check_out": r.check_out,
+                    "late_minutes": late, "shortage_minutes": shortage, "worked_hours": worked,
+                    "duty_hours": duty, "request": req, "requested": req is not None})
+    return out
+
+
+# --------------------------------------------------------------------------- Account Ledger
+def _ledger_model():
+    from app.models.hr_erp import EmployeeLedgerEntry
+    return EmployeeLedgerEntry
+
+
+def ledger_entry_exists(db: Session, reference_type: str, reference_id: int, source: str,
+                       employee_id: Optional[int] = None) -> bool:
+    """A line is identified by whose it is, plus reference_type + reference_id + source.
+
+    The employee belongs in the key. A reference id is only unique while the row it points at lives: delete
+    a payslip and SQLite hands the same id to the next one, so a leftover line for a long-gone employee
+    would otherwise block the new employee's line from ever being written.
+    """
+    EmployeeLedgerEntry = _ledger_model()
+    q = db.query(EmployeeLedgerEntry.id).filter(
+        EmployeeLedgerEntry.reference_type == reference_type,
+        EmployeeLedgerEntry.reference_id == int(reference_id),
+        EmployeeLedgerEntry.source == source)
+    if employee_id is not None:
+        q = q.filter(EmployeeLedgerEntry.employee_id == int(employee_id))
+    return q.first() is not None
+
+
+def post_ledger_entry(db: Session, employee, entry_date: date, description: str, source: str,
+                      reference_type: str, reference_id: int, debit: float = 0.0, credit: float = 0.0,
+                      voucher_ref: Optional[str] = None, currency: Optional[str] = None,
+                      user: Optional[User] = None):
+    """Write one ledger line unless one with the same key is already there. Returns None when skipped."""
+    EmployeeLedgerEntry = _ledger_model()
+    employee_id = employee if isinstance(employee, int) else employee.id
+    debit, credit = round(float(debit or 0), 2), round(float(credit or 0), 2)
+    if debit <= 0 and credit <= 0:
+        return None
+    if ledger_entry_exists(db, reference_type, reference_id, source, employee_id=employee_id):
+        return None
+    if currency is None and not isinstance(employee, int):
+        currency = employee.currency or "PKR"
+    entry = EmployeeLedgerEntry(
+        employee_id=employee_id, entry_date=entry_date, voucher_ref=voucher_ref,
+        description=description[:300], debit=debit, credit=credit, currency=currency or "PKR",
+        source=source, reference_type=reference_type, reference_id=int(reference_id),
+        created_by_id=user.id if user else None)
+    db.add(entry)
+    db.flush()
+    return entry
+
+
+def post_advance_ledger(db: Session, advance, user: Optional[User] = None):
+    """An approved advance is money in the member of staff's hand: a credit on their account."""
+    if advance is None or advance.status not in ("approved", "paid", "settled"):
+        return None
+    return post_ledger_entry(
+        db, advance.employee or advance.employee_id, advance.request_date or date.today(),
+        f"Salary advance paid in {advance.installments or 1} instalment(s)"
+        + (f" - {advance.reason}" if advance.reason else ""),
+        source="advance", reference_type="advance", reference_id=advance.id,
+        credit=float(advance.amount or 0), voucher_ref=f"ADV-{advance.id:05d}",
+        currency=advance.currency, user=user)
+
+
+def post_bonus_ledger(db: Session, bonus, user: Optional[User] = None):
+    """An approved bonus is owed to them: a debit."""
+    if bonus is None or bonus.status != "approved":
+        return None
+    return post_ledger_entry(
+        db, bonus.employee or bonus.employee_id, bonus.acceptance_date or date.today(),
+        "Bonus - " + (bonus.reason or (bonus.bonus_type or "performance").replace("_", " ").title()),
+        source="bonus", reference_type="bonus", reference_id=bonus.id,
+        debit=float(bonus.amount or 0), voucher_ref=f"BON-{bonus.id:05d}",
+        currency=bonus.currency, user=user)
+
+
+def post_violation_ledger(db: Session, violation, user: Optional[User] = None):
+    """An approved violation carrying a fine is deducted from them: a credit."""
+    if violation is None or violation.approval_status != "approved":
+        return None
+    if float(violation.deduction_amount or 0) <= 0:
+        return None
+    cat = violation.violation_catalogue
+    label = cat.description if cat else (violation.description or (violation.violation_type or "").title())
+    return post_ledger_entry(
+        db, violation.employee or violation.employee_id, violation.date or date.today(),
+        f"Violation fine - {label}",
+        source="violation", reference_type="violation", reference_id=violation.id,
+        credit=float(violation.deduction_amount or 0), voucher_ref=f"VIO-{violation.id:05d}", user=user)
+
+
+def employee_ledger(db: Session, employee: Employee, start: Optional[date] = None, end: Optional[date] = None,
+                    q: str = "") -> dict:
+    """Their Ledger Report: Srl., Date, VID, Description, Amount Dr., Amount Cr. and a running Balance.
+
+    The balance is derived here and never stored, and the range carries an opening balance the way the
+    client ledger at /finance/ledger does: everything before ``start`` collapsed into one figure.
+    """
+    EmployeeLedgerEntry = _ledger_model()
+    base = db.query(EmployeeLedgerEntry).filter(EmployeeLedgerEntry.employee_id == employee.id)
+    opening = 0.0
+    if start is not None:
+        for e in base.filter(EmployeeLedgerEntry.entry_date < start).all():
+            opening = round(opening + float(e.debit or 0) - float(e.credit or 0), 2)
+    rows_q = base
+    if start is not None:
+        rows_q = rows_q.filter(EmployeeLedgerEntry.entry_date >= start)
+    if end is not None:
+        rows_q = rows_q.filter(EmployeeLedgerEntry.entry_date <= end)
+    if q:
+        like = f"%{q.strip()}%"
+        rows_q = rows_q.filter(or_(EmployeeLedgerEntry.description.ilike(like),
+                                   EmployeeLedgerEntry.voucher_ref.ilike(like)))
+    entries = rows_q.order_by(EmployeeLedgerEntry.entry_date, EmployeeLedgerEntry.id).all()
+    running, total_debit, total_credit = opening, 0.0, 0.0
+    rows = []
+    for i, e in enumerate(entries, start=1):
+        debit, credit = round(float(e.debit or 0), 2), round(float(e.credit or 0), 2)
+        running = round(running + debit - credit, 2)
+        total_debit = round(total_debit + debit, 2)
+        total_credit = round(total_credit + credit, 2)
+        rows.append({"srl": i, "entry": e, "date": e.entry_date, "vid": e.voucher_ref or "-",
+                     "description": e.description, "debit": debit, "credit": credit,
+                     "source": e.source, "balance": running})
+    return {"employee": employee, "start": start, "end": end, "rows": rows, "opening": opening,
+            "closing": running, "total_debit": total_debit, "total_credit": total_credit,
+            "currency": employee.currency or "PKR", "q": q}

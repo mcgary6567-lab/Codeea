@@ -60,6 +60,8 @@ class Task(Base, PKMixin, TimestampMixin):
     milestone_id: Mapped[Optional[int]] = mapped_column(ForeignKey("milestones.id", ondelete="SET NULL"))
     assignee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     creator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # Their task list shows a Collaborators column: the people copied in besides the one it is assigned to.
+    collaborator_ids: Mapped[list] = mapped_column(JSON, default=list)
     department_id: Mapped[Optional[int]] = mapped_column(ForeignKey("departments.id", ondelete="SET NULL"))
     priority: Mapped[str] = mapped_column(String(10), default="medium", index=True)  # low | medium | high | urgent
     status: Mapped[str] = mapped_column(String(20), default="todo", index=True)  # todo | in_progress | review | done | cancelled

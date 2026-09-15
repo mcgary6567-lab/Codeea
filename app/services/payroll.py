@@ -472,6 +472,7 @@ def mark_paid(db: Session, run: PayrollRun, user: User, request=None) -> Payroll
             notify(db, ps.employee.user_id, f"Salary paid — {run.period}",
                    f"Your net salary of {ps.currency} {_f(ps.net):,.0f} for {run.period} has been released.",
                    event_type="payroll", link=f"/hr/payslips/{ps.id}")
+    post_run_payment_to_employee_ledgers(db, run, user)
     log_action(db, user, "pay", "payroll", entity=run, description=f"Payroll {run.period} marked paid ({float(run.total_net):,.0f} PKR)",
                after={"status": "paid"}, consequential=True, request=request)
     db.flush()
@@ -837,3 +838,88 @@ def erp_grade_allowances(db: Session, employee: Employee, grade, user: Optional[
                before=before, after={"basic": _f(structure.basic), "allowances": allowances}, request=request)
     db.flush()
     return structure
+
+
+# =============================================================================== employee account ledger
+# The Employee Self Portal's Account Ledger (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md) needs one line per thing
+# that moved money for a person; the accounting journal posts a single entry for the whole run, so it
+# cannot answer "what happened to my pay". Posting a run walks its payslips and writes those lines.
+#
+# Signs, as the model documents them: a debit is owed to the member of staff, a credit is paid or deducted.
+#   * salary earned                   -> debit  (gross less the bonuses, which carry their own line)
+#   * payroll deductions              -> credit (attendance and the structure's own deductions)
+#   * an approved violation's fine    -> credit (posted by the approval; re-posting here is a no-op)
+#   * an approved bonus               -> debit  (likewise)
+#   * an advance instalment recovered -> debit  (it reverses the credit raised when the advance was paid)
+#
+# Every line is keyed on reference_type + reference_id + source, so re-posting a run, or approving the
+# same advance twice, adds nothing.
+
+def post_run_to_employee_ledgers(db: Session, run: PayrollRun, user: Optional[User] = None) -> int:
+    """Write every payslip in a run onto its employee's Account Ledger. Idempotent; returns lines added."""
+    from app.services import hr as hr_svc
+    vid = f"PR-{run.id:05d}"
+    entry_date = month_bounds(run.period)[1]
+    written = 0
+    for ps in run.payslips:
+        emp = ps.employee
+        if emp is None:
+            continue
+        det = ps.details or {}
+        bonuses = det.get("bonuses") or []
+        violations = det.get("violations") or []
+        bonus_total = round(sum(_f(b.get("amount")) for b in bonuses), 2)
+        violation_total = round(sum(_f(v.get("amount")) for v in violations), 2)
+        earned = round(_f(ps.gross) - bonus_total, 2)
+        # ps.deductions already carries the violation fines; those are listed one by one so a member of
+        # staff can see each, and what is left is the structure's own deductions (tax, fund, loan...).
+        other = round(_f(ps.deductions) - violation_total + _f(ps.attendance_deduction), 2)
+        advance = round(_f(ps.advance_deduction), 2)
+        lines = [
+            ("salary", f"Salary for {run.period}" + (f" - {run.description}" if run.description else ""),
+             max(0.0, earned), 0.0),
+            ("adjustment", f"Payroll deductions for {run.period}", 0.0, max(0.0, other)),
+            ("advance_recovery", f"Salary advance instalment recovered in {run.period}", advance, 0.0),
+        ]
+        for source, description, debit, credit in lines:
+            if hr_svc.post_ledger_entry(db, emp, entry_date, description, source=source,
+                                        reference_type="payslip", reference_id=ps.id, debit=debit,
+                                        credit=credit, voucher_ref=vid, currency=ps.currency,
+                                        user=user) is not None:
+                written += 1
+        # Bonuses and violations normally reach the ledger when they are approved; re-posting them from
+        # the run costs nothing and back-fills anything approved before this page existed.
+        for b in bonuses:
+            row = db.get(Bonus, b["id"]) if b.get("id") else None
+            if row is not None and hr_svc.post_bonus_ledger(db, row, user) is not None:
+                written += 1
+        for v in violations:
+            row = db.get(Violation, v["id"]) if v.get("id") else None
+            if row is not None and hr_svc.post_violation_ledger(db, row, user) is not None:
+                written += 1
+    db.flush()
+    return written
+
+
+def post_run_payment_to_employee_ledgers(db: Session, run: PayrollRun, user: Optional[User] = None) -> int:
+    """Credit each payslip's net when the run is paid, so the ledger clears instead of only growing.
+
+    Without this every salary earned stays on the ledger as owed for ever, and the balance a member of staff
+    reads is the sum of their whole career rather than what they are still waiting for.
+    """
+    from app.services import hr as hr_svc
+    vid = f"PR-{run.id:05d}"
+    entry_date = run.paid_at.date() if run.paid_at else month_bounds(run.period)[1]
+    written = 0
+    for ps in run.payslips:
+        if ps.employee is None:
+            continue
+        if hr_svc.post_ledger_entry(db, ps.employee, entry_date,
+                                    f"Salary paid for {run.period}", source="payment",
+                                    reference_type="payslip", reference_id=ps.id,
+                                    credit=max(0.0, round(_f(ps.net), 2)), voucher_ref=vid,
+                                    currency=ps.currency, user=user) is not None:
+            written += 1
+    db.flush()
+    return written
+

@@ -22,7 +22,7 @@
 {% endcall %}
 
 <p class="mb-2 text-xs text-slate-500">{{ page.total }} entry(ies) - showing {{ page.start }}-{{ page.end }}</p>
-{{ ui.table_start(['ID', 'Employee', 'Working Date', 'Progress Detail', 'Manager Rating', '']) }}
+{{ ui.table_start(['ID', 'Employee', 'Working Date', 'Progress Detail', 'Status', 'Manager Rating', '']) }}
 {% for n in page.items %}
 {% set e = n.employee %}
 <tr {% if n.manager_rating is none %}style="background:#fef9c3"{% elif n.manager_rating <= 2 %}style="background:#fee2e2"{% endif %}>
@@ -32,13 +32,15 @@
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.working_date|date }}</td>
   <td class="px-3 py-2 text-xs max-w-[26rem]">{{ n.detail }}
     {% if n.manager_comment %}<div class="mt-0.5 text-[10px] text-slate-500">Manager: {{ n.manager_comment }}</div>{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge(n.status, n.status|label) }}</td>
   <td class="px-3 py-2 text-xs">
     {% if n.manager_rating %}<span class="font-semibold">{{ n.manager_rating }}/5</span>
       <div class="text-[10px] text-slate-500">{{ n.rated_by.full_name if n.rated_by else '' }}{% if n.rated_at %} · {{ n.rated_at|date }}{% endif %}</div>
     {% else %}<span class="text-slate-400">Not rated</span>{% endif %}
   </td>
   <td class="px-3 py-2 text-right">
-    {% if can_rate %}
+    {# Only a submitted entry can be rated: until the employee submits it from /hr/me/progress it is still theirs to edit. #}
+    {% if can_rate and n.status == 'submitted' %}
     <form method="post" action="/hr/progress-sheet/{{ n.id }}/rate" class="flex items-center justify-end gap-1">
       <select name="manager_rating" class="rounded border border-slate-300 bg-white px-1 py-1 text-[11px]">
         {% for v, l in ratings %}<option value="{{ v }}" {{ 'selected' if n.manager_rating == v }}>{{ v }}</option>{% endfor %}
@@ -46,10 +48,12 @@
       <input name="manager_comment" value="{{ n.manager_comment or '' }}" placeholder="comment" class="w-32 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
       {{ ui.button('Rate', icon='star', size='sm') }}
     </form>
+    {% elif can_rate %}
+    <span class="text-[11px] text-slate-400">Draft &mdash; not submitted yet</span>
     {% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No progress entries match these filters.', 6) }}{% endfor %}
+{% else %}{{ ui.empty('No progress entries match these filters.', 7) }}{% endfor %}
 {{ ui.table_end() }}
 {{ ui.pagination(page, base_url) }}
 

@@ -1,0 +1,79 @@
+{# Employee Self Portal - Tasks (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md).
+   Their employee-tasks page: three tiles and three tabs over the one Task model. My Tasks are the ones
+   assigned to me, Assigned Tasks the ones I gave somebody else, Others Tasks what my reports owe.
+   Creating a task stays on /tasks; this page is for working the ones that already exist. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+{% call ui.page_header('Tasks', 'What you owe, what you gave out, and what your team owes other people.', back='/hr/me') %}
+  {{ ui.button('Task Board', href='/tasks', icon='layout-grid', variant='secondary') }}
+  {{ ui.button('Create a task', href='/tasks?layout=list', icon='plus') }}
+{% endcall %}
+
+{{ ui.tabs(links, active) }}
+
+<div class="grid gap-4 sm:grid-cols-3 mb-6">
+  {% for t in tiles %}
+    {{ ui.stat(t.label, t.count, icon='list-checks', color=palette(loop.index0 * 3), href='/hr/me/tasks?tab=' ~ t.key, hint=t.tab) }}
+  {% endfor %}
+</div>
+
+{{ ui.tabs(tabs, tab) }}
+
+{% if tab == 'others' and not team_size %}
+<div class="mb-4">{{ ui.alert('Nobody reports to you yet, so there is nothing on this tab. The reporting line is on the Team Management page.', 'info') }}</div>
+{% endif %}
+
+{% call ui.filter_bar('/hr/me/tasks') %}
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="w-60">{{ ui.input('q', 'Task Title', filters.q, placeholder='Search the title') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Status', status_options, filters.status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} task(s) &mdash; showing {{ page.start }}-{{ page.end }}</p>
+{{ ui.table_start(headers + ['']) }}
+{% for r in rows %}
+{% set t = r.task %}
+<tr {% if t.due_date and t.due_date < today and t.status not in ('done', 'cancelled') %}style="background:#fef2f2"{% endif %}>
+  <td class="px-3 py-2 font-mono text-xs">{{ t.id }}</td>
+  <td class="px-3 py-2 text-xs max-w-[22rem]">
+    <a href="/tasks/{{ t.id }}" class="font-medium text-slate-800 hover:text-brand-600">{{ t.title }}</a>
+    <div class="text-[10px] text-slate-500">{{ t.priority|titleize }} priority{% if r.assigned_by and r.assigned_by != '-' %} &middot; from {{ r.assigned_by }}{% endif %}</div>
+  </td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.assigned_to }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ t.created_at|datetime }}</td>
+  <td class="px-3 py-2 text-xs max-w-[14rem] truncate" title="{{ r.collaborators|join(', ') }}">{{ r.collaborators|join(', ') if r.collaborators else '-' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ t.due_date|date if t.due_date else '-' }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.comments }}</td>
+  <td class="px-3 py-2">{{ ui.badge(t.status, t.status|label) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Comment', icon='message-square', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','taskComment" ~ t.id ~ "')\"") }}
+    {% if r.mine %}{{ ui.button('Status', icon='refresh-cw', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','taskStatus" ~ t.id ~ "')\"") }}{% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No tasks on this tab.', headers|length + 1) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% for r in rows %}
+{% set t = r.task %}
+{% call ui.modal('taskComment' ~ t.id, 'Comment on #' ~ t.id ~ ' - ' ~ t.title) %}
+<form method="post" action="/hr/me/tasks/{{ t.id }}/comment" class="grid gap-3">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  {{ ui.textarea('text', 'Comment', '', rows=3, required=True, placeholder='Where this has got to.') }}
+  <div class="flex justify-end">{{ ui.button('Add comment', icon='message-square') }}</div>
+</form>
+{% endcall %}
+{% if r.mine %}
+{% call ui.modal('taskStatus' ~ t.id, 'Change the status of #' ~ t.id) %}
+<form method="post" action="/hr/me/tasks/{{ t.id }}/status" class="grid gap-3">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  {{ ui.select('status', 'Status', status_options, t.status, required=True, placeholder=None) }}
+  {{ ui.input('note', 'Note', '', placeholder='Optional - recorded on the audit trail.') }}
+  <div class="flex justify-end">{{ ui.button('Save status', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endfor %}
+{% endblock %}

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}My HR{% endblock %}
+{% block title %}Employee Self Portal{% endblock %}
 {% block content %}
-{% call ui.page_header('My HR', 'Attendance, leaves, payslips and confidential channels for ' ~ user.full_name) %}
-  {% if e %}{{ ui.badge(e.status) }}<span class="text-xs text-slate-500">{{ e.employee_code }} · {{ e.designation }}</span>{% endif %}
+{% call ui.page_header('Employee Self Portal', 'Attendance, requests, pay and your own record — ' ~ user.full_name) %}
+  {% if e %}{{ ui.badge(e.status) }}<span class="text-xs text-slate-500">{{ e.employee_code }} · {{ e.designation }}</span>
+  {{ ui.button('Account Ledger', href='/hr/me/ledger', icon='book-open-text', variant='secondary', size='sm') }}{% endif %}
 {% endcall %}
 {% if not e %}
 {{ ui.alert('Your login is not linked to an employee record yet. Ask People & Culture to connect your account so attendance, leaves and payslips appear here.', 'warning', 'No employee record') }}
@@ -20,24 +21,61 @@
 {{ ui.tabs(tabs, tab) }}
 
 {% if tab == 'overview' %}
+{# Today's Attendance — the panel their dashboard carries, and the button staff open the portal for. #}
+<div class="mb-6 rounded-md border border-slate-200 bg-white">
+  <div class="border-b border-slate-200 bg-[#f3f7fd] px-4 py-2 text-sm font-semibold text-slate-700">Today's Attendance</div>
+  <div class="flex flex-wrap items-end justify-between gap-4 p-4">
+    <div class="flex flex-wrap gap-8">
+      <div>
+        <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Working Date</div>
+        <div class="mt-1 text-lg font-semibold text-slate-800">{{ today_attendance.day|date }}</div>
+      </div>
+      <div>
+        <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Attendance Time</div>
+        <div class="mt-1 font-mono text-lg font-semibold text-slate-800">{{ today_attendance.window }}</div>
+      </div>
+      <div>
+        <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Late Coming</div>
+        <div class="mt-1 text-lg font-semibold {{ 'text-amber-700' if today_attendance.late_minutes else 'text-slate-800' }}">
+          {{ today_attendance.late_minutes }} min</div>
+      </div>
+      <div>
+        <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Shift</div>
+        <div class="mt-1 text-sm text-slate-700">{{ e.shift|titleize }} {{ e.shift_start or '' }}{% if e.shift_end %}–{{ e.shift_end }}{% endif %}</div>
+      </div>
+    </div>
+    <form method="post" action="/hr/me/attendance/mark">
+      {% if today_attendance.next_action == 'in' %}
+        {{ ui.button('Mark Attendance', icon='log-in') }}
+      {% elif today_attendance.next_action == 'out' %}
+        {{ ui.button('Mark Attendance', icon='log-out') }}
+      {% else %}
+        {{ ui.button('Mark Attendance', icon='check', variant='secondary') }}
+      {% endif %}
+      <p class="mt-1 text-[11px] text-slate-500">
+        {% if today_attendance.next_action == 'in' %}The first press records your login time.
+        {% elif today_attendance.next_action == 'out' %}The next press records your logout time.
+        {% else %}You are in and out for today.{% endif %}
+      </p>
+    </form>
+  </div>
+</div>
+
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
   {{ ui.stat('Attendance ' ~ month, kpis.attendance_pct ~ '%', icon='clock', color='emerald') }}
   {{ ui.stat('Late arrivals', kpis.late, icon='alarm-clock', color='amber', hint=kpis.late_minutes ~ ' minutes') }}
   {{ ui.stat('Leave days', kpis.leave_days, icon='plane', color='violet') }}
-  {{ ui.stat('Last net pay', kpis.last_net|money(e.currency) if kpis.last_net else '—', icon='banknote', color='brand') }}
+  {{ ui.stat('Last net pay', kpis.last_net|money(e.currency) if kpis.last_net else '—', icon='banknote', color='brand', href='/hr/me?tab=payslips') }}
 </div>
 <div class="grid gap-6 lg:grid-cols-3">
-  <div class="lg:col-span-2">{% call ui.card('Today') %}
+  <div class="lg:col-span-2">{% call ui.card('Today by session', 'Each working day carries an AM and a PM session; Mark Attendance moves whichever one is open.') %}
     <div class="grid gap-4 sm:grid-cols-2">
       {% for s in ['am','pm'] %}
       {% set r = today_rows.get(s) %}
       <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
         <div class="mb-2 flex items-center justify-between"><span class="text-xs font-semibold uppercase text-slate-500">{{ s|upper }} session</span>{% if r %}{{ ui.badge(r.status) }}{% endif %}</div>
-        <div class="mb-3 text-sm text-slate-600 dark:text-slate-300">In {{ r.check_in|time if r and r.check_in else '—' }} · Out {{ r.check_out|time if r and r.check_out else '—' }}</div>
-        <div class="flex gap-2">
-          <form method="post" action="/hr/me/check"><input type="hidden" name="session" value="{{ s }}"><input type="hidden" name="action" value="in">{{ ui.button('Check in', icon='log-in', size='sm') }}</form>
-          <form method="post" action="/hr/me/check"><input type="hidden" name="session" value="{{ s }}"><input type="hidden" name="action" value="out">{{ ui.button('Check out', icon='log-out', size='sm', variant='secondary') }}</form>
-        </div>
+        <div class="text-sm text-slate-600 dark:text-slate-300">In {{ r.check_in|time if r and r.check_in else '—' }} · Out {{ r.check_out|time if r and r.check_out else '—' }}</div>
+        {% if r and r.ip %}<div class="mt-1 font-mono text-[10px] text-slate-400">from {{ r.ip }}</div>{% endif %}
       </div>
       {% endfor %}
     </div>
@@ -71,67 +109,198 @@
       {{ ui.textarea('description', 'Description', '', rows=4, required=True, placeholder='What do you need, and by when?') }}
       {{ ui.button('Send to People & Culture', icon='send') }}
     </form>
-    <p class="mt-3 text-xs text-slate-500">A complaint goes to <a href="/hr/complaints" class="text-brand-700 hover:underline">Complaints</a>; anything you want kept from your own management chain belongs in the <a href="/hr/me?tab=grievance" class="text-brand-700 hover:underline">confidential grievance channel</a>.</p>
+    <p class="mt-3 text-xs text-slate-500">A complaint goes to the <a href="/hr/me?tab=complaints" class="text-brand-700 hover:underline">Complaints tab</a>; anything you want kept from your own management chain belongs in the <a href="/hr/me?tab=grievance" class="text-brand-700 hover:underline">confidential grievance channel</a>.</p>
   {% endcall %}</div>
 </div>
 
+{% elif tab == 'schedule' %}
+{# My Schedule — theirs opens the teacher's Online Class page; a non-teaching member of staff gets their working pattern. #}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Shift', schedule.shift, icon='sun-moon', color='sky', hint=schedule.shift_window) }}
+  {{ ui.stat('Duty hours / day', schedule.duty_hours, icon='hourglass', color='indigo', hint=schedule.session_duty_hours ~ ' h per session') }}
+  {{ ui.stat('Classes next 14 days', schedule.counts.get('upcoming', 0), icon='calendar-days', color='emerald') }}
+  {{ ui.stat('Classes today', schedule.counts.get('today', 0), icon='calendar-check', color='amber') }}
+</div>
+{% if schedule.is_teacher %}
+{{ ui.table_start(['Date', 'Time', 'Student', 'Course', 'Duration', 'Status', '']) }}
+{% for s in schedule.sessions %}
+<tr>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ s.date|date }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.student.full_name if s.student else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ s.course.name if s.course else '—' }}{% if s.is_trial %} <span class="text-amber-600">· trial</span>{% endif %}</td>
+  <td class="px-3 py-1.5 text-xs">{{ s.duration_minutes }} min</td>
+  <td class="px-3 py-1.5">{{ ui.badge(s.status, s.status|label('class')) }}</td>
+  <td class="px-3 py-1.5 text-right">{{ ui.button('Open', href='/classes/' ~ s.id, size='sm', variant='ghost') }}</td>
+</tr>
+{% else %}{{ ui.empty('No classes scheduled in the next fortnight.', 7, 'calendar-days') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Your full class list, with joining links and lesson plans, is on <a href="/classes" class="text-brand-700 hover:underline">Online Classes</a>.</p>
+{% else %}
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call ui.card('My working pattern', 'You do not teach, so this is the shift your attendance is measured against.') %}
+  {{ ui.dl([('Shift', schedule.shift), ('Shift window', schedule.shift_window), ('Duty hours per day', schedule.duty_hours),
+            ('Duty hours per session', schedule.session_duty_hours), ('Department', e.department.name if e.department else '—'),
+            ('Designation', e.designation)]) }}
+  <p class="mt-3 text-xs text-slate-500">Arriving more than the configured grace period after the shift start counts as Late Coming; leaving before the session's duty hours are worked shows as Duration Shortage on your <a href="/hr/me?tab=attendance" class="text-brand-700 hover:underline">Attendance Sheet</a>.</p>
+  {% endcall %}
+  {% call ui.card('Upcoming holidays', 'Non-working days for your shift group in the next two months.') %}
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for h in schedule.holidays %}
+    <li class="flex items-center justify-between py-2"><span class="font-medium">{{ h.name }}</span>
+      <span class="text-xs text-slate-500">{{ h.holiday_date|date }}{% if h.end_date %} → {{ h.end_date|date }}{% endif %}{% if not h.is_paid %} · unpaid{% endif %}</span></li>
+    {% else %}<li class="py-6 text-center text-xs text-slate-400">No holidays published for the next two months.</li>{% endfor %}
+  </ul>
+  {% endcall %}
+</div>
+{% endif %}
+
 {% elif tab == 'attendance' %}
+{# Attendance Sheet — their columns, their filters, and Request to Change on the row itself. #}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 mb-6">
   {{ ui.stat('Attendance', summary.pct ~ '%', icon='clock', color='emerald') }}
   {{ ui.stat('Present', summary.present, icon='check', color='emerald') }}
-  {{ ui.stat('Late', summary.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Late Coming', summary.late, icon='alarm-clock', color='amber') }}
   {{ ui.stat('Absent', summary.absent, icon='user-x', color='rose') }}
-  {{ ui.stat('Leave', summary.leave, icon='plane', color='violet') }}
+  {{ ui.stat('On Leave', summary.leave, icon='plane', color='violet') }}
 </div>
-<div class="mb-4 flex flex-wrap items-end gap-2">
-  <form method="get" class="flex items-end gap-2"><input type="hidden" name="tab" value="attendance">
-    <div class="w-40">{{ ui.input('month', 'Month', month, type='month') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
-  <form method="post" action="/hr/me/check" class="flex items-end gap-2"><input type="hidden" name="action" value="in">
-    <div class="w-28">{{ ui.select('session', 'Session', ['am','pm'], 'am', placeholder=None) }}</div>{{ ui.button('Check in now', icon='log-in', size='sm') }}</form>
-  <form method="post" action="/hr/me/check" class="flex items-end gap-2"><input type="hidden" name="action" value="out">
-    <div class="w-28">{{ ui.select('session', 'Session', ['am','pm'], 'am', placeholder=None) }}</div>{{ ui.button('Check out now', icon='log-out', size='sm', variant='secondary') }}</form>
-</div>
-{{ ui.table_start(['Date', 'AM', 'PM', 'Correction']) }}
-{% for day, sessions in grid %}
-<tr>
-  <td class="px-4 py-2 text-xs font-medium">{{ day|date }}</td>
-  {% for s in ['am','pm'] %}{% set r = sessions.get(s) %}
-  <td class="px-4 py-2 text-xs">{% if r %}{{ ui.badge(r.status) }} <span class="text-slate-500">{{ r.check_in|time if r.check_in else '—' }} → {{ r.check_out|time if r.check_out else '—' }}</span>
-    {% if not r.correction_requested %}
-    <form method="post" action="/hr/me/correction" class="mt-1 flex gap-1">
-      <input type="hidden" name="attendance_id" value="{{ r.id }}">
-      <input name="reason" placeholder="Request correction…" class="w-40 rounded border border-slate-300 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-      <button class="rounded bg-slate-700 px-2 text-[11px] text-white">Send</button>
-    </form>
-    {% else %}<div class="mt-1">{{ ui.badge(r.correction_status or 'pending', 'Correction ' ~ (r.correction_status or 'pending')) }}</div>{% endif %}
-    {% else %}<span class="text-slate-300">no record</span>{% endif %}</td>
-  {% endfor %}
-  <td class="px-4 py-2 text-xs text-slate-500">{{ (sessions.get('am').correction_reason if sessions.get('am') and sessions.get('am').correction_reason else '') or (sessions.get('pm').correction_reason if sessions.get('pm') and sessions.get('pm').correction_reason else '—') }}</td>
-</tr>
-{% else %}{{ ui.empty('No attendance for ' ~ month, 4) }}{% endfor %}
-{{ ui.table_end() }}
 
-<div class="mt-6 grid gap-6 lg:grid-cols-2">
-  {% call ui.card('Attendance change request', 'Ask People & Culture to correct a punch. The current values are captured automatically; you only give the new ones.') %}
-  <form method="post" action="/hr/me/attendance-change" class="grid gap-3 sm:grid-cols-2">
-    {{ ui.input('attendance_date', 'Attendance Date', today()|string, type='date', required=True) }}
-    {{ ui.select('session', 'Session', [('am','AM'),('pm','PM')], 'am', placeholder=None) }}
-    {{ ui.select('new_status', 'New Attendance Type', [('present','Present'),('late','Late Coming'),('absent','Absent'),('leave','On Leave'),('half_day','Half Day')], 'present', placeholder=None) }}
-    <div></div>
-    {{ ui.input('new_check_in', 'New Login Time', '', type='time') }}
-    {{ ui.input('new_check_out', 'New Logout Time', '', type='time') }}
-    <div class="sm:col-span-2">{{ ui.textarea('user_remarks', 'User Remarks', '', rows=2, required=True, placeholder='What went wrong with the punch?') }}</div>
-    <div class="sm:col-span-2 flex justify-end">{{ ui.button('Submit request', icon='send', size='sm') }}</div>
-  </form>
-  {% endcall %}
-  {% call ui.card('My progress for today', 'One line on what you achieved. Your manager rates it on the Employees Progress Sheet.') %}
-  <form method="post" action="/hr/me/progress" class="grid gap-3 sm:grid-cols-2">
-    {{ ui.input('working_date', 'Working Date', today()|string, type='date', required=True) }}
-    <div></div>
-    <div class="sm:col-span-2">{{ ui.textarea('detail', 'Progress Detail', '', rows=3, required=True, placeholder='e.g. Completed 6 Hifz classes and updated every sabaq record.') }}</div>
-    <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save progress', icon='check', size='sm') }}</div>
-  </form>
-  {% endcall %}
+{% call ui.filter_bar('/hr/me') %}
+  <input type="hidden" name="tab" value="attendance">
+  <div class="w-40">{{ ui.input('date_from', 'From Date', sheet_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To Date', sheet_to, type='date') }}</div>
+  <div class="w-44">{{ ui.select('attendance_type', 'Attendance Type', attendance_types, attendance_type, placeholder='All') }}</div>
+{% endcall %}
+
+<div class="mb-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+  <span class="font-medium">Highlight rules:</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#fee2e2"></span>Absent</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#fef3c7"></span>Late Coming</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#ffedd5"></span>Duration Shortage</span>
+  <span class="inline-flex items-center gap-1"><span class="h-3 w-4 rounded border border-slate-300" style="background:#e0e7ff"></span>Change requested</span>
+</div>
+
+{{ ui.table_start(['Attendance Date', 'Attendance Type', 'Login Time', 'Logout Time', 'Late Coming', 'Duration Shortage', 'Change']) }}
+{% for r in sheet %}
+{% set hl = '#e0e7ff' if r.requested else ('#fee2e2' if r.status == 'absent' else ('#ede9fe' if r.status == 'leave' else ('#fef3c7' if r.late_minutes > 0 else ('#ffedd5' if r.shortage_minutes > 0 else '')))) %}
+<tr {% if hl %}style="background: {{ hl }}"{% endif %}>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.date|date }}<div class="text-[10px] text-slate-500">{{ r.session|upper }} session</div></td>
+  <td class="px-3 py-1.5">{{ ui.badge(r.status, r.type_label) }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.check_in.strftime('%I:%M%p') if r.check_in else '—' }}</td>
+  <td class="px-3 py-1.5 font-mono text-xs">{{ r.check_out.strftime('%I:%M%p') if r.check_out else '—' }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-amber-700' if r.late_minutes > 0 else ('text-emerald-700' if r.late_minutes < 0 else '') }}">{{ r.late_minutes }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-orange-700' if r.shortage_minutes > 0 else ('text-emerald-700' if r.shortage_minutes < 0 else '') }}"
+      title="Duty {{ r.duty_hours }} h for this session, worked {{ r.worked_hours }} h">{{ r.shortage_minutes }}</td>
+  <td class="px-3 py-1.5 text-right">
+    {% if r.requested %}
+      <span class="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">Requested</span>
+    {% else %}
+    <details class="inline-block text-left">
+      <summary class="inline-flex cursor-pointer items-center gap-1 rounded bg-slate-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-800">Request to Change</summary>
+      <form method="post" action="/hr/me/attendance-change" class="mt-2 w-64 space-y-2 rounded border border-slate-300 bg-white p-2 text-left shadow">
+        <input type="hidden" name="attendance_id" value="{{ r.row.id }}">
+        <input type="hidden" name="attendance_date" value="{{ r.date }}">
+        <input type="hidden" name="session" value="{{ r.session }}">
+        <div>
+          <label class="block text-[10px] font-medium text-slate-600">New Login Time</label>
+          <input type="time" name="new_check_in" value="{{ r.check_in.strftime('%H:%M') if r.check_in else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium text-slate-600">New Logout Time</label>
+          <input type="time" name="new_check_out" value="{{ r.check_out.strftime('%H:%M') if r.check_out else '' }}" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium text-slate-600">Requested Status</label>
+          <select name="new_status" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]">
+            {% for v, l in change_statuses %}<option value="{{ v }}" {{ 'selected' if v == r.status }}>{{ l }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium text-slate-600">Reason</label>
+          <textarea name="user_remarks" rows="2" required placeholder="What went wrong with the punch?" class="w-full rounded border border-slate-300 px-1.5 py-1 text-[11px]"></textarea>
+        </div>
+        <button class="w-full rounded bg-brand-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-700">Send to People &amp; Culture</button>
+      </form>
+    </details>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No attendance between ' ~ sheet_from ~ ' and ' ~ sheet_to ~ '.', 7, 'clock') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Late Coming and Duration Shortage are minutes, negative when you were early or worked over. These are the figures payroll reads.</p>
+
+{% elif tab == 'requests' %}
+{# Requests — their sub-menu of three (Leave, Employee Request, Advance Requests) as one tab. #}
+<div class="space-y-6">
+  <div class="grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2">{% call ui.card('Leave Requests') %}
+      {{ ui.table_start(['Type', 'From', 'To', 'Days', 'Reason', 'Status']) }}
+      {% for l in leaves %}
+      <tr><td class="px-3 py-1.5 text-xs">{{ l.leave_type|titleize }}</td><td class="px-3 py-1.5 text-xs">{{ l.start_date|date }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ l.end_date|date }}</td><td class="px-3 py-1.5 text-xs">{{ (l.end_date - l.start_date).days + 1 }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[16rem] truncate" title="{{ l.reason or '' }}">{{ l.reason or '—' }}</td>
+        <td class="px-3 py-1.5">{{ ui.badge(l.status, l.status|label('request')) }}</td></tr>
+      {% else %}{{ ui.empty('You have raised no leave requests.', 6) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}</div>
+    <div>{% call ui.card('Create Leave Request') %}
+      <form method="post" action="/hr/me/leave" class="space-y-3">
+        {{ ui.select('leave_type', 'Leave Type', leave_types, 'casual', placeholder=None) }}
+        <div class="grid grid-cols-2 gap-2">{{ ui.input('start_date', 'From', '', type='date', required=True) }}{{ ui.input('end_date', 'To', '', type='date') }}</div>
+        {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
+        {{ ui.button('Create', icon='plus', size='sm') }}
+      </form>
+    {% endcall %}</div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2">{% call ui.card('Employee Requests') %}
+      {{ ui.table_start(['ID', 'Date', 'Req Type', 'Description', 'Hr Remarks', 'Status']) }}
+      {% for r in my_requests %}
+      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ r.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.request_date|date }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ r.request_type }}</td>
+        <td class="px-3 py-1.5 text-xs max-w-[16rem] truncate" title="{{ r.description or '' }}">{{ r.description or '—' }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ r.hr_remarks or '' }}">{{ r.hr_remarks or '—' }}</td>
+        <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td></tr>
+      {% else %}{{ ui.empty('You have raised no employee requests.', 6) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}</div>
+    <div>{% call ui.card('Create Employee Request') %}
+      <form method="post" action="/hr/me/request" class="space-y-3">
+        {{ ui.select('request_type', 'Req Type', request_types, 'Salary Certificate', placeholder=None) }}
+        {{ ui.textarea('description', 'Description', '', rows=3, required=True) }}
+        {{ ui.button('Create', icon='plus', size='sm') }}
+      </form>
+    {% endcall %}</div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2">{% call ui.card('Advance Requests', 'An approved advance is paid to you and recovered from your salary in instalments; watch it on your Account Ledger.') %}
+      {{ ui.table_start(['ID', 'Request Date', 'Amount', 'No Of Installments', 'Remaining', 'Remarks', 'Hr Remarks', 'Status']) }}
+      {% for a in advances %}
+      <tr><td class="px-3 py-1.5 font-mono text-xs">{{ a.id }}</td><td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ a.request_date|date }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.amount|float|money(a.currency) }}</td><td class="px-3 py-1.5 text-xs">{{ a.installments }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ a.remaining|float|money(a.currency) }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.reason or '' }}">{{ a.reason or '—' }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[12rem] truncate" title="{{ a.hr_remarks or '' }}">{{ a.hr_remarks or '—' }}</td>
+        <td class="px-3 py-1.5">{{ ui.badge(a.status, a.status|label('request')) }}</td></tr>
+      {% else %}{{ ui.empty('You have requested no advances.', 8) }}{% endfor %}
+      {{ ui.table_end() }}
+    {% endcall %}</div>
+    <div>{% call ui.card('Create Advance Request') %}
+      <form method="post" action="/hr/me/advance" class="space-y-3">
+        {{ ui.input('request_date', 'Request Date', today()|string, type='date', required=True) }}
+        {{ ui.input('amount', 'Amount', '', type='number', step='0.01', min='1', required=True) }}
+        {{ ui.input('installments', 'No Of Installments', '1', type='number', min='1', max='12', required=True) }}
+        {{ ui.textarea('reason', 'Remarks', '', rows=3, placeholder='Why do you need the advance?') }}
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-600">Hr Remarks</label>
+          <input type="text" value="" disabled placeholder="Filled in by People &amp; Culture when they decide" class="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-400">
+        </div>
+        {{ ui.button('Create', icon='plus', size='sm') }}
+      </form>
+    {% endcall %}</div>
+  </div>
 </div>
 
 {% elif tab == 'leaves' %}
@@ -166,25 +335,70 @@
 </div>
 
 {% elif tab == 'payslips' %}
-{{ ui.table_start(['Period', 'Basic', 'Class pay', 'Allowances', 'Deductions', 'Net', 'Status', '']) }}
+{# Salary Slips — Month, Description, Net Salary, Print, newest first. #}
+{{ ui.table_start(['Month', 'Description', 'Basic', 'Class pay', 'Allowances', 'Deductions', 'Net Salary', 'Status', '']) }}
 {% for p in payslips %}
-<tr><td class="px-4 py-2 text-xs font-medium">{{ p.payroll_run.period }}</td><td class="px-4 py-2 text-xs">{{ p.basic|float|money }}</td>
-  <td class="px-4 py-2 text-xs">{{ p.class_pay|float|money }}</td><td class="px-4 py-2 text-xs">{{ p.allowances|float|money }}</td>
-  <td class="px-4 py-2 text-xs text-rose-600">{{ (p.deductions|float + p.attendance_deduction|float + p.advance_deduction|float)|money }}</td>
-  <td class="px-4 py-2 text-xs font-semibold">{{ p.net|float|money(p.currency) }}</td><td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
-  <td class="px-4 py-2 text-right">{{ ui.button('View', href='/hr/payslips/' ~ p.id, size='sm', variant='ghost') }}</td></tr>
-{% else %}{{ ui.empty('No payslips issued yet.', 8) }}{% endfor %}
+<tr><td class="px-3 py-1.5 text-xs font-medium whitespace-nowrap">{{ p.payroll_run.period }}</td>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ p.payroll_run.description or ('Payroll ' ~ p.payroll_run.period) }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.basic|float|money }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ p.class_pay|float|money }}</td><td class="px-3 py-1.5 text-xs">{{ p.allowances|float|money }}</td>
+  <td class="px-3 py-1.5 text-xs text-rose-600">{{ (p.deductions|float + p.attendance_deduction|float + p.advance_deduction|float)|money }}</td>
+  <td class="px-3 py-1.5 text-xs font-semibold">{{ p.net|float|money(p.currency) }}</td><td class="px-3 py-1.5">{{ ui.badge(p.status) }}</td>
+  <td class="px-3 py-1.5 text-right whitespace-nowrap">
+    {{ ui.button('View', href='/hr/payslips/' ~ p.id, size='sm', variant='ghost') }}
+    {{ ui.button('Print', href='/hr/me/payslips/' ~ p.id ~ '/print?print_view=1', size='sm', variant='secondary', icon='printer') }}
+  </td></tr>
+{% else %}{{ ui.empty('No payslips issued yet.', 9) }}{% endfor %}
 {{ ui.table_end() }}
 
 {% elif tab == 'violations' %}
-{{ ui.table_start(['Date', 'Type', 'Severity', 'Description', 'Action taken', 'Deduction', 'Status']) }}
+{{ ui.table_start(['Date', 'Type', 'Severity', 'Description', 'Action taken', 'Deduction', 'Approval Status']) }}
 {% for v in violations %}
-<tr><td class="px-4 py-2 text-xs">{{ v.date|date }}</td><td class="px-4 py-2 text-xs">{{ v.violation_type|titleize }}</td>
+<tr><td class="px-4 py-2 text-xs">{{ v.date|date }}</td><td class="px-4 py-2 text-xs">{{ v.violation_catalogue.description if v.violation_catalogue else v.violation_type|titleize }}</td>
   <td class="px-4 py-2">{{ ui.badge(v.severity) }}</td><td class="px-4 py-2 text-xs text-slate-500">{{ v.description or '—' }}</td>
-  <td class="px-4 py-2 text-xs">{{ v.action_taken or '—' }}</td><td class="px-4 py-2 text-xs text-rose-600">{{ v.deduction_amount|float|money if v.deduction_amount else '—' }}</td>
-  <td class="px-4 py-2">{{ ui.badge(v.status) }}</td></tr>
-{% else %}{{ ui.empty('Your record is clean.', 7) }}{% endfor %}
+  <td class="px-4 py-2 text-xs">{{ v.remarks or v.action_taken or '—' }}</td><td class="px-4 py-2 text-xs text-rose-600">{{ v.deduction_amount|float|money if v.deduction_amount else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(v.approval_status, v.approval_status|label('request')) }}</td></tr>
+{% else %}{{ ui.empty('Your record is clean.', 7, 'shield-check') }}{% endfor %}
 {{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">An approved fine is deducted from your next payroll run and appears as a credit on your <a href="/hr/me/ledger" class="text-brand-700 hover:underline">Account Ledger</a>.</p>
+
+{% elif tab == 'bonuses' %}
+{{ ui.table_start(['ID', 'Period', 'Bonus Type', 'Amount', 'Reason', 'Acceptance Date', 'Status']) }}
+{% for b in bonuses %}
+<tr><td class="px-4 py-2 font-mono text-xs">{{ b.id }}</td><td class="px-4 py-2 text-xs">{{ b.period or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ b.bonus_catalogue.description if b.bonus_catalogue else b.bonus_type|titleize }}</td>
+  <td class="px-4 py-2 text-xs font-semibold text-emerald-700">{{ b.amount|float|money(b.currency) }}</td>
+  <td class="px-4 py-2 text-xs text-slate-500">{{ b.reason or '—' }}</td>
+  <td class="px-4 py-2 text-xs">{{ b.acceptance_date|date if b.acceptance_date else '—' }}</td>
+  <td class="px-4 py-2">{{ ui.badge(b.status, b.status|label('request')) }}</td></tr>
+{% else %}{{ ui.empty('No bonuses have been awarded to you yet.', 7, 'gift') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">An approved bonus is paid with your next salary and appears as a debit on your <a href="/hr/me/ledger" class="text-brand-700 hover:underline">Account Ledger</a>.</p>
+
+{% elif tab == 'complaints' %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">{% call ui.card('My complaints') %}
+    {{ ui.table_start(['ID', 'Complaint Type', 'Title', 'Description', 'Admin Response', 'Status']) }}
+    {% for c in complaints %}
+    <tr><td class="px-3 py-1.5 font-mono text-xs">{{ c.id }}</td><td class="px-3 py-1.5 text-xs">{{ c.complaint_type }}</td>
+      <td class="px-3 py-1.5 text-xs font-medium">{{ c.title }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[16rem] truncate" title="{{ c.description or '' }}">{{ c.description or '—' }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-500 max-w-[14rem] truncate" title="{{ c.admin_response or '' }}">{{ c.admin_response or '—' }}</td>
+      <td class="px-3 py-1.5">{{ ui.badge(c.status, c.status|label('request')) }}</td></tr>
+    {% else %}{{ ui.empty('You have raised no complaints.', 6, 'life-buoy') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}</div>
+  <div>{% call ui.card('Create Complaint') %}
+    <form method="post" action="/hr/complaints/new" class="space-y-3">
+      <input type="hidden" name="next" value="/hr/me?tab=complaints">
+      {{ ui.select('complaint_type', 'Complaint Type', complaint_types, 'HR', placeholder=None) }}
+      {{ ui.input('title', 'Title', '', required=True) }}
+      {{ ui.textarea('description', 'Description', '', rows=5, required=True) }}
+      {{ ui.button('Create', icon='plus', size='sm') }}
+    </form>
+    <p class="mt-3 text-xs text-slate-500">A complaint here is read by People &amp; Culture and can be seen by your management chain. Anything you want kept from it belongs in the <a href="/hr/me?tab=grievance" class="text-brand-700 hover:underline">confidential grievance channel</a>, which goes to the Head of People &amp; Culture alone.</p>
+  {% endcall %}</div>
+</div>
 
 {% elif tab == 'development' %}
 <div class="grid gap-6 lg:grid-cols-2">

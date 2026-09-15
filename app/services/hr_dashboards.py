@@ -275,3 +275,69 @@ def application_funnel(db: Session) -> dict[str, int]:
         if status in counts:
             counts[status] += 1
     return counts
+
+
+# =============================================================================== 5. employee self portal
+# The ERP's dashboard carries "My Team" as an expandable tree of the reporting line, and its Team
+# Management pages let a manager raise a violation or a bonus against anyone beneath them. Both need the
+# same walk of Employee.manager_id, so it lives here with the rest of the read-only roll-ups.
+MAX_TREE_DEPTH = 12  # a guard, not a rule: it stops a cycle in manager_id from spinning forever
+
+
+def _children_map(db: Session) -> dict[Optional[int], list[Employee]]:
+    """Every employee grouped under the manager they report to, ordered as the ERP orders staff."""
+    rows = db.query(Employee).order_by(Employee.sort_no, Employee.employee_code).all()
+    out: dict[Optional[int], list[Employee]] = defaultdict(list)
+    for e in rows:
+        out[e.manager_id].append(e)
+    return out
+
+
+def reporting_tree(db: Session, root: Optional[Employee], include_left: bool = False) -> list[dict]:
+    """The reporting line beneath ``root`` as nested nodes.
+
+    Each node is {employee, depth, children}. ``root`` itself is not included — the ERP's tree shows the
+    people under you. Employees who have left are dropped unless ``include_left`` is set, and a visited
+    set keeps a bad manager_id loop from recursing for ever.
+    """
+    if root is None:
+        return []
+    children = _children_map(db)
+    seen: set[int] = {root.id}
+
+    def walk(parent_id: int, depth: int) -> list[dict]:
+        if depth > MAX_TREE_DEPTH:
+            return []
+        nodes = []
+        for e in children.get(parent_id, []):
+            if e.id in seen:
+                continue
+            if not include_left and e.status in LEFT_STATUSES:
+                continue
+            seen.add(e.id)
+            nodes.append({"employee": e, "depth": depth, "children": walk(e.id, depth + 1)})
+        return nodes
+
+    return walk(root.id, 0)
+
+
+def flatten_tree(nodes: list[dict]) -> list[dict]:
+    """The same nodes depth-first, so a template can render one row per person."""
+    out: list[dict] = []
+    for n in nodes:
+        out.append(n)
+        out.extend(flatten_tree(n["children"]))
+    return out
+
+
+def subordinate_ids(db: Session, root: Optional[Employee], include_left: bool = True) -> set[int]:
+    """Employee ids genuinely beneath ``root``. The authority for "may I raise this against them?"."""
+    return {n["employee"].id for n in flatten_tree(reporting_tree(db, root, include_left=include_left))}
+
+
+def team_user_ids(db: Session, root: Optional[Employee], include_left: bool = True) -> set[int]:
+    """The user accounts of everyone beneath ``root`` — what "Others Tasks" is scoped to."""
+    ids = subordinate_ids(db, root, include_left=include_left)
+    if not ids:
+        return set()
+    return {uid for (uid, ) in db.query(Employee.user_id).filter(Employee.id.in_(ids)) if uid}

@@ -1,0 +1,84 @@
+{# Employee Self Portal - Daily Progress Sheet (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md).
+   You write your own day up, keep it as a draft for as long as you like, then submit it. A submitted
+   note is out of your hands: it can no longer be edited here, and only then can a manager rate it on
+   the Employees Progress Sheet at /hr/progress-sheet. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Daily Progress Sheet{% endblock %}
+{% block content %}
+{% call ui.page_header('Daily Progress Sheet', 'What you did on each working day, and what your manager made of it.', back='/hr/me') %}
+  {% if not no_record %}{{ ui.button('Create', icon='plus', attrs="@click=\"$dispatch('open-modal','newProgress')\"") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs(links, active) }}
+
+{% if no_record %}<div class="mb-4">{{ ui.alert(no_record, 'warning') }}</div>{% endif %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Draft', counts.draft, icon='pencil-line', color=palette(6), href='/hr/me/progress?status=draft', hint='still editable') }}
+  {{ ui.stat('Submitted', counts.submitted, icon='send', color=palette(3), href='/hr/me/progress?status=submitted') }}
+  {{ ui.stat('Rated', rated, icon='star', color=palette(1)) }}
+  {{ ui.stat('Average rating', avg, icon='gauge', color=palette(0), hint='out of 5') }}
+</div>
+
+{% call ui.filter_bar('/hr/me/progress') %}
+  <div class="w-44">{{ ui.select('status', 'Status', status_options, filters.status, placeholder='All statuses') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+{% endcall %}
+
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} entry(ies) &mdash; showing {{ page.start }}-{{ page.end }}</p>
+{{ ui.table_start(['ID', 'Working Date', 'Progress Detail', 'Status', 'Manager Rating', '']) }}
+{% for n in page.items %}
+<tr {% if n.status == 'draft' %}style="background:#fffbeb"{% endif %}>
+  <td class="px-3 py-2 font-mono text-xs">{{ n.id }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.working_date|date }}</td>
+  <td class="px-3 py-2 text-xs max-w-[28rem]">{{ n.detail }}
+    {% if n.manager_comment %}<div class="mt-0.5 text-[10px] text-slate-500">Manager: {{ n.manager_comment }}</div>{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge(n.status, n.status|label) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">
+    {% if n.manager_rating %}<span class="font-semibold">{{ n.manager_rating }}/5</span>
+      {% if n.rated_at %}<div class="text-[10px] text-slate-500">{{ n.rated_at|date }}</div>{% endif %}
+    {% elif n.status == 'submitted' %}<span class="text-slate-400">Awaiting a rating</span>
+    {% else %}<span class="text-slate-400">-</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if n.status == 'draft' %}
+      {{ ui.button('Edit', icon='pencil', variant='ghost', size='sm', attrs="@click=\"$dispatch('open-modal','editProgress" ~ n.id ~ "')\"") }}
+      {{ ui.confirm_form('/hr/me/progress/' ~ n.id ~ '/submit', 'Submit', icon='send', variant='primary', message='Once submitted this entry can no longer be edited. Submit it?') }}
+    {% else %}
+      <span class="text-[11px] text-slate-400">Locked</span>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No progress entries yet. Use Create to write up your day.', 6) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if not no_record %}
+{% call ui.modal('newProgress', 'Create a progress entry') %}
+<form method="post" action="/hr/me/progress/new" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('working_date', 'Working Date', today_iso, type='date', required=True) }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('detail', 'Progress Detail', '', rows=4, required=True, placeholder='What you achieved today, in a line or two.') }}</div>
+  <div class="sm:col-span-2 flex justify-end gap-2">
+    {{ ui.button('Save as draft', icon='save', variant='secondary', attrs='name="action" value="draft"') }}
+    {{ ui.button('Save and submit', icon='send', attrs='name="action" value="submit"') }}
+  </div>
+</form>
+{% endcall %}
+{% endif %}
+
+{% for n in page.items %}
+{% if n.status == 'draft' %}
+{% call ui.modal('editProgress' ~ n.id, 'Edit the draft for ' ~ (n.working_date|date)) %}
+<form method="post" action="/hr/me/progress/{{ n.id }}/edit" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.input('working_date', 'Working Date', n.working_date.isoformat(), type='date', required=True) }}
+  <div></div>
+  <div class="sm:col-span-2">{{ ui.textarea('detail', 'Progress Detail', n.detail, rows=4, required=True) }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save draft', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endfor %}
+{% endblock %}

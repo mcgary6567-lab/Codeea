@@ -160,6 +160,8 @@ class ProgressNote(Base, PKMixin, TimestampMixin):
     employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
     working_date: Mapped[date] = mapped_column(Date, index=True)
     detail: Mapped[str] = mapped_column(Text)
+    # Staff write the day up and submit it; a manager rates it afterwards.
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)  # draft | submitted
     manager_rating: Mapped[Optional[int]] = mapped_column(Integer)  # 1-5
     manager_comment: Mapped[Optional[str]] = mapped_column(Text)
     rated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -249,3 +251,28 @@ class JobApplication(Base, PKMixin, TimestampMixin):
     candidate = relationship("Candidate")
     department = relationship("Department")
     panel = relationship("InterviewPanel")
+
+
+# Account Ledger on the Employee Self Portal (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md).
+# Their ledger prints Srl, Date, VID, Description, Amount Dr., Amount Cr. and a running Balance. Payroll
+# posts one journal for a whole run rather than one per person, so the employee's own view cannot be read
+# off the accounting ledger; it is kept here, one line per thing that moved money for this employee.
+EMPLOYEE_LEDGER_SOURCES = ["salary", "advance", "advance_recovery", "bonus", "violation", "payment", "adjustment"]
+
+
+class EmployeeLedgerEntry(Base, PKMixin, TimestampMixin):
+    """One movement on a member of staff's account. Debit is owed to them, credit is paid or deducted."""
+    __tablename__ = "employee_ledger_entries"
+    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
+    entry_date: Mapped[date] = mapped_column(Date, default=date.today, index=True)
+    voucher_ref: Mapped[Optional[str]] = mapped_column(String(30))  # their VID column, when a voucher exists
+    description: Mapped[str] = mapped_column(String(300))
+    debit: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    credit: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(3), default="PKR")
+    source: Mapped[str] = mapped_column(String(20), default="adjustment", index=True)
+    reference_type: Mapped[Optional[str]] = mapped_column(String(40))  # payroll | advance | bonus | violation
+    reference_id: Mapped[Optional[int]] = mapped_column(Integer)
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    employee = relationship("Employee")

@@ -137,12 +137,16 @@ cd /opt/oqc/app
 .venv/bin/python -m alembic history --verbose     # audit trail of schema changes
 ```
 
-**Revisions so far**
+**Revisions so far**, in order. Each parity pass is one revision.
 
 | Revision | What it adds |
 |---|---|
 | `6d42e23b4b1a` | Baseline schema v1.1 (117 tables) |
-| `dee1fc82982b` | ERP parity: session slots, academic configuration, client contacts and credentials, client requests, class arrangements / reschedule approvals / queries / activities, ledger additions, QA call pipeline, plus the ERP columns on clients, students, employees, leaves, courses, packages, books, evaluations, subscriptions, invoices, payments, class sessions, QA reviews, cases and feedback |
+| `dee1fc82982b` | Online Academics parity: session slots, academic configuration, client contacts and credentials, client requests, class arrangements, reschedule approvals, queries and activities, ledger additions, the QA call pipeline, plus ERP columns across clients, students, employees, leaves, courses, packages, books, evaluations, subscriptions, invoices, payments, class sessions, QA reviews, cases and feedback |
+| `77ee14c26d59` | Human Resource parity: violation and bonus catalogues, holidays, grades, downloads, attachments, leave entitlements, attendance change requests, progress notes, employee requests, staff complaints, interview panels and the job application pipeline |
+| `592b863b4bb0` | Accounts and Configuration parity: voucher fields on the journal entry, account heads and opening balances, lookups and lookup values, branch properties on settings, payment gateways, WhatsApp senders, support tickets, OTP configuration |
+| `30408ac573e4` | Billing Management parity: balance limit, payment day and billing remarks on the family; lead verification columns; the lead closers catalogue |
+| `2d78aefa0e3f` | Employee Self Portal parity: the employee ledger, draft/submitted on a progress note, collaborators on a task |
 
 **Autogenerating a revision.** Alembic emits `create_foreign_key(None, ...)`, which SQLite batch mode rejects
 ("Constraint must have a name"). After every `alembic revision --autogenerate`, run

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Account Ledger{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header('Account Ledger', 'Every line that moved money on your account — salary, bonuses, fines and advances — with a running balance.', back='/hr/me') %}
+  {% if report %}
+  {{ ui.button('Print', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {% endif %}
+{% endcall %}
+</div>
+
+{% if not e %}
+{{ ui.alert('Your login is not linked to an employee record yet, so there is no account to show. Ask People & Culture to connect your account.', 'warning', 'No employee record') }}
+{% else %}
+
+<div class="no-print">
+{% call ui.filter_bar('/hr/me/ledger') %}
+  <div class="w-40">{{ ui.input('date_from', 'From Date', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To Date', date_to, type='date') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Description or VID') }}</div>
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {{ ui.stat('Opening Balance', report.opening|round(0)|int, icon='history', color=palette(0), hint=report.currency) }}
+  {{ ui.stat('Amount Dr.', report.total_debit|round(0)|int, icon='arrow-down-left', color=palette(3), hint='owed to you') }}
+  {{ ui.stat('Amount Cr.', report.total_credit|round(0)|int, icon='arrow-up-right', color=palette(7), hint='paid or deducted') }}
+  {{ ui.stat('Balance', report.closing|round(0)|int, icon='scale', color=palette(9), hint=report.currency) }}
+</div>
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Ledger Report</h1>
+  <p style="font-size:11px">{{ e.employee_code }} &middot; {{ e.full_name }}{% if e.designation %} &middot; {{ e.designation }}{% endif %}</p>
+  <p style="font-size:11px">{{ (date_from or 'the beginning') }} to {{ (date_to or 'today') }} &middot; {{ report.currency }} &middot; printed {{ current_date|date }}</p>
+</div>
+
+{{ ui.table_start(['Srl.', 'Date', 'VID', 'Description', 'Amount Dr.', 'Amount Cr.', 'Balance']) }}
+<tr class="bg-[#f3f7fd] font-medium">
+  <td class="px-3 py-1.5 text-xs" colspan="4">Opening balance{% if report.start %} at {{ report.start|date }}{% endif %}</td>
+  <td class="px-3 py-1.5"></td><td class="px-3 py-1.5"></td>
+  <td class="px-3 py-1.5 text-right">{{ report.opening|money(report.currency) }}</td>
+</tr>
+{% for r in report.rows %}
+<tr>
+  <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.srl }}</td>
+  <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.date|date }}</td>
+  <td class="px-3 py-1.5 font-mono text-[11px]">{{ r.vid }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.description }}</td>
+  <td class="px-3 py-1.5 text-right text-xs">{{ r.debit|money(report.currency) if r.debit else '' }}</td>
+  <td class="px-3 py-1.5 text-right text-xs text-rose-600">{{ r.credit|money(report.currency) if r.credit else '' }}</td>
+  <td class="px-3 py-1.5 text-right text-xs font-medium">{{ r.balance|money(report.currency) }}</td>
+</tr>
+{% else %}{{ ui.empty('Nothing has moved on your account in this range.', 7, 'book-open-text') }}{% endfor %}
+<tr class="bg-[#e8f1fb] font-semibold">
+  <td class="px-3 py-1.5 text-xs" colspan="4">Closing balance{% if report.end %} at {{ report.end|date }}{% endif %}</td>
+  <td class="px-3 py-1.5 text-right">{{ report.total_debit|money(report.currency) }}</td>
+  <td class="px-3 py-1.5 text-right">{{ report.total_credit|money(report.currency) }}</td>
+  <td class="px-3 py-1.5 text-right">{{ report.closing|money(report.currency) }}</td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">
+  {{ report.rows|length }} line{{ 's' if report.rows|length != 1 }} · amounts in {{ report.currency }} ·
+  a debit is owed to you, a credit is money paid to you or deducted, so a positive balance is what the college owes you.
+</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

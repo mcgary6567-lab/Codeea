@@ -116,8 +116,19 @@ Your seed must build on these (query them) and be idempotent. Make the data real
 A module is complete only when it has: data model usage, permissions, workflows, validation, audit logging, notifications, API endpoints, error handling, reports/exports where relevant, seed data, and you have exercised every page and form with TestClient (200 on GET, 303 on POST, no template errors). Run `.venv/Scripts/python.exe -c "from app.main import app"` and fix any import errors before finishing.
 
 ## ERP parity (added 13 Sep 2026)
-The platform now mirrors the college's existing ERP page by page — see `docs/AUDIT_ACADEMICS.md` for the exact
-columns, filters, actions and vocabularies of every page. Rules:
+The platform mirrors the college's existing ERP page by page. Every card on their Home screen has been audited,
+and each audit records the exact columns, filters, actions and vocabularies of every page, followed by a table
+of the places we deliberately differ:
+
+| Their Home card | Audit |
+|---|---|
+| Online Academics | `docs/AUDIT_ACADEMICS.md` |
+| Billing Management | `docs/AUDIT_BILLING.md` |
+| Human Resource | `docs/AUDIT_HUMAN_RESOURCE.md` |
+| Employee Self Portal | `docs/AUDIT_EMPLOYEE_SELF_PORTAL.md` |
+| Accounts and Configuration | `docs/AUDIT_ACCOUNTS_CONFIG.md` |
+
+Rules:
 - Models for the new areas live in `app/models/erp.py`; ERP fields were appended to Client, Student, Employee, Leave,
   Course, Package, Book, Evaluation, Subscription, Invoice, Payment, ClassSession, QAReview, Case and Feedback.
 - Display statuses with the `label` filter so the UI speaks the ERP's language: `{{ s.status|label('student') }}`

@@ -340,6 +340,9 @@ async def bonus_change_status(request: Request, db: Session = Depends(get_db),
         if status == "approved":
             b.acceptance_date = date.today()
             b.approved_by_id = user.id
+            # An approved bonus is owed to them: a debit on their Account Ledger, written once.
+            from app.services.hr import post_bonus_ledger
+            post_bonus_ledger(db, b, user)
         log_action(db, user, "approve" if status == "approved" else "status_change", "payroll", entity=b,
                    description=f"Staff bonus #{b.id} ({money(b.amount)}) moved from {before} to {status}",
                    rationale=remarks, before={"status": before},
@@ -431,6 +434,10 @@ async def advance_change_status(request: Request, db: Session = Depends(get_db),
         if status == "approved":
             a.remaining = float(a.amount or 0)
             a.approved_by_id = user.id
+            # Paid out: a credit on their Account Ledger. Each instalment recovered by a payroll run
+            # posts the matching debit, so the member of staff can watch the advance come back.
+            from app.services.hr import post_advance_ledger
+            post_advance_ledger(db, a, user)
         log_action(db, user, "approve" if status == "approved" else "status_change", "payroll", entity=a,
                    description=f"Advance #{a.id} ({money(a.amount)}) moved from {before} to {status}",
                    rationale=remarks, before={"status": before},
@@ -526,6 +533,10 @@ async def complaint_create(request: Request, db: Session = Depends(get_db), ctx:
                            + (" (secret)" if c.is_secret else ""))
     db.commit()
     tab = "secret" if c.is_secret and _can_read_secret(user) else "open"
+    # The self portal's Complaints tab posts here too, and asks to be sent back to itself.
+    nxt = (form.get("next") or "").strip()
+    if nxt.startswith("/hr/me"):
+        return redirect(nxt, "Complaint recorded.")
     return redirect(f"/hr/complaints?tab={tab}&status=pending", "Complaint recorded.")
 
 

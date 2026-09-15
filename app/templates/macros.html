@@ -18,14 +18,18 @@
 {# Saturated stat tile: big white number on a solid colour, label underneath. `color` is a palette name or a hex. #}
 {% macro stat(label, value, icon=None, color='brand', hint=None, href=None, delta=None) %}
 {% set bg = color if color.startswith('#') else TILE.get(color, TILE['brand']) %}
-<{{ 'a href="' ~ href ~ '"' if href else 'div' }} class="block rounded-md px-3 py-4 text-center text-white shadow-sm transition hover:brightness-110" style="background: {{ bg }}">
+{# The tag was built as one interpolated string, so Jinja escaped the quotes around href and every
+   tile link rendered as href=&#34;/…&#34; -- a URL with literal quotes in it, which goes nowhere. #}
+{% set tile_class = "block rounded-md px-3 py-4 text-center text-white shadow-sm transition hover:brightness-110" %}
+{% if href %}<a href="{{ href }}" class="{{ tile_class }}" style="background: {{ bg }}">
+{% else %}<div class="{{ tile_class }}" style="background: {{ bg }}">{% endif %}
   <div class="text-[30px] font-bold leading-none tracking-tight">{{ value }}</div>
   <div class="mt-2 text-[11.5px] font-semibold leading-tight">{{ label }}</div>
   {% if hint or delta is not none %}<div class="mt-1 text-[11px] text-white/85">
     {% if delta is not none %}<span class="font-semibold">{{ '▲' if delta >= 0 else '▼' }} {{ delta }}%</span>{% endif %}
     {% if hint %}<span>{{ hint }}</span>{% endif %}
   </div>{% endif %}
-</{{ 'a' if href else 'div' }}>
+{% if href %}</a>{% else %}</div>{% endif %}
 {% endmacro %}
 
 {# Launchpad / module card: coloured band with a circular icon, white footer with a centred title. #}
