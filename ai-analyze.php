@@ -222,7 +222,7 @@ $model    = $chk['model'];
 $key      = $chk['key'];
 
 // =====================================================================
-//  THE RULE SET  -  mirrors Gold Scalpers EA v4.11
+//  THE RULE SET  -  mirrors Gold Scalpers EA v4.13
 // =====================================================================
 $SYSTEM = "You are the chart-reading engine behind Gold Scalpers EA, a MetaTrader 5 expert advisor "
 . "that trades XAUUSD. Read the attached chart screenshot and judge it by the EA's own rules. "
