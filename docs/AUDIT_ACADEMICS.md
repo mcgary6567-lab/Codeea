@@ -16,7 +16,7 @@ Status legend: **Have** = exists in the new platform · **Partial** = exists wit
 | Online Academics | Audited below |
 | Billing Management | Audited in `AUDIT_BILLING.md` |
 | Human Resource | Audited in `AUDIT_HUMAN_RESOURCE.md` |
-| Employee Self Portal | Separate area |
+| Employee Self Portal | Audited in `AUDIT_EMPLOYEE_SELF_PORTAL.md` |
 | Accounts | Audited in `AUDIT_ACCOUNTS_CONFIG.md` |
 | Configuration | Audited in `AUDIT_ACCOUNTS_CONFIG.md` |
 
