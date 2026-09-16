@@ -129,8 +129,12 @@ RewriteRule ^(.+)$ $1.html [L]
 ErrorDocument 404 /404.html
 ErrorDocument 500 /500.html
 
-# The Pro thank-you page is retired - every old link (guides, emails, the EA's own panel) lands on the Advanced page
-RedirectMatch 301 ^/thank-you(\.html)?$ /thank-you-advancedea
+# One delivery page for the product sold here. Every old link (guides, emails, receipts, the EA panel) lands on it.
+RedirectMatch 301 ^/thank-you(\.html)?$ /thank-you-pro
+# The Advanced slug was the delivery page while Advanced was the product sold
+# here. Advanced is now sold on the MQL5 Market only, so the old link - which is
+# in customer receipts and in the Gumroad file description - lands on the Pro page.
+RedirectMatch 301 ^/thank-you-advancedea(\.html)?$ /thank-you-pro
 
 # Download package renamed to Gold Scalpers Pro - keep previously issued links alive
 Redirect 301 /downloads/Gold-Scalpers-EA.zip /downloads/Gold-Scalpers-Pro.zip
