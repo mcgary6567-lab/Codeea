@@ -1,0 +1,83 @@
+{# ERP HR Notifications (docs/AUDIT_HUMAN_RESOURCE.md, Employment Management): Link / Title / Start Date /
+   End Date / Status, plus Audience. Live / Scheduled / Expired / Inactive tiles, Create, inline edit, toggle. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% call ui.page_header("Notifications", "Notices to staff with a validity window. Live ones appear on the Employee Self Portal.") %}
+  {{ ui.button('Employment Management', href='/home/hr', icon='layout-grid', variant='secondary') }}
+  {% if can_edit %}{{ ui.button("Create", icon="plus", attrs="@click=\"$dispatch('open-modal','newNotice')\"") }}{% endif %}
+{% endcall %}
+
+{{ ui.tabs(group_tabs, 'notices') }}
+
+{{ ui.section_label('Status') }}
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+  {% for lbl, key, icon in tiles %}
+    {{ ui.stat(lbl, counts.get(key, 0), icon=icon, color=palette(loop.index0), href='/hr/notices?status=' ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/hr/notices') %}
+  <div class="w-60">{{ ui.input('q', 'Search', filters.q, placeholder='Title or description') }}</div>
+  <div class="w-40">{{ ui.select('audience', 'Audience', audience_options, filters.audience, placeholder='All audiences') }}</div>
+  <div class="w-36">{{ ui.select('status', 'Status', state_options, filters.status, placeholder='All statuses') }}</div>
+{% endcall %}
+
+<p class="mb-2 text-xs text-slate-500">{{ page.total }} notice(s) — showing {{ page.start }}-{{ page.end }}</p>
+{{ ui.table_start(headers + ([''] if can_edit else [])) }}
+{% for r in rows %}
+{% set n = r.notice %}
+<tr {% if r.highlight %}style="background: {{ r.highlight }}"{% endif %}>
+  <td class="px-3 py-2 font-mono text-xs">{{ n.id }}</td>
+  <td class="px-3 py-2 text-xs">{% if n.link %}<a href="{{ n.link }}" class="text-brand-700 hover:underline" target="_blank" rel="noreferrer noopener">Open</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-sm">
+    <div class="font-medium text-slate-800">{{ n.title }}</div>
+    {% if n.description %}<div class="mt-0.5 max-w-[32rem] text-xs text-slate-500">{{ n.description }}</div>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.start_date|date }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.end_date|date if n.end_date else 'Open-ended' }}</td>
+  <td class="px-3 py-2 text-xs">{{ 'All staff' if n.audience == 'all' else n.audience }}</td>
+  <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(r.state) }}</td>
+  {% if can_edit %}
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Edit', variant='ghost', size='sm', icon='pencil', attrs="@click=\"$dispatch('open-modal','editNotice" ~ n.id ~ "')\"") }}
+    {{ ui.confirm_form('/hr/notices/' ~ n.id ~ '/toggle', 'Activate' if n.status != 'active' else 'Deactivate',
+                       icon='power', variant='secondary', message='Change whether this notice is shown to staff?') }}
+  </td>
+  {% endif %}
+</tr>
+{% else %}{{ ui.empty('No notices match these filters.', headers|length + (1 if can_edit else 0), icon='megaphone') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+
+{% if can_edit %}
+{% for r in rows %}{% set n = r.notice %}
+{% call ui.modal('editNotice' ~ n.id, 'Edit notice #' ~ n.id, 'lg') %}
+<form method="post" action="/hr/notices/{{ n.id }}/edit" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', n.title, required=True) }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', n.description or '', rows=3) }}</div>
+  <div class="sm:col-span-2">{{ ui.input('link', 'Link', n.link or '', placeholder='https://…') }}</div>
+  {{ ui.input('start_date', 'Start Date', n.start_date.isoformat(), type='date', required=True) }}
+  {{ ui.input('end_date', 'End Date', n.end_date.isoformat() if n.end_date else '', type='date', help='Leave blank for an open-ended notice') }}
+  {{ ui.select('audience', 'Audience', audience_options, n.audience, placeholder=None) }}
+  {{ ui.select('status', 'Status', [('active', 'Active'), ('inactive', 'Inactive')], n.status, placeholder=None) }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endfor %}
+
+{% call ui.modal('newNotice', 'Create a notice', 'lg') %}
+<form method="post" action="/hr/notices/new" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.input('title', 'Title', '', required=True, placeholder='Eid holidays and class rescheduling') }}</div>
+  <div class="sm:col-span-2">{{ ui.textarea('description', 'Description', '', rows=3, placeholder='What staff need to know, in a line or two.') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('link', 'Link', '', placeholder='https://… (optional)') }}</div>
+  {{ ui.input('start_date', 'Start Date', today_iso, type='date', required=True) }}
+  {{ ui.input('end_date', 'End Date', '', type='date', help='Leave blank for an open-ended notice') }}
+  {{ ui.select('audience', 'Audience', audience_options, 'all', placeholder=None) }}
+  {{ ui.select('status', 'Status', [('active', 'Active'), ('inactive', 'Inactive')], 'active', placeholder=None, help='An active notice inside its dates also rings the bell of everyone in the audience.') }}
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Publish', icon='check') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

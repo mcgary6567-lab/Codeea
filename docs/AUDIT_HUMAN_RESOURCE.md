@@ -6,6 +6,8 @@ Only page structure, field labels, filters and actions are recorded. No staff pe
 Companion to `AUDIT_ACADEMICS.md`. Status legend: **Have** = exists in the new platform ·
 **Partial** = exists with different fields or flow · **Missing** = not built yet.
 
+> **Walked again on 17 September 2026** — see `AUDIT_PARITY_WALK_2026-09-17.md`. That walk found their HR Home carries four counter panels, Employment Management lists Notifications and Tasks, and Time and Attendance lists an Attendance Summary beside the report. All three are now built.
+
 ---
 
 ## Level 1 — Human Resource Dashboard

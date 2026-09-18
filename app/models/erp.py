@@ -394,3 +394,23 @@ class QAIssueType(Base, PKMixin, TimestampMixin):
     severity: Mapped[str] = mapped_column(String(20), default="normal")  # normal | critical
     description: Mapped[Optional[str]] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), default="active")
+
+
+FEEDBACK_ANSWER_TYPES = ["rating", "yes_no", "text"]
+FEEDBACK_APPLIES_TO = ["client", "student", "staff"]
+
+
+class FeedbackQuestion(Base, PKMixin, TimestampMixin):
+    """QA Feedback Questions (Academic Configuration): the questions a feedback form asks, in order.
+
+    A submitted feedback keeps its answers in Feedback.answers keyed by this row's id, so a question can be
+    reworded or retired without touching what people already answered.
+    """
+    __tablename__ = "feedback_questions"
+    question: Mapped[str] = mapped_column(String(300))
+    question_urdu: Mapped[Optional[str]] = mapped_column(String(300))
+    answer_type: Mapped[str] = mapped_column(String(20), default="rating")  # rating (1-5) | yes_no | text
+    applies_to: Mapped[str] = mapped_column(String(20), default="client", index=True)  # client | student | staff
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_no: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)

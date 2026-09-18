@@ -65,9 +65,26 @@ def retention_cleanup(db: Session) -> str:
     return f"{sessions} expired session(s) and {notifs} read notification(s) deleted; audit events retained"
 
 
+def agents_mark_offline(db: Session) -> str:
+    """Confido Agents: a device that has not sent a heartbeat for ten minutes is shown offline.
+
+    Blocked devices stay blocked; they only leave that state when a member of staff unblocks them.
+    """
+    from app.models.config_erp import AgentDevice
+    from app.web.company_config import AGENT_OFFLINE_AFTER_MINUTES
+    cutoff = datetime.utcnow() - timedelta(minutes=AGENT_OFFLINE_AFTER_MINUTES)
+    stale = (db.query(AgentDevice)
+             .filter(AgentDevice.status == "online",
+                     (AgentDevice.last_seen_at.is_(None)) | (AgentDevice.last_seen_at < cutoff)).all())
+    for device in stale:
+        device.status = "offline"
+    return f"{len(stale)} agent device(s) marked offline (no heartbeat for {AGENT_OFFLINE_AFTER_MINUTES} minutes)"
+
+
 JOBS = [
     ("system_nightly_backup", nightly_backup, 1440),
     ("system_webhook_delivery", deliver_webhooks, 2),
     ("system_integration_health", integration_health, 60),
     ("system_retention_cleanup", retention_cleanup, 1440),
+    ("system_agents_mark_offline", agents_mark_offline, 5),
 ]

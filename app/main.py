@@ -63,6 +63,11 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Captures of staff screens live under storage/ with everything else, but they are served only
+        # through the permission-checked route on the Confido Agents page, never from the open mount.
+        if request.url.path.startswith("/storage/agent_screenshots/"):
+            from starlette.responses import PlainTextResponse
+            return PlainTextResponse("Not found", status_code=404)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")

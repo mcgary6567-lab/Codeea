@@ -7,6 +7,7 @@ Mirrors three pages of the college's existing ERP (docs/AUDIT_EMPLOYEE_SELF_PORT
     /hr/me/tasks      their employee-tasks page: three tiles, three tabs (My Tasks, Assigned Tasks,
                       Others Tasks) over the one Task model, with the ERP's own column list.
     /hr/me/progress   their emp-progress-sheet: write the day up, keep it as a draft, edit it, submit it.
+    /hr/me/notices    their Notifications card: the live staff notices for my audience, newest first.
 
 Two rules run through the whole file:
 
@@ -22,7 +23,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
@@ -32,7 +33,7 @@ from app.core.templating import render
 from app.core.utils import month_key, paginate, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
 from app.models.core import User
-from app.models.hr_erp import BonusType, ProgressNote, ViolationType
+from app.models.hr_erp import BonusType, ProgressNote, StaffNotice, ViolationType
 from app.models.ops import Task, TaskComment
 from app.models.people import Bonus, Employee, Violation
 from app.services import hr_dashboards as dash
@@ -50,7 +51,7 @@ TASK_TILES = {"my": "My Pending Tasks", "assigned": "My Pending Assigned Tasks",
 TASK_HEADERS = ["ID", "Task Title", "Assigned To", "Assigned At", "Collaborators", "Due Date", "Comments", "Status"]
 PROGRESS_STATUSES = ["draft", "submitted"]
 ME_LINKS = [("team", "Team Management", "/hr/me/team"), ("tasks", "Tasks", "/hr/me/tasks"),
-            ("progress", "Daily Progress Sheet", "/hr/me/progress")]
+            ("progress", "Daily Progress Sheet", "/hr/me/progress"), ("notices", "Notifications", "/hr/me/notices")]
 
 
 # ----------------------------------------------------------------------------- shared helpers
@@ -446,3 +447,30 @@ async def progress_submit(note_id: int, request: Request, db: Session = Depends(
                event_type="hr_progress", link="/hr/progress-sheet")
     db.commit()
     return redirect("/hr/me/progress", f"Progress for {note.working_date} submitted; your manager can rate it now.")
+
+
+# ============================================================================== 4. NOTIFICATIONS
+def live_notices_for(db: Session, me: Employee | None, today: date | None = None) -> list[StaffNotice]:
+    """The staff notices live today for this employee: addressed to all staff or to their employee type.
+
+    The same window as StaffNotice.is_live(), written as SQL so the page and the bell agree. Someone with
+    no employee record still sees what is addressed to everyone.
+    """
+    today = today or date.today()
+    audiences = ["all"] + ([me.employee_type] if me is not None and me.employee_type else [])
+    return (db.query(StaffNotice)
+            .filter(StaffNotice.status == "active", StaffNotice.start_date <= today,
+                    or_(StaffNotice.end_date.is_(None), StaffNotice.end_date >= today),
+                    StaffNotice.audience.in_(audiences))
+            .order_by(StaffNotice.start_date.desc(), StaffNotice.id.desc()).all())
+
+
+@router.get("/notices", include_in_schema=False)
+def notices(request: Request, db: Session = Depends(get_db), ctx: UserContext = Depends(get_user_context),
+            user: User = Depends(require("portal_self.view"))):
+    """Their Notifications card: ID, Title, Description, Dated, for the live notices that apply to me."""
+    me = ctx.employee
+    data = _base(ctx, "notices")
+    data.update({"notices": live_notices_for(db, me),
+                 "audience_label": f"{me.employee_type} staff" if me is not None and me.employee_type else "all staff"})
+    return render(request, "hr/ess_notices.html", data)

@@ -17,7 +17,7 @@ from app.database import Base, engine, SessionLocal, init_db
 # Order matters: later modules depend on earlier ones.
 # "academic" builds courses/packages and the curriculum tree; "academic_curriculum" runs again after
 # "people" so the per-student academic history (progress, plans, tests, certificates) has students to attach to.
-SEED_MODULES = ["core", "academic", "erp_config", "people", "erp_people", "academic_curriculum", "scheduling", "crm", "leads_erp", "finance", "billing_erp", "accounts_erp", "erp_classes", "erp_billing", "hr", "hr_erp", "hr_attendance", "hr_recruitment", "ess_ledger", "ops", "ess_team", "config_erp", "erp_quality", "erp_statuses"]
+SEED_MODULES = ["core", "academic", "erp_config", "people", "erp_people", "academic_curriculum", "scheduling", "crm", "leads_erp", "finance", "billing_erp", "accounts_erp", "erp_classes", "erp_billing", "hr", "hr_erp", "hr_attendance", "hr_recruitment", "ess_ledger", "ops", "ess_team", "parity_hr", "config_erp", "parity_config", "erp_quality", "erp_statuses"]
 
 
 def main() -> None:

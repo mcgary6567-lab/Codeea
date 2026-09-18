@@ -1,0 +1,37 @@
+{# Employee Self Portal - Notifications (docs/AUDIT_EMPLOYEE_SELF_PORTAL.md): the live staff notices for my
+   audience, newest first, as ID / Title / Description / Dated. Written by People and Culture at /hr/notices. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% call ui.page_header('Notifications', 'Notices from People and Culture that apply to you today.', back='/hr/me') %}
+  {{ ui.button('My Overview', href='/hr/me', icon='layout-dashboard', variant='secondary') }}
+{% endcall %}
+
+{# The area sidebar lists these same pages on a wide screen, so the strip only appears where the
+   sidebar does not: no screen shows the same destinations twice. #}
+<div class="lg:hidden">{{ ui.tabs(links, active) }}</div>
+
+{% if no_record %}<div class="mb-4">{{ ui.alert(no_record ~ ' Only notices addressed to all staff are shown.', 'warning') }}</div>{% endif %}
+
+<div class="grid gap-4 sm:grid-cols-2 mb-6">
+  {{ ui.stat('Live notices', notices|length, icon='megaphone', color=palette(0), hint='for ' ~ audience_label) }}
+  {{ ui.stat('Newest', (notices[0].start_date|date) if notices else '—', icon='calendar', color=palette(3)) }}
+</div>
+
+{{ ui.table_start(['ID', 'Title', 'Description', 'Dated']) }}
+{% for n in notices %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs">{{ n.id }}</td>
+  <td class="px-3 py-2 text-sm font-medium text-slate-800">
+    {{ n.title }}
+    {% if n.link %}<a href="{{ n.link }}" class="ml-1 text-xs font-normal text-brand-700 hover:underline" target="_blank" rel="noreferrer noopener">Open link</a>{% endif %}
+    {% if n.audience != 'all' %}<div class="mt-0.5 text-[10px] font-normal text-slate-500">For {{ n.audience }} staff</div>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs text-slate-700 max-w-[36rem]">{{ n.description or '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ n.start_date|date }}
+    {% if n.end_date %}<div class="text-[10px] text-slate-500">until {{ n.end_date|date }}</div>{% endif %}</td>
+</tr>
+{% else %}{{ ui.empty('No notices for you right now.', 4, icon='megaphone') }}{% endfor %}
+{{ ui.table_end() }}
+{% endblock %}

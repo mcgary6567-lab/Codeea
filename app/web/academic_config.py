@@ -25,8 +25,9 @@ from app.core.utils import parse_bool, parse_date, parse_float, parse_int, redir
 from app.database import get_db
 from app.models.academic import Book, Course, Package
 from app.models.core import User
-from app.models.erp import (SESSION_CATEGORIES, AssessmentDefinition, BeneficiaryAccount, ClientAcademicGroup,
-                            InvoiceAdditionRule, InvoiceAdditionType, QuestionBankItem, SessionSlot, TeamsUser)
+from app.models.erp import (FEEDBACK_ANSWER_TYPES, FEEDBACK_APPLIES_TO, SESSION_CATEGORIES, AssessmentDefinition,
+                            BeneficiaryAccount, ClientAcademicGroup, FeedbackQuestion, InvoiceAdditionRule,
+                            InvoiceAdditionType, QuestionBankItem, SessionSlot, TeamsUser)
 from app.models.finance import Subscription
 from app.models.people import Client, Employee, Student
 
@@ -44,6 +45,8 @@ PAYMENT_CATEGORIES = ["Stripe", "PayPal", "UBL", "Meezan Bank", "Wise", "HBL", "
 SHIFT_GROUPS = [("morning", "Morning"), ("night", "Night")]
 QUESTION_TYPES = [("oral", "Oral"), ("written", "Written"), ("recitation", "Recitation"), ("mcq", "MCQ")]
 DURATIONS = [(30, "30 Minutes"), (45, "45 Minutes"), (60, "60 Minutes")]
+ANSWER_TYPES = [("rating", "Rating (1-5)"), ("yes_no", "Yes / No"), ("text", "Text")]
+APPLIES_TO = [("client", "Client"), ("student", "Student"), ("staff", "Staff")]
 CURRENCIES = ["GBP", "USD", "EUR", "CAD", "AUD", "PKR"]
 
 CARDS = [  # title, url, icon, blurb
@@ -59,6 +62,7 @@ CARDS = [  # title, url, icon, blurb
     ("MS Team Users", f"{BASE}/teams-users", "monitor", "Teams accounts for staff and clients"),
     ("Question Bank", f"{BASE}/question-bank", "help-circle", "Questions per book and assessment"),
     ("Define Assessment", f"{BASE}/assessments", "file-check", "Assessments with passing and total marks"),
+    ("QA Feedback Questions", f"{BASE}/feedback-questions", "message-square-text", "What every feedback form asks, in order"),
 ]
 
 
@@ -139,6 +143,7 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
         f"{BASE}/teams-users": db.query(func.count(TeamsUser.id)).scalar() or 0,
         f"{BASE}/question-bank": db.query(func.count(QuestionBankItem.id)).scalar() or 0,
         f"{BASE}/assessments": db.query(func.count(AssessmentDefinition.id)).scalar() or 0,
+        f"{BASE}/feedback-questions": db.query(func.count(FeedbackQuestion.id)).scalar() or 0,
     }
     cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u, 0)} for t, u, i, b in CARDS]
     return render(request, "academic_config/index.html", {"user": user, "cards": cards})
@@ -1094,3 +1099,127 @@ async def assessment_toggle(aid: int, request: Request, db: Session = Depends(ge
     form = await request.form()
     back = form.get("next") if (form.get("next") or "").startswith(BASE) else f"{BASE}/assessments"
     return _toggle_status(db, user, request, a, f"Assessment {a.title}", back)
+
+
+# =============================================================================== 13. QA Feedback Questions
+def _question_rows(db: Session, applies_to: str = "") -> list[FeedbackQuestion]:
+    query = db.query(FeedbackQuestion)
+    if applies_to:
+        query = query.filter(FeedbackQuestion.applies_to == applies_to)
+    return query.order_by(FeedbackQuestion.applies_to, FeedbackQuestion.sort_no, FeedbackQuestion.id).all()
+
+
+def _feedback_questions_back(applies_to: str = "", status: str = "") -> str:
+    params = [f"applies_to={applies_to}" if applies_to in FEEDBACK_APPLIES_TO else "",
+              f"status={status}" if status in ("active", "inactive") else ""]
+    qs = "&".join(p for p in params if p)
+    return f"{BASE}/feedback-questions?{qs}" if qs else f"{BASE}/feedback-questions"
+
+
+@router.get("/feedback-questions", include_in_schema=False)
+def feedback_questions_page(request: Request, applies_to: str = "", status: str = "", answer_type: str = "", q: str = "",
+                            db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.view"))):
+    query = db.query(FeedbackQuestion)
+    if applies_to in FEEDBACK_APPLIES_TO:
+        query = query.filter(FeedbackQuestion.applies_to == applies_to)
+    if status in ("active", "inactive"):
+        query = query.filter(FeedbackQuestion.status == status)
+    if answer_type in FEEDBACK_ANSWER_TYPES:
+        query = query.filter(FeedbackQuestion.answer_type == answer_type)
+    if q:
+        query = query.filter(or_(FeedbackQuestion.question.ilike(f"%{q}%"), FeedbackQuestion.question_urdu.ilike(f"%{q}%")))
+    rows = query.order_by(FeedbackQuestion.applies_to, FeedbackQuestion.sort_no, FeedbackQuestion.id).all()
+    stats = _status_counts(db, FeedbackQuestion)
+    by_audience = dict(db.query(FeedbackQuestion.applies_to, func.count(FeedbackQuestion.id))
+                       .group_by(FeedbackQuestion.applies_to).all())
+    stats.update({key: by_audience.get(key, 0) for key in FEEDBACK_APPLIES_TO})
+    return render(request, "academic_config/feedback_questions.html", {
+        "user": user, "rows": rows, "stats": stats, "applies_to": applies_to, "status": status,
+        "answer_type": answer_type, "q": q, "answer_types": ANSWER_TYPES, "applies_to_options": APPLIES_TO,
+        "statuses": STATUSES,
+        "next_sort": (db.query(func.max(FeedbackQuestion.sort_no))
+                      .filter(FeedbackQuestion.applies_to == (applies_to or "client")).scalar() or 0) + 1,
+        **_perms(user)})
+
+
+def _apply_feedback_question(fq: FeedbackQuestion, form) -> Optional[str]:
+    fq.question = (form.get("question") or fq.question or "").strip()
+    if not fq.question:
+        return "The question text is required."
+    fq.question_urdu = (form.get("question_urdu") or "").strip() or None
+    at = (form.get("answer_type") or fq.answer_type or "rating").strip()
+    fq.answer_type = at if at in FEEDBACK_ANSWER_TYPES else (fq.answer_type or "rating")
+    ap = (form.get("applies_to") or fq.applies_to or "client").strip()
+    fq.applies_to = ap if ap in FEEDBACK_APPLIES_TO else (fq.applies_to or "client")
+    fq.is_required = parse_bool(form.get("is_required"))
+    fq.sort_no = parse_int(form.get("sort_no"), fq.sort_no or 0) or 0
+    fq.status = _status_field(form, fq.status or "active")
+    return None
+
+
+@router.post("/feedback-questions/new", include_in_schema=False)
+async def feedback_question_create(request: Request, db: Session = Depends(get_db),
+                                   user: User = Depends(require(f"{MODULE}.update"))):
+    form = await request.form()
+    fq = FeedbackQuestion(question="", answer_type="rating", applies_to="client", is_required=True, sort_no=0, status="active")
+    err = _apply_feedback_question(fq, form)
+    if err:
+        return redirect(f"{BASE}/feedback-questions", err, "error")
+    if not parse_int(form.get("sort_no")):
+        fq.sort_no = (db.query(func.max(FeedbackQuestion.sort_no))
+                      .filter(FeedbackQuestion.applies_to == fq.applies_to).scalar() or 0) + 1
+    db.add(fq)
+    db.flush()
+    log_action(db, user, "create", MODULE, entity=fq, description=f"Feedback question '{fq.question[:60]}' ({fq.applies_to}) created",
+               after=snapshot(fq), request=request)
+    db.commit()
+    return redirect(_feedback_questions_back(fq.applies_to), "Feedback question created.")
+
+
+@router.post("/feedback-questions/{qid}/edit", include_in_schema=False)
+async def feedback_question_edit(qid: int, request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require(f"{MODULE}.update"))):
+    fq = _get(db, FeedbackQuestion, qid, "Feedback question")
+    form = await request.form()
+    before = snapshot(fq)
+    err = _apply_feedback_question(fq, form)
+    if err:
+        db.rollback()
+        return redirect(f"{BASE}/feedback-questions", err, "error")
+    log_action(db, user, "update", MODULE, entity=fq, description=f"Feedback question #{fq.id} updated",
+               before=before, after=snapshot(fq), request=request)
+    db.commit()
+    return redirect(_feedback_questions_back(form.get("applies_to_filter") or ""), "Feedback question saved.")
+
+
+@router.post("/feedback-questions/{qid}/toggle", include_in_schema=False)
+async def feedback_question_toggle(qid: int, request: Request, db: Session = Depends(get_db),
+                                   user: User = Depends(require(f"{MODULE}.update"))):
+    fq = _get(db, FeedbackQuestion, qid, "Feedback question")
+    form = await request.form()
+    return _toggle_status(db, user, request, fq, f"Feedback question #{fq.id}",
+                          _feedback_questions_back(form.get("applies_to_filter") or ""))
+
+
+@router.post("/feedback-questions/{qid}/move", include_in_schema=False)
+async def feedback_question_move(qid: int, request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require(f"{MODULE}.update"))):
+    """Swap sort numbers with the neighbour above or below inside the same audience."""
+    fq = _get(db, FeedbackQuestion, qid, "Feedback question")
+    form = await request.form()
+    direction = "up" if (form.get("direction") or "up") == "up" else "down"
+    rows = _question_rows(db, fq.applies_to)
+    for i, row in enumerate(rows, start=1):  # normalise so every question in the audience has a unique sequence
+        row.sort_no = i
+    idx = next(i for i, row in enumerate(rows) if row.id == fq.id)
+    swap = idx - 1 if direction == "up" else idx + 1
+    back = _feedback_questions_back(form.get("applies_to_filter") or "")
+    if not (0 <= swap < len(rows)):
+        db.commit()
+        return redirect(back, f"Question #{fq.id} is already at the {'top' if direction == 'up' else 'bottom'}.", "info")
+    other = rows[swap]
+    fq.sort_no, other.sort_no = other.sort_no, fq.sort_no
+    log_action(db, user, "update", MODULE, entity=fq, description=f"Feedback question #{fq.id} moved {direction} (swapped with #{other.id})",
+               after={"sort_no": fq.sort_no, "swapped_with": other.id}, request=request)
+    db.commit()
+    return redirect(back, f"Question #{fq.id} moved {direction}.")

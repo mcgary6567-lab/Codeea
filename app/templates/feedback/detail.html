@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
+{% import "feedback/_questions.html" as fq %}
 {% block title %}Feedback #{{ fb.id }}{% endblock %}
 {% block content %}
 {% call ui.page_header('Feedback #' ~ fb.id, (survey.name if survey else fb.trigger|titleize) ~ ' · ' ~ fb.respondent_type|titleize, back='/feedback') %}
@@ -13,12 +14,19 @@
         <div class="text-center"><div class="text-4xl font-bold text-amber-500">{{ '★' * fb.rating if fb.rating else '—' }}</div><div class="text-xs uppercase text-slate-500">Rating</div></div>
       </div>
       <p class="mt-4 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/60">{{ fb.comment or 'No comment provided.' }}</p>
-      {% if fb.answers %}
-      <dl class="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-        {% for k, v in fb.answers.items() %}<div><dt class="text-xs font-semibold uppercase text-slate-500">{{ k|titleize }}</dt><dd>{{ v }}</dd></div>{% endfor %}
-      </dl>
-      {% endif %}
     {% endcall %}
+    {% if question_rows %}
+    {% call ui.card('Feedback questions', 'Each catalogue question with the answer given') %}
+      {{ fq.answer_rows(question_rows) }}
+    {% endcall %}
+    {% endif %}
+    {% if other_answers %}
+    {% call ui.card('Other answers') %}
+      <dl class="grid gap-2 text-sm sm:grid-cols-2">
+        {% for k, v in other_answers.items() %}<div><dt class="text-xs font-semibold uppercase text-slate-500">{{ k|titleize }}</dt><dd>{{ v }}</dd></div>{% endfor %}
+      </dl>
+    {% endcall %}
+    {% endif %}
   </div>
   <div class="space-y-6">
     {% call ui.card('Context') %}

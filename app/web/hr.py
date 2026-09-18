@@ -313,6 +313,9 @@ def _apply_erp_employee_fields(db: Session, user: User, emp: Employee, form, req
     before = {f: getattr(emp, f, None) for f in fields}
     before["duty_hours"] = emp.duty_hours
     before["grade_id"] = emp.grade_id
+    before["contract_end_date"] = str(emp.contract_end_date or "")
+    if "contract_end_date" in form:  # blank clears it: an open-ended contract has no end date
+        emp.contract_end_date = parse_date(form.get("contract_end_date"))
     for f in fields:
         if f in form:
             value = (form.get(f) or "").strip()
@@ -337,6 +340,7 @@ def _apply_erp_employee_fields(db: Session, user: User, emp: Employee, form, req
     after = {f: getattr(emp, f, None) for f in fields}
     after["duty_hours"] = emp.duty_hours
     after["grade_id"] = emp.grade_id
+    after["contract_end_date"] = str(emp.contract_end_date or "")
     if before != after:
         log_action(db, user, "update", "employees", entity=emp, request=request,
                    description=f"ERP employee record fields updated for {emp.employee_code}",
@@ -882,10 +886,19 @@ def _staff_query(db: Session, shift: str = "", employee_type: str = "", designat
     return q.order_by(Employee.full_name)
 
 
+def _row_is_type(row: HRAttendance, kind: str) -> bool:
+    if kind == "present":
+        return row.status in ("present", "late", "half_day")
+    if kind == "late":
+        return row.status == "late" or (row.late_minutes or 0) > 0
+    return row.status == kind
+
+
 # ------------------------------------------------------------------ Daily Attendance + the existing tabs
 @router.get("/attendance", include_in_schema=False)
 def attendance_board(request: Request, tab: str = "daily", day: str = "", month: str = "", employee_id: int = 0,
-                     shift: str = "", db: Session = Depends(get_db), user: User = Depends(require("hr_attendance.view"))):
+                     shift: str = "", type: str = "", db: Session = Depends(get_db),
+                     user: User = Depends(require("hr_attendance.view"))):
     d = parse_date(day) or date.today()
     month = _month_param(month)
     start, end = month_bounds(month)
@@ -902,7 +915,8 @@ def attendance_board(request: Request, tab: str = "daily", day: str = "", month:
     tabs = [("daily", "Daily Attendance", "/hr/attendance?tab=daily"), ("monthly", "Monthly grid", "/hr/attendance?tab=monthly"),
             ("corrections", "Corrections", "/hr/attendance?tab=corrections"), ("late", "Late report", "/hr/attendance?tab=late")]
     ctx: dict = {"user": user, "tab": tab, "tabs": tabs, "day": d, "month": month, "employee_id": employee_id,
-                 "shift": shift, "shifts": SHIFT_GROUPS, "employees": _employee_options(db),
+                 "shift": shift, "type": type if type in ATTENDANCE_STATUSES else "", "shifts": SHIFT_GROUPS,
+                 "employees": _employee_options(db),
                  "statuses": ATTENDANCE_STATUSES, "type_labels": ATTENDANCE_TYPE_LABELS,
                  "type_options": ATTENDANCE_TYPE_OPTIONS, "fallback": fallback, "today_date": date.today()}
     employees = db.query(Employee).filter(Employee.status.in_(["active", "probation", "on_leave"])).order_by(Employee.full_name).all()
@@ -924,6 +938,10 @@ def attendance_board(request: Request, tab: str = "daily", day: str = "", month:
                              "details": svc.employee_line(e),
                              "duration": svc.worked_hours(r), "shortage": svc.shortage_hours(r, e),
                              "duty": svc.session_duty_hours(e)})
+        if type in ATTENDANCE_STATUSES:
+            # The HR Home's attendance figures link here by type: Present covers late and half-day punches,
+            # Late Coming anything that arrived after the grace period, the rest match the row's own type.
+            grid = [g for g in grid if _row_is_type(g["row"], type)]
         # The ERP's three pick-lists of staff for the day, each labelled "code - name - department - shift".
         absent_list, leave_list, present_list, unmarked = [], [], [], []
         on_leave_ids = {l.employee_id for l in db.query(Leave).filter(
@@ -1384,6 +1402,108 @@ def attendance_report(request: Request, date_from: str = "", date_to: str = "", 
         "employee_types": _employee_types(), "designations": _designations(db),
         "departments": [(d.id, d.name) for d in _departments(db)], "qs": qs, "print_view": bool(print_view),
         "working_days": svc.working_days(db, start, end)})
+
+
+# ------------------------------------------------------------------ Attendance Summary (pivot)
+SUMMARY_TYPE_OPTIONS = [("present", "Present"), ("absent", "Absent"), ("leave", "On Leave"), ("late", "Late Coming")]
+SUMMARY_VIEWS = [("pivot", "Attendance Summary"), ("flat", "Attendance Rows")]
+FLAT_PAGE_SIZE = 100
+
+
+def attendance_pivot(db: Session, start: date, end: date, staff: list, attendance_type: str = "") -> tuple[list, dict]:
+    """One row per employee with sessions in the range: Present, Absent, On Leave, Late Coming, Total Sessions,
+    Shortage Hours, plus the totals row. Figures are hr_dashboards.attendance_dashboard(...).by_employee,
+    narrowed to ``staff``; ``attendance_type`` keeps only employees with at least one session of that type."""
+    from app.services.hr_dashboards import attendance_dashboard
+    wanted = {e.id for e in staff}
+    dash = attendance_dashboard(db, start, end)
+    rows = []
+    for r in dash["by_employee"]:
+        e = r["employee"]
+        if e is None or e.id not in wanted:
+            continue
+        if attendance_type in ("present", "absent", "leave", "late") and not r[attendance_type]:
+            continue
+        rows.append({"employee": e, "present": r["present"], "absent": r["absent"], "leave": r["leave"],
+                     "late": r["late"], "sessions": r["sessions"], "shortage_hours": r["shortage_hours"]})
+    rows.sort(key=lambda r: (r["employee"].full_name, r["employee"].employee_code))
+    totals = {"present": 0, "absent": 0, "leave": 0, "late": 0, "sessions": 0, "shortage_hours": 0.0}
+    for r in rows:
+        for k in totals:
+            totals[k] = round(totals[k] + r[k], 2)
+    return rows, totals
+
+
+@router.get("/attendance/summary", include_in_schema=False)
+def attendance_summary_page(request: Request, date_from: str = "", date_to: str = "", employee: str = "", shift: str = "",
+                            employee_type: str = "", designation: str = "", department: str = "",
+                            attendance_type: str = "", view: str = "pivot", page: int = 1, format: str = "",
+                            print_view: int = 0, db: Session = Depends(get_db),
+                            user: User = Depends(require("employees.view"))):
+    """Their Attendance Summary: the report's Search Options over a pivot of one row per employee, with a
+    toggle to the flat attendance rows. Print and CSV as the Attendance Report offers them."""
+    today = date.today()
+    start = parse_date(date_from) or (today - timedelta(days=29))
+    end = parse_date(date_to) or today
+    if end < start:
+        start, end = end, start
+    view = view if view in dict(SUMMARY_VIEWS) else "pivot"
+    attendance_type = attendance_type if attendance_type in dict(SUMMARY_TYPE_OPTIONS) else ""
+    staff = _staff_query(db, shift=shift, employee_type=employee_type, designation=designation,
+                         department=department, employee_id=parse_int(employee, 0) or 0, only_active=False).all()
+    qs = (f"date_from={start}&date_to={end}&employee={employee}&shift={shift}&employee_type={employee_type}"
+          f"&designation={designation}&department={department}&attendance_type={attendance_type}")
+    rows, totals = attendance_pivot(db, start, end, staff, attendance_type)
+
+    flat_q = (db.query(HRAttendance).filter(HRAttendance.date >= start, HRAttendance.date <= end,
+                                            HRAttendance.employee_id.in_([e.id for e in staff] or [-1])))
+    if attendance_type == "present":
+        flat_q = flat_q.filter(HRAttendance.status.in_(["present", "late", "half_day"]))
+    elif attendance_type == "late":
+        flat_q = flat_q.filter(or_(HRAttendance.status == "late", HRAttendance.late_minutes > 0))
+    elif attendance_type:
+        flat_q = flat_q.filter(HRAttendance.status == attendance_type)
+    flat_q = flat_q.order_by(HRAttendance.date.desc(), HRAttendance.employee_id, HRAttendance.session)
+    emap = {e.id: e for e in staff}
+
+    def flat_cells(r: HRAttendance) -> list:
+        e = emap.get(r.employee_id)
+        return [r.date, e.employee_code if e else r.employee_id, e.full_name if e else "", (e.shift or "").title() if e else "",
+                r.session.upper(), ATTENDANCE_TYPE_LABELS.get(r.status, r.status), _fmt_time(r.check_in),
+                _fmt_time(r.check_out), r.late_minutes or 0, svc.worked_hours(r), svc.shortage_hours(r, e)]
+
+    if format == "csv":
+        if view == "flat":
+            return _csv([flat_cells(r) for r in flat_q.all()],
+                        ["Date", "Code", "Employee", "Shift", "Session", "Attendance Type", "Login Time", "Logout Time",
+                         "Late Minutes", "Duration", "Shortage"], f"attendance-rows-{start}-{end}.csv")
+        out = [[r["employee"].employee_code, r["employee"].full_name, r["employee"].designation,
+                r["employee"].employee_type, (r["employee"].shift or "").title(),
+                r["employee"].department.name if r["employee"].department else "", r["present"], r["absent"],
+                r["leave"], r["late"], r["sessions"], r["shortage_hours"]] for r in rows]
+        out.append(["", "TOTAL", "", "", "", "", totals["present"], totals["absent"], totals["leave"], totals["late"],
+                    totals["sessions"], totals["shortage_hours"]])
+        return _csv(out, ["Code", "Employee", "Designation", "Employee Type", "Shift", "Department", "Present", "Absent",
+                          "On Leave", "Late Coming", "Total Sessions", "Shortage Hours"],
+                    f"attendance-summary-{start}-{end}.csv")
+
+    flat_page = paginate(flat_q, page, FLAT_PAGE_SIZE) if view == "flat" else None
+    return render(request, "hr/attendance_summary.html", {
+        "user": user, "rows": rows, "totals": totals, "start": start, "end": end, "view": view,
+        "views": [(k, l, f"/hr/attendance/summary?{qs}&view={k}") for k, l in SUMMARY_VIEWS],
+        "flat_page": flat_page, "flat_rows": [flat_cells(r) for r in flat_page.items] if flat_page else [],
+        "filters": {"date_from": start.isoformat(), "date_to": end.isoformat(), "employee": employee, "shift": shift,
+                    "employee_type": employee_type, "designation": designation, "department": department,
+                    "attendance_type": attendance_type},
+        "employees": _employee_options(db, only_active=False), "shifts": SHIFT_GROUPS,
+        "employee_types": _employee_types(), "designations": _designations(db),
+        "departments": [(d.id, d.name) for d in _departments(db)], "type_options": SUMMARY_TYPE_OPTIONS,
+        "qs": qs, "print_view": bool(print_view), "base_url": f"/hr/attendance/summary?{qs}&view={view}",
+        "working_days": svc.working_days(db, start, end)})
+
+
+def _fmt_time(value) -> str:
+    return value.strftime("%H:%M") if value else ""
 
 
 # ============================================================================== LEAVES (Leave Management)
@@ -3176,3 +3296,167 @@ async def provisioning_run(request: Request, db: Session = Depends(get_db), user
     db.commit()
     return redirect("/hr/provisioning", f"{action.title()} completed for {e.full_name} ({len(rec.items)} systems).",
                     "warning" if action == "offboard" else "success")
+
+
+# ============================================================================== STAFF NOTICES (ERP HR Notifications)
+# Their Employment Management -> Notifications: a list with Create and the columns Link, Title, Start Date,
+# End Date, Status. People and Culture write here; the self portal (/hr/me/notices) shows the live ones to
+# the audience they name. A notice created active and in date also rings the bell of everyone in that
+# audience through app.core.notify, so there is one messaging path, not two.
+from app.core.notify import notify_many  # noqa: E402
+from app.models.hr_erp import NOTICE_AUDIENCES, StaffNotice  # noqa: E402
+
+NOTICE_STATES = ["live", "scheduled", "expired", "inactive"]
+NOTICE_TILES = [("Live", "live", "megaphone"), ("Scheduled", "scheduled", "calendar-clock"),
+                ("Expired", "expired", "calendar-x"), ("Inactive", "inactive", "archive")]
+NOTICE_HEADERS = ["ID", "Link", "Title", "Start Date", "End Date", "Audience", "Status"]
+NOTICE_ROW_HIGHLIGHT = {"scheduled": "#fffbeb", "expired": "#f8fafc", "inactive": "#f8fafc"}
+
+
+def notice_state(n: StaffNotice, today: date | None = None) -> str:
+    """Live / Scheduled / Expired / Inactive, derived from status and the validity window."""
+    today = today or date.today()
+    if n.status != "active":
+        return "inactive"
+    if n.start_date and n.start_date > today:
+        return "scheduled"
+    if n.end_date and n.end_date < today:
+        return "expired"
+    return "live"
+
+
+def notice_state_filter(query, state: str, today: date | None = None):
+    """The same four verdicts as notice_state, as SQL, so the tiles and the filter agree with the rows."""
+    today = today or date.today()
+    if state == "inactive":
+        return query.filter(StaffNotice.status != "active")
+    if state == "scheduled":
+        return query.filter(StaffNotice.status == "active", StaffNotice.start_date > today)
+    if state == "expired":
+        return query.filter(StaffNotice.status == "active", StaffNotice.start_date <= today,
+                            StaffNotice.end_date.isnot(None), StaffNotice.end_date < today)
+    if state == "live":
+        return query.filter(StaffNotice.status == "active", StaffNotice.start_date <= today,
+                            or_(StaffNotice.end_date.is_(None), StaffNotice.end_date >= today))
+    return query
+
+
+def notice_audience_user_ids(db: Session, audience: str) -> list[int]:
+    """The user accounts a notice reaches: live employees of that type, or everyone when it is for all."""
+    q = db.query(Employee.user_id).filter(Employee.user_id.isnot(None),
+                                          Employee.status.notin_(INACTIVE_STATUSES))
+    if audience != "all":
+        q = q.filter(Employee.employee_type == audience)
+    return [uid for (uid,) in q]
+
+
+def _notice_form(form) -> tuple[dict, str | None]:
+    """Validate the create / edit form. Returns (values, error)."""
+    title = (form.get("title") or "").strip()
+    if not title:
+        return {}, "A title is required."
+    start = parse_date(form.get("start_date")) or date.today()
+    end = parse_date(form.get("end_date"))
+    if end and end < start:
+        return {}, "The end date cannot be before the start date."
+    audience = (form.get("audience") or "all").strip()
+    if audience not in NOTICE_AUDIENCES:
+        audience = "all"
+    status = "active" if (form.get("status") or "active") == "active" else "inactive"
+    return {"title": title[:300], "description": (form.get("description") or "").strip() or None,
+            "link": (form.get("link") or "").strip()[:300] or None, "start_date": start, "end_date": end,
+            "audience": audience, "status": status}, None
+
+
+def _notice_snapshot(n: StaffNotice) -> dict:
+    return {"title": n.title, "description": n.description, "link": n.link, "start_date": str(n.start_date or ""),
+            "end_date": str(n.end_date or ""), "audience": n.audience, "status": n.status}
+
+
+@router.get("/notices", include_in_schema=False)
+def notices_list(request: Request, page: int = 1, status: str = "", audience: str = "", q: str = "",
+                 db: Session = Depends(get_db), user: User = Depends(require("employees.view"))):
+    today = date.today()
+    query = db.query(StaffNotice)
+    if status in NOTICE_STATES:
+        query = notice_state_filter(query, status, today)
+    if audience in NOTICE_AUDIENCES:
+        query = query.filter(StaffNotice.audience == audience)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(StaffNotice.title.ilike(like), StaffNotice.description.ilike(like)))
+    pg = paginate(query.order_by(StaffNotice.start_date.desc(), StaffNotice.id.desc()), page, 25)
+    counts = {state: notice_state_filter(db.query(StaffNotice), state, today).count() for state in NOTICE_STATES}
+    rows = [{"notice": n, "state": notice_state(n, today), "highlight": NOTICE_ROW_HIGHLIGHT.get(notice_state(n, today))}
+            for n in pg.items]
+    return render(request, "hr/notices.html", {
+        "user": user, "page": pg, "rows": rows, "counts": counts, "tiles": NOTICE_TILES, "headers": NOTICE_HEADERS,
+        "filters": {"status": status, "audience": audience, "q": q},
+        "state_options": [(s, s.title()) for s in NOTICE_STATES],
+        "audience_options": [(a, "All staff" if a == "all" else a) for a in NOTICE_AUDIENCES],
+        "base_url": f"/hr/notices?status={status}&audience={audience}&q={q}", "today_iso": today.isoformat(),
+        "group_tabs": GROUP_TABS, "can_edit": rbac.has_permission(user, "employees.update")})
+
+
+@router.post("/notices/new", include_in_schema=False)
+async def notice_create(request: Request, db: Session = Depends(get_db), user: User = Depends(require("employees.update"))):
+    form = await request.form()
+    values, error = _notice_form(form)
+    if error:
+        return redirect("/hr/notices", error, "error")
+    n = StaffNotice(created_by_id=user.id, **values)
+    db.add(n)
+    db.flush()
+    state = notice_state(n)
+    log_action(db, user, "create", "employees", entity=n, request=request,
+               description=f"Staff notice '{n.title[:80]}' created for {n.audience} ({state})",
+               after=_notice_snapshot(n), rationale=form.get("rationale") or None)
+    reached = 0
+    if n.is_live():
+        recipients = notice_audience_user_ids(db, n.audience)
+        notify_many(db, recipients, n.title[:200], (n.description or "")[:500], event_type="staff_notice",
+                    link=n.link or "/hr/me/notices")
+        reached = len(recipients)
+    db.commit()
+    if reached:
+        msg = f"Notice #{n.id} published; {reached} member(s) of staff notified."
+    elif state == "scheduled":
+        msg = f"Notice #{n.id} saved; it goes live on {n.start_date:%d %b %Y}."
+    elif state == "inactive":
+        msg = f"Notice #{n.id} saved as inactive; activate it when it is ready."
+    else:
+        msg = f"Notice #{n.id} published."
+    return redirect("/hr/notices", msg)
+
+
+@router.post("/notices/{id}/edit", include_in_schema=False)
+async def notice_edit(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("employees.update"))):
+    n = db.get(StaffNotice, id)
+    if n is None:
+        raise HTTPException(status_code=404, detail="Notice not found")
+    form = await request.form()
+    values, error = _notice_form(form)
+    if error:
+        return redirect("/hr/notices", error, "error")
+    before = _notice_snapshot(n)
+    for k, v in values.items():
+        setattr(n, k, v)
+    log_action(db, user, "update", "employees", entity=n, request=request,
+               description=f"Staff notice #{n.id} edited ({notice_state(n)})", before=before,
+               after=_notice_snapshot(n), rationale=form.get("rationale") or None)
+    db.commit()
+    return redirect("/hr/notices", f"Notice #{n.id} updated.")
+
+
+@router.post("/notices/{id}/toggle", include_in_schema=False)
+def notice_toggle(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("employees.update"))):
+    n = db.get(StaffNotice, id)
+    if n is None:
+        raise HTTPException(status_code=404, detail="Notice not found")
+    before = n.status
+    n.status = "inactive" if n.status == "active" else "active"
+    verb = "activated" if n.status == "active" else "deactivated"
+    log_action(db, user, "update", "employees", entity=n, request=request,
+               description=f"Staff notice #{n.id} {verb}", before={"status": before}, after={"status": n.status})
+    db.commit()
+    return redirect("/hr/notices", f"Notice #{n.id} {verb}.")

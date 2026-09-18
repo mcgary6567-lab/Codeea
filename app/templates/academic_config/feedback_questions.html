@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}QA Feedback Questions{% endblock %}
+{% block content %}
+{% call ui.page_header("QA Feedback Questions", "What every feedback form asks, in order. Answers are kept on the feedback itself, keyed by question, so a question can be reworded or retired later.", back="/academics/config") %}
+  {{ ui.button("Client Feedbacks", href="/qa/feedbacks", icon="message-square-heart", variant="secondary") }}
+  {% if can_edit %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.stat("All Questions", stats.total, color=palette(0), href="/academics/config/feedback-questions") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/academics/config/feedback-questions?status=active") }}
+  {{ ui.stat("Inactive", stats.inactive, color=palette(7), href="/academics/config/feedback-questions?status=inactive") }}
+  {{ ui.stat("Client", stats.client, color=palette(4), href="/academics/config/feedback-questions?applies_to=client") }}
+  {{ ui.stat("Student", stats.student, color=palette(6), href="/academics/config/feedback-questions?applies_to=student") }}
+  {{ ui.stat("Staff", stats.staff, color=palette(9), href="/academics/config/feedback-questions?applies_to=staff") }}
+</div>
+
+{% call ui.filter_bar('/academics/config/feedback-questions') %}
+  <div class="w-40">{{ ui.select('applies_to', 'Applies To', applies_to_options, applies_to, placeholder='All') }}</div>
+  <div class="w-44">{{ ui.select('answer_type', 'Answer Type', answer_types, answer_type, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Question text') }}</div>
+{% endcall %}
+
+{% macro question_form(action, fq, submit_label) %}
+<form method="post" action="{{ action }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
+  <input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('question', 'Question', fq.question if fq else '', required=True, placeholder='e.g. Was the teacher punctual this month?') }}</div>
+  <div class="sm:col-span-2 lg:col-span-3">{{ ui.input('question_urdu', 'Question (Urdu)', fq.question_urdu if fq else '', placeholder='اردو میں سوال', attrs='dir="rtl" lang="ur" class="font-urdu"') }}</div>
+  {{ ui.select('answer_type', 'Answer Type', answer_types, fq.answer_type if fq else 'rating', placeholder=None) }}
+  {{ ui.select('applies_to', 'Applies To', applies_to_options, fq.applies_to if fq else (applies_to or 'client'), placeholder=None) }}
+  {{ ui.input('sort_no', 'Sort No', fq.sort_no if fq else next_sort, type='number', min=0, help=None if fq else 'Blank = next in the audience') }}
+  {{ ui.select('status', 'Status', statuses, fq.status if fq else 'active', placeholder=None) }}
+  <div class="flex items-end pb-1">{{ ui.checkbox('is_required', 'Required', fq.is_required if fq else True) }}</div>
+  <div class="flex justify-end">{{ ui.button(submit_label, icon='save', size='sm') }}</div>
+</form>
+{% endmacro %}
+
+{{ ui.table_start(['ID', 'Question', 'Answer Type', 'Applies To', 'Required', 'Sort No', 'Status', '']) }}
+{% for fq in rows %}
+<tr>
+  <td class="px-4 py-2 font-mono text-xs text-slate-500">{{ fq.id }}</td>
+  <td class="px-4 py-2">
+    <div class="font-medium text-slate-900">{{ fq.question }}</div>
+    {% if fq.question_urdu %}<div dir="rtl" lang="ur" class="font-urdu mt-0.5 text-xs text-slate-600">{{ fq.question_urdu }}</div>{% endif %}
+  </td>
+  <td class="px-4 py-2 text-xs">{% for k, l in answer_types %}{% if k == fq.answer_type %}{{ l }}{% endif %}{% endfor %}</td>
+  <td class="px-4 py-2 text-xs">{{ fq.applies_to|titleize }}</td>
+  <td class="px-4 py-2 text-center">{{ ui.badge('active' if fq.is_required else 'inactive', 'Yes' if fq.is_required else 'No') }}</td>
+  <td class="px-4 py-2 text-right font-mono text-xs">{{ fq.sort_no }}</td>
+  <td class="px-4 py-2">{{ ui.badge(fq.status) }}</td>
+  <td class="px-4 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <form method="post" action="/academics/config/feedback-questions/{{ fq.id }}/move" class="inline">
+      <input type="hidden" name="direction" value="up"><input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
+      <button class="rounded px-1.5 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Move up"><i data-lucide="arrow-up" class="h-3.5 w-3.5"></i></button>
+    </form>
+    <form method="post" action="/academics/config/feedback-questions/{{ fq.id }}/move" class="inline">
+      <input type="hidden" name="direction" value="down"><input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
+      <button class="rounded px-1.5 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Move down"><i data-lucide="arrow-down" class="h-3.5 w-3.5"></i></button>
+    </form>
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/academics/config/feedback-questions/{{ fq.id }}/toggle" class="inline">
+      <input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
+      {{ ui.button('Deactivate' if fq.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="8" class="bg-slate-50 px-4 py-4">{{ question_form('/academics/config/feedback-questions/' ~ fq.id ~ '/edit', fq, 'Save question') }}</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No feedback questions match these filters.', 8, 'message-square-text') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ rows|length }} question{{ 's' if rows|length != 1 }} · the feedback forms ask the active questions of each audience in Sort No order.</div>
+
+{% if can_edit %}
+{% call ui.modal('newQuestion', 'Create Feedback Question', 'lg') %}
+{{ question_form('/academics/config/feedback-questions/new', None, 'Create question') }}
+{% endcall %}
+{% endif %}
+{% endblock %}

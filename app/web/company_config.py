@@ -10,6 +10,7 @@ An index of cards and, behind them, the screens their staff already know:
     /config/support-tickets    requests raised to whoever maintains the software
     /config/otp                one-time password Setup and the per-user token status
     /config/roles              roles grouped by application area (read only; editing stays on /admin/roles)
+    /config/agents             Confido Agents: the desktop recording agent's licences, devices and screenshots
 
 Lookups and branch properties come first because the rest of the system reads them: the attendance grace
 periods decide when a late arrival attracts a fine and the advance invoice days decide how far ahead billing
@@ -27,20 +28,24 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.config import BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.deps import PermissionDenied, csrf_protect, get_current_user, require
 from app.core.templating import render
 from app.core.utils import next_code, paginate, parse_bool, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
-from app.models.config_erp import (LOOKUP_APPS, TICKET_PRIORITIES, TICKET_STATUSES, TICKET_TYPES, Lookup,
-                                   LookupValue, OtpConfiguration, PaymentGateway, SupportTicket, WhatsAppSender)
+from app.models.config_erp import (AGENT_DEVICE_STATUSES, LOOKUP_APPS, TICKET_PRIORITIES, TICKET_STATUSES,
+                                   TICKET_TYPES, AgentDevice, AgentLicense, AgentScreenshot, Lookup, LookupValue,
+                                   OtpConfiguration, PaymentGateway, SupportTicket, WhatsAppSender)
 from app.models.core import Department, Role, Setting, User
 from app.models.erp import BeneficiaryAccount
 from app.models.finance import Currency, ExchangeRateHistory
+from app.models.people import Employee
 from app.services import lookups as lookup_service
 
 router = APIRouter(prefix="/config", dependencies=[Depends(csrf_protect)])
@@ -64,6 +69,13 @@ TICKET_MODULES = ["Online Academics", "Billing Management", "Human Resource", "A
 PRIORITY_LABELS = {"low": "Low", "normal": "Normal", "urgent": "Urgent", "very_urgent": "Very Urgent"}
 TICKET_STATUS_LABELS = {"pending": "Pending", "in_progress": "In Progress", "resolved": "Resolved",
                         "rejected": "Rejected", "closed": "Closed"}
+# Confido Agents: their Recording Agent page, three tabs. The licence count the branch may consume is the
+# branch property agent_licenses_allowed; a licence is consumed while it is active.
+AGENT_TABS = [("licenses", "User Licenses"), ("devices", "Devices list"), ("screenshots", "Agents Screen Shorts")]
+AGENT_LICENSES_SETTING = "agent_licenses_allowed"
+AGENT_LICENSES_DEFAULT = 5
+AGENT_SCREENSHOT_DIR = "agent_screenshots"   # under storage/, served by the /storage static mount
+AGENT_OFFLINE_AFTER_MINUTES = 10
 # Which application area a role belongs to, mirroring the ERP's Roles grouping.
 ROLE_APPS = {
     "super_admin": "Configuration", "system_admin": "Configuration", "hod_technology": "Configuration",
@@ -88,6 +100,7 @@ CARDS = [  # title, url, icon, blurb
     ("WhatsApp Numbers", f"{BASE}/whatsapp-senders", "message-circle", "Connected senders with their throttle"),
     ("OTP Configuration", f"{BASE}/otp", "key-round", "One-time passwords: setup and per-user tokens"),
     ("Payment Gateways", f"{BASE}/payment-gateways", "credit-card", "Gateways with their default transaction fee"),
+    ("Confido Agents", f"{BASE}/agents", "monitor-smartphone", "Recording agent licences, devices and screenshots"),
 ]
 
 
@@ -242,6 +255,7 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
         f"{BASE}/whatsapp-senders": db.query(func.count(WhatsAppSender.id)).scalar() or 0,
         f"{BASE}/otp": db.query(func.count(User.id)).filter(User.two_factor_enabled.is_(True)).scalar() or 0,
         f"{BASE}/payment-gateways": db.query(func.count(PaymentGateway.id)).scalar() or 0,
+        f"{BASE}/agents": db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "active").scalar() or 0,
     }
     cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u)} for t, u, i, b in CARDS]
     return render(request, "company_config/index.html", {"user": user, "cards": cards})
@@ -1040,3 +1054,200 @@ def roles_page(request: Request, app: str = "", q: str = "", db: Session = Depen
                   "system": db.query(func.count(Role.id)).filter(Role.is_system.is_(True)).scalar() or 0,
                   "apps": len(by_app)},
         "can_edit": rbac.has_permission(user, "roles.update")})
+
+
+# =============================================================================== 10. Confido Agents
+def agent_licenses_allowed(db: Session) -> int:
+    from app.services.system import get_setting_value
+    return parse_int(get_setting_value(db, AGENT_LICENSES_SETTING, AGENT_LICENSES_DEFAULT), AGENT_LICENSES_DEFAULT) or 0
+
+
+def agent_licenses_consumed(db: Session) -> int:
+    return db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "active").scalar() or 0
+
+
+def _employee_options(db: Session) -> list[tuple[int, str]]:
+    rows = db.query(Employee).filter(Employee.status.in_(("active", "probation", "on_leave"))).order_by(Employee.full_name).all()
+    return [(e.id, f"{e.employee_code} — {e.full_name}") for e in rows]
+
+
+def _agents_back(tab: str = "licenses", **params) -> str:
+    qs = "&".join(f"{k}={v}" for k, v in params.items() if v not in (None, "", 0))
+    return f"{BASE}/agents?tab={tab}" + (f"&{qs}" if qs else "")
+
+
+@router.get("/agents", include_in_schema=False)
+def agents_page(request: Request, tab: str = "licenses", status: str = "", employee_id: Optional[int] = None, q: str = "",
+                date_from: str = "", date_to: str = "", reveal: int = 0, page: int = 1,
+                db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
+    tab = tab if tab in [k for k, _ in AGENT_TABS] else "licenses"
+    allowed, consumed = agent_licenses_allowed(db), agent_licenses_consumed(db)
+    device_counts = dict(db.query(AgentDevice.status, func.count(AgentDevice.id)).group_by(AgentDevice.status).all())
+    ctx: dict = {
+        "user": user, "tab": tab, "tabs": AGENT_TABS, "status": status, "employee_id": employee_id, "q": q,
+        "date_from": date_from, "date_to": date_to, "reveal": reveal,
+        "stats": {"allowed": allowed, "consumed": consumed, "available": max(0, allowed - consumed),
+                  "revoked": db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "revoked").scalar() or 0,
+                  "online": device_counts.get("online", 0), "offline": device_counts.get("offline", 0),
+                  "blocked": device_counts.get("blocked", 0),
+                  "screenshots": db.query(func.count(AgentScreenshot.id)).scalar() or 0},
+        "employee_options": _employee_options(db), "device_statuses": [(s, s.title()) for s in AGENT_DEVICE_STATUSES],
+        "offline_after": AGENT_OFFLINE_AFTER_MINUTES, "today": date.today().isoformat(), **_perms(user)}
+    if tab == "licenses":
+        rows = db.query(AgentLicense).order_by(AgentLicense.status, AgentLicense.issued_at.desc(), AgentLicense.id.desc()).all()
+        ctx["rows"] = rows
+        ctx["user_options"] = [(u.id, f"{u.full_name} ({u.email})") for u in
+                               db.query(User).join(Role, Role.id == User.role_id)
+                               .filter(User.is_active.is_(True), Role.portal.in_(("admin", "teacher"))).order_by(User.full_name).all()]
+    elif tab == "devices":
+        query = db.query(AgentDevice)
+        if status in AGENT_DEVICE_STATUSES:
+            query = query.filter(AgentDevice.status == status)
+        if employee_id:
+            query = query.filter(AgentDevice.employee_id == employee_id)
+        if q:
+            like = f"%{q.lower()}%"
+            query = query.filter(func.lower(AgentDevice.machine_name).like(like) | func.lower(AgentDevice.machine_id).like(like)
+                                 | func.lower(func.coalesce(AgentDevice.ip_address, "")).like(like))
+        ctx["rows"] = query.order_by(AgentDevice.status, AgentDevice.last_seen_at.desc().nullslast(), AgentDevice.id).all()
+        ctx["shot_counts"] = dict(db.query(AgentScreenshot.device_id, func.count(AgentScreenshot.id)).group_by(AgentScreenshot.device_id).all())
+    else:
+        query = db.query(AgentScreenshot)
+        if employee_id:
+            query = query.filter(AgentScreenshot.employee_id == employee_id)
+        df, dt = parse_date(date_from), parse_date(date_to)
+        if df:
+            query = query.filter(AgentScreenshot.captured_at >= datetime.combine(df, datetime.min.time()))
+        if dt:
+            query = query.filter(AgentScreenshot.captured_at <= datetime.combine(dt, datetime.max.time()))
+        ctx["page"] = paginate(query.order_by(AgentScreenshot.captured_at.desc(), AgentScreenshot.id.desc()), page, 24)
+        ctx["shown"] = ctx["page"].total
+    return render(request, "company_config/agents.html", ctx)
+
+
+def _license(db: Session, lid: int) -> AgentLicense:
+    return _get(db, AgentLicense, lid, "Agent licence")
+
+
+@router.post("/agents/licenses/generate", include_in_schema=False)
+async def agent_license_generate(request: Request, db: Session = Depends(get_db),
+                                 user: User = Depends(require("settings.configure"))):
+    form = await request.form()
+    allowed, consumed = agent_licenses_allowed(db), agent_licenses_consumed(db)
+    if consumed + 1 > allowed:
+        return redirect(_agents_back("licenses"),
+                        f"All {allowed} licences are consumed ({consumed} active). Revoke one or raise "
+                        f"'Agent Licenses Allowed' under Setup before generating another.", "error")
+    expires = parse_date(form.get("expires_at"))
+    issued_to = db.get(User, parse_int(form.get("issued_to_user_id")) or 0) if form.get("issued_to_user_id") else None
+    lic = AgentLicense(license_key=secrets.token_urlsafe(24), issued_to_user_id=issued_to.id if issued_to else None,
+                       issued_by_id=user.id, issued_at=datetime.utcnow(),
+                       expires_at=datetime.combine(expires, datetime.max.time().replace(microsecond=0)) if expires else None,
+                       status="active", notes=(form.get("notes") or "").strip() or None)
+    db.add(lic)
+    db.flush()
+    log_action(db, user, "create", MODULE, entity=lic, severity="warning", consequential=True,
+               rationale=_rationale(form) or "Recording agent licence generated",
+               description=f"Agent licence #{lic.id} generated for {issued_to.full_name if issued_to else 'unassigned'} "
+                           f"({consumed + 1} of {allowed} consumed)", request=request)
+    db.commit()
+    return redirect(_agents_back("licenses"), f"Licence #{lic.id} generated ({consumed + 1} of {allowed} consumed). "
+                                              "Reveal or download it to install the agent.")
+
+
+@router.post("/agents/licenses/{lid}/reveal", include_in_schema=False)
+async def agent_license_reveal(lid: int, request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("settings.view"))):
+    """Show a licence key in the clear. Like a secret branch property, the reveal itself is audited."""
+    lic = _license(db, lid)
+    form = await request.form()
+    log_action(db, user, "view", MODULE, entity=lic, severity="warning", consequential=True,
+               rationale=_rationale(form) or "Agent licence key revealed on screen",
+               description=f"Revealed agent licence #{lic.id}", request=request)
+    db.commit()
+    return redirect(_agents_back("licenses", reveal=lic.id), f"Licence #{lic.id} revealed — this is audited.")
+
+
+@router.get("/agents/licenses/{lid}/download", include_in_schema=False)
+def agent_license_download(lid: int, request: Request, db: Session = Depends(get_db),
+                           user: User = Depends(require("settings.view"))):
+    """The key as a small .lic text file the agent installer reads. Downloading exposes the key, so it is audited."""
+    lic = _license(db, lid)
+    log_action(db, user, "export", MODULE, entity=lic, severity="warning", consequential=True,
+               rationale="Agent licence file downloaded", description=f"Downloaded agent licence #{lic.id} as a .lic file",
+               request=request)
+    db.commit()
+    return Response(content=lic.license_key, media_type="text/plain; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="oqc-agent-{lic.id}.lic"',
+                             "Cache-Control": "no-store"})
+
+
+@router.post("/agents/licenses/{lid}/revoke", include_in_schema=False)
+async def agent_license_revoke(lid: int, request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("settings.configure"))):
+    lic = _license(db, lid)
+    form = await request.form()
+    if lic.status == "revoked":
+        return redirect(_agents_back("licenses"), f"Licence #{lic.id} is already revoked.", "warning")
+    before = snapshot(lic)
+    lic.status = "revoked"
+    blocked = 0
+    for device in lic.devices:
+        if device.status != "blocked":
+            device.status = "blocked"
+            blocked += 1
+    log_action(db, user, "status_change", MODULE, entity=lic, severity="warning", consequential=True,
+               rationale=_rationale(form) or "Recording agent licence revoked",
+               description=f"Agent licence #{lic.id} revoked; {blocked} device(s) blocked",
+               before=before, after=snapshot(lic), request=request)
+    db.commit()
+    return redirect(_agents_back("licenses"), f"Licence #{lic.id} revoked and {blocked} device(s) blocked.")
+
+
+@router.post("/agents/devices/{did}/block", include_in_schema=False)
+async def agent_device_block(did: int, request: Request, db: Session = Depends(get_db),
+                             user: User = Depends(require("settings.configure"))):
+    device = _get(db, AgentDevice, did, "Agent device")
+    form = await request.form()
+    before = snapshot(device)
+    device.status = "blocked"
+    log_action(db, user, "status_change", MODULE, entity=device, severity="warning", consequential=True,
+               rationale=_rationale(form) or "Recording agent device blocked",
+               description=f"Agent device {device.machine_name} ({device.machine_id}) blocked",
+               before=before, after=snapshot(device), request=request)
+    db.commit()
+    return redirect(_agents_back("devices"), f"{device.machine_name} blocked; its heartbeats and screenshots are refused.")
+
+
+@router.post("/agents/devices/{did}/unblock", include_in_schema=False)
+async def agent_device_unblock(did: int, request: Request, db: Session = Depends(get_db),
+                               user: User = Depends(require("settings.configure"))):
+    device = _get(db, AgentDevice, did, "Agent device")
+    form = await request.form()
+    if device.license and device.license.status != "active":
+        return redirect(_agents_back("devices"), f"{device.machine_name} is on a revoked licence; issue a new licence instead.", "error")
+    before = snapshot(device)
+    device.status = "offline"   # online again on its next heartbeat
+    log_action(db, user, "status_change", MODULE, entity=device, severity="warning", consequential=True,
+               rationale=_rationale(form) or "Recording agent device unblocked",
+               description=f"Agent device {device.machine_name} ({device.machine_id}) unblocked",
+               before=before, after=snapshot(device), request=request)
+    db.commit()
+    return redirect(_agents_back("devices"), f"{device.machine_name} unblocked; it shows online at its next heartbeat.")
+
+
+@router.get("/agents/screenshots/{sid}/image", include_in_schema=False)
+def agent_screenshot_image(sid: int, request: Request, db: Session = Depends(get_db),
+                           user: User = Depends(require("settings.view"))):
+    """The capture itself. Staff-screen captures are not served from the open static mount: this route
+    checks the permission and refuses any path that resolves outside the screenshots folder."""
+    from app.models.config_erp import AgentScreenshot
+    shot = db.get(AgentScreenshot, sid)
+    if shot is None:
+        raise HTTPException(status_code=404, detail="Screenshot not found.")
+    root = (BASE_DIR / "storage" / "agent_screenshots").resolve()
+    path = (BASE_DIR / "storage" / shot.image_path).resolve()
+    if root not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Screenshot file is missing.")
+    return FileResponse(str(path))
+

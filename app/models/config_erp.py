@@ -119,3 +119,52 @@ class OtpConfiguration(Base, PKMixin, TimestampMixin):
     whatsapp_sender_id: Mapped[Optional[int]] = mapped_column(ForeignKey("whatsapp_senders.id", ondelete="SET NULL"))
 
     whatsapp_sender = relationship("WhatsAppSender")
+
+
+# --------------------------------------------------------------------------- Confido Agents (Configuration)
+# Their tenth Configuration card. A desktop agent on a staff machine records calls and takes screenshots; the
+# portal shows how many licences are allowed and consumed, the devices that have checked in, and the screens
+# captured. The agent program is their vendor's; these rows are what an agent reports through our API.
+AGENT_DEVICE_STATUSES = ["online", "offline", "blocked"]
+
+
+class AgentLicense(Base, PKMixin, TimestampMixin):
+    __tablename__ = "agent_licenses"
+    license_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    issued_to_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    issued_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    issued_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)  # active | revoked
+    notes: Mapped[Optional[str]] = mapped_column(String(300))
+
+    issued_to = relationship("User", foreign_keys=[issued_to_user_id])
+    devices = relationship("AgentDevice", back_populates="license")
+
+
+class AgentDevice(Base, PKMixin, TimestampMixin):
+    __tablename__ = "agent_devices"
+    license_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_licenses.id", ondelete="SET NULL"))
+    employee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"), index=True)
+    machine_name: Mapped[str] = mapped_column(String(120))
+    machine_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    os_name: Mapped[Optional[str]] = mapped_column(String(80))
+    agent_version: Mapped[Optional[str]] = mapped_column(String(30))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="offline", index=True)  # online | offline | blocked
+
+    license = relationship("AgentLicense", back_populates="devices")
+    employee = relationship("Employee")
+
+
+class AgentScreenshot(Base, PKMixin, TimestampMixin):
+    __tablename__ = "agent_screenshots"
+    device_id: Mapped[int] = mapped_column(ForeignKey("agent_devices.id", ondelete="CASCADE"), index=True)
+    employee_id: Mapped[Optional[int]] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"), index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    image_path: Mapped[str] = mapped_column(String(300))
+    note: Mapped[Optional[str]] = mapped_column(String(200))
+
+    device = relationship("AgentDevice")
+    employee = relationship("Employee")

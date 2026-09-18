@@ -1,0 +1,103 @@
+{# Their Time and Attendance -> Attendance Summary (docs/AUDIT_HUMAN_RESOURCE.md): the Attendance Report's
+   Search Options over a pivot of one row per employee, a totals row, and a toggle to the flat rows. #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Attendance Summary{% endblock %}
+{% block content %}
+<style>
+  @media print {
+    header, nav, footer, .no-print, .oqc-topbar, .oqc-crumbs { display: none !important; }
+    body { background: #fff !important; }
+    .print-only { display: block !important; }
+    table { font-size: 10px; }
+    a[href]:after { content: ""; }
+  }
+  .print-only { display: none; }
+</style>
+
+<div class="no-print">
+{% call ui.page_header('Attendance Summary', 'One row per employee: Present, Absent, On Leave, Late Coming, Total Sessions and Shortage Hours for a date range.') %}
+  {{ ui.button('Print Report', icon='printer', variant='secondary', attrs='onclick="window.print()"') }}
+  {{ ui.button('Export CSV', href='/hr/attendance/summary?' ~ qs ~ '&view=' ~ view ~ '&format=csv', icon='download', variant='secondary') }}
+  {{ ui.button('Attendance Report', href='/hr/attendance/report?' ~ qs, icon='table', variant='secondary') }}
+  {{ ui.button('Daily Attendance', href='/hr/attendance', icon='clock', variant='secondary') }}
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Attendance Summary</h1>
+  <p style="font-size:11px">{{ start|date }} to {{ end|date }} &middot; {{ rows|length }} employee(s) &middot; printed {{ current_date|date }}</p>
+</div>
+
+<div class="no-print">
+{% call ui.filter_bar('/hr/attendance/summary') %}
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="w-36">{{ ui.input('date_from', 'From Date', filters.date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To Date', filters.date_to, type='date') }}</div>
+  <div class="w-40">{{ ui.select('attendance_type', 'Attendance Type', type_options, filters.attendance_type, placeholder='All types') }}</div>
+  <div class="w-32">{{ ui.select('shift', 'Shift', shifts, filters.shift, placeholder='All shifts') }}</div>
+  <div class="w-36">{{ ui.select('employee_type', 'Employee Type', employee_types, filters.employee_type, placeholder='All types') }}</div>
+  <div class="w-48">{{ ui.select('designation', 'Designation', designations, filters.designation, placeholder='All designations') }}</div>
+  <div class="w-44">{{ ui.select('department', 'Department', departments, filters.department, placeholder='All departments') }}</div>
+  <div class="w-56">{{ ui.select('employee', 'Employee', employees, filters.employee, placeholder='All employees') }}</div>
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Present', totals.present, icon='check', color='emerald') }}
+  {{ ui.stat('Absent', totals.absent, icon='user-x', color='rose') }}
+  {{ ui.stat('On Leave', totals.leave, icon='plane', color='violet') }}
+  {{ ui.stat('Late Coming', totals.late, icon='alarm-clock', color='amber') }}
+  {{ ui.stat('Total Sessions', totals.sessions, icon='layers', color='sky', hint=working_days ~ ' working day(s)') }}
+  {{ ui.stat('Shortage Hours', totals.shortage_hours, icon='hourglass', color='orange') }}
+</div>
+
+{{ ui.tabs(views, view) }}
+</div>
+
+{% if view == 'flat' %}
+<p class="mb-2 text-xs text-slate-500">{{ flat_page.total }} attendance row(s) — showing {{ flat_page.start }}-{{ flat_page.end }}</p>
+{{ ui.table_start(['Date', 'Code', 'Employee', 'Shift', 'Session', 'Attendance Type', 'Login Time', 'Logout Time', 'Late Minutes', 'Duration', 'Shortage']) }}
+{% for cells in flat_rows %}
+<tr {% if cells[5] == 'Absent' %}style="background:#fee2e2"{% elif cells[5] == 'On Leave' %}style="background:#ede9fe"{% elif cells[5] == 'Late Coming' %}style="background:#fef3c7"{% elif cells[10] > 0 %}style="background:#ffedd5"{% endif %}>
+  {% for c in cells %}<td class="px-3 py-1.5 text-xs {{ 'font-mono' if loop.index0 == 1 }} {{ 'whitespace-nowrap' if loop.index0 == 0 }}">{{ c|date if loop.index0 == 0 else (c if c not in (None, '') else '—') }}</td>{% endfor %}
+</tr>
+{% else %}{{ ui.empty('No attendance rows in this range for these filters.', 11) }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(flat_page, base_url) }}
+{% else %}
+{{ ui.table_start(['Code', 'Employee', 'Designation', 'Employee Type', 'Shift', 'Department',
+                   'Present', 'Absent', 'On Leave', 'Late Coming', 'Total Sessions', 'Shortage Hours']) }}
+{% for r in rows %}
+{% set e = r.employee %}
+<tr {% if r.absent %}style="background:#fee2e2"{% elif r.shortage_hours > 0 %}style="background:#ffedd5"{% endif %}>
+  <td class="px-3 py-1.5 text-xs font-mono">{{ e.employee_code }}</td>
+  <td class="px-3 py-1.5 text-xs font-medium"><a href="/hr/employees/{{ e.id }}" class="text-brand-700 hover:underline">{{ e.full_name }}</a></td>
+  <td class="px-3 py-1.5 text-xs">{{ e.designation }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.employee_type }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.shift|titleize }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ e.department.name if e.department else '-' }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.present }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-rose-700' if r.absent }}">{{ r.absent }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.leave }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-amber-700' if r.late }}">{{ r.late }}</td>
+  <td class="px-3 py-1.5 text-xs">{{ r.sessions }}</td>
+  <td class="px-3 py-1.5 text-xs {{ 'font-semibold text-orange-700' if r.shortage_hours > 0 }}">{{ r.shortage_hours }}</td>
+</tr>
+{% else %}{{ ui.empty('No attendance in this range for these filters.', 12) }}{% endfor %}
+{% if rows %}
+<tr class="bg-[#e8f1fb] font-semibold">
+  <td class="px-3 py-2 text-xs" colspan="6">Total - {{ rows|length }} employee(s)</td>
+  <td class="px-3 py-2 text-xs">{{ totals.present }}</td>
+  <td class="px-3 py-2 text-xs">{{ totals.absent }}</td>
+  <td class="px-3 py-2 text-xs">{{ totals.leave }}</td>
+  <td class="px-3 py-2 text-xs">{{ totals.late }}</td>
+  <td class="px-3 py-2 text-xs">{{ totals.sessions }}</td>
+  <td class="px-3 py-2 text-xs">{{ totals.shortage_hours }}</td>
+</tr>
+{% endif %}
+{{ ui.table_end() }}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if print_view %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

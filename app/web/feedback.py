@@ -17,6 +17,7 @@ from app.core.utils import redirect, paginate, parse_date, parse_int, parse_bool
 from app.database import get_db
 from app.models.core import User
 from app.models.crm import Survey, Feedback, Case
+from app.models.erp import FEEDBACK_APPLIES_TO, FeedbackQuestion
 from app.models.people import Client, Student, Employee, Teacher
 from app.models.scheduling import ClassSession
 from app.services import crm as svc
@@ -33,6 +34,63 @@ DEFAULT_QUESTIONS = [{"key": "nps", "type": "nps", "text": "How likely are you t
 
 def can_see_confidential(user: User) -> bool:
     return bool(user and (user.is_superuser or user.role_slug in ("super_admin", "hod_people")))
+
+
+# ============================================================================= QA Feedback Questions (Academic Configuration)
+def active_questions(db: Session, applies_to: str) -> list[FeedbackQuestion]:
+    """The active catalogue questions a feedback form asks its audience, in Sort No order."""
+    if applies_to not in FEEDBACK_APPLIES_TO:
+        return []
+    return (db.query(FeedbackQuestion)
+            .filter(FeedbackQuestion.applies_to == applies_to, FeedbackQuestion.status == "active")
+            .order_by(FeedbackQuestion.sort_no, FeedbackQuestion.id).all())
+
+
+def question_field(fq: FeedbackQuestion) -> str:
+    return f"fq_{fq.id}"
+
+
+def collect_answers(form, questions: list[FeedbackQuestion]) -> tuple[dict, list[FeedbackQuestion]]:
+    """Read the catalogue answers off a submitted form.
+
+    Returns ``({question_id: answer}, [required questions left blank])``. Keys are the question ids as strings
+    (JSON object keys are strings anyway); a rating is stored as an int, yes/no as "yes"/"no", text as the text.
+    """
+    answers: dict = {}
+    missing: list[FeedbackQuestion] = []
+    for fq in questions:
+        raw = (form.get(question_field(fq)) or "").strip()
+        value = None
+        if fq.answer_type == "rating":
+            n = parse_int(raw)
+            value = n if n is not None and 1 <= n <= 5 else None
+        elif fq.answer_type == "yes_no":
+            value = raw.lower() if raw.lower() in ("yes", "no") else None
+        else:
+            value = raw or None
+        if value is None:
+            if fq.is_required:
+                missing.append(fq)
+            continue
+        answers[str(fq.id)] = value
+    return answers, missing
+
+
+def question_answers(db: Session, fb: Feedback) -> tuple[list[tuple[FeedbackQuestion, object]], dict]:
+    """Split Feedback.answers into (question, answer) pairs for catalogue questions and the remaining free keys."""
+    raw = fb.answers or {}
+    ids = [int(k) for k in raw if str(k).isdigit()]
+    questions = {q.id: q for q in db.query(FeedbackQuestion).filter(FeedbackQuestion.id.in_(ids)).all()} if ids else {}
+    pairs = [(questions[int(k)], raw[k]) for k in raw if str(k).isdigit() and int(k) in questions]
+    pairs.sort(key=lambda p: (p[0].sort_no, p[0].id))
+    other = {k: v for k, v in raw.items() if not (str(k).isdigit() and int(k) in questions)}
+    return pairs, other
+
+
+def missing_message(missing: list[FeedbackQuestion]) -> str:
+    first = missing[0].question
+    more = f" (and {len(missing) - 1} more)" if len(missing) > 1 else ""
+    return f"Please answer the required question: {first}{more}"
 
 
 def _nps_distribution(rows) -> list[int]:
@@ -189,7 +247,9 @@ def feedback_detail(fid: int, request: Request, db: Session = Depends(get_db), u
         from app.core.deps import PermissionDenied
         raise PermissionDenied("feedback.confidential")
     case = db.get(Case, fb.case_id) if fb.case_id else None
-    return render(request, "feedback/detail.html", {"user": user, "fb": fb, "case": case, "survey": db.get(Survey, fb.survey_id) if fb.survey_id else None})
+    question_rows, other_answers = question_answers(db, fb)
+    return render(request, "feedback/detail.html", {"user": user, "fb": fb, "case": case, "survey": db.get(Survey, fb.survey_id) if fb.survey_id else None,
+                                                    "question_rows": question_rows, "other_answers": other_answers})
 
 
 @router.post("/feedback/{fid}/resolve", include_in_schema=False)
@@ -246,7 +306,8 @@ def client_feedbacks(request: Request, page: int = 1, date_from: str = "", date_
         "student_options": [(s.id, f"{s.student_code} - {s.full_name}") for s in students],
         "teacher_options": [(t.id, t.full_name) for t in db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name)],
         "session_options": [(s.id, f"#{s.id} {s.date.strftime('%d %b')} {s.start_time.strftime('%H:%M')} - {s.student.full_name if s.student else ''} / {s.teacher.full_name if s.teacher else ''}") for s in recent_sessions],
-        "base_url": f"/qa/feedbacks?rating={rating or ''}&{filter_qs}", "filter_qs": filter_qs, "today_iso": date.today().isoformat()})
+        "base_url": f"/qa/feedbacks?rating={rating or ''}&{filter_qs}", "filter_qs": filter_qs, "today_iso": date.today().isoformat(),
+        "questions": active_questions(db, "client")})
 
 
 @router.post("/qa/feedbacks/new", include_in_schema=False)
@@ -264,6 +325,9 @@ async def client_feedback_create(request: Request, db: Session = Depends(get_db)
     rating = parse_int(form.get("rating"))
     if not rating or rating < 1 or rating > 5:
         return redirect("/qa/feedbacks", "Choose a rating between 1 and 5 stars.", "error")
+    answers, missing = collect_answers(form, active_questions(db, "client"))
+    if missing:
+        return redirect("/qa/feedbacks", missing_message(missing), "error")
     session = db.get(ClassSession, parse_int(form.get("session_id")) or 0) if form.get("session_id") else None
     teacher = db.get(Teacher, parse_int(form.get("teacher_id")) or 0) if form.get("teacher_id") else None
     if not teacher:
@@ -278,7 +342,8 @@ async def client_feedback_create(request: Request, db: Session = Depends(get_db)
     when = parse_date(form.get("date"))
     submitted_at = datetime.combine(when, datetime.utcnow().time()) if when else datetime.utcnow()
     # submit_feedback sets sentiment / is_negative and routes ratings <= 2 to a QA complaint Case
-    svc.submit_feedback(db, fb, None, rating, form.get("comment"), {"entered_by": user.full_name, "channel": "manual"}, submitted_at=submitted_at)
+    answers.update({"entered_by": user.full_name, "channel": "manual"})
+    svc.submit_feedback(db, fb, None, rating, form.get("comment"), answers, submitted_at=submitted_at)
     log_action(db, user, "create", "feedback", entity=fb, after=snapshot(fb), request=request,
                description=f"Manual feedback #{fb.id} recorded for {client.full_name}: {rating}/5" + (f" (case #{fb.case_id} opened)" if fb.case_id else ""))
     db.commit()
@@ -305,6 +370,7 @@ def public_survey(token: str, request: Request, db: Session = Depends(get_db)):
     survey = db.get(Survey, fb.survey_id) if fb.survey_id else None
     ctx = {"user": None, "fb": fb, "survey": survey, "token": token,
            "questions": (survey.questions if survey and survey.questions else DEFAULT_QUESTIONS),
+           "catalogue_questions": active_questions(db, fb.respondent_type or (survey.audience if survey else "client")),
            "student": fb.student.full_name if fb.student else None,
            "done": fb.status in ("submitted", "routed", "resolved")}
     return render(request, "feedback/public.html", ctx)
@@ -316,7 +382,14 @@ async def public_survey_submit(token: str, request: Request, db: Session = Depen
     if fb.status in ("submitted", "routed", "resolved"):
         return redirect(f"/survey/{token}", "You have already submitted this survey. JazakAllah Khair.", "info")
     form = await request.form()
-    answers = {k: v for k, v in form.items() if k not in ("nps", "rating", "comment")}
+    survey = db.get(Survey, fb.survey_id) if fb.survey_id else None
+    catalogue = active_questions(db, fb.respondent_type or (survey.audience if survey else "client"))
+    # The survey link is the Survey row's own questions; the catalogue is asked alongside and stored when answered.
+    # Required-ness is enforced by the page (the controls carry `required`), not refused here, so a survey
+    # answered from an older link or a plain NPS post still lands.
+    catalogue_answers, _missing = collect_answers(form, catalogue)
+    answers = {k: v for k, v in form.items() if k not in ("nps", "rating", "comment") and not k.startswith("fq_")}
+    answers.update(catalogue_answers)
     svc.submit_feedback(db, fb, parse_int(form.get("nps")), parse_int(form.get("rating")), form.get("comment"), answers)
     log_action(db, None, "submit", "feedback", entity=fb, description=f"Public survey response #{fb.id} ({fb.sentiment})", request=request)
     db.commit()

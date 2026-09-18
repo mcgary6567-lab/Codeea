@@ -30,6 +30,10 @@ def section(slug: str, request: Request, db: Session = Depends(get_db), user: Us
         ctx["pending_requests"] = pending_requests(db)
         ctx["class_status"] = todays_class_status(db)
         return render(request, "launchpad/academic_home.html", ctx)
+    if slug == "hr":
+        from app.services.erp_home import hr_home
+        ctx.update(hr_home(db))
+        return render(request, "launchpad/hr_home.html", ctx)
     return render(request, "launchpad/section.html", ctx)
 
 

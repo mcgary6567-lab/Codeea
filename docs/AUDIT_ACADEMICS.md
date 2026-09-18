@@ -7,6 +7,8 @@ is copied.
 Status legend: **Have** = exists in the new platform · **Partial** = exists with different fields or flow ·
 **Missing** = not built yet · **N/A** = tied to the old vendor stack and intentionally not replicated.
 
+> **Walked again on 17 September 2026** — see `AUDIT_PARITY_WALK_2026-09-17.md`. Their Dashboards card reads Subscriptions (Multiple), Clients Users List has moved to Academic Configuration, and Academic Configuration carries a QA Feedback Questions catalogue. All matched.
+
 ---
 
 ## Level 1 — Home launchpad

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Confido Agents{% endblock %}
+{% block content %}
+{% call ui.page_header("Confido Agents", "Recording Agent: the licences the desktop agent installs with, the machines that check in, and the screenshots they capture.", back="/config") %}
+  {{ ui.button("Setup", href="/config/branch-properties?tab=hr", icon="sliders-horizontal", variant="secondary") }}
+  {% if tab == 'licenses' and can_configure %}
+  {{ ui.button("Generate License", icon="key-round", attrs='type="button" @click="$dispatch(\'open-modal\',\'newLicense\')"') }}
+  {% endif %}
+{% endcall %}
+
+{% if tab == 'licenses' %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Allowed", stats.allowed, color=palette(0), hint="branch property Agent Licenses Allowed") }}
+  {{ ui.stat("Consumed", stats.consumed, color=palette(3) if stats.consumed < stats.allowed else palette(7), hint="active licences") }}
+  {{ ui.stat("Available", stats.available, color=palette(4)) }}
+  {{ ui.stat("Revoked", stats.revoked, color=palette(9)) }}
+</div>
+{% else %}
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Online", stats.online, color=palette(3), href="/config/agents?tab=devices&status=online") }}
+  {{ ui.stat("Offline", stats.offline, color=palette(7), href="/config/agents?tab=devices&status=offline", hint="no heartbeat for " ~ offline_after ~ " minutes") }}
+  {{ ui.stat("Blocked", stats.blocked, color=palette(9), href="/config/agents?tab=devices&status=blocked") }}
+  {{ ui.stat("Screenshots", stats.screenshots, color=palette(0), href="/config/agents?tab=screenshots") }}
+</div>
+{% endif %}
+
+{{ ui.tabs([('licenses', 'User Licenses', '/config/agents?tab=licenses'), ('devices', 'Devices list', '/config/agents?tab=devices'), ('screenshots', 'Agents Screen Shorts', '/config/agents?tab=screenshots')], tab) }}
+
+{% if tab == 'licenses' %}
+{{ ui.table_start(['ID', 'Licence Key', 'Issued To', 'Issued By', 'Issued At', 'Expires', 'Devices', 'Status', '']) }}
+{% for l in rows %}
+<tr class="{{ 'opacity-60' if l.status == 'revoked' }}">
+  <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ l.id }}</td>
+  <td class="px-3 py-2">
+    {% if reveal == l.id %}
+      <code class="rounded border border-rose-200 bg-rose-50 px-2 py-1 font-mono text-xs text-rose-800 select-all">{{ l.license_key }}</code>
+      <p class="mt-1 text-[11px] text-rose-600">Shown in the clear — this reveal is in the audit log.</p>
+    {% else %}
+      <div class="flex items-center gap-2">
+        <code class="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs text-slate-500">{{ l.license_key|mask(4) }}</code>
+        <form method="post" action="/config/agents/licenses/{{ l.id }}/reveal" class="inline">{{ ui.button('Reveal', icon='eye', variant='ghost', size='sm') }}</form>
+      </div>
+    {% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs">{% if l.issued_to %}<div class="flex items-center gap-2">{{ ui.avatar(l.issued_to.full_name, 'sm') }}<span>{{ l.issued_to.full_name }}</span></div>{% else %}<span class="text-slate-400">Unassigned</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ l.issued_by.full_name if l.issued_by else '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.issued_at|datetime }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ l.expires_at|date if l.expires_at else 'Never' }}</td>
+  <td class="px-3 py-2 text-center text-xs">{% if l.devices %}<a href="/config/agents?tab=devices&q={{ l.devices[0].machine_id if l.devices|length == 1 else '' }}" class="font-semibold text-brand-600 hover:underline">{{ l.devices|length }}</a>{% else %}0{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if l.status == 'active' else 'rejected', l.status|titleize) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Download', href='/config/agents/licenses/' ~ l.id ~ '/download', icon='download', variant='ghost', size='sm') }}
+    {% if can_configure and l.status == 'active' %}
+    {{ ui.confirm_form('/config/agents/licenses/' ~ l.id ~ '/revoke', 'Revoke', icon='ban', message='Revoke this licence? Every device installed with it is blocked.') }}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No licences have been generated yet.', 9, 'key-round') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">A licence is consumed while it is active. Revoking it frees the seat and blocks the devices installed with it. Revealing or downloading a key is written to the audit log.</p>
+
+{% if can_configure %}
+{% call ui.modal('newLicense', 'Generate License') %}
+{% if stats.available > 0 %}
+<form method="post" action="/config/agents/licenses/generate" class="grid gap-3 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{ ui.select('issued_to_user_id', 'Issued To', user_options, None, placeholder='— Unassigned —', help='The member of staff whose machine the agent runs on') }}</div>
+  {{ ui.input('expires_at', 'Expires', '', type='date', help='Blank = never') }}
+  {{ ui.input('notes', 'Notes', '', placeholder='e.g. Night shift laptop') }}
+  <div class="sm:col-span-2">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is a licence being issued? (written to the audit log)') }}</div>
+  <div class="sm:col-span-2 flex items-center justify-between">
+    <span class="text-xs text-slate-500">{{ stats.consumed }} of {{ stats.allowed }} consumed · {{ stats.available }} available</span>
+    {{ ui.button('Generate', icon='key-round') }}
+  </div>
+</form>
+{% else %}
+{{ ui.alert('All ' ~ stats.allowed ~ ' licences are consumed. Revoke one, or raise Agent Licenses Allowed under Setup > HR.', 'warning') }}
+{% endif %}
+{% endcall %}
+{% endif %}
+
+{% elif tab == 'devices' %}
+{% call ui.filter_bar('/config/agents') %}
+  <input type="hidden" name="tab" value="devices">
+  <div class="w-36">{{ ui.select('status', 'Status', device_statuses, status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.select('employee_id', 'Employee', employee_options, employee_id, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Machine, machine id or IP') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Machine', 'Machine Id', 'Employee', 'OS', 'Agent Version', 'IP', 'Last Seen', 'Status', '']) }}
+{% for d in rows %}
+<tr>
+  <td class="px-3 py-2 font-semibold text-slate-800">{{ d.machine_name }}{% if d.license %}<div class="text-[11px] font-normal text-slate-500">licence #{{ d.license_id }}{% if d.license.status != 'active' %} (revoked){% endif %}</div>{% endif %}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ d.machine_id }}</td>
+  <td class="px-3 py-2 text-xs">{% if d.employee %}<a href="/hr/employees/{{ d.employee_id }}" class="hover:text-brand-600">{{ d.employee.full_name }}</a>{% else %}—{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{{ d.os_name or '—' }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ d.agent_version or '—' }}</td>
+  <td class="px-3 py-2 font-mono text-xs">{{ d.ip_address or '—' }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{% if d.last_seen_at %}{{ d.last_seen_at|datetime }}<div class="text-[11px] text-slate-500">{{ d.last_seen_at|ago }}</div>{% else %}never{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge({'online': 'active', 'offline': 'inactive', 'blocked': 'rejected'}[d.status], d.status|titleize) }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    <a href="/config/agents?tab=screenshots&employee_id={{ d.employee_id or '' }}" class="text-xs text-brand-600 hover:underline">{{ shot_counts.get(d.id, 0) }} shots</a>
+    {% if can_configure %}
+      {% if d.status == 'blocked' %}
+      <form method="post" action="/config/agents/devices/{{ d.id }}/unblock" class="inline">{{ ui.button('Unblock', icon='unlock', variant='ghost', size='sm') }}</form>
+      {% else %}
+      <form method="post" action="/config/agents/devices/{{ d.id }}/block" class="inline">{{ ui.button('Block', icon='ban', variant='ghost', size='sm') }}</form>
+      {% endif %}
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No devices match these filters. A machine appears here after its first heartbeat.', 9, 'monitor-smartphone') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">The agent posts a heartbeat to <code class="font-mono">/api/agents/heartbeat</code> with its licence key; a device with no heartbeat for {{ offline_after }} minutes is shown offline. A blocked device's heartbeats and screenshots are refused.</p>
+
+{% else %}
+{% call ui.filter_bar('/config/agents') %}
+  <input type="hidden" name="tab" value="screenshots">
+  <div class="w-56">{{ ui.select('employee_id', 'Employee', employee_options, employee_id, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-36">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+
+{% if page.items %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+  {% for s in page.items %}
+  <a href="/config/agents/screenshots/{{ s.id }}/image" target="_blank" rel="noopener" class="group block overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm hover:border-brand-400">
+    <div class="aspect-video bg-slate-100">
+      <img src="/config/agents/screenshots/{{ s.id }}/image" alt="Screenshot {{ s.id }}" loading="lazy" class="h-full w-full object-cover transition group-hover:brightness-95">
+    </div>
+    <div class="px-3 py-2 text-xs">
+      <div class="font-semibold text-slate-800">{{ s.employee.full_name if s.employee else 'Unknown employee' }}</div>
+      <div class="text-slate-500">{{ s.device.machine_name if s.device else '—' }} · {{ s.captured_at|datetime }}</div>
+      {% if s.note %}<div class="mt-0.5 truncate text-slate-500" title="{{ s.note }}">{{ s.note }}</div>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{{ ui.pagination(page, '/config/agents?tab=screenshots&employee_id=' ~ (employee_id or '') ~ '&date_from=' ~ date_from ~ '&date_to=' ~ date_to) }}
+{% else %}
+{{ ui.empty_state('No screenshots match these filters.', 'image') }}
+{% endif %}
+<p class="mt-2 text-xs text-slate-500">{{ shown }} screenshot{{ 's' if shown != 1 }} · captured by the agent and posted to <code class="font-mono">/api/agents/screenshot</code>; click a tile to open the full image.</p>
+{% endif %}
+{% endblock %}

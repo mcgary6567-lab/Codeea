@@ -10,6 +10,8 @@ Third companion to `AUDIT_ACADEMICS.md` and `AUDIT_HUMAN_RESOURCE.md`.
 > that id, so opening the same page without it renders the page frame with an empty menu. Typing an address
 > that does not exist ends the session and returns you to the sign-in page.
 
+> **Walked again on 17 September 2026** — see `AUDIT_PARITY_WALK_2026-09-17.md`. Configuration has a tenth card, Confido Agents (licences, devices, screenshots of the vendor's desktop recording agent). Built as the data and the agent's two API calls; the agent program itself is theirs.
+
 ---
 
 ## Accounts

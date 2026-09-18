@@ -276,3 +276,28 @@ class EmployeeLedgerEntry(Base, PKMixin, TimestampMixin):
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
     employee = relationship("Employee")
+
+
+NOTICE_AUDIENCES = ["all", "Academics", "Admin", "Marketing"]
+
+
+class StaffNotice(Base, PKMixin, TimestampMixin):
+    """A broadcast to staff with a validity window (their HR Employment Management -> Notifications).
+
+    People and Culture writes it; the self portal shows it while it is active and in date.
+    """
+    __tablename__ = "staff_notices"
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    link: Mapped[Optional[str]] = mapped_column(String(300))
+    start_date: Mapped[date] = mapped_column(Date, default=date.today, index=True)
+    end_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
+    audience: Mapped[str] = mapped_column(String(20), default="all")   # all | Academics | Admin | Marketing
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)  # active | inactive
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    created_by = relationship("User")
+
+    def is_live(self, on: Optional[date] = None) -> bool:
+        on = on or date.today()
+        return self.status == "active" and self.start_date <= on and (self.end_date is None or on <= self.end_date)

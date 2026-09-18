@@ -1,0 +1,50 @@
+{# QA Feedback Questions (Academic Configuration) rendered as form controls.
+   usage: {% import "feedback/_questions.html" as fq %} {{ fq.question_fields(questions) }}
+   Every field is named fq_<question id>; app.web.feedback.collect_answers reads them back. #}
+{% macro question_fields(questions, compact=False) %}
+{% for q in questions %}
+<div class="{{ 'sm:col-span-2' if compact }}">
+  <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{{ q.question }}{% if q.is_required %} <span class="text-rose-500">*</span>{% endif %}</label>
+  {% if q.question_urdu %}<div dir="rtl" lang="ur" class="font-urdu mt-0.5 text-sm text-slate-600 dark:text-slate-300">{{ q.question_urdu }}</div>{% endif %}
+  {% if q.answer_type == 'rating' %}
+  <div class="mt-2 flex items-center gap-1" x-data="{ v: 0 }">
+    {% for n in range(1, 6) %}
+    <label class="cursor-pointer text-2xl leading-none" :class="v >= {{ n }} ? 'text-amber-400' : 'text-slate-300'">
+      <input type="radio" name="fq_{{ q.id }}" value="{{ n }}" class="sr-only" {% if q.is_required %}required{% endif %} @change="v = {{ n }}">&#9733;</label>
+    {% endfor %}
+    <span class="ml-2 text-xs text-slate-500" x-text="v ? v + ' / 5' : 'choose'"></span>
+  </div>
+  {% elif q.answer_type == 'yes_no' %}
+  <div class="mt-2 flex gap-2">
+    {% for v, l in [('yes', 'Yes'), ('no', 'No')] %}
+    <label class="cursor-pointer">
+      <input type="radio" name="fq_{{ q.id }}" value="{{ v }}" class="peer sr-only" {% if q.is_required %}required{% endif %}>
+      <span class="inline-flex min-w-[4rem] items-center justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-checked:text-white dark:border-slate-700 dark:text-slate-300">{{ l }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% else %}
+  <textarea name="fq_{{ q.id }}" rows="2" {% if q.is_required %}required{% endif %} class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800"></textarea>
+  {% endif %}
+</div>
+{% endfor %}
+{% endmacro %}
+
+{# The answers on a submitted feedback, one row per catalogue question. #}
+{% macro answer_rows(question_rows) %}
+<dl class="mt-4 divide-y divide-slate-100 text-sm">
+  {% for q, a in question_rows %}
+  <div class="grid gap-1 py-2 sm:grid-cols-3">
+    <dt class="sm:col-span-2">
+      <div class="text-slate-700 dark:text-slate-200">{{ q.question }}</div>
+      {% if q.question_urdu %}<div dir="rtl" lang="ur" class="font-urdu text-xs text-slate-500">{{ q.question_urdu }}</div>{% endif %}
+    </dt>
+    <dd class="font-medium text-slate-900 dark:text-white">
+      {% if q.answer_type == 'rating' %}<span class="text-amber-500">{{ '&#9733;' * (a|int) }}</span><span class="text-slate-300">{{ '&#9733;' * (5 - (a|int)) }}</span> <span class="text-xs text-slate-500">{{ a }} / 5</span>
+      {% elif q.answer_type == 'yes_no' %}{{ a|titleize }}
+      {% else %}<span class="whitespace-pre-wrap">{{ a }}</span>{% endif %}
+    </dd>
+  </div>
+  {% endfor %}
+</dl>
+{% endmacro %}

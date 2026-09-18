@@ -174,6 +174,8 @@ class Employee(Base, PKMixin, TimestampMixin):
     grade_id: Mapped[Optional[int]] = mapped_column(ForeignKey("grades.id", ondelete="SET NULL"))
     whatsapp: Mapped[Optional[str]] = mapped_column(String(50))
     photo_path: Mapped[Optional[str]] = mapped_column(String(300))
+    # Their HR Home lists "Contract Ends (Within 2 months)": name, start, end, remaining days.
+    contract_end_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
 
     user = relationship("User", foreign_keys=[user_id])
     department = relationship("Department")

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
+{% import "feedback/_questions.html" as fq %}
 {% block title %}Feedback{% endblock %}
 {% block content %}
 {{ ui.page_header('Your feedback', 'One minute of your time keeps our teaching honest. Low scores go straight to the head of quality, not to the teacher.') }}
@@ -33,6 +34,7 @@
         {% endfor %}
       </div>
     </div>
+    {{ fq.question_fields(questions) }}
     {{ ui.textarea('comment', 'Anything you would like to tell us?', '', rows=3, placeholder='What is going well, what should we fix?') }}
     <div class="flex gap-2">{{ ui.button('Submit feedback', icon='send') }}</div>
   </form>

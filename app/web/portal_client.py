@@ -411,8 +411,10 @@ def feedback(request: Request, db: Session = Depends(get_db), user: User = Depen
     c = me(ctx)
     pending = db.query(Feedback).filter(Feedback.client_id == c.id, Feedback.status == "pending").order_by(Feedback.sent_at.desc()).all()
     history = db.query(Feedback).filter(Feedback.client_id == c.id, Feedback.status != "pending").order_by(Feedback.submitted_at.desc()).limit(20).all()
+    from app.web.feedback import active_questions
     return render(request, "portal/feedback.html", {"user": user, "c": c, "pending": pending, "history": history,
-                                                    "names": {s.id: s.full_name for s in my_students(db, c)}})
+                                                    "names": {s.id: s.full_name for s in my_students(db, c)},
+                                                    "questions": active_questions(db, "client")})
 
 
 @router.post("/feedback/{fid}", include_in_schema=False)
@@ -426,11 +428,16 @@ async def submit_feedback(fid: int, request: Request, db: Session = Depends(get_
     nps = parse_int(form.get("nps"))
     rating = parse_int(form.get("rating"))
     comment = (form.get("comment") or "").strip() or None
+    from app.web.feedback import active_questions, collect_answers, missing_message
+    answers, missing = collect_answers(form, active_questions(db, "client"))
+    if missing:
+        return redirect("/portal/feedback", missing_message(missing), "error")
     try:
         from app.services.crm import submit_feedback as _submit
-        _submit(db, fb, nps, rating, comment)
+        _submit(db, fb, nps, rating, comment, answers)
     except Exception:
         fb.nps, fb.rating, fb.comment = nps, rating, comment
+        fb.answers = answers
         fb.submitted_at = datetime.utcnow()
         fb.status = "submitted"
         fb.is_negative = (nps is not None and nps <= 6) or (rating is not None and rating <= 2)

@@ -24,6 +24,7 @@
   <input type="hidden" name="tab" value="daily">
   <div class="w-44">{{ ui.input('day', 'Date', day|string, type='date') }}</div>
   <div class="w-40">{{ ui.select('shift', 'Shift', shifts, shift, placeholder='All shifts') }}</div>
+  <div class="w-40">{{ ui.select('type', 'Attendance Type', type_options, type, placeholder='All types') }}</div>
 {% endcall %}
 
 {% if fallback %}

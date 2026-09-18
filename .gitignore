@@ -15,6 +15,7 @@ storage/payslips/*
 storage/reports/*
 storage/result_cards/*
 storage/attachments/*
+storage/agent_screenshots/*
 !storage/**/.gitkeep
 .pytest_cache/
 *.log

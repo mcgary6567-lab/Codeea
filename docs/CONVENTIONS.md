@@ -127,6 +127,7 @@ of the places we deliberately differ:
 | Human Resource | `docs/AUDIT_HUMAN_RESOURCE.md` |
 | Employee Self Portal | `docs/AUDIT_EMPLOYEE_SELF_PORTAL.md` |
 | Accounts and Configuration | `docs/AUDIT_ACCOUNTS_CONFIG.md` |
+| Every area, card by card, after the build | `docs/AUDIT_PARITY_WALK_2026-09-17.md` |
 
 Rules:
 - Models for the new areas live in `app/models/erp.py`; ERP fields were appended to Client, Student, Employee, Leave,

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
+{% import "feedback/_questions.html" as fq %}
 {% block title %}Client Feedbacks{% endblock %}
 {% block content %}
 {% call ui.page_header("Client Feedbacks", "Star ratings and comments from families - from the app, portals and manual entry by staff") %}
@@ -67,6 +68,10 @@
     </div>
     <p class="mt-1 text-[11px] text-slate-500">1-2 stars automatically opens a complaint case for the QA team.</p>
   </div>
+  {% if questions %}
+  <div class="sm:col-span-2 mt-2 border-t border-slate-200 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Feedback questions</div>
+  {{ fq.question_fields(questions, compact=True) }}
+  {% endif %}
   <div class="sm:col-span-2">{{ ui.textarea('comment', 'Comment', '', rows=3, placeholder='What the family said', required=True) }}</div>
   <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save feedback', icon='check') }}</div>
 </form>

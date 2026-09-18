@@ -26,6 +26,7 @@
       ('Reports to', e.manager.full_name if e.manager else '—'), ('Employment type', e.employment_type|titleize),
       ('Shift', e.shift|titleize ~ ' (' ~ (e.shift_start or '?') ~ '–' ~ (e.shift_end or '?') ~ ')'),
       ('Joined', e.join_date|date), ('Probation ends', e.probation_end|date if e.probation_end else '—'),
+      ('Contract ends', e.contract_end_date|date if e.contract_end_date else 'Open-ended'),
       ('Phone', e.phone if show_sensitive else e.phone|mask), ('Email', e.email if show_sensitive else e.email|mask),
       ('CNIC', (e.cnic if show_sensitive else e.cnic|mask) if e.cnic else '—'),
       ('Device name', e.device_name or 'Not assigned'), ('MFA enforced', 'Yes' if e.mfa_enforced else 'No'),

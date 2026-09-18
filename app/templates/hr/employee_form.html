@@ -39,6 +39,7 @@
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     {{ ui.input('join_date', 'Join date', (e.join_date if e else today())|string, type='date') }}
     {{ ui.input('probation_end', 'Probation ends', (e.probation_end|string if e and e.probation_end else ''), type='date', help='Defaults to 90 days after joining') }}
+    {{ ui.input('contract_end_date', 'Contract end date', (e.contract_end_date|string if e and e.contract_end_date else ''), type='date', help='Blank for an open-ended contract; the HR Home lists ends within two months') }}
     {{ ui.select('employment_type', 'Employment type', types, e.employment_type if e else 'full_time', placeholder=None) }}
     {{ ui.select('status', 'Status', statuses, e.status if e else 'probation', placeholder=None) }}
     {{ ui.select('shift', 'Shift', shifts, e.shift if e else 'morning', placeholder=None) }}
