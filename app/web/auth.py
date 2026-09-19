@@ -13,7 +13,7 @@ from app.config import settings
 from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import get_current_user, get_optional_user, csrf_protect, client_ip
-from app.core.nav import home_for
+from app.core.nav import home_for, nav_for
 from app.core.security import (SESSION_COOKIE, create_access_token, verify_password, hash_password,
                                password_strength_errors, generate_totp_secret, verify_totp, totp_uri, sign_value, verify_signed)
 from app.core.templating import render
@@ -230,12 +230,48 @@ async def notifications_read(request: Request, db: Session = Depends(get_db), us
 
 
 # ----------------------------------------------------------------------------- global search
+def _page_hits(user, q: str, limit: int = 12) -> list[tuple[str, str, str]]:
+    """Pages the user may open whose area, group or page name contains every word typed.
+
+    Their portal's search finds pages first; ours only searched records, so typing "accounts" found
+    nothing at all. Only the launchpad the user can actually see is searched, so a family or a teacher
+    cannot discover staff pages by name.
+    """
+    words = [w for w in q.lower().split() if w]
+    if not words:
+        return []
+    hits: list[tuple[int, str, str, str]] = []
+    seen: set[str] = set()
+
+    def consider(label: str, where: str, url: str, weight: int) -> None:
+        hay = f"{label} {where}".lower()
+        if url in seen or not all(w in hay for w in words):
+            return
+        # a hit in the page name itself outranks one that only matches through its area or group
+        rank = weight + (0 if all(w in label.lower() for w in words) else 5)
+        seen.add(url)
+        hits.append((rank, label, where, url))
+
+    for section in nav_for(user):
+        consider(section["label"], "Home", f"/home/{section['slug']}", 0)
+        for g in section.get("groups", []):
+            consider(g["label"], section["label"], g["url"], 1)
+            for item in g["items"]:
+                consider(item["label"], f"{section['label']} › {g['label']}", item["url"], 2)
+        if not section.get("groups"):
+            for item in section["items"]:
+                consider(item["label"], section["label"], item["url"], 2)
+    hits.sort(key=lambda h: (h[0], h[1]))
+    return [(label, where, url) for _, label, where, url in hits[:limit]]
+
+
 @router.get("/search", include_in_schema=False)
 def search(request: Request, q: str = "", db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     q = q.strip()
     results: dict[str, list] = {}
     like = f"%{q}%"
     if q:
+        results["Pages"] = _page_hits(user, q)
         if rbac.has_permission(user, "students.view"):
             results["Students"] = [(s.full_name, f"{s.student_code} · {s.status}", f"/students/{s.id}") for s in
                                    db.query(Student).filter(or_(Student.full_name.ilike(like), Student.student_code.ilike(like))).limit(8)]

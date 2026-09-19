@@ -153,7 +153,11 @@ def create_app() -> FastAPI:
 
     @app.get("/health", include_in_schema=False)
     async def health():
-        return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV, "version": "1.1.0"}
+        # Render puts the deployed commit in the environment. Reporting it here is how a release is
+        # confirmed live without the dashboard: two builds failed unnoticed before this existed.
+        import os
+        return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV, "version": "1.1.0",
+                "commit": (os.environ.get("RENDER_GIT_COMMIT") or "")[:7] or None}
 
     return app
 
