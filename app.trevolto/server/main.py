@@ -7,10 +7,14 @@ built-in strategy, backtesting and analytics — multi-user, one server.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import os
 import sys
 import time
+import urllib.error
+import urllib.request
 
 # Put the trading engine (flat-import modules) on the path BEFORE importing it.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "engine"))
@@ -24,7 +28,7 @@ import strategy as strat
 import exchange as ex
 
 from . import security, store, webpush
-from .config_web import PUBLIC_URL, LICENCE_PRICE
+from .config_web import PUBLIC_URL, LICENCE_PRICE, NOWPAYMENTS_API_KEY, NOWPAYMENTS_IPN_SECRET
 from .session import (get_session, public_ohlcv, public_ohlcv_days, public_prices,
                       live_stats, session_snapshot_if_live)
 
@@ -98,6 +102,113 @@ async def body(request: Request) -> dict:
 def _ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "")
+
+
+# --- account credits (crypto deposit -> non-withdrawable USD balance) --------
+# Credits pay for the product/fees only; they are NEVER paid back out as crypto,
+# so this is a payment flow, not custody. Funding runs through NOWPayments:
+# we create a payment, the user sends crypto to the returned address, and the
+# provider calls our IPN webhook when it confirms — then we credit the balance.
+_ALLOWED_PAY = {"btc", "eth", "usdttrc20", "usdterc20", "usdc", "ltc", "sol", "trx", "bnbbsc"}
+_CREDIT_MIN, _CREDIT_MAX = 10.0, 5000.0
+
+
+def _credits_enabled() -> bool:
+    return bool(NOWPAYMENTS_API_KEY and NOWPAYMENTS_IPN_SECRET)
+
+
+def _np_api(path: str, payload: dict) -> dict:
+    req = urllib.request.Request(
+        "https://api.nowpayments.io/v1" + path,
+        data=json.dumps(payload).encode(),
+        headers={"x-api-key": NOWPAYMENTS_API_KEY, "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+
+def _verify_ipn(raw: bytes, sig: str) -> bool:
+    """NOWPayments signs the JSON body (keys sorted) with HMAC-SHA512 + your IPN
+    secret. If real callbacks fail to verify, confirm the exact serialization
+    against a captured payload before relying on it."""
+    try:
+        sorted_json = json.dumps(json.loads(raw), sort_keys=True, separators=(",", ":"))
+    except Exception:
+        return False
+    expected = hmac.new(NOWPAYMENTS_IPN_SECRET.encode(), sorted_json.encode(), hashlib.sha512).hexdigest()
+    return hmac.compare_digest(expected, (sig or ""))
+
+
+@app.get("/api/credits")
+def credits(user: dict = Depends(current_user)):
+    return {
+        "enabled": _credits_enabled(),
+        "balance": store.credit_balance(user["id"]),
+        "currency": "USD",
+        "ledger": store.list_credits(user["id"], 20),
+        "min": _CREDIT_MIN, "max": _CREDIT_MAX,
+        "coins": sorted(_ALLOWED_PAY),
+    }
+
+
+@app.post("/api/credits/deposit")
+async def credits_deposit(request: Request, user: dict = Depends(current_user)):
+    if not _credits_enabled():
+        raise HTTPException(503, "Crypto deposits are not configured on this server.")
+    data = await body(request)
+    try:
+        amount = round(float(data.get("amount_usd", 0)), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "invalid amount")
+    coin = str(data.get("pay_currency", "")).lower().strip()
+    if amount < _CREDIT_MIN or amount > _CREDIT_MAX:
+        raise HTTPException(400, f"amount must be between ${_CREDIT_MIN:.0f} and ${_CREDIT_MAX:.0f}")
+    if coin not in _ALLOWED_PAY:
+        raise HTTPException(400, "unsupported currency")
+    payload = {
+        "price_amount": amount, "price_currency": "usd",
+        "pay_currency": coin, "order_id": str(user["id"]),
+        "order_description": "Trevolto account credits",
+    }
+    if PUBLIC_URL:
+        payload["ipn_callback_url"] = PUBLIC_URL + "/api/credits/ipn"
+    try:
+        r = _np_api("/payment", payload)
+    except urllib.error.HTTPError as e:
+        raise HTTPException(502, f"payment provider error: {e.read().decode()[:200]}")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"could not reach payment provider: {e}")
+    pid = str(r.get("payment_id", ""))
+    if not pid or not r.get("pay_address"):
+        raise HTTPException(502, "payment provider returned an incomplete response")
+    store.record_deposit(user["id"], pid, amount, coin, float(r.get("pay_amount", 0) or 0))
+    return {
+        "payment_id": pid,
+        "pay_address": r.get("pay_address"),
+        "pay_amount": r.get("pay_amount"),
+        "pay_currency": r.get("pay_currency", coin),
+        "amount_usd": amount,
+    }
+
+
+@app.post("/api/credits/ipn")
+async def credits_ipn(request: Request):
+    """Public webhook the payment provider calls when a deposit confirms.
+    Signature-verified and idempotent — repeated callbacks never double-credit."""
+    if not _credits_enabled():
+        raise HTTPException(404, "not found")
+    raw = await request.body()
+    if not _verify_ipn(raw, request.headers.get("x-nowpayments-sig", "")):
+        raise HTTPException(401, "bad signature")
+    try:
+        data = json.loads(raw)
+    except Exception:
+        raise HTTPException(400, "bad payload")
+    if str(data.get("payment_status", "")).lower() in ("finished", "confirmed"):
+        store.finish_deposit(str(data.get("payment_id", "")),
+                             float(data.get("actually_paid", 0) or 0))
+    return {"ok": True}
 
 
 # --- auth routes ------------------------------------------------------------
