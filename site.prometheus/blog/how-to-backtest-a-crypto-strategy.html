@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Backtest a Crypto Trading Strategy (Before Risking Money) | Prometheus AI</title>
+<meta name="description" content="How to backtest a crypto trading strategy properly: quality data, the metrics that matter, avoiding curve-fitting, and forward-testing before you go live.">
+<meta name="keywords" content="how to backtest crypto strategy, backtest trading bot, crypto backtesting guide, trading strategy backtest, forward test crypto bot">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://www.prometheusai.tech/blog/how-to-backtest-a-crypto-strategy">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to Backtest a Crypto Trading Strategy (Before Risking Money)">
+<meta property="og:description" content="How to backtest a crypto trading strategy properly: quality data, the metrics that matter, avoiding curve-fitting, and forward-testing before you go live.">
+<meta property="og:url" content="https://www.prometheusai.tech/blog/how-to-backtest-a-crypto-strategy">
+<meta property="og:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<meta property="og:site_name" content="Prometheus AI">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Backtest a Crypto Trading Strategy (Before Risking Money)">
+<meta name="twitter:description" content="How to backtest a crypto trading strategy properly: quality data, the metrics that matter, avoiding curve-fitting, and forward-testing before you go live.">
+<meta name="twitter:image" content="https://www.prometheusai.tech/img/og-prometheus.jpg">
+<link rel="icon" href="/img/core-img/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css?v=2">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "How to Backtest a Crypto Trading Strategy (Before Risking Money)", "description": "How to backtest a crypto trading strategy properly: quality data, the metrics that matter, avoiding curve-fitting, and forward-testing before you go live.", "datePublished": "2026-08-25", "dateModified": "2026-08-25", "author": {"@type": "Organization", "name": "Prometheus AI", "url": "https://www.prometheusai.tech"}, "publisher": {"@type": "Organization", "name": "Prometheus AI", "logo": {"@type": "ImageObject", "url": "https://www.prometheusai.tech/img/core-img/logo.png"}}, "image": "https://www.prometheusai.tech/img/og-prometheus.jpg", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://www.prometheusai.tech/blog/how-to-backtest-a-crypto-strategy"}, "articleSection": "How-To", "inLanguage": "en"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I backtest a crypto trading strategy?", "acceptedAnswer": {"@type": "Answer", "text": "Run it on several years of quality historical data (including volatile periods), with fees and spread included, then read the max drawdown, expectancy and profit factor — not just total profit. Finally, forward-test in demo mode before going live."}}, {"@type": "Question", "name": "What is curve-fitting in backtesting?", "acceptedAnswer": {"@type": "Answer", "text": "Curve-fitting is over-tuning a strategy to past data so it looks perfect on history but fails live. Signs include a flawless equity curve and many finely-tuned parameters. Test on out-of-sample data the strategy wasn't optimized on to catch it."}}, {"@type": "Question", "name": "Is a good backtest enough to go live?", "acceptedAnswer": {"@type": "Answer", "text": "No. A backtest shows how a strategy would have done in the past, not how it will do now. Always forward-test in demo/paper mode in current conditions before committing real money."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.prometheusai.tech"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.prometheusai.tech/blog"}, {"@type": "ListItem", "position": 3, "name": "How to Backtest a Crypto Strategy", "item": "https://www.prometheusai.tech/blog/how-to-backtest-a-crypto-strategy"}]}</script>
+</head>
+<body>
+<nav class="bnav"><div class="bnav__in">
+  <a class="bnav__logo" href="/"><img src="/img/core-img/logo.png" alt="Prometheus AI"/>Prometheus <b>AI</b></a>
+  <div class="bnav__links"><a href="/blog">Blog</a><a href="/#features">Features</a><a class="bnav__cta" href="/checkout">Get Access</a></div>
+</div></nav>
+<header class="bhero"><div class="bhero__in">
+  <span class="btag">How-To</span>
+  <h1>How to Backtest a Crypto Trading Strategy (Before Risking Money)</h1>
+  <div class="bmeta"><span>📅 August 25, 2026</span><span>⏱ 8 min read</span></div>
+  <div class="bbyline">By the Prometheus AI Team</div>
+</div></header>
+<div class="bhero__img"><svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="HOW-TO"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6fafe"/><stop offset="1" stop-color="#eef4fb"/></linearGradient></defs><rect width="720" height="300" fill="url(#g)"/><g stroke="#e2e9f2" stroke-width="1"><line x1="0" y1="75" x2="720" y2="75"/><line x1="0" y1="150" x2="720" y2="150"/><line x1="0" y1="225" x2="720" y2="225"/><line x1="180" y1="0" x2="180" y2="300"/><line x1="360" y1="0" x2="360" y2="300"/><line x1="540" y1="0" x2="540" y2="300"/></g><rect x="120" y="70" width="480" height="150" rx="10" fill="#fff" stroke="#c9d5e5" stroke-width="2"/><polyline points="150,190 220,170 290,185 360,140 430,160 500,110 580,130" fill="none" stroke="#0ea5a5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="150,150 580,150" stroke="#e0474b" stroke-width="2" stroke-dasharray="5 6"/><g transform="translate(560,90)" fill="#ea6a0c"><circle cx="0" cy="0" r="16"/><polygon points="-5,-7 -5,7 8,0" fill="#fff"/></g><text x="36" y="270" fill="#8a94a3" font-family="Poppins,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="1">HOW-TO</text></svg></div>
+<main class="wrap bbody">
+  <p class="lead">Backtesting means running a strategy on historical data to see how it <em>would</em> have performed. Done right, it saves you from paying real money to learn a strategy doesn't work. Done wrong, it fools you into trusting one that doesn't. Here's how to do it right.</p>
+  <div class="keytake">Read the <b>drawdown</b> and check for <b>curve-fitting</b>, not just the profit. A survivable strategy on realistic data beats a perfect-looking one tuned to the past.</div>
+  <div class="toc"><strong>On this page</strong><ul><li><a href="#why">Why backtest</a></li><li><a href="#data">Use quality data</a></li><li><a href="#metrics">Metrics that matter</a></li><li><a href="#curvefit">Avoid curve-fitting</a></li><li><a href="#forward">Forward-test too</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+  <h2 id="why">Why Backtesting Matters</h2>
+<p>A backtest answers a cheap question before an expensive one: would this strategy have survived real market history? It won't predict the future, but it will expose an obviously broken idea before you fund it.</p><p>It's also how you separate a bot with a real edge from one that only looks good in a screenshot.</p>
+<h2 id="data">Use Realistic, Quality Data</h2>
+<ul><li>Test over <strong>several years</strong>, including volatile periods and news-heavy months.</li><li>Use <strong>high-quality data</strong> (ideally tick or accurate OHLC), not a cherry-picked window.</li><li>Include <strong>fees and spread</strong> — a strategy that's profitable without costs may not be with them.</li></ul>
+<div class="bcta">
+  <h3>Let the bots trade while you don't</h3>
+  <p>Prometheus runs a managed, risk-controlled strategy 24/7 on your own exchange — non-custodial, with a 90-day money-back guarantee.</p>
+  <a href="/checkout">Get Lifetime Access &rarr;</a>
+</div><h2 id="metrics">The Metrics That Actually Matter</h2>
+<ul><li><strong>Max drawdown</strong> — the worst peak-to-trough drop. Can you survive it emotionally and financially?</li><li><strong>Expectancy</strong> — average profit per trade. Positive is the whole game.</li><li><strong>Profit factor</strong> — gross profit ÷ gross loss.</li><li><strong>Number of trades</strong> — enough for the result to be meaningful, not luck.</li></ul><p>Notice win rate isn't at the top — a 90% win rate with huge losers is a losing system.</p>
+<h2 id="curvefit">Avoid Curve-Fitting (The Big Trap)</h2>
+<p>Curve-fitting is tuning a strategy so tightly to past data that it's perfect on history and useless live. Warning signs: a flawless equity curve, dozens of finely-tuned parameters, and results that fall apart on <strong>out-of-sample</strong> data.</p><p>Test on data the strategy wasn't tuned on. If it holds up, that's a good sign; if it collapses, it was curve-fit.</p>
+<h2 id="forward">Then Forward-Test on Demo</h2>
+<p>A backtest is history; a forward test is now. Run the strategy in <strong>demo/paper mode</strong> for a few weeks in live conditions before committing real money. Prometheus includes a Profit Simulator to backtest the strategy and a demo mode to forward-test it.</p>
+
+  <h2 id="faq">Frequently Asked Questions</h2>
+  <div class="bfaq"><details open><summary>How do I backtest a crypto trading strategy?</summary><div class="a">Run it on several years of quality historical data (including volatile periods), with fees and spread included, then read the max drawdown, expectancy and profit factor — not just total profit. Finally, forward-test in demo mode before going live.</div></details><details><summary>What is curve-fitting in backtesting?</summary><div class="a">Curve-fitting is over-tuning a strategy to past data so it looks perfect on history but fails live. Signs include a flawless equity curve and many finely-tuned parameters. Test on out-of-sample data the strategy wasn't optimized on to catch it.</div></details><details><summary>Is a good backtest enough to go live?</summary><div class="a">No. A backtest shows how a strategy would have done in the past, not how it will do now. Always forward-test in demo/paper mode in current conditions before committing real money.</div></details></div>
+  <p class="bdisc">This article is for information only and is not financial advice. Cryptocurrency trading involves substantial risk of loss and is not suitable for everyone. Past performance does not guarantee future results. Never trade money you cannot afford to lose.</p>
+</main>
+<section class="wrap brel"><h3>Keep reading</h3><div class="brel__grid"><a class="brel__card" href="/blog/do-crypto-trading-bots-really-work"><span>Do Crypto Trading Bots</span><b>Do Crypto Trading Bots Really Work?</b></a><a class="brel__card" href="/blog/ema-crossover-strategy-crypto"><span>The EMA Crossover Stra</span><b>The EMA Crossover Strategy for Crypto</b></a><a class="brel__card" href="/blog/best-ai-crypto-trading-bot-2026"><span>Best AI Crypto Trading</span><b>Best AI Crypto Trading Bot in 2026</b></a></div></section>
+<footer class="bfooter"><div class="bfooter__in">
+  <a class="bnav__logo" href="/" style="color:#fff"><img src="/img/core-img/logo.png" alt="Prometheus AI" style="height:26px"/>Prometheus <b style="color:var(--cyan)">AI</b></a>
+  <nav class="bfooter__nav">
+    <a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+    <a href="/disclaimer">Disclaimer</a><a href="/refund">Refund</a><a href="/support">Contact</a>
+  </nav>
+  <p class="bfooter__copy">&copy; <span id="y">2026</span> Prometheus AI. Automated crypto trading on your own exchange. Trading involves risk.</p>
+</div><script>document.getElementById('y')&&(document.getElementById('y').textContent=new Date().getFullYear());</script></footer>
+</body>
+</html>

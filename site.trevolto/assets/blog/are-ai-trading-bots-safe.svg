@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Are AI Trading Bots Safe?">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e1a28"/><stop offset="1" stop-color="#0a1018"/></linearGradient>
+    <radialGradient id="glow" cx="80%" cy="30%" r="65%"><stop offset="0" stop-color="#22c55e" stop-opacity=".30"/><stop offset="1" stop-color="#22c55e" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(875,160)" fill="none" stroke="#22c55e" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+<path d="M95 0 L180 34 V130 C180 200 140 240 95 268 C50 240 10 200 10 130 V34 Z" fill="#22c55e" opacity=".14"/>
+<path d="M95 0 L180 34 V130 C180 200 140 240 95 268 C50 240 10 200 10 130 V34 Z"/>
+<path d="M55 132 L86 164 L140 96" stroke-width="10"/></g>
+  <g font-family="Inter, -apple-system, Segoe UI, sans-serif">
+    <text x="90" y="90" font-size="26" font-weight="800" letter-spacing="2" fill="#22c55e">TREVOLTO</text>
+    <rect x="90" y="120" width="150" height="34" rx="17" fill="#22c55e" opacity=".16"/>
+    <text x="107" y="143" font-size="18" font-weight="800" letter-spacing="1.5" fill="#22c55e">SAFETY</text>
+    <text x="90" y="250" font-size="54" font-weight="900" fill="#ffffff"><tspan x="90" dy="0">Are AI Trading Bots</tspan><tspan x="90" dy="68">Safe?</tspan></text>
+    <text x="90" y="560" font-size="22" font-weight="700" fill="#8fa0b5">trevolto.com  &#183;  AI Crypto Trading Bot</text>
+  </g>
+</svg>
