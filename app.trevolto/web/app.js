@@ -161,55 +161,8 @@ function show(v, btn) {
   document.querySelector(".side").classList.remove("open");
   if (v === "analytics") loadAnalytics();
   if (v === "home") { loadChart(); loadDashboard(); }
-  if (v === "settings") { loadLogins(); loadCredits(); }
+  if (v === "settings") loadLogins();
   if (v === "exchange") loadServerIP();
-}
-
-// ---- account credits (crypto deposit) ----
-const CR_COINS = { btc: "Bitcoin", eth: "Ethereum", usdttrc20: "USDT (TRC-20)", usdterc20: "USDT (ERC-20)", usdc: "USDC", ltc: "Litecoin", sol: "Solana", trx: "TRON", bnbbsc: "BNB (BSC)" };
-async function loadCredits() {
-  try {
-    const d = await api("/api/credits");
-    if ($("cr-bal")) $("cr-bal").textContent = "$" + (d.balance || 0).toFixed(2);
-    const off = !d.enabled;
-    if ($("cr-off")) $("cr-off").classList.toggle("hidden", !off);
-    if ($("cr-form")) $("cr-form").classList.toggle("hidden", off);
-    const sel = $("cr-coin");
-    if (sel && !sel.dataset.filled && d.coins && d.coins.length) {
-      sel.innerHTML = d.coins.map(c => `<option value="${c}">${CR_COINS[c] || c.toUpperCase()}</option>`).join("");
-      sel.dataset.filled = "1";
-    }
-    const h = $("cr-hist");
-    if (h) {
-      const rows = (d.ledger || []).filter(x => x.status === "finished").slice(0, 6);
-      h.innerHTML = rows.length
-        ? '<label>Recent deposits</label>' + rows.map(x =>
-          `<div class="hint" style="display:flex;justify-content:space-between"><span>+$${(x.amount_usd || 0).toFixed(2)} <span class="k">(${(x.pay_currency || "").toUpperCase()})</span></span><span class="k">${bellTime(x.ts)}</span></div>`).join("")
-        : "";
-    }
-  } catch (e) { }
-}
-async function createDeposit() {
-  const amt = parseFloat($("cr-amt").value), coin = $("cr-coin").value;
-  const err = $("cr-err"); if (err) err.textContent = "";
-  const btn = $("cr-btn"); if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
-  try {
-    const r = await api("/api/credits/deposit", "POST", { amount_usd: amt, pay_currency: coin });
-    $("cr-pa").textContent = r.pay_amount;
-    $("cr-pc").textContent = (r.pay_currency || "").toUpperCase();
-    $("cr-addr").value = r.pay_address;
-    $("cr-pay").classList.remove("hidden");
-  } catch (e) {
-    if (err) err.textContent = (e && e.message) ? e.message : "Could not create deposit.";
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = "₿ Create deposit"; }
-  }
-}
-function copyDepositAddr() {
-  const a = $("cr-addr"); if (!a || !a.value) return;
-  a.select();
-  try { navigator.clipboard.writeText(a.value); toast("Address copied"); }
-  catch (e) { try { document.execCommand("copy"); toast("Address copied"); } catch (e2) { } }
 }
 
 // ---- live state ----

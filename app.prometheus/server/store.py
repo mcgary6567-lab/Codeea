@@ -100,19 +100,6 @@ def init_db() -> None:
                 target_id INTEGER, detail TEXT NOT NULL DEFAULT ''
             );
             CREATE INDEX IF NOT EXISTS ix_audit_ts ON audit(ts);
-            CREATE TABLE IF NOT EXISTS credits(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL, ts REAL NOT NULL,
-                kind TEXT NOT NULL DEFAULT 'deposit',
-                amount_usd REAL NOT NULL DEFAULT 0,
-                pay_currency TEXT NOT NULL DEFAULT '',
-                pay_amount REAL NOT NULL DEFAULT 0,
-                payment_id TEXT NOT NULL DEFAULT '',
-                status TEXT NOT NULL DEFAULT 'pending',
-                note TEXT NOT NULL DEFAULT ''
-            );
-            CREATE INDEX IF NOT EXISTS ix_credits_user ON credits(user_id, id);
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_credits_payid ON credits(payment_id) WHERE payment_id != '';
             """
         )
         for name, ddl in {
@@ -560,54 +547,6 @@ def save_settings(user_id: int, settings: dict) -> None:
 def load_settings(user_id: int) -> dict:
     u = get_user(user_id)
     return json.loads(u["settings"]) if u and u["settings"] else {}
-
-
-# --- account credits (non-withdrawable balance funded by crypto deposit) -----
-def record_deposit(user_id: int, payment_id: str, amount_usd: float,
-                   pay_currency: str, pay_amount: float) -> None:
-    """Record a pending deposit created via the payment gateway. Idempotent on payment_id."""
-    with _LOCK, _conn() as c:
-        c.execute(
-            "INSERT OR IGNORE INTO credits(user_id, ts, kind, amount_usd, pay_currency, "
-            "pay_amount, payment_id, status) VALUES(?,?,?,?,?,?,?, 'pending')",
-            (user_id, time.time(), "deposit", float(amount_usd), (pay_currency or "").lower(),
-             float(pay_amount or 0), str(payment_id)),
-        )
-
-
-def finish_deposit(payment_id: str, pay_amount: float = 0) -> Optional[dict]:
-    """Mark a deposit finished and credit the balance — exactly once.
-
-    Returns {user_id, amount_usd} if this call is the one that credited it, else None
-    (so repeated IPN callbacks never double-credit)."""
-    with _LOCK, _conn() as c:
-        row = c.execute("SELECT user_id, amount_usd, status FROM credits WHERE payment_id=?",
-                        (str(payment_id),)).fetchone()
-        if not row or row["status"] == "finished":
-            return None
-        sets = "status='finished'"
-        params = []
-        if pay_amount:
-            sets += ", pay_amount=?"
-            params.append(float(pay_amount))
-        params.append(str(payment_id))
-        c.execute(f"UPDATE credits SET {sets} WHERE payment_id=? AND status!='finished'", params)
-        return {"user_id": row["user_id"], "amount_usd": row["amount_usd"]}
-
-
-def credit_balance(user_id: int) -> float:
-    with _conn() as c:
-        r = c.execute("SELECT COALESCE(SUM(amount_usd),0) AS bal FROM credits "
-                      "WHERE user_id=? AND status='finished'", (user_id,)).fetchone()
-    return round(float(r["bal"] or 0), 2)
-
-
-def list_credits(user_id: int, limit: int = 20) -> list:
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT ts, kind, amount_usd, pay_currency, pay_amount, status FROM credits "
-            "WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, int(limit))).fetchall()
-    return [dict(r) for r in rows]
 
 
 def save_keys(user_id: int, keys: dict) -> None:

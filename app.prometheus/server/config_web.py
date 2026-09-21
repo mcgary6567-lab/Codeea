@@ -25,9 +25,3 @@ POLL_INTERVAL = float(os.environ.get("PROMETHEUS_POLL_INTERVAL", "3"))
 # Assumed licence price (per active licence, per period) used only to *estimate*
 # MRR on the admin dashboard. Purely informational — the app does not bill.
 LICENCE_PRICE = float(os.environ.get("PROMETHEUS_LICENCE_PRICE", "49"))
-
-# Crypto credits (NOWPayments). Optional — the deposit flow is disabled unless
-# both are set. Credits are a non-withdrawable USD balance used to pay for the
-# product/fees; they are never paid back out as crypto (no custody/withdrawals).
-NOWPAYMENTS_API_KEY = os.environ.get("PROMETHEUS_NOWPAYMENTS_API_KEY", "")
-NOWPAYMENTS_IPN_SECRET = os.environ.get("PROMETHEUS_NOWPAYMENTS_IPN_SECRET", "")

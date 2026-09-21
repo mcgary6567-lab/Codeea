@@ -491,26 +491,6 @@
             <div class="err" id="ac-err"></div>
             <button class="btn" style="margin-top:10px" onclick="saveAccount()">💾 Update account</button>
           </div>
-          <div class="card"><h3>💳 Credits <span class="chip" id="cr-bal">$0.00</span></h3>
-            <p class="hint">Top up a credit balance with crypto to pay for your licence &amp; fees. Credits are non-refundable and can't be withdrawn as crypto.</p>
-            <div id="cr-off" class="warnbox hidden">Crypto deposits aren't enabled on this server yet.</div>
-            <div id="cr-form">
-              <div class="row">
-                <div class="col"><label>Amount (USD)</label><input id="cr-amt" type="number" min="10" step="1" value="50"/></div>
-                <div class="col"><label>Pay with</label><select id="cr-coin"></select></div>
-              </div>
-              <div class="err" id="cr-err"></div>
-              <button class="btn" style="margin-top:10px" id="cr-btn" onclick="createDeposit()"><i class="">₿</i> Create deposit</button>
-            </div>
-            <div id="cr-pay" class="hidden" style="margin-top:12px">
-              <div class="hint">Send exactly <b id="cr-pa">—</b> <span id="cr-pc"></span> to the address below. Your credits appear here automatically once the payment confirms on-chain.</div>
-              <div class="row" style="align-items:center;gap:8px;margin-top:6px">
-                <input id="cr-addr" readonly style="flex:1;font-family:ui-monospace,monospace;font-size:12px"/>
-                <button class="btn ghost sm" onclick="copyDepositAddr()">Copy</button>
-              </div>
-            </div>
-            <div id="cr-hist" style="margin-top:12px"></div>
-          </div>
           <div class="card"><h3>Telegram notifications</h3>
             <label>Bot token</label><input id="tg-token" placeholder="123456:ABC-..."/>
             <label>Chat ID</label><input id="tg-chat" placeholder="e.g. 987654321"/>
