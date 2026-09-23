@@ -129,13 +129,3 @@ RewriteRule ^(.+)$ $1.html [L]
 ErrorDocument 404 /404.html
 ErrorDocument 500 /500.html
 
-# One delivery page for the product sold here: /thank-you. Every old slug lands on it.
-RedirectMatch 301 ^/thank-you-pro(\.html)?$ /thank-you
-# The old Advanced slug is in customer receipts and in the Gumroad file
-# description, so keep it alive.
-RedirectMatch 301 ^/thank-you-advancedea(\.html)?$ /thank-you
-
-# Gold Scalpers EA Advanced is the package sold here. Both older file names were
-# issued in receipts and emails, so they keep resolving to the current download.
-Redirect 301 /downloads/Gold-Scalpers-EA.zip /downloads/Gold-Scalpers-EA-Advanced.zip
-Redirect 301 /downloads/Gold-Scalpers-Pro.zip /downloads/Gold-Scalpers-EA-Advanced.zip
