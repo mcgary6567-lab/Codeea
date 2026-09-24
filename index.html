@@ -41,7 +41,7 @@
   "@type": "WebSite",
   "name": "Gold Scalpers EA",
   "url": "https://goldscalpers.com",
-  "description": "Fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with prop-firm-grade risk control. One entry rule: the Slope Direction Line turns green = buy, red = sell. Stop from the colour turn, break-even protection, drawdown guard, session/news filters with a late-New-York cutoff, live colour-turn alerts, a live dashboard and Telegram alerts. Lifetime licence $140 one-time with 30-day money-back guarantee.",
+  "description": "Fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with prop-firm-grade risk control. Two entry triggers on the Slope Direction Line and a 50 EMA, confirmed by ZeroLag MACD. Swing-structure stop, break-even and step stop, drawdown guard, session/news filters with a late-New-York cutoff and a Tokyo-open skip, a live dashboard and Telegram alerts. Lifetime licence $140 one-time with 30-day money-back guarantee.",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
@@ -62,7 +62,7 @@
   "name": "Gold Scalpers EA",
   "url": "https://goldscalpers.com",
   "logo": "https://goldscalpers.com/og-image.png",
-  "description": "Gold Scalpers builds automated MetaTrader 5 Expert Advisors for XAUUSD (Gold). Hands-free M5 gold scalping — the Slope Direction Line turns green = buy, red = sell, stop from the colour turn, break-even protection, prop-firm risk limits, a live on-chart dashboard and Telegram alerts. Lifetime licence $140 one-time with 30-day money-back guarantee.",
+  "description": "Gold Scalpers builds automated MetaTrader 5 Expert Advisors for XAUUSD (Gold). Hands-free M5 gold scalping — two triggers on the Slope Direction Line and a 50 EMA with ZeroLag MACD confirmation, a swing-structure stop, break-even and step stop, prop-firm risk limits, a live on-chart dashboard and Telegram alerts. Lifetime licence $140 one-time with 30-day money-back guarantee.",
   "sameAs":["https://www.facebook.com/goldscalpersea","https://www.youtube.com/@GoldScalpersEA","https://www.mql5.com/en/market/product/191087"],
   "contactPoint": {
     "@type": "ContactPoint",
@@ -97,14 +97,14 @@
   "operatingSystem": "MetaTrader 5 (Windows)",
   "softwareVersion": "4.10",
   "applicationSubCategory": "Automated Trading Robot (Expert Advisor)",
-  "description": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with one entry rule you can see on the chart. The Slope Direction Line is drawn green while it is rising and red while it is falling: when it turns green the EA opens a BUY, when it turns red it opens a SELL, read on closed candles so there are no false starts. The stop loss sits beyond the candles where the colour changed, the target is a fixed distance, and break-even protection moves the stop to entry once the trade is in profit, so a winner cannot turn into a loser. Attaching the EA trades the colour already showing, and every colour change is alerted live. The chart also carries a thick yellow 50 EMA and a ZeroLag MACD pane for context — neither is read by the EA, and both are bundled inside it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It executes hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts.",
+  "description": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper built on the Slope Direction Line and a 50-period EMA. Two triggers can open a trade and you choose which are live: the slope line crossing the 50 EMA, and the slope line changing direction. Every signal is then confirmed — the ZeroLag MACD must be on the matching side of its zero line, a range filter skips price hugging the EMA, and an optional confirmation candle must close in the signal direction. Signals are read on closed candles only. The stop loss sits at the most recent swing beyond the 50 EMA with a buffer — real market structure — and an optional width cap is there if you want one; break-even moves the stop to entry plus a locked amount once the trade is far enough ahead, and a step stop tightens it again as a position is added to. One signal opens one market order - momentum pyramiding is available and ships off, because eight months of XAUUSD tick testing came out ahead without it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It executes hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts.",
   "url": "https://goldscalpers.com",
   "image": "https://goldscalpers.com/og-image.png",
   "screenshot": "https://goldscalpers.com/assets/chart-preview.webp",
   "featureList": [
     "Fully automated execution — enters, manages and closes trades hands-free in MT5",
-    "One entry rule: the Slope Direction Line turns green = BUY, red = SELL, read on closed candles",
-    "Stop loss beyond the candles at the colour turn, fixed take-profit distance",
+    "Two entry triggers: the Slope line crossing the 50 EMA, or the Slope line changing direction — read on closed candles",
+    "Swing-structure stop beyond the 50 EMA, fixed take-profit distance, optional width cap",
     "Break-even protection - the stop moves to entry once the trade is in profit",
     "Start-up trade on the colour already showing, and a live alert on every colour change",
     "Prop-Firm Mode: percentage daily-loss and max-drawdown limits with a hard lock on breach",
@@ -149,7 +149,7 @@
       "name": "What is Gold Scalpers EA?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with one entry rule you can see on the chart. The Slope Direction Line is drawn green while it is rising and red while it is falling: when it turns green the EA opens a BUY, when it turns red it opens a SELL, read on closed candles so there are no false starts. The stop loss sits beyond the candles where the colour changed, the target is a fixed distance, and break-even protection moves the stop to entry once the trade is in profit, so a winner cannot turn into a loser. Attaching the EA trades the colour already showing, and every colour change is alerted live. The chart also carries a thick yellow 50 EMA and a ZeroLag MACD pane for context — neither is read by the EA, and both are bundled inside it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It executes hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts."
+        "text": "Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper built on the Slope Direction Line and a 50-period EMA. Two triggers can open a trade and you choose which are live: the slope line crossing the 50 EMA, and the slope line changing direction. Every signal is then confirmed — the ZeroLag MACD must be on the matching side of its zero line, a range filter skips price hugging the EMA, and an optional confirmation candle must close in the signal direction. Signals are read on closed candles only. The stop loss sits at the most recent swing beyond the 50 EMA with a buffer — real market structure — and an optional width cap is there if you want one; break-even moves the stop to entry plus a locked amount once the trade is far enough ahead, and a step stop tightens it again as a position is added to. One signal opens one market order - momentum pyramiding is available and ships off, because eight months of XAUUSD tick testing came out ahead without it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It executes hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts."
       }
     },
     {
@@ -197,7 +197,7 @@
       "name": "Can I backtest Gold Scalpers EA?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. The Slope Direction Line indicator is bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live."
+        "text": "Yes. The Slope Direction Line, the ZeroLag MACD and the 50 EMA are all bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live."
       }
     },
     {
@@ -767,7 +767,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         MetaTrader 5 Expert Advisor
       </div>
       <h1>Stop Blowing Challenges. Let an MT5 Robot Trade XAUUSD <span class="accent">for You.</span></h1>
-      <p class="lede"><strong>Gold Scalpers EA</strong> trades XAUUSD on the M5 chart for you with one rule you can see on the chart: the Slope line turns <strong>green = buy</strong>, <strong>red = sell</strong>. The stop sits beyond the candles at the colour turn, and <strong>break-even protection</strong> stops a winner ever turning into a loser. Prop-firm mode included. No coding, no screen-watching.</p>
+      <p class="lede"><strong>Gold Scalpers EA</strong> trades XAUUSD on the M5 chart for you on two triggers you can see on the chart: the <strong>Slope line crossing the 50 EMA</strong>, or the <strong>Slope line changing direction</strong> — each confirmed by ZeroLag MACD. The stop sits at the <strong>last swing beyond the EMA</strong>, then break-even and a step stop tighten it as the trade runs. Prop-firm mode included. No coding, no screen-watching.</p>
       <div class="hero-cta">
         <a href="/checkout" class="btn btn-primary">Get Lifetime – $140 →</a>
         <a href="/results" class="btn btn-ghost">See backtest results →</a>
@@ -780,7 +780,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       <div class="hero-trust">
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Prop-firm ready</span>
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Break-even protection</span>
-        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Stop from the colour turn</span>
+        <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> Capped swing stop</span>
         <span><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 4.5l-7 7-3-3 1-1 2 2 6-6z"/></svg> 30-day money-back</span>
       </div>
     </div>
@@ -877,23 +877,23 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       </figure>
       <figure class="ea-shot">
         <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Trade in progress">
-          <img src="assets/display/picksignal-thumb.webp?v=3" data-full="assets/display/picksignal.webp?v=2" width="768" height="480" alt="Gold Scalpers EA managing an open BUY position on XAUUSD M5 — entry, colour-turn stop loss and take-profit levels drawn on the chart with the running profit" loading="lazy" decoding="async">
+          <img src="assets/display/picksignal-thumb.webp?v=3" data-full="assets/display/picksignal.webp?v=2" width="768" height="480" alt="Gold Scalpers EA managing an open BUY position on XAUUSD M5 — entry, swing stop loss and take-profit levels drawn on the chart with the running profit" loading="lazy" decoding="async">
           <span class="ea-zoom" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           <span class="ea-zoom-txt">Click or tap to view full system</span>
           </span>
         </button>
-        <figcaption><span class="ea-tag">Trade in progress</span>The EA holds and tracks an open position live against the Slope line, with the stop placed beyond the candles where the colour turned.</figcaption>
+        <figcaption><span class="ea-tag">Trade in progress</span>The EA holds and tracks an open position live against the Slope line and the 50 EMA, with the stop placed at the last swing beyond the EMA.</figcaption>
       </figure>
       <figure class="ea-shot">
         <button type="button" class="ea-thumb" aria-label="Enlarge screenshot: Full control">
-          <img src="assets/display/2-thumb.webp?v=3" data-full="assets/display/2.webp?v=2" width="768" height="480" alt="Gold Scalpers EA Inputs panel in MetaTrader 5 showing the shipped defaults — daily profit target, max drawdown, lot size, prop-firm mode, sessions and the colour-turn stop and target" loading="lazy" decoding="async">
+          <img src="assets/display/2-thumb.webp?v=3" data-full="assets/display/2.webp?v=2" width="768" height="480" alt="Gold Scalpers EA Inputs panel in MetaTrader 5 showing the shipped defaults — daily profit target, max drawdown, lot size, prop-firm mode, sessions and the swing stop and target" loading="lazy" decoding="async">
           <span class="ea-zoom" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
           <span class="ea-zoom-txt">Click or tap to view full system</span>
           </span>
         </button>
-        <figcaption><span class="ea-tag">Full control</span>Every input is yours — daily risk limits, lot sizing, sessions, the colour-turn stop and target, and the start-up trade.</figcaption>
+        <figcaption><span class="ea-tag">Full control</span>Every input is yours — daily risk limits, lot sizing, sessions, the swing stop and target, and the start-up trade.</figcaption>
       </figure>
     </div>
 
@@ -987,7 +987,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
                 <div class="tg-h" style="color:#4ADE80"><span style="width:8px;height:8px;border-radius:50%;background:#4ADE80;display:inline-block;box-shadow:0 0 7px rgba(74,222,128,.9)"></span>BUY opened</div>
                 <div class="tg-sub">XAUUSD · M5 · New York session</div>
                 <div class="tg-r"><span>Entry</span><span style="color:#8FBAFF">4371.50</span></div>
-                <div class="tg-r"><span>Stop (colour turn)</span><span style="color:#FF9A9A">4365.20</span></div>
+                <div class="tg-r"><span>Stop (swing)</span><span style="color:#FF9A9A">4365.20</span></div>
                 <div class="tg-r"><span>Target</span><span style="color:#7EF0A8">4376.50</span></div>
                 <div class="tg-r"><span>Lot</span><span style="color:#E6E9EF">0.10</span></div>
                 <div class="tg-div"></div>
@@ -1259,7 +1259,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>Pre-Flight Self-Check</h3><p>On attach it verifies permissions, history, spread, indicator and licence, then prints a plain-English PASS / FAIL list — so nothing fails silently.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><h3>Live Dashboard</h3><p>Colour side and momentum, session, news, licence, P&amp;L and the last signal with its price + Buy/Sell/Pause/Close buttons. Sizes itself to any screen.</p></div>
       <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Telegram &amp; Mobile Alerts</h3><p>Entry, stop, target and close pushed to Telegram and mobile.</p></div>
-      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Backtest Anywhere</h3><p>Indicators bundled in — runs in the MT5 Strategy Tester on any PC, with no extra files to install. Lifetime updates.</p></div>
+      <div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><h3>Backtest Anywhere</h3><p>Indicator bundled in — runs in the MT5 Strategy Tester. Runs beside Gold Scalpers Pro on one account. Lifetime updates.</p></div>
     </div>
   </div>
 </section>
@@ -1322,8 +1322,8 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
         <ul class="price-features">
           <li>Full Gold Scalpers EA for MetaTrader 5</li>
           <li>XAUUSD (Gold) — built &amp; tuned for gold</li>
-          <li>Stop from the colour turn + break-even protection</li>
-          <li>Start-up trade + live colour-turn alerts</li>
+          <li>Swing-structure stop + break-even and step stop</li>
+          <li>Strategy presets + live signal alerts</li>
           <li>Prop-Firm Mode with %-based limits</li>
           <li>Telegram + mobile + terminal alerts</li>
           <li>Live dashboard with manual controls</li>
@@ -1349,13 +1349,13 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
     <span class="eyebrow">Frequently Asked Questions</span>
     <h2 class="section-title"><svg class="sec-ico" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.05em;height:1.05em;min-width:1.05em;vertical-align:-0.14em;margin-right:0.4rem;display:inline-block;flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Everything you need to know <span style="color:var(--gold)">before you start.</span></h2>
     <div class="faq-list">
-      <div class="faq-item open"><div class="faq-q">What is Gold Scalpers EA?</div><div class="faq-a"><div class="faq-a-inner">Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper with one entry rule you can see on the chart. The Slope Direction Line is drawn green while it is rising and red while it is falling: when it turns green the EA opens a BUY, when it turns red it opens a SELL, read on closed candles so there are no false starts. The stop loss sits beyond the candles where the colour changed, the target is a fixed distance, and break-even protection moves the stop to entry once the trade is in profit, so a winner cannot turn into a loser. Attaching the EA trades the colour already showing, and every colour change is alerted live. The chart also carries a thick yellow 50 EMA and a ZeroLag MACD pane for context — neither is read by the EA, and both are bundled inside it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It opens, manages and closes trades hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts.</div></div></div>
+      <div class="faq-item open"><div class="faq-q">What is Gold Scalpers EA?</div><div class="faq-a"><div class="faq-a-inner">Gold Scalpers EA is a fully automated MetaTrader 5 Expert Advisor for XAUUSD (Gold) — a pure 5-minute (M5) gold scalper built on the Slope Direction Line and a 50-period EMA. Two triggers can open a trade and you choose which are live: the slope line crossing the 50 EMA, and the slope line changing direction. Every signal is then confirmed — the ZeroLag MACD must be on the matching side of its zero line, a range filter skips price hugging the EMA, and an optional confirmation candle must close in the signal direction. Signals are read on closed candles only. The stop loss sits at the most recent swing beyond the 50 EMA with a buffer — real market structure — and an optional width cap is there if you want one; break-even moves the stop to entry plus a locked amount once the trade is far enough ahead, and a step stop tightens it again as a position is added to. One signal opens one market order - momentum pyramiding is available and ships off, because eight months of XAUUSD tick testing came out ahead without it. An optional Prop-Firm Mode enforces percentage-based daily-loss and max-drawdown limits from the real balance baselines. It filters wide spreads, off-session hours (with a late-New-York cutoff) and high-impact news, pauses after a losing streak, and a pre-flight self-check verifies the whole setup on attach. It opens, manages and closes trades hands-free and includes a live on-chart dashboard that sizes itself to any screen, BUY/SELL signal arrows plus Telegram, mobile push and terminal alerts.</div></div></div>
       <div class="faq-item"><div class="faq-q">Do I have to watch the charts myself?</div><div class="faq-a"><div class="faq-a-inner">No. The EA trades hands-free. Once it's on an XAUUSD chart with algorithmic trading enabled, it opens, manages and closes positions automatically. You can also enable Telegram and mobile alerts and use the dashboard's manual Buy, Sell, Pause and Close buttons.</div></div></div>
       <div class="faq-item"><div class="faq-q">What do I need to run it?</div><div class="faq-a"><div class="faq-a-inner">MetaTrader 5, a broker that offers XAUUSD, and a computer or VPS that stays on during market hours. A VPS is recommended so the EA can trade 24/5 without interruption. You enable algorithmic trading and allow the EA's licence URL under Tools → Options → Expert Advisors.</div></div></div>
       <div class="faq-item"><div class="faq-q">Which pair and timeframe does it trade?</div><div class="faq-a"><div class="faq-a-inner">XAUUSD (Gold) on the M5 (5-minute) timeframe — it's a pure gold scalper, built and tuned for gold.</div></div></div>
       <div class="faq-item"><div class="faq-q">Is there a free trial?</div><div class="faq-a"><div class="faq-a-inner">No free trial. Gold Scalpers EA is Pro Lifetime — a single $140 one-time payment for lifetime use and every future update. Every purchase has a 30-day money-back guarantee, so if it isn't a fit after demo testing, email support@goldscalpers.com within 30 days for a full refund.</div></div></div>
       <div class="faq-item"><div class="faq-q">What risk controls are built in?</div><div class="faq-a"><div class="faq-a-inner">Daily profit and loss limits, a max-drawdown guard, a max open-positions cap, a spread filter, and fixed-lot or percent-risk position sizing. Trading is still high-risk — always demo-test first and never risk money you can't afford to lose.</div></div></div>
-      <div class="faq-item"><div class="faq-q">Can I backtest it?</div><div class="faq-a"><div class="faq-a-inner">Yes. The Slope Direction Line indicator is bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live.</div></div></div>
+      <div class="faq-item"><div class="faq-q">Can I backtest it?</div><div class="faq-a"><div class="faq-a-inner">Yes. The Slope Direction Line, the ZeroLag MACD and the 50 EMA are all bundled inside the EA, so it runs in the MetaTrader 5 Strategy Tester and on any PC without extra files. Backtest it on XAUUSD M5 and forward-test on demo before going live.</div></div></div>
       <div class="faq-item"><div class="faq-q">How long does setup take?</div><div class="faq-a"><div class="faq-a-inner">About 5 minutes: attach the EA to an XAUUSD M5 chart, tick Allow Algorithmic Trading, allow the licence URL (https://goldscalpers.com/licenses.txt) under Tools → Options → Expert Advisors, set your lot size, and it starts trading automatically.</div></div></div>
       <div class="faq-item"><div class="faq-q">Can I use it on a prop-firm challenge?</div><div class="faq-a"><div class="faq-a-inner">Yes — there is a dedicated <b>Prop-Firm Mode</b>. Switch it on and set your firm's numbers: the EA measures your daily loss as a percentage of the day-start balance and your total drawdown from the starting balance (or a trailing high-water mark, your choice). If either limit is breached it closes everything and hard-locks trading until you reload it. It opens one trade per signal by default, with a cap on open positions and on trades per day. Always confirm your firm's current rules — no pass is guaranteed.</div></div></div>
       <div class="faq-item"><div class="faq-q">Does it use martingale or add to losing trades?</div><div class="faq-a"><div class="faq-a-inner">No. Every trade is opened with its own stop loss and take profit the moment the Slope line changes colour. It <b>never averages down</b> into a loser, there is no lot doubling on losses, and a loss-streak cooldown pauses new entries after consecutive losers. Break-even protection then moves the stop to entry once a trade is in profit.</div></div></div>
@@ -1568,7 +1568,7 @@ h2.section-title{font-size:2.2rem;font-weight:800;line-height:1.2;letter-spacing
 
     <div class="f-bottom">
       <span>&copy; 2026 Gold Scalpers. All rights reserved.</span>
-      <span class="f-meta"><b>MetaTrader 5</b><i></i>XAUUSD<i></i>M5<i></i>v4.14</span>
+      <span class="f-meta"><b>MetaTrader 5</b><i></i>XAUUSD<i></i>M5<i></i>v4.45</span>
     </div>
   </div>
 </footer>
