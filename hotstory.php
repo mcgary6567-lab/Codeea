@@ -2,26 +2,35 @@
 // =====================================================================
 //  Gold Scalpers - ForexFactory "Hot Story" reader
 //  ---------------------------------------------------------------
-//  Reads the single hottest story of the last 12 hours from
-//  forexfactory.com, asks the model which instrument it concerns and
-//  which way it leans, and writes two small files the EA reads:
+//  Takes the hottest story of the last 12 hours, asks the model which
+//  instrument it concerns and which way it leans, and writes two files:
 //
 //      hotstory.txt    key=value, one per line  <- what the EA parses
-//      hotstory.json   the same data as JSON    <- for the site / debugging
+//      hotstory.json   the same data as JSON    <- site / debugging
 //
-//  The EA never touches forexfactory.com. It reads hotstory.txt from
-//  goldscalpers.com, which customers have already whitelisted for the
-//  licence check, so this needs no extra setup from them.
+//  WHY THIS TAKES A POSTED PAGE INSTEAD OF FETCHING ONE
+//  forexfactory.com answers this host with a Cloudflare JavaScript
+//  challenge ("Just a moment..."), so the server cannot read it at all.
+//  A machine on an ordinary connection can. So the PC that already runs
+//  MT5 fetches the page and posts it here, and this file does the rest:
+//  all the parsing and judgement lives server-side, where it can be
+//  fixed without touching anything on that machine.
 //
-//  KEY: reuses .ai-config.php - the same file /ai-analyze.php uses.
-//  Nothing new to configure and no second secret.
+//  PROTOCOL - two phases, so the story page is only fetched when new:
+//    1. client POSTs  token + home=<homepage html>
+//       -> {"need_story":"<url>"}   a new story, fetch it and post again
+//       -> {"message":"unchanged"}  nothing to do, no model call
+//    2. client POSTs  token + story=<story page html> + url=<that url>
+//       -> {"message":"updated", ...}
 //
-//  COST CONTROL: the model is called ONLY when the story id changes, and
-//  never more often than MIN_INTERVAL. A fresh page view costs nothing,
-//  so this endpoint being public cannot run up a bill.
+//  SETUP - add ONE line to .ai-config.php (the same file ai-analyze.php
+//  uses, one level above the web root):
 //
-//  Run from cron every ~20 minutes:
-//      curl -s https://goldscalpers.com/hotstory.php > /dev/null
+//      'hotstory_token' => 'paste-the-token-here',
+//
+//  Without that line this endpoint refuses every POST. It spends API
+//  credits and writes what the EA shows, so it fails closed on purpose.
+//
 //  Diagnose any time with:  /hotstory.php?selftest=1
 // =====================================================================
 
@@ -33,12 +42,10 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v3';
+$BUILD = 'v4';
 
-// Same config resolution as ai-analyze.php: one level above the web root
-// survives the deploy, inside it does not.
 $CFG_CANDIDATES = array(
-  dirname(__DIR__) . '/.ai-config.php',
+  dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
   __DIR__ . '/.ai-config.php',
 );
 $CFG_FILE = $CFG_CANDIDATES[1];
@@ -49,13 +56,7 @@ $OUT_JSON   = __DIR__ . '/hotstory.json';
 $OUT_TXT    = __DIR__ . '/hotstory.txt';
 $LOG_FILE   = __DIR__ . '/.hotstory.log';
 
-$MIN_INTERVAL = 600;          // seconds between real runs, whoever calls us
-$TIMEOUT      = 25;           // per HTTP fetch
-$UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-    . '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
-
-// Gold plus the majors. Anything else the model must report as "none", so a
-// story about oil or an index does not get forced onto a currency.
+$MAX_POST   = 3 * 1024 * 1024;   // a FF page is ~250 KB; this is generous
 $INSTRUMENTS = array('XAUUSD','EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD');
 
 $GLOBALS['gs_sent'] = false;
@@ -78,38 +79,21 @@ function logline($file, $s) {
   @file_put_contents($file, gmdate('c') . '  ' . $s . chr(10), FILE_APPEND);
 }
 
-function fetch($url, $ua, $timeout) {
-  $ch = curl_init($url);
-  curl_setopt_array($ch, array(
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_MAXREDIRS      => 3,
-    CURLOPT_TIMEOUT        => $timeout,
-    CURLOPT_USERAGENT      => $ua,
-    CURLOPT_ENCODING       => '',            // accept gzip/br like a browser
-    CURLOPT_HTTPHEADER     => array(
-      'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language: en-US,en;q=0.9',
-      'Upgrade-Insecure-Requests: 1',
-      'Sec-Fetch-Dest: document',
-      'Sec-Fetch-Mode: navigate',
-      'Sec-Fetch-Site: none',
-      'Sec-Fetch-User: ?1',
-      'Cache-Control: max-age=0',
-    ),
-  ));
-  $body = curl_exec($ch);
-  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  $err  = curl_error($ch);
-  curl_close($ch);
-  return array('code' => $code, 'body' => (string)$body, 'err' => $err);
+function cfg_load($file) {
+  if (!is_readable($file)) return null;
+  $c = @include $file;
+  if (!is_array($c) || empty($c['key'])) return null;
+  return array(
+    'provider' => isset($c['provider']) ? strtolower(trim($c['provider'])) : 'anthropic',
+    'key'      => trim($c['key']),
+    'model'    => isset($c['model']) ? trim($c['model']) : 'claude-sonnet-5',
+    'token'    => isset($c['hotstory_token']) ? trim($c['hotstory_token']) : '',
+  );
 }
 
 // ---- the Hot Story link, from the homepage --------------------------------
-// The block is marked by the literal "Hot Story" caption; the first /news/
-// link after it is the featured story. Deliberately anchored on that caption
-// rather than a CSS class, because the classes change more often than the
-// wording does.
+// Anchored on the literal "Hot Story" caption rather than a CSS class, because
+// the wording changes far less often than the classes do.
 function hot_story_link($html) {
   $i = stripos($html, 'Hot Story');
   if ($i === false) return null;
@@ -132,17 +116,6 @@ function story_meta($html) {
   if (preg_match('~From\s+([a-z0-9@.\-]+\.[a-z]{2,}|@[A-Za-z0-9_]+)~', $html, $m))
     $r['source'] = $m[1];
   return $r;
-}
-
-function cfg_load($file) {
-  if (!is_readable($file)) return null;
-  $c = @include $file;
-  if (!is_array($c) || empty($c['key'])) return null;
-  return array(
-    'provider' => isset($c['provider']) ? strtolower(trim($c['provider'])) : 'anthropic',
-    'key'      => trim($c['key']),
-    'model'    => isset($c['model']) ? trim($c['model']) : 'claude-sonnet-5',
-  );
 }
 
 // ---- ask the model --------------------------------------------------------
@@ -202,7 +175,7 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
 
   $j = json_decode($raw, true);
   $text = '';
-  if (isset($j['content'][0]['text']))                 $text = $j['content'][0]['text'];
+  if (isset($j['content'][0]['text']))                   $text = $j['content'][0]['text'];
   elseif (isset($j['choices'][0]['message']['content'])) $text = $j['choices'][0]['message']['content'];
   if ($text === '') return array('err' => 'empty model reply');
 
@@ -226,105 +199,90 @@ function clean_result($r, $instruments) {
   if ($conf > 5) $conf = 5;
   if ($dir === 'none') $conf = 0;
 
-  // one line, no control characters, and short enough for a tooltip
   $reason = isset($r['reason']) ? (string)$r['reason'] : '';
   $reason = trim(preg_replace('~\s+~u', ' ', $reason));
-  if (function_exists('mb_substr')) $reason = mb_substr($reason, 0, 160, 'UTF-8');
-  else                              $reason = substr($reason, 0, 160);
-
+  $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 160, 'UTF-8')
+                                         : substr($reason, 0, 160);
   return array('instrument' => $inst, 'direction' => $dir,
                'confidence' => $conf, 'reason' => $reason);
 }
 
-// The EA reads this. Flat key=value is far easier to parse in MQL5 than JSON,
-// and every value is stripped of newlines and '=' so a line can never split
-// wrongly. ASCII only - the panel font has no glyphs for smart quotes.
+// The EA reads this. Flat key=value parses far more safely in MQL5 than JSON,
+// and every value is stripped of newlines, '=' and non-ASCII so a line cannot
+// split wrongly and the panel font has a glyph for every character.
 function to_txt($d) {
   $lines = array();
   foreach ($d as $k => $v) {
-    $v = (string)$v;
-    $v = preg_replace('~[\r\n=]+~', ' ', $v);
-    $v = preg_replace('~[^\x20-\x7E]~', '', $v);   // drop non-ASCII
+    $v = preg_replace('~[\r\n=]+~', ' ', (string)$v);
+    $v = preg_replace('~[^\x20-\x7E]~', '', $v);
     $lines[] = $k . '=' . trim($v);
   }
   return implode(chr(10), $lines) . chr(10);
 }
 
-function write_out($json_file, $txt_file, $data) {
-  @file_put_contents($json_file, json_encode($data));
-  @file_put_contents($txt_file,  to_txt($data));
+function state_read($f) {
+  $s = is_readable($f) ? json_decode((string)@file_get_contents($f), true) : null;
+  return is_array($s) ? array_merge(array('id' => '', 'updated' => 0), $s)
+                      : array('id' => '', 'updated' => 0);
 }
 
 // =====================================================================
 //  main
 // =====================================================================
-$cfg = cfg_load($CFG_FILE);
+$cfg   = cfg_load($CFG_FILE);
+$state = state_read($STATE_FILE);
 
 if (isset($_GET['selftest'])) {
-  $home = fetch('https://www.forexfactory.com/', $UA, $TIMEOUT);
-  $link = $home['code'] === 200 ? hot_story_link($home['body']) : null;
   out(true, 'selftest', array(
-    'build'        => $BUILD,
-    'config_file'  => $CFG_FILE,
-    'config_found' => ($cfg !== null),
-    'provider'     => $cfg ? $cfg['provider'] : null,
-    'model'        => $cfg ? $cfg['model'] : null,
-    'ff_http'      => $home['code'],
-    'ff_bytes'     => strlen($home['body']),
-    'ff_err'       => $home['err'],
-    'ff_snippet'   => $home['code'] === 200 ? '' :
-                      substr(preg_replace('~\s+~', ' ', strip_tags($home['body'])), 0, 300),
-    'hot_story'    => $link,
-    'probe'        => (function () use ($UA, $TIMEOUT) {
-      $r = array();
-      foreach (array('https://explorer-api.forexfactory.com/api.php',
-                     'https://npd-api.forexfactory.com/api.php',
-                     'https://www.forexfactory.com/news') as $u) {
-        $x = fetch($u, $UA, $TIMEOUT);
-        $r[$u] = array('http' => $x['code'], 'bytes' => strlen($x['body']),
-                       'challenged' => (stripos($x['body'], 'Just a moment') !== false));
-      }
-      return $r;
-    })(),
-    'state_exists' => is_readable($STATE_FILE),
-    'out_exists'   => is_readable($OUT_TXT),
+    'build'         => $BUILD,
+    'config_file'   => $CFG_FILE,
+    'config_found'  => ($cfg !== null),
+    'provider'      => $cfg ? $cfg['provider'] : null,
+    'model'         => $cfg ? $cfg['model'] : null,
+    'token_set'     => ($cfg && $cfg['token'] !== ''),
+    'known_id'      => $state['id'],
+    'last_updated'  => $state['updated'] ? gmdate('c', $state['updated']) : null,
+    'out_exists'    => is_readable($OUT_TXT),
   ));
 }
 
-$state = array('id' => '', 'checked' => 0);
-if (is_readable($STATE_FILE)) {
-  $s = json_decode((string)@file_get_contents($STATE_FILE), true);
-  if (is_array($s)) $state = array_merge($state, $s);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST')
+  out(false, 'POST the page here, or use ?selftest=1. This endpoint no longer fetches: '
+           . 'forexfactory.com answers this host with a Cloudflare challenge.');
+
+if ($cfg === null)        out(false, 'no usable .ai-config.php at ' . $CFG_FILE);
+if ($cfg['token'] === '') out(false, 'hotstory_token is not set in .ai-config.php - refusing POSTs');
+
+$tok = isset($_POST['token']) ? (string)$_POST['token'] : '';
+if (!hash_equals($cfg['token'], $tok)) { http_response_code(403); out(false, 'bad token'); }
+
+// ---- phase 1: the homepage, to find out whether anything changed ----------
+if (isset($_POST['home'])) {
+  $home = (string)$_POST['home'];
+  if (strlen($home) > $MAX_POST) out(false, 'homepage payload too large');
+
+  $link = hot_story_link($home);
+  if (!$link) out(false, 'could not find the Hot Story block in the posted homepage');
+
+  if ($link['id'] === $state['id'] && is_readable($OUT_TXT))
+    out(true, 'unchanged', array('id' => $link['id']));
+
+  out(true, 'need_story', array('id' => $link['id'], 'need_story' => $link['url']));
 }
 
-$force = isset($_GET['force']);
-$age   = time() - (int)$state['checked'];
-if (!$force && $age < $MIN_INTERVAL)
-  out(true, 'skipped - checked ' . $age . 's ago', array('next_in' => $MIN_INTERVAL - $age));
+// ---- phase 2: the story page ----------------------------------------------
+if (!isset($_POST['story'])) out(false, 'post home= or story=');
 
-$home = fetch('https://www.forexfactory.com/', $UA, $TIMEOUT);
-if ($home['code'] !== 200)
-  out(false, 'forexfactory homepage returned HTTP ' . $home['code']);
+$story = (string)$_POST['story'];
+if (strlen($story) > $MAX_POST) out(false, 'story payload too large');
 
-$link = hot_story_link($home['body']);
-if (!$link) out(false, 'could not find the Hot Story block on the homepage');
+$url = isset($_POST['url']) ? trim((string)$_POST['url']) : '';
+if (!preg_match('~^https://www\.forexfactory\.com/news/(\d+)~', $url, $um))
+  out(false, 'url must be a forexfactory.com/news/<id> address');
+$id = $um[1];
 
-// Record the check even when nothing changed, so a quiet period does not
-// re-fetch every single call.
-$state['checked'] = time();
-@file_put_contents($STATE_FILE, json_encode($state));
-
-if (!$force && $link['id'] === $state['id'] && is_readable($OUT_TXT))
-  out(true, 'unchanged', array('id' => $link['id']));
-
-$page = fetch($link['url'], $UA, $TIMEOUT);
-if ($page['code'] !== 200) out(false, 'story page returned HTTP ' . $page['code']);
-
-$meta = story_meta($page['body']);
-if ($meta['headline'] === '') out(false, 'could not read the headline from the story page');
-
-if ($cfg === null)
-  out(false, 'no usable .ai-config.php found at ' . $CFG_FILE);
+$meta = story_meta($story);
+if ($meta['headline'] === '') out(false, 'could not read a headline from the posted story page');
 
 $res = classify($cfg, $meta['headline'], $meta['excerpt'], $INSTRUMENTS, 60);
 if (isset($res['err'])) {
@@ -335,20 +293,19 @@ $res = clean_result($res, $INSTRUMENTS);
 
 $data = array(
   'ok'         => 1,
-  'id'         => $link['id'],
+  'id'         => $id,
   'updated'    => gmdate('c'),
   'headline'   => $meta['headline'],
   'source'     => $meta['source'],
-  'url'        => $link['url'],
+  'url'        => $url,
   'instrument' => $res['instrument'],
   'direction'  => $res['direction'],
   'confidence' => $res['confidence'],
   'reason'     => $res['reason'],
 );
-write_out($OUT_JSON, $OUT_TXT, $data);
-
-$state['id'] = $link['id'];
-@file_put_contents($STATE_FILE, json_encode($state));
-logline($LOG_FILE, 'id=' . $link['id'] . ' ' . $res['instrument'] . ' ' . $res['direction']);
+@file_put_contents($OUT_JSON, json_encode($data));
+@file_put_contents($OUT_TXT,  to_txt($data));
+@file_put_contents($STATE_FILE, json_encode(array('id' => $id, 'updated' => time())));
+logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']);
 
 out(true, 'updated', $data);
