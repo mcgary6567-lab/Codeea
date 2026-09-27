@@ -23,13 +23,12 @@
 //    2. client POSTs  token + story=<story page html> + url=<that url>
 //       -> {"message":"updated", ...}
 //
-//  SETUP - add ONE line to .ai-config.php (the same file ai-analyze.php
-//  uses, one level above the web root):
-//
-//      'hotstory_token' => 'paste-the-token-here',
-//
-//  Without that line this endpoint refuses every POST. It spends API
-//  credits and writes what the EA shows, so it fails closed on purpose.
+//  AUTH - nothing to configure on the server. The agent holds a 192-bit
+//  token; only its SHA-256 lives here. Publishing the hash of a 192-bit
+//  random secret gives an attacker nothing (preimage resistance), so the
+//  shared secret never has to be pasted into a file on the host, and the
+//  endpoint works the moment it deploys. To rotate: pick a new token,
+//  put its sha256 below, and update line 29 of hotstory-agent.ps1.
 //
 //  Diagnose any time with:  /hotstory.php?selftest=1
 // =====================================================================
@@ -42,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v4';
+$BUILD = 'v5';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -57,6 +56,7 @@ $OUT_TXT    = __DIR__ . '/hotstory.txt';
 $LOG_FILE   = __DIR__ . '/.hotstory.log';
 
 $MAX_POST   = 3 * 1024 * 1024;   // a FF page is ~250 KB; this is generous
+$TOKEN_SHA  = '624c8bcd45276ba8b25916b2caf78f6f04e9b6cd14cfec5c8ae4e8d8b9a97501';
 $INSTRUMENTS = array('XAUUSD','EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD');
 
 $GLOBALS['gs_sent'] = false;
@@ -87,7 +87,6 @@ function cfg_load($file) {
     'provider' => isset($c['provider']) ? strtolower(trim($c['provider'])) : 'anthropic',
     'key'      => trim($c['key']),
     'model'    => isset($c['model']) ? trim($c['model']) : 'claude-sonnet-5',
-    'token'    => isset($c['hotstory_token']) ? trim($c['hotstory_token']) : '',
   );
 }
 
@@ -239,7 +238,7 @@ if (isset($_GET['selftest'])) {
     'config_found'  => ($cfg !== null),
     'provider'      => $cfg ? $cfg['provider'] : null,
     'model'         => $cfg ? $cfg['model'] : null,
-    'token_set'     => ($cfg && $cfg['token'] !== ''),
+    'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
     'known_id'      => $state['id'],
     'last_updated'  => $state['updated'] ? gmdate('c', $state['updated']) : null,
     'out_exists'    => is_readable($OUT_TXT),
@@ -250,11 +249,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST')
   out(false, 'POST the page here, or use ?selftest=1. This endpoint no longer fetches: '
            . 'forexfactory.com answers this host with a Cloudflare challenge.');
 
-if ($cfg === null)        out(false, 'no usable .ai-config.php at ' . $CFG_FILE);
-if ($cfg['token'] === '') out(false, 'hotstory_token is not set in .ai-config.php - refusing POSTs');
+if ($cfg === null) out(false, 'no usable .ai-config.php at ' . $CFG_FILE);
 
+// Compare hashes, so the secret itself is never stored on the server.
 $tok = isset($_POST['token']) ? (string)$_POST['token'] : '';
-if (!hash_equals($cfg['token'], $tok)) { http_response_code(403); out(false, 'bad token'); }
+if (!hash_equals($TOKEN_SHA, hash('sha256', $tok))) { http_response_code(403); out(false, 'bad token'); }
 
 // ---- phase 1: the homepage, to find out whether anything changed ----------
 if (isset($_POST['home'])) {
