@@ -33,7 +33,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v1';
+$BUILD = 'v2';
 
 // Same config resolution as ai-analyze.php: one level above the web root
 // survives the deploy, inside it does not.
@@ -86,7 +86,17 @@ function fetch($url, $ua, $timeout) {
     CURLOPT_MAXREDIRS      => 3,
     CURLOPT_TIMEOUT        => $timeout,
     CURLOPT_USERAGENT      => $ua,
-    CURLOPT_HTTPHEADER     => array('Accept: text/html,application/xhtml+xml'),
+    CURLOPT_ENCODING       => '',            // accept gzip/br like a browser
+    CURLOPT_HTTPHEADER     => array(
+      'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language: en-US,en;q=0.9',
+      'Upgrade-Insecure-Requests: 1',
+      'Sec-Fetch-Dest: document',
+      'Sec-Fetch-Mode: navigate',
+      'Sec-Fetch-Site: none',
+      'Sec-Fetch-User: ?1',
+      'Cache-Control: max-age=0',
+    ),
   ));
   $body = curl_exec($ch);
   $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -261,6 +271,9 @@ if (isset($_GET['selftest'])) {
     'model'        => $cfg ? $cfg['model'] : null,
     'ff_http'      => $home['code'],
     'ff_bytes'     => strlen($home['body']),
+    'ff_err'       => $home['err'],
+    'ff_snippet'   => $home['code'] === 200 ? '' :
+                      substr(preg_replace('~\s+~', ' ', strip_tags($home['body'])), 0, 300),
     'hot_story'    => $link,
     'state_exists' => is_readable($STATE_FILE),
     'out_exists'   => is_readable($OUT_TXT),
