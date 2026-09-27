@@ -33,7 +33,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v2';
+$BUILD = 'v3';
 
 // Same config resolution as ai-analyze.php: one level above the web root
 // survives the deploy, inside it does not.
@@ -275,6 +275,17 @@ if (isset($_GET['selftest'])) {
     'ff_snippet'   => $home['code'] === 200 ? '' :
                       substr(preg_replace('~\s+~', ' ', strip_tags($home['body'])), 0, 300),
     'hot_story'    => $link,
+    'probe'        => (function () use ($UA, $TIMEOUT) {
+      $r = array();
+      foreach (array('https://explorer-api.forexfactory.com/api.php',
+                     'https://npd-api.forexfactory.com/api.php',
+                     'https://www.forexfactory.com/news') as $u) {
+        $x = fetch($u, $UA, $TIMEOUT);
+        $r[$u] = array('http' => $x['code'], 'bytes' => strlen($x['body']),
+                       'challenged' => (stripos($x['body'], 'Just a moment') !== false));
+      }
+      return $r;
+    })(),
     'state_exists' => is_readable($STATE_FILE),
     'out_exists'   => is_readable($OUT_TXT),
   ));
