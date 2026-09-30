@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v5';
+$BUILD = 'v6';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -55,6 +55,7 @@ $OUT_JSON   = __DIR__ . '/hotstory.json';
 $OUT_TXT    = __DIR__ . '/hotstory.txt';
 $LOG_FILE   = __DIR__ . '/.hotstory.log';
 
+$MAX_CLASSIFY_TRIES = 2;   // give up on one story after this many model failures
 $MAX_POST   = 3 * 1024 * 1024;   // a FF page is ~250 KB; this is generous
 $TOKEN_SHA  = '624c8bcd45276ba8b25916b2caf78f6f04e9b6cd14cfec5c8ae4e8d8b9a97501';
 $INSTRUMENTS = array('XAUUSD','EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD');
@@ -145,12 +146,12 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
     $url  = 'https://api.anthropic.com/v1/messages';
     $hdrs = array('content-type: application/json', 'x-api-key: ' . $cfg['key'],
                   'anthropic-version: 2023-06-01');
-    $body = array('model' => $cfg['model'], 'max_tokens' => 400, 'system' => $SYSTEM,
+    $body = array('model' => $cfg['model'], 'max_tokens' => 1000, 'system' => $SYSTEM,
       'messages' => array(array('role' => 'user', 'content' => $USER)));
   } else {
     $url  = 'https://api.openai.com/v1/chat/completions';
     $hdrs = array('Content-Type: application/json', 'Authorization: Bearer ' . $cfg['key']);
-    $body = array('model' => $cfg['model'], 'max_tokens' => 400, 'temperature' => 0.1,
+    $body = array('model' => $cfg['model'], 'max_tokens' => 1000, 'temperature' => 0.1,
       'messages' => array(
         array('role' => 'system', 'content' => $SYSTEM),
         array('role' => 'user',   'content' => $USER)));
@@ -170,17 +171,17 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
   curl_close($ch);
 
   if ($raw === false || $code < 200 || $code > 299)
-    return array('err' => 'model HTTP ' . $code . ' ' . $err);
+    return array('err' => 'model HTTP ' . $code . ' ' . $err, 'raw' => (string)$raw);
 
   $j = json_decode($raw, true);
   $text = '';
   if (isset($j['content'][0]['text']))                   $text = $j['content'][0]['text'];
   elseif (isset($j['choices'][0]['message']['content'])) $text = $j['choices'][0]['message']['content'];
-  if ($text === '') return array('err' => 'empty model reply');
+  if ($text === '') return array('err' => 'empty model reply', 'raw' => (string)$raw);
 
   if (preg_match('~\{.*\}~s', $text, $m)) $text = $m[0];
   $r = json_decode($text, true);
-  if (!is_array($r)) return array('err' => 'model did not return JSON');
+  if (!is_array($r)) return array('err' => 'model did not return JSON', 'raw' => $text);
   return $r;
 }
 
@@ -220,10 +221,12 @@ function to_txt($d) {
 }
 
 function state_read($f) {
+  $d = array('id' => '', 'updated' => 0, 'fail_id' => '', 'fail_n' => 0);
   $s = is_readable($f) ? json_decode((string)@file_get_contents($f), true) : null;
-  return is_array($s) ? array_merge(array('id' => '', 'updated' => 0), $s)
-                      : array('id' => '', 'updated' => 0);
+  return is_array($s) ? array_merge($d, $s) : $d;
 }
+
+function state_write($f, $s) { @file_put_contents($f, json_encode($s)); }
 
 // =====================================================================
 //  main
@@ -240,6 +243,9 @@ if (isset($_GET['selftest'])) {
     'model'         => $cfg ? $cfg['model'] : null,
     'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
     'known_id'      => $state['id'],
+    'failed_id'     => $state['fail_id'],
+    'failed_tries'  => (int)$state['fail_n'],
+    'max_tries'     => $MAX_CLASSIFY_TRIES,
     'last_updated'  => $state['updated'] ? gmdate('c', $state['updated']) : null,
     'out_exists'    => is_readable($OUT_TXT),
   ));
@@ -266,6 +272,16 @@ if (isset($_POST['home'])) {
   if ($link['id'] === $state['id'] && is_readable($OUT_TXT))
     out(true, 'unchanged', array('id' => $link['id']));
 
+  // A story the model has already failed on MAX_CLASSIFY_TRIES times is never
+  // asked for again. Without this the client re-posts the same page every 20
+  // minutes and the model is re-billed for the same failure until
+  // ForexFactory happens to promote something else. Measured on 2026-09-28:
+  // 34 consecutive failures, 11h40m, panel frozen the whole time.
+  if ($link['id'] !== '' && $link['id'] === $state['fail_id']
+      && (int)$state['fail_n'] >= $MAX_CLASSIFY_TRIES)
+    out(true, 'unchanged', array('id' => $link['id'],
+        'note' => 'gave up on this story after ' . (int)$state['fail_n'] . ' model failures'));
+
   out(true, 'need_story', array('id' => $link['id'], 'need_story' => $link['url']));
 }
 
@@ -285,8 +301,16 @@ if ($meta['headline'] === '') out(false, 'could not read a headline from the pos
 
 $res = classify($cfg, $meta['headline'], $meta['excerpt'], $INSTRUMENTS, 60);
 if (isset($res['err'])) {
-  logline($LOG_FILE, 'classify failed: ' . $res['err']);
-  out(false, 'classify failed: ' . $res['err']);
+  $n = ($state['fail_id'] === $id) ? ((int)$state['fail_n'] + 1) : 1;
+  state_write($STATE_FILE, array('id' => $state['id'], 'updated' => (int)$state['updated'],
+                                 'fail_id' => $id, 'fail_n' => $n));
+  $rawNote = '';
+  if (isset($res['raw']) && $res['raw'] !== '')
+    $rawNote = ' | raw: ' . substr(preg_replace('~\s+~', ' ', (string)$res['raw']), 0, 400);
+  logline($LOG_FILE, 'classify failed (' . $n . '/' . $MAX_CLASSIFY_TRIES . ') id=' . $id
+                   . ': ' . $res['err'] . $rawNote);
+  out(false, 'classify failed: ' . $res['err']
+           . ($n >= $MAX_CLASSIFY_TRIES ? ' - giving up on this story' : ''));
 }
 $res = clean_result($res, $INSTRUMENTS);
 
@@ -304,7 +328,8 @@ $data = array(
 );
 @file_put_contents($OUT_JSON, json_encode($data));
 @file_put_contents($OUT_TXT,  to_txt($data));
-@file_put_contents($STATE_FILE, json_encode(array('id' => $id, 'updated' => time())));
+state_write($STATE_FILE, array('id' => $id, 'updated' => time(),
+                               'fail_id' => '', 'fail_n' => 0));
 logline($LOG_FILE, 'id=' . $id . ' ' . $res['instrument'] . ' ' . $res['direction']);
 
 out(true, 'updated', $data);
