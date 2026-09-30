@@ -1,0 +1,806 @@
+{
+  "admin:/home/finance": {
+    "purpose": "The home page of the Billing Management area. It gathers everything about families, their invoices, receipts and ledgers in one place.",
+    "steps": [
+      "Press a card to open its group: **Client Management**, **Billing** or **Configurations**.",
+      "The sidebar on the left lists every page in the area for quick jumps."
+    ],
+    "notes": [
+      "This area mirrors the Billing Management area of the original ERP. Pages added by the new platform sit after the original ones in each group."
+    ]
+  },
+  "admin:/home/finance/clients": {
+    "purpose": "The group page for families and leads within Billing Management.",
+    "steps": [
+      "Press **Clients List** to see every family, or **Clients Financial Summary** to see what each family owes.",
+      "Press **Leads List** or **Verify Leads** to work on prospective families."
+    ],
+    "notes": []
+  },
+  "admin:/finance/clients-summary": {
+    "purpose": "One line per family showing balance, balance limit, pending and received amounts, invoice totals and the last payment. Billing staff use it to find who is over their limit and chase them.",
+    "steps": [
+      "Press a tile to filter the list: **All Families**, **Exceeded**, **With Dues**, **Received** or **Pending**.",
+      "Choose a saved view with the tabs **Primary Report**, **Receivables**, **Exceeded > 0** or **All Dues**.",
+      "Use **Search**, **From Date**, **To Date**, **Shift**, **Currency** and **Status**, then press **Go**. **Reset** clears the filters.",
+      "Tick families, pick a **Notification Template** or type a **Subject** and **Message**, choose the **Channel**, give a **Rationale** and press **Notify**.",
+      "Press **Print** for a print view or **Export CSV** to download the table."
+    ],
+    "notes": [
+      "**Exceeded** is the amount a family's balance is over its **Balance Limit**. A family with no limit set is never counted as exceeded.",
+      "**Notify** respects each family's WhatsApp opt-in. Families without a portal account are skipped, and every send is written to the audit log.",
+      "Sending notices needs the billing update permission."
+    ]
+  },
+  "admin:/crm/leads": {
+    "purpose": "The list of every lead (a prospective family) with its stage, score and owner. Lead closers and managers use it to capture, follow up and convert leads.",
+    "steps": [
+      "Switch between **Kanban board** and **List & filters** with the tabs.",
+      "On the board, choose a new stage for a card and press **Move** to advance the lead.",
+      "In the list, filter by **Stage**, **Source**, **Campaign**, **Closer**, **Generator**, **Country**, **Min score** and dates, then press **Go**.",
+      "Press **New lead** to add a lead by hand. Press **Export** to download the filtered list, or **KPIs** for conversion figures."
+    ],
+    "notes": [
+      "The tiles show **New this week**, **Conversion**, **Average score**, **Overdue follow-ups** and **Open pipeline**.",
+      "This page is richer than the Leads List of the original ERP. It adds stages, scoring and campaigns."
+    ]
+  },
+  "admin:/crm/leads/verify": {
+    "purpose": "The queue between a raw lead and a family. A verifier checks each lead before it can be converted, and a converted row shows the client code it became.",
+    "steps": [
+      "Press a tile to filter by status: **Unverified**, **Forwarded**, **Verified**, **Rejected** or **Converted**.",
+      "Filter by **Search**, dates, **Shift**, **Country**, **Status** and **How Came To Us**, then press **Go**.",
+      "On a row press **Decide**, then **Verify**, **Forward to verifier** or **Reject**. Remarks are required.",
+      "To change many at once, tick the rows, choose **New Status**, fill **Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "Every decision records who made it and when, and is written to the audit log.",
+      "A lead pushed in by the marketing tool arrives with no contact details. It can be forwarded or rejected, but not verified until the record is completed.",
+      "Only a verified lead can be converted from this queue. A converted lead cannot change status again."
+    ]
+  },
+  "admin:/home/finance/billing": {
+    "purpose": "The group page for invoices, receipts, ledgers, payments, subscription reports, discounts and currencies.",
+    "steps": [
+      "Press a card to open the page, for example **Invoices**, **Receipts**, **Client Ledger** or **Payments & Reconciliation**."
+    ],
+    "notes": [
+      "The first four cards match the original ERP. The cards from **Bulk Invoice Generation** onward are additions of the new platform."
+    ]
+  },
+  "admin:/finance/invoices/bulk": {
+    "purpose": "Creates one invoice per family for a billing month from their active subscriptions. Billing staff use it at the start of each billing period.",
+    "steps": [
+      "Choose the **Billing Period**, **Shift** and **Fee Recurrence**, then press **Refresh Preview**.",
+      "Check the tiles **Clients**, **Subscriptions**, **Already Invoiced** and **Total Value**, and the preview table.",
+      "Press **Generate N Invoices** (N is the number of families shown) to create the invoices. You are taken to the invoice list.",
+      "Press **Back** to leave without creating anything."
+    ],
+    "notes": [
+      "Nothing is created until you confirm. The preview is a dry run.",
+      "Families already invoiced for the period are skipped and counted under **Already Invoiced**.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/ledger/credits": {
+    "purpose": "A report of every credit posted to a family account: referral rewards, goodwill and service-recovery credits. Billing staff use it to see what has been given and why.",
+    "steps": [
+      "Read the tiles **Credit entries**, **Total credited (PKR)** and **Referral credits (PKR)**.",
+      "Press a family code in the table to open that family's ledger.",
+      "The **Credited referrals** card lists referrals that have earned a reward."
+    ],
+    "notes": [
+      "This page is read only. Credits are raised from the client ledger or by the referral programme.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/payments": {
+    "purpose": "Every payment received, with its invoice, method, status and whether it is reconciled with the bank. Billing staff use it to record and check money coming in.",
+    "steps": [
+      "Press the **Unreconciled** or **Failed** tile to filter the list to that status.",
+      "Filter by **Search**, **Method**, **Gateway**, **Status**, **Reconciled**, **From** and **To**, then press **Go**.",
+      "Press **Record payment** to enter a payment by hand: family, invoice, amount, currency, method and reference.",
+      "On a row press **Open** for the payment detail or **Receipt PDF** to download the receipt.",
+      "Press **Reconciliation** or **Failed payments** to go to those pages."
+    ],
+    "notes": [
+      "**Base** shows the amount converted to PKR at the rate in force.",
+      "Refunds and cancellations need a reason and are written to the audit log.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/payments/reconciliation": {
+    "purpose": "Ticks received payments off against the bank statement so the books match the bank. Accounts staff use it after each statement arrives.",
+    "steps": [
+      "Under **Unreconciled payments**, tick each payment that appears on your bank statement.",
+      "Type the **Bank statement reference**, for example the statement month and page, then press **Mark selected reconciled**.",
+      "Use **Daily totals by method** to compare a day's takings with the bank."
+    ],
+    "notes": [
+      "Reconciling needs the payments update permission. Only confirmed payments are listed.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/payments/failed": {
+    "purpose": "Lists every payment that failed, for example a declined card. Billing staff use it to follow up with the family.",
+    "steps": [
+      "Press **Open** on a row to see the payment and record a new one if needed.",
+      "The **Risk alerts raised** card shows the alert each failure created."
+    ],
+    "notes": [
+      "Every failure raises a risk alert and notifies the family's billing representative.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/subscriptions/report": {
+    "purpose": "Shows recurring revenue and the margin left after teacher cost, all in PKR. Managers use it to see which courses, packages, countries or teachers earn most.",
+    "steps": [
+      "Switch the grouping with the tabs **By course**, **By package**, **By country** or **By teacher**.",
+      "Read the tiles **Subscriptions**, **MRR**, **Teacher cost** and **Gross margin**.",
+      "The **MRR distribution** chart shows each group's share."
+    ],
+    "notes": [
+      "MRR means monthly recurring revenue: the monthly fee of every active subscription added up.",
+      "Margin is MRR less the teacher's monthly cost for those classes."
+    ]
+  },
+  "admin:/finance/discounts": {
+    "purpose": "The approval queue for price discounts on subscriptions. Managers and the CEO use it to approve or reject each request at the right level.",
+    "steps": [
+      "Filter the queue with **Pending**, **Approved**, **Rejected** or **All statuses**, and by tier with **Manager**, **CEO** or **Both tiers**.",
+      "On a pending row, type a **Decision note** and press **Approve** or **Reject**.",
+      "Use the tabs **Approval queue**, **Weekly register** and **Scholarships** to move between the three pages."
+    ],
+    "notes": [
+      "The **Approval ladder** card shows the percentage bands. Small discounts need a manager; larger ones need the CEO; anything above the top band is refused.",
+      "A subscription with a discount starts pending and activates when the discount is approved.",
+      "The **Your authority** card tells you which tier you may decide. This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/discounts/register": {
+    "purpose": "Groups every discount by ISO week with the count, average percentage and value given away. Management uses it to watch how much revenue is conceded.",
+    "steps": [
+      "Read the tiles **Weeks covered**, **Requests** and **Value given (PKR)**.",
+      "The first table gives one line per week. **Detail** lists each request with its tier, status and who decided.",
+      "Press **Export CSV** to download the weekly figures."
+    ],
+    "notes": [
+      "An ISO week runs Monday to Sunday and is numbered within the year, for example 2026-W20.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/discounts/scholarships": {
+    "purpose": "Records financial support for families who need help, kept separate from commercial discounts. Billing staff record requests and approvers decide them.",
+    "steps": [
+      "Press a tile, **Approved** or **Awaiting review**, or choose **Status** and press **Go** to filter.",
+      "Press **Record a support request**. Fill **Family**, **Type**, **From** and **Circumstances (kept confidential)**. Add **Student**, **Currency**, **Coverage %** or **Fixed monthly amount** and **Until** if needed.",
+      "Press **Submit for approval**.",
+      "On a pending row, type a **Decision note** and press **Approve** or **Decline**."
+    ],
+    "notes": [
+      "An approved scholarship can be chosen when a subscription is created, and its value is applied to the fee.",
+      "The **Monthly support (PKR)** tile is the total of approved monthly amounts.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/currencies": {
+    "purpose": "Lists each currency families pay in, its rate to PKR and the active subscriptions using it. Accounts staff use it to set rates so every report consolidates correctly.",
+    "steps": [
+      "Type a new rate in **Set rate** on a currency row and press **Save**.",
+      "Check **Recent rate changes** for the history of who set what and when.",
+      "Use **Country → default currency** to see which currency a new family gets by country."
+    ],
+    "notes": [
+      "A rate means 1 unit of the currency equals X PKR. The base currency is fixed at 1.0000.",
+      "Saving a rate writes a history entry and marks the currency as set manually.",
+      "Changing rates needs the currencies update permission."
+    ]
+  },
+  "admin:/home/finance/config": {
+    "purpose": "The group page for the two billing catalogues: billing groups and lead closers.",
+    "steps": [
+      "Press **Billing Groups** to manage books of families and their representatives.",
+      "Press **Lead Closers** to manage the people who close leads."
+    ],
+    "notes": []
+  },
+  "admin:/finance/lead-closers": {
+    "purpose": "The catalogue of people who close leads, with the short name their reports are signed with and the representative answerable for each.",
+    "steps": [
+      "Press a tile, **All Closers**, **Active** or **In-Active**, to filter by status.",
+      "Filter by **Search**, **Representative Name** and **Status**, then press **Go**.",
+      "Press **Create**, fill **Closer Name** and optionally **Sudo Name** and a representative, then press **Create closer**.",
+      "On a row press **Edit** and then **Save closer**, or **Deactivate** and **Activate** to change status."
+    ],
+    "notes": [
+      "**Sudo Name** is the short name shown on reports.",
+      "Two closers cannot share the same name. Changes are written to the audit log."
+    ]
+  },
+  "admin:/home/accounts": {
+    "purpose": "The home page of the Accounts area, the college's double-entry books.",
+    "steps": [
+      "Press **Setup** for heads and the chart of accounts, **Transactions** for vouchers, or **Reports** for statements."
+    ],
+    "notes": [
+      "Double-entry means every transaction is recorded twice: a debit in one account and a credit in another. The books therefore always balance."
+    ]
+  },
+  "admin:/home/accounts/setup": {
+    "purpose": "The group page for building the chart of accounts.",
+    "steps": [
+      "Press **Accounts Heads**, **Chart of Accounts** or **Accounts Tree View**."
+    ],
+    "notes": []
+  },
+  "admin:/finance/accounts/heads": {
+    "purpose": "The groups the chart of accounts hangs from, such as Current Assets or Payroll Expenses. Accountants use it to organise accounts.",
+    "steps": [
+      "Press a tile to filter: **All Heads**, **Active**, **Inactive**, or a type such as **Asset** or **Expense**.",
+      "Filter by **Search**, **Account Type** and **Status**, then press **Go**.",
+      "Press **Create**, fill **Code**, **Head Name** and **Account Type**, choose a **Parent Head** and **Sort No** if needed, then press **Create head**.",
+      "On a row press **Edit** and **Save head**, or **Deactivate**. Press **Tree View** to see the hierarchy."
+    ],
+    "notes": [
+      "A head is never posted to. It only totals the accounts beneath it.",
+      "An account that already carries postings cannot be turned into a head."
+    ]
+  },
+  "admin:/finance/accounts": {
+    "purpose": "The full list of accounts grouped by type, with head, postable flag, opening balance and net movement. Accountants use it to add and maintain accounts.",
+    "steps": [
+      "Press a tile, **All Accounts**, **Accounts Heads** or **Postable**, or filter by **Search**, **Account Type**, **Accounts Head** and **Postable**, then press **Go**.",
+      "Press **Create**, fill **Code**, **Name** and **Account Type**, set the head, **Opening Balance** and **Status**, then press **Create account**.",
+      "On a row press **Edit** then **Save account**, or **Ledger** to open the account's ledger report.",
+      "To change a classification, type a **Reason** and press **Make postable** or **Mark as accounts head**."
+    ],
+    "notes": [
+      "Postable means vouchers can be posted to the account. Heads are not postable.",
+      "The **How the ledger is fed** card explains which modules post automatically, such as invoices, payments, expenses and payroll.",
+      "Reclassifying an account is written to the audit log with your reason."
+    ]
+  },
+  "admin:/finance/accounts/tree": {
+    "purpose": "The chart of accounts as a hierarchy. Each node shows its own balance and the roll-up of everything beneath it.",
+    "steps": [
+      "Set **Balances As At** and press **Go** to see balances at that date.",
+      "Press **Expand all** or **Collapse all**, or press a node to open or close it.",
+      "Press **Print** for a printable copy."
+    ],
+    "notes": [
+      "The tiles total each type: **Asset**, **Liability**, **Equity**, **Income** and **Expense**.",
+      "Roll-up total is the node's own balance plus all its children."
+    ]
+  },
+  "admin:/home/accounts/transactions": {
+    "purpose": "The group page for entering money movements.",
+    "steps": [
+      "Press **All Vouchers** to list vouchers, or **Journal Voucher**, **Payment Voucher** or **Receipt Voucher** to raise one.",
+      "Press **Journal** for the raw ledger entries, or **Expenses** for vendor bills."
+    ],
+    "notes": []
+  },
+  "admin:/finance/accounts/vouchers": {
+    "purpose": "Every journal, payment and receipt voucher with its date, party, amount and status. Accountants use it to find and review postings.",
+    "steps": [
+      "Press a tile to filter by status: **All Vouchers**, **Draft**, **Posted** or **Cancelled**.",
+      "Use the type tabs **All**, **Journal Voucher**, **Payment Voucher** and **Receipt Voucher**.",
+      "Filter by **Search**, dates, **Status**, **Account**, **Party** and **Currency**, then press **Go**.",
+      "Press **Open** on a row to see the lines, post a draft, or cancel a voucher.",
+      "Press **Journal Voucher**, **Payment Voucher** or **Receipt Voucher** to raise a new one."
+    ],
+    "notes": [
+      "A draft has no effect on the ledger until it is posted. Posting needs the accounts update permission.",
+      "Cancelling a posted voucher posts a mirror reversal voucher, so the original stays readable and the ledger stays balanced. A reason is required.",
+      "Voucher numbers start with JV, PV or RV by type."
+    ]
+  },
+  "admin:/finance/accounts/vouchers/new?type=journal": {
+    "purpose": "A journal voucher moves money between two or more accounts, for example an accrual or a correction. Debits must equal credits before it can be posted.",
+    "steps": [
+      "Fill the header: **Voucher Date**, **Currency**, **Exchange Rate** if not PKR, **Reference No** and **Description / Narration**.",
+      "Under **Voucher lines**, pick an **Account** and enter a **Debit** or **Credit** amount and a **Memo**. Press **+ add line** for more lines.",
+      "Write the **Rationale**: why this voucher is being raised.",
+      "Press **Save & Post** to post it to the ledger now, or **Save as Draft** to keep it unposted. **Cancel** discards the form."
+    ],
+    "notes": [
+      "Total debits must equal total credits, or the voucher is refused.",
+      "You cannot post into a month that has been closed on the Financial close page.",
+      "Posting is a consequential audit event and records your rationale."
+    ]
+  },
+  "admin:/finance/accounts/vouchers/new?type=payment": {
+    "purpose": "Records money leaving the college, such as a vendor bill or a staff payment. It debits the expense or liability account and credits the bank, gateway or cash account the money left from.",
+    "steps": [
+      "Fill **Voucher Date**, **Currency**, **Reference No** and **Description / Narration**.",
+      "Under **Who was paid, and how**, choose **Paid To**: a family, an employee, or a vendor by **Name**. Then choose the **Payment Mode** and the **Beneficiary Account** the money left from.",
+      "Enter the **Amount** and the **Debit Account (expense or liability)**, with an optional **Memo**.",
+      "Give the **Rationale**, then press **Save & Post** or **Save as Draft**."
+    ],
+    "notes": [
+      "The beneficiary account decides which bank, gateway or cash ledger account is credited.",
+      "The amount must be greater than zero and a debit account must be chosen.",
+      "A posted voucher can only be undone by cancelling it, which posts a reversal."
+    ]
+  },
+  "admin:/finance/accounts/vouchers/new?type=receipt": {
+    "purpose": "Records money arriving, such as a fee payment. It debits the bank, gateway or cash account and credits the income or receivable account.",
+    "steps": [
+      "Fill **Voucher Date**, **Currency**, **Reference No** and **Description / Narration**.",
+      "Under **Who paid, and how**, choose **Received From**, the **Payment Mode** and the **Beneficiary Account** the money landed in. For a family you may also pick the **Invoice** being paid.",
+      "Enter the **Amount** and the **Credit Account (income or receivable)**.",
+      "Give the **Rationale**, then press **Save & Post** or **Save as Draft**."
+    ],
+    "notes": [
+      "A receipt from a family with an invoice selected is recorded as a payment on that invoice. The family's ledger and receipt are updated and nothing is posted twice.",
+      "The invoice must belong to the selected family."
+    ]
+  },
+  "admin:/finance/accounts/journal": {
+    "purpose": "Every posting in the general ledger, in PKR, whatever raised it: vouchers, invoices, payments, expenses or payroll. Accountants use it to trace a figure back to its entry.",
+    "steps": [
+      "Filter by **Search** (entry number or description) and **Period**, then press **Go**.",
+      "Press **Open** on a row to see its debit and credit lines and, if needed, reverse it.",
+      "Press **Manual journal** to post an entry directly. Set **Entry date** and **Description** and add account lines with **+ add line**. Give a **Rationale** and press **Post journal**."
+    ],
+    "notes": [
+      "A manual journal posts immediately; there is no draft. Debits must equal credits.",
+      "Reversing an entry needs the accounts approve permission and a rationale.",
+      "Entries dated inside a closed period are refused."
+    ]
+  },
+  "admin:/finance/expenses": {
+    "purpose": "Vendor spend by category and department. Staff raise an expense, an approver approves it, and it is then paid. Approval posts it to the general ledger.",
+    "steps": [
+      "Press a tile to filter: **Pending approval**, **Approved** or **Paid**.",
+      "Filter by **Search**, **Status**, **Category** and **Department**, then press **Go**.",
+      "Press **New expense** to raise one with vendor, date, category, department, amount and currency.",
+      "Press **Open** on a row to approve, reject or mark it paid.",
+      "Press **Payables** to see approved expenses still awaiting payment."
+    ],
+    "notes": [
+      "Approving posts a journal: debit the expense account, credit Accounts Payable. Marking paid clears the payable.",
+      "Approving needs the expenses approve permission; marking paid needs the expenses execute permission.",
+      "**Monthly spend by category** charts the current month's approved and paid spend."
+    ]
+  },
+  "admin:/home/accounts/reports": {
+    "purpose": "The group page for accounting reports and statements.",
+    "steps": [
+      "Press a card, for example **Trial Balance Report**, **Income Statement** or **Balance Sheet**."
+    ],
+    "notes": [
+      "The first seven cards match the original ERP. The cards from **Profit & Loss** onward are additions of the new platform."
+    ]
+  },
+  "admin:/finance/accounts/reports/ledger": {
+    "purpose": "Every line posted to one account in a date range, with a running balance and the opening and closing balance.",
+    "steps": [
+      "Choose the **Account**, **From Date** and **To Date**, then press **Go**.",
+      "Read the tiles **Opening Balance**, **Debits**, **Credits** and **Closing Balance**.",
+      "Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "Each line shows the voucher number and type, so you can open the voucher that made it."
+    ]
+  },
+  "admin:/finance/accounts/reports/trial-balance": {
+    "purpose": "Every postable account with its debit and credit totals for the range, grouped by account type. It proves the books balance.",
+    "steps": [
+      "Set **From Date** and **To Date**. Under **Accounts** choose **With movement only** or **All accounts**, then press **Go**.",
+      "Check that **Total Debit** equals **Total Credit** and **Difference** is zero.",
+      "Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "If the two columns differ, a posting is out of balance and must be found before closing the period."
+    ]
+  },
+  "admin:/finance/accounts/reports/income-statement": {
+    "purpose": "Income less expense for a date range, by account and by group, compared with the previous period of the same length.",
+    "steps": [
+      "Set **From Date** and **To Date**, then press **Go**.",
+      "Read the tiles **Income**, **Expenses**, **Net** and **Margin**.",
+      "The **Income by group** and **Expenses by group** cards total each head. Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "**Change** compares this period with the one immediately before it of the same length."
+    ]
+  },
+  "admin:/finance/accounts/reports/balance-sheet": {
+    "purpose": "Assets, liabilities and equity as at a date. It shows what the college owns, what it owes and what is left.",
+    "steps": [
+      "Set **From Date** and **As At Date**, then press **Go**.",
+      "Read **Total Assets**, **Total Liabilities**, **Equity** and **Retained Earnings**.",
+      "Check the **Accounting equation check** card: assets must equal liabilities plus equity. Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "Retained earnings are derived from income less expense up to the date."
+    ]
+  },
+  "admin:/finance/accounts/reports/payables": {
+    "purpose": "What the college owes, by vendor and by account, aged from the date the liability arose. Accountants use it to prioritise payments.",
+    "steps": [
+      "Set **From Date** and **As At Date**, then press **Go**.",
+      "Read the tiles **Total Payable**, **Current**, **1-30 Days**, **31-60 Days**, **61-90 Days** and **Over 90 Days**.",
+      "Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "Aging buckets count the days since the liability arose. The third table shows the liability account balances."
+    ]
+  },
+  "admin:/finance/accounts/reports/account-wise": {
+    "purpose": "Opening balance, debits, credits and closing balance for every account in the range, on one page.",
+    "steps": [
+      "Set **From Date**, **To Date**, and optionally **Account Type** and **Accounts Head**, then press **Go**.",
+      "Press **Ledger** on a row to open that account's ledger report.",
+      "Press **Print** or **Export CSV**."
+    ],
+    "notes": []
+  },
+  "admin:/finance/accounts/reports/approved-advances": {
+    "purpose": "Staff salary advances that are approved or still outstanding, with the instalment plan, what has been recovered and what is left.",
+    "steps": [
+      "Set **From Date**, **To Date** and **Status**, then press **Go**.",
+      "Read the tiles **Advances**, **Approved Amount**, **Recovered** and **Outstanding**.",
+      "Press **Print** or **Export CSV**."
+    ],
+    "notes": [
+      "Advances are requested and approved in Human Resource. Recovery happens through payroll instalments."
+    ]
+  },
+  "admin:/finance/accounts/pnl": {
+    "purpose": "Income and expenses for a month, quarter or year to date, consolidated in PKR, with a six-month trend.",
+    "steps": [
+      "Choose **Scope** (**Month**, **Quarter to date** or **Year to date**) and, for a month, the **Month**, then press **Apply**.",
+      "Read **Income**, **Expenses**, **Net result** and **Net margin**.",
+      "The **Six-month trend** chart compares recent months."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/cash-flow": {
+    "purpose": "Six months of money in and out of the Cash and Bank accounts, in PKR. Management uses it to see whether cash is growing or shrinking.",
+    "steps": [
+      "Read the **Monthly inflow vs outflow** chart and the table of **In**, **Out** and **Net** per month.",
+      "The **Summary** card totals the six months."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/aging": {
+    "purpose": "Open invoice balances grouped by how many days they are past due. Billing staff use it to chase the oldest debts first.",
+    "steps": [
+      "Read the tiles **Total receivable**, **Not yet due**, **1–30 days**, **31–60 days** and **60+ days**.",
+      "Press an invoice number in a bucket to open the invoice.",
+      "The **Distribution** chart shows how much sits in each bucket."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/budget": {
+    "purpose": "Compares budgeted expense per category and department with approved and paid expenses for a month.",
+    "steps": [
+      "Choose a **Period** and press **Apply**.",
+      "Read **Budgeted**, **Actual** and **Variance**, and the **Used** percentage per line.",
+      "Press **Set budget line**, fill **Period**, **Category**, **Department** if needed and **Amount (PKR)**, then press **Save budget**."
+    ],
+    "notes": [
+      "Saving a line for a period, category and department that already exists replaces its amount.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/close": {
+    "purpose": "Closes an accounting month. Closing snapshots revenue, expenses and payroll and blocks new journal entries dated inside that month.",
+    "steps": [
+      "Choose **Period to close**, add **Close notes** if useful, then press **Close period**.",
+      "To re-open a closed month, type a **Rationale** on its row and press **Re-open**.",
+      "The **What closing does** card explains the effect."
+    ],
+    "notes": [
+      "Closing and re-opening need the accounts approve permission. Both are written to the audit log.",
+      "Re-opening always demands a rationale.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/payables": {
+    "purpose": "Approved expenses that have not yet been paid, in date order. Accounts staff use it as the list of bills to pay.",
+    "steps": [
+      "Read the tiles **Open payables** and **Value (PKR)**.",
+      "Press **Mark paid** on a row once the money has gone out.",
+      "Press **All expenses** to return to the full expense list."
+    ],
+    "notes": [
+      "Marking paid needs the expenses execute permission.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/consolidated": {
+    "purpose": "Shows payments, invoices and expenses for a month in each transaction currency, converted to PKR, with the exchange rates used.",
+    "steps": [
+      "Choose a **Period** and press **Apply**.",
+      "Read **Income (PKR)**, **Expenses (PKR)** and **Net**.",
+      "Check **Exchange rates used** for the rates applied."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/finance/accounts/forecast": {
+    "purpose": "A simple projection of revenue and expenses for the next three months. It is based on current MRR and the average expense of the last three months.",
+    "steps": [
+      "Read **Current MRR**, **Avg monthly expenses**, **Assumed growth** and **Projected net (3 mo)**.",
+      "The **History and projection** chart shows past months and the projection together."
+    ],
+    "notes": [
+      "The projection is indicative only. It assumes no churn beyond current trends and stable exchange rates.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/home/system": {
+    "purpose": "The home page of the Configuration area: currencies, roles, lookups, settings, messaging, gateways, users, security and system tools.",
+    "steps": [
+      "Press a card to open the page, for example **Lookups**, **Setup** or **Users**."
+    ],
+    "notes": [
+      "The first ten cards match the original ERP. The cards from **Users** onward are additions of the new platform."
+    ]
+  },
+  "admin:/config/currency-rates": {
+    "purpose": "Every currency with its rate to PKR and when that rate was last set. Accounts staff use it to add a rate by hand or run the rate feed.",
+    "steps": [
+      "Press **Add Manual Currency Rate**, fill **Currency**, **Rate To Base**, **Effective Date** and a **Note**, then press **Save rate**.",
+      "Press **Refresh Rates** to run the ERP rate feed, then confirm the prompt.",
+      "Press **History** on a row to see every rate change for that currency."
+    ],
+    "notes": [
+      "The rate feed is simulated: rates are generated locally, not fetched from a provider. Use a manual rate for a figure you rely on.",
+      "A currency set manually is locked, and the feed skips it.",
+      "Rate changes are written to the audit log with your note."
+    ]
+  },
+  "admin:/config/roles": {
+    "purpose": "Roles grouped by application area, with the users assigned to each. It is read only; the role editor lives on Roles & Permissions.",
+    "steps": [
+      "Filter by **Application** or **Search**, then press **Go**.",
+      "Press **Permissions** on a row to open the role editor, or **Assign Users** to see the users on that role.",
+      "**Edit roles** and **Assign users** at the top open Roles & Permissions and Users."
+    ],
+    "notes": [
+      "A role counts as active once it carries at least one permission."
+    ]
+  },
+  "admin:/config/lookups": {
+    "purpose": "Every configurable value list, such as payment modes or complaint types, grouped by App. Administrators edit the values without a code change.",
+    "steps": [
+      "Press a tile, **All Lookups** or **Active**, or filter by **App**, **Status** and **Search**, then press **Go**.",
+      "Press **Values** on a row to add, edit or deactivate the values in that list.",
+      "Press **Edit** on a row and then **Save** to change its description or sort order, or **Deactivate** to retire it.",
+      "Press **Create**, fill **App**, **ID (code)** and **Description**, then press **Create lookup**."
+    ],
+    "notes": [
+      "A lookup is read by its code, so the application keeps working when labels change.",
+      "A system lookup's code cannot be changed."
+    ]
+  },
+  "admin:/config/branch-properties": {
+    "purpose": "The named settings this college runs on, such as attendance grace periods and how many days ahead invoices are raised. Each row saves on its own.",
+    "steps": [
+      "Use the tabs to see one group, for example **General**, **HR**, **Academics**, **Accounts** or **Billing**, or **Show All**.",
+      "Type a new **Value** on a row and press **Save**.",
+      "For a secret property, press **Reveal** to see its value.",
+      "Press **System Settings** for the grouped configuration keys on Organisation settings."
+    ],
+    "notes": [
+      "Secrets are masked. Revealing one is written to the audit log.",
+      "The **Editable Here** tile counts the properties you can change on this page."
+    ]
+  },
+  "admin:/admin/notifications": {
+    "purpose": "Message templates, the trigger catalogue, the delivery log, consent counts and broadcasts. Administrators use it to control what the platform sends.",
+    "steps": [
+      "Use the tabs **Templates**, **Trigger catalogue**, **Delivery log**, **Consent** and **Broadcast**.",
+      "Press **New template**, or **Edit** on a row, to set the subject and body for an event, channel and language.",
+      "Press the **Failed** tile to see messages that did not deliver. Failed messages can be retried from the log.",
+      "On **Broadcast**, choose an audience and channels to send an announcement."
+    ],
+    "notes": [
+      "Templates are chosen by event type, channel and language. If none matches, the platform uses the text the module supplied.",
+      "A broadcast is a consequential audit event: audience, channels and recipient count are recorded.",
+      "Transactional messages such as invoices and reminders are always delivered. Marketing messages honour opt-out."
+    ]
+  },
+  "admin:/config/support-tickets": {
+    "purpose": "Requests raised to whoever maintains the software. Any member of staff may raise one; only a system administrator changes the status or writes developer remarks.",
+    "steps": [
+      "Press a tile to filter: **All Tickets**, **Pending**, **In Progress**, **Resolved**, **Rejected** or **Closed**.",
+      "Filter by **Status**, **Priority**, **Module**, **Ticket Type** and **Search**, then press **Go**.",
+      "Press **Create**, fill **Subject** and **Message**, add **Department** and **WhatsApp No** if useful, then press **Raise ticket**.",
+      "Press **Open** on a row to read the ticket. An administrator can change its status there and add **Developer Remarks**."
+    ],
+    "notes": [
+      "In the message, say what happened, what you expected and how to reproduce it."
+    ]
+  },
+  "admin:/config/whatsapp-senders": {
+    "purpose": "The WhatsApp numbers the platform sends from, each with its own send throttle and QR reconnection.",
+    "steps": [
+      "Press a tile, **All Senders**, **Connected** or **Disconnected**, or filter by **API Status**, **Purpose** and **Status**, then press **Go**.",
+      "Press **Create**, fill **Description**, **WhatsApp Number**, **Interval In Seconds**, **Messages Per Cycle** and **Live Mode**, then press **Create sender**.",
+      "Press **Connect** to generate a QR token and mark the sender connected, or **Disconnect**.",
+      "Press **Edit** then **Save sender**, or **Deactivate**."
+    ],
+    "notes": [
+      "Connecting here is simulated: no WhatsApp session is opened. The throttle is real: sending picks a connected sender whose interval has passed.",
+      "**Purpose** decides which sender is used for billing, academics or general messages."
+    ]
+  },
+  "admin:/config/otp": {
+    "purpose": "One-time passwords for staff sign-in: how they behave, which roles must use them, and which staff have a token enabled.",
+    "steps": [
+      "On **Setup**, tick **One-time passwords enabled** and set **Channel**, **WhatsApp Sender**, **Code Length**, **Validity (minutes)**, **Max Attempts** and **Resend After (seconds)**.",
+      "Tick the roles under **Roles that must use a one-time password**, give a **Rationale** and press **Save setup**.",
+      "On **User Wise**, filter by name or **Token Status**, then press **Enable two-factor** or **Disable two-factor** on a user.",
+      "Press the **Token Enabled** or **Token Disabled** tile to jump to those users."
+    ],
+    "notes": [
+      "One-time passwords are off by default.",
+      "Saving the setup and toggling a user's token are written to the audit log."
+    ]
+  },
+  "admin:/config/payment-gateways": {
+    "purpose": "The gateways the college collects through, each with the fee it charges. Billing staff use it to know the cost of each payment route.",
+    "steps": [
+      "Press a tile, **All Gateways** or **Active**, or filter by **Gateway Company**, **Status** and **Search**, then press **Go**.",
+      "Type a **Sample Amount** to see each gateway's fee in the **Fee On** column.",
+      "Press **Create** and fill **Payment Gateway Name**, **Gateway Company**, **Default Transaction Fee %** and **Fixed Fee**. Set **Currency**, **Beneficiary Account** and **Live Mode**, then press **Create gateway**.",
+      "Press **Edit** then **Save gateway**, or **Deactivate**."
+    ],
+    "notes": [
+      "The fee is the percentage fee plus the fixed fee, rounded to two places.",
+      "**Live Mode** off means the gateway is in test mode."
+    ]
+  },
+  "admin:/config/agents": {
+    "purpose": "The Recording Agent: the licences the desktop agent installs with, the machines that check in, and the screenshots they capture. System administrators manage the seats.",
+    "steps": [
+      "On **User Licenses**, read **Allowed**, **Consumed**, **Available** and **Revoked**.",
+      "Press **Generate License**, choose **Issued To**, set **Expires** and **Notes**, give a **Rationale**, then press **Generate**.",
+      "On a licence row press **Reveal** to show the key, **Download** to get the licence file, or **Revoke**.",
+      "Use **Devices list** to see machines and block one, and **Agents Screen Shorts** to browse captures."
+    ],
+    "notes": [
+      "**Generate License** refuses when all allowed seats are consumed. Raise the Agent Licenses Allowed property under Setup, or revoke a licence.",
+      "Revealing or downloading a key is written to the audit log. Revoking blocks every device installed with it.",
+      "A device with no heartbeat for ten minutes shows offline. Screenshots are only visible to users with permission."
+    ]
+  },
+  "admin:/admin/users": {
+    "purpose": "Every account on the platform: staff, teachers, parents and students. Administrators use it to create, find and manage accounts.",
+    "steps": [
+      "Filter by **Search**, **Role**, **Department**, **Branch**, **Status** and **2FA**, then press **Go**. Press the **Locked out** tile to see locked accounts.",
+      "Press **New user** to create an account. Email and full name are required.",
+      "Press **Open** on a row for the user's profile, permission overrides, sessions, login history and activity.",
+      "Press **Roles & permissions** to go to the role editor."
+    ],
+    "notes": [
+      "Leave the password blank when creating a user. A temporary password is shown once and must be changed at first sign-in.",
+      "You cannot deactivate your own account. Deactivating revokes the user's sessions but keeps linked records.",
+      "Administrators cannot sign in as another user. This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/roles": {
+    "purpose": "Every role with its portal, user count and how many permissions it grants. Administrators use it to edit the permission grid, clone roles and test access.",
+    "steps": [
+      "Press **Open** on a role to edit its grid: one row per module, one column per action. Tick the cells and give a rationale.",
+      "Press **Clone** to make a variant of an existing role, or **New role** to start empty.",
+      "Press **Permission test** to check whether a user holds a permission and see why.",
+      "Press **Compare roles** for a side-by-side diff of two roles."
+    ],
+    "notes": [
+      "A rationale is mandatory on every permission change. It is a critical audit event.",
+      "System roles can be edited but never deleted. Custom roles can be deleted once no user holds them.",
+      "A deny set on a user always wins over the role. This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/settings": {
+    "purpose": "The organisation profile, branches, departments, configuration values, background jobs and the environment. Administrators use it for platform-wide settings.",
+    "steps": [
+      "On **Organisation**, fill **Trading name**, **Registered legal name**, **Base currency**, **Default timezone**, contacts and **Logo**, then press **Save organisation profile**.",
+      "Use **Branches** and **Departments** to manage locations and heads of department.",
+      "On **Configuration**, edit a group of keys and save it with a rationale.",
+      "On **Background jobs**, press **Run now** to run a job on demand. **Environment** shows the effective configuration, read only."
+    ],
+    "notes": [
+      "A branch cannot be deleted while users are assigned to it.",
+      "Configuration saves record the changed keys and your rationale on the audit trail.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/integrations": {
+    "purpose": "Every third-party service the platform talks to, with status, health, usage and inbound endpoints. Administrators use it to check and test connections.",
+    "steps": [
+      "Read **Providers**, **Healthy**, **Degraded / down**, **Calls today** and **Failures today**.",
+      "Press **Run health check** to probe every provider, or **Reset counters** to zero today's counts.",
+      "Press **Configure** on a provider for its settings, secrets list, test connection and inbound endpoint.",
+      "Under **Failed deliveries**, press **Retry** to resend a webhook. **API & webhooks** opens the key and webhook page."
+    ],
+    "notes": [
+      "Secrets are never shown here or stored in the database. They live in the server's environment.",
+      "When a provider's secrets are missing, calls run in simulated mode and nothing leaves the server.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/api": {
+    "purpose": "Machine access to the platform: API keys, outbound webhooks and the delivery log. Administrators use it to connect automation tools safely.",
+    "steps": [
+      "Use the tabs **API keys**, **Webhooks**, **Delivery log** and **Event catalogue**.",
+      "Press **New API key** and fill **Key name**, **Acts as**, **Rate limit (requests/minute)**, **Expires on** and **Scopes**. Give a **Rationale**, then press **Create key**.",
+      "Press **Revoke** on a key to stop it at once.",
+      "Press **New webhook** to point the platform at an endpoint and choose its events. **OpenAPI docs** opens the API reference."
+    ],
+    "notes": [
+      "The raw key is shown once, right after creation, and cannot be recovered. Only a hash is stored.",
+      "A key inherits its owner's permissions; scopes can only narrow them. Revocation is a critical audit event.",
+      "Webhook deliveries retry six times and are then marked dead. This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/security": {
+    "purpose": "Incidents, sessions, login history, access policy, data masking and retention in one place. Administrators and auditors use it to watch platform security.",
+    "steps": [
+      "Press a tile: **Open incidents**, **Failed logins (24h)**, **Locked accounts**, **Active sessions** or **Privileged without 2FA**.",
+      "Press **Incidents**, **Sessions** or **Access policy** at the top, or **Edit policy** to change lockout and session rules.",
+      "Use the cards **Login history**, **Data masking**, **Retention** and **Subject access** for those pages.",
+      "Press **All incidents** to see and resolve every incident."
+    ],
+    "notes": [
+      "Resolving an incident requires a triage note, stored as the audit rationale.",
+      "Anonymising a family under **Retention** is irreversible and requires a rationale. Financial records and audit events are never purged.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/backups": {
+    "purpose": "Archive history, restore verification, retention and recovery objectives. Administrators use it to keep a tested recovery point.",
+    "steps": [
+      "Read **Archives**, **Total size**, **Restore tested**, **Latest backup** and **RPO / RTO**.",
+      "Press **Create backup now**, then **Create backup** in the card, to write a new archive.",
+      "Press **Test** on an archive to verify it, or **Download** to copy it off-site.",
+      "Set **Archives to keep**, **RPO (hours)**, **RTO (hours)** and **Off-site strategy**, give a **Rationale**, then press **Save settings**. **DR runbook** opens the recovery procedure."
+    ],
+    "notes": [
+      "A restore test opens the archive read only and never touches the live database. A passing test stamps it verified.",
+      "An untested backup is not a recovery point. Downloading an archive is a consequential audit event.",
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/migration": {
+    "purpose": "Imports legacy clients, students, leads, teachers, invoices and payments from CSV or XLSX in five steps: upload, map, validate, import, reconcile.",
+    "steps": [
+      "Press **Download CSV template** for the entity and reshape the legacy export into it.",
+      "Under **Start a new import**, choose **Entity**, **Source system** and an optional **Job name**. Pick the **File (CSV or XLSX)**, then press **Upload and detect columns**.",
+      "Map the fields, validate, then import with a rationale. Press **Open** on a job to continue or review it.",
+      "Press **Cutover checklist** to track the full migration programme."
+    ],
+    "notes": [
+      "Import in this order: clients, students, teachers, invoices, payments, leads. Children need their parents first.",
+      "Each row imports on its own, so one bad row never rolls back the batch. Skipped rows are listed and downloadable.",
+      "Take a backup and restore-test it right before cutover. This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/admin/audit": {
+    "purpose": "The immutable trail of every create, update, delete, approval, export and login across the platform. Administrators and auditors use it to answer who changed what, and why.",
+    "steps": [
+      "Press the **Warnings** or **Critical** tile to filter by severity.",
+      "Filter by **Search**, **Actor**, **Module**, **Action**, **Entity type**, **Entity id**, **Severity**, **Consequential** and dates, then press **Go**.",
+      "Press **View** on a row for the event detail with the before and after values. Press the entity link for its full timeline.",
+      "Press **Export CSV** to download the filtered events. **Security centre** opens the security pages."
+    ],
+    "notes": [
+      "The trail is append-only and is never purged.",
+      "Consequential events such as approvals, refunds and permission changes require a rationale at the time of the action.",
+      "The export itself is recorded as a consequential audit event. This page is an addition to the original ERP."
+    ]
+  }
+}

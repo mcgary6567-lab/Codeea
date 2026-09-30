@@ -1,0 +1,868 @@
+{
+  "admin:/home": {
+    "purpose": "The Home launchpad is the first page after you sign in. It shows one card for each area of the platform you may open.",
+    "steps": [
+      "Press an area card to open that area. Each area opens to its own cards, one per group or page.",
+      "The eight areas are **Online Academics**, **Billing Management**, **Human Resource**, **Employee Self Portal**, **Accounts**, **CRM & Growth**, **Operations** and **Configuration**.",
+      "Use the **Search** box at the top to jump to any page or record by name.",
+      "Press the home icon in the top bar to come back here from any page."
+    ],
+    "notes": [
+      "You only see the areas your role allows. A family or a student sees the cards of their own portal instead.",
+      "**Online Academics** and **Human Resource** open to a home page with today's figures and pending requests, like the original ERP."
+    ]
+  },
+  "admin:/profile": {
+    "purpose": "My profile is your own account page. Use it to change your name, phone, timezone and language, your password, two-factor sign-in and your active sessions.",
+    "steps": [
+      "On the **Profile** tab edit **Full name**, **Phone**, **Timezone** and **Language**, then press **Save changes**.",
+      "On the **Password** tab enter your current password and the new one twice. Saving signs out all your other sessions.",
+      "On the **Two-factor auth** tab scan the code with an authenticator app and enter the six-digit code to switch it on. Your password is needed to switch it off.",
+      "On the **Sessions** tab see every device signed in as you. Revoke any session you do not recognise."
+    ],
+    "notes": [
+      "Your role, department, last login and last login address are shown for information only. An administrator changes those.",
+      "Password and two-factor changes are written to the security audit log.",
+      "Times across the platform are shown in the timezone you set here."
+    ]
+  },
+  "admin:/home/crm": {
+    "purpose": "CRM & Growth is the area for winning and keeping families. It holds leads, the WhatsApp inbox, trials, campaigns, marketing figures, follow-up sequences, ambassadors, cases and feedback.",
+    "steps": [
+      "Press a card to open that page. The cards are **Leads & Pipeline**, **WhatsApp Inbox**, **Trials**, **Online Registrations**, **Campaigns**, **Marketing Analytics**, **Sequences**, **Ambassadors**, **Cases & Complaints** and **Feedback & VoC**.",
+      "A lead is a family that has shown interest but has not registered yet."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "You only see the cards your role allows."
+    ]
+  },
+  "admin:/crm/inbox": {
+    "purpose": "The WhatsApp Shared Inbox is one team inbox for every WhatsApp conversation with a lead or a family. Sales, billing and support staff read and reply here instead of on personal phones.",
+    "steps": [
+      "Conversations are listed on the left. Use the **Status**, owner and tag filters or the search box, then press **Filter**. Press a conversation to open it.",
+      "Type in **Write a reply...** and press **Send**. Or pick a template by name so the message text is filled in for you.",
+      "In the **Manage** panel choose a person under **Assign to** and press **Assign**. Change the conversation under **Status** and press **Update status**. Add tags and press **Save tags**.",
+      "Write a note under **Internal notes** and press **Add note**. Notes are for the team only. The contact never sees them.",
+      "Press **Open lead** to jump to the lead record. Press **Failed (n)** to see and retry messages that did not send. Press **Templates** to manage the approved message templates."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Statuses are Open, Pending and Closed. A reply from the contact stops any automatic sequence running for them.",
+      "Press **Record opt-out** when a contact asks not to receive messages. Only opted-in contacts are messaged. **Simulate inbound** is a development tool for testing without a phone."
+    ]
+  },
+  "admin:/trials": {
+    "purpose": "Trial classes tracks every free trial from request to result: scheduled, attended, no-show, converted or lost. It is the page for the closers who turn trials into paying families.",
+    "steps": [
+      "The tiles show **Requested**, **Scheduled**, **Attended**, **No-show**, **Converted** and the **Trial → paid** rate.",
+      "Filter by **Student**, **Status**, **Teacher** or date and press **Go**. Press **Reset** to clear the filters.",
+      "Press **New trial** to book a trial for a lead: choose the student, teacher, course and time.",
+      "Press **Open** on a row to schedule the trial, record the outcome, log a follow-up call or convert the lead into a family account.",
+      "Press **Follow-ups due** to see trials that need a call today. Press **Analytics** for the trial-to-paid figures over time."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP. The ERP page **Running Trials** is under Online Academics, Class Management.",
+      "Scheduling a trial notifies the teacher in their portal. Recording an outcome enrols the family in the trial follow-up sequence.",
+      "Converting a trial creates the client record and a portal login for the family."
+    ]
+  },
+  "admin:/crm/campaigns": {
+    "purpose": "Campaigns lists every paid and organic marketing campaign with its spend, leads and results. Use it to see what each lead and each new family costs.",
+    "steps": [
+      "The tiles show **Spend (page)**, **Leads**, **Conversions**, **CPL** (cost per lead) and **CAC** (cost to win one family).",
+      "Search by name, UTM or offer, filter by **Platform** or **Status**, then press **Go**.",
+      "Press **New campaign** to add one: name, platform, budget, currency, country, offer, dates and status.",
+      "Press **Open** on a row to edit the campaign, record daily figures (impressions, clicks, leads, spend, conversions, revenue) and see its leads.",
+      "Press **Marketing analytics** for the full attribution view."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Statuses are draft, active, paused and ended. ROAS is revenue divided by spend."
+    ]
+  },
+  "admin:/crm/marketing": {
+    "purpose": "Marketing Analytics shows where leads and revenue come from. It groups results by source, campaign, country, offer and month.",
+    "steps": [
+      "Choose **From** and **To** dates and press **Go**. The default is the last 90 days.",
+      "Read the tiles for **Leads**, **Won**, **Spend**, **CPL**, **CAC** and **Revenue**.",
+      "Scroll to the tables **By source**, **By campaign**, **By country**, **By offer** and **Month over month**.",
+      "Press **Export CSV** to download the table. Press **Campaigns** to go back to the campaign list."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Conv % is the share of leads that became paying families. Trial conv % is the share of trials that did.",
+      "Every export is written to the audit log."
+    ]
+  },
+  "admin:/crm/sequences": {
+    "purpose": "Automation sequences are timed WhatsApp follow-ups sent automatically, for example five touches after a new lead. Use this page to see and manage them.",
+    "steps": [
+      "The tiles show **Active enrollments**, **Completed**, **Replied (stopped)**, **Stopped** and the number of **Sequences**.",
+      "Press **New sequence**, give a **Name**, choose the **Type**, enter the steps and tick **Active**. Then press **Create sequence**.",
+      "Press **Open** on a row to edit the steps, enrol a lead or student by hand, or stop one enrolment.",
+      "Press **Run due steps now** to send every step that is due instead of waiting for the scheduled run."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Types are lead follow-up, trial follow-up, win-back, pre-leave offer, freeze reactivation and payment reminder.",
+      "A sequence stops by itself as soon as the contact replies. Steps are entered as a list of day number and template name."
+    ]
+  },
+  "admin:/crm/referrals": {
+    "purpose": "The Ambassador Program tracks families who refer other families. A referral moves from ask to lead, sign-up, qualified and credited, and both families receive an account credit.",
+    "steps": [
+      "The tiles show **Asks this week**, **Referred leads**, **Sign-ups**, **Qualified**, **Credits issued** and **Referral share**.",
+      "Filter the ledger by **Status** and press **Go**.",
+      "On a row, choose a new status under **Move to** and save, or press **Qualify & credit both** once the referred family has paid.",
+      "Press **Ambassadors** to see which families are eligible and to invite them. An invite gives the family a referral code."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Statuses are invited, ask, lead, signed up, qualified, credited and expired.",
+      "A family is eligible to be an ambassador when it has enough tenure, a good latest NPS score, good attendance and an active status. Overriding that gate needs a written reason."
+    ]
+  },
+  "admin:/cases": {
+    "purpose": "Cases & Complaints is the register of every complaint, request and question from families. Each case has an owner, a priority and a response deadline (SLA).",
+    "steps": [
+      "Press a tile (**Open**, **SLA breached**, **Urgent**, **Assigned to me**) to filter the list to those cases.",
+      "Search by title, number or text, filter by **Type**, **Status**, **Priority**, **Department** or **Assignee**, then press **Go**.",
+      "Press **New case** to raise one for a family: choose the type, the family, the student, then write a title and description.",
+      "Press **Open** on a row to comment, assign, escalate, change the status or create a task from the case.",
+      "Press **Trends** for cases by category and month."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "When a case is opened the AI suggests a category, priority and department, and the SLA clock starts. The SLA column turns amber below four hours and red when breached.",
+      "Statuses are open, in progress, waiting, escalated, resolved and closed."
+    ]
+  },
+  "admin:/feedback": {
+    "purpose": "Feedback & Voice of Customer collects surveys from families and staff. It shows NPS (would they recommend us), ratings and comments, and routes low scores to a case.",
+    "steps": [
+      "Read the tiles **NPS (30d)**, **Responses**, **Avg rating**, **Appreciation**, **Open negative** and **Resolution rate**. The charts show the NPS distribution and trend.",
+      "Filter by comment text, **Sentiment**, **Status**, **Trigger**, **Survey** or **Family** and press **Go**.",
+      "Press **Send a survey**, choose the survey and the family, then press **Send survey**. The family answers in their portal.",
+      "Press **Open** on a row to read the answers and mark negative feedback resolved.",
+      "Press **Surveys** to create or edit survey questions. Press **Staff eNPS** for the confidential staff survey."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "An NPS of 6 or below, or a rating of 2 or below, counts as negative. It opens a case for the head of quality automatically.",
+      "**Staff eNPS** is visible only to the CEO and the head of People."
+    ]
+  },
+  "admin:/home/operations": {
+    "purpose": "Operations is the area for running the college day to day. It holds live supervision, alerts, tasks, KPIs, the build tracker, decisions, daily reports, exports, safeguarding and AI governance.",
+    "steps": [
+      "Press a card to open that page. The cards are **Supervisor Live**, **Alerts**, **Tasks & Projects**, **KPIs**, **KPI Scorecards**, **KPIs by Role**, **Transformation OS**, **Decision Register**, **Daily Reports**, **Reports & Exports**, **Safeguarding** and **AI Governance**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "You only see the cards your role allows."
+    ]
+  },
+  "admin:/alerts": {
+    "purpose": "Risk & Operational Alerts lists warnings raised by the system: missed classes, unusual figures, failed integrations and safeguarding signals. Managers work through them here.",
+    "steps": [
+      "Filter by **Status** (open, acknowledged, resolved, dismissed) and **Severity** (low to critical), then press **Go**.",
+      "Press **Ack** to show you have seen an alert. Press **Resolve** when it is fixed. Press **Dismiss** if no action is needed.",
+      "Use the arrows at the bottom to move between pages."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Some alerts are for the CEO only and some for management only. You see the ones your role allows.",
+      "Every action on an alert is written to the audit log with your name."
+    ]
+  },
+  "admin:/kpis": {
+    "purpose": "The KPI framework is the catalogue of every measure the college tracks, by role and department. Each one has a target, a direction and a RAG status (green, amber, red).",
+    "steps": [
+      "The tiles show **KPIs tracked**, **On target**, **At risk**, **Off target** and **No data** for the chosen period.",
+      "Choose **Period**, **Role**, **Department** or **Frequency**, or search by name or code, then press **Filter**.",
+      "KPIs are grouped by role, for example TEACHER or FINANCE. Press **Open** on a row to see the value history, edit the target or enter a value by hand.",
+      "Press **New KPI** to add a custom measure with a **Code**, **Name**, unit, target and direction. Press **Create KPI** to save.",
+      "Press **Run snapshot** to store this period's values so the history is kept."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Direction says whether higher or lower is better. Source live means the value is computed from platform data.",
+      "Press **Department scorecards** or **Role scorecards** to see the same KPIs per department or per person."
+    ]
+  },
+  "admin:/kpis/scorecards": {
+    "purpose": "Department scorecards show each department's KPIs and health score for a month. Every head of department submits a monthly scorecard with highlights and risks.",
+    "steps": [
+      "The tiles show **Departments**, **Submitted**, **Average score**, **KPIs off target** and **KPIs on target**.",
+      "Choose a **Period** and a **Department** and press **Filter**.",
+      "As a head of department, write **Highlights this month** and **Risks & blockers** and press **Submit scorecard**. Press **Resubmit scorecard** to update it.",
+      "Press **KPI catalogue** or **Role scorecards** to switch views."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Only the department head or the CEO can submit a scorecard. The CEO is notified on submission.",
+      "The scorecard is due before the weekly trajectory meeting."
+    ]
+  },
+  "admin:/kpis/roles": {
+    "purpose": "Role scorecards measure every person against the KPIs set for their role. It shows a score per teacher or per supervisor and highlights who needs coaching.",
+    "steps": [
+      "Pick the **Teachers** or **Supervisors** tab.",
+      "Choose a **Period** and press **Apply**.",
+      "The tiles show **People scored**, **KPIs in scorecard**, **Average score**, **Healthy (80+)** and **Critical (<50)**.",
+      "Press **Open** on a row to go to that person's record. The **Attention list** shows the lowest scores first."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Each cell is one KPI with its RAG colour. The score is the average of the RAG points across the KPIs."
+    ]
+  },
+  "admin:/transformation": {
+    "purpose": "Transformation OS is the college's own build tracker. It lists every internal system, from planned to full launch, with an owner, progress and target date.",
+    "steps": [
+      "The tiles show **Systems tracked**, **Full launch**, **In beta**, **Past target date** and **Average progress**.",
+      "Filter by **Department**, **State** or **Owner** and press **Filter**.",
+      "Press **New system**, fill **System name**, what it replaces, **Progress %**, **Target date** and notes, then press **Add system**.",
+      "On the board press **Planned**, **Alpha**, **Beta** or **Full launch** to move a system. Open a system to edit it and press **Save changes**, or **Delete** it.",
+      "Use the tabs **OS master tracker**, **Role architecture**, **Transitions**, **Development plans**, **Operating rhythm** and **Trajectory meetings**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A target date in red means the system is past its date and not yet launched.",
+      "The **Scorecard accountability** panel shows which department heads have submitted this month's scorecard."
+    ]
+  },
+  "admin:/decisions": {
+    "purpose": "The Decision register records every important decision with a named owner, a written reason and a status trail. Free chat is not a record; this page is.",
+    "steps": [
+      "The tiles show **Decisions recorded**, **Open**, **Implemented**, **Reversed** and **Past due, no outcome**. Press the last tile to see overdue decisions.",
+      "Search or filter by **Category**, **Status**, **Owner**, **Department** and dates, then press **Filter**.",
+      "Press **Record decision**. Enter the **Decision**, choose the **Owner**, write the **Rationale** and set a **Due date**. You can link a meeting or a record. Then press **Record decision** in the form.",
+      "Press **Open** on a row to move it to decided or implemented, record the outcome, or reverse it with a second reason.",
+      "Press **Accountability gaps** to see consequential actions in the audit trail that have no decision record."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A decision needs a title, an owner and a rationale of at least a sentence. The owner is notified.",
+      "Statuses are proposed, decided, implemented and reversed."
+    ]
+  },
+  "admin:/reports": {
+    "purpose": "Reports & exports is the catalogue of operational reports. Each one runs on live data and can be downloaded as XLSX or CSV.",
+    "steps": [
+      "The tiles show **Reports available**, **Groups**, **Exports (30 days)** and **Matching filter**.",
+      "Search by keyword or choose a **Group** (Students, Academics, Finance, Growth, Service, Quality, People, Governance) and press **Filter**.",
+      "Press a report card to open it. Set the date range and filters, read the table, then press the XLSX or CSV export button.",
+      "Press **Export history** to see who exported what and when. **Recent exports** shows the last twelve."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Every export writes a record and an audit event with the parameters used.",
+      "Exporting needs the reports export permission. Viewing needs only the view permission."
+    ]
+  },
+  "admin:/safeguarding": {
+    "purpose": "Safeguarding is the register of child protection, conduct and anti-poaching concerns about classes. Every visit to this page is logged.",
+    "steps": [
+      "Press a tile (**Open**, **Investigating**, **Confirmed**, **Dismissed**) to filter the list to that status.",
+      "Filter by **Status**, **Type** or **Severity** and press **Go**.",
+      "Press **Report a concern** and choose the **Type of concern** and severity. Add the teacher, student or class if known, describe **What happened** and press **Submit the concern**.",
+      "Press **Open** on a row to investigate, then mark it confirmed or dismissed with a resolution note.",
+      "Press **Recording access** to see who opened class recordings. Press **Verification gate** to see unverified teachers with classes. Press **Policy** to read the rules."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Anti-poaching records (contact exchange, off-platform contact, social discovery) are visible to the CEO or General Manager only. Managers see conduct flags only.",
+      "Reporting a concern also raises an alert. Confirming or dismissing a flag needs a written resolution."
+    ]
+  },
+  "admin:/ai-governance": {
+    "purpose": "AI governance is the human check on every AI output in the platform. It lists each run with its model, confidence, cost and whether a person has reviewed it.",
+    "steps": [
+      "The tiles show **AI runs recorded**, **Pending review**, **Approved**, **Rejected / overridden** and **Average confidence**. Press **Pending review** to see only those.",
+      "Filter the **Run log** by **Module**, **Provider**, **Model**, **Review** status, entity, confidence range or dates and press **Filter**.",
+      "Press **Open** on a run to read the input and output, then approve, reject, override or mark it a false positive.",
+      "Use the tabs. **Review queue** shows runs below the confidence threshold. **Usage & cost** shows spend by month. **Policy** sets the minimum confidence per module. **Model registry** lists model and prompt versions."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Rejecting or overriding an AI output needs a written reason and is audited.",
+      "Modules include class monitoring, lead scoring, churn prediction, complaint classification and lesson recommendation."
+    ]
+  },
+  "teacher:/home": {
+    "purpose": "Home is the first page you see after signing in as a teacher. It shows two cards: **Teaching** for your classes and students, and **Employee Self Portal** for your performance, attendance and pay.",
+    "steps": [
+      "Press **Teaching** to open your teaching pages. Press **Employee Self Portal** to open your personal pages.",
+      "Use the **Search** box at the top to find a page by name."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "teacher:/home/teaching": {
+    "purpose": "Teaching is the group of pages for your daily work as a teacher. It covers today's classes, your schedule, students, lesson plans, evaluations, monthly tests and trials.",
+    "steps": [
+      "Press a card to open the page. The cards are **Online Class**, **My Dashboard**, **My Schedule**, **My Classes**, **My Students**, **Lesson Plans**, **Evaluations**, **Monthly Tests** and **Trials**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "teacher:/teacher/online-class": {
+    "purpose": "Online class is your working screen for the day. It lists today's classes, lets you start and finish each one, record what you covered and raise a query.",
+    "steps": [
+      "The tiles show **Total Classes**, **Regular**, **Trial** and **Arrangements** for the day. Use **Previous day**, **Today** and **Next day** to move.",
+      "In **Today's Classes** press the action for the class: available, started, **Done**, **Student Absent** or **Missed**. Absent and Missed ask for a reason.",
+      "Press **Detail** on a class to see the **Class Detail** panel. Press **Open classroom** to join the class or **Class record** to see its full record.",
+      "Under **Activity Detail** enter **Page No**, the **Book** and **Remarks** and press **Save Manual Activity**.",
+      "Under **Raise Query** choose the **Class Query Type**, write the **Detail** and press **Raise query**. Your supervisor is notified."
+    ],
+    "notes": [
+      "This page matches the Online class page of the original ERP Teacher Portal. The rest of this portal is an addition to the original ERP.",
+      "**Client - Student Time Status** shows the class time in the family's own timezone.",
+      "Every status change is timestamped and audited. Marking available tells the family you are waiting."
+    ]
+  },
+  "teacher:/teacher": {
+    "purpose": "My Dashboard greets you with today's classes, the things that need your attention and your month so far. It is the page to open at the start of every shift.",
+    "steps": [
+      "The tiles show **Today**, **Done**, **Pending**, **Missed**, **My students** and **At risk**.",
+      "In **Today's classes** press **Join** to enter a class. When it ends, write what you delivered (sabaq, sabqi, dor) and any notes, then press **Complete class**.",
+      "**Needs your attention** lists lesson plans due, tests to score, open corrective actions and trials to deliver. Press an item to go there.",
+      "Press **My schedule**, **Lesson plans**, **Performance** or **Income** to open those pages."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Completing a class records the delivered lesson against your lesson plan. Every action is timestamped and audited.",
+      "**At risk** counts your active students the platform marks as high churn risk."
+    ]
+  },
+  "teacher:/teacher/schedule": {
+    "purpose": "My weekly schedule shows your classes for one week in a time grid, plus your recurring schedules.",
+    "steps": [
+      "The tiles show **Classes this week**, **Active schedules** and **Time slots used**.",
+      "Press **Previous** or **Next** to change week. Press **This week** to come back.",
+      "Each block in the grid is one class with its course and status, for example done, pending or cancelled. Press it to open **My classes**.",
+      "**Recurring schedules** lists each regular pattern: days, time, duration, student, course and room."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Times are shown in the college timezone (Asia/Karachi)."
+    ]
+  },
+  "teacher:/teacher/classes": {
+    "purpose": "My classes is your full delivery history with your notes. The academics and QA teams can read the notes.",
+    "steps": [
+      "The tiles show **Done (30d)**, **Missed (30d)**, **Completion** and **Punctuality**.",
+      "Filter by **Status** and press **Go**. Use the arrows at the bottom to move between pages.",
+      "Press **Notes** on a class, write what was covered and how the student did, then press **Save notes**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Changes to notes are audited with the old and new text."
+    ]
+  },
+  "teacher:/teacher/students": {
+    "purpose": "My students lists every learner assigned to you with their progress, attendance, last attendance and churn risk.",
+    "steps": [
+      "The tiles show **Total**, **Active**, **Trial** and **High risk**.",
+      "Search by name or code, filter by **Status** and press **Go**.",
+      "Read the **Progress**, **Attendance 30d** and **Risk** columns to see who needs follow-up."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Statuses are trial, active, frozen, free, graduated and cancelled. Risk is the churn risk computed by the platform."
+    ]
+  },
+  "teacher:/teacher/lesson-plans": {
+    "purpose": "Lesson plans is where you plan each class in advance and record what you actually delivered afterwards. Sabaq is the new lesson, sabqi the recent revision and dor the old revision.",
+    "steps": [
+      "Under **New daily plan** choose the **Student** and **Date**, fill **Sabaq**, **Sabqi**, **Dor** and **Planned content**, add **Next objectives** and press **Save plan**.",
+      "Choose a student under **Ask the AI what to teach next** and press **Recommend next lesson**. The suggestion appears at the top of the page.",
+      "After the class press **Deliver** on the plan, edit the **Delivered** text, add **Notes** and press **Mark delivered**.",
+      "Filter the list by **Student** and press **Go**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "**Planned content** is required. The **Variance** column compares planned and delivered and feeds the syllabus-compliance report."
+    ]
+  },
+  "teacher:/teacher/evaluations": {
+    "purpose": "Evaluations records weekly and level-completion assessments for your students. The parent is notified as soon as you save one.",
+    "steps": [
+      "Under **New evaluation** choose the **Student**, **Type** and **Date**.",
+      "Score **Tajweed /10**, **Fluency /10**, **Memorisation /10** and **Attitude /10**, and write a **Comment for the parent**.",
+      "Press **Save evaluation**. The list shows the score, criteria, result and comment."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "The score out of 100 is the average of the four criteria times ten. 50 or more is a pass.",
+      "The parent sees the evaluation on the Progress page of the family portal."
+    ]
+  },
+  "teacher:/teacher/monthly-tests": {
+    "purpose": "Monthly tests & result cards lists the tests generated for your students each month. You enter the marks; the system works out the percentage, grade and improvement.",
+    "steps": [
+      "The tiles show **Tests**, **Awaiting score**, **Current period** and **Revision blocked**.",
+      "Choose a **Period** and press **Go**.",
+      "Press **Score** on a test to open the marking form. Enter a mark for each question and your remarks, then save. Press **Review** on a scored test to see it again.",
+      "If a student is listed under **Revision (dor) quota not met**, they cannot move to new sabaq. Press **Override quota**, write the **Reason for the override** and press **Confirm override**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Grades run from A+ (90% and above) to F (below 50%). Improvement compares this month with the last.",
+      "An override is audited as a consequential action with your reason."
+    ]
+  },
+  "teacher:/teacher/trials": {
+    "purpose": "Trial classes lists the free trials assigned to you. After the trial you record whether the student attended and what you recommend. The closer is told at once.",
+    "steps": [
+      "The tiles show **Assigned**, **Scheduled**, **Attended** and **Converted**.",
+      "Press **Feedback** on a trial. Under **Did the student attend?** choose Attended or No show.",
+      "Enter a **Recommendation**, for example the level and slot to start at, and write **Feedback for the closer and the parent**.",
+      "Press **Save feedback**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A closer is the staff member who follows up with the family after the trial."
+    ]
+  },
+  "teacher:/home/me": {
+    "purpose": "Employee Self Portal is the group of pages about you as a member of staff. It covers performance, quality feedback, training, attendance, pay, daily reports and tasks.",
+    "steps": [
+      "Press a card to open the page. The cards are **Performance**, **QA Feedback**, **Ustaadh Lab**, **Attendance & Leaves**, **Income & Payslips**, **Daily Report** and **Tasks**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "teacher:/teacher/performance": {
+    "purpose": "My performance shows how the college measures your teaching: delivery, punctuality, QA reviews, AI class analysis, complaints and your grade.",
+    "steps": [
+      "The tiles show **Grade**, **Completion (30d)**, **Punctuality (30d)**, **QA average**, **AI class score** and **Complaints**.",
+      "The chart shows classes delivered against classes missed for the last eight weeks.",
+      "Read the **Quality scorecard** and **My cohort** panels. Press **My students** or **QA feedback** to see the detail."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Grades are recomputed by the People & Culture team from these inputs. A promotion may need an Ustaadh Lab assignment first."
+    ]
+  },
+  "teacher:/teacher/qa": {
+    "purpose": "Quality feedback shows reviews of your classes by the QA team and by the AI class monitoring service. It also lists any corrective actions assigned to you.",
+    "steps": [
+      "The tiles show **Reviews**, **QA average**, **AI analyses** and **Open actions**.",
+      "Under **Corrective actions** press **Mark done** on an action, write what you changed and submit. Your note goes to the QA reviewer.",
+      "Read **QA reviews** for the reviewer's scores and comments.",
+      "Read **AI class analysis** for each class: camera, active time, engagement, overall score and risk."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A closure note is required to close a corrective action."
+    ]
+  },
+  "teacher:/teacher/training": {
+    "purpose": "Ustaadh Lab lists your development assignments, such as courses and drills. Items marked as a promotion gate must be finished before a grade change is considered.",
+    "steps": [
+      "The tiles show **Assigned**, **In progress**, **Completed** and **Promotion gates**.",
+      "Press **Start** on an assignment when you begin it.",
+      "Press **Mark complete** when you finish. The person who assigned it is notified."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Each assignment shows its category, due date and whether it is a promotion gate."
+    ]
+  },
+  "teacher:/teacher/hr": {
+    "purpose": "My attendance & leaves is where you check in and out twice a day. You also ask for corrections, apply for leave and see your violation record here.",
+    "steps": [
+      "The tiles show **Present (30d)**, **Late (30d)**, **Absent (30d)** and **Attendance rate**.",
+      "Under today's panel press **Check in** at the start and **Check out** at the end of the AM and PM sessions.",
+      "Under **Request leave** choose the **Type**, **From** and **To** dates, write the **Reason**, pick a **Suggested substitute** and press **Submit request**.",
+      "In the last 30 days table press **Correct** on a wrong row, give the reason and press **Request correction**. HR reviews it.",
+      "**My leaves** shows each request with its status and who decided. **Violations** shows any recorded violations."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Late minutes are shown against each check-in. Leave needs valid start and end dates and goes to your manager for approval.",
+      "Substitute suggestions are teachers who share your courses and shift."
+    ]
+  },
+  "teacher:/teacher/income": {
+    "purpose": "Income & payslips shows your class output for the month, your salary structure and the payslips issued by Finance.",
+    "steps": [
+      "The tiles show **Classes done**, **Missed**, **Per-class rate**, **Class pay** and **Basic salary**.",
+      "Enter a **Period (YYYY-MM)** and press **Go** to see another month. Press **Reset** for the current month.",
+      "The last six months panel shows classes and class pay per month. **Payslips** lists each period with allowances, bonus, deductions, net pay and status."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Class pay is the per-class rate multiplied by the classes marked done."
+    ]
+  },
+  "teacher:/daily-reports": {
+    "purpose": "My daily report replaces reporting by chat. You file two short structured reports a day: a morning plan and an afternoon delivery report.",
+    "steps": [
+      "The tiles show **Reports (30 days)**, **Late submissions**, **Complete-day streak** and your **Department template**.",
+      "Under **Morning plan** fill **Top three priorities today**, **Capacity / availability**, **Blockers I need help with**, **Classes planned** and **Lesson plans prepared**, then press **Submit report**.",
+      "Under **Afternoon delivery** fill **What I completed**, **What slipped and why**, **First thing tomorrow**, **Classes delivered**, **Students needing follow-up** and **Curriculum / progress notes**, then press **Submit report**.",
+      "Press **Previous day** to file or read an earlier day. Press **History** or **Full history** to see past reports. Press **Export CSV** to download them."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Each slot has a deadline in college time (Asia/Karachi). A report after the deadline is marked late. An empty report cannot be submitted.",
+      "You may update a submitted report. The change is audit-logged."
+    ]
+  },
+  "teacher:/tasks": {
+    "purpose": "Tasks & Projects lists the work assigned to you and your team. Every task has an owner, a due date and an assessment when it is done.",
+    "steps": [
+      "The tiles show **My open tasks**, **Overdue**, **Due today**, **Completed (30d)** and **Avg assessment**.",
+      "Use the **My tasks** and **Team** tabs. Filter by **Assignee**, **Project**, **Priority**, **Department** or **Due** and press **Filter**.",
+      "Press **New task**, enter the **Title**, description, due date, priority and links, then press **Create task**. The assignee is notified.",
+      "Open a task to comment, move it between To do, In progress, Review and Done, or complete it.",
+      "Press **Projects** to see projects, sprints and milestones."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A task that depends on another task cannot be completed until that one is done.",
+      "The next up panel lists your open tasks by due date."
+    ]
+  },
+  "client:/home": {
+    "purpose": "Home is the first page you see after signing in as a parent. It shows two cards: **My Family** for classes, progress and results, and **My Account** for billing, requests and referrals.",
+    "steps": [
+      "Press **My Family** to see your children's classes and results. Press **My Account** for invoices, requests and your profile."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "client:/home/family": {
+    "purpose": "My Family is the group of pages about your children's learning: schedule, attendance, progress, result cards, certificates and leave.",
+    "steps": [
+      "Press a card to open the page. The cards are **Home**, **Schedule & Classes**, **Attendance**, **Progress**, **Result Cards**, **Certificates** and **Leave Requests**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "client:/portal": {
+    "purpose": "Your family home page greets you and shows the next class for each child, your balance, overdue invoices, open requests and recent notifications.",
+    "steps": [
+      "The tiles show **Children enrolled**, **Balance due**, **Overdue invoices** and **Open requests**. Press a tile to open the matching page.",
+      "Each child's card shows the next class in your local time, attendance and progress. Press **Join class** when a class is about to start.",
+      "Press **Invoices** to pay, or **Request or complain** to open a case.",
+      "Use **Quick links** for **Schedule**, **Progress**, **Attendance**, **Result cards**, **Request leave**, **Certificates**, **Refer a family** and **Profile & consent**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Times are shown in the timezone set on your **Profile & consent** page.",
+      "When a survey is waiting for you, a link to open it appears at the top."
+    ]
+  },
+  "client:/portal/schedule": {
+    "purpose": "Schedule & classes shows one week of classes for your children, with every time converted from the college timezone to yours.",
+    "steps": [
+      "Press **Previous** or **Next** to change week. Press **This week** to come back.",
+      "Press **All children** or a child's name to filter.",
+      "Each row shows your local time, the child, course, teacher, duration and status. Press **Join** when a class is pending or started.",
+      "**Regular weekly pattern** shows the fixed days and times in college time and in your time."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Change your timezone on the **Profile & consent** page if the times look wrong."
+    ]
+  },
+  "client:/portal/attendance": {
+    "purpose": "Attendance shows the last 90 days of classes for each child: attended, absent and on leave.",
+    "steps": [
+      "The tiles show **Last 30 days**, **Last 90 days**, **Attended**, **Absent** and **On leave**.",
+      "Press **All children** or a child's name to filter.",
+      "Each row shows the date, student, teacher and remarks."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A class marked missed means the teacher did not attend. You are never charged for those.",
+      "Approved leave does not count against attendance."
+    ]
+  },
+  "client:/portal/progress": {
+    "purpose": "Progress shows where each child is in the curriculum, their current sabaq (new lesson) position and their most recent evaluations.",
+    "steps": [
+      "Press **All children** or a child's name to filter.",
+      "Read the curriculum position and the progress bar for each child.",
+      "**Recent evaluations** lists the teacher's scores and comments. Press **Result cards** for the monthly tests."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "You receive a notification each time the teacher saves a new evaluation."
+    ]
+  },
+  "client:/portal/result-cards": {
+    "purpose": "Monthly result cards shows each child's monthly test: score, percentage, previous month, improvement, grade and the teacher's remarks.",
+    "steps": [
+      "The tiles show **Result cards**, **Improving** and **Available to download**.",
+      "Press **Download** on a row to save the result card."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "The test is generated from exactly what your child has covered. The improvement column compares this month with the last."
+    ]
+  },
+  "client:/portal/certificates": {
+    "purpose": "Certificates lists the completion and achievement certificates issued to your children.",
+    "steps": [
+      "Press **Download** under a certificate to save it. Each one carries a number that anyone can verify.",
+      "If the list is empty, no certificate has been issued yet."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Certificates are issued automatically when a course level is completed."
+    ]
+  },
+  "client:/portal/leaves": {
+    "purpose": "Leave requests is where you tell the college in advance when a child cannot attend. Approved leave is not counted as an absence and is not charged.",
+    "steps": [
+      "Under **Request leave** choose the **Child**, the **Reason type**, the **From** and **To** dates and add **Details**.",
+      "Press **Submit request**. The teacher is notified and you are told when it is approved.",
+      "The list shows every request with its days and **Status**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "The end date cannot be before the start date."
+    ]
+  },
+  "client:/home/account": {
+    "purpose": "My Account is the group of pages about your account with the college: invoices, requests, complaints, feedback, referrals and your profile.",
+    "steps": [
+      "Press a card to open the page. The cards are **Invoices & Payments**, **Change Requests**, **Requests & Complaints**, **Feedback**, **Refer a Family** and **Profile & Consent**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "client:/portal/billing": {
+    "purpose": "Invoices & payments shows your subscriptions, invoices, receipts and the running account statement for your family.",
+    "steps": [
+      "The tiles show **Account balance**, **Outstanding invoices**, **Active subscriptions** and **Payments recorded**.",
+      "Press **Pay now** to open the payment page. It shows the bank details and the payment methods you can use.",
+      "In **Invoices** press **PDF** to download an invoice, or **Pay** on an unpaid one. In **Payments & receipts** press **Receipt** to download the receipt.",
+      "**Account statement** lists every charge and credit with the running balance."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "After you pay, the billing team confirms the payment and the receipt appears here.",
+      "Invoice statuses include sent, partial, paid and overdue."
+    ]
+  },
+  "client:/portal/requests": {
+    "purpose": "Change requests is where you ask to move a class time, change a teacher, or refer a new contact. The academic team reviews every request.",
+    "steps": [
+      "The tiles show **Pending**, **Time Changes**, **Teacher Changes** and **References**.",
+      "Under **Request a time change** choose **Which class?**, the **New class time**, the days and **Why?**, then press **Submit request**.",
+      "Under **Request a teacher change** choose the class, a **Preferred teacher (optional)** and tell us what is not working, then press **Submit request**.",
+      "Under **Refer a new contact** enter the **Name**, **Email**, **Contact No** and **Reference Type**, then press **Refer contact**.",
+      "The three tables show each request with its **Status**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP. The requests land on the Client Requests pages that match the original ERP.",
+      "Your academic manager is notified of every request."
+    ]
+  },
+  "client:/portal/cases": {
+    "purpose": "Requests & complaints is where you raise anything: a schedule change, a teacher change, a billing question or a complaint. Every case gets an owner and a response deadline.",
+    "steps": [
+      "Under **Open a new case** choose **What is it about?** and the child (optional). For a complaint also choose the **Complaint Type**. Give a **Short title** and fill **Tell us more**.",
+      "Press **Submit**. You are told the case number and the hours within which we will respond.",
+      "Press a case number in the list to read replies and add a message."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Types are general request, complaint, schedule change, teacher change, billing and technical problem.",
+      "Replying to a case that is waiting for you moves it back to in progress and notifies the owner."
+    ]
+  },
+  "client:/portal/feedback": {
+    "purpose": "Your feedback is a short survey about each child's classes. Low scores go straight to the head of quality, not to the teacher.",
+    "steps": [
+      "Choose a score from **0** to **10** for how likely you are to recommend the college.",
+      "Give a star rating, answer **Was the teacher punctual for the classes this month?** and add any comments.",
+      "Press **Submit feedback**.",
+      "**Your previous feedback** shows past answers with their sentiment and status."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A survey appears here only when the college sends you one. A low score opens a case with the quality team, who will contact you."
+    ]
+  },
+  "client:/portal/referrals": {
+    "purpose": "Refer a family gives you a personal link to share. When a family you refer starts paid classes, a credit is added to your account automatically.",
+    "steps": [
+      "Copy **Your referral link** and send it on WhatsApp. It opens the registration form with your code already applied.",
+      "The tiles show **Referrals**, **Signed up**, **Qualified** and **Credits earned**.",
+      "**Referral ledger** lists each referred family and its status. **Credits on your account** shows the credits posted.",
+      "Press **View statement** to see the credits on your account statement."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A referral is qualified once the new family has paid its first month. The credit goes to both families."
+    ]
+  },
+  "client:/portal/profile": {
+    "purpose": "Profile & consent holds your contact details, timezone, how we may contact you, your children and your consent record.",
+    "steps": [
+      "Under **Contact details** update **Phone**, **WhatsApp**, **City**, **Timezone** and **Address**.",
+      "Under **How we contact you** tick WhatsApp messages or Email, and set **Best time to reach you** and **Preferred language**.",
+      "Press **Save changes**.",
+      "**Children** lists each child. **Consent record** shows when you accepted and your opt-in for each channel."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Class times across the portal are converted to the timezone you set here.",
+      "Your name and email are shown but only the college can change them."
+    ]
+  },
+  "student:/home": {
+    "purpose": "Home is the first page you see after signing in. It has one card, **My Learning**.",
+    "steps": [
+      "Press **My Learning** to see your classes, lessons and results."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "student:/home/learning": {
+    "purpose": "My Learning is the group of pages for your studies: your home page, classes, progress, lesson, results and certificates.",
+    "steps": [
+      "Press a card to open the page. The cards are **Home**, **My Classes**, **My Progress**, **Lesson View**, **Results** and **Certificates**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "student:/student": {
+    "purpose": "Your home page greets you and shows your next class, your recent classes, where you are in the course and your notifications.",
+    "steps": [
+      "The tiles show **Attendance (30d)**, **Course progress**, **Lessons completed** and **My teacher**.",
+      "Under **Next class** press **Join class** when it is time.",
+      "Press **Open my lesson** to read today's lesson. Press **My classes** or **My results** to see more.",
+      "**Recent classes** shows the date, time, teacher, status and your teacher's notes."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Times are shown in your own timezone."
+    ]
+  },
+  "student:/student/classes": {
+    "purpose": "My classes lists every class you have had, in your own time and in college time.",
+    "steps": [
+      "The tiles show **Attendance (30d)**, **Total classes** and **My teacher**.",
+      "Press **Join** on a class that is about to start.",
+      "Read the **Status** and **Notes** columns. Use the arrows at the bottom to see older classes."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "student:/student/progress": {
+    "purpose": "My progress shows how far you have come in your course and what your teacher wrote in your evaluations.",
+    "steps": [
+      "The tiles show **Completed**, **In progress**, **Revision** and **Overall**.",
+      "**Curriculum** shows your current lesson. Press **Open my lesson** to read it.",
+      "**My evaluations** shows your scores and your teacher's comments."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "student:/student/lesson": {
+    "purpose": "The Shared Arabic Lesson View shows your current lesson in Arabic, with the translation, tajweed notes and the marks your teacher makes.",
+    "steps": [
+      "Read the verses. Colours show the tajweed rules; the legend explains each colour.",
+      "Press **Previous lesson** or **Next lesson** to move. Press **Back** to return.",
+      "**Annotations** shows the marks your teacher makes on the words. They update every few seconds during class.",
+      "**Lesson history** lists the lessons you have done and their status. Press **View** to open one."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Only your teacher can add annotations. You can read them."
+    ]
+  },
+  "student:/student/results": {
+    "purpose": "My results shows your monthly tests and result cards. Every month is compared with the last.",
+    "steps": [
+      "The tiles show **Tests taken**, **Best score** and **Result cards**.",
+      "Read your **Score**, **%**, **Improvement**, **Grade** and **Teacher remarks**.",
+      "Press **Download** to save a result card."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "student:/student/certificates": {
+    "purpose": "My certificates lists the certificates you have earned. Each one carries a number that can be verified.",
+    "steps": [
+      "Press **Download** under a certificate to save it.",
+      "If the list is empty, keep going. Certificates are issued when you finish a level."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP."
+    ]
+  },
+  "admin:/search?q=trial+balance": {
+    "purpose": "Search finds pages and records from the box at the top of every screen. Type a word and press Enter.",
+    "steps": [
+      "Type an area, group or page name, for example a report name. Matching **Pages** appear first with the area they belong to.",
+      "Type a name, code, number or phone to find records: students, clients, teachers, leads, invoices, cases, employees and users.",
+      "Press a result to open it. If nothing matches you see **No matches found**."
+    ],
+    "notes": [
+      "You only find pages you are allowed to open and records your role may view.",
+      "A family or a student only finds the pages of their own portal."
+    ]
+  },
+  "admin:/notifications": {
+    "purpose": "Notifications lists the in-app alerts, reminders and approvals sent to you, newest first.",
+    "steps": [
+      "Unread items are highlighted. Press **Open →** to go to the linked record. This also marks it read.",
+      "Press **Mark read** on one item, or **Mark all read** at the top.",
+      "Use the arrows at the bottom to see older notifications."
+    ],
+    "notes": [
+      "The bell in the top bar shows how many notifications are unread.",
+      "Each item shows its type, for example task assigned or case comment."
+    ]
+  },
+  "admin:client_detail": {
+    "purpose": "The client record is the full file of one family. It shows the Client Form, contacts, students, portal login, billing, cases, feedback, conversations, referrals and the audit trail.",
+    "steps": [
+      "The tiles show **Students**, **Subscriptions**, **Open cases** and **Overdue invoices**. Press a tile to open that tab.",
+      "Use the tabs: **Client Form** (read-only summary), **Basic Detail** (edit), **Contacts**, **Students**, **Credentials**, **Billing & Ledger**, **Cases**, **Feedback**, **Conversations**, **Referrals**, **Communication log** and **Audit trail**.",
+      "Press **Add student** to add a child. Press **Basic Detail** to edit the family's details. Press **Change Log** to see every change.",
+      "Press **Reset portal password** to give the family a new temporary password.",
+      "Press **Drop Out / Black List**, choose **Mark as**, give the reason and press **Apply**. The portal login is disabled."
+    ],
+    "notes": [
+      "The tabs **Client Form**, **Basic Detail**, **Contacts**, **Students** and **Credentials** match the Client Form of the original ERP. The other tabs are additions.",
+      "A status change needs a reason and is audited as a consequential action. A reactivate action puts the family back to Regular.",
+      "The badges under the title show the status, shift, consent date and whether the portal is active."
+    ]
+  },
+  "admin:employee_detail": {
+    "purpose": "The employee record is the full file of one member of staff: attendance, leaves, salary, payslips, violations, bonuses, onboarding, provisioning, development and documents.",
+    "steps": [
+      "The tiles show **Attendance** for the month, **Leave days**, **Violations** and **Last net pay**.",
+      "Use the tabs: **Overview**, **Attendance**, **Leaves**, **Salary**, **Payslips**, **Violations**, **Bonuses & Advances**, **Onboarding**, **Provisioning**, **Development**, **Documents** and **Audit**.",
+      "Press **Edit** to change the record.",
+      "Under **Background check** choose the **Result**, write the **Rationale** and press **Record background check**.",
+      "**Direct reports** lists the people who report to this employee. **Recent activity** shows the latest changes."
+    ],
+    "notes": [
+      "A verified background check is the gate for a teacher to take live classes.",
+      "The rationale is required and is written to the audit trail."
+    ]
+  }
+}

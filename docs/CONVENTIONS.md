@@ -139,3 +139,10 @@ Rules:
 - ERP list pages: a row of status tiles (`ui.stat(..., href=...)` filtering the list), a filter bar, a bordered table
   with the ERP's column labels, a **Create** button, and where the ERP has it an **Actions → Change Status** form
   (checkbox-selected rows + new status + remarks → one POST).
+
+## User guide (added 30 Sep 2026)
+The complete illustrated user guide (`OQC_User_Guide.pdf`, about 430 pages) is generated, not hand-kept:
+`build/user_guide/capture.py` screenshots every page in `app/core/nav.py` from a running dev copy and
+`build/user_guide/build_guide.py` lays the book out; the per-page text lives in `build/user_guide/desc_*.json`,
+keyed `portal:url`. When you add a page to `nav.py`, add its entry to the matching `desc_` file, then rebuild.
+See `build/user_guide/README.md`.

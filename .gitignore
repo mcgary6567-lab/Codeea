@@ -32,3 +32,7 @@ build/tailwindcss
 # Contains live account names / credentials - never commit
 live_accounts.json
 Online Quran College - User Accounts.xlsx
+
+# user guide build output (screenshots and the 27 MB PDF)
+build/user_guide/out/
+docs/*.pdf

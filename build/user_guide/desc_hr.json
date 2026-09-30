@@ -1,0 +1,890 @@
+{
+  "admin:/home/hr": {
+    "purpose": "The landing page of the Human Resource area. People and Culture staff use it to see today's staff picture and to open the eight HR groups.",
+    "steps": [
+      "Read the top counters: **Total Male**, **Total Female** and **Total Employee**. Press one to open the Employee Record filtered by gender.",
+      "Look at the shift blocks (**Morning Shift**, **Evening Shift**, **Night Shift**). Press a number such as **Present** or **Late Coming** to open Daily Attendance for that shift and type.",
+      "Press a pending counter such as **Attendance Change**, **Leave Request** or **Violations** to open that queue on its Pending rows.",
+      "Press a group card such as **Employment Management** or **Recruitment and Hiring** to see the pages inside it."
+    ],
+    "notes": [
+      "The contract table lists staff whose contract ends within the next 60 days, with the remaining days.",
+      "If nobody has punched in yet today, the attendance blocks show the last recorded working day."
+    ]
+  },
+  "admin:/home/hr/dashboards": {
+    "purpose": "Group page for the three HR dashboards: Employee Management, Attendance Management and Financial Management.",
+    "steps": [
+      "Press a card to open that dashboard."
+    ],
+    "notes": []
+  },
+  "admin:/hr/dashboards/employees": {
+    "purpose": "A headcount dashboard. It shows how many people are on the payroll and how they split by department, designation, employee type, shift, gender and status.",
+    "steps": [
+      "Read the tiles: **Headcount**, **On Record**, **Leavers**, **Avg Tenure (years)** and **Avg Tenure, Current (years)**.",
+      "Scroll to the charts **Joiners and leavers by month**, **By Department**, **By Designation**, **By Employee Type**, **By Shift**, **By Gender** and **By Status**.",
+      "Press **Employee Record** to open the full staff list. Press **Back** to return to the group page."
+    ],
+    "notes": [
+      "Leavers are staff who have resigned or been terminated. Headcount counts everyone still on the payroll."
+    ]
+  },
+  "admin:/hr/dashboards/attendance": {
+    "purpose": "An attendance dashboard for a date range. It shows present, absent, leave and late figures by day and by employee, with shortage hours.",
+    "steps": [
+      "Choose **From Date**, **To Date** and optionally a **Department**, then press **Go**. Press **Reset** to clear the filters.",
+      "Read the tiles: **Sessions**, **Present**, **Absent**, **On Leave**, **Late Coming** and **Shortage Hours**.",
+      "Check the **Worst attendance**, **Most late** and **Highest shortage** tables to see who needs a conversation.",
+      "The **By employee** table gives one row per person with sessions, late minutes, shortage hours and attendance percentage.",
+      "Press **Daily Attendance** to open the day grid."
+    ],
+    "notes": [
+      "A session is one half of a working day, AM or PM. Every working day carries two sessions.",
+      "Shortage hours are the hours owed for a session minus the hours actually worked."
+    ]
+  },
+  "admin:/hr/dashboards/financial": {
+    "purpose": "A payroll cost dashboard. It shows what payroll costs each month and each department, with violations deducted, bonuses paid and advances still outstanding.",
+    "steps": [
+      "Choose how many months to show in **Period** and press **Go**.",
+      "Read the tiles: **Payroll Cost**, **Violations Deducted**, **Bonuses Paid**, **Advances Outstanding** and **Months**.",
+      "The **By month** table lists each payroll run with its status, payslips, gross, deductions and net. Press **Detail** to open the run.",
+      "The **By department** table shows each department's net cost and its share of the total.",
+      "Press **Payroll** to open the payroll run list."
+    ],
+    "notes": [
+      "Needs the payroll.view permission."
+    ]
+  },
+  "admin:/home/hr/employment": {
+    "purpose": "Group page for the employee record and the staff queues: requests, violations, bonuses, downloads, tasks, complaints, advances, teachers, grievances and provisioning.",
+    "steps": [
+      "Press a card such as **Employee Record**, **Employee Requests** or **Staff Violations** to open that page."
+    ],
+    "notes": [
+      "Teachers, Grievances (confidential) and Provisioning are additions to the original ERP."
+    ]
+  },
+  "admin:/hr/employees": {
+    "purpose": "The master list of every person on the payroll, with the ERP's 29 columns. People and Culture use it to find, filter, export and bulk-update staff.",
+    "steps": [
+      "Press a status tile such as **Active**, **On Probation** or **In-Active** to filter the list to that status.",
+      "Use **Search** or the **Status**, **Department**, **Designation**, **Type**, **Shift** and **Gender** filters, then press **Go**.",
+      "Press an employee code or name to open that person's full record. Press **Create** to add a new employee.",
+      "Tick several rows and press **Apply Bulk Update**. Choose the **Field** (status, department, shift, designation, type, manager or grade), the new value and a **Rationale**, then save.",
+      "Press **Export CSV** to download the list. Press **My HR page** to open your own self portal."
+    ],
+    "notes": [
+      "Email, cell, WhatsApp and bank account are masked unless you hold the employees.update permission.",
+      "A bulk update needs a rationale and is written to the audit log with the before and after values.",
+      "The tabs above the table (**Employee Requests**, **Staff Violations** and so on) jump to the other Employment Management pages."
+    ]
+  },
+  "admin:/hr/notices": {
+    "purpose": "Staff notices with a validity window. People and Culture write them here; live notices appear on the Employee Self Portal's Notifications page.",
+    "steps": [
+      "Press a tile (**Live**, **Scheduled**, **Expired**, **Inactive**) to filter the list. Use **Search**, **Audience** and **Status** with **Go**.",
+      "Press **Create**. Fill in the **Title** (required), a **Description**, a **Link**, the **Start Date** (required), an **End Date** and the audience. Press **Publish**.",
+      "Press **Edit** on a row to change a notice, then press **Save**.",
+      "Press **Deactivate** or **Activate** to switch a notice off or on. Press **Open** to follow its link."
+    ],
+    "notes": [
+      "A notice is Live when it is active and today is inside its dates. Before the start date it is Scheduled; after the end date it is Expired.",
+      "Publishing a live notice also sends a bell notification to everyone in its audience.",
+      "Creating and editing need the employees.update permission."
+    ]
+  },
+  "admin:/hr/requests": {
+    "purpose": "General requests raised by staff, such as a salary certificate, equipment or a shift change. People and Culture decide them here.",
+    "steps": [
+      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter the list to that status.",
+      "Filter with **Search**, **Employee**, **Shift**, **Req Type**, **From Date**, **To Date** and **Approval Status**, then press **Go**.",
+      "Press **Create Employee Request** to raise one for a member of staff. Choose the **Employee**, the **Req Type** and the **Date**, write the **Description** and press **Save**.",
+      "Tick one or more rows, open **Actions - Change Status**, pick the **New Status**, write **HR Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "HR Remarks are required for every status change. The employee is notified of the decision.",
+      "Approving needs the employees.approve permission.",
+      "Staff raise their own requests from the Overview tab of the Employee Self Portal."
+    ]
+  },
+  "admin:/hr/violations": {
+    "purpose": "Offences recorded against staff, chosen from the Violation Types catalogue. Approving a violation applies its fine so payroll deducts it in the next run.",
+    "steps": [
+      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter. Narrow further with **Employee**, **Shift**, **Penalty Description**, **From Date** and **To Date**, then press **Go**.",
+      "Press **Create Staff Violation**. Choose the **Employee**, the **Date** and the **Penalty Description** from the catalogue. The **Penalty Amount (PKR)** fills in from the catalogue; change it if needed. Write the **Remarks** and press **Save**.",
+      "Tick rows, open **Actions - Change Status**, pick the **New Status**, write **Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "A pending or rejected violation never charges a fine. Only an approved one is deducted by payroll and posted to the employee's Account Ledger.",
+      "Managers can raise a violation against their own reports from Team Management in the self portal. It lands here as Pending.",
+      "Approving needs the violations.approve permission. The employee is notified when a violation is recorded and when it is decided."
+    ]
+  },
+  "admin:/hr/bonuses": {
+    "purpose": "Bonuses proposed for staff against the Staff Bonus Types catalogue. Approving records the acceptance date and sends the bonus to payroll.",
+    "steps": [
+      "Press a tile to filter by status. Use **Employee**, **Shift**, **Bonus Type**, **Acceptance From** and **Acceptance To** with **Go**.",
+      "Press **Create Staff Bonus**. Choose **Emp Name** and **Bonus Type**; the **Bonus Amount (PKR)** fills in from the catalogue. Set the **Period** (month) and **Remarks**, then press **Save**.",
+      "Tick rows, open **Actions - Change Status**, pick the **New Status**, write **Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "Approving sets the **Acceptance Date** to today and posts the bonus to the employee's Account Ledger. Payroll pays it in the month it was accepted.",
+      "Approving needs the payroll.approve permission. The employee is notified of the decision."
+    ]
+  },
+  "admin:/hr/downloads": {
+    "purpose": "HR policies, forms and handbooks published to every member of staff. Staff open the documents; People and Culture publish and retire them.",
+    "steps": [
+      "Press a tile (**All Documents**, **Active**, **In-Active**) to filter. Use **Search**, **Category** and **Status** with **Go**.",
+      "Press **Open document** on a row to open its link.",
+      "Press **Create** to publish a document. Fill in the **Description** (required), the **Link** and the category, then press **Publish**.",
+      "Press **Edit** to change a document and **Save**. Press **Retire** to mark it in-active; press again to bring it back."
+    ],
+    "notes": [
+      "Staff without HR permissions see only active documents.",
+      "Publishing, editing and retiring need the employees.update permission."
+    ]
+  },
+  "admin:/tasks": {
+    "purpose": "The accountability board for tasks and projects. Every task has an owner, a due date and, when done, an assessment score.",
+    "steps": [
+      "Switch between **My tasks**, **Team** and **All tasks** with the tabs. **All tasks** is open to management only.",
+      "Read the tiles: **My open tasks**, **Overdue**, **Due today**, **Completed (30d)** and **Avg assessment**.",
+      "Filter with **Search**, **Assignee**, **Project**, **Priority**, **Department**, **Due** and **Overdue**, then press **Filter**.",
+      "Press **New task**. Give it a **Title** (required), a description, an assignee, a **Due date**, an **Estimate (hours)**, a **Recurrence**, a **Depends on** task and a **Linked KPI** if any. Press **Create task**.",
+      "Press a card to open the task. There you move its status, add comments or mark it done. Press **Projects** to see projects, sprints and milestones."
+    ],
+    "notes": [
+      "A task cannot move to in progress while the task it depends on is not done.",
+      "When a task is completed, its creator or a manager can score it from 1 to 5.",
+      "The assignee is notified when a task is created or reassigned to them."
+    ]
+  },
+  "admin:/hr/complaints": {
+    "purpose": "The open staff complaint list. Staff record a complaint; People and Culture respond to it and close it.",
+    "steps": [
+      "Switch between the **Non Secret** and **Secret** tabs. The **Secret** tab is shown only to People and Culture roles.",
+      "Press a tile to filter by status. Use **Search**, **Employee**, **Complaint Type** and **Approval Status** with **Go**.",
+      "Press **Create Complaint**. Choose the **Complaint Type**, write the **Title** and **Description** (both required) and tick secret if it must stay private. Press **Save**.",
+      "Tick rows, open **Actions - Change Status**, pick the **New Status**, write **Remarks** and the **Admin Response**, then press **Change Status**."
+    ],
+    "notes": [
+      "A secret complaint is read and decided only by people who hold the grievances.view permission.",
+      "Staff without HR permissions see only their own complaints.",
+      "For anything about your own management chain, use Raise a Grievance in the self portal instead."
+    ]
+  },
+  "admin:/hr/advances": {
+    "purpose": "Salary advance requests and the instalments they are paid back in. Approving opens the recovery balance that payroll deducts each month.",
+    "steps": [
+      "Press a tile to filter by status. Use **Search**, **Employee**, **Shift**, **From Date** and **To Date** with **Go**.",
+      "Press **Create Advance Request**. Choose the **Employee**, the **Request Date**, the **Amount (PKR)** (required), the **No Of Installments** and the **Remarks** (required). Press **Save**.",
+      "Tick rows, open **Actions - Change Status**, pick the **New Status**, write **Hr Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "Approving sets the remaining balance to the full amount and posts a credit line to the employee's Account Ledger. Each payroll run then recovers one instalment.",
+      "Approving needs the payroll.approve permission. Staff can request an advance from the Requests tab of the self portal."
+    ]
+  },
+  "admin:/teachers": {
+    "purpose": "The Ustaadh (teacher) roster. Only teachers whose background check is verified can be matched to students or given live classes.",
+    "steps": [
+      "Read the tiles: **Teachers**, **Verified**, **Unverified**, **Grade A**, **Avg QA score** and **Students taught**. Press **Verified** or **Unverified** to filter.",
+      "Filter with **Search**, **Shift**, **Gender**, **Grade**, **Teaches course** and **Verified**, then press **Go**.",
+      "Press **Open** on a row to see the teacher's profile, courses, grade, QA results and load.",
+      "Press **New teacher** to add a teacher."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Grade A, B or C is computed in the Ustaadh Lab from QA scores, punctuality and student retention.",
+      "Verifying or withdrawing a background check needs the teachers.approve permission and a rationale."
+    ]
+  },
+  "admin:/hr/grievances": {
+    "purpose": "A confidential channel that bypasses department heads. The Head of People and Culture and the CEO see every case; HR officers see only the non-anonymous cases assigned to them.",
+    "steps": [
+      "Read the tiles: **Open**, **Investigating**, **Resolved**, **SLA breached** and **Anonymous**. Press **Open** or **Investigating** to filter.",
+      "Choose a **Status** and press **Go** to filter the list.",
+      "Press **Open** on a row to read the case, assign a handler, change the status and write a resolution.",
+      "Press **Raise a grievance** to open the form and submit one yourself."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Every case has a service level of 5 days. A case still open or investigating after that shows as SLA breached.",
+      "An anonymous case stores no name or employee record, and the audit trail does not name the submitter."
+    ]
+  },
+  "admin:/hr/provisioning": {
+    "purpose": "One action to set up or revoke a member of staff's accounts: Google Workspace, the password vault, Drive folders, ClickUp and Slack, MFA and the assigned device.",
+    "steps": [
+      "Read the tiles: **Provisioning records**, **Onboarded**, **Offboarded** and **Never provisioned**.",
+      "In **One-action provisioning**, choose the **Employee** and the **Action** (onboard or offboard). For offboarding, write the **Reason**. Press **Run**.",
+      "Use the tabs: **Recent provisioning** lists past runs, **Policy & MFA** shows who has two-factor sign-in, **Offboarding checklist** lists leavers, and **Access audit** shows logins that do not match an employee."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Offboarding deactivates the login, revokes sessions and API keys, marks the employee as resigned and flags a teacher's schedules for reassignment. It cannot run without a reason.",
+      "Running provisioning needs the provisioning.execute permission and is audited."
+    ]
+  },
+  "admin:/home/hr/attendance": {
+    "purpose": "Group page for attendance, leaves, entitlements and progress: Daily Attendance, Attendance Summary, Employees Progress Sheet, Leave Assignment, Attendance Change Requests, Leave Management and Attendance Report.",
+    "steps": [
+      "Press a card to open that page."
+    ],
+    "notes": []
+  },
+  "admin:/hr/attendance": {
+    "purpose": "The working day at a glance: an editable grid of every punch, plus lists of who is absent, on leave or present. People and Culture correct punches and close the day here.",
+    "steps": [
+      "Pick a **Date**, a **Shift** and an **Attendance Type**, then press **Go**. The tiles **Present**, **Absent**, **On Leave**, **Late Coming** and **Time Shortage** count the day.",
+      "Edit a row in the grid: change the **Type**, **Login Time** or **Logout Time** and press **Save** on that row. Late minutes are recomputed.",
+      "Use **Add Row** to record a punch for someone with no row that day: choose the **Employee**, **Session**, **Type**, the times and a reason, then press **Add row**.",
+      "Press **End of day: mark absent for missing** to give everyone still without a row an Absent row, or an On Leave row where a leave is approved.",
+      "Switch tabs: **Monthly grid** shows one employee's month, **Corrections** lists correction requests, **Late report** ranks late arrivals. Press **Export month** for a CSV."
+    ],
+    "notes": [
+      "Late coming means the login is later than the shift start plus the grace time set in Configuration. Shortage is the duty hours owed for the session minus the hours worked.",
+      "Sundays and active holidays are not working days, so nothing is marked absent on them.",
+      "If nothing has been punched for today yet, the page opens on the last recorded working day and says so."
+    ]
+  },
+  "admin:/hr/attendance/summary": {
+    "purpose": "One row per employee for a date range: Present, Absent, On Leave, Late Coming, Total Sessions and Shortage Hours.",
+    "steps": [
+      "Set **From Date** and **To Date**. Narrow with **Attendance Type**, **Shift**, **Employee Type**, **Designation**, **Department** or **Employee**, then press **Go**.",
+      "Read the totals in the tiles and in the total row at the bottom of the table.",
+      "Switch to the **Attendance Rows** tab to see every single punch instead of the summary.",
+      "Press **Print Report** for a print view or **Export CSV** to download."
+    ],
+    "notes": [
+      "The default range is the last 30 days.",
+      "An Attendance Type filter keeps only employees with at least one session of that type."
+    ]
+  },
+  "admin:/hr/progress-sheet": {
+    "purpose": "What each member of staff did on a working day, and the rating their manager gave it. Managers rate here; staff write their own entries in the self portal.",
+    "steps": [
+      "Read the tiles: **Entries**, **Rated**, **Awaiting a rating** and **Average rating**. Press **Awaiting a rating** to list the unrated entries.",
+      "Filter with **Employee**, **From Date**, **To Date** and **Manager Rating**, then press **Go**.",
+      "Press **Rate** on a row, choose a rating from 1 to 5, add a comment and press **Save**.",
+      "Press **Create** to record an entry for someone: choose the **Employee** and the **Working Date**, write the **Progress Detail** and press **Save**."
+    ],
+    "notes": [
+      "Ratings run from 1 (needs attention) to 5 (outstanding). The employee is notified when an entry is rated.",
+      "An entry shown as Draft has not been submitted by the employee yet. Rating needs the employees.update permission."
+    ]
+  },
+  "admin:/hr/leave-entitlements": {
+    "purpose": "How many days of each leave type a member of staff holds this year, how many they have used and when the assignment expires.",
+    "steps": [
+      "Filter with **Employee**, **Leave Type**, **Shift**, **Status** or **Search**, then press **Go**. The tiles show **Assignments**, **Active**, **Days assigned** and **Days consumed**.",
+      "Press **Create**. Choose the **Employee** and the **Total Assigned Leaves** (both required), plus the leave type, **Consumed Leaves**, **Expiry Date** and **Notes**. Press **Save**.",
+      "Press **Edit** on a row to change the figures, then press **Save**.",
+      "Press **Assign to all active employees** to give one leave type to everyone at once, then press **Assign**."
+    ],
+    "notes": [
+      "Remaining is Total Assigned Leaves minus Consumed Leaves. Approving a leave in Leave Management draws the working days down from here.",
+      "The bulk assignment skips anyone who already holds that leave type for the period.",
+      "Creating needs the leaves.add permission; editing needs leaves.update."
+    ]
+  },
+  "admin:/hr/attendance/change-requests": {
+    "purpose": "Requests from staff to correct a punch. Approving rewrites the attendance row the request names and recomputes the late minutes.",
+    "steps": [
+      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter. Use **From Date**, **To Date**, **Employee**, **Shift Name**, **Hr Approval Status** and **Search** with **Go**.",
+      "Compare the old and new columns on each row: attendance type, login time and logout time.",
+      "Press **Create** to raise one for someone: choose the **Employee**, the **Attendance Date**, the **Session**, the **New Attendance Type**, the new times and the **User Remarks**. Press **Save**.",
+      "Tick rows, open **Actions - Change Status**, pick the **New Status**, write **HR Remarks** and press **Change Status**."
+    ],
+    "notes": [
+      "Approving needs the hr_attendance.approve permission. HR remarks are required for any decision.",
+      "The employee is notified of the decision and their Attendance Sheet shows the corrected row."
+    ]
+  },
+  "admin:/hr/leaves": {
+    "purpose": "Employee leave requests, their approvals and the next 30 days of cover. Approving draws the working days down from the matching leave assignment.",
+    "steps": [
+      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter. Use **Employee**, **Status** and **Type** with **Go**.",
+      "Read the **Remaining** column for the balance left on that leave type. **Upcoming 30 days** lists who is away soon.",
+      "Press **Open** on a row to see the request, the working days it will consume and, for a teacher, suggested substitutes.",
+      "On the request, approve, reject or cancel it with a note. If the days exceed the balance, tick the override box and give a reason.",
+      "Press **Create** to record a leave on behalf of a member of staff."
+    ],
+    "notes": [
+      "Working days exclude Sundays and active holidays, so leave over a holiday does not consume it.",
+      "Cancelling or reversing an approved leave returns the days to the assignment.",
+      "Approving needs the leaves.approve permission. The employee is notified of the decision."
+    ]
+  },
+  "admin:/hr/attendance/report": {
+    "purpose": "The Attendance Summery Report: present, absent, leave, late and shortage for each employee over a date range.",
+    "steps": [
+      "Set **From Date** and **To Date**. Narrow with **Employee**, **Shift**, **Employee Type**, **Designation** or **Department**, then press **Go**.",
+      "Read the tiles **Working days**, **Present**, **Absent**, **Late** and **Shortage hours**, and the totals row under the table.",
+      "Press **Print Report** for a printable view or **Export CSV** to download. Press **Daily Attendance** to jump to the day grid."
+    ],
+    "notes": [
+      "Working Days counts the days owed in the range, excluding Sundays and holidays.",
+      "Late Minutes adds up every minute beyond the grace time. Worked Hours come from the login and logout times."
+    ]
+  },
+  "admin:/home/hr/recruitment": {
+    "purpose": "Group page for hiring: Job Requisitions, Job Applications, Interview Panels, Schedule Interviews, Candidate Database, Onboarding and Summary.",
+    "steps": [
+      "Press a card to open that page."
+    ],
+    "notes": []
+  },
+  "admin:/hr/recruitment": {
+    "purpose": "Every vacancy the college is recruiting for, with job type, department, categories, skills, positions, dates and location.",
+    "steps": [
+      "Read the tiles: **All Jobs**, **Open**, **In Progress**, **Filled**, **Positions** and **Applications**. Press a tile to filter.",
+      "Switch reports with the tabs **Primary**, **Summary** and **Summary Department Wise**.",
+      "Filter with **Job Title**, **Department**, **Job Type** and **Status**, then press **Go**.",
+      "Press **Create**. Fill in the **Job Title** (required), **Total Positions**, **Start Date**, **End Date**, **Job Location**, the **Job Categories** boxes, **Skills** and a **Description**. Press **Create requisition**.",
+      "Press **Edit** on a row to change it and **Save requisition**. Press **Open** to see its applications."
+    ],
+    "notes": [
+      "A requisition moves to In Progress when someone is hired and to Filled when every position is taken.",
+      "People and Culture heads are notified when a requisition is raised."
+    ]
+  },
+  "admin:/hr/applications": {
+    "purpose": "Applications against every vacancy, moving through the ten-step pipeline from Applied to Hired.",
+    "steps": [
+      "Press a status tile (**Applied**, **On-Hold**, **Initial Selected**, **Pre-Selected**, **Marked - 1st Interview**, **Marked - 2nd Interview**, **Marked - Final Interview**, **Selected**, **Rejected**, **Hired**) to filter.",
+      "Filter with **From Date**, **To Date**, **Status**, **Job Title**, **Application Type**, **Department** and **Search**, then press **Go**.",
+      "Tick applications, choose **Move to** (or leave it blank for the next step), pick an **Interview Panel** when marking for an interview, write a **Remark** and press **Process**.",
+      "Press **Add Manually** to enter an application taken outside the portal. **Candidate Name** and **Job Title** are required. Press **Save application**.",
+      "Press **Open** on a row to see the application and its interviews."
+    ],
+    "notes": [
+      "An application cannot be marked for an interview without an interview panel.",
+      "Moving an application to Hired creates the employee record, and a teacher profile for a teaching role. It needs the employees.add permission.",
+      "Every move is audited with the remark."
+    ]
+  },
+  "admin:/hr/interview-panels": {
+    "purpose": "The groups of staff who sit on interviews. An application cannot be marked for an interview without a panel.",
+    "steps": [
+      "Press a tile (**All Panels**, **Active**, **In-active**) to filter. Use **Search** and **Status** with **Go**.",
+      "Press **Create**. Give the panel a **Name** (required) and a **Description**, and tick its **Members**. Press **Create panel**.",
+      "Press **Edit** on a row to change it and **Save panel**. Press **Deactivate** to retire a panel."
+    ],
+    "notes": [
+      "The **Applications** column shows how many applications each panel has been given.",
+      "Only active panels are offered when an interview is scheduled."
+    ]
+  },
+  "admin:/hr/interviews": {
+    "purpose": "Interviews booked for an application against a panel. Every panel member records their own outcome, score and feedback.",
+    "steps": [
+      "Read the tiles: **All Interviews**, **Scheduled**, **Completed** and **No Show**. Press a tile to filter.",
+      "Filter with **From Date**, **To Date**, **Panel**, **Outcome** and **Search**, then press **Go**.",
+      "Press **Schedule**. Choose the **Application** and the **Interview Panel** (both required), the **Type**, **Date**, **Time** and **Location**. Press **Schedule interview**.",
+      "On a row, each panel member picks an **Outcome**, enters a **Score**, writes **Feedback** and presses **Save**."
+    ],
+    "notes": [
+      "Scheduling creates one interview row per panel member and notifies each of them.",
+      "Scheduling a screening, technical or final interview moves the application forward to the matching Marked step.",
+      "The candidate's overall score is the average of all panel scores."
+    ]
+  },
+  "admin:/hr/candidates": {
+    "purpose": "Everybody who has ever applied to the college, with all their applications and where they stand today.",
+    "steps": [
+      "Read the tiles: **Candidates**, **Applications**, **In Process** and **Hired**.",
+      "Filter with **Name**, **Skill**, **Qualification**, **City** and **Current Status**, then press **Go**.",
+      "Press **Open** next to an application to read it. A candidate who became staff shows an **Employee** link."
+    ],
+    "notes": [
+      "People are grouped by email, NIC or cell number, so one person appears once even with several applications.",
+      "Current Status is the furthest step any of the person's applications has reached."
+    ]
+  },
+  "admin:/hr/onboarding": {
+    "purpose": "New hires and how far through their joining checklist they are.",
+    "steps": [
+      "Read the tiles: **New Hires**, **In Progress**, **Complete** and **Overdue Tasks**. Press a tile to filter.",
+      "Filter by **Employee** name or **Checklist** state, then press **Go**.",
+      "Press **Checklist** on a row to open the employee's record and tick tasks off there.",
+      "Press **Provisioning** to set up accounts, or **Employee Record** to open the staff list."
+    ],
+    "notes": [
+      "A new employee gets nine checklist tasks automatically: accounts, documents, policy acknowledgements, training and device.",
+      "The page lists people who joined in the last 180 days. **Overdue** counts open tasks past their due date."
+    ]
+  },
+  "admin:/hr/recruitment/summary": {
+    "purpose": "Every vacancy with its applications by status, interviews held, hires, fill percentage and time to hire.",
+    "steps": [
+      "Read the tiles: **Positions**, **Applications**, **Interviews Held**, **Hires** and **Avg Time to Hire**.",
+      "Read the **Pipeline** funnel to see how many applications sit at each step.",
+      "Press a job title to open its requisition. Press **Job Requisitions** to go back to the list."
+    ],
+    "notes": [
+      "Time to Hire is the days from the application to the joining date. Fill % is hires divided by positions."
+    ]
+  },
+  "admin:/home/hr/benefits": {
+    "purpose": "Group page for Grades & Allowances and the Ustaadh Lab.",
+    "steps": [
+      "Press a card to open that page."
+    ],
+    "notes": [
+      "The Ustaadh Lab is an addition to the original ERP."
+    ]
+  },
+  "admin:/hr/config/grades": {
+    "purpose": "Salary grades and the allowances that come with them. Assigning a grade to an employee fills their salary structure.",
+    "steps": [
+      "Press a tile (**All Grades**, **Active**, **In-active**) to filter. Use **Search** and **Status** with **Go**.",
+      "Press **Create**. Enter the **Grade Name** (required), **Basic Min**, **Basic Max**, a **Description** and allowance rows (name and amount). Press **Save grade**.",
+      "Press **Edit** on a row to change it, or **Deactivate** and **Activate** to switch it off or on.",
+      "Press **Assign to an employee**, choose the **Employee** and press **Assign grade**."
+    ],
+    "notes": [
+      "Assigning a grade adds its allowances to the employee's salary structure and keeps their basic inside the grade's range.",
+      "The **Employees** column shows how many staff hold each grade.",
+      "Needs the employees.configure or employees.update permission."
+    ]
+  },
+  "admin:/hr/teacher-development": {
+    "purpose": "The teacher development board. Grades A, B and C are computed from QA scores, punctuality and student retention over the last 90 days. A low grade triggers training, never termination.",
+    "steps": [
+      "Read the tiles: **Grade A**, **Grade B**, **Grade C**, **Teachers** and **Grades older than 14 days**.",
+      "On **Grading board**, read each teacher's QA, punctuality and retention. Press **Recompute** on a row, or **Recompute all grades** at the top. **Grade history** shows every change.",
+      "**Band mapping** shows the basic salary per grade. **Training assignments** lists courses given to teachers; add one with a teacher, a title, a category and a due date.",
+      "**Promotion gates** shows which teachers have completed all gate trainings and can be promoted with a rationale. **Development plans** and **Training catalogue** hold the plans and the course list."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A grade change moves the teacher's salary band and basic pay, notifies the teacher and is written to the audit trail.",
+      "A manual promotion needs the teacher_dev.approve permission and a written rationale."
+    ]
+  },
+  "admin:/home/hr/financial": {
+    "purpose": "Group page for payroll: Payroll, Teacher Payroll, Payroll Advances, Payroll Bonuses and Salary Bands.",
+    "steps": [
+      "Press a card to open that page."
+    ],
+    "notes": [
+      "Teacher Payroll, Payroll Advances, Payroll Bonuses and Salary Bands are additions to the original ERP."
+    ]
+  },
+  "admin:/hr/payroll": {
+    "purpose": "One payroll run per month. A run moves from Pending to Generated to Posted; Cancelled is the way out. Generating builds the payslips; posting locks the run and books it to the ledger.",
+    "steps": [
+      "Read the tiles: **All Runs**, **Pending**, **Generated**, **Posted**, **Pending Advances** and **Pending Bonuses**. Press a tile to filter.",
+      "Filter with **Status** and **Year**, then press **Go**.",
+      "Press **Create**. Choose the **Month** (required) and a **Description**, then press **Create payroll**. The run starts as Pending.",
+      "Press **Generate** on a Pending run to build the payslips. Press **Detail** to review them; a payslip can be adjusted with a reason while the run is open.",
+      "Press **Post** to approve and lock the run, or **Cancel** with a reason before it is posted. Use **Teacher cost vs output**, **Salary bands**, **Advances** and **Bonuses** to open the related pages."
+    ],
+    "notes": [
+      "Generating pulls basic pay, class pay for teachers, allowances, approved bonuses, approved violation fines, attendance deductions and advance instalments.",
+      "Posting needs the payroll.approve permission and is limited to Finance or People heads and the CEO. A posted run cannot be regenerated, adjusted or cancelled.",
+      "Posting writes each payslip to the employee's Account Ledger, books the journal entry and notifies every employee that their payslip is available."
+    ]
+  },
+  "admin:/hr/payroll/teachers": {
+    "purpose": "What each teacher costs (basic salary plus class pay) against the subscription revenue their students bring in, for one month.",
+    "steps": [
+      "Choose a **Period** (month) and press **Show**.",
+      "Read the tiles: **Total teacher cost**, **Attributed revenue**, **Cost ratio** and **Classes delivered**.",
+      "Read the table: grade, salary, class pay, classes, students, total cost, revenue, margin and cost ratio per teacher. The chart **Salary vs revenue per teacher** shows the same."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Cost ratio is total cost divided by revenue, as a percentage. Teachers with the highest ratio are listed first.",
+      "Figures come from the month's payroll run when one exists; otherwise from the salary structure and the classes done."
+    ]
+  },
+  "admin:/hr/payroll/advances": {
+    "purpose": "The salary advance queue. Approved advances are recovered automatically in instalments through payroll.",
+    "steps": [
+      "Read the tiles: **Total**, **Pending**, **Approved** and **Outstanding**. Press **Pending** or **Approved** to filter, or choose a **Status** and press **Go**.",
+      "Press **Request**. Choose the **Employee**, enter the **Amount (PKR)**, the number of **Instalments** and the **Reason**, then press **Submit**.",
+      "On a pending row, press **Approve** or **Reject** and add a note.",
+      "The **Remaining** column shows how much is still to be recovered."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP. It works on the same advances as Advance Requests in Employment Management.",
+      "Each payroll run deducts one instalment (the amount divided by the instalments) until the balance reaches zero, when the advance is marked settled.",
+      "Approving needs the payroll.approve permission. The employee is notified."
+    ]
+  },
+  "admin:/hr/payroll/bonuses": {
+    "purpose": "The bonus proposal queue. Approved bonuses are added to the payslip for their period.",
+    "steps": [
+      "Read the tiles: **Total**, **Pending**, **Approved** and **Approved value**. Press **Pending** or **Approved** to filter, or choose a **Status** and press **Go**.",
+      "Press **Propose**. Choose the **Employee**, enter the **Amount (PKR)**, the **Type**, the **Period** (month) and the **Reason**, then press **Submit**.",
+      "On a pending row, press **Approve** or **Reject** and add a note."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP. It works on the same bonuses as Staff Bonuses in Employment Management.",
+      "Approving needs the payroll.approve permission. The employee is notified."
+    ]
+  },
+  "admin:/hr/payroll/bands": {
+    "purpose": "The basic salary for each teacher grade, and the thresholds a teacher must clear to earn grade A or B. Teacher basic pay follows the grade band.",
+    "steps": [
+      "In **Band mapping**, edit the monthly basic for grades **A**, **B** and **C**, or add a new band in the empty row. The number of teachers on each band is shown beside it.",
+      "Write a **Rationale** and press **Save bands**.",
+      "Read **Grade thresholds**: the QA average, punctuality and retention needed for each grade.",
+      "Press **Grading board** to open the Ustaadh Lab."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "New bands apply at the next grade computation, not immediately. Saving needs the payroll.configure permission and is audited.",
+      "Grade thresholds are edited in System Settings, not here. Everyone below grade B gets a development plan, never automatic termination."
+    ]
+  },
+  "admin:/home/hr/attachments": {
+    "purpose": "Group page for the Attachments store.",
+    "steps": [
+      "Press the **Attachments** card to open the list."
+    ],
+    "notes": []
+  },
+  "admin:/hr/attachments": {
+    "purpose": "Every file or link held against an employee, candidate, payroll run, client or student record, plus general policies.",
+    "steps": [
+      "Press a tile (**All Attachments**, **Active**, **In-Active**) to filter. Use **Search**, **Entity** and **Status** with **Go**.",
+      "Press **Upload Attachment**. Give it a **Title** (required), choose the record type and the **Record ID**, then paste a **Link** or attach a **File**. Press **Upload**.",
+      "Use the row action to mark an attachment in-active, or active again."
+    ],
+    "notes": [
+      "A link or a file is required. The file's name, type and size are stored with it.",
+      "Uploading needs the employees.add permission; changing status needs employees.update."
+    ]
+  },
+  "admin:/home/hr/config": {
+    "purpose": "Group page for the HR catalogues: Departments, Shift, Holidays, Users, Violation Types, Staff Bonus Types, HR Configuration and Change Staff Sorting.",
+    "steps": [
+      "Press a card to open that catalogue."
+    ],
+    "notes": []
+  },
+  "admin:/hr/config/departments": {
+    "purpose": "The departments every employee, job requisition and application is filed under.",
+    "steps": [
+      "Press a tile (**All Departments**, **Active**, **In-active**) to filter. Use **Search** and **Status** with **Go**.",
+      "Press **Create**. Enter the **Department Name** (required), a **Code** and a **Description**. Press **Create department**.",
+      "Press **Edit** on a row and **Save department**. Press **Deactivate** or **Activate** to switch it off or on."
+    ],
+    "notes": [
+      "The **Employees** column counts the live staff in each department. **Head of Department** shows who leads it.",
+      "A department code must be unique."
+    ]
+  },
+  "admin:/hr/config/shifts": {
+    "purpose": "Morning and night shifts with their start and end times. Attendance, holidays and the payroll shortage calculation all read these times.",
+    "steps": [
+      "Press a tile (**All Shifts**, **Active**, **In-active**) to filter. Use **Search**, **Shift Type** and **Status** with **Go**.",
+      "Press **Create**. Enter the **Shift Name**, **Start Time** and **End Time** (all required), choose the shift type and press **Create shift**.",
+      "Press **Edit** and **Save shift** to change one. Press **Deactivate** or **Activate**.",
+      "Press **Shift Cover** to see who covers which shift."
+    ],
+    "notes": [
+      "The **Shift Code** is derived from the shift type and the row, for example M1 or N2. **Staff** counts the employees on that shift."
+    ]
+  },
+  "admin:/hr/config/holidays": {
+    "purpose": "Non-working days. Attendance is not generated on a holiday, and leave that spans one does not consume an entitlement.",
+    "steps": [
+      "Read the tiles: **All Holidays**, **Active**, **In-active** and **Upcoming**. Filter with **Search**, **Shift**, **Year** and **Status**, then press **Go**.",
+      "Press **Create**. Enter the **Name** and **Date** (required), an **End Date** for a multi-day holiday, the shift it applies to, **Notes** and whether it is a **Paid holiday**. Press **Create holiday**.",
+      "Press **Edit** and **Save holiday** to change one. Press **Deactivate** or **Activate**."
+    ],
+    "notes": [
+      "A holiday can apply to all shifts or to one shift group only.",
+      "Two holidays cannot be recorded on the same date for the same shift group."
+    ]
+  },
+  "admin:/hr/config/users": {
+    "purpose": "The branch user accounts behind the employee records: name, email, role, linked employee, department and last sign-in.",
+    "steps": [
+      "Read the tiles: **All Users**, **Active**, **In-active** and **Never Signed In**.",
+      "Filter with **Search** (name or email), **Role** and **Status**, then press **Go**.",
+      "Press **Open** on a row to see the linked employee record.",
+      "Press **User Administration** to create or edit accounts."
+    ],
+    "notes": [
+      "This page is read-only. Accounts are created and edited in Administration.",
+      "Only staff logins (admin and teacher portals) are listed; client and student logins are not."
+    ]
+  },
+  "admin:/hr/config/violation-types": {
+    "purpose": "The catalogue of offences and the fine each one normally carries, so violations are consistent between managers.",
+    "steps": [
+      "Press a tile (**All Types**, **Active**, **In-active**) to filter. Use **Search**, **Severity** and **Status** with **Go**.",
+      "Press **Create**. Enter the **Description** (required), the **Penalty Amount**, a **Description (Urdu)**, the severity and a **Sort No**. Press **Create type**.",
+      "Press **Edit** and **Save type** to change one. Press **Deactivate** or **Activate**."
+    ],
+    "notes": [
+      "Severity is Minor, Major or Critical. The **Used** column counts the violations raised against each type.",
+      "Only active types are offered when a violation is raised."
+    ]
+  },
+  "admin:/hr/config/bonus-types": {
+    "purpose": "The catalogue of bonuses and the amount each one normally carries.",
+    "steps": [
+      "Press a tile (**All Types**, **Active**, **In-active**) to filter. Use **Search** and **Status** with **Go**.",
+      "Press **Create**. Enter the **Description** (required), the **Bonus Amount**, a **Description (Urdu)** and a **Sort No**. Press **Create type**.",
+      "Press **Edit** and **Save type** to change one. Press **Deactivate** or **Activate**."
+    ],
+    "notes": [
+      "The **Used** column counts the bonuses raised against each type. Only active types are offered when a bonus is raised."
+    ]
+  },
+  "admin:/hr/config": {
+    "purpose": "The index of the HR configuration catalogues, with a record count on each card.",
+    "steps": [
+      "Press a card such as **Departments** or **Shift** to open that catalogue.",
+      "Press **Employee Record** to go to the staff list."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Needs the employees.configure or employees.update permission."
+    ]
+  },
+  "admin:/home/self": {
+    "purpose": "The landing page of the Employee Self Portal. Every member of staff uses it to reach their own attendance, requests, pay, team and record.",
+    "steps": [
+      "Press a card to open that page: **My Overview**, **My Schedule**, **Requests**, **Attendance Sheet**, **Tasks**, **Daily Progress Sheet**, **Team Management**, **Account Ledger**, **Violations**, **Bonuses**, **Salary Slips**, **Notifications**, **Downloads**, **Complaints**, **My Profile**, **My Leaves**, **My Development**, **Raise a Grievance** or **Daily Report**."
+    ],
+    "notes": [
+      "Most cards open one tab of the same page, so the tab strip at the top lets you move between them.",
+      "My Leaves, My Development, Raise a Grievance and Daily Report are additions to the original ERP."
+    ]
+  },
+  "admin:/hr/me": {
+    "purpose": "Your own dashboard. Mark your attendance, see this month's figures, read your record and raise a request to People and Culture.",
+    "steps": [
+      "Press **Mark Attendance** in **Today's Attendance**. The first press of the day records your login time, the second your logout time. A third press changes nothing.",
+      "Read the tiles: your attendance percentage for the month, **Late arrivals**, **Leave days** and **Last net pay**.",
+      "**Today by session** shows your AM and PM punches. **My record** shows your code, designation, department, shift, joining date, device and background check.",
+      "In **Raise a request**, choose the **Req Type**, write the **Description** and press **Send to People & Culture**. **My requests** lists what you raised and the HR remarks.",
+      "Press **Account Ledger** to open your ledger."
+    ],
+    "notes": [
+      "Mark Attendance records the address you pressed it from. Late minutes use the grace time set in Configuration, the same rule payroll uses.",
+      "Each working day has an AM and a PM session. Mark Attendance moves whichever one is open.",
+      "If no employee record is linked to your login, the page tells you to ask People and Culture."
+    ]
+  },
+  "admin:/hr/me?tab=schedule": {
+    "purpose": "Your working pattern: shift, duty hours, upcoming holidays and, for a teacher, your classes for the next 14 days.",
+    "steps": [
+      "Read the tiles: **Shift**, **Duty hours / day**, **Classes next 14 days** and **Classes today**.",
+      "**My working pattern** shows your shift window and the hours owed per session.",
+      "**Upcoming holidays** lists the non-working days for your shift in the next 60 days."
+    ],
+    "notes": [
+      "Staff without classes see only their shift and duty hours; these are the figures attendance is measured against."
+    ]
+  },
+  "admin:/hr/me?tab=requests": {
+    "purpose": "Your leave requests, employee requests and advance requests in one place, each with its own create form.",
+    "steps": [
+      "Under **Leave Requests**, press **Create**, choose the **Leave Type**, set **From** (required) and **To**, write the **Reason** (required) and submit. The request goes to People and Culture as Pending.",
+      "Under **Employee Requests**, press **Create**, choose the **Req Type**, write the **Description** and submit.",
+      "Under **Advance Requests**, press **Create**, set the **Request Date**, **Amount** and **No Of Installments** (all required) and your **Remarks**. **Hr Remarks** is filled in by People and Culture when they decide.",
+      "Watch the **Status** column of each table for the decision."
+    ],
+    "notes": [
+      "A leave request cannot overlap another pending or approved leave.",
+      "The **Remaining** column on an advance shows how much is still to be recovered from your salary."
+    ]
+  },
+  "admin:/hr/me?tab=attendance": {
+    "purpose": "Your own attendance rows with login and logout times, late minutes and duration shortage, and a way to ask for a correction.",
+    "steps": [
+      "Set **From Date**, **To Date** and **Attendance Type** (Absent, On Leave or Present), then press **Go**. The default is this month.",
+      "Read the tiles: **Attendance** percentage, **Present**, **Late Coming**, **Absent** and **On Leave**.",
+      "Press **Request to Change** on a row, choose the correct type and times, and explain what went wrong with the punch. The cell then reads **Requested** until People and Culture decide."
+    ],
+    "notes": [
+      "Late Coming and Duration Shortage are in minutes. A negative number means you were early or worked longer than the session owed.",
+      "Rows are highlighted for Absent, Late Coming, Duration Shortage and Change requested.",
+      "The figures here are the same ones payroll uses."
+    ]
+  },
+  "admin:/hr/me/tasks": {
+    "purpose": "A three-sided view of tasks: what you owe, what you gave to others, and what your team owes other people.",
+    "steps": [
+      "Read the tiles **My Pending Tasks**, **My Pending Assigned Tasks** and **Others Pending Tasks**. Press a tile or a tab (**My Tasks**, **Assigned Tasks**, **Others Tasks**) to switch.",
+      "Filter with **Task Title** and **Status**, then press **Go**.",
+      "Press **Comment** on a row, write your comment and press **Add comment**. The **Comments** column counts them.",
+      "Press **Status** on one of your own tasks, choose the new status, add a note and press **Save status**.",
+      "Press **Create a task** or **Task Board** to use the full Tasks & Projects page."
+    ],
+    "notes": [
+      "Only the person a task is assigned to can change its status here.",
+      "Others Tasks covers the people in your reporting line."
+    ]
+  },
+  "admin:/hr/me/progress": {
+    "purpose": "Your own daily progress entries. Write the day up, keep it as a draft, submit it, and see the rating your manager gives.",
+    "steps": [
+      "Read the tiles: **Draft**, **Submitted**, **Rated** and **Average rating**.",
+      "Press **Create**. Set the **Working Date** and write the **Progress Detail** (both required). Press **Save as draft** to keep editing, or **Save and submit** to send it to your manager.",
+      "Filter with **Status**, **From Date** and **To Date**, then press **Go**."
+    ],
+    "notes": [
+      "A draft can be edited as often as you like. Once submitted it is locked and only your manager can rate it.",
+      "Submitting notifies your manager. The rating appears in the **Manager Rating** column."
+    ]
+  },
+  "admin:/hr/me/team": {
+    "purpose": "Your reporting line as a tree, and the forms to raise a Staff Violation or a Staff Bonus against anyone beneath you.",
+    "steps": [
+      "Read the tiles: **Direct Reports**, **My Team**, **Pending Violations** and **Pending Bonuses**.",
+      "**My Team** shows everyone who reports to you, nested to the real depth.",
+      "Press **Raise a Violation**. Choose the **Emp Name**, the **Date** and the **Penalty Description** from the catalogue, write the **Remarks** (required) and press **Raise violation**.",
+      "Press **Raise a Bonus**. Choose the **Emp Name**, the **Bonus Type** and the **Period**, write the **Remarks** and press **Raise bonus**.",
+      "The two tables list what has been raised against your team and its status."
+    ],
+    "notes": [
+      "You can only raise against people genuinely in your tree. A name outside it is refused.",
+      "Everything raised here lands Pending in the People and Culture queues. Nobody decides their own proposal, and a fine applies only once approved.",
+      "The member of staff is notified when something is raised against them."
+    ]
+  },
+  "admin:/hr/me/ledger": {
+    "purpose": "Every line that moved money on your account: salary, bonuses, fines, advances and their recovery, with a running balance.",
+    "steps": [
+      "Set **From Date** and **To Date**, or type a word or voucher id in **Search**, then press **Go**.",
+      "Read the tiles: **Opening Balance**, **Amount Dr.**, **Amount Cr.** and **Balance**.",
+      "Read the rows: **Srl.**, **Date**, **VID** (the voucher id), **Description**, **Amount Dr.**, **Amount Cr.** and **Balance**.",
+      "Press **Print** for a print view."
+    ],
+    "notes": [
+      "A debit is money owed to you: salary earned, a bonus or an instalment recovered. A credit is money paid or deducted: salary paid, a fine or an advance paid out.",
+      "Only your own account is shown here. Each line is written once, so nothing is counted twice."
+    ]
+  },
+  "admin:/hr/me?tab=violations": {
+    "purpose": "A read-only list of the violations recorded against you, with severity, action taken, deduction and approval status.",
+    "steps": [
+      "Read each row: **Date**, **Type**, **Severity**, **Description**, **Action taken**, **Deduction** and **Approval Status**.",
+      "Press **Account Ledger** to see an approved fine on your account."
+    ],
+    "notes": [
+      "Only an approved violation carries a deduction. A pending one shows the proposed fine only.",
+      "You are notified when a violation is recorded and when it is decided."
+    ]
+  },
+  "admin:/hr/me?tab=bonuses": {
+    "purpose": "A read-only list of the bonuses proposed or awarded to you.",
+    "steps": [
+      "Read each row: **ID**, **Period**, **Bonus Type**, **Amount**, **Reason**, **Acceptance Date** and **Status**."
+    ],
+    "notes": [
+      "An approved bonus is paid in the payroll of its period and appears on your Account Ledger."
+    ]
+  },
+  "admin:/hr/me?tab=payslips": {
+    "purpose": "One row per payroll month with basic, class pay, allowances, deductions and net salary, each viewable and printable.",
+    "steps": [
+      "Read each row: **Month**, **Description**, **Basic**, **Class pay**, **Allowances**, **Deductions**, **Net Salary** and **Status**.",
+      "Press **View** to open the payslip with its full breakdown, or **Print** for a paper layout."
+    ],
+    "notes": [
+      "A payslip appears here once the payroll run is generated. You are notified when the run is posted.",
+      "Deductions include attendance deductions, approved violation fines and advance instalments."
+    ]
+  },
+  "admin:/hr/me/notices": {
+    "purpose": "The staff notices from People and Culture that apply to you today.",
+    "steps": [
+      "Read the tiles **Live notices** and **Newest**.",
+      "Read each row: **ID**, **Title**, **Description** and **Dated**. Press **Open link** where a notice carries one.",
+      "Press **My Overview** or **Back** to return."
+    ],
+    "notes": [
+      "Only notices that are active and inside their date window are shown, addressed to all staff or to your employee type."
+    ]
+  },
+  "admin:/hr/me?tab=complaints": {
+    "purpose": "Your own complaints to People and Culture and their responses.",
+    "steps": [
+      "In **Create Complaint**, choose the **Complaint Type**, write the **Title** and **Description** (both required) and press **Create**.",
+      "Read **My complaints**: **Complaint Type**, **Title**, **Description**, **Admin Response** and **Status**."
+    ],
+    "notes": [
+      "A complaint is read by People and Culture and, unless marked secret, by managers with HR access.",
+      "For anything about your own management chain, use Raise a Grievance instead."
+    ]
+  },
+  "admin:/profile": {
+    "purpose": "Your own login account: personal details, password, two-factor authentication and active sessions.",
+    "steps": [
+      "On **Profile**, edit **Full name** (required), **Phone**, **Timezone** and **Language**, then press **Save changes**.",
+      "On **Password**, enter your current password and the new one twice.",
+      "On **Two-factor auth**, scan the QR code with an authenticator app and enter the code to enable it.",
+      "On **Sessions**, revoke any device you no longer use."
+    ],
+    "notes": [
+      "Changing your password signs out your other sessions.",
+      "Never share your password. The college never asks for it."
+    ]
+  },
+  "admin:/hr/me?tab=leaves": {
+    "purpose": "Request leave and see your leave balance and history.",
+    "steps": [
+      "In **Request leave**, choose the **Type**, set **From** (required) and **To**, write the **Reason** (required) and press **Submit request**.",
+      "Read **My balance 2026** for the allowed, used and remaining days per leave type this year.",
+      "The table lists each request with **Type**, **From**, **To**, **Days**, **Status** and **Reason**."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "A request cannot overlap another pending or approved leave. The end date cannot be before the start date.",
+      "You are notified when the request is approved, rejected or cancelled."
+    ]
+  },
+  "admin:/hr/me?tab=development": {
+    "purpose": "Your growth plan and the training assigned to you.",
+    "steps": [
+      "Read **My growth journey** for your development plan, its goals and its progress.",
+      "Read **My training** for the courses assigned to you, their due dates and their status."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Training is assigned by People and Culture in the Ustaadh Lab. A course marked as a promotion gate must be completed before a promotion.",
+      "The message **No training assigned.** means nothing is assigned to you at the moment."
+    ]
+  },
+  "admin:/hr/me?tab=grievance": {
+    "purpose": "A confidential channel straight to the Head of People and Culture. Department heads and managers never see it.",
+    "steps": [
+      "Choose a **Category**, then write the **Subject** and **What happened** (both required).",
+      "Tick **Submit anonymously** if your name and employee record must not be stored against the case.",
+      "Press **Send confidentially**.",
+      "**My submissions** lists your named cases and their status."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Each case has a 5-day service level. Anonymous submissions are not listed under My submissions and you are not notified of their outcome."
+    ]
+  },
+  "admin:/daily-reports": {
+    "purpose": "Two structured report slots a day, a morning plan and an afternoon delivery. This written record replaces reporting by chat.",
+    "steps": [
+      "Read the tiles: **Reports (30 days)**, **Late submissions**, **Complete-day streak** and **Department template**.",
+      "In **Morning plan**, fill in **Top three priorities today**, **Capacity / availability** and **Blockers I need help with**, plus your department's extra fields. Press **Submit report**.",
+      "In **Afternoon delivery**, fill in **What I completed**, **What slipped and why** and **First thing tomorrow**. Press **Submit report**.",
+      "Press **Previous day** to file or read an earlier day. Press **History** or **Full history** for past reports and **Export CSV** to download them.",
+      "Managers press **Team compliance** to see who has filed and who is late."
+    ],
+    "notes": [
+      "This page is an addition to the original ERP.",
+      "Each slot has a deadline set in Configuration. A report filed after it is recorded as late.",
+      "At least one field must be filled in; an empty report is not accepted. You cannot file for a future day."
+    ]
+  }
+}
