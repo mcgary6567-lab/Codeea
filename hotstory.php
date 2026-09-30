@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v6';
+$BUILD = 'v7';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -50,10 +50,17 @@ $CFG_CANDIDATES = array(
 $CFG_FILE = $CFG_CANDIDATES[1];
 foreach ($CFG_CANDIDATES as $cand) { if (is_readable($cand)) { $CFG_FILE = $cand; break; } }
 
-$STATE_FILE = __DIR__ . '/.hotstory_state.json';
+// The two OUTPUT files must sit in the web root - the EA fetches hotstory.txt
+// by URL. The state file and the log must NOT: __DIR__ is public_html, which
+// the Hostinger deploy replaces wholesale on every push, so keeping them there
+// erased the "already classified" memory and the diagnostic log on each
+// deploy. Same reasoning as .ai-config.php living one level up.
+$PERSIST_DIR = (is_dir(dirname(__DIR__)) && is_writable(dirname(__DIR__)))
+             ? dirname(__DIR__) : __DIR__;
+$STATE_FILE = $PERSIST_DIR . '/.hotstory_state.json';
+$LOG_FILE   = $PERSIST_DIR . '/.hotstory.log';
 $OUT_JSON   = __DIR__ . '/hotstory.json';
 $OUT_TXT    = __DIR__ . '/hotstory.txt';
-$LOG_FILE   = __DIR__ . '/.hotstory.log';
 
 $MAX_CLASSIFY_TRIES = 2;   // give up on one story after this many model failures
 $MAX_POST   = 3 * 1024 * 1024;   // a FF page is ~250 KB; this is generous
@@ -239,6 +246,8 @@ if (isset($_GET['selftest'])) {
     'build'         => $BUILD,
     'config_file'   => $CFG_FILE,
     'config_found'  => ($cfg !== null),
+    'persist_dir'   => $PERSIST_DIR,
+    'persist_ok'    => (strpos($PERSIST_DIR, __DIR__) !== 0),
     'provider'      => $cfg ? $cfg['provider'] : null,
     'model'         => $cfg ? $cfg['model'] : null,
     'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
