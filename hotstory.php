@@ -41,7 +41,7 @@ header('Cache-Control: no-store');
 @ini_set('log_errors', '1');
 @set_time_limit(120);
 
-$BUILD = 'v7';
+$BUILD = 'v8';
 
 $CFG_CANDIDATES = array(
   dirname(__DIR__) . '/.ai-config.php',   // preferred - survives deploys
@@ -182,8 +182,18 @@ function classify($cfg, $headline, $excerpt, $instruments, $timeout) {
 
   $j = json_decode($raw, true);
   $text = '';
-  if (isset($j['content'][0]['text']))                   $text = $j['content'][0]['text'];
-  elseif (isset($j['choices'][0]['message']['content'])) $text = $j['choices'][0]['message']['content'];
+  // Anthropic: the reply is a LIST of content blocks and the text is not
+  // necessarily the first one - a thinking block can precede it. Reading only
+  // content[0] reported "empty model reply" for perfectly good answers (the
+  // same story classified fine an hour earlier, then "empty" on re-read).
+  if (isset($j['content']) && is_array($j['content'])) {
+    foreach ($j['content'] as $blk) {
+      if (isset($blk['type']) && $blk['type'] === 'text' && isset($blk['text']) && $blk['text'] !== '')
+      { $text .= $blk['text']; }
+    }
+  }
+  if ($text === '' && isset($j['choices'][0]['message']['content']))
+    $text = (string)$j['choices'][0]['message']['content'];
   if ($text === '') return array('err' => 'empty model reply', 'raw' => (string)$raw);
 
   if (preg_match('~\{.*\}~s', $text, $m)) $text = $m[0];
@@ -252,6 +262,9 @@ if (isset($_GET['selftest'])) {
     'model'         => $cfg ? $cfg['model'] : null,
     'token_sha'     => substr($TOKEN_SHA, 0, 12) . '...',
     'known_id'      => $state['id'],
+    'log_tail'      => (function($f) { if (!is_readable($f)) return array();
+                          $l = @file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                          return is_array($l) ? array_slice($l, -4) : array(); })($LOG_FILE),
     'failed_id'     => $state['fail_id'],
     'failed_tries'  => (int)$state['fail_n'],
     'max_tries'     => $MAX_CLASSIFY_TRIES,
