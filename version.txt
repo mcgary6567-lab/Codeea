@@ -1,0 +1,3 @@
+latest=4.45
+note=
+url=https://goldscalpers.com/thank-you
