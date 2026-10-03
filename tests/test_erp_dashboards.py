@@ -280,8 +280,11 @@ def test_erp_billing_seed_created_ledger_additions(db):
     assert len(statuses) >= 2
     assert {r.effect for r in rows} == {"add", "minus"}
     assert len({r.addition_type for r in rows}) >= 4
-    oldest = min(r.addition_date for r in rows)
-    assert (date.today() - oldest).days <= 95
+    # the seed spreads additions over the 90 days before the day it ran; measure that spread, not the age
+    # of the dev database, which only grows between re-seeds
+    oldest, newest = min(r.addition_date for r in rows), max(r.addition_date for r in rows)
+    assert (newest - oldest).days <= 95
+    assert newest <= date.today()
     for r in rows:
         if r.status == "confirmed":
             assert r.ledger_entry_id is not None
