@@ -318,45 +318,82 @@ def status_grid(db: Session, day: date, teacher_ids: Optional[list[int]] = None,
 
 
 def schedule_summary(db: Session, category: Optional[str] = None, teacher_ids: Optional[list[int]] = None) -> dict:
-    """Schedule Summary Report: per teacher, per slot Free/Total. Free = number of weekdays (of 7) with no active schedule."""
+    """Schedule Summary Report, as the college's ERP draws it: one row per teacher, one column per session slot,
+    and in each cell the students taught in that slot (student code and name over the family's name), coloured
+    by kind: regular, trial, group class, or frozen. Empty cells are the teacher's free sessions."""
+    from bisect import bisect_right
+
     from app.models.erp import SessionSlot
+    from app.models.finance import Subscription
     from app.models.people import Employee
     slots = db.query(SessionSlot).filter(SessionSlot.status == "active")
-    if category:
-        slots = slots.filter(SessionSlot.category == category)
+    slots = slots.filter(SessionSlot.category == (category or "30 Minutes"))
     slots = slots.order_by(SessionSlot.sort_no, SessionSlot.start_time).all()
-    # collapse to one column per start time (categories share the 48-slot grid)
     seen, columns = set(), []
-    for s in slots:
-        if s.start_time in seen:
+    for sl in slots:
+        if sl.start_time in seen:
             continue
-        seen.add(s.start_time)
-        columns.append(s)
+        seen.add(sl.start_time)
+        columns.append(sl)
+    # the grid is ordered 07:00 round to 06:30, so look up exact starts first and fall back to the nearest
+    # earlier slot by clock time (a 30-minute start on the 45-minute grid)
+    index_of = {c.start_time: i for i, c in enumerate(columns)}
+    clock = sorted((c.start_time, i) for i, c in enumerate(columns))
+    clock_starts = [c for c, _ in clock]
+
     tq = db.query(Teacher).filter(Teacher.status != "inactive")
     if teacher_ids is not None:
         tq = tq.filter(Teacher.id.in_(teacher_ids or [-1]))
     teachers = tq.all()
     sort_no = {e.id: (e.sort_no or 0) for e in db.query(Employee).filter(Employee.is_teacher.is_(True))}
     teachers.sort(key=lambda t: (sort_no.get(t.employee_id, 999) if t.employee_id else 999, t.full_name))
+
     schedules = db.query(Schedule).filter(Schedule.status == "active", Schedule.teacher_id.in_([t.id for t in teachers] or [-1])).all()
-    busy: dict[int, dict[time, set]] = {}
+    sub_ids = {sch.subscription_id for sch in schedules if sch.subscription_id}
+    subs = {s.id: s for s in db.query(Subscription).filter(Subscription.id.in_(sub_ids or [-1]))} if sub_ids else {}
+
+    def kind_of(sch: Schedule) -> str:
+        sub = subs.get(sch.subscription_id)
+        status = (sub.status if sub else "") or ""
+        if sch.is_trial or status == "trial":
+            return "trial"
+        if status in ("frozen", "freeze"):
+            return "freeze"
+        if sub and sub.course_method == "group":
+            return "group"
+        return "regular"
+
+    # schedule -> the column whose slot contains its start time (a 45-minute grid does not share every start)
+    by_cell: dict[int, dict[int, list[dict]]] = {}
     for sch in schedules:
         st = time(sch.start_time.hour, sch.start_time.minute)
-        busy.setdefault(sch.teacher_id, {}).setdefault(st, set()).update(int(d) for d in (sch.days_of_week or []))
+        if not columns:
+            continue
+        if st in index_of:
+            i = index_of[st]
+        else:
+            k = bisect_right(clock_starts, st) - 1
+            i = clock[k][1] if k >= 0 else clock[-1][1]
+        student = sch.student
+        by_cell.setdefault(sch.teacher_id, {}).setdefault(i, []).append({
+            "schedule": sch, "kind": kind_of(sch),
+            "student_code": student.student_code if student else "", "student_name": student.full_name if student else "",
+            "client_name": (student.client.full_name if student and student.client else ""),
+            "days": [int(d) for d in (sch.days_of_week or [])], "start": st,
+        })
+
     rows = []
-    total_days = 7
     for t in teachers:
-        cells = []
-        free_sum = total_sum = 0
-        for col in columns:
-            used = len(busy.get(t.id, {}).get(col.start_time, set()))
-            free = total_days - used
-            cells.append({"slot": col, "free": free, "total": total_days, "used": used})
-            free_sum += free
-            total_sum += total_days
-        rows.append({"teacher": t, "cells": cells, "free": free_sum, "total": total_sum,
+        cells, busy = [], 0
+        for i, col in enumerate(columns):
+            entries = sorted(by_cell.get(t.id, {}).get(i, []), key=lambda e: (e["start"], e["student_name"]))
+            cells.append({"slot": col, "entries": entries})
+            busy += 1 if entries else 0
+        code = t.employee.employee_code if t.employee else t.teacher_code
+        rows.append({"teacher": t, "code": code, "cells": cells, "busy": busy, "free": len(columns) - busy,
                      "schedules": sum(1 for s in schedules if s.teacher_id == t.id)})
-    return {"columns": columns, "rows": rows, "slot_count": len(columns)}
+    return {"columns": columns, "rows": rows, "slot_count": len(columns), "category": category or "30 Minutes",
+            "kinds": [("regular", "Regular"), ("trial", "Trial"), ("group", "Group Class"), ("freeze", "Freeze")]}
 
 
 # ============================================================================= ERP parity (WP-3 appendix 2)

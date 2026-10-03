@@ -1,1054 +1,1058 @@
 {
-  "admin:/home/academics": {
-    "purpose": "The home page of the Online Academics area. Academic staff start here to see today's pending requests and class status, then open one of the 13 groups.",
-    "steps": [
-      "Read the top counters. **Client Complaints**, **Leave Applications**, **New References**, **Teacher Change Request** and **Time Change Request** show requests still waiting for a decision.",
-      "Read the class counters for today: **Free Students**, **Pending Classes**, **Done Classes**, **Missed Classes**, **Student Absent**, **Student On-leave**, **Cancelled Classes** and **Rescheduled Classes**.",
-      "Press any counter to open the matching list already filtered to that status.",
-      "Press a group card, for example **Client Management** or **Class Management**, to open that group."
-    ],
-    "notes": [
-      "A free student is an active student with no running subscription."
-    ]
-  },
-  "admin:/home/academics/dashboards": {
-    "purpose": "Group page for the academic dashboards. Managers use it to reach the client, subscription, billing and performance charts.",
-    "steps": [
-      "Press a card such as **Client Management**, **Subscriptions (Count)**, **Financial Summary** or **CEO Command Center** to open that dashboard."
-    ],
-    "notes": [
-      "**Subscriptions (Multiple)** opens the Subscriptions (Amount) dashboard. The card keeps the label used in the old ERP."
-    ]
-  },
-  "admin:/dashboards/clients": {
-    "purpose": "Charts on how many families the college has, where they come from and what status they hold. Managers use it to watch registrations over time.",
-    "steps": [
-      "Set **Reg. From Date**, **Reg. To Date**, **Client**, **Country**, **Shift** or **Status**, then press **Go**. Press **Reset** to clear the filters.",
-      "Read the tiles **Regular**, **Trial**, **On Leave**, **Passed Out**, **Dropped Out** and **Black Listed**. Press a tile to open the client list filtered to that status.",
-      "Scroll to the charts: **Month Wise Registrations**, **Country Wise**, **Shift Wise**, **Status Wise**, **State Wise**, **Gateway Wise**, **Currency Wise**, **Billing Representative Wise** and **Academic Manager Wise**.",
-      "Press **Client list** or **Financial Summary** at the top to jump to those pages."
-    ],
-    "notes": [
-      "A regular client is a paying family. A trial client is a family whose free trial classes are still running.",
-      "Black Listed means the family is blocked from new subscriptions."
-    ]
-  },
-  "admin:/dashboards/subscriptions": {
-    "purpose": "Counts of subscriptions by month, country, status, shift, teacher, supervisor and course. Managers use it to see how enrolments are spread.",
-    "steps": [
-      "Set **From Date**, **To Date**, **Employee**, **Shift** or **Status** and press **Go**.",
-      "Read the tiles **Total Regular Subscriptions**, **Total Trial Subscriptions**, **Total Cancelled Subscriptions** and **Total Completed Subscriptions**.",
-      "Scroll through the charts **Month Wise**, **Country wise**, **Status Wise**, **Shift wise**, **Teacher wise**, **Supervisor wise** and **Course wise**.",
-      "Press **Switch to amount** to see the same charts in money instead of counts. Press **All Subscriptions** to open the full list."
-    ],
-    "notes": [
-      "A subscription is one student taking one course with one teacher at a fixed session time."
-    ]
-  },
-  "admin:/dashboards/subscriptions/amount": {
-    "purpose": "The same subscription charts as Subscriptions (Count), but valued in money. Managers use it to see the revenue mix.",
-    "steps": [
-      "Set **From Date**, **To Date**, **Employee**, **Shift**, **Status** or **Country** and press **Go**.",
-      "Read the tiles **Total Amount Of Regular**, **Total Amount Of Trial**, **Total Amount Of Cancelled** and **Total Amount Of Completed**.",
-      "Scroll through the charts by month, country, status, shift, teacher, supervisor and course.",
-      "Press **Switch to count** to go back to the count view."
-    ],
-    "notes": [
-      "Amounts are shown in PKR. Foreign prices are converted at the current exchange rate."
-    ]
-  },
-  "admin:/dashboards/billing": {
-    "purpose": "A one-page view of business volume, what families owe, confirmed invoices and the month's payroll. Billing managers use it for a quick health check.",
-    "steps": [
-      "Set **From Date**, **To Date**, **Employee**, **Country** or **Shift** and press **Go**.",
-      "Read the tiles **Regular Subscriptions**, **Monthly Business Volume**, **Invoices Confirmed** and **Month Payroll Amount**.",
-      "Read the panels **Over All Business Volume**, **Clients Receivables**, **Invoices**, **Month Payroll Amount** and the **Regular / Cancelled Subscriptions flow** chart.",
-      "Press **Invoice List** or **Receipts** to open the detailed lists."
-    ],
-    "notes": [
-      "Clients Receivables shows the opening balance, closing balance and the difference for the period."
-    ]
-  },
-  "admin:/dashboards/monthly-performance": {
-    "purpose": "Activity counts for academics, marketing, billing and HR in one chosen date window. Managers use it for the monthly review.",
-    "steps": [
-      "Set **Start Date**, **End Date** and, if needed, **Employees**, then press **Go**.",
-      "Use the tabs **Show All**, **Academics**, **Marketing**, **Billing** and **HR** to limit the cards to one department.",
-      "Each card shows one count or amount with a small weekly bar chart under it.",
-      "Press **Financial Summary** or **Monthly Insights** to move to those reports."
-    ],
-    "notes": [
-      "Cards include regular, dropped, freeze and completed subscriptions, missed classes, leads, invoices, receipts, ledger additions, employee requests and violations."
-    ]
-  },
-  "admin:/dashboards/financial-summary": {
-    "purpose": "Invoicing, collection and account health for a set of families. Billing and management staff use it to watch cash collection.",
-    "steps": [
-      "Filter by **From Date**, **To Date**, **Client**, **Shift**, **Currency**, **Billing Group**, **Country**, **State** or **Status**, then press **Go**.",
-      "Read the tiles, for example **Total Invoices Amount**, **Total Pending Amount**, **Total Received Amount**, **Collection Efficiency %** and **Avg Revenue Per Client**.",
-      "Scroll to the charts **Monthly Invoice Trend**, **Monthly Collection Trend**, **Clients Count Based on Currency**, **Student by Shift**, **Top 10 OutStanding Clients**, **Subscription Status Breakdown** and **Collection Efficiency Trend %**.",
-      "Press **Client Ledger Report** or **Billing Dashboard** at the top to open those pages."
-    ],
-    "notes": [
-      "Collection Efficiency % is the received amount divided by the invoiced amount.",
-      "Exceeded Accounts counts families whose balance is past their allowed limit."
-    ]
-  },
-  "admin:/dashboards/monthly-insights": {
-    "purpose": "A printable table that compares one month with the month before. Each row shows Day, Night and Total columns for both months and the direction of change.",
-    "steps": [
-      "Choose a month in **Select Month** and press **Submit**.",
-      "Read each row, for example Leads, Trial, Sign Up, Dropout, Current Student, Fee Recovery % and Trial Conversion %.",
-      "Read the **Change** column. It says up, down or No Change.",
-      "Press **Print** to print the table."
-    ],
-    "notes": [
-      "Day means the morning shift and Night means the night shift."
-    ]
-  },
-  "admin:/command-center": {
-    "purpose": "The chief executive's overview: an institutional health score, executive KPIs, AI insights, anomaly alerts and department scorecards for one period.",
-    "steps": [
-      "Choose a **Period** or set **From** and **To**, then press **Apply**. Press **This month** to return to the current month.",
-      "Read **Institutional Health** (a score out of 100 built from weighted sub-scores) and the KPI cards under **Revenue vs expenses**, **Active students**, **Lead funnel** and **Today's class execution**.",
-      "Under **AI executive insights** press **Regenerate** to produce a fresh written summary. Under **Anomalies & alerts** press **Scan** to look for unusual figures and raise alerts.",
-      "Read **Weekly trajectory** and **Department scorecards**. Press **Open** on a scorecard row to see its detail.",
-      "Press **Executive report (XLSX)** to download the figures as a spreadsheet. **Trajectory meetings** and **KPI scorecards** open the related pages."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Sub-scores with no data are left out and the remaining weights are rescaled.",
-      "Regenerating insights and scanning anomalies are recorded in the audit log."
-    ]
-  },
-  "admin:/home/academics/clients": {
-    "purpose": "Group page for family records. Staff use it to reach the client list, trial clients and online registrations.",
-    "steps": [
-      "Press **Client List**, **Trial Client List** or **Online Registrations**."
-    ],
-    "notes": []
-  },
-  "admin:/clients": {
-    "purpose": "The list of all families (clients) with their status, students, balance and contacts. Front-desk and billing staff use it to find and open a family.",
-    "steps": [
-      "Press a tile (**Trial**, **Regular**, **Drop Out**, **Black List**, **On Leave**) to filter the list to that status.",
-      "Or use **Search**, **Status**, **Shift**, **Country**, **Billing Representative**, **Academic Manager**, **Registered from** and **Registered to**, then press **Go**. Press **Reset** to clear.",
-      "Press a client name or **Open** to see the family's record. Press **View** in the **WhatsApp** column to reveal a masked contact.",
-      "Press **Create** to add a new family. **Trial Client List** and **Clients Users List** open the related pages."
-    ],
-    "notes": [
-      "Email and phone details are masked. Every reveal is written to the audit log with your name.",
-      "Drop Out means the family left. Black List means the family is blocked from new subscriptions."
-    ]
-  },
-  "admin:/clients/trial": {
-    "purpose": "Families whose free trial is still running, with who added the lead, when it converted and which closer owns it. Sales and academic staff use it to follow trials.",
-    "steps": [
-      "Read the tiles **Trial**, **Morning shift**, **Night shift** and **Regular**. Press a tile to filter the list.",
-      "Filter by **Search**, **Shift**, **Country**, **Billing Representative**, **Academic Manager**, **Registered from** or **Registered to**, then press **Go**.",
-      "Press a client name to open the family record.",
-      "Press **Create** to add a family, or **Client List** to see all families."
-    ],
-    "notes": [
-      "Rows are coloured by shift so morning and night families are easy to tell apart.",
-      "The Lead Closer is the staff member credited with turning the lead into a client."
-    ]
-  },
-  "admin:/registrations": {
-    "purpose": "Families who filled in the public registration form on the website. Admissions staff review each one and convert it into a client, a portal login and trial students in one step.",
-    "steps": [
-      "Read the tiles **Registrations**, **Awaiting contact**, **Converted**, **Possible duplicates** and **Avg lead score**. Press **Awaiting contact** or **Possible duplicates** to filter.",
-      "Filter by **Search**, **Stage** or **Duplicates** and press **Go**.",
-      "Press **Review** on a row to open the registration. There, check the details and press **Convert to client & student(s)**, or dismiss it.",
-      "Rows already converted show **Client**. Press it to open the family record.",
-      "Press **Open public form** to see the form families fill in."
-    ],
-    "notes": [
-      "Converting needs the approve permission for registrations and at least one student name.",
-      "A possible duplicate is a registration whose phone or email matches an existing lead or client."
-    ]
-  },
-  "admin:/home/academics/requests": {
-    "purpose": "Group page for requests raised by families. Staff use it to reach leave, time change, teacher change, referral and complaint queues.",
-    "steps": [
-      "Press **Leave Applications**, **Time Change Requests**, **Teacher Change Requests**, **Refer New Contacts** or **Complaints**."
-    ],
-    "notes": [
-      "All five lists work the same way: status tiles, a **Create** button and **Actions - Change Status** for the selected rows."
-    ]
-  },
-  "admin:/requests/leaves": {
-    "purpose": "Leave requests for students, applied by the family or recorded by staff. Academic staff approve, reject or cancel them.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter the list, or use **From Date**, **To Date**, **Client**, **Student** and **Approval Status** then press **Go**.",
-      "Tick the rows you want to decide. In **Actions - Change Status** choose **New Status**, type **Remarks** and press **Change Status**.",
-      "Press **Create** to record a leave for a family. Fill in **Student**, **Leave Type**, **From Date**, **To Date** and **Description**. Tick **Leave For All students of the family** if it applies. Press **Save**.",
-      "Use the tabs at the top to switch to the other request lists."
-    ],
-    "notes": [
-      "Remarks are required for every status change and are kept as the reason in the audit log.",
-      "Approving records who approved and when. Only staff with the approve permission can approve."
-    ]
-  },
-  "admin:/requests/time-change": {
-    "purpose": "Requests from families to move a subscription to a different session time or different days. Academic staff decide them.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter. Or filter by **From Date**, **To Date**, **Client**, **Student**, **Approval Status** and press **Go**.",
-      "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
-      "Press **Create** to raise a request for a family. Choose the **Subscription**, the **New Session**, tick the days **Mon** to **Sun**, type a **Description** and press **Save**."
-    ],
-    "notes": [
-      "Approving moves the subscription to the new session and days. Future pending classes are regenerated on the new time.",
-      "Remarks are required and are recorded in the audit log."
-    ]
-  },
-  "admin:/requests/teacher-change": {
-    "purpose": "Requests from families for a different teacher on a subscription. Academic managers decide them.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use the date, **Client**, **Student** and **Approval Status** filters and press **Go**.",
-      "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
-      "Press **Create** to raise a request. Choose the **Subscription**, the **New Teacher**, type a **Description** and press **Save**."
-    ],
-    "notes": [
-      "Approving with a new teacher moves the subscription, the student and all future pending classes to that teacher.",
-      "Remarks are required and are recorded in the audit log."
-    ]
-  },
-  "admin:/requests/references": {
-    "purpose": "New contacts recommended by existing families. Marketing staff approve them so they become leads credited to the referring family.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use **From Date**, **To Date**, **Client**, **Approval Status** and **Search**, then press **Go**.",
-      "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
-      "Press **Create** to record a referral. Choose the **Client** who is referring, type the contact's **Name**, **Email**, **Contact No**, **Reference Type** and **Description**, then press **Save**."
-    ],
-    "notes": [
-      "Approving creates a new lead in the Referral source and links it to the referring family.",
-      "Remarks are required and are recorded in the audit log."
-    ]
-  },
-  "admin:/requests/complaints": {
-    "purpose": "Complaints raised by families about classes, teachers or service. Managers record the company response and close the case.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use the date, **Client**, **Student**, **Approval Status** and **Search** filters and press **Go**.",
-      "Tick rows, choose **New Status**, type **Remarks** and, if you are resolving, a **Company Response**. Press **Change Status**.",
-      "Press **Create** to log a complaint on behalf of a family. Choose the **Client**, **Complaint Type**, type a **Title** and **Description**, then press **Save**.",
-      "Press a complaint ID to open the full case."
-    ],
-    "notes": [
-      "Approving publishes the company response to the family and marks the case resolved.",
-      "Remarks are required and are recorded in the audit log."
-    ]
-  },
-  "admin:/home/academics/students": {
-    "purpose": "Group page for student records. Staff use it to reach the student list, referrals, leaves and the retention board.",
-    "steps": [
-      "Press **Student List**, **Student Referred List**, **Student Leaves**, **On Leave Students** or **Retention & Churn**."
-    ],
-    "notes": []
-  },
-  "admin:/students": {
-    "purpose": "Every learner with family, shift, status and subscription count. Academic staff use it to find a student and open the student record.",
-    "steps": [
-      "Press a tile (**Trial**, **Regular**, **Drop Out**, **Black List**, **On Leave**) to filter the list to that status.",
-      "Or filter by **Search**, **Status**, **Family Status**, **Shift**, **Teacher**, **Course**, **Gender** or **Client** and press **Go**.",
-      "Press **Primary Report** for the normal list or **Free Students List** for active students with no subscription.",
-      "Press a student name or **Open** to see the student record. Press a client name to open the family.",
-      "Press **Create** to add a student. **Student Referred List** and **On Leave Students** open the related pages."
-    ],
-    "notes": [
-      "Family Status is the status of the client, which may differ from the student's own status.",
-      "Trial Days is how many free trial classes the student was given."
-    ]
-  },
-  "admin:/students/referred": {
-    "purpose": "Students who joined through a referral, grouped by who referred them, plus the referral requests raised by families. Marketing staff use it to see which families bring in new students.",
-    "steps": [
-      "Read the tiles **Referred students**, **Referrers**, **Referred contacts** and **Contacts approved**. Press **Referred contacts** or **Contacts approved** to open the referral request list.",
-      "Filter by **From Date**, **To Date** or **Search** and press **Go**.",
-      "Read the first table for each referred student. Read **Pivot by referrer** for the count of regular, trial and dropped students each referrer brought.",
-      "Read **Refer New Contact requests** for the newest referral requests. Press **Refer New Contacts** to manage them."
-    ],
-    "notes": []
-  },
-  "admin:/leaves/students": {
-    "purpose": "The student leave register with approve, reject and cancel decisions. Academic staff use it to grant leave so classes are paused and the family is told.",
-    "steps": [
-      "Read the tiles **Pending**, **On leave today**, **Approved** and **Rejected**. Press **Pending** to see requests waiting for a decision.",
-      "Filter by **Student**, **Status**, **Type**, **From** and **To**, then press **Go**.",
-      "Press **Decide** on a pending row, add a decision note if needed, then press **Approve** or **Reject**. Press **Cancel** to withdraw a leave.",
-      "Press **Record a leave** to enter one on behalf of a parent. Fill in **Student**, **From**, **To** and **Reason**, then press **Save leave**.",
-      "Press **Post-leave absences** to see students who did not return after leave."
-    ],
-    "notes": [
-      "Approving marks every pending class in the date range as Student On-Leave and notifies the family and the student.",
-      "Rejecting or cancelling puts those classes back to pending. Approving needs the leave approve permission."
-    ]
-  },
-  "admin:/students/on-leave": {
-    "purpose": "Students who are away today: an approved leave covers today or their enrolment is frozen. Supervisors use it to know which classes will not run.",
-    "steps": [
-      "Read the tiles **On leave today**, **Approved leave**, **Frozen enrolments**, **Upcoming leaves** and **Pending applications**. Press a tile to open the matching list.",
-      "Filter by **Search** or **Shift** and press **Go**.",
-      "Press **Leave** on a row to open the leave application, or **Open** to see the student.",
-      "Press **Student Leaves** or **Leave Applications** to manage leave."
-    ],
-    "notes": [
-      "A frozen enrolment is a subscription paused by staff. Its leave end shows as until unfrozen.",
-      "Leave For All means the leave covers every student in the family."
-    ]
-  },
-  "admin:/retention": {
-    "purpose": "A risk board that scores each student's chance of leaving and lets staff schedule retention actions. Academic managers and the retention team use it to act before a family drops out.",
-    "steps": [
-      "Read the tiles **High risk**, **Medium risk**, **Low risk**, **Open actions**, **Save rate** and **Churn (30d)**. Press a risk tile to filter the board.",
-      "Filter by **Student**, **Risk level** or **Teacher** and press **Go**.",
-      "Read each row's **Factors**, **Attendance 30d**, **Test trend**, **Complaints** and **Overdue**. Press **Recompute** on a row to rescore one student, or **Recompute all** for everyone.",
-      "In **Schedule a retention action** choose the student, **Action**, **When**, **Owner** and **Notes**, then press **Schedule action**.",
-      "In **COO monthly cohort calls** choose a **Risk cohort** and press **Bulk schedule cohort calls**. **Actions**, **Freezes** and **Analytics** open the related pages."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Actions include a call, a win-back sequence, a pre-leave offer, a freeze outreach, a teacher change and a discount offer.",
-      "Recomputing and scheduling are recorded in the audit log."
-    ]
-  },
-  "admin:/home/academics/subscriptions": {
-    "purpose": "Group page for subscriptions. Staff use it to create, allocate and report on student subscriptions.",
-    "steps": [
-      "Press **Create Subscription**, **Faculty Allocation**, **All Subscriptions**, **All Subscriptions Value Report**, **Subscription Detail Report** or **Cancelled Subscriptions**."
-    ],
-    "notes": []
-  },
-  "admin:/subscriptions/new": {
-    "purpose": "A form to enrol a student in a course at a chosen session time with a free teacher. Academic coordinators use it for every new trial or regular subscription.",
-    "steps": [
-      "Under **Search Parameters** choose the **Student** and **Course** (both required). Set **Language**, **Session Category**, **Session Type**, **Course Method**, **Grade**, **Gender**, **Status**, **Package**, **Trial Days** and **Remarks**, and tick the days **Mon** to **Sun**.",
-      "Press **Search**. The **Session Times** panel lists bookable times; booked ones are greyed.",
-      "Pick a session. The **Available Teachers** panel lists verified teachers free at that time on those days. Pick one and check **Teacher's Sessions** for that teacher's bookings.",
-      "Press **Create Subscription**. Press **Reset** to start again or **Back** to leave."
-    ],
-    "notes": [
-      "**Status** defaults to Trial and **Trial Days** to 3. The course's books are listed once a course is chosen.",
-      "Session times are shown in Pakistan time with UTC in grey."
-    ]
-  },
-  "admin:/subscriptions/allocation": {
-    "purpose": "Shows which teacher teaches which student in which session, plus a teacher-by-session grid for one weekday. Coordinators use it to find free slots and balance teacher load.",
-    "steps": [
-      "Filter by **Teacher**, **Course**, **Language**, **Session**, the days **Mon** to **Sun**, **Customer** or **Student**, then press **Go**.",
-      "Read the list of running subscriptions with teacher, session, course, language, days and status.",
-      "Choose a **Grid day** to change the **Teacher x session occupancy** grid. Green cells are regular, purple cells are trial, empty cells are free.",
-      "Press **Create Subscription** to enrol a student or **All Subscriptions** for the full list."
-    ],
-    "notes": []
-  },
-  "admin:/subscriptions": {
-    "purpose": "Every student subscription with teacher, session, course, package, status, price and next due date. Academic and billing staff use it as the master list.",
-    "steps": [
-      "Read the tiles **Clients**, **Students**, **All Subscriptions** and **Coming Follow Ups**. Press **Coming Follow Ups** to see follow-ups due in the next 7 days.",
-      "Filter by **Subscription ID**, **Session**, **Course**, **Language**, **Client**, **Student**, **Teacher** or **Status**, then press **Go**.",
-      "Switch between the saved reports **Primary**, **Employee Wise Summary** and **Coming Follow Ups** with the tabs.",
-      "Press **Open** on a row to see the subscription and change its teacher, session or status.",
-      "Press **Create Subscription**, **Faculty Allocation** or **Value Report** to move on."
-    ],
-    "notes": [
-      "Statuses are Trial, Regular, Freeze, Cancelled and Completed. Freeze means the subscription is paused.",
-      "Freezing, cancelling or completing a subscription needs a reason, which is kept in the audit log."
-    ]
-  },
-  "admin:/subscriptions/value-report": {
-    "purpose": "Running subscriptions valued in PKR at current exchange rates, with teacher cost and margin. Management uses it to see the monthly value of the book.",
-    "steps": [
-      "Read the tiles **Running Subscriptions**, **Monthly Value**, **Teacher Cost** and **Margin**.",
-      "Switch between **Primary**, **Employee Wise Summary** and **Shift Wise Profit Report** with the tabs.",
-      "Press **Regenerate Report** to recalculate every value with today's exchange rates. The page shows when it was last regenerated and by whom.",
-      "Press **Detail Report** for the report by manager, period, country and currency."
-    ],
-    "notes": [
-      "Margin is the PKR value minus the teacher cost."
-    ]
-  },
-  "admin:/subscriptions/detail-report": {
-    "purpose": "Subscriptions listed by academic manager, period, country and currency with prices in the original currency and in PKR. Management uses it for reporting and export.",
-    "steps": [
-      "Filter by **Manager**, **From Date**, **To Date**, **Country**, **Currency**, **Teacher** or **Status**, then press **Go**.",
-      "Read the tiles for the total count, **Total (PKR)** and the totals per currency.",
-      "Read the per-currency total rows at the bottom of the table.",
-      "Press **Export CSV** to download the rows. Press **Value Report** to go back to the value view."
-    ],
-    "notes": []
-  },
-  "admin:/subscriptions/cancelled": {
-    "purpose": "Subscriptions that families cancelled, with the reason, teacher and supervisor. Managers use it to understand why families leave.",
-    "steps": [
-      "Filter by **From Date**, **To Date**, **Teacher** or **Supervisor** and press **Go**.",
-      "Read the tiles **Cancelled (filtered)** and **Cancelled this month**. Press **Running Trials** to open the running trials list.",
-      "Read the **Reason** and **Cancelled At** columns for each row.",
-      "Press **Retention & Churn** to see students at risk before they cancel."
-    ],
-    "notes": []
-  },
-  "admin:/home/academics/classes": {
-    "purpose": "Group page for class operations. Supervisors use it to reach trials, schedules, substitute arrangements, reschedules, summaries and queries.",
-    "steps": [
-      "Press **Running Trials**, **Class Schedules**, **Class Arrangements**, **Rescheduled Classes**, **Class Status Summary**, **Class Queries**, **Schedule Summary Report** or **Recurring Schedules**."
-    ],
-    "notes": [
-      "**Recurring Schedules** is an addition to the original ERP."
-    ]
-  },
-  "admin:/trials/running": {
-    "purpose": "Trial subscriptions still inside their trial window. Coordinators use it to convert a trial to regular or drop it.",
-    "steps": [
-      "Read the tiles **Running Trials**, **Ending In 2 Days**, **Clients** and **Students**.",
-      "Filter by **Search**, **Client**, **Teacher**, **Course**, **Session** or **Shift** and press **Go**.",
-      "Press **Convert to Regular** on a row to turn the trial into a paying subscription.",
-      "Press **Drop** on a row, type a **Reason** and press **Drop trial**. Future classes are cancelled.",
-      "Press **Trial pipeline** for the lead-to-trial view or **Create Subscription** to start a new trial."
-    ],
-    "notes": [
-      "A reason is required to drop a trial. Both actions notify the family and the teacher and are audited."
-    ]
-  },
-  "admin:/classes": {
-    "purpose": "Every class between two working dates with its status, duration and activity record. Supervisors use it to update class status, reschedule, arrange cover and generate sessions.",
-    "steps": [
-      "Press a tile (**All**, **Pending**, **Teacher is Available**, **Started**, **Done**, **Missed**, **Student Absent**, **Student On-Leave**, **Cancelled**, **Rescheduled**) to filter.",
-      "Or filter by **From Working Date**, **To Working Date**, **Course**, **Session Category**, **Session**, **Status**, **Student**, **Teacher**, **Course Method**, **Done By Teacher** or **Trial** and press **Go**.",
-      "Tick classes, choose a **New status**, type a **Reason** and press **Apply**. Press **Open** on a row to see one class, or **Room** to enter the classroom.",
-      "Press **Reschedule** to propose a **New Working Date**, **New Session** or **New Teacher** for a class with a **Reason**, then **Raise reschedule request**. Press **Auto Arrangement** and **Run auto arrangement** to cover absent teachers for a date range.",
-      "Press **Generate sessions**, set **From** and **To** and press **Generate** to create classes from the recurring schedules. **View Absent Teachers** and **Day view** open other views."
-    ],
-    "notes": [
-      "A reason is required when marking a class missed, student absent, cancelled, student on-leave or rescheduled.",
-      "Teacher is Available means the teacher has marked themself ready and is waiting for the student.",
-      "A reschedule request waits for approval on the Rescheduled Classes page."
-    ]
-  },
-  "admin:/classes/arrangements": {
-    "purpose": "Substitute cover: one teacher's classes taken by another for a date range. Supervisors use it when a teacher is absent.",
-    "steps": [
-      "Read the tiles **Active**, **In-Active**, **Auto Arrangements** and **Classes Reassigned**. Press **Active** or **In-Active** to filter.",
-      "Filter by **From Working Date**, **To Working Date**, **Session Category**, **Session**, **From Teacher**, **To Teacher** or **Status** and press **Go**.",
-      "Press **Class Arrangement**, choose **From Teacher**, **To Teacher**, **From Working Date**, **To Working Date** and a **Reason**, then press **Create arrangement**.",
-      "Press **Auto Arrangement** and **Run auto arrangement** to let the system assign free teachers to the classes of absent teachers.",
-      "Press **Change Status** on a row to make an arrangement active or inactive. **Absent Teachers** lists who is away."
-    ],
-    "notes": [
-      "A reason is required for every arrangement.",
-      "Auto? shows whether the arrangement was created by the automatic run."
-    ]
-  },
-  "admin:/classes/rescheduled": {
-    "purpose": "The approval queue for reschedule requests. Approving moves the class to its new date, session and teacher.",
-    "steps": [
-      "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use **From New Date**, **To New Date**, **Teacher** and **Approval Status** and press **Go**.",
-      "Compare the old and new working date, session and teacher on each row and read the **Reason**.",
-      "Tick rows, choose the new status, type **Comments** and press **Update Status**.",
-      "Press **new class** on an approved row to open the class that was created. Press **Class Schedules** to return to the schedule list."
-    ],
-    "notes": [
-      "Comments are required when rejecting or cancelling.",
-      "The table records who approved and when."
-    ]
-  },
-  "admin:/classes/status-summary": {
-    "purpose": "A teacher-by-session grid for one working date showing each class's status and duration. Supervisors use it to spot short classes and missing activity at a glance.",
-    "steps": [
-      "Choose a **Date** and, if needed, **Employee**, **Session Category** or **Session**, then press **Go**. Press **Refresh** to reload the same date.",
-      "Read the tiles **Pending**, **Teacher is Available**, **Started**, **Done**, **Missed**, **Student Absent**, **Student On-Leave** and **Cancelled**. Press one to open the schedule filtered to that status.",
-      "Read each cell. It shows the status and the duration, for example Done 30 min. Press a cell to open that class.",
-      "Press **Class Schedules** for the full list."
-    ],
-    "notes": [
-      "Cells are coloured by duration: under 15 minutes red, under 20 orange, under 25 yellow, under 35 lime.",
-      "**Late Available** means the teacher marked available after the start time. **No Activity** means the class was done with no activity recorded."
-    ]
-  },
-  "admin:/classes/queries": {
-    "purpose": "Issues raised by teachers during or after a class, such as a family wanting to speak to a manager or a technical problem. Supervisors answer and close them.",
-    "steps": [
-      "Read the tiles **Pending**, **Closed** and **All Queries**. Press one to filter.",
-      "Filter by **Status**, **Teacher**, **From** and **To** and press **Go**.",
-      "Press **Close** on a row, type a **Response** and confirm to close the query.",
-      "Press **Create**, enter the **Class Attendance ID**, choose a **Class Query Type**, type the **Detail** and press **Create query**."
-    ],
-    "notes": [
-      "Query types are Family want to talk with manager, Facing Tech Issue, Book / material issue and Other.",
-      "The Class Attendance ID is the number of the class the query is about."
-    ]
-  },
-  "admin:/classes/schedule-summary": {
-    "purpose": "A grid of free and total weekday slots per teacher for every session time. Coordinators use it to find where a new student can be placed.",
-    "steps": [
-      "Choose **Employee** or **Session Category** and press **Go**.",
-      "For each session column read **Free** and **Total**. Free is the number of weekdays (out of 7) with no active schedule in that session.",
-      "Read the **Totals** columns at the end of each row.",
-      "Press **Print** to print the grid, or **Class Status Summary** to see today's classes."
-    ],
-    "notes": []
-  },
-  "admin:/schedules": {
-    "purpose": "The recurring class slots behind every subscription, on a 24-hour, 30-minute grid. Coordinators use it to see who teaches whom, when, and which students still have no schedule.",
-    "steps": [
-      "Read the tiles **Active schedules**, **Paused**, **Ended** and **Trial slots**.",
-      "Filter by **Student**, **Status**, **Teacher**, **Course** or **Shift** and press **Go**.",
-      "Use the tabs **List**, **By teacher**, **By student** and **Unscheduled students** to change the view.",
-      "Press **Open** on a row to see or change one schedule. Press **New schedule** to create one.",
-      "Press **Teacher change** to move all of one teacher's schedules to another teacher with a reason. Press **Shifts** to manage the morning and night shift times."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Times are in Asia/Karachi. Classes are generated from these schedules by Generate sessions on Class Schedules."
-    ]
-  },
-  "admin:/home/academics/billing": {
-    "purpose": "Group page for the academic side of billing. Billing staff use it to reach invoices, receipts, ledger additions and the client ledger.",
-    "steps": [
-      "Press **Invoice List**, **Receipts**, **Ledger Additions** or **Client Ledger Report**."
-    ],
-    "notes": []
-  },
-  "admin:/finance/invoices": {
-    "purpose": "All family invoices with their status, subscription totals, discounts, tax and net amount. Billing staff create single invoices, generate the monthly bulk run and follow up payment.",
-    "steps": [
-      "Press a tile (**Confirmed**, **Over All Pending**, **Cancelled**, **Draft**, **Paid**) to filter, or use **From Date**, **To Date**, **Client**, **Currency**, **Status** and **Search**, then press **Go**.",
-      "Press **Generate Bulk Invoices**. Choose **Period (month)**, **Shift** and **Fee recurrence**. Press **Preview (dry run)** to see what would be created, then **Generate invoices** to create them.",
-      "Press **Create Single Invoice**. Choose the **Client**, tick the **Subscription(s)**, set **Invoice date**, **Due date**, **Period** and **Status**, add **Invoice additions** with **+ add line** if needed, and press **Create invoice**.",
-      "Press a client name to open the invoice. Press **Print** to print it. **Client Ledger Report** and **Receipts** open the related pages."
-    ],
-    "notes": [
-      "A bulk run skips families that already hold a bulk invoice for that month, so it is safe to run again.",
-      "Over All Pending includes pending, overdue and partly paid invoices. Net Amount LC is the net amount in PKR.",
-      "B.R is the billing representative who looks after the family."
-    ]
-  },
-  "admin:/finance/receipts": {
-    "purpose": "Money received from families, against invoices or on account, with payment mode, gateway and beneficiary account. Billing staff record and confirm receipts.",
-    "steps": [
-      "Press a tile (**Confirmed**, **Over All Pending**, **Cancelled**, **Failed**, **Refunded**) to filter, or use **From Date**, **To Date**, **Client**, **Currency**, **Status**, **Payment Mode**, **Beneficiary Account** and **Search**, then press **Go**.",
-      "Press **Create** to record a receipt. Choose the client, amount, currency, payment mode, category, beneficiary account and received date, then save.",
-      "Press **Sync Gateway Receipts** to pull receipts that arrived through the online payment gateways for open invoices.",
-      "Press **Print receipt** on a row to print it. Press a client name to open the receipt detail, where it can be confirmed, cancelled or refunded."
-    ],
-    "notes": [
-      "L.c Amount is the amount in PKR at the currency rate on the receipt date.",
-      "Confirming, cancelling and refunding need the payments approve permission and are audited.",
-      "The gateway sync currently simulates the pull; no live payment credentials are configured."
-    ]
-  },
-  "admin:/finance/ledger-additions": {
-    "purpose": "Manual credits and charges on a family's account, such as a teacher gift, a leave discount or an adjustment. Billing staff create them and a second person confirms.",
-    "steps": [
-      "Press a tile (**Pending**, **Confirmed**, **Cancelled**) to filter, or use **From Date**, **To Date**, **Client**, **Ledger Addition Type**, **Effect** and **Status**, then press **Go**.",
-      "Press **Create**. Fill in **Client**, **Currency**, **Currency Rate**, **Amount**, **Ledger Addition Date**, **Ledger Addition Type** and **Effect**. Add **Reference Employee**, **B.R** and **Remarks** if needed. Press **Save Ledger Addition**.",
-      "Press **Confirm** on a pending row to post it to the family's ledger. Press **Cancel** to cancel it with a reason.",
-      "Press **Client Ledger Report** to see the effect on the family's statement."
-    ],
-    "notes": [
-      "Effect is Add (a credit to the family) or Minus (a charge to the family).",
-      "L.C Amount is the PKR value. Only confirmed additions change the ledger balance."
-    ]
-  },
-  "admin:/finance/ledger": {
-    "purpose": "Family account balances and statements: charges, payments, credits, refunds and adjustments. Billing staff use it to answer balance questions and print statements.",
-    "steps": [
-      "Read the tiles **Families owing**, **Total owed (PKR)**, **Families in credit** and **Overdue invoices**. Press **Overdue invoices** to open the invoice list.",
-      "Type a name, code or email in **Search families** and press **Go**.",
-      "Press **Statement** on a row to open that family's ledger. Set the date range to see the previous balance, each transaction, the running balance and the total in words. It can be printed or exported.",
-      "Press **Credits issued** to see referral and other credits. Press **Invoices** to open the invoice list."
-    ],
-    "notes": [
-      "Credit available is money the family has paid in advance and can use against future invoices."
-    ]
-  },
-  "admin:/home/academics/evaluation": {
-    "purpose": "Group page for student assessment. Academic staff use it to reach evaluations, lesson plans, monthly tests, certificates and the curriculum.",
-    "steps": [
-      "Press **Evaluations**, **Pending Evaluations**, **Lesson Plans**, **Monthly Tests**, **Certificates** or **Curriculum**."
-    ],
-    "notes": [
-      "**Lesson Plans**, **Monthly Tests**, **Certificates** and **Curriculum** are additions to the original ERP."
-    ]
-  },
-  "admin:/academics/evaluations": {
-    "purpose": "Manual, weekly and level-completion assessments scored on Tajweed, fluency, memorisation and understanding. Teachers and academic managers record and review results.",
-    "steps": [
-      "Read the tiles **Evaluations**, **Passed**, **Failed**, **Pending** and **Average score**. Press **Passed**, **Failed** or **Pending** to filter.",
-      "Filter by **Student**, **Teacher**, **Type**, **Result** or **Assessment** and press **Go**. Use the tabs **Evaluations** and **Manual Evaluations** to switch lists.",
-      "Press **Create**. Choose the **Student** and **Date**, score **Tajweed**, **Fluency**, **Memorisation** and **Understanding**, write a **Teacher comment** and press **Save evaluation**. Leave **Score** blank to use the average of the four criteria.",
-      "Tick **Manual evaluation** to place it under the Manual Evaluations tab. Press **Open** on a row to read or edit one evaluation."
-    ],
-    "notes": [
-      "If an assessment is chosen, its passing marks decide pass or fail. Otherwise the pass mark is 55 percent.",
-      "Passing a level-completion evaluation issues a certificate automatically when you hold the certificate permission.",
-      "Failed rows are highlighted."
-    ]
-  },
-  "admin:/academics/evaluations/pending": {
-    "purpose": "Regular and trial students whose periodic evaluation is due: never evaluated, or last evaluated more than 30 days ago. Academic managers use it to chase teachers.",
-    "steps": [
-      "Read the tiles **Due Now**, **Never Evaluated**, **45+ Days Overdue** and **Open Evaluation Records**.",
-      "Filter by **Teacher** or **Course** and press **Go**.",
-      "Read **Last Evaluation**, **Days Since** and **Due** for each student. Press **Evaluate** to open the evaluation form for that student.",
-      "The second table lists evaluations still marked pending. Press **Evaluations** to see the full list."
-    ],
-    "notes": [
-      "An evaluation is due 30 days after the last one, or on the join date if there has never been one."
-    ]
-  },
-  "admin:/academics/lesson-plans": {
-    "purpose": "Daily and weekly lesson plans per student, with the planned sabaq, sabqi and dor, what was actually delivered and the variance. Academic managers review plans and watch delivery.",
-    "steps": [
-      "Read the tiles **Plans**, **Planned**, **Delivered**, **Partial**, **Avg variance** and **Awaiting review**. Press **Planned**, **Delivered** or **Partial** to filter.",
-      "Filter by **Student**, **Teacher**, **Status**, **From** or **To** and press **Go**.",
-      "Press **Open** on a row to read the plan, mark it delivered, review it or ask for an AI recommendation.",
-      "Press **New plan** to write a plan for a student. Press **Variance report** to compare planned and delivered work by teacher."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Sabaq is the new lesson, sabqi is recent revision and dor is revision of the full memorised portion.",
-      "Variance is how far the delivered lesson differed from the plan, as a percentage."
-    ]
-  },
-  "admin:/academics/monthly-tests": {
-    "purpose": "Monthly tests generated from each student's position in the curriculum, scored against the syllabus and sent to the guardian as a bilingual result card. Academic managers run and monitor the monthly cycle.",
-    "steps": [
-      "Read the tiles for the chosen month: **Tests**, **Scored**, **Awaiting scoring**, **Cards delivered**, **Average** and **Declining >10 pts**.",
-      "Filter by **Period**, **Student**, **Teacher**, **Status** or **Grade** and press **Go**.",
-      "Press **Generate tests for a period**, choose the **Period** and press **Generate tests**. One test is created per eligible student.",
-      "Press **Open** on a row to score the test, view or deliver the result card. Press **Improvement reports** for the month-on-month comparison."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Statuses are generated, scored, card generated and delivered. Grades run from A to D.",
-      "Improvement is the change in percentage from the student's previous test. A drop of more than 10 points is flagged."
-    ]
-  },
-  "admin:/academics/certificates": {
-    "purpose": "Certificates issued to students. Every certificate has a unique OQC number and a public verification page anyone can check.",
-    "steps": [
-      "Read the tiles **Certificates**, **This year**, **Automatic**, **Manual**, **Revoked** and **Verifications**. Press **Revoked** to see revoked certificates.",
-      "Filter by **Search**, **Course**, **Issued** or **Validity** and press **Go**.",
-      "Press **Issue certificate**. Choose the **Student**, type the **Certificate title**, an optional description and the **Issue date**. The **Next number** is shown before you save.",
-      "Press **Open** on a row to download the PDF, regenerate it, copy the verification link or revoke it."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Automatic certificates are issued when a student passes a level-completion evaluation. Manual ones are issued here.",
-      "Revoking needs a reason and is recorded in the audit log. A revoked certificate shows as invalid on the public page."
-    ]
-  },
-  "admin:/academics/curriculum": {
-    "purpose": "The curriculum builder: books, chapters and lessons for each course. Lessons hold the Arabic text with tashkeel, translation, objectives and Tajweed notes used in the shared lesson view.",
-    "steps": [
-      "Choose a **Course** and press **Go**. Use **Search lessons** to find a lesson by title or Arabic text.",
-      "Read the tiles **Books**, **Chapters**, **Lessons**, **Teaching hours** and **Students on course**.",
-      "Press **New book** and fill in **Book title** and **Description**, then **Create book**. Inside a book press **Add chapter**, and inside a chapter press **Add lesson** to enter **Lesson title**, **Expected minutes**, **Arabic text (with tashkeel)**, **Translation**, **Objectives**, **Tajweed notes** and the surah and ayah range.",
-      "In **Curriculum version** type a **New version** and **Publish notes**, then press **Publish version**. Press **Roll back** to restore an earlier version.",
-      "Press **Syllabus compliance** to see which students are behind the published syllabus."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Publishing freezes a version label. Rolling back needs a reason and is recorded in the audit log.",
-      "The **Tajweed legend** explains the colour marks used on the Arabic text."
-    ]
-  },
-  "admin:/home/academics/quality": {
-    "purpose": "Group page for quality assurance. QA officers use it to reach call recordings, review queues, feedback, teacher QA scores and monitoring.",
-    "steps": [
-      "Press **QA Dashboard**, **Client Feedbacks**, **Call Recordings**, **Agent Un-Matched Calls**, **QA Review Queue**, **Reviewed Calls**, **Teacher QA Performance** or **Configurations**.",
-      "Press **AI Class Monitoring** or **Class Recordings** for the newer monitoring tools."
-    ],
-    "notes": [
-      "**AI Class Monitoring** and **Class Recordings** are additions to the original ERP."
-    ]
-  },
-  "admin:/qa/dashboard": {
-    "purpose": "An overview of call recordings, review progress, issue breakdown and teacher call ratings for a period. QA managers use it to see how review work is going.",
-    "steps": [
-      "Set **From Date** and **To Date** and press **Go**.",
-      "Read the tiles **Total Calls**, **Unmatched Agent Calls**, **Total Zoom Calls** and **Avg QA Score /5**. Press a tile to open the matching list.",
-      "Read **QA Progress** (mapped, pending and reviewed calls by source), **QA Issue Breakdown**, **Total Reviews** by status, **Lowest Rated Calls** and **Teacher Performance**.",
-      "Read **Parameter Wise Teacher Call Ratings** for each teacher's average on every review parameter. Press **Open** on a low-rated call to see its review.",
-      "Press **QA Review Queue** or **Reviewed Calls** to work the queue."
-    ],
-    "notes": [
-      "Review statuses are Pending, In-Progress, Completed, Flagged and Rejected."
-    ]
-  },
-  "admin:/qa/feedbacks": {
-    "purpose": "Star ratings and comments from families, collected from the app, the portals and manual entry by staff. QA and academic managers use it to spot unhappy families.",
-    "steps": [
-      "Read the tiles **Total Feedback**, **Average Rating**, **Total 5 Star** and **Total 1 & 2 Star**. Press a star tile to filter by rating.",
-      "Filter by **From**, **To**, **Client**, **Feedback Resource**, **Rating**, **Teacher** or **Comment contains** and press **Go**.",
-      "Press **Create Manual Feedback**. Choose the **Client**, optionally the **Student** and a **Class (last 14 days)**, set the **Date** and **Rating**, answer the active feedback questions and type the **Comment**. Press **Save feedback**.",
-      "Press **Open** on a row to read the full feedback and its answers. Press **Surveys & NPS** for the survey tools."
-    ],
-    "notes": [
-      "Feedback Resource is where the feedback came from: Manual, App, Web Portal or Client Portal.",
-      "The questions asked on the form are managed on QA Feedback Questions in Academic Configuration."
-    ]
-  },
-  "admin:/qa/calls": {
-    "purpose": "Class call recordings pulled from the Agent softphone, Microsoft Teams and Zoom. QA officers use it to find a recording and see whether it has been reviewed.",
-    "steps": [
-      "Read the tiles **Total**, **Agent**, **Teams** and **Zoom**. Press one to filter by source.",
-      "Filter by **From**, **To**, **Teacher**, **Source**, **Review State** or **Search** and press **Go**.",
-      "Press **SYNC Calls** to pull new recordings from the three platforms.",
-      "Press **Play** on a row to open the recording. Press the review link, for example review #37, to open its QA review.",
-      "Press **Agent Un-Matched Calls** to map recordings that could not be linked to a class."
-    ],
-    "notes": [
-      "Review State runs Unmapped, Mapped, Queued, In-Progress and Reviewed.",
-      "The sync currently simulates the platform pull; the data shape matches the live feeds."
-    ]
-  },
-  "admin:/qa/calls/unmatched": {
-    "purpose": "Recordings the platforms could not link to a class. QA officers map each one to the right class so it can be reviewed.",
-    "steps": [
-      "Read the tiles **Un-Matched Calls**, **Agent Un-Matched** and **Mapped Classes**.",
-      "Filter by **From**, **To** or **Teacher** and press **Go**.",
-      "Press **Play** to listen to a recording. In **Map to class** choose the class and press **Map**.",
-      "Press **View Mapped Classes** to see recordings already linked, or **All Call Recordings** for the full list."
-    ],
-    "notes": [
-      "A class can hold only one recording. Mapping puts the call into the QA Review Queue."
-    ]
-  },
-  "admin:/qa/queue": {
-    "purpose": "Mapped call recordings waiting for a QA review. QA officers pick a call and start the review.",
-    "steps": [
-      "Read the tiles **Agent**, **Teams**, **Zoom** and **Total Que Calls**. Press a source tile to filter.",
-      "Filter by **From**, **To**, **Teacher** or **Source** and press **Go**.",
-      "Press **Start Review** on a row. The review page opens, where you rate every parameter, tick any issues and complete, flag or reject the review.",
-      "Press **Reviewed Calls** to see finished reviews or **Un-Matched Calls** to map more recordings."
-    ],
-    "notes": [
-      "A review cannot be completed until every active review parameter has a rating."
-    ]
-  },
-  "admin:/qa/reviewed": {
-    "purpose": "Every call review with its overall star rating, remarks and status. QA managers use it to check finished work and low ratings.",
-    "steps": [
-      "Read the tiles **Completed**, **Inprogress**, **Pendings**, **Total Reviews**, **Total 5 Star Rated Calls** and **Total 1 & 2 Star Rated Calls**. Press a status tile to filter.",
-      "Filter by **From**, **To**, **Status** or **Teacher** and press **Go**.",
-      "Press **Open** on a row to read the parameter ratings, issues and remarks.",
-      "Press **QA Review Queue** to continue reviewing or **QA Dashboard** for the summary."
-    ],
-    "notes": [
-      "Overall Rating is the weighted average of the parameter ratings, from 1 to 5 stars.",
-      "Flagged means the review needs management attention. Rejected means the review was discarded."
-    ]
-  },
-  "admin:/qa/teacher-performance": {
-    "purpose": "Calls, reviews, average star rating, issues and a resulting score for each teacher. Academic managers use it to compare teachers and plan coaching.",
-    "steps": [
-      "Filter by **From**, **To** or **Teacher** and press **Go**.",
-      "Read the tiles **Teachers**, **Calls**, **Reviewed**, **Avg Rating /5** and **Critical Issues**.",
-      "Read the table and the **Score % by teacher** chart. Press a teacher name to open the teacher record.",
-      "Press **QA Dashboard** for the wider view."
-    ],
-    "notes": [
-      "Score % is the average rating as a percentage, minus 5 points for each critical issue."
-    ]
-  },
-  "admin:/qa/config": {
-    "purpose": "Set-up for call reviews: the parameters rated 1 to 5 on every review and the checklist of issue types. QA managers maintain them.",
-    "steps": [
-      "Read the tiles **Review Parameters**, **Active Parameters**, **Issue Types** and **Critical Issue Types**.",
-      "Under **QA Review Parameters** press **New Parameter**, fill in **Name**, **Description**, **Weight**, **Max Rating** and **Sort No**, and press **Save parameter**.",
-      "Under **QA Issue Type** press **New Issue Type**, fill in **Name**, **Severity** and **Description**, and press **Save issue type**.",
-      "Press **Edit** on a row to change it and **Save**, or **Deactivate** to retire it without deleting past reviews."
-    ],
-    "notes": [
-      "Weight is between 0.1 and 10 and decides how much a parameter counts in the overall rating.",
-      "Severity is normal or critical. Critical issues lower a teacher's Score %.",
-      "This page needs the QA configure permission. Every change is audited."
-    ]
-  },
-  "admin:/ai-monitoring": {
-    "purpose": "Automated signals from class recordings and timings, such as camera use, teaching time, engagement and lateness, with a risk level. A human reviewer must confirm every finding.",
-    "steps": [
-      "Read the tiles **High risk**, **Medium risk**, **Low risk**, **Awaiting review** and **Average score**. Press a tile to filter.",
-      "Filter by **Teacher**, **Risk**, **Review**, **Safeguarding**, **From** or **To** and press **Go**.",
-      "Press **Review** on a row. Read the scores and flags, then approve the finding, override it with a corrected risk level, or dismiss it as a false positive. A note is required to override or dismiss.",
-      "Read **AI usage & cost** for the month's runs, tokens and cost. Press **Teacher trends** for weekly and monthly trends, or **QA queue** to send a class for a human QA review."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "AI results are signals only. Nothing is held against a teacher until a reviewer approves the finding.",
-      "The Safeguarding filter shows classes where a safeguarding flag was raised."
-    ]
-  },
-  "admin:/recordings": {
-    "purpose": "The library of class recordings with retention dates. Every time someone opens a recording they must state a purpose, which is logged for safeguarding.",
-    "steps": [
-      "Read the tiles **Recordings**, **Available**, **AI analysed** and **Expiring in 30 days**.",
-      "Filter by **Search**, **Status**, **Source**, **Teacher**, **AI analysis**, **From** or **To** and press **Go**.",
-      "Press **Open** on a row. Type the purpose of your access (at least 5 characters) and confirm. The recording then opens and the access is logged.",
-      "Press **Ingest recordings** to add recordings for completed classes. Press **Access log** to see who opened what and why."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "Recordings are kept for 365 days by default and then expire. The **Opens** column counts logged accesses.",
-      "Opening a recording you are not allowed to see is refused and recorded as a warning in the audit log."
-    ]
-  },
-  "admin:/home/academics/teacher-portal": {
-    "purpose": "Group page for the teacher's own working view. Teachers and their supervisors use it to reach the online class page.",
-    "steps": [
-      "Press **Class Schedule** to open the online class page for today."
-    ],
-    "notes": []
-  },
-  "admin:/teacher/online-class": {
-    "purpose": "The teacher's working page for one day: today's classes, the current class detail, its activity record and the family's time status. Teachers mark classes available, started and done here.",
-    "steps": [
-      "Choose a **Teacher** and **Working Date** and press **Go**, or move with **Previous day**, **Today** and **Next day**. Read the tiles **Total Classes**, **Regular**, **Trial** and **Arrangements**.",
-      "In **Today's Classes** press **Mark Available** when you are ready, **Start** when the student joins and **Done** when the class ends. Press **Student Absent** or **Missed** and type a **Reason** to record a class that did not happen.",
-      "Press **Open classroom** to join the online room, or **Class record** to see the class detail.",
-      "In **Activity Detail** enter **Page No**, **Book** and **Remarks**, then press **Save Manual Activity**. In **Raise Query** choose a **Class Query Type**, type the **Detail** and press **Raise query**.",
-      "Read **Client - Student Time Status** to see the family's local time and **Day summary** for the day's counts."
-    ],
-    "notes": [
-      "A reason is required for Student Absent and Missed. Marking available tells the family the teacher is waiting.",
-      "Times are shown in Asia/Karachi. A class with no activity record is highlighted on the Class Status Summary."
-    ]
-  },
-  "admin:/home/academics/supervisor-portal": {
-    "purpose": "Group page for live class monitoring. Supervisors use it to reach the monitoring dashboard.",
-    "steps": [
-      "Press **Monitoring Dashboard** to open the supervisor live board."
-    ],
-    "notes": []
-  },
-  "admin:/supervisor": {
-    "purpose": "A live board of today's class execution for all teachers. Supervisors use it to see pending, running, done and missed classes and to act on problems as they happen.",
-    "steps": [
-      "Choose a **Date** and **Shift**, or type in **Find a class**, then press **Search**. Read the tiles **Pending**, **Done**, **Missed**, **Student Absent**, **Student On Leave**, **Cancelled** and **Reschedule Classes**.",
-      "Read the panels **Pending Classes**, **Marked Available**, **Started Classes**, **Done Classes**, **Missed Classes**, **Absent Students Classes**, **Student On Leave Classes**, **Cancelled**, **Upcoming Classes**, **Class Queries**, **Reschedule Classes** and **Upcoming Trials**.",
-      "On a class card press **Done**, **Missed**, **Absent** or **Cancel** to set its status. A reason is required for missed, absent and cancelled. Press **Room** to enter the classroom or **Flag…** to raise a flag with a reason.",
-      "Read **Absent students today**, **Teachers on approved leave**, **Cancelled today** and **Operational alerts** on the side.",
-      "Press **Teachers**, **Weekly coverage** or **Day calendar** for other views."
-    ],
-    "notes": [
-      "The board refreshes itself so the status stays current.",
-      "Every status change is recorded in the audit log with the reason."
-    ]
-  },
-  "admin:/home/academics/hod-portal": {
-    "purpose": "Group page for the academic manager (head of department) view. Academic managers use it to reach their monitoring dashboard.",
-    "steps": [
-      "Press **Monitoring Dashboard** to open the Academic Manager Portal."
-    ],
-    "notes": []
-  },
-  "admin:/hod": {
-    "purpose": "A read-only monitoring page for academic managers covering academics, HR, billing and team progress for a chosen date range and employee.",
-    "steps": [
-      "Set **From Date**, **To Date** and, if needed, **Employee**, then press **Go**. Press **Refresh** to reload.",
-      "Read the tiles **Pending**, **Done**, **Missed**, **Student Absent**, **Student On Leave**, **Cancelled** and **Reschedule Classes**, and the class panels below them.",
-      "Use the tabs **Academics**, **HR**, **Billing** and **Team Progress**. The Academics tab shows **Academics Summary**, **Absent Staff**, **Today Trials**, **Dropped Students** and **New Student Registration**.",
-      "Press **Supervisor board** or **Class Status Summary** to move to those pages."
-    ],
-    "notes": [
-      "This page does not change data. Every action links into the module that owns it."
-    ]
-  },
-  "admin:/home/academics/config": {
-    "purpose": "Group page for academic set-up data. Administrators use it to reach sessions, courses, packages, books, invoice additions, accounts and other reference lists.",
-    "steps": [
-      "Press a card such as **Sessions**, **Courses**, **Packages**, **Define Books**, **Change Staff Sorting**, **Invoice Addition List**, **Receipt Beneficiary Accounts**, **Client Academic Groups**, **MS Team Users**, **Question Bank**, **Define Assessment**, **Clients Users List**, **QA Feedback Questions** or **Course Divisions**."
-    ],
-    "notes": [
-      "**Course Divisions** is an addition to the original ERP."
-    ]
-  },
-  "admin:/academics/config/sessions": {
-    "purpose": "The bookable class times (sessions) for each session category, in Pakistan time. Administrators maintain them; every subscription is booked into one of these sessions.",
-    "steps": [
-      "Read the tiles **All Sessions**, **Active**, **Inactive**, **30 Minutes** and **45 Minutes**. Press a tile to filter.",
-      "Filter by **Session Category**, **Status** or **Search** and press **Go**.",
-      "Press **Create**. Set **Start Time**, **Duration**, **Session Category** and **Sort No**. The **Session Label** is built for you, for example 07:00 AM - 07:30 AM. Press **Create session**.",
-      "Press **Edit** on a row to change it and **Save session**. Press **Deactivate** or **Activate** to hide or show a session in pickers."
-    ],
-    "notes": [
-      "The UTC column shows the same time in UTC for families abroad.",
-      "Every change is recorded in the audit log."
-    ]
-  },
-  "admin:/academics/config/courses": {
-    "purpose": "The list of courses with type, default fee, attendance requirement and curriculum link. Administrators maintain the catalogue that subscriptions are built on.",
-    "steps": [
-      "Read the tiles **All Courses**, **Active**, **Inactive**, **Islamic Courses** and **Academics Tutoring**. Press a tile to filter.",
-      "Filter by **Search**, **Type** or **Status** and press **Go**.",
-      "Press **Create**. Fill in **Course code**, **Name**, **Type**, **Arabic name**, **Fee (PKR)**, **Session minutes**, **Curriculum Link** and **Description**, tick **Attendance Required** if needed, and press **Create course**.",
-      "Press **Edit** on a row and **Save course**, or **Deactivate** to retire a course. Press **Curriculum** to open the course's lessons. **Course Divisions** opens the full catalogue page."
-    ],
-    "notes": [
-      "Type is Islamic Courses or Academics Tutoring."
-    ]
-  },
-  "admin:/academics/config/packages": {
-    "purpose": "Packages set how many days per week a subscription runs and its price. Administrators maintain them for the Create Subscription form.",
-    "steps": [
-      "Read the tiles **All Packages**, **Active**, **Inactive** and **Trial Packages**. Press a tile to filter.",
-      "Filter by **Search**, **Course** or **Status** and press **Go**.",
-      "Press **Create**. Fill in **Description**, **Minimum Days**, **Maximum Days**, **Session minutes**, **Price** and **Currency**. Tick **This is a free trial package** for a trial package. Press **Create package**.",
-      "Press **Edit** on a row, change it and press **Save package**. Press **Deactivate** or **Activate** to hide or show it."
-    ],
-    "notes": [
-      "A **Reason for the change** is required when you change a price. It is kept in the audit log."
-    ]
-  },
-  "admin:/academics/config/books": {
-    "purpose": "The books used in classes. Internal books are used by teachers; public books also appear on the website and in the client portal.",
-    "steps": [
-      "Use the tabs **Internal Books** and **Public Books** to switch lists. Press a tile (**Active**, **Inactive**) to filter, or use **Search**, **Course** and **Status** and press **Go**.",
-      "Press **Create**. Fill in **Name**, **Arabic title**, **Course** and **Sort No**. Tick **Public book** to show it publicly. Press **Create book**.",
-      "To add many books at once press **Download Template**, fill the CSV, then press **Upload CSV**, choose the **CSV file** and press **Upload books**.",
-      "Press **Edit** on a row and **Save book**, or **Deactivate** to retire a book."
-    ],
-    "notes": [
-      "Sort No sets the order books appear in for a course.",
-      "Uploads report how many rows were created, skipped or had errors."
-    ]
-  },
-  "admin:/academics/config/staff-sorting": {
-    "purpose": "Sets the order in which staff appear in teacher pickers and class lists. Administrators use it to put the most used teachers first.",
-    "steps": [
-      "Read the tiles **Active Employees**, **Teachers**, **Other Staff** and **Without Sort No**.",
-      "Filter by **Search**, **Department** or **Shift** and press **Go**.",
-      "Press **Move up** or **Move down** on a row to swap its position with its neighbour.",
-      "Or type new numbers in the **Sort No** column and press **Save Sort Order**. Press **Employees** to open the employee records."
-    ],
-    "notes": [
-      "Only active employees are listed. Every change is recorded in the audit log."
-    ]
-  },
-  "admin:/academics/config/invoice-additions": {
-    "purpose": "Named discount, charge and tax lines that can be added to invoices. Billing administrators maintain them; the Invoice Additions Master decides when they apply.",
-    "steps": [
-      "Read the tiles **All**, **Active**, **Inactive**, **Discounts**, **Charges** and **Taxes**. Press a tile to filter.",
-      "Filter by **Search**, **Addition Type** or **Status** and press **Go**.",
-      "Press **Create**. Choose **Addition Type** (Discount, Charge or Tax), type a **Description** and press **Save**.",
-      "Press **Edit** on a row and **Save**, or **Deactivate** to retire it. The **Rules** column shows how many master rules use the line; press it to see them. **Invoice Additions Master** opens the rules page."
-    ],
-    "notes": []
-  },
-  "admin:/academics/config/invoice-addition-rules": {
-    "purpose": "Rules that say when and how an invoice addition is applied to generated invoices: for one subscription, one client or every invoice. Billing administrators maintain them.",
-    "steps": [
-      "Read the tiles **All Rules**, **Active**, **Inactive**, **Subscription**, **Client**, **Global** and **Auto Assigned**. Press a tile to filter.",
-      "Filter by **Level**, **Invoice Addition List** or **Status** and press **Go**.",
-      "Press **Create**. Choose the **Level** and, for that level, the **Subscription** or **Client**. Choose the **Invoice Addition List** line, **From Date**, **To Date**, **Implementation Type**, **Amount** and a **Reason**. Press **Create rule**.",
-      "Press **Edit** on a row and **Save rule**, or **Activate** and **Deactivate** to switch it on or off. **Invoice Addition List** opens the lines page."
-    ],
-    "notes": [
-      "Implementation Type is Fixed (an amount) or a percentage.",
-      "Auto Assigned? means the bulk invoice run applies the rule by itself. The reason is kept in the audit log."
-    ]
-  },
-  "admin:/academics/config/beneficiary-accounts": {
-    "purpose": "Where client money is received: payment gateways, bank accounts and cash points. These are offered on the receipt form.",
-    "steps": [
-      "Read the tiles **All Accounts**, **Active**, **Inactive**, **Online Payment Gateway**, **Bank** and **Cash**. Press a tile to filter.",
-      "Filter by **Search**, **Payment Mode** or **Status** and press **Go**.",
-      "Press **Create**. Choose **Payment Mode** and **Category** (for example Stripe, PayPal, UBL, Meezan Bank, Wise), type the **Beneficiary Account** name and optional **Account details**. Tick **Auto receipts** if the gateway posts receipts by itself. Press **Create account**.",
-      "Press **Edit** on a row and **Save account**, or **Deactivate** and **Activate**. **Receipts** opens the receipt list."
-    ],
-    "notes": [
-      "The Auto column shows accounts that receive gateway receipts automatically."
-    ]
-  },
-  "admin:/academics/config/client-groups": {
-    "purpose": "Morning and Night client groups: which shift serves a family and who represents it on the academic side. Administrators maintain them.",
-    "steps": [
-      "Read the tiles **All Groups**, **Active**, **Inactive**, **Morning** and **Night**. Press a tile to filter.",
-      "Filter by **Shift** or **Status** and press **Go**.",
-      "Press **Create**. Type the **Group Name** and **Sudo Name**, choose the shift and the **Representative Name**, then press **Create group**.",
-      "Press **Edit** on a row and **Save group**, or **Deactivate** and **Activate**. **Clients** opens the client list."
-    ],
-    "notes": [
-      "Sudo Name is the short display name for the group, for example Morning Manager."
-    ]
-  },
-  "admin:/academics/config/teams-users": {
-    "purpose": "Microsoft Teams accounts mapped to staff and clients, so Teams call recordings can be matched to the right people. Administrators maintain the mapping.",
-    "steps": [
-      "Use the tabs **Staff** and **Clients** to switch lists. Read the tiles **All Accounts**, **Staff**, **Clients**, **Active** and **Inactive**.",
-      "Filter by **Search** or **Status** and press **Go**.",
-      "Press **Create**. Choose **Account for** (staff or client), pick the **Employee** or **Client**, type the **Teams email** and, if different, the **Display name**. Press **Create account**.",
-      "Press **Edit** on a row and **Save account**, or **Deactivate** and **Activate**."
-    ],
-    "notes": [
-      "Display name defaults to the person's name."
-    ]
-  },
-  "admin:/academics/config/question-bank": {
-    "purpose": "Questions per book and assessment, with type and marks. Assessments draw their papers from this bank.",
-    "steps": [
-      "Read the tiles **All Questions**, **Active**, **Inactive**, **Oral**, **Written**, **Recitation** and **MCQ**. Press a tile to filter.",
-      "Filter by **Book**, **Assessment**, **Type**, **Status** or **Search** and press **Go**.",
-      "Press **Create**. Choose the book, assessment and type, type the **Question**, set the **Marks** and add a **Model answer / marking note**. Press **Add question**.",
-      "Press **Edit** on a row and **Save question**, or **Deactivate** and **Activate**. **Define Assessment** opens the assessments page."
-    ],
-    "notes": [
-      "Question types are Oral, Written, Recitation and MCQ."
-    ]
-  },
-  "admin:/academics/config/assessments": {
-    "purpose": "Assessments per book with passing and total marks. Administrators define them; evaluations use them to decide pass or fail.",
-    "steps": [
-      "Read the tiles **All Assessments**, **Active**, **Inactive** and **Questions Assigned**. Press a tile to filter.",
-      "Filter by **Book**, **Status** or **Search** and press **Go**.",
-      "Press **Create**. Choose the book, type the **Title**, set **Passing Marks** and **Total Marks**, then press **Create assessment**.",
-      "Press **Open** on a row to manage its questions. Press **Deactivate** or **Activate** to switch it off or on. **Questions Bank** opens the question list."
-    ],
-    "notes": [
-      "When an evaluation is linked to an assessment, its Passing Marks set the pass line and Total Marks set the maximum score."
-    ]
-  },
-  "admin:/clients/users": {
-    "purpose": "Every family with a parent-portal login, with last sign-in, active flag and password tools. Support staff use it to help parents who cannot sign in.",
-    "steps": [
-      "Read the tiles **With portal login**, **Active logins**, **Disabled** and **Signed in (30 days)**. Press a tile to filter.",
-      "Filter by **Search** or **Active** and press **Go**.",
-      "Press **Reset password** on a row and confirm. A new temporary password is shown once; pass it to the parent securely.",
-      "Press **Open** to see the family record. Press **Client List** for all families."
-    ],
-    "notes": [
-      "**Must change password** shows Yes until the parent sets their own password at the next sign-in.",
-      "Passwords are never shown on this page. Resetting needs the client update permission and is audited."
-    ]
-  },
-  "admin:/academics/config/feedback-questions": {
-    "purpose": "The questions every feedback form asks, in order, with answer type and audience. Answers stay attached to the feedback by question, so a question can be reworded or retired later.",
-    "steps": [
-      "Read the tiles **All Questions**, **Active**, **Inactive**, **Client**, **Student** and **Staff**. Press a tile to filter.",
-      "Filter by **Applies To**, **Answer Type**, **Status** or **Search** and press **Go**.",
-      "Press **Create**. Type the **Question** and its Urdu wording in **Question (Urdu)**, choose the answer type and who it applies to, set **Sort No** and tick **Required** if it must be answered. Press **Create question**.",
-      "Press **Move up** or **Move down** to reorder. Press **Edit** and **Save question**, or **Deactivate** to retire a question. **Client Feedbacks** opens the feedback list."
-    ],
-    "notes": [
-      "Answer types are a 1 to 5 rating, yes or no, or free text.",
-      "The QA manual feedback form, the client portal and the public survey all ask the active questions in this order."
-    ]
-  },
-  "admin:/academics/courses": {
-    "purpose": "The full catalogue behind every enrolment: courses, their divisions (levels), published lessons, and packages with per-country pricing. Academic and billing managers maintain it.",
-    "steps": [
-      "Read the tiles **Courses**, **Active**, **Divisions**, **Active packages** and **Lessons published**.",
-      "Filter by **Search** or **Status** and press **Go**. Press **Open** on a course to manage its divisions, packages and curriculum.",
-      "Press **New course**. Fill in **Course code**, **Course name**, **Arabic name**, **Urdu name**, **Session minutes**, **Target months** and **Description**, then press **Create course**.",
-      "Under **Packages & per-country pricing** press **New package**. Fill in **Package name**, **Course**, **Country**, **Price**, **Currency**, **Sessions / week**, **Minutes** and **Billing cycle**. Tick **This is a free trial package** if needed. Press **Create package**.",
-      "Press **Curriculum** to open the curriculum builder."
-    ],
-    "notes": [
-      "This page is an addition to the original ERP.",
-      "A **Reason for the change** is required when a price changes. It is kept in the audit log.",
-      "A division cannot be deleted while students are enrolled in it."
-    ]
-  }
+ "admin:/home/academics": {
+  "purpose": "The home page of the Online Academics area. Academic staff start here to see today's pending requests and class status, then open one of the 13 groups.",
+  "steps": [
+   "Read the top counters. **Client Complaints**, **Leave Applications**, **New References**, **Teacher Change Request** and **Time Change Request** show requests still waiting for a decision.",
+   "Read the class counters for today: **Free Students**, **Pending Classes**, **Done Classes**, **Missed Classes**, **Student Absent**, **Student On-leave**, **Cancelled Classes** and **Rescheduled Classes**.",
+   "Press any counter to open the matching list already filtered to that status.",
+   "Press a group card, for example **Client Management** or **Class Management**, to open that group."
+  ],
+  "notes": [
+   "A free student is an active student with no running subscription."
+  ]
+ },
+ "admin:/home/academics/dashboards": {
+  "purpose": "Group page for the academic dashboards. Managers use it to reach the client, subscription, billing and performance charts.",
+  "steps": [
+   "Press a card such as **Client Management**, **Subscriptions (Count)**, **Financial Summary** or **CEO Command Center** to open that dashboard."
+  ],
+  "notes": [
+   "**Subscriptions (Multiple)** opens the Subscriptions (Amount) dashboard. The card keeps the label used in the old ERP."
+  ]
+ },
+ "admin:/dashboards/clients": {
+  "purpose": "Charts on how many families the college has, where they come from and what status they hold. Managers use it to watch registrations over time.",
+  "steps": [
+   "Set **Reg. From Date**, **Reg. To Date**, **Client**, **Country**, **Shift** or **Status**, then press **Go**. Press **Reset** to clear the filters.",
+   "Read the tiles **Regular**, **Trial**, **On Leave**, **Passed Out**, **Dropped Out** and **Black Listed**. Press a tile to open the client list filtered to that status.",
+   "Scroll to the charts: **Month Wise Registrations**, **Country Wise**, **Shift Wise**, **Status Wise**, **State Wise**, **Gateway Wise**, **Currency Wise**, **Billing Representative Wise** and **Academic Manager Wise**.",
+   "Press **Client list** or **Financial Summary** at the top to jump to those pages."
+  ],
+  "notes": [
+   "A regular client is a paying family. A trial client is a family whose free trial classes are still running.",
+   "Black Listed means the family is blocked from new subscriptions."
+  ]
+ },
+ "admin:/dashboards/subscriptions": {
+  "purpose": "Counts of subscriptions by month, country, status, shift, teacher, supervisor and course. Managers use it to see how enrolments are spread.",
+  "steps": [
+   "Set **From Date**, **To Date**, **Employee**, **Shift** or **Status** and press **Go**.",
+   "Read the tiles **Total Regular Subscriptions**, **Total Trial Subscriptions**, **Total Cancelled Subscriptions** and **Total Completed Subscriptions**.",
+   "Scroll through the charts **Month Wise**, **Country wise**, **Status Wise**, **Shift wise**, **Teacher wise**, **Supervisor wise** and **Course wise**.",
+   "Press **Switch to amount** to see the same charts in money instead of counts. Press **All Subscriptions** to open the full list."
+  ],
+  "notes": [
+   "A subscription is one student taking one course with one teacher at a fixed session time."
+  ]
+ },
+ "admin:/dashboards/subscriptions/amount": {
+  "purpose": "The same subscription charts as Subscriptions (Count), but valued in money. Managers use it to see the revenue mix.",
+  "steps": [
+   "Set **From Date**, **To Date**, **Employee**, **Shift**, **Status** or **Country** and press **Go**.",
+   "Read the tiles **Total Amount Of Regular**, **Total Amount Of Trial**, **Total Amount Of Cancelled** and **Total Amount Of Completed**.",
+   "Scroll through the charts by month, country, status, shift, teacher, supervisor and course.",
+   "Press **Switch to count** to go back to the count view."
+  ],
+  "notes": [
+   "Amounts are shown in PKR. Foreign prices are converted at the current exchange rate."
+  ]
+ },
+ "admin:/dashboards/billing": {
+  "purpose": "A one-page view of business volume, what families owe, confirmed invoices and the month's payroll. Billing managers use it for a quick health check.",
+  "steps": [
+   "Set **From Date**, **To Date**, **Employee**, **Country** or **Shift** and press **Go**.",
+   "Read the tiles **Regular Subscriptions**, **Monthly Business Volume**, **Invoices Confirmed** and **Month Payroll Amount**.",
+   "Read the panels **Over All Business Volume**, **Clients Receivables**, **Invoices**, **Month Payroll Amount** and the **Regular / Cancelled Subscriptions flow** chart.",
+   "Press **Invoice List** or **Receipts** to open the detailed lists."
+  ],
+  "notes": [
+   "Clients Receivables shows the opening balance, closing balance and the difference for the period."
+  ]
+ },
+ "admin:/dashboards/monthly-performance": {
+  "purpose": "Activity counts for academics, marketing, billing and HR in one chosen date window. Managers use it for the monthly review.",
+  "steps": [
+   "Set **Start Date**, **End Date** and, if needed, **Employees**, then press **Go**.",
+   "Use the tabs **Show All**, **Academics**, **Marketing**, **Billing** and **HR** to limit the cards to one department.",
+   "Each card shows one count or amount with a small weekly bar chart under it.",
+   "Press **Financial Summary** or **Monthly Insights** to move to those reports."
+  ],
+  "notes": [
+   "Cards include regular, dropped, freeze and completed subscriptions, missed classes, leads, invoices, receipts, ledger additions, employee requests and violations."
+  ]
+ },
+ "admin:/dashboards/financial-summary": {
+  "purpose": "Invoicing, collection and account health for a set of families. Billing and management staff use it to watch cash collection.",
+  "steps": [
+   "Filter by **From Date**, **To Date**, **Client**, **Shift**, **Currency**, **Billing Group**, **Country**, **State** or **Status**, then press **Go**.",
+   "Read the tiles, for example **Total Invoices Amount**, **Total Pending Amount**, **Total Received Amount**, **Collection Efficiency %** and **Avg Revenue Per Client**.",
+   "Scroll to the charts **Monthly Invoice Trend**, **Monthly Collection Trend**, **Clients Count Based on Currency**, **Student by Shift**, **Top 10 OutStanding Clients**, **Subscription Status Breakdown** and **Collection Efficiency Trend %**.",
+   "Press **Client Ledger Report** or **Billing Dashboard** at the top to open those pages."
+  ],
+  "notes": [
+   "Collection Efficiency % is the received amount divided by the invoiced amount.",
+   "Exceeded Accounts counts families whose balance is past their allowed limit."
+  ]
+ },
+ "admin:/dashboards/monthly-insights": {
+  "purpose": "A printable table that compares one month with the month before. Each row shows Day, Night and Total columns for both months and the direction of change.",
+  "steps": [
+   "Choose a month in **Select Month** and press **Submit**.",
+   "Read each row, for example Leads, Trial, Sign Up, Dropout, Current Student, Fee Recovery % and Trial Conversion %.",
+   "Read the **Change** column. It says up, down or No Change.",
+   "Press **Print** to print the table."
+  ],
+  "notes": [
+   "Day means the morning shift and Night means the night shift."
+  ]
+ },
+ "admin:/command-center": {
+  "purpose": "The chief executive's overview: an institutional health score, executive KPIs, AI insights, anomaly alerts and department scorecards for one period.",
+  "steps": [
+   "Choose a **Period** or set **From** and **To**, then press **Apply**. Press **This month** to return to the current month.",
+   "Read **Institutional Health** (a score out of 100 built from weighted sub-scores) and the KPI cards under **Revenue vs expenses**, **Active students**, **Lead funnel** and **Today's class execution**.",
+   "Under **AI executive insights** press **Regenerate** to produce a fresh written summary. Under **Anomalies & alerts** press **Scan** to look for unusual figures and raise alerts.",
+   "Read **Weekly trajectory** and **Department scorecards**. Press **Open** on a scorecard row to see its detail.",
+   "Press **Executive report (XLSX)** to download the figures as a spreadsheet. **Trajectory meetings** and **KPI scorecards** open the related pages."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Sub-scores with no data are left out and the remaining weights are rescaled.",
+   "Regenerating insights and scanning anomalies are recorded in the audit log."
+  ]
+ },
+ "admin:/home/academics/clients": {
+  "purpose": "Group page for family records. Staff use it to reach the client list, trial clients and online registrations.",
+  "steps": [
+   "Press **Client List**, **Trial Client List** or **Online Registrations**."
+  ],
+  "notes": []
+ },
+ "admin:/clients": {
+  "purpose": "The list of all families (clients) with their status, students, balance and contacts. Front-desk and billing staff use it to find and open a family.",
+  "steps": [
+   "Press a tile (**Trial**, **Regular**, **Drop Out**, **Black List**, **On Leave**) to filter the list to that status.",
+   "Or use **Search**, **Status**, **Shift**, **Country**, **Billing Representative**, **Academic Manager**, **Registered from** and **Registered to**, then press **Go**. Press **Reset** to clear.",
+   "Press a client name or **Open** to see the family's record. Press **View** in the **WhatsApp** column to reveal a masked contact.",
+   "Press **Create** to add a new family. **Trial Client List** and **Clients Users List** open the related pages."
+  ],
+  "notes": [
+   "Email and phone details are masked. Every reveal is written to the audit log with your name.",
+   "Drop Out means the family left. Black List means the family is blocked from new subscriptions."
+  ]
+ },
+ "admin:/clients/trial": {
+  "purpose": "Families whose free trial is still running, with who added the lead, when it converted and which closer owns it. Sales and academic staff use it to follow trials.",
+  "steps": [
+   "Read the tiles **Trial**, **Morning shift**, **Night shift** and **Regular**. Press a tile to filter the list.",
+   "Filter by **Search**, **Shift**, **Country**, **Billing Representative**, **Academic Manager**, **Registered from** or **Registered to**, then press **Go**.",
+   "Press a client name to open the family record.",
+   "Press **Create** to add a family, or **Client List** to see all families."
+  ],
+  "notes": [
+   "Rows are coloured by shift so morning and night families are easy to tell apart.",
+   "The Lead Closer is the staff member credited with turning the lead into a client."
+  ]
+ },
+ "admin:/registrations": {
+  "purpose": "Families who filled in the public registration form on the website. Admissions staff review each one and convert it into a client, a portal login and trial students in one step.",
+  "steps": [
+   "Read the tiles **Registrations**, **Awaiting contact**, **Converted**, **Possible duplicates** and **Avg lead score**. Press **Awaiting contact** or **Possible duplicates** to filter.",
+   "Filter by **Search**, **Stage** or **Duplicates** and press **Go**.",
+   "Press **Review** on a row to open the registration. There, check the details and press **Convert to client & student(s)**, or dismiss it.",
+   "Rows already converted show **Client**. Press it to open the family record.",
+   "Press **Open public form** to see the form families fill in."
+  ],
+  "notes": [
+   "Converting needs the approve permission for registrations and at least one student name.",
+   "A possible duplicate is a registration whose phone or email matches an existing lead or client."
+  ]
+ },
+ "admin:/home/academics/requests": {
+  "purpose": "Group page for requests raised by families. Staff use it to reach leave, time change, teacher change, referral and complaint queues.",
+  "steps": [
+   "Press **Leave Applications**, **Time Change Requests**, **Teacher Change Requests**, **Refer New Contacts** or **Complaints**."
+  ],
+  "notes": [
+   "All five lists work the same way: status tiles, a **Create** button and **Actions - Change Status** for the selected rows."
+  ]
+ },
+ "admin:/requests/leaves": {
+  "purpose": "Leave requests for students, applied by the family or recorded by staff. Academic staff approve, reject or cancel them.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter the list, or use **From Date**, **To Date**, **Client**, **Student** and **Approval Status** then press **Go**.",
+   "Tick the rows you want to decide. In **Actions - Change Status** choose **New Status**, type **Remarks** and press **Change Status**.",
+   "Press **Create** to record a leave for a family. Fill in **Student**, **Leave Type**, **From Date**, **To Date** and **Description**. Tick **Leave For All students of the family** if it applies. Press **Save**.",
+   "Use the tabs at the top to switch to the other request lists."
+  ],
+  "notes": [
+   "Remarks are required for every status change and are kept as the reason in the audit log.",
+   "Approving records who approved and when. Only staff with the approve permission can approve."
+  ]
+ },
+ "admin:/requests/time-change": {
+  "purpose": "Requests from families to move a subscription to a different session time or different days. Academic staff decide them.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter. Or filter by **From Date**, **To Date**, **Client**, **Student**, **Approval Status** and press **Go**.",
+   "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
+   "Press **Create** to raise a request for a family. Choose the **Subscription**, the **New Session**, tick the days **Mon** to **Sun**, type a **Description** and press **Save**."
+  ],
+  "notes": [
+   "Approving moves the subscription to the new session and days. Future pending classes are regenerated on the new time.",
+   "Remarks are required and are recorded in the audit log."
+  ]
+ },
+ "admin:/requests/teacher-change": {
+  "purpose": "Requests from families for a different teacher on a subscription. Academic managers decide them.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use the date, **Client**, **Student** and **Approval Status** filters and press **Go**.",
+   "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
+   "Press **Create** to raise a request. Choose the **Subscription**, the **New Teacher**, type a **Description** and press **Save**."
+  ],
+  "notes": [
+   "Approving with a new teacher moves the subscription, the student and all future pending classes to that teacher.",
+   "Remarks are required and are recorded in the audit log."
+  ]
+ },
+ "admin:/requests/references": {
+  "purpose": "New contacts recommended by existing families. Marketing staff approve them so they become leads credited to the referring family.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use **From Date**, **To Date**, **Client**, **Approval Status** and **Search**, then press **Go**.",
+   "Tick rows, choose **New Status**, type **Remarks** and press **Change Status**.",
+   "Press **Create** to record a referral. Choose the **Client** who is referring, type the contact's **Name**, **Email**, **Contact No**, **Reference Type** and **Description**, then press **Save**."
+  ],
+  "notes": [
+   "Approving creates a new lead in the Referral source and links it to the referring family.",
+   "Remarks are required and are recorded in the audit log."
+  ]
+ },
+ "admin:/requests/complaints": {
+  "purpose": "Complaints raised by families about classes, teachers or service. Managers record the company response and close the case.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use the date, **Client**, **Student**, **Approval Status** and **Search** filters and press **Go**.",
+   "Tick rows, choose **New Status**, type **Remarks** and, if you are resolving, a **Company Response**. Press **Change Status**.",
+   "Press **Create** to log a complaint on behalf of a family. Choose the **Client**, **Complaint Type**, type a **Title** and **Description**, then press **Save**.",
+   "Press a complaint ID to open the full case."
+  ],
+  "notes": [
+   "Approving publishes the company response to the family and marks the case resolved.",
+   "Remarks are required and are recorded in the audit log."
+  ]
+ },
+ "admin:/home/academics/students": {
+  "purpose": "Group page for student records. Staff use it to reach the student list, referrals, leaves and the retention board.",
+  "steps": [
+   "Press **Student List**, **Student Referred List**, **Student Leaves**, **On Leave Students** or **Retention & Churn**."
+  ],
+  "notes": []
+ },
+ "admin:/students": {
+  "purpose": "Every learner with family, shift, status and subscription count. Academic staff use it to find a student and open the student record.",
+  "steps": [
+   "Press a tile (**Trial**, **Regular**, **Drop Out**, **Black List**, **On Leave**) to filter the list to that status.",
+   "Or filter by **Search**, **Status**, **Family Status**, **Shift**, **Teacher**, **Course**, **Gender** or **Client** and press **Go**.",
+   "Press **Primary Report** for the normal list or **Free Students List** for active students with no subscription.",
+   "Press a student name or **Open** to see the student record. Press a client name to open the family.",
+   "Press **Create** to add a student. **Student Referred List** and **On Leave Students** open the related pages."
+  ],
+  "notes": [
+   "Family Status is the status of the client, which may differ from the student's own status.",
+   "Trial Days is how many free trial classes the student was given."
+  ]
+ },
+ "admin:/students/referred": {
+  "purpose": "Students who joined through a referral, grouped by who referred them, plus the referral requests raised by families. Marketing staff use it to see which families bring in new students.",
+  "steps": [
+   "Read the tiles **Referred students**, **Referrers**, **Referred contacts** and **Contacts approved**. Press **Referred contacts** or **Contacts approved** to open the referral request list.",
+   "Filter by **From Date**, **To Date** or **Search** and press **Go**.",
+   "Read the first table for each referred student. Read **Pivot by referrer** for the count of regular, trial and dropped students each referrer brought.",
+   "Read **Refer New Contact requests** for the newest referral requests. Press **Refer New Contacts** to manage them."
+  ],
+  "notes": []
+ },
+ "admin:/leaves/students": {
+  "purpose": "The student leave register with approve, reject and cancel decisions. Academic staff use it to grant leave so classes are paused and the family is told.",
+  "steps": [
+   "Read the tiles **Pending**, **On leave today**, **Approved** and **Rejected**. Press **Pending** to see requests waiting for a decision.",
+   "Filter by **Student**, **Status**, **Type**, **From** and **To**, then press **Go**.",
+   "Press **Decide** on a pending row, add a decision note if needed, then press **Approve** or **Reject**. Press **Cancel** to withdraw a leave.",
+   "Press **Record a leave** to enter one on behalf of a parent. Fill in **Student**, **From**, **To** and **Reason**, then press **Save leave**.",
+   "Press **Post-leave absences** to see students who did not return after leave."
+  ],
+  "notes": [
+   "Approving marks every pending class in the date range as Student On-Leave and notifies the family and the student.",
+   "Rejecting or cancelling puts those classes back to pending. Approving needs the leave approve permission."
+  ]
+ },
+ "admin:/students/on-leave": {
+  "purpose": "Students who are away today: an approved leave covers today or their enrolment is frozen. Supervisors use it to know which classes will not run.",
+  "steps": [
+   "Read the tiles **On leave today**, **Approved leave**, **Frozen enrolments**, **Upcoming leaves** and **Pending applications**. Press a tile to open the matching list.",
+   "Filter by **Search** or **Shift** and press **Go**.",
+   "Press **Leave** on a row to open the leave application, or **Open** to see the student.",
+   "Press **Student Leaves** or **Leave Applications** to manage leave."
+  ],
+  "notes": [
+   "A frozen enrolment is a subscription paused by staff. Its leave end shows as until unfrozen.",
+   "Leave For All means the leave covers every student in the family."
+  ]
+ },
+ "admin:/retention": {
+  "purpose": "A risk board that scores each student's chance of leaving and lets staff schedule retention actions. Academic managers and the retention team use it to act before a family drops out.",
+  "steps": [
+   "Read the tiles **High risk**, **Medium risk**, **Low risk**, **Open actions**, **Save rate** and **Churn (30d)**. Press a risk tile to filter the board.",
+   "Filter by **Student**, **Risk level** or **Teacher** and press **Go**.",
+   "Read each row's **Factors**, **Attendance 30d**, **Test trend**, **Complaints** and **Overdue**. Press **Recompute** on a row to rescore one student, or **Recompute all** for everyone.",
+   "In **Schedule a retention action** choose the student, **Action**, **When**, **Owner** and **Notes**, then press **Schedule action**.",
+   "In **COO monthly cohort calls** choose a **Risk cohort** and press **Bulk schedule cohort calls**. **Actions**, **Freezes** and **Analytics** open the related pages."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Actions include a call, a win-back sequence, a pre-leave offer, a freeze outreach, a teacher change and a discount offer.",
+   "Recomputing and scheduling are recorded in the audit log."
+  ]
+ },
+ "admin:/home/academics/subscriptions": {
+  "purpose": "Group page for subscriptions. Staff use it to create, allocate and report on student subscriptions.",
+  "steps": [
+   "Press **Create Subscription**, **Faculty Allocation**, **All Subscriptions**, **All Subscriptions Value Report**, **Subscription Detail Report** or **Cancelled Subscriptions**."
+  ],
+  "notes": []
+ },
+ "admin:/subscriptions/new": {
+  "purpose": "A form to enrol a student in a course at a chosen session time with a free teacher. Academic coordinators use it for every new trial or regular subscription.",
+  "steps": [
+   "Under **Search Parameters** choose the **Student** and **Course** (both required). Set **Language**, **Session Category**, **Session Type**, **Course Method**, **Grade**, **Gender**, **Status**, **Package**, **Trial Days** and **Remarks**, and tick the days **Mon** to **Sun**.",
+   "Press **Search**. The **Session Times** panel lists bookable times; booked ones are greyed.",
+   "Pick a session. The **Available Teachers** panel lists verified teachers free at that time on those days. Pick one and check **Teacher's Sessions** for that teacher's bookings.",
+   "Press **Create Subscription**. Press **Reset** to start again or **Back** to leave."
+  ],
+  "notes": [
+   "**Status** defaults to Trial and **Trial Days** to 3. The course's books are listed once a course is chosen.",
+   "Session times are shown in Pakistan time with UTC in grey."
+  ]
+ },
+ "admin:/subscriptions/allocation": {
+  "purpose": "Shows which teacher teaches which student in which session, plus a teacher-by-session grid for one weekday. Coordinators use it to find free slots and balance teacher load.",
+  "steps": [
+   "Filter by **Teacher**, **Course**, **Language**, **Session**, the days **Mon** to **Sun**, **Customer** or **Student**, then press **Go**.",
+   "Read the list of running subscriptions with teacher, session, course, language, days and status.",
+   "Choose a **Grid day** to change the **Teacher x session occupancy** grid. Green cells are regular, purple cells are trial, empty cells are free.",
+   "Press **Create Subscription** to enrol a student or **All Subscriptions** for the full list."
+  ],
+  "notes": []
+ },
+ "admin:/subscriptions": {
+  "purpose": "Every student subscription with teacher, session, course, package, status, price and next due date. Academic and billing staff use it as the master list.",
+  "steps": [
+   "Read the tiles **Clients**, **Students**, **All Subscriptions** and **Coming Follow Ups**. Press **Coming Follow Ups** to see follow-ups due in the next 7 days.",
+   "Filter by **Subscription ID**, **Session**, **Course**, **Language**, **Client**, **Student**, **Teacher** or **Status**, then press **Go**.",
+   "Switch between the saved reports **Primary**, **Employee Wise Summary** and **Coming Follow Ups** with the tabs.",
+   "Press **Open** on a row to see the subscription and change its teacher, session or status.",
+   "Press **Create Subscription**, **Faculty Allocation** or **Value Report** to move on."
+  ],
+  "notes": [
+   "Statuses are Trial, Regular, Freeze, Cancelled and Completed. Freeze means the subscription is paused.",
+   "Freezing, cancelling or completing a subscription needs a reason, which is kept in the audit log."
+  ]
+ },
+ "admin:/subscriptions/value-report": {
+  "purpose": "Running subscriptions valued in PKR at current exchange rates, with teacher cost and margin. Management uses it to see the monthly value of the book.",
+  "steps": [
+   "Read the tiles **Running Subscriptions**, **Monthly Value**, **Teacher Cost** and **Margin**.",
+   "Switch between **Primary**, **Employee Wise Summary** and **Shift Wise Profit Report** with the tabs.",
+   "Press **Regenerate Report** to recalculate every value with today's exchange rates. The page shows when it was last regenerated and by whom.",
+   "Press **Detail Report** for the report by manager, period, country and currency."
+  ],
+  "notes": [
+   "Margin is the PKR value minus the teacher cost."
+  ]
+ },
+ "admin:/subscriptions/detail-report": {
+  "purpose": "Subscriptions listed by academic manager, period, country and currency with prices in the original currency and in PKR. Management uses it for reporting and export.",
+  "steps": [
+   "Filter by **Manager**, **From Date**, **To Date**, **Country**, **Currency**, **Teacher** or **Status**, then press **Go**.",
+   "Read the tiles for the total count, **Total (PKR)** and the totals per currency.",
+   "Read the per-currency total rows at the bottom of the table.",
+   "Press **Export CSV** to download the rows. Press **Value Report** to go back to the value view."
+  ],
+  "notes": []
+ },
+ "admin:/subscriptions/cancelled": {
+  "purpose": "Subscriptions that families cancelled, with the reason, teacher and supervisor. Managers use it to understand why families leave.",
+  "steps": [
+   "Filter by **From Date**, **To Date**, **Teacher** or **Supervisor** and press **Go**.",
+   "Read the tiles **Cancelled (filtered)** and **Cancelled this month**. Press **Running Trials** to open the running trials list.",
+   "Read the **Reason** and **Cancelled At** columns for each row.",
+   "Press **Retention & Churn** to see students at risk before they cancel."
+  ],
+  "notes": []
+ },
+ "admin:/home/academics/classes": {
+  "purpose": "Group page for class operations. Supervisors use it to reach trials, schedules, substitute arrangements, reschedules, summaries and queries.",
+  "steps": [
+   "Press **Running Trials**, **Class Schedules**, **Class Arrangements**, **Rescheduled Classes**, **Class Status Summary**, **Class Queries**, **Schedule Summary Report** or **Recurring Schedules**."
+  ],
+  "notes": [
+   "**Recurring Schedules** is an addition to the original ERP."
+  ]
+ },
+ "admin:/trials/running": {
+  "purpose": "Trial subscriptions still inside their trial window. Coordinators use it to convert a trial to regular or drop it.",
+  "steps": [
+   "Read the tiles **Running Trials**, **Ending In 2 Days**, **Clients** and **Students**.",
+   "Filter by **Search**, **Client**, **Teacher**, **Course**, **Session** or **Shift** and press **Go**.",
+   "Press **Convert to Regular** on a row to turn the trial into a paying subscription.",
+   "Press **Drop** on a row, type a **Reason** and press **Drop trial**. Future classes are cancelled.",
+   "Press **Trial pipeline** for the lead-to-trial view or **Create Subscription** to start a new trial."
+  ],
+  "notes": [
+   "A reason is required to drop a trial. Both actions notify the family and the teacher and are audited."
+  ]
+ },
+ "admin:/classes": {
+  "purpose": "Every class between two working dates with its status, duration and activity record. Supervisors use it to update class status, reschedule, arrange cover and generate sessions.",
+  "steps": [
+   "Press a tile (**All**, **Pending**, **Teacher is Available**, **Started**, **Done**, **Missed**, **Student Absent**, **Student On-Leave**, **Cancelled**, **Rescheduled**) to filter.",
+   "Or filter by **From Working Date**, **To Working Date**, **Course**, **Session Category**, **Session**, **Status**, **Student**, **Teacher**, **Course Method**, **Done By Teacher** or **Trial** and press **Go**.",
+   "Tick classes, choose a **New status**, type a **Reason** and press **Apply**. Press **Open** on a row to see one class, or **Room** to enter the classroom.",
+   "Press **Reschedule** to propose a **New Working Date**, **New Session** or **New Teacher** for a class with a **Reason**, then **Raise reschedule request**. Press **Auto Arrangement** and **Run auto arrangement** to cover absent teachers for a date range.",
+   "Press **Generate sessions**, set **From** and **To** and press **Generate** to create classes from the recurring schedules. **View Absent Teachers** and **Day view** open other views."
+  ],
+  "notes": [
+   "A reason is required when marking a class missed, student absent, cancelled, student on-leave or rescheduled.",
+   "Teacher is Available means the teacher has marked themself ready and is waiting for the student.",
+   "A reschedule request waits for approval on the Rescheduled Classes page."
+  ]
+ },
+ "admin:/classes/arrangements": {
+  "purpose": "Substitute cover: one teacher's classes taken by another for a date range. Supervisors use it when a teacher is absent.",
+  "steps": [
+   "Read the tiles **Active**, **In-Active**, **Auto Arrangements** and **Classes Reassigned**. Press **Active** or **In-Active** to filter.",
+   "Filter by **From Working Date**, **To Working Date**, **Session Category**, **Session**, **From Teacher**, **To Teacher** or **Status** and press **Go**.",
+   "Press **Class Arrangement**, choose **From Teacher**, **To Teacher**, **From Working Date**, **To Working Date** and a **Reason**, then press **Create arrangement**.",
+   "Press **Auto Arrangement** and **Run auto arrangement** to let the system assign free teachers to the classes of absent teachers.",
+   "Press **Change Status** on a row to make an arrangement active or inactive. **Absent Teachers** lists who is away."
+  ],
+  "notes": [
+   "A reason is required for every arrangement.",
+   "Auto? shows whether the arrangement was created by the automatic run."
+  ]
+ },
+ "admin:/classes/rescheduled": {
+  "purpose": "The approval queue for reschedule requests. Approving moves the class to its new date, session and teacher.",
+  "steps": [
+   "Press a tile (**Pending**, **Approved**, **Rejected**, **Cancelled**) to filter, or use **From New Date**, **To New Date**, **Teacher** and **Approval Status** and press **Go**.",
+   "Compare the old and new working date, session and teacher on each row and read the **Reason**.",
+   "Tick rows, choose the new status, type **Comments** and press **Update Status**.",
+   "Press **new class** on an approved row to open the class that was created. Press **Class Schedules** to return to the schedule list."
+  ],
+  "notes": [
+   "Comments are required when rejecting or cancelling.",
+   "The table records who approved and when."
+  ]
+ },
+ "admin:/classes/status-summary": {
+  "purpose": "A teacher-by-session grid for one working date showing each class's status and duration. Supervisors use it to spot short classes and missing activity at a glance.",
+  "steps": [
+   "Choose a **Date** and, if needed, **Employee**, **Session Category** or **Session**, then press **Go**. Press **Refresh** to reload the same date.",
+   "Read the tiles **Pending**, **Teacher is Available**, **Started**, **Done**, **Missed**, **Student Absent**, **Student On-Leave** and **Cancelled**. Press one to open the schedule filtered to that status.",
+   "Read each cell. It shows the status and the duration, for example Done 30 min. Press a cell to open that class.",
+   "Press **Class Schedules** for the full list."
+  ],
+  "notes": [
+   "Cells are coloured by duration: under 15 minutes red, under 20 orange, under 25 yellow, under 35 lime.",
+   "**Late Available** means the teacher marked available after the start time. **No Activity** means the class was done with no activity recorded."
+  ]
+ },
+ "admin:/classes/queries": {
+  "purpose": "Issues raised by teachers during or after a class, such as a family wanting to speak to a manager or a technical problem. Supervisors answer and close them.",
+  "steps": [
+   "Read the tiles **Pending**, **Closed** and **All Queries**. Press one to filter.",
+   "Filter by **Status**, **Teacher**, **From** and **To** and press **Go**.",
+   "Press **Close** on a row, type a **Response** and confirm to close the query.",
+   "Press **Create**, enter the **Class Attendance ID**, choose a **Class Query Type**, type the **Detail** and press **Create query**."
+  ],
+  "notes": [
+   "Query types are Family want to talk with manager, Facing Tech Issue, Book / material issue and Other.",
+   "The Class Attendance ID is the number of the class the query is about."
+  ]
+ },
+ "admin:/classes/schedule-summary": {
+  "purpose": "A grid of every teacher's day. Teachers run down the side, the sessions of the day run across the top, and each cell shows the students taught in that session with the family's name under each one. Empty cells are free sessions. Supervisors and coordinators use it to find a free slot for a new student.",
+  "steps": [
+   "Choose an **Employee** to see one teacher, or leave **All teachers**. Choose the **Session Category** (**30 Minutes** or **45 Minutes**) and press **Go**.",
+   "Read across a teacher's row. A coloured block is one active schedule: the first line is the student code and name, the second line is the family. Hover a block to see the days and the time; press the student to open their record.",
+   "Blue is a Regular subscription, pink a Trial, green a Group Class and yellow a Frozen subscription, as the legend shows. A white cell is a free session.",
+   "The **Busy** and **Free** columns at the end count the sessions with and without a schedule.",
+   "Press **Print** for a landscape copy of the whole grid."
+  ],
+  "notes": [
+   "Only active schedules are shown. A paused or ended schedule frees its slot.",
+   "Supervisors see only their own teachers; a head of department sees everyone."
+  ]
+ },
+ "admin:/schedules": {
+  "purpose": "The recurring class slots behind every subscription, on a 24-hour, 30-minute grid. Coordinators use it to see who teaches whom, when, and which students still have no schedule.",
+  "steps": [
+   "Read the tiles **Active schedules**, **Paused**, **Ended** and **Trial slots**.",
+   "Filter by **Student**, **Status**, **Teacher**, **Course** or **Shift** and press **Go**.",
+   "Use the tabs **List**, **By teacher**, **By student** and **Unscheduled students** to change the view.",
+   "Press **Open** on a row to see or change one schedule. Press **New schedule** to create one.",
+   "Press **Teacher change** to move all of one teacher's schedules to another teacher with a reason. Press **Shifts** to manage the morning and night shift times."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Times are in Asia/Karachi. Classes are generated from these schedules by Generate sessions on Class Schedules."
+  ]
+ },
+ "admin:/home/academics/billing": {
+  "purpose": "Group page for the academic side of billing. Billing staff use it to reach invoices, receipts, ledger additions and the client ledger.",
+  "steps": [
+   "Press **Invoice List**, **Receipts**, **Ledger Additions** or **Client Ledger Report**."
+  ],
+  "notes": []
+ },
+ "admin:/finance/invoices": {
+  "purpose": "All family invoices with their status, subscription totals, discounts, tax and net amount. Billing staff create single invoices, generate the monthly bulk run and follow up payment.",
+  "steps": [
+   "Press a tile (**Confirmed**, **Over All Pending**, **Cancelled**, **Draft**, **Paid**) to filter, or use **From Date**, **To Date**, **Client**, **Currency**, **Status** and **Search**, then press **Go**.",
+   "Press **Generate Bulk Invoices**. Choose **Period (month)**, **Shift** and **Fee recurrence**. Press **Preview (dry run)** to see what would be created, then **Generate invoices** to create them.",
+   "Press **Create Single Invoice**. Choose the **Client**, tick the **Subscription(s)**, set **Invoice date**, **Due date**, **Period** and **Status**, add **Invoice additions** with **+ add line** if needed, and press **Create invoice**.",
+   "Press a client name to open the invoice. Press **Print** to print it. **Client Ledger Report** and **Receipts** open the related pages."
+  ],
+  "notes": [
+   "A bulk run skips families that already hold a bulk invoice for that month, so it is safe to run again.",
+   "Over All Pending includes pending, overdue and partly paid invoices. Net Amount LC is the net amount in PKR.",
+   "B.R is the billing representative who looks after the family."
+  ]
+ },
+ "admin:/finance/receipts": {
+  "purpose": "Money received from families, against invoices or on account, with payment mode, gateway and beneficiary account. Billing staff record and confirm receipts.",
+  "steps": [
+   "Press a tile (**Confirmed**, **Over All Pending**, **Cancelled**, **Failed**, **Refunded**) to filter, or use **From Date**, **To Date**, **Client**, **Currency**, **Status**, **Payment Mode**, **Beneficiary Account** and **Search**, then press **Go**.",
+   "Press **Create** to record a receipt. Choose the client, amount, currency, payment mode, category, beneficiary account and received date, then save.",
+   "Press **Sync Gateway Receipts** to pull receipts that arrived through the online payment gateways for open invoices.",
+   "Press **Print receipt** on a row to print it. Press a client name to open the receipt detail, where it can be confirmed, cancelled or refunded."
+  ],
+  "notes": [
+   "L.c Amount is the amount in PKR at the currency rate on the receipt date.",
+   "Confirming, cancelling and refunding need the payments approve permission and are audited.",
+   "The gateway sync currently simulates the pull; no live payment credentials are configured."
+  ]
+ },
+ "admin:/finance/ledger-additions": {
+  "purpose": "Manual credits and charges on a family's account, such as a teacher gift, a leave discount or an adjustment. Billing staff create them and a second person confirms.",
+  "steps": [
+   "Press a tile (**Pending**, **Confirmed**, **Cancelled**) to filter, or use **From Date**, **To Date**, **Client**, **Ledger Addition Type**, **Effect** and **Status**, then press **Go**.",
+   "Press **Create**. Fill in **Client**, **Currency**, **Currency Rate**, **Amount**, **Ledger Addition Date**, **Ledger Addition Type** and **Effect**. Add **Reference Employee**, **B.R** and **Remarks** if needed. Press **Save Ledger Addition**.",
+   "Press **Confirm** on a pending row to post it to the family's ledger. Press **Cancel** to cancel it with a reason.",
+   "Press **Client Ledger Report** to see the effect on the family's statement."
+  ],
+  "notes": [
+   "Effect is Add (a credit to the family) or Minus (a charge to the family).",
+   "L.C Amount is the PKR value. Only confirmed additions change the ledger balance."
+  ]
+ },
+ "admin:/finance/ledger": {
+  "purpose": "Family account balances and statements: charges, payments, credits, refunds and adjustments. Billing staff use it to answer balance questions and print statements.",
+  "steps": [
+   "Read the tiles **Families owing**, **Total owed (PKR)**, **Families in credit** and **Overdue invoices**. Press **Overdue invoices** to open the invoice list.",
+   "Type a name, code or email in **Search families** and press **Go**.",
+   "Press **Statement** on a row to open that family's ledger. Set the date range to see the previous balance, each transaction, the running balance and the total in words. It can be printed or exported.",
+   "Press **Credits issued** to see referral and other credits. Press **Invoices** to open the invoice list."
+  ],
+  "notes": [
+   "Credit available is money the family has paid in advance and can use against future invoices."
+  ]
+ },
+ "admin:/home/academics/evaluation": {
+  "purpose": "Group page for student assessment. Academic staff use it to reach evaluations, lesson plans, monthly tests, certificates and the curriculum.",
+  "steps": [
+   "Press **Evaluations**, **Pending Evaluations**, **Lesson Plans**, **Monthly Tests**, **Certificates** or **Curriculum**."
+  ],
+  "notes": [
+   "**Lesson Plans**, **Monthly Tests**, **Certificates** and **Curriculum** are additions to the original ERP."
+  ]
+ },
+ "admin:/academics/evaluations": {
+  "purpose": "Manual, weekly and level-completion assessments scored on Tajweed, fluency, memorisation and understanding. Teachers and academic managers record and review results.",
+  "steps": [
+   "Read the tiles **Evaluations**, **Passed**, **Failed**, **Pending** and **Average score**. Press **Passed**, **Failed** or **Pending** to filter.",
+   "Filter by **Student**, **Teacher**, **Type**, **Result** or **Assessment** and press **Go**. Use the tabs **Evaluations** and **Manual Evaluations** to switch lists.",
+   "Press **Create**. Choose the **Student** and **Date**, score **Tajweed**, **Fluency**, **Memorisation** and **Understanding**, write a **Teacher comment** and press **Save evaluation**. Leave **Score** blank to use the average of the four criteria.",
+   "Tick **Manual evaluation** to place it under the Manual Evaluations tab. Press **Open** on a row to read or edit one evaluation."
+  ],
+  "notes": [
+   "If an assessment is chosen, its passing marks decide pass or fail. Otherwise the pass mark is 55 percent.",
+   "Passing a level-completion evaluation issues a certificate automatically when you hold the certificate permission.",
+   "Failed rows are highlighted."
+  ]
+ },
+ "admin:/academics/evaluations/pending": {
+  "purpose": "Regular and trial students whose periodic evaluation is due: never evaluated, or last evaluated more than 30 days ago. Academic managers use it to chase teachers.",
+  "steps": [
+   "Read the tiles **Due Now**, **Never Evaluated**, **45+ Days Overdue** and **Open Evaluation Records**.",
+   "Filter by **Teacher** or **Course** and press **Go**.",
+   "Read **Last Evaluation**, **Days Since** and **Due** for each student. Press **Evaluate** to open the evaluation form for that student.",
+   "The second table lists evaluations still marked pending. Press **Evaluations** to see the full list."
+  ],
+  "notes": [
+   "An evaluation is due 30 days after the last one, or on the join date if there has never been one."
+  ]
+ },
+ "admin:/academics/lesson-plans": {
+  "purpose": "Daily and weekly lesson plans per student, with the planned sabaq, sabqi and dor, what was actually delivered and the variance. Academic managers review plans and watch delivery.",
+  "steps": [
+   "Read the tiles **Plans**, **Planned**, **Delivered**, **Partial**, **Avg variance** and **Awaiting review**. Press **Planned**, **Delivered** or **Partial** to filter.",
+   "Filter by **Student**, **Teacher**, **Status**, **From** or **To** and press **Go**.",
+   "Press **Open** on a row to read the plan, mark it delivered, review it or ask for an AI recommendation.",
+   "Press **New plan** to write a plan for a student. Press **Variance report** to compare planned and delivered work by teacher."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Sabaq is the new lesson, sabqi is recent revision and dor is revision of the full memorised portion.",
+   "Variance is how far the delivered lesson differed from the plan, as a percentage."
+  ]
+ },
+ "admin:/academics/monthly-tests": {
+  "purpose": "Monthly tests generated from each student's position in the curriculum, scored against the syllabus and sent to the guardian as a bilingual result card. Academic managers run and monitor the monthly cycle.",
+  "steps": [
+   "Read the tiles for the chosen month: **Tests**, **Scored**, **Awaiting scoring**, **Cards delivered**, **Average** and **Declining >10 pts**.",
+   "Filter by **Period**, **Student**, **Teacher**, **Status** or **Grade** and press **Go**.",
+   "Press **Generate tests for a period**, choose the **Period** and press **Generate tests**. One test is created per eligible student.",
+   "Press **Open** on a row to score the test, view or deliver the result card. Press **Improvement reports** for the month-on-month comparison."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Statuses are generated, scored, card generated and delivered. Grades run from A to D.",
+   "Improvement is the change in percentage from the student's previous test. A drop of more than 10 points is flagged."
+  ]
+ },
+ "admin:/academics/certificates": {
+  "purpose": "Certificates issued to students. Every certificate has a unique OQC number and a public verification page anyone can check.",
+  "steps": [
+   "Read the tiles **Certificates**, **This year**, **Automatic**, **Manual**, **Revoked** and **Verifications**. Press **Revoked** to see revoked certificates.",
+   "Filter by **Search**, **Course**, **Issued** or **Validity** and press **Go**.",
+   "Press **Issue certificate**. Choose the **Student**, type the **Certificate title**, an optional description and the **Issue date**. The **Next number** is shown before you save.",
+   "Press **Open** on a row to download the PDF, regenerate it, copy the verification link or revoke it."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Automatic certificates are issued when a student passes a level-completion evaluation. Manual ones are issued here.",
+   "Revoking needs a reason and is recorded in the audit log. A revoked certificate shows as invalid on the public page."
+  ]
+ },
+ "admin:/academics/curriculum": {
+  "purpose": "The curriculum builder: books, chapters and lessons for each course. Lessons hold the Arabic text with tashkeel, translation, objectives and Tajweed notes used in the shared lesson view.",
+  "steps": [
+   "Choose a **Course** and press **Go**. Use **Search lessons** to find a lesson by title or Arabic text.",
+   "Read the tiles **Books**, **Chapters**, **Lessons**, **Teaching hours** and **Students on course**.",
+   "Press **New book** and fill in **Book title** and **Description**, then **Create book**. Inside a book press **Add chapter**, and inside a chapter press **Add lesson** to enter **Lesson title**, **Expected minutes**, **Arabic text (with tashkeel)**, **Translation**, **Objectives**, **Tajweed notes** and the surah and ayah range.",
+   "In **Curriculum version** type a **New version** and **Publish notes**, then press **Publish version**. Press **Roll back** to restore an earlier version.",
+   "Press **Syllabus compliance** to see which students are behind the published syllabus."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Publishing freezes a version label. Rolling back needs a reason and is recorded in the audit log.",
+   "The **Tajweed legend** explains the colour marks used on the Arabic text."
+  ]
+ },
+ "admin:/home/academics/quality": {
+  "purpose": "Group page for quality assurance. QA officers use it to reach call recordings, review queues, feedback, teacher QA scores and monitoring.",
+  "steps": [
+   "Press **QA Dashboard**, **Client Feedbacks**, **Call Recordings**, **Agent Un-Matched Calls**, **QA Review Queue**, **Reviewed Calls**, **Teacher QA Performance** or **Configurations**.",
+   "Press **AI Class Monitoring** or **Class Recordings** for the newer monitoring tools."
+  ],
+  "notes": [
+   "**AI Class Monitoring** and **Class Recordings** are additions to the original ERP."
+  ]
+ },
+ "admin:/qa/dashboard": {
+  "purpose": "An overview of call recordings, review progress, issue breakdown and teacher call ratings for a period. QA managers use it to see how review work is going.",
+  "steps": [
+   "Set **From Date** and **To Date** and press **Go**.",
+   "Read the tiles **Total Calls**, **Unmatched Agent Calls**, **Total Zoom Calls** and **Avg QA Score /5**. Press a tile to open the matching list.",
+   "Read **QA Progress** (mapped, pending and reviewed calls by source), **QA Issue Breakdown**, **Total Reviews** by status, **Lowest Rated Calls** and **Teacher Performance**.",
+   "Read **Parameter Wise Teacher Call Ratings** for each teacher's average on every review parameter. Press **Open** on a low-rated call to see its review.",
+   "Press **QA Review Queue** or **Reviewed Calls** to work the queue."
+  ],
+  "notes": [
+   "Review statuses are Pending, In-Progress, Completed, Flagged and Rejected."
+  ]
+ },
+ "admin:/qa/feedbacks": {
+  "purpose": "Star ratings and comments from families, collected from the app, the portals and manual entry by staff. QA and academic managers use it to spot unhappy families.",
+  "steps": [
+   "Read the tiles **Total Feedback**, **Average Rating**, **Total 5 Star** and **Total 1 & 2 Star**. Press a star tile to filter by rating.",
+   "Filter by **From**, **To**, **Client**, **Feedback Resource**, **Rating**, **Teacher** or **Comment contains** and press **Go**.",
+   "Press **Create Manual Feedback**. Choose the **Client**, optionally the **Student** and a **Class (last 14 days)**, set the **Date** and **Rating**, answer the active feedback questions and type the **Comment**. Press **Save feedback**.",
+   "Press **Open** on a row to read the full feedback and its answers. Press **Surveys & NPS** for the survey tools."
+  ],
+  "notes": [
+   "Feedback Resource is where the feedback came from: Manual, App, Web Portal or Client Portal.",
+   "The questions asked on the form are managed on QA Feedback Questions in Academic Configuration."
+  ]
+ },
+ "admin:/qa/calls": {
+  "purpose": "Class call recordings pulled from the Agent softphone, Microsoft Teams and Zoom. QA officers use it to find a recording and see whether it has been reviewed.",
+  "steps": [
+   "Read the tiles **Total**, **Agent**, **Teams** and **Zoom**. Press one to filter by source.",
+   "Filter by **From**, **To**, **Teacher**, **Source**, **Review State** or **Search** and press **Go**.",
+   "Press **SYNC Calls** to pull new recordings from the three platforms.",
+   "Press **Play** on a row to open the recording. Press the review link, for example review #37, to open its QA review.",
+   "Press **Agent Un-Matched Calls** to map recordings that could not be linked to a class."
+  ],
+  "notes": [
+   "Review State runs Unmapped, Mapped, Queued, In-Progress and Reviewed.",
+   "The sync currently simulates the platform pull; the data shape matches the live feeds."
+  ]
+ },
+ "admin:/qa/calls/unmatched": {
+  "purpose": "Recordings the platforms could not link to a class. QA officers map each one to the right class so it can be reviewed.",
+  "steps": [
+   "Read the tiles **Un-Matched Calls**, **Agent Un-Matched** and **Mapped Classes**.",
+   "Filter by **From**, **To** or **Teacher** and press **Go**.",
+   "Press **Play** to listen to a recording. In **Map to class** choose the class and press **Map**.",
+   "Press **View Mapped Classes** to see recordings already linked, or **All Call Recordings** for the full list."
+  ],
+  "notes": [
+   "A class can hold only one recording. Mapping puts the call into the QA Review Queue."
+  ]
+ },
+ "admin:/qa/queue": {
+  "purpose": "Mapped call recordings waiting for a QA review. QA officers pick a call and start the review.",
+  "steps": [
+   "Read the tiles **Agent**, **Teams**, **Zoom** and **Total Que Calls**. Press a source tile to filter.",
+   "Filter by **From**, **To**, **Teacher** or **Source** and press **Go**.",
+   "Press **Start Review** on a row. The review page opens, where you rate every parameter, tick any issues and complete, flag or reject the review.",
+   "Press **Reviewed Calls** to see finished reviews or **Un-Matched Calls** to map more recordings."
+  ],
+  "notes": [
+   "A review cannot be completed until every active review parameter has a rating."
+  ]
+ },
+ "admin:/qa/reviewed": {
+  "purpose": "Every call review with its overall star rating, remarks and status. QA managers use it to check finished work and low ratings.",
+  "steps": [
+   "Read the tiles **Completed**, **Inprogress**, **Pendings**, **Total Reviews**, **Total 5 Star Rated Calls** and **Total 1 & 2 Star Rated Calls**. Press a status tile to filter.",
+   "Filter by **From**, **To**, **Status** or **Teacher** and press **Go**.",
+   "Press **Open** on a row to read the parameter ratings, issues and remarks.",
+   "Press **QA Review Queue** to continue reviewing or **QA Dashboard** for the summary."
+  ],
+  "notes": [
+   "Overall Rating is the weighted average of the parameter ratings, from 1 to 5 stars.",
+   "Flagged means the review needs management attention. Rejected means the review was discarded."
+  ]
+ },
+ "admin:/qa/teacher-performance": {
+  "purpose": "Calls, reviews, average star rating, issues and a resulting score for each teacher. Academic managers use it to compare teachers and plan coaching.",
+  "steps": [
+   "Filter by **From**, **To** or **Teacher** and press **Go**.",
+   "Read the tiles **Teachers**, **Calls**, **Reviewed**, **Avg Rating /5** and **Critical Issues**.",
+   "Read the table and the **Score % by teacher** chart. Press a teacher name to open the teacher record.",
+   "Press **QA Dashboard** for the wider view."
+  ],
+  "notes": [
+   "Score % is the average rating as a percentage, minus 5 points for each critical issue."
+  ]
+ },
+ "admin:/qa/config": {
+  "purpose": "Set-up for call reviews: the parameters rated 1 to 5 on every review and the checklist of issue types. QA managers maintain them.",
+  "steps": [
+   "Read the tiles **Review Parameters**, **Active Parameters**, **Issue Types** and **Critical Issue Types**.",
+   "Under **QA Review Parameters** press **New Parameter**, fill in **Name**, **Description**, **Weight**, **Max Rating** and **Sort No**, and press **Save parameter**.",
+   "Under **QA Issue Type** press **New Issue Type**, fill in **Name**, **Severity** and **Description**, and press **Save issue type**.",
+   "Press **Edit** on a row to change it and **Save**, or **Deactivate** to retire it without deleting past reviews."
+  ],
+  "notes": [
+   "Weight is between 0.1 and 10 and decides how much a parameter counts in the overall rating.",
+   "Severity is normal or critical. Critical issues lower a teacher's Score %.",
+   "This page needs the QA configure permission. Every change is audited."
+  ]
+ },
+ "admin:/ai-monitoring": {
+  "purpose": "Automated signals from class recordings and timings, such as camera use, teaching time, engagement and lateness, with a risk level. A human reviewer must confirm every finding.",
+  "steps": [
+   "Read the tiles **High risk**, **Medium risk**, **Low risk**, **Awaiting review** and **Average score**. Press a tile to filter.",
+   "Filter by **Teacher**, **Risk**, **Review**, **Safeguarding**, **From** or **To** and press **Go**.",
+   "Press **Review** on a row. Read the scores and flags, then approve the finding, override it with a corrected risk level, or dismiss it as a false positive. A note is required to override or dismiss.",
+   "Read **AI usage & cost** for the month's runs, tokens and cost. Press **Teacher trends** for weekly and monthly trends, or **QA queue** to send a class for a human QA review."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "AI results are signals only. Nothing is held against a teacher until a reviewer approves the finding.",
+   "The Safeguarding filter shows classes where a safeguarding flag was raised."
+  ]
+ },
+ "admin:/recordings": {
+  "purpose": "The library of class recordings with retention dates. Every time someone opens a recording they must state a purpose, which is logged for safeguarding.",
+  "steps": [
+   "Read the tiles **Recordings**, **Available**, **AI analysed** and **Expiring in 30 days**.",
+   "Filter by **Search**, **Status**, **Source**, **Teacher**, **AI analysis**, **From** or **To** and press **Go**.",
+   "Press **Open** on a row. Type the purpose of your access (at least 5 characters) and confirm. The recording then opens and the access is logged.",
+   "Press **Ingest recordings** to add recordings for completed classes. Press **Access log** to see who opened what and why."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Recordings are kept for 365 days by default and then expire. The **Opens** column counts logged accesses.",
+   "Opening a recording you are not allowed to see is refused and recorded as a warning in the audit log."
+  ]
+ },
+ "admin:/home/academics/teacher-portal": {
+  "purpose": "Group page for the teacher's own working view. Teachers and their supervisors use it to reach the online class page.",
+  "steps": [
+   "Press **Class Schedule** to open the online class page for today."
+  ],
+  "notes": []
+ },
+ "admin:/teacher/online-class": {
+  "purpose": "The teacher's working page for one day: today's classes, the current class detail, its activity record and the family's time status. Teachers mark classes available, started and done here.",
+  "steps": [
+   "Choose a **Teacher** and **Working Date** and press **Go**, or move with **Previous day**, **Today** and **Next day**. Read the tiles **Total Classes**, **Regular**, **Trial** and **Arrangements**.",
+   "In **Today's Classes** press **Mark Available** when you are ready, **Start** when the student joins and **Done** when the class ends. Press **Student Absent** or **Missed** and type a **Reason** to record a class that did not happen.",
+   "Press **Open classroom** to join the online room, or **Class record** to see the class detail.",
+   "In **Activity Detail** enter **Page No**, **Book** and **Remarks**, then press **Save Manual Activity**. In **Raise Query** choose a **Class Query Type**, type the **Detail** and press **Raise query**.",
+   "Read **Client - Student Time Status** to see the family's local time and **Day summary** for the day's counts."
+  ],
+  "notes": [
+   "A reason is required for Student Absent and Missed. Marking available tells the family the teacher is waiting.",
+   "Times are shown in Asia/Karachi. A class with no activity record is highlighted on the Class Status Summary."
+  ]
+ },
+ "admin:/home/academics/supervisor-portal": {
+  "purpose": "Group page for live class monitoring. Supervisors use it to reach the monitoring dashboard.",
+  "steps": [
+   "Press **Monitoring Dashboard** to open the supervisor live board."
+  ],
+  "notes": []
+ },
+ "admin:/supervisor": {
+  "purpose": "A live board of today's class execution for all teachers. Supervisors use it to see pending, running, done and missed classes and to act on problems as they happen.",
+  "steps": [
+   "Choose a **Date** and **Shift**, or type in **Find a class**, then press **Search**. Read the tiles **Pending**, **Done**, **Missed**, **Student Absent**, **Student On Leave**, **Cancelled** and **Reschedule Classes**.",
+   "Read the panels **Pending Classes**, **Marked Available**, **Started Classes**, **Done Classes**, **Missed Classes**, **Absent Students Classes**, **Student On Leave Classes**, **Cancelled**, **Upcoming Classes**, **Class Queries**, **Reschedule Classes** and **Upcoming Trials**.",
+   "On a class card press **Done**, **Missed**, **Absent** or **Cancel** to set its status. A reason is required for missed, absent and cancelled. Press **Room** to enter the classroom or **Flag…** to raise a flag with a reason.",
+   "Read **Absent students today**, **Teachers on approved leave**, **Cancelled today** and **Operational alerts** on the side.",
+   "Press **Teachers**, **Weekly coverage** or **Day calendar** for other views."
+  ],
+  "notes": [
+   "The board refreshes itself so the status stays current.",
+   "Every status change is recorded in the audit log with the reason."
+  ]
+ },
+ "admin:/home/academics/hod-portal": {
+  "purpose": "Group page for the academic manager (head of department) view. Academic managers use it to reach their monitoring dashboard.",
+  "steps": [
+   "Press **Monitoring Dashboard** to open the Academic Manager Portal."
+  ],
+  "notes": []
+ },
+ "admin:/hod": {
+  "purpose": "A read-only monitoring page for academic managers covering academics, HR, billing and team progress for a chosen date range and employee.",
+  "steps": [
+   "Set **From Date**, **To Date** and, if needed, **Employee**, then press **Go**. Press **Refresh** to reload.",
+   "Read the tiles **Pending**, **Done**, **Missed**, **Student Absent**, **Student On Leave**, **Cancelled** and **Reschedule Classes**, and the class panels below them.",
+   "Use the tabs **Academics**, **HR**, **Billing** and **Team Progress**. The Academics tab shows **Academics Summary**, **Absent Staff**, **Today Trials**, **Dropped Students** and **New Student Registration**.",
+   "Press **Supervisor board** or **Class Status Summary** to move to those pages."
+  ],
+  "notes": [
+   "This page does not change data. Every action links into the module that owns it."
+  ]
+ },
+ "admin:/home/academics/config": {
+  "purpose": "Group page for academic set-up data. Administrators use it to reach sessions, courses, packages, books, invoice additions, accounts and other reference lists.",
+  "steps": [
+   "Press a card such as **Sessions**, **Courses**, **Packages**, **Define Books**, **Change Staff Sorting**, **Invoice Addition List**, **Receipt Beneficiary Accounts**, **Client Academic Groups**, **MS Team Users**, **Question Bank**, **Define Assessment**, **Clients Users List**, **QA Feedback Questions** or **Course Divisions**."
+  ],
+  "notes": [
+   "**Course Divisions** is an addition to the original ERP."
+  ]
+ },
+ "admin:/academics/config/sessions": {
+  "purpose": "The bookable class times (sessions) for each session category, in Pakistan time. Administrators maintain them; every subscription is booked into one of these sessions.",
+  "steps": [
+   "Read the tiles **All Sessions**, **Active**, **Inactive**, **30 Minutes** and **45 Minutes**. Press a tile to filter.",
+   "Filter by **Session Category**, **Status** or **Search** and press **Go**.",
+   "Press **Create**. Set **Start Time**, **Duration**, **Session Category** and **Sort No**. The **Session Label** is built for you, for example 07:00 AM - 07:30 AM. Press **Create session**.",
+   "Press **Edit** on a row to change it and **Save session**. Press **Deactivate** or **Activate** to hide or show a session in pickers."
+  ],
+  "notes": [
+   "The UTC column shows the same time in UTC for families abroad.",
+   "Every change is recorded in the audit log."
+  ]
+ },
+ "admin:/academics/config/courses": {
+  "purpose": "The list of courses with type, default fee, attendance requirement and curriculum link. Administrators maintain the catalogue that subscriptions are built on.",
+  "steps": [
+   "Read the tiles **All Courses**, **Active**, **Inactive**, **Islamic Courses** and **Academics Tutoring**. Press a tile to filter.",
+   "Filter by **Search**, **Type** or **Status** and press **Go**.",
+   "Press **Create**. Fill in **Course code**, **Name**, **Type**, **Arabic name**, **Fee (PKR)**, **Session minutes**, **Curriculum Link** and **Description**, tick **Attendance Required** if needed, and press **Create course**.",
+   "Press **Edit** on a row and **Save course**, or **Deactivate** to retire a course. Press **Curriculum** to open the course's lessons. **Course Divisions** opens the full catalogue page."
+  ],
+  "notes": [
+   "Type is Islamic Courses or Academics Tutoring."
+  ]
+ },
+ "admin:/academics/config/packages": {
+  "purpose": "Packages set how many days per week a subscription runs and its price. Administrators maintain them for the Create Subscription form.",
+  "steps": [
+   "Read the tiles **All Packages**, **Active**, **Inactive** and **Trial Packages**. Press a tile to filter.",
+   "Filter by **Search**, **Course** or **Status** and press **Go**.",
+   "Press **Create**. Fill in **Description**, **Minimum Days**, **Maximum Days**, **Session minutes**, **Price** and **Currency**. Tick **This is a free trial package** for a trial package. Press **Create package**.",
+   "Press **Edit** on a row, change it and press **Save package**. Press **Deactivate** or **Activate** to hide or show it."
+  ],
+  "notes": [
+   "A **Reason for the change** is required when you change a price. It is kept in the audit log."
+  ]
+ },
+ "admin:/academics/config/books": {
+  "purpose": "The books used in classes. Internal books are used by teachers; public books also appear on the website and in the client portal.",
+  "steps": [
+   "Use the tabs **Internal Books** and **Public Books** to switch lists. Press a tile (**Active**, **Inactive**) to filter, or use **Search**, **Course** and **Status** and press **Go**.",
+   "Press **Create**. Fill in **Name**, **Arabic title**, **Course** and **Sort No**. Tick **Public book** to show it publicly. Press **Create book**.",
+   "To add many books at once press **Download Template**, fill the CSV, then press **Upload CSV**, choose the **CSV file** and press **Upload books**.",
+   "Press **Edit** on a row and **Save book**, or **Deactivate** to retire a book."
+  ],
+  "notes": [
+   "Sort No sets the order books appear in for a course.",
+   "Uploads report how many rows were created, skipped or had errors."
+  ]
+ },
+ "admin:/academics/config/staff-sorting": {
+  "purpose": "Sets the order in which staff appear in teacher pickers and class lists. Administrators use it to put the most used teachers first.",
+  "steps": [
+   "Read the tiles **Active Employees**, **Teachers**, **Other Staff** and **Without Sort No**.",
+   "Filter by **Search**, **Department** or **Shift** and press **Go**.",
+   "Press **Move up** or **Move down** on a row to swap its position with its neighbour.",
+   "Or type new numbers in the **Sort No** column and press **Save Sort Order**. Press **Employees** to open the employee records."
+  ],
+  "notes": [
+   "Only active employees are listed. Every change is recorded in the audit log."
+  ]
+ },
+ "admin:/academics/config/invoice-additions": {
+  "purpose": "Named discount, charge and tax lines that can be added to invoices. Billing administrators maintain them; the Invoice Additions Master decides when they apply.",
+  "steps": [
+   "Read the tiles **All**, **Active**, **Inactive**, **Discounts**, **Charges** and **Taxes**. Press a tile to filter.",
+   "Filter by **Search**, **Addition Type** or **Status** and press **Go**.",
+   "Press **Create**. Choose **Addition Type** (Discount, Charge or Tax), type a **Description** and press **Save**.",
+   "Press **Edit** on a row and **Save**, or **Deactivate** to retire it. The **Rules** column shows how many master rules use the line; press it to see them. **Invoice Additions Master** opens the rules page."
+  ],
+  "notes": []
+ },
+ "admin:/academics/config/invoice-addition-rules": {
+  "purpose": "Rules that say when and how an invoice addition is applied to generated invoices: for one subscription, one client or every invoice. Billing administrators maintain them.",
+  "steps": [
+   "Read the tiles **All Rules**, **Active**, **Inactive**, **Subscription**, **Client**, **Global** and **Auto Assigned**. Press a tile to filter.",
+   "Filter by **Level**, **Invoice Addition List** or **Status** and press **Go**.",
+   "Press **Create**. Choose the **Level** and, for that level, the **Subscription** or **Client**. Choose the **Invoice Addition List** line, **From Date**, **To Date**, **Implementation Type**, **Amount** and a **Reason**. Press **Create rule**.",
+   "Press **Edit** on a row and **Save rule**, or **Activate** and **Deactivate** to switch it on or off. **Invoice Addition List** opens the lines page."
+  ],
+  "notes": [
+   "Implementation Type is Fixed (an amount) or a percentage.",
+   "Auto Assigned? means the bulk invoice run applies the rule by itself. The reason is kept in the audit log."
+  ]
+ },
+ "admin:/academics/config/beneficiary-accounts": {
+  "purpose": "Where client money is received: payment gateways, bank accounts and cash points. These are offered on the receipt form.",
+  "steps": [
+   "Read the tiles **All Accounts**, **Active**, **Inactive**, **Online Payment Gateway**, **Bank** and **Cash**. Press a tile to filter.",
+   "Filter by **Search**, **Payment Mode** or **Status** and press **Go**.",
+   "Press **Create**. Choose **Payment Mode** and **Category** (for example Stripe, PayPal, UBL, Meezan Bank, Wise), type the **Beneficiary Account** name and optional **Account details**. Tick **Auto receipts** if the gateway posts receipts by itself. Press **Create account**.",
+   "Press **Edit** on a row and **Save account**, or **Deactivate** and **Activate**. **Receipts** opens the receipt list."
+  ],
+  "notes": [
+   "The Auto column shows accounts that receive gateway receipts automatically."
+  ]
+ },
+ "admin:/academics/config/client-groups": {
+  "purpose": "Morning and Night client groups: which shift serves a family and who represents it on the academic side. Administrators maintain them.",
+  "steps": [
+   "Read the tiles **All Groups**, **Active**, **Inactive**, **Morning** and **Night**. Press a tile to filter.",
+   "Filter by **Shift** or **Status** and press **Go**.",
+   "Press **Create**. Type the **Group Name** and **Sudo Name**, choose the shift and the **Representative Name**, then press **Create group**.",
+   "Press **Edit** on a row and **Save group**, or **Deactivate** and **Activate**. **Clients** opens the client list."
+  ],
+  "notes": [
+   "Sudo Name is the short display name for the group, for example Morning Manager."
+  ]
+ },
+ "admin:/academics/config/teams-users": {
+  "purpose": "Microsoft Teams accounts mapped to staff and clients, so Teams call recordings can be matched to the right people. Administrators maintain the mapping.",
+  "steps": [
+   "Use the tabs **Staff** and **Clients** to switch lists. Read the tiles **All Accounts**, **Staff**, **Clients**, **Active** and **Inactive**.",
+   "Filter by **Search** or **Status** and press **Go**.",
+   "Press **Create**. Choose **Account for** (staff or client), pick the **Employee** or **Client**, type the **Teams email** and, if different, the **Display name**. Press **Create account**.",
+   "Press **Edit** on a row and **Save account**, or **Deactivate** and **Activate**."
+  ],
+  "notes": [
+   "Display name defaults to the person's name."
+  ]
+ },
+ "admin:/academics/config/question-bank": {
+  "purpose": "Questions per book and assessment, with type and marks. Assessments draw their papers from this bank.",
+  "steps": [
+   "Read the tiles **All Questions**, **Active**, **Inactive**, **Oral**, **Written**, **Recitation** and **MCQ**. Press a tile to filter.",
+   "Filter by **Book**, **Assessment**, **Type**, **Status** or **Search** and press **Go**.",
+   "Press **Create**. Choose the book, assessment and type, type the **Question**, set the **Marks** and add a **Model answer / marking note**. Press **Add question**.",
+   "Press **Edit** on a row and **Save question**, or **Deactivate** and **Activate**. **Define Assessment** opens the assessments page."
+  ],
+  "notes": [
+   "Question types are Oral, Written, Recitation and MCQ."
+  ]
+ },
+ "admin:/academics/config/assessments": {
+  "purpose": "Assessments per book with passing and total marks. Administrators define them; evaluations use them to decide pass or fail.",
+  "steps": [
+   "Read the tiles **All Assessments**, **Active**, **Inactive** and **Questions Assigned**. Press a tile to filter.",
+   "Filter by **Book**, **Status** or **Search** and press **Go**.",
+   "Press **Create**. Choose the book, type the **Title**, set **Passing Marks** and **Total Marks**, then press **Create assessment**.",
+   "Press **Open** on a row to manage its questions. Press **Deactivate** or **Activate** to switch it off or on. **Questions Bank** opens the question list."
+  ],
+  "notes": [
+   "When an evaluation is linked to an assessment, its Passing Marks set the pass line and Total Marks set the maximum score."
+  ]
+ },
+ "admin:/clients/users": {
+  "purpose": "Every family with a parent-portal login, with last sign-in, active flag and password tools. Support staff use it to help parents who cannot sign in.",
+  "steps": [
+   "Read the tiles **With portal login**, **Active logins**, **Disabled** and **Signed in (30 days)**. Press a tile to filter.",
+   "Filter by **Search** or **Active** and press **Go**.",
+   "Press **Reset password** on a row and confirm. A new temporary password is shown once; pass it to the parent securely.",
+   "Press **Open** to see the family record. Press **Client List** for all families."
+  ],
+  "notes": [
+   "**Must change password** shows Yes until the parent sets their own password at the next sign-in.",
+   "Passwords are never shown on this page. Resetting needs the client update permission and is audited."
+  ]
+ },
+ "admin:/academics/config/feedback-questions": {
+  "purpose": "The questions every feedback form asks, in order, with answer type and audience. Answers stay attached to the feedback by question, so a question can be reworded or retired later.",
+  "steps": [
+   "Read the tiles **All Questions**, **Active**, **Inactive**, **Client**, **Student** and **Staff**. Press a tile to filter.",
+   "Filter by **Applies To**, **Answer Type**, **Status** or **Search** and press **Go**.",
+   "Press **Create**. Type the **Question** and its Urdu wording in **Question (Urdu)**, choose the answer type and who it applies to, set **Sort No** and tick **Required** if it must be answered. Press **Create question**.",
+   "Press **Move up** or **Move down** to reorder. Press **Edit** and **Save question**, or **Deactivate** to retire a question. **Client Feedbacks** opens the feedback list."
+  ],
+  "notes": [
+   "Answer types are a 1 to 5 rating, yes or no, or free text.",
+   "The QA manual feedback form, the client portal and the public survey all ask the active questions in this order."
+  ]
+ },
+ "admin:/academics/courses": {
+  "purpose": "The full catalogue behind every enrolment: courses, their divisions (levels), published lessons, and packages with per-country pricing. Academic and billing managers maintain it.",
+  "steps": [
+   "Read the tiles **Courses**, **Active**, **Divisions**, **Active packages** and **Lessons published**.",
+   "Filter by **Search** or **Status** and press **Go**. Press **Open** on a course to manage its divisions, packages and curriculum.",
+   "Press **New course**. Fill in **Course code**, **Course name**, **Arabic name**, **Urdu name**, **Session minutes**, **Target months** and **Description**, then press **Create course**.",
+   "Under **Packages & per-country pricing** press **New package**. Fill in **Package name**, **Course**, **Country**, **Price**, **Currency**, **Sessions / week**, **Minutes** and **Billing cycle**. Tick **This is a free trial package** if needed. Press **Create package**.",
+   "Press **Curriculum** to open the curriculum builder."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "A **Reason for the change** is required when a price changes. It is kept in the audit log.",
+   "A division cannot be deleted while students are enrolled in it."
+  ]
+ }
 }

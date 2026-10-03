@@ -151,7 +151,7 @@ rules duration15 / duration20 / duration25 / duration35 · Late Available · No 
 **Class Queries** — ID · Class Attendance ID · Class Query Type (Family want to talk with manager · Facing Tech Issue) ·
 Detail · Teacher · Created At · Shift · Status (Pending / Closed).
 
-**Schedule Summary Report** — Employee · Session Category · Print. Columns Sr# · Employee · Free · Total (per session).
+**Schedule Summary Report** — Employee · Session Category · Search · Print. A grid: Sr# · Employee (code - name) down the side, one column per session of the day across the top, and in each cell the students taught in that session (student code-name over the family name) as coloured blocks; empty cells are free sessions. Matched on 3 Oct 2026 from a screenshot of the live page; the first audit had recorded it as a Free/Total count.
 
 ### 3.7 Billing Management (academic side)
 **Invoice List** — tiles Confirmed · Over All Pending · Cancelled · Draft · Paid. Filters From/To Date · Client · Currency
