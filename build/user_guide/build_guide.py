@@ -192,7 +192,8 @@ def shot(name: str, width: float = TEXT_W, crop: tuple | None = None, border=Tru
         return Paragraph(f"<i>[screenshot {esc(name)} missing]</i>", S["small"])
     # every screenshot is stored once as a 256-colour PNG: the UI is flat colour, so this halves the file
     out = CROPS / (f"{src.stem}_{'_'.join(map(str, crop))}.png" if crop else f"{src.stem}_q.png")
-    if not out.exists():
+    # rebuilt when the screenshot is newer than the cached copy, or a recapture would be shown stale
+    if not out.exists() or out.stat().st_mtime < src.stat().st_mtime:
         im = PILImage.open(src).convert("RGB")
         if crop:
             im = im.crop(crop)

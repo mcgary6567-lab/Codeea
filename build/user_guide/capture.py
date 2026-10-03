@@ -160,6 +160,7 @@ def main() -> None:
         assert browser, "no installed browser could be launched"
         ctx = browser.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=1)
         page = ctx.new_page()
+        page.set_default_timeout(20000)  # a page that never finishes loading must not stall the whole run
 
         # anonymous pages
         page.goto(f"{BASE}/login", wait_until="load")
