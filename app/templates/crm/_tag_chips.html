@@ -1,0 +1,21 @@
+{# Tag chips for a record page. Set before including:
+     tc_type ('lead' | 'client' | 'student'), tc_id, tc_next (URL to return to), tags (list[Tag]), tag_options (list of names) #}
+{% set _colors = ['sky', 'indigo', 'amber', 'emerald', 'violet', 'rose', 'orange', 'teal', 'slate', 'brand'] %}
+{% set _can = has_perm(user, 'tags.update') %}
+<div class="flex flex-wrap items-center gap-1.5">
+  {% for t in tags %}
+  {% set col = t.color if t.color in _colors else 'slate' %}
+  <span class="inline-flex items-center rounded ring-1 ring-inset bg-{{ col }}-50 text-{{ col }}-700 ring-{{ col }}-600/20 text-[11px] font-medium">
+    <a href="/crm/tags/{{ t.id }}" class="px-1.5 py-0.5 hover:underline" title="{{ t.description or t.category }}">{{ t.name }}</a>
+    {% if _can %}<form method="post" action="/crm/tags/unapply" class="inline"><input type="hidden" name="contact_type" value="{{ tc_type }}"><input type="hidden" name="contact_id" value="{{ tc_id }}"><input type="hidden" name="tag" value="{{ t.name }}"><input type="hidden" name="next" value="{{ tc_next }}"><button type="submit" class="px-1 py-0.5 text-{{ col }}-500 hover:text-{{ col }}-800" title="Remove {{ t.name }}">✕</button></form>{% endif %}
+  </span>
+  {% else %}<span class="text-xs text-slate-400">No tags yet.</span>{% endfor %}
+</div>
+{% if _can %}
+<form method="post" action="/crm/tags/apply" class="mt-2 flex items-center gap-1.5">
+  <input type="hidden" name="contact_type" value="{{ tc_type }}"><input type="hidden" name="contact_id" value="{{ tc_id }}"><input type="hidden" name="next" value="{{ tc_next }}">
+  <input name="tag" list="tagOptions_{{ tc_type }}" required placeholder="Add a tag…" class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+  <datalist id="tagOptions_{{ tc_type }}">{% for name in tag_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  <button type="submit" class="inline-flex shrink-0 items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="plus" class="h-3 w-3"></i>Add</button>
+</form>
+{% endif %}

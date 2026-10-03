@@ -768,6 +768,9 @@ def issue_certificate(db: Session, student: Student, course: Optional[Course], t
                event_type="certificate", link=link, channels=("in_app",))
     if student.user_id:
         notify(db, student.user_id, "You earned a certificate!", f"{title} — {cert.certificate_number}", event_type="certificate", link=link)
+    from app.services import automation
+    automation.emit(db, "course.completed", "student", student.id, {"certificate": cert.certificate_number, "course": course.name if course else "", "title": title,
+                                                                   "link": verification_url(cert)})
     return cert
 
 

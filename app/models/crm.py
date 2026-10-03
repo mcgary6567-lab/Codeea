@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin
 
-LEAD_STAGES = ["new", "contacted", "trial_scheduled", "trial_done", "negotiation", "won", "lost"]
+LEAD_STAGES = ["new", "contacted", "trial_scheduled", "trial_done", "negotiation", "payment_pending", "won", "lost"]
 
 
 class Campaign(Base, PKMixin, TimestampMixin):

@@ -115,6 +115,24 @@ def _notices(db: Session, today: date) -> int:
     return made
 
 
+def _refresh_notice_dates(db: Session, today: date) -> int:
+    """Keep the seeded notices representative as time passes: their dates are offsets from the day the seed
+    runs, so a notice seeded as "scheduled" goes live two weeks later and the demo loses that state. On every
+    run the seeded titles are re-dated from today. Notices staff created themselves are not touched."""
+    moved = 0
+    for title, description, link, audience, start_off, end_off, status in NOTICES:
+        n = db.query(StaffNotice).filter(StaffNotice.title == title).first()
+        if not n:
+            continue
+        start = today + timedelta(days=start_off)
+        end = (today + timedelta(days=end_off)) if end_off is not None else None
+        if n.start_date != start or n.end_date != end:
+            n.start_date, n.end_date = start, end
+            moved += 1
+    db.flush()
+    return moved
+
+
 def _notice_counts(db: Session, today: date) -> dict:
     counts = {"live": 0, "scheduled": 0, "expired": 0, "inactive": 0}
     for n in db.query(StaffNotice):
@@ -133,6 +151,7 @@ def run(db: Session) -> None:
     today = date.today()
     written, with_end, in_window = _contract_ends(db, today)
     made = _notices(db, today)
+    _refresh_notice_dates(db, today)
     c = _notice_counts(db, today)
     print(f"    parity_hr: contract ends +{written} ({with_end} live employees carry one, {in_window} end within "
           f"{WINDOW_DAYS} days), staff notices +{made} (live {c['live']} / scheduled {c['scheduled']} / "

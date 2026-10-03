@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Tags{% endblock %}
+{% block content %}
+{% call ui.page_header('Tags', 'Labels on leads, families and students. Workflows add and remove them, filters and smart lists read them, and a tag can itself start a workflow.') %}
+  {{ ui.button('Automations', href='/crm/automations', icon='workflow', variant='secondary') }}
+  {% if has_perm(user, 'tags.update') %}{{ ui.button('Create', icon='plus', attrs='type="button" @click="$dispatch(\'open-modal\',\'newTag\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 xl:grid-cols-8 mb-6">
+  {% for key, label in categories %}
+  {{ ui.stat(label, per_category.get(key, 0), color=palette(loop.index0), href='/crm/tags?category=' ~ key) }}
+  {% endfor %}
+</div>
+
+{% call ui.filter_bar('/crm/tags') %}
+  <div class="w-40">{{ ui.select('category', 'Category', categories, category, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('status', 'Status', [('active','Active'),('inactive','Inactive')], status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Name or description') }}</div>
+{% endcall %}
+
+{% set can_edit = has_perm(user, 'tags.update') %}
+{{ ui.table_start(['Tag', 'Category', 'Colour', 'Contacts', 'Description', 'Active', '']) }}
+{% for t in tags %}
+{% set col = t.color if t.color in colors else 'slate' %}
+<tr>
+  <td class="px-3 py-2"><a href="/crm/tags/{{ t.id }}" class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset bg-{{ col }}-50 text-{{ col }}-700 ring-{{ col }}-600/20 hover:ring-{{ col }}-600">{{ t.name }}</a></td>
+  <td class="px-3 py-2 text-xs">{{ category_labels.get(t.category, t.category|titleize) }}</td>
+  <td class="px-3 py-2 text-xs"><span class="inline-flex items-center gap-1.5"><span class="h-3.5 w-3.5 rounded-full bg-{{ col }}-500 ring-1 ring-inset ring-{{ col }}-600/30"></span>{{ col }}</span></td>
+  <td class="px-3 py-2 text-xs">{% if counts.get(t.id) %}<a href="/crm/tags/{{ t.id }}" class="font-medium hover:text-brand-600">{{ counts.get(t.id) }}</a>{% else %}<span class="text-slate-400">0</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ t.description or '—' }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if t.is_active else 'inactive') }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if can_edit %}
+    <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+    <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline"><input type="hidden" name="next" value="/crm/tags?category={{ category }}&status={{ status }}&q={{ q }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+    {{ ui.button('Open', href='/crm/tags/' ~ t.id, variant='ghost', size='sm') }}
+  </td>
+</tr>
+{% if can_edit %}
+<tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="7" class="bg-slate-50 px-4 py-4">
+  <form method="post" action="/crm/tags/{{ t.id }}/edit" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+    <input type="hidden" name="next" value="/crm/tags?category={{ category }}&status={{ status }}&q={{ q }}">
+    {{ ui.input('name', 'Name', t.name, required=True) }}
+    {{ ui.select('category', 'Category', categories, t.category, placeholder=None) }}
+    {{ ui.select('color', 'Colour', colors, col, placeholder=None) }}
+    {{ ui.input('description', 'Description', t.description or '') }}
+    <div class="flex gap-2">{{ ui.button('Save tag', icon='save', size='sm') }}<button type="button" @click="editRow = null" class="rounded px-3 py-1.5 text-xs text-slate-500">Cancel</button></div>
+  </form>
+</td></tr>
+{% endif %}
+{% else %}{{ ui.empty('No tags match these filters.', 7, 'tag') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ tags|length }} tag{{ 's' if tags|length != 1 }}</div>
+
+{% if can_edit %}
+{% call ui.modal('newTag', 'Create tag') %}
+<form method="post" action="/crm/tags/new" class="space-y-4">
+  {{ ui.input('name', 'Name', '', required=True, placeholder='status:demo-booked', help='Short and lower-case; a prefix such as status: or src: keeps the list readable.') }}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ ui.select('category', 'Category', categories, 'other', placeholder=None) }}
+    {{ ui.select('color', 'Colour', colors, 'slate', placeholder=None) }}
+  </div>
+  {{ ui.input('description', 'Description', '', placeholder='What this tag means and who sets it') }}
+  {{ ui.button('Create tag', icon='check') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

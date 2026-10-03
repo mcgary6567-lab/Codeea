@@ -146,3 +146,10 @@ The complete illustrated user guide (`OQC_User_Guide.pdf`, about 430 pages) is g
 `build/user_guide/build_guide.py` lays the book out; the per-page text lives in `build/user_guide/desc_*.json`,
 keyed `portal:url`. When you add a page to `nav.py`, add its entry to the matching `desc_` file, then rebuild.
 See `build/user_guide/README.md`.
+
+## CRM automation (added 3 Oct 2026)
+Events, not polling: the code that does a thing calls `automation.emit(db, "<event>", contact_type, contact_id, payload)`
+right after its audit/notify call (see `docs/CRM_AUTOMATION.md` for the event list). Workflows are data
+(`app/models/automation.py`), seeded from `app/seed/automation.py` and edited on `/crm/automations`; never
+hard-code a follow-up message in a service when a workflow step can send it. Every send step must leave a log
+line, and a skipped send must say why.

@@ -116,6 +116,10 @@ def set_status(db: Session, session: ClassSession, status: str, user: Optional[U
         att.student_status = {"done": "present", "missed": "present", "absent": "absent", "leave": "leave"}[status]
         att.teacher_status = {"done": "late" if session.teacher_late_minutes > 5 else "present", "missed": "absent", "absent": "present", "leave": "present"}[status]
         att.marked_by_id = user.id if user else None
+    if status == "absent" and session.student_id:
+        from app.services import automation
+        automation.emit(db, "class.student_absent", "student", session.student_id,
+                        {"session_id": session.id, "date": str(session.date), "time": session.start_time.strftime("%H:%M")})
     if status == "missed":
         db.add(RiskAlert(alert_type="missed_class", severity="high", title=f"Class missed by teacher — {session.teacher.full_name if session.teacher else session.teacher_id}",
                          message=f"Student {session.student.full_name if session.student else session.student_id} at {session.start_time.strftime('%H:%M')} on {session.date}. {reason or ''}",

@@ -147,6 +147,8 @@ cd /opt/oqc/app
 | `592b863b4bb0` | Accounts and Configuration parity: voucher fields on the journal entry, account heads and opening balances, lookups and lookup values, branch properties on settings, payment gateways, WhatsApp senders, support tickets, OTP configuration |
 | `30408ac573e4` | Billing Management parity: balance limit, payment day and billing remarks on the family; lead verification columns; the lead closers catalogue |
 | `2d78aefa0e3f` | Employee Self Portal parity: the employee ledger, draft/submitted on a progress note, collaborators on a task |
+| `cd82be2cce8f` | Parity walk: contract end date, staff notices, QA feedback questions, Confido agent licences, devices and screenshots |
+| `6eb79b7d42ee` | CRM automation: tags, contact tags, workflows, workflow runs, automation events |
 
 **Autogenerating a revision.** Alembic emits `create_foreign_key(None, ...)`, which SQLite batch mode rejects
 ("Constraint must have a name"). After every `alembic revision --autogenerate`, run

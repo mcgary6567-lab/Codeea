@@ -80,7 +80,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
            "completed": "Completed", "approved": "Approved", "flagged": "Flagged", "rejected": "Rejected"},
     "request": {"pending": "Pending", "approved": "Approved", "rejected": "Rejected", "cancelled": "Cancelled"},
     "registration": {"new": "Pending", "contacted": "Forward to Verifier", "trial_scheduled": "Trial Scheduled",
-                     "trial_done": "Trial Done", "negotiation": "Negotiation", "won": "Converted", "lost": "Lost"},
+                     "trial_done": "Trial Done", "negotiation": "Negotiation", "payment_pending": "Payment Pending", "won": "Converted", "lost": "Lost"},
 }
 
 

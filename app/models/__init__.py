@@ -9,3 +9,4 @@ from app.models.ops import *  # noqa: F401,F403
 from app.models.erp import *  # noqa: F401,F403
 from app.models.hr_erp import *  # noqa: F401,F403
 from app.models.config_erp import *  # noqa: F401,F403
+from app.models.automation import *  # noqa: F401,F403

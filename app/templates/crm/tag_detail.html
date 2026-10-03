@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Tag · {{ t.name }}{% endblock %}
+{% block content %}
+{% set col = t.color if t.color in colors else 'slate' %}
+{% call ui.page_header(t.name, category_labels.get(t.category, t.category|titleize) ~ ' tag · ' ~ (t.description or 'no description'), back='/crm/tags') %}
+  {{ ui.badge('active' if t.is_active else 'inactive') }}
+  {% if has_perm(user, 'tags.update') %}
+  <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline"><input type="hidden" name="next" value="/crm/tags/{{ t.id }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='secondary') }}</form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-4 mb-6">
+  {{ ui.stat('Contacts', total, icon='users', color=palette(0)) }}
+  {{ ui.stat('Leads', by_type.get('lead', 0), icon='user-plus', color=palette(1), href='/crm/leads') }}
+  {{ ui.stat('Clients', by_type.get('client', 0), icon='users', color=palette(3), href='/clients') }}
+  {{ ui.stat('Students', by_type.get('student', 0), icon='graduation-cap', color=palette(4), href='/students') }}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    {{ ui.table_start(['Type', 'Code', 'Name', 'Status', '']) }}
+    {% for r in rows %}
+    <tr>
+      <td class="px-3 py-2 text-xs">{{ r.type|titleize }}</td>
+      <td class="px-3 py-2 font-mono text-xs"><a href="{{ r.url }}" class="hover:text-brand-600">{{ r.code }}</a></td>
+      <td class="px-3 py-2"><a href="{{ r.url }}" class="font-medium hover:text-brand-600">{{ r.name }}</a></td>
+      <td class="px-3 py-2">{% if r.status %}{{ ui.badge(r.status, r.status|label('registration' if r.type == 'lead' else r.type)) }}{% else %}—{% endif %}</td>
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        {{ ui.button('Open', href=r.url, variant='ghost', size='sm') }}
+        {% if has_perm(user, 'tags.update') %}{{ ui.confirm_form('/crm/tags/' ~ t.id ~ '/remove', 'Remove', icon='x', variant='ghost', message='Remove the tag ' ~ t.name ~ ' from ' ~ r.name ~ '?', hidden={'contact_type': r.type, 'contact_id': r.id}) }}{% endif %}
+      </td>
+    </tr>
+    {% else %}{{ ui.empty('No contact carries this tag.', 5, 'tag') }}{% endfor %}
+    {{ ui.table_end() }}
+    {% if total > rows|length %}<div class="mt-2 text-xs text-slate-500">Showing the {{ rows|length }} most recent of {{ total }}.</div>{% endif %}
+  </div>
+  <div class="space-y-6">
+    {% call ui.card('About this tag') %}
+      <div class="mb-3"><span class="inline-flex items-center rounded px-2 py-0.5 text-sm font-medium ring-1 ring-inset bg-{{ col }}-50 text-{{ col }}-700 ring-{{ col }}-600/20">{{ t.name }}</span></div>
+      {{ ui.dl([('Category', category_labels.get(t.category, t.category|titleize)), ('Colour', col), ('Created', t.created_at|date), ('Active', 'Yes' if t.is_active else 'No')]) }}
+      <p class="mt-3 text-xs text-slate-500">Workflows that start on <span class="font-mono">tag.added</span> with the filter <span class="font-mono">{"tag": "{{ t.name }}"}</span> run every time this tag lands on a contact.</p>
+    {% endcall %}
+    {% if has_perm(user, 'tags.update') %}
+    {% call ui.card('Edit') %}
+    <form method="post" action="/crm/tags/{{ t.id }}/edit" class="space-y-3">
+      <input type="hidden" name="next" value="/crm/tags/{{ t.id }}">
+      {{ ui.input('name', 'Name', t.name, required=True) }}
+      {{ ui.select('category', 'Category', categories, t.category, placeholder=None) }}
+      {{ ui.select('color', 'Colour', colors, col, placeholder=None) }}
+      {{ ui.input('description', 'Description', t.description or '') }}
+      {{ ui.button('Save', icon='save', size='sm') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -349,6 +349,12 @@ def student_detail(id: int, request: Request, tab: str = "overview", db: Session
                  "change_log_url": f"/admin/audit/entity/Student/{s.id}" if rbac.has_permission(user, "audit.view") else f"/students/{s.id}?tab=audit",
                  "subscriptions_count": db.query(func.count(Subscription.id)).filter(Subscription.student_id == s.id).scalar() or 0}
     if tab == "overview":
+        from app.models.automation import Tag, WorkflowRun
+        from app.services import automation as auto
+        ctx["tags"] = auto.tags_for(db, "student", s.id)
+        ctx["tag_options"] = [t.name for t in db.query(Tag).filter(Tag.is_active.is_(True)).order_by(Tag.name)]
+        ctx["runs"] = (db.query(WorkflowRun).filter(WorkflowRun.contact_type == "student", WorkflowRun.contact_id == s.id)
+                       .order_by(WorkflowRun.started_at.desc(), WorkflowRun.id.desc()).limit(10).all())
         ctx["next_session"] = db.query(ClassSession).filter(ClassSession.student_id == s.id, ClassSession.status == "pending", ClassSession.scheduled_start >= datetime.utcnow() - timedelta(hours=5)).order_by(ClassSession.scheduled_start).first()
         ctx["schedules"] = db.query(Schedule).filter(Schedule.student_id == s.id, Schedule.status == "active").all()
         ctx["dor"] = db.query(DorSchedule).filter(DorSchedule.student_id == s.id).order_by(DorSchedule.period.desc()).first()

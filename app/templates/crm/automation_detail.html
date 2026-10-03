@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ wf.code }} · {{ wf.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(wf.name, wf.code ~ ' · ' ~ (wf.pipeline or 'No pipeline') ~ (' · ' ~ wf.stage if wf.stage else '') ~ ' · ' ~ steps|length ~ ' step' ~ ('s' if steps|length != 1 else ''), back='/crm/automations') %}
+  {{ ui.badge(wf.category, wf.category|titleize) }}
+  {{ ui.badge('active' if wf.is_active else 'inactive') }}
+  {% if has_perm(user, 'automations.update') %}
+    <button type="button" @click="$dispatch('open-modal','toggleWf')" class="inline-flex items-center gap-1.5 rounded px-3.5 py-1.5 text-sm font-medium text-white shadow-sm {{ 'bg-amber-500 hover:bg-amber-600' if wf.is_active else 'bg-emerald-600 hover:bg-emerald-700' }}"><i data-lucide="{{ 'pause' if wf.is_active else 'play' }}" class="h-4 w-4"></i>{{ 'Deactivate' if wf.is_active else 'Activate' }}</button>
+  {% endif %}
+  {% if has_perm(user, 'automations.add') %}{{ ui.confirm_form('/crm/automations/' ~ wf.id ~ '/duplicate', 'Duplicate', icon='copy', variant='secondary', message='Copy this workflow? The copy starts switched off.', size='md') }}{% endif %}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  <span class="rounded-md bg-brand-600 px-2.5 py-1 font-mono text-sm font-bold text-white tracking-wide">{{ wf.code }}</span>
+  <span class="text-slate-700"><b>Starts when:</b> {{ trigger_label }}{% for w in filter_words %}, {{ w }}{% endfor %}.</span>
+  {% if wf.run_once_per_contact %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">Once per contact</span>{% else %}<span class="rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700">Repeats per event</span>{% endif %}
+</div>
+{% if wf.needs %}<div class="mb-5">{{ ui.alert(wf.needs, 'warning', 'Needs setup') }}</div>{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Steps', 'What happens to the contact, in order. A wait parks the run until its time; a condition may skip ahead or stop.') %}
+    {% if wf.description %}<p class="mb-4 text-sm text-slate-600">{{ wf.description }}</p>{% endif %}
+    <ol class="space-y-2">
+      {% for st in steps %}
+      <li class="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-2">
+        <span class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{{ loop.index }}</span>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm text-slate-800">{{ step_words[loop.index0] }}</div>
+          <div class="mt-0.5 text-[11px] text-slate-500">{{ step_kinds.get(st.kind, {}).get('label', st.kind) }}{% if st.kind in ('send_whatsapp', 'send_email', 'send_sms') and st.body %} · <span class="italic">{{ st.body|truncate(140) }}</span>{% endif %}</div>
+        </div>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">No steps yet: a run completes the moment it starts.</li>{% endfor %}
+    </ol>
+    {% if exit_words %}
+    <div class="mt-4 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600"><b>Stops on its own when</b> {{ exit_words|join('; or ') }}.</div>
+    {% endif %}
+    {% if has_perm(user, 'automations.update') %}
+    <details class="mt-4">
+      <summary class="cursor-pointer text-xs font-semibold text-brand-700 hover:underline">Edit the definition (JSON)</summary>
+      <form method="post" action="/crm/automations/{{ wf.id }}/edit" class="mt-3 space-y-3">
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div class="sm:col-span-2">{{ ui.input('name', 'Name', wf.name, required=True) }}</div>
+          {{ ui.select('category', 'Category', categories, wf.category, placeholder=None) }}
+        </div>
+        {{ ui.textarea('description', 'Description', wf.description or '', rows=2) }}
+        <div class="grid gap-3 sm:grid-cols-2">
+          {{ ui.input('pipeline', 'Pipeline', wf.pipeline or '') }}
+          {{ ui.input('stage', 'Stage served', wf.stage or '') }}
+        </div>
+        {{ ui.select('trigger', 'Starts when', triggers, wf.trigger, required=True, placeholder=None) }}
+        {{ ui.textarea('trigger_filter', 'Trigger filter (JSON object)', filter_json, rows=3) }}
+        {{ ui.textarea('steps', 'Steps (JSON list)', steps_json, rows=14, attrs='class="font-mono"') }}
+        {{ ui.textarea('exit_on', 'Exit conditions (JSON object)', exit_json, rows=3) }}
+        {{ ui.input('needs', 'Needs (what must be configured first)', wf.needs or '') }}
+        {{ ui.checkbox('run_once_per_contact', 'Run once per contact', checked=wf.run_once_per_contact) }}
+        <p class="text-xs text-slate-500">Step kinds: {{ step_kinds.keys()|join(', ') }}. Invalid JSON or an unknown step is refused and nothing is saved.</p>
+        {{ ui.button('Save definition', icon='save', size='sm') }}
+      </form>
+    </details>
+    {% endif %}
+    {% endcall %}
+
+    <div>
+      {{ ui.tabs(tabs, tab) }}
+      {% if tab == 'events' %}
+      {{ ui.table_start(['When', 'Event', 'Contact', 'Payload', 'Runs started']) }}
+      {% for e in ev_page.items %}
+      <tr>
+        <td class="px-3 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}</td>
+        <td class="px-3 py-2 text-xs"><span class="font-mono">{{ e.event }}</span></td>
+        <td class="px-3 py-2 text-xs">{% set c = ev_contacts.get(e.id) %}{% if c %}<a href="{{ contact_url(e.contact_type, e.contact_id) }}" class="hover:text-brand-600">{{ contact_label(e.contact_type, c) }}</a>{% else %}{{ e.contact_type|titleize }} #{{ e.contact_id }}{% endif %}</td>
+        <td class="px-3 py-2 text-xs text-slate-500">{{ summarise(e.payload) or '—' }}</td>
+        <td class="px-3 py-2 text-xs">{{ e.runs_started }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No ' ~ wf.trigger ~ ' event has been recorded yet.', 5, 'activity') }}{% endfor %}
+      {{ ui.table_end() }}
+      {{ ui.pagination(ev_page, base_url) }}
+      {% else %}
+      <div class="mb-3 flex flex-wrap gap-2 text-xs">
+        {% for s in ['active', 'waiting', 'completed', 'stopped', 'failed'] %}{% if status_counts.get(s) %}<a href="/crm/automations/runs?workflow={{ wf.id }}&status={{ s }}">{{ ui.badge(s, s|titleize ~ ' ' ~ status_counts.get(s)) }}</a>{% endif %}{% endfor %}
+      </div>
+      {{ ui.table_start(['Started', 'Contact', 'Trigger', 'Step', 'Status', 'Next run', 'Stop reason', '']) }}
+      {% for r in page.items %}
+      <tr>
+        <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.started_at|datetime }}</td>
+        <td class="px-3 py-2 text-xs">{% set c = contacts.get(r.id) %}{% if c %}<a href="{{ contact_url(r.contact_type, r.contact_id) }}" class="font-medium hover:text-brand-600">{{ contact_label(r.contact_type, c) }}</a>{% else %}<span class="text-slate-400">{{ r.contact_type|titleize }} #{{ r.contact_id }} (gone)</span>{% endif %}<div class="text-[10.5px] text-slate-500">{{ r.contact_type|titleize }}</div></td>
+        <td class="px-3 py-2 text-xs">{{ trigger_labels.get(r.trigger_event, r.trigger_event) }}</td>
+        <td class="px-3 py-2 text-xs whitespace-nowrap">{{ [r.current_step + 1, steps|length]|min if steps else 0 }} of {{ steps|length }}</td>
+        <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
+        <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.next_run_at|datetime if r.next_run_at else '—' }}</td>
+        <td class="px-3 py-2 text-xs text-slate-500">{{ r.stop_reason or '—' }}</td>
+        <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/crm/automations/runs/' ~ r.id, variant='ghost', size='sm') }}</td>
+      </tr>
+      {% else %}{{ ui.empty('No run has started yet.', 8, 'play-circle') }}{% endfor %}
+      {{ ui.table_end() }}
+      {{ ui.pagination(page, base_url) }}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('Definition') %}
+      {{ ui.dl([('Trigger', wf.trigger), ('Contact the run is about', trigger_contact|titleize),
+                ('Category', wf.category|titleize), ('Pipeline', wf.pipeline or '—'), ('Stage served', wf.stage or '—'),
+                ('Run once per contact', 'Yes' if wf.run_once_per_contact else 'No'), ('Created', wf.created_at|date), ('Updated', wf.updated_at|datetime if wf.updated_at else '—')]) }}
+      {% if wf.trigger_filter %}<div class="mt-3 text-xs text-slate-500">Filter: <span class="font-mono">{{ filter_json|replace('\n', ' ') }}</span></div>{% endif %}
+    {% endcall %}
+
+    {% if has_perm(user, 'automations.update') %}
+    {% call ui.card('Start for a contact', 'Runs this workflow by hand, ignoring the trigger. The run-once rule is not applied.') %}
+    <form method="post" action="/crm/automations/{{ wf.id }}/start" class="space-y-3">
+      {{ ui.select('contact_type', 'Contact type', [('lead','Lead'),('client','Client / family'),('student','Student')], 'lead', placeholder=None) }}
+      {{ ui.input('contact_ref', 'Record id or code', '', required=True, placeholder='L-00012, C-00003, S-00041 or the id', help='The code shown on the record page, or its numeric id.') }}
+      {{ ui.button('Start now', icon='play', size='sm', variant='secondary') }}
+    </form>
+    {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Numbers') %}
+      <div class="grid gap-3 grid-cols-2">
+        {{ ui.stat('Runs', page.total, color=palette(0), href='/crm/automations/runs?workflow=' ~ wf.id) }}
+        {{ ui.stat('Running', (status_counts.get('active', 0) + status_counts.get('waiting', 0)), color=palette(1), href='/crm/automations/runs?workflow=' ~ wf.id ~ '&status=running') }}
+        {{ ui.stat('Completed', status_counts.get('completed', 0), color=palette(4), href='/crm/automations/runs?workflow=' ~ wf.id ~ '&status=completed') }}
+        {{ ui.stat('Failed', status_counts.get('failed', 0), color=palette(7), href='/crm/automations/runs?workflow=' ~ wf.id ~ '&status=failed') }}
+      </div>
+    {% endcall %}
+  </div>
+</div>
+
+{% if has_perm(user, 'automations.update') %}
+{% call ui.modal('toggleWf', ('Deactivate ' if wf.is_active else 'Activate ') ~ wf.code, 'sm') %}
+<form method="post" action="/crm/automations/{{ wf.id }}/toggle" class="space-y-3">
+  <p class="text-sm text-slate-600">{% if wf.is_active %}The trigger is ignored from now on and every run still in progress stops the next time it is due.{% else %}The trigger starts runs again from now on. Events that happened while it was off are not replayed.{% endif %}</p>
+  {{ ui.textarea('rationale', 'Reason', '', rows=2, required=True, placeholder='Why this workflow is being switched ' ~ ('off' if wf.is_active else 'on')) }}
+  {{ ui.button('Deactivate' if wf.is_active else 'Activate', icon='pause' if wf.is_active else 'play', variant='warning' if wf.is_active else 'success') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

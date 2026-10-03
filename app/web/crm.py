@@ -394,8 +394,17 @@ def lead_detail(id: int, request: Request, db: Session = Depends(get_db), user: 
     dup = db.get(Lead, lead.is_duplicate_of_id) if lead.is_duplicate_of_id else None
     enrollments = (db.query(SequenceEnrollment).filter(SequenceEnrollment.contact_type == "lead", SequenceEnrollment.contact_id == lead.id)
                    .order_by(SequenceEnrollment.id.desc()).all())
+    from app.models.automation import Tag, Workflow, WorkflowRun
+    from app.services import automation as auto
+    runs = (db.query(WorkflowRun).filter(WorkflowRun.contact_type == "lead", WorkflowRun.contact_id == lead.id)
+            .order_by(WorkflowRun.started_at.desc(), WorkflowRun.id.desc()).limit(20).all())
+    workflows = db.query(Workflow).filter(Workflow.is_active.is_(True)).order_by(Workflow.trigger != "manual", Workflow.sort_no, Workflow.id).all()
     return render(request, "crm/lead_detail.html", {"user": user, "lead": lead, "conv": conv, "trials": trials, "referral": referral,
                                                     "duplicate_of": dup, "enrollments": enrollments,
+                                                    "tags": auto.tags_for(db, "lead", lead.id),
+                                                    "tag_options": [t.name for t in db.query(Tag).filter(Tag.is_active.is_(True)).order_by(Tag.name)],
+                                                    "runs": runs, "workflows": workflows,
+                                                    "wf_options": [(w.id, f"{w.code} {w.name}" + (" (manual)" if w.trigger == "manual" else "")) for w in workflows],
                                                     "activities": lead.activities, "sequences": db.query(Sequence).filter(Sequence.is_active.is_(True)).all(),
                                                     **_lead_form_ctx(db)})
 

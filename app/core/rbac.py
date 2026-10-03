@@ -37,6 +37,8 @@ MODULES = {
     "marketing": "Marketing Analytics",
     "inbox": "WhatsApp Inbox",
     "sequences": "Automation Sequences",
+    "automations": "CRM Automations (workflows)",
+    "tags": "Contact Tags",
     "referrals": "Ambassador Program",
     "feedback": "Feedback & VoC",
     "cases": "Complaints & Cases",
@@ -119,7 +121,7 @@ _QA = ["qa.*", "ai_monitoring.*", "recordings.*", "classes.view", "teachers.view
        "cases.*", "feedback.*", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
        "reports.*", "notifications.*", "safeguarding.view", "monthly_tests.view", "evaluations.view", "dashboards.view",
        "requests.view"]
-_MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "referrals.*", "trials.*",
+_MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "automations.*", "tags.*", "referrals.*", "trials.*",
               "registration.*", "clients.view", "clients.add", "students.view", "feedback.view", "kpis.*", "tasks.*",
               "decisions.*", "daily_reports.*", "dashboard.view", "reports.*", "notifications.*", "calling.*"]
 
@@ -162,7 +164,7 @@ ROLE_DEFINITIONS: dict[str, dict] = {
         "dashboard.view", "leads.view", "leads.add", "leads.update", "campaigns.view", "inbox.*", "tasks.*",
         "daily_reports.*", "notifications.*", "marketing.view", "calling.*", "trials.view"]},
     "lead_closer": {"name": "Lead Closer", "portal": "admin", "permissions": [
-        "dashboard.view", "leads.*", "trials.*", "inbox.*", "sequences.view", "registration.*", "clients.add",
+        "dashboard.view", "leads.*", "trials.*", "inbox.*", "sequences.view", "automations.view", "tags.*", "registration.*", "clients.add",
         "clients.view", "students.add", "students.view", "subscriptions.add", "subscriptions.view", "discounts.add",
         "discounts.view", "packages.view", "teachers.view", "schedules.add", "schedules.view", "tasks.*",
         "daily_reports.*", "notifications.*", "calling.*", "marketing.view", "referrals.view", "dashboards.view",

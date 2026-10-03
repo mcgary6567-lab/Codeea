@@ -98,6 +98,39 @@
       {% endif %}
     {% endcall %}
 
+    {% if has_perm(user, 'tags.view') %}
+    {% call ui.card('Tags') %}
+      {% set tc_type, tc_id, tc_next = 'lead', lead.id, '/crm/leads/' ~ lead.id %}
+      {% include 'crm/_tag_chips.html' %}
+    {% endcall %}
+    {% endif %}
+
+    {% if has_perm(user, 'automations.view') %}
+    {% call ui.card('Automations', runs|length ~ ' workflow run' ~ ('s' if runs|length != 1 else '')) %}
+      {% if runs %}
+      <ul class="divide-y divide-slate-100 text-xs">
+        {% for r in runs %}
+        {% set n = (r.workflow.steps or [])|length %}
+        <li class="flex items-start justify-between gap-2 py-1.5">
+          <div class="min-w-0">
+            <a href="/crm/automations/runs/{{ r.id }}" class="font-medium text-slate-800 hover:text-brand-600">{{ r.workflow.name }}</a>
+            <div class="text-[10.5px] text-slate-500">Step {{ [r.current_step + 1, n]|min if n else 0 }} of {{ n }}{% if r.next_run_at %} · next {{ r.next_run_at|datetime }}{% elif r.stop_reason %} · {{ r.stop_reason }}{% endif %}</div>
+          </div>
+          {{ ui.badge(r.status) }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-xs text-slate-400">No workflow has run for this lead yet.</p>{% endif %}
+      {% if has_perm(user, 'automations.update') and workflows %}
+      <form method="post" action="/crm/automations/start" class="mt-3 flex items-end gap-2">
+        <input type="hidden" name="contact_type" value="lead"><input type="hidden" name="contact_id" value="{{ lead.id }}"><input type="hidden" name="next" value="/crm/leads/{{ lead.id }}">
+        <div class="min-w-0 flex-1">{{ ui.select('workflow_id', 'Start workflow', wf_options, '', placeholder='Choose a workflow', required=True) }}</div>
+        {{ ui.button('Start', icon='play', size='sm', variant='secondary') }}
+      </form>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
+
     {% call ui.card('Pipeline stage') %}
     <form method="post" action="/crm/leads/{{ lead.id }}/stage" class="space-y-3" x-data="{ stage: '{{ lead.stage }}' }">
       {{ ui.select('stage', 'Move to', stages, lead.stage, placeholder=None, attrs='x-model="stage"') }}

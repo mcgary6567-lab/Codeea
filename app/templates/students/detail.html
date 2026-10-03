@@ -94,6 +94,17 @@
       </dl>
       {% else %}<p class="text-sm text-slate-400">No client linked.</p>{% endif %}
     {% endcall %}
+    {% if has_perm(user, 'tags.view') %}
+    {% call ui.card('Tags') %}
+      {% set tc_type, tc_id, tc_next = 'student', s.id, '/students/' ~ s.id %}
+      {% include 'crm/_tag_chips.html' %}
+      {% if runs and has_perm(user, 'automations.view') %}
+      <ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100 pt-2 text-xs">
+        {% for r in runs %}<li class="flex items-center justify-between gap-2 py-1"><a href="/crm/automations/runs/{{ r.id }}" class="truncate hover:text-brand-600">{{ r.workflow.name }}</a>{{ ui.badge(r.status) }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
     {% call ui.card('Next class') %}
       {% if next_session %}
       <div class="text-sm font-medium">{{ next_session.date|date }} at {{ next_session.start_time|time }}</div>

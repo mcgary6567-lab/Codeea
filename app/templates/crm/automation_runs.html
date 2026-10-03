@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Workflow runs{% endblock %}
+{% block content %}
+{% call ui.page_header('Workflow runs', 'One row per contact going through one workflow. Open a run to read its log, stop it or push it to the next step.', back='/crm/automations') %}
+  {{ ui.button('Event log', href='/crm/automations/events', icon='activity', variant='secondary') }}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5 mb-6">
+  {{ ui.stat('Running', status_counts.get('active', 0) + status_counts.get('waiting', 0), icon='timer', color=palette(1), href='/crm/automations/runs?status=running') }}
+  {{ ui.stat('Waiting', status_counts.get('waiting', 0), icon='hourglass', color=palette(5), href='/crm/automations/runs?status=waiting') }}
+  {{ ui.stat('Completed', status_counts.get('completed', 0), icon='check-circle-2', color=palette(4), href='/crm/automations/runs?status=completed') }}
+  {{ ui.stat('Stopped', status_counts.get('stopped', 0), icon='octagon-x', color=palette(11), href='/crm/automations/runs?status=stopped') }}
+  {{ ui.stat('Failed', status_counts.get('failed', 0), icon='alert-octagon', color=palette(7), href='/crm/automations/runs?status=failed') }}
+</div>
+
+{% call ui.filter_bar('/crm/automations/runs') %}
+  <div class="w-64">{{ ui.select('workflow', 'Workflow', wf_options, workflow, placeholder='All') }}</div>
+  <div class="w-48">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+  <div class="w-36">{{ ui.select('contact_type', 'Contact', contact_types, contact_type, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.input('start', 'Started from', start if start != 'today' else today().isoformat(), type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', end, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Started', 'Workflow', 'Contact', 'Trigger', 'Step', 'Status', 'Next run', 'Stop reason', '']) }}
+{% for r in page.items %}
+{% set n = (r.workflow.steps or [])|length %}
+<tr>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.started_at|datetime }}</td>
+  <td class="px-3 py-2 text-xs"><a href="/crm/automations/{{ r.workflow_id }}" class="hover:text-brand-600"><span class="font-mono text-[10.5px] text-slate-500">{{ r.workflow.code }}</span> <span class="font-medium">{{ r.workflow.name }}</span></a></td>
+  <td class="px-3 py-2 text-xs">{% set c = contacts.get(r.id) %}{% if c %}<a href="{{ contact_url(r.contact_type, r.contact_id) }}" class="font-medium hover:text-brand-600">{{ contact_label(r.contact_type, c) }}</a>{% else %}<span class="text-slate-400">{{ r.contact_type|titleize }} #{{ r.contact_id }} (gone)</span>{% endif %}<div class="text-[10.5px] text-slate-500">{{ r.contact_type|titleize }}</div></td>
+  <td class="px-3 py-2 text-xs">{{ trigger_labels.get(r.trigger_event, r.trigger_event) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ [r.current_step + 1, n]|min if n else 0 }} of {{ n }}</td>
+  <td class="px-3 py-2">{{ ui.badge(r.status) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.next_run_at|datetime if r.next_run_at else '—' }}</td>
+  <td class="px-3 py-2 text-xs text-slate-500">{{ r.stop_reason or '—' }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('Open', href='/crm/automations/runs/' ~ r.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No runs match these filters.', 9, 'play-circle') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

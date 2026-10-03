@@ -369,6 +369,9 @@ def freeze_subscription(db: Session, sub: Subscription, start: date, end: Option
     _notify_client(db, sub.client, "subscription_frozen", "Subscription paused",
                    f"{sub.student.full_name if sub.student else 'Your student'}'s classes are paused from {start}. "
                    f"We will resume on {end or 'your chosen date'} in sha Allah.", link="/portal/billing")
+    from app.services import automation
+    automation.emit(db, "subscription.frozen", "client", sub.client_id, {"subscription": sub.subscription_code, "student": sub.student.full_name if sub.student else "",
+                                                                       "freeze_start": str(start), "freeze_end": str(end or ""), "reason": reason})
     return sub
 
 
@@ -381,6 +384,8 @@ def unfreeze_subscription(db: Session, sub: Subscription, user: Optional[User], 
     if sub.student:
         sub.student.status = "active"
     log_action(db, user, "update", "subscriptions", entity=sub, description=f"{sub.subscription_code} resumed", rationale=note)
+    from app.services import automation
+    automation.emit(db, "subscription.resumed", "client", sub.client_id, {"subscription": sub.subscription_code, "student": sub.student.full_name if sub.student else ""})
     return sub
 
 
@@ -404,6 +409,8 @@ def cancel_subscription(db: Session, sub: Subscription, user: Optional[User], re
     _notify_client(db, sub.client, "subscription_cancelled", "Subscription cancelled",
                    f"We have cancelled {sub.student.full_name if sub.student else 'the'} subscription {sub.subscription_code}. "
                    "The door remains open whenever you wish to return.", link="/portal/billing")
+    from app.services import automation
+    automation.emit(db, "subscription.cancelled", "client", sub.client_id, {"subscription": sub.subscription_code, "student": sub.student.full_name if sub.student else "", "reason": reason})
     return sub
 
 
@@ -1309,6 +1316,13 @@ def _settle_payment(db: Session, pay: Payment, user: Optional[User], invoice: Op
                          {"name": client.full_name, "amount": f"{currency} {amount:,.2f}", "link": "/portal/billing"},
                          "Payment received", f"We received {currency} {amount:,.2f}. JazakAllah Khair.")
     _notify_client(db, client, "payment_received", subject, body, link="/portal/billing")
+    from app.services import automation
+    earlier = db.query(Payment).filter(Payment.client_id == client.id, Payment.id != pay.id,
+                                       Payment.status.in_(["confirmed", "completed"])).count()
+    payload = {"amount": f"{currency} {amount:,.2f}", "payment_number": pay.payment_number, "method": method, "first": earlier == 0}
+    automation.emit(db, "payment.received", "client", client.id, payload)
+    if earlier == 0:
+        automation.emit(db, "payment.first", "client", client.id, payload)
     log_action(db, user, "create", "payments", entity=pay,
                description=f"Payment {pay.payment_number} {currency} {amount:.2f} from {client.client_code} via {method}"
                            + (f"; applied to {', '.join(i.invoice_number for i in touched)}" if touched else ""))

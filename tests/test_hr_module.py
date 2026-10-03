@@ -109,6 +109,10 @@ def test_check_in_and_out(admin, db):
 
 def test_leave_request_and_decision(admin, db):
     e = first_employee(db)
+    # Earlier runs' approved requests walked forward three days at a time until they collided with the fixed
+    # April 2027 windows test_hr_attendance uses; clear them first so this test leaves nothing behind.
+    db.query(Leave).filter(Leave.employee_id == e.id, Leave.reason.like("Test request%")).delete(synchronize_session=False)
+    db.commit()
     # Pick a two-day window that overlaps no existing leave, so re-running the suite against the same
     # database still exercises a freshly created (pending) request. Checking start dates alone is not
     # enough: the route rejects any overlap with an approved leave, so a window landing inside an
@@ -128,6 +132,8 @@ def test_leave_request_and_decision(admin, db):
     assert r.status_code == 303
     db.expire_all()
     assert db.query(Leave).get(leave.id).status == "approved"
+    db.query(Leave).filter(Leave.id == leave.id).delete(synchronize_session=False)
+    db.commit()
 
 
 def test_violation_lifecycle(admin, db):

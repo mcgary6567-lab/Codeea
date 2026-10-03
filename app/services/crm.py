@@ -195,6 +195,10 @@ def move_stage(db: Session, lead: Lead, stage: str, user: Optional[User], reason
     log_action(db, user, "stage_change", "leads", entity=lead, description=f"{lead.lead_code} {before} -> {stage}", rationale=reason,
                before={"stage": before}, after={"stage": stage}, request=request, consequential=stage == "lost")
     emit_event(db, "lead.stage_changed", {"lead_id": lead.id, "lead_code": lead.lead_code, "from": before, "to": stage})
+    from app.services import automation
+    automation.emit(db, "lead.stage_changed", "lead", lead.id, {"from": before, "to": stage, "reason": reason or ""})
+    if stage == "lost":
+        automation.emit(db, "lead.lost", "lead", lead.id, {"from": before, "reason": reason or ""})
 
 
 def create_lead(db: Session, data: dict, actor: Optional[User] = None, auto_assign: bool = True, request=None) -> tuple[Lead, list[Lead]]:
@@ -224,6 +228,9 @@ def create_lead(db: Session, data: dict, actor: Optional[User] = None, auto_assi
     log_action(db, actor, "create", "leads", entity=lead, description=f"Lead {lead.lead_code} created ({lead.full_name})", request=request,
                after={"stage": lead.stage, "score": lead.score, "duplicate_of": lead.is_duplicate_of_id})
     emit_event(db, "lead.created", {"lead_id": lead.id, "lead_code": lead.lead_code, "name": lead.full_name, "source": lead.source.name if lead.source else None})
+    from app.services import automation
+    automation.emit(db, "lead.created", "lead", lead.id, {"source": lead.source.name if lead.source else "", "stage": lead.stage,
+                                                        "country": lead.country or "", "duplicate": bool(dups)})
     return lead, dups
 
 
@@ -359,6 +366,8 @@ def convert_lead_to_client(db: Session, lead: Lead, user: Optional[User], overri
     notify(db, portal_user, "Welcome to Online Quran College", f"Your family portal is ready. Sign in with {email} and your temporary password.",
            event_type="welcome", link="/portal", channels=("in_app", "whatsapp"), recipient_address=client.whatsapp)
     emit_event(db, "lead.converted", {"lead_id": lead.id, "client_id": client.id, "client_code": client.client_code})
+    from app.services import automation
+    automation.emit(db, "lead.converted", "client", client.id, {"lead_id": lead.id, "lead_code": lead.lead_code, "students": n})
     return client, temp_password
 
 
@@ -871,6 +880,13 @@ def submit_feedback(db: Session, fb: Feedback, nps: Optional[int], rating: Optio
     fb.is_negative = (nps is not None and nps <= 6) or (rating is not None and rating <= 2) or fb.sentiment == "negative"
     if fb.is_negative:
         route_negative_feedback(db, fb)
+    from app.services import automation
+    if fb.client_id:
+        automation.emit(db, "feedback.submitted", "client", fb.client_id, {"nps": nps, "rating": rating, "negative": bool(fb.is_negative), "feedback_id": fb.id})
+    elif fb.student_id:
+        st = db.get(Student, fb.student_id)
+        if st and st.client_id:
+            automation.emit(db, "feedback.submitted", "client", st.client_id, {"nps": nps, "rating": rating, "negative": bool(fb.is_negative), "feedback_id": fb.id})
     return fb
 
 

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Automation events{% endblock %}
+{% block content %}
+{% call ui.page_header('Automation events', 'Every event offered to the engine, whether or not a workflow picked it up. "Runs started" is zero when no active workflow listens for it.', back='/crm/automations') %}
+  {{ ui.button('All runs', href='/crm/automations/runs', icon='list', variant='secondary') }}
+{% endcall %}
+
+<div class="mb-5 flex flex-wrap gap-2">
+  {% for ev, n in counts|dictsort(by='value', reverse=True) %}
+  <a href="/crm/automations/events?event={{ ev }}" class="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs {{ 'border-brand-600 bg-brand-600 text-white' if ev == event else 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}"><span class="font-mono">{{ ev }}</span><span class="rounded px-1 font-semibold {{ 'bg-white/20' if ev == event else 'bg-slate-100' }}">{{ n }}</span></a>
+  {% else %}<span class="text-xs text-slate-400">No event has been recorded yet.</span>{% endfor %}
+</div>
+
+{% call ui.filter_bar('/crm/automations/events') %}
+  <div class="w-72">{{ ui.select('event', 'Event', events, event, placeholder='All') }}</div>
+  <div class="w-40">{{ ui.input('start', 'From', start if start != 'today' else today().isoformat(), type='date') }}</div>
+  <div class="w-40">{{ ui.input('end', 'To', end, type='date') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Event', 'Contact', 'Payload', 'Runs started', 'When']) }}
+{% for e in page.items %}
+<tr>
+  <td class="px-3 py-2 text-xs"><div class="font-mono">{{ e.event }}</div><div class="text-[10.5px] text-slate-500">{{ trigger_labels.get(e.event, '') }}</div></td>
+  <td class="px-3 py-2 text-xs">{% set c = contacts.get(e.id) %}{% if c %}<a href="{{ contact_url(e.contact_type, e.contact_id) }}" class="font-medium hover:text-brand-600">{{ contact_label(e.contact_type, c) }}</a>{% else %}<span class="text-slate-400">{{ e.contact_type|titleize }} #{{ e.contact_id }} (gone)</span>{% endif %}<div class="text-[10.5px] text-slate-500">{{ e.contact_type|titleize }}</div></td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ summarise(e.payload) or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% if e.runs_started %}<span class="font-medium text-emerald-700">{{ e.runs_started }}</span>{% else %}<span class="text-slate-400">0</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ e.created_at|datetime }}<div class="text-[10.5px] text-slate-400">{{ e.created_at|ago }}</div></td>
+</tr>
+{% else %}{{ ui.empty('No events match these filters.', 5, 'activity') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

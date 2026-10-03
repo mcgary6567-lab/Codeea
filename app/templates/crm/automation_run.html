@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Run #{{ run.id }} · {{ wf.code }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Run #' ~ run.id ~ ' · ' ~ wf.name, contact_label ~ ' · started ' ~ (run.started_at|datetime), back='/crm/automations/' ~ wf.id) %}
+  {{ ui.badge(run.status) }}
+  {% if has_perm(user, 'automations.update') and run.status in ('active', 'waiting') %}
+    {{ ui.confirm_form('/crm/automations/runs/' ~ run.id ~ '/advance', 'Advance now', icon='fast-forward', variant='secondary', message='Run the next step now instead of waiting for its time?', size='md') }}
+    <button type="button" @click="$dispatch('open-modal','stopRun')" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="octagon-x" class="h-4 w-4"></i>Stop</button>
+  {% endif %}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    {% call ui.card('Log', timeline|length ~ ' entr' ~ ('y' if timeline|length == 1 else 'ies') ~ ' · every step writes what it did and why') %}
+    <ol class="relative space-y-4 border-l border-slate-200 pl-6">
+      {% for e in timeline %}
+      {% set ok = not (e.result or '').startswith('skipped') and not (e.result or '').startswith('error') %}
+      <li class="relative">
+        <span class="absolute -left-[31px] top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white {{ 'bg-rose-500' if (e.result or '').startswith('error') else ('bg-amber-500' if not ok else ('bg-slate-400' if e.kind == 'exit' else 'bg-brand-600')) }}">{{ (e.step + 1) if e.step is number else '·' }}</span>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+          <span class="text-sm font-medium text-slate-800">{{ e.words }}</span>
+          <span class="text-[11px] text-slate-400 whitespace-nowrap">{{ e.at|datetime }} · {{ step_kinds.get(e.kind, {}).get('label', e.kind) }}</span>
+        </div>
+        <p class="mt-0.5 text-sm {{ 'text-rose-700' if (e.result or '').startswith('error') else ('text-amber-700' if not ok else 'text-slate-600') }}">{{ e.result }}</p>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">Nothing has run yet.</li>{% endfor %}
+      {% if run.status in ('active', 'waiting') and run.current_step < steps|length %}
+      <li class="relative">
+        <span class="absolute -left-[31px] top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-500 ring-2 ring-slate-300">{{ run.current_step + 1 }}</span>
+        <div class="text-sm text-slate-500">Next: {{ describe_step(steps[run.current_step]) }}{% if run.next_run_at %} <span class="text-slate-400">· due {{ run.next_run_at|datetime }}</span>{% endif %}</div>
+      </li>
+      {% endif %}
+    </ol>
+    {% endcall %}
+
+    {% call ui.card('All steps of ' ~ wf.code) %}
+    <ol class="space-y-1.5">
+      {% for st in steps %}
+      <li class="flex items-start gap-2 text-sm {{ 'text-slate-400' if loop.index0 < run.current_step else ('font-medium text-slate-900' if loop.index0 == run.current_step and run.status in ('active', 'waiting') else 'text-slate-700') }}">
+        <span class="w-5 shrink-0 text-right text-xs">{{ loop.index }}.</span><span>{{ describe_step(st) }}</span>
+      </li>
+      {% else %}<li class="text-sm text-slate-400">This workflow has no steps.</li>{% endfor %}
+    </ol>
+    {% endcall %}
+  </div>
+
+  <div class="space-y-6">
+    {% call ui.card('This run') %}
+      {{ ui.dl([('Contact', contact_label), ('Type', run.contact_type|titleize), ('Workflow', wf.code ~ ' ' ~ wf.name), ('Trigger', trigger_label),
+                ('Status', run.status|titleize), ('Step', ([run.current_step + 1, steps|length]|min if steps else 0) ~ ' of ' ~ steps|length),
+                ('Started', run.started_at|datetime), ('Next run', run.next_run_at|datetime if run.next_run_at else '—'),
+                ('Finished', run.finished_at|datetime if run.finished_at else '—'), ('Stop reason', run.stop_reason or '—')]) }}
+      <div class="mt-3 flex flex-wrap gap-2">
+        {% if contact %}{{ ui.button('Open ' ~ run.contact_type, href=contact_url, icon='external-link', variant='secondary', size='sm') }}{% endif %}
+        {{ ui.button('Workflow', href='/crm/automations/' ~ wf.id, icon='workflow', variant='secondary', size='sm') }}
+      </div>
+    {% endcall %}
+    {% call ui.card('Event payload', 'What the run started with; message placeholders read from here.') %}
+      {% if payload %}<p class="text-xs text-slate-600 break-words">{{ payload }}</p>{% else %}<p class="text-xs text-slate-400">Empty.</p>{% endif %}
+    {% endcall %}
+  </div>
+</div>
+
+{% if has_perm(user, 'automations.update') %}
+{% call ui.modal('stopRun', 'Stop run #' ~ run.id, 'sm') %}
+<form method="post" action="/crm/automations/runs/{{ run.id }}/stop" class="space-y-3">
+  <p class="text-sm text-slate-600">No further step runs for {{ contact_label }}. Messages already sent are not recalled.</p>
+  {{ ui.textarea('rationale', 'Reason', '', rows=2, required=True, placeholder='Family asked us to stop messaging; handled by phone…') }}
+  {{ ui.button('Stop run', icon='octagon-x', variant='danger') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Automations{% endblock %}
+{% block content %}
+{% call ui.page_header('Automations', 'Workflows that start when something happens to a lead, family or student, and walk them through messages, tags, waits and staff alerts.') %}
+  {{ ui.button('Pipeline map', href='#pipeline-map', icon='route', variant='secondary') }}
+  {{ ui.button('All runs', href='/crm/automations/runs', icon='list', variant='secondary') }}
+  {{ ui.button('Event log', href='/crm/automations/events', icon='activity', variant='secondary') }}
+  {{ ui.button('Tags', href='/crm/tags', icon='tag', variant='secondary') }}
+  {% if has_perm(user, 'automations.update') %}{{ ui.confirm_form('/crm/automations/run', 'Run due steps now', icon='play', variant='secondary', message='Run every workflow step that is due now?', size='md') }}{% endif %}
+  {% if has_perm(user, 'automations.add') %}{{ ui.button('Create', icon='plus', attrs='type="button" @click="$dispatch(\'open-modal\',\'newWorkflow\')"') }}{% endif %}
+{% endcall %}
+
+<div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6 mb-6">
+  {{ ui.stat('Active workflows', stats.active_workflows, icon='workflow', color=palette(0), href='/crm/automations?status=active') }}
+  {{ ui.stat('Running now', stats.waiting, icon='timer', color=palette(1), href='/crm/automations/runs?status=running') }}
+  {{ ui.stat('Started today', stats.today, icon='play-circle', color=palette(3), href='/crm/automations/runs?start=today') }}
+  {{ ui.stat('Completed', stats.completed, icon='check-circle-2', color=palette(4), href='/crm/automations/runs?status=completed') }}
+  {{ ui.stat('Failed', stats.failed, icon='alert-octagon', color=palette(7), href='/crm/automations/runs?status=failed') }}
+  {{ ui.stat('Events today', stats.events_today, icon='activity', color=palette(10), href='/crm/automations/events?start=today') }}
+</div>
+
+{% call ui.filter_bar('/crm/automations') %}
+  <div class="w-40">{{ ui.select('category', 'Category', categories, category, placeholder='All') }}</div>
+  <div class="w-64">{{ ui.select('trigger', 'Trigger', triggers, trigger, placeholder='All') }}</div>
+  <div class="w-48">{{ ui.select('pipeline', 'Pipeline', pipelines, pipeline, placeholder='All') }}</div>
+  <div class="w-32">{{ ui.select('status', 'Status', [('active','Active'),('inactive','Inactive')], status, placeholder='All') }}</div>
+  <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Code, name, stage…') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Code', 'Workflow', 'Pipeline / Stage', 'Trigger', 'Steps', 'Runs', 'Running', 'Status', 'Needs', '']) }}
+{% for w in workflows %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs whitespace-nowrap"><a href="/crm/automations/{{ w.id }}" class="hover:text-brand-600">{{ w.code }}</a></td>
+  <td class="px-3 py-2">
+    <a href="/crm/automations/{{ w.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ w.name }}</a>
+    <div class="text-[11px] text-slate-500">{{ w.category|titleize }}{% if w.description %} · {{ w.description|truncate(90) }}{% endif %}</div>
+  </td>
+  <td class="px-3 py-2 text-xs">{{ w.pipeline or '—' }}{% if w.stage %}<div class="text-slate-500">{{ w.stage }}</div>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">
+    <div>{{ trigger_labels.get(w.trigger, w.trigger) }}</div>
+    {% if w.trigger_filter %}<div class="font-mono text-[10.5px] text-slate-500">{% for k, v in w.trigger_filter.items() %}{{ k }}={{ v }}{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs">
+    <span class="font-medium">{{ (w.steps or [])|length }}</span>
+    <span class="ml-1 inline-flex flex-wrap gap-0.5 align-middle">{% for st in (w.steps or []) %}<span class="rounded bg-slate-100 px-1 py-px text-[10px] text-slate-600" title="{{ step_kinds.get(st.kind, {}).get('label', st.kind) }}">{{ step_short.get(st.kind, st.kind) }}</span>{% endfor %}</span>
+  </td>
+  <td class="px-3 py-2 text-xs">{% if totals.get(w.id) %}<a href="/crm/automations/{{ w.id }}?tab=runs" class="font-medium hover:text-brand-600">{{ totals.get(w.id, 0) }}</a>{% else %}<span class="text-slate-400">0</span>{% endif %}</td>
+  <td class="px-3 py-2 text-xs">{% if running.get(w.id) %}<a href="/crm/automations/runs?workflow={{ w.id }}&status=running" class="font-medium text-amber-700 hover:underline">{{ running.get(w.id) }}</a>{% else %}<span class="text-slate-400">0</span>{% endif %}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if w.is_active else 'inactive') }}</td>
+  <td class="px-3 py-2 text-xs text-amber-700 max-w-[14rem]">{% if w.needs %}<span class="inline-flex items-start gap-1"><i data-lucide="alert-triangle" class="mt-0.5 h-3 w-3 shrink-0"></i>{{ w.needs }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">{{ ui.button('Open', href='/crm/automations/' ~ w.id, variant='ghost', size='sm') }}</td>
+</tr>
+{% else %}{{ ui.empty('No workflows match these filters.', 10, 'workflow') }}{% endfor %}
+{{ ui.table_end() }}
+<div class="mt-2 text-xs text-slate-500">{{ workflows|length }} workflow{{ 's' if workflows|length != 1 }} shown · {{ stats.workflows }} in total</div>
+
+<div id="pipeline-map" class="mt-8 scroll-mt-20">
+  {% call ui.card('Pipeline map · ' ~ acquisition, 'Every stage of the acquisition pipeline and the workflow(s) that serve it. A lead entering a stage starts the workflows listed under it.') %}
+  <ol class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    {% for st in pipeline_map %}
+    <li class="rounded-md border border-slate-200 bg-[#f7f9fc] p-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style="background: {{ palette(loop.index0) }}">{{ loop.index }}</span>
+          <span class="text-sm font-semibold text-slate-800">{{ st.label }}</span>
+        </div>
+        {{ ui.badge(st.stage, st.stage|label('registration')) }}
+      </div>
+      <ul class="mt-2.5 space-y-1.5">
+        {% for w in st.workflows %}
+        <li class="flex items-start justify-between gap-2 text-xs">
+          <a href="/crm/automations/{{ w.id }}" class="min-w-0 hover:text-brand-600"><span class="font-mono text-[10.5px] text-slate-500">{{ w.code }}</span> <span class="font-medium">{{ w.name }}</span></a>
+          <span class="shrink-0">{{ ui.badge('active' if w.is_active else 'inactive') }}</span>
+        </li>
+        {% else %}<li class="text-xs text-slate-400">No workflow serves this stage yet.</li>{% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endcall %}
+</div>
+
+{% if has_perm(user, 'automations.add') %}
+{% call ui.modal('newWorkflow', 'Create workflow', 'lg') %}
+<form method="post" action="/crm/automations/new" class="space-y-4">
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="sm:col-span-2">{{ ui.input('name', 'Name', '', required=True, placeholder='Demo no-show recovery') }}</div>
+    {{ ui.input('code', 'Code', '', placeholder=next_code, help='Blank = ' ~ next_code) }}
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3">
+    {{ ui.select('category', 'Category', categories, 'acquisition', placeholder=None) }}
+    <div>{{ ui.input('pipeline', 'Pipeline', '', placeholder=acquisition, attrs='list="pipelineList"') }}
+      <datalist id="pipelineList">{% for p in pipelines %}<option value="{{ p }}"></option>{% endfor %}</datalist></div>
+    {{ ui.input('stage', 'Stage served', '', placeholder='Demo Booking Pending') }}
+  </div>
+  {{ ui.select('trigger', 'Starts when', triggers, 'lead.created', required=True, placeholder=None) }}
+  {{ ui.textarea('trigger_filter', 'Trigger filter (JSON object)', '{}', rows=2, help='Narrow the trigger, e.g. {"stage": "contacted"} or {"tag": "objection:price"} or {"nps_min": 9}.') }}
+  {{ ui.textarea('steps', 'Steps (JSON list)', steps_example, rows=10, help='Step kinds: ' ~ (step_kinds.keys()|join(', ')) ~ '. A wait parks the run; a condition can continue, exit or goto:N.') }}
+  {{ ui.textarea('exit_on', 'Exit conditions (JSON object)', '{"lead_stages": ["won", "lost"], "reply": true}', rows=2, help='The run stops on its own when any of these becomes true.') }}
+  {{ ui.input('needs', 'Needs (what must be configured first)', '', placeholder='SMS provider, review link…') }}
+  <div class="grid gap-2 sm:grid-cols-2">
+    {{ ui.checkbox('run_once_per_contact', 'Run once per contact', checked=True, help='Never start a second run for the same contact.') }}
+    {{ ui.checkbox('is_active', 'Active', checked=True, help='Switched-off workflows ignore their trigger.') }}
+  </div>
+  {{ ui.button('Create workflow', icon='check') }}
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

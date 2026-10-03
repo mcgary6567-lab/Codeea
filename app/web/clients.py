@@ -323,6 +323,12 @@ def client_detail(id: int, request: Request, tab: str = "overview", db: Session 
                  "change_log_url": f"/admin/audit/entity/Client/{c.id}" if rbac.has_permission(user, "audit.view") else f"/clients/{c.id}?tab=audit",
                  "contact_types": CONTACT_TYPES, "credential_types": CREDENTIAL_TYPES}
     if tab == "overview":
+        from app.models.automation import Tag, WorkflowRun
+        from app.services import automation as auto
+        ctx["tags"] = auto.tags_for(db, "client", c.id)
+        ctx["tag_options"] = [t.name for t in db.query(Tag).filter(Tag.is_active.is_(True)).order_by(Tag.name)]
+        ctx["runs"] = (db.query(WorkflowRun).filter(WorkflowRun.contact_type == "client", WorkflowRun.contact_id == c.id)
+                       .order_by(WorkflowRun.started_at.desc(), WorkflowRun.id.desc()).limit(10).all())
         ctx["prefs"] = db.query(CommunicationPreference).filter(CommunicationPreference.client_id == c.id).all()
         ctx["open_cases"] = db.query(Case).filter(Case.client_id == c.id, Case.status.in_(["open", "in_progress", "waiting", "escalated"])).count()
         ctx["overdue"] = db.query(Invoice).filter(Invoice.client_id == c.id, Invoice.status == "overdue").count()

@@ -76,6 +76,17 @@
       {{ ui.stat('Open cases', open_cases, icon='life-buoy', color=palette(5) if open_cases else palette(1), href='/clients/' ~ c.id ~ '?tab=cases') }}
       {{ ui.stat('Overdue invoices', overdue, icon='receipt', color=palette(7) if overdue else palette(1), href='/clients/' ~ c.id ~ '?tab=billing') }}
     </div>
+    {% if has_perm(user, 'tags.view') %}
+    {% call ui.card("Tags") %}
+      {% set tc_type, tc_id, tc_next = 'client', c.id, '/clients/' ~ c.id %}
+      {% include 'crm/_tag_chips.html' %}
+      {% if runs and has_perm(user, 'automations.view') %}
+      <ul class="mt-3 divide-y divide-slate-100 border-t border-slate-100 pt-2 text-xs">
+        {% for r in runs %}<li class="flex items-center justify-between gap-2 py-1"><a href="/crm/automations/runs/{{ r.id }}" class="truncate hover:text-brand-600">{{ r.workflow.name }}</a>{{ ui.badge(r.status) }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    {% endcall %}
+    {% endif %}
     {% call ui.card("Students") %}
     <ul class="divide-y divide-slate-100 text-sm">
       {% for s in students %}<li class="flex items-center justify-between py-2"><a href="/students/{{ s.id }}" class="font-medium hover:text-brand-600">{{ s.full_name }} <span class="font-mono text-xs text-slate-400">{{ s.student_code }}</span></a><span class="flex items-center gap-2 text-xs text-slate-500">{{ s.course.name if s.course else '—' }} {{ ui.badge(s.status, s.status|label('student')) }}</span></li>

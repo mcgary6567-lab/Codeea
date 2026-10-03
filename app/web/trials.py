@@ -242,6 +242,9 @@ async def schedule(id: int, request: Request, db: Session = Depends(get_db), use
     svc.schedule_trial_session(db, t, user)
     if t.lead and t.lead.stage in ("new", "contacted"):
         svc.move_stage(db, t.lead, "trial_scheduled", user, "Trial booked", request=request)
+    from app.services import automation
+    automation.emit(db, "trial.scheduled", "lead" if t.lead else "client", t.lead_id or t.client_id or 0,
+                    {"trial_id": t.id, "date": when.strftime("%d %b %Y %H:%M"), "student": t.student_name})
     if t.teacher_id:
         teacher = db.get(Teacher, t.teacher_id)
         if teacher and teacher.user_id:
@@ -272,6 +275,10 @@ async def outcome(id: int, request: Request, db: Session = Depends(get_db), user
         svc.enroll_sequence(db, "trial_follow_up", "lead", t.lead.id, enrolled_by=user.email)
     elif t.client_id:
         svc.enroll_sequence(db, "trial_follow_up", "client", t.client_id, enrolled_by=user.email)
+    if status in ("attended", "no_show"):
+        from app.services import automation
+        automation.emit(db, f"trial.{status}", "lead" if t.lead else "client", t.lead_id or t.client_id or 0,
+                        {"trial_id": t.id, "student": t.student_name, "outcome": t.outcome or ""})
     log_action(db, user, "status_change", "trials", entity=t, description=f"Trial outcome for {t.student_name}: {status}",
                before=before, after={"status": status}, request=request)
     db.commit()

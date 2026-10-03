@@ -307,6 +307,8 @@ ADMIN_NAV = [
         _i("Campaigns", "/crm/campaigns", "megaphone", "campaigns.view"),
         _i("Marketing Analytics", "/crm/marketing", "trending-up", "marketing.view"),
         _i("Sequences", "/crm/sequences", "workflow", "sequences.view"),
+        _i("Automations", "/crm/automations", "zap", "automations.view"),
+        _i("Tags", "/crm/tags", "tags", "tags.view"),
         _i("Ambassadors", "/crm/referrals", "gift", "referrals.view"),
         _i("Cases & Complaints", "/cases", "life-buoy", "cases.view"),
         _i("Feedback & VoC", "/feedback", "message-square-heart", "feedback.view"),

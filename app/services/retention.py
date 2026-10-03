@@ -129,6 +129,8 @@ def _act_on_risk(db: Session, student: Student, level: str, before_level: Option
                    event_type="retention_risk", link=f"/retention?student={student.id}")
         log_action(db, actor, "create", "retention", entity=action, description=f"Win-back action created for {student.student_code} (risk {score})",
                    after={"level": level, "score": score})
+        from app.services import automation
+        automation.emit(db, "student.at_risk", "student", student.id, {"level": level, "score": score})
         return action
     if level == "medium" and before_level != "medium":
         if _has_open_action(db, student.id, "cohort_call"):

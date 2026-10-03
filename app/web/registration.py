@@ -16,7 +16,7 @@ from app.core.utils import redirect, paginate, next_code, parse_int, parse_bool
 from app.database import get_db
 from app.models.academic import Course
 from app.models.core import User, Role
-from app.models.crm import Lead, LeadSource, Referral
+from app.models.crm import LEAD_STAGES, Lead, LeadSource, Referral
 from app.models.people import Client, Student
 from app.models.scheduling import Trial
 from app.services import people as svc
@@ -238,7 +238,7 @@ def registrations(request: Request, page: int = 1, q: str = "", stage: str = "",
              "avg_score": round(sum(l.score or 0 for l in all_rows) / len(all_rows), 1) if all_rows else 0}
     return render(request, "registration/list.html", {"user": user, "page": pg, "q": q, "stage": stage, "dup": dup,
                                                       "stats": stats, "base_url": f"/registrations?q={q}&stage={stage}&dup={dup}",
-                                                      "stages": ["new", "contacted", "trial_scheduled", "trial_done", "negotiation", "won", "lost"],
+                                                      "stages": LEAD_STAGES,
                                                       "can_convert": True})
 
 
