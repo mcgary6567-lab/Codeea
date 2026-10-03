@@ -481,7 +481,9 @@ async def create_query(request: Request, db: Session = Depends(get_db),
     log_action(db, user, "create", "classes", entity=cq,
                description=f"Class query raised ({query_type})" + (f" for class #{session.id}" if session else ""),
                rationale=detail, request=request)
-    for u in db.query(User).join(Teacher, Teacher.supervisor_id == User.id).filter(Teacher.id == teacher_id).distinct().all():
+    # an IN subquery, not DISTINCT over User rows: PostgreSQL cannot compare the JSON columns on users
+    for u in db.query(User).filter(User.id.in_(db.query(Teacher.supervisor_id).filter(Teacher.id == teacher_id,
+                                                                                     Teacher.supervisor_id.isnot(None)))).all():
         from app.core.notify import notify
         notify(db, u.id, "Class query raised", f"{query_type}: {detail[:160]}", event_type="class_status", link="/classes/queries")
     db.commit()

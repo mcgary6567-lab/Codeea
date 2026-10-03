@@ -54,8 +54,11 @@ def _options(db: Session) -> dict:
         "student_options": [(s.id, f"{s.full_name} ({s.student_code})") for s in db.query(Student).order_by(Student.full_name)],
         "teacher_options": [(t.id, t.full_name) for t in db.query(Teacher).filter(Teacher.status != "inactive").order_by(Teacher.full_name)],
         "status_options": sched.SUBSCRIPTION_STATUS_OPTIONS,
-        "supervisor_options": [(u.id, u.full_name) for u in db.query(User).join(Teacher, Teacher.supervisor_id == User.id)
-                               .distinct().order_by(User.full_name)],
+        # Not SELECT DISTINCT over User rows: User carries JSON columns, and PostgreSQL cannot compare JSON
+        # ("could not identify an equality operator for type json"), which 500'd every subscriptions page live.
+        "supervisor_options": [(u.id, u.full_name) for u in db.query(User)
+                               .filter(User.id.in_(db.query(Teacher.supervisor_id).filter(Teacher.supervisor_id.isnot(None))))
+                               .order_by(User.full_name)],
         "currency_options": [(c.code, c.code) for c in db.query(Currency).filter(Currency.is_active.is_(True)).order_by(Currency.code)],
         "country_options": [(c, c) for (c,) in db.query(Client.country).filter(Client.country.isnot(None)).distinct().order_by(Client.country)],
         "package_options": [(p.id, f"{p.name} - {p.currency} {float(p.price):,.0f}") for p in
