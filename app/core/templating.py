@@ -135,7 +135,26 @@ templates.env.filters.update({
     "badge": badge_class, "status_color": status_color, "mask": mask, "ago": humanize_delta, "tojson_safe": tojson_safe,
     "pct": pct, "label": label,
 })
+def _asset_version() -> str:
+    """A short fingerprint of the stylesheet and script, appended to their links as ?v=...
+
+    Browsers cache /static files; without this a deploy that changes the stylesheet leaves every signed-in
+    browser on the old one until its cache expires (the first sight of the Schedule Summary Report in
+    production had white text on white because the new colour class had not reached the browser)."""
+    import hashlib
+    h = hashlib.md5()
+    static = Path(__file__).resolve().parents[1] / "static"
+    for rel in ("css/tailwind.css", "css/app.css", "js/app.js"):
+        f = static / rel
+        if f.exists():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+ASSET_VERSION = _asset_version()
+
 templates.env.globals.update({
+    "asset_version": ASSET_VERSION,
     "app_name": settings.APP_NAME, "app_env": settings.APP_ENV, "base_url": settings.BASE_URL,
     "has_perm": rbac.has_permission, "is_ceo": rbac.is_ceo, "is_management": rbac.is_management,
     "today": date.today, "utcnow": datetime.utcnow, "MODULES": rbac.MODULES, "ACTIONS": rbac.ACTIONS,

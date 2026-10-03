@@ -8,11 +8,11 @@
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#1d6fcf">
   <!-- Tailwind is compiled ahead of time (build/build-css.sh) into a static stylesheet. -->
-  <link rel="stylesheet" href="/static/css/tailwind.css">
+  <link rel="stylesheet" href="/static/css/tailwind.css?v={{ asset_version }}">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" media="print" onload="this.media='all'"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri+Quran&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ asset_version }}">
   <script defer src="/static/vendor/alpine.js"></script>
   <script src="/static/vendor/chart.umd.min.js"></script>
   <script src="/static/vendor/htmx.min.js"></script>
@@ -149,7 +149,7 @@
 {% else %}
 {% block public %}{% endblock %}
 {% endif %}
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v={{ asset_version }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
