@@ -18,28 +18,35 @@ import Prices from "./pages/Prices";
 import Alerts from "./pages/Alerts";
 import Automations from "./pages/Automations";
 import SettingsPage from "./pages/Settings";
+import Users from "./pages/Users";
 
-type User = { id: number; name: string; email: string; role: string; tenant_id: number };
-type Auth = { user: User | null; tenant: { id: number; name: string } | null; login: (token: string) => Promise<void>; logout: () => void };
+type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman"; tenant_id: number; station_id: number | null; station_name: string | null };
+type Auth = {
+  user: User | null; tenant: { id: number; name: string } | null; permissions: string[];
+  can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void;
+};
+export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman" };
 const AuthCtx = createContext<Auth>(null as unknown as Auth);
 export const useAuth = () => useContext(AuthCtx);
 
 function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ user: User | null; tenant: Auth["tenant"]; ready: boolean }>({ user: null, tenant: null, ready: false });
+  const empty = { user: null, tenant: null, permissions: [] as string[], ready: true };
+  const [state, setState] = useState<{ user: User | null; tenant: Auth["tenant"]; permissions: string[]; ready: boolean }>({ ...empty, ready: false });
   const load = async () => {
-    if (!getToken()) return setState({ user: null, tenant: null, ready: true });
+    if (!getToken()) return setState(empty);
     try {
       const me = await api("/me");
-      setState({ user: me.user, tenant: me.tenant, ready: true });
+      setState({ user: me.user, tenant: me.tenant, permissions: me.permissions, ready: true });
     } catch {
-      setState({ user: null, tenant: null, ready: true });
+      setState(empty);
     }
   };
   useEffect(() => { load(); }, []);
   const value: Auth = {
-    user: state.user, tenant: state.tenant,
+    user: state.user, tenant: state.tenant, permissions: state.permissions,
+    can: (perm) => state.permissions.includes(perm),
     login: async (token) => { setToken(token); await load(); },
-    logout: () => { setToken(null); setState({ user: null, tenant: null, ready: true }); },
+    logout: () => { setToken(null); setState(empty); },
   };
   if (!state.ready) return <Loading />;
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
@@ -50,6 +57,25 @@ function Protected({ children }: { children: ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+/** Route guard: shows a friendly "no access" page instead of the screen. */
+function Need({ perm, children }: { perm: string; children: ReactNode }) {
+  const { can, user } = useAuth();
+  if (can(perm)) return <>{children}</>;
+  return (
+    <div className="card mx-auto mt-10 max-w-md p-6 text-center">
+      <div className="text-4xl">🔒</div>
+      <h1 className="mt-2 text-lg font-semibold">No access</h1>
+      <p className="mt-1 text-sm text-slate-600">Your role ({ROLE_LABEL[user?.role ?? ""]}) can't open this page. Ask your admin if you need access.</p>
+    </div>
+  );
+}
+
+/** Managers/admins land on the dashboard; salesmen land on the POS. */
+function Home() {
+  const { can } = useAuth();
+  return can("dashboard.view") ? <Dashboard /> : <Navigate to="/pos" replace />;
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -58,22 +84,23 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<Protected><Layout /></Protected>}>
-              <Route index element={<Dashboard />} />
-              <Route path="inbox" element={<Inbox />} />
-              <Route path="inbox/:id" element={<Inbox />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="customers/:id" element={<Customers />} />
-              <Route path="khata" element={<Khata />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="complaints" element={<Complaints />} />
-              <Route path="campaigns" element={<Campaigns />} />
-              <Route path="pos" element={<Pos />} />
-              <Route path="shifts" element={<Shifts />} />
-              <Route path="stock" element={<Stock />} />
-              <Route path="prices" element={<Prices />} />
-              <Route path="alerts" element={<Alerts />} />
-              <Route path="automations" element={<Automations />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route index element={<Home />} />
+              <Route path="inbox" element={<Need perm="whatsapp.inbox"><Inbox /></Need>} />
+              <Route path="inbox/:id" element={<Need perm="whatsapp.inbox"><Inbox /></Need>} />
+              <Route path="customers" element={<Need perm="customers.view"><Customers /></Need>} />
+              <Route path="customers/:id" element={<Need perm="customers.view"><Customers /></Need>} />
+              <Route path="khata" element={<Need perm="khata.manage"><Khata /></Need>} />
+              <Route path="orders" element={<Need perm="orders.manage"><Orders /></Need>} />
+              <Route path="complaints" element={<Need perm="complaints.manage"><Complaints /></Need>} />
+              <Route path="campaigns" element={<Need perm="campaigns.manage"><Campaigns /></Need>} />
+              <Route path="pos" element={<Need perm="sales.create"><Pos /></Need>} />
+              <Route path="shifts" element={<Need perm="shifts.manage"><Shifts /></Need>} />
+              <Route path="stock" element={<Need perm="stock.manage"><Stock /></Need>} />
+              <Route path="prices" element={<Need perm="prices.view"><Prices /></Need>} />
+              <Route path="alerts" element={<Need perm="alerts.view"><Alerts /></Need>} />
+              <Route path="automations" element={<Need perm="automations.manage"><Automations /></Need>} />
+              <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
+              <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

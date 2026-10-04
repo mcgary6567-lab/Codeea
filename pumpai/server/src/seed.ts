@@ -30,10 +30,9 @@ export function seed() {
   tx(() => {
     const tenantId = run("INSERT INTO tenants (name, owner_name, owner_phone) VALUES (?,?,?)", "Al-Madina Petroleum", "Haji Abdul Rehman", "923001234567").id;
     const hash = bcrypt.hashSync("demo1234", 8);
-    run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Haji Abdul Rehman", "owner@pumpai.pk", hash, "owner");
+    run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Haji Abdul Rehman (CEO)", "admin@pumpai.pk", hash, "admin");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Kamran Shah", "manager@pumpai.pk", hash, "manager");
-    run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Saleem Accounts", "accounts@pumpai.pk", hash, "accountant");
-    run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id) VALUES (?,?,?,?,?,1)", tenantId, "Imran (Attendant)", "attendant@pumpai.pk", hash, "attendant");
+    run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id) VALUES (?,?,?,?,?,1)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman");
 
     const st1 = run("INSERT INTO stations (tenant_id,name,city,address,omc,lat,lng,timings,services) VALUES (?,?,?,?,?,?,?,?,?)",
       tenantId, "Al-Madina Ferozepur Road", "Lahore", "Ferozepur Road, near Kalma Chowk, Lahore", "PSO", 31.5003, 74.3311, "24 hours", "Petrol, Hi-Octane, Diesel, Tuck shop, Air, Car wash").id;

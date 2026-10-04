@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, getSetting, setSetting } from "../db.js";
-import { h, parse, tid, requireRole } from "../auth.js";
+import { h, parse, tid, requirePerm } from "../auth.js";
 import { kpis, forecast, tankOutlook, insights, dailySeries, scoreCustomers } from "../ai/analytics.js";
 import { askBusiness } from "../ai/agent.js";
 import { runJob, ensureAutomations } from "../automation/scheduler.js";
@@ -12,7 +12,7 @@ import { normalizePhone } from "../services.js";
 
 export const insightsRouter = Router();
 
-insightsRouter.get("/dashboard", h((req) => {
+insightsRouter.get("/dashboard", requirePerm("dashboard.view"), h((req) => {
   const t = tid(req);
   const series = dailySeries(t, 30);
   return {
@@ -28,40 +28,40 @@ insightsRouter.get("/dashboard", h((req) => {
   };
 }));
 
-insightsRouter.post("/ai/ask", h(async (req) => {
+insightsRouter.post("/ai/ask", requirePerm("ai.ask"), h(async (req) => {
   const b = parse(z.object({ question: z.string().min(3).max(1000) }), req.body);
   return askBusiness(tid(req), b.question);
 }));
 
-insightsRouter.get("/ai/brief", h(async (req) => ({ text: await buildDailyBrief(tid(req)) })));
+insightsRouter.get("/ai/brief", requirePerm("ai.ask"), h(async (req) => ({ text: await buildDailyBrief(tid(req)) })));
 
-insightsRouter.post("/ai/rescore", h((req) => scoreCustomers(tid(req))));
+insightsRouter.post("/ai/rescore", requirePerm("automations.manage"), h((req) => scoreCustomers(tid(req))));
 
 /* ---------------- Alerts ---------------- */
-insightsRouter.get("/alerts", h((req) => all("SELECT a.*, s.name station_name FROM alerts a LEFT JOIN stations s ON s.id=a.station_id WHERE a.tenant_id=? ORDER BY a.id DESC LIMIT 300", tid(req))));
-insightsRouter.post("/alerts/:id/ack", h((req) => {
+insightsRouter.get("/alerts", requirePerm("alerts.view"), h((req) => all("SELECT a.*, s.name station_name FROM alerts a LEFT JOIN stations s ON s.id=a.station_id WHERE a.tenant_id=? ORDER BY a.id DESC LIMIT 300", tid(req))));
+insightsRouter.post("/alerts/:id/ack", requirePerm("alerts.view"), h((req) => {
   run("UPDATE alerts SET acknowledged=1 WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   return { ok: true };
 }));
-insightsRouter.post("/alerts/ack-all", h((req) => {
+insightsRouter.post("/alerts/ack-all", requirePerm("alerts.view"), h((req) => {
   run("UPDATE alerts SET acknowledged=1 WHERE tenant_id=?", tid(req));
   return { ok: true };
 }));
 
 /* ---------------- Automations ---------------- */
-insightsRouter.get("/automations", h((req) => {
+insightsRouter.get("/automations", requirePerm("automations.manage"), h((req) => {
   ensureAutomations(tid(req));
   return all("SELECT * FROM automations WHERE tenant_id=? ORDER BY id", tid(req));
 }));
-insightsRouter.patch("/automations/:key", requireRole("owner", "manager"), h((req) => {
+insightsRouter.patch("/automations/:key", requirePerm("automations.manage"), h((req) => {
   const b = parse(z.object({ enabled: z.boolean() }), req.body);
   run("UPDATE automations SET enabled=? WHERE tenant_id=? AND key=?", b.enabled ? 1 : 0, tid(req), req.params.key);
   return get("SELECT * FROM automations WHERE tenant_id=? AND key=?", tid(req), req.params.key);
 }));
-insightsRouter.post("/automations/:key/run", requireRole("owner", "manager"), h(async (req) => ({ result: await runJob(tid(req), String(req.params.key)) })));
+insightsRouter.post("/automations/:key/run", requirePerm("automations.manage"), h(async (req) => ({ result: await runJob(tid(req), String(req.params.key)) })));
 
 /* ---------------- Settings ---------------- */
-insightsRouter.get("/settings", h((req) => {
+insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   const t = tid(req);
   const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
   return {
@@ -71,10 +71,9 @@ insightsRouter.get("/settings", h((req) => {
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
       payments: { link_base: config.paymentLinkBase },
     },
-    users: all("SELECT id, name, email, role FROM users WHERE tenant_id=?", t),
   };
 }));
-insightsRouter.put("/settings", requireRole("owner"), h((req) => {
+insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional() }), req.body);
   const t = tid(req);
   if (b.business_name) run("UPDATE tenants SET name=? WHERE id=?", b.business_name, t);
@@ -84,7 +83,7 @@ insightsRouter.put("/settings", requireRole("owner"), h((req) => {
 }));
 
 /* ---------------- Live events (SSE) ---------------- */
-insightsRouter.get("/events", (req, res) => {
+insightsRouter.get("/events", requirePerm("whatsapp.inbox"), (req, res) => {
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   res.write("retry: 3000\n\n");
   const t = tid(req);

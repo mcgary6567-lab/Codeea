@@ -5,11 +5,12 @@ import fs from "node:fs";
 import { z } from "zod";
 import { config, aiEnabled, waLive } from "./config.js";
 import { migrate, get } from "./db.js";
-import { requireAuth, errorHandler, login, h, parse } from "./auth.js";
+import { requireAuth, errorHandler, login, h, parse, permissionsOf } from "./auth.js";
 import { operations } from "./routes/operations.js";
 import { crm } from "./routes/crm.js";
 import { waWebhook, inbox } from "./routes/whatsapp.js";
 import { insightsRouter } from "./routes/insights.js";
+import { users } from "./routes/users.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -32,11 +33,16 @@ app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
 api.use(requireAuth);
-api.get("/me", h((req) => ({ user: req.user, tenant: get("SELECT id, name FROM tenants WHERE id=?", req.user!.tenant_id) })));
+api.get("/me", h((req) => ({
+  user: { ...req.user, station_name: req.user!.station_id ? get("SELECT name FROM stations WHERE id=?", req.user!.station_id)?.name : null },
+  tenant: get("SELECT id, name FROM tenants WHERE id=?", req.user!.tenant_id),
+  permissions: permissionsOf(req.user!.role),
+})));
 api.use(operations);
 api.use(crm);
 api.use("/whatsapp", inbox);
 api.use(insightsRouter);
+api.use(users);
 app.use("/api", api);
 
 // Serve the built dashboard in production

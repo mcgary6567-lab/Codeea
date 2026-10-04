@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now } from "../db.js";
-import { h, parse, tid, requireRole } from "../auth.js";
+import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { writeCampaign } from "../ai/agent.js";
@@ -32,8 +32,9 @@ const customerBody = z.object({
   city: z.string().optional().nullable(), credit_limit: z.number().min(0).default(0), opt_in: z.boolean().default(true), notes: z.string().optional().nullable(),
 });
 
-crm.post("/customers", h((req) => {
+crm.post("/customers", requirePerm("customers.create"), h((req) => {
   const b = parse(customerBody, req.body);
+  if (b.credit_limit > 0 && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can give khata credit");
   const phone = normalizePhone(b.phone);
   if (get("SELECT id FROM customers WHERE tenant_id=? AND phone=?", tid(req), phone)) throw new AppError(400, "A customer with this phone already exists");
   const { id } = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -41,10 +42,10 @@ crm.post("/customers", h((req) => {
   return get("SELECT * FROM customers WHERE id=?", id);
 }));
 
-crm.patch("/customers/:id", h((req) => {
+crm.patch("/customers/:id", requirePerm("customers.edit"), h((req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(customerBody.partial(), req.body);
-  if (b.credit_limit !== undefined && req.user!.role !== "owner" && b.credit_limit > c.credit_limit) throw new AppError(403, "Only the owner can raise credit limits");
+  if (b.credit_limit !== undefined && b.credit_limit !== c.credit_limit && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can change credit limits");
   const m = { ...c, ...b, phone: b.phone ? normalizePhone(b.phone) : c.phone, opt_in: b.opt_in === undefined ? c.opt_in : b.opt_in ? 1 : 0 };
   run("UPDATE customers SET name=?, phone=?, type=?, city=?, credit_limit=?, opt_in=?, notes=? WHERE id=?", m.name, m.phone, m.type, m.city ?? null, m.credit_limit, m.opt_in, m.notes ?? null, c.id);
   return get("SELECT * FROM customers WHERE id=?", c.id);
@@ -70,7 +71,7 @@ crm.post("/customers/:id/vehicles", h((req) => {
 }));
 
 /* ---------------- Khata ---------------- */
-crm.post("/customers/:id/khata", requireRole("owner", "manager", "accountant"), h(async (req) => {
+crm.post("/customers/:id/khata", requirePerm("khata.manage"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true) }), req.body);
   const updated = khataEntry(c.id, b.type, b.amount, b.method ?? null, b.note ?? null);
@@ -79,7 +80,7 @@ crm.post("/customers/:id/khata", requireRole("owner", "manager", "accountant"), 
   return updated;
 }));
 
-crm.post("/customers/:id/remind", h(async (req) => {
+crm.post("/customers/:id/remind", requirePerm("khata.manage"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   if (c.balance <= 0) throw new AppError(400, "No balance due");
   const link = paymentLink(c, c.balance);
@@ -87,20 +88,20 @@ crm.post("/customers/:id/remind", h(async (req) => {
   return { ok: true, link };
 }));
 
-crm.get("/khata", h((req) => all(
+crm.get("/khata", requirePerm("khata.manage"), h((req) => all(
   `SELECT c.id, c.name, c.phone, c.type, c.balance, c.credit_limit, c.risk_score,
      (SELECT MAX(created_at) FROM khata_ledger k WHERE k.customer_id=c.id AND k.type='credit') last_payment
    FROM customers c WHERE c.tenant_id=? AND (c.balance > 0 OR c.credit_limit > 0) ORDER BY c.balance DESC`, tid(req))));
 
 /* ---------------- Orders (from WhatsApp AI or manual) ---------------- */
-crm.get("/orders", h((req) => all(
+crm.get("/orders", requirePerm("orders.manage"), h((req) => all(
   `SELECT o.*, c.name customer_name, c.phone FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.tenant_id=? ORDER BY o.id DESC LIMIT 200`, tid(req))));
 
 const statusText: Record<string, string> = {
   confirmed: "✅ confirm ho gaya hai", dispatched: "🚚 rawana ho gaya hai", delivered: "📦 deliver ho gaya hai. Shukriya!", cancelled: "❌ cancel kar diya gaya hai",
 };
 
-crm.patch("/orders/:id", h(async (req) => {
+crm.patch("/orders/:id", requirePerm("orders.manage"), h(async (req) => {
   const b = parse(z.object({ status: z.enum(["pending", "confirmed", "dispatched", "delivered", "cancelled"]), station_id: z.number().optional(), note: z.string().optional() }), req.body);
   const o = get("SELECT * FROM orders WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!o) throw new AppError(404, "Order not found");
@@ -118,10 +119,10 @@ crm.patch("/orders/:id", h(async (req) => {
 }));
 
 /* ---------------- Complaints ---------------- */
-crm.get("/complaints", h((req) => all(
+crm.get("/complaints", requirePerm("complaints.manage"), h((req) => all(
   `SELECT k.*, c.name customer_name, c.phone FROM complaints k LEFT JOIN customers c ON c.id=k.customer_id WHERE k.tenant_id=? ORDER BY k.id DESC LIMIT 200`, tid(req))));
 
-crm.patch("/complaints/:id", h(async (req) => {
+crm.patch("/complaints/:id", requirePerm("complaints.manage"), h(async (req) => {
   const b = parse(z.object({ status: z.enum(["open", "in_progress", "resolved"]), reply: z.string().optional() }), req.body);
   const k = get("SELECT * FROM complaints WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!k) throw new AppError(404, "Complaint not found");
@@ -139,17 +140,17 @@ const SEGMENTS: Record<string, string> = {
   Regular: "segment='Regular'", New: "segment='New'", Debtors: "balance > 0",
 };
 
-crm.get("/campaigns", h((req) => ({
+crm.get("/campaigns", requirePerm("campaigns.manage"), h((req) => ({
   campaigns: all("SELECT * FROM campaigns WHERE tenant_id=? ORDER BY id DESC", tid(req)),
   segments: Object.keys(SEGMENTS).map((s) => ({ key: s, count: get(`SELECT COUNT(*) n FROM customers WHERE tenant_id=? AND opt_in=1 AND ${SEGMENTS[s]}`, tid(req))!.n })),
 })));
 
-crm.post("/campaigns/ai-write", h((req) => {
+crm.post("/campaigns/ai-write", requirePerm("campaigns.manage"), h((req) => {
   const b = parse(z.object({ goal: z.string().min(3), segment: z.string() }), req.body);
   return writeCampaign(tid(req), b.goal, b.segment);
 }));
 
-crm.post("/campaigns", requireRole("owner", "manager"), h(async (req) => {
+crm.post("/campaigns", requirePerm("campaigns.manage"), h(async (req) => {
   const b = parse(z.object({ name: z.string().min(2), segment: z.string().refine((s) => s in SEGMENTS, "Unknown segment"), message: z.string().min(5).max(1000), send_now: z.boolean().default(false) }), req.body);
   const t = tid(req);
   const { id } = run("INSERT INTO campaigns (tenant_id,name,segment,message,status,created_at) VALUES (?,?,?,?,?,?)", t, b.name, b.segment, b.message, "draft", now());
@@ -157,7 +158,7 @@ crm.post("/campaigns", requireRole("owner", "manager"), h(async (req) => {
   return get("SELECT * FROM campaigns WHERE id=?", id);
 }));
 
-crm.post("/campaigns/:id/send", requireRole("owner", "manager"), h(async (req) => {
+crm.post("/campaigns/:id/send", requirePerm("campaigns.manage"), h(async (req) => {
   await sendCampaign(tid(req), Number(req.params.id));
   return get("SELECT * FROM campaigns WHERE id=?", Number(req.params.id));
 }));

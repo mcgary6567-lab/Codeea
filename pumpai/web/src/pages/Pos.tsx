@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Fuel } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
+import { Link } from "react-router-dom";
 import { PRODUCTS, PRODUCT_COLORS, dt, num, pkr } from "../lib/format";
+import { useAuth } from "../App";
 
 const METHODS = ["cash", "card", "jazzcash", "easypaisa", "raast", "khata"];
 
@@ -12,6 +14,10 @@ export default function Pos() {
   const sales = useApi<any[]>("/sales?limit=40");
   const customers = useApi<any[]>("/customers?q=");
   const { busy, run } = useAction();
+  const { user } = useAuth();
+  const isSalesman = user?.role === "salesman";
+  const myShifts = useApi<any[]>(isSalesman ? "/shifts" : null);
+  const noShift = isSalesman && myShifts.data && !myShifts.data.some((s) => s.status === "open");
   const [f, setF] = useState<any>({ station_id: "", product: "PMG", mode: "amount", value: "", payment_method: "cash", customer_id: "", vehicle_no: "", nozzle_id: "" });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
 
@@ -35,6 +41,7 @@ export default function Pos() {
   return (
     <div>
       <PageHeader title="Sales / POS" subtitle="Quick sale entry. Stock, loyalty points and khata update automatically." />
+      {noShift && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Your shift is not open. <Link to="/shifts" className="font-medium underline">Start your shift</Link> before recording sales.</div>}
       <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
         <form onSubmit={submit} className="card space-y-3 p-4">
           <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>
@@ -64,7 +71,7 @@ export default function Pos() {
             </select>
           </Field>
           <Field label="Vehicle no."><input className="input" placeholder="LEA-1234" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
-          <button className="btn-primary w-full py-3 text-base" disabled={busy}>Record sale</button>
+          <button className="btn-primary w-full py-3 text-base" disabled={busy || !!noShift}>Record sale</button>
         </form>
         <div className="card overflow-x-auto">
           <table className="w-full">

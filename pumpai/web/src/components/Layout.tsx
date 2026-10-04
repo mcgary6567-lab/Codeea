@@ -1,34 +1,35 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin,
 } from "lucide-react";
-import { useAuth } from "../App";
+import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/inbox", label: "WhatsApp Inbox", icon: MessageCircle, badge: "unread" },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/khata", label: "Khata (Credit)", icon: BookOpen },
-  { to: "/orders", label: "Orders", icon: Truck, badge: "orders" },
-  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning },
-  { to: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { to: "/pos", label: "Sales / POS", icon: Fuel },
-  { to: "/shifts", label: "Shifts", icon: Clock },
-  { to: "/stock", label: "Tanks & Stock", icon: Droplets },
-  { to: "/prices", label: "Prices", icon: Tag },
-  { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts" },
-  { to: "/automations", label: "AI Automations", icon: Bot },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
+  { to: "/inbox", label: "WhatsApp Inbox", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
+  { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
+  { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
+  { to: "/customers", label: "Customers", icon: Users, perm: "customers.view" },
+  { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
+  { to: "/orders", label: "Orders", icon: Truck, badge: "orders", perm: "orders.manage" },
+  { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
+  { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: "campaigns.manage" },
+  { to: "/stock", label: "Tanks & Stock", icon: Droplets, perm: "stock.manage" },
+  { to: "/prices", label: "Prices", icon: Tag, perm: "prices.view" },
+  { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
+  { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
+  { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
+  { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];
 
 export default function Layout() {
-  const { user, tenant, logout } = useAuth();
+  const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
-  const counts = useApi<any>("/dashboard", 60_000);
-  useLiveEvents(() => counts.reload());
+  const counts = useApi<any>(can("dashboard.view") ? "/dashboard" : null, 60_000);
+  useLiveEvents(() => counts.reload(), can("whatsapp.inbox"));
   const k = counts.data?.kpis;
   const badgeVal: Record<string, number> = { unread: k?.whatsapp.unread ?? 0, orders: k?.pending_orders ?? 0, alerts: k?.open_alerts ?? 0 };
 
@@ -42,7 +43,7 @@ export default function Layout() {
         </div>
       </div>
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        {NAV.map((n) => (
+        {NAV.filter((n) => can(n.perm)).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
             className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${isActive ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`}>
             <n.icon size={17} />
@@ -53,7 +54,8 @@ export default function Layout() {
       </div>
       <div className="border-t border-white/10 p-4 text-sm">
         <div className="font-medium">{user?.name}</div>
-        <div className="text-xs capitalize text-emerald-200/80">{user?.role}</div>
+        <div className="text-xs text-emerald-200/80">{ROLE_LABEL[user?.role ?? ""]}</div>
+        {user?.station_name && <div className="mt-0.5 flex items-center gap-1 text-xs text-emerald-200/80"><MapPin size={11} />{user.station_name}</div>}
         <button onClick={() => { logout(); nav("/login"); }} className="mt-3 flex items-center gap-2 text-xs text-emerald-200 hover:text-white">
           <LogOut size={14} /> Sign out
         </button>

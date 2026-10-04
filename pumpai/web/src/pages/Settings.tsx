@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
@@ -38,9 +39,9 @@ export default function SettingsPage() {
           <div className="rounded bg-slate-50 p-2 font-mono text-xs break-all">Webhook URL: {i.whatsapp.webhook_url}<br />WA_TOKEN, WA_PHONE_NUMBER_ID, WA_VERIFY_TOKEN, WA_APP_SECRET</div>
         </div>
       </div>
-      <div className="card p-4">
-        <h2 className="mb-2 font-semibold">Team</h2>
-        <table className="w-full"><tbody>{data.users.map((u: any) => <tr key={u.id}><td className="td">{u.name}</td><td className="td text-sm text-slate-500">{u.email}</td><td className="td text-sm capitalize">{u.role}</td></tr>)}</tbody></table>
+      <div className="card flex items-center justify-between p-4">
+        <div><h2 className="font-semibold">Team & access</h2><p className="text-sm text-slate-600">Create Admin, Manager and Salesman logins and control what each can do.</p></div>
+        <Link to="/users" className="btn-secondary">Manage users →</Link>
       </div>
     </div>
   );

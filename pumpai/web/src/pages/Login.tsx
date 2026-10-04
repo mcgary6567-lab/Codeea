@@ -7,7 +7,7 @@ import { ErrorBox } from "../components/ui";
 export default function Login() {
   const { user, login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("owner@pumpai.pk");
+  const [email, setEmail] = useState("admin@pumpai.pk");
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,9 +41,14 @@ export default function Login() {
           <label className="block"><span className="label">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
           <label className="block"><span className="label">Password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
           <button className="btn-primary w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <p className="text-center text-xs text-slate-500">
-            Demo accounts (password <b>demo1234</b>): owner@, manager@, accounts@, attendant@pumpai.pk
-          </p>
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            <div className="mb-1.5 font-medium">Demo accounts (password <b>demo1234</b>)</div>
+            {[["admin@pumpai.pk", "Admin (CEO) — full access"], ["manager@pumpai.pk", "Manager — operations & CRM"], ["salesman@pumpai.pk", "Salesman — POS & own shift"]].map(([e, l]) => (
+              <button type="button" key={e} onClick={() => { setEmail(e); setPassword("demo1234"); }} className="flex w-full justify-between rounded px-1.5 py-1 text-left hover:bg-white">
+                <span className="font-mono">{e}</span><span className="text-slate-500">{l}</span>
+              </button>
+            ))}
+          </div>
         </form>
       </div>
     </div>

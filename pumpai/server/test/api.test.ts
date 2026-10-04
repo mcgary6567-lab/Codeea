@@ -28,14 +28,14 @@ before(async () => {
   const { app } = await import("../src/index.js");
   await new Promise<void>((r) => { server = app.listen(0, () => r()); });
   base = `http://127.0.0.1:${(server.address() as any).port}`;
-  const r = await api("POST", "/api/auth/login", { email: "owner@pumpai.pk", password: "demo1234" });
+  const r = await api("POST", "/api/auth/login", { email: "admin@pumpai.pk", password: "demo1234" });
   token = r.data.token;
 });
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 test("rejects bad login and unauthenticated calls", async () => {
   const saved = token; token = "";
-  assert.equal((await api("POST", "/api/auth/login", { email: "owner@pumpai.pk", password: "nope" })).status, 401);
+  assert.equal((await api("POST", "/api/auth/login", { email: "admin@pumpai.pk", password: "nope" })).status, 401);
   assert.equal((await api("GET", "/api/dashboard")).status, 401);
   token = saved;
 });

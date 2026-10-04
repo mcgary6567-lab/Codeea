@@ -4,6 +4,7 @@ import { Plus, Search, MessageCircle, Wallet, BellRing, Car, Pencil } from "luci
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
+import { useAuth } from "../App";
 
 const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri"];
 const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber" };
@@ -71,11 +72,13 @@ function RiskBar({ v }: { v: number }) {
 }
 
 function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: (c: any) => void; initial?: any }) {
+  const { can } = useAuth();
   const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = { ...f, credit_limit: Number(f.credit_limit) || 0 };
+    const body: any = { ...f, credit_limit: Number(f.credit_limit) || 0 };
+    if (!can("credit.set_limit")) delete body.credit_limit;
     const r = await run(() => initial ? api(`/customers/${initial.id}`, { method: "PATCH", body }) : api("/customers", { body }), "Customer saved");
     if (r) { onSaved(r); onClose(); }
   };
@@ -87,7 +90,8 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
           {["retail", "fleet", "farmer", "business"].map((t) => <option key={t}>{t}</option>)}</select></Field>
         <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
-        <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+        {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+          : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}
         <label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={!!f.opt_in} onChange={(e) => setF({ ...f, opt_in: e.target.checked })} /> WhatsApp marketing opt-in</label>
         <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
@@ -96,6 +100,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
 }
 
 function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const { can } = useAuth();
   const { data: c, reload, error } = useApi<any>(`/customers/${id}`);
   const { busy, run } = useAction();
   const [pay, setPay] = useState<"credit" | "debit" | null>(null);
@@ -113,7 +118,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
             {phone(c.phone)} · {c.type} · {c.city ?? "—"} {c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>} {!c.opt_in && <Badge tone="slate">Opted out</Badge>}
-            <button className="ml-auto text-xs text-brand-600 hover:underline" onClick={() => setEdit(true)}><Pencil size={12} className="inline" /> Edit</button>
+            {can("customers.edit") && <button className="ml-auto text-xs text-brand-600 hover:underline" onClick={() => setEdit(true)}><Pencil size={12} className="inline" /> Edit</button>}
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Khata balance" value={pkr(c.balance)} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)}` : "No credit"} />
@@ -122,10 +127,10 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             <Stat label="Credit risk" value={c.credit_limit ? `${Math.round(c.risk_score)}/100` : "—"} />
           </div>
           <div className="flex flex-wrap gap-2">
-            {c.conversation && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
-            <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment</button>
-            <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge</button>
-            {c.balance > 0 && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder</button>}
+            {c.conversation && can("whatsapp.inbox") && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
+            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment</button>}
+            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge</button>}
+            {c.balance > 0 && can("khata.manage") && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder</button>}
           </div>
           {pay && (
             <form className="flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-3" onSubmit={async (e) => {
@@ -138,10 +143,10 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel</button>
             </form>
           )}
-          <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>
+          {can("whatsapp.inbox") && <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>
             <input className="input" placeholder="Send a WhatsApp message…" value={msg} onChange={(e) => setMsg(e.target.value)} />
             <button className="btn-primary" disabled={busy || !msg}>Send</button>
-          </form>
+          </form>}
           <div className="grid gap-4 md:grid-cols-2">
             <section>
               <h3 className="mb-2 text-sm font-semibold">Khata ledger</h3>

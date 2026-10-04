@@ -6,8 +6,52 @@ import { config } from "./config.js";
 import { get } from "./db.js";
 import { AppError } from "./services.js";
 
-export type Role = "owner" | "manager" | "accountant" | "attendant";
+/**
+ * Three roles:
+ *  - admin    (CEO / owner): full system access, users, settings, credit limits
+ *  - manager  : runs daily operations, CRM, WhatsApp, stock, prices, automations
+ *  - salesman : POS sales, own shifts and customer lookup at their assigned station only
+ */
+export const ROLES = ["admin", "manager", "salesman"] as const;
+export type Role = (typeof ROLES)[number];
 export interface AuthUser { id: number; tenant_id: number; name: string; email: string; role: Role; station_id: number | null }
+
+const ALL: Role[] = ["admin", "manager", "salesman"];
+const MGMT: Role[] = ["admin", "manager"];
+const ADMIN: Role[] = ["admin"];
+
+/** Single source of truth for access control; sent to the dashboard via /api/me. */
+export const PERMISSIONS = {
+  "dashboard.view": MGMT,
+  "ai.ask": MGMT,
+  "sales.create": ALL,
+  "sales.view": ALL, // salesman: own station only
+  "shifts.manage": ALL, // salesman: own shifts at own station only
+  "shifts.view_all": MGMT,
+  "customers.view": ALL,
+  "customers.create": ALL,
+  "customers.edit": MGMT,
+  "credit.set_limit": ADMIN,
+  "khata.manage": MGMT,
+  "whatsapp.inbox": MGMT,
+  "orders.manage": MGMT,
+  "complaints.manage": MGMT,
+  "campaigns.manage": MGMT,
+  "stock.manage": MGMT,
+  "prices.view": ALL,
+  "prices.update": MGMT,
+  "alerts.view": MGMT,
+  "automations.manage": MGMT,
+  "stations.manage": ADMIN,
+  "settings.manage": ADMIN,
+  "users.manage": ADMIN,
+} as const satisfies Record<string, readonly Role[]>;
+export type Permission = keyof typeof PERMISSIONS;
+
+export const can = (user: AuthUser | undefined, perm: Permission) =>
+  Boolean(user && (PERMISSIONS[perm] as readonly Role[]).includes(user.role));
+export const permissionsOf = (role: Role) =>
+  (Object.keys(PERMISSIONS) as Permission[]).filter((p) => (PERMISSIONS[p] as readonly Role[]).includes(role));
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -21,8 +65,9 @@ export function signToken(u: AuthUser) {
 export function login(email: string, password: string) {
   const u = get("SELECT * FROM users WHERE email=?", email.toLowerCase().trim());
   if (!u || !bcrypt.compareSync(password, u.password_hash)) throw new AppError(401, "Invalid email or password");
+  if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role) };
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
@@ -31,8 +76,9 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   if (!token) return next(new AppError(401, "Not signed in"));
   try {
     const p = jwt.verify(token, config.jwtSecret) as unknown as { sub: number };
-    const u = get("SELECT id, tenant_id, name, email, role, station_id FROM users WHERE id=?", p.sub);
-    if (!u) return next(new AppError(401, "User not found"));
+    const u = get("SELECT id, tenant_id, name, email, role, station_id, active FROM users WHERE id=?", p.sub);
+    if (!u || !u.active) return next(new AppError(401, "User not found or disabled"));
+    delete u.active;
     req.user = u as AuthUser;
     next();
   } catch {
@@ -40,8 +86,17 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   }
 }
 
-export const requireRole = (...roles: Role[]): RequestHandler => (req, _res, next) =>
-  req.user && roles.includes(req.user.role) ? next() : next(new AppError(403, "You don't have permission for this"));
+export const requirePerm = (perm: Permission): RequestHandler => (req, _res, next) =>
+  can(req.user, perm) ? next() : next(new AppError(403, "You don't have permission for this"));
+
+/** Salesmen are locked to their assigned station; returns the station they may act on. */
+export function scopedStation(req: Request, requested?: number | null): number | null {
+  const u = req.user!;
+  if (u.role !== "salesman") return requested ?? null;
+  if (!u.station_id) throw new AppError(403, "No station assigned to your account. Ask your admin.");
+  if (requested && requested !== u.station_id) throw new AppError(403, "You can only work on your own station");
+  return u.station_id;
+}
 
 /** Wrap async handlers so thrown errors reach the error middleware. */
 export const h = (fn: (req: Request, res: Response) => unknown): RequestHandler => async (req, res, next) => {

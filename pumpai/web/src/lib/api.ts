@@ -52,14 +52,14 @@ export function useApi<T = any>(path: string | null, pollMs?: number) {
 }
 
 /** Subscribe to server-sent live events (new WhatsApp messages, orders...). */
-export function useLiveEvents(onEvent: (e: any) => void) {
+export function useLiveEvents(onEvent: (e: any) => void, enabled = true) {
   const cb = useRef(onEvent);
   cb.current = onEvent;
   useEffect(() => {
     const token = getToken();
-    if (!token) return;
+    if (!token || !enabled) return;
     const es = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
     es.onmessage = (m) => { try { cb.current(JSON.parse(m.data)); } catch { /* ignore */ } };
     return () => es.close();
-  }, []);
+  }, [enabled]);
 }

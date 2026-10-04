@@ -2,11 +2,14 @@ import { useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
+import { useAuth } from "../App";
 
 export default function Shifts() {
   const shifts = useApi<any[]>("/shifts");
   const stations = useApi<any[]>("/stations");
   const { busy, run } = useAction();
+  const { user } = useAuth();
+  const isSalesman = user?.role === "salesman";
   const [open, setOpen] = useState({ station_id: "", attendant: "" });
   const [closing, setClosing] = useState<any>(null);
   const [readings, setReadings] = useState<Record<string, string>>({});
@@ -24,11 +27,20 @@ export default function Shifts() {
       <PageHeader title="Shifts" subtitle="Open with automatic meter readings; close with closing totalizers and counted cash. Shortages are flagged instantly." />
       <form className="card mb-5 flex flex-wrap items-end gap-3 p-4" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api("/shifts/open", { body: { station_id: Number(open.station_id || stations.data![0].id), attendant: open.attendant } }), "Shift opened")) { setOpen({ ...open, attendant: "" }); shifts.reload(); }
+        if (await run(() => api("/shifts/open", { body: { station_id: Number(open.station_id || stations.data![0].id), attendant: isSalesman ? undefined : open.attendant } }), "Shift opened")) { setOpen({ ...open, attendant: "" }); shifts.reload(); }
       }}>
-        <Field label="Station"><select className="input" value={open.station_id} onChange={(e) => setOpen({ ...open, station_id: e.target.value })}>{stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-        <Field label="Attendant name"><input className="input" required value={open.attendant} onChange={(e) => setOpen({ ...open, attendant: e.target.value })} /></Field>
-        <button className="btn-primary" disabled={busy}>Open shift</button>
+        {isSalesman ? (
+          <div className="flex-1 text-sm text-slate-600">
+            <div className="font-medium text-slate-900">{user?.name} · {user?.station_name}</div>
+            {shifts.data.some((s) => s.status === "open") ? "Your shift is open. Close it at the end of duty with meter readings and cash." : "Start your shift to begin recording sales."}
+          </div>
+        ) : (
+          <>
+            <Field label="Station"><select className="input" value={open.station_id} onChange={(e) => setOpen({ ...open, station_id: e.target.value })}>{stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+            <Field label="Attendant name"><input className="input" required value={open.attendant} onChange={(e) => setOpen({ ...open, attendant: e.target.value })} /></Field>
+          </>
+        )}
+        <button className="btn-primary" disabled={busy || (isSalesman && shifts.data.some((s) => s.status === "open"))}>{isSalesman ? "Start my shift" : "Open shift"}</button>
       </form>
       <div className="card overflow-x-auto">
         <table className="w-full">

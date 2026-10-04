@@ -17,11 +17,17 @@ npm install
 npm run dev          # API on :4000, dashboard on http://localhost:5173
 ```
 
-- **Sign in:** `owner@pumpai.pk` / `demo1234`. The `manager@`, `accounts@` and `attendant@pumpai.pk` accounts use the same password.
+- **Sign in** (password `demo1234` for all three):
+
+  | Login | Role | Access |
+  |---|---|---|
+  | `admin@pumpai.pk` | Admin (CEO) | Everything, including Users & Roles, Settings and khata credit limits |
+  | `manager@pumpai.pk` | Manager | Dashboard, WhatsApp inbox, customers & khata, orders, complaints, campaigns, stock, prices, alerts, automations |
+  | `salesman@pumpai.pk` | Salesman | POS, their own shift, customer lookup/add and prices, at their assigned station only |
 - **First run:** a demo business is created automatically: 2 stations, 5 tanks, about 8 weeks of sales, 32 customers, khata and WhatsApp chats.
 - **Reset the demo data:** `npm run seed`.
 - **Production:** `npm run build && npm start`. The API serves the built dashboard on :4000. A `Dockerfile` is included.
-- **Tests:** `npm test` runs 13 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations and the Meta webhook.
+- **Tests:** `npm test` runs 20 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, and role-based access.
 
 Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database server to install).
 
@@ -40,7 +46,7 @@ Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database s
 | **Campaigns** | AI-written Roman Urdu broadcasts to segments, with `{name}`, `{balance}` and `{points}` placeholders. Opt-in only. |
 | **AI analytics** | Holt-Winters demand forecast with weekly seasonality, days-to-empty per tank with a suggested order, anomaly detection, insight cards, and "Ask your business anything" (Claude with read-only analytics tools). |
 | **Automations** | Six scheduled jobs on Asia/Karachi time, each of which can be toggled or run on demand (see below). |
-| **Roles** | Owner, manager, accountant, attendant. Only the owner can raise credit limits or change settings. |
+| **Users & roles** | Three roles: Admin (CEO), Manager and Salesman. Access is enforced on every API route and mirrored in the UI from one permission table (`server/src/auth.ts`). The admin creates users, assigns roles and stations, resets passwords, and can disable or delete accounts; the last active admin is protected. Salesmen are locked to their own station and shift, and must open a shift before selling. Databases with the old owner/accountant/attendant roles are upgraded automatically. |
 
 ### Automations
 
@@ -77,9 +83,9 @@ pumpai/
 │   ├── ai/analytics.ts       forecasting, anomaly detection, scoring, KPIs
 │   ├── automation/           scheduled jobs
 │   ├── whatsapp/cloud.ts     Cloud API send (24h window → template), webhook parse, signature check
-│   └── routes/               operations, crm, whatsapp, insights
+│   └── routes/               operations, crm, whatsapp, insights, users
 └── web/src/pages             Dashboard, Inbox, Customers, Khata, Orders, Complaints, Campaigns,
-                              POS, Shifts, Stock, Prices, Alerts, Automations, Settings
+                              POS, Shifts, Stock, Prices, Alerts, Automations, Users, Settings
 ```
 
 ## Going live

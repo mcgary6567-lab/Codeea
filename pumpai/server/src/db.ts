@@ -43,8 +43,8 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
     name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('owner','manager','accountant','attendant')),
-    station_id INTEGER, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman')),
+    station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   CREATE TABLE IF NOT EXISTS stations (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
@@ -151,6 +151,31 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS settings (
     tenant_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT, PRIMARY KEY (tenant_id, key)
   );
+  `);
+  migrateUserRoles();
+}
+
+/** Upgrade databases created with the old owner/accountant/attendant roles. */
+function migrateUserRoles() {
+  const ddl = get<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")?.sql ?? "";
+  if (!ddl.includes("'owner'")) return;
+  db.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    CREATE TABLE users_new (
+      id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+      name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman')),
+      station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    INSERT INTO users_new (id,tenant_id,name,email,password_hash,role,station_id,created_at)
+      SELECT id,tenant_id,name,email,password_hash,
+        CASE role WHEN 'owner' THEN 'admin' WHEN 'attendant' THEN 'salesman' ELSE 'manager' END,
+        station_id, created_at FROM users;
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+    COMMIT;
+    PRAGMA foreign_keys = ON;
   `);
 }
 

@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run } from "../db.js";
-import { h, parse, tid } from "../auth.js";
+import { h, parse, tid, requirePerm } from "../auth.js";
 import { config } from "../config.js";
 import { AppError } from "../services.js";
 import { parseWebhook, verifySignature, sendWhatsApp, bus } from "../whatsapp/cloud.js";
@@ -27,6 +27,7 @@ waWebhook.post("/", (req: Request & { rawBody?: Buffer }, res) => {
 
 /** Authenticated inbox API for the dashboard. */
 export const inbox = Router();
+inbox.use(requirePerm("whatsapp.inbox"));
 
 inbox.get("/conversations", h((req) => all(
   `SELECT cv.*, c.name, c.phone, c.type, c.segment, c.balance,

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now } from "../db.js";
-import { h, parse, tid, requireRole } from "../auth.js";
+import { h, parse, tid, requirePerm, scopedStation } from "../auth.js";
 import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -20,19 +20,22 @@ function ownTank(tenantId: number, tankId: number) {
   return t;
 }
 
-operations.get("/stations", h((req) => all("SELECT * FROM stations WHERE tenant_id=? ORDER BY id", tid(req)).map((s) => ({
+operations.get("/stations", h((req) => {
+  const own = req.user!.role === "salesman" ? scopedStation(req) : null;
+  return all(`SELECT * FROM stations WHERE tenant_id=? ${own ? "AND id=" + Number(own) : ""} ORDER BY id`, tid(req)).map((s) => ({
   ...s,
   tanks: all("SELECT * FROM tanks WHERE station_id=? ORDER BY id", s.id),
   nozzles: all("SELECT n.*, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.id", s.id),
-}))));
+}));
+}));
 
-operations.post("/stations", requireRole("owner"), h((req) => {
+operations.post("/stations", requirePerm("stations.manage"), h((req) => {
   const b = parse(z.object({ name: z.string().min(2), city: z.string().optional(), address: z.string().optional(), omc: z.string().optional(), timings: z.string().optional(), services: z.string().optional() }), req.body);
   return get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services) VALUES (?,?,?,?,?,?,?)",
     tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null).id);
 }));
 
-operations.post("/tanks", requireRole("owner", "manager"), h((req) => {
+operations.post("/tanks", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({ station_id: z.number(), name: z.string(), product, capacity_l: z.number().positive(), current_l: z.number().min(0), reorder_pct: z.number().min(5).max(80).default(25), nozzles: z.number().int().min(0).max(12).default(2) }), req.body);
   ownStation(tid(req), b.station_id);
   return tx(() => {
@@ -49,7 +52,7 @@ operations.get("/prices", h((req) => ({
   products: PRODUCTS,
 })));
 
-operations.post("/prices", requireRole("owner", "manager"), h(async (req) => {
+operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
   const b = parse(z.object({ prices: z.record(product, z.number().positive()), broadcast: z.boolean().default(false), note: z.string().optional() }), req.body);
   const t = tid(req);
   const old = currentPrices(t);
@@ -76,33 +79,45 @@ operations.post("/prices", requireRole("owner", "manager"), h(async (req) => {
 /* ---------------- Sales / POS ---------------- */
 operations.get("/sales", h((req) => {
   const limit = Math.min(500, Number(req.query.limit ?? 100));
+  const own = scopedStation(req);
   return all(
     `SELECT s.*, c.name customer_name, st.name station_name FROM sales s JOIN stations st ON st.id=s.station_id
-     LEFT JOIN customers c ON c.id=s.customer_id WHERE st.tenant_id=? ORDER BY s.id DESC LIMIT ?`, tid(req), limit);
+     LEFT JOIN customers c ON c.id=s.customer_id WHERE st.tenant_id=? ${own ? "AND s.station_id=" + Number(own) : ""} ORDER BY s.id DESC LIMIT ?`, tid(req), limit);
 }));
 
-operations.post("/sales", h((req) => {
+operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
     payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]),
     customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().nullable().optional(),
   }), req.body);
-  const shift = get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+  b.station_id = scopedStation(req, b.station_id)!;
+  // a salesman's sale goes on their own open shift; others use the station's latest open shift
+  const shift = req.user!.role === "salesman"
+    ? get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
+    : get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+  if (req.user!.role === "salesman" && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
   return recordSale(tid(req), { ...b, shift_id: shift?.id ?? null });
 }));
 
 /* ---------------- Shifts ---------------- */
 operations.get("/shifts", h((req) => all(
-  `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=? ORDER BY sh.id DESC LIMIT 60`, tid(req),
+  `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=?
+   ${req.user!.role === "salesman" ? "AND sh.station_id=" + Number(scopedStation(req)) + " AND sh.attendant=?" : "AND ?=?"} ORDER BY sh.id DESC LIMIT 60`,
+  tid(req), ...(req.user!.role === "salesman" ? [req.user!.name] : [1, 1]),
 ).map((s) => ({ ...s, readings: all("SELECT r.*, n.label FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=?", s.id) }))));
 
-operations.post("/shifts/open", h((req) => {
-  const b = parse(z.object({ station_id: z.number(), attendant: z.string().min(2) }), req.body);
-  ownStation(tid(req), b.station_id);
-  if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", b.station_id, b.attendant)) throw new AppError(400, "This attendant already has an open shift");
+operations.post("/shifts/open", requirePerm("shifts.manage"), h((req) => {
+  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional() }), req.body);
+  const isSalesman = req.user!.role === "salesman";
+  const stationId = isSalesman ? scopedStation(req, b.station_id)! : b.station_id;
+  const attendant = isSalesman ? req.user!.name : b.attendant;
+  if (!stationId || !attendant) throw new AppError(400, "Station and attendant are required");
+  ownStation(tid(req), stationId);
+  if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", stationId, attendant)) throw new AppError(400, "This attendant already has an open shift");
   return tx(() => {
-    const { id } = run("INSERT INTO shifts (station_id,attendant,opened_at,status) VALUES (?,?,?, 'open')", b.station_id, b.attendant, now());
-    for (const n of all("SELECT * FROM nozzles WHERE station_id=?", b.station_id)) run("INSERT INTO meter_readings (shift_id,nozzle_id,opening) VALUES (?,?,?)", id, n.id, n.totalizer);
+    const { id } = run("INSERT INTO shifts (station_id,attendant,opened_at,status) VALUES (?,?,?, 'open')", stationId, attendant, now());
+    for (const n of all("SELECT * FROM nozzles WHERE station_id=?", stationId)) run("INSERT INTO meter_readings (shift_id,nozzle_id,opening) VALUES (?,?,?)", id, n.id, n.totalizer);
     return get("SELECT * FROM shifts WHERE id=?", id);
   });
 }));
@@ -112,11 +127,13 @@ operations.post("/shifts/open", h((req) => {
  * Litres on the meter not already recorded as sales are booked as cash sales, so stock follows the meters.
  * Expected cash = all cash sales in the shift; variance = counted - expected.
  */
-operations.post("/shifts/:id/close", h(async (req) => {
+operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req) => {
   const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional() }), req.body);
   const t = tid(req);
   const shift = get("SELECT sh.* FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=? AND s.tenant_id=?", Number(req.params.id), t);
   if (!shift || shift.status !== "open") throw new AppError(400, "Shift is not open");
+  if (req.user!.role === "salesman" && (shift.station_id !== scopedStation(req) || shift.attendant !== req.user!.name))
+    throw new AppError(403, "You can only close your own shift");
   const readings = all("SELECT r.*, t.product FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=?", shift.id);
   let totalLitres = 0;
   for (const r of readings) {
@@ -142,12 +159,12 @@ operations.post("/shifts/:id/close", h(async (req) => {
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */
-operations.get("/stock", h((req) => ({
+operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
   dips: all(`SELECT d.*, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
   deliveries: all(`SELECT d.*, t.name tank, t.product, s.name station FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
 })));
 
-operations.post("/stock/dip", h((req) => {
+operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0) }), req.body);
   const t = ownTank(tid(req), b.tank_id);
   const variance = t.current_l ? ((b.measured_l - t.current_l) / t.current_l) * 100 : 0;
@@ -161,7 +178,7 @@ operations.post("/stock/dip", h((req) => {
   });
 }));
 
-operations.post("/stock/delivery", h((req) => {
+operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({ tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional() }), req.body);
   const t = ownTank(tid(req), b.tank_id);
   if (t.current_l + b.received_l > t.capacity_l * 1.001) throw new AppError(400, `Exceeds tank capacity (${t.capacity_l}L)`);
