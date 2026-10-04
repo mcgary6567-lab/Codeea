@@ -279,6 +279,20 @@ export function insights(tenantId: number) {
       icon: "credit", tone: "bad", title: `High credit risk: ${risky.map((r) => r.name).join(", ")}`,
       body: `Combined khata Rs ${Math.round(risky.reduce((a, r) => a + r.balance, 0)).toLocaleString()}. Consider pausing credit until payment.`,
     });
+  // Expense categories running well above their 3-month average
+  const month = new Date().toISOString().slice(0, 7);
+  const threeAgo = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 4, 1)).toISOString().slice(0, 10);
+  for (const e of all(
+    `SELECT category, SUM(CASE WHEN expense_date >= ? THEN amount ELSE 0 END) cur, SUM(CASE WHEN expense_date < ? THEN amount ELSE 0 END) / 3.0 avg
+     FROM expenses WHERE tenant_id=? AND status='approved' AND expense_date >= ? GROUP BY category`, month + "-01", month + "-01", tenantId, threeAgo,
+  )) {
+    if (e.avg > 5000 && e.cur > e.avg * 1.25)
+      cards.push({ icon: "credit", tone: "warn", title: `${e.category} expense up ${Math.round((e.cur / e.avg - 1) * 100)}% this month`,
+        body: `Rs ${Math.round(e.cur).toLocaleString()} so far vs Rs ${Math.round(e.avg).toLocaleString()} monthly average.` });
+  }
+  const pendingExp = get("SELECT COUNT(*) n, COALESCE(SUM(amount),0) s FROM expenses WHERE tenant_id=? AND status='pending'", tenantId)!;
+  if (pendingExp.n) cards.push({ icon: "credit", tone: "info", title: `${pendingExp.n} expense${pendingExp.n > 1 ? "s" : ""} waiting for approval`, body: `Rs ${Math.round(pendingExp.s).toLocaleString()} total. Approve on the Expenses page.` });
+
   const k = kpis(tenantId);
   if (k.today.vs_yesterday_pct !== null)
     cards.push({

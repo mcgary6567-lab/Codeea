@@ -4,6 +4,7 @@ import { db, migrate, run, all, get, tx } from "./db.js";
 import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
 import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
+import { DEFAULT_CATEGORIES } from "./routes/expenses.js";
 
 let s = 42;
 const rnd = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -33,6 +34,7 @@ export function seed() {
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Haji Abdul Rehman (CEO)", "admin@pumpai.pk", hash, "admin");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Kamran Shah", "manager@pumpai.pk", hash, "manager");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id) VALUES (?,?,?,?,?,1)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman");
+    run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Tariq Wholesale", "wholesale@pumpai.pk", hash, "wholesale");
 
     const st1 = run("INSERT INTO stations (tenant_id,name,city,address,omc,lat,lng,timings,services) VALUES (?,?,?,?,?,?,?,?,?)",
       tenantId, "Al-Madina Ferozepur Road", "Lahore", "Ferozepur Road, near Kalma Chowk, Lahore", "PSO", 31.5003, 74.3311, "24 hours", "Petrol, Hi-Octane, Diesel, Tuck shop, Air, Car wash").id;
@@ -179,6 +181,7 @@ export function seed() {
       tenantId, customers[5].id, st1, "short_measure", "Customer says Rs 2000 petrol fill showed less on meter at Ferozepur Road last night", "very_negative", "open", iso(T0 - 49 * 60_000));
     createAlert(tenantId, { station_id: st1, type: "complaint", severity: "critical", title: "Complaint #1 (short measure) — Ayesha Khan", body: "Rs 2000 petrol fill showed less on meter at Ferozepur Road last night" });
 
+    seedWholesaleAndExpenses(tenantId, st1, st2, T0);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -187,3 +190,82 @@ export function seed() {
   console.log(`[seed] demo data ready: ${all("SELECT COUNT(*) n FROM sales")[0].n} sales, ${all("SELECT COUNT(*) n FROM customers")[0].n} customers`);
 }
 
+
+/** Wholesale clients with their own rate cards and ~2 months of ledger; ~3 months of expenses. */
+function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0: number) {
+  const clients = [
+    { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, freq: 3, size: [3000, 6000] },
+    { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", limit: 2500000, rates: { HSD: 265.5 }, freq: 2, size: [2000, 5000] },
+    { name: "Green Fields Agri Farms", business: "Tube-wells & tractors", phone: "923334445556", city: "Okara", limit: 1500000, rates: { HSD: 266.0, PMG: 259.0 }, freq: 5, size: [1500, 3000] },
+  ];
+  for (const [ci, c] of clients.entries()) {
+    const id = run("INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,credit_limit,opening_balance,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      tenantId, c.name, c.business, c.phone, c.city, c.limit, ci === 0 ? 250000 : 0, iso(T0 - 70 * DAY)).id;
+    for (const [p, r] of Object.entries(c.rates)) {
+      run("INSERT INTO wholesale_rates (client_id,product,rate,updated_at,updated_by) VALUES (?,?,?,?,?)", id, p, r, iso(T0 - 10 * DAY), "Haji Abdul Rehman (CEO)");
+      run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,created_at) VALUES (?,?,?,?,?,?)", id, p, r - 4, r, "Haji Abdul Rehman (CEO)", iso(T0 - 10 * DAY));
+    }
+    let due = ci === 0 ? 250000 : 0;
+    for (let d = 60; d >= 1; d--) {
+      const t = T0 - d * DAY + 11 * 3600_000;
+      if (d % c.freq === 0) {
+        const p = pick(Object.keys(c.rates));
+        const rate = (c.rates as Record<string, number>)[p] - (d > 10 ? 4 : 0);
+        const litres = Math.round((c.size[0] + rnd() * (c.size[1] - c.size[0])) / 500) * 500;
+        const station = c.city === "Okara" ? st2 : st1;
+        const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? LIMIT 1", station, p)!;
+        run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,vehicle_no,ref,created_by,txn_date,created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, id, "supply", station, tank.id, p, litres, rate, Math.round(litres * rate * 100) / 100,
+          `TLR-${3000 + Math.floor(rnd() * 6000)}`, `DN-${1000 + d * 3 + ci}`, "Tariq Wholesale", iso(t), iso(t));
+        due += litres * rate;
+      }
+      if (d % 7 === ci + 1 && due > 0) {
+        const pay = Math.floor((due * (ci === 1 ? 0.7 : 0.8)) / 10000) * 10000;
+        if (pay > 0) {
+          run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,amount,method,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+            tenantId, id, "payment", pay, pick(["Bank transfer", "Cheque", "Cash", "Raast"]), `RCPT-${5000 + d * 7 + ci}`, "Tariq Wholesale", iso(t + 3 * 3600_000), iso(t + 3 * 3600_000));
+          due -= pay;
+        }
+      }
+    }
+    if (ci === 2) {
+      const tank = get("SELECT id FROM tanks WHERE station_id=? AND product='HSD' LIMIT 1", st2)!;
+      run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        tenantId, id, "return", st2, tank.id, "HSD", 300, 266.0, 79800, "Excess delivered — returned", "Tariq Wholesale", iso(T0 - 4 * DAY), iso(T0 - 4 * DAY));
+    }
+  }
+
+  // Expenses
+  for (const [name] of DEFAULT_CATEGORIES)
+    run("INSERT INTO expense_categories (tenant_id,name,monthly_budget) VALUES (?,?,?)", tenantId, name,
+      ({ "Electricity (bijli)": 350000, "Generator fuel": 120000, "Maintenance & repairs": 150000, "Tea & food": 30000 } as Record<string, number>)[name] ?? null);
+  const monthly: [string, number, string, string][] = [
+    ["Salaries & wages", 820000, "Staff payroll", "bank"], ["Rent", 250000, "Land owner", "bank"], ["Security", 90000, "Guard services", "bank"],
+    ["Electricity (bijli)", 310000, "LESCO", "bank"], ["Bank charges", 6500, "Bank", "bank"], ["Taxes & fees", 45000, "Municipal / FBR", "bank"],
+  ];
+  for (let m = 2; m >= 0; m--) {
+    const base = new Date(T0); base.setUTCDate(1); base.setUTCMonth(base.getUTCMonth() - m);
+    const day = (n: number) => { const d = new Date(base); d.setUTCDate(n); return d.getTime() <= T0 ? d.toISOString().slice(0, 10) : null; };
+    for (const [cat, amt, to, method] of monthly) {
+      const date = day(cat === "Salaries & wages" ? 1 : 5 + Math.floor(rnd() * 5));
+      if (!date) continue;
+      const amount = Math.round(amt * (cat === "Electricity (bijli)" && m === 0 ? 1.32 : 0.95 + rnd() * 0.1));
+      run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,status,created_by,approved_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        tenantId, null, cat, amount, to, method, "approved", "Haji Abdul Rehman (CEO)", "Haji Abdul Rehman (CEO)", date, date + "T09:00:00.000Z");
+    }
+    for (let i = 0; i < 14; i++) {
+      const date = day(1 + Math.floor(rnd() * 28));
+      if (!date) continue;
+      const [cat, lo, hi, to] = pick([
+        ["Generator fuel", 8000, 25000, "Own stock"], ["Maintenance & repairs", 3000, 40000, "Dispenser mechanic"], ["Tea & food", 800, 3000, "Hotel"],
+        ["Office & stationery", 500, 4000, "Stationery shop"], ["Tanker freight & transport", 6000, 18000, "Tanker contractor"], ["Other", 500, 6000, "Misc"],
+      ] as [string, number, number, string][]);
+      run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,status,created_by,approved_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        tenantId, pick([st1, st2]), cat, Math.round((lo + rnd() * (hi - lo)) / 100) * 100, to, pick(["cash", "cash", "jazzcash", "easypaisa"]), "approved",
+        "Kamran Shah", "Kamran Shah", date, date + "T12:00:00.000Z");
+    }
+  }
+  const today = new Date(T0).toISOString().slice(0, 10);
+  run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    tenantId, st1, "Maintenance & repairs", 68000, "Gilbarco service engineer", "cash", "Dispenser 2 pulser replacement", "pending", "Kamran Shah", today, iso(T0));
+}

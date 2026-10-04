@@ -7,16 +7,18 @@ import { get } from "./db.js";
 import { AppError } from "./services.js";
 
 /**
- * Three roles:
- *  - admin    (CEO / owner): full system access, users, settings, credit limits
- *  - manager  : runs daily operations, CRM, WhatsApp, stock, prices, automations
- *  - salesman : POS sales, own shifts and customer lookup at their assigned station only
+ * Roles:
+ *  - admin     (CEO / owner): full system access, users, settings, credit limits, wholesale rates
+ *  - manager   : runs daily operations, CRM, WhatsApp, stock, prices, automations, expenses
+ *  - salesman  : POS sales, own shifts and customer lookup at their assigned station only
+ *  - wholesale : wholesale officer — only the wholesale supply module (supplies, returns, payments, statements)
  */
-export const ROLES = ["admin", "manager", "salesman"] as const;
+export const ROLES = ["admin", "manager", "salesman", "wholesale"] as const;
 export type Role = (typeof ROLES)[number];
 export interface AuthUser { id: number; tenant_id: number; name: string; email: string; role: Role; station_id: number | null }
 
 const ALL: Role[] = ["admin", "manager", "salesman"];
+const WHOLESALE: Role[] = ["admin", "wholesale"];
 const MGMT: Role[] = ["admin", "manager"];
 const ADMIN: Role[] = ["admin"];
 
@@ -45,6 +47,13 @@ export const PERMISSIONS = {
   "stations.manage": ADMIN,
   "settings.manage": ADMIN,
   "users.manage": ADMIN,
+  "wholesale.view": WHOLESALE,
+  "wholesale.manage": WHOLESALE, // add clients, supplies, returns, payments
+  "wholesale.rates": ADMIN, // set each client's per-litre rates, credit limits
+  "wholesale.void": ADMIN, // cancel a wrong entry (stock is reversed)
+  "expenses.view": MGMT,
+  "expenses.create": MGMT,
+  "expenses.approve": ADMIN, // approve manager expenses above the approval limit
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 
@@ -88,6 +97,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
 
 export const requirePerm = (perm: Permission): RequestHandler => (req, _res, next) =>
   can(req.user, perm) ? next() : next(new AppError(403, "You don't have permission for this"));
+
+/** Allow if the user has any of the permissions. */
+export const requireAny = (...perms: Permission[]): RequestHandler => (req, _res, next) =>
+  perms.some((p) => can(req.user, p)) ? next() : next(new AppError(403, "You don't have permission for this"));
 
 /** Salesmen are locked to their assigned station; returns the station they may act on. */
 export function scopedStation(req: Request, requested?: number | null): number | null {

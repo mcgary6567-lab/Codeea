@@ -19,13 +19,15 @@ import Alerts from "./pages/Alerts";
 import Automations from "./pages/Automations";
 import SettingsPage from "./pages/Settings";
 import Users from "./pages/Users";
+import Wholesale from "./pages/Wholesale";
+import Expenses from "./pages/Expenses";
 
-type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman"; tenant_id: number; station_id: number | null; station_name: string | null };
+type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
   user: User | null; tenant: { id: number; name: string } | null; permissions: string[];
   can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void;
 };
-export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman" };
+export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer" };
 const AuthCtx = createContext<Auth>(null as unknown as Auth);
 export const useAuth = () => useContext(AuthCtx);
 
@@ -70,10 +72,11 @@ function Need({ perm, children }: { perm: string; children: ReactNode }) {
   );
 }
 
-/** Managers/admins land on the dashboard; salesmen land on the POS. */
+/** Managers/admins land on the dashboard; other roles land on their main screen. */
 function Home() {
   const { can } = useAuth();
-  return can("dashboard.view") ? <Dashboard /> : <Navigate to="/pos" replace />;
+  if (can("dashboard.view")) return <Dashboard />;
+  return <Navigate to={can("wholesale.view") ? "/wholesale" : "/pos"} replace />;
 }
 
 export default function App() {
@@ -99,6 +102,9 @@ export default function App() {
               <Route path="prices" element={<Need perm="prices.view"><Prices /></Need>} />
               <Route path="alerts" element={<Need perm="alerts.view"><Alerts /></Need>} />
               <Route path="automations" element={<Need perm="automations.manage"><Automations /></Need>} />
+              <Route path="wholesale" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
+              <Route path="wholesale/:id" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
+              <Route path="expenses" element={<Need perm="expenses.view"><Expenses /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
             </Route>

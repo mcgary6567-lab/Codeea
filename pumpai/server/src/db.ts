@@ -43,7 +43,7 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
     name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman')),
+    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale')),
     station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   CREATE TABLE IF NOT EXISTS stations (
@@ -151,27 +151,69 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS settings (
     tenant_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT, PRIMARY KEY (tenant_id, key)
   );
+
+  -- Wholesale supply: dealers / bulk buyers with their own rate card and running account
+  CREATE TABLE IF NOT EXISTS wholesale_clients (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL, business_name TEXT, phone TEXT, city TEXT, address TEXT,
+    credit_limit REAL NOT NULL DEFAULT 0, opening_balance REAL NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1, notes TEXT, created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS wholesale_rates (
+    client_id INTEGER NOT NULL REFERENCES wholesale_clients(id), product TEXT NOT NULL,
+    rate REAL NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT, PRIMARY KEY (client_id, product)
+  );
+  CREATE TABLE IF NOT EXISTS wholesale_rate_history (
+    id INTEGER PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES wholesale_clients(id), product TEXT NOT NULL,
+    old_rate REAL, new_rate REAL NOT NULL, changed_by TEXT, created_at TEXT NOT NULL
+  );
+  -- type: supply (fuel out, due up) | return (fuel back in, due down) | payment (due down) | adjustment (+/- due)
+  CREATE TABLE IF NOT EXISTS wholesale_txns (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL REFERENCES wholesale_clients(id),
+    type TEXT NOT NULL CHECK (type IN ('supply','return','payment','adjustment')),
+    station_id INTEGER, tank_id INTEGER, product TEXT, litres REAL, rate REAL,
+    amount REAL NOT NULL, method TEXT, vehicle_no TEXT, ref TEXT, note TEXT,
+    voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_wtx_client ON wholesale_txns(client_id, txn_date);
+
+  -- Expense management
+  CREATE TABLE IF NOT EXISTS expense_categories (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL, monthly_budget REAL,
+    UNIQUE (tenant_id, name)
+  );
+  CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, category TEXT NOT NULL,
+    amount REAL NOT NULL, paid_to TEXT, method TEXT NOT NULL DEFAULT 'cash', note TEXT, receipt_ref TEXT,
+    status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending','approved','rejected')),
+    created_by TEXT, approved_by TEXT, expense_date TEXT NOT NULL, created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(tenant_id, expense_date);
   `);
   migrateUserRoles();
 }
 
-/** Upgrade databases created with the old owner/accountant/attendant roles. */
+/**
+ * Upgrade the users table when the allowed roles change
+ * (old owner/accountant/attendant roles, or databases created before the wholesale role).
+ */
 function migrateUserRoles() {
   const ddl = get<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")?.sql ?? "";
-  if (!ddl.includes("'owner'")) return;
+  if (ddl.includes("'wholesale'")) return;
+  const active = ddl.includes("active INTEGER") ? "active" : "1";
   db.exec(`
     PRAGMA foreign_keys = OFF;
     BEGIN;
     CREATE TABLE users_new (
       id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
       name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman')),
+      role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale')),
       station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
-    INSERT INTO users_new (id,tenant_id,name,email,password_hash,role,station_id,created_at)
+    INSERT INTO users_new (id,tenant_id,name,email,password_hash,role,station_id,active,created_at)
       SELECT id,tenant_id,name,email,password_hash,
-        CASE role WHEN 'owner' THEN 'admin' WHEN 'attendant' THEN 'salesman' ELSE 'manager' END,
-        station_id, created_at FROM users;
+        CASE role WHEN 'owner' THEN 'admin' WHEN 'admin' THEN 'admin' WHEN 'attendant' THEN 'salesman' WHEN 'salesman' THEN 'salesman' ELSE 'manager' END,
+        station_id, ${active}, created_at FROM users;
     DROP TABLE users;
     ALTER TABLE users_new RENAME TO users;
     COMMIT;

@@ -17,17 +17,18 @@ npm install
 npm run dev          # API on :4000, dashboard on http://localhost:5173
 ```
 
-- **Sign in** (password `demo1234` for all three):
+- **Sign in** (password `demo1234` for all four):
 
   | Login | Role | Access |
   |---|---|---|
   | `admin@pumpai.pk` | Admin (CEO) | Everything, including Users & Roles, Settings and khata credit limits |
   | `manager@pumpai.pk` | Manager | Dashboard, WhatsApp inbox, customers & khata, orders, complaints, campaigns, stock, prices, alerts, automations |
   | `salesman@pumpai.pk` | Salesman | POS, their own shift, customer lookup/add and prices, at their assigned station only |
+  | `wholesale@pumpai.pk` | Wholesale Officer | Only the wholesale module: clients, supplies, returns, payments, dues and statements |
 - **First run:** a demo business is created automatically: 2 stations, 5 tanks, about 8 weeks of sales, 32 customers, khata and WhatsApp chats.
 - **Reset the demo data:** `npm run seed`.
 - **Production:** `npm run build && npm start`. The API serves the built dashboard on :4000. A `Dockerfile` is included.
-- **Tests:** `npm test` runs 20 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, and role-based access.
+- **Tests:** `npm test` runs 27 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, role-based access, wholesale supply and expenses.
 
 Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database server to install).
 
@@ -43,10 +44,12 @@ Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database s
 | **POS & shifts** | Sale entry by rupees or litres, all payment methods. Shifts open with totalizer readings. At close, litres not entered as sales are booked as cash, and expected vs counted cash is reconciled. |
 | **Wet stock** | Dip vs book variance, tanker short-delivery detection, tank levels with reorder lines. |
 | **Prices** | Price updates (1st/16th of the month), stock revaluation gain/loss, one-click WhatsApp price broadcast. |
+| **Wholesale supply** | Bulk fuel to dealers, fleets and farms. Each client has their own per-litre rate for each product (set by the admin, with rate history), a credit limit and an opening balance. Every movement is a ledger entry: supply (fuel out, stock down, due up), return (fuel back into the tank, due down), payment, and admin adjustments. Shows litres out / in per product, billed, received and current due; a statement with running balance and date filter; CSV/Excel export and print. Wrong entries are voided (stock reversed, kept in the ledger as VOID). Credit-limit check on every supply, with an alert at 90%. Separate Wholesale Officer role. |
+| **Expenses** | Expense categories with optional monthly budgets, entries by station and payment method, and an approval flow: manager entries above the approval limit (default Rs 10,000) wait for admin approval. Monthly summary by category vs 3-month average and budget, revenue (retail + wholesale) minus expenses, CSV export. Over-budget and unusual-spike alerts appear on the dashboard and in Ask AI. |
 | **Campaigns** | AI-written Roman Urdu broadcasts to segments, with `{name}`, `{balance}` and `{points}` placeholders. Opt-in only. |
 | **AI analytics** | Holt-Winters demand forecast with weekly seasonality, days-to-empty per tank with a suggested order, anomaly detection, insight cards, and "Ask your business anything" (Claude with read-only analytics tools). |
 | **Automations** | Six scheduled jobs on Asia/Karachi time, each of which can be toggled or run on demand (see below). |
-| **Users & roles** | Three roles: Admin (CEO), Manager and Salesman. Access is enforced on every API route and mirrored in the UI from one permission table (`server/src/auth.ts`). The admin creates users, assigns roles and stations, resets passwords, and can disable or delete accounts; the last active admin is protected. Salesmen are locked to their own station and shift, and must open a shift before selling. Databases with the old owner/accountant/attendant roles are upgraded automatically. |
+| **Users & roles** | Four roles: Admin (CEO), Manager, Salesman and Wholesale Officer. Access is enforced on every API route and mirrored in the UI from one permission table (`server/src/auth.ts`). The admin creates users, assigns roles and stations, resets passwords, and can disable or delete accounts; the last active admin is protected. Salesmen are locked to their own station and shift, and must open a shift before selling. Databases with the old owner/accountant/attendant roles are upgraded automatically. |
 
 ### Automations
 
@@ -83,9 +86,9 @@ pumpai/
 │   ├── ai/analytics.ts       forecasting, anomaly detection, scoring, KPIs
 │   ├── automation/           scheduled jobs
 │   ├── whatsapp/cloud.ts     Cloud API send (24h window → template), webhook parse, signature check
-│   └── routes/               operations, crm, whatsapp, insights, users
+│   └── routes/               operations, crm, whatsapp, insights, users, wholesale, expenses
 └── web/src/pages             Dashboard, Inbox, Customers, Khata, Orders, Complaints, Campaigns,
-                              POS, Shifts, Stock, Prices, Alerts, Automations, Users, Settings
+                              POS, Shifts, Stock, Prices, Wholesale, Expenses, Alerts, Automations, Users, Settings
 ```
 
 ## Going live

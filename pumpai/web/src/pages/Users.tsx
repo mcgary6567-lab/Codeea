@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
@@ -9,6 +9,7 @@ const ROLE_INFO: Record<string, { icon: any; tone: string; text: string }> = {
   admin: { icon: ShieldCheck, tone: "violet", text: "CEO / owner. Full system access: users, settings, credit limits, all stations and reports." },
   manager: { icon: Briefcase, tone: "blue", text: "Runs daily operations: dashboard, WhatsApp inbox, customers & khata, orders, stock, prices, campaigns, alerts and automations." },
   salesman: { icon: Fuel, tone: "green", text: "Works at one station: records sales on the POS, opens/closes their own shift, looks up customers and sees prices." },
+  wholesale: { icon: Container, tone: "amber", text: "Separate access to the wholesale module only: clients, fuel supplies and returns, payments received, dues and statements. Rates are set by the admin." },
 };
 
 /** Human-readable names for the permission matrix. */
@@ -19,6 +20,9 @@ const PERM_LABEL: Record<string, string> = {
   "whatsapp.inbox": "WhatsApp inbox", "orders.manage": "Fuel orders", "complaints.manage": "Complaints", "campaigns.manage": "WhatsApp campaigns",
   "stock.manage": "Tanks, dips & deliveries", "prices.view": "View prices", "prices.update": "Change prices", "alerts.view": "Alerts",
   "automations.manage": "AI automations", "stations.manage": "Add stations", "settings.manage": "Business settings", "users.manage": "Users & roles",
+  "wholesale.view": "Wholesale: view clients & statements", "wholesale.manage": "Wholesale: supplies, returns, payments",
+  "wholesale.rates": "Wholesale: set client rates & credit limits", "wholesale.void": "Wholesale: void wrong entries",
+  "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
 };
 
 type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string };
@@ -38,7 +42,7 @@ export default function Users() {
       <PageHeader title="Users & roles" subtitle="Create staff logins and give each one the access their role needs"
         actions={<button className="btn-primary" onClick={() => setEditing({ role: "salesman", station_id: stations.data![0]?.id })}><Plus size={16} /> Add user</button>} />
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {data.roles.map((r: string) => {
           const I = ROLE_INFO[r].icon;
           return (
@@ -129,8 +133,8 @@ function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>
           <Field label="Email (used to sign in)"><input className="input" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         </div>
         <Field label="Role">
-          <div className="grid gap-2 sm:grid-cols-3">
-            {["admin", "manager", "salesman"].map((r) => {
+          <div className="grid gap-2 sm:grid-cols-2">
+            {["admin", "manager", "salesman", "wholesale"].map((r) => {
               const I = ROLE_INFO[r].icon;
               return (
                 <button type="button" key={r} onClick={() => setF({ ...f, role: r })}

@@ -15,7 +15,7 @@ function ownCustomer(tenantId: number, id: number) {
 }
 
 /* ---------------- Customers ---------------- */
-crm.get("/customers", h((req) => {
+crm.get("/customers", requirePerm("customers.view"), h((req) => {
   const q = `%${String(req.query.q ?? "").trim()}%`;
   const seg = String(req.query.segment ?? "");
   return all(
@@ -51,7 +51,7 @@ crm.patch("/customers/:id", requirePerm("customers.edit"), h((req) => {
   return get("SELECT * FROM customers WHERE id=?", c.id);
 }));
 
-crm.get("/customers/:id", h((req) => {
+crm.get("/customers/:id", requirePerm("customers.view"), h((req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   return {
     ...c,
@@ -64,7 +64,7 @@ crm.get("/customers/:id", h((req) => {
   };
 }));
 
-crm.post("/customers/:id/vehicles", h((req) => {
+crm.post("/customers/:id/vehicles", requirePerm("customers.create"), h((req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(z.object({ plate_no: z.string().min(3), fuel: z.enum(["PMG", "HOBC", "HSD"]).optional(), daily_limit_l: z.number().positive().optional() }), req.body);
   return get("SELECT * FROM vehicles WHERE id=?", run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", c.id, b.plate_no.toUpperCase(), b.fuel ?? null, b.daily_limit_l ?? null).id);

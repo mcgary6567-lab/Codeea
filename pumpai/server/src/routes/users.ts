@@ -7,7 +7,7 @@ import { AppError } from "../services.js";
 
 /** Admin-only user management. */
 export const users = Router();
-users.use(requirePerm("users.manage"));
+users.use("/users", requirePerm("users.manage"));
 
 const list = (tenantId: number) => all(
   `SELECT u.id, u.name, u.email, u.role, u.station_id, u.active, u.created_at, s.name station_name

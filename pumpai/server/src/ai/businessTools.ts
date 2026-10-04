@@ -2,6 +2,7 @@
 import { all } from "../db.js";
 import { kpis, forecast, tankOutlook, insights } from "./analytics.js";
 import { currentPrices } from "../services.js";
+import { clientDue } from "../routes/wholesale.js";
 import type { runTool } from "./tools.js";
 
 type Tools = Parameters<typeof runTool>[0];
@@ -91,6 +92,38 @@ export const businessTools: Tools = [
     description: "Pre-computed AI insight cards (reorder warnings, demand shifts, churn and credit risks).",
     input_schema: obj({}),
     run: (ctx) => insights(ctx.tenantId),
+  },
+  {
+    name: "get_wholesale",
+    description: "Wholesale supply accounts: each client's per-litre rates, amount due, credit limit, litres supplied this month, last supply and last payment.",
+    input_schema: obj({}),
+    run: (ctx) => {
+      const month = new Date().toISOString().slice(0, 7) + "-01";
+      return all("SELECT * FROM wholesale_clients WHERE tenant_id=?", ctx.tenantId).map((c) => ({
+        name: c.name, due_pkr: clientDue(c.id), credit_limit_pkr: c.credit_limit,
+        rates: Object.fromEntries(all("SELECT product, rate FROM wholesale_rates WHERE client_id=?", c.id).map((r) => [r.product, r.rate])),
+        ...all(`SELECT ROUND(COALESCE(SUM(CASE WHEN type='supply' AND txn_date >= ? THEN litres END),0)) month_supplied_l,
+            ROUND(COALESCE(SUM(CASE WHEN type='payment' AND txn_date >= ? THEN amount END),0)) month_received_pkr,
+            MAX(CASE WHEN type='supply' THEN substr(txn_date,1,10) END) last_supply, MAX(CASE WHEN type='payment' THEN substr(txn_date,1,10) END) last_payment
+          FROM wholesale_txns WHERE client_id=? AND voided=0`, month, month, c.id)[0],
+      }));
+    },
+  },
+  {
+    name: "get_expenses",
+    description: "Approved expenses for a month (YYYY-MM, default current) by category with budget and 3-month average, plus revenue and revenue minus expenses.",
+    input_schema: obj({ month: { type: "string" } }),
+    run: (ctx, i) => {
+      const month = /^\d{4}-\d{2}$/.test(i?.month ?? "") ? i.month : new Date().toISOString().slice(0, 7);
+      const start = month + "-01";
+      const end = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1)).toISOString().slice(0, 10);
+      const byCat = all(`SELECT category, ROUND(SUM(amount)) spent FROM expenses WHERE tenant_id=? AND status='approved' AND expense_date >= ? AND expense_date < ? GROUP BY category ORDER BY spent DESC`, ctx.tenantId, start, end);
+      const total = byCat.reduce((a, r) => a + r.spent, 0);
+      const retail = all(`SELECT COALESCE(SUM(s.amount),0) a FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ctx.tenantId, start, end)[0].a;
+      const wholesale = all(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN amount WHEN type='return' THEN -amount END),0) a FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ? AND txn_date < ?`, ctx.tenantId, start, end)[0].a;
+      return { month, by_category: byCat, total_expenses: total, revenue_retail: Math.round(retail), revenue_wholesale: Math.round(wholesale), revenue_minus_expenses: Math.round(retail + wholesale - total),
+        pending_approval: all("SELECT category, amount, created_by, note FROM expenses WHERE tenant_id=? AND status='pending'", ctx.tenantId) };
+    },
   },
   {
     name: "get_whatsapp_stats",

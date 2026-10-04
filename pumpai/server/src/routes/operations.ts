@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now } from "../db.js";
-import { h, parse, tid, requirePerm, scopedStation } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.js";
 import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -20,7 +20,7 @@ function ownTank(tenantId: number, tankId: number) {
   return t;
 }
 
-operations.get("/stations", h((req) => {
+operations.get("/stations", requireAny("sales.view", "stock.manage", "wholesale.view", "users.manage"), h((req) => {
   const own = req.user!.role === "salesman" ? scopedStation(req) : null;
   return all(`SELECT * FROM stations WHERE tenant_id=? ${own ? "AND id=" + Number(own) : ""} ORDER BY id`, tid(req)).map((s) => ({
   ...s,
@@ -46,7 +46,7 @@ operations.post("/tanks", requirePerm("stock.manage"), h((req) => {
 }));
 
 /* ---------------- Prices ---------------- */
-operations.get("/prices", h((req) => ({
+operations.get("/prices", requirePerm("prices.view"), h((req) => ({
   current: currentPrices(tid(req)),
   history: all("SELECT * FROM prices WHERE tenant_id=? ORDER BY effective_from DESC, id DESC LIMIT 60", tid(req)),
   products: PRODUCTS,
@@ -77,7 +77,7 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
 }));
 
 /* ---------------- Sales / POS ---------------- */
-operations.get("/sales", h((req) => {
+operations.get("/sales", requirePerm("sales.view"), h((req) => {
   const limit = Math.min(500, Number(req.query.limit ?? 100));
   const own = scopedStation(req);
   return all(
@@ -101,7 +101,7 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
 }));
 
 /* ---------------- Shifts ---------------- */
-operations.get("/shifts", h((req) => all(
+operations.get("/shifts", requirePerm("shifts.manage"), h((req) => all(
   `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=?
    ${req.user!.role === "salesman" ? "AND sh.station_id=" + Number(scopedStation(req)) + " AND sh.attendant=?" : "AND ?=?"} ORDER BY sh.id DESC LIMIT 60`,
   tid(req), ...(req.user!.role === "salesman" ? [req.user!.name] : [1, 1]),
