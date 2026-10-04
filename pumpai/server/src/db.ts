@@ -189,8 +189,30 @@ export function migrate() {
     created_by TEXT, approved_by TEXT, expense_date TEXT NOT NULL, created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(tenant_id, expense_date);
+
+  -- Suppliers (OMC depots etc.): what we owe for fuel purchased
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id), name TEXT NOT NULL,
+    phone TEXT, opening_balance REAL NOT NULL DEFAULT 0, notes TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
+  );
+  -- type: purchase (we owe more) | payment (we paid) | adjustment (+/- owed)
+  CREATE TABLE IF NOT EXISTS supplier_txns (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, supplier_id INTEGER NOT NULL REFERENCES suppliers(id),
+    type TEXT NOT NULL CHECK (type IN ('purchase','payment','adjustment')), delivery_id INTEGER,
+    product TEXT, litres REAL, rate REAL, amount REAL NOT NULL, method TEXT, ref TEXT, note TEXT,
+    created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_stx_supplier ON supplier_txns(supplier_id, txn_date);
   `);
+  addColumn("deliveries", "supplier_id", "INTEGER");
+  addColumn("deliveries", "purchase_rate", "REAL");
   migrateUserRoles();
+}
+
+/** Add a column to an existing table if it is missing (for databases created by older versions). */
+function addColumn(table: string, column: string, type: string) {
+  const cols = all<{ name: string }>(`PRAGMA table_info(${table})`).map((c) => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 /**

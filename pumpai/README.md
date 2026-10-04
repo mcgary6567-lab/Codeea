@@ -28,7 +28,7 @@ npm run dev          # API on :4000, dashboard on http://localhost:5173
 - **First run:** a demo business is created automatically: 2 stations, 5 tanks, about 8 weeks of sales, 32 customers, khata and WhatsApp chats.
 - **Reset the demo data:** `npm run seed`.
 - **Production:** `npm run build && npm start`. The API serves the built dashboard on :4000. A `Dockerfile` is included.
-- **Tests:** `npm test` runs 27 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, role-based access, wholesale supply and expenses.
+- **Tests:** `npm test` runs 33 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, role-based access, wholesale supply, expenses, suppliers and reports (including exact stock reconciliation across periods).
 
 Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database server to install).
 
@@ -46,6 +46,8 @@ Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database s
 | **Prices** | Price updates (1st/16th of the month), stock revaluation gain/loss, one-click WhatsApp price broadcast. |
 | **Wholesale supply** | Bulk fuel to dealers, fleets and farms. Each client has their own per-litre rate for each product (set by the admin, with rate history), a credit limit and an opening balance. Every movement is a ledger entry: supply (fuel out, stock down, due up), return (fuel back into the tank, due down), payment, and admin adjustments. Shows litres out / in per product, billed, received and current due; a statement with running balance and date filter; CSV/Excel export and print. Wrong entries are voided (stock reversed, kept in the ledger as VOID). Credit-limit check on every supply, with an alert at 90%. Separate Wholesale Officer role. |
 | **Expenses** | Expense categories with optional monthly budgets, entries by station and payment method, and an approval flow: manager entries above the approval limit (default Rs 10,000) wait for admin approval. Monthly summary by category vs 3-month average and budget, revenue (retail + wholesale) minus expenses, CSV export. Over-budget and unusual-spike alerts appear on the dashboard and in Ask AI. |
+| **Reports** | For Admin and Manager, any time: presets for 24 hours, 7 days, 1 month, 6 months and 1 year, or a custom date/time range (Pakistan time). Tabs: **Overview** (revenue retail + wholesale, expenses, estimated gross and net profit, money in / money out, chart by hour/day/month), **Sales** (by product, station, payment method, top customers), **Stock** (opening + received + returns − retail − wholesale ± dip adjustment = closing per product, rebuilt from the movement ledger so any past period is exact; tank levels, deliveries, dips, purchases, stock value at cost), **Expenses**, **Receivables** (who owes us: khata customers and wholesale clients, with aging), **Payables** (whom we owe: fuel suppliers, customer advances, expenses awaiting approval), **Khata**, **Wholesale**, **Shifts & cash** (expected vs counted per attendant). Every tab exports to Excel/CSV and prints to PDF. "Ask AI" can answer report questions for any period. |
+| **Suppliers** | Fuel supplier (depot) accounts. Choosing a supplier and purchase rate on a tanker delivery records what we owe; payments to the depot reduce it. Purchase rates give the fuel cost used for profit estimates. |
 | **Campaigns** | AI-written Roman Urdu broadcasts to segments, with `{name}`, `{balance}` and `{points}` placeholders. Opt-in only. |
 | **AI analytics** | Holt-Winters demand forecast with weekly seasonality, days-to-empty per tank with a suggested order, anomaly detection, insight cards, and "Ask your business anything" (Claude with read-only analytics tools). |
 | **Automations** | Six scheduled jobs on Asia/Karachi time, each of which can be toggled or run on demand (see below). |
@@ -86,9 +88,9 @@ pumpai/
 │   ├── ai/analytics.ts       forecasting, anomaly detection, scoring, KPIs
 │   ├── automation/           scheduled jobs
 │   ├── whatsapp/cloud.ts     Cloud API send (24h window → template), webhook parse, signature check
-│   └── routes/               operations, crm, whatsapp, insights, users, wholesale, expenses
+│   └── routes/               operations, crm, whatsapp, insights, users, wholesale, expenses, suppliers, reports
 └── web/src/pages             Dashboard, Inbox, Customers, Khata, Orders, Complaints, Campaigns,
-                              POS, Shifts, Stock, Prices, Wholesale, Expenses, Alerts, Automations, Users, Settings
+                              POS, Shifts, Stock, Prices, Wholesale, Expenses, Suppliers, Reports, Alerts, Automations, Users, Settings
 ```
 
 ## Going live

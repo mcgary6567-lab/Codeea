@@ -3,6 +3,7 @@ import { all } from "../db.js";
 import { kpis, forecast, tankOutlook, insights } from "./analytics.js";
 import { currentPrices } from "../services.js";
 import { clientDue } from "../routes/wholesale.js";
+import { buildReport } from "../routes/reports.js";
 import type { runTool } from "./tools.js";
 
 type Tools = Parameters<typeof runTool>[0];
@@ -92,6 +93,23 @@ export const businessTools: Tools = [
     description: "Pre-computed AI insight cards (reorder warnings, demand shifts, churn and credit risks).",
     input_schema: obj({}),
     run: (ctx) => insights(ctx.tenantId),
+  },
+  {
+    name: "get_period_report",
+    description: "Full business report for a period: revenue (retail + wholesale), expenses, estimated fuel cost, gross and net profit, money in/out, stock movement per product (opening, received, sold, closing), and current receivables (who owes us) and payables (whom we owe). Use ISO dates.",
+    input_schema: obj({ from: { type: "string", description: "Start, e.g. 2026-09-01 or ISO datetime" }, to: { type: "string", description: "End (exclusive); default now" } }, ["from"]),
+    run: (ctx, i) => {
+      const from = new Date(i.from).toISOString();
+      const to = i.to ? new Date(i.to).toISOString() : new Date().toISOString();
+      const r = buildReport(ctx.tenantId, from, to);
+      return {
+        from, to, summary: r.summary, stock: r.stock.products, expenses_by_category: r.expenses.by_category,
+        receivables: { total: r.receivables.total, khata: r.receivables.khata_total, wholesale: r.receivables.wholesale_total, aging: r.receivables.aging,
+          top: r.receivables.list.slice(0, 10).map((x: any) => ({ name: x.name, kind: x.kind, amount: x.amount, aging: x.aging })) },
+        payables: { total: r.payables.total, list: r.payables.list.slice(0, 10).map((x: any) => ({ name: x.name, reason: x.reason, amount: x.amount })) },
+        shift_cash: r.shifts.by_attendant,
+      };
+    },
   },
   {
     name: "get_wholesale",

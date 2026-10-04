@@ -21,6 +21,8 @@ import SettingsPage from "./pages/Settings";
 import Users from "./pages/Users";
 import Wholesale from "./pages/Wholesale";
 import Expenses from "./pages/Expenses";
+import Reports from "./pages/Reports";
+import Suppliers from "./pages/Suppliers";
 
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
@@ -105,6 +107,8 @@ export default function App() {
               <Route path="wholesale" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
               <Route path="wholesale/:id" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
               <Route path="expenses" element={<Need perm="expenses.view"><Expenses /></Need>} />
+              <Route path="reports" element={<Need perm="reports.view"><Reports /></Need>} />
+              <Route path="suppliers" element={<Need perm="suppliers.manage"><Suppliers /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
             </Route>

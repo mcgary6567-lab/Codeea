@@ -22,6 +22,7 @@ const PERM_LABEL: Record<string, string> = {
   "automations.manage": "AI automations", "stations.manage": "Add stations", "settings.manage": "Business settings", "users.manage": "Users & roles",
   "wholesale.view": "Wholesale: view clients & statements", "wholesale.manage": "Wholesale: supplies, returns, payments",
   "wholesale.rates": "Wholesale: set client rates & credit limits", "wholesale.void": "Wholesale: void wrong entries",
+  "reports.view": "Reports (all periods)", "suppliers.manage": "Suppliers & payments to depots",
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
 };
 

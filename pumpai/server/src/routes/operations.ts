@@ -5,6 +5,7 @@ import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.j
 import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
+import { recordPurchase } from "./suppliers.js";
 
 export const operations = Router();
 const product = z.enum(["PMG", "HOBC", "HSD"]);
@@ -179,13 +180,21 @@ operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
 }));
 
 operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional() }), req.body);
+  const b = parse(z.object({
+    tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional(),
+    supplier_id: z.number().optional().nullable(), purchase_rate: z.number().positive().optional().nullable(),
+  }), req.body);
   const t = ownTank(tid(req), b.tank_id);
+  const supplier = b.supplier_id ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, tid(req)) : null;
+  if (b.supplier_id && !supplier) throw new AppError(400, "Supplier not found");
+  if (supplier && !b.purchase_rate) throw new AppError(400, "Enter the purchase rate per litre from the supplier invoice");
   if (t.current_l + b.received_l > t.capacity_l * 1.001) throw new AppError(400, `Exceeds tank capacity (${t.capacity_l}L)`);
   const shortage = ((b.invoice_l - b.received_l) / b.invoice_l) * 100;
   return tx(() => {
-    const { id } = run("INSERT INTO deliveries (tank_id,supplier,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?)",
-      t.id, b.supplier ?? null, b.tanker_no ?? null, b.invoice_l, b.received_l, round2(shortage), now());
+    const { id } = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      t.id, supplier?.name ?? b.supplier ?? null, supplier?.id ?? null, b.purchase_rate ?? null, b.tanker_no ?? null, b.invoice_l, b.received_l, round2(shortage), now());
+    // we pay the supplier for the invoiced litres; any shortage is claimed separately
+    if (supplier && b.purchase_rate) recordPurchase(tid(req), { supplier_id: supplier.id, delivery_id: id, product: t.product, litres: b.invoice_l, rate: b.purchase_rate, ref: b.tanker_no, by: req.user!.name });
     run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", b.received_l, t.id);
     if (shortage >= 0.3)
       createAlert(tid(req), { station_id: t.station_id, type: "short_delivery", severity: shortage >= 0.8 ? "critical" : "warning",

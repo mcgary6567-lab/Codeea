@@ -6,9 +6,10 @@ import { PRODUCT_COLORS, dt, num } from "../lib/format";
 export default function Stock() {
   const dash = useApi<any>("/dashboard");
   const stock = useApi<any>("/stock");
+  const suppliers = useApi<any[]>("/suppliers");
   const { busy, run } = useAction();
   const [dip, setDip] = useState({ tank_id: "", measured_l: "" });
-  const [del, setDel] = useState({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier: "PSO" });
+  const [del, setDel] = useState({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "" });
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
   const refresh = () => { dash.reload(); stock.reload(); };
@@ -45,8 +46,9 @@ export default function Stock() {
         </form>
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const r = await run(() => api("/stock/delivery", { body: { tank_id: Number(del.tank_id || tanks[0].id), invoice_l: Number(del.invoice_l), received_l: Number(del.received_l), tanker_no: del.tanker_no, supplier: del.supplier } }), (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%`);
-          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "" }); refresh(); }
+          const r = await run(() => api("/stock/delivery", { body: { tank_id: Number(del.tank_id || tanks[0].id), invoice_l: Number(del.invoice_l), received_l: Number(del.received_l), tanker_no: del.tanker_no,
+            supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null } }), (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%`);
+          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "", purchase_rate: "" }); refresh(); suppliers.reload(); }
         }}>
           <h2 className="font-semibold">Receive tanker delivery</h2>
           <Field label="Tank"><select className="input" value={del.tank_id} onChange={(e) => setDel({ ...del, tank_id: e.target.value })}>{tankOpts}</select></Field>
@@ -54,7 +56,10 @@ export default function Stock() {
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
             <Field label="Received (dip difference)"><input className="input" type="number" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
             <Field label="Tanker no."><input className="input" value={del.tanker_no} onChange={(e) => setDel({ ...del, tanker_no: e.target.value })} /></Field>
-            <Field label="Supplier"><input className="input" value={del.supplier} onChange={(e) => setDel({ ...del, supplier: e.target.value })} /></Field>
+            <Field label="Supplier"><select className="input" value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
+              <option value="">— not on account —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+            {del.supplier_id && <Field label="Purchase rate (Rs/L, from invoice)"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>}
+            {del.supplier_id && Number(del.invoice_l) > 0 && Number(del.purchase_rate) > 0 && <div className="col-span-2 text-xs text-slate-600">Adds Rs {Math.round(Number(del.invoice_l) * Number(del.purchase_rate)).toLocaleString("en-IN")} to what we owe this supplier.</div>}
           </div>
           <button className="btn-primary" disabled={busy}>Save delivery</button>
         </form>

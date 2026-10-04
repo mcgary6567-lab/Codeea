@@ -54,6 +54,8 @@ export const PERMISSIONS = {
   "expenses.view": MGMT,
   "expenses.create": MGMT,
   "expenses.approve": ADMIN, // approve manager expenses above the approval limit
+  "reports.view": MGMT,
+  "suppliers.manage": MGMT, // supplier accounts, fuel purchase cost, payments to suppliers
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 

@@ -111,6 +111,8 @@ export function seed() {
       if (d % 7 === 2) for (const c of customers) {
         const l = ledger[c.id];
         if (!l || l.debit <= 0) continue;
+        if (c.type === "business" && d < 45) continue; // businesses that stopped paying ~6-7 weeks ago (aging demo)
+        if (c.type === "farmer" && c.id % 2 === 0 && d < 75) continue; // pays after harvest: last payment ~11 weeks ago
         const payRatio = c.id % 4 === 0 ? 0.2 : 0.85; // some slow payers
         const pay = Math.floor(l.debit * payRatio / 1000) * 1000;
         if (pay > 0) {
@@ -126,18 +128,6 @@ export function seed() {
         if (att === "Imran" && d <= 2) variance = -6400; // recent shortage for the anomaly detector
         run("INSERT INTO shifts (station_id,attendant,opened_at,closed_at,status,litres,cash_expected,cash_actual,variance) VALUES (?,?,?,?,?,?,?,?,?)",
           sid, att, iso(opened), iso(opened + 12 * 3600_000), "closed", Math.round(cash / 260), Math.round(cash), Math.round(cash + variance), variance);
-      }
-      // deliveries & dips
-      if (d % 4 === 1) for (const tk of tanks) {
-        const inv = tk.p === "HOBC" ? 5000 : pick([10000, 15000, 20000]);
-        const short = tk.sid === st2 && tk.p === "PMG" && d === 1 ? 0.011 : rnd() * 0.002;
-        run("INSERT INTO deliveries (tank_id,supplier,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?)",
-          tk.id, "PSO Mehmoodkot Depot", `TLR-${2000 + Math.floor(rnd() * 7000)}`, inv, Math.round(inv * (1 - short)), Math.round(short * 10000) / 100, iso(ds + 10 * 3600_000));
-      }
-      if (d <= 14) for (const tk of tanks) {
-        const book = 5000 + rnd() * 15000;
-        const v = tk.sid === st1 && tk.p === "HSD" && d === 1 ? -1.25 : (rnd() - 0.5) * 0.4;
-        run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", tk.id, Math.round(book * (1 + v / 100)), Math.round(book), Math.round(v * 100) / 100, iso(ds + 23 * 3600_000));
       }
     }
     // balances from ledger
@@ -182,6 +172,7 @@ export function seed() {
     createAlert(tenantId, { station_id: st1, type: "complaint", severity: "critical", title: "Complaint #1 (short measure) — Ayesha Khan", body: "Rs 2000 petrol fill showed less on meter at Ferozepur Road last night" });
 
     seedWholesaleAndExpenses(tenantId, st1, st2, T0);
+    simulateStock(tenantId, st1, st2, T0);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -268,4 +259,69 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
   const today = new Date(T0).toISOString().slice(0, 10);
   run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     tenantId, st1, "Maintenance & repairs", 68000, "Gilbarco service engineer", "cash", "Dispenser 2 pulser replacement", "pending", "Kamran Shah", today, iso(T0));
+}
+
+/**
+ * Replay every sale and wholesale movement per tank in time order, ordering tankers from the
+ * supplier whenever stock runs low. Tank levels, deliveries, dips and the supplier ledger
+ * therefore reconcile exactly, so stock reports for any period are consistent.
+ */
+function simulateStock(tenantId: number, st1: number, st2: number, T0: number) {
+  const supplierId = run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?)",
+    tenantId, "PSO Mehmoodkot Depot", "924299201234", 0, "Main fuel supplier", iso(T0 - 70 * DAY)).id;
+  const margin: Record<string, number> = { PMG: 7.87, HOBC: 12.5, HSD: 7.5 }; // dealer margin per litre (demo)
+  const retailAt = (p: string, t: string) => get("SELECT price FROM prices WHERE tenant_id=? AND product=? AND effective_from <= ? ORDER BY effective_from DESC LIMIT 1", tenantId, p, t)?.price
+    ?? get("SELECT price FROM prices WHERE tenant_id=? AND product=? ORDER BY effective_from LIMIT 1", tenantId, p)!.price;
+  const start = T0 - 57 * DAY;
+
+  for (const tank of all("SELECT t.* FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=?", tenantId)) {
+    type Ev = { t: string; dl: number; kind: "move" | "dip" };
+    const ev: Ev[] = [
+      ...all("SELECT created_at t, -litres dl FROM sales WHERE station_id=? AND product=?", tank.station_id, tank.product).map((r) => ({ ...r, kind: "move" as const })),
+      ...all("SELECT created_at t, CASE type WHEN 'supply' THEN -litres ELSE litres END dl FROM wholesale_txns WHERE tank_id=? AND type IN ('supply','return')", tank.id).map((r) => ({ ...r, kind: "move" as const })),
+    ];
+    for (let d = 14; d >= 1; d--) {
+      const day = new Date(T0 - d * DAY); day.setUTCHours(18, 0, 0, 0); // 11pm Pakistan time
+      ev.push({ t: day.toISOString(), dl: 0, kind: "dip" });
+    }
+    ev.sort((a, b) => a.t.localeCompare(b.t));
+    let level = tank.capacity_l * 0.75;
+    const lowTank = tank.station_id === st2 && tank.product === "PMG"; // left low for the demo reorder alert
+    for (const e of ev) {
+      const tms = Date.parse(e.t);
+      const skipRefill = lowTank && tms > T0 - 3 * DAY;
+      if (e.kind === "move" && e.dl < 0 && (level + e.dl < tank.capacity_l * (tank.product === "HOBC" ? 0.3 : 0.28) && !skipRefill || level + e.dl < 200)) {
+        const at = new Date(tms - 3600_000).toISOString();
+        const invoice = Math.floor((tank.capacity_l * 0.93 - level) / 1000) * 1000;
+        const shortPct = lowTank && tms > T0 - 6 * DAY ? 0.011 : rnd() * 0.002;
+        const received = Math.round(invoice * (1 - shortPct));
+        const rate = Math.round((retailAt(tank.product, at) - margin[tank.product]) * 100) / 100;
+        const tanker = `TLR-${2000 + Math.floor(rnd() * 7000)}`;
+        const del = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+          tank.id, "PSO Mehmoodkot Depot", supplierId, rate, tanker, invoice, received, Math.round(shortPct * 10000) / 100, at).id;
+        run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,delivery_id,product,litres,rate,amount,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+          tenantId, supplierId, "purchase", del, tank.product, invoice, rate, Math.round(invoice * rate * 100) / 100, tanker, "Kamran Shah", at, at);
+        level += received;
+      }
+      if (e.kind === "dip") {
+        const v = tank.station_id === st1 && tank.product === "HSD" && tms > T0 - 2 * DAY ? -1.25 : (rnd() - 0.5) * 0.4;
+        const measured = Math.round(level * (1 + v / 100));
+        run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", tank.id, measured, Math.round(level), Math.round(v * 100) / 100, e.t);
+        level = measured;
+      } else level = Math.max(0, level + e.dl);
+    }
+    run("UPDATE tanks SET current_l=? WHERE id=?", Math.round(level), tank.id);
+  }
+  // pay the depot every few days, keeping the last couple of tankers on credit
+  let owed = 0;
+  const purchases = all("SELECT txn_date, amount FROM supplier_txns WHERE supplier_id=? ORDER BY txn_date", supplierId);
+  for (let d = 56; d >= 1; d -= 3) {
+    const cutoff = iso(T0 - d * DAY);
+    owed = purchases.filter((p) => p.txn_date < cutoff).reduce((a, p) => a + p.amount, 0)
+      - (get("SELECT COALESCE(SUM(amount),0) s FROM supplier_txns WHERE supplier_id=? AND type='payment'", supplierId)!.s);
+    const pay = Math.floor((owed * 0.85) / 100000) * 100000;
+    if (pay > 0)
+      run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        tenantId, supplierId, "payment", pay, pick(["Bank transfer", "Pay order", "Online (1LINK)"]), `PO-${7000 + d}`, "Haji Abdul Rehman (CEO)", cutoff, cutoff);
+  }
 }

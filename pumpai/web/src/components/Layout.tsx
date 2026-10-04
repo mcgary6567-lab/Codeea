@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
+  { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
   { to: "/inbox", label: "WhatsApp Inbox", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
@@ -15,6 +16,7 @@ const NAV = [
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
+  { to: "/suppliers", label: "Suppliers", icon: Factory, perm: "suppliers.manage" },
   { to: "/orders", label: "Orders", icon: Truck, badge: "orders", perm: "orders.manage" },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: "campaigns.manage" },

@@ -13,6 +13,8 @@ import { insightsRouter } from "./routes/insights.js";
 import { users } from "./routes/users.js";
 import { wholesale } from "./routes/wholesale.js";
 import { expenses } from "./routes/expenses.js";
+import { suppliers } from "./routes/suppliers.js";
+import { reports } from "./routes/reports.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -47,6 +49,8 @@ api.use(insightsRouter);
 api.use(users);
 api.use(wholesale);
 api.use(expenses);
+api.use(suppliers);
+api.use(reports);
 app.use("/api", api);
 
 // Serve the built dashboard in production
