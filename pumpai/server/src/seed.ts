@@ -5,6 +5,7 @@ import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
 import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
 import { DEFAULT_CATEGORIES } from "./routes/expenses.js";
+import { cylinderChart } from "./routes/backoffice.js";
 
 let s = 42;
 const rnd = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -58,6 +59,8 @@ export function seed() {
     ];
     const tanks = tankDefs.map(([sid, name, p, cap, cur]) => {
       const id = run("INSERT INTO tanks (station_id,name,product,capacity_l,current_l,reorder_pct) VALUES (?,?,?,?,?,25)", sid, name, p, cap, cur).id;
+      // dip chart (cm → litres) for a horizontal cylindrical tank
+      for (const r of cylinderChart(cap >= 30000 ? 280 : 240, cap)) run("INSERT INTO tank_charts (tank_id,cm,litres) VALUES (?,?,?)", id, r.cm, r.litres);
       const noz = [1, 2].map((i) => run("INSERT INTO nozzles (station_id,tank_id,label,totalizer) VALUES (?,?,?,?)", sid, id, `${p}-${sid}${i}`, 100000 + Math.round(rnd() * 50000)).id);
       return { id, sid, p, noz };
     });

@@ -255,6 +255,18 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id),
     type TEXT NOT NULL CHECK (type IN ('advance','shortage','repayment','deduction','salary','bonus')),
     amount REAL NOT NULL, note TEXT, ref TEXT, month TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS bank_deposits (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, amount REAL NOT NULL, bank TEXT NOT NULL, slip_ref TEXT,
+    photo_id INTEGER, note TEXT, deposited_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS cash_counts (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, amount REAL NOT NULL, expected REAL, variance REAL, note TEXT, counted_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, supplier_id INTEGER NOT NULL, station_id INTEGER NOT NULL, tank_id INTEGER NOT NULL,
+    product TEXT NOT NULL, litres REAL NOT NULL, status TEXT NOT NULL DEFAULT 'ordered', note TEXT, ordered_by TEXT,
+    delivery_id INTEGER, delivered_at TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS tank_charts (tank_id INTEGER NOT NULL, cm REAL NOT NULL, litres REAL NOT NULL, PRIMARY KEY (tank_id, cm))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS day_closes (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, closed_at TEXT NOT NULL, UNIQUE (tenant_id, day))`);
+  addColumn("dip_readings", "measured_cm", "REAL");
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

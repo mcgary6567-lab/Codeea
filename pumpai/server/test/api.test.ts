@@ -147,7 +147,7 @@ test("automations run on demand", async () => {
 test("ask AI falls back to analytics summary without a key", async () => {
   const r = await api("POST", "/api/ai/ask", { question: "How are sales today?" });
   assert.equal(r.data.engine, "rules");
-  assert.match(r.data.answer, /Today/);
+  assert.match(r.data.answer, /Aaj ki sale: Rs/);
 });
 
 test("Meta webhook verification and inbound message", async () => {

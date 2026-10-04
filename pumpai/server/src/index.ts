@@ -20,6 +20,7 @@ import { pos } from "./routes/pos.js";
 import { capture } from "./routes/capture.js";
 import { renderBill } from "./billing.js";
 import { staffRouter } from "./routes/staff.js";
+import { backoffice, renderDay } from "./routes/backoffice.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -48,6 +49,10 @@ app.get("/bill/:token", (req, res) => {
   const html = renderBill(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This bill link is not valid or has expired.</p>");
 });
+app.get("/day/:token", (req, res) => {
+  const html = renderDay(req.params.token);
+  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This report link is not valid.</p>");
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -70,6 +75,7 @@ api.use(notifications);
 api.use(pos);
 api.use(capture);
 api.use(staffRouter);
+api.use(backoffice);
 app.use("/api", api);
 
 // Serve the built dashboard in production

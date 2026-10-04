@@ -198,10 +198,9 @@ export function buildReport(t: number, from: string, to: string) {
  * received, how much fuel is left and what it is worth, and who owes whom. Built from the same
  * report as the Reports page so the numbers always agree.
  */
-export function dayBook(t: number) {
-  const from = pkDayStart(), to = new Date().toISOString();
+export function dayBook(t: number, from = pkDayStart(), to = new Date().toISOString()) {
   const r = buildReport(t, from, to);
-  const prices = currentPrices(t);
+  const prices = currentPrices(t, to);
   const stock = r.stock.products.map((p) => {
     const price = prices[p.product]?.price ?? null;
     return {

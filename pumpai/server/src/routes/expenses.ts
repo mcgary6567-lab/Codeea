@@ -5,6 +5,7 @@ import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
 import { linkPhotos } from "./capture.js";
+import { guardClosedDay } from "./backoffice.js";
 
 export const expenses = Router();
 
@@ -134,6 +135,7 @@ expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
   if (b.station_id && !get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
   const autoApprove = can(req.user, "expenses.approve") || b.amount <= approvalLimit(t);
   const date = b.expense_date ?? pkDate();
+  guardClosedDay(req, t, date);
   const { id } = run(
     `INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,receipt_ref,status,created_by,approved_by,expense_date,created_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -159,6 +161,8 @@ expenses.patch("/expenses/:id", requirePerm("expenses.create"), h((req) => {
   const e = ownExpense(req);
   const b = parse(body.partial(), req.body);
   const m = { ...e, ...b };
+  guardClosedDay(req, tid(req), e.expense_date);
+  guardClosedDay(req, tid(req), m.expense_date);
   run("UPDATE expenses SET category=?, amount=?, paid_to=?, method=?, note=?, receipt_ref=?, station_id=?, expense_date=? WHERE id=?",
     m.category, m.amount, m.paid_to ?? null, m.method, m.note ?? null, m.receipt_ref ?? null, m.station_id ?? null, m.expense_date, e.id);
   return get("SELECT * FROM expenses WHERE id=?", e.id);
@@ -166,6 +170,7 @@ expenses.patch("/expenses/:id", requirePerm("expenses.create"), h((req) => {
 
 expenses.delete("/expenses/:id", requirePerm("expenses.create"), h((req) => {
   const e = ownExpense(req);
+  guardClosedDay(req, tid(req), e.expense_date);
   run("DELETE FROM expenses WHERE id=?", e.id);
   return { ok: true };
 }));

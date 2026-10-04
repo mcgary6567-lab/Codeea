@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
-import { Field, Loading, PageHeader, useAction } from "../components/ui";
+import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { PRODUCTS } from "../lib/format";
 import { PhotoButton, photoUrl } from "../components/Capture";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
@@ -9,7 +10,18 @@ export default function Stock() {
   const stock = useApi<any>("/stock");
   const suppliers = useApi<any[]>("/suppliers");
   const { busy, run } = useAction();
-  const [dip, setDip] = useState({ tank_id: "", measured_l: "" });
+  const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "" });
+  const [dipL, setDipL] = useState<{ litres?: number; error?: string } | null>(null);
+  const [order, setOrder] = useState<any>(null);
+  const [chart, setChart] = useState<any>(null);
+  const orders = useApi<any[]>("/stock/orders");
+  const dipTank = Number(dip.tank_id) || dash.data?.tanks[0]?.id;
+  // dip in cm → litres from the tank's chart, as you type
+  useEffect(() => {
+    if (!dip.cm || !dipTank) { setDipL(null); return; }
+    const id = setTimeout(() => api(`/tanks/${dipTank}/dip-litres?cm=${Number(dip.cm)}`).then((x) => setDipL({ litres: x.litres })).catch((e) => setDipL({ error: e.message })), 250);
+    return () => clearTimeout(id);
+  }, [dip.cm, dipTank]);
   const [del, setDel] = useState<any>({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "", photo_id: null });
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
@@ -31,18 +43,32 @@ export default function Stock() {
             <div className="text-center text-sm font-semibold tabular-nums">{t.fill_pct}%</div>
             <div className="text-center text-xs text-slate-500">{num(t.current_l)} / {num(t.capacity_l)} L</div>
             <div className={`mt-1 text-center text-xs ${t.days_to_reorder <= 1.5 ? "font-medium text-red-600" : "text-slate-500"}`}>Empty in {t.days_to_empty} d</div>
+            {(() => {
+              const open = (orders.data ?? []).find((o: any) => o.tank_id === t.id && o.status === "ordered");
+              return open
+                ? <div className="mt-2 rounded-lg bg-blue-50 p-1.5 text-center text-xs text-blue-800">🚛 Ordered {num(open.litres)} L</div>
+                : <button className={`mt-2 w-full rounded-lg py-1.5 text-xs font-semibold ${t.days_to_reorder <= 1.5 ? "bg-red-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                    onClick={() => api(`/stock/order-suggestion/${t.id}`).then(setOrder)}>Order tanker</button>;
+            })()}
           </div>
         ))}
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const r = await run(() => api("/stock/dip", { body: { tank_id: Number(dip.tank_id || tanks[0].id), measured_l: Number(dip.measured_l) } }), (x: any) => `Dip saved. Variance ${x.variance_pct}%`);
-          if (r) { setDip({ ...dip, measured_l: "" }); refresh(); }
+          const body = dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) };
+          const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%`);
+          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); refresh(); }
         }}>
-          <h2 className="font-semibold">Record dip reading</h2>
+          <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
+            <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
           <Field label="Tank"><select className="input" value={dip.tank_id} onChange={(e) => setDip({ ...dip, tank_id: e.target.value })}>{tankOpts}</select></Field>
-          <Field label="Measured litres (from dip chart)"><input className="input" type="number" min={0} required value={dip.measured_l} onChange={(e) => setDip({ ...dip, measured_l: e.target.value })} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Dip stick reading (cm)"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => setDip({ ...dip, cm: e.target.value, measured_l: "" })} /></Field>
+            <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => setDip({ ...dip, measured_l: e.target.value })} /></Field>
+          </div>
+          {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
+          {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} cm = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
           <button className="btn-primary" disabled={busy}>Save dip</button>
         </form>
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
@@ -75,11 +101,63 @@ export default function Stock() {
           <button className="btn-primary" disabled={busy}>Save delivery</button>
         </form>
       </div>
+      {(orders.data ?? []).length > 0 && <History title="Tanker orders" rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name.replace("Al-Madina ", "")], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
       <div className="grid gap-5 md:grid-cols-2">
-        <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => num(r.measured_l)], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>]]} />
+        <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>]]} />
         <History title="Deliveries" rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
+      {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
+      {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
     </div>
+  );
+}
+
+/** One-tap tanker order: suggested supplier and litres; the order goes to the supplier on WhatsApp. */
+function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[]; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState({ supplier_id: String(s.supplier_id ?? suppliers[0]?.id ?? ""), litres: String(s.litres || ""), note: "" });
+  const { busy, run } = useAction();
+  return (
+    <Modal open onClose={onClose} title={`Order tanker — ${s.tank.station_name.replace("Al-Madina ", "")} ${s.tank.name}`}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        if (await run(() => api("/stock/orders", { body: { tank_id: s.tank.id, supplier_id: Number(f.supplier_id), litres: Number(f.litres), note: f.note || null } }), (x: any) => x.whatsapp === "sent" ? "Order sent to the supplier on WhatsApp" : "Order saved (supplier has no WhatsApp number)")) onDone();
+      }}>
+        <p className="text-sm text-slate-600">{PRODUCTS[s.tank.product]} · space in tank: <b>{num(s.room)} L</b></p>
+        <Field label="Supplier"><select className="input" value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>{suppliers.map((x) => <option key={x.id} value={x.id}>{x.name}{x.phone ? "" : " (no WhatsApp)"}</option>)}</select></Field>
+        <Field label="Litres"><input className="input py-3 text-2xl" type="number" min={1000} step={1000} max={s.room} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+        <div className="flex flex-wrap gap-2">{[10000, 20000, 30000, 40000].filter((x) => x <= s.room).map((x) => <button type="button" key={x} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm" onClick={() => setF({ ...f, litres: String(x) })}>{num(x)} L</button>)}</div>
+        <Field label="Note for supplier (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. deliver before 6pm" /></Field>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Send order</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Dip chart editor: paste the OMC chart (cm and litres per line) or make one from the tank diameter. */
+function ChartModal({ c, onClose }: { c: any; onClose: () => void }) {
+  const [text, setText] = useState(c.rows.map((r: any) => `${r.cm} ${r.litres}`).join("\n"));
+  const [diameter, setDiameter] = useState("");
+  const { busy, run } = useAction();
+  const save = (body: any) => run(() => api(`/tanks/${c.tank.id}/chart`, { method: "PUT", body }), (x: any) => `Chart saved: ${x.rows} rows, full = ${num(x.max_litres)} L`).then((x) => x && onClose());
+  return (
+    <Modal open onClose={onClose} title={`Dip chart — ${c.tank.name}`} wide>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <Field label="One row per line: cm litres (from the oil company's chart)">
+            <textarea className="input h-72 font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} />
+          </Field>
+          <button className="btn-primary mt-2" disabled={busy} onClick={() => {
+            const rows = text.split(/\n+/).map((l: string) => l.trim().split(/[\s,;\t]+/).map(Number)).filter((x: number[]) => x.length >= 2 && !x.some(isNaN)).map(([cm, litres]: number[]) => ({ cm, litres }));
+            save({ rows });
+          }}>Save chart</button>
+        </div>
+        <div className="space-y-3 rounded-lg bg-slate-50 p-3 text-sm">
+          <p>No chart yet? Make an approximate one from the tank's inside diameter (horizontal round tank, {num(c.tank.capacity_l)} L). Replace it with the oil company's chart when you have it.</p>
+          <Field label="Inside diameter (cm)"><input className="input" type="number" min={50} max={600} value={diameter} onChange={(e) => setDiameter(e.target.value)} /></Field>
+          <button className="btn-secondary" disabled={busy || !diameter} onClick={() => save({ diameter_cm: Number(diameter) })}>Make chart</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

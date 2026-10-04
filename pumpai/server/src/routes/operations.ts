@@ -9,6 +9,7 @@ import { recordPurchase } from "./suppliers.js";
 import { followPumpPrice } from "./wholesale.js";
 import { khataFillReceipt, wholesaleRateMessage } from "../billing.js";
 import { chargeShortage } from "./staff.js";
+import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
 import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
@@ -355,15 +356,18 @@ operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
 })));
 
 operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0) }), req.body);
+  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional() })
+    .refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in cm or litres"), req.body);
   const t = ownTank(tid(req), b.tank_id);
-  const variance = t.current_l ? ((b.measured_l - t.current_l) / t.current_l) * 100 : 0;
+  // a dip in cm is turned into litres with the tank's dip chart
+  const measured = b.measured_cm !== undefined ? litresFromCm(t.id, b.measured_cm) : b.measured_l!;
+  const variance = t.current_l ? ((measured - t.current_l) / t.current_l) * 100 : 0;
   return tx(() => {
-    const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", t.id, b.measured_l, t.current_l, round2(variance), now());
-    run("UPDATE tanks SET current_l=? WHERE id=?", b.measured_l, t.id);
+    const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?)", t.id, measured, b.measured_cm ?? null, t.current_l, round2(variance), now());
+    run("UPDATE tanks SET current_l=? WHERE id=?", measured, t.id);
     if (Math.abs(variance) >= 0.5)
       createAlert(tid(req), { station_id: t.station_id, type: "stock_variance", severity: Math.abs(variance) >= 1 ? "critical" : "warning",
-        title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(b.measured_l)}L vs book ${Math.round(t.current_l)}L.`, dedupe_key: `dip-${id}` });
+        title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(measured)}L${b.measured_cm !== undefined ? ` (${b.measured_cm} cm)` : ""} vs book ${Math.round(t.current_l)}L.`, dedupe_key: `dip-${id}` });
     return get("SELECT * FROM dip_readings WHERE id=?", id);
   });
 }));
@@ -385,6 +389,7 @@ operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
     // we pay the supplier for the invoiced litres; any shortage is claimed separately
     if (supplier && b.purchase_rate) recordPurchase(tid(req), { supplier_id: supplier.id, delivery_id: id, product: t.product, litres: b.invoice_l, rate: b.purchase_rate, ref: b.tanker_no, by: req.user!.name });
     run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", b.received_l, t.id);
+    closeOrderOnDelivery(tid(req), supplier?.id ?? null, t.id, id);
     if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `delivery:${id}`)) { run("UPDATE deliveries SET photo_id=? WHERE id=?", b.photo_id, id); }
     if (shortage >= 0.3)
       createAlert(tid(req), { station_id: t.station_id, type: "short_delivery", severity: shortage >= 0.8 ? "critical" : "warning",

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Fuel, Wallet, BookOpen, Bell, MessageCircle, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send, Receipt, Truck, Droplets, Scale, Coins } from "lucide-react";
 import { api, useApi, useLiveEvents } from "../lib/api";
-import { PageHeader, Stat, Loading, ErrorBox, Badge, severityTone } from "../components/ui";
+import { PageHeader, Stat, Loading, ErrorBox, Badge, Modal, severityTone } from "../components/ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort, d, ago } from "../lib/format";
 import { QuickAddTiles } from "../components/QuickAdd";
 
@@ -171,12 +171,18 @@ function TodayBook({ b }: { b: any }) {
     </div>
   );
   const s = b.sales;
+  const [past, setPast] = useState(false);
   return (
     <div className="card p-4">
+      {past && <ClosedDays onClose={() => setPast(false)} />}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Today's book <span className="font-urdu ml-1 text-sm font-normal text-slate-500">آج کا حساب</span>
           <span className="ml-2 text-xs font-normal text-slate-400">since 12:00 am · updates every minute</span></h2>
-        <Link to="/reports" className="text-xs text-brand-600 hover:underline">Full report →</Link>
+        <span className="flex gap-3">
+          <button className="text-xs text-brand-600 hover:underline" onClick={() => setPast(true)}>Closed days</button>
+          <Link to="/cash" className="text-xs text-brand-600 hover:underline">Cash & bank →</Link>
+          <Link to="/reports" className="text-xs text-brand-600 hover:underline">Full report →</Link>
+        </span>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {tile(<Wallet size={14} />, "Sales", "سیل", pkr(s.revenue), [
@@ -233,6 +239,25 @@ function TodayBook({ b }: { b: any }) {
         </table>
       </div>
     </div>
+  );
+}
+
+/** Days closed at midnight, each with its printable report (the same link the owner gets on WhatsApp). */
+function ClosedDays({ onClose }: { onClose: () => void }) {
+  const { data } = useApi<any[]>("/day-closes");
+  return (
+    <Modal open onClose={onClose} title="Closed days">
+      {!data ? <Loading /> : !data.length ? <p className="text-sm text-slate-500">No day closed yet. Each day closes by itself just after midnight.</p> : (
+        <ul className="divide-y divide-slate-100">
+          {data.map((d) => (
+            <li key={d.id} className="flex items-center justify-between py-2 text-sm">
+              <span>{new Date(`${d.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
+              <a className="text-brand-600 hover:underline" href={d.url} target="_blank" rel="noreferrer">Day report →</a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   );
 }
 

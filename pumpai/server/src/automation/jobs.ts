@@ -7,6 +7,7 @@ import { askBusiness, writeCampaign } from "../ai/agent.js";
 import { aiEnabled } from "../config.js";
 import { notify, staff, shiftUser } from "../notifications.js";
 import { monthlyBills } from "../billing.js";
+import { closeDay } from "../routes/backoffice.js";
 
 export interface Job {
   key: string;
@@ -157,6 +158,16 @@ export const JOBS: Job[] = [
       await notifyOwner(t, text);
       createAlert(t, { type: "daily_brief", severity: "info", title: "Daily brief sent", body: text });
       return "Brief sent to owner";
+    },
+  },
+  {
+    key: "day_close",
+    name: "Close the day at midnight",
+    description: "Just after midnight the previous day is locked (only the admin can change it) and the owner gets the day's sales, expenses, supply, stock, cash and a printable report link on WhatsApp.",
+    cron: "5 0 * * *",
+    run: async (t) => {
+      const r = await closeDay(t);
+      return "already" in r ? `${r.day} was already closed` : `${r.day} closed · sales ${pkr(r.revenue)}`;
     },
   },
   {

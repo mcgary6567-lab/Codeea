@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
+  { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
   { to: "/suppliers", label: "Suppliers", icon: Factory, perm: "suppliers.manage" },
   { to: "/orders", label: "Orders", icon: Truck, badge: "orders", perm: "orders.manage" },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },

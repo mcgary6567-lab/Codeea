@@ -7,12 +7,13 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, PRODUCTS } from "../config.js";
-import { all, get, pkDate, type Row } from "../db.js";
+import { all, get, run, getSetting, pkDate, type Row } from "../db.js";
 import { customerTools, runTool, toolSchemas, type ToolCtx } from "./tools.js";
 import { fallbackReply } from "./fallback.js";
 import { businessTools } from "./businessTools.js";
-import { ensureConversation, storeMessage, sendWhatsApp, bus } from "../whatsapp/cloud.js";
-import { upsertCustomerByPhone, currentPrices, pkr } from "../services.js";
+import { ensureConversation, storeMessage, sendWhatsApp, sendDirect, bus } from "../whatsapp/cloud.js";
+import { quickAnswer, summaryAnswer } from "./ownerAnswers.js";
+import { upsertCustomerByPhone, currentPrices, pkr, normalizePhone } from "../services.js";
 import { insights, kpis } from "./analytics.js";
 
 let client: Anthropic | null = null;
@@ -104,6 +105,17 @@ export async function generateCustomerReply(tenantId: number, customer: Row, con
 
 /** Full inbound pipeline used by the Meta webhook and the in-app simulator. */
 export async function handleInbound(tenantId: number, msg: { from: string; name?: string; text: string; waId?: string }) {
+  // the owner or a manager asking about the business gets the business assistant, not the customer bot
+  const boss = staffByPhone(tenantId, msg.from);
+  if (boss) {
+    if (msg.waId && get("SELECT id FROM outbox WHERE ref=?", `wa:${msg.waId}`)) return { duplicate: true };
+    run("INSERT INTO outbox (tenant_id,to_phone,to_name,kind,ref,text,simulated,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      tenantId, boss.phone, boss.name, "owner_question", msg.waId ? `wa:${msg.waId}` : null, msg.text, 1, new Date().toISOString());
+    const r = await askBusiness(tenantId, msg.text);
+    const answer = r.engine === "rules" && !quickAnswer(tenantId, msg.text) ? summaryAnswer(tenantId) + "\n\n(Poochhein: sale, kharcha, stock, cash, supply, shift, kis ne dene hain — 'kal' likhein to kal ka.)" : r.answer;
+    await sendDirect(tenantId, boss, "owner_answer", null, answer);
+    return { handled_by: "owner_assistant", engine: r.engine, reply: answer };
+  }
   const customer = upsertCustomerByPhone(tenantId, msg.from, msg.name);
   const conv = ensureConversation(tenantId, customer.id);
   if (msg.waId && get("SELECT id FROM messages WHERE wa_id=?", msg.waId)) return { duplicate: true };
@@ -116,6 +128,15 @@ export async function handleInbound(tenantId: number, msg: { from: string; name?
   const { reply, engine, actions } = await generateCustomerReply(tenantId, customer, fresh, msg.text);
   const sent = await sendWhatsApp(tenantId, get("SELECT * FROM customers WHERE id=?", customer.id)!, reply, "ai", { engine, actions });
   return { reply, engine, actions, message: sent.message };
+}
+
+/** Owner (settings phone) or an active admin/manager whose WhatsApp number matches. */
+function staffByPhone(tenantId: number, from: string): { phone: string; name: string } | null {
+  const p = normalizePhone(from);
+  const owner = getSetting(tenantId, "owner_phone") || get("SELECT owner_phone FROM tenants WHERE id=?", tenantId)?.owner_phone;
+  if (owner && normalizePhone(owner) === p) return { phone: p, name: get("SELECT owner_name FROM tenants WHERE id=?", tenantId)?.owner_name ?? "Owner" };
+  const u = get("SELECT name FROM users WHERE tenant_id=? AND phone=? AND active=1 AND role IN ('admin','manager')", tenantId, p);
+  return u ? { phone: p, name: u.name } : null;
 }
 
 /** Owner/manager "Ask AI" about the business. */
@@ -132,6 +153,8 @@ Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is $
       console.error("[ai] business agent failed:", e?.message);
     }
   }
+  const quick = quickAnswer(tenantId, question);
+  if (quick) return { answer: quick, engine: "rules" };
   const k = kpis(tenantId);
   const cards = insights(tenantId);
   const answer =
