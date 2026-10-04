@@ -40,6 +40,12 @@ export function seed() {
     // demo quick-login PINs: admin 1111, manager 2222, salesman 3333, wholesale 4444
     for (const [email, pin] of [["admin", "1111"], ["manager", "2222"], ["salesman", "3333"], ["wholesale", "4444"]])
       run("UPDATE users SET pin_hash=? WHERE email=?", bcrypt.hashSync(pin, 8), `${email}@pumpai.pk`);
+    // staff salaries and an advance, so the staff accounts page has a starting point
+    for (const [email, salary] of [["manager", 65000], ["salesman", 32000], ["wholesale", 45000]] as const)
+      run("UPDATE users SET salary=? WHERE email=?", salary, `${email}@pumpai.pk`);
+    const imran = get("SELECT id FROM users WHERE email='salesman@pumpai.pk'")!.id;
+    run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
+      tenantId, imran, "advance", 5000, "Bachon ki school fees", "Kamran Shah", iso(T0 - 9 * DAY));
 
     const st1 = run("INSERT INTO stations (tenant_id,name,city,address,omc,lat,lng,timings,services) VALUES (?,?,?,?,?,?,?,?,?)",
       tenantId, "Al-Madina Ferozepur Road", "Lahore", "Ferozepur Road, near Kalma Chowk, Lahore", "PSO", 31.5003, 74.3311, "24 hours", "Petrol, Hi-Octane, Diesel, Tuck shop, Air, Car wash").id;

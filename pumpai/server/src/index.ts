@@ -18,6 +18,8 @@ import { reports } from "./routes/reports.js";
 import { notifications } from "./routes/notifications.js";
 import { pos } from "./routes/pos.js";
 import { capture } from "./routes/capture.js";
+import { renderBill } from "./billing.js";
+import { staffRouter } from "./routes/staff.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -41,6 +43,11 @@ app.post("/api/auth/pin", h((req) => {
   const b = parse(z.object({ user_id: z.number(), pin: z.string().regex(/^\d{4}$/, "PIN is 4 digits") }), req.body);
   return pinLogin(req.headers["x-device"] as string | undefined, b.user_id, b.pin);
 }));
+// signed monthly bill / statement link sent on WhatsApp (no login needed)
+app.get("/bill/:token", (req, res) => {
+  const html = renderBill(req.params.token);
+  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This bill link is not valid or has expired.</p>");
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -62,6 +69,7 @@ api.use(reports);
 api.use(notifications);
 api.use(pos);
 api.use(capture);
+api.use(staffRouter);
 app.use("/api", api);
 
 // Serve the built dashboard in production

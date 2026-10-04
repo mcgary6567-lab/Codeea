@@ -9,6 +9,7 @@ import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
 import { VoiceButton } from "../components/Capture";
+import { CardScanner } from "../components/CardScanner";
 
 /* Big, colourful, bilingual (English + Urdu) point of sale designed for one-hand use on a tablet. */
 
@@ -55,6 +56,7 @@ export default function Pos() {
   const [pay, setPay] = useState<string | null>(null);
   const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string } | null>(null);
   const [pickKhata, setPickKhata] = useState(false);
+  const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
   const [heard, setHeard] = useState<string | null>(null);
 
@@ -221,6 +223,9 @@ export default function Pos() {
                 </button>
               ))}
             </div>
+            <button onClick={() => setScan(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900 ring-1 ring-amber-300 active:scale-95">
+              <span className="text-2xl">📷</span> Scan khata card · <Ur>کارڈ سکین کریں</Ur>
+            </button>
             {pay === "khata" && khata && (
               <button onClick={() => setPickKhata(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-amber-50 p-3 text-left ring-1 ring-amber-300">
                 <span className="text-3xl">{TYPE_ICON[khata.account.type] ?? "📒"}</span>
@@ -261,6 +266,14 @@ export default function Pos() {
           <button className="mt-4 rounded-xl bg-emerald-600 px-8 py-4 text-xl font-bold text-white" onClick={() => notif.setSnoozed(null)}>Confirm new price</button>
         </Blocker>
       )}
+      {scan && <CardScanner onClose={() => setScan(false)} onFound={(f) => {
+        setScan(false);
+        if (f.account.status === "full") { toast("err", `${f.account.name}: khata limit full — ask the manager`); return; }
+        setPay("khata");
+        // open the account straight on the vehicle / slip step
+        setKhata({ account: f.account, vehicle: f.vehicle ?? "", slip: "" });
+        setPickKhata(true);
+      }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
       {done && (
         <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>

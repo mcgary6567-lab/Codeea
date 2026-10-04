@@ -1,9 +1,11 @@
+import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now } from "../db.js";
+import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
+import { billLink, sendKhataBill, prevMonth } from "../billing.js";
 import { writeCampaign } from "../ai/agent.js";
 import { announce } from "../notifications.js";
 
@@ -120,14 +122,14 @@ crm.post("/customers/:id/khata", requirePerm("khata.manage"), h(async (req) => {
 }));
 
 /** Khata statement / monthly bill: every fuel entry with litres, the rate at that time, vehicle and slip, plus payments. */
-function khataStatement(tenantId: number, id: number, from?: string, to?: string) {
+export function khataStatement(tenantId: number, id: number, from?: string, to?: string) {
   const c = ownCustomer(tenantId, id);
-  const before = from ? get("SELECT COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE -amount END),0) b FROM khata_ledger WHERE customer_id=? AND created_at < ?", c.id, from)!.b : 0;
+  const before = from ? get("SELECT COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE -amount END),0) b FROM khata_ledger WHERE customer_id=? AND created_at < ?", c.id, pkStart(from))!.b : 0;
   let bal = before;
   const lines = all(
     `SELECT k.*, s.name station_name FROM khata_ledger k LEFT JOIN stations s ON s.id=k.station_id
-     WHERE k.customer_id=? ${from ? "AND k.created_at >= ?" : ""} ${to ? "AND k.created_at < date(?, '+1 day')" : ""} ORDER BY k.created_at, k.id`,
-    ...[c.id, ...(from ? [from] : []), ...(to ? [to] : [])],
+     WHERE k.customer_id=? ${from ? "AND k.created_at >= ?" : ""} ${to ? "AND k.created_at < ?" : ""} ORDER BY k.created_at, k.id`,
+    ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   ).map((l) => { bal += l.type === "debit" ? l.amount : -l.amount; return { ...l, balance: Math.round(bal * 100) / 100 }; });
   const fuel = lines.filter((l) => l.type === "debit");
   return {
@@ -145,6 +147,42 @@ function khataStatement(tenantId: number, id: number, from?: string, to?: string
     },
   };
 }
+
+/* QR cards: one for the account and one for each vehicle, scanned at the POS */
+const CARD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newCode = () => Array.from(crypto.randomBytes(8), (x) => CARD_CHARS[x % CARD_CHARS.length]).join("");
+crm.get("/customers/:id/cards", requirePerm("khata.manage"), h((req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  if (!(c.credit_limit > 0)) throw new AppError(400, "QR cards are for khata accounts");
+  if (!c.card_code) run("UPDATE customers SET card_code=? WHERE id=?", newCode(), c.id);
+  for (const v of all("SELECT id FROM vehicles WHERE customer_id=? AND card_code IS NULL", c.id)) run("UPDATE vehicles SET card_code=? WHERE id=?", newCode(), v.id);
+  return {
+    business: get("SELECT name FROM tenants WHERE id=?", tid(req))!.name,
+    customer: { id: c.id, name: c.name, type: c.type, city: c.city },
+    account_code: get("SELECT card_code FROM customers WHERE id=?", c.id)!.card_code,
+    vehicles: all("SELECT id, plate_no, card_code code FROM vehicles WHERE customer_id=? ORDER BY plate_no", c.id),
+  };
+}));
+/** Lost card: give the account (or one vehicle) a new code; the old card stops working. */
+crm.post("/customers/:id/cards/reissue", requirePerm("khata.manage"), h((req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  const b = parse(z.object({ vehicle_id: z.number().optional() }), req.body);
+  if (b.vehicle_id) run("UPDATE vehicles SET card_code=? WHERE id=? AND customer_id=?", newCode(), b.vehicle_id, c.id);
+  else run("UPDATE customers SET card_code=? WHERE id=?", newCode(), c.id);
+  return { ok: true };
+}));
+
+/* Monthly bill: printable link + WhatsApp */
+const monthQ = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() });
+crm.get("/customers/:id/bill-link", requirePerm("khata.manage"), h((req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  const m = parse(monthQ, req.query).month ?? pkDate().slice(0, 7);
+  return { month: m, url: billLink(tid(req), "k", c.id, m) };
+}));
+crm.post("/customers/:id/send-bill", requirePerm("khata.manage"), h(async (req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  return sendKhataBill(tid(req), c.id, parse(monthQ, req.body).month ?? prevMonth());
+}));
 
 const dateQ = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
 

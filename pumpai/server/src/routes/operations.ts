@@ -7,6 +7,8 @@ import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
 import { followPumpPrice } from "./wholesale.js";
+import { khataFillReceipt, wholesaleRateMessage } from "../billing.js";
+import { chargeShortage } from "./staff.js";
 import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
@@ -101,7 +103,8 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
       title: `Prices changed by ${req.user!.name}`, body: lines.join("\n") });
   }
   // wholesale clients on "pump − Rs X" follow the new pump price; fixed-rate clients are listed for review
-  const ws = changes.length ? tx(() => followPumpPrice(t, changes)) : { moved: [], fixed: [] };
+  const ws = changes.length ? tx(() => followPumpPrice(t, changes)) : { moved: [], fixed: [], perClient: {} as Record<number, string[]> };
+  for (const [cid, ls] of Object.entries(ws.perClient)) await wholesaleRateMessage(t, Number(cid), ls);
   if (ws.moved.length || ws.fixed.length)
     await notify(t, staff(t, ["wholesale", "admin"]), { type: "wholesale_rates", whatsapp: false, data: { batch: ts },
       title: `🚛 Wholesale rates ${ws.moved.length ? `updated for ${ws.moved.length} client rate${ws.moved.length === 1 ? "" : "s"}` : "— review fixed rates"}`,
@@ -156,7 +159,9 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   if (salesman && !at && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
     throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
   const { offline_at: _o, ...sale } = b;
-  return recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
+  const saved = recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
+  if (!saved.duplicate) setImmediate(() => khataFillReceipt(tid(req), saved).catch((e) => console.error("[khata receipt]", e.message)));
+  return saved;
 }));
 
 /** Undo a sale entered by mistake: the salesman within 2 minutes, a manager any time while the shift is open. */
@@ -339,6 +344,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
     body: `${summary.by_product.map((p) => `${PRODUCTS[p.product]} ${Math.round(p.litres).toLocaleString()} L`).join(" · ")}\n` +
       `Sales ${pkr(summary.amount)} · Cash expected ${pkr(closed.cash_expected)} · Counted ${pkr(b.cash_actual)} · ${v < 0 ? "Short" : "Over"} ${pkr(Math.abs(v))}`,
   });
+  await chargeShortage(t, shift, v);
   return { ...closed, summary, readings: shiftReadings(shift.id) };
 }));
 

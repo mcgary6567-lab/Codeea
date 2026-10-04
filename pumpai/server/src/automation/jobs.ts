@@ -6,6 +6,7 @@ import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
 import { askBusiness, writeCampaign } from "../ai/agent.js";
 import { aiEnabled } from "../config.js";
 import { notify, staff, shiftUser } from "../notifications.js";
+import { monthlyBills } from "../billing.js";
 
 export interface Job {
   key: string;
@@ -156,6 +157,16 @@ export const JOBS: Job[] = [
       await notifyOwner(t, text);
       createAlert(t, { type: "daily_brief", severity: "info", title: "Daily brief sent", body: text });
       return "Brief sent to owner";
+    },
+  },
+  {
+    key: "monthly_bills",
+    name: "Monthly khata bills & wholesale statements",
+    description: "On the 1st at 9am, every khata account and wholesale client with activity or dues gets last month's bill on WhatsApp with a printable link (every fill, slip and payment).",
+    cron: "0 9 1 * *",
+    run: async (t) => {
+      const r = await monthlyBills(t);
+      return `${r.month}: ${r.khata} khata bills, ${r.wholesale} wholesale statements sent`;
     },
   },
 ];

@@ -5,11 +5,12 @@
  */
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now, pkDayStart, pkDate, type Row } from "../db.js";
+import { all, get, run, tx, now, pkDayStart, pkDate, pkStart, pkEnd, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
+import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 
 export const wholesale = Router();
 wholesale.use("/wholesale", requirePerm("wholesale.view"));
@@ -73,8 +74,8 @@ function rates(clientId: number): Record<string, number> {
 }
 
 function summary(clientId: number, from?: string, to?: string) {
-  const where = `client_id=? AND voided=0 ${from ? "AND txn_date >= ?" : ""} ${to ? "AND txn_date < date(?, '+1 day')" : ""}`;
-  const args = [clientId, ...(from ? [from] : []), ...(to ? [to] : [])];
+  const where = `client_id=? AND voided=0 ${from ? "AND txn_date >= ?" : ""} ${to ? "AND txn_date < ?" : ""}`;
+  const args = [clientId, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])];
   const byProduct = all(
     `SELECT product,
        ROUND(SUM(CASE WHEN type='supply' THEN litres ELSE 0 END),2) supplied_l,
@@ -166,6 +167,7 @@ function saveRates(clientId: number, newRates: Partial<Record<string, RateInput>
  */
 export function followPumpPrice(tenantId: number, changes: { product: string; old: number | null; new: number }[]) {
   const moved: string[] = [], fixed: string[] = [];
+  const perClient: Record<number, string[]> = {};
   for (const ch of changes) {
     for (const r of all(`SELECT r.*, c.name FROM wholesale_rates r JOIN wholesale_clients c ON c.id=r.client_id
         WHERE c.tenant_id=? AND c.active=1 AND r.product=? ORDER BY c.name`, tenantId, ch.product)) {
@@ -176,9 +178,10 @@ export function followPumpPrice(tenantId: number, changes: { product: string; ol
       run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
         r.client_id, r.product, or, nr, "Pump price change", rateLabel("discount", r.discount), now());
       moved.push(`${r.name}: ${PRODUCTS[ch.product]} Rs ${or} → Rs ${nr} (${rateLabel("discount", r.discount)})`);
+      (perClient[r.client_id] ??= []).push(`${PRODUCTS[ch.product]}: Rs ${nr}/L (pehle Rs ${or})`);
     }
   }
-  return { moved, fixed };
+  return { moved, fixed, perClient };
 }
 
 wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (req) => {
@@ -211,11 +214,14 @@ wholesale.patch("/wholesale/clients/:id", requirePerm("wholesale.manage"), h((re
   return get("SELECT * FROM wholesale_clients WHERE id=?", c.id);
 }));
 
-wholesale.put("/wholesale/clients/:id/rates", requirePerm("wholesale.rates"), h((req) => {
+wholesale.put("/wholesale/clients/:id/rates", requirePerm("wholesale.rates"), h(async (req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   const b = parse(z.object({ rates: z.record(product, rateInput) }), req.body);
+  const before = rates(c.id);
   tx(() => saveRates(c.id, b.rates, req.user!.name));
-  return { rates: rates(c.id), rate_card: rateCard(c.id) };
+  const after = rates(c.id);
+  await wholesaleRateMessage(tid(req), c.id, Object.keys(b.rates).filter((p) => after[p] !== before[p]).map((p) => `${PRODUCTS[p]}: Rs ${after[p]}/L${before[p] ? ` (pehle Rs ${before[p]})` : ""}`));
+  return { rates: after, rate_card: rateCard(c.id) };
 }));
 
 wholesale.get("/wholesale/clients/:id", h((req) => {
@@ -228,13 +234,13 @@ wholesale.get("/wholesale/clients/:id", h((req) => {
 }));
 
 /* ---------------- Statement (ledger with running balance) ---------------- */
-function statement(tenantId: number, clientId: number, from?: string, to?: string) {
+export function statement(tenantId: number, clientId: number, from?: string, to?: string) {
   const c = ownClient(tenantId, clientId);
-  const opening = from ? clientDue(c.id, from) : c.opening_balance;
+  const opening = from ? clientDue(c.id, pkStart(from)) : c.opening_balance;
   const rows = all(
     `SELECT x.*, s.name station_name FROM wholesale_txns x LEFT JOIN stations s ON s.id=x.station_id
-     WHERE x.client_id=? ${from ? "AND x.txn_date >= ?" : ""} ${to ? "AND x.txn_date < date(?, '+1 day')" : ""} ORDER BY x.txn_date, x.id`,
-    ...[c.id, ...(from ? [from] : []), ...(to ? [to] : [])],
+     WHERE x.client_id=? ${from ? "AND x.txn_date >= ?" : ""} ${to ? "AND x.txn_date < ?" : ""} ORDER BY x.txn_date, x.id`,
+    ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   );
   let bal = opening;
   const lines = rows.map((r) => {
@@ -286,6 +292,8 @@ function insertTxn(req: Request, clientId: number, f: Row) {
     tid(req), clientId, f.type, f.station_id ?? null, f.tank_id ?? null, f.product ?? null, f.litres ?? null, f.rate ?? null,
     f.amount, f.method ?? null, f.vehicle_no ?? null, f.ref ?? null, f.note ?? null, req.user!.name, ts, now(),
   );
+  // WhatsApp receipt to the client once the entry is committed
+  setImmediate(() => { if (get("SELECT id FROM wholesale_txns WHERE id=?", id)) wholesaleReceipt(tid(req), clientId, get("SELECT * FROM wholesale_txns WHERE id=?", id)!).catch((e) => console.error("[wholesale receipt]", e.message)); });
   return { ...get("SELECT * FROM wholesale_txns WHERE id=?", id), due_after: clientDue(clientId) };
 }
 
@@ -364,4 +372,17 @@ wholesale.post("/wholesale/txns/:id/void", requirePerm("wholesale.void"), h((req
     createAlert(tid(req), { type: "wholesale_void", severity: "info", title: `Wholesale ${t.type} #${t.id} voided — ${c.name}`, body: `${pkr(t.amount)}. Reason: ${b.reason}. By ${req.user!.name}.` });
     return { ...get("SELECT * FROM wholesale_txns WHERE id=?", t.id)!, due_after: clientDue(t.client_id) };
   });
+}));
+
+/* ---------------- Monthly statement on WhatsApp ---------------- */
+const monthQ = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() });
+wholesale.get("/wholesale/clients/:id/statement-link", h((req) => {
+  const c = ownClient(tid(req), Number(req.params.id));
+  const m = parse(monthQ, req.query).month ?? pkDate().slice(0, 7);
+  return { month: m, url: billLink(tid(req), "w", c.id, m) };
+}));
+wholesale.post("/wholesale/clients/:id/send-statement", requirePerm("wholesale.manage"), h(async (req) => {
+  const c = ownClient(tid(req), Number(req.params.id));
+  if (!c.phone) throw new AppError(400, "Add the client's WhatsApp number first");
+  return sendWholesaleStatement(tid(req), c.id, parse(monthQ, req.body).month ?? prevMonth());
 }));

@@ -48,6 +48,7 @@ export const PERMISSIONS = {
   "stations.manage": ADMIN,
   "settings.manage": ADMIN,
   "users.manage": ADMIN,
+  "staff.manage": MGMT, // staff advances, salary, cash shortages
   "wholesale.view": WHOLESALE,
   "wholesale.manage": WHOLESALE, // add clients, supplies, returns, payments
   "wholesale.rates": ADMIN, // set each client's per-litre rates, credit limits

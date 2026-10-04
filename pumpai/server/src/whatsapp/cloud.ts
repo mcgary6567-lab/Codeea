@@ -88,6 +88,15 @@ export async function sendWhatsApp(
 }
 
 /** Send to an arbitrary number (e.g. the owner) that may not be a customer. */
+/** Message a contact who is not a CRM customer (wholesale client, staff, owner); kept in the outbox. */
+export async function sendDirect(tenantId: number, to: { phone: string | null; name?: string | null }, kind: string, ref: string | null, text: string) {
+  if (!to.phone) return null;
+  const r = waLive() ? await graphSend({ messaging_product: "whatsapp", to: to.phone, type: "text", text: { body: text } }) : null;
+  run("INSERT INTO outbox (tenant_id,to_phone,to_name,kind,ref,text,simulated,ok,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+    tenantId, to.phone, to.name ?? null, kind, ref, text, r ? 0 : 1, r ? (r.ok ? 1 : 0) : null, new Date().toISOString());
+  return r ?? { simulated: true };
+}
+
 export async function sendToPhone(phone: string, text: string) {
   if (!waLive()) return { simulated: true };
   return graphSend({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } });

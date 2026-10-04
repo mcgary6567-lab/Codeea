@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Download, Printer } from "lucide-react";
-import { getToken, useApi } from "../lib/api";
-import { Field, Loading, Modal } from "./ui";
+import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
+import { api, getToken, useApi } from "../lib/api";
+import { Field, Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, num, pkr } from "../lib/format";
 
-const monthStart = () => new Date().toISOString().slice(0, 8) + "01";
-const today = () => new Date().toISOString().slice(0, 10);
+const pkToday = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+const monthStart = () => pkToday().slice(0, 8) + "01";
+const today = pkToday;
 
 /** Khata bill / statement: every fuel slip with litres and the rate on that day, payments, running balance. */
 export default function KhataStatement({ customerId, onClose }: { customerId: number; onClose: () => void }) {
@@ -13,6 +14,9 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const { data: s } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
   const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`;
+  const { busy, run } = useAction();
+  const month = (range.from || pkToday()).slice(0, 7);
+  const openBill = async () => { const r = await run(() => api(`/customers/${customerId}/bill-link?month=${month}`)); if (r) window.open(r.url, "_blank"); };
 
   return (
     <Modal open onClose={onClose} title="Khata bill / statement" wide>
@@ -22,6 +26,9 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
         <button className="btn-secondary" onClick={() => setRange({ from: monthStart(), to: today() })}>This month</button>
         <button className="btn-secondary" onClick={() => setRange({ from: "", to: "" })}>All time</button>
         <div className="ml-auto flex gap-2">
+          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/send-bill`, { body: { month } }), `${month} bill sent on WhatsApp`)}><Send size={15} /> WhatsApp bill</button>
+          <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link</button>
+          <a className="btn-secondary" href={`/cards/${customerId}`} target="_blank" rel="noreferrer"><QrCode size={15} /> QR cards</a>
           <a className="btn-secondary" href={csv}><Download size={15} /> Excel</a>
           <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print bill</button>
         </div>

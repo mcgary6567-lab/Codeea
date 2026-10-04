@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil } from "lucide-react";
+import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
@@ -132,6 +132,8 @@ function ClientDetail({ id }: { id: string }) {
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const stmt = useApi<any>(`/wholesale/clients/${id}/statement${qs ? `?${qs}` : ""}`);
   const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit">(null);
+  const [sending, setSending] = useState(false);
+  const { run: runMsg } = useAction();
   const refresh = () => { client.reload(); stmt.reload(); };
 
   if (client.error) return <ErrorBox error={client.error} />;
@@ -152,6 +154,11 @@ function ClientDetail({ id }: { id: string }) {
             <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return</button>
           </>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment</button>}
+          {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
+            setSending(true);
+            await runMsg(() => api(`/wholesale/clients/${c.id}/send-statement`, { body: { month: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7) } }), "This month's statement sent on WhatsApp");
+            setSending(false);
+          }}><Send size={15} /> WhatsApp statement</button>}
           {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("edit")}><Pencil size={15} /> Edit</button>}
         </div>} />
 

@@ -63,11 +63,14 @@ insightsRouter.patch("/automations/:key", requirePerm("automations.manage"), h((
 insightsRouter.post("/automations/:key/run", requirePerm("automations.manage"), h(async (req) => ({ result: await runJob(tid(req), String(req.params.key)) })));
 
 /* ---------------- Settings ---------------- */
+/** On/off switches for the automatic messages and bookkeeping (all on by default). */
+const AUTO_SETTINGS = ["khata_receipts", "wholesale_messages", "shortage_to_staff"] as const;
 insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   const t = tid(req);
   const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
   return {
     business_name: tenant.name, owner_name: tenant.owner_name, owner_phone: getSetting(t, "owner_phone", tenant.owner_phone ?? ""),
+    automation: Object.fromEntries(AUTO_SETTINGS.map((k) => [k, getSetting(t, k, "1") !== "0"])),
     integrations: {
       claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
@@ -76,7 +79,9 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   };
 }));
 insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
-  const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional() }), req.body);
+  const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional(),
+    automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional() }), req.body);
+  for (const [k, v] of Object.entries(b.automation ?? {})) setSetting(tid(req), k, v ? "1" : "0");
   const t = tid(req);
   if (b.business_name) run("UPDATE tenants SET name=? WHERE id=?", b.business_name, t);
   if (b.owner_name !== undefined) run("UPDATE tenants SET owner_name=? WHERE id=?", b.owner_name, t);

@@ -44,6 +44,10 @@ export function tx<T>(fn: () => T): T {
 export const now = () => new Date().toISOString();
 /** Pakistan (UTC+5, no DST) calendar date, e.g. "2026-10-04". */
 export const pkDate = (ms = Date.now()) => new Date(ms + 5 * 3600_000).toISOString().slice(0, 10);
+/** A "YYYY-MM-DD" Pakistan date → UTC timestamp of its midnight (ISO strings pass through). */
+export const pkStart = (d: string) => (d.length === 10 ? new Date(`${d}T00:00:00+05:00`).toISOString() : d);
+/** Exclusive end of a Pakistan date: midnight of the next day (ISO strings pass through). */
+export const pkEnd = (d: string) => (d.length === 10 ? new Date(Date.parse(`${d}T00:00:00+05:00`) + 86_400_000).toISOString() : d);
 /** UTC timestamp of midnight in Pakistan for the day containing `ms` ("today" starts here, not at 5am). */
 export const pkDayStart = (ms = Date.now()) => new Date(Date.parse(pkDate(ms) + "T00:00:00+05:00")).toISOString();
 
@@ -238,6 +242,19 @@ export function migrate() {
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof
   addColumn("expenses", "photo_id", "INTEGER");
   addColumn("deliveries", "photo_id", "INTEGER");
+  // messages to contacts that are not CRM customers (wholesale clients, staff, owner)
+  db.exec(`CREATE TABLE IF NOT EXISTS outbox (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, to_phone TEXT NOT NULL, to_name TEXT, kind TEXT NOT NULL, ref TEXT,
+    text TEXT NOT NULL, simulated INTEGER NOT NULL DEFAULT 1, ok INTEGER, created_at TEXT NOT NULL)`);
+  addColumn("customers", "card_code", "TEXT"); // QR card for a khata account
+  addColumn("vehicles", "card_code", "TEXT"); // QR card stuck on the vehicle
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_cust_card ON customers(card_code)");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_veh_card ON vehicles(card_code)");
+  addColumn("users", "salary", "REAL"); // monthly salary for the staff account
+  db.exec(`CREATE TABLE IF NOT EXISTS staff_ledger (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id),
+    type TEXT NOT NULL CHECK (type IN ('advance','shortage','repayment','deduction','salary','bonus')),
+    amount REAL NOT NULL, note TEXT, ref TEXT, month TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

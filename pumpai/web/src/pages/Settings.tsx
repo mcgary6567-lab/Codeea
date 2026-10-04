@@ -29,6 +29,7 @@ export default function SettingsPage() {
         <Field label="Owner WhatsApp (alerts & daily brief)"><input className="input" value={f.owner_phone} onChange={(e) => setF({ ...f, owner_phone: e.target.value })} /></Field>
         <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
+      <AutoSwitches values={data.automation ?? {}} onSaved={reload} />
       <div className="grid gap-5 md:grid-cols-2">
         <div className="card space-y-2 p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Claude AI</h2><Status ok={i.claude.connected} label={i.claude.connected ? "Connected" : "Rule engine (offline)"} /></div>
@@ -74,6 +75,27 @@ function StationsSection() {
       </div>
       {addStation && <StationForm onClose={() => setAddStation(false)} onSaved={() => { setAddStation(false); reload(); }} />}
       {tankFor && <TankForm stations={data} stationId={tankFor} onClose={() => setTankFor(null)} onSaved={() => { setTankFor(null); reload(); }} />}
+    </div>
+  );
+}
+
+const SWITCHES: [string, string, string][] = [
+  ["khata_receipts", "WhatsApp receipt for every khata fill", "Police stations, schools, offices and other khata accounts get litres, rate, slip and new balance after each fill."],
+  ["wholesale_messages", "WhatsApp to wholesale clients", "Each supply, payment and return, and their new rate when the pump price changes."],
+  ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (Rs 100 or more), the amount is added to the salesman's staff account to adjust from salary."],
+];
+function AutoSwitches({ values, onSaved }: { values: Record<string, boolean>; onSaved: () => void }) {
+  const { run } = useAction();
+  return (
+    <div className="card divide-y divide-slate-100">
+      <h2 className="p-4 pb-2 font-semibold">Automatic messages & bookkeeping</h2>
+      {SWITCHES.map(([k, title, text]) => (
+        <label key={k} className="flex cursor-pointer items-start gap-3 p-4">
+          <input type="checkbox" className="mt-1 h-5 w-5" checked={values[k] !== false}
+            onChange={(e) => run(() => api("/settings", { method: "PUT", body: { automation: { [k]: e.target.checked } } }), e.target.checked ? "Turned on" : "Turned off").then(onSaved)} />
+          <span><span className="block font-medium">{title}</span><span className="text-sm text-slate-600">{text}</span></span>
+        </label>
+      ))}
     </div>
   );
 }

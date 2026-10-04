@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -26,6 +26,8 @@ const NAV = [
   { to: "/prices", label: "Prices", icon: Tag, perm: "prices.view" },
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
+  { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
+  { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale"] },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];
@@ -51,7 +53,7 @@ export default function Layout() {
       </div>
       <QuickAddButton />
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        {NAV.filter((n) => can(n.perm)).map((n) => (
+        {NAV.filter((n) => (!n.perm || can(n.perm)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? ""))).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
             className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${isActive ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`}>
             <n.icon size={17} />
