@@ -116,3 +116,16 @@ test("offline: a queued sale synced twice is saved once, at the price of the tim
   assert.equal(n, 1);
   assert.equal((await call("salesman", "POST", "/api/sales", { ...body, client_uid: "tablet-old-99999", offline_at: new Date(Date.now() - 50 * 3600_000).toISOString() })).status, 400, "too old");
 });
+
+test("forgotten PIN: admin resets it (typed or made by the app) and the lock is lifted", async () => {
+  const people = ok(await call("", "GET", "/api/auth/pin-users", undefined, { "x-device": device }), "users");
+  const imran = people.find((p: any) => p.name === "Imran");
+  for (let i = 0; i < 5; i++) await call("", "POST", "/api/auth/pin", { user_id: imran.id, pin: "0000" }, { "x-device": device });
+  assert.ok(ok(await call("admin", "GET", "/api/users"), "users").users.find((u: any) => u.id === imran.id).pin_locked_until, "shown as locked");
+  const made = ok(await call("admin", "POST", `/api/users/${imran.id}/reset-pin`, {}), "auto pin");
+  assert.match(made.pin, /^\d{4}$/); assert.equal(made.user.pin_locked_until, null);
+  ok(await call("", "POST", "/api/auth/pin", { user_id: imran.id, pin: made.pin }, { "x-device": device }), "new PIN works at once");
+  ok(await call("admin", "POST", `/api/users/${imran.id}/reset-pin`, { pin: "3333" }), "typed pin");
+  ok(await call("", "POST", "/api/auth/pin", { user_id: imran.id, pin: "3333" }, { "x-device": device }), "typed PIN works");
+  assert.equal((await call("manager", "POST", `/api/users/${imran.id}/reset-pin`, {})).status, 403, "admin only");
+});

@@ -98,12 +98,12 @@ export function pinLogin(device: string | undefined, userId: number, pin: string
   if (!u || !u.pin_hash) throw new AppError(401, "PIN login is not set up for this person");
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   if (u.pin_locked_until && Date.parse(u.pin_locked_until) > Date.now())
-    throw new AppError(429, `Too many wrong PINs. Try again after ${Math.ceil((Date.parse(u.pin_locked_until) - Date.now()) / 60000)} minutes or ask the manager.`);
+    throw new AppError(429, `Too many wrong PINs. Try again after ${Math.ceil((Date.parse(u.pin_locked_until) - Date.now()) / 60000)} minutes, or ask the admin to reset your PIN.`);
   if (!bcrypt.compareSync(pin, u.pin_hash)) {
     const fails = u.pin_fails + 1;
     run("UPDATE users SET pin_fails=?, pin_locked_until=? WHERE id=?", fails >= PIN_TRIES ? 0 : fails,
       fails >= PIN_TRIES ? new Date(Date.now() + PIN_LOCK_MIN * 60000).toISOString() : null, u.id);
-    throw new AppError(401, fails >= PIN_TRIES ? `Wrong PIN. Locked for ${PIN_LOCK_MIN} minutes.` : `Wrong PIN (${PIN_TRIES - fails} tries left)`);
+    throw new AppError(401, fails >= PIN_TRIES ? `Wrong PIN. Locked for ${PIN_LOCK_MIN} minutes — forgot it? Ask the admin to reset it.` : `Wrong PIN (${PIN_TRIES - fails} tries left)`);
   }
   run("UPDATE users SET pin_fails=0, pin_locked_until=NULL WHERE id=?", u.id);
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };

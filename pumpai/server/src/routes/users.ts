@@ -3,14 +3,16 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { all, get, run, now } from "../db.js";
 import { h, parse, tid, requirePerm, ROLES, PERMISSIONS } from "../auth.js";
-import { AppError, normalizePhone } from "../services.js";
+import crypto from "node:crypto";
+import { AppError, normalizePhone, audit } from "../services.js";
 
 /** Admin-only user management. */
 export const users = Router();
 users.use("/users", requirePerm("users.manage"));
 
 const list = (tenantId: number) => all(
-  `SELECT u.id, u.name, u.email, u.phone, u.role, u.station_id, u.active, u.created_at, s.name station_name, u.pin_hash IS NOT NULL has_pin
+  `SELECT u.id, u.name, u.email, u.phone, u.role, u.station_id, u.active, u.created_at, s.name station_name, u.pin_hash IS NOT NULL has_pin,
+     CASE WHEN u.pin_locked_until > strftime('%Y-%m-%dT%H:%M:%fZ','now') THEN u.pin_locked_until END pin_locked_until
    FROM users u LEFT JOIN stations s ON s.id=u.station_id WHERE u.tenant_id=? ORDER BY CASE u.role WHEN 'admin' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, u.name`,
   tenantId,
 );
@@ -67,6 +69,18 @@ users.patch("/users/:id", h((req) => {
   if (b.password) run("UPDATE users SET password_hash=? WHERE id=?", bcrypt.hashSync(b.password, 10), u.id);
   if (b.pin !== undefined) run("UPDATE users SET pin_hash=?, pin_fails=0, pin_locked_until=NULL WHERE id=?", b.pin ? bcrypt.hashSync(b.pin, 10) : null, u.id);
   return list(tid(req)).find((x) => x.id === u.id);
+}));
+
+/** Forgotten PIN: the admin sets a new one (or lets the app pick one) and the lock is lifted. */
+users.post("/users/:id/reset-pin", h((req) => {
+  const u = ownUser(tid(req), Number(req.params.id));
+  const b = parse(z.object({ pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits").optional() }), req.body);
+  // the admin's own choice is used as is; a PIN made by the app avoids easy ones like 0000 or 1234
+  let pin = b.pin;
+  while (!pin) { const p = String(crypto.randomInt(0, 10_000)).padStart(4, "0"); if (!/^(\d)\1{3}$/.test(p) && p !== "1234") pin = p; }
+  run("UPDATE users SET pin_hash=?, pin_fails=0, pin_locked_until=NULL WHERE id=?", bcrypt.hashSync(pin, 10), u.id);
+  audit(tid(req), req.user!, "pin_reset", `user:${u.id}`, { name: u.name });
+  return { pin, user: list(tid(req)).find((x) => x.id === u.id) };
 }));
 
 users.delete("/users/:id", h((req) => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
@@ -26,7 +26,7 @@ const PERM_LABEL: Record<string, string> = {
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
 };
 
-type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string; has_pin?: number };
+type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string; has_pin?: number; pin_locked_until?: string | null };
 
 export default function Users() {
   const { data, reload } = useApi<any>("/users");
@@ -34,6 +34,7 @@ export default function Users() {
   const { user: me } = useAuth();
   const { busy, run } = useAction();
   const [editing, setEditing] = useState<Partial<U> | null>(null);
+  const [pinFor, setPinFor] = useState<U | null>(null);
   if (!data || !stations.data) return <Loading />;
 
   const counts = data.users.reduce((a: Record<string, number>, u: U) => ({ ...a, [u.role]: (a[u.role] ?? 0) + 1 }), {});
@@ -65,10 +66,11 @@ export default function Users() {
                 <td className="td text-sm text-slate-600">{u.email}{(u as any).phone && <div className="text-xs text-slate-400">+{(u as any).phone}</div>}</td>
                 <td className="td"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></td>
                 <td className="td text-sm">{u.station_name ?? <span className="text-slate-400">All stations</span>}</td>
-                <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>} {u.has_pin ? <Badge tone="blue">PIN set</Badge> : null}</td>
+                <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>} {u.has_pin ? <Badge tone="blue">PIN set</Badge> : null} {u.pin_locked_until ? <Badge tone="red">🔒 Locked — wrong PINs</Badge> : null}</td>
                 <td className="td text-xs text-slate-500">{ago(u.created_at)}</td>
                 <td className="td">
                   <div className="flex justify-end gap-1">
+                    <button className="btn-secondary !px-2 !py-1 text-xs" title="Forgot PIN? Set a new one" onClick={() => setPinFor(u)}><KeyRound size={14} /> {u.pin_locked_until ? "Unlock / reset PIN" : "Reset PIN"}</button>
                     <button className="btn-secondary !px-2 !py-1" title="Edit" onClick={() => setEditing(u)}><Pencil size={14} /></button>
                     {u.id !== me?.id && (
                       <>
@@ -110,6 +112,7 @@ export default function Users() {
         <p className="p-4 pt-2 text-xs text-slate-500">Salesmen only see their own station's sales and their own shifts.</p>
       </div>
 
+      {pinFor && <ResetPin user={pinFor} onClose={() => { setPinFor(null); reload(); }} />}
       {editing && <UserForm initial={editing} stations={stations.data} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
     </div>
   );
@@ -168,6 +171,36 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
         </Field>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{isNew ? "Create user" : "Save"}</button></div>
       </form>
+    </Modal>
+  );
+}
+
+/** Forgot PIN: the admin types a new 4-digit PIN or lets the app make one, then tells the staff member. */
+function ResetPin({ user, onClose }: { user: U; onClose: () => void }) {
+  const [pin, setPin] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  const reset = async (body: { pin?: string }) => { const r = await run(() => api(`/users/${user.id}/reset-pin`, { body })); if (r) setDone(r.pin); };
+  return (
+    <Modal open onClose={onClose} title={`New PIN for ${user.name}`}>
+      {done ? (
+        <div className="space-y-3 text-center">
+          <p className="text-slate-600">Tell {user.name} the new PIN. It works right away{user.pin_locked_until ? " and the lock is removed" : ""}.</p>
+          <div className="text-5xl font-bold tracking-[0.4em] tabular-nums" aria-label={`New PIN ${done.split("").join(" ")}`}>{done}</div>
+          <button className="btn-primary w-full" onClick={onClose}>Done</button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {user.pin_locked_until && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700">Locked after too many wrong PINs. A new PIN unlocks it.</p>}
+          <button className="btn-primary w-full py-3 text-base" disabled={busy} onClick={() => reset({})}><KeyRound size={16} /> Make a new PIN for me</button>
+          <div className="text-center text-xs text-slate-400">or type one</div>
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); reset({ pin }); }}>
+            <input className="input text-center text-2xl tracking-[0.5em]" inputMode="numeric" pattern="\d{4}" maxLength={4} required placeholder="••••" aria-label="New 4-digit PIN"
+              value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} autoComplete="off" />
+            <button className="btn-secondary" disabled={busy || pin.length !== 4}>Set</button>
+          </form>
+        </div>
+      )}
     </Modal>
   );
 }
