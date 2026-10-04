@@ -110,6 +110,7 @@ shop.post("/shop/sales", requirePerm("sales.create"), h(async (req) => {
   const customer = b.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", b.customer_id, t) : null;
   if (b.payment_method === "khata") {
     if (!customer) throw new AppError(400, "Khata sale needs a customer");
+    if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
     if (customer.balance + total > customer.credit_limit) throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
   }
   const low: string[] = [];

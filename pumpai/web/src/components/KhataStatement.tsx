@@ -12,7 +12,7 @@ const today = pkToday;
 export default function KhataStatement({ customerId, onClose }: { customerId: number; onClose: () => void }) {
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
-  const { data: s } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
+  const { data: s, reload } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
   const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`;
   const { busy, run } = useAction();
   const month = (range.from || pkToday()).slice(0, 7);
@@ -46,6 +46,14 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
               <div className="text-lg">Amount due: <b className="tabular-nums">{pkr(s.closing_balance)}</b></div>
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm print:hidden">
+            <button className="btn-secondary !py-1" onClick={async () => { const r = await run(() => api(`/customers/${customerId}/portal-link`)); if (r) window.open(r.url, "_blank"); }}><ExternalLink size={14} /> Customer page</button>
+            <button className="btn-secondary !py-1" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/portal-link/send`, { body: {} }), "Page link sent on WhatsApp")}><Send size={14} /> Send page link</button>
+            <a className="btn-secondary !py-1" href={`/api/customers/${customerId}/notice?token=${encodeURIComponent(getToken() ?? "")}`} target="_blank" rel="noreferrer">📜 Payment notice</a>
+            <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={Boolean(s.customer.khata_blocked)} onChange={(e) => run(() => api(`/customers/${customerId}/khata-hold`, { body: { blocked: e.target.checked } }), e.target.checked ? "Khata on hold" : "Khata open again").then(reload)} />
+              <span className={s.customer.khata_blocked ? "font-semibold text-red-600" : ""}>{s.customer.khata_blocked ? "On hold (overdue)" : "Hold khata"}</span></label>
+          </div>
+          {["police", "school", "government", "hospital"].includes(s.customer.type) && <GovtBills customerId={customerId} />}
           <div className="flex flex-wrap gap-2">
             {s.totals.by_product.map((p: any) => (
               <div key={p.product} className="rounded-lg bg-slate-50 px-3 py-2 text-sm"><b>{PRODUCTS[p.product] ?? p.product}</b>: {num(p.litres, 2)} L · {pkr(p.amount)} · {p.entries} slips</div>
@@ -75,5 +83,34 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
         </div>
       )}
     </Modal>
+  );
+}
+
+/** Monthly bills for an office: PO number, when submitted, cheque received. */
+function GovtBills({ customerId }: { customerId: number }) {
+  const { data, reload } = useApi<any[]>("/govt-bills");
+  const { busy, run } = useAction();
+  const [month, setMonth] = useState(() => { const d = new Date(Date.now() + 5 * 3600_000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); });
+  const bills = (data ?? []).filter((b) => b.customer_id === customerId);
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 print:hidden">
+      <div className="mb-2 flex flex-wrap items-end gap-2">
+        <span className="font-semibold">Government bills</span>
+        <input className="input ml-auto w-auto" type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Bill month" />
+        <button className="btn-primary !py-1.5" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/govt-bills`, { body: { month } }), "Bill made").then(reload)}>Make bill</button>
+      </div>
+      {bills.map((b) => (
+        <div key={b.id} className="flex flex-wrap items-center gap-2 border-t border-slate-100 py-2 text-sm">
+          <span className="font-medium">{b.bill_no}</span><span>{b.month}</span><span className="tabular-nums">{pkr(b.amount)}</span>
+          <span className={`rounded px-1.5 text-xs ${b.status === "paid" ? "bg-emerald-100 text-emerald-800" : b.status === "draft" ? "bg-slate-100" : "bg-amber-100 text-amber-800"}`}>{b.status}{b.days_waiting != null ? ` · ${b.days_waiting} days` : ""}</span>
+          {b.po_number && <span className="text-xs text-slate-500">PO {b.po_number}</span>}
+          <span className="ml-auto flex gap-1">
+            {b.status === "draft" && <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { const po = prompt("PO / reference number (optional)") ?? ""; run(() => api(`/govt-bills/${b.id}`, { method: "PATCH", body: { po_number: po || null, submitted_on: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10) } }), "Marked submitted").then(reload); }}>Submitted today</button>}
+            {b.status !== "paid" && <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { const a = prompt(`Cheque / transfer amount (outstanding ${pkr(b.outstanding)})`, String(b.outstanding)); if (a && Number(a) > 0) run(() => api(`/govt-bills/${b.id}/paid`, { body: { amount: Number(a), method: "cheque" } }), "Payment recorded").then(reload); }}>Payment received</button>}
+          </span>
+        </div>
+      ))}
+      {!bills.length && <p className="text-xs text-slate-500">No bills yet. Make the bill for a month, write the PO number when you submit it, and record the cheque when it comes.</p>}
+    </div>
   );
 }

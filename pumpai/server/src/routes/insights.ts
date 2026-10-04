@@ -64,7 +64,7 @@ insightsRouter.post("/automations/:key/run", requirePerm("automations.manage"), 
 
 /* ---------------- Settings ---------------- */
 /** On/off switches for the automatic messages and bookkeeping (all on by default). */
-const AUTO_SETTINGS = ["khata_receipts", "wholesale_messages", "shortage_to_staff"] as const;
+const AUTO_SETTINGS = ["khata_receipts", "wholesale_messages", "shortage_to_staff", "khata_auto_block"] as const;
 insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   const t = tid(req);
   const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
@@ -72,6 +72,7 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
     business_name: tenant.name, owner_name: tenant.owner_name, owner_phone: getSetting(t, "owner_phone", tenant.owner_phone ?? ""),
     automation: Object.fromEntries(AUTO_SETTINGS.map((k) => [k, getSetting(t, k, "1") !== "0"])),
     google_review_url: getSetting(t, "google_review_url", ""),
+    khata_rules: { block_days: Number(getSetting(t, "khata_block_days", "60")), block_institutions: getSetting(t, "khata_block_institutions", "0") === "1", late_fee_pct: Number(getSetting(t, "khata_late_fee_pct", "0")) },
     integrations: {
       claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
@@ -81,8 +82,14 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
 }));
 insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional(),
-    automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional(), google_review_url: z.string().url().or(z.literal("")).optional() }), req.body);
+    automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional(), google_review_url: z.string().url().or(z.literal("")).optional(),
+    khata_rules: z.object({ block_days: z.number().int().min(15).max(365).optional(), block_institutions: z.boolean().optional(), late_fee_pct: z.number().min(0).max(5).optional() }).optional() }), req.body);
   if (b.google_review_url !== undefined) setSetting(tid(req), "google_review_url", b.google_review_url);
+  if (b.khata_rules) {
+    if (b.khata_rules.block_days !== undefined) setSetting(tid(req), "khata_block_days", String(b.khata_rules.block_days));
+    if (b.khata_rules.block_institutions !== undefined) setSetting(tid(req), "khata_block_institutions", b.khata_rules.block_institutions ? "1" : "0");
+    if (b.khata_rules.late_fee_pct !== undefined) setSetting(tid(req), "khata_late_fee_pct", String(b.khata_rules.late_fee_pct));
+  }
   for (const [k, v] of Object.entries(b.automation ?? {})) setSetting(tid(req), k, v ? "1" : "0");
   const t = tid(req);
   if (b.business_name) run("UPDATE tenants SET name=? WHERE id=?", b.business_name, t);

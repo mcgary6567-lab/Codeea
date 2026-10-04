@@ -30,6 +30,7 @@ export default function SettingsPage() {
         <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
       <AutoSwitches values={data.automation ?? {}} review={data.google_review_url} onSaved={reload} />
+      <KhataRules r={data.khata_rules} onSaved={reload} />
       <div className="grid gap-5 md:grid-cols-2">
         <div className="card space-y-2 p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Claude AI</h2><Status ok={i.claude.connected} label={i.claude.connected ? "Connected" : "Rule engine (offline)"} /></div>
@@ -82,6 +83,7 @@ function StationsSection() {
 const SWITCHES: [string, string, string][] = [
   ["khata_receipts", "WhatsApp receipt for every khata fill", "Police stations, schools, offices and other khata accounts get litres, rate, slip and new balance after each fill."],
   ["wholesale_messages", "WhatsApp to wholesale clients", "Each supply, payment and return, and their new rate when the pump price changes."],
+  ["khata_auto_block", "Put overdue khata on hold", "An account with no payment for the days set below is put on hold at the POS until it pays; the customer is told on WhatsApp."],
   ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (Rs 100 or more), the amount is added to the salesman's staff account to adjust from salary."],
 ];
 function AutoSwitches({ values, review, onSaved }: { values: Record<string, boolean>; review?: string; onSaved: () => void }) {
@@ -103,5 +105,20 @@ function AutoSwitches({ values, review, onSaved }: { values: Record<string, bool
         </label>
       ))}
     </div>
+  );
+}
+
+function KhataRules({ r, onSaved }: { r?: { block_days: number; block_institutions: boolean; late_fee_pct: number }; onSaved: () => void }) {
+  const [f, setF] = useState({ block_days: String(r?.block_days ?? 60), block_institutions: r?.block_institutions ?? false, late_fee_pct: String(r?.late_fee_pct ?? 0) });
+  const { busy, run } = useAction();
+  return (
+    <form className="card grid gap-3 p-4 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { khata_rules: { block_days: Number(f.block_days), block_institutions: f.block_institutions, late_fee_pct: Number(f.late_fee_pct) } } }), "Khata rules saved").then(onSaved); }}>
+      <h2 className="font-semibold sm:col-span-3">Khata rules</h2>
+      <label className="block"><span className="label">Hold khata after no payment for (days)</span><input className="input" type="number" min={15} max={365} value={f.block_days} onChange={(e) => setF({ ...f, block_days: e.target.value })} /></label>
+      <label className="block"><span className="label">Late-payment charge per month (%, 0 = off)</span><input className="input" type="number" min={0} max={5} step="0.1" value={f.late_fee_pct} onChange={(e) => setF({ ...f, late_fee_pct: e.target.value })} /></label>
+      <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={f.block_institutions} onChange={(e) => setF({ ...f, block_institutions: e.target.checked })} /> Also hold police / government / school accounts</label>
+      <p className="text-xs text-slate-500 sm:col-span-3">Institutions are never charged a late fee. Their bills can be tracked with PO numbers on each account's khata page.</p>
+      <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
+    </form>
   );
 }

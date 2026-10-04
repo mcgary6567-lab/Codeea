@@ -56,6 +56,8 @@ export function khataEntry(customerId: number, type: "debit" | "credit", amount:
     run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)",
       customerId, type, amount, ref, note, now());
     run("UPDATE customers SET balance = balance + ? WHERE id=?", type === "debit" ? amount : -amount, customerId);
+    // a payment lifts an overdue hold
+    if (type === "credit") run("UPDATE customers SET khata_blocked=0 WHERE id=?", customerId);
     return get("SELECT * FROM customers WHERE id=?", customerId)!;
   });
 }
@@ -97,6 +99,7 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   const customer = s.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", s.customer_id, tenantId) : undefined;
   if (s.payment_method === "khata") {
     if (!customer) throw new AppError(400, "Khata sale needs a customer");
+    if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
     if (customer.balance + amount > customer.credit_limit)
       throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
   }

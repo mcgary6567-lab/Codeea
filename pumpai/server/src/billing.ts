@@ -11,6 +11,7 @@ import { paymentLink, pkr } from "./services.js";
 import { sendWhatsApp, sendDirect } from "./whatsapp/cloud.js";
 import { khataStatement } from "./routes/crm.js";
 import { statement as wholesaleStatement, clientDue } from "./routes/wholesale.js";
+import { portalLink } from "./routes/customerCare.js";
 
 type Kind = "k" | "w"; // khata customer | wholesale client
 const on = (tenantId: number, key: string) => getSetting(tenantId, key, "1") !== "0";
@@ -73,7 +74,7 @@ export async function sendKhataBill(tenantId: number, customerId: number, month 
   const s = khataStatement(tenantId, c.id, from, to);
   const fuel = s.totals.by_product.map((p: any) => `${PRODUCTS[p.product] ?? p.product} ${Math.round(p.litres)} L = ${pkr(p.amount)}`).join("\n");
   const text = `📄 ${c.name} — ${monthName(month)} ka bill\n${fuel || "Is mahine koi fuel nahi liya"}\nIs mahine: ${pkr(s.totals.charged)} · Payment: ${pkr(s.totals.paid)}\n` +
-    `Kul baqaya: ${pkr(s.closing_balance)}\nPoora bill (slips ke saath, print ke liye): ${billLink(tenantId, "k", c.id, month)}` +
+    `Kul baqaya: ${pkr(s.closing_balance)}\nPoora bill (slips ke saath, print ke liye): ${billLink(tenantId, "k", c.id, month)}\nApna khata kabhi bhi dekhein: ${portalLink(c)}` +
     (s.closing_balance > 0 ? `\nPay karein: ${paymentLink(c, s.closing_balance)}` : "");
   await sendWhatsApp(tenantId, c, text, "system", { kind: "monthly_bill", month });
   return { month, charged: s.totals.charged, closing: s.closing_balance };

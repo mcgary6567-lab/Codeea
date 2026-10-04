@@ -302,6 +302,18 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS leaves (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'paid', reason TEXT, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, created_at TEXT NOT NULL)`);
+  // khata control: hold when overdue, customer portal link version, government bills with PO numbers
+  addColumn("customers", "khata_blocked", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("customers", "portal_v", "INTEGER NOT NULL DEFAULT 1");
+  db.exec(`CREATE TABLE IF NOT EXISTS khata_bills (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, month TEXT NOT NULL, bill_no TEXT NOT NULL, amount REAL NOT NULL,
+    po_number TEXT, submitted_on TEXT, status TEXT NOT NULL DEFAULT 'draft', paid_amount REAL NOT NULL DEFAULT 0, note TEXT, created_at TEXT NOT NULL,
+    UNIQUE (customer_id, month))`);
+  // car wash / oil change / tyre bookings
+  db.exec(`CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, service TEXT NOT NULL,
+    at TEXT NOT NULL, vehicle_no TEXT, status TEXT NOT NULL DEFAULT 'booked', note TEXT, created_by TEXT, reminded INTEGER NOT NULL DEFAULT 0,
+    done_at TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

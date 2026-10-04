@@ -24,6 +24,7 @@ import { backoffice, renderDay } from "./routes/backoffice.js";
 import { shop } from "./routes/shop.js";
 import { compliance } from "./routes/compliance.js";
 import { analysis } from "./routes/analysis.js";
+import { care, renderPortal } from "./routes/customerCare.js";
 import { renderReceipt } from "./billing.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
@@ -62,6 +63,11 @@ app.get("/r/:token", (req, res) => {
   const html = renderReceipt(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>Receipt not found.</p>");
 });
+// khata customer's own page (private link)
+app.get("/portal/:token", (req, res) => {
+  const html = renderPortal(req.params.token);
+  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This link is no longer valid. Ask the pump for a new one.</p>");
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -88,6 +94,7 @@ api.use(backoffice);
 api.use(shop);
 api.use(compliance);
 api.use(analysis);
+api.use(care);
 app.use("/api", api);
 
 // Serve the built dashboard in production

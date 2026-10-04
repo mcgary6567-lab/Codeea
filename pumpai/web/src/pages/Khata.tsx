@@ -30,6 +30,7 @@ export default function Khata() {
         <Stat label="Near limit (80%+)" value={nearLimit} tone="amber" />
         <Stat label="High credit risk" value={highRisk} tone="red" />
       </div>
+      <OpenGovtBills onOpen={setBill} />
       <div className="mb-3 flex flex-wrap gap-2">
         {[["", "All"], ["institution", "🏛️ Police / Govt / Schools"], ["fleet", "🚚 Fleets"], ["farmer", "🚜 Farmers"], ["business", "🏢 Businesses"], ["retail", "🚗 Retail"]].map(([k, l]) => (
           <button key={k} onClick={() => setGroup(k)} className={`rounded-full px-3 py-1.5 text-sm ${group === k ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`}>
@@ -45,7 +46,7 @@ export default function Khata() {
               const util = c.credit_limit ? Math.min(100, (c.balance / c.credit_limit) * 100) : 0;
               return (
                 <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
-                  <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}</div></td>
+                  <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{c.khata_blocked ? <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-700">On hold</span> : null}</div></td>
                   <td className="td text-right font-medium tabular-nums">{pkr(c.balance)}</td>
                   <td className="td text-right tabular-nums text-slate-600">{pkr(c.credit_limit)}</td>
                   <td className="td"><div className="h-1.5 w-28 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${util}%`, background: util >= 80 ? "#e34948" : "#2a78d6" }} /></div><span className="text-xs text-slate-500">{Math.round(util)}%</span></td>
@@ -60,6 +61,24 @@ export default function Khata() {
         {!rows.length && <Empty>No credit customers</Empty>}
       </div>
       {bill && <KhataStatement customerId={bill} onClose={() => setBill(null)} />}
+    </div>
+  );
+}
+
+/** Government bills submitted and not yet paid, oldest first. */
+function OpenGovtBills({ onOpen }: { onOpen: (id: number) => void }) {
+  const { data } = useApi<any[]>("/govt-bills");
+  const open = (data ?? []).filter((b) => b.status === "submitted" || b.status === "partly").sort((a, b) => (b.days_waiting ?? 0) - (a.days_waiting ?? 0));
+  if (!open.length) return null;
+  return (
+    <div className="card mb-4 p-4">
+      <h2 className="mb-2 font-semibold">Government bills waiting for payment · {pkr(open.reduce((a, b) => a + b.outstanding, 0))}</h2>
+      {open.map((b) => (
+        <button key={b.id} onClick={() => onOpen(b.customer_id)} className="flex w-full justify-between border-b border-slate-100 py-1.5 text-left text-sm hover:bg-slate-50">
+          <span>{b.customer_name} · {b.bill_no}{b.po_number ? ` · PO ${b.po_number}` : ""}</span>
+          <span className={b.days_waiting > 45 ? "font-semibold text-red-600" : ""}>{pkr(b.outstanding)} · {b.days_waiting} days</span>
+        </button>
+      ))}
     </div>
   );
 }

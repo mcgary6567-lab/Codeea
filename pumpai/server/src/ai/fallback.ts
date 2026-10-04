@@ -5,6 +5,7 @@
 import { customerTools, runTool, type ToolCtx } from "./tools.js";
 import { PRODUCTS } from "../config.js";
 import { pkr, rateFmt } from "../services.js";
+import { parseBookingText } from "../routes/customerCare.js";
 
 const has = (t: string, words: string[]) => words.some((w) => t.includes(w));
 
@@ -20,6 +21,22 @@ export async function fallbackReply(ctx: ToolCtx, text: string): Promise<string>
   if (t.trim() === "start") {
     await call("set_marketing_preference", { opt_in: true });
     return "Shukriya! Aap ko dobara offers aur price updates milte rahenge. ✅";
+  }
+  // service bookings: "kal 5 baje car wash book", "oil change booking", "cancel booking"
+  if (has(t, ["wash", "dhulai", "oil change", "puncture", "tyre", "tire", "tuning", "service", "booking", "book"]) && !has(t, ["litre", "liter", "ltr"])) {
+    if (has(t, ["cancel", "nahi aa", "nahin aa"])) {
+      const mine = await call("get_my_bookings");
+      if (!mine.length) return "Aap ki koi aane wali booking nahi hai.";
+      await call("cancel_booking", { booking_id: mine[0].id });
+      return `Booking #${mine[0].id} cancel kar di gayi. Phir kabhi book karni ho to bata dein. 🙏`;
+    }
+    const { service, at } = parseBookingText(text);
+    if (service && at) {
+      const r = await call("book_service", { service, at });
+      if (r.error || !r.booking_id) return `Maazrat, booking nahi ho saki${r.error ? `: ${r.error}` : ""}. Koi aur waqt bata dein.`;
+      return `✅ Booking #${r.booking_id}: ${{ car_wash: "Car wash", oil_change: "Oil change", tyre: "Tyre / puncture", service: "Service" }[service]} — ${r.at_pakistan_time}, ${r.station}. Ek ghanta pehle yaad dila denge.`;
+    }
+    if (service) return "Zaroor! Kis din aur kitne baje aana chahenge? Masalan: \"kal 5 baje\" ya \"aaj shaam 7 baje\".";
   }
   if (has(t, ["manager", "insaan", "human", "agent", "call me", "call karo", "baat karni"])) {
     await call("handoff_to_human", { reason: "Customer asked for a human" });

@@ -10,6 +10,7 @@ import { monthlyBills } from "../billing.js";
 import { closeDay } from "../routes/backoffice.js";
 import { licenceWatch, checklistWatch, attendanceWatch } from "../routes/compliance.js";
 import { weeklyStaffRisk } from "../routes/analysis.js";
+import { khataOverdue, khataLateFees, bookingReminders, serviceDue } from "../routes/customerCare.js";
 
 export interface Job {
   key: string;
@@ -199,6 +200,34 @@ export const JOBS: Job[] = [
     description: "Monday 10am: the owner gets each salesman with a risk score — short shifts, litres not entered on the POS, undone sales, late days and failed checks.",
     cron: "0 10 * * 1",
     run: async (t) => `${await weeklyStaffRisk(t)} salesmen flagged`,
+  },
+  {
+    key: "khata_overdue",
+    name: "Overdue khata hold",
+    description: "Every morning: khata accounts with no payment for the set number of days (default 60) are put on hold and told on WhatsApp; a payment lifts the hold. Police / government / schools are left out unless switched on.",
+    cron: "0 8 * * *",
+    run: async (t) => `${await khataOverdue(t)} accounts put on hold`,
+  },
+  {
+    key: "khata_late_fee",
+    name: "Late-payment charge",
+    description: "On the 1st, if a late-charge percent is set in Settings, adds it to khata balances unpaid for 30+ days (never to institutions). Off by default.",
+    cron: "0 8 1 * *",
+    run: async (t) => `${await khataLateFees(t)} charges added`,
+  },
+  {
+    key: "booking_reminders",
+    name: "Service booking reminders",
+    description: "Every 15 minutes: WhatsApp reminder about an hour before each car wash / oil change / tyre booking.",
+    cron: "*/15 * * * *",
+    run: async (t) => `${await bookingReminders(t)} reminders`,
+  },
+  {
+    key: "service_due",
+    name: "Oil change due",
+    description: "Daily: customers whose last oil change was 3 months ago get a reminder to book the next one (opted-in only).",
+    cron: "30 10 * * *",
+    run: async (t) => `${await serviceDue(t)} reminders`,
   },
   {
     key: "monthly_bills",

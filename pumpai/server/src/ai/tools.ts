@@ -4,6 +4,7 @@ import { all, get, run, now, type Row } from "../db.js";
 import { PRODUCTS } from "../config.js";
 import { currentPrices, paymentLink, createAlert, pkr, round2 } from "../services.js";
 import { bus } from "../whatsapp/cloud.js";
+import { createBooking, portalLink } from "../routes/customerCare.js";
 
 export interface ToolCtx {
   tenantId: number;
@@ -150,6 +151,39 @@ export const customerTools: ToolDef[] = [
       ctx.actions.push(i.opt_in ? "Opted in" : "Opted out");
       return { ok: true };
     },
+  },
+  {
+    name: "book_service",
+    description: "Book a car wash, oil change, tyre/puncture or service/tuning slot at the pump. Ask for the day and time first; 'at' is an ISO time with +05:00 (Pakistan).",
+    input_schema: obj({ service: { type: "string", enum: ["car_wash", "oil_change", "tyre", "service"] }, at: { type: "string", description: "e.g. 2026-10-06T17:00:00+05:00" }, vehicle_no: { type: "string" } }, ["service", "at"]),
+    run: (ctx, i) => {
+      const b = createBooking(ctx.tenantId, { customer_id: ctx.customer.id, service: i.service, at: i.at, vehicle_no: i.vehicle_no ?? null, by: "WhatsApp AI" });
+      ctx.actions.push(`Booked ${i.service} #${b.id}`);
+      return { booking_id: b.id, service: b.service, at_pakistan_time: new Date(b.at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }), station: b.station_name };
+    },
+  },
+  {
+    name: "get_my_bookings",
+    description: "The customer's upcoming service bookings.",
+    input_schema: obj({}),
+    run: (ctx) => all("SELECT id, service, at, status FROM bookings WHERE customer_id=? AND status='booked' AND at >= ? ORDER BY at", ctx.customer.id, new Date().toISOString())
+      .map((b) => ({ ...b, at_pakistan_time: new Date(b.at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }) })),
+  },
+  {
+    name: "cancel_booking",
+    description: "Cancel one of the customer's own upcoming bookings.",
+    input_schema: obj({ booking_id: { type: "integer" } }, ["booking_id"]),
+    run: (ctx, i) => {
+      const r = run("UPDATE bookings SET status='cancelled' WHERE id=? AND customer_id=? AND status='booked'", i.booking_id, ctx.customer.id);
+      if (r.changes) ctx.actions.push(`Booking #${i.booking_id} cancelled`);
+      return r.changes ? { ok: true } : { error: "No such upcoming booking" };
+    },
+  },
+  {
+    name: "get_my_khata_page",
+    description: "Private link where a khata customer can see their balance, every fill with slip numbers and monthly bills.",
+    input_schema: obj({}),
+    run: (ctx) => (ctx.customer.credit_limit > 0 ? { link: portalLink(ctx.customer as any) } : { error: "No khata account" }),
   },
   {
     name: "update_my_name",

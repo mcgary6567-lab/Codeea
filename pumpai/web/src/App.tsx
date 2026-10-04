@@ -31,6 +31,7 @@ import Shop from "./pages/Shop";
 import Compliance from "./pages/Compliance";
 import ChecklistPage from "./pages/ChecklistPage";
 import Insights from "./pages/Insights";
+import Bookings from "./pages/Bookings";
 
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
@@ -126,6 +127,7 @@ export default function App() {
               <Route path="compliance" element={<Need perm="alerts.view"><Compliance /></Need>} />
               <Route path="checklist" element={<Need perm="sales.create"><ChecklistPage /></Need>} />
               <Route path="insights" element={<Need perm="reports.view"><Insights /></Need>} />
+              <Route path="bookings" element={<Need perm="sales.create"><Bookings /></Need>} />
             </Route>
             <Route path="/cards/:id" element={<Protected><Need perm="khata.manage"><Cards /></Need></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />

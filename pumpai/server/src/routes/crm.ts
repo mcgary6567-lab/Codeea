@@ -141,7 +141,7 @@ export function khataStatement(tenantId: number, id: number, from?: string, to?:
   ).map((l) => { bal += l.type === "debit" ? l.amount : -l.amount; return { ...l, balance: Math.round(bal * 100) / 100 }; });
   const fuel = lines.filter((l) => l.type === "debit");
   return {
-    customer: { id: c.id, name: c.name, type: c.type, phone: c.phone, city: c.city, credit_limit: c.credit_limit, balance: c.balance },
+    customer: { id: c.id, name: c.name, type: c.type, phone: c.phone, city: c.city, credit_limit: c.credit_limit, balance: c.balance, khata_blocked: c.khata_blocked },
     from: from ?? null, to: to ?? null, opening_balance: before, closing_balance: bal, lines,
     totals: {
       by_product: Object.values(fuel.reduce((a: Record<string, any>, l) => {
@@ -227,7 +227,7 @@ crm.post("/customers/:id/remind", requirePerm("khata.manage"), h(async (req) => 
 }));
 
 crm.get("/khata", requirePerm("khata.manage"), h((req) => all(
-  `SELECT c.id, c.name, c.phone, c.type, c.balance, c.credit_limit, c.risk_score,
+  `SELECT c.id, c.name, c.phone, c.type, c.balance, c.credit_limit, c.risk_score, c.khata_blocked,
      (SELECT MAX(created_at) FROM khata_ledger k WHERE k.customer_id=c.id AND k.type='credit') last_payment
    FROM customers c WHERE c.tenant_id=? AND (c.balance > 0 OR c.credit_limit > 0) ORDER BY c.balance DESC`, tid(req))));
 
