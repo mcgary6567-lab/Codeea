@@ -226,7 +226,16 @@ export function migrate() {
   CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
   `);
   addColumn("users", "phone", "TEXT");
+  addColumn("users", "pin_hash", "TEXT"); // 4-digit quick login on the pump's shared tablet
+  addColumn("users", "pin_fails", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("users", "pin_locked_until", "TEXT");
   addColumn("sales", "slip_no", "TEXT");
+  addColumn("sales", "created_by", "INTEGER"); // user who entered it (for undo)
+  addColumn("sales", "client_uid", "TEXT"); // id from the POS so an offline sale synced twice is saved once
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales(client_uid)");
+  db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
+    ref TEXT, data TEXT, created_at TEXT NOT NULL)`);
   addColumn("expenses", "shift_id", "INTEGER"); // paid in cash from a salesman's shift
   addColumn("meter_readings", "handover_prev", "REAL"); // previous shift's closing reading for this nozzle
   addColumn("wholesale_rates", "mode", "TEXT NOT NULL DEFAULT 'fixed'"); // fixed | discount (pump price − discount)

@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.js";
-import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
+import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
@@ -131,16 +131,48 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]),
     customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(20).nullable().optional(),
     slip_no: z.string().max(40).nullable().optional(),
+    client_uid: z.string().min(8).max(64).nullable().optional(),
+    /** when the sale was made on a tablet without internet; billed at the price in force then */
+    offline_at: z.string().datetime({ offset: true }).nullable().optional(),
   }), req.body);
   b.station_id = scopedStation(req, b.station_id)!;
-  // a salesman's sale goes on their own open shift; others use the station's latest open shift
-  const shift = req.user!.role === "salesman"
-    ? get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
-    : get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
-  if (req.user!.role === "salesman" && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
-  if (req.user!.role === "salesman" && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
+  const at = b.offline_at ? new Date(b.offline_at).toISOString() : null;
+  if (at && (Date.parse(at) > Date.now() + 60_000 || Date.parse(at) < Date.now() - 48 * 3600_000))
+    throw new AppError(400, "Offline sale time is not valid (must be within the last 48 hours)");
+  if (b.client_uid) {
+    const dup = get("SELECT * FROM sales WHERE client_uid=? AND station_id=?", b.client_uid, b.station_id);
+    if (dup) return { ...dup, duplicate: true };
+  }
+  const salesman = req.user!.role === "salesman";
+  // a salesman's sale goes on their own shift (the one open when an offline sale was made); others use the station's open shift
+  const shift = salesman
+    ? at
+      ? get("SELECT id, status FROM shifts WHERE station_id=? AND attendant=? AND opened_at<=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name, at)
+      : get("SELECT id, status FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
+    : get("SELECT id, status FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+  if (salesman && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
+  if (shift && shift.status !== "open") throw new AppError(409, "This shift is already closed; its litres were counted from the meter. Tell the manager about this sale.");
+  if (salesman && !at && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
     throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
-  return recordSale(tid(req), { ...b, shift_id: shift?.id ?? null });
+  const { offline_at: _o, ...sale } = b;
+  return recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
+}));
+
+/** Undo a sale entered by mistake: the salesman within 2 minutes, a manager any time while the shift is open. */
+operations.post("/sales/:id/undo", requirePerm("sales.create"), h((req) => {
+  const sale = get(`SELECT s.*, sh.status shift_status FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN shifts sh ON sh.id=s.shift_id
+    WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), tid(req));
+  if (!sale) throw new AppError(404, "Sale not found");
+  const salesman = req.user!.role === "salesman";
+  if (salesman && sale.created_by !== req.user!.id) throw new AppError(403, "You can only undo your own sales");
+  if (salesman && Date.now() - Date.parse(sale.created_at) > UNDO_SECONDS * 1000) throw new AppError(400, "Undo time (2 minutes) has passed. Ask the manager.");
+  if (sale.shift_id && sale.shift_status !== "open") throw new AppError(400, "The shift is closed; this sale can no longer be undone");
+  if (!sale.created_by) throw new AppError(400, "Meter settlement entries cannot be undone");
+  if (sale.shift_id && get("SELECT id FROM meter_readings WHERE shift_id=? AND checkpoint IS NOT NULL AND checkpoint_at > ? LIMIT 1", sale.shift_id, sale.created_at))
+    throw new AppError(400, "Prices changed after this sale and the meters were settled; ask the manager to adjust instead");
+  undoSale(sale);
+  audit(tid(req), req.user!, "sale_undo", `SALE-${sale.id}`, { product: sale.product, litres: sale.litres, amount: sale.amount, payment: sale.payment_method, customer_id: sale.customer_id });
+  return { ok: true, undone: sale.id, summary: sale.shift_id ? shiftSummary(sale.shift_id) : null };
 }));
 
 /* ---------------- Shifts ---------------- */

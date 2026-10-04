@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { all, get } from "../db.js";
 import { h, tid, requirePerm, scopedStation } from "../auth.js";
-import { currentPrices } from "../services.js";
+import { currentPrices, UNDO_SECONDS } from "../services.js";
 import { shiftSummary } from "../shifts.js";
 
 export const pos = Router();
@@ -40,11 +40,12 @@ pos.get("/pos/today", h((req) => {
     ? get("SELECT * FROM shifts WHERE station_id=? AND attendant=? AND status='open' ORDER BY id DESC LIMIT 1", stationId, u.name)
     : get("SELECT * FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", stationId);
   return {
+    server_time: new Date().toISOString(), undo_seconds: UNDO_SECONDS,
     station: get("SELECT id, name FROM stations WHERE id=?", stationId),
     prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
     products: [...new Set(all("SELECT product FROM tanks WHERE station_id=?", stationId).map((t) => t.product))],
     shift: shift ? { ...shift, hours_open: (Date.now() - Date.parse(shift.opened_at)) / 3600_000, summary: shiftSummary(shift.id) } : null,
-    recent: shift ? all(`SELECT s.id, s.product, s.litres, s.rate, s.amount, s.payment_method, s.vehicle_no, s.slip_no, s.created_at, c.name customer_name
+    recent: shift ? all(`SELECT s.id, s.product, s.litres, s.rate, s.amount, s.payment_method, s.vehicle_no, s.slip_no, s.created_at, s.created_by, c.name customer_name
       FROM sales s LEFT JOIN customers c ON c.id=s.customer_id WHERE s.shift_id=? ORDER BY s.id DESC LIMIT 12`, shift.id) : [],
   };
 }));

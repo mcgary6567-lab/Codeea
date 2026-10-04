@@ -6,15 +6,20 @@ export const setToken = (t: string | null) => { try { t ? localStorage.setItem(T
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
-export async function api<T = any>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+const DEVICE_KEY = "pumpai_device";
+/** Links this tablet to the business so staff can sign in with name + PIN. */
+export const getDevice = () => { try { return localStorage.getItem(DEVICE_KEY); } catch { return null; } };
+export const setDevice = (t: string | null) => { try { t ? localStorage.setItem(DEVICE_KEY, t) : localStorage.removeItem(DEVICE_KEY); } catch { /* storage blocked */ } };
+
+export async function api<T = any>(path: string, opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`/api${path}`, {
     method: opts.method ?? (opts.body ? "POST" : "GET"),
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...opts.headers },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== "/auth/login") {
+  if (res.status === 401 && !path.startsWith("/auth/")) {
     setToken(null);
     window.location.href = "/login";
   }

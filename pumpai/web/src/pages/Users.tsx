@@ -26,7 +26,7 @@ const PERM_LABEL: Record<string, string> = {
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
 };
 
-type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string };
+type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string; has_pin?: number };
 
 export default function Users() {
   const { data, reload } = useApi<any>("/users");
@@ -65,7 +65,7 @@ export default function Users() {
                 <td className="td text-sm text-slate-600">{u.email}{(u as any).phone && <div className="text-xs text-slate-400">+{(u as any).phone}</div>}</td>
                 <td className="td"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></td>
                 <td className="td text-sm">{u.station_name ?? <span className="text-slate-400">All stations</span>}</td>
-                <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}</td>
+                <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>} {u.has_pin ? <Badge tone="blue">PIN set</Badge> : null}</td>
                 <td className="td text-xs text-slate-500">{ago(u.created_at)}</td>
                 <td className="td">
                   <div className="flex justify-end gap-1">
@@ -117,12 +117,14 @@ export default function Users() {
 
 export function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>; stations: any[]; onClose: () => void; onSaved: () => void }) {
   const isNew = !initial.id;
-  const [f, setF] = useState({ name: initial.name ?? "", email: initial.email ?? "", phone: (initial as any).phone ?? "", role: initial.role ?? "salesman", station_id: initial.station_id ?? "", password: "" });
+  const [f, setF] = useState({ name: initial.name ?? "", email: initial.email ?? "", phone: (initial as any).phone ?? "", role: initial.role ?? "salesman", station_id: initial.station_id ?? "", password: "", pin: "", clearPin: false });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const body: any = { name: f.name, email: f.email, phone: f.phone || null, role: f.role, station_id: f.station_id ? Number(f.station_id) : null };
     if (f.password) body.password = f.password;
+    if (f.pin) body.pin = f.pin;
+    else if (f.clearPin) body.pin = null;
     const r = await run(() => isNew ? api("/users", { body }) : api(`/users/${initial.id}`, { method: "PATCH", body }), isNew ? `${f.name} can now sign in` : "User updated");
     if (r) onSaved();
   };
@@ -156,6 +158,13 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
         </Field>
         <Field label={isNew ? "Password (min 6 characters)" : "New password (leave blank to keep)"}>
           <input className="input" type="password" minLength={6} required={isNew} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
+        </Field>
+        <Field label={initial.has_pin ? "Quick sign-in PIN (4 digits) — set, type a new one to change" : "Quick sign-in PIN (4 digits, for the pump tablet)"}>
+          <div className="flex items-center gap-3">
+            <input className="input w-32 text-center tracking-[0.5em]" inputMode="numeric" pattern="\d{4}" maxLength={4} placeholder="••••" value={f.pin}
+              onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "").slice(0, 4), clearPin: false })} autoComplete="off" />
+            {initial.has_pin ? <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={f.clearPin} onChange={(e) => setF({ ...f, clearPin: e.target.checked, pin: "" })} /> Remove PIN</label> : null}
+          </div>
         </Field>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{isNew ? "Create user" : "Save"}</button></div>
       </form>

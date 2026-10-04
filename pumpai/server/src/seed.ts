@@ -37,6 +37,9 @@ export function seed() {
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Kamran Shah", "manager@pumpai.pk", hash, "manager");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone) VALUES (?,?,?,?,?,1,?)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman", "923011234567");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Tariq Wholesale", "wholesale@pumpai.pk", hash, "wholesale");
+    // demo quick-login PINs: admin 1111, manager 2222, salesman 3333, wholesale 4444
+    for (const [email, pin] of [["admin", "1111"], ["manager", "2222"], ["salesman", "3333"], ["wholesale", "4444"]])
+      run("UPDATE users SET pin_hash=? WHERE email=?", bcrypt.hashSync(pin, 8), `${email}@pumpai.pk`);
 
     const st1 = run("INSERT INTO stations (tenant_id,name,city,address,omc,lat,lng,timings,services) VALUES (?,?,?,?,?,?,?,?,?)",
       tenantId, "Al-Madina Ferozepur Road", "Lahore", "Ferozepur Road, near Kalma Chowk, Lahore", "PSO", 31.5003, 74.3311, "24 hours", "Petrol, Hi-Octane, Diesel, Tuck shop, Air, Car wash").id;

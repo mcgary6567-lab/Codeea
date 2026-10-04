@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { z, ZodError } from "zod";
 import { config } from "./config.js";
-import { get } from "./db.js";
+import { all, get, run } from "./db.js";
 import { AppError } from "./services.js";
 
 /**
@@ -74,12 +74,47 @@ export function signToken(u: AuthUser) {
   return jwt.sign({ sub: u.id }, config.jwtSecret, { expiresIn: "7d" });
 }
 
+/** A device token links a pump tablet to the business so staff can sign in by tapping their name + PIN. */
+export const deviceToken = (tenantId: number) => jwt.sign({ dev: tenantId }, config.jwtSecret, { expiresIn: "365d" });
+function deviceTenant(token: string | undefined): number {
+  try {
+    const p = jwt.verify(token ?? "", config.jwtSecret) as { dev?: number };
+    if (typeof p.dev === "number") return p.dev;
+  } catch { /* fall through */ }
+  throw new AppError(401, "This device is not linked. Sign in once with email and password.");
+}
+
+/** Staff who can sign in with a PIN on this device. */
+export function pinUsers(device: string | undefined) {
+  return all(`SELECT u.id, u.name, u.role, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
+    WHERE u.tenant_id=? AND u.active=1 AND u.pin_hash IS NOT NULL
+    ORDER BY CASE u.role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 WHEN 'wholesale' THEN 2 ELSE 3 END, u.name`, deviceTenant(device));
+}
+
+const PIN_TRIES = 5, PIN_LOCK_MIN = 10;
+export function pinLogin(device: string | undefined, userId: number, pin: string) {
+  const u = get("SELECT * FROM users WHERE id=? AND tenant_id=?", userId, deviceTenant(device));
+  if (!u || !u.pin_hash) throw new AppError(401, "PIN login is not set up for this person");
+  if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
+  if (u.pin_locked_until && Date.parse(u.pin_locked_until) > Date.now())
+    throw new AppError(429, `Too many wrong PINs. Try again after ${Math.ceil((Date.parse(u.pin_locked_until) - Date.now()) / 60000)} minutes or ask the manager.`);
+  if (!bcrypt.compareSync(pin, u.pin_hash)) {
+    const fails = u.pin_fails + 1;
+    run("UPDATE users SET pin_fails=?, pin_locked_until=? WHERE id=?", fails >= PIN_TRIES ? 0 : fails,
+      fails >= PIN_TRIES ? new Date(Date.now() + PIN_LOCK_MIN * 60000).toISOString() : null, u.id);
+    throw new AppError(401, fails >= PIN_TRIES ? `Wrong PIN. Locked for ${PIN_LOCK_MIN} minutes.` : `Wrong PIN (${PIN_TRIES - fails} tries left)`);
+  }
+  run("UPDATE users SET pin_fails=0, pin_locked_until=NULL WHERE id=?", u.id);
+  const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
+}
+
 export function login(email: string, password: string) {
   const u = get("SELECT * FROM users WHERE email=?", email.toLowerCase().trim());
   if (!u || !bcrypt.compareSync(password, u.password_hash)) throw new AppError(401, "Invalid email or password");
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user, permissions: permissionsOf(user.role) };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
@@ -88,6 +123,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   if (!token) return next(new AppError(401, "Not signed in"));
   try {
     const p = jwt.verify(token, config.jwtSecret) as unknown as { sub: number };
+    if (typeof p.sub !== "number") return next(new AppError(401, "Not signed in"));
     const u = get("SELECT id, tenant_id, name, email, role, station_id, active FROM users WHERE id=?", p.sub);
     if (!u || !u.active) return next(new AppError(401, "User not found or disabled"));
     delete u.active;

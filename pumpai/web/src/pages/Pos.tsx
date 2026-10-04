@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Loading, useAction } from "../components/ui";
+import { Loading, useAction, useToast } from "../components/ui";
+import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
 import { num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
@@ -41,6 +42,11 @@ export default function Pos() {
   const notif = useNotifications();
   const priceLock = isSalesman && notif.data?.pending_ack.some((n) => n.type === "price_change");
   const { busy, run } = useAction();
+  const toast = useToast();
+  const queue = useOfflineQueue(() => today.reload());
+  const [saving, setSaving] = useState(false);
+  const cacheKey = `pos_today_${isSalesman ? "me" : stationId}`;
+  useEffect(() => { if (today.data) cacheSet(cacheKey, today.data); }, [today.data, cacheKey]);
 
   const [product, setProduct] = useState<string | null>(null);
   const [mode, setMode] = useState<"amount" | "litres">("amount");
@@ -50,7 +56,7 @@ export default function Pos() {
   const [pickKhata, setPickKhata] = useState(false);
   const [done, setDone] = useState<any>(null);
 
-  const d = today.data;
+  const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
   const value = Number(entry) || 0;
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
@@ -67,16 +73,27 @@ export default function Pos() {
   };
 
   const save = async () => {
-    if (!ready || !d) return;
-    const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value };
+    if (!ready || !d || saving) return;
+    const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
     if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null });
-    const r = await run(() => api("/sales", { body }));
-    if (r) {
+    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name, client_uid: body.client_uid };
+    setSaving(true);
+    try {
+      const r = await api("/sales", { body });
       setDone({ ...r, khata_name: khata?.account.name });
-      reset();
       today.reload();
-      setTimeout(() => setDone(null), 2500);
-    }
+    } catch (e: any) {
+      if (!isOffline(e)) { toast("err", e.message); return; }
+      // no internet: keep it on the tablet, it uploads by itself when the connection is back
+      queueSale(body, `${FUEL[product!].en} ${num(litres, 2)} L · ${pkr(amount)} · ${pay}`);
+      setDone({ ...shown, offline: true });
+    } finally { setSaving(false); }
+    reset();
+  };
+  useEffect(() => { if (!done) return; const id = setTimeout(() => setDone(null), 6000); return () => clearTimeout(id); }, [done]);
+  const undo = async (sale: any) => {
+    if (sale.offline) { dropQueued(sale.client_uid); setDone(null); toast("ok", "Sale removed"); return; }
+    if (await run(() => api(`/sales/${sale.id}/undo`, { body: {} }), "Sale undone · سیل واپس")) { setDone(null); today.reload(); }
   };
 
   if (!isSalesman && !stations.data) return <Loading />;
@@ -85,6 +102,24 @@ export default function Pos() {
 
   return (
     <div className="-m-4 min-h-[calc(100vh-56px)] bg-slate-100 p-3 lg:-m-6 lg:min-h-screen lg:p-4">
+      {(!queue.online || queue.pending.length > 0) && (
+        <div className={`mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-white ${queue.online ? "bg-blue-600" : "bg-slate-800"}`} role="status">
+          {queue.online ? <CloudUpload /> : <WifiOff />}
+          <span className="text-lg font-semibold">{queue.online ? "Uploading sales…" : "No internet · انٹرنیٹ نہیں"}</span>
+          <span className="ml-auto">{queue.pending.length ? `${queue.pending.length} sale${queue.pending.length === 1 ? "" : "s"} saved on tablet` : "Sales will be saved on this tablet"}</span>
+        </div>
+      )}
+      {queue.failed.length > 0 && (
+        <div className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-200">
+          <b>Not uploaded — show the manager:</b>
+          {queue.failed.map((f) => (
+            <div key={f.body.client_uid} className="mt-1 flex items-center gap-2">
+              <span className="flex-1">{new Date(f.queued_at).toLocaleString("en-PK", { dateStyle: "short", timeStyle: "short" })} · {f.label} — {f.error}</span>
+              <button className="rounded bg-white px-2 py-1 ring-1 ring-red-200" onClick={() => dismissFailed(f.body.client_uid)}>OK</button>
+            </div>
+          ))}
+        </div>
+      )}
       {/* top strip */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-lg font-semibold"><Fuel className="text-brand-600" /> {d.station.name}</div>
@@ -186,7 +221,7 @@ export default function Pos() {
                 ) : <span className="text-slate-500">Choose fuel, amount and payment · <Ur>تیل، رقم اور ادائیگی چنیں</Ur></span>}
               </div>
               <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel</button>
-              <button onClick={save} disabled={!ready || busy || (!shiftOpen && isSalesman) || !!priceLock}
+              <button onClick={save} disabled={!ready || saving || (!shiftOpen && isSalesman) || !!priceLock}
                 className="flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300">
                 <Check size={26} /> Save · <Ur>محفوظ</Ur>
               </button>
@@ -194,7 +229,7 @@ export default function Pos() {
           </div>
         </div>
 
-        <ShiftPanel d={d} reload={today.reload} />
+        <ShiftPanel d={d} reload={today.reload} onUndo={undo} myId={user?.id} />
       </div>
 
       {/* blocking states */}
@@ -209,13 +244,21 @@ export default function Pos() {
       )}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
       {done && (
-        <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-600/95 p-6 text-center text-white" onClick={() => setDone(null)}>
+        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
           <div>
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white text-emerald-600"><Check size={64} strokeWidth={3} /></div>
-            <div className="mt-4 text-3xl font-bold">Sale saved · <Ur>سیل محفوظ</Ur></div>
+            <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
+            <div className="mt-4 text-3xl font-bold">{done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
+            {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
             <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>
             <div className="text-5xl font-bold tabular-nums">{pkr(done.amount)}</div>
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name}` : done.payment_method}</div>
+            <div className="mt-6 flex justify-center gap-3">
+              <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
+                <Undo2 size={24} /> Undo · <Ur>واپس</Ur>
+              </button>
+              <button onClick={() => setDone(null)} className="rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 active:scale-95">OK</button>
+            </div>
+            {!done.offline && <div className="mt-2 text-sm text-white/80">Wrong entry? Undo within 2 minutes</div>}
           </div>
         </div>
       )}
@@ -250,8 +293,18 @@ function StartShift({ onStarted }: { onStarted: () => void }) {
   );
 }
 
-function ShiftPanel({ d, reload }: { d: any; reload: () => void }) {
+function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; onUndo: (sale: any) => void; myId?: number }) {
   const s = d.shift?.summary;
+  // server clock offset, so the 2-minute undo window matches the server even if the tablet clock is wrong
+  const skew = d.server_time ? Date.parse(d.server_time) - Date.now() : 0;
+  const [, tick] = useState(0);
+  const [confirm, setConfirm] = useState<number | null>(null);
+  const undoable = (r: any) => r.created_by === myId && Date.now() + skew - Date.parse(r.created_at) < (d.undo_seconds ?? 120) * 1000;
+  useEffect(() => {
+    if (!d.recent?.some(undoable)) return;
+    const id = setInterval(() => tick((x) => x + 1), 5000);
+    return () => clearInterval(id);
+  });
   return (
     <aside className="space-y-3">
       <div className="rounded-2xl bg-slate-900 p-4 text-white">
@@ -277,6 +330,9 @@ function ShiftPanel({ d, reload }: { d: any; reload: () => void }) {
               <span className={`h-3 w-3 shrink-0 rounded-full ${FUEL[r.product]?.bg}`} />
               <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.payment_method}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
+              {undoable(r) && (confirm === r.id
+                ? <button onClick={() => { setConfirm(null); onUndo(r); }} className="rounded-lg bg-red-600 px-2 py-1.5 text-xs font-bold text-white">Sure? Undo</button>
+                : <button onClick={() => { setConfirm(r.id); setTimeout(() => setConfirm(null), 4000); }} aria-label="Undo this sale" className="rounded-lg bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200"><Undo2 size={16} /></button>)}
             </li>
           ))}
           {!d.recent.length && <li className="py-4 text-center text-sm text-slate-500">No sales yet</li>}
@@ -287,7 +343,9 @@ function ShiftPanel({ d, reload }: { d: any; reload: () => void }) {
 }
 
 function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string }) => void }) {
-  const { data } = useApi<any[]>("/pos/khata-accounts");
+  const { data: live } = useApi<any[]>("/pos/khata-accounts");
+  useEffect(() => { if (live) cacheSet("khata_accounts", live); }, [live]);
+  const data = live ?? cacheGet<any[]>("khata_accounts");
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [account, setAccount] = useState<any>(initial?.account ?? null);

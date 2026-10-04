@@ -19,20 +19,20 @@ export function normalizePhone(raw: string): string {
 export const pkr = (n: number) => "Rs " + Math.round(n).toLocaleString("en-PK");
 export const rateFmt = (n: number) => "Rs " + n.toFixed(2);
 
-export function currentPrices(tenantId: number): Record<string, { price: number; effective_from: string }> {
+export function currentPrices(tenantId: number, at: string = now()): Record<string, { price: number; effective_from: string }> {
   const rows = all(
     `SELECT p.product, p.price, p.effective_from FROM prices p
      WHERE p.tenant_id=? AND p.id = (SELECT id FROM prices p2 WHERE p2.tenant_id=p.tenant_id AND p2.product=p.product
        AND p2.effective_from <= ? ORDER BY p2.effective_from DESC, p2.id DESC LIMIT 1)`,
-    tenantId, now(),
+    tenantId, at,
   );
   const out: Record<string, { price: number; effective_from: string }> = {};
   for (const r of rows) out[r.product] = { price: r.price, effective_from: r.effective_from };
   return out;
 }
 
-export function priceOf(tenantId: number, product: string): number {
-  const p = currentPrices(tenantId)[product];
+export function priceOf(tenantId: number, product: string, at?: string): number {
+  const p = currentPrices(tenantId, at)[product];
   if (!p) throw new AppError(400, `No price set for ${product}`);
   return p.price;
 }
@@ -72,6 +72,9 @@ export interface SaleInput {
   vehicle_no?: string | null;
   slip_no?: string | null;
   created_at?: string;
+  created_by?: number | null;
+  /** POS-generated id: the same sale synced twice (offline queue) is saved once. */
+  client_uid?: string | null;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
 }
@@ -79,7 +82,11 @@ export interface SaleInput {
 export function recordSale(tenantId: number, s: SaleInput): Row {
   const station = get("SELECT * FROM stations WHERE id=? AND tenant_id=?", s.station_id, tenantId);
   if (!station) throw new AppError(404, "Station not found");
-  const rate = s.rate ?? priceOf(tenantId, s.product);
+  if (s.client_uid) {
+    const dup = get("SELECT * FROM sales WHERE client_uid=? AND station_id=?", s.client_uid, s.station_id);
+    if (dup) return { ...dup, duplicate: true };
+  }
+  const rate = s.rate ?? priceOf(tenantId, s.product, s.created_at);
   const litres = s.litres ?? (s.amount ? s.amount / rate : 0);
   if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
   const amount = Math.round(litres * rate * 100) / 100;
@@ -95,10 +102,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   const ts = s.created_at ?? now();
   return tx(() => {
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, ts,
+      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, ts,
     );
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litres, tank.id);
     if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", litres, s.nozzle_id);
@@ -118,6 +125,31 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A salesman can undo their own sale for this long. */
+export const UNDO_SECONDS = 120;
+
+/** Reverse a sale completely: stock, nozzle meter, khata balance and loyalty points. */
+export function undoSale(sale: Row) {
+  tx(() => {
+    const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", sale.station_id, sale.product);
+    if (tank) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", sale.litres, tank.id);
+    if (sale.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer - ? WHERE id=?", sale.litres, sale.nozzle_id);
+    if (sale.customer_id) {
+      run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points - ?) WHERE id=?", Math.floor(sale.amount / 100), sale.customer_id);
+      if (sale.payment_method === "khata") {
+        run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", sale.customer_id, `SALE-${sale.id}`);
+        run("UPDATE customers SET balance = balance - ? WHERE id=?", sale.amount, sale.customer_id);
+      }
+    }
+    run("DELETE FROM sales WHERE id=?", sale.id);
+  });
+}
+
+export function audit(tenantId: number, user: { id: number; name: string } | null, action: string, ref: string, data: unknown) {
+  run("INSERT INTO audit_log (tenant_id,user_id,user_name,action,ref,data,created_at) VALUES (?,?,?,?,?,?,?)",
+    tenantId, user?.id ?? null, user?.name ?? null, action, ref, JSON.stringify(data), now());
+}
 
 export function createAlert(
   tenantId: number,

@@ -5,7 +5,7 @@ import fs from "node:fs";
 import { z } from "zod";
 import { config, aiEnabled, waLive } from "./config.js";
 import { migrate, get } from "./db.js";
-import { requireAuth, errorHandler, login, h, parse, permissionsOf } from "./auth.js";
+import { requireAuth, errorHandler, login, pinLogin, pinUsers, h, parse, permissionsOf } from "./auth.js";
 import { operations } from "./routes/operations.js";
 import { crm } from "./routes/crm.js";
 import { waWebhook, inbox } from "./routes/whatsapp.js";
@@ -34,6 +34,11 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, ai: aiEnabled() ? "cl
 app.post("/api/auth/login", h((req) => {
   const b = parse(z.object({ email: z.string().email(), password: z.string().min(1) }), req.body);
   return login(b.email, b.password);
+}));
+app.get("/api/auth/pin-users", h((req) => pinUsers(req.headers["x-device"] as string | undefined)));
+app.post("/api/auth/pin", h((req) => {
+  const b = parse(z.object({ user_id: z.number(), pin: z.string().regex(/^\d{4}$/, "PIN is 4 digits") }), req.body);
+  return pinLogin(req.headers["x-device"] as string | undefined, b.user_id, b.pin);
 }));
 app.use("/webhooks/whatsapp", waWebhook);
 
