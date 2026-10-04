@@ -62,6 +62,7 @@ async def edit(id: int, request: Request, db: Session = Depends(get_db), user: U
 - **Cross-module services**: import other modules' services **lazily inside the function** (`from app.services.billing import post_credit`) so routers import even when another module isn't finished yet.
 - Do NOT edit files outside your ownership list except: you may **append** new columns to models in `app/models/*.py` if truly needed (append-only, keep names descriptive; the DB is recreated with `seed.py --reset`), and you may add `SEED_MODULES` entries only if instructed.
 - Do not modify `base.html`, `macros.html`, `nav.py`, `rbac.py`, `deps.py`, `main.py`. If a macro is missing, write the HTML inline in your template.
+- **Stored files**: `/storage/...` is not a static mount; `app/web/storage_files.py` serves it with one access rule per top-level folder. Never link to `/storage` from a template unless the file's folder has a rule in `app/web/storage_files.py`.
 
 ## Templates
 ```jinja

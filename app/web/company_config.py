@@ -74,7 +74,7 @@ TICKET_STATUS_LABELS = {"pending": "Pending", "in_progress": "In Progress", "res
 AGENT_TABS = [("licenses", "User Licenses"), ("devices", "Devices list"), ("screenshots", "Agents Screen Shorts")]
 AGENT_LICENSES_SETTING = "agent_licenses_allowed"
 AGENT_LICENSES_DEFAULT = 5
-AGENT_SCREENSHOT_DIR = "agent_screenshots"   # under storage/, served by the /storage static mount
+AGENT_SCREENSHOT_DIR = "agent_screenshots"   # under storage/; served only by agent_screenshot_image below
 AGENT_OFFLINE_AFTER_MINUTES = 10
 # Which application area a role belongs to, mirroring the ERP's Roles grouping.
 ROLE_APPS = {
