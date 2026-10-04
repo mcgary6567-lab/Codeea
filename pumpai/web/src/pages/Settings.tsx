@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { api, useApi } from "../lib/api";
+import { api, getToken, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
 import { StationForm, TankForm } from "../components/QuickAdd";
 import { PRODUCTS, num } from "../lib/format";
@@ -31,6 +31,9 @@ export default function SettingsPage() {
       </form>
       <AutoSwitches values={data.automation ?? {}} review={data.google_review_url} onSaved={reload} />
       <KhataRules r={data.khata_rules} onSaved={reload} />
+      <Safety />
+      <Backups />
+      <Hardware />
       <div className="grid gap-5 md:grid-cols-2">
         <div className="card space-y-2 p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Claude AI</h2><Status ok={i.claude.connected} label={i.claude.connected ? "Connected" : "Rule engine (offline)"} /></div>
@@ -120,5 +123,58 @@ function KhataRules({ r, onSaved }: { r?: { block_days: number; block_institutio
       <p className="text-xs text-slate-500 sm:col-span-3">Institutions are never charged a late fee. Their bills can be tracked with PO numbers on each account's khata page.</p>
       <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
     </form>
+  );
+}
+
+function Safety() {
+  const { data, reload } = useApi<any>("/safety");
+  const { run } = useAction();
+  if (!data) return null;
+  return (
+    <div className="card p-4">
+      <h2 className="mb-2 font-semibold">Safety rules</h2>
+      <label className="flex items-start gap-3"><input type="checkbox" className="mt-1 h-5 w-5" checked={data.price_approval}
+        onChange={(e) => run(() => api("/safety", { method: "PUT", body: { price_approval: e.target.checked } }), "Saved").then(reload)} />
+        <span><span className="block font-medium">Two-person approval for price changes</span><span className="text-sm text-slate-600">A manager's new prices wait until the admin approves them (admin gets a notification). Big expenses already need approval above the expense limit.</span></span></label>
+    </div>
+  );
+}
+
+function Backups() {
+  const { data, reload } = useApi<any>("/backups");
+  const { busy, run } = useAction();
+  if (!data) return null;
+  return (
+    <div className="card p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="font-semibold">Backups</h2><span className="text-xs text-slate-500">Every night at 2:30am · last 14 kept · {data.dir}</span>
+        <button className="btn-secondary ml-auto" disabled={busy} onClick={() => run(() => api("/backups", { body: {} }), "Backup made").then(reload)}>Back up now</button></div>
+      {data.restore_pending && <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">A restore is ready — restart the app to finish it.
+        <button className="btn-secondary ml-auto !py-1" onClick={() => run(() => api("/backups/restore", { method: "DELETE" }), "Restore cancelled").then(reload)}>Cancel restore</button></div>}
+      <ul className="divide-y divide-slate-100 text-sm">{data.backups.map((b: any) => (
+        <li key={b.name} className="flex flex-wrap items-center gap-2 py-1.5">
+          <span className="flex-1 font-mono text-xs">{b.name}</span><span className="text-xs text-slate-500">{Math.round(b.bytes / 1024).toLocaleString()} KB</span>
+          <a className="btn-secondary !py-1 text-xs" href={`/api/backups/${b.name}?token=${encodeURIComponent(getToken() ?? "")}`}>Download</a>
+          <button className="btn-secondary !py-1 text-xs" onClick={() => confirm(`Restore ${b.name}? Today's data is backed up first; the restore finishes when the app restarts.`) && run(() => api(`/backups/${b.name}/restore`, { body: {} }), (r: any) => r.message).then(reload)}>Restore</button>
+        </li>
+      ))}{!data.backups.length && <li className="py-2 text-slate-500">No backups yet — the first one is made tonight.</li>}</ul>
+      <p className="mt-2 text-xs text-slate-500">Tip: download a backup every week and keep it on another computer or USB, or set BACKUP_DIR to a cloud-synced folder.</p>
+    </div>
+  );
+}
+
+function Hardware() {
+  const { data } = useApi<any[]>("/hardware");
+  if (!data) return null;
+  return (
+    <div className="card p-4">
+      <h2 className="mb-1 font-semibold">Hardware connections</h2>
+      <p className="mb-2 text-sm text-slate-600">These will be connected when the equipment is installed. Everything else already works without them.</p>
+      <ul className="space-y-2">{data.map((x) => (
+        <li key={x.key} className="flex items-start gap-3 rounded-lg bg-slate-50 p-2 text-sm">
+          <span className="mt-0.5 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Pending</span>
+          <span><b>{x.name}</b><span className="block text-slate-600">{x.gives}</span></span>
+        </li>
+      ))}</ul>
+    </div>
   );
 }

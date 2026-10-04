@@ -25,6 +25,7 @@ import { shop } from "./routes/shop.js";
 import { compliance } from "./routes/compliance.js";
 import { analysis } from "./routes/analysis.js";
 import { care, renderPortal } from "./routes/customerCare.js";
+import { system } from "./routes/system.js";
 import { renderReceipt } from "./billing.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
@@ -95,6 +96,7 @@ api.use(shop);
 api.use(compliance);
 api.use(analysis);
 api.use(care);
+api.use(system);
 app.use("/api", api);
 
 // Serve the built dashboard in production

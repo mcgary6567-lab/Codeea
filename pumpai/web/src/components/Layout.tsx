@@ -7,6 +7,7 @@ import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
+import { HelpButton } from "./Help";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
@@ -95,7 +96,8 @@ export default function Layout() {
           <span className="flex-1 font-semibold">⛽ PumpAI</span>
           <NotificationBell />
         </header>
-        <main className="mx-auto max-w-7xl p-4 lg:p-6"><Outlet /></main>
+        <main className="mx-auto max-w-7xl p-4 lg:p-6"><Outlet />
+          <HelpButton /></main>
       </div>
     </div>
     </NotificationsProvider>

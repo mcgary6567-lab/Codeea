@@ -78,17 +78,17 @@ operations.get("/prices", requirePerm("prices.view"), h((req) => {
   };
 }));
 
-operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
-  const b = parse(z.object({ prices: z.record(product, z.number().positive()), broadcast: z.boolean().default(false), note: z.string().optional() }), req.body);
-  const t = tid(req);
+type PriceInput = { prices: Partial<Record<"PMG" | "HOBC" | "HSD", number>>; broadcast: boolean; note?: string };
+/** Put new prices into effect: stock revaluation, salesmen told to change the dispenser, wholesale rates follow. */
+export async function applyPrices(t: number, by: { id: number; name: string }, b: PriceInput) {
   const old = currentPrices(t);
   const ts = now();
-  for (const [p, price] of Object.entries(b.prices)) run("INSERT INTO prices (tenant_id,product,price,effective_from,created_by) VALUES (?,?,?,?,?)", t, p, price, ts, req.user!.name);
+  for (const [p, price] of Object.entries(b.prices)) run("INSERT INTO prices (tenant_id,product,price,effective_from,created_by) VALUES (?,?,?,?,?)", t, p, price, ts, by.name);
   // Revalue stock at the moment of change (price change gain/loss)
   const stock = all("SELECT t.product, SUM(t.current_l) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? GROUP BY t.product", t);
   const impact = stock.reduce((a, s) => a + (b.prices[s.product as keyof typeof b.prices] && old[s.product] ? (b.prices[s.product as keyof typeof b.prices]! - old[s.product].price) * s.l : 0), 0);
   createAlert(t, {
-    type: "price_change", severity: "info", title: `Prices updated by ${req.user!.name}`,
+    type: "price_change", severity: "info", title: `Prices updated by ${by.name}`,
     body: Object.entries(b.prices).map(([p, v]) => `${p}: ${old[p] ? pkr(old[p].price) + " → " : ""}${pkr(v)}`).join(", ") + `. Stock revaluation ${impact >= 0 ? "gain" : "loss"} ${pkr(Math.abs(impact))}.`,
   });
   // tell every salesman to change the dispenser rate (they must confirm, with meter readings if on shift)
@@ -101,8 +101,8 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     await notify(t, salesmen, { type: "price_change", ack_required: true, data,
       title: "⛽ Fuel price changed — update the dispenser now",
       body: `${lines.join("\n")}\nDispenser par naya rate set karein aur app mein confirm karein (meter reading ke saath).` });
-    await notify(t, staff(t, ["admin", "manager"], req.user!.id), { type: "price_change_info", data, whatsapp: false,
-      title: `Prices changed by ${req.user!.name}`, body: lines.join("\n") });
+    await notify(t, staff(t, ["admin", "manager"], by.id), { type: "price_change_info", data, whatsapp: false,
+      title: `Prices changed by ${by.name}`, body: lines.join("\n") });
   }
   // wholesale clients on "pump − Rs X" follow the new pump price; fixed-rate clients are listed for review
   const ws = changes.length ? tx(() => followPumpPrice(t, changes)) : { moved: [], fixed: [], perClient: {} as Record<number, string[]> };
@@ -120,6 +120,35 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     void (async () => { for (const c of customers) await sendWhatsApp(t, c, msg, "campaign", { kind: "price_update" }); })();
   }
   return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued, salesmen_notified: changes.length ? salesmen.length : 0, wholesale_rates_updated: ws.moved.length };
+}
+
+const priceBody = z.object({ prices: z.record(product, z.number().positive()), broadcast: z.boolean().default(false), note: z.string().optional() });
+operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
+  const b = parse(priceBody, req.body);
+  const t = tid(req);
+  // two-person rule: when switched on, a manager's price change waits for the admin
+  if (getSetting(t, "price_approval", "0") === "1" && req.user!.role !== "admin") {
+    const old = currentPrices(t);
+    const { id } = run("INSERT INTO price_requests (tenant_id,prices,broadcast,note,requested_by,requested_by_id,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      t, JSON.stringify(b.prices), b.broadcast ? 1 : 0, b.note ?? null, req.user!.name, req.user!.id, "pending", now());
+    await notify(t, staff(t, ["admin"]), { type: "price_request", data: { request_id: id }, title: `Price change needs your OK — ${req.user!.name}`,
+      body: Object.entries(b.prices).map(([p, v]) => `${PRODUCTS[p]}: ${old[p] ? `${rateFmt(old[p].price)} → ` : ""}${rateFmt(v!)}`).join("\n") });
+    return { pending: true, request_id: id };
+  }
+  return applyPrices(t, req.user!, b);
+}));
+
+operations.get("/price-requests", requirePerm("prices.update"), h((req) =>
+  all("SELECT * FROM price_requests WHERE tenant_id=? ORDER BY id DESC LIMIT 20", tid(req)).map((r) => ({ ...r, prices: JSON.parse(r.prices) }))));
+operations.post("/price-requests/:id/:decision(approve|reject)", requirePerm("settings.manage"), h(async (req) => {
+  const r = get("SELECT * FROM price_requests WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  if (!r) throw new AppError(404, "Request not found");
+  if (r.status !== "pending") throw new AppError(400, `Already ${r.status}`);
+  const approve = req.params.decision === "approve";
+  run("UPDATE price_requests SET status=?, decided_by=?, decided_at=? WHERE id=?", approve ? "approved" : "rejected", req.user!.name, now(), r.id);
+  const asker = get("SELECT id, phone FROM users WHERE id=?", r.requested_by_id);
+  if (asker) await notify(tid(req), [asker], { type: "price_request_decision", whatsapp: false, title: `Price change ${approve ? "approved" : "rejected"} by ${req.user!.name}`, body: "" });
+  return approve ? applyPrices(tid(req), { id: r.requested_by_id, name: `${r.requested_by} (approved by ${req.user!.name})` }, { prices: JSON.parse(r.prices), broadcast: Boolean(r.broadcast), note: r.note ?? undefined }) : { ok: true };
 }));
 
 /* ---------------- Sales / POS ---------------- */

@@ -11,6 +11,7 @@ import { closeDay } from "../routes/backoffice.js";
 import { licenceWatch, checklistWatch, attendanceWatch } from "../routes/compliance.js";
 import { weeklyStaffRisk } from "../routes/analysis.js";
 import { khataOverdue, khataLateFees, bookingReminders, serviceDue } from "../routes/customerCare.js";
+import { makeBackup } from "../routes/system.js";
 
 export interface Job {
   key: string;
@@ -228,6 +229,13 @@ export const JOBS: Job[] = [
     description: "Daily: customers whose last oil change was 3 months ago get a reminder to book the next one (opted-in only).",
     cron: "30 10 * * *",
     run: async (t) => `${await serviceDue(t)} reminders`,
+  },
+  {
+    key: "backup",
+    name: "Nightly backup",
+    description: "At 2:30am a full copy of the database is saved (the last 14 are kept). Download or restore them in Settings → Backups.",
+    cron: "30 2 * * *",
+    run: async () => { const b = makeBackup(); return `${b.name} (${Math.round(b.bytes / 1024)} KB)`; },
   },
   {
     key: "monthly_bills",

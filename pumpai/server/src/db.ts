@@ -4,6 +4,13 @@ import path from "node:path";
 import { config } from "./config.js";
 
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
+// a restore staged from Settings → Backups is swapped in before the database is opened
+if (fs.existsSync(`${config.dbPath}.restore`)) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  for (const ext of ["", "-wal", "-shm"]) if (fs.existsSync(config.dbPath + ext)) fs.renameSync(config.dbPath + ext, `${config.dbPath}.before-restore-${stamp}${ext}`);
+  fs.renameSync(`${config.dbPath}.restore`, config.dbPath);
+  console.log(`[db] restored backup; previous database kept as ${path.basename(config.dbPath)}.before-restore-${stamp}`);
+}
 export const db = new DatabaseSync(config.dbPath);
 db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 
@@ -314,6 +321,9 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, service TEXT NOT NULL,
     at TEXT NOT NULL, vehicle_no TEXT, status TEXT NOT NULL DEFAULT 'booked', note TEXT, created_by TEXT, reminded INTEGER NOT NULL DEFAULT 0,
     done_at TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS price_requests (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, prices TEXT NOT NULL, broadcast INTEGER NOT NULL DEFAULT 0, note TEXT,
+    requested_by TEXT, requested_by_id INTEGER, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

@@ -23,3 +23,18 @@ self.addEventListener("fetch", (e) => {
     return res;
   })));
 });
+
+// push notifications from the server (price change, cash short, licence expiry…)
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: e.data ? e.data.text() : "PumpAI" }; }
+  e.waitUntil(self.registration.showNotification(d.title || "PumpAI", { body: d.body || "", tag: d.tag, data: { url: d.url || "/" } }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/";
+  e.waitUntil(self.clients.matchAll({ type: "window" }).then((ws) => {
+    for (const w of ws) if ("focus" in w) { w.navigate(url); return w.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});

@@ -1,6 +1,7 @@
 /** Staff notifications: stored in-app and, when the user has a phone number, sent on WhatsApp too. */
 import { all, get, run, now, type Row } from "./db.js";
 import { sendToPhone } from "./whatsapp/cloud.js";
+import { pushToUser } from "./push.js";
 
 export interface NotifyInput {
   type: string;
@@ -16,6 +17,8 @@ export async function notify(tenantId: number, users: Row[], n: NotifyInput) {
     run("INSERT INTO notifications (tenant_id,user_id,type,title,body,data,ack_required,created_at) VALUES (?,?,?,?,?,?,?,?)",
       tenantId, u.id, n.type, n.title, n.body ?? null, n.data ? JSON.stringify(n.data) : null, n.ack_required ? 1 : 0, now());
     if (n.whatsapp !== false && u.phone) await sendToPhone(u.phone, `${n.title}\n${n.body ?? ""}`.trim());
+    // phone / desktop push (if the person turned it on); never blocks the request
+    pushToUser(u.id, { title: n.title, body: n.body, tag: n.type, url: "/" }).catch(() => {});
   }
 }
 

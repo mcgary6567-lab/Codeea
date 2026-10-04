@@ -62,6 +62,9 @@ export default function Pos() {
   const [done, setDone] = useState<any>(null);
   const [heard, setHeard] = useState<string | null>(null);
   const [tab, setTab] = useState<"fuel" | "shop">("fuel");
+  // practice mode for new staff: nothing is sent to the server
+  const [training, setTraining] = useState(() => { try { return sessionStorage.getItem("pumpai_training") === "1"; } catch { return false; } });
+  const toggleTraining = () => setTraining((x) => { try { sessionStorage.setItem("pumpai_training", x ? "0" : "1"); } catch { /* ignore */ } return !x; });
   const [pointsCust, setPointsCust] = useState<any>(null);
   const [pickPoints, setPickPoints] = useState(false);
 
@@ -102,6 +105,7 @@ export default function Pos() {
     if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null });
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name, client_uid: body.client_uid };
+    if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
     try {
       const r = await api("/sales", { body });
@@ -128,6 +132,7 @@ export default function Pos() {
 
   return (
     <div className="-m-4 min-h-[calc(100vh-56px)] bg-slate-100 p-3 lg:-m-6 lg:min-h-screen lg:p-4">
+      {training && <div className="mb-3 rounded-xl bg-amber-500 px-4 py-3 text-lg font-semibold text-white">🎓 Training mode — practice only, nothing is saved · <Ur>مشق — کچھ محفوظ نہیں ہوگا</Ur></div>}
       {(!queue.online || queue.pending.length > 0) && (
         <div className={`mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-white ${queue.online ? "bg-blue-600" : "bg-slate-800"}`} role="status">
           {queue.online ? <CloudUpload /> : <WifiOff />}
@@ -157,6 +162,7 @@ export default function Pos() {
         </div>
         {!isSalesman && <select className="input w-auto" value={stationId ?? ""} onChange={(e) => { setStationId(Number(e.target.value)); reset(); }}>{stations.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={toggleTraining} className={`rounded-xl px-3 py-2 text-sm font-semibold ${training ? "bg-amber-500 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>🎓 {training ? "Training ON" : "Training"}</button>
           {shiftOpen ? (
             <Link to="/shifts" className={`flex items-center gap-2 rounded-xl px-4 py-2 font-medium text-white ${d.shift.hours_open >= 12 ? "bg-red-600" : "bg-slate-800"}`}>
               <Clock size={18} /> {d.shift.attendant} · {Math.floor(d.shift.hours_open)}h {String(Math.floor((d.shift.hours_open % 1) * 60)).padStart(2, "0")}m
@@ -167,7 +173,7 @@ export default function Pos() {
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
-        {tab === "shop" ? <ShopPos d={d} disabled={(!shiftOpen && isSalesman) || !!priceLock} onSaved={(r) => { setDone({ ...r, shop: true }); today.reload(); }} /> : <div className="space-y-3">
+        {tab === "shop" ? <ShopPos d={d} training={training} disabled={!training && ((!shiftOpen && isSalesman) || !!priceLock)} onSaved={(r) => { setDone({ ...r, shop: true }); if (!r.training) today.reload(); }} /> : <div className="space-y-3">
           <VoiceButton onParsed={applyVoice} />
           {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b></div>}
           {/* 1. fuel */}
@@ -264,7 +270,7 @@ export default function Pos() {
                 ) : <span className="text-slate-500">Choose fuel, amount and payment · <Ur>تیل، رقم اور ادائیگی چنیں</Ur></span>}
               </div>
               <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel</button>
-              <button onClick={save} disabled={!ready || saving || (!shiftOpen && isSalesman) || !!priceLock}
+              <button onClick={save} disabled={!ready || saving || (!training && ((!shiftOpen && isSalesman) || !!priceLock))}
                 className="flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300">
                 <Check size={26} /> Save · <Ur>محفوظ</Ur>
               </button>
@@ -276,8 +282,9 @@ export default function Pos() {
       </div>
 
       {/* blocking states */}
-      {isSalesman && !shiftOpen && <Blocker><StartShift onStarted={() => today.reload()} /></Blocker>}
-      {priceLock && shiftOpen && (
+      {isSalesman && !shiftOpen && !training && <Blocker><StartShift onStarted={() => today.reload()} />
+        <button onClick={toggleTraining} className="mt-3 w-full rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900">🎓 Practice first (training, nothing saved) · <Ur>پہلے مشق</Ur></button></Blocker>}
+      {priceLock && shiftOpen && !training && (
         <Blocker>
           <div className="text-6xl">⛽</div>
           <h2 className="mt-2 text-2xl font-bold">Price changed · <Ur>ریٹ تبدیل ہو گیا</Ur></h2>
@@ -296,10 +303,11 @@ export default function Pos() {
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
       {done && (
-        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
+        <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.training ? "bg-amber-500/95" : done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
           <div>
             <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
-            <div className="mt-4 text-3xl font-bold">{done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
+            <div className="mt-4 text-3xl font-bold">{done.training ? <>Practice sale · <Ur>مشق</Ur></> : done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
+            {done.training && <div className="mt-1 text-lg">Well done! In real mode this sale would be saved.</div>}
             {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
             {done.shop
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
@@ -308,12 +316,12 @@ export default function Pos() {
             <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method}</div>
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
-              <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
+              {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
                 <Undo2 size={24} /> Undo · <Ur>واپس</Ur>
-              </button>
+              </button>}
               <button onClick={() => setDone(null)} className="rounded-xl bg-white px-8 py-4 text-xl font-bold text-emerald-700 active:scale-95">OK</button>
             </div>
-            {!done.offline && <div className="mt-2 text-sm text-white/80">Wrong entry? Undo within 2 minutes</div>}
+            {!done.offline && !done.training && <div className="mt-2 text-sm text-white/80">Wrong entry? Undo within 2 minutes</div>}
           </div>
         </div>
       )}
@@ -513,7 +521,7 @@ function PointsPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: an
 const CAT: Record<string, string> = { lubricant: "🛢️ Oil", filter: "🧰 Filters", coolant: "💧 Coolant", tyre: "🛞 Tyres", battery: "🔋 Battery", tuck: "🥤 Tuck shop", service: "🔧 Service", other: "📦 Other" };
 
 /** Shop sale on the POS: tap items (or scan the barcode), choose payment, save. */
-function ShopPos({ d, disabled, onSaved }: { d: any; disabled: boolean; onSaved: (r: any) => void }) {
+function ShopPos({ d, disabled, training, onSaved }: { d: any; disabled: boolean; training?: boolean; onSaved: (r: any) => void }) {
   const { data: live, reload } = useApi<any[]>(`/shop/items?station_id=${d.station.id}`);
   useEffect(() => { if (live) cacheSet(`shop_items_${d.station.id}`, live); }, [live, d.station.id]);
   const items = live ?? cacheGet<any[]>(`shop_items_${d.station.id}`) ?? [];
@@ -543,6 +551,11 @@ function ShopPos({ d, disabled, onSaved }: { d: any; disabled: boolean; onSaved:
   };
   const save = async () => {
     if (!lines.length || !pay || (pay === "khata" && !khata) || saving) return;
+    if (training) {
+      setCart({}); setPay(null); setKhata(null);
+      onSaved({ training: true, total, payment_method: pay, lines: lines.map((l) => ({ qty: l.qty, name: l.i.name })) });
+      return;
+    }
     setSaving(true);
     try {
       const r = await api("/shop/sales", { body: { station_id: d.station.id, payment_method: pay, customer_id: khata?.account.id ?? null, client_uid: newUid(), lines: lines.map((l) => ({ item_id: l.i.id, qty: l.qty })) } });

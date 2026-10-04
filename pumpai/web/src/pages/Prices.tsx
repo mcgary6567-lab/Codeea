@@ -8,6 +8,7 @@ export default function Prices() {
   const { data, reload } = useApi<any>("/prices");
   const { busy, run } = useAction();
   const { can } = useAuth();
+  const requests = useApi<any[]>(can("prices.update") ? "/price-requests" : null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [broadcast, setBroadcast] = useState(true);
   const [note, setNote] = useState("");
@@ -17,13 +18,22 @@ export default function Prices() {
   const changed = Object.entries(vals).filter(([k, v]) => Number(v) > 0 && Number(v) !== data.current[k]?.price);
   const submit = async () => {
     const r: any = await run(() => api("/prices", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined } }),
-      (x: any) => `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.wholesale_rates_updated ? ` · ${x.wholesale_rates_updated} wholesale rates moved with the pump price` : ""}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
-    if (r) { setNote(""); reload(); }
+      (x: any) => x.pending ? "Sent to the admin for approval — prices change when the admin approves" : `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.wholesale_rates_updated ? ` · ${x.wholesale_rates_updated} wholesale rates moved with the pump price` : ""}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
+    if (r) { setNote(""); reload(); requests.reload(); }
   };
 
   return (
     <div>
       <PageHeader title="Fuel prices" subtitle="Update on each government price notification (usually the 1st and 16th). The WhatsApp bot uses these instantly." />
+      {(requests.data ?? []).filter((r) => r.status === "pending").map((r) => (
+        <div key={r.id} className="card mb-4 flex flex-wrap items-center gap-3 border-l-4 border-l-amber-500 p-4">
+          <span className="flex-1 text-sm"><b>Waiting for admin approval</b> — {Object.entries(r.prices).map(([p, v]: any) => `${PRODUCTS[p]} Rs ${v}`).join(", ")} · asked by {r.requested_by} {dt(r.created_at)}</span>
+          {can("settings.manage") && <>
+            <button className="btn-primary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/approve`, { body: {} }), "Approved — prices are now live").then(() => { reload(); requests.reload(); })}>Approve</button>
+            <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/price-requests/${r.id}/reject`, { body: {} }), "Rejected").then(() => requests.reload())}>Reject</button>
+          </>}
+        </div>
+      ))}
       <div className={`grid gap-5 ${can("prices.update") ? "lg:grid-cols-[420px_1fr]" : ""}`}>
         {!can("prices.update") && (
           <div className="grid gap-3 sm:grid-cols-3">

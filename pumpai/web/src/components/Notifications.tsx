@@ -41,6 +41,7 @@ export function NotificationBell({ dark }: { dark?: boolean }) {
         <div className={`absolute ${dark ? "left-0" : "right-0"} z-50 mt-2 w-[min(92vw,380px)] overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-xl`}>
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
             <span className="text-sm font-semibold">Notifications</span>
+            <PhoneAlerts />
             {unread > 0 && <button className="flex items-center gap-1 text-xs text-brand-600 hover:underline" onClick={() => api("/notifications/read-all", { body: {} }).then(reload)}><CheckCheck size={13} /> Mark all read</button>}
           </div>
           <div className="max-h-[420px] overflow-y-auto">
@@ -117,5 +118,37 @@ function PriceChangeGate() {
         </div>
       </form>
     </Modal>
+  );
+}
+
+const b64 = (s: string) => { const p = "=".repeat((4 - (s.length % 4)) % 4); const raw = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+
+/** Turn on alerts on this phone / computer (Web Push through the app's service worker). */
+function PhoneAlerts() {
+  const [state, setState] = useState<"off" | "on" | "busy" | "na">(() => ("serviceWorker" in navigator && "PushManager" in window ? "off" : "na"));
+  useEffect(() => {
+    if (state === "na") return;
+    navigator.serviceWorker.getRegistration().then((r) => r?.pushManager.getSubscription()).then((s) => { if (s) setState("on"); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (state === "na") return null;
+  const toggle = async () => {
+    setState("busy");
+    try {
+      const reg = (await navigator.serviceWorker.getRegistration()) ?? (await navigator.serviceWorker.register("/sw.js"));
+      const cur = await reg.pushManager.getSubscription();
+      if (cur) { await api("/push/unsubscribe", { body: { endpoint: cur.endpoint } }); await cur.unsubscribe(); setState("off"); return; }
+      if ((await Notification.requestPermission()) !== "granted") { setState("off"); return; }
+      const { key } = await api("/push/key");
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+      await api("/push/subscribe", { body: sub.toJSON() });
+      await api("/push/test", { body: {} });
+      setState("on");
+    } catch { setState("off"); }
+  };
+  return (
+    <button onClick={toggle} disabled={state === "busy"} className={`ml-auto mr-3 rounded-full px-2 py-0.5 text-xs ${state === "on" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+      📲 {state === "on" ? "Phone alerts on" : state === "busy" ? "…" : "Turn on phone alerts"}
+    </button>
   );
 }

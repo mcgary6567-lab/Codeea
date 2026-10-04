@@ -28,7 +28,7 @@ npm run dev          # API on :4000, dashboard on http://localhost:5173
 - **First run:** a demo business is created automatically: 2 stations, 5 tanks, about 8 weeks of sales, 32 customers, khata and WhatsApp chats.
 - **Reset the demo data:** `npm run seed`.
 - **Production:** `npm run build && npm start`. The API serves the built dashboard on :4000. A `Dockerfile` is included.
-- **Tests:** `npm test` runs 78 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, role-based access, wholesale supply (including per-client margins that follow pump price changes), expenses, suppliers, reports (including exact stock reconciliation across periods), mid-shift price changes with meter settlement, shift handover (readings, gaps, cash expenses, shift report), and a full-circle test that follows one day from the salesman's sales, expenses and meter close through a tanker delivery and a wholesale supply to the manager's notification and the admin's today book, checking every figure against the tanks and the Reports page. Further suites cover PIN sign-in and lockout, sale undo, offline sales synced once at the old price, meter/invoice/bill photos, voice-to-sale parsing (English, Roman Urdu, Urdu), khata receipts, monthly bill links, wholesale messages, QR cards, staff accounts, the cash book, tanker orders, dip charts, the midnight day close and owner questions on WhatsApp.
+- **Tests:** `npm test` runs 99 end-to-end API tests covering the WhatsApp agent, shifts, khata, stock, prices, orders, campaigns, automations, the Meta webhook, role-based access, wholesale supply (including per-client margins that follow pump price changes), expenses, suppliers, reports (including exact stock reconciliation across periods), mid-shift price changes with meter settlement, shift handover (readings, gaps, cash expenses, shift report), and a full-circle test that follows one day from the salesman's sales, expenses and meter close through a tanker delivery and a wholesale supply to the manager's notification and the admin's today book, checking every figure against the tanks and the Reports page. Further suites cover PIN sign-in and lockout, sale undo, offline sales synced once at the old price, meter/invoice/bill photos, voice-to-sale parsing (English, Roman Urdu, Urdu), khata receipts, monthly bill links, wholesale messages, QR cards, staff accounts, the cash book, tanker orders, dip charts, the midnight day close, owner questions on WhatsApp, the shop POS, vehicle limits, loyalty payments, licences, checklists, attendance and payroll cuts, owner insights (health score, staff risk, P&L, statement reconciliation, price planner, tank gain/loss), customer portal, khata hold and late charge, government bills, bookings, backups and restore, two-person price approval and push subscriptions.
 
 Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database server to install).
 
@@ -58,12 +58,19 @@ Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database s
 | **Cash & bank** | Office cash worked out without a register: last cash count + cash handed over from shifts + khata and wholesale cash − bank deposits − cash expenses, supplier payments and advances. Record bank deposits (with slip photo) and cash counts; a count that differs by Rs 500 or more alerts the admin. |
 | **Tanker orders & dip charts** | "Order tanker" on each tank suggests the last supplier and the litres that fit; the order goes to the supplier on WhatsApp and closes itself when that tanker is received. Each tank has a dip chart (paste the oil company's chart or make one from the tank diameter), so dips are entered in cm and turned into litres. |
 | **Day close & owner on WhatsApp** | Just after midnight the day is closed: the owner gets the day's sales, expenses, supply, stock, office cash and shortages with a printable report link, and the closed day can only be changed by the admin. The owner (and admins/managers) can WhatsApp questions such as "aaj ki sale?", "kal kitna kharcha hua", "stock kitna hai", "cash kitna hai" or "kis ne paise dene hain" and get the numbers back (Claude answers anything else when configured). |
+| **Shop & lubricants** | Engine oil, filters, coolant, tyres and tuck-shop items per station with barcode, cost, price and stock. The POS has a **Shop** tab (tap items or scan the barcode); shop cash goes into the shift's cash bag. Stock-in keeps an average cost, counts log the difference, low stock alerts the manager, and shop sales and profit are in every report. |
+| **Vehicles, loyalty and receipts** | A khata vehicle can have a fuel type and a **daily litre limit**, checked at the POS (a manager can allow more). Customers can **pay with loyalty points** (1 point = Rs 1). Every sale shows a **QR digital receipt** with an optional Google review link. |
+| **Licences, checklist, attendance** | Licences and certificates (explosives, OGRA, fire NOC, nap-tol calibration…) with reminders 30/7/1/0 days before expiry and weekly after, to managers and the owner. A daily/weekly **checklist** with big OK/Problem buttons, readings with allowed ranges (water in tank, density, 5-litre measure) and photos; failures and missed checks alert the managers. **Attendance**: selfie + location check-in (opening a shift checks the salesman in), lateness against duty time, weekly off, leave requests and approvals; unpaid absences are cut at salary/30 per day when paying salary. |
+| **Owner insights** | Pump **health score** on the dashboard (stock, cash, khata, licences & checks, staff, sales trend); station comparison; **salesman risk score** (short shifts, litres not entered on the POS, undone sales, late days, failed checks) sent to the owner every Monday; monthly **profit & loss and balance sheet** with Excel export; upload an Easypaisa / JazzCash / card / Raast **statement** to find payments with no sale and sales with no payment; **price-change planner** for the 1st/16th revisions; **tank gain/loss** with leak suspicion. |
+| **Customer care** | A private **customer page** link for each khata account (balance, every fill and slip, monthly bills, pay now). **Overdue khata goes on hold** at the POS after N days without payment (institutions optional) and opens on payment; optional monthly late charge (never for institutions). **Government bills** per month with PO number, submission date and cheque payments; printable **payment notice** in English and Urdu. **Bookings** for car wash, oil change, tyre and service — by staff or by the customer on WhatsApp — with reminders and oil-change-due follow-ups. |
+| **Safety & help** | **Nightly backups** (last 14 kept) with download and a safe restore on the next start; **two-person approval** for price changes (optional); **phone alerts** (web push) for staff; **Training mode** on the POS for new salesmen (nothing saved); a **Help · مدد** button on every page with Urdu and English steps that can be read aloud. |
+| **Hardware (pending)** | Automatic tank gauges, dispenser/forecourt controller, CCTV with number-plate reading, tanker GPS and generator/electricity meters are listed in Settings as pending and will be connected when the equipment is installed. |
 | **Today's book (admin dashboard)** | One panel, from 12:00 am Pakistan time to now: sales (pump + wholesale; cash, digital, khata), expenses (and what is waiting for approval), supply received (tankers, litres, purchase cost), stock left per fuel (opening + received − sold = left now, matching the tanks), current stock value at purchase cost and at today's selling price, estimated profit, how much people owe us and how much we owe, and cash short/over from closed shifts. It uses the same calculation as Reports, so both always agree. |
 | **Reports** | For Admin and Manager, any time: presets for 24 hours, 7 days, 1 month, 6 months and 1 year, or a custom date/time range (Pakistan time). Tabs: **Overview** (revenue retail + wholesale, expenses, estimated gross and net profit, money in / money out, chart by hour/day/month), **Sales** (by product, station, payment method, top customers), **Stock** (opening + received + returns − retail − wholesale ± dip adjustment = closing per product, rebuilt from the movement ledger so any past period is exact; tank levels, deliveries, dips, purchases, stock value at cost), **Expenses**, **Receivables** (who owes us: khata customers and wholesale clients, with aging), **Payables** (whom we owe: fuel suppliers, customer advances, expenses awaiting approval), **Khata**, **Wholesale**, **Shifts & cash** (expected vs counted per attendant). Every tab exports to Excel/CSV and prints to PDF. "Ask AI" can answer report questions for any period. |
 | **Suppliers** | Fuel supplier (depot) accounts. Choosing a supplier and purchase rate on a tanker delivery records what we owe; payments to the depot reduce it. Purchase rates give the fuel cost used for profit estimates. |
 | **Campaigns** | AI-written Roman Urdu broadcasts to segments, with `{name}`, `{balance}` and `{points}` placeholders. Opt-in only. |
 | **AI analytics** | Holt-Winters demand forecast with weekly seasonality, days-to-empty per tank with a suggested order, anomaly detection, insight cards, and "Ask your business anything" (Claude with read-only analytics tools). |
-| **Automations** | Eight scheduled jobs on Asia/Karachi time, each of which can be toggled or run on demand (see below). |
+| **Automations** | Nineteen scheduled jobs on Asia/Karachi time, each of which can be toggled or run on demand (see below). |
 | **Users & roles** | Four roles: Admin (CEO), Manager, Salesman and Wholesale Officer. Access is enforced on every API route and mirrored in the UI from one permission table (`server/src/auth.ts`). The admin creates users, assigns roles and stations, resets passwords, and can disable or delete accounts; the last active admin is protected. Salesmen are locked to their own station and shift, and must open a shift before selling. Databases with the old owner/accountant/attendant roles are upgraded automatically. |
 
 ### Automations
@@ -78,6 +85,15 @@ Requires Node.js 22+ (uses the built-in `node:sqlite`, so there is no database s
 | Owner's daily brief | daily 21:00 | Sales, cash/digital/khata, stock, alerts and forecast, sent on WhatsApp |
 | Day close | daily 00:05 | Locks the previous day and sends the owner its report and link |
 | Monthly bills | 1st of the month 09:00 | Khata bills and wholesale statements with a printable link |
+| Licence & certificate expiry | daily 09:00 | Reminders 30/7/1/0 days before and weekly after expiry |
+| Daily checklist follow-up | 12:00 and 20:00 | Managers told which daily checks are not done |
+| Attendance follow-up | hourly | Staff not checked in an hour after duty time |
+| Weekly staff risk | Mondays 10:00 | Risk score per salesman to the owner |
+| Overdue khata hold | daily 08:00 | Accounts with no payment for N days put on hold |
+| Late-payment charge | 1st of the month 08:00 | Only when a percent is set; never institutions |
+| Booking reminders | every 15 min | WhatsApp an hour before each booking |
+| Oil change due | daily 10:30 | Reminder 3 months after the last oil change |
+| Nightly backup | daily 02:30 | Full database copy, last 14 kept |
 
 ## Architecture
 
@@ -120,12 +136,14 @@ pumpai/
 5. **Public URL.** Set `PUBLIC_URL` to your domain so bill and day-report links in WhatsApp messages open correctly.
 6. **Prices.** The seeded prices are demo values. Enter the current government-notified prices on the Prices page.
 
+7. **Backups.** Backups go to `data/backups` (or `BACKUP_DIR`). Download one regularly and keep it off the server.
+8. **Phone alerts.** Optional: set `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`; otherwise keys are created once and stored in the database. Push needs HTTPS.
+
 See `.env.example` for every option.
 
 ## Roadmap ideas
 
 - WhatsApp voice notes from customers (Urdu speech to text)
-- IoT tank probes and forecourt-controller integration for automatic nozzle transactions
-- Number-plate recognition for fleet and loyalty
+- Hardware (pending until the equipment arrives): tank gauge probes, forecourt controller, CCTV number-plate reading, tanker GPS, generator/electricity meters
 - FBR invoice integration
 - PostgreSQL and multi-tenant SaaS billing
