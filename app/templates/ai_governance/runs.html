@@ -38,7 +38,7 @@
 <tr>
   <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ r.created_at|datetime }}</td>
   <td class="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200">{{ labels.get(r.module, r.module|titleize) }}</td>
-  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.task }}</td>
+  <td class="px-4 py-2 text-xs text-slate-600">{{ r.task|titleize }}</td>
   <td class="px-4 py-2 text-[11px] text-slate-500">{{ r.model }}<span class="block text-slate-400">v{{ r.model_version }} · prompt {{ r.prompt_version }}</span></td>
   <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ r.entity_type or '—' }}{{ ' #' ~ r.entity_id if r.entity_id else '' }}</td>
   <td class="px-4 py-2">

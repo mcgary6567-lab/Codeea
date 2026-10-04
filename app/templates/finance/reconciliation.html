@@ -21,14 +21,14 @@
       <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
         <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
           <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>
-            <th class="px-3 py-2"><input type="checkbox" onclick="document.querySelectorAll('.recbox').forEach(function(c){c.checked=this.checked}.bind(this))" class="h-4 w-4 rounded border-slate-300"></th>
+            <th class="px-3 py-2"><input type="checkbox" onclick="document.querySelectorAll('.recbox').forEach(function(c){c.checked=this.checked}.bind(this))" class="h-4 w-4 rounded border-slate-300" aria-label="Select all"></th>
             {% for h in ['Payment', 'Received', 'Family', 'Amount', 'Base', 'Method', 'Reference'] %}
             <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">{{ h }}</th>{% endfor %}
           </tr></thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
           {% for p in rows %}
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-            <td class="px-3 py-2"><input type="checkbox" class="recbox h-4 w-4 rounded border-slate-300" name="payment_ids" value="{{ p.id }}"></td>
+            <td class="px-3 py-2"><input type="checkbox" class="recbox h-4 w-4 rounded border-slate-300" name="payment_ids" value="{{ p.id }}" aria-label="Select row {{ p.id }}"></td>
             <td class="px-3 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/payments/{{ p.id }}">{{ p.payment_number }}</a></td>
             <td class="px-3 py-2 text-xs">{{ p.received_at|date }}</td>
             <td class="px-3 py-2 text-xs">{{ p.client.full_name if p.client else '' }}</td>

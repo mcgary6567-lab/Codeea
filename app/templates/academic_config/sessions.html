@@ -32,7 +32,7 @@
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/academics/config/sessions/{{ s.id }}/toggle" class="inline">{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/academics/config/sessions/{{ s.id }}/toggle" class="inline" {% if s.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if s.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
@@ -51,7 +51,8 @@
 {% endif %}
 {% else %}{{ ui.empty('No sessions match these filters.', 8, 'clock') }}{% endfor %}
 {{ ui.table_end() }}
-<div class="mt-2 text-xs text-slate-500">{{ slots|length }} session{{ 's' if slots|length != 1 }}</div>
+{{ ui.pagination(page, '/academics/config/sessions?category=' ~ category|urlencode ~ '&status=' ~ status|urlencode ~ '&q=' ~ q|urlencode) }}
+<div class="mt-2 text-xs text-slate-500">{{ page.total }} session{{ 's' if page.total != 1 }}</div>
 
 {% if can_add %}
 {% call ui.modal('newSession', 'Create Session') %}

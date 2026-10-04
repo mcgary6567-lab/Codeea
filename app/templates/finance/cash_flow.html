@@ -13,7 +13,7 @@
   </div>
   <div>
     {% call ui.card("Summary") %}
-    {{ ui.table_start(['Month', 'In', 'Out', 'Net']) }}
+    {{ ui.table_start(['Month', 'In (' ~ base ~ ')', 'Out (' ~ base ~ ')', 'Net (' ~ base ~ ')']) }}
     {% for r in rows %}
     <tr><td class="px-4 py-2 text-xs">{{ r.label }}</td>
       <td class="px-4 py-2 text-right text-emerald-600">{{ r.inflow|money }}</td>

@@ -10,7 +10,7 @@
       {{ ui.dl([('Issued', invoice.issue_date|date), ('Due', invoice.due_date|date),
                 ('Period', ((invoice.period_start|date) ~ ' → ' ~ (invoice.period_end|date)) if invoice.period_start else '—'),
                 ('Total', invoice.total|money(invoice.currency)), ('Already paid', invoice.paid_amount|money(invoice.currency)),
-                ('Outstanding', (invoice.total - invoice.paid_amount)|money(invoice.currency)), ('Status', invoice.status|titleize)]) }}
+                ('Outstanding', (invoice.total - invoice.paid_amount)|money(invoice.currency)), ('Status', invoice.status|label('invoice'))]) }}
     {% endcall %}
     {% else %}
     {% call ui.card('Account balance') %}

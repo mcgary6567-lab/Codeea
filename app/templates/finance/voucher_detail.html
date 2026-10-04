@@ -47,6 +47,7 @@
       <td class="px-3 py-1.5 text-right">{{ l.debit|money if l.debit|float else '' }}</td>
       <td class="px-3 py-1.5 text-right">{{ l.credit|money if l.credit|float else '' }}</td>
     </tr>
+    {% else %}{{ ui.empty('This voucher has no lines.', 6) }}
     {% endfor %}
     <tr class="bg-[#e8f1fb] font-semibold">
       <td class="px-3 py-1.5" colspan="4">Totals</td>
@@ -116,7 +117,7 @@
 
 {% if v.status != 'cancelled' and can_cancel %}
 {% call ui.modal('cancelv', 'Cancel voucher') %}
-<form method="post" action="/finance/accounts/vouchers/{{ v.id }}/cancel" class="space-y-4">
+<form method="post" action="/finance/accounts/vouchers/{{ v.id }}/cancel" class="space-y-4" onsubmit="return confirm('Cancel this voucher by posting a contra voucher against it?')">
   {{ ui.alert('A posted voucher is never deleted: a contra voucher is posted against it and this one is marked cancelled.', 'warning') }}
   {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}
   {{ ui.button('Cancel voucher', icon='undo-2', variant='danger') }}

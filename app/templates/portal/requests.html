@@ -16,6 +16,7 @@
     {% call ui.card('Request a time change') %}
       <form method="post" action="/portal/requests" class="space-y-3">
         <input type="hidden" name="kind" value="time_change">
+        {{ ui.select('student_id', 'Which child?', student_options, None, placeholder='Child on the subscription') }}
         {{ ui.select('subscription_id', 'Which class?', sub_options, None, required=True) }}
         {{ ui.select('new_slot_id', 'New class time', slot_options, None, required=True, help='Times are shown in Pakistan Standard Time.') }}
         <div>
@@ -35,6 +36,7 @@
     {% call ui.card('Request a teacher change') %}
       <form method="post" action="/portal/requests" class="space-y-3">
         <input type="hidden" name="kind" value="teacher_change">
+        {{ ui.select('student_id', 'Which child?', student_options, None, placeholder='Child on the subscription') }}
         {{ ui.select('subscription_id', 'Which class?', sub_options, None, required=True) }}
         {{ ui.select('new_teacher_id', 'Preferred teacher (optional)', teacher_options, None, placeholder='Let the college choose') }}
         {{ ui.textarea('description', 'Why?', '', rows=3, required=True, placeholder='Tell us what is not working so we can match you better.') }}

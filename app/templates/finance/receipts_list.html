@@ -61,7 +61,7 @@
   <td class="px-3 py-1.5">{{ ui.badge(p.status, p.status|label('receipt')) }}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ p.received_at|date }}</td>
   <td class="px-3 py-1.5 text-xs">{{ p.billing_rep.full_name.split(' ')[0] if p.billing_rep else (p.client.billing_rep.full_name.split(' ')[0] if p.client and p.client.billing_rep else '—') }}</td>
-  <td class="px-3 py-1.5 text-center"><a href="/finance/payments/{{ p.id }}/receipt" class="inline-flex rounded-md p-1 text-slate-400 hover:text-brand-600" title="Print receipt"><i data-lucide="printer" class="h-4 w-4"></i></a></td>
+  <td class="px-3 py-1.5 text-center">{% if p.receipt %}<a href="/finance/payments/{{ p.id }}/receipt" class="inline-flex rounded-md p-1 text-slate-400 hover:text-brand-600" title="Print receipt" aria-label="Print receipt"><i data-lucide="printer" class="h-4 w-4"></i></a>{% else %}<span class="text-slate-300" title="No receipt issued">—</span>{% endif %}</td>
 </tr>
 {% else %}{{ ui.empty('No receipts match these filters.', 19) }}{% endfor %}
 {{ ui.table_end() }}

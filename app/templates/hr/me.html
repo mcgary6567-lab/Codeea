@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Employee Self Portal{% endblock %}
+{% set tab_label = (tabs|selectattr(0, 'equalto', tab)|map(attribute=1)|first) or 'My Overview' %}
+{% block title %}{{ tab_label }} · Employee Self Portal{% endblock %}
 {% block content %}
-{% call ui.page_header('Employee Self Portal', 'Attendance, requests, pay and your own record — ' ~ user.full_name) %}
+{% call ui.page_header(tab_label, 'Employee Self Portal · attendance, requests, pay and your own record — ' ~ user.full_name) %}
   {% if e %}{{ ui.badge(e.status) }}<span class="text-xs text-slate-500">{{ e.employee_code }} · {{ e.designation }}</span>
   {{ ui.button('Account Ledger', href='/hr/me/ledger', icon='book-open-text', variant='secondary', size='sm') }}{% endif %}
 {% endcall %}

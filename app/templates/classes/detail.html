@@ -105,6 +105,7 @@
         <td class="px-3 py-1.5 text-xs">{{ r.new_teacher.full_name if r.new_teacher else '-' }}</td>
         <td class="px-3 py-1.5 text-xs text-slate-600">{{ r.reason or '-' }}</td>
         <td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td></tr>
+      {% else %}{{ ui.empty('No reschedule requests for this class.', 6) }}
       {% endfor %}
       {{ ui.table_end() }}
     {% endcall %}

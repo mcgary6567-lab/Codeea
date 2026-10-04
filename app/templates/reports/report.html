@@ -60,9 +60,9 @@
 <div class="mt-4 flex items-center justify-between text-sm text-slate-500">
   <div>Showing <b>{{ start_index }}</b>–<b>{{ end_index }}</b> of <b>{{ total }}</b> rows</div>
   <div class="inline-flex items-center gap-1">
-    <a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no - 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if page_no <= 1 }} dark:border-slate-700">‹</a>
+    {% if page_no <= 1 %}<span aria-disabled="true" class="rounded-md border px-2.5 py-1 opacity-40 dark:border-slate-700">‹</span>{% else %}<a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no - 1 }}" aria-label="Previous page" class="rounded-md border px-2.5 py-1 dark:border-slate-700">‹</a>{% endif %}
     <span class="px-2">Page {{ page_no }} of {{ pages }}</span>
-    <a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no + 1 }}" class="rounded-md border px-2.5 py-1 {{ 'pointer-events-none opacity-40' if page_no >= pages }} dark:border-slate-700">›</a>
+    {% if page_no >= pages %}<span aria-disabled="true" class="rounded-md border px-2.5 py-1 opacity-40 dark:border-slate-700">›</span>{% else %}<a href="/reports/{{ meta.key }}?{{ qs }}&page={{ page_no + 1 }}" aria-label="Next page" class="rounded-md border px-2.5 py-1 dark:border-slate-700">›</a>{% endif %}
   </div>
 </div>
 {% elif total %}<div class="mt-3 text-xs text-slate-500">{{ total }} row{{ 's' if total != 1 }}</div>{% endif %}

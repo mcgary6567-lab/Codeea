@@ -49,7 +49,7 @@
     {{ ui.table_start(['Client', 'Name', 'Type', 'Status', 'Created'], compact=True) }}
     {% for r in contacts[:15] %}
     <tr><td class="px-3 py-1.5 text-xs">{% if r.client %}<a href="/clients/{{ r.client_id }}" class="hover:text-brand-600">{{ r.client.full_name }}</a>{% endif %}</td>
-      <td class="px-3 py-1.5 text-xs font-medium"><a href="/requests/references/{{ r.id }}" class="hover:text-brand-600">{{ r.name }}</a></td>
+      <td class="px-3 py-1.5 text-xs font-medium"><a href="/requests/references?client={{ r.client_id }}&q={{ r.name|urlencode }}" class="hover:text-brand-600">{{ r.name }}</a></td>
       <td class="px-3 py-1.5 text-xs">{{ r.reference_type|titleize }}</td><td class="px-3 py-1.5">{{ ui.badge(r.status, r.status|label('request')) }}</td>
       <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ r.created_at|date }}</td></tr>
     {% else %}{{ ui.empty('No referred contacts.', 5) }}{% endfor %}

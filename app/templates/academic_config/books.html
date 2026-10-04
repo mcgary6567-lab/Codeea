@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Books Detail{% endblock %}
+{% block title %}Define Books{% endblock %}
 {% block content %}
-{% call ui.page_header("Books Detail", "Internal books are used by teachers; public books appear on the website and in the client portal.", back="/academics/config") %}
+{% call ui.page_header("Define Books", "Internal books are used by teachers; public books appear on the website and in the client portal.", back="/academics/config") %}
   {{ ui.button("Download Template", href="/academics/config/books/template.csv", icon="download", variant="secondary") }}
   {% if can_add %}
   {{ ui.button("Upload CSV", icon="upload", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'uploadBooks\')"') }}
@@ -38,7 +38,7 @@
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/academics/config/books/{{ b.id }}/toggle" class="inline">{{ ui.button('Deactivate' if b.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/academics/config/books/{{ b.id }}/toggle" class="inline" {% if b.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if b.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>

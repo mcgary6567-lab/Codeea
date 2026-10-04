@@ -86,6 +86,7 @@
     <td class="px-4 py-2 w-40">{{ ui.progress(p.progress_pct, 'brand') }}</td>
     <td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
   </tr>
+  {% else %}{{ ui.empty('No individual development plans.', 6) }}
   {% endfor %}
   {{ ui.table_end() }}
   {% endcall %}

@@ -29,7 +29,7 @@
                      'NIC Number', 'Cell No', 'Email', 'Qualification', 'Experience', 'Expected Salary', 'City', 'Status', '']) }}
   {% for a in page.items %}
   <tr>
-    <td class="px-2 py-2 text-center">{% if can_process %}<input type="checkbox" name="ids" value="{{ a.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
+    <td class="px-2 py-2 text-center">{% if can_process %}<input type="checkbox" name="ids" value="{{ a.id }}" aria-label="Select row {{ a.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
     <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ a.id }}</td>
     <td class="px-3 py-2 font-medium"><a class="text-brand-700 hover:underline" href="/hr/applications/{{ a.id }}">{{ a.full_name }}</a></td>
     <td class="px-3 py-2 text-xs">{{ a.father_name or '—' }}</td>

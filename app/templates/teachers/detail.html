@@ -93,7 +93,7 @@
 <tr><td class="px-4 py-2 font-mono text-xs"><a href="/students/{{ s.id }}" class="text-brand-700 dark:text-brand-300">{{ s.student_code }}</a></td>
   <td class="px-4 py-2 text-sm">{{ s.full_name }}</td><td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
   <td class="px-4 py-2 text-xs">{{ s.level or '—' }}</td><td class="px-4 py-2">{{ ui.badge(s.risk_level) }}</td>
-  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
   <td class="px-4 py-2 text-xs">{{ s.client.full_name if s.client else '—' }}</td>
   <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/students/' ~ s.id, variant='ghost', size='sm') }}</td></tr>
 {% else %}{{ ui.empty('No students assigned to this teacher.', 8) }}{% endfor %}

@@ -61,7 +61,7 @@
       <button class="rounded px-1.5 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Move down"><i data-lucide="arrow-down" class="h-3.5 w-3.5"></i></button>
     </form>
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/academics/config/feedback-questions/{{ fq.id }}/toggle" class="inline">
+    <form method="post" action="/academics/config/feedback-questions/{{ fq.id }}/toggle" class="inline" {% if fq.status == 'active' %}onsubmit="return confirm('Deactivate this question? It can be reactivated later.')"{% endif %}>
       <input type="hidden" name="applies_to_filter" value="{{ applies_to }}">
       {{ ui.button('Deactivate' if fq.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}
     </form>

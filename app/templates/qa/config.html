@@ -36,7 +36,7 @@
   <td class="px-4 py-2" x-show="editRow !== {{ loop.index }}">{{ ui.badge(p.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
-    <form method="post" action="/qa/config/parameters/{{ p.id }}/toggle" class="inline">{{ ui.button('Deactivate' if p.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/qa/config/parameters/{{ p.id }}/toggle" class="inline" {% if p.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if p.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
   </td>
 </tr>
 {% else %}{{ ui.empty('No review parameters defined yet - add Engagement, Tajweed Accuracy, Adab, Lesson Planning ...', 7) }}{% endfor %}
@@ -62,7 +62,7 @@
   <td class="px-4 py-2" x-show="editRow !== {{ loop.index }}">{{ ui.badge(i.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"><i data-lucide="pencil" class="h-3.5 w-3.5"></i>Edit</button>
-    <form method="post" action="/qa/config/issue-types/{{ i.id }}/toggle" class="inline">{{ ui.button('Deactivate' if i.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/qa/config/issue-types/{{ i.id }}/toggle" class="inline" {% if i.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if i.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
   </td>
 </tr>
 {% else %}{{ ui.empty('No issue types defined yet.', 5) }}{% endfor %}

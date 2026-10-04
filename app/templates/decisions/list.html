@@ -68,6 +68,7 @@
       <td class="px-4 py-2 text-xs font-semibold text-rose-600">{{ (today - d.due_date).days }}</td>
       <td class="px-4 py-2">{{ ui.badge(d.status) }}</td>
     </tr>
+    {% else %}{{ ui.empty('Nothing is overdue.', 5) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% else %}

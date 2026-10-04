@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Supervisor live{% endblock %}
+{% block title %}Monitoring Dashboard{% endblock %}
 {% block content %}
-{% call ui.page_header("Supervisor live board", "Real-time class execution · " ~ scope) %}
+{% call ui.page_header("Monitoring Dashboard", "Supervisor live board · real-time class execution · " ~ scope) %}
   {{ ui.button("Teachers", href="/supervisor/teachers", icon="user-check", variant="secondary") }}
   {{ ui.button("Weekly coverage", href="/supervisor/weekly", icon="bar-chart-3", variant="secondary") }}
   {{ ui.button("Day calendar", href="/classes/day?date=" ~ sel_date, icon="calendar-range", variant="secondary") }}

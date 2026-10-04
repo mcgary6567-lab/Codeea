@@ -54,7 +54,7 @@
   <tr>
     <td class="px-4 py-2 font-mono text-xs">{{ s.student_code }}</td>
     <td class="px-4 py-2 font-medium">{{ s.full_name }}</td>
-    <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+    <td class="px-4 py-2">{{ ui.badge(s.status, s.status|label('student')) }}</td>
     <td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
     <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '— unassigned —' }}</td>
     <td class="px-4 py-2 text-xs text-slate-500">{{ s.join_date|date }}</td>
@@ -76,14 +76,14 @@
   {% for s in page.items %}
   <tr>
     <td class="px-4 py-2"><a href="/schedules/{{ s.id }}" class="font-medium hover:text-brand-700">{{ s.student.full_name if s.student else '—' }}</a>
-      <div class="font-mono text-[11px] text-slate-400">{{ s.student.student_code if s.student }}{% if s.is_trial %} · trial{% endif %}</div></td>
+      <div class="font-mono text-[11px] text-slate-500">{{ s.student.student_code if s.student }}{% if s.is_trial %} · trial{% endif %}</div></td>
     <td class="px-4 py-2 text-xs">{{ s.teacher.full_name if s.teacher else '—' }}</td>
     <td class="px-4 py-2 text-xs">{{ s.course.name if s.course else '—' }}</td>
     <td class="px-4 py-2 text-xs">{% for d in day_names %}<span class="mr-0.5 inline-block rounded px-1 {{ 'bg-brand-600 text-white' if loop.index0 in (s.days_of_week or []) else 'bg-slate-100 text-slate-400 dark:bg-slate-800' }}">{{ d[0] }}</span>{% endfor %}</td>
     <td class="px-4 py-2 font-mono text-xs">{{ s.start_time|time }}</td>
     <td class="px-4 py-2 text-xs">{{ s.duration_minutes }} min</td>
     <td class="px-4 py-2 text-xs">{{ s.shift.name if s.shift else '—' }}</td>
-    <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+    <td class="px-4 py-2">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
     <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/schedules/' ~ s.id, variant='ghost', size='sm') }}</td>
   </tr>
   {% else %}{{ ui.empty('No schedules match these filters.', 9, 'calendar-days') }}{% endfor %}

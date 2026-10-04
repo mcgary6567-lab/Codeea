@@ -54,7 +54,7 @@
 
 {% call ui.modal('revokeall', 'Revoke every active session') %}
 {{ ui.alert('Every signed-in user except you will be logged out immediately and must sign in again. Use this after a credential leak or a suspected compromise.', 'warning', 'Platform-wide sign-out') }}
-<form method="post" action="/admin/security/sessions/revoke" class="mt-4 space-y-4">
+<form method="post" action="/admin/security/sessions/revoke" class="mt-4 space-y-4" onsubmit="return confirm('Sign out every other user on the platform right now?')">
   {{ ui.textarea('rationale', 'Rationale (recorded on the audit trail)', '', rows=3, required=True) }}
   {{ ui.button('Revoke all sessions', icon='power', variant='danger') }}
 </form>

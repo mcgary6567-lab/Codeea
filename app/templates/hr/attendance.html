@@ -197,7 +197,7 @@
         {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == 'present' }}>{{ s|titleize }}</option>{% endfor %}</select>
       <input name="note" placeholder="note" class="w-24 rounded border border-slate-300 px-1.5 py-1 text-[11px]">
       <button name="decision" value="approve" class="rounded bg-emerald-600 px-2 py-1 text-[11px] text-white">Approve</button>
-      <button name="decision" value="reject" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
+      <button name="decision" value="reject" onclick="return confirm('Reject this attendance correction?')" class="rounded bg-rose-600 px-2 py-1 text-[11px] text-white">Reject</button>
     </form>
     {% else %}<span class="text-xs text-slate-400">{{ r.correction_status|titleize if r.correction_status else '—' }}</span>{% endif %}
   </td>

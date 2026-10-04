@@ -32,7 +32,7 @@
 
 <div class="mb-2 text-xs text-slate-500">Comparison period: {{ data.prev_start|date }} to {{ data.prev_end|date }}</div>
 
-{{ ui.table_start(['Account Code', 'Account Name', 'Group', 'This Period', 'Previous Period', 'Change']) }}
+{{ ui.table_start(['Account Code', 'Account Name', 'Group', 'This Period (' ~ base ~ ')', 'Previous Period (' ~ base ~ ')', 'Change (' ~ base ~ ')']) }}
 <tr class="bg-[#f3f7fd] font-semibold"><td class="px-3 py-1.5" colspan="6">Income</td></tr>
 {% for r in data.income %}
 <tr>

@@ -1,0 +1,57 @@
+{# Family account statement, laid out for paper. The rows come from billing.ledger_report, the same service that
+   draws the staff Client Ledger Report, scoped to the signed-in family (finding 8). #}
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Account statement · {{ c.client_code }}{% endblock %}
+{% block content %}
+{% include "finance/_print.html" %}
+
+<div class="no-print">
+{% call ui.page_header('Account statement', c.client_code ~ ' · ' ~ c.full_name ~ ' · ' ~ report.currency, back='/portal/billing') %}
+  {{ ui.button('Print', icon='printer', attrs='onclick="window.print()"') }}
+  {{ ui.button('Download CSV', href='/portal/billing/statement.csv?date_from=' ~ date_from ~ '&date_to=' ~ date_to, icon='download', variant='secondary') }}
+{% endcall %}
+{% call ui.filter_bar('/portal/billing/statement/print') %}
+  <div class="w-40">{{ ui.input('date_from', 'From', date_from, type='date') }}</div>
+  <div class="w-40">{{ ui.input('date_to', 'To', date_to, type='date') }}</div>
+{% endcall %}
+</div>
+
+<div class="print-only mb-4">
+  <h1 style="font-size:18px;font-weight:700">Account statement — {{ c.full_name }}</h1>
+  <p style="font-size:11px">{{ c.client_code }} &middot; {{ report.currency }}{% if date_from or date_to %} &middot; {{ date_from or 'start' }} to {{ date_to or 'today' }}{% endif %} &middot; printed {{ printed_on|date }}</p>
+</div>
+
+{{ ui.table_start(['Srl', 'Date', 'Transaction Type', 'Description', 'Amount', 'Balance']) }}
+<tr class="bg-slate-50">
+  <td class="px-4 py-2 text-xs" colspan="2"></td>
+  <td class="px-4 py-2 text-xs font-semibold">Previous Balance</td>
+  <td class="px-4 py-2 text-xs"></td>
+  <td class="px-4 py-2 text-xs text-right"></td>
+  <td class="px-4 py-2 text-xs text-right font-semibold">{{ report.previous_balance|money(report.currency) }}</td>
+</tr>
+{% for r in report.rows %}
+<tr>
+  <td class="px-4 py-2 text-xs">{{ r.srl }}</td>
+  <td class="px-4 py-2 text-xs whitespace-nowrap">{{ r.date|date }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.type|titleize }}</td>
+  <td class="px-4 py-2 text-xs">{{ r.description }}</td>
+  <td class="px-4 py-2 text-xs text-right {{ 'text-rose-600' if r.amount > 0 else 'text-emerald-600' }}">{{ r.amount|money(report.currency) }}</td>
+  <td class="px-4 py-2 text-xs text-right font-medium">{{ r.balance|money(report.currency) }}</td>
+</tr>
+{% else %}{{ ui.empty('No entries in this period.', 6) }}{% endfor %}
+<tr class="bg-slate-50 font-semibold">
+  <td class="px-4 py-2 text-xs" colspan="2"></td>
+  <td class="px-4 py-2 text-xs">Total</td>
+  <td class="px-4 py-2 text-xs"></td>
+  <td class="px-4 py-2 text-xs text-right">{{ report.total|money(report.currency) }}</td>
+  <td class="px-4 py-2 text-xs text-right">{{ report.closing_balance|money(report.currency) }}</td>
+</tr>
+<tr>
+  <td class="px-4 py-2 text-xs" colspan="2"></td>
+  <td class="px-4 py-2 text-xs font-semibold">In Words</td>
+  <td class="px-4 py-2 text-xs" colspan="3">{{ report.in_words }}</td>
+</tr>
+{{ ui.table_end() }}
+<p class="mt-3 text-xs text-slate-500">A positive balance is the amount due to the college; a negative balance is credit on your account.</p>
+{% endblock %}

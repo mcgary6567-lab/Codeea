@@ -200,6 +200,21 @@
   {% else %}
   <div class="xl:col-span-2">{{ ui.empty_state('No configuration keys have been seeded yet.', 'sliders-horizontal') }}</div>
   {% endfor %}
+
+  {% call ui.card('Add setting', 'Create a key a module reads but nobody has seeded yet (for example whatsapp_verify_token, review_link, sms_provider). The value is stored as text, a number, true/false or JSON by its shape; the creation is audited.') %}
+  <form method="post" action="/admin/settings/new" class="space-y-3" id="add-setting-form">
+    <div class="grid gap-3 sm:grid-cols-2">
+      {{ ui.input('key', 'Key', '', required=True, placeholder='snake_case_key', help='Letters, digits and underscores; must not exist yet.') }}
+      {{ ui.input('group', 'Group', 'general', placeholder='general', help='Settings are saved group by group above; Setup tabs follow the same groups.') }}
+    </div>
+    {{ ui.input('value', 'Value', '', placeholder='Text, 30, true, or {"a": 1}') }}
+    {{ ui.input('description', 'Description', '', placeholder='What reads this key and what it changes') }}
+    <div class="flex items-end gap-3">
+      <div class="flex-1">{{ ui.input('rationale', 'Rationale', '', placeholder='Why is this key being added?') }}</div>
+      {{ ui.button('Add setting', icon='plus', size='sm') }}
+    </div>
+  </form>
+  {% endcall %}
 </div>
 
 {% elif tab == 'jobs' %}

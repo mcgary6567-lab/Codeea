@@ -37,12 +37,12 @@
       {% for a in ACTIONS %}
       <td class="px-2 py-1.5 text-center">
         <input type="checkbox" class="permbox row-{{ m }} h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-               name="p__{{ m }}__{{ a }}" value="1" {% if (m ~ '.' ~ a) in checked %}checked{% endif %}>
+               name="p__{{ m }}__{{ a }}" value="1" aria-label="{{ m|titleize }} — {{ a|titleize }}" {% if (m ~ '.' ~ a) in checked %}checked{% endif %}>
       </td>
       {% endfor %}
       <td class="px-2 py-1.5 text-center">
         <input type="checkbox" onclick="document.querySelectorAll('.row-{{ m }}').forEach(c => c.checked = this.checked)"
-               class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" title="Select the whole row (saved as {{ m }}.*)">
+               class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" title="Select the whole row (saved as {{ m }}.*)" aria-label="Select every {{ m|titleize }} permission">
       </td>
     </tr>
     {% endfor %}

@@ -69,10 +69,11 @@
     <td class="px-3 py-1.5">{{ r.name }}</td>
     <td class="px-3 py-1.5 text-right font-medium">{{ r.amount|money }}</td>
   </tr>
+  {% else %}{{ ui.empty('No equity accounts.', 3) }}
   {% endfor %}
   <tr>
     <td class="px-3 py-1.5 font-mono text-xs">—</td>
-    <td class="px-3 py-1.5">Retained earnings<div class="text-[11px] text-slate-400">Income {{ data.income_total|money }} less expenses {{ data.expense_total|money }} to date</div></td>
+    <td class="px-3 py-1.5">Retained earnings<div class="text-[11px] text-slate-400">Income {{ data.income_total|money(base) }} less expenses {{ data.expense_total|money(base) }} to date</div></td>
     <td class="px-3 py-1.5 text-right font-medium">{{ data.retained_earnings|money }}</td>
   </tr>
   <tr class="bg-slate-50 font-semibold"><td class="px-3 py-1.5" colspan="2">Total equity</td><td class="px-3 py-1.5 text-right">{{ data.total_equity_with_earnings|money }}</td></tr>

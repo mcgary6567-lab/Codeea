@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}AI run #{{ r.id }}{% endblock %}
 {% block content %}
-{% call ui.page_header('AI run #' ~ r.id ~ ' · ' ~ labels.get(r.module, r.module|titleize), r.task ~ ' · ' ~ (r.created_at|datetime), back='/ai-governance') %}
+{% call ui.page_header('AI run #' ~ r.id ~ ' · ' ~ labels.get(r.module, r.module|titleize), (r.task|titleize) ~ ' · ' ~ (r.created_at|datetime), back='/ai-governance') %}
   {{ ui.badge(r.review_status) }}
   {% if entity_link %}{{ ui.button('Open ' ~ r.entity_type, href=entity_link, icon='external-link', variant='secondary') }}{% endif %}
 {% endcall %}
@@ -36,11 +36,12 @@
     <tr>
       <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">{{ s.created_at|datetime }}</td>
       <td class="px-4 py-2 text-xs">{{ labels.get(s.module, s.module|titleize) }}</td>
-      <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ s.task }}</td>
+      <td class="px-4 py-2 text-xs text-slate-600">{{ s.task|titleize }}</td>
       <td class="px-4 py-2 text-xs">{{ '%.2f'|format(s.confidence) if s.confidence is not none else '—' }}</td>
       <td class="px-4 py-2">{{ ui.badge(s.review_status) }}</td>
       <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/ai-governance/' ~ s.id, variant='ghost', size='sm') }}</td>
     </tr>
+    {% else %}{{ ui.empty('No other runs for this module.', 6) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% endcall %}
@@ -49,7 +50,7 @@
 
   <div class="space-y-5">
     {% call ui.card('Traceability') %}
-    {{ ui.dl([('Module', labels.get(r.module, r.module|titleize)), ('Task', r.task), ('Provider', r.provider),
+    {{ ui.dl([('Module', labels.get(r.module, r.module|titleize)), ('Task', r.task|titleize), ('Provider', r.provider),
               ('Model', r.model), ('Model version', r.model_version), ('Prompt version', r.prompt_version),
               ('Entity', (r.entity_type ~ ' #' ~ r.entity_id) if r.entity_type else '—'),
               ('Created', r.created_at|datetime)]) }}

@@ -41,7 +41,7 @@
 <tr>
   {% if can_decide %}
   <td class="px-3 py-2 text-center">
-    <input type="checkbox" name="ids" value="{{ l.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+    <input type="checkbox" name="ids" value="{{ l.id }}" aria-label="Select row {{ l.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
   </td>
   {% endif %}
   <td class="px-3 py-2 font-mono text-xs text-slate-500">{{ l.id }}</td>
@@ -98,7 +98,7 @@
           <button form="decide-form-{{ l.id }}" name="decision" value="forward"
                   class="inline-flex items-center gap-1.5 rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
             <i data-lucide="send" class="h-4 w-4"></i>Forward to verifier</button>
-          <button form="decide-form-{{ l.id }}" name="decision" value="reject"
+          <button form="decide-form-{{ l.id }}" name="decision" value="reject" onclick="return confirm('Reject lead {{ l.lead_code }}?')"
                   class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">
             <i data-lucide="circle-x" class="h-4 w-4"></i>Reject</button>
         </div>

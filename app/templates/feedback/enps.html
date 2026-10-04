@@ -29,7 +29,7 @@
     <select name="employee_id" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
       {% for e in employees %}<option value="{{ e.id }}">{{ e.full_name }} — {{ e.designation }}</option>{% endfor %}
     </select></div>
-  {{ ui.button('Send', icon='send') }}
+  {{ ui.button('Send survey', icon='send') }}
 </form>
 {% endcall %}
 <div class="mb-6"></div>

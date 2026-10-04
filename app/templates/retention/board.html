@@ -35,18 +35,18 @@
 <tr class="{{ 'bg-rose-50/40 dark:bg-rose-950/10' if r.level == 'high' }}">
   <td class="px-4 py-2">
     <a href="/students/{{ r.student.id }}" class="font-medium text-slate-900 hover:text-brand-600 dark:text-white">{{ r.student.full_name }}</a>
-    <div class="font-mono text-[11px] text-slate-400">{{ r.student.student_code }} · {{ r.student.status|titleize }}{% if r.frozen %} · frozen{% endif %}</div>
+    <div class="font-mono text-[11px] text-slate-500">{{ r.student.student_code }} · {{ r.student.status|titleize }}{% if r.frozen %} · frozen{% endif %}</div>
   </td>
   <td class="px-4 py-2 w-36">{{ ui.progress(r.score, 'rose' if r.level == 'high' else ('amber' if r.level == 'medium' else 'emerald'), label=(r.score|round(0)) ~ ' · ' ~ r.level) }}</td>
   <td class="px-4 py-2">
     {% for f in r.factors[:3] %}<span class="mr-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ f|titleize }}</span>{% endfor %}
-    {% if not r.factors %}<span class="text-xs text-slate-400">none</span>{% endif %}
+    {% if not r.factors %}<span class="text-xs text-slate-500">none</span>{% endif %}
   </td>
   <td class="px-4 py-2 text-xs">{{ r.attendance if r.attendance is not none else '—' }}%</td>
   <td class="px-4 py-2 text-xs {{ 'text-rose-600' if r.test_trend and r.test_trend < 0 else 'text-emerald-600' }}">{{ r.test_trend if r.test_trend is not none else '—' }}</td>
   <td class="px-4 py-2 text-xs">{{ r.complaints if r.complaints is not none else 0 }}</td>
   <td class="px-4 py-2 text-xs">{{ r.overdue if r.overdue is not none else 0 }}</td>
-  <td class="px-4 py-2 text-[11px] text-slate-400">{{ r.computed_at|ago if r.computed_at else 'never' }}</td>
+  <td class="px-4 py-2 text-[11px] text-slate-500">{{ r.computed_at|ago if r.computed_at else 'never' }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if has_perm(user, 'retention.update') %}
     <form method="post" action="/retention/students/{{ r.student.id }}/recompute" class="inline">{{ ui.button('Recompute', icon='refresh-cw', variant='ghost', size='sm') }}</form>

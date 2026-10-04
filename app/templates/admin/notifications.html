@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Notifications{% endblock %}
+{% block title %}Notification Templates{% endblock %}
 {% block content %}
-{% call ui.page_header("Notifications", "Message templates, the trigger catalogue, the delivery log, consent and broadcasts") %}
+{% call ui.page_header("Notification Templates", "Message templates, the trigger catalogue, the delivery log, consent and broadcasts") %}
   {% if has_perm(user, 'notifications.add') %}{{ ui.button("New template", href="/admin/notifications/templates/new", icon="plus") }}{% endif %}
   {{ ui.button("Integration hub", href="/admin/integrations", icon="plug", variant="secondary") }}
 {% endcall %}
@@ -27,7 +27,7 @@
 {{ ui.table_start(['Event type','Channel','Language','Subject','Placeholders','Status','']) }}
 {% for t in templates %}
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2 font-mono text-xs font-medium">{{ t.event_type }}</td>
+  <td class="px-4 py-2 text-xs font-medium">{{ t.event_type|titleize }} <code class="ml-1 font-mono text-[10.5px] font-normal text-slate-500">{{ t.event_type }}</code></td>
   <td class="px-4 py-2">{{ ui.badge(t.channel) }}</td>
   <td class="px-4 py-2 text-xs uppercase">{{ t.language }}</td>
   <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ t.subject|truncate(70) }}</td>
@@ -77,7 +77,7 @@ platform falls back to the literal title and body supplied by the calling module
     {% if n.recipient_address %}<span class="block font-mono text-[11px] text-slate-400">{{ n.recipient_address }}</span>{% endif %}
   </td>
   <td class="px-4 py-2">{{ ui.badge(n.channel) }}</td>
-  <td class="px-4 py-2 font-mono text-[11px] text-slate-500">{{ n.event_type }}</td>
+  <td class="px-4 py-2 text-[11px] text-slate-600">{{ n.event_type|titleize }}</td>
   <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ n.title|truncate(52) }}</td>
   <td class="px-4 py-2">{{ ui.badge(n.status) }}</td>
   <td class="px-4 py-2 text-center text-xs">{{ n.attempts }}</td>
@@ -157,7 +157,7 @@ platform falls back to the literal title and body supplied by the calling module
       <ul class="divide-y divide-slate-100 text-sm dark:divide-slate-800">
         {% for n in page.items|selectattr('event_type','equalto','broadcast')|list %}{% if loop.index <= 8 %}
         <li class="py-2"><span class="block font-medium">{{ n.title|truncate(48) }}</span>
-          <span class="block text-xs text-slate-500">{{ n.created_at|datetime }} · {{ n.channel }} · {{ n.status }}</span></li>
+          <span class="block text-xs text-slate-500">{{ n.created_at|datetime }} · {{ n.channel|titleize }} · {{ n.status|titleize }}</span></li>
         {% endif %}{% else %}<li class="py-6 text-center text-slate-400">No broadcasts on this page of the log.</li>{% endfor %}
       </ul>
       <div class="mt-3">{{ ui.button('Full delivery log', href='/admin/notifications?tab=log&event=broadcast', variant='secondary', size='sm', icon='arrow-right') }}</div>

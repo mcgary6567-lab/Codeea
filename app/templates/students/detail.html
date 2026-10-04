@@ -303,7 +303,7 @@
     {% for inv in invoices %}
     <tr><td class="px-4 py-2 font-mono text-xs">{{ inv.invoice_number }}</td><td class="px-4 py-2 text-xs">{{ inv.issue_date|date }}</td>
       <td class="px-4 py-2 text-xs">{{ inv.due_date|date }}</td><td class="px-4 py-2">{{ inv.total|money(inv.currency) }}</td>
-      <td class="px-4 py-2">{{ ui.badge(inv.status) }}</td></tr>
+      <td class="px-4 py-2">{{ ui.badge(inv.status, inv.status|label('invoice')) }}</td></tr>
     {% else %}{{ ui.empty('No invoices raised.', 5) }}{% endfor %}
     {{ ui.table_end() }}
   {% endcall %}
@@ -380,7 +380,7 @@
 
 {% if has_perm(user, 'students.update') %}
 {% call ui.modal('statusModal', 'Change enrolment status') %}
-<form method="post" action="/students/{{ s.id }}/status" class="space-y-4">
+<form method="post" action="/students/{{ s.id }}/status" class="space-y-4" onsubmit="return confirm('Change the enrolment status of {{ s.full_name }}? The parent and teacher are notified.')">
   {{ ui.select('status', 'New status', statuses, s.status, placeholder=None, help='Regular, On Leave (freeze), Drop Out, Pass Out or Free.') }}
   {{ ui.textarea('reason', 'Reason (required)', '', rows=3, required=True, placeholder='Why is the status changing? The parent and teacher are notified.') }}
   <div class="flex gap-2">{{ ui.button('Apply status change', icon='check') }}</div>

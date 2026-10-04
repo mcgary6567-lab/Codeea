@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Discount approvals{% endblock %}
+{% block title %}Discounts & Scholarships{% endblock %}
 {% block content %}
-{% call ui.page_header("Discount ladder", "Every price concession is approved at the right level and recorded on the weekly register.") %}
+{% call ui.page_header("Discounts & Scholarships", "Discount ladder · every price concession is approved at the right level and recorded on the weekly register.") %}
   {{ ui.button("Weekly register", href="/finance/discounts/register", icon="calendar-range", variant="secondary") }}
 {% endcall %}
 
@@ -45,7 +45,7 @@
         <form method="post" action="/finance/discounts/{{ r.id }}/decide" class="flex items-center justify-end gap-1.5">
           <input name="note" placeholder="Decision note" required class="w-40 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
           <button name="decision" value="approve" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">Approve</button>
-          <button name="decision" value="reject" class="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-700">Reject</button>
+          <button name="decision" value="reject" onclick="return confirm('Reject this discount request?')" class="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-rose-700">Reject</button>
         </form>
         {% elif r.status == 'pending' and locked %}
         <span class="text-xs text-slate-400">CEO decision required</span>

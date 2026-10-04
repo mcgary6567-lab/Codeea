@@ -39,11 +39,11 @@
     <div x-data="{ open: false }" class="inline-block">
       <button type="button" @click="open = !open" class="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700">Decide</button>
       <div x-show="open" x-cloak class="mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800">
-        <form method="post" class="space-y-2">
-          <input name="note" placeholder="Decision note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+        <form method="post" action="/leaves/students/{{ l.id }}/approve" class="space-y-2">
+          <input name="note" placeholder="Decision note" aria-label="Decision note" class="w-full rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
           <div class="flex gap-2">
             <button formaction="/leaves/students/{{ l.id }}/approve" class="flex-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white">Approve</button>
-            <button formaction="/leaves/students/{{ l.id }}/reject" class="flex-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white">Reject</button>
+            <button formaction="/leaves/students/{{ l.id }}/reject" onclick="return confirm('Reject this leave request?')" class="flex-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white">Reject</button>
           </div>
         </form>
       </div>

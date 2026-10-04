@@ -64,7 +64,7 @@
   {% for r in rows %}
   {% set c = r.client %}
   <tr {% if r.exceeded > 0 %}style="background: #fef2f2"{% endif %}>
-    {% if can_notify %}<td class="px-3 py-2 text-center no-print"><input type="checkbox" name="ids" value="{{ c.id }}" @change="picked = $el.closest('form').querySelectorAll('input[name=ids]:checked').length" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
+    {% if can_notify %}<td class="px-3 py-2 text-center no-print"><input type="checkbox" name="ids" value="{{ c.id }}" aria-label="Select row {{ c.id }}" @change="picked = $el.closest('form').querySelectorAll('input[name=ids]:checked').length" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
     <td class="px-3 py-2 font-mono text-xs font-semibold text-brand-700"><a href="/clients/{{ c.id }}">{{ c.client_code }}</a></td>
     <td class="px-3 py-2 text-xs"><a href="/clients/{{ c.id }}" class="font-medium text-slate-900 hover:text-brand-600">{{ c.full_name }}</a></td>
     <td class="px-3 py-2">{{ ui.badge(c.status, c.status|label('client')) }}</td>

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Financial close{% endblock %}
+{% block title %}Period Close{% endblock %}
 {% block content %}
-{% call ui.page_header("Financial close", "Closing a month snapshots revenue, expenses and payroll, and blocks new journal entries dated inside it.") %}{% endcall %}
+{% call ui.page_header("Period Close", "Closing a month snapshots revenue, expenses and payroll, and blocks new journal entries dated inside it.") %}{% endcall %}
 {{ ui.tabs(tabs, tab) }}
 
 <div class="grid gap-5 lg:grid-cols-3">

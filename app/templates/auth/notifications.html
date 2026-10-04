@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Notifications{% endblock %}
 {% block content %}
-{% call ui.page_header("Notifications", "In-app alerts, reminders and approvals addressed to you") %}
+{% call ui.page_header("Notifications", "In-app alerts, reminders and approvals addressed to you", back="/home") %}
 <form method="post" action="/notifications/read">{{ ui.button('Mark all read', icon='check-check', variant='secondary') }}</form>
 {% endcall %}
 <div class="space-y-2 max-w-3xl">

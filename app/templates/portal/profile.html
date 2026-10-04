@@ -42,7 +42,7 @@
         <li class="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
           <div><div class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ s.full_name }}</div>
             <div class="text-xs text-slate-500">{{ s.student_code }} · {{ s.course.name if s.course else 'course TBD' }}</div></div>
-          {{ ui.badge(s.status) }}
+          {{ ui.badge(s.status, s.status|label('student')) }}
         </li>
       {% else %}<li class="py-4 text-center text-sm text-slate-400">No children linked yet.</li>{% endfor %}
       </ul>

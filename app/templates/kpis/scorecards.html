@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Department scorecards{% endblock %}
+{% block title %}KPI Scorecards{% endblock %}
 {% set scored = cards|rejectattr('score', 'none')|list %}
 {% set submitted = cards|selectattr('submission')|list %}
 {% set avg_score = ((scored|sum(attribute='score') / scored|length)|round(1)) if scored else None %}
 {% block content %}
-{% call ui.page_header("Department scorecards", "Each HOD submits a monthly scorecard with highlights and risks · " ~ period_label) %}
+{% call ui.page_header("KPI Scorecards", "Department scorecards · each HOD submits a monthly scorecard with highlights and risks · " ~ period_label) %}
   {{ ui.button("KPI catalogue", href="/kpis?period=" ~ period, icon="target", variant="secondary") }}
   {{ ui.button("Role scorecards", href="/kpis/roles?period=" ~ period, icon="users", variant="secondary") }}
 {% endcall %}

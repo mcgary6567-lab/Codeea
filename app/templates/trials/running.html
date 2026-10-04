@@ -59,7 +59,7 @@
 {% if has_perm(user, 'subscriptions.update') %}
 {% for r in rows %}
 {% call ui.modal('drop' ~ r.sub.id, 'Drop trial ' ~ r.sub.subscription_code) %}
-<form method="post" action="/trials/running/{{ r.sub.id }}/drop" class="space-y-4">
+<form method="post" action="/trials/running/{{ r.sub.id }}/drop" class="space-y-4" onsubmit="return confirm('Drop trial {{ r.sub.subscription_code }} and cancel its future classes?')">
   <input type="hidden" name="back" value="{{ base_url }}">
   <p class="text-sm text-slate-500">Cancels the trial subscription for {{ r.sub.student.full_name if r.sub.student else 'the student' }} and cancels the future classes on its schedule.</p>
   {{ ui.textarea('reason', 'Reason', '', rows=3, required=True) }}

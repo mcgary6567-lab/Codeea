@@ -62,7 +62,7 @@
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/academics/config/invoice-addition-rules/{{ r.id }}/toggle" class="inline">{{ ui.button('Deactivate' if r.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/academics/config/invoice-addition-rules/{{ r.id }}/toggle" class="inline" {% if r.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if r.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>

@@ -33,7 +33,7 @@
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline"><input type="hidden" name="next" value="/crm/tags?category={{ category }}&status={{ status }}&q={{ q }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline" {% if t.is_active %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}><input type="hidden" name="next" value="/crm/tags?category={{ category }}&status={{ status }}&q={{ q }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
     {{ ui.button('Open', href='/crm/tags/' ~ t.id, variant='ghost', size='sm') }}
   </td>

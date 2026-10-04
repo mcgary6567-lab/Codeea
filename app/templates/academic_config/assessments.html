@@ -33,7 +33,7 @@
   <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {{ ui.button('Open', href='/academics/config/assessments/' ~ a.id, variant='ghost', size='sm', icon='arrow-right') }}
-    {% if can_edit %}<form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>{% endif %}
+    {% if can_edit %}<form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline" {% if a.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>{% endif %}
   </td>
 </tr>
 {% else %}{{ ui.empty('No assessments match these filters.', 9, 'file-check') }}{% endfor %}

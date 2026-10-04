@@ -2,7 +2,13 @@
 {% import "macros.html" as ui %}
 {% block title %}Arabic lesson view{% endblock %}
 {% block content %}
-{% call ui.page_header("Shared Arabic Lesson View", s.full_name ~ " · " ~ s.student_code ~ " · " ~ path, back="/academics/progress/" ~ s.id) %}
+{# Students and families may not open the staff progress page (403), so Back goes to their own portal instead. #}
+{% if user.portal == 'student' %}{% set back_url = '/student/progress' %}
+{% elif user.portal == 'client' %}{% set back_url = '/portal/progress' %}
+{% elif has_perm(user, 'students.view') or has_perm(user, 'curriculum.view') %}{% set back_url = '/academics/progress/' ~ s.id %}
+{% elif user.portal == 'teacher' %}{% set back_url = '/teacher/students' %}
+{% else %}{% set back_url = home_url %}{% endif %}
+{% call ui.page_header("Shared Arabic Lesson View", s.full_name ~ " · " ~ s.student_code ~ " · " ~ path, back=back_url) %}
   {% if prev %}{{ ui.button('Previous lesson', href='/academics/arabic-view/' ~ s.id ~ '?lesson_id=' ~ prev.id, icon='chevron-left', variant='secondary', size='sm') }}{% endif %}
   {% if next %}{{ ui.button('Next lesson', href='/academics/arabic-view/' ~ s.id ~ '?lesson_id=' ~ next.id, icon='chevron-right', variant='secondary', size='sm') }}{% endif %}
   <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">

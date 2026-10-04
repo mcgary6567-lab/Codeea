@@ -2,13 +2,13 @@
 {% import "macros.html" as ui %}
 {% block title %}{{ k.name }}{% endblock %}
 {% block content %}
-{% call ui.page_header(k.name, k.code ~ " · " ~ (k.role_slug|titleize if k.role_slug else 'Institutional') ~ " · " ~ k.frequency|titleize, back="/kpis?period=" ~ period) %}
+{% call ui.page_header(k.name, (k.role_slug|titleize if k.role_slug else 'Institutional') ~ " · " ~ k.frequency|titleize, back="/kpis?period=" ~ period) %}
   <span class="inline-flex items-center gap-1.5 rounded-full bg-{{ row.color }}-50 px-2.5 py-1 text-xs font-semibold text-{{ row.color }}-700 ring-1 ring-inset ring-{{ row.color }}-600/20 dark:bg-{{ row.color }}-500/10 dark:text-{{ row.color }}-300"><span class="h-1.5 w-1.5 rounded-full bg-{{ row.color }}-500"></span>{{ row.label }}</span>
   {{ ui.button('Edit', icon='pencil', variant='secondary', type='button', attrs='@click="$dispatch(\'open-modal\',\'editKpi\')"') }}
 {% endcall %}
 
 <div class="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  {{ ui.stat(period_label, format_value(row.value, k.unit), icon='target', color=row.color, hint='source: ' ~ row.source) }}
+  {{ ui.stat(period_label, format_value(row.value, k.unit), icon='target', color=row.color, hint=('computed just now' if row.source == 'live' else (row.source|titleize ~ ' value' ~ (', stored ' ~ row.computed_at|datetime if row.computed_at else '')))) }}
   {{ ui.stat('Target', format_value(k.target, k.unit) if k.target is not none else '—', icon='flag', color='sky', hint=('Higher is better' if k.direction=='higher' else 'Lower is better')) }}
   {{ ui.stat('Formula', k.formula_key or 'Manual entry', icon='function-square', color='indigo') }}
   {{ ui.stat('Owner', k.owner_id and (opts.users|selectattr('0','equalto',k.owner_id)|map(attribute='1')|first) or '—', icon='user', color='violet') }}
@@ -36,6 +36,7 @@
         <td class="px-4 py-2 text-xs text-slate-500">{{ format_value(k.target, k.unit) if k.target is not none else '—' }}</td>
         <td class="px-4 py-2"><span class="inline-flex items-center gap-1.5 rounded-full bg-{{ e.row.color }}-50 px-2 py-0.5 text-[11px] font-semibold text-{{ e.row.color }}-700 dark:bg-{{ e.row.color }}-500/10 dark:text-{{ e.row.color }}-300">{{ e.row.label }}</span></td>
       </tr>
+      {% else %}{{ ui.empty('No teacher values for this period.', 5) }}
       {% endfor %}
       {{ ui.table_end() }}
     {% endcall %}

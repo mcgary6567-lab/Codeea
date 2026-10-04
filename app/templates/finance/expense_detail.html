@@ -64,7 +64,7 @@
 {% endcall %}
 
 {% call ui.modal('rejectexp', 'Reject expense') %}
-<form method="post" action="/finance/expenses/{{ e.id }}/reject" class="space-y-4">
+<form method="post" action="/finance/expenses/{{ e.id }}/reject" class="space-y-4" onsubmit="return confirm('Reject expense {{ e.expense_number }}?')">
   {{ ui.textarea('note', 'Reason', '', rows=3, required=True) }}
   {{ ui.button('Reject', icon='x', variant='danger') }}
 </form>

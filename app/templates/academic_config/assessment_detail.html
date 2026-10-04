@@ -9,7 +9,7 @@
   {{ ui.badge(a.status) }}
   {% if can_edit %}
   {{ ui.button("Edit", icon="pencil", variant="secondary", attrs='type="button" @click="$dispatch(\'open-modal\',\'editAssessment\')"') }}
-  <form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline"><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='secondary') }}</form>
+  <form method="post" action="/academics/config/assessments/{{ a.id }}/toggle" class="inline" {% if a.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if a.status == 'active' else 'Activate', icon='power', variant='secondary') }}</form>
   {% endif %}
   {% if can_add %}{{ ui.button("Add Question", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newQuestion\')"') }}{% endif %}
 {% endcall %}
@@ -52,7 +52,7 @@
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline"><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/academics/config/question-bank/{{ item.id }}/toggle" class="inline" {% if item.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}><input type="hidden" name="next" value="/academics/config/assessments/{{ a.id }}">{{ ui.button('Deactivate' if item.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>

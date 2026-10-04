@@ -30,7 +30,7 @@
       {% if case.status not in ['closed'] %}
       <form method="post" action="/portal/cases/{{ case.id }}/comment" class="mt-5 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
         {{ ui.textarea('text', 'Add a message', '', rows=3, required=True, placeholder='Anything else we should know?') }}
-        <div class="flex gap-2">{{ ui.button('Send', icon='send') }}</div>
+        <div class="flex gap-2">{{ ui.button('Post comment', icon='send') }}</div>
       </form>
       {% endif %}
     {% endcall %}

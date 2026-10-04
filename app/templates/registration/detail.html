@@ -3,7 +3,7 @@
 {% block title %}{{ lead.lead_code }}{% endblock %}
 {% block content %}
 {% call ui.page_header('Registration ' ~ lead.lead_code, lead.full_name ~ ' · ' ~ (lead.country or 'unknown country'), back='/registrations') %}
-  {{ ui.badge(lead.stage) }}
+  {{ ui.badge(lead.stage, lead.stage|label('registration')) }}
 {% endcall %}
 
 {% if dup %}

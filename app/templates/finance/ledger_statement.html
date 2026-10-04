@@ -46,7 +46,7 @@
       {% for i in invoices %}
       <li class="flex items-center justify-between gap-2">
         <a href="/finance/invoices/{{ i.id }}" class="font-mono text-brand-700 dark:text-brand-300">{{ i.invoice_number }}</a>
-        <span class="text-slate-500">{{ i.total|money(i.currency) }}</span>{{ ui.badge(i.status) }}
+        <span class="text-slate-500">{{ i.total|money(i.currency) }}</span>{{ ui.badge(i.status, i.status|label('invoice')) }}
       </li>
       {% else %}<li class="text-slate-400">No invoices.</li>{% endfor %}
     </ul>
@@ -56,7 +56,7 @@
       {% for s in subscriptions %}
       <li class="flex items-center justify-between gap-2">
         <a href="/finance/subscriptions/{{ s.id }}" class="font-mono text-brand-700 dark:text-brand-300">{{ s.subscription_code }}</a>
-        <span class="text-slate-500">{{ s.price|money(s.currency) }}</span>{{ ui.badge(s.status) }}
+        <span class="text-slate-500">{{ s.price|money(s.currency) }}</span>{{ ui.badge(s.status, s.status|label('subscription')) }}
       </li>
       {% else %}<li class="text-slate-400">No subscriptions.</li>{% endfor %}
     </ul>

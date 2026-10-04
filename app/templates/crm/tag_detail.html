@@ -6,7 +6,7 @@
 {% call ui.page_header(t.name, category_labels.get(t.category, t.category|titleize) ~ ' tag · ' ~ (t.description or 'no description'), back='/crm/tags') %}
   {{ ui.badge('active' if t.is_active else 'inactive') }}
   {% if has_perm(user, 'tags.update') %}
-  <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline"><input type="hidden" name="next" value="/crm/tags/{{ t.id }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='secondary') }}</form>
+  <form method="post" action="/crm/tags/{{ t.id }}/toggle" class="inline" {% if t.is_active %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}><input type="hidden" name="next" value="/crm/tags/{{ t.id }}">{{ ui.button('Deactivate' if t.is_active else 'Activate', icon='power', variant='secondary') }}</form>
   {% endif %}
 {% endcall %}
 

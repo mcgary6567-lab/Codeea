@@ -82,6 +82,7 @@
       <td class="px-4 py-2">{{ ui.badge(a.status) }}</td>
       <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/tasks/' ~ a.id, variant='ghost', size='sm') }}</td>
     </tr>
+    {% else %}{{ ui.empty('No actions recorded for this meeting.', 6) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% else %}<p class="text-sm text-slate-400">No actions yet.</p>{% endif %}

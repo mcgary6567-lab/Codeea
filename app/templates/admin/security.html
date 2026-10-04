@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Security centre{% endblock %}
+{% block title %}Security Center{% endblock %}
 {% block content %}
-{% call ui.page_header("Security centre", "Incidents, sessions, login history, access policy, data masking and retention") %}
+{% call ui.page_header("Security Center", "Incidents, sessions, login history, access policy, data masking and retention") %}
   {{ ui.button("Incidents", href="/admin/security/incidents", icon="siren", variant="secondary") }}
   {{ ui.button("Sessions", href="/admin/security/sessions", icon="monitor-smartphone", variant="secondary") }}
   {{ ui.button("Access policy", href="/admin/security/policy", icon="shield-check") }}

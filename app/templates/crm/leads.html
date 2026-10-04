@@ -51,7 +51,7 @@
   </td>
   <td class="px-4 py-2 text-xs text-slate-500">{{ l.phone or l.email or '—' }}<div>{{ l.country or '' }}</div></td>
   <td class="px-4 py-2 text-xs">{{ l.source.name if l.source else '—' }}<div class="text-slate-400">{{ l.campaign.name if l.campaign else '' }}</div></td>
-  <td class="px-4 py-2">{{ ui.badge(l.stage) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(l.stage, l.stage|label('registration')) }}</td>
   <td class="px-4 py-2 w-32">{{ ui.progress(l.score, 'brand' if l.score >= 70 else ('amber' if l.score >= 45 else 'slate'), label=l.score ~ '/100') }}</td>
   <td class="px-4 py-2 text-xs">{{ l.assigned_to.full_name if l.assigned_to else '—' }}</td>
   <td class="px-4 py-2 text-xs {{ 'text-rose-600 font-medium' if l.next_follow_up and l.next_follow_up < utcnow() and l.stage not in ('won','lost') }}">{{ l.next_follow_up|datetime if l.next_follow_up else '—' }}</td>
@@ -65,7 +65,7 @@
   {% for col in columns %}
   <div class="w-72 shrink-0">
     <div class="mb-2 flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
-      <div class="flex items-center gap-2">{{ ui.badge(col.stage) }}</div>
+      <div class="flex items-center gap-2">{{ ui.badge(col.stage, col.stage|label('registration')) }}</div>
       <span class="text-xs font-bold text-slate-500">{{ col.count }}</span>
     </div>
     <div class="space-y-2">
@@ -84,7 +84,7 @@
         <form method="post" action="/crm/leads/{{ l.id }}/stage" class="mt-2 flex items-center gap-1">
           <input type="hidden" name="next" value="{{ base_url }}">
           <select name="stage" class="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-            {% for s in stages %}<option value="{{ s }}" {% if s == l.stage %}selected{% endif %}>{{ s|titleize }}</option>{% endfor %}
+            {% for s in stages %}<option value="{{ s }}" {% if s == l.stage %}selected{% endif %}>{{ s|label('registration') }}</option>{% endfor %}
           </select>
           <input type="hidden" name="reason" value="Moved from the pipeline board">
           <button class="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-700">Move</button>

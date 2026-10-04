@@ -15,7 +15,7 @@
   {% endfor %}
 </div>
 
-{{ ui.table_start(['Your local time', 'Child', 'Course', 'Teacher', 'Duration', 'Status', '']) }}
+{{ ui.table_start(['Your local time', 'Child', 'Course', 'Teacher', 'Duration', 'Status', 'Your rating', '']) }}
 {% for it in items %}
 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
   <td class="px-4 py-2">
@@ -27,11 +27,17 @@
   <td class="px-4 py-2 text-xs">{{ it.cs.teacher.full_name if it.cs.teacher else '—' }}</td>
   <td class="px-4 py-2 text-xs">{{ it.cs.duration_minutes }} min</td>
   <td class="px-4 py-2">{{ ui.badge(it.cs.status) }}</td>
+  <td class="px-4 py-2 text-xs">
+    {% if it.cs.status == 'done' %}
+      {% set rating_next = '/portal/schedule?week=' ~ week ~ ('&student_id=' ~ child.id if child else '') %}
+      {% include "portal/_class_rating.html" with context %}
+    {% else %}<span class="text-slate-400">—</span>{% endif %}
+  </td>
   <td class="px-4 py-2 text-right">
     {% if it.can_join %}{{ ui.button('Join', href='/classroom/' ~ it.cs.id, icon='video', size='sm') }}{% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No classes are scheduled in this week.', 7) }}{% endfor %}
+{% else %}{{ ui.empty('No classes are scheduled in this week.', 8) }}{% endfor %}
 {{ ui.table_end() }}
 
 <div class="mt-6">

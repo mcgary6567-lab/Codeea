@@ -21,18 +21,19 @@
 <tr><td class="px-4 py-2 font-mono text-xs"><a class="text-brand-700 dark:text-brand-300" href="/finance/accounts/{{ l.account_id }}">{{ l.account.code }}</a></td>
   <td class="px-4 py-2">{{ l.account.name }}</td>
   <td class="px-4 py-2 text-xs text-slate-500">{{ l.account.account_type|titleize }}</td>
-  <td class="px-4 py-2 text-right">{{ l.debit|money if l.debit|float else '' }}</td>
-  <td class="px-4 py-2 text-right">{{ l.credit|money if l.credit|float else '' }}</td></tr>
+  <td class="px-4 py-2 text-right">{{ l.debit|money(je.currency) if l.debit|float else '' }}</td>
+  <td class="px-4 py-2 text-right">{{ l.credit|money(je.currency) if l.credit|float else '' }}</td></tr>
+{% else %}{{ ui.empty('This entry has no lines.', 5) }}
 {% endfor %}
 <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60">
   <td class="px-4 py-2" colspan="3">Totals</td>
-  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='debit'))|money }}</td>
-  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='credit'))|money }}</td></tr>
+  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='debit'))|money(je.currency) }}</td>
+  <td class="px-4 py-2 text-right">{{ (je.lines|sum(attribute='credit'))|money(je.currency) }}</td></tr>
 {{ ui.table_end() }}
 {% endcall %}
 
 {% call ui.modal('revje', 'Reverse journal entry') %}
-<form method="post" action="/finance/accounts/journal/{{ je.id }}/reverse" class="space-y-4">
+<form method="post" action="/finance/accounts/journal/{{ je.id }}/reverse" class="space-y-4" onsubmit="return confirm('Reverse journal entry {{ je.entry_number }}? A mirror-image entry is posted and this one is marked reversed.')">
   {{ ui.alert('A mirror-image entry will be posted and this entry marked reversed.', 'warning') }}
   {{ ui.textarea('rationale', 'Rationale', '', rows=3, required=True) }}
   {{ ui.button('Reverse entry', icon='undo-2', variant='danger') }}

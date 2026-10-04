@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Academic Manager Portal{% endblock %}
+{% block title %}Monitoring Dashboard{% endblock %}
 {% block content %}
-{% call ui.page_header("Academic Manager Portal", "Academics, HR, billing and team progress for the chosen dates") %}
+{% call ui.page_header("Monitoring Dashboard", "Academic Manager Portal · academics, HR, billing and team progress for the chosen dates") %}
   {{ ui.button("Refresh", href=base_url ~ "&tab=" ~ tab, icon="refresh-cw", variant="secondary") }}
   {{ ui.button("Supervisor board", href="/supervisor", icon="radio", variant="secondary") }}
   {{ ui.button("Class Status Summary", href="/classes/status-summary?date=" ~ date_to, icon="layout-grid") }}

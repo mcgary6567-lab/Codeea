@@ -33,6 +33,7 @@
         <td class="px-4 py-2 text-xs">{{ d.pending }}</td>
         <td class="px-4 py-2 w-40">{{ ui.progress(d.coverage, 'emerald' if d.coverage >= 90 else ('amber' if d.coverage >= 75 else 'rose')) }}</td>
       </tr>
+      {% else %}{{ ui.empty('No days in this range.', 7) }}
       {% endfor %}
       {{ ui.table_end() }}
     {% endcall %}

@@ -45,6 +45,7 @@
       <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ e.description }}</td>
       <td class="px-4 py-2 text-xs text-slate-500">{{ e.rationale or '—' }}</td>
     </tr>
+    {% else %}{{ ui.empty('No events recorded.', 5) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% else %}<p class="text-sm text-slate-400">No audit events recorded for this decision yet.</p>{% endif %}
@@ -62,6 +63,7 @@
       <td class="px-4 py-2">{{ ui.badge(e.action) }}</td>
       <td class="px-4 py-2 text-xs text-slate-600 dark:text-slate-300">{{ e.description }}</td>
     </tr>
+    {% else %}{{ ui.empty('No linked decisions.', 5) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% else %}<p class="text-sm text-slate-400">No consequential actions recorded against that record yet.</p>{% endif %}

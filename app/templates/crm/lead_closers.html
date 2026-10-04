@@ -41,7 +41,7 @@
   <td class="px-4 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" onclick="document.getElementById('closer-edit-{{ c.id }}').classList.toggle('hidden')" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/finance/lead-closers/{{ c.id }}/toggle" class="inline">{{ ui.button('Deactivate' if c.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/finance/lead-closers/{{ c.id }}/toggle" class="inline" {% if c.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if c.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>

@@ -37,7 +37,7 @@
     <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="up">{{ ui.button('', icon='arrow-up', variant='ghost', size='sm') }}</form>
     <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/move" class="inline"><input type="hidden" name="direction" value="down">{{ ui.button('', icon='arrow-down', variant='ghost', size='sm') }}</form>
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/toggle" class="inline">{{ ui.button('Deactivate' if v.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/config/lookups/{{ lookup.id }}/values/{{ v.id }}/toggle" class="inline" {% if v.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if v.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>

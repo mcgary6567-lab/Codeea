@@ -17,12 +17,14 @@
     {% if ps.class_pay|float %}<tr><td class="px-4 py-2 text-xs">Class pay — {{ ps.classes_taught }} classes delivered</td><td class="px-4 py-2 text-xs text-right">{{ ps.class_pay|float|money(ps.currency) }}</td></tr>{% endif %}
     {% for k, v in (d.get('allowances') or {}).items() %}
     <tr><td class="px-4 py-2 text-xs">Allowance — {{ k|titleize }}</td><td class="px-4 py-2 text-xs text-right">{{ v|float|money(ps.currency) }}</td></tr>
+    {% else %}{{ ui.empty('No allowances.', 2) }}
     {% endfor %}
     {% for b in d.get('bonuses') or [] %}
     <tr><td class="px-4 py-2 text-xs">Bonus — {{ b.type|titleize }}</td><td class="px-4 py-2 text-xs text-right">{{ b.amount|money(ps.currency) }}</td></tr>
     {% endfor %}
     {% for a in d.get('adjustments') or [] %}
     <tr><td class="px-4 py-2 text-xs">Adjustment — {{ a.reason }} <span class="text-slate-400">({{ a.by }})</span></td><td class="px-4 py-2 text-xs text-right">{{ a.amount|money(ps.currency) }}</td></tr>
+    {% else %}{{ ui.empty('No adjustments.', 2) }}
     {% endfor %}
     <tr class="bg-slate-50 font-semibold dark:bg-slate-800/60"><td class="px-4 py-2 text-xs">Gross</td><td class="px-4 py-2 text-xs text-right">{{ ps.gross|float|money(ps.currency) }}</td></tr>
     {{ ui.table_end() }}

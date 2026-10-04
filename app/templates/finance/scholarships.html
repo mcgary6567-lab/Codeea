@@ -40,7 +40,7 @@
     <form method="post" action="/finance/discounts/scholarships/{{ s.id }}/decide" class="flex items-center justify-end gap-1.5">
       <input name="note" placeholder="Decision note" required class="w-36 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800">
       <button name="decision" value="approve" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">Approve</button>
-      <button name="decision" value="reject" class="rounded-lg bg-slate-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-600">Decline</button>
+      <button name="decision" value="reject" onclick="return confirm('Decline this scholarship request?')" class="rounded-lg bg-slate-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-600">Decline</button>
     </form>
     {% endif %}
   </td>

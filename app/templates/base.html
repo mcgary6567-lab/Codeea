@@ -75,8 +75,16 @@
          class="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white shadow-2xl">
     <div class="flex h-12 items-center justify-between bg-brand-600 px-4 text-white">
       <span class="font-bold">Menu</span>
-      <button @click="menuOpen = false" class="rounded p-1 hover:bg-white/15"><i data-lucide="x" class="h-5 w-5"></i></button>
+      <button @click="menuOpen = false" class="rounded p-1 hover:bg-white/15" aria-label="Close" title="Close"><i data-lucide="x" class="h-5 w-5"></i></button>
     </div>
+    {# The header search box is hidden below md, so the drawer carries one for phones. #}
+    <form action="/search" method="get" role="search" class="border-b border-slate-200 px-3 py-2 md:hidden">
+      <label for="drawer_q" class="sr-only">Search</label>
+      <div class="flex items-center gap-1">
+        <input id="drawer_q" name="q" placeholder="Search" class="h-8 w-full rounded border border-slate-300 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+        <button class="inline-flex h-8 items-center rounded bg-brand-600 px-2.5 text-white hover:bg-brand-700" aria-label="Search" title="Search"><i data-lucide="search" class="h-4 w-4"></i></button>
+      </div>
+    </form>
     <nav class="flex-1 overflow-y-auto py-2 text-sm">
       <a href="/home" class="flex items-center gap-2.5 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50"><i data-lucide="home" class="h-4 w-4 text-brand-600"></i>Home</a>
       {% for section in nav %}
@@ -130,11 +138,11 @@
 
   <main class="min-w-0 flex-1 px-4 py-5 sm:px-6">
     {% for f in flash_messages %}
-    <div x-data="{show:true}" x-show="show" class="mb-4 flex items-start gap-3 rounded border px-4 py-3 text-sm
+    <div x-data="{show:true}" x-show="show" role="status" aria-live="polite" class="mb-4 flex items-start gap-3 rounded border px-4 py-3 text-sm
       {% if f.level == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif f.level == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% elif f.level == 'warning' %}border-amber-200 bg-amber-50 text-amber-800{% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}">
       <i data-lucide="{{ 'check-circle-2' if f.level=='success' else ('alert-circle' if f.level=='error' else 'info') }}" class="h-4 w-4 mt-0.5 shrink-0"></i>
       <div class="flex-1">{{ f.message }}</div>
-      <button @click="show=false" class="opacity-60 hover:opacity-100"><i data-lucide="x" class="h-4 w-4"></i></button>
+      <button @click="show=false" class="opacity-60 hover:opacity-100" aria-label="Close" title="Close"><i data-lucide="x" class="h-4 w-4"></i></button>
     </div>
     {% endfor %}
     {% block content %}{% endblock %}

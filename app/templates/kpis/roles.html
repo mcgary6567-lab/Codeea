@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Role scorecards{% endblock %}
+{% block title %}KPIs by Role{% endblock %}
 {% set scored = rows|rejectattr('score', 'none')|list %}
 {% set avg_score = ((scored|sum(attribute='score') / scored|length)|round(1)) if scored else None %}
 {% block content %}
-{% call ui.page_header("Role scorecards", "Every individual measured against the KPIs defined for their role · " ~ period_label) %}
+{% call ui.page_header("KPIs by Role", "Role scorecards · every individual measured against the KPIs defined for their role · " ~ period_label) %}
   {{ ui.button("KPI catalogue", href="/kpis?period=" ~ period, icon="target", variant="secondary") }}
   {{ ui.button("Department scorecards", href="/kpis/scorecards?period=" ~ period, icon="layout-grid", variant="secondary") }}
 {% endcall %}

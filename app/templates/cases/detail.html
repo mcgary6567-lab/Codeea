@@ -58,6 +58,7 @@
     {% for t in tasks %}
     <tr><td class="px-4 py-1.5">{{ t.title }}</td><td class="px-4 py-1.5 text-xs">{{ t.assignee.full_name if t.assignee else '—' }}</td>
       <td class="px-4 py-1.5 text-xs">{{ t.due_date|date if t.due_date else '—' }}</td><td class="px-4 py-1.5">{{ ui.badge(t.status) }}</td></tr>
+    {% else %}{{ ui.empty('No tasks linked to this case.', 4) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% endcall %}

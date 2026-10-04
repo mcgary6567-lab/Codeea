@@ -79,7 +79,7 @@
         {% if l.status == 'pending' %}
         <button name="decision" value="approve" class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check" class="h-4 w-4"></i>Approve</button>
         {% endif %}
-        <button name="decision" value="reject" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>{{ 'Reverse approval' if l.status == 'approved' else 'Reject' }}</button>
+        <button name="decision" value="reject" onclick="return confirm('{{ 'Reverse the approval of this leave?' if l.status == 'approved' else 'Reject this leave request?' }}')" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x" class="h-4 w-4"></i>{{ 'Reverse approval' if l.status == 'approved' else 'Reject' }}</button>
         <button name="decision" value="cancel" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="ban" class="h-4 w-4"></i>Cancel</button>
       </div>
       <p class="text-[11px] text-slate-500">Reversing or cancelling an approved leave returns the days to the assignment.</p>

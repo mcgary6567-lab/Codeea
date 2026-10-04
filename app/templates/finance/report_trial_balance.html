@@ -37,7 +37,7 @@
   {{ ui.stat("Difference", data.difference|round(2), color='emerald' if data.balanced else 'rose', hint=base) }}
 </div>
 
-{{ ui.table_start(['Account Code', 'Account Name', 'Head', 'Opening', 'Debit', 'Credit', 'Closing']) }}
+{{ ui.table_start(['Account Code', 'Account Name', 'Head', 'Opening (' ~ base ~ ')', 'Debit (' ~ base ~ ')', 'Credit (' ~ base ~ ')', 'Closing (' ~ base ~ ')']) }}
 {% for g in data.groups %}
 <tr class="bg-[#f3f7fd] font-semibold"><td class="px-3 py-1.5" colspan="7">{{ g.label }}</td></tr>
 {% for r in g.rows %}

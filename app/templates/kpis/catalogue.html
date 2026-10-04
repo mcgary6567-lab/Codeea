@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}KPIs{% endblock %}
 {% block content %}
-{% call ui.page_header("KPI framework", "Every role, department and institutional metric with target, direction and RAG status · " ~ period_label) %}
+{% call ui.page_header("KPIs", "KPI framework · every role, department and institutional metric with target, direction and RAG status · " ~ period_label) %}
   {{ ui.button("Department scorecards", href="/kpis/scorecards?period=" ~ period, icon="layout-grid", variant="secondary") }}
   {{ ui.button("Role scorecards", href="/kpis/roles?period=" ~ period, icon="users", variant="secondary") }}
   <form method="post" action="/kpis/snapshot"><input type="hidden" name="period" value="{{ period }}">{{ ui.button('Run snapshot', icon='camera', variant='secondary') }}</form>

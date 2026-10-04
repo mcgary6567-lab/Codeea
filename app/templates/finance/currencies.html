@@ -26,6 +26,7 @@
         {% elif c.is_base %}<span class="text-xs text-slate-400">fixed at 1.0000</span>{% endif %}
       </td>
     </tr>
+    {% else %}{{ ui.empty('No currencies defined.', 7) }}
     {% endfor %}
     {{ ui.table_end() }}
 

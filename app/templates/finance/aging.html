@@ -24,7 +24,7 @@
       <td class="px-4 py-2 text-xs">{{ i.due_date|date }}</td>
       <td class="px-4 py-2 text-right">{{ i.total|money(i.currency) }}</td>
       <td class="px-4 py-2 text-right font-medium">{{ i.balance|money }}</td>
-      <td class="px-4 py-2">{{ ui.badge(i.status) }}</td></tr>
+      <td class="px-4 py-2">{{ ui.badge(i.status, i.status|label('invoice')) }}</td></tr>
     {% else %}{{ ui.empty('Nothing in this bucket.', 6, icon='check-circle-2') }}{% endfor %}
     {{ ui.table_end() }}
     {% endcall %}

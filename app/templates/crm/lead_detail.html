@@ -68,6 +68,7 @@
       <tr><td class="px-4 py-2">{{ t.student_name }}</td><td class="px-4 py-2 text-xs">{{ t.scheduled_at|datetime if t.scheduled_at else '—' }}</td>
       <td class="px-4 py-2 text-xs">{{ t.teacher.full_name if t.teacher else '—' }}</td><td class="px-4 py-2">{{ ui.badge(t.status) }}</td>
       <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/trials/' ~ t.id, variant='ghost', size='sm') }}</td></tr>
+      {% else %}{{ ui.empty('No trial classes booked yet.', 5) }}
       {% endfor %}
       {{ ui.table_end() }}
       {% else %}{{ ui.empty_state('No trial booked yet.', 'flask-conical') }}{% endif %}

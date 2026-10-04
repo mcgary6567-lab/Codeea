@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Subscriptions{% endblock %}
 {% block content %}
-{% call ui.page_header("Subscriptions", "Recurring tuition agreements — pricing governance, teacher-cost floor and monthly recurring revenue.") %}
+{% call ui.page_header("Subscriptions", "Recurring tuition agreements — pricing governance, teacher-cost floor and monthly recurring revenue.", back="/home/finance") %}
   {{ ui.button("Economics report", href="/finance/subscriptions/report", icon="bar-chart-3", variant="secondary") }}
   {% if has_perm(user, 'subscriptions.add') %}{{ ui.button("New subscription", href="/finance/subscriptions/new", icon="plus") }}{% endif %}
 {% endcall %}
@@ -53,7 +53,7 @@
     {% if s.scholarship_amount|float > 0 %}<div class="mt-0.5 text-[10px] text-violet-600">scholarship</div>{% endif %}</td>
   <td class="px-4 py-2 text-center text-xs {{ 'text-rose-600 font-semibold' if margin < 20 else 'text-emerald-600' }}">{{ margin|round(0)|int }}%</td>
   <td class="px-4 py-2 text-xs text-slate-500">{{ s.next_billing_date|date }}</td>
-  <td class="px-4 py-2">{{ ui.badge(s.status) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(s.status, s.status|label('subscription')) }}</td>
   <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/subscriptions/' ~ s.id, variant='ghost', size='sm', icon='arrow-right') }}</td>
 </tr>
 {% else %}{{ ui.empty('No subscriptions match these filters.', 10) }}{% endfor %}

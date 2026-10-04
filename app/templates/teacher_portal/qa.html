@@ -3,12 +3,27 @@
 {% block title %}QA feedback{% endblock %}
 {% block content %}
 {{ ui.page_header('Quality feedback', 'Reviews of your classes by the QA team and the AI class-monitoring service, plus any corrective actions assigned to you.') }}
-<div class="grid gap-4 sm:grid-cols-4 mb-6">
+<div class="grid gap-4 sm:grid-cols-5 mb-6">
   {{ ui.stat('Reviews', reviews|length, icon='shield-check', color='brand') }}
   {{ ui.stat('QA average', t.qa_score_avg|round(1) if t.qa_score_avg else '—', icon='star', color='amber') }}
+  {{ ui.stat('Family rating', (rating_avg ~ ' / 5') if rating_avg is not none else '—', icon='heart', color='emerald', hint=rating_count ~ ' rated class(es)') }}
   {{ ui.stat('AI analyses', analyses|length, icon='brain-circuit', color='violet') }}
   {{ ui.stat('Open actions', actions|rejectattr('status', 'equalto', 'closed')|list|length, icon='clipboard-list', color='rose') }}
 </div>
+
+{% call ui.card('Class ratings from families and students', 'Each attended class can be rated 1-5 from the family or student portal. Ratings of 2 or less are also flagged to the QA team.') %}
+  {{ ui.table_start(['Class', 'Student', 'Rating', 'Comment']) }}
+  {% for cs in rated %}
+  <tr class="{{ 'bg-rose-50/60' if cs.student_rating <= 2 }}" data-rated-session="{{ cs.id }}">
+    <td class="px-4 py-2 text-xs">{{ cs.date|date }} {{ cs.start_time|time }}</td>
+    <td class="px-4 py-2 text-sm">{{ cs.student.student_code if cs.student else '—' }}</td>
+    <td class="px-4 py-2 text-sm"><span class="text-amber-500">{{ '&#9733;' * cs.student_rating }}</span><span class="text-slate-300">{{ '&#9733;' * (5 - cs.student_rating) }}</span> <span class="text-xs text-slate-500">{{ cs.student_rating }}/5</span></td>
+    <td class="px-4 py-2 text-xs text-slate-600">{{ cs.student_feedback or '—' }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No class has been rated yet.', 4) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+<div class="mb-6"></div>
 
 {% call ui.card('Corrective actions', 'Close an action once you have changed what was asked. Your closure note goes to the QA reviewer.') %}
   <div class="space-y-3">

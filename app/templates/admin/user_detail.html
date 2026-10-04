@@ -71,7 +71,7 @@
     {% if has_perm(user, 'users.update') %}
     {% call ui.card("Administrative actions", "Each action requires a rationale and is audit-logged") %}
       <div class="space-y-4 text-sm">
-        <form method="post" action="/admin/users/{{ obj.id }}/status" class="space-y-2">
+        <form method="post" action="/admin/users/{{ obj.id }}/status" class="space-y-2" {% if obj.is_active %}onsubmit="return confirm('Deactivate the account of {{ obj.full_name or obj.email }}? They are signed out everywhere and cannot sign in until reactivated.')"{% endif %}>
           <input type="hidden" name="activate" value="{{ 0 if obj.is_active else 1 }}">
           {{ ui.input('rationale', ('Reason for deactivating' if obj.is_active else 'Reason for reactivating'), '', required=True) }}
           {{ ui.button('Deactivate account' if obj.is_active else 'Reactivate account', icon=('user-x' if obj.is_active else 'user-check'), variant=('danger' if obj.is_active else 'success'), size='sm') }}
@@ -180,8 +180,8 @@
       {% for e in activity %}
       <li class="py-2.5">
         <a href="/admin/audit/{{ e.id }}" class="block hover:text-brand-700">
-          <span class="font-medium">{{ e.description or (e.action ~ ' ' ~ e.module) }}</span>
-          <span class="block text-xs text-slate-500">{{ e.created_at|datetime }} · {{ e.module }} · {{ e.action }}{% if e.is_consequential %} · consequential{% endif %}</span>
+          <span class="font-medium">{{ e.description or (e.action|titleize ~ ' · ' ~ e.module|titleize) }}</span>
+          <span class="block text-xs text-slate-500">{{ e.created_at|datetime }} · {{ e.module|titleize }} · {{ e.action|titleize }}{% if e.is_consequential %} · consequential{% endif %}</span>
         </a>
       </li>
       {% else %}<li class="py-6 text-center text-slate-400">No activity recorded.</li>{% endfor %}

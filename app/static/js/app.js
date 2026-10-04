@@ -35,5 +35,30 @@
       var el = document.createElement('div'); el.className = 'fixed bottom-5 right-5 z-[100] rounded-lg px-4 py-2.5 text-sm text-white shadow-lg ' + c; el.textContent = msg; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 3500);
     }
   };
+  // Double-submit guard: once a POST form is submitted, its submit buttons are disabled and marked busy so a
+  // slow action (bulk invoices, payroll approval, migration) cannot be fired twice. They come back after
+  // 10 s in case the server never answered (network drop, a download response that keeps the page).
+  document.addEventListener('submit', function (ev) {
+    var form = ev.target;
+    if (!form || !(form instanceof HTMLFormElement)) return;
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+    if (ev.defaultPrevented || form.hasAttribute('data-allow-resubmit')) return;
+    if (form.dataset.submitting === '1') { ev.preventDefault(); return; }
+    form.dataset.submitting = '1';
+    form.setAttribute('aria-busy', 'true');
+    var buttons = form.querySelectorAll('button:not([type=button]):not([type=reset]), input[type=submit]');
+    // Disable after the event finishes dispatching so the clicked button's name/value still reach the server.
+    setTimeout(function () { buttons.forEach(function (b) { b.disabled = true; b.classList.add('is-busy'); }); }, 0);
+    setTimeout(function () {
+      delete form.dataset.submitting; form.removeAttribute('aria-busy');
+      buttons.forEach(function (b) { b.disabled = false; b.classList.remove('is-busy'); });
+    }, 10000);
+  }, true);
+  window.addEventListener('pageshow', function () {
+    document.querySelectorAll('form[aria-busy="true"]').forEach(function (form) {
+      delete form.dataset.submitting; form.removeAttribute('aria-busy');
+      form.querySelectorAll('.is-busy').forEach(function (b) { b.disabled = false; b.classList.remove('is-busy'); });
+    });
+  });
   if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('/static/sw.js').catch(function(){}); }
 })();

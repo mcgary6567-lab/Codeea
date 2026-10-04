@@ -21,7 +21,7 @@
 
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
   <span class="rounded-md bg-brand-600 px-2.5 py-1 font-mono text-sm font-bold text-white">{{ s.subscription_code }}</span>
-  {{ ui.badge(s.status) }}
+  {{ ui.badge(s.status, s.status|label('subscription')) }}
   {% if s.discount_pct %}{{ ui.badge('pending' if s.status == 'pending_approval' else 'approved', (s.discount_pct|round(0)|int)|string ~ '% discount') }}{% endif %}
   {% if s.scholarship_amount|float > 0 %}{{ ui.badge('approved', 'Scholarship') }}{% endif %}
   <span class="text-slate-500">{{ s.sessions_per_week }} × {{ s.session_minutes }} min/week · {{ s.currency }} · started {{ s.start_date|date }}</span>
@@ -61,6 +61,7 @@
       <td class="px-4 py-2">{{ ui.badge(r.status) }}</td>
       <td class="px-4 py-2 text-xs">{{ r.approved_by.full_name if r.approved_by else '—' }}</td>
       <td class="px-4 py-2 text-xs text-slate-500">{{ r.decision_note or r.rationale or '—' }}</td></tr>
+    {% else %}{{ ui.empty('No discount requests on this subscription.', 7) }}
     {% endfor %}
     {{ ui.table_end() }}
     {% endcall %}
@@ -97,7 +98,7 @@
   <td class="px-4 py-2 text-right">{{ i.total|money(i.currency) }}</td>
   <td class="px-4 py-2 text-right text-emerald-600">{{ i.paid_amount|money }}</td>
   <td class="px-4 py-2 text-right font-medium">{{ i.balance|money }}</td>
-  <td class="px-4 py-2">{{ ui.badge(i.status) }}</td>
+  <td class="px-4 py-2">{{ ui.badge(i.status, i.status|label('invoice')) }}</td>
   <td class="px-4 py-2 text-right">{{ ui.button('Open', href='/finance/invoices/' ~ i.id, variant='ghost', size='sm') }}</td></tr>
 {% else %}{{ ui.empty('No invoices issued yet.', 9) }}{% endfor %}
 {{ ui.table_end() }}
@@ -143,7 +144,7 @@
 {% endcall %}
 
 {% call ui.modal('cancelsub', 'Cancel subscription') %}
-<form method="post" action="/finance/subscriptions/{{ s.id }}/cancel" class="space-y-4">
+<form method="post" action="/finance/subscriptions/{{ s.id }}/cancel" class="space-y-4" onsubmit="return confirm('Cancel subscription {{ s.subscription_code }}? The student is marked cancelled and future invoicing stops.')">
   {{ ui.alert('Cancelling also marks the student as cancelled and stops future invoicing.', 'warning') }}
   {{ ui.textarea('reason', 'Cancellation reason', '', rows=3, required=True) }}
   {{ ui.button('Cancel subscription', icon='x-circle', variant='danger') }}

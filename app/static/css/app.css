@@ -10,6 +10,10 @@
 .quran-word.highlight{background:rgba(250,204,21,.35)}
 .quran-word.mistake{background:rgba(244,63,94,.25);text-decoration:underline wavy #f43f5e}
 .htmx-indicator{opacity:0;transition:opacity .2s}.htmx-request .htmx-indicator,.htmx-request.htmx-indicator{opacity:1}
+/* Submit button after its POST form was sent (app.js double-submit guard): dimmed with a small spinner. */
+.is-busy{position:relative;opacity:.65;cursor:progress}
+.is-busy::after{content:"";position:absolute;right:.4rem;top:50%;width:.8rem;height:.8rem;margin-top:-.4rem;border:2px solid currentColor;border-right-color:transparent;border-radius:9999px;animation:oqc-spin .7s linear infinite}
+@keyframes oqc-spin{to{transform:rotate(360deg)}}
 @media print{aside,header,footer,.no-print{display:none!important}main{padding:0!important}}
 .live-dot{position:relative}.live-dot::before{content:"";position:absolute;inset:-4px;border-radius:9999px;background:currentColor;opacity:.35;animation:ping 1.5s cubic-bezier(0,0,.2,1) infinite}
 @keyframes ping{75%,100%{transform:scale(2);opacity:0}}

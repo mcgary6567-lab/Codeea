@@ -82,7 +82,7 @@
           <button type="submit" @click="action='save'" class="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><i data-lucide="save" class="h-4 w-4"></i>Save</button>
           <button type="submit" @click="action='complete'" class="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"><i data-lucide="check-check" class="h-4 w-4"></i>Complete</button>
           <button type="submit" @click.prevent="action = 'flag'; if ($el.form.reason.value.trim()) $el.form.submit()" class="inline-flex items-center gap-1.5 rounded bg-amber-500 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-amber-600"><i data-lucide="flag" class="h-4 w-4"></i>Flag</button>
-          <button type="submit" @click.prevent="action = 'reject'; if ($el.form.reason.value.trim()) $el.form.submit()" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x-circle" class="h-4 w-4"></i>Reject</button>
+          <button type="submit" @click.prevent="action = 'reject'; if ($el.form.reason.value.trim() && confirm('Reject this QA review?')) $el.form.submit()" class="inline-flex items-center gap-1.5 rounded bg-rose-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-rose-700"><i data-lucide="x-circle" class="h-4 w-4"></i>Reject</button>
         </div>
         <p class="text-[11px] text-slate-500">Flag and Reject open the reason field first; click again once a reason is entered.</p>
       </form>

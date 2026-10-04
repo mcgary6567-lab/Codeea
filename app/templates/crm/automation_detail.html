@@ -131,7 +131,7 @@
 
 {% if has_perm(user, 'automations.update') %}
 {% call ui.modal('toggleWf', ('Deactivate ' if wf.is_active else 'Activate ') ~ wf.code, 'sm') %}
-<form method="post" action="/crm/automations/{{ wf.id }}/toggle" class="space-y-3">
+<form method="post" action="/crm/automations/{{ wf.id }}/toggle" class="space-y-3" {% if wf.is_active %}onsubmit="return confirm('Deactivate workflow {{ wf.code }}? Runs in progress stop at their next step.')"{% endif %}>
   <p class="text-sm text-slate-600">{% if wf.is_active %}The trigger is ignored from now on and every run still in progress stops the next time it is due.{% else %}The trigger starts runs again from now on. Events that happened while it was off are not replayed.{% endif %}</p>
   {{ ui.textarea('rationale', 'Reason', '', rows=2, required=True, placeholder='Why this workflow is being switched ' ~ ('off' if wf.is_active else 'on')) }}
   {{ ui.button('Deactivate' if wf.is_active else 'Activate', icon='pause' if wf.is_active else 'play', variant='warning' if wf.is_active else 'success') }}

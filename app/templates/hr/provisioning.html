@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}Provisioning{% endblock %}
 {% block content %}
-{% call ui.page_header('Onboarding & offboarding', 'One action provisions or revokes Google Workspace, the password vault, Drive folders, ClickUp/Slack, MFA and the assigned device.') %}
+{% call ui.page_header('Provisioning', 'Onboarding and offboarding · one action provisions or revokes Google Workspace, the password vault, Drive folders, ClickUp/Slack, MFA and the assigned device.') %}
   {% if has_perm(user, 'provisioning.execute') %}
   {{ ui.button('Run provisioning', icon='key-round', type='button', attrs='@click="$dispatch(\'open-modal\',\'runProv\')"') }}
   {% endif %}

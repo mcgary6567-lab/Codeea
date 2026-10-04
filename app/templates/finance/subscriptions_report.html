@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Subscription economics{% endblock %}
+{% block title %}Subscriptions Report{% endblock %}
 {% block content %}
-{% call ui.page_header("Subscription economics", "Recurring revenue and margin over teacher cost, consolidated in " ~ base ~ ".", back='/finance/subscriptions') %}{% endcall %}
+{% call ui.page_header("Subscriptions Report", "Subscription economics · recurring revenue and margin over teacher cost, consolidated in " ~ base ~ ".", back='/finance/subscriptions') %}{% endcall %}
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
   {{ ui.stat("Subscriptions", totals.count, icon="repeat", color="brand") }}

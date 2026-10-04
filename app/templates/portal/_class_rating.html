@@ -1,0 +1,28 @@
+{# Class rating partial. Expects `it.cs` (a done ClassSession) and optionally `rating_next` (where to return). #}
+{% set cs = it.cs %}
+{% if cs.student_rating %}
+<div class="rating-shown" data-session="{{ cs.id }}" x-data="{ edit: false }">
+  <span class="text-amber-500" title="{{ cs.student_rating }} / 5">{{ '&#9733;' * cs.student_rating }}<span class="text-slate-300">{{ '&#9733;' * (5 - cs.student_rating) }}</span></span>
+  <span class="ml-1 text-slate-500">{{ cs.student_rating }}/5</span>
+  {% if cs.student_feedback %}<div class="mt-0.5 text-[11px] text-slate-500">{{ cs.student_feedback|truncate(60) }}</div>{% endif %}
+  <button type="button" class="mt-0.5 text-[11px] text-brand-600 hover:underline" @click="edit = !edit">Change</button>
+  <form method="post" action="/portal/classes/{{ cs.id }}/rate" class="mt-1 flex flex-wrap items-center gap-1" x-show="edit" x-cloak>
+    <input type="hidden" name="next" value="{{ rating_next or request.url.path }}">
+    <select name="rating" class="rounded border border-slate-300 px-1 py-0.5 text-xs" aria-label="Rating">
+      {% for n in [5, 4, 3, 2, 1] %}<option value="{{ n }}" {% if n == cs.student_rating %}selected{% endif %}>{{ n }} star{{ 's' if n != 1 }}</option>{% endfor %}
+    </select>
+    <input type="text" name="comment" maxlength="500" value="{{ cs.student_feedback or '' }}" placeholder="Comment (optional)" class="w-36 rounded border border-slate-300 px-1 py-0.5 text-xs">
+    <button class="rounded bg-brand-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-brand-700">Save</button>
+  </form>
+</div>
+{% else %}
+<form method="post" action="/portal/classes/{{ cs.id }}/rate" class="rating-form flex flex-wrap items-center gap-1" data-session="{{ cs.id }}">
+  <input type="hidden" name="next" value="{{ rating_next or request.url.path }}">
+  <select name="rating" class="rounded border border-slate-300 px-1 py-0.5 text-xs" aria-label="Rate this class" required>
+    <option value="">Rate…</option>
+    {% for n in [5, 4, 3, 2, 1] %}<option value="{{ n }}">{{ n }} star{{ 's' if n != 1 }}</option>{% endfor %}
+  </select>
+  <input type="text" name="comment" maxlength="500" placeholder="Comment (optional)" class="w-36 rounded border border-slate-300 px-1 py-0.5 text-xs">
+  <button class="rounded bg-brand-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-brand-700">Send rating</button>
+</form>
+{% endif %}

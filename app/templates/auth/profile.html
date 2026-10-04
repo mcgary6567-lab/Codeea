@@ -2,7 +2,7 @@
 {% import "macros.html" as ui %}
 {% block title %}My profile{% endblock %}
 {% block content %}
-{{ ui.page_header("My profile", user.email) }}
+{{ ui.page_header("My profile", user.email, back="/home") }}
 {{ ui.tabs([('profile','Profile','/profile'),('password','Password','/profile?tab=password'),('2fa','Two-factor auth','/profile?tab=2fa'),('sessions','Sessions','/profile?tab=sessions')], tab) }}
 <div class="max-w-2xl">
 {% if tab == 'profile' %}
@@ -57,7 +57,8 @@
 {{ ui.table_start(['Device', 'IP', 'Started', 'Last seen', '']) }}
 {% for s in sessions %}
 <tr><td class="px-4 py-2 max-w-xs truncate text-xs">{{ s.user_agent }} {% if s.token_jti == current_jti %}{{ ui.badge('active', 'This device') }}{% endif %}</td><td class="px-4 py-2">{{ s.ip }}</td><td class="px-4 py-2">{{ s.created_at|datetime }}</td><td class="px-4 py-2">{{ s.last_seen_at|ago }}</td>
-<td class="px-4 py-2 text-right">{% if s.token_jti != current_jti %}<form method="post" class="inline"><input type="hidden" name="action" value="revoke_session"><input type="hidden" name="session_id" value="{{ s.id }}">{{ ui.button('Revoke', variant='ghost', size='sm', icon='log-out') }}</form>{% endif %}</td></tr>
+<td class="px-4 py-2 text-right">{% if s.token_jti != current_jti %}<form method="post" class="inline" onsubmit="return confirm('Sign this device out?')"><input type="hidden" name="action" value="revoke_session"><input type="hidden" name="session_id" value="{{ s.id }}">{{ ui.button('Revoke', variant='ghost', size='sm', icon='log-out') }}</form>{% endif %}</td></tr>
+{% else %}{{ ui.empty('No other active sessions.', 5) }}
 {% endfor %}
 {{ ui.table_end() }}
 {% endcall %}

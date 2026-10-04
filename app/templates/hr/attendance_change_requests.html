@@ -31,7 +31,7 @@
   {% for r in page.items %}
   {% set hl = '#fef9c3' if r.status == 'pending' else ('#fee2e2' if r.status == 'rejected' else ('#f1f5f9' if r.status == 'cancelled' else '')) %}
   <tr {% if hl %}style="background: {{ hl }}"{% endif %}>
-    <td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
+    <td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" aria-label="Select row {{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
     <td class="px-3 py-2 text-xs font-mono">{{ r.id }}</td>
     <td class="px-3 py-2 text-xs">{{ r.employee.full_name if r.employee else '-' }}
       <div class="text-[10px] text-slate-500">{{ r.employee.employee_code if r.employee else '' }} · {{ r.session|upper }}</div></td>

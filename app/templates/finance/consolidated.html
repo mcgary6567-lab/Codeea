@@ -23,7 +23,7 @@
   {% for r in data[key] %}
   <tr><td class="px-4 py-2 font-mono text-xs font-semibold">{{ r.currency }}</td>
     <td class="px-4 py-2 text-center text-slate-500">{{ r.count }}</td>
-    <td class="px-4 py-2 text-right">{{ r.amount|money }}</td>
+    <td class="px-4 py-2 text-right">{{ r.amount|money(r.currency) }}</td>
     <td class="px-4 py-2 text-right text-xs text-slate-500">{{ r.rate|round(4) }}</td>
     <td class="px-4 py-2 text-right font-medium">{{ r.base|money }}</td></tr>
   {% else %}{{ ui.empty('Nothing in this period.', 5) }}{% endfor %}

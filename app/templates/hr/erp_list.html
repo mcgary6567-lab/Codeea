@@ -59,7 +59,7 @@
   {{ ui.table_start(([''] if can_change else []) + meta.headers) }}
   {% for r in rows %}
   <tr {% if r.highlight %}style="background: {{ r.highlight }}"{% endif %}>
-    {% if can_change %}<td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
+    {% if can_change %}<td class="px-3 py-2 text-center"><input type="checkbox" name="ids" value="{{ r.id }}" aria-label="Select row {{ r.id }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>{% endif %}
     {% for cell in r.cells %}
       {% if cell is mapping %}
       <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(cell.value, cell.label) }}</td>

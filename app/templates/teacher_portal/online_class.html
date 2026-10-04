@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Online class{% endblock %}
+{% block title %}Class Schedule{% endblock %}
 {% block content %}
-{% call ui.page_header('Online class', t.full_name ~ ' - ' ~ day.strftime('%A %d %B %Y') ~ ' (times in Asia/Karachi)') %}
+{% call ui.page_header('Class Schedule', 'Online class · ' ~ t.full_name ~ ' - ' ~ day.strftime('%A %d %B %Y') ~ ' (times in Asia/Karachi)') %}
   {{ ui.button('Previous day', href='/teacher/online-class?day=' ~ prev_day ~ '&teacher_id=' ~ t.id, icon='chevron-left', variant='secondary', size='sm') }}
   {{ ui.button('Today', href='/teacher/online-class?teacher_id=' ~ t.id, variant='secondary', size='sm') }}
   {{ ui.button('Next day', href='/teacher/online-class?day=' ~ next_day ~ '&teacher_id=' ~ t.id, icon='chevron-right', variant='secondary', size='sm') }}

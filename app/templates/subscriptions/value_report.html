@@ -59,6 +59,7 @@
   {% for r in shifts %}
   <tr><td class="px-3 py-2 font-medium">{{ r.shift }}</td><td class="px-3 py-2">{{ r.subs }}</td><td class="px-3 py-2 text-right">{{ r.revenue|money }}</td>
     <td class="px-3 py-2 text-right">{{ r.cost|money }}</td><td class="px-3 py-2 text-right {{ 'text-rose-600' if r.profit < 0 else 'text-emerald-700' }}">{{ r.profit|money }}</td><td class="px-3 py-2 text-right">{{ r.margin_pct }}%</td></tr>
+  {% else %}{{ ui.empty('No shift data for this report.', 6) }}
   {% endfor %}
   <tr class="bg-[#f1f6fc] font-semibold"><td class="px-3 py-2">Total</td><td class="px-3 py-2">{{ rows|length }}</td><td class="px-3 py-2 text-right">{{ total_value|money }}</td><td class="px-3 py-2 text-right">{{ total_cost|money }}</td><td class="px-3 py-2 text-right">{{ total_margin|money }}</td><td class="px-3 py-2 text-right">{{ ((100 * total_margin / total_value)|round(1)) if total_value else 0 }}%</td></tr>
   {{ ui.table_end() }}

@@ -52,6 +52,7 @@
   <tr><td class="px-4 py-1.5 font-medium">{{ m.month }}</td><td class="px-4 py-1.5">{{ m.leads }}</td>
     <td class="px-4 py-1.5 text-emerald-600">{{ m.won }}</td><td class="px-4 py-1.5">{{ m.spend|money }}</td>
     <td class="px-4 py-1.5">{{ m.cpl|money }}</td><td class="px-4 py-1.5">{{ m.cac|money }}</td><td class="px-4 py-1.5">{{ m.revenue|money }}</td></tr>
+  {% else %}{{ ui.empty('No month-on-month figures yet.', 7) }}
   {% endfor %}
   {{ ui.table_end() }}
   <div class="mt-4">{{ ui.chart('mom', 240) }}</div>

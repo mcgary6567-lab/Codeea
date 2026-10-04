@@ -266,7 +266,7 @@
 
 {% elif tab == 'conversations' %}
 <div class="grid gap-5 lg:grid-cols-3">
-  <div>{% call ui.card("Threads") %}<ul class="divide-y divide-slate-100 text-sm">{% for cv in conversations %}<li class="py-2"><a href="/crm/inbox/{{ cv.id }}" class="font-medium hover:text-brand-600">{{ cv.channel|titleize }} · {{ cv.contact_name }}</a><div class="text-xs text-slate-500">{{ ui.badge(cv.status) }} {{ cv.last_message_at|ago }} · {{ cv.last_message_preview or '' }}</div></li>{% else %}<li class="py-3 text-slate-400">No conversations.</li>{% endfor %}</ul>{% endcall %}</div>
+  <div>{% call ui.card("Threads") %}<ul class="divide-y divide-slate-100 text-sm">{% for cv in conversations %}<li class="py-2"><a href="/crm/inbox?c={{ cv.id }}" class="font-medium hover:text-brand-600">{{ cv.channel|titleize }} · {{ cv.contact_name }}</a><div class="text-xs text-slate-500">{{ ui.badge(cv.status) }} {{ cv.last_message_at|ago }} · {{ cv.last_message_preview or '' }}</div></li>{% else %}<li class="py-3 text-slate-400">No conversations.</li>{% endfor %}</ul>{% endcall %}</div>
   <div class="lg:col-span-2">{% call ui.card("Recent messages") %}<ul class="space-y-2">{% for m in messages %}<li class="flex {{ 'justify-end' if m.direction == 'out' else '' }}"><div class="max-w-lg rounded-xl px-3 py-2 text-sm {{ 'bg-brand-600 text-white' if m.direction == 'out' else 'bg-slate-100' }}">{{ m.body }}<div class="mt-1 text-[10px] opacity-70">{{ m.created_at|datetime }} · {{ m.status }}</div></div></li>{% else %}<li class="text-slate-400 text-sm">No messages exchanged yet.</li>{% endfor %}</ul>{% endcall %}</div>
 </div>
 

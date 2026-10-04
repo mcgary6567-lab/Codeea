@@ -41,7 +41,7 @@
 {{ ui.table_start(['', 'Date', 'Session', 'Student', 'Client', 'Teacher', 'Course', 'Method', 'Status', 'Done By', 'Duration', 'Activity', ''], compact=True) }}
 {% for c in page.items %}
 <tr>
-  <td class="px-2 py-1.5">{% if has_perm(user, 'classes.update') %}<input type="checkbox" name="session_ids" value="{{ c.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
+  <td class="px-2 py-1.5">{% if has_perm(user, 'classes.update') %}<input type="checkbox" name="session_ids" value="{{ c.id }}" aria-label="Select row {{ c.id }}" @change="n += ($event.target.checked ? 1 : -1)" class="h-4 w-4 rounded border-slate-300 text-brand-600">{% endif %}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.date|date }}</td>
   <td class="px-3 py-1.5 text-xs whitespace-nowrap">{{ c.slot.label if c.slot else (c.start_time|time ~ ' - ' ~ (c.end_time|time)) }}</td>
   <td class="px-3 py-1.5"><a href="/classes/{{ c.id }}" class="font-medium hover:text-brand-700">{{ c.student.full_name if c.student else '-' }}</a>

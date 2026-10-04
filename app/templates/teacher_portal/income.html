@@ -39,7 +39,7 @@
     <td class="px-4 py-2">{{ p.basic|money(p.currency) }}</td><td class="px-4 py-2">{{ p.allowances|money(p.currency) }}</td>
     <td class="px-4 py-2">{{ p.bonus|money(p.currency) }}</td><td class="px-4 py-2 text-rose-600">{{ p.deductions|money(p.currency) }}</td>
     <td class="px-4 py-2 font-semibold">{{ p.net|money(p.currency) }}</td><td class="px-4 py-2">{{ ui.badge(p.status) }}</td>
-    <td class="px-4 py-2 text-right">{% if p.pdf_path %}<a href="/storage/{{ p.pdf_path }}" class="text-xs text-brand-600 hover:underline">PDF</a>{% endif %}</td></tr>
+    <td class="px-4 py-2 text-right whitespace-nowrap"><a href="/hr/me/payslips/{{ p.id }}/print?print_view=1" class="text-xs text-brand-600 hover:underline" title="Print this month's salary slip">Print</a>{% if p.pdf_path %} · <a href="/storage/{{ p.pdf_path }}" class="text-xs text-brand-600 hover:underline">PDF</a>{% endif %}</td></tr>
   {% else %}{{ ui.empty('No payslips have been issued yet.', 10) }}{% endfor %}
   {{ ui.table_end() }}
 {% endcall %}

@@ -3,6 +3,8 @@
 {% block title %}Invoices & payments{% endblock %}
 {% block content %}
 {% call ui.page_header('Invoices & payments', 'Your subscriptions, invoices, receipts and the running account statement for ' ~ c.client_code ~ '.') %}
+  {{ ui.button('Download statement (CSV)', href='/portal/billing/statement.csv', icon='download', variant='secondary') }}
+  {{ ui.button('Print statement', href='/portal/billing/statement/print', icon='printer', variant='secondary') }}
   {{ ui.button('Pay now', href='/portal/billing/pay', icon='credit-card') }}
 {% endcall %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">

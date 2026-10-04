@@ -83,6 +83,22 @@
   {% endcall %}
 </div>
 
+{% call ui.card("Low Family Ratings", "Classes the family or student rated 2 stars or less in the period (" ~ rated_total ~ " rated in all)") %}
+  {{ ui.table_start(['Class Date', 'Student', 'Teacher', 'Rating', 'Comment', '']) }}
+  {% for cs in low_ratings %}
+  <tr class="bg-rose-50/60" data-low-rating="{{ cs.id }}">
+    <td class="px-4 py-2 text-xs">{{ cs.date|date }} {{ cs.start_time|time }}</td>
+    <td class="px-4 py-2 text-sm">{{ cs.student.student_code if cs.student else '-' }}</td>
+    <td class="px-4 py-2 text-sm">{{ cs.teacher.full_name if cs.teacher else '-' }}</td>
+    <td class="px-4 py-2 text-sm"><span class="text-amber-500">{{ '&#9733;' * cs.student_rating }}</span> <span class="text-xs text-rose-700 font-semibold">{{ cs.student_rating }}/5</span></td>
+    <td class="px-4 py-2 text-xs text-slate-600">{{ (cs.student_feedback or '-')|truncate(80) }}</td>
+    <td class="px-4 py-2 text-right">{{ ui.button('Class', href='/classes/' ~ cs.id, variant='ghost', size='sm') }}</td>
+  </tr>
+  {% else %}{{ ui.empty('No class was rated 2 stars or less in this period.', 6) }}{% endfor %}
+  {{ ui.table_end() }}
+{% endcall %}
+
+<div class="mt-6"></div>
 {% call ui.card("Parameter Wise Teacher Call Ratings", "Average 1-5 rating per QA parameter for each teacher") %}
   <div class="overflow-x-auto">
   {{ ui.table_start(['Teacher'] + d.param_names + ['Overall']) }}

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}{{ (obj.event_type ~ ' template') if obj else 'New template' }}{% endblock %}
+{% block title %}{{ (obj.event_type|titleize ~ ' template') if obj else 'New template' }}{% endblock %}
 {% block content %}
-{% call ui.page_header(obj.event_type if obj else "New notification template",
-                       ("Channel " ~ obj.channel ~ " · language " ~ obj.language) if obj else "Define the subject and body used when this event fires",
+{% call ui.page_header(obj.event_type|titleize if obj else "New notification template",
+                       (obj.event_type ~ " · channel " ~ obj.channel ~ " · language " ~ obj.language) if obj else "Define the subject and body used when this event fires",
                        back="/admin/notifications?tab=templates") %}
   {% if obj %}{{ ui.badge('active' if obj.is_active else 'inactive') }}{{ ui.badge(obj.channel) }}{% endif %}
   {% if obj and has_perm(user, 'notifications.delete') %}
@@ -98,7 +98,7 @@
 {% if obj and has_perm(user, 'notifications.delete') %}
 {% call ui.modal('deltpl', 'Delete this template') %}
 {{ ui.alert('Messages for this event will fall back to the literal text supplied by the calling module.', 'warning', 'Deleting ' ~ obj.event_type ~ '/' ~ obj.channel) }}
-<form method="post" action="/admin/notifications/templates/{{ obj.id }}/delete" class="mt-4 space-y-4">
+<form method="post" action="/admin/notifications/templates/{{ obj.id }}/delete" class="mt-4 space-y-4" onsubmit="return confirm('Delete the {{ obj.event_type }} / {{ obj.channel }} template permanently?')">
   {{ ui.input('rationale', 'Rationale', '', required=True) }}
   {{ ui.button('Delete template', icon='trash-2', variant='danger') }}
 </form>

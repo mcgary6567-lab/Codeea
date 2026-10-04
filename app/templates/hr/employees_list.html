@@ -3,6 +3,12 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
 {% block title %}Employee Record{% endblock %}
+{# Contact and bank details are masked (same filter as the Client List) unless the viewer holds employees.update;
+   the View link reveals one value through an audited route, like the ERP's "View" link. #}
+{% macro masked(eid, field, value, show) -%}
+  {%- if show %}{{ value or '—' }}{% elif value %}<span>{{ value|mask }}</span>
+  <a href="/hr/employees/{{ eid }}/reveal/{{ field }}" hx-get="/hr/employees/{{ eid }}/reveal/{{ field }}" hx-target="closest td" hx-swap="innerHTML" class="ml-1 text-brand-600 hover:underline" title="Reveal (audited)">View</a>{% else %}—{% endif -%}
+{%- endmacro %}
 {% block content %}
 {% call ui.page_header("Employee Record", "Every person on the payroll. Contact details, CNIC and bank account are masked unless you hold employees.update.") %}
   {{ ui.button("Export CSV", href="/hr/employees/export.csv", icon="download", variant="secondary") }}
@@ -51,9 +57,9 @@
   <td class="px-3 py-2 text-xs">{{ e.department.name if e.department else '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ e.gender|titleize }}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.dob or '—' }}</td>
-  <td class="px-3 py-2 text-xs">{{ r.email or '—' }}</td>
-  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.phone or '—' }}</td>
-  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ r.whatsapp or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ masked(e.id, 'email', e.email, show_sensitive) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ masked(e.id, 'phone', e.phone, show_sensitive) }}</td>
+  <td class="px-3 py-2 text-xs whitespace-nowrap">{{ masked(e.id, 'whatsapp', e.whatsapp, show_sensitive) }}</td>
   <td class="px-3 py-2 text-xs">{{ e.shift|titleize }}</td>
   <td class="px-3 py-2 text-xs">{{ e.shift_code or '—' }}</td>
   <td class="px-3 py-2 text-xs whitespace-nowrap">{{ e.base_salary|money(e.currency) }}</td>
@@ -64,7 +70,7 @@
   <td class="px-3 py-2 text-xs">{{ e.religion or '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ e.blood_group or '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ e.bank_name or '—' }}</td>
-  <td class="px-3 py-2 text-xs font-mono">{{ r.bank_account_no or '—' }}</td>
+  <td class="px-3 py-2 text-xs font-mono">{{ masked(e.id, 'bank_account_no', e.bank_account_no, show_sensitive) }}</td>
   <td class="px-3 py-2 text-xs">{{ e.manager.full_name if e.manager else '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ e.shift_start or '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ e.shift_end or '—' }}</td>

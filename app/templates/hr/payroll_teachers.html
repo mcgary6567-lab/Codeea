@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Teacher cost vs output{% endblock %}
+{% block title %}Teacher Payroll{% endblock %}
 {% block content %}
-{% call ui.page_header('Teacher cost vs output', 'What each teacher costs (salary + class pay) against the subscription revenue their students generate, for ' ~ period ~ '.', back='/hr/payroll') %}
+{% call ui.page_header('Teacher Payroll', 'Teacher cost vs output · what each teacher costs (salary + class pay) against the subscription revenue their students generate, for ' ~ period ~ '.', back='/hr/payroll') %}
   <form method="get" class="flex items-end gap-2"><div class="w-40">{{ ui.input('period', 'Period', period, type='month') }}</div>{{ ui.button('Show', size='sm', variant='secondary') }}</form>
 {% endcall %}
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
