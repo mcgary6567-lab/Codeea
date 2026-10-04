@@ -17,6 +17,7 @@ import { suppliers } from "./routes/suppliers.js";
 import { reports } from "./routes/reports.js";
 import { notifications } from "./routes/notifications.js";
 import { pos } from "./routes/pos.js";
+import { capture } from "./routes/capture.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -28,7 +29,7 @@ if (!get("SELECT id FROM tenants LIMIT 1")) {
 
 export const app = express();
 app.use(cors());
-app.use(express.json({ limit: "2mb", verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
+app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" }));
 app.post("/api/auth/login", h((req) => {
@@ -60,6 +61,7 @@ api.use(suppliers);
 api.use(reports);
 api.use(notifications);
 api.use(pos);
+api.use(capture);
 app.use("/api", api);
 
 // Serve the built dashboard in production

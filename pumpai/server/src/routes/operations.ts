@@ -7,6 +7,7 @@ import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
 import { followPumpPrice } from "./wholesale.js";
+import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
@@ -207,7 +208,7 @@ operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
  * without a sale: stock is reduced and managers are alerted.
  */
 operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
-  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional(), readings: z.record(z.string(), z.number().min(0)).optional() }), req.body);
+  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional(), readings: z.record(z.string(), z.number().min(0)).optional(), photo_ids: z.array(z.number()).max(20).optional() }), req.body);
   const isSalesman = req.user!.role === "salesman";
   const stationId = isSalesman ? scopedStation(req, b.station_id)! : b.station_id;
   const attendant = isSalesman ? req.user!.name : b.attendant;
@@ -245,6 +246,7 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
     const a = createAlert(tid(req), { station_id: stationId, type: "handover_gap", severity: "critical", title: `⚠️ Meter gap at shift handover — ${round2(gaps.reduce((x, g) => x + g.litres, 0))} L`, body, dedupe_key: `gap-${shift.id}` });
     if (a) await notify(tid(req), staff(tid(req), ["admin", "manager"]), { type: "handover_gap", data: { shift_id: shift.id }, title: a.title, body });
   }
+  linkPhotos(tid(req), b.photo_ids, `shift-open:${shift.id}`);
   return { ...shift, nozzles: chosen.length, handover_gaps: gaps };
 }));
 
@@ -255,7 +257,7 @@ operations.get("/shifts/expense-categories", requirePerm("shifts.expenses"), h((
 operations.post("/shifts/:id/expenses", requirePerm("shifts.expenses"), h(async (req) => {
   const shift = ownOpenShift(req, Number(req.params.id));
   if (shift.status !== "open") throw new AppError(400, "Shift is closed");
-  const b = parse(z.object({ category: z.string().min(2), amount: z.number().positive().max(1_000_000), paid_to: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
+  const b = parse(z.object({ category: z.string().min(2), amount: z.number().positive().max(1_000_000), paid_to: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable(), photo_id: z.number().optional().nullable() }), req.body);
   if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), b.category)) throw new AppError(400, "Unknown expense category");
   const limit = Number(getSetting(tid(req), "expense_approval_limit", "10000"));
   const status = req.user!.role === "admin" || b.amount <= limit ? "approved" : "pending";
@@ -265,6 +267,7 @@ operations.post("/shifts/:id/expenses", requirePerm("shifts.expenses"), h(async 
   if (status === "pending")
     createAlert(tid(req), { station_id: shift.station_id, type: "expense_approval", severity: "warning", title: `Shift expense needs approval: ${pkr(b.amount)} ${b.category}`,
       body: `Paid from ${shift.attendant}'s shift cash${b.note ? ` · ${b.note}` : ""}` });
+  if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `expense:${id}`)) { run("UPDATE expenses SET photo_id=? WHERE id=?", b.photo_id, id); }
   return { expense: get("SELECT * FROM expenses WHERE id=?", id), summary: shiftSummary(shift.id) };
 }));
 
@@ -278,7 +281,7 @@ operations.delete("/shifts/:id/expenses/:eid", requirePerm("shifts.expenses"), h
 /** Full shift report: meters, litres at each rate, khata accounts, digital, expenses, cash to hand over. */
 operations.get("/shifts/:id/report", requirePerm("shifts.manage"), h((req) => {
   const shift = ownOpenShift(req, Number(req.params.id));
-  return shiftReport(shift.id);
+  return { ...shiftReport(shift.id), photos: photosFor(tid(req), [`shift-open:${shift.id}`, `shift-close:${shift.id}`]) };
 }));
 
 /**
@@ -310,7 +313,7 @@ operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
  * Expected cash = all cash sales in the shift; variance = counted - expected.
  */
 operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req) => {
-  const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional() }), req.body);
+  const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional(), photo_ids: z.array(z.number()).max(20).optional() }), req.body);
   const t = tid(req);
   const shift = ownOpenShift(req, Number(req.params.id));
   if (shift.status !== "open") throw new AppError(400, "Shift is not open");
@@ -322,6 +325,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
     run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
       now(), round2(totalLitres), expected, b.cash_actual, round2(b.cash_actual - expected), b.notes ?? null, shift.id);
   });
+  linkPhotos(t, b.photo_ids, `shift-close:${shift.id}`);
   const closed = get("SELECT * FROM shifts WHERE id=?", shift.id)!;
   const summary = shiftSummary(shift.id);
   const v = closed.variance;
@@ -361,7 +365,7 @@ operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
 operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({
     tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional(),
-    supplier_id: z.number().optional().nullable(), purchase_rate: z.number().positive().optional().nullable(),
+    supplier_id: z.number().optional().nullable(), purchase_rate: z.number().positive().optional().nullable(), photo_id: z.number().optional().nullable(),
   }), req.body);
   const t = ownTank(tid(req), b.tank_id);
   const supplier = b.supplier_id ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, tid(req)) : null;
@@ -375,6 +379,7 @@ operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
     // we pay the supplier for the invoiced litres; any shortage is claimed separately
     if (supplier && b.purchase_rate) recordPurchase(tid(req), { supplier_id: supplier.id, delivery_id: id, product: t.product, litres: b.invoice_l, rate: b.purchase_rate, ref: b.tanker_no, by: req.user!.name });
     run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", b.received_l, t.id);
+    if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `delivery:${id}`)) { run("UPDATE deliveries SET photo_id=? WHERE id=?", b.photo_id, id); }
     if (shortage >= 0.3)
       createAlert(tid(req), { station_id: t.station_id, type: "short_delivery", severity: shortage >= 0.8 ? "critical" : "warning",
         title: `Tanker ${b.tanker_no ?? ""} short by ${shortage.toFixed(2)}%`, body: `${t.name}: invoice ${b.invoice_l}L, received ${b.received_l}L.`, dedupe_key: `delivery-${id}` });

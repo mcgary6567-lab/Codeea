@@ -4,6 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { PhotoButton } from "../components/Capture";
 import { ShiftExpenses, ShiftReport, StartShiftSheet } from "../components/ShiftParts";
 
 const hhmm = (h: number) => `${Math.floor(h)}h ${String(Math.floor((h % 1) * 60)).padStart(2, "0")}m`;
@@ -113,6 +114,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
   const { data } = useApi<any>(`/shifts/${id}/live`);
   const [readings, setReadings] = useState<Record<string, string>>({});
   const [cash, setCash] = useState("");
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   if (!data) return <Modal open onClose={onClose} title="End shift"><Loading /></Modal>;
   const s = data.summary;
@@ -132,7 +134,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
     <Modal open onClose={onClose} title={`End shift — ${data.shift.attendant}`} wide>
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
-        const r = await run(() => api(`/shifts/${id}/close`, { body: { readings: Object.fromEntries(Object.entries(readings).map(([k, v]) => [k, Number(v)])), cash_actual: Number(cash) } }));
+        const r = await run(() => api(`/shifts/${id}/close`, { body: { readings: Object.fromEntries(Object.entries(readings).map(([k, v]) => [k, Number(v)])), cash_actual: Number(cash), photo_ids: photos } }));
         if (r) onClosed(r);
       }}>
         <p className="text-sm font-medium">Step 1 — closing meter reading of every nozzle</p>
@@ -147,7 +149,12 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
                 <tr key={r.nozzle_id}>
                   <td className="td text-sm">{r.label} <span className="text-xs text-slate-500">{PRODUCTS[r.product]}</span></td>
                   <td className="td text-right text-xs tabular-nums">{num(r.opening, 2)}{r.checkpoint != null && <div className="text-slate-400">price change at {num(r.checkpoint, 2)}</div>}</td>
-                  <td className="td"><input className={`input w-40 text-lg tabular-nums ${bad ? "border-red-400" : ""}`} type="number" step="0.01" min={last} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} aria-label={`${r.label} closing reading`} /></td>
+                  <td className="td"><input className={`input w-40 text-lg tabular-nums ${bad ? "border-red-400" : ""}`} type="number" step="0.01" min={last} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} aria-label={`${r.label} closing reading`} />
+                    <PhotoButton kind="meter" label="Meter" className="ml-2" hint={`Nozzle ${r.label}; opening reading was ${r.opening}.`} onRead={(res, pid) => {
+                      setPhotos((p) => [...p, pid]);
+                      const vs: number[] = (res?.readings ?? []).map((x: any) => Number(x.value)).filter((x: number) => x >= last && x - last < 50_000);
+                      if (vs.length) setReadings((rd) => ({ ...rd, [r.nozzle_id]: String(Math.min(...vs)) }));
+                    }} /></td>
                   <td className="td text-right font-medium tabular-nums">{readings[r.nozzle_id] && v >= r.opening ? num(v - r.opening, 2) : "—"}</td>
                   <td className="td text-right text-xs tabular-nums">Rs {data.prices[r.product]}</td>
                 </tr>

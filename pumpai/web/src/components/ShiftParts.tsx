@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Printer, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
+import { PhotoButton, photoUrl } from "./Capture";
 import { PRODUCTS, ago, dt, num, pkr } from "../lib/format";
 
 const Ur = ({ children }: { children: ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -14,7 +15,14 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
   const { data } = useApi<any>(`/shifts/handover${stationId ? `?station_id=${stationId}` : ""}`);
   const [vals, setVals] = useState<Record<number, string>>({});
   const [use, setUse] = useState<Record<number, boolean>>({});
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
+  /** a meter photo may show several totalizers: take the one that fits this nozzle's last reading */
+  const fromPhoto = (n: any) => (r: any, id: number) => {
+    setPhotos((p) => [...p, id]);
+    const vs: number[] = (r?.readings ?? []).map((x: any) => Number(x.value)).filter((v: number) => v >= n.last_reading && v - n.last_reading < 50_000);
+    if (vs.length) setVals((v) => ({ ...v, [n.nozzle_id]: String(Math.min(...vs)) }));
+  };
   useEffect(() => {
     if (!data) return;
     setVals(Object.fromEntries(data.nozzles.map((n: any) => [n.nozzle_id, String(n.last_reading)])));
@@ -27,7 +35,7 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
 
   const start = async () => {
     const readings = Object.fromEntries(chosen.map((n: any) => [n.nozzle_id, Number(vals[n.nozzle_id])]));
-    const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings } }),
+    const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings, photo_ids: photos } }),
       (x: any) => x.handover_gaps?.length ? `Shift started. Manager alerted about ${x.handover_gaps.reduce((a: number, g: any) => a + g.litres, 0)} L meter gap.` : "Shift started");
     if (r) onStarted(r);
   };
@@ -50,6 +58,7 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
                   <span className="text-xs text-slate-500">Meter now</span>
                   <input className={`input w-40 tabular-nums ${big ? "py-3 text-xl" : ""} ${gap < 0 ? "border-red-400" : gap > 0.009 ? "border-amber-400" : ""}`} type="number" step="0.01" min={n.last_reading}
                     value={vals[n.nozzle_id] ?? ""} onChange={(e) => setVals({ ...vals, [n.nozzle_id]: e.target.value })} aria-label={`${n.label} opening reading`} />
+                  <PhotoButton kind="meter" label="Meter" big={big} hint={`Nozzle ${n.label}; last closing reading was ${n.last_reading}.`} onRead={fromPhoto(n)} />
                 </div>
               )}
               {!n.busy && use[n.nozzle_id] && gap > 0.009 && <div className="w-full text-sm font-medium text-amber-700">⚠ {num(gap, 2)} L more than the last closing — the manager will be alerted.</div>}
@@ -58,6 +67,7 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
           );
         })}
       </div>
+      {photos.length > 0 && <p className="text-xs text-slate-500">📷 {photos.length} meter photo{photos.length === 1 ? "" : "s"} will be kept with this shift.</p>}
       {gaps.length > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Litres pumped between shifts are taken out of tank stock and reported to the manager.</p>}
       <button className={`w-full rounded-xl bg-emerald-600 font-bold text-white active:scale-95 disabled:bg-slate-300 ${big ? "py-5 text-2xl" : "py-3 text-lg"}`}
         disabled={busy || !chosen.length || gaps.some((g: any) => g.gap < 0)} onClick={start}>
@@ -73,7 +83,7 @@ const QUICK_EXP = [["Tea & food", "☕"], ["Generator fuel", "⚡"], ["Maintenan
 export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number; expenses: any[]; onChange: () => void }) {
   const cats = useApi<string[]>("/shifts/expense-categories");
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ category: "Tea & food", amount: "", note: "" });
+  const [f, setF] = useState({ category: "Tea & food", amount: "", note: "", photo_id: null as number | null });
   const { busy, run } = useAction();
   const total = expenses.reduce((a, e) => a + e.amount, 0);
   return (
@@ -96,10 +106,18 @@ export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number
       <Modal open={open} onClose={() => setOpen(false)} title="Expense paid from shift cash">
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
-          if (await run(() => api(`/shifts/${shiftId}/expenses`, { body: { category: f.category, amount: Number(f.amount), note: f.note || null } }), (r: any) => r.expense.status === "pending" ? "Saved — waiting for manager approval" : "Expense saved")) {
-            setOpen(false); setF({ ...f, amount: "", note: "" }); onChange();
+          if (await run(() => api(`/shifts/${shiftId}/expenses`, { body: { category: f.category, amount: Number(f.amount), note: f.note || null, photo_id: f.photo_id } }), (r: any) => r.expense.status === "pending" ? "Saved — waiting for manager approval" : "Expense saved")) {
+            setOpen(false); setF({ ...f, amount: "", note: "", photo_id: null }); onChange();
           }
         }}>
+          <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
+            <PhotoButton kind="receipt" label="Photo of bill" onRead={(r, id) => setF((x) => ({
+              ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount,
+              category: r?.category && (cats.data ?? []).includes(r.category) ? r.category : x.category,
+              note: [r?.description, r?.paid_to].filter(Boolean).join(" · ") || x.note,
+            }))} />
+            <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached" : "Have a bill? Take its photo."}</span>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {QUICK_EXP.map(([c, icon]) => (
               <button type="button" key={c} aria-pressed={f.category === c} onClick={() => setF({ ...f, category: c })}
@@ -160,6 +178,16 @@ function ReportBody({ r }: { r: any }) {
                 <td className="td text-right font-medium tabular-nums">{x.litres != null ? num(x.litres, 2) : "—"}</td></tr>
             ))}</tbody></table>
         </div>
+        {r.photos?.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {r.photos.map((p: any) => (
+              <a key={p.id} href={photoUrl(p.id)} target="_blank" rel="noreferrer" className="block text-center text-xs text-slate-500">
+                <img src={photoUrl(p.id)} alt={`Meter photo at ${p.ref.startsWith("shift-open") ? "start" : "end"}`} className="h-20 w-28 rounded-lg border border-slate-200 object-cover" />
+                {p.ref.startsWith("shift-open") ? "At start" : "At end"}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

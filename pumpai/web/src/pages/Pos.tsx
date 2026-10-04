@@ -8,6 +8,7 @@ import { num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
+import { VoiceButton } from "../components/Capture";
 
 /* Big, colourful, bilingual (English + Urdu) point of sale designed for one-hand use on a tablet. */
 
@@ -55,6 +56,7 @@ export default function Pos() {
   const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string } | null>(null);
   const [pickKhata, setPickKhata] = useState(false);
   const [done, setDone] = useState<any>(null);
+  const [heard, setHeard] = useState<string | null>(null);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
@@ -62,7 +64,22 @@ export default function Pos() {
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
   const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata));
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); };
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); };
+
+  /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
+  const applyVoice = async (v: any) => {
+    if (v.product && d?.products.includes(v.product)) setProduct(v.product);
+    if (v.litres) { setMode("litres"); setEntry(String(v.litres)); } else if (v.amount) { setMode("amount"); setEntry(String(v.amount)); }
+    if (v.payment_method) setPay(v.payment_method);
+    if (v.payment_method === "khata") {
+      let accts = cacheGet<any[]>("khata_accounts");
+      if (!accts) try { accts = await api<any[]>("/pos/khata-accounts"); cacheSet("khata_accounts", accts); } catch { accts = []; }
+      const acc = accts!.find((a) => a.id === v.customer_id);
+      if (acc && acc.status !== "full") setKhata({ account: acc, vehicle: v.vehicle_no ?? "", slip: v.slip_no ?? "" });
+      else { setKhata(null); setPickKhata(true); }
+    } else setKhata(null);
+    setHeard(v.heard);
+  };
 
   const press = (k: string) => {
     if (k === "C") return setEntry("");
@@ -136,6 +153,8 @@ export default function Pos() {
 
       <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
         <div className="space-y-3">
+          <VoiceButton onParsed={applyVoice} />
+          {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b></div>}
           {/* 1. fuel */}
           <Step n={1} en="Choose fuel" ur="تیل چنیں">
             <div className="grid grid-cols-3 gap-3">

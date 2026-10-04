@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
+import { PhotoButton, photoUrl } from "../components/Capture";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
 export default function Stock() {
@@ -9,7 +10,7 @@ export default function Stock() {
   const suppliers = useApi<any[]>("/suppliers");
   const { busy, run } = useAction();
   const [dip, setDip] = useState({ tank_id: "", measured_l: "" });
-  const [del, setDel] = useState({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "" });
+  const [del, setDel] = useState<any>({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "", photo_id: null });
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
   const refresh = () => { dash.reload(); stock.reload(); };
@@ -47,10 +48,20 @@ export default function Stock() {
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
           const r = await run(() => api("/stock/delivery", { body: { tank_id: Number(del.tank_id || tanks[0].id), invoice_l: Number(del.invoice_l), received_l: Number(del.received_l), tanker_no: del.tanker_no,
-            supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null } }), (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%`);
-          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "", purchase_rate: "" }); refresh(); suppliers.reload(); }
+            supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null, photo_id: del.photo_id ?? null } }), (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%`);
+          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "", purchase_rate: "", photo_id: null }); refresh(); suppliers.reload(); }
         }}>
-          <h2 className="font-semibold">Receive tanker delivery</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold">Receive tanker delivery</h2>
+            <PhotoButton kind="invoice" label="Photo of invoice" onRead={(r, id) => {
+              const tank = r?.product ? tanks.find((t: any) => t.product === r.product) : null;
+              const sup = r?.supplier_name ? (suppliers.data ?? []).find((s: any) => s.name.toLowerCase().split(/\s+/).some((w: string) => w.length > 2 && r.supplier_name.toLowerCase().includes(w))) : null;
+              setDel((x: any) => ({ ...x, photo_id: id, tank_id: tank ? String(tank.id) : x.tank_id,
+                invoice_l: r?.invoice_litres ? String(r.invoice_litres) : x.invoice_l, tanker_no: r?.tanker_no ?? x.tanker_no,
+                supplier_id: sup ? String(sup.id) : x.supplier_id, purchase_rate: r?.rate_per_litre ? String(r.rate_per_litre) : x.purchase_rate }));
+            }} />
+          </div>
+          {del.photo_id && <p className="text-xs text-slate-500">📷 Invoice photo attached{del.invoice_l ? " — check the filled numbers, then enter the litres received from the dip" : ""}.</p>}
           <Field label="Tank"><select className="input" value={del.tank_id} onChange={(e) => setDel({ ...del, tank_id: e.target.value })}>{tankOpts}</select></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
@@ -66,7 +77,7 @@ export default function Stock() {
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => num(r.measured_l)], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>]]} />
-        <History title="Deliveries" rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => r.tanker_no], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+        <History title="Deliveries" rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
     </div>
   );

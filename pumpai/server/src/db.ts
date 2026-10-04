@@ -233,6 +233,11 @@ export function migrate() {
   addColumn("sales", "created_by", "INTEGER"); // user who entered it (for undo)
   addColumn("sales", "client_uid", "TEXT"); // id from the POS so an offline sale synced twice is saved once
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales(client_uid)");
+  db.exec(`CREATE TABLE IF NOT EXISTS photos (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,
+    ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof
+  addColumn("expenses", "photo_id", "INTEGER");
+  addColumn("deliveries", "photo_id", "INTEGER");
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

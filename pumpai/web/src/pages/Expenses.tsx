@@ -4,6 +4,7 @@ import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
+import { PhotoButton, photoUrl } from "../components/Capture";
 
 const METHODS = ["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"];
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -74,7 +75,7 @@ export default function Expenses() {
               <tr key={e.id}>
                 <td className="td text-xs">{d(e.expense_date)}</td>
                 <td className="td text-sm">{e.category}</td>
-                <td className="td text-xs"><div>{e.paid_to ?? "—"} <span className="text-slate-400">· {e.method}</span></div><div className="text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}</div></td>
+                <td className="td text-xs"><div>{e.paid_to ?? "—"} <span className="text-slate-400">· {e.method}</span></div><div className="text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div></td>
                 <td className="td text-xs">{e.station_name?.replace("Al-Madina ", "") ?? "All"}</td>
                 <td className="td text-right font-medium tabular-nums">{pkr(e.amount)}</td>
                 <td className="td"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge><div className="text-[11px] text-slate-400">{e.created_by}</div></td>
@@ -102,7 +103,7 @@ export default function Expenses() {
 }
 
 function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved }: { categories: any[]; stations: any[]; limit: number; canApprove: boolean; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ category: categories[0]?.name ?? "", amount: "", paid_to: "", method: "cash", station_id: "", note: "", receipt_ref: "", expense_date: new Date().toISOString().slice(0, 10) });
+  const [f, setF] = useState({ category: categories[0]?.name ?? "", amount: "", paid_to: "", method: "cash", station_id: "", note: "", receipt_ref: "", expense_date: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10), photo_id: null as number | null });
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title="Add expense">
@@ -111,6 +112,14 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
         const body = { ...f, amount: Number(f.amount), station_id: f.station_id ? Number(f.station_id) : null, paid_to: f.paid_to || null, note: f.note || null, receipt_ref: f.receipt_ref || null };
         if (await run(() => api("/expenses", { body }), (r: any) => r.status === "pending" ? "Saved — waiting for admin approval" : "Expense saved")) onSaved();
       }}>
+        <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
+          <PhotoButton kind="receipt" label="Photo of bill" onRead={(r, id) => setF((x) => ({
+            ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount, paid_to: r?.paid_to ?? x.paid_to,
+            note: r?.description ?? x.note, category: r?.category && categories.some((c) => c.name === r.category) ? r.category : x.category,
+            expense_date: r?.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : x.expense_date,
+          }))} />
+          <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached — check the filled details" : "Take a photo of the bill to fill this form"}</span>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>

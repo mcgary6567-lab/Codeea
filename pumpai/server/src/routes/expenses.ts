@@ -4,6 +4,7 @@ import { z } from "zod";
 import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
+import { linkPhotos } from "./capture.js";
 
 export const expenses = Router();
 
@@ -123,6 +124,7 @@ const body = z.object({
   method: z.enum(["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"]).default("cash"),
   note: z.string().optional().nullable(), receipt_ref: z.string().optional().nullable(),
   station_id: z.number().nullable().optional(), expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  photo_id: z.number().optional().nullable(),
 });
 
 expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
@@ -138,6 +140,7 @@ expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
     t, b.station_id ?? null, b.category, b.amount, b.paid_to ?? null, b.method, b.note ?? null, b.receipt_ref ?? null,
     autoApprove ? "approved" : "pending", req.user!.name, autoApprove ? req.user!.name : null, date, now(),
   );
+  if (b.photo_id && linkPhotos(t, [b.photo_id], `expense:${id}`)) { run("UPDATE expenses SET photo_id=? WHERE id=?", b.photo_id, id); }
   if (autoApprove) checkBudget(t, b.category, monthOf(date));
   else createAlert(t, { type: "expense_approval", severity: "warning", title: `Expense needs approval: ${pkr(b.amount)} ${b.category}`,
     body: `Entered by ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}` });
