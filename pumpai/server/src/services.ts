@@ -71,12 +71,14 @@ export interface SaleInput {
   shift_id?: number | null;
   vehicle_no?: string | null;
   created_at?: string;
+  /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
+  rate?: number;
 }
 
 export function recordSale(tenantId: number, s: SaleInput): Row {
   const station = get("SELECT * FROM stations WHERE id=? AND tenant_id=?", s.station_id, tenantId);
   if (!station) throw new AppError(404, "Station not found");
-  const rate = priceOf(tenantId, s.product);
+  const rate = s.rate ?? priceOf(tenantId, s.product);
   const litres = s.litres ?? (s.amount ? s.amount / rate : 0);
   if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
   const amount = Math.round(litres * rate * 100) / 100;

@@ -5,6 +5,7 @@ import { createAlert, paymentLink, pkr } from "../services.js";
 import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
 import { askBusiness, writeCampaign } from "../ai/agent.js";
 import { aiEnabled } from "../config.js";
+import { notify, staff, shiftUser } from "../notifications.js";
 
 export interface Job {
   key: string;
@@ -117,6 +118,32 @@ export const JOBS: Job[] = [
         sent++;
       }
       return `${sent} win-back messages sent`;
+    },
+  },
+  {
+    key: "shift_watch",
+    name: "12-hour shift reminder",
+    description: "Reminds a salesman to close their shift with meter readings and cash once it passes 12 hours, and alerts managers if a shift is still open after 13 hours.",
+    cron: "*/15 * * * *",
+    run: async (t) => {
+      const open = all(`SELECT sh.*, s.name station_name FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='open'`, t);
+      let reminded = 0;
+      for (const sh of open) {
+        const hours = (Date.now() - Date.parse(sh.opened_at)) / 3600_000;
+        if (hours < 12) continue;
+        const u = shiftUser(t, sh);
+        if (u && !get("SELECT id FROM notifications WHERE user_id=? AND type='shift_due' AND json_extract(data,'$.shift_id')=?", u.id, sh.id)) {
+          await notify(t, [u], { type: "shift_due", data: { shift_id: sh.id },
+            title: "⏰ Shift time over — close your shift", body: `${Math.floor(hours)} ghante ho gaye. Meter readings aur cash darj kar ke shift close karein.` });
+          reminded++;
+        }
+        if (hours >= 13) {
+          const a = createAlert(t, { station_id: sh.station_id, type: "shift_overdue", severity: "warning", title: `Shift still open: ${sh.attendant} (${Math.floor(hours)} h)`,
+            body: `${sh.station_name} — opened ${new Date(sh.opened_at).toLocaleString("en-PK")}.`, dedupe_key: `shift-overdue-${sh.id}` });
+          if (a) await notify(t, staff(t, ["admin", "manager"]), { type: "shift_overdue", data: { shift_id: sh.id }, whatsapp: false, title: a.title, body: a.body });
+        }
+      }
+      return `${open.length} open shifts, ${reminded} reminders sent`;
     },
   },
   {

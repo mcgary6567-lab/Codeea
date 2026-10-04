@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
+import { NotificationsProvider, NotificationBell } from "./Notifications";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
@@ -41,10 +42,11 @@ export default function Layout() {
     <nav className="flex h-full flex-col bg-brand-900 text-emerald-50">
       <div className="flex items-center gap-2 px-5 py-5">
         <span className="text-2xl">⛽</span>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="font-semibold leading-tight">PumpAI</div>
-          <div className="text-xs text-emerald-200/80 truncate max-w-[10rem]">{tenant?.name}</div>
+          <div className="text-xs text-emerald-200/80 truncate max-w-[9rem]">{tenant?.name}</div>
         </div>
+        <div className="hidden lg:block"><NotificationBell dark /></div>
       </div>
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
         {NAV.filter((n) => can(n.perm)).map((n) => (
@@ -68,6 +70,7 @@ export default function Layout() {
   );
 
   return (
+    <NotificationsProvider>
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 hidden w-60 lg:block">{sidebar}</aside>
       {open && (
@@ -79,10 +82,12 @@ export default function Layout() {
       <div className="flex-1 lg:pl-60 min-w-0">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
           <button onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button>
-          <span className="font-semibold">⛽ PumpAI</span>
+          <span className="flex-1 font-semibold">⛽ PumpAI</span>
+          <NotificationBell />
         </header>
         <main className="mx-auto max-w-7xl p-4 lg:p-6"><Outlet /></main>
       </div>
     </div>
+    </NotificationsProvider>
   );
 }

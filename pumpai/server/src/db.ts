@@ -21,8 +21,15 @@ export function run(sql: string, ...params: Params) {
   const r = db.prepare(sql).run(...(params as SQLInputValue[]));
   return { id: Number(r.lastInsertRowid), changes: Number(r.changes) };
 }
+let txDepth = 0;
+/** Run fn in a transaction. Re-entrant: nested calls join the outer transaction (all-or-nothing). */
 export function tx<T>(fn: () => T): T {
+  if (txDepth > 0) {
+    txDepth++;
+    try { return fn(); } finally { txDepth--; }
+  }
   db.exec("BEGIN");
+  txDepth = 1;
   try {
     const out = fn();
     db.exec("COMMIT");
@@ -30,6 +37,8 @@ export function tx<T>(fn: () => T): T {
   } catch (e) {
     db.exec("ROLLBACK");
     throw e;
+  } finally {
+    txDepth = 0;
   }
 }
 export const now = () => new Date().toISOString();
@@ -203,7 +212,18 @@ export function migrate() {
     created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_stx_supplier ON supplier_txns(supplier_id, txn_date);
+
+  -- In-app notifications to staff (price changes, shift reminders, shift reports)
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id),
+    type TEXT NOT NULL, title TEXT NOT NULL, body TEXT, data TEXT,
+    ack_required INTEGER NOT NULL DEFAULT 0, acked_at TEXT, read_at TEXT, created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
   `);
+  addColumn("users", "phone", "TEXT");
+  addColumn("meter_readings", "checkpoint", "REAL"); // last settled meter reading (e.g. at a price change)
+  addColumn("meter_readings", "checkpoint_at", "TEXT");
   addColumn("deliveries", "supplier_id", "INTEGER");
   addColumn("deliveries", "purchase_rate", "REAL");
   migrateUserRoles();

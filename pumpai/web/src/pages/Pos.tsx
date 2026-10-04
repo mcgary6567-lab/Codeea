@@ -5,6 +5,7 @@ import { Field, Loading, PageHeader, useAction } from "../components/ui";
 import { Link } from "react-router-dom";
 import { PRODUCTS, PRODUCT_COLORS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import { useNotifications } from "../components/Notifications";
 
 const METHODS = ["cash", "card", "jazzcash", "easypaisa", "raast", "khata"];
 
@@ -18,6 +19,8 @@ export default function Pos() {
   const isSalesman = user?.role === "salesman";
   const myShifts = useApi<any[]>(isSalesman ? "/shifts" : null);
   const noShift = isSalesman && myShifts.data && !myShifts.data.some((s) => s.status === "open");
+  const notif = useNotifications();
+  const priceLock = isSalesman && notif.data?.pending_ack.some((n) => n.type === "price_change");
   const [f, setF] = useState<any>({ station_id: "", product: "PMG", mode: "amount", value: "", payment_method: "cash", customer_id: "", vehicle_no: "", nozzle_id: "" });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
 
@@ -34,13 +37,14 @@ export default function Pos() {
       customer_id: f.customer_id ? Number(f.customer_id) : null, vehicle_no: f.vehicle_no || null, nozzle_id: f.nozzle_id ? Number(f.nozzle_id) : null };
     body[f.mode] = Number(f.value);
     const r = await run(() => api("/sales", { body }), (s: any) => `Sale saved: ${num(s.litres, 2)} L = ${pkr(s.amount)}`);
-    if (r) { setF({ ...f, value: "", vehicle_no: "" }); sales.reload(); }
+    if (r) { setF({ ...f, value: "", vehicle_no: "" }); sales.reload(); prices.reload(); }
   };
 
   if (!stations.data || !prices.data) return <Loading />;
   return (
     <div>
       <PageHeader title="Sales / POS" subtitle="Quick sale entry. Stock, loyalty points and khata update automatically." />
+      {priceLock && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">⛽ Fuel price has changed. Update the dispenser and confirm in the pop-up (or the 🔔 bell) to continue selling. <button className="font-medium underline" onClick={() => notif.setSnoozed(null)}>Confirm now</button></div>}
       {noShift && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Your shift is not open. <Link to="/shifts" className="font-medium underline">Start your shift</Link> before recording sales.</div>}
       <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
         <form onSubmit={submit} className="card space-y-3 p-4">
@@ -71,7 +75,7 @@ export default function Pos() {
             </select>
           </Field>
           <Field label="Vehicle no."><input className="input" placeholder="LEA-1234" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
-          <button className="btn-primary w-full py-3 text-base" disabled={busy || !!noShift}>Record sale</button>
+          <button className="btn-primary w-full py-3 text-base" disabled={busy || !!noShift || !!priceLock}>Record sale</button>
         </form>
         <div className="card overflow-x-auto">
           <table className="w-full">

@@ -17,7 +17,7 @@ export default function Prices() {
   const changed = Object.entries(vals).filter(([k, v]) => Number(v) > 0 && Number(v) !== data.current[k]?.price);
   const submit = async () => {
     const r: any = await run(() => api("/prices", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined } }),
-      (x: any) => `Prices updated. Stock revaluation ${pkr(x.stock_revaluation)}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
+      (x: any) => `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
     if (r) { setNote(""); reload(); }
   };
 
@@ -43,6 +43,21 @@ export default function Prices() {
           {broadcast && <input className="input" placeholder="Optional note, e.g. 'Raat 12 baje se laagu'" value={note} onChange={(e) => setNote(e.target.value)} />}
           <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"}</button>
         </div>}
+        <div className="space-y-5">
+        {data.last_change && (
+          <div className="card">
+            <h2 className="px-4 pt-3 font-semibold">Dispenser update — last price change {dt(data.last_change.at)}</h2>
+            <p className="px-4 text-xs text-slate-500">{data.last_change.changes.map((c: any) => `${PRODUCTS[c.product]} ${c.diff > 0 ? "+" : "−"}Rs ${Math.abs(c.diff ?? 0).toFixed(2)}`).join(" · ")}</p>
+            <table className="mt-2 w-full">
+              <thead><tr><th className="th">Salesman</th><th className="th">Station</th><th className="th">Status</th></tr></thead>
+              <tbody>{data.last_change.acks.map((a: any) => (
+                <tr key={a.name}><td className="td text-sm">{a.name}</td><td className="td text-sm">{a.station ?? "—"}</td>
+                  <td className="td text-sm">{a.acked_at ? <span className="text-emerald-700">✓ Confirmed {dt(a.acked_at)}{a.with_readings ? " · meter readings taken" : ""}</span> : <span className="font-medium text-red-600">Not confirmed yet</span>}</td></tr>
+              ))}</tbody>
+            </table>
+            {!data.last_change.acks.length && <p className="p-4 text-sm text-slate-500">No salesmen to notify.</p>}
+          </div>
+        )}
         <div className="card">
           <table className="w-full">
             <thead><tr><th className="th">Effective</th><th className="th">Product</th><th className="th text-right">Price / L</th><th className="th">By</th></tr></thead>
@@ -50,6 +65,7 @@ export default function Prices() {
               <tr key={h.id}><td className="td text-xs">{dt(h.effective_from)}</td><td className="td text-sm">{PRODUCTS[h.product]}</td><td className="td text-right tabular-nums">Rs {h.price.toFixed(2)}</td><td className="td text-xs text-slate-500">{h.created_by}</td></tr>
             ))}</tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>

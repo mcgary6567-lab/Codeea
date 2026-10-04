@@ -33,7 +33,7 @@ export function seed() {
     const hash = bcrypt.hashSync("demo1234", 8);
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Haji Abdul Rehman (CEO)", "admin@pumpai.pk", hash, "admin");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Kamran Shah", "manager@pumpai.pk", hash, "manager");
-    run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id) VALUES (?,?,?,?,?,1)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman");
+    run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone) VALUES (?,?,?,?,?,1,?)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman", "923011234567");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Tariq Wholesale", "wholesale@pumpai.pk", hash, "wholesale");
 
     const st1 = run("INSERT INTO stations (tenant_id,name,city,address,omc,lat,lng,timings,services) VALUES (?,?,?,?,?,?,?,?,?)",

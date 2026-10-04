@@ -3,14 +3,14 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { all, get, run, now } from "../db.js";
 import { h, parse, tid, requirePerm, ROLES, PERMISSIONS } from "../auth.js";
-import { AppError } from "../services.js";
+import { AppError, normalizePhone } from "../services.js";
 
 /** Admin-only user management. */
 export const users = Router();
 users.use("/users", requirePerm("users.manage"));
 
 const list = (tenantId: number) => all(
-  `SELECT u.id, u.name, u.email, u.role, u.station_id, u.active, u.created_at, s.name station_name
+  `SELECT u.id, u.name, u.email, u.phone, u.role, u.station_id, u.active, u.created_at, s.name station_name
    FROM users u LEFT JOIN stations s ON s.id=u.station_id WHERE u.tenant_id=? ORDER BY CASE u.role WHEN 'admin' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END, u.name`,
   tenantId,
 );
@@ -25,13 +25,13 @@ function checkStation(tenantId: number, role: string, stationId: number | null |
 users.post("/users", h((req) => {
   const b = parse(z.object({
     name: z.string().min(2), email: z.string().email(), password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(ROLES), station_id: z.number().nullable().optional(),
+    role: z.enum(ROLES), station_id: z.number().nullable().optional(), phone: z.string().optional().nullable(),
   }), req.body);
   const email = b.email.toLowerCase().trim();
   if (get("SELECT id FROM users WHERE email=?", email)) throw new AppError(400, "This email is already in use");
   checkStation(tid(req), b.role, b.station_id);
-  const { id } = run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,active,created_at) VALUES (?,?,?,?,?,?,1,?)",
-    tid(req), b.name, email, bcrypt.hashSync(b.password, 10), b.role, b.role === "salesman" ? b.station_id! : b.station_id ?? null, now());
+  const { id } = run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone,active,created_at) VALUES (?,?,?,?,?,?,?,1,?)",
+    tid(req), b.name, email, bcrypt.hashSync(b.password, 10), b.role, b.role === "salesman" ? b.station_id! : b.station_id ?? null, b.phone ? normalizePhone(b.phone) : null, now());
   return list(tid(req)).find((u) => u.id === id);
 }));
 
@@ -47,6 +47,7 @@ users.patch("/users/:id", h((req) => {
   const b = parse(z.object({
     name: z.string().min(2).optional(), email: z.string().email().optional(), role: z.enum(ROLES).optional(),
     station_id: z.number().nullable().optional(), active: z.boolean().optional(), password: z.string().min(6).optional(),
+    phone: z.string().optional().nullable(),
   }), req.body);
   const role = b.role ?? u.role;
   const active = b.active ?? Boolean(u.active);
@@ -58,6 +59,7 @@ users.patch("/users/:id", h((req) => {
   const email = b.email?.toLowerCase().trim() ?? u.email;
   if (email !== u.email && get("SELECT id FROM users WHERE email=?", email)) throw new AppError(400, "This email is already in use");
   run("UPDATE users SET name=?, email=?, role=?, station_id=?, active=? WHERE id=?", b.name ?? u.name, email, role, stationId ?? null, active ? 1 : 0, u.id);
+  if (b.phone !== undefined) run("UPDATE users SET phone=? WHERE id=?", b.phone ? normalizePhone(b.phone) : null, u.id);
   if (b.password) run("UPDATE users SET password_hash=? WHERE id=?", bcrypt.hashSync(b.password, 10), u.id);
   return list(tid(req)).find((x) => x.id === u.id);
 }));

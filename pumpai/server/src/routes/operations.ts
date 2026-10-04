@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.js";
@@ -6,6 +6,8 @@ import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt 
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
+import { settleShift, shiftReadings, shiftSummary } from "../shifts.js";
+import { notify, staff } from "../notifications.js";
 
 export const operations = Router();
 const product = z.enum(["PMG", "HOBC", "HSD"]);
@@ -47,11 +49,22 @@ operations.post("/tanks", requirePerm("stock.manage"), h((req) => {
 }));
 
 /* ---------------- Prices ---------------- */
-operations.get("/prices", requirePerm("prices.view"), h((req) => ({
-  current: currentPrices(tid(req)),
-  history: all("SELECT * FROM prices WHERE tenant_id=? ORDER BY effective_from DESC, id DESC LIMIT 60", tid(req)),
-  products: PRODUCTS,
-})));
+operations.get("/prices", requirePerm("prices.view"), h((req) => {
+  const last = get("SELECT data, created_at FROM notifications WHERE tenant_id=? AND type='price_change' ORDER BY id DESC LIMIT 1", tid(req));
+  const batch = last ? JSON.parse(last.data).batch : null;
+  return {
+    current: currentPrices(tid(req)),
+    history: all("SELECT * FROM prices WHERE tenant_id=? ORDER BY effective_from DESC, id DESC LIMIT 60", tid(req)),
+    products: PRODUCTS,
+    // who has confirmed the latest price change on their dispenser
+    last_change: batch ? {
+      at: batch, changes: JSON.parse(last!.data).changes,
+      acks: all(`SELECT u.name, s.name station, n.acked_at, n.data FROM notifications n JOIN users u ON u.id=n.user_id LEFT JOIN stations s ON s.id=u.station_id
+        WHERE n.tenant_id=? AND n.type='price_change' AND json_extract(n.data,'$.batch')=? ORDER BY u.name`, tid(req), batch)
+        .map((a) => ({ name: a.name, station: a.station, acked_at: a.acked_at, with_readings: Boolean(JSON.parse(a.data).settled) })),
+    } : null,
+  };
+}));
 
 operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
   const b = parse(z.object({ prices: z.record(product, z.number().positive()), broadcast: z.boolean().default(false), note: z.string().optional() }), req.body);
@@ -66,6 +79,19 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     type: "price_change", severity: "info", title: `Prices updated by ${req.user!.name}`,
     body: Object.entries(b.prices).map(([p, v]) => `${p}: ${old[p] ? pkr(old[p].price) + " → " : ""}${pkr(v)}`).join(", ") + `. Stock revaluation ${impact >= 0 ? "gain" : "loss"} ${pkr(Math.abs(impact))}.`,
   });
+  // tell every salesman to change the dispenser rate (they must confirm, with meter readings if on shift)
+  const changes = Object.entries(b.prices).filter(([p, v]) => old[p]?.price !== v)
+    .map(([p, v]) => ({ product: p, old: old[p]?.price ?? null, new: v, diff: old[p] ? round2(v - old[p].price) : null }));
+  const lines = changes.map((c) => `${PRODUCTS[c.product]}: ${c.old != null ? `${rateFmt(c.old)} → ` : ""}${rateFmt(c.new)}${c.diff ? ` (${c.diff > 0 ? "+" : "−"}Rs ${Math.abs(c.diff).toFixed(2)}/L ${c.diff > 0 ? "barh gaya" : "kam ho gaya"})` : ""}`);
+  const salesmen = staff(t, ["salesman"]);
+  if (changes.length) {
+    const data = { batch: ts, changes, old: Object.fromEntries(Object.entries(old).map(([k, v]) => [k, v.price])) };
+    await notify(t, salesmen, { type: "price_change", ack_required: true, data,
+      title: "⛽ Fuel price changed — update the dispenser now",
+      body: `${lines.join("\n")}\nDispenser par naya rate set karein aur app mein confirm karein (meter reading ke saath).` });
+    await notify(t, staff(t, ["admin", "manager"], req.user!.id), { type: "price_change_info", data, whatsapp: false,
+      title: `Prices changed by ${req.user!.name}`, body: lines.join("\n") });
+  }
   let queued = 0;
   if (b.broadcast) {
     const customers = all("SELECT * FROM customers WHERE tenant_id=? AND opt_in=1", t);
@@ -74,7 +100,7 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     queued = customers.length;
     void (async () => { for (const c of customers) await sendWhatsApp(t, c, msg, "campaign", { kind: "price_update" }); })();
   }
-  return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued };
+  return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued, salesmen_notified: changes.length ? salesmen.length : 0 };
 }));
 
 /* ---------------- Sales / POS ---------------- */
@@ -98,6 +124,8 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     ? get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=? ORDER BY id DESC LIMIT 1", b.station_id, req.user!.name)
     : get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
   if (req.user!.role === "salesman" && !shift) throw new AppError(400, "Start your shift first (Shifts page) before recording sales");
+  if (req.user!.role === "salesman" && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
+    throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
   return recordSale(tid(req), { ...b, shift_id: shift?.id ?? null });
 }));
 
@@ -128,35 +156,56 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h((req) => {
  * Litres on the meter not already recorded as sales are booked as cash sales, so stock follows the meters.
  * Expected cash = all cash sales in the shift; variance = counted - expected.
  */
+function ownOpenShift(req: Request, id: number) {
+  const shift = get("SELECT sh.*, s.name station_name FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=? AND s.tenant_id=?", id, tid(req));
+  if (!shift) throw new AppError(404, "Shift not found");
+  if (req.user!.role === "salesman" && (shift.station_id !== scopedStation(req) || shift.attendant !== req.user!.name))
+    throw new AppError(403, "You can only work on your own shift");
+  return shift;
+}
+
+/** Live view of a shift: elapsed time, meter readings so far, sales so far, current prices. */
+operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
+  const shift = ownOpenShift(req, Number(req.params.id));
+  return {
+    shift, hours_open: round2((Date.parse(shift.closed_at ?? now()) - Date.parse(shift.opened_at)) / 3600_000),
+    readings: shiftReadings(shift.id), summary: shiftSummary(shift.id),
+    prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
+  };
+}));
+
+/**
+ * Close a shift with closing meter readings and counted cash.
+ * Litres on the meter not entered on the POS are booked as cash sales (stock follows the meters).
+ * Expected cash = all cash sales in the shift; variance = counted - expected.
+ */
 operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req) => {
   const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional() }), req.body);
   const t = tid(req);
-  const shift = get("SELECT sh.* FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=? AND s.tenant_id=?", Number(req.params.id), t);
-  if (!shift || shift.status !== "open") throw new AppError(400, "Shift is not open");
-  if (req.user!.role === "salesman" && (shift.station_id !== scopedStation(req) || shift.attendant !== req.user!.name))
-    throw new AppError(403, "You can only close your own shift");
-  const readings = all("SELECT r.*, t.product FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=?", shift.id);
-  let totalLitres = 0;
-  for (const r of readings) {
-    const closing = b.readings[String(r.nozzle_id)];
-    if (closing === undefined) throw new AppError(400, `Missing closing reading for nozzle ${r.nozzle_id}`);
-    if (closing < r.opening) throw new AppError(400, `Closing reading below opening for nozzle ${r.nozzle_id}`);
-    const dispensed = closing - r.opening;
-    totalLitres += dispensed;
-    const recorded = get("SELECT COALESCE(SUM(litres),0) l FROM sales WHERE shift_id=? AND nozzle_id=?", shift.id, r.nozzle_id)!.l;
-    const unrecorded = round2(dispensed - recorded);
-    if (unrecorded > 0.01) recordSale(t, { station_id: shift.station_id, product: r.product, litres: unrecorded, payment_method: "cash", nozzle_id: r.nozzle_id, shift_id: shift.id });
-    run("UPDATE meter_readings SET closing=? WHERE id=?", closing, r.id);
-    run("UPDATE nozzles SET totalizer=? WHERE id=?", closing, r.nozzle_id);
-  }
-  const expected = get("SELECT COALESCE(SUM(amount),0) a FROM sales WHERE shift_id=? AND payment_method='cash'", shift.id)!.a;
-  const variance = round2(b.cash_actual - expected);
-  run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
-    now(), round2(totalLitres), expected, b.cash_actual, variance, b.notes ?? null, shift.id);
-  if (variance < -500)
-    createAlert(t, { station_id: shift.station_id, type: "cash_short", severity: variance < -5000 ? "critical" : "warning",
-      title: `Cash short ${pkr(-variance)} — ${shift.attendant}`, body: `Shift #${shift.id}: expected ${pkr(expected)}, counted ${pkr(b.cash_actual)}.`, dedupe_key: `shift-${shift.id}` });
-  return get("SELECT * FROM shifts WHERE id=?", shift.id);
+  const shift = ownOpenShift(req, Number(req.params.id));
+  if (shift.status !== "open") throw new AppError(400, "Shift is not open");
+  tx(() => {
+    settleShift(t, shift, b.readings, () => undefined);
+    for (const r of shiftReadings(shift.id)) run("UPDATE meter_readings SET closing=? WHERE id=?", b.readings[String(r.nozzle_id)], r.id);
+    const totalLitres = shiftReadings(shift.id).reduce((a, r) => a + (r.closing - r.opening), 0);
+    const expected = shiftSummary(shift.id).cash_expected;
+    run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
+      now(), round2(totalLitres), expected, b.cash_actual, round2(b.cash_actual - expected), b.notes ?? null, shift.id);
+  });
+  const closed = get("SELECT * FROM shifts WHERE id=?", shift.id)!;
+  const summary = shiftSummary(shift.id);
+  const v = closed.variance;
+  if (v < -500)
+    createAlert(t, { station_id: shift.station_id, type: "cash_short", severity: v < -5000 ? "critical" : "warning",
+      title: `Cash short ${pkr(-v)} — ${shift.attendant}`, body: `Shift #${shift.id}: expected ${pkr(closed.cash_expected)}, counted ${pkr(b.cash_actual)}.`, dedupe_key: `shift-${shift.id}` });
+  // shift report to managers/admin (WhatsApp only when cash is short)
+  await notify(t, staff(t, ["admin", "manager"], req.user!.id), {
+    type: "shift_closed", data: { shift_id: shift.id }, whatsapp: v < -500,
+    title: `${v < -500 ? "⚠️" : "✅"} Shift closed — ${shift.attendant} (${shift.station_name.replace("Al-Madina ", "")})`,
+    body: `${summary.by_product.map((p) => `${PRODUCTS[p.product]} ${Math.round(p.litres).toLocaleString()} L`).join(" · ")}\n` +
+      `Sales ${pkr(summary.amount)} · Cash expected ${pkr(closed.cash_expected)} · Counted ${pkr(b.cash_actual)} · ${v < 0 ? "Short" : "Over"} ${pkr(Math.abs(v))}`,
+  });
+  return { ...closed, summary, readings: shiftReadings(shift.id) };
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */

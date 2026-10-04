@@ -62,7 +62,7 @@ export default function Users() {
             {data.users.map((u: U) => (
               <tr key={u.id} className={u.active ? "" : "opacity-60"}>
                 <td className="td font-medium">{u.name} {u.id === me?.id && <span className="text-xs text-slate-400">(you)</span>}</td>
-                <td className="td text-sm text-slate-600">{u.email}</td>
+                <td className="td text-sm text-slate-600">{u.email}{(u as any).phone && <div className="text-xs text-slate-400">+{(u as any).phone}</div>}</td>
                 <td className="td"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></td>
                 <td className="td text-sm">{u.station_name ?? <span className="text-slate-400">All stations</span>}</td>
                 <td className="td">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}</td>
@@ -117,11 +117,11 @@ export default function Users() {
 
 function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>; stations: any[]; onClose: () => void; onSaved: () => void }) {
   const isNew = !initial.id;
-  const [f, setF] = useState({ name: initial.name ?? "", email: initial.email ?? "", role: initial.role ?? "salesman", station_id: initial.station_id ?? "", password: "" });
+  const [f, setF] = useState({ name: initial.name ?? "", email: initial.email ?? "", phone: (initial as any).phone ?? "", role: initial.role ?? "salesman", station_id: initial.station_id ?? "", password: "" });
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body: any = { name: f.name, email: f.email, role: f.role, station_id: f.station_id ? Number(f.station_id) : null };
+    const body: any = { name: f.name, email: f.email, phone: f.phone || null, role: f.role, station_id: f.station_id ? Number(f.station_id) : null };
     if (f.password) body.password = f.password;
     const r = await run(() => isNew ? api("/users", { body }) : api(`/users/${initial.id}`, { method: "PATCH", body }), isNew ? `${f.name} can now sign in` : "User updated");
     if (r) onSaved();
@@ -132,6 +132,7 @@ function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Full name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Email (used to sign in)"><input className="input" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+          <div className="sm:col-span-2"><Field label="WhatsApp number (price-change & shift alerts)"><input className="input" placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field></div>
         </div>
         <Field label="Role">
           <div className="grid gap-2 sm:grid-cols-2">
