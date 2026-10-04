@@ -202,8 +202,8 @@ export function seed() {
 /** Wholesale clients with their own rate cards and ~2 months of ledger; ~3 months of expenses. */
 function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0: number) {
   const clients = [
-    { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, freq: 3, size: [3000, 6000] },
-    { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", limit: 2500000, rates: { HSD: 265.5 }, freq: 2, size: [2000, 5000] },
+    { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, below: { PMG: 4, HSD: 4 } as Record<string, number>, freq: 3, size: [3000, 6000] },
+    { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", limit: 2500000, rates: { HSD: 265.5 }, below: { HSD: 2 } as Record<string, number>, freq: 2, size: [2000, 5000] },
     { name: "Green Fields Agri Farms", business: "Tube-wells & tractors", phone: "923334445556", city: "Okara", limit: 1500000, rates: { HSD: 266.0, PMG: 259.0 }, freq: 5, size: [1500, 3000] },
   ];
   for (const [ci, c] of clients.entries()) {
@@ -213,6 +213,9 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
       run("INSERT INTO wholesale_rates (client_id,product,rate,updated_at,updated_by) VALUES (?,?,?,?,?)", id, p, r, iso(T0 - 10 * DAY), "Haji Abdul Rehman (CEO)");
       run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,created_at) VALUES (?,?,?,?,?,?)", id, p, r - 4, r, "Haji Abdul Rehman (CEO)", iso(T0 - 10 * DAY));
     }
+    // these clients get a fixed margin below the pump price, so their rate follows every price change
+    for (const [p, disc] of Object.entries(c.below ?? {}))
+      run("UPDATE wholesale_rates SET mode='discount', discount=? WHERE client_id=? AND product=?", disc, id, p);
     let due = ci === 0 ? 250000 : 0;
     for (let d = 60; d >= 1; d--) {
       const t = T0 - d * DAY + 11 * 3600_000;

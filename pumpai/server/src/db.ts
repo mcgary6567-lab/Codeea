@@ -229,6 +229,9 @@ export function migrate() {
   addColumn("sales", "slip_no", "TEXT");
   addColumn("expenses", "shift_id", "INTEGER"); // paid in cash from a salesman's shift
   addColumn("meter_readings", "handover_prev", "REAL"); // previous shift's closing reading for this nozzle
+  addColumn("wholesale_rates", "mode", "TEXT NOT NULL DEFAULT 'fixed'"); // fixed | discount (pump price − discount)
+  addColumn("wholesale_rates", "discount", "REAL"); // Rs/L below the pump price; negative = above
+  addColumn("wholesale_rate_history", "note", "TEXT");
   addColumn("meter_readings", "handover_gap", "REAL"); // litres the meter moved between the two shifts // indent / parchi number from police, schools, govt offices
   // khata entries keep the fuel detail at the time of sale (litres, rate then, vehicle, slip)
   for (const [c, t] of [["product", "TEXT"], ["litres", "REAL"], ["rate", "REAL"], ["vehicle_no", "TEXT"], ["slip_no", "TEXT"], ["station_id", "INTEGER"]])

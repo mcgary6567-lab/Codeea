@@ -17,7 +17,7 @@ export default function Prices() {
   const changed = Object.entries(vals).filter(([k, v]) => Number(v) > 0 && Number(v) !== data.current[k]?.price);
   const submit = async () => {
     const r: any = await run(() => api("/prices", { body: { prices: Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])), broadcast, note: note || undefined } }),
-      (x: any) => `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
+      (x: any) => `Prices updated. ${x.salesmen_notified} salesmen notified to change the dispenser. Stock revaluation ${pkr(x.stock_revaluation)}${x.wholesale_rates_updated ? ` · ${x.wholesale_rates_updated} wholesale rates moved with the pump price` : ""}${x.broadcast_queued ? ` · broadcasting to ${x.broadcast_queued} customers` : ""}`);
     if (r) { setNote(""); reload(); }
   };
 

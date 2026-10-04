@@ -7,7 +7,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkDate, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
-import { AppError, createAlert, normalizePhone, round2, pkr } from "../services.js";
+import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
 
@@ -33,8 +33,43 @@ export function clientDue(clientId: number, before?: string): number {
   return round2(c.opening_balance + r.d);
 }
 
+/** Rate input: a plain number (fixed rate) or { mode: "fixed", rate } or { mode: "discount", discount } (Rs/L below the pump price). */
+export const rateInput = z.union([
+  z.number().positive(),
+  z.object({ mode: z.literal("fixed"), rate: z.number().positive() }),
+  z.object({ mode: z.literal("discount"), discount: z.number().min(-200).max(200) }),
+]);
+type RateInput = z.infer<typeof rateInput>;
+const norm = (r: RateInput) => typeof r === "number" ? { mode: "fixed" as const, rate: r, discount: null } : r.mode === "fixed" ? { ...r, discount: null } : { ...r, rate: null };
+const rd = (n: number) => `Rs ${Math.abs(n).toFixed(2)}`;
+export const rateLabel = (mode: string, discount: number | null) =>
+  mode === "discount" ? (discount! >= 0 ? `pump − ${rd(discount!)}` : `pump + ${rd(discount!)}`) : "fixed";
+
+/** Last purchase rate per product (what a litre cost us), for the margin shown on the rate card. */
+function lastCost(tenantId: number, product: string): number | null {
+  return get("SELECT rate FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND rate > 0 ORDER BY txn_date DESC, id DESC LIMIT 1", tenantId, product)?.rate ?? null;
+}
+
+/** Full rate card: each product's mode, discount, today's pump price and the effective rate the client pays now. */
+export function rateCard(clientId: number) {
+  const tenant = get("SELECT tenant_id FROM wholesale_clients WHERE id=?", clientId)!.tenant_id;
+  const pump = currentPrices(tenant);
+  return Object.fromEntries(all("SELECT * FROM wholesale_rates WHERE client_id=?", clientId).map((r) => {
+    const pumpRate = pump[r.product]?.price ?? null;
+    const rate = r.mode === "discount" ? (pumpRate == null ? null : round2(pumpRate - r.discount)) : r.rate;
+    const cost = lastCost(tenant, r.product);
+    return [r.product, {
+      mode: r.mode, discount: r.mode === "discount" ? r.discount : null, fixed: r.mode === "fixed" ? r.rate : null,
+      rate, pump: pumpRate, vs_pump: rate != null && pumpRate != null ? round2(pumpRate - rate) : null,
+      cost, margin: rate != null && cost != null ? round2(rate - cost) : null,
+      label: rateLabel(r.mode, r.discount), updated_at: r.updated_at, updated_by: r.updated_by,
+    }];
+  })) as Record<string, { mode: string; discount: number | null; fixed: number | null; rate: number | null; pump: number | null; vs_pump: number | null; cost: number | null; margin: number | null; label: string; updated_at: string; updated_by: string }>;
+}
+
+/** Effective rate per product today (pump-linked rates follow the current pump price). */
 function rates(clientId: number): Record<string, number> {
-  return Object.fromEntries(all("SELECT product, rate FROM wholesale_rates WHERE client_id=?", clientId).map((r) => [r.product, r.rate]));
+  return Object.fromEntries(Object.entries(rateCard(clientId)).filter(([, r]) => r.rate != null).map(([p, r]) => [p, r.rate!]));
 }
 
 function summary(clientId: number, from?: string, to?: string) {
@@ -90,7 +125,7 @@ wholesale.get("/wholesale/clients", h((req) => {
       const s = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' AND txn_date >= ? THEN litres END),0) month_l,
           MAX(CASE WHEN type='payment' THEN txn_date END) last_payment, MAX(CASE WHEN type='supply' THEN txn_date END) last_supply
         FROM wholesale_txns WHERE client_id=? AND voided=0`, month, c.id)!;
-      return { ...c, rates: rates(c.id), due: clientDue(c.id), month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply };
+      return { ...c, rates: rates(c.id), rate_card: rateCard(c.id), due: clientDue(c.id), month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply };
     });
 }));
 
@@ -98,7 +133,7 @@ const clientBody = z.object({
   name: z.string().min(2), business_name: z.string().optional().nullable(), phone: z.string().optional().nullable(),
   city: z.string().optional().nullable(), address: z.string().optional().nullable(), notes: z.string().optional().nullable(),
   credit_limit: z.number().min(0).optional(), opening_balance: z.number().optional(), active: z.boolean().optional(),
-  rates: z.record(product, z.number().positive()).optional(),
+  rates: z.record(product, rateInput).optional(),
 });
 
 function guardFinancials(req: Request, b: { credit_limit?: number; opening_balance?: number; rates?: unknown }) {
@@ -106,15 +141,44 @@ function guardFinancials(req: Request, b: { credit_limit?: number; opening_balan
     throw new AppError(403, "Only the admin can set rates, credit limits and opening balances");
 }
 
-function saveRates(clientId: number, newRates: Record<string, number>, by: string) {
-  const old = rates(clientId);
-  for (const [p, r] of Object.entries(newRates)) {
-    if (old[p] === r) continue;
-    run(`INSERT INTO wholesale_rates (client_id,product,rate,updated_at,updated_by) VALUES (?,?,?,?,?)
-         ON CONFLICT(client_id,product) DO UPDATE SET rate=excluded.rate, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
-      clientId, p, r, now(), by);
-    run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,created_at) VALUES (?,?,?,?,?,?)", clientId, p, old[p] ?? null, r, by, now());
+function saveRates(clientId: number, newRates: Partial<Record<string, RateInput>>, by: string) {
+  const tenant = get("SELECT tenant_id FROM wholesale_clients WHERE id=?", clientId)!.tenant_id;
+  const pump = currentPrices(tenant);
+  const old = rateCard(clientId);
+  for (const [p, input] of Object.entries(newRates)) {
+    const r = norm(input!);
+    const o = old[p];
+    if (o && o.mode === r.mode && (r.mode === "fixed" ? o.fixed === r.rate : o.discount === r.discount)) continue;
+    if (r.mode === "discount" && !pump[p]) throw new AppError(400, `No pump price set for ${PRODUCTS[p]} yet, so a rate below the pump price cannot be worked out`);
+    const effective = r.mode === "discount" ? round2(pump[p].price - r.discount!) : r.rate!;
+    if (effective <= 0) throw new AppError(400, `${PRODUCTS[p]} rate would be Rs ${effective}`);
+    run(`INSERT INTO wholesale_rates (client_id,product,rate,mode,discount,updated_at,updated_by) VALUES (?,?,?,?,?,?,?)
+         ON CONFLICT(client_id,product) DO UPDATE SET rate=excluded.rate, mode=excluded.mode, discount=excluded.discount, updated_at=excluded.updated_at, updated_by=excluded.updated_by`,
+      clientId, p, effective, r.mode, r.discount, now(), by);
+    run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+      clientId, p, o?.rate ?? null, effective, by, r.mode === "discount" ? `Set to ${rateLabel("discount", r.discount)}` : "Fixed rate", now());
   }
+}
+
+/**
+ * Pump price changed: clients on "pump − Rs X" now pay the new pump price minus their discount.
+ * Records the change in each client's rate history and returns lines for the wholesale team.
+ */
+export function followPumpPrice(tenantId: number, changes: { product: string; old: number | null; new: number }[]) {
+  const moved: string[] = [], fixed: string[] = [];
+  for (const ch of changes) {
+    for (const r of all(`SELECT r.*, c.name FROM wholesale_rates r JOIN wholesale_clients c ON c.id=r.client_id
+        WHERE c.tenant_id=? AND c.active=1 AND r.product=? ORDER BY c.name`, tenantId, ch.product)) {
+      if (r.mode !== "discount") { fixed.push(`${r.name} ${PRODUCTS[ch.product]} Rs ${r.rate} (fixed)`); continue; }
+      const nr = round2(ch.new - r.discount);
+      const or = ch.old == null ? r.rate : round2(ch.old - r.discount);
+      run("UPDATE wholesale_rates SET rate=? WHERE client_id=? AND product=?", nr, r.client_id, r.product);
+      run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,note,created_at) VALUES (?,?,?,?,?,?,?)",
+        r.client_id, r.product, or, nr, "Pump price change", rateLabel("discount", r.discount), now());
+      moved.push(`${r.name}: ${PRODUCTS[ch.product]} Rs ${or} → Rs ${nr} (${rateLabel("discount", r.discount)})`);
+    }
+  }
+  return { moved, fixed };
 }
 
 wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (req) => {
@@ -131,7 +195,7 @@ wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (r
   });
   await announce(tid(req), req.user!.id, ["wholesale", "admin"], { type: "new_wholesale_client", data: { client_id: created.id },
     title: `🚛 New wholesale client: ${b.name}`,
-    body: b.rates ? Object.entries(b.rates).map(([p, r]) => `${PRODUCTS[p]} Rs ${r}/L`).join(" · ") : "Rate abhi set nahi — admin rate card set karein." });
+    body: b.rates ? Object.entries(rateCard(created.id)).map(([p, r]) => `${PRODUCTS[p]} Rs ${r.rate}/L${r.mode === "discount" ? ` (${r.label})` : ""}`).join(" · ") : "Rate abhi set nahi — admin rate card set karein." });
   return created;
 }));
 
@@ -143,22 +207,22 @@ wholesale.patch("/wholesale/clients/:id", requirePerm("wholesale.manage"), h((re
   run(`UPDATE wholesale_clients SET name=?, business_name=?, phone=?, city=?, address=?, credit_limit=?, opening_balance=?, notes=?, active=? WHERE id=?`,
     m.name, m.business_name ?? null, b.phone ? normalizePhone(b.phone) : c.phone, m.city ?? null, m.address ?? null,
     m.credit_limit, m.opening_balance, m.notes ?? null, b.active === undefined ? c.active : b.active ? 1 : 0, c.id);
-  if (b.rates) saveRates(c.id, b.rates, req.user!.name);
+  if (b.rates) tx(() => saveRates(c.id, b.rates!, req.user!.name));
   return get("SELECT * FROM wholesale_clients WHERE id=?", c.id);
 }));
 
 wholesale.put("/wholesale/clients/:id/rates", requirePerm("wholesale.rates"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
-  const b = parse(z.object({ rates: z.record(product, z.number().positive()) }), req.body);
-  saveRates(c.id, b.rates, req.user!.name);
-  return { rates: rates(c.id) };
+  const b = parse(z.object({ rates: z.record(product, rateInput) }), req.body);
+  tx(() => saveRates(c.id, b.rates, req.user!.name));
+  return { rates: rates(c.id), rate_card: rateCard(c.id) };
 }));
 
 wholesale.get("/wholesale/clients/:id", h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   return {
-    ...c, rates: rates(c.id), summary: summary(c.id),
-    month: summary(c.id, new Date().toISOString().slice(0, 7) + "-01"),
+    ...c, rates: rates(c.id), rate_card: rateCard(c.id), summary: summary(c.id),
+    month: summary(c.id, new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString()),
     rate_history: all("SELECT * FROM wholesale_rate_history WHERE client_id=? ORDER BY id DESC LIMIT 30", c.id),
   };
 }));

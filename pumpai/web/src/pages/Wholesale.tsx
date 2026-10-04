@@ -50,7 +50,7 @@ function ClientList() {
                 return (
                   <tr key={c.id} className={`cursor-pointer hover:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
                     <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></td>
-                    <td className="td text-xs">{Object.entries(c.rates).map(([p, r]: any) => <div key={p}>{PRODUCTS[p]}: <b>Rs {r.toFixed(2)}</b></div>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set</span>}</td>
+                    <td className="td text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <div key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b> <span className={`whitespace-nowrap ${r.mode === "discount" ? "text-violet-700" : "text-slate-400"}`}>{r.label}</span></div>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set</span>}</td>
                     <td className="td text-right tabular-nums">{num(c.month_l)} L</td>
                     <td className={`td text-right font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</td>
                     <td className="td">{c.credit_limit ? <><div className="h-1.5 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${used}%`, background: used >= 90 ? "#e34948" : "#2a78d6" }} /></div><span className="text-xs text-slate-500">{Math.round(used)}% of {pkrShort(c.credit_limit)}</span></> : <span className="text-xs text-slate-400">No limit</span>}</td>
@@ -81,8 +81,9 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
   const [f, setF] = useState<any>({
     name: initial?.name ?? "", business_name: initial?.business_name ?? "", phone: initial?.phone ?? "", city: initial?.city ?? "", address: initial?.address ?? "",
     credit_limit: initial?.credit_limit ?? 0, opening_balance: initial?.opening_balance ?? 0, notes: initial?.notes ?? "",
-    PMG: initial?.rates?.PMG ?? "", HOBC: initial?.rates?.HOBC ?? "", HSD: initial?.rates?.HSD ?? "",
   });
+  const [rc, setRc] = useState<RateDraft>(() => draftFrom(initial?.rate_card));
+  const prices = useApi<any>(admin ? "/prices" : null);
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +91,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
     if (admin) {
       body.credit_limit = Number(f.credit_limit) || 0;
       body.opening_balance = Number(f.opening_balance) || 0;
-      const rates = Object.fromEntries(["PMG", "HOBC", "HSD"].filter((p) => Number(f[p]) > 0).map((p) => [p, Number(f[p])]));
+      const rates = draftToBody(rc);
       if (Object.keys(rates).length) body.rates = rates;
     }
     const r = await run(() => initial ? api(`/wholesale/clients/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/clients", { body }), "Client saved");
@@ -109,10 +110,8 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
         {admin ? (
           <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-3">
             <div className="mb-2 text-sm font-medium">Rate card & credit (admin only)</div>
-            <div className="grid gap-3 sm:grid-cols-5">
-              {["PMG", "HOBC", "HSD"].map((p) => (
-                <Field key={p} label={`${PRODUCTS[p]} rate (Rs/L)`}><input className="input" type="number" step="0.01" min={0} placeholder="not supplied" value={f[p]} onChange={(e) => setF({ ...f, [p]: e.target.value })} /></Field>
-              ))}
+            <RateCardEditor draft={rc} setDraft={setRc} pump={prices.data?.current} />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="Credit limit (Rs, 0 = none)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
               <Field label="Opening balance (Rs due)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
             </div>
@@ -167,11 +166,23 @@ function ClientDetail({ id }: { id: string }) {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="card p-4">
           <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Rate card</h2>{can("wholesale.rates") && <button className="text-xs text-brand-600 hover:underline print:hidden" onClick={() => setAction("rates")}>Change rates</button>}</div>
-          {Object.keys(PRODUCTS).map((p) => (
-            <div key={p} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{PRODUCTS[p]}</span><span className="font-semibold tabular-nums">{c.rates[p] ? `Rs ${c.rates[p].toFixed(2)} / L` : <span className="font-normal text-slate-400">not supplied</span>}</span></div>
-          ))}
+          {Object.keys(PRODUCTS).map((p) => {
+            const r = c.rate_card?.[p];
+            return (
+              <div key={p} className="border-b border-slate-100 py-2 text-sm">
+                <div className="flex justify-between"><span>{PRODUCTS[p]}</span>
+                  <span className="font-semibold tabular-nums">{r?.rate != null ? `Rs ${r.rate.toFixed(2)} / L` : <span className="font-normal text-slate-400">not supplied</span>}</span></div>
+                {r && <div className="mt-0.5 flex flex-wrap justify-between gap-x-3 text-xs text-slate-500">
+                  <span><Badge tone={r.mode === "discount" ? "violet" : "slate"}>{r.mode === "discount" ? `Pump − Rs ${r.discount.toFixed(2)}` : "Fixed rate"}</Badge>
+                    {r.pump != null && <span className="ml-1">pump Rs {r.pump.toFixed(2)}</span>}</span>
+                  {r.margin != null && <span className={r.margin < 0 ? "font-medium text-red-600" : "text-emerald-700"}>our margin Rs {r.margin.toFixed(2)}/L</span>}
+                </div>}
+              </div>
+            );
+          })}
+          <p className="mt-2 text-xs text-slate-400">"Pump − Rs X" rates change automatically with every pump price change. Our margin = client rate − last purchase rate.</p>
           {c.rate_history.length > 0 && <details className="mt-2 text-xs text-slate-500"><summary className="cursor-pointer">Rate history</summary>
-            <ul className="mt-1 space-y-0.5">{c.rate_history.map((h: any) => <li key={h.id}>{d(h.created_at)} · {PRODUCTS[h.product]}: {h.old_rate ? `Rs ${h.old_rate} → ` : ""}Rs {h.new_rate} ({h.changed_by})</li>)}</ul></details>}
+            <ul className="mt-1 space-y-0.5">{c.rate_history.map((h: any) => <li key={h.id}>{d(h.created_at)} · {PRODUCTS[h.product]}: {h.old_rate ? `Rs ${h.old_rate} → ` : ""}Rs {h.new_rate}{h.note ? ` · ${h.note}` : ""} ({h.changed_by})</li>)}</ul></details>}
         </div>
         <div className="card p-4 lg:col-span-2">
           <h2 className="mb-2 font-semibold">Fuel account (all time)</h2>
@@ -336,25 +347,76 @@ function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: ()
 }
 
 function RatesEditor({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
-  const [r, setR] = useState<Record<string, string>>(Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p, client.rates[p] ? String(client.rates[p]) : ""])));
+  const [r, setR] = useState<RateDraft>(() => draftFrom(client.rate_card));
   const prices = useApi<any>("/prices");
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={`Rate card — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const rates = Object.fromEntries(Object.entries(r).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+        const rates = draftToBody(r);
         if (await run(() => api(`/wholesale/clients/${client.id}/rates`, { method: "PUT", body: { rates } }), "Rates updated")) onDone();
       }}>
-        {Object.keys(PRODUCTS).map((p) => (
-          <label key={p} className="flex items-center justify-between gap-3">
-            <span className="text-sm">{PRODUCTS[p]} <span className="text-xs text-slate-500">(retail Rs {prices.data?.current?.[p]?.price ?? "—"})</span></span>
-            <input className="input w-36 text-right" type="number" step="0.01" min={0} placeholder="not supplied" value={r[p]} onChange={(e) => setR({ ...r, [p]: e.target.value })} />
-          </label>
-        ))}
+        <RateCardEditor draft={r} setDraft={setR} pump={prices.data?.current} />
         <p className="text-xs text-slate-500">New rates apply to future supplies only; past entries keep their rate.</p>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save rates</button></div>
       </form>
     </Modal>
+  );
+}
+
+/* ---------------- Rate card editor: pump − Rs X (follows price changes) or a fixed rate ---------------- */
+type RateMode = "discount" | "fixed" | "none";
+type RateDraft = Record<string, { mode: RateMode; value: string }>;
+
+function draftFrom(card?: Record<string, any>): RateDraft {
+  return Object.fromEntries(Object.keys(PRODUCTS).map((p) => {
+    const r = card?.[p];
+    return [p, !r ? { mode: "none", value: "" } : r.mode === "discount" ? { mode: "discount", value: String(r.discount) } : { mode: "fixed", value: String(r.fixed ?? r.rate) }];
+  }));
+}
+
+function draftToBody(d: RateDraft) {
+  const out: Record<string, any> = {};
+  for (const [p, r] of Object.entries(d)) {
+    if (r.mode === "discount" && r.value !== "" && !isNaN(Number(r.value))) out[p] = { mode: "discount", discount: Number(r.value) };
+    if (r.mode === "fixed" && Number(r.value) > 0) out[p] = { mode: "fixed", rate: Number(r.value) };
+  }
+  return out;
+}
+
+function RateCardEditor({ draft, setDraft, pump }: { draft: RateDraft; setDraft: (d: RateDraft) => void; pump?: Record<string, { price: number }> }) {
+  const MODES: [RateMode, string][] = [["discount", "Pump − Rs"], ["fixed", "Fixed rate"], ["none", "Not supplied"]];
+  return (
+    <div className="space-y-2">
+      {Object.keys(PRODUCTS).map((p) => {
+        const r = draft[p];
+        const set = (x: Partial<{ mode: RateMode; value: string }>) => setDraft({ ...draft, [p]: { ...r, ...x } });
+        const price = pump?.[p]?.price;
+        const eff = r.mode === "discount" && price != null && r.value !== "" ? price - Number(r.value) : r.mode === "fixed" ? Number(r.value) : null;
+        return (
+          <div key={p} className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium">{PRODUCTS[p]} <span className="text-xs font-normal text-slate-500">pump Rs {price?.toFixed(2) ?? "—"}</span></span>
+              <div className="flex rounded-lg border border-slate-200 p-0.5" role="group" aria-label={`${PRODUCTS[p]} rate type`}>
+                {MODES.map(([m, label]) => (
+                  <button key={m} type="button" aria-pressed={r.mode === m} onClick={() => set({ mode: m, value: m === r.mode ? r.value : m === "fixed" && eff ? eff.toFixed(2) : m === "discount" ? "2" : "" })}
+                    className={`rounded-md px-2.5 py-1 text-xs ${r.mode === m ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {r.mode !== "none" && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                {r.mode === "discount" && <span className="text-slate-500">Pump rate −</span>}
+                <input className="input w-32 text-right" type="number" step="0.01" min={r.mode === "fixed" ? 0.01 : -200} required aria-label={`${PRODUCTS[p]} ${r.mode === "discount" ? "rupees below pump rate" : "fixed rate"}`}
+                  value={r.value} onChange={(e) => set({ value: e.target.value })} />
+                <span className="text-slate-500">Rs/L</span>
+                {eff != null && eff > 0 && <span className="ml-auto text-xs text-slate-600">= <b>Rs {eff.toFixed(2)}</b> / L today{r.mode === "discount" ? " · moves with pump price" : ""}</span>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

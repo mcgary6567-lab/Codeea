@@ -6,6 +6,7 @@ import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt 
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
+import { followPumpPrice } from "./wholesale.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
@@ -98,6 +99,12 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     await notify(t, staff(t, ["admin", "manager"], req.user!.id), { type: "price_change_info", data, whatsapp: false,
       title: `Prices changed by ${req.user!.name}`, body: lines.join("\n") });
   }
+  // wholesale clients on "pump − Rs X" follow the new pump price; fixed-rate clients are listed for review
+  const ws = changes.length ? tx(() => followPumpPrice(t, changes)) : { moved: [], fixed: [] };
+  if (ws.moved.length || ws.fixed.length)
+    await notify(t, staff(t, ["wholesale", "admin"]), { type: "wholesale_rates", whatsapp: false, data: { batch: ts },
+      title: `🚛 Wholesale rates ${ws.moved.length ? `updated for ${ws.moved.length} client rate${ws.moved.length === 1 ? "" : "s"}` : "— review fixed rates"}`,
+      body: [...ws.moved, ...(ws.fixed.length ? ["Fixed rate (not changed, review if needed):", ...ws.fixed] : [])].join("\n") });
   let queued = 0;
   if (b.broadcast) {
     const customers = all("SELECT * FROM customers WHERE tenant_id=? AND opt_in=1", t);
@@ -106,7 +113,7 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
     queued = customers.length;
     void (async () => { for (const c of customers) await sendWhatsApp(t, c, msg, "campaign", { kind: "price_update" }); })();
   }
-  return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued, salesmen_notified: changes.length ? salesmen.length : 0 };
+  return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued, salesmen_notified: changes.length ? salesmen.length : 0, wholesale_rates_updated: ws.moved.length };
 }));
 
 /* ---------------- Sales / POS ---------------- */
