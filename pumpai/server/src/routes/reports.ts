@@ -6,9 +6,9 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get } from "../db.js";
+import { all, get, pkDayStart } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError, round2 } from "../services.js";
+import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { clientDue } from "./wholesale.js";
 import { supplierOwed } from "./suppliers.js";
@@ -109,7 +109,9 @@ export function buildReport(t: number, from: string, to: string) {
     // weighted average purchase rate over the 120 days up to the end of the period
     const r = get(`SELECT SUM(amount) a, SUM(litres) l FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND txn_date < ? AND txn_date >= ?`,
       t, p, to, new Date(Date.parse(to) - 120 * DAY).toISOString())!;
-    avgCost[p] = r.l ? r.a / r.l : null;
+    // no purchases in that window → fall back to the last purchase rate ever recorded
+    avgCost[p] = r.l ? r.a / r.l
+      : get(`SELECT rate FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND rate > 0 AND txn_date < ? ORDER BY txn_date DESC LIMIT 1`, t, p, to)?.rate ?? null;
   }
   const stock = {
     products: products.map((p) => {
@@ -189,6 +191,46 @@ export function buildReport(t: number, from: string, to: string) {
   };
 
   return { from, to, grain, summary, trend, sales, stock, expenses, khata, wholesale, shifts, ...balances(t) };
+}
+
+/**
+ * Today's book for the owner's dashboard (Pakistan midnight → now): what was sold, spent and
+ * received, how much fuel is left and what it is worth, and who owes whom. Built from the same
+ * report as the Reports page so the numbers always agree.
+ */
+export function dayBook(t: number) {
+  const from = pkDayStart(), to = new Date().toISOString();
+  const r = buildReport(t, from, to);
+  const prices = currentPrices(t);
+  const stock = r.stock.products.map((p) => {
+    const price = prices[p.product]?.price ?? null;
+    return {
+      product: p.product, name: p.name, opening_l: p.opening_l, received_l: p.received_l,
+      sold_l: p.net_sold_l, dip_adjust_l: p.dip_adjust_l, closing_l: p.closing_l,
+      cost_rate: p.avg_cost, value_at_cost: p.closing_value,
+      sale_rate: price, value_at_sale: price == null ? null : r0(p.closing_l * price),
+    };
+  });
+  const sum = (k: "value_at_cost" | "value_at_sale") => stock.some((x) => x[k] == null) ? null : stock.reduce((a, x) => a + (x[k] ?? 0), 0);
+  const pay = (m: string) => r.sales.by_payment.find((x: any) => x.method === m)?.amount ?? 0;
+  return {
+    from, to,
+    sales: {
+      revenue: r.summary.revenue, retail: r.summary.retail_sales, retail_litres: r.summary.retail_litres, txns: r.summary.retail_txns,
+      wholesale: r.summary.wholesale_net, wholesale_litres: r.summary.wholesale_litres,
+      cash: r0(pay("cash")), digital: r.summary.money_in.digital_sales, khata: r0(pay("khata")),
+    },
+    expenses: { total: r.expenses.total, count: r.expenses.count, by_category: r.expenses.by_category, pending: r.payables.pending_expenses },
+    supply: {
+      deliveries: r.stock.deliveries.length, litres: r0(r.stock.deliveries.reduce((a: number, d: any) => a + d.received_l, 0)),
+      cost: r.summary.purchases_cost, list: r.stock.deliveries,
+    },
+    stock: { products: stock, litres: r0(stock.reduce((a, x) => a + x.closing_l, 0)), value_at_cost: sum("value_at_cost"), value_at_sale: sum("value_at_sale") },
+    profit: { gross: r.summary.gross_profit_estimate, net: r.summary.net_profit_estimate },
+    money_in: r.summary.money_in, money_out: r.summary.money_out,
+    shifts: { closed: r.shifts.totals!.n, cash_expected: r0(r.shifts.totals!.expected), cash_counted: r0(r.shifts.totals!.counted), variance: r0(r.shifts.totals!.variance) },
+    receivables: r.receivables.total, payables: r.payables.total,
+  };
 }
 
 /** Point-in-time balances (as of now): who owes us, and whom we owe. */

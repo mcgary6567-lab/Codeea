@@ -9,6 +9,7 @@ import { buildDailyBrief } from "../automation/jobs.js";
 import { bus } from "../whatsapp/cloud.js";
 import { aiEnabled, waLive, config } from "../config.js";
 import { normalizePhone } from "../services.js";
+import { dayBook } from "./reports.js";
 
 export const insightsRouter = Router();
 
@@ -17,6 +18,7 @@ insightsRouter.get("/dashboard", requirePerm("dashboard.view"), h((req) => {
   const series = dailySeries(t, 30);
   return {
     kpis: kpis(t),
+    day: dayBook(t),
     series,
     forecast: forecast(t, 7),
     tanks: tankOutlook(t),

@@ -42,6 +42,10 @@ export function tx<T>(fn: () => T): T {
   }
 }
 export const now = () => new Date().toISOString();
+/** Pakistan (UTC+5, no DST) calendar date, e.g. "2026-10-04". */
+export const pkDate = (ms = Date.now()) => new Date(ms + 5 * 3600_000).toISOString().slice(0, 10);
+/** UTC timestamp of midnight in Pakistan for the day containing `ms` ("today" starts here, not at 5am). */
+export const pkDayStart = (ms = Date.now()) => new Date(Date.parse(pkDate(ms) + "T00:00:00+05:00")).toISOString();
 
 export function migrate() {
   db.exec(`

@@ -2,7 +2,7 @@
  * Predictive analytics: demand forecasting, stock-out prediction, churn and credit-risk scoring,
  * and anomaly detection. Pure TypeScript so it runs anywhere without a Python service.
  */
-import { all, get, run, now, type Row } from "../db.js";
+import { all, get, run, now, pkDate, pkDayStart, type Row } from "../db.js";
 import { PRODUCTS } from "../config.js";
 
 const DAY = 86_400_000;
@@ -204,7 +204,7 @@ export function detectAnomalies(tenantId: number) {
         type: "sales_drop", severity: "warning",
         title: `${PRODUCTS[p] ?? p} sales down ${Math.round((1 - yesterday / avg) * 100)}% yesterday`,
         body: `Yesterday ${Math.round(yesterday)}L vs 4-week average ${Math.round(avg)}L. Check dispenser downtime, competitor pricing or supply.`,
-        key: `drop-${p}-${new Date().toISOString().slice(0, 10)}`,
+        key: `drop-${p}-${pkDate()}`,
       });
     }
   }
@@ -212,7 +212,7 @@ export function detectAnomalies(tenantId: number) {
 }
 
 export function kpis(tenantId: number) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = pkDayStart();
   const t = get(
     `SELECT COALESCE(SUM(s.litres),0) litres, COALESCE(SUM(s.amount),0) amount, COUNT(*) txns,
        COALESCE(SUM(CASE WHEN payment_method='cash' THEN s.amount END),0) cash,
@@ -224,7 +224,7 @@ export function kpis(tenantId: number) {
   const y = get(
     `SELECT COALESCE(SUM(s.amount),0) amount FROM sales s JOIN stations st ON st.id=s.station_id
      WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`,
-    tenantId, new Date(Date.now() - DAY).toISOString().slice(0, 10), new Date(Date.now() - DAY).toISOString(),
+    tenantId, pkDayStart(Date.now() - DAY), new Date(Date.now() - DAY).toISOString(),
   )!;
   const k = get("SELECT COALESCE(SUM(balance),0) outstanding, COUNT(CASE WHEN balance>0 THEN 1 END) debtors FROM customers WHERE tenant_id=?", tenantId)!;
   const a = get("SELECT COUNT(*) open FROM alerts WHERE tenant_id=? AND acknowledged=0", tenantId)!;

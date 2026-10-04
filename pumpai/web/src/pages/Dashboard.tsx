@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { Fuel, Wallet, BookOpen, Bell, MessageCircle, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send } from "lucide-react";
+import { Fuel, Wallet, BookOpen, Bell, MessageCircle, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send, Receipt, Truck, Droplets, Scale, Coins } from "lucide-react";
 import { api, useApi, useLiveEvents } from "../lib/api";
 import { PageHeader, Stat, Loading, ErrorBox, Badge, severityTone } from "../components/ui";
-import { PRODUCTS, PRODUCT_COLORS, num, pkrShort, d, ago } from "../lib/format";
+import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort, d, ago } from "../lib/format";
 import { QuickAddTiles } from "../components/QuickAdd";
 
 const insightIcon: Record<string, any> = { fuel: Fuel, trend: TrendingUp, users: Users, credit: CreditCard, chart: BarChart3 };
@@ -48,6 +48,8 @@ export default function Dashboard() {
           hint={`${k.whatsapp.unread} unread · ${k.whatsapp.human} need a human · ${k.pending_orders} pending orders`} />
         <Stat label="Open alerts" value={k.open_alerts} icon={<Bell size={16} />} tone={k.open_alerts ? "red" : "slate"} hint={<Link to="/alerts" className="text-brand-600 hover:underline">Review alerts →</Link>} />
       </div>
+
+      {data.day && <TodayBook b={data.day} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-3">
         <div className="card p-4 lg:col-span-2">
@@ -152,6 +154,83 @@ export default function Dashboard() {
             </ul>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Today (Pakistan midnight → now): sold, spent, supplied, stock left and what it is worth. Same numbers as Reports → 24h. */
+function TodayBook({ b }: { b: any }) {
+  const tile = (icon: any, label: string, urdu: string, value: string, lines: (string | false)[], tone: string) => (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span className={`rounded-md p-1 ${tone}`}>{icon}</span>{label}<span className="font-urdu ml-auto normal-case text-slate-400">{urdu}</span>
+      </div>
+      <div className="mt-2 text-xl font-semibold tabular-nums text-slate-900">{value}</div>
+      {lines.filter(Boolean).map((l, i) => <div key={i} className="text-xs text-slate-500">{l}</div>)}
+    </div>
+  );
+  const s = b.sales;
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Today's book <span className="font-urdu ml-1 text-sm font-normal text-slate-500">آج کا حساب</span>
+          <span className="ml-2 text-xs font-normal text-slate-400">since 12:00 am · updates every minute</span></h2>
+        <Link to="/reports" className="text-xs text-brand-600 hover:underline">Full report →</Link>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {tile(<Wallet size={14} />, "Sales", "سیل", pkr(s.revenue), [
+          `Pump ${pkr(s.retail)} · ${num(s.retail_litres)} L · ${s.txns} sales`,
+          s.wholesale ? `Wholesale ${pkr(s.wholesale)} · ${num(s.wholesale_litres)} L` : false,
+          `Cash ${pkrShort(s.cash)} · Digital ${pkrShort(s.digital)} · Khata ${pkrShort(s.khata)}`,
+        ], "bg-emerald-100 text-emerald-700")}
+        {tile(<Receipt size={14} />, "Expenses", "خرچہ", pkr(b.expenses.total), [
+          b.expenses.by_category.slice(0, 3).map((c: any) => `${c.category} ${pkrShort(c.amount)}`).join(" · ") || "No expenses yet",
+          b.expenses.pending.count > 0 && `⏳ ${b.expenses.pending.count} waiting approval (${pkr(b.expenses.pending.amount)})`,
+        ], "bg-amber-100 text-amber-700")}
+        {tile(<Truck size={14} />, "Supply received", "سپلائی آئی", `${num(b.supply.litres)} L`, [
+          `${b.supply.deliveries} tanker${b.supply.deliveries === 1 ? "" : "s"} · cost ${pkr(b.supply.cost)}`,
+          ...b.supply.list.slice(0, 2).map((x: any) => `${PRODUCTS[x.product]} ${num(x.received_l)} L${x.supplier ? ` · ${x.supplier}` : ""}`),
+        ], "bg-blue-100 text-blue-700")}
+        {tile(<Droplets size={14} />, "Stock left", "باقی سٹاک", `${num(b.stock.litres)} L`,
+          b.stock.products.map((p: any) => `${p.name} ${num(p.closing_l)} L (sold ${num(p.sold_l)}, in ${num(p.received_l)})`), "bg-slate-100 text-slate-600")}
+        {tile(<Coins size={14} />, "Stock value", "سٹاک کی مالیت", pkr(b.stock.value_at_cost), [
+          "at purchase cost",
+          b.stock.value_at_sale != null && `${pkr(b.stock.value_at_sale)} at today's selling price`,
+          b.profit.net != null && `Today's profit (est.) ${pkr(b.profit.net)} after expenses`,
+        ], "bg-violet-100 text-violet-700")}
+        {tile(<Scale size={14} />, "Balances now", "لینا / دینا", pkr(b.receivables), [
+          "people owe us (khata + wholesale)",
+          `We owe ${pkr(b.payables)} (suppliers, advances)`,
+          b.shifts.closed > 0 && `${b.shifts.closed} shift${b.shifts.closed === 1 ? "" : "s"} closed · cash ${b.shifts.variance < 0 ? "short" : "over"} ${pkr(Math.abs(b.shifts.variance))}`,
+        ], "bg-red-100 text-red-700")}
+      </div>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+            <th className="py-2 pr-3">Fuel</th><th className="py-2 pr-3 text-right">Opening</th><th className="py-2 pr-3 text-right">+ Received</th>
+            <th className="py-2 pr-3 text-right">− Sold</th><th className="py-2 pr-3 text-right">= Left now</th>
+            <th className="py-2 pr-3 text-right">Cost / L</th><th className="py-2 pr-3 text-right">Value at cost</th><th className="py-2 text-right">Value at sale price</th>
+          </tr></thead>
+          <tbody className="tabular-nums">
+            {b.stock.products.map((p: any) => (
+              <tr key={p.product} className="border-b border-slate-100">
+                <td className="py-2 pr-3 font-medium"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: PRODUCT_COLORS[p.product] }} />{p.name}</td>
+                <td className="py-2 pr-3 text-right">{num(p.opening_l)} L</td>
+                <td className="py-2 pr-3 text-right">{num(p.received_l)} L</td>
+                <td className="py-2 pr-3 text-right">{num(p.sold_l)} L{p.dip_adjust_l ? <span className="block text-xs text-slate-400">dip {p.dip_adjust_l > 0 ? "+" : ""}{num(p.dip_adjust_l)} L</span> : null}</td>
+                <td className="py-2 pr-3 text-right font-semibold">{num(p.closing_l)} L</td>
+                <td className="py-2 pr-3 text-right">{p.cost_rate != null ? `Rs ${num(p.cost_rate, 2)}` : "—"}</td>
+                <td className="py-2 pr-3 text-right">{pkr(p.value_at_cost)}</td>
+                <td className="py-2 text-right">{pkr(p.value_at_sale)}</td>
+              </tr>
+            ))}
+            <tr className="font-semibold">
+              <td className="py-2 pr-3">Total</td><td colSpan={3} /><td className="py-2 pr-3 text-right">{num(b.stock.litres)} L</td><td />
+              <td className="py-2 pr-3 text-right">{pkr(b.stock.value_at_cost)}</td><td className="py-2 text-right">{pkr(b.stock.value_at_sale)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

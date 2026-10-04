@@ -1,7 +1,7 @@
 /** Expense management: categories with monthly budgets, approval flow, monthly summary vs revenue. */
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { all, get, run, now, getSetting, setSetting } from "../db.js";
+import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
 
@@ -131,7 +131,7 @@ expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
   if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", t, b.category)) throw new AppError(400, "Unknown category");
   if (b.station_id && !get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
   const autoApprove = can(req.user, "expenses.approve") || b.amount <= approvalLimit(t);
-  const date = b.expense_date ?? new Date().toISOString().slice(0, 10);
+  const date = b.expense_date ?? pkDate();
   const { id } = run(
     `INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,receipt_ref,status,created_by,approved_by,expense_date,created_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,

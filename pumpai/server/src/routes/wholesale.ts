@@ -5,7 +5,7 @@
  */
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now, type Row } from "../db.js";
+import { all, get, run, tx, now, pkDayStart, pkDate, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
@@ -61,8 +61,8 @@ function summary(clientId: number, from?: string, to?: string) {
 /* ---------------- Overview ---------------- */
 wholesale.get("/wholesale/summary", h((req) => {
   const t = tid(req);
-  const month = new Date().toISOString().slice(0, 7);
-  const today = new Date().toISOString().slice(0, 10);
+  const month = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
+  const today = pkDayStart();
   const clients = all("SELECT id FROM wholesale_clients WHERE tenant_id=?", t);
   const dues = clients.map((c) => clientDue(c.id));
   return {
@@ -71,11 +71,11 @@ wholesale.get("/wholesale/summary", h((req) => {
     month: get(
       `SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) supplied_l, COALESCE(SUM(CASE WHEN type='supply' THEN amount END),0) billed,
          COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received, COALESCE(SUM(CASE WHEN type='return' THEN litres END),0) returned_l
-       FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, month + "-01"),
+       FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, month),
     today: get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) supplied_l, COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received
        FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, today),
     by_product_month: all(`SELECT product, ROUND(SUM(litres)) litres, ROUND(SUM(amount)) amount FROM wholesale_txns
-       WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? GROUP BY product`, t, month + "-01"),
+       WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? GROUP BY product`, t, month),
     recent: all(`SELECT x.*, c.name client_name FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id
        WHERE x.tenant_id=? ORDER BY x.txn_date DESC, x.id DESC LIMIT 15`, t),
   };
@@ -84,7 +84,7 @@ wholesale.get("/wholesale/summary", h((req) => {
 /* ---------------- Clients ---------------- */
 wholesale.get("/wholesale/clients", h((req) => {
   const q = `%${String(req.query.q ?? "").trim()}%`;
-  const month = new Date().toISOString().slice(0, 7) + "-01";
+  const month = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
   return all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND (name LIKE ? OR business_name LIKE ? OR phone LIKE ?) ORDER BY active DESC, name", tid(req), q, q, q)
     .map((c) => {
       const s = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' AND txn_date >= ? THEN litres END),0) month_l,

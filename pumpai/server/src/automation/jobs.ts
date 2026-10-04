@@ -1,5 +1,5 @@
 /** Fully automated background jobs. Each returns a short human-readable result for the Automations page. */
-import { all, get, getSetting, type Row } from "../db.js";
+import { all, get, getSetting, pkDate, pkDayStart, type Row } from "../db.js";
 import { scoreCustomers, detectAnomalies, tankOutlook, kpis, insights } from "../ai/analytics.js";
 import { createAlert, paymentLink, pkr } from "../services.js";
 import { sendWhatsApp, sendToPhone } from "../whatsapp/cloud.js";
@@ -170,10 +170,10 @@ export async function buildDailyBrief(t: number) {
   const alerts = all("SELECT title FROM alerts WHERE tenant_id=? AND acknowledged=0 AND severity!='info' ORDER BY id DESC LIMIT 4", t);
   const byProduct = all(
     `SELECT s.product, ROUND(SUM(s.litres)) l FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.created_at >= ? GROUP BY s.product`,
-    t, new Date().toISOString().slice(0, 10),
+    t, pkDayStart(),
   );
   return [
-    `📊 Aaj ki report — ${new Date().toISOString().slice(0, 10)}`,
+    `📊 Aaj ki report — ${pkDate()}`,
     `⛽ Sales: ${byProduct.map((r: Row) => `${r.product} ${Number(r.l).toLocaleString()}L`).join(" | ") || "—"}`,
     `💰 Revenue ${pkr(k.today.amount)} (Cash ${pkr(k.today.cash)} · Digital ${pkr(k.today.digital)} · Khata ${pkr(k.today.khata)})`,
     `📒 Khata outstanding ${pkr(k.khata.outstanding)} (${k.khata.debtors} customers)`,

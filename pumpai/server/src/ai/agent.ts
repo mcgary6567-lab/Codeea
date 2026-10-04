@@ -7,7 +7,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, PRODUCTS } from "../config.js";
-import { all, get, type Row } from "../db.js";
+import { all, get, pkDate, type Row } from "../db.js";
 import { customerTools, runTool, toolSchemas, type ToolCtx } from "./tools.js";
 import { fallbackReply } from "./fallback.js";
 import { businessTools } from "./businessTools.js";
@@ -124,7 +124,7 @@ export async function askBusiness(tenantId: number, question: string) {
     const ctx: ToolCtx = { tenantId, customer: {}, conversation: {}, actions: [] };
     const system = `You are the AI business analyst for a Pakistani petrol pump owner. Answer in the language of the question (English or Roman Urdu).
 Use tools to fetch real numbers; never guess. Be concise: lead with the answer, then 2-5 bullet points with figures and one concrete recommendation.
-Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is ${new Date().toISOString().slice(0, 10)}.`;
+Products: PMG = petrol, HOBC = hi-octane, HSD = diesel. Currency PKR. Today is ${pkDate()} (Pakistan time).`;
     try {
       const answer = await runAgentLoop(system, businessTools, [{ role: "user", content: question }], ctx, 8);
       if (answer) return { answer, engine: "claude" };
