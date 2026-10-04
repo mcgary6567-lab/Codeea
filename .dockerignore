@@ -1,0 +1,23 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+.claude
+__pycache__
+**/__pycache__
+*.py[cod]
+# never bake secrets or local databases into the image
+.env
+data/
+# runtime output lives on the volume; keep only the directory placeholders
+storage/**
+!storage/**/.gitkeep
+# build tooling and generated documents
+build/tailwindcss
+build/tailwindcss.exe
+build/user_guide/out
+docs/*.pdf
+# local credential files
+live_accounts.json
+*.xlsx
+tests/

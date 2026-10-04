@@ -4,7 +4,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -83,7 +83,7 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
             return render(request, "auth/login.html", {**ctx, "stage": "totp", "pending": form.get("pending"), "error": "Invalid code. Try again."})
         token, hours = _start_session(db, user, request, bool(form.get("remember")))
         resp = RedirectResponse(next_url or home_for(user), status_code=303)
-        resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.APP_ENV == "production")
+        resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.cookie_secure)
         return resp
 
     # ---- stage 1: credentials
@@ -116,10 +116,10 @@ async def login_submit(request: Request, db: Session = Depends(get_db)):
         return render(request, "auth/login.html", {**ctx, "stage": "totp", "pending": pending})
     token, hours = _start_session(db, user, request, bool(form.get("remember")))
     resp = RedirectResponse(next_url or home_for(user), status_code=303)
-    resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.APP_ENV == "production")
+    resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.cookie_secure)
     if user.must_change_password:
         resp = RedirectResponse("/profile?tab=password", status_code=303)
-        resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.APP_ENV == "production")
+        resp.set_cookie(SESSION_COOKIE, token, max_age=hours * 3600, httponly=True, samesite="lax", secure=settings.cookie_secure)
     return resp
 
 

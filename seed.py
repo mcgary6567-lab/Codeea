@@ -66,7 +66,9 @@ def main() -> None:
     finally:
         db.close()
     print("\nDone. Start the server with:  python run.py")
-    print("Sign in at http://127.0.0.1:8000  (admin@oqc.local / Admin@12345)")
+    if settings.APP_ENV == "development":
+        # Only true on a development database: deploy_secure.py replaces these on a deployed instance.
+        print("Sign in at http://127.0.0.1:8000  (admin@oqc.local / Admin@12345)")
 
 
 if __name__ == "__main__":

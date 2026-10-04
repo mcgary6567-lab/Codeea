@@ -1,0 +1,11 @@
+# Development and build tooling. Not installed in the production image (Dockerfile uses requirements.txt only).
+#   .venv/Scripts/python.exe -m pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+pytest>=8.2
+pyyaml>=6.0            # tests/test_deploy_targets.py parses docker-compose.yml when available
+ruff>=0.6
+vulture>=2.11
+playwright>=1.45       # build/user_guide (screenshot capture)
+pymupdf>=1.24          # build/user_guide (PDF assembly)
+pypdf>=4.0
+pillow>=10.0           # build/user_guide (image crops); the app itself only needs reportlab

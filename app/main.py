@@ -7,16 +7,18 @@ import pkgutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings, BASE_DIR
 from app.core.deps import NotAuthenticated, PermissionDenied
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.templating import render
-from app.database import SessionLocal, init_db
+from app.database import SessionLocal, engine, init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("oqc")
@@ -64,7 +66,7 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Captures of staff screens live under storage/ with everything else, but they are served only
-        # through the permission-checked route on the Confido Agents page, never from the open mount.
+        # through the permission-checked route on the Confido Agents page, never through /storage/.
         if request.url.path.startswith("/storage/agent_screenshots/"):
             from starlette.responses import PlainTextResponse
             return PlainTextResponse("Not found", status_code=404)
@@ -97,11 +99,16 @@ def _discover_routers(app: FastAPI, package: str, prefix: str = "") -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    from app.core.scheduler import start_scheduler, stop_scheduler
-    start_scheduler()
+    # One scheduler per process: with several uvicorn workers every job would run once per worker, so a
+    # multi-worker deployment runs the web workers with SCHEDULER_ENABLED=false and one jobs process with it on.
+    if settings.SCHEDULER_ENABLED:
+        start_scheduler()
+    else:
+        log.info("scheduler disabled (SCHEDULER_ENABLED=false); a separate jobs process must run the background jobs")
     log.info("%s ready at %s", settings.APP_NAME, settings.BASE_URL)
     yield
-    stop_scheduler()
+    if settings.SCHEDULER_ENABLED:
+        stop_scheduler()
 
 
 def create_app() -> FastAPI:
@@ -112,8 +119,10 @@ def create_app() -> FastAPI:
     # Added last so it runs first: the query string must be cleaned before routing and validation.
     app.add_middleware(DropEmptyQueryParamsMiddleware)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+    # storage/ (invoices, payslips, result cards, uploads, backups) is NOT a static mount: every file under it is
+    # served by the permission-checked route in app.web.storage_files, one access rule per folder. The folder is
+    # still created here because the generating services write into it before any route is hit.
     (BASE_DIR / "storage").mkdir(exist_ok=True)
-    app.mount("/storage", StaticFiles(directory=str(BASE_DIR / "storage")), name="storage")
 
     _discover_routers(app, "app.web")
     _discover_routers(app, "app.api", prefix="/api/v1")
@@ -152,12 +161,27 @@ def create_app() -> FastAPI:
                       "message": "The error has been logged. Please try again or contact the system administrator."}, status_code=500)
 
     @app.get("/health", include_in_schema=False)
-    async def health():
-        # Render puts the deployed commit in the environment. Reporting it here is how a release is
-        # confirmed live without the dashboard: two builds failed unnoticed before this existed.
+    async def health(request: Request):
+        # The hosting platform puts the deployed commit in the environment (Render: RENDER_GIT_COMMIT,
+        # Railway: RAILWAY_GIT_COMMIT_SHA, the Docker image / Fly: GIT_COMMIT build arg). Reporting it
+        # here is how a release is confirmed live without the dashboard: two builds failed unnoticed
+        # before this existed. The default answer is deliberately cheap (container HEALTHCHECK every
+        # 30 s); ``?db=1`` adds a SELECT 1 round-trip and answers 503 when the database is unreachable.
         import os
-        return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV, "version": "1.1.0",
-                "commit": (os.environ.get("RENDER_GIT_COMMIT") or "")[:7] or None}
+        commit = next((os.environ[k] for k in ("GIT_COMMIT", "RENDER_GIT_COMMIT", "RAILWAY_GIT_COMMIT_SHA",
+                                               "SOURCE_COMMIT", "FLY_GIT_COMMIT") if os.environ.get(k)), "")
+        body = {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV, "version": "1.1.0",
+                "commit": commit[:7] or None}
+        if request.query_params.get("db"):
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                body["database"] = "ok"
+            except Exception as exc:
+                log.error("health: database check failed: %s", exc)
+                body.update(status="degraded", database="unreachable")
+                return JSONResponse(body, status_code=503)
+        return body
 
     return app
 

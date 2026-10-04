@@ -20,6 +20,13 @@ services:
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --forwarded-allow-ips='*'"
     healthCheckPath: /health
     autoDeploy: true
+    # storage/ (uploads, invoices, receipts, payslips, certificates, result cards, agent screenshots) is
+    # wiped on every deploy unless a persistent disk is mounted. Disks need a paid instance type; the
+    # mount path must be <repo>/storage because stored file paths are relative to the repository root.
+    # disk:
+    #   name: oqc-storage
+    #   mountPath: /opt/render/project/src/storage
+    #   sizeGB: 10
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
@@ -31,12 +38,18 @@ services:
         generateValue: true        # Render generates a strong value and keeps it stable
       - key: APP_ENV
         value: production
+      - key: BASE_URL
+        value: https://oqc.onrender.com   # the public URL: certificate, survey, referral and portal links are built from it
       - key: SEED_MODE
         value: demo                # "demo" = full demo dataset, "core" = clean install
+      # deploy_secure.py applies the three values below whenever they change (fingerprint kept in the
+      # settings table) - so to rotate the owner password: change ADMIN_PASSWORD here and redeploy.
       - key: ADMIN_PASSWORD
         generateValue: true        # replaces the local default for admin@oqc.local
       - key: DEMO_PASSWORD
         generateValue: true        # shared password for the seeded demo logins
+      - key: ADMIN_EMAIL
+        sync: false                # asked for on the Deploy page: renames admin@oqc.local to the owner's address
       - key: BASE_CURRENCY
         value: PKR
       - key: DEFAULT_TIMEZONE

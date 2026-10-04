@@ -1,0 +1,12 @@
+{$SITE_ADDRESS}
+
+encode zstd gzip
+
+request_body {
+	max_size 64MB
+}
+
+# Proxy everything. Do not serve /storage from disk: the app serves every file under it through a
+# permission-checked route (app/web/storage_files.py) and nothing may bypass it. Caddy adds
+# X-Forwarded-For / X-Forwarded-Proto, which uvicorn trusts via --proxy-headers.
+reverse_proxy app:8000

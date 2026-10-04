@@ -1,0 +1,49 @@
+# Online Quran College on Fly.io. Same image as docker compose / Railway (Dockerfile).
+#
+#   fly launch --no-deploy --copy-config --name oqc --region ams
+#   fly postgres create --name oqc-db --region ams --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 10
+#   fly postgres attach oqc-db --app oqc            # sets the DATABASE_URL secret (postgres://...), handled by app/config.py
+#   fly secrets set --app oqc SECRET_KEY=... ADMIN_PASSWORD=... DEMO_PASSWORD=... ADMIN_EMAIL=owner@example.com
+#   fly deploy --app oqc --build-arg GIT_COMMIT=$(git rev-parse --short HEAD)
+#   fly scale count 1 --app oqc                     # never more than one machine while the scheduler is in-process
+#
+# The app name must be unique on Fly: change "oqc" here and in BASE_URL together.
+app = "oqc"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8000"
+  APP_ENV = "production"
+  SEED_MODE = "core"
+  WEB_CONCURRENCY = "1"          # in-process scheduler: one worker, one machine
+  BASE_URL = "https://oqc.fly.dev"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "off"     # the scheduler must stay up for reminders, invoicing, backups
+  auto_start_machines = true
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[http_service.checks]]
+  grace_period = "120s"          # first start runs alembic + seed
+  interval = "30s"
+  timeout = "5s"
+  method = "GET"
+  path = "/health"
+
+[[mounts]]
+  source = "oqc_storage"
+  destination = "/app/storage"
+  initial_size = "10gb"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

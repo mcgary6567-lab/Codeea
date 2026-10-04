@@ -14,7 +14,7 @@ Estimated time: about 10 minutes, most of it waiting for the first build.
 | `render.yaml` | Blueprint defining the web service **and** a PostgreSQL database, with all environment variables |
 | `render-build.sh` | Build step: installs dependencies, runs migrations, loads seed data, rotates passwords |
 | `runtime.txt` | Pins Python 3.12.7 (the PostgreSQL driver has no 3.14 wheels yet) |
-| `deploy_secure.py` | Replaces the development passwords with the values Render generates |
+| `deploy_secure.py` | Replaces the development passwords with the values Render generates - only when `ADMIN_PASSWORD`, `DEMO_PASSWORD` or `ADMIN_EMAIL` change (a fingerprint is kept in the settings table), so a redeploy never resets the password you chose or logs you out. To rotate: change the variable in the Environment tab and redeploy |
 | `migrations/` | Alembic baseline so the schema is created and versioned, not guessed |
 
 The front-end libraries (Tailwind, Alpine, Chart.js, HTMX, Lucide) are committed under

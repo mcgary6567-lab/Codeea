@@ -59,10 +59,22 @@ class Settings(BaseSettings):
     AI_API_KEY: str = ""
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_MINUTES: int = 15
+    # The scheduler runs inside the web process (one per uvicorn worker). Set false on the web workers when a
+    # separate jobs process runs with it on, so more than one worker does not run every job twice.
+    SCHEDULER_ENABLED: bool = True
+    # Secure flag on the session cookie. None = derived from APP_ENV (production => HTTPS only). Set
+    # explicitly to serve a production-mode instance over plain HTTP (demo) or to force it on in staging.
+    COOKIE_SECURE: bool | None = None
 
     @property
     def storage_dir(self) -> Path:
+        # Always <repo>/storage: the database stores file paths relative to the repository root, so the
+        # directory is not relocatable. Containers mount their volume at /app/storage for the same reason.
         return BASE_DIR / "storage"
+
+    @property
+    def cookie_secure(self) -> bool:
+        return self.APP_ENV == "production" if self.COOKIE_SECURE is None else self.COOKIE_SECURE
 
     @property
     def is_sqlite(self) -> bool:

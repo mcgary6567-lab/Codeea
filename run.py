@@ -50,11 +50,14 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
 
+    # The seed credentials only hold on a development database; a deployed instance has had them
+    # replaced by deploy_secure.py, so printing them there would mislead.
+    credentials = "\n  Sign in: admin@oqc.local  /  Admin@12345" if settings.APP_ENV == "development" else ""
     banner = (
         "\n" + "=" * 62 +
         "\n  Online Quran College - Digital Operating System" +
         f"\n  http://localhost:{args.port}   or   http://127.0.0.1:{args.port}" +
-        "\n  Sign in: admin@oqc.local  /  Admin@12345" +
+        credentials +
         "\n" + "=" * 62 + "\n"
     )
 

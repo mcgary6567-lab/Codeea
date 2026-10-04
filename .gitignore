@@ -18,7 +18,10 @@ storage/attachments/*
 storage/agent_screenshots/*
 !storage/**/.gitkeep
 .pytest_cache/
+.ruff_cache/
 *.log
+# written by upgrade.sh (rollback point)
+.last-good-sha
 .DS_Store
 !migrations/versions/*.py
 

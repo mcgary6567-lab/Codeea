@@ -5,6 +5,38 @@ A unified LMS + ERP + CRM + HRM + Finance + QA + AI-monitoring platform built fr
 teachers, classes, curriculum, billing, HR, payroll, CRM/WhatsApp, quality assurance, retention,
 marketing, governance and an executive command center.
 
+## Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mcgary6567-lab/Codeea)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/REPLACE_WITH_TEMPLATE_CODE)
+
+```bash
+# Ubuntu 22.04 / 24.04 server: Docker + PostgreSQL + HTTPS (Caddy) + nightly pg_dump, asks for domain and admin e-mail
+curl -fsSL https://raw.githubusercontent.com/mcgary6567-lab/Codeea/main/install.sh | bash
+```
+
+```powershell
+# Windows demo laptop: Python venv + SQLite + demo data + Desktop shortcut
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+| Target | One action | Files |
+|---|---|---|
+| Render (free tier works) | Button above, then **Apply** | `render.yaml`, `render-build.sh`, `runtime.txt`, `deploy_secure.py`, `docs/RENDER_DEPLOY.md` |
+| Ubuntu VPS with Docker | `curl ... install.sh \| bash` | `install.sh`, `docker-compose.yml`, `Dockerfile`, `deploy/entrypoint.sh`, `deploy/Caddyfile`, `deploy/backup.sh`, `upgrade.sh`, `deploy/smoke.sh` |
+| Docker Desktop (laptop) | `cp .env.example .env`, add `POSTGRES_PASSWORD=...` and `APP_ENV=staging`, then `docker compose up -d --build` | `docker-compose.yml`, `Dockerfile` |
+| Railway | Button above (template), or New Project → GitHub repo + PostgreSQL + volume at `/app/storage` | `railway.json`, `Dockerfile` |
+| Fly.io | `fly launch` ... `fly deploy` (commands in the file header) | `fly.toml`, `Dockerfile` |
+| Ubuntu VPS without Docker | Manual runbook | `docs/DEPLOYMENT.md`, `upgrade.sh`, `deploy/smoke.sh` |
+| Windows demo laptop | `install.ps1` (or `start.bat`) | `install.ps1`, `start.bat` |
+
+Every target runs the same bootstrap: `alembic upgrade head` → `seed.py` (`SEED_MODE=core` or `demo`,
+first start only) → `deploy_secure.py` (applies `ADMIN_PASSWORD` / `DEMO_PASSWORD` / `ADMIN_EMAIL` whenever
+they change) → `uvicorn app.main:app` with one worker. Sign in with the generated `ADMIN_PASSWORD`; the app
+forces a password change on the first page. The Railway button needs a template code: create the template
+once from a working project (Settings → Create template) and replace `REPLACE_WITH_TEMPLATE_CODE`.
+Details, environment variables and the upgrade/rollback procedure: `docs/DEPLOYMENT.md`.
+
 ## Quick start (localhost)
 
 ```bash
@@ -108,6 +140,10 @@ tests/             pytest suite
 
 ## Deployment
 
-See `docs/DEPLOYMENT.md`. In short: set `APP_ENV=production`, a strong `SECRET_KEY`, a PostgreSQL
-`DATABASE_URL`, run `python seed.py --core` (roles, currencies, settings only), and serve with
-`uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2` behind nginx/TLS.
+One-action installs are listed in the *Deploy* section at the top. For a hand-built server see
+`docs/DEPLOYMENT.md`. In short: set `APP_ENV=production`, a strong `SECRET_KEY`, a PostgreSQL
+`DATABASE_URL`, run `python -m alembic upgrade head`, `python seed.py --core` (roles, currencies, settings only)
+and `python deploy_secure.py` (applies `ADMIN_PASSWORD`), then serve with
+`uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers` behind nginx/TLS or Caddy.
+One worker, because the background scheduler runs in-process (`SCHEDULER_ENABLED=false` on the web workers if
+you run more, with a single jobs process).

@@ -10,7 +10,7 @@ TLS. Windows Server notes are at the end.
 |---|---|---|
 | CPU / RAM | 2 vCPU, 4 GB | 4 vCPU / 8 GB once you pass ~150 concurrent class sessions |
 | Disk | 40 GB SSD | Recordings and uploads grow fastest; keep `storage/` on its own volume if you can |
-| Python | 3.12+ (3.14 recommended) | The codebase targets 3.14 |
+| Python | 3.12 or 3.13 | `requirements.txt` skips the PostgreSQL driver (`psycopg`) on 3.14, which has no wheels yet; `runtime.txt` pins 3.12.7 for Render and the Docker image uses `python:3.12-slim` |
 | Database | PostgreSQL 15+ | SQLite is for local development only |
 | Reverse proxy | nginx 1.22+ | TLS termination, static files, rate limiting |
 | OS packages | `python3-venv python3-dev build-essential libpq-dev nginx certbot python3-certbot-nginx git` | |
@@ -35,8 +35,15 @@ sudo chown -R oqc:oqc /opt/oqc
 | `/opt/oqc/storage` | Uploads, recordings, exports, certificates, migration files, **backups** |
 | `/opt/oqc/app/.env` | Configuration and secrets — mode `0600`, owner `oqc` |
 
-The application resolves `storage_dir` from configuration; point it at `/opt/oqc/storage` so the data volume is
-separate from the code.
+Storage is **always `<checkout>/storage`** (`/opt/oqc/app/storage`): the database stores file paths relative to the
+repository root, so there is no `STORAGE_DIR` setting and the directory cannot be relocated. To keep the data volume
+separate from the code, mount or symlink it at that path:
+
+```bash
+sudo rm -rf /opt/oqc/app/storage && sudo ln -s /opt/oqc/storage /opt/oqc/app/storage
+```
+
+The Docker, Railway and Fly configurations mount their volumes at `/app/storage` for the same reason.
 
 ---
 
@@ -48,8 +55,7 @@ cd /opt/oqc/app
 git clone <your-repo-url> .
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip wheel
-.venv/bin/pip install -r requirements.txt
-.venv/bin/pip install "psycopg[binary]" uvicorn[standard]
+.venv/bin/pip install -r requirements.txt     # includes psycopg[binary] and uvicorn[standard] on 3.12/3.13
 ```
 
 Verify the app imports cleanly before going further:
@@ -57,6 +63,10 @@ Verify the app imports cleanly before going further:
 ```bash
 .venv/bin/python -c "from app.main import app; print('ok')"
 ```
+
+Nothing has to be built on the server: the Tailwind stylesheet (`app/static/css/tailwind.css`) is compiled by the
+developer with `build/build-css.sh` and committed, and Alpine, HTMX, Chart.js and Lucide are vendored under
+`app/static/vendor/`. No Node, no CDN.
 
 ---
 
@@ -94,7 +104,9 @@ LOCKOUT_MINUTES=15
 
 BASE_CURRENCY=PKR
 DEFAULT_TIMEZONE=Asia/Karachi
-STORAGE_DIR=/opt/oqc/storage
+# storage is always <checkout>/storage (see section 1); there is no STORAGE_DIR setting
+# SCHEDULER_ENABLED=true   set false only on web workers when a separate jobs process runs (section 6)
+# COOKIE_SECURE=           leave unset: derived from APP_ENV (production => HTTPS-only session cookie)
 
 VIDEO_PROVIDER=jitsi
 JITSI_DOMAIN=meet.yourdomain.com
@@ -257,7 +269,7 @@ Group=oqc
 WorkingDirectory=/opt/oqc/app
 EnvironmentFile=/opt/oqc/app/.env
 ExecStart=/opt/oqc/app/.venv/bin/uvicorn app.main:app \
-    --host 127.0.0.1 --port 8000 --workers 4 \
+    --host 127.0.0.1 --port 8000 --workers 1 \
     --proxy-headers --forwarded-allow-ips='127.0.0.1' \
     --timeout-keep-alive 30
 Restart=always
@@ -265,12 +277,13 @@ RestartSec=5
 KillSignal=SIGINT
 TimeoutStopSec=30
 
-# hardening
+# hardening. ReadWritePaths only matters with ProtectSystem=strict; with "full" only /usr, /boot and /etc
+# become read-only. If you switch to strict, add /opt/oqc/app/storage (the symlink target is listed already).
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/opt/oqc/storage /opt/oqc/app/data
+ReadWritePaths=/opt/oqc/storage /opt/oqc/app/storage /opt/oqc/app/data
 LimitNOFILE=8192
 
 [Install]
@@ -287,12 +300,13 @@ journalctl -u oqc -f
 ### A note on workers and background jobs
 
 The scheduler starts inside the application process. With `--workers 4` each worker would start its own scheduler and
-run every job four times. Pick one:
+run every job four times (`max_instances=1` only de-duplicates inside one process). Pick one:
 
-- **Simplest:** run `--workers 1` and scale with a second machine behind the load balancer later.
-- **Recommended:** run multiple workers and disable the in-process scheduler on all but one instance — deploy a second
-  systemd unit (`oqc-jobs.service`) with `--workers 1` on a different port that is *not* in the nginx upstream, and set
-  the scheduler off in the web workers.
+- **Simplest (the unit above):** run `--workers 1` and scale with a second machine behind the load balancer later.
+- **More workers:** set `SCHEDULER_ENABLED=false` in the web unit's environment and run `--workers 4` there; deploy a
+  second unit `oqc-jobs.service` — same `ExecStart` but `--workers 1`, another port that is *not* in the nginx upstream,
+  and `Environment=SCHEDULER_ENABLED=true` — so exactly one process owns the jobs. The docker compose file does the same
+  with its `jobs` profile.
 
 Whichever you choose, confirm on `/admin/settings?tab=jobs` that each job's last run advances exactly once per interval.
 
@@ -370,10 +384,25 @@ log and in the per-user IP allowlist check. Without it every event is logged as 
 
 ### Storage and downloads
 
-Application-generated files (backups, subject-access exports, migration error CSVs) are served through authenticated
-routes, not from a public path. **Never** add a plain `location /storage/` alias — that would expose recordings and
-personal data to anyone with the URL. The `internal` `/media/` block above exists only for `X-Accel-Redirect` if you
-later choose to offload large recording downloads to nginx.
+Nothing under `<storage>` is a static mount. Every `/storage/<folder>/<file>` URL is answered by the guarded route in
+`app/web/storage_files.py`, which normalises the path, refuses anything that resolves outside the storage directory,
+and applies one rule per top-level folder (the table lives at the top of that module, `FOLDER_RULES`):
+
+| Folder | Who may fetch it |
+|---|---|
+| `invoices/`, `receipts/` | `billing.view`, `payments.view` or `ledger.view`; otherwise the signed-in family the invoice or receipt belongs to (matched on the stored `pdf_path`) |
+| `payslips/` | `payroll.view`; otherwise the employee the payslip is for (`Employee.user_id`) |
+| `result_cards/` | `monthly_tests.view`, `evaluations.view` or `academics.view`; otherwise the student or the student's family |
+| `certificates/` | public, no login — the `/verify` page links them by design |
+| `attachments/`, `uploads/`, `downloads/`, `exports/`, `reports/`, `migration/` | any signed-in staff user (role portal `admin`); a family, student or employee only when an `Attachment` row marks the file as theirs |
+| `backups/` | `backups.view` only |
+| `agent_screenshots/` | always 404 here; `/config/agents/screenshots/{id}` is the only route |
+| any other folder | `settings.view`; everyone else sees 404 |
+
+Anonymous requests to a protected folder are redirected to `/login` (browsers) or answered 401 (API clients); refused
+requests are written to the audit log as `storage / denied`. **Never** add a plain `location /storage/` alias in nginx —
+that would put the whole tree back on the public internet. The `internal` `/media/` block above exists only for
+`X-Accel-Redirect` if you later choose to offload large recording downloads to nginx.
 
 ---
 
@@ -388,8 +417,9 @@ that takes a PostgreSQL dump as well and pushes everything off-site.
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# 02:15 - PostgreSQL dump
-15 2 * * * oqc pg_dump --format=custom --no-owner "$DATABASE_URL" > /opt/oqc/storage/backups/oqc-$(date +\%Y\%m\%d).dump 2>> /var/log/oqc-backup.log
+# 02:15 - PostgreSQL dump. pg_dump does not understand the "+psycopg" driver suffix the app uses in
+# DATABASE_URL, so PG_URL below must be the plain form: postgresql://oqc:<password>@localhost:5432/oqc_prod
+15 2 * * * oqc pg_dump --format=custom --no-owner "$PG_URL" > /opt/oqc/storage/backups/oqc-$(date +\%Y\%m\%d).dump 2>> /var/log/oqc-backup.log
 
 # 02:30 - push database dumps and the storage tree off-site
 30 2 * * * oqc rclone sync /opt/oqc/storage remote:oqc-backups/storage >> /var/log/oqc-backup.log 2>&1
@@ -398,8 +428,9 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 3 * * * oqc find /opt/oqc/storage/backups -name '*.dump' -mtime +30 -delete
 ```
 
-Put the connection string in `/etc/cron.d/oqc-backup` via a `DATABASE_URL=` line, or read it from `.env` in a wrapper
-script — do not inline the password anywhere world-readable.
+Put the connection string in `/etc/cron.d/oqc-backup` via a `PG_URL=` line, or derive it from `.env` in a wrapper
+script (`PG_URL="postgresql://${DATABASE_URL#postgresql+psycopg://}"`, as `upgrade.sh` does) — do not inline the
+password anywhere world-readable.
 
 **Weekly, without exception:** open `/admin/backups`, run a restore test on the newest archive, and confirm it passes.
 Once a quarter, do a full rehearsal into a scratch database following `/admin/backups/runbook`. Record the RPO and RTO
@@ -439,16 +470,18 @@ cd /opt/oqc/app
 
 # 1. record the rollback point
 git rev-parse HEAD > /opt/oqc/last-good-sha
-# and take a backup from /admin/backups, or:
-pg_dump --format=custom --no-owner "$DATABASE_URL" > /opt/oqc/storage/backups/pre-deploy-$(date +%Y%m%d-%H%M).dump
+# and take a backup from /admin/backups, or (plain postgresql:// URL, see section 8):
+pg_dump --format=custom --no-owner "$PG_URL" > /opt/oqc/storage/backups/pre-deploy-$(date +%Y%m%d-%H%M).dump
 
 # 2. pull and install
 git fetch --all
 git checkout <tag-or-sha>
 .venv/bin/pip install -r requirements.txt
 
-# 3. schema and bootstrap data (idempotent)
+# 3. schema and bootstrap data (both idempotent; the migration must run before the seed)
+.venv/bin/python -m alembic upgrade head
 .venv/bin/python seed.py --core
+.venv/bin/python deploy_secure.py          # no-op unless ADMIN_PASSWORD/DEMO_PASSWORD/ADMIN_EMAIL changed
 
 # 4. sanity check before restarting
 .venv/bin/python -c "from app.main import app; print('import ok')"
@@ -544,8 +577,10 @@ otherwise every audit event records the proxy's address.
 
 ```powershell
 $stamp = Get-Date -Format 'yyyyMMdd'
-& "C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" --format=custom --no-owner $env:DATABASE_URL `
-    | Out-File -Encoding byte "C:\oqc\storage\backups\oqc-$stamp.dump"
+# pg_dump needs the plain postgresql:// form, not the app's postgresql+psycopg:// URL
+$pgUrl = $env:DATABASE_URL -replace '^postgresql\+psycopg://', 'postgresql://'
+& "C:\Program Files\PostgreSQL\16\bin\pg_dump.exe" --format=custom --no-owner $pgUrl `
+    --file "C:\oqc\storage\backups\oqc-$stamp.dump"
 & "C:\tools\rclone\rclone.exe" sync C:\oqc\storage remote:oqc-backups/storage
 ```
 
@@ -558,3 +593,83 @@ data directories only. Do not run it as `LocalSystem`.
 SQLite on Windows also has a practical gotcha for developers: the file is locked while the app is running, so
 `seed.py --reset` will refuse to delete it. Stop the server first, or point `DATABASE_URL` at a private database file
 while you work.
+
+**Demo laptop.** `install.ps1` at the repository root does the whole local setup (venv, requirements, `.env` with a
+generated `SECRET_KEY`, SQLite seed, a Desktop shortcut to `start.bat`). It keeps the seed sign-ins because the laptop
+is not public; `python run.py --host 0.0.0.0` with `APP_ENV=development` shows it over a LAN.
+
+---
+
+## 14. Containers and one-action installs
+
+The same application runs unchanged in a container. One image (`Dockerfile`, `python:3.12-slim`, fonts for the
+Arabic/Urdu PDFs, no Node) serves docker compose, Railway and Fly.io; Render keeps its native Python runtime
+(`render.yaml`, `render-build.sh`). The README's *Deploy* section lists the one action per target.
+
+### Bootstrap order (identical on every target)
+
+| Step | Render (`render-build.sh`, build time) | Container (`deploy/entrypoint.sh`, every start) |
+|---|---|---|
+| Install dependencies | `pip install -r requirements.txt` | baked into the image |
+| Wait for PostgreSQL | — | `python deploy/db_ready.py wait` |
+| Migrate | `python -m alembic upgrade head` | same |
+| Seed | `seed.py` / `seed.py --core` by `SEED_MODE` | only when `users` is empty (`SEED_ON_START=auto`) or `SEED_ON_START=true` |
+| Credentials | `python deploy_secure.py` | same |
+| Serve | `uvicorn ... --workers 1` | `uvicorn app.main:app --port $PORT --workers $WEB_CONCURRENCY --proxy-headers` |
+
+Entrypoint switches: `SKIP_BOOTSTRAP=true` (a second container sharing the database, e.g. the `jobs` profile),
+`ROTATE_CREDENTIALS=true` (force `deploy_secure.py`), `WEB_CONCURRENCY` (default 1). The container starts as root
+only to `chown` the mounted volume to the `oqc` user, then re-executes itself as `oqc` (`gosu`).
+
+### Credentials: `deploy_secure.py` applies only what changed
+
+`deploy_secure.py` stores a sha256 fingerprint of `(ADMIN_PASSWORD, DEMO_PASSWORD, ADMIN_EMAIL)` in the settings
+table (`credentials_fingerprint`, with the time it was applied). On every later run it compares first: if the
+fingerprint is unchanged and `ROTATE_CREDENTIALS` is not `true`, it prints `credentials unchanged since <date>,
+nothing to do` and exits without rewriting a password or revoking a session. So a redeploy never resets the
+password the owner chose at first sign-in and never logs everyone out. **To rotate:** change the variable where
+the host keeps it (Render: Environment tab, then redeploy; Docker: edit `.env`, `docker compose up -d`; Fly:
+`fly secrets set`) — the next start applies it, forces a password change on the superusers and revokes all sessions.
+
+### Storage
+
+Always `<repo>/storage`: `/app/storage` in the image. Docker: named volume `storage`; Railway: volume mounted at
+`/app/storage`; Fly: `[[mounts]]` at `/app/storage`; Render: ephemeral unless a Disk is mounted at
+`/opt/render/project/src/storage` (paid instance; block commented in `render.yaml`); VPS: the checkout's
+`storage/` (section 1). Never relocate it — stored paths are relative to the repository root.
+
+### Scheduler and workers
+
+One APScheduler per process, so `WEB_CONCURRENCY=1` everywhere by default (`numReplicas: 1` on Railway, one machine
+on Fly, `--workers 1` on Render). To scale the web tier set `SCHEDULER_ENABLED=false` on the web containers and run
+exactly one process with it on — compose profile `scale` (`COMPOSE_PROFILES=server,scale`) starts that `jobs`
+container. A process with `SCHEDULER_ENABLED=false` logs `scheduler disabled` at start.
+
+### HTTPS and the session cookie
+
+`APP_ENV=production` sets the `Secure` flag on the session cookie, so production needs HTTPS or logins loop.
+Docker: Caddy (`deploy/Caddyfile`) obtains Let's Encrypt certificates when `SITE_ADDRESS` is a domain; with
+`SITE_ADDRESS=:80` (no domain) `install.sh` writes `APP_ENV=staging`. Render, Railway and Fly terminate TLS
+themselves. `COOKIE_SECURE=true|false` overrides the derived value when you must.
+
+### Backups, upgrades, smoke test
+
+- Docker: the `backup` sidecar (`deploy/backup.sh`, postgres image) writes a daily `pg_dump --format=custom` into
+  the `backups` volume, 30-day retention (`BACKUP_KEEP_DAYS`); `upgrade.sh` takes a pre-upgrade dump first. The app's
+  own `/admin/backups` archive is only a JSON export on PostgreSQL. Restore: see the header of `deploy/backup.sh`.
+- `upgrade.sh` works for both the Docker install and this guide's systemd install: records `.last-good-sha`, dumps,
+  `git pull --ff-only`, rebuilds/migrates, restarts, then runs `deploy/smoke.sh <url>`.
+- `deploy/smoke.sh <url>`: `GET /health?db=1` (status ok, database ok), the versioned stylesheet link on `/login`
+  is served as `text/css` and matches the local `tailwind.css`, and `/storage/agent_screenshots/*` answers 404.
+- `GET /health` reports `"commit"` from `GIT_COMMIT` (image build arg), `RENDER_GIT_COMMIT` or
+  `RAILWAY_GIT_COMMIT_SHA`; `GET /health?db=1` adds a `SELECT 1` and answers 503 when the database is down.
+
+### Environment variables added by this section
+
+| Variable | Default | Read by |
+|---|---|---|
+| `SCHEDULER_ENABLED` | `true` | app (`app/config.py`) |
+| `COOKIE_SECURE` | derived from `APP_ENV` | app |
+| `GIT_COMMIT` | empty | app (`/health`), set by the Dockerfile build arg |
+| `SEED_ON_START`, `ROTATE_CREDENTIALS`, `SKIP_BOOTSTRAP`, `WEB_CONCURRENCY` | `auto`, `false`, `false`, `1` | `deploy/entrypoint.sh` |
+| `POSTGRES_PASSWORD`, `SITE_ADDRESS`, `BACKUP_KEEP_DAYS`, `COMPOSE_PROFILES` | — | `docker-compose.yml` |
