@@ -104,12 +104,12 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
   const { can } = useAuth();
   const canCredit = can("credit.set_limit");
   const [f, setF] = useState({ name: "", phone: "", type: khata ? "police" : "retail", city: "", credit_limit: khata ? "100000" : "0", notes: "" });
-  const [vehicles, setVehicles] = useState<{ plate_no: string; fuel: string }[]>(khata ? [{ plate_no: "", fuel: "PMG" }] : []);
+  const [vehicles, setVehicles] = useState<{ plate_no: string; fuel: string; limit?: string }[]>(khata ? [{ plate_no: "", fuel: "PMG" }] : []);
   const { busy, run } = useAction();
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     const body: any = { name: f.name, phone: f.phone, type: f.type, city: f.city || null, notes: f.notes || null,
-      vehicles: vehicles.filter((v) => v.plate_no.trim()).map((v) => ({ plate_no: v.plate_no, fuel: v.fuel || null })) };
+      vehicles: vehicles.filter((v) => v.plate_no.trim()).map((v) => ({ plate_no: v.plate_no, fuel: v.fuel || null, daily_limit_l: Number(v.limit) > 0 ? Number(v.limit) : null })) };
     if (canCredit) body.credit_limit = Number(f.credit_limit) || 0;
     const r = await run(() => api("/customers", { body }), (c: any) => c.credit_limit > 0 ? `${c.name} khata opened — salesmen notified` : `${c.name} added`);
     if (r) onSaved(r);
@@ -144,6 +144,7 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
               <div key={i} className="flex gap-2">
                 <input className="input uppercase" placeholder={f.type === "police" ? "LEJ-1234 (Mobile 1)" : "LEA-1234"} value={v.plate_no} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, plate_no: e.target.value } : x))} />
                 <select className="input w-36" value={v.fuel} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, fuel: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+                <input className="input w-24" type="number" min={1} placeholder="L/day" aria-label="Daily litre limit" value={v.limit ?? ""} onChange={(e) => setVehicles(vehicles.map((x, j) => j === i ? { ...x, limit: e.target.value } : x))} />
                 <button type="button" className="btn-secondary !px-2" aria-label="Remove vehicle" onClick={() => setVehicles(vehicles.filter((_, j) => j !== i))}><Trash2 size={15} /></button>
               </div>
             ))}

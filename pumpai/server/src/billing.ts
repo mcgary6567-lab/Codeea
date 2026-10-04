@@ -154,3 +154,38 @@ h1{margin:0;font-size:22px}.muted{color:#64748b}.top{display:flex;justify-conten
 <div class="muted" style="margin-top:8px">Generated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))} by PumpAI</div>
 <button onclick="print()">Print / Save as PDF</button></div></body></html>`;
 }
+
+/* ---------------- Walk-in digital receipt (QR on the POS) ---------------- */
+export const receiptUrl = (tenantId: number, kind: "f" | "s", id: number) =>
+  `${config.publicUrl}/r/${jwt.sign({ r: kind, t: tenantId, id }, config.jwtSecret, { expiresIn: "400d" })}`;
+
+export function renderReceipt(token: string): string | null {
+  let p: { r: "f" | "s"; t: number; id: number };
+  try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
+  const tenant = get("SELECT * FROM tenants WHERE id=?", p.t);
+  if (!tenant) return null;
+  let rows: string, total: number, when: string, pay: string, station: string;
+  if (p.r === "f") {
+    const s = get("SELECT s.*, st.name station FROM sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND st.tenant_id=?", p.id, p.t);
+    if (!s) return null;
+    rows = `<tr><td>${esc(PRODUCTS[s.product])}<div class=muted>${n2(s.litres)} L × Rs ${n2(s.rate)}</div></td><td class=r>Rs ${n2(s.amount)}</td></tr>`;
+    total = s.amount; when = s.created_at; pay = s.payment_method; station = s.station;
+  } else {
+    const s = get("SELECT s.*, st.name station FROM shop_sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND s.tenant_id=?", p.id, p.t);
+    if (!s) return null;
+    rows = all("SELECT l.*, i.name FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=?", s.id)
+      .map((l) => `<tr><td>${esc(l.name)}<div class=muted>${n2(l.qty)} × Rs ${n2(l.price)}</div></td><td class=r>Rs ${n2(l.qty * l.price)}</td></tr>`).join("");
+    total = s.total; when = s.created_at; pay = s.payment_method; station = s.station;
+  }
+  const review = getSetting(p.t, "google_review_url", "");
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt — ${esc(tenant.name)}</title>
+<style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.card{max-width:420px;margin:16px auto;background:#fff;border-radius:14px;padding:20px}
+h1{font-size:19px;margin:0}.muted{color:#64748b;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:8px 0;border-bottom:1px dashed #cbd5e1}.r{text-align:right;font-variant-numeric:tabular-nums}
+.total{font-size:22px;font-weight:700}.btn{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:10px;text-decoration:none;font-weight:600}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}</style></head>
+<body><div class=card><h1>⛽ ${esc(tenant.name)}</h1><div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
+<table>${rows}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
+<div class=muted style="margin-top:6px">Paid: ${esc(pay)} · Receipt ${p.r === "f" ? "F" : "S"}-${p.id}</div>
+${review ? `<a class="btn g" href="${esc(review)}">⭐ Rate us on Google</a>` : ""}
+${tenant.owner_phone ? `<a class="btn w" href="https://wa.me/${esc(tenant.owner_phone)}">WhatsApp us</a>` : ""}
+<div class=muted style="text-align:center;margin-top:12px">Shukriya! Phir tashreef layein 🙏</div></div></body></html>`;
+}

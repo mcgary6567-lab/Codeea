@@ -75,6 +75,8 @@ export interface SaleInput {
   created_by?: number | null;
   /** POS-generated id: the same sale synced twice (offline queue) is saved once. */
   client_uid?: string | null;
+  /** A manager may let a vehicle go over its daily litre limit. */
+  override_limit?: boolean;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
 }
@@ -96,6 +98,21 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (customer.balance + amount > customer.credit_limit)
       throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
   }
+  // paying with loyalty points: 1 point = Rs 1
+  const points = s.payment_method === "loyalty" ? Math.ceil(amount) : 0;
+  if (s.payment_method === "loyalty") {
+    if (!customer) throw new AppError(400, "Choose the customer whose points are used");
+    if (customer.loyalty_points < points) throw new AppError(400, `${customer.name} has ${customer.loyalty_points} points (Rs ${customer.loyalty_points}); this sale needs ${points}`);
+  }
+  // a registered vehicle: right fuel, and not over its daily litre limit
+  const veh = customer && s.vehicle_no ? get("SELECT * FROM vehicles WHERE customer_id=? AND UPPER(plate_no)=UPPER(?)", customer.id, s.vehicle_no.trim()) : null;
+  if (veh?.fuel && veh.fuel !== s.product) throw new AppError(400, `${veh.plate_no} is registered for ${veh.fuel}, not ${s.product}`);
+  if (veh?.daily_limit_l && !s.override_limit) {
+    const since = new Date(Date.parse(new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10) + "T00:00:00+05:00")).toISOString();
+    const used = get("SELECT COALESCE(SUM(litres),0) l FROM sales WHERE customer_id=? AND UPPER(vehicle_no)=UPPER(?) AND created_at >= ?", customer!.id, veh.plate_no, since)!.l;
+    if (used + litres > veh.daily_limit_l + 0.01)
+      throw new AppError(400, `Daily limit for ${veh.plate_no} is ${veh.daily_limit_l} L; ${round2(used)} L already given today (${round2(Math.max(0, veh.daily_limit_l - used))} L left). Ask the manager.`);
+  }
   const tank = get("SELECT * FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", s.station_id, s.product);
   if (!tank) throw new AppError(400, `No ${s.product} tank at this station`);
   if (tank.current_l < litres) throw new AppError(400, `Not enough stock in ${tank.name}`);
@@ -111,7 +128,8 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", litres, s.nozzle_id);
     if (customer) {
       run("UPDATE customers SET last_visit_at=?, loyalty_points = loyalty_points + ? WHERE id=?",
-        ts, Math.floor(amount / 100), customer.id);
+        ts, points ? -points : Math.floor(amount / 100), customer.id);
+      if (points) run("INSERT INTO loyalty_redemptions (tenant_id,customer_id,points,sale_id,created_at) VALUES (?,?,?,?,?)", tenantId, customer.id, points, id, ts);
       if (s.payment_method === "khata") {
         run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -136,7 +154,11 @@ export function undoSale(sale: Row) {
     if (tank) run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", sale.litres, tank.id);
     if (sale.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer - ? WHERE id=?", sale.litres, sale.nozzle_id);
     if (sale.customer_id) {
-      run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points - ?) WHERE id=?", Math.floor(sale.amount / 100), sale.customer_id);
+      if (sale.payment_method === "loyalty") {
+        const r = get("SELECT points FROM loyalty_redemptions WHERE sale_id=?", sale.id);
+        run("UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id=?", r?.points ?? Math.ceil(sale.amount), sale.customer_id);
+        run("DELETE FROM loyalty_redemptions WHERE sale_id=?", sale.id);
+      } else run("UPDATE customers SET loyalty_points = MAX(0, loyalty_points - ?) WHERE id=?", Math.floor(sale.amount / 100), sale.customer_id);
       if (sale.payment_method === "khata") {
         run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", sale.customer_id, `SALE-${sale.id}`);
         run("UPDATE customers SET balance = balance - ? WHERE id=?", sale.amount, sale.customer_id);

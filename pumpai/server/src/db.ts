@@ -267,6 +267,19 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS tank_charts (tank_id INTEGER NOT NULL, cm REAL NOT NULL, litres REAL NOT NULL, PRIMARY KEY (tank_id, cm))`);
   db.exec(`CREATE TABLE IF NOT EXISTS day_closes (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, closed_at TEXT NOT NULL, UNIQUE (tenant_id, day))`);
   addColumn("dip_readings", "measured_cm", "REAL");
+  // lubricants / tuck shop / tyre shop: items kept per station, every stock movement logged
+  db.exec(`CREATE TABLE IF NOT EXISTS shop_items (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, sku TEXT, barcode TEXT, name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'other', unit TEXT NOT NULL DEFAULT 'pc', cost REAL NOT NULL DEFAULT 0, price REAL NOT NULL,
+    stock REAL NOT NULL DEFAULT 0, reorder_level REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS shop_sales (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, shift_id INTEGER, customer_id INTEGER,
+    payment_method TEXT NOT NULL, total REAL NOT NULL, cost_total REAL NOT NULL, client_uid TEXT UNIQUE, created_by INTEGER, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS shop_sale_lines (sale_id INTEGER NOT NULL, item_id INTEGER NOT NULL, qty REAL NOT NULL, price REAL NOT NULL, cost REAL NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS shop_moves (
+    id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, type TEXT NOT NULL, qty REAL NOT NULL, cost REAL, ref TEXT, note TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS loyalty_redemptions (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, points INTEGER NOT NULL, sale_id INTEGER, created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

@@ -105,6 +105,14 @@ crm.post("/customers/:id/vehicles", requirePerm("customers.create"), h(async (re
   return v;
 }));
 
+/** Change a vehicle's fuel or daily litre limit. */
+crm.patch("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  const b = parse(vehicleBody.omit({ plate_no: true }), req.body);
+  run("UPDATE vehicles SET fuel=?, daily_limit_l=? WHERE id=? AND customer_id=?", b.fuel ?? null, b.daily_limit_l ?? null, Number(req.params.vid), c.id);
+  return get("SELECT * FROM vehicles WHERE id=?", Number(req.params.vid));
+}));
+
 crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   run("DELETE FROM vehicles WHERE id=? AND customer_id=?", Number(req.params.vid), c.id);

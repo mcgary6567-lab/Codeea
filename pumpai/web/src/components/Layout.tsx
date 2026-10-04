@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -24,6 +24,7 @@ const NAV = [
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: "campaigns.manage" },
   { to: "/stock", label: "Tanks & Stock", icon: Droplets, perm: "stock.manage" },
+  { to: "/shop", label: "Shop & lubricants", icon: ShoppingBasket, perm: "stock.manage" },
   { to: "/prices", label: "Prices", icon: Tag, perm: "prices.view" },
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },

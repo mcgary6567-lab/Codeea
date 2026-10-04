@@ -1,13 +1,13 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, getSetting } from "../db.js";
-import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
 import { followPumpPrice } from "./wholesale.js";
-import { khataFillReceipt, wholesaleRateMessage } from "../billing.js";
+import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
 import { linkPhotos, photosFor } from "./capture.js";
@@ -133,8 +133,9 @@ operations.get("/sales", requirePerm("sales.view"), h((req) => {
 operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
-    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]),
-    customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(20).nullable().optional(),
+    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata", "loyalty"]),
+    customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(40).nullable().optional(),
+    override_limit: z.boolean().optional(),
     slip_no: z.string().max(40).nullable().optional(),
     client_uid: z.string().min(8).max(64).nullable().optional(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
@@ -159,10 +160,11 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   if (shift && shift.status !== "open") throw new AppError(409, "This shift is already closed; its litres were counted from the meter. Tell the manager about this sale.");
   if (salesman && !at && get("SELECT id FROM notifications WHERE user_id=? AND type='price_change' AND acked_at IS NULL LIMIT 1", req.user!.id))
     throw new AppError(409, "Fuel price has changed. Update the dispenser and confirm the new price first.");
+  if (b.override_limit && !can(req.user, "customers.edit")) throw new AppError(403, "Only a manager can allow more than the vehicle's daily limit");
   const { offline_at: _o, ...sale } = b;
   const saved = recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
   if (!saved.duplicate) setImmediate(() => khataFillReceipt(tid(req), saved).catch((e) => console.error("[khata receipt]", e.message)));
-  return saved;
+  return { ...saved, receipt_url: receiptUrl(tid(req), "f", saved.id) };
 }));
 
 /** Undo a sale entered by mistake: the salesman within 2 minutes, a manager any time while the shift is open. */

@@ -71,6 +71,7 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   return {
     business_name: tenant.name, owner_name: tenant.owner_name, owner_phone: getSetting(t, "owner_phone", tenant.owner_phone ?? ""),
     automation: Object.fromEntries(AUTO_SETTINGS.map((k) => [k, getSetting(t, k, "1") !== "0"])),
+    google_review_url: getSetting(t, "google_review_url", ""),
     integrations: {
       claude: { connected: aiEnabled(), model: config.aiModel, effort: config.aiEffort },
       whatsapp: { connected: waLive(), phone_number_id: config.wa.phoneNumberId ? "…" + config.wa.phoneNumberId.slice(-4) : null, webhook_url: `${config.publicUrl}/webhooks/whatsapp`, verify_token_set: Boolean(config.wa.verifyToken), template: config.wa.templateName },
@@ -80,7 +81,8 @@ insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
 }));
 insightsRouter.put("/settings", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.object({ business_name: z.string().min(2).optional(), owner_name: z.string().optional(), owner_phone: z.string().optional(),
-    automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional() }), req.body);
+    automation: z.record(z.enum(AUTO_SETTINGS), z.boolean()).optional(), google_review_url: z.string().url().or(z.literal("")).optional() }), req.body);
+  if (b.google_review_url !== undefined) setSetting(tid(req), "google_review_url", b.google_review_url);
   for (const [k, v] of Object.entries(b.automation ?? {})) setSetting(tid(req), k, v ? "1" : "0");
   const t = tid(req);
   if (b.business_name) run("UPDATE tenants SET name=? WHERE id=?", b.business_name, t);

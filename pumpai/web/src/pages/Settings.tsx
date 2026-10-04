@@ -29,7 +29,7 @@ export default function SettingsPage() {
         <Field label="Owner WhatsApp (alerts & daily brief)"><input className="input" value={f.owner_phone} onChange={(e) => setF({ ...f, owner_phone: e.target.value })} /></Field>
         <div className="sm:col-span-3"><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
-      <AutoSwitches values={data.automation ?? {}} onSaved={reload} />
+      <AutoSwitches values={data.automation ?? {}} review={data.google_review_url} onSaved={reload} />
       <div className="grid gap-5 md:grid-cols-2">
         <div className="card space-y-2 p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Claude AI</h2><Status ok={i.claude.connected} label={i.claude.connected ? "Connected" : "Rule engine (offline)"} /></div>
@@ -84,11 +84,17 @@ const SWITCHES: [string, string, string][] = [
   ["wholesale_messages", "WhatsApp to wholesale clients", "Each supply, payment and return, and their new rate when the pump price changes."],
   ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (Rs 100 or more), the amount is added to the salesman's staff account to adjust from salary."],
 ];
-function AutoSwitches({ values, onSaved }: { values: Record<string, boolean>; onSaved: () => void }) {
+function AutoSwitches({ values, review, onSaved }: { values: Record<string, boolean>; review?: string; onSaved: () => void }) {
   const { run } = useAction();
+  const [url, setUrl] = useState(review ?? "");
   return (
     <div className="card divide-y divide-slate-100">
       <h2 className="p-4 pb-2 font-semibold">Automatic messages & bookkeeping</h2>
+      <form className="flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { google_review_url: url } }), "Saved").then(onSaved); }}>
+        <label className="min-w-[260px] flex-1"><span className="label">Google review link (shown on the customer's digital receipt)</span>
+          <input className="input" type="url" placeholder="https://g.page/r/…/review" value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+        <button className="btn-secondary">Save</button>
+      </form>
       {SWITCHES.map(([k, title, text]) => (
         <label key={k} className="flex cursor-pointer items-start gap-3 p-4">
           <input type="checkbox" className="mt-1 h-5 w-5" checked={values[k] !== false}

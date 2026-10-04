@@ -65,12 +65,16 @@ export function shiftSummary(shiftId: number) {
   const byPayment = all(`SELECT payment_method method, ROUND(SUM(amount),2) amount, ROUND(SUM(litres),2) litres, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY payment_method ORDER BY amount DESC`, shiftId);
   const expenses = all(`SELECT id, category, amount, paid_to, note, status, created_by, created_at FROM expenses WHERE shift_id=? AND status<>'rejected' ORDER BY id`, shiftId);
   const sum = (m: string[]) => round2(byPayment.filter((p) => m.includes(p.method)).reduce((a, p) => a + p.amount, 0));
-  const cashSales = sum(["cash"]);
+  // shop (lubricants / tuck shop) sales on the same shift: their cash goes in the same bag
+  const shopBy = all("SELECT payment_method method, ROUND(SUM(total),2) amount, COUNT(*) n FROM shop_sales WHERE shift_id=? GROUP BY payment_method", shiftId);
+  const shopSum = (m: string[]) => round2(shopBy.filter((p) => m.includes(p.method)).reduce((a, p) => a + p.amount, 0));
+  const shop = { total: shopSum(["cash", "easypaisa", "jazzcash", "raast", "card", "khata"]), cash: shopSum(["cash"]), digital: shopSum(["easypaisa", "jazzcash", "raast", "card"]), khata: shopSum(["khata"]), sales: shopBy.reduce((a, p) => a + p.n, 0) };
+  const cashSales = round2(sum(["cash"]) + shop.cash);
   const expensesTotal = round2(expenses.reduce((a, e) => a + e.amount, 0));
   return {
     by_product: byProduct, by_payment: byPayment,
     litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
-    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]),
+    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), shop,
     expenses, expenses_total: expensesTotal,
     // what must be in the cash bag at the end: cash sales minus expenses paid from that cash
     cash_expected: round2(cashSales - expensesTotal),

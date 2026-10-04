@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode } from "lucide-react";
+import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
 import { newUid, isOffline, queueSale, dropQueued, dismissFailed, useOfflineQueue, cacheGet, cacheSet } from "../lib/offline";
@@ -26,6 +27,7 @@ const PAY = [
   { key: "card", en: "Card", ur: "کارڈ", icon: CreditCard, cls: "bg-slate-700" },
   { key: "raast", en: "Raast", ur: "راست", icon: Zap, cls: "bg-[#4a3aa7]" },
   { key: "khata", en: "Khata", ur: "کھاتہ", icon: BookOpen, cls: "bg-amber-600" },
+  { key: "loyalty", en: "Points", ur: "پوائنٹس", icon: Gift, cls: "bg-pink-600" },
 ] as const;
 
 export const TYPE_ICON: Record<string, string> = { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" };
@@ -59,14 +61,17 @@ export default function Pos() {
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
   const [heard, setHeard] = useState<string | null>(null);
+  const [tab, setTab] = useState<"fuel" | "shop">("fuel");
+  const [pointsCust, setPointsCust] = useState<any>(null);
+  const [pickPoints, setPickPoints] = useState(false);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
   const value = Number(entry) || 0;
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
-  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata));
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); };
+  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust));
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); };
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
@@ -95,6 +100,7 @@ export default function Pos() {
     if (!ready || !d || saving) return;
     const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
     if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null });
+    if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name, client_uid: body.client_uid };
     setSaving(true);
     try {
@@ -103,6 +109,7 @@ export default function Pos() {
       today.reload();
     } catch (e: any) {
       if (!isOffline(e)) { toast("err", e.message); return; }
+      if (pay === "loyalty") { toast("err", "Paying with points needs internet"); return; }
       // no internet: keep it on the tablet, it uploads by itself when the connection is back
       queueSale(body, `${FUEL[product!].en} ${num(litres, 2)} L · ${pkr(amount)} · ${pay}`);
       setDone({ ...shown, offline: true });
@@ -112,7 +119,7 @@ export default function Pos() {
   useEffect(() => { if (!done) return; const id = setTimeout(() => setDone(null), 6000); return () => clearTimeout(id); }, [done]);
   const undo = async (sale: any) => {
     if (sale.offline) { dropQueued(sale.client_uid); setDone(null); toast("ok", "Sale removed"); return; }
-    if (await run(() => api(`/sales/${sale.id}/undo`, { body: {} }), "Sale undone · سیل واپس")) { setDone(null); today.reload(); }
+    if (await run(() => api(sale.shop ? `/shop/sales/${sale.id}/undo` : `/sales/${sale.id}/undo`, { body: {} }), "Sale undone · سیل واپس")) { setDone(null); today.reload(); }
   };
 
   if (!isSalesman && !stations.data) return <Loading />;
@@ -142,6 +149,12 @@ export default function Pos() {
       {/* top strip */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-lg font-semibold"><Fuel className="text-brand-600" /> {d.station.name}</div>
+        <div className="flex rounded-xl bg-white p-1 ring-1 ring-slate-200" role="tablist">
+          {([["fuel", "Fuel", "تیل", Fuel], ["shop", "Shop", "دکان", ShoppingBasket]] as const).map(([k, en, ur, I]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-base font-semibold ${tab === k ? "bg-slate-900 text-white" : "text-slate-600"}`}><I size={18} /> {en} · <Ur>{ur}</Ur></button>
+          ))}
+        </div>
         {!isSalesman && <select className="input w-auto" value={stationId ?? ""} onChange={(e) => { setStationId(Number(e.target.value)); reset(); }}>{stations.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
         <div className="ml-auto flex items-center gap-2">
           {shiftOpen ? (
@@ -154,7 +167,7 @@ export default function Pos() {
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
-        <div className="space-y-3">
+        {tab === "shop" ? <ShopPos d={d} disabled={(!shiftOpen && isSalesman) || !!priceLock} onSaved={(r) => { setDone({ ...r, shop: true }); today.reload(); }} /> : <div className="space-y-3">
           <VoiceButton onParsed={applyVoice} />
           {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b></div>}
           {/* 1. fuel */}
@@ -213,9 +226,9 @@ export default function Pos() {
 
           {/* 3. payment */}
           <Step n={3} en="Payment" ur="ادائیگی">
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
               {PAY.map((p) => (
-                <button key={p.key} aria-pressed={pay === p.key} onClick={() => { setPay(p.key); if (p.key === "khata") setPickKhata(true); else setKhata(null); }}
+                <button key={p.key} aria-pressed={pay === p.key} onClick={() => { setPay(p.key); if (p.key === "khata") setPickKhata(true); else setKhata(null); if (p.key === "loyalty") setPickPoints(true); else setPointsCust(null); }}
                   className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 ${p.cls} ${pay === p.key ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : pay ? "opacity-50" : ""}`}>
                   <p.icon size={28} />
                   <span className="mt-1 text-base font-bold">{p.en}</span>
@@ -223,6 +236,12 @@ export default function Pos() {
                 </button>
               ))}
             </div>
+            {pay === "loyalty" && pointsCust && (
+              <button onClick={() => setPickPoints(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-pink-50 p-3 text-left ring-1 ring-pink-300">
+                <Gift className="text-pink-600" /><span className="flex-1"><b>{pointsCust.name}</b><span className="block text-sm text-slate-600">{pointsCust.loyalty_points} points = Rs {pointsCust.loyalty_points}</span></span>
+                {amount > pointsCust.loyalty_points && <span className="text-sm font-semibold text-red-600">Not enough points</span>}
+              </button>
+            )}
             <button onClick={() => setScan(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900 ring-1 ring-amber-300 active:scale-95">
               <span className="text-2xl">📷</span> Scan khata card · <Ur>کارڈ سکین کریں</Ur>
             </button>
@@ -251,7 +270,7 @@ export default function Pos() {
               </button>
             </div>
           </div>
-        </div>
+        </div>}
 
         <ShiftPanel d={d} reload={today.reload} onUndo={undo} myId={user?.id} />
       </div>
@@ -274,6 +293,7 @@ export default function Pos() {
         setKhata({ account: f.account, vehicle: f.vehicle ?? "", slip: "" });
         setPickKhata(true);
       }} />}
+      {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
       {done && (
         <div role="status" className={`fixed inset-0 z-50 flex items-center justify-center p-6 text-center text-white ${done.offline ? "bg-slate-800/95" : "bg-emerald-600/95"}`} onClick={() => setDone(null)}>
@@ -281,9 +301,12 @@ export default function Pos() {
             <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white ${done.offline ? "text-slate-800" : "text-emerald-600"}`}>{done.offline ? <WifiOff size={56} /> : <Check size={64} strokeWidth={3} />}</div>
             <div className="mt-4 text-3xl font-bold">{done.offline ? <>Saved on tablet · <Ur>ٹیبلٹ میں محفوظ</Ur></> : <>Sale saved · <Ur>سیل محفوظ</Ur></>}</div>
             {done.offline && <div className="mt-1 text-lg">No internet — it will upload by itself</div>}
-            <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>
-            <div className="text-5xl font-bold tabular-nums">{pkr(done.amount)}</div>
-            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name}` : done.payment_method}</div>
+            {done.shop
+              ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
+              : <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
+            <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
+            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method}</div>
+            {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
               <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
                 <Undo2 size={24} /> Undo · <Ur>واپس</Ur>
@@ -350,6 +373,8 @@ function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; o
           <div className="flex justify-between"><span className="text-slate-300">💵 Cash sales</span><span className="tabular-nums">{pkr(s?.cash_sales ?? 0)}</span></div>
           <div className="flex justify-between"><span className="text-slate-300">📒 Khata</span><span className="tabular-nums">{pkr(s?.khata ?? 0)}</span></div>
           <div className="flex justify-between"><span className="text-slate-300">📱 Digital</span><span className="tabular-nums">{pkr(s?.digital ?? 0)}</span></div>
+          {s?.shop?.total > 0 && <div className="flex justify-between"><span className="text-slate-300">🛒 Shop (cash {pkr(s.shop.cash)})</span><span className="tabular-nums">{pkr(s.shop.total)}</span></div>}
+          {s?.points > 0 && <div className="flex justify-between"><span className="text-slate-300">🎁 Paid with points</span><span className="tabular-nums">{pkr(s.points)}</span></div>}
           <div className="flex justify-between text-red-300"><span>− Expenses</span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
         </div>
       </div>
@@ -445,6 +470,186 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** QR on the success screen: the customer scans it to keep a digital receipt. */
+function ReceiptQr({ url }: { url: string }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => { QRCode.toDataURL(url, { margin: 1, width: 160 }).then(setSrc); }, [url]);
+  return src ? (
+    <div className="mx-auto mt-4 w-fit rounded-xl bg-white p-2 text-center text-xs font-medium text-slate-700" onClick={(e) => e.stopPropagation()}>
+      <img src={src} alt="QR code for the digital receipt" className="h-32 w-32" />Scan for receipt · <Ur>رسید</Ur>
+    </div>
+  ) : null;
+}
+
+/** Find the customer who pays with loyalty points (by phone or name). */
+function PointsPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: any) => void }) {
+  const [q, setQ] = useState("");
+  const { data } = useApi<any[]>(q.trim().length >= 3 ? `/customers?q=${encodeURIComponent(q.trim())}` : null);
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-xl">
+        <div className="mb-3 flex items-center gap-2"><Gift className="text-pink-600" /><h2 className="flex-1 text-2xl font-bold">Pay with points · <Ur>پوائنٹس</Ur></h2>
+          <button onClick={onClose} className="rounded-xl bg-slate-100 p-3" aria-label="Close"><X /></button></div>
+        <input autoFocus className="input py-3 text-lg" placeholder="Customer phone or name" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="mt-3 space-y-2">
+          {(data ?? []).filter((c) => c.loyalty_points > 0).slice(0, 8).map((c) => (
+            <button key={c.id} onClick={() => onPick(c)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left ring-2 ring-slate-200 hover:ring-pink-400">
+              <span className="flex-1"><b className="text-lg">{c.name}</b><span className="block text-sm text-slate-500">{c.phone}</span></span>
+              <span className="rounded-lg bg-pink-100 px-3 py-1 font-semibold text-pink-800">{c.loyalty_points} pts</span>
+            </button>
+          ))}
+          {q.trim().length >= 3 && data && !data.some((c) => c.loyalty_points > 0) && <p className="py-4 text-center text-slate-500">No customer with points found</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CAT: Record<string, string> = { lubricant: "🛢️ Oil", filter: "🧰 Filters", coolant: "💧 Coolant", tyre: "🛞 Tyres", battery: "🔋 Battery", tuck: "🥤 Tuck shop", service: "🔧 Service", other: "📦 Other" };
+
+/** Shop sale on the POS: tap items (or scan the barcode), choose payment, save. */
+function ShopPos({ d, disabled, onSaved }: { d: any; disabled: boolean; onSaved: (r: any) => void }) {
+  const { data: live, reload } = useApi<any[]>(`/shop/items?station_id=${d.station.id}`);
+  useEffect(() => { if (live) cacheSet(`shop_items_${d.station.id}`, live); }, [live, d.station.id]);
+  const items = live ?? cacheGet<any[]>(`shop_items_${d.station.id}`) ?? [];
+  const [cat, setCat] = useState("");
+  const [q, setQ] = useState("");
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const [pay, setPay] = useState<string | null>(null);
+  const [khata, setKhata] = useState<any>(null);
+  const [pick, setPick] = useState(false);
+  const [scan, setScan] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+  const add = (i: any, n = 1) => setCart((c) => {
+    const qty = Math.max(0, Math.min(i.stock, (c[i.id] ?? 0) + n));
+    const next = { ...c, [i.id]: qty };
+    if (!qty) delete next[i.id];
+    if ((c[i.id] ?? 0) + n > i.stock) toast("err", `Only ${i.stock} ${i.unit} of ${i.name} in stock`);
+    return next;
+  });
+  const lines = Object.entries(cart).map(([id, qty]) => ({ i: byId[Number(id)], qty })).filter((l) => l.i);
+  const total = lines.reduce((a, l) => a + l.qty * l.i.price, 0);
+  const shown = items.filter((i) => (!cat || i.category === cat) && i.name.toLowerCase().includes(q.toLowerCase()));
+  const found = (code: string) => {
+    const i = items.find((x) => x.barcode === code || x.sku === code);
+    if (i) { add(i); toast("ok", `Added ${i.name}`); } else toast("err", `No item with code ${code}`);
+  };
+  const save = async () => {
+    if (!lines.length || !pay || (pay === "khata" && !khata) || saving) return;
+    setSaving(true);
+    try {
+      const r = await api("/shop/sales", { body: { station_id: d.station.id, payment_method: pay, customer_id: khata?.account.id ?? null, client_uid: newUid(), lines: lines.map((l) => ({ item_id: l.i.id, qty: l.qty })) } });
+      setCart({}); setPay(null); setKhata(null); reload();
+      onSaved({ ...r, khata_name: khata?.account.name });
+    } catch (e: any) { toast("err", isOffline(e) ? "Shop sale needs internet" : e.message); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div className="space-y-3">
+      <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="relative min-w-[200px] flex-1"><Search className="absolute left-3 top-3 text-slate-400" size={20} /><input className="input py-2.5 pl-10 text-lg" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <button onClick={() => setScan(true)} className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white"><ScanBarcode /> Scan barcode</button>
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[["", "All"], ...Object.entries(CAT).filter(([k]) => items.some((i) => i.category === k))].map(([k, l]) => (
+            <button key={k} onClick={() => setCat(k)} className={`rounded-full px-4 py-1.5 ${cat === k ? "bg-slate-900 text-white" : "bg-slate-100"}`}>{l}</button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {shown.map((i) => (
+            <button key={i.id} disabled={i.stock <= 0} onClick={() => add(i)}
+              className={`relative rounded-xl p-3 text-left ring-2 active:scale-95 ${cart[i.id] ? "bg-emerald-50 ring-emerald-500" : "bg-white ring-slate-200"} disabled:opacity-40`}>
+              {cart[i.id] ? <span className="absolute right-2 top-2 rounded-full bg-emerald-600 px-2 text-sm font-bold text-white">{cart[i.id]}</span> : null}
+              <div className="pr-6 font-semibold leading-tight">{i.name}</div>
+              <div className="mt-1 text-lg font-bold tabular-nums">Rs {num(i.price)}</div>
+              <div className={`text-xs ${i.stock <= i.reorder_level ? "font-semibold text-red-600" : "text-slate-500"}`}>{i.stock <= 0 ? "Out of stock" : `${num(i.stock)} ${i.unit} left`}</div>
+            </button>
+          ))}
+          {!shown.length && <p className="col-span-full py-6 text-center text-slate-500">No items. The manager adds them on the Shop page.</p>}
+        </div>
+      </section>
+      <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <h2 className="mb-2 text-lg font-semibold">Payment · <Ur>ادائیگی</Ur></h2>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+          {PAY.filter((p) => p.key !== "loyalty").map((p) => (
+            <button key={p.key} aria-pressed={pay === p.key} onClick={() => { setPay(p.key); if (p.key === "khata") setPick(true); else setKhata(null); }}
+              className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow active:scale-95 ${p.cls} ${pay === p.key ? "ring-4 ring-slate-900 ring-offset-2" : pay ? "opacity-50" : ""}`}>
+              <p.icon size={26} /><span className="mt-1 font-bold">{p.en}</span>
+            </button>
+          ))}
+        </div>
+        {pay === "khata" && khata && <div className="mt-2 rounded-xl bg-amber-50 p-2 text-sm ring-1 ring-amber-300">📒 {khata.account.name}</div>}
+      </section>
+      <div className="sticky bottom-0 z-10 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-200">
+        {lines.length > 0 && <ul className="mb-2 max-h-40 space-y-1 overflow-auto">
+          {lines.map((l) => (
+            <li key={l.i.id} className="flex items-center gap-2">
+              <span className="flex-1 text-sm">{l.i.name}</span>
+              <button onClick={() => add(l.i, -1)} className="rounded-lg bg-slate-100 p-1.5" aria-label={`One less ${l.i.name}`}><Minus size={16} /></button>
+              <span className="w-8 text-center font-bold tabular-nums">{l.qty}</span>
+              <button onClick={() => add(l.i, 1)} className="rounded-lg bg-slate-100 p-1.5" aria-label={`One more ${l.i.name}`}><Plus size={16} /></button>
+              <span className="w-24 text-right tabular-nums">{pkr(l.qty * l.i.price)}</span>
+            </li>
+          ))}
+        </ul>}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 text-lg">{lines.length ? <>Total <b className="text-2xl">{pkr(total)}</b></> : <span className="text-slate-500">Tap items to add · <Ur>چیزیں چنیں</Ur></span>}</div>
+          <button onClick={() => { setCart({}); setPay(null); setKhata(null); }} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700"><X className="inline" size={20} /> Clear</button>
+          <button onClick={save} disabled={disabled || saving || !lines.length || !pay || (pay === "khata" && !khata)}
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300"><Check size={26} /> Save · <Ur>محفوظ</Ur></button>
+        </div>
+      </div>
+      {pick && <KhataPicker onClose={() => { setPick(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPick(false); }} initial={khata} />}
+      {scan && <BarcodeScanner onClose={() => setScan(false)} onCode={(c) => { setScan(false); found(c); }} />}
+    </div>
+  );
+}
+
+/** Camera barcode scanner (EAN / UPC / Code 128 / QR) with a type-in fallback. */
+function BarcodeScanner({ onCode, onClose }: { onCode: (code: string) => void; onClose: () => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [camera, setCamera] = useState(true);
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    let stream: MediaStream | null = null, timer: number | undefined, stopped = false;
+    const Detector = (window as any).BarcodeDetector;
+    if (!Detector) { setCamera(false); return; }
+    const det = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"] });
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (stopped) return;
+        video.current!.srcObject = stream; await video.current!.play();
+        const tick = async () => {
+          if (stopped) return;
+          const r = await det.detect(video.current).catch(() => []);
+          if (r[0]?.rawValue) { onCode(r[0].rawValue); return; }
+          timer = window.setTimeout(tick, 200);
+        };
+        tick();
+      } catch { setCamera(false); }
+    })();
+    return () => { stopped = true; clearTimeout(timer); stream?.getTracks().forEach((t) => t.stop()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="fixed inset-0 z-[55] flex items-start justify-center overflow-y-auto bg-slate-900/70 p-3 sm:items-center">
+      <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
+        <div className="mb-3 flex items-center gap-2"><ScanBarcode /><h2 className="flex-1 text-xl font-bold">Scan barcode</h2><button onClick={onClose} className="rounded-xl bg-slate-100 p-2" aria-label="Close"><X /></button></div>
+        {camera ? <video ref={video} className="aspect-[4/3] w-full rounded-xl bg-black object-cover" muted playsInline />
+          : <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Camera scanning is not available on this device. Type the number under the barcode.</p>}
+        <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (code.trim()) onCode(code.trim()); }}>
+          <input className="input py-3 font-mono text-lg" inputMode="numeric" placeholder="Barcode number" value={code} onChange={(e) => setCode(e.target.value)} />
+          <button className="btn-primary px-5">OK</button>
+        </form>
       </div>
     </div>
   );

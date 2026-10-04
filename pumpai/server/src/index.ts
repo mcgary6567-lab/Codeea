@@ -21,6 +21,8 @@ import { capture } from "./routes/capture.js";
 import { renderBill } from "./billing.js";
 import { staffRouter } from "./routes/staff.js";
 import { backoffice, renderDay } from "./routes/backoffice.js";
+import { shop } from "./routes/shop.js";
+import { renderReceipt } from "./billing.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -53,6 +55,11 @@ app.get("/day/:token", (req, res) => {
   const html = renderDay(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This report link is not valid.</p>");
 });
+// digital receipt for walk-in customers (QR on the POS)
+app.get("/r/:token", (req, res) => {
+  const html = renderReceipt(req.params.token);
+  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>Receipt not found.</p>");
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -76,6 +83,7 @@ api.use(pos);
 api.use(capture);
 api.use(staffRouter);
 api.use(backoffice);
+api.use(shop);
 app.use("/api", api);
 
 // Serve the built dashboard in production

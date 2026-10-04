@@ -13,6 +13,7 @@ import { PRODUCTS } from "../config.js";
 import { clientDue } from "./wholesale.js";
 import { supplierOwed } from "./suppliers.js";
 import { tankOutlook } from "../ai/analytics.js";
+import { shopSummary } from "./shop.js";
 
 export const reports = Router();
 reports.use("/reports", requirePerm("reports.view"));
@@ -169,15 +170,17 @@ export function buildReport(t: number, from: string, to: string) {
     if (row.net_sold_l === 0) return a;
     return avgCost[p] == null || a == null ? null : a + row.net_sold_l * avgCost[p]!;
   }, 0);
-  const revenue = round2(retail.amount + wholesale.net_billed);
+  const shopS = shopSummary(t, from, to);
+  const revenue = round2(retail.amount + wholesale.net_billed + shopS.sales);
   const digital = sales.by_payment.filter((m) => ["jazzcash", "easypaisa", "raast", "card"].includes(m.method)).reduce((a, m) => a + m.amount, 0);
   const summary = {
     revenue, retail_sales: round2(retail.amount), retail_litres: r0(retail.litres), retail_txns: retail.txns,
     wholesale_net: wholesale.net_billed, wholesale_litres: r0(wholesale.supplied_l - wholesale.returned_l),
     expenses: expenses.total,
     fuel_cost_estimate: cogs == null ? null : r0(cogs),
-    gross_profit_estimate: cogs == null ? null : r0(revenue - cogs),
-    net_profit_estimate: cogs == null ? null : r0(revenue - cogs - expenses.total),
+    gross_profit_estimate: cogs == null ? null : r0(revenue - cogs - shopS.cost),
+    net_profit_estimate: cogs == null ? null : r0(revenue - cogs - shopS.cost - expenses.total),
+    shop_sales: shopS.sales, shop_profit: shopS.profit,
     purchases_cost: r0(stock.purchases.reduce((a, p) => a + p.cost, 0)),
     money_in: {
       cash_sales: r0(sales.by_payment.find((m) => m.method === "cash")?.amount ?? 0), digital_sales: r0(digital),
@@ -216,7 +219,7 @@ export function dayBook(t: number, from = pkDayStart(), to = new Date().toISOStr
     from, to,
     sales: {
       revenue: r.summary.revenue, retail: r.summary.retail_sales, retail_litres: r.summary.retail_litres, txns: r.summary.retail_txns,
-      wholesale: r.summary.wholesale_net, wholesale_litres: r.summary.wholesale_litres,
+      wholesale: r.summary.wholesale_net, wholesale_litres: r.summary.wholesale_litres, shop: r.summary.shop_sales, shop_profit: r.summary.shop_profit,
       cash: r0(pay("cash")), digital: r.summary.money_in.digital_sales, khata: r0(pay("khata")),
     },
     expenses: { total: r.expenses.total, count: r.expenses.count, by_category: r.expenses.by_category, pending: r.payables.pending_expenses },

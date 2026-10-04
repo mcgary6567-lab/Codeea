@@ -201,6 +201,7 @@ export function seed() {
     createAlert(tenantId, { station_id: st1, type: "complaint", severity: "critical", title: "Complaint #1 (short measure) — Ayesha Khan", body: "Rs 2000 petrol fill showed less on meter at Ferozepur Road last night" });
 
     seedWholesaleAndExpenses(tenantId, st1, st2, T0);
+    seedShop(tenantId, [st1, st2], T0);
     simulateStock(tenantId, st1, st2, T0);
     ensureAutomations(tenantId);
   });
@@ -212,6 +213,38 @@ export function seed() {
 
 
 /** Wholesale clients with their own rate cards and ~2 months of ledger; ~3 months of expenses. */
+/** Lubricants, filters and tuck-shop items with ~2 weeks of shop sales. */
+function seedShop(tenantId: number, stations: number[], T0: number) {
+  const items: [string, string, string, string, number, number, number, number][] = [
+    // name, category, unit, barcode, cost, price, stock, reorder
+    ["Shell Helix HX7 10W-40 (4 L)", "lubricant", "can", "8901234500011", 5200, 5950, 24, 6],
+    ["PSO Deo 8000 20W-50 (4 L)", "lubricant", "can", "8901234500028", 4300, 4900, 30, 8],
+    ["Total Quartz 5000 (1 L)", "lubricant", "bottle", "8901234500035", 1350, 1600, 40, 10],
+    ["ZIC X5 Motorcycle Oil (0.7 L)", "lubricant", "bottle", "8901234500042", 780, 950, 60, 15],
+    ["Oil filter (Corolla / Civic)", "filter", "pc", "8901234500059", 650, 900, 25, 5],
+    ["Air filter (Suzuki)", "filter", "pc", "8901234500066", 550, 800, 15, 4],
+    ["Coolant green (1 L)", "coolant", "bottle", "8901234500073", 420, 550, 20, 5],
+    ["Mineral water (1.5 L)", "tuck", "bottle", "8901234500080", 70, 100, 120, 24],
+    ["Juice pack (250 ml)", "tuck", "pc", "8901234500097", 45, 70, 90, 24],
+    ["Chips (large)", "tuck", "pc", "8901234500103", 80, 120, 70, 20],
+  ];
+  for (const sid of stations) for (const [name, cat, unit, bc, cost, price, stock, reorder] of items) {
+    const id = run(`INSERT INTO shop_items (tenant_id,station_id,barcode,name,category,unit,cost,price,stock,reorder_level,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      tenantId, sid, bc, name, cat, unit, cost, price, stock + 20, reorder, iso(T0 - 20 * DAY)).id;
+    run("INSERT INTO shop_moves (item_id,type,qty,cost,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", id, "opening", stock + 20, cost, "Opening stock", "Kamran Shah", iso(T0 - 20 * DAY));
+    // a few sales a day for two weeks
+    for (let d = 14; d >= 1; d--) {
+      const qty = Math.round(rnd() * (cat === "tuck" ? 4 : 1));
+      if (!qty) continue;
+      const at = iso(T0 - d * DAY + Math.round(rnd() * 12) * 3600_000);
+      const sale = run("INSERT INTO shop_sales (tenant_id,station_id,payment_method,total,cost_total,created_at) VALUES (?,?,?,?,?,?)", tenantId, sid, rnd() < 0.7 ? "cash" : "easypaisa", qty * price, qty * cost, at).id;
+      run("INSERT INTO shop_sale_lines (sale_id,item_id,qty,price,cost) VALUES (?,?,?,?,?)", sale, id, qty, price, cost);
+      run("UPDATE shop_items SET stock = stock - ? WHERE id=?", qty, id);
+      run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?)", id, "sale", -qty, cost, `shop:${sale}`, "Imran", at);
+    }
+  }
+}
+
 function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0: number) {
   const clients = [
     { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, below: { PMG: 4, HSD: 4 } as Record<string, number>, freq: 3, size: [3000, 6000] },

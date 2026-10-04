@@ -114,6 +114,8 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
   const [msg, setMsg] = useState("");
   const [edit, setEdit] = useState(false);
   const [plate, setPlate] = useState("");
+  const [vfuel, setVfuel] = useState("");
+  const [vlimit, setVlimit] = useState("");
   const [bill, setBill] = useState(false);
   const refresh = () => { reload(); onChanged(); };
 
@@ -184,10 +186,17 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold"><Car size={14} /> Vehicles</h3>
               <div className="flex flex-wrap gap-2">{c.vehicles.map((v: any) => (
                 <span key={v.id} className="badge gap-1 bg-slate-100 text-slate-700">{v.plate_no} {v.fuel && `· ${v.fuel}`}
+                  {can("customers.edit") ? <button className="text-brand-700 underline" title="Daily litre limit" onClick={() => {
+                    const x = prompt(`Daily litre limit for ${v.plate_no} (empty = no limit)`, v.daily_limit_l ?? "");
+                    if (x !== null) run(() => api(`/customers/${c.id}/vehicles/${v.id}`, { method: "PATCH", body: { fuel: v.fuel ?? null, daily_limit_l: Number(x) > 0 ? Number(x) : null } }), "Limit saved").then(reload);
+                  }}>{v.daily_limit_l ? `${v.daily_limit_l} L/day` : "no limit"}</button> : v.daily_limit_l ? `· ${v.daily_limit_l} L/day` : null}
                   {can("customers.edit") && <button aria-label={`Remove ${v.plate_no}`} className="text-slate-400 hover:text-red-600" onClick={() => confirm(`Remove ${v.plate_no}?`) && run(() => api(`/customers/${c.id}/vehicles/${v.id}`, { method: "DELETE" }), "Vehicle removed").then(reload)}>×</button>}
                 </span>))}</div>
-              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate } }), c.credit_limit > 0 ? "Vehicle added — salesmen notified" : "Vehicle added")) { setPlate(""); reload(); } }}>
-                <input className="input" placeholder="LEA-1234" value={plate} onChange={(e) => setPlate(e.target.value)} /><button className="btn-secondary" disabled={!plate}>Add</button>
+              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate, fuel: vfuel || null, daily_limit_l: Number(vlimit) > 0 ? Number(vlimit) : null } }), c.credit_limit > 0 ? "Vehicle added — salesmen notified" : "Vehicle added")) { setPlate(""); setVlimit(""); reload(); } }}>
+                <input className="input" placeholder="LEA-1234" value={plate} onChange={(e) => setPlate(e.target.value)} />
+                <select className="input w-28" value={vfuel} onChange={(e) => setVfuel(e.target.value)} aria-label="Fuel"><option value="">Any fuel</option><option value="PMG">Petrol</option><option value="HOBC">Hi-Octane</option><option value="HSD">Diesel</option></select>
+                <input className="input w-28" type="number" min={1} placeholder="L / day" aria-label="Daily litre limit" value={vlimit} onChange={(e) => setVlimit(e.target.value)} />
+                <button className="btn-secondary" disabled={!plate}>Add</button>
               </form>
             </section>
             <section>
