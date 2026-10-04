@@ -30,6 +30,7 @@ export const PERMISSIONS = {
   "sales.view": ALL, // salesman: own station only
   "shifts.manage": ALL, // salesman: own shifts at own station only
   "shifts.view_all": MGMT,
+  "shifts.expenses": ALL, // record expenses paid from the shift's cash (tea, generator fuel...)
   "customers.view": ALL,
   "customers.create": ALL,
   "customers.edit": MGMT,

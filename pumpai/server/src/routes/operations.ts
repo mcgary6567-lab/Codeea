@@ -1,12 +1,12 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now } from "../db.js";
+import { all, get, run, tx, now, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation } from "../auth.js";
 import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
-import { settleShift, shiftReadings, shiftSummary } from "../shifts.js";
+import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
 export const operations = Router();
@@ -143,19 +143,103 @@ operations.get("/shifts", requirePerm("shifts.manage"), h((req) => all(
   tid(req), ...(req.user!.role === "salesman" ? [req.user!.name] : [1, 1]),
 ).map((s) => ({ ...s, readings: all("SELECT r.*, n.label FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=?", s.id) }))));
 
-operations.post("/shifts/open", requirePerm("shifts.manage"), h((req) => {
-  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional() }), req.body);
+/** Nozzles that are not part of another open shift. */
+const busyNozzles = (stationId: number) => new Set(all(
+  `SELECT r.nozzle_id FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id WHERE sh.station_id=? AND sh.status='open'`, stationId).map((r) => r.nozzle_id));
+
+/** Handover sheet for starting a shift: each nozzle's last closing reading and who handed it over. */
+operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
+  const stationId = req.user!.role === "salesman" ? scopedStation(req)! : Number(req.query.station_id) || get("SELECT id FROM stations WHERE tenant_id=? ORDER BY id LIMIT 1", tid(req))!.id;
+  ownStation(tid(req), stationId);
+  const busy = busyNozzles(stationId);
+  return {
+    station_id: stationId,
+    nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.id", stationId).map((n) => {
+      const last = get(`SELECT sh.attendant, sh.closed_at, r.closing FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id
+        WHERE r.nozzle_id=? AND sh.status='closed' AND r.closing IS NOT NULL ORDER BY sh.closed_at DESC LIMIT 1`, n.id);
+      return { nozzle_id: n.id, label: n.label, product: n.product, tank: n.tank, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
+    }),
+  };
+}));
+
+/**
+ * Start a shift. The salesman writes the meter reading of each nozzle they will run (the previous shift's
+ * closing reading is the starting point). If a meter moved between shifts, those litres left the tank
+ * without a sale: stock is reduced and managers are alerted.
+ */
+operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
+  const b = parse(z.object({ station_id: z.number().optional(), attendant: z.string().min(2).optional(), readings: z.record(z.string(), z.number().min(0)).optional() }), req.body);
   const isSalesman = req.user!.role === "salesman";
   const stationId = isSalesman ? scopedStation(req, b.station_id)! : b.station_id;
   const attendant = isSalesman ? req.user!.name : b.attendant;
   if (!stationId || !attendant) throw new AppError(400, "Station and attendant are required");
-  ownStation(tid(req), stationId);
+  const st = ownStation(tid(req), stationId);
   if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", stationId, attendant)) throw new AppError(400, "This attendant already has an open shift");
-  return tx(() => {
+  const busy = busyNozzles(stationId);
+  const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=?", stationId);
+  const chosen = b.readings ? stationNozzles.filter((n) => String(n.id) in b.readings!) : stationNozzles.filter((n) => !busy.has(n.id));
+  if (b.readings && chosen.length !== Object.keys(b.readings).length) throw new AppError(400, "Unknown nozzle in readings");
+  for (const n of chosen) if (busy.has(n.id)) throw new AppError(400, `Nozzle ${n.label} is already running in another open shift`);
+  if (!chosen.length) throw new AppError(400, "All nozzles at this station are already in use by open shifts");
+  for (const n of chosen) {
+    const r = b.readings?.[String(n.id)];
+    if (r !== undefined && r < n.totalizer) throw new AppError(400, `Nozzle ${n.label}: reading ${r} is below the last closing reading ${n.totalizer}. Meters cannot go back — please check.`);
+  }
+  const gaps: { label: string; product: string; litres: number }[] = [];
+  const shift = tx(() => {
     const { id } = run("INSERT INTO shifts (station_id,attendant,opened_at,status) VALUES (?,?,?, 'open')", stationId, attendant, now());
-    for (const n of all("SELECT * FROM nozzles WHERE station_id=?", stationId)) run("INSERT INTO meter_readings (shift_id,nozzle_id,opening) VALUES (?,?,?)", id, n.id, n.totalizer);
-    return get("SELECT * FROM shifts WHERE id=?", id);
+    for (const n of chosen) {
+      const opening = b.readings?.[String(n.id)] ?? n.totalizer;
+      const gap = round2(opening - n.totalizer);
+      run("INSERT INTO meter_readings (shift_id,nozzle_id,opening,handover_prev,handover_gap) VALUES (?,?,?,?,?)", id, n.id, opening, n.totalizer, gap);
+      if (gap > 0.01) {
+        // fuel left the tank between shifts without being billed: keep book stock with the meters
+        run("UPDATE tanks SET current_l = MAX(0, current_l - ?) WHERE id=?", gap, n.tank_id);
+        run("UPDATE nozzles SET totalizer=? WHERE id=?", opening, n.id);
+        gaps.push({ label: n.label, product: n.product, litres: gap });
+      }
+    }
+    return get("SELECT * FROM shifts WHERE id=?", id)!;
   });
+  if (gaps.length) {
+    const body = `${gaps.map((g) => `${g.label} (${PRODUCTS[g.product]}): ${g.litres} L`).join(", ")} moved on the meter between shifts and were not billed. Started by ${attendant} at ${st.name}.`;
+    const a = createAlert(tid(req), { station_id: stationId, type: "handover_gap", severity: "critical", title: `⚠️ Meter gap at shift handover — ${round2(gaps.reduce((x, g) => x + g.litres, 0))} L`, body, dedupe_key: `gap-${shift.id}` });
+    if (a) await notify(tid(req), staff(tid(req), ["admin", "manager"]), { type: "handover_gap", data: { shift_id: shift.id }, title: a.title, body });
+  }
+  return { ...shift, nozzles: chosen.length, handover_gaps: gaps };
+}));
+
+/** Expenses paid from the shift's cash (tea, generator diesel, small repairs...). */
+operations.get("/shifts/expense-categories", requirePerm("shifts.expenses"), h((req) =>
+  all("SELECT name FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)).map((c) => c.name)));
+
+operations.post("/shifts/:id/expenses", requirePerm("shifts.expenses"), h(async (req) => {
+  const shift = ownOpenShift(req, Number(req.params.id));
+  if (shift.status !== "open") throw new AppError(400, "Shift is closed");
+  const b = parse(z.object({ category: z.string().min(2), amount: z.number().positive().max(1_000_000), paid_to: z.string().max(80).optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
+  if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), b.category)) throw new AppError(400, "Unknown expense category");
+  const limit = Number(getSetting(tid(req), "expense_approval_limit", "10000"));
+  const status = req.user!.role === "admin" || b.amount <= limit ? "approved" : "pending";
+  const { id } = run(`INSERT INTO expenses (tenant_id,station_id,shift_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), shift.station_id, shift.id, b.category, b.amount, b.paid_to ?? null, "cash", b.note ?? null, status,
+    req.user!.name, status === "approved" ? req.user!.name : null, new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10), now());
+  if (status === "pending")
+    createAlert(tid(req), { station_id: shift.station_id, type: "expense_approval", severity: "warning", title: `Shift expense needs approval: ${pkr(b.amount)} ${b.category}`,
+      body: `Paid from ${shift.attendant}'s shift cash${b.note ? ` · ${b.note}` : ""}` });
+  return { expense: get("SELECT * FROM expenses WHERE id=?", id), summary: shiftSummary(shift.id) };
+}));
+
+operations.delete("/shifts/:id/expenses/:eid", requirePerm("shifts.expenses"), h((req) => {
+  const shift = ownOpenShift(req, Number(req.params.id));
+  if (shift.status !== "open") throw new AppError(400, "Shift is closed");
+  run("DELETE FROM expenses WHERE id=? AND shift_id=?", Number(req.params.eid), shift.id);
+  return { summary: shiftSummary(shift.id) };
+}));
+
+/** Full shift report: meters, litres at each rate, khata accounts, digital, expenses, cash to hand over. */
+operations.get("/shifts/:id/report", requirePerm("shifts.manage"), h((req) => {
+  const shift = ownOpenShift(req, Number(req.params.id));
+  return shiftReport(shift.id);
 }));
 
 /**
@@ -195,7 +279,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
     settleShift(t, shift, b.readings, () => undefined);
     for (const r of shiftReadings(shift.id)) run("UPDATE meter_readings SET closing=? WHERE id=?", b.readings[String(r.nozzle_id)], r.id);
     const totalLitres = shiftReadings(shift.id).reduce((a, r) => a + (r.closing - r.opening), 0);
-    const expected = shiftSummary(shift.id).cash_expected;
+    const expected = shiftSummary(shift.id).cash_expected; // cash sales − expenses paid from the shift cash
     run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
       now(), round2(totalLitres), expected, b.cash_actual, round2(b.cash_actual - expected), b.notes ?? null, shift.id);
   });

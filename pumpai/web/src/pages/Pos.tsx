@@ -6,6 +6,7 @@ import { Loading, useAction } from "../components/ui";
 import { num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
+import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
 
 /* Big, colourful, bilingual (English + Urdu) point of sale designed for one-hand use on a tablet. */
 
@@ -193,7 +194,7 @@ export default function Pos() {
           </div>
         </div>
 
-        <ShiftPanel d={d} />
+        <ShiftPanel d={d} reload={today.reload} />
       </div>
 
       {/* blocking states */}
@@ -235,38 +236,39 @@ function Step({ n, en, ur, children }: { n: number; en: string; ur: string; chil
 }
 
 const Blocker = ({ children }: { children: ReactNode }) => (
-  <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4 lg:left-60"><div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">{children}</div></div>
+  <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 sm:items-center lg:left-60"><div className="w-full max-w-xl rounded-2xl bg-white p-6 text-center shadow-xl">{children}</div></div>
 );
 
 function StartShift({ onStarted }: { onStarted: () => void }) {
-  const { busy, run } = useAction();
   return (
     <>
-      <div className="text-6xl">🕘</div>
-      <h2 className="mt-2 text-2xl font-bold">Start your shift · <Ur>شفٹ شروع کریں</Ur></h2>
-      <p className="mt-1 text-slate-600">Meter readings are taken automatically.</p>
-      <button className="mt-4 w-full rounded-xl bg-emerald-600 py-5 text-2xl font-bold text-white active:scale-95" disabled={busy}
-        onClick={() => run(() => api("/shifts/open", { body: {} }), "Shift started").then((r) => r && onStarted())}>Start shift</button>
+      <div className="text-5xl">🕘</div>
+      <h2 className="mt-1 text-2xl font-bold">Start your shift · <Ur>شفٹ شروع کریں</Ur></h2>
+      <p className="mb-3 mt-1 text-slate-600">Check each meter and confirm the reading.</p>
+      <StartShiftSheet big onStarted={onStarted} />
     </>
   );
 }
 
-function ShiftPanel({ d }: { d: any }) {
+function ShiftPanel({ d, reload }: { d: any; reload: () => void }) {
   const s = d.shift?.summary;
-  const cash = s?.by_payment.find((p: any) => p.method === "cash")?.amount ?? 0;
   return (
     <aside className="space-y-3">
       <div className="rounded-2xl bg-slate-900 p-4 text-white">
-        <div className="text-sm text-slate-300">Cash in hand (should be) · <Ur>نقد</Ur></div>
-        <div className="text-4xl font-bold tabular-nums">{pkr(cash)}</div>
+        <div className="text-sm text-slate-300">Cash in bag (should be) · <Ur>نقد</Ur></div>
+        <div className="text-4xl font-bold tabular-nums">{pkr(s?.cash_expected ?? 0)}</div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">Total sales</div><div className="text-lg font-semibold tabular-nums">{pkr(s?.amount ?? 0)}</div></div>
           <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">Litres</div><div className="text-lg font-semibold tabular-nums">{num(s?.litres ?? 0, 1)} L</div></div>
         </div>
         <div className="mt-2 space-y-1 text-sm">
-          {(s?.by_payment ?? []).filter((p: any) => p.method !== "cash").map((p: any) => <div key={p.method} className="flex justify-between capitalize"><span className="text-slate-300">{p.method}</span><span className="tabular-nums">{pkr(p.amount)}</span></div>)}
+          <div className="flex justify-between"><span className="text-slate-300">💵 Cash sales</span><span className="tabular-nums">{pkr(s?.cash_sales ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-300">📒 Khata</span><span className="tabular-nums">{pkr(s?.khata ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-300">📱 Digital</span><span className="tabular-nums">{pkr(s?.digital ?? 0)}</span></div>
+          <div className="flex justify-between text-red-300"><span>− Expenses</span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
         </div>
       </div>
+      {d.shift && <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} /></div>}
       <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
         <h3 className="mb-2 font-semibold">Last sales · <Ur className="text-slate-500">آخری سیل</Ur></h3>
         <ul className="divide-y divide-slate-100">

@@ -56,13 +56,39 @@ export function settleShift(tenantId: number, shift: Row, readings: Record<strin
   return out;
 }
 
-/** Totals for a shift: litres and amount by product, money by payment method, cash expected. */
+/**
+ * Totals for a shift: litres and amount by product, money by payment method, khata accounts,
+ * expenses paid from the shift's cash, and the cash the salesman must hand over.
+ */
 export function shiftSummary(shiftId: number) {
   const byProduct = all(`SELECT product, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY product`, shiftId);
-  const byPayment = all(`SELECT payment_method method, ROUND(SUM(amount),2) amount, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY payment_method ORDER BY amount DESC`, shiftId);
-  const cash = byPayment.find((p) => p.method === "cash")?.amount ?? 0;
+  const byPayment = all(`SELECT payment_method method, ROUND(SUM(amount),2) amount, ROUND(SUM(litres),2) litres, COUNT(*) txns FROM sales WHERE shift_id=? GROUP BY payment_method ORDER BY amount DESC`, shiftId);
+  const expenses = all(`SELECT id, category, amount, paid_to, note, status, created_by, created_at FROM expenses WHERE shift_id=? AND status<>'rejected' ORDER BY id`, shiftId);
+  const sum = (m: string[]) => round2(byPayment.filter((p) => m.includes(p.method)).reduce((a, p) => a + p.amount, 0));
+  const cashSales = sum(["cash"]);
+  const expensesTotal = round2(expenses.reduce((a, e) => a + e.amount, 0));
   return {
     by_product: byProduct, by_payment: byPayment,
-    litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)), cash_expected: round2(cash),
+    litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
+    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]),
+    expenses, expenses_total: expensesTotal,
+    // what must be in the cash bag at the end: cash sales minus expenses paid from that cash
+    cash_expected: round2(cashSales - expensesTotal),
+  };
+}
+
+/** Everything about one shift, for the shift report / receipt. */
+export function shiftReport(shiftId: number) {
+  const shift = get("SELECT sh.*, s.name station_name FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=?", shiftId)!;
+  const readings = shiftReadings(shiftId).map((r) => ({ ...r, litres: r.closing != null ? round2(r.closing - r.opening) : null }));
+  return {
+    shift, readings, summary: shiftSummary(shiftId),
+    // litres and amount at each rate (two lines if the price changed during the shift)
+    by_rate: all(`SELECT product, rate, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount FROM sales WHERE shift_id=? GROUP BY product, rate ORDER BY product, rate`, shiftId),
+    khata: all(`SELECT c.id, c.name, c.type, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) slips,
+        GROUP_CONCAT(COALESCE(s.slip_no, ''), ', ') slip_nos FROM sales s JOIN customers c ON c.id=s.customer_id
+      WHERE s.shift_id=? AND s.payment_method='khata' GROUP BY c.id ORDER BY amount DESC`, shiftId)
+      .map((k) => ({ ...k, slip_nos: String(k.slip_nos ?? "").split(", ").filter(Boolean) })),
+    handover_gaps: readings.filter((r) => (r.handover_gap ?? 0) > 0.01).map((r) => ({ label: r.label, product: r.product, litres: r.handover_gap, previous: r.handover_prev, opening: r.opening })),
   };
 }

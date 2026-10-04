@@ -44,7 +44,7 @@ test("/me returns role-specific permissions", async () => {
   assert.equal(a.user.role, "admin");
   assert.ok(a.permissions.includes("users.manage") && a.permissions.includes("settings.manage"));
   assert.ok(m.permissions.includes("whatsapp.inbox") && !m.permissions.includes("users.manage"));
-  assert.deepEqual(s.permissions.sort(), ["customers.create", "customers.view", "prices.view", "sales.create", "sales.view", "shifts.manage"].sort());
+  assert.deepEqual(s.permissions.sort(), ["customers.create", "customers.view", "prices.view", "sales.create", "sales.view", "shifts.expenses", "shifts.manage"].sort());
   assert.ok(s.user.station_name);
 });
 
@@ -86,7 +86,7 @@ test("salesman is locked to their own station and shift", async () => {
   const shifts = (await call("salesman", "GET", "/api/shifts")).data;
   assert.ok(shifts.every((s: any) => s.attendant === "Imran" && s.station_id === own));
   // cannot close a shift belonging to someone else
-  const mgrShift = (await call("manager", "POST", "/api/shifts/open", { station_id: own, attendant: "Asghar" })).data;
+  const mgrShift = (await call("manager", "POST", "/api/shifts/open", { station_id: other, attendant: "Asghar" })).data;
   assert.equal((await call("salesman", "POST", `/api/shifts/${mgrShift.id}/close`, { readings: {}, cash_actual: 0 })).status, 403);
 });
 
