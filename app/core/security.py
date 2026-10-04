@@ -5,7 +5,6 @@ import hmac
 import secrets
 import struct
 import time
-from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt

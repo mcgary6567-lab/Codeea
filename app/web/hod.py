@@ -17,8 +17,8 @@ from app.core.utils import parse_date
 from app.database import get_db
 from app.models.core import User
 from app.models.erp import ClassQuery
-from app.models.finance import Invoice, Payment, Subscription
-from app.models.people import Client, Employee, HRAttendance, Leave, Student, Teacher
+from app.models.finance import Invoice, Payment
+from app.models.people import HRAttendance, Leave, Student, Teacher
 from app.models.scheduling import ClassSession, SESSION_STATUSES
 from app.services import classes as class_svc
 from app.services import scheduling as svc

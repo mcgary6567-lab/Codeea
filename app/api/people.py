@@ -5,13 +5,11 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field, EmailStr
-from sqlalchemy import or_, func
+from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.core.audit import log_action
-from app.core.deps import require, get_current_user
-from app.core.utils import parse_int
+from app.core.deps import require
 from app.database import get_db
 from app.models.academic import Course
 from app.models.core import User

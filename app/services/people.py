@@ -92,17 +92,6 @@ def _local_hour_to_org(hour: int, tz: str) -> int:
     return local.astimezone(safe_zone(ORG_TZ)).hour
 
 
-def shift_for_timezone(tz: str) -> str:
-    """Which org shift best covers the student's evening (16:00-21:00 local)?"""
-    best, best_n = "evening", -1
-    hours = [_local_hour_to_org(h, tz) for h in range(16, 22)]
-    for shift, (start, end) in SHIFT_WINDOWS.items():
-        n = sum(1 for h in hours if start <= h < end or start <= h + 24 < end)
-        if n > best_n:
-            best, best_n = shift, n
-    return best
-
-
 # ----------------------------------------------------------------------------- teacher match (Module 44)
 def teacher_load(db: Session, teacher_id: int) -> int:
     return db.query(func.count(Student.id)).filter(Student.teacher_id == teacher_id, Student.status.in_(["active", "trial", "free"])).scalar() or 0

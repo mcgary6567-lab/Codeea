@@ -12,7 +12,6 @@ import logging
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action

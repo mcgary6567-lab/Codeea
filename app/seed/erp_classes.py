@@ -19,7 +19,7 @@ from app.models.academic import Book
 from app.models.core import User
 from app.models.erp import ClassActivity, ClassArrangement, ClassQuery, RescheduleRequest, SessionSlot
 from app.models.finance import Subscription
-from app.models.people import Student, Teacher
+from app.models.people import Teacher
 from app.models.scheduling import ClassSession, Schedule
 from app.services import arrangements as arr_svc
 from app.services import scheduling as sched

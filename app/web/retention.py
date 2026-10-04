@@ -1,21 +1,20 @@
 """Retention & churn (Module 33 + 29.11): risk board, retention actions kanban, freezes and cohort analytics."""
 from __future__ import annotations
 
-from datetime import datetime, date, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from app.core.audit import log_action, snapshot
+from app.core.audit import log_action
 from app.core.deps import require, csrf_protect
 from app.core.notify import notify
 from app.core.templating import render
-from app.core.utils import redirect, paginate, parse_date, parse_datetime, parse_int
+from app.core.utils import redirect, parse_datetime, parse_int
 from app.database import get_db
 from app.models.core import User, Role
-from app.models.crm import RetentionAction, SequenceEnrollment
-from app.models.people import Client, Student, Teacher
+from app.models.crm import RetentionAction
+from app.models.people import Student, Teacher
 from app.services import crm as crm_svc
 from app.services import retention as svc
 

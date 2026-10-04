@@ -19,9 +19,9 @@ from app.core.templating import render
 from app.core.utils import redirect, paginate, parse_date, parse_datetime, parse_int, parse_float, parse_bool
 from app.database import get_db
 from app.models.academic import Course
-from app.models.core import User, Role, Integration, AuditEvent
-from app.models.crm import (LEAD_STAGES, Lead, LeadActivity, LeadSource, Campaign, CampaignMetric, Conversation, Message, InternalNote,
-                            MessageTemplate, Sequence, SequenceEnrollment, Referral, Case, Feedback)
+from app.models.core import User, Role, Integration
+from app.models.crm import (LEAD_STAGES, Lead, LeadSource, Campaign, CampaignMetric, Conversation, Message, InternalNote,
+                            MessageTemplate, Sequence, SequenceEnrollment, Referral)
 from app.models.people import Client, Employee, Student, Teacher
 from app.models.scheduling import Trial
 from app.services import crm as svc

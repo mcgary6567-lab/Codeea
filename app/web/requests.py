@@ -28,15 +28,27 @@ from app.models.erp import ReferredContact, SessionSlot, TeacherChangeRequest, T
 from app.models.finance import Subscription
 from app.models.people import Client, Leave, Student, Teacher
 from app.models.scheduling import ClassSession, Schedule
+from app.services import lookups
 
 router = APIRouter(prefix="/requests", dependencies=[Depends(csrf_protect)])
 
 STATUSES = ["pending", "approved", "rejected", "cancelled"]
 TILES = [("Pending", "pending", "clock"), ("Approved", "approved", "check-circle-2"),
          ("Rejected", "rejected", "x-circle"), ("Cancelled", "cancelled", "ban")]
+# Fallbacks only: the lists staff see come from Configuration -> Lookups (codes leave_type, reference_type,
+# family_complaint_type) through lookups.options; a value submitted must be one of the configured values.
 LEAVE_TYPES = ["casual", "sick", "vacation", "emergency", "exam"]
 REFERENCE_TYPES = ["family", "friend", "colleague", "community", "other"]
 COMPLAINT_TYPES = ["Teacher", "Timing", "Billing", "Technical", "Behaviour", "Other"]
+LOOKUP_CODES = {"leave_type": ("leave_type", LEAVE_TYPES), "reference_type": ("reference_type", REFERENCE_TYPES),
+                "complaint_type": ("family_complaint_type", COMPLAINT_TYPES)}
+
+
+def _pick(db: Session, field: str, submitted: str | None, default: str) -> str:
+    """The submitted value when it is one of the configured options for ``field``, else ``default``."""
+    code, fallback = LOOKUP_CODES[field]
+    allowed = lookups.option_values(db, code, fallback)
+    return submitted if submitted in allowed else (default if default in allowed or not allowed else allowed[0])
 
 # kind -> page metadata. ``headers`` are the ERP's column labels before the trailing Status / Created At pair.
 KINDS = {
@@ -108,8 +120,9 @@ def _teacher_options(db: Session) -> list[tuple[int, str]]:
 def _options(db: Session) -> dict:
     return {"client_options": _client_options(db), "student_options": _student_options(db),
             "subscription_options": _subscription_options(db), "slot_options": _slot_options(db),
-            "teacher_options": _teacher_options(db), "leave_types": LEAVE_TYPES,
-            "reference_types": REFERENCE_TYPES, "complaint_types": COMPLAINT_TYPES,
+            "teacher_options": _teacher_options(db), "leave_types": lookups.options(db, "leave_type", LEAVE_TYPES),
+            "reference_types": lookups.options(db, "reference_type", REFERENCE_TYPES),
+            "complaint_types": lookups.options(db, "family_complaint_type", COMPLAINT_TYPES),
             "day_options": [(0, "Mon"), (1, "Tue"), (2, "Wed"), (3, "Thu"), (4, "Fri"), (5, "Sat"), (6, "Sun")]}
 
 
@@ -190,7 +203,7 @@ async def leave_create(request: Request, db: Session = Depends(get_db), user: Us
     start, end = parse_date(form.get("start_date")), parse_date(form.get("end_date"))
     if not st or not start or not end or end < start:
         return redirect("/requests/leaves", "Select a student and a valid date range.", "error")
-    lv = Leave(person_type="student", student_id=st.id, leave_type=form.get("leave_type") or "casual",
+    lv = Leave(person_type="student", student_id=st.id, leave_type=_pick(db, "leave_type", form.get("leave_type"), "casual"),
                start_date=start, end_date=end, reason=(form.get("reason") or "").strip() or None,
                leave_detail=(form.get("leave_detail") or "").strip() or None,
                leave_for_all=parse_bool(form.get("leave_for_all")),
@@ -342,7 +355,7 @@ async def reference_create(request: Request, db: Session = Depends(get_db), user
     r = ReferredContact(client_id=c.id, name=name[:150], email=(form.get("email") or "").strip() or None,
                         contact_no=(form.get("contact_no") or "").strip() or None,
                         description=(form.get("description") or "").strip() or None,
-                        reference_type=form.get("reference_type") or "family", status="pending")
+                        reference_type=_pick(db, "reference_type", form.get("reference_type"), "family"), status="pending")
     db.add(r)
     db.flush()
     log_action(db, user, "create", "requests", entity=r, request=request, rationale=r.description,
@@ -392,7 +405,7 @@ async def complaint_create(request: Request, db: Session = Depends(get_db), user
     k = Case(case_number=next_code(db, Case, "case_number", "CS-"), case_type="complaint", title=title[:200],
              description=(form.get("description") or "").strip() or None, raised_by_type="client",
              raised_by_user_id=user.id, client_id=c.id, student_id=sid or None, priority="medium", status="open",
-             source="staff", complaint_type=form.get("complaint_type") or "Other", approval_status="pending")
+             source="staff", complaint_type=_pick(db, "complaint_type", form.get("complaint_type"), "Other"), approval_status="pending")
     db.add(k)
     db.flush()
     log_action(db, user, "create", "requests", entity=k, request=request, rationale=k.description,

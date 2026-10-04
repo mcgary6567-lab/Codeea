@@ -415,7 +415,6 @@ def counts_by_status(query) -> dict:
 
 def student_local_time(student, when: Optional[datetime] = None) -> dict:
     """"Client - Student Time Status": the class time (org / Asia-Karachi) rendered in the student's own zone."""
-    from datetime import timezone as _tz
     org = "Asia/Karachi"
     tz_name = (getattr(student, "timezone", None) or "Europe/London") if student else "Europe/London"
     when = when or (datetime.utcnow() + timedelta(hours=5))

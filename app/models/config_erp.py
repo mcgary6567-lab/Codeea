@@ -4,10 +4,10 @@ See docs/AUDIT_ACCOUNTS_CONFIG.md for the audit these serve. Lookups and branch 
 because the rest of the system reads from them: the attendance grace periods decide when a late arrival
 attracts a fine, and the advance invoice days decide how far ahead billing runs.
 """
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Date, Text, ForeignKey, JSON, Float, Numeric
+from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, JSON, Float, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin

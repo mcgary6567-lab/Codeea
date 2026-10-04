@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.audit import log_action, snapshot
+from app.core.audit import log_action
 from app.core.deps import csrf_protect, require
 from app.core.notify import notify
 from app.core.templating import render

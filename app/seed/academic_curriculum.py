@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.academic import (Book, Certificate, Chapter, Course, CurriculumVersion, DorSchedule, Evaluation, Lesson,
                                  LessonAnnotation, LessonPlan, MonthlyTest, StudentProgress)
 from app.models.core import User
-from app.models.people import Student, Teacher
+from app.models.people import Student
 
 # =============================================================================== Quranic source text
 # (surah number -> (english name, arabic name, [(ayah, arabic with tashkeel, english translation)]))

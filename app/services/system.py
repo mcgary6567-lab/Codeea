@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import re
 import secrets
 import sqlite3
@@ -19,17 +18,15 @@ from datetime import datetime, timedelta, date
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings, BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.security import hash_password
 from app.database import Base
-from app.models.core import (User, Role, Department, Branch, Organization, UserSession, AuditEvent, Notification,
-                             NotificationTemplate, CommunicationPreference, Setting, ApiKey, Integration, Webhook,
-                             WebhookDelivery, FileAsset, SecurityIncident, BackupRecord)
+from app.models.core import (User, Role, Organization, UserSession, AuditEvent, Notification,
+                             CommunicationPreference, Setting, Integration, FileAsset, SecurityIncident, BackupRecord)
 from app.models.people import Client, Student, Teacher, Employee
 
 PRIVILEGED_ROLES = {"super_admin", "system_admin", "hod_people", "hod_finance", "hod_academics", "hod_qa",
@@ -529,12 +526,15 @@ RETENTION_KEYS = [
 
 
 # ============================================================================= integrations
+# Every path here is a real route (tests/test_gaps_platform.py checks them against the app's route table).
+# Verification: the provider's inbound secret (integrations.INBOUND_SECRET_SOURCES) as an HMAC-SHA256 signature
+# over the body, or as the shared token in X-Webhook-Token - see app/api/webhooks.py.
 INBOUND_WEBHOOKS = {
     "whatsapp": "/api/v1/webhooks/whatsapp",
     "ghl": "/api/v1/webhooks/ghl",
-    "n8n": "/api/v1/system/webhooks/inbound/n8n",
+    "n8n": "/api/v1/webhooks/n8n",
     "payment": "/api/v1/webhooks/payment",
-    "meta_ads": "/api/v1/webhooks/meta-leads",
+    "meta_ads": "/api/v1/webhooks/meta-lead",
     "zoom": "/api/v1/webhooks/zoom",
 }
 

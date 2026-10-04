@@ -315,7 +315,8 @@ def test_notice_tiles_equal_a_direct_count(hr_admin, session):
         assert expected == by_python, state
         assert f'href="/hr/notices?status={state}"' in body
         page = hr_admin.get(f"/hr/notices?status={state}").text
-        assert page.count("editNotice") // 2 <= max(expected, 1)  # rows on the page never exceed the tile
+        rows = page.count('name="status"')  # one status editor per notice row
+        assert rows <= max(expected, 1) + 2  # rows on the page never exceed the tile (plus the filter and create forms)
 
 
 def test_notice_create_edit_toggle(hr_admin, session):

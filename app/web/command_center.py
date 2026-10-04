@@ -14,7 +14,7 @@ from app.core.templating import render
 from app.core.utils import parse_date, redirect
 from app.database import get_db
 from app.models.core import Department, RiskAlert, User
-from app.models.ops import Decision, DepartmentScorecard, Task, TrajectoryMeeting
+from app.models.ops import Decision, DepartmentScorecard, TrajectoryMeeting
 from app.models.scheduling import ClassSession
 from app.services import insights as insight_svc
 from app.services import kpi as kpi_svc
@@ -23,8 +23,11 @@ from app.services import reports as report_svc
 router = APIRouter(prefix="/command-center", dependencies=[Depends(csrf_protect)])
 
 
-def current_period(period: str, start: str, end: str) -> kpi_svc.Period:
-    return kpi_svc.resolve_period(period or "this_month", parse_date(start), parse_date(end))
+def current_period(period: str, start: str, end: str, db: Session | None = None) -> kpi_svc.Period:
+    """Year-to-date opens on the Branch Property financial year when a session is given."""
+    from app.services.accounting import financial_year_start_month
+    fy_month = financial_year_start_month(db) if db is not None else 1
+    return kpi_svc.resolve_period(period or "this_month", parse_date(start), parse_date(end), fy_start_month=fy_month)
 
 
 def _today_status(db: Session) -> dict:
@@ -133,7 +136,7 @@ def _context(db: Session, user: User, p: kpi_svc.Period) -> dict:
 @router.get("", include_in_schema=False)
 def command_center(request: Request, period: str = "this_month", start: str = "", end: str = "",
                    db: Session = Depends(get_db), user: User = Depends(require("command_center.view"))):
-    p = current_period(period, start, end)
+    p = current_period(period, start, end, db)
     ctx = _context(db, user, p)
     ctx["insights"] = insight_svc.executive_insights(db, p)
     ctx["user"] = user
@@ -143,7 +146,7 @@ def command_center(request: Request, period: str = "this_month", start: str = ""
 @router.get("/partial/insights", include_in_schema=False)
 def insights_partial(request: Request, period: str = "this_month", start: str = "", end: str = "",
                      db: Session = Depends(get_db), user: User = Depends(require("command_center.view"))):
-    p = current_period(period, start, end)
+    p = current_period(period, start, end, db)
     return render(request, "command_center/_insights.html",
                   {"user": user, "period": p, "insights": insight_svc.executive_insights(db, p)})
 
@@ -152,7 +155,7 @@ def insights_partial(request: Request, period: str = "this_month", start: str = 
 async def regenerate_insights(request: Request, db: Session = Depends(get_db),
                               user: User = Depends(require("command_center.view"))):
     form = await request.form()
-    p = current_period(form.get("period", "this_month"), form.get("start"), form.get("end"))
+    p = current_period(form.get("period", "this_month"), form.get("start"), form.get("end"), db)
     out = insight_svc.executive_insights(db, p, force=True, user=user)
     log_action(db, user, "execute", "command_center", entity=out.get("run"),
                description=f"Regenerated executive AI insights for {p.label}", request=request)
@@ -164,7 +167,7 @@ async def regenerate_insights(request: Request, db: Session = Depends(get_db),
 async def scan_anomalies(request: Request, db: Session = Depends(get_db),
                          user: User = Depends(require("command_center.view"))):
     form = await request.form()
-    p = current_period(form.get("period", "this_month"), form.get("start"), form.get("end"))
+    p = current_period(form.get("period", "this_month"), form.get("start"), form.get("end"), db)
     out = insight_svc.detect_anomalies(db, p)
     log_action(db, user, "execute", "command_center",
                description=f"Anomaly scan for {p.label}: {len(out['anomalies'])} found, {out['created']} alerts raised",
@@ -196,7 +199,7 @@ async def ack_alert(alert_id: int, request: Request, db: Session = Depends(get_d
 def export_executive(request: Request, period: str = "this_month", start: str = "", end: str = "",
                      db: Session = Depends(get_db), user: User = Depends(require("command_center.view"))):
     from fastapi.responses import FileResponse
-    p = current_period(period, start, end)
+    p = current_period(period, start, end, db)
     m = kpi_svc.executive_metrics(db, p.start, p.end)
     health = kpi_svc.health_score(m)
     rows = [["Institutional Health Score", health["score"], health["band"], "0-100 composite"]]

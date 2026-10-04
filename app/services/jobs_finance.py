@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.notify import notify
@@ -39,9 +38,10 @@ def _already_reminded(db: Session, invoice: Invoice, stage: str) -> bool:
 
 # --------------------------------------------------------------------------- invoicing
 def daily_invoice_generation(db: Session) -> dict:
-    """Issue invoices for active subscriptions whose next billing date falls within the next 3 days."""
+    """Issue invoices for active subscriptions whose next billing date falls within the advance window
+    (Branch Property "Advance Invoice Generation Days"; 3 days when unset)."""
     user = _system_user(db)
-    horizon = date.today() + timedelta(days=3)
+    horizon = date.today() + timedelta(days=billing.advance_invoice_days(db))
     subs = (db.query(Subscription)
             .filter(Subscription.status == "active", Subscription.next_billing_date.isnot(None),
                     Subscription.next_billing_date <= horizon).all())
@@ -65,7 +65,10 @@ def daily_invoice_generation(db: Session) -> dict:
 def overdue_and_reminders(db: Session) -> dict:
     """Mark invoices overdue and run the reminder cadence (3 days before due, on due, 3/7/14 days after)."""
     today = date.today()
-    marked, reminders = 0, 0
+    marked, reminders, late_fees = 0, 0, 0
+    send_reminders = billing.send_reminders_enabled(db)   # Branch Property "Send Payment Reminders"
+    fee_pct = billing.late_fee_pct(db)                    # Branch Property "Late Fee Percentage"; 0 posts nothing
+    user = _system_user(db) if fee_pct > 0 else None
     open_invoices = db.query(Invoice).filter(Invoice.status.in_(["sent", "partial", "overdue"])).all()
     for inv in open_invoices:
         if not inv.due_date:
@@ -73,6 +76,10 @@ def overdue_and_reminders(db: Session) -> dict:
         if inv.status in ("sent", "partial") and inv.due_date < today:
             inv.status = "overdue"
             marked += 1
+        if fee_pct > 0 and inv.due_date < today and billing.post_late_fee(db, inv, user, pct=fee_pct) is not None:
+            late_fees += 1
+        if not send_reminders:
+            continue
         offset = (today - inv.due_date).days
         stage = next((name for name, days in REMINDER_CADENCE if days == offset), None)
         if not stage or _already_reminded(db, inv, stage):
@@ -98,7 +105,8 @@ def overdue_and_reminders(db: Session) -> dict:
                        event_type="invoice_reminder", link=f"/finance/invoices/{inv.id}")
                 db.add(ReminderLog(reminder_type=f"invoice_{stage}_rep", user_id=target.id, entity_type="Invoice",
                                    entity_id=inv.id, channel="in_app", status="sent"))
-    return {"checked": len(open_invoices), "marked_overdue": marked, "reminders": reminders}
+    return {"checked": len(open_invoices), "marked_overdue": marked, "reminders": reminders,
+            "reminders_enabled": send_reminders, "late_fees_posted": late_fees}
 
 
 # --------------------------------------------------------------------------- payments

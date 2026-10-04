@@ -7,7 +7,7 @@ usage and cost reporting, per-module confidence thresholds, and the model regist
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
@@ -17,7 +17,7 @@ from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import csrf_protect, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_float, parse_int, redirect
+from app.core.utils import paginate, parse_date, parse_float, redirect
 from app.database import get_db
 from app.models.core import AIModelRun, Integration, Setting, User
 from app.services import ai_gateway

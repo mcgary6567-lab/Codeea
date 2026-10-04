@@ -21,7 +21,7 @@ from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.deps import csrf_protect, require
 from app.core.templating import render
-from app.core.utils import parse_bool, parse_date, parse_float, parse_int, redirect
+from app.core.utils import paginate, parse_bool, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
 from app.models.academic import Book, Course, Package
 from app.models.core import User
@@ -151,7 +151,7 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
 
 # =============================================================================== 1. Sessions
 @router.get("/sessions", include_in_schema=False)
-def sessions_page(request: Request, category: str = "", status: str = "", q: str = "",
+def sessions_page(request: Request, category: str = "", status: str = "", q: str = "", page: int = 1,
                   db: Session = Depends(get_db), user: User = Depends(require(f"{MODULE}.view"))):
     query = db.query(SessionSlot)
     if category:
@@ -160,11 +160,12 @@ def sessions_page(request: Request, category: str = "", status: str = "", q: str
         query = query.filter(SessionSlot.status == status)
     if q:
         query = query.filter(SessionSlot.label.ilike(f"%{q}%"))
-    slots = query.order_by(SessionSlot.category, SessionSlot.sort_no, SessionSlot.start_time).all()
+    pg = paginate(query.order_by(SessionSlot.category, SessionSlot.sort_no, SessionSlot.start_time), page, 50)
+    slots = pg.items
     stats = _status_counts(db, SessionSlot)
     by_cat = dict(db.query(SessionSlot.category, func.count(SessionSlot.id)).group_by(SessionSlot.category).all())
     return render(request, "academic_config/sessions.html", {
-        "user": user, "slots": slots, "stats": stats, "by_cat": by_cat, "category": category, "status": status, "q": q,
+        "user": user, "slots": slots, "page": pg, "stats": stats, "by_cat": by_cat, "category": category, "status": status, "q": q,
         "categories": SESSION_CATEGORIES, "statuses": STATUSES, "durations": DURATIONS,
         "next_sort": (db.query(func.max(SessionSlot.sort_no)).filter(SessionSlot.category == (category or "30 Minutes")).scalar() or 0) + 1,
         **_perms(user)})

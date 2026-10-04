@@ -6,15 +6,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.core.deps import require, get_current_user
+from app.core.deps import require
 from app.core.utils import parse_date
 from app.database import get_db
 from app.models.core import User
-from app.models.crm import (LEAD_STAGES, Lead, LeadSource, Campaign, Conversation, Message, Sequence, SequenceEnrollment,
-                            Referral, Survey, Feedback, Case, RetentionAction)
+from app.models.crm import (Lead, LeadSource, Campaign, Conversation, Referral, Feedback, Case)
 from app.models.people import Client, Student
 from app.models.scheduling import Trial
 from app.services import crm as svc

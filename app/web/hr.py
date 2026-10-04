@@ -11,31 +11,31 @@ import json
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.config import BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect, get_current_user, get_user_context, UserContext, PermissionDenied
+from app.core.deps import require, csrf_protect, get_user_context, UserContext, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render
 from app.core.utils import redirect, paginate, parse_date, parse_int, parse_float, parse_bool, month_key, month_bounds, next_code
 from app.database import get_db
 from app.models.core import User, Role, Department, Branch, AuditEvent, Setting
-from app.models.people import (Employee, Teacher, Student, HRAttendance, Leave, Violation, Grievance, SalaryStructure,
+from app.models.people import (Employee, Teacher, HRAttendance, Leave, Violation, Grievance, SalaryStructure,
                                OnboardingTask, ProvisioningRecord, RecruitmentRequest, Candidate, Interview,
                                DevelopmentPlan, Bonus, SalaryAdvance, PayrollRun, Payslip, TrainingAssignment)
 from app.models.hr_erp import (DESIGNATIONS, EMPLOYEE_REQUEST_TYPES, EMPLOYEE_TYPES, STAFF_COMPLAINT_TYPES,
                                EmployeeRequest, Grade, ViolationType)
 from app.services import hr as svc
+from app.services import lookups as lookup_svc
 from app.services import payroll as pay
 # Employment Management shares its list helpers with app/web/staff_requests.py so all eight ERP pages
 # (Employee Record, Employee Requests, Staff Violations, Staff Bonuses, Advance Requests, Complaints,
 # Downloads and Attachments) look and behave identically.
-from app.web.staff_requests import (GROUP_TABS, ROW_HIGHLIGHT, badge as erp_badge, d as erp_date,
-                                    decide_guard, dt as erp_datetime, employee_name, employee_search,
+from app.web.staff_requests import (GROUP_TABS, ROW_HIGHLIGHT, badge as erp_badge, decide_guard, dt as erp_datetime, employee_name, employee_search,
                                     filters_from, money as erp_money, notify_employee, render_list,
                                     shift_name, status_counts)
 
@@ -117,6 +117,11 @@ def _csv(rows: list[list], headers: list[str], filename: str) -> Response:
 def _departments(db: Session) -> list[Department]:
     return db.query(Department).order_by(Department.name).all()
 
+
+
+def _leave_type_options(db: Session) -> list:
+    """Leave types from the configured Lookup list (code ``leave_type``), falling back to the constant."""
+    return lookup_svc.options(db, "leave_type", LEAVE_TYPES)
 
 def _employee_options(db: Session, only_active: bool = True) -> list[tuple[int, str]]:
     q = db.query(Employee)
@@ -373,6 +378,24 @@ async def employee_create(request: Request, db: Session = Depends(get_db), user:
     return redirect(f"/hr/employees/{emp.id}", msg)
 
 
+REVEALABLE_FIELDS = ("email", "phone", "whatsapp", "cnic", "bank_account_no")
+
+
+@router.get("/employees/{id}/reveal/{field}", include_in_schema=False)
+def employee_reveal_field(id: int, field: str, request: Request, db: Session = Depends(get_db),
+                          user: User = Depends(require("employees.view"))):
+    """Audited reveal of one masked value on the Employee Record (the ERP "View" link, like the Client List)."""
+    e = _emp(db, id)
+    if field not in REVEALABLE_FIELDS:
+        raise HTTPException(404)
+    value = getattr(e, field) or "-"
+    log_action(db, user, "reveal", "employees", entity=e, description=f"{field.replace('_', ' ').title()} of {e.employee_code} viewed unmasked",
+               rationale="View link on Employee Record", request=request, severity="warning")
+    db.commit()
+    from markupsafe import escape
+    return HTMLResponse(f'<span class="font-mono text-xs">{escape(value)}</span>')
+
+
 @router.get("/employees/{id}", include_in_schema=False)
 def employee_detail(id: int, request: Request, tab: str = "overview", month: str = "", db: Session = Depends(get_db),
                     user: User = Depends(require("employees.view"))):
@@ -401,7 +424,7 @@ def employee_detail(id: int, request: Request, tab: str = "overview", month: str
         ctx["leaves"] = db.query(Leave).filter(Leave.person_type == "employee", Leave.employee_id == e.id)\
             .order_by(Leave.start_date.desc()).limit(50).all()
         ctx["balance"] = svc.leave_balance(db, e)
-        ctx["leave_types"] = LEAVE_TYPES
+        ctx["leave_types"] = _leave_type_options(db)
     elif tab == "salary":
         ctx["structure"] = db.query(SalaryStructure).filter(SalaryStructure.employee_id == e.id).first()
     elif tab == "payslips":
@@ -584,7 +607,7 @@ def me(request: Request, tab: str = "overview", month: str = "", date_from: str 
     month = _month_param(month)
     start, end = month_bounds(month)
     data: dict = {"user": user, "e": e, "tab": tab, "month": month, "tabs": [(k, l, f"/hr/me?tab={k}") for k, l in ME_TABS],
-                  "leave_types": LEAVE_TYPES, "categories": GRIEVANCE_CATEGORIES}
+                  "leave_types": _leave_type_options(db), "categories": GRIEVANCE_CATEGORIES}
     if e is None:
         return render(request, "hr/me.html", data)
     rows = db.query(HRAttendance).filter(HRAttendance.employee_id == e.id, HRAttendance.date >= start, HRAttendance.date <= end)\
@@ -1201,7 +1224,7 @@ def leave_entitlements(request: Request, page: int = 1, employee: str = "", leav
     return render(request, "hr/leave_entitlements.html", {
         "user": user, "page": pg, "filters": {"employee": employee, "leave_type": leave_type, "status": status,
                                               "shift": shift, "q": q},
-        "base_url": base, "employees": _employee_options(db), "leave_types": LEAVE_TYPES, "shifts": SHIFT_GROUPS,
+        "base_url": base, "employees": _employee_options(db), "leave_types": _leave_type_options(db), "shifts": SHIFT_GROUPS,
         "statuses": ["active", "inactive", "expired"], "totals": totals,
         "active_count": db.query(func.count(LE.id)).filter(LE.status == "active").scalar() or 0,
         "year_end": date(date.today().year, 12, 31).isoformat(),
@@ -1538,7 +1561,7 @@ def leaves_list(request: Request, page: int = 1, status: str = "", leave_type: s
     base = f"/hr/leaves?status={status}&leave_type={leave_type}&q={q}"
     return render(request, "hr/leaves.html", {"user": user, "page": pg, "status": status, "leave_type": leave_type, "q": q,
                                               "counts": counts, "upcoming": upcoming, "on_leave_today": on_leave_today,
-                                              "leave_types": LEAVE_TYPES, "statuses": ["pending", "approved", "rejected", "cancelled"],
+                                              "leave_types": _leave_type_options(db), "statuses": ["pending", "approved", "rejected", "cancelled"],
                                               "base_url": base, "leave_days": svc.leave_days, "today_date": today,
                                               "rows": rows})
 
@@ -1551,7 +1574,7 @@ def leave_new(request: Request, employee_id: int = 0, db: Session = Depends(get_
         balances.setdefault(str(ent.employee_id), []).append(
             {"type": ent.leave_type, "total": float(ent.total_assigned or 0), "remaining": ent.remaining,
              "expiry": ent.expiry_date.isoformat() if ent.expiry_date else ""})
-    return render(request, "hr/leave_form.html", {"user": user, "employees": _employee_options(db), "leave_types": LEAVE_TYPES,
+    return render(request, "hr/leave_form.html", {"user": user, "employees": _employee_options(db), "leave_types": _leave_type_options(db),
                                                   "employee_id": employee_id, "balances": balances})
 
 
@@ -2559,7 +2582,7 @@ async def payroll_create(request: Request, db: Session = Depends(get_db), user: 
     form = await request.form()
     period = _month_param(form.get("period"))
     try:
-        run = pay.erp_create_run(db, period, form.get("description") or "", user, request=request)
+        pay.erp_create_run(db, period, form.get("description") or "", user, request=request)
     except ValueError as exc:
         return redirect("/hr/payroll", str(exc), "error")
     db.commit()

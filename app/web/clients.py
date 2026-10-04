@@ -19,7 +19,7 @@ from app.models.core import User, AuditEvent, Notification, CommunicationPrefere
 from app.models.crm import Case, Feedback, Conversation, Referral, Message, Lead
 from app.models.erp import ClientContact, ClientCredential, ClientAcademicGroup
 from app.models.finance import Subscription, Invoice, LedgerEntry, Payment
-from app.models.people import Client, Student, Household, Leave
+from app.models.people import Client, Student, Household
 from app.models.scheduling import Trial
 from app.services import people as svc
 

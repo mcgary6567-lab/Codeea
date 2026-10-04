@@ -18,7 +18,7 @@ from app.core.utils import month_key, month_bounds
 from app.database import get_db
 from app.models.core import User
 from app.models.people import (Employee, Teacher, HRAttendance, Leave, Violation, Grievance, Candidate,
-                               PayrollRun, Payslip, SalaryStructure, TrainingAssignment)
+                               PayrollRun, Payslip, TrainingAssignment)
 from app.services import hr as svc
 from app.services import payroll as pay
 

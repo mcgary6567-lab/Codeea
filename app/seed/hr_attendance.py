@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models.core import User
 from app.models.hr_erp import AttendanceChangeRequest, Holiday, LeaveEntitlement, ProgressNote
-from app.models.people import Employee, HRAttendance, Leave
+from app.models.people import Employee, HRAttendance
 from app.services import hr as svc
 
 rnd = random.Random(20260914)

@@ -9,12 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.core.notify import notify
 from app.models.academic import MonthlyTest
-from app.models.crm import Lead, Survey, Feedback, Referral, Case
+from app.models.crm import Lead, Survey, Feedback
 from app.models.people import Client, Student
 from app.services import crm
 from app.services import retention as retention_svc
 
 log = logging.getLogger("oqc.jobs.crm")
+
+# A job keyed on a calendar date catches up this many days when its daily tick was missed.
+CATCHUP_DAYS = 3
 
 
 # ----------------------------------------------------------------------------- sequences
@@ -68,13 +71,16 @@ def survey_triggers(db: Session, limit: int = 40) -> dict:
                 continue
             crm.send_survey(db, survey, client=st.client, student=st, trigger="post_result_card")
             sent += 1
-    # tenure milestones
+    # tenure milestones. A missed daily tick catches up: students who passed the milestone within the last
+    # CATCHUP_DAYS are included, and the Feedback row already sent for this survey is the duplicate guard.
     for days, key in ((30, "tenure_30"), (90, "tenure_90"), (180, "tenure_180")):
         survey = by_trigger.get(key)
         if not survey:
             continue
         target = date.today() - timedelta(days=days)
-        for st in db.query(Student).filter(Student.status.in_(["active", "trial"]), Student.join_date == target).limit(limit).all():
+        earliest = target - timedelta(days=CATCHUP_DAYS)
+        for st in (db.query(Student).filter(Student.status.in_(["active", "trial"]), Student.join_date >= earliest,
+                                            Student.join_date <= target).limit(limit).all()):
             if not st.client_id or _already_sent(db, survey, st.client_id, st.id, days - 1):
                 continue
             crm.send_survey(db, survey, client=st.client, student=st, trigger=key)

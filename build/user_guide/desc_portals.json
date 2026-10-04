@@ -891,5 +891,132 @@
    "Adding a tag can start a workflow; for example objection:price starts the price objection emails.",
    "This page is an addition to the original ERP."
   ]
+ },
+ "teacher:/hr/me": {
+  "purpose": "Your own dashboard. Mark your attendance, see this month's figures, read your record and raise a request to People and Culture.",
+  "steps": [
+   "Press **Mark Attendance** in **Today's Attendance**. The first press of the day records your login time, the second your logout time. A third press changes nothing.",
+   "Read the tiles: your attendance percentage for the month, **Late arrivals**, **Leave days** and **Last net pay**.",
+   "**Today by session** shows your AM and PM punches. **My record** shows your code, designation, department, shift, joining date, device and background check.",
+   "In **Raise a request**, choose the **Req Type**, write the **Description** and press **Send to People & Culture**. **My requests** lists what you raised and the HR remarks.",
+   "Press **Account Ledger** to open your ledger."
+  ],
+  "notes": [
+   "Mark Attendance records the address you pressed it from. Late minutes use the grace time set in Configuration, the same rule payroll uses.",
+   "Each working day has an AM and a PM session. Mark Attendance moves whichever one is open.",
+   "If no employee record is linked to your login, the page tells you to ask People and Culture.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me?tab=requests": {
+  "purpose": "Your leave requests, employee requests and advance requests in one place, each with its own create form.",
+  "steps": [
+   "Under **Leave Requests**, press **Create**, choose the **Leave Type**, set **From** (required) and **To**, write the **Reason** (required) and submit. The request goes to People and Culture as Pending.",
+   "Under **Employee Requests**, press **Create**, choose the **Req Type**, write the **Description** and submit.",
+   "Under **Advance Requests**, press **Create**, set the **Request Date**, **Amount** and **No Of Installments** (all required) and your **Remarks**. **Hr Remarks** is filled in by People and Culture when they decide.",
+   "Watch the **Status** column of each table for the decision."
+  ],
+  "notes": [
+   "A leave request cannot overlap another pending or approved leave.",
+   "The **Remaining** column on an advance shows how much is still to be recovered from your salary.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me/progress": {
+  "purpose": "Your own daily progress entries. Write the day up, keep it as a draft, submit it, and see the rating your manager gives.",
+  "steps": [
+   "Read the tiles: **Draft**, **Submitted**, **Rated** and **Average rating**.",
+   "Press **Create**. Set the **Working Date** and write the **Progress Detail** (both required). Press **Save as draft** to keep editing, or **Save and submit** to send it to your manager.",
+   "Filter with **Status**, **From Date** and **To Date**, then press **Go**."
+  ],
+  "notes": [
+   "A draft can be edited as often as you like. Once submitted it is locked and only your manager can rate it.",
+   "Submitting notifies your manager. The rating appears in the **Manager Rating** column.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me/team": {
+  "purpose": "Your reporting line as a tree, and the forms to raise a Staff Violation or a Staff Bonus against anyone beneath you.",
+  "steps": [
+   "Read the tiles: **Direct Reports**, **My Team**, **Pending Violations** and **Pending Bonuses**.",
+   "**My Team** shows everyone who reports to you, nested to the real depth.",
+   "Press **Raise a Violation**. Choose the **Emp Name**, the **Date** and the **Penalty Description** from the catalogue, write the **Remarks** (required) and press **Raise violation**.",
+   "Press **Raise a Bonus**. Choose the **Emp Name**, the **Bonus Type** and the **Period**, write the **Remarks** and press **Raise bonus**.",
+   "The two tables list what has been raised against your team and its status."
+  ],
+  "notes": [
+   "You can only raise against people genuinely in your tree. A name outside it is refused.",
+   "Everything raised here lands Pending in the People and Culture queues. Nobody decides their own proposal, and a fine applies only once approved.",
+   "The member of staff is notified when something is raised against them.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me/ledger": {
+  "purpose": "Every line that moved money on your account: salary, bonuses, fines, advances and their recovery, with a running balance.",
+  "steps": [
+   "Set **From Date** and **To Date**, or type a word or voucher id in **Search**, then press **Go**.",
+   "Read the tiles: **Opening Balance**, **Amount Dr.**, **Amount Cr.** and **Balance**.",
+   "Read the rows: **Srl.**, **Date**, **VID** (the voucher id), **Description**, **Amount Dr.**, **Amount Cr.** and **Balance**.",
+   "Press **Print** for a print view."
+  ],
+  "notes": [
+   "A debit is money owed to you: salary earned, a bonus or an instalment recovered. A credit is money paid or deducted: salary paid, a fine or an advance paid out.",
+   "Only your own account is shown here. Each line is written once, so nothing is counted twice.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me/notices": {
+  "purpose": "The staff notices from People and Culture that apply to you today.",
+  "steps": [
+   "Read the tiles **Live notices** and **Newest**.",
+   "Read each row: **ID**, **Title**, **Description** and **Dated**. Press **Open link** where a notice carries one.",
+   "Press **My Overview** or **Back** to return."
+  ],
+  "notes": [
+   "Only notices that are active and inside their date window are shown, addressed to all staff or to your employee type.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/downloads": {
+  "purpose": "HR policies, forms and handbooks published to every member of staff. Staff open the documents; People and Culture publish and retire them.",
+  "steps": [
+   "Press a tile (**All Documents**, **Active**, **In-Active**) to filter. Use **Search**, **Category** and **Status** with **Go**.",
+   "Press **Open document** on a row to open its link.",
+   "Press **Create** to publish a document. Fill in the **Description** (required), the **Link** and the category, then press **Publish**.",
+   "Press **Edit** to change a document and **Save**. Press **Retire** to mark it in-active; press again to bring it back."
+  ],
+  "notes": [
+   "Staff without HR permissions see only active documents.",
+   "Publishing, editing and retiring need the employees.update permission.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/hr/me?tab=grievance": {
+  "purpose": "A confidential channel straight to the Head of People and Culture. Department heads and managers never see it.",
+  "steps": [
+   "Choose a **Category**, then write the **Subject** and **What happened** (both required).",
+   "Tick **Submit anonymously** if your name and employee record must not be stored against the case.",
+   "Press **Send confidentially**.",
+   "**My submissions** lists your named cases and their status."
+  ],
+  "notes": [
+   "This page is an addition to the original ERP.",
+   "Each case has a 5-day service level. Anonymous submissions are not listed under My submissions and you are not notified of their outcome.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
+ },
+ "teacher:/profile": {
+  "purpose": "Your own login account: personal details, password, two-factor authentication and active sessions.",
+  "steps": [
+   "On **Profile**, edit **Full name** (required), **Phone**, **Timezone** and **Language**, then press **Save changes**.",
+   "On **Password**, enter your current password and the new one twice.",
+   "On **Two-factor auth**, scan the QR code with an authenticator app and enter the code to enable it.",
+   "On **Sessions**, revoke any device you no longer use."
+  ],
+  "notes": [
+   "Changing your password signs out your other sessions.",
+   "Never share your password. The college never asks for it.",
+   "Teachers reach this page from the Employee Self Portal group of their own menu."
+  ]
  }
 }

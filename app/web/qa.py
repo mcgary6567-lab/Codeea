@@ -20,7 +20,7 @@ from app.core.utils import paginate, parse_date, parse_float, parse_int, redirec
 from app.database import get_db
 from app.models.core import User
 from app.models.erp import CALL_SOURCES, CallRecord, QAIssueType, QAReviewParameter
-from app.models.people import Student, Teacher
+from app.models.people import Teacher
 from app.models.scheduling import AIClassAnalysis, ClassSession, CorrectiveAction, QAReview
 from app.services import calls as calls_svc
 from app.services import qa as svc
@@ -73,8 +73,16 @@ def dashboard(request: Request, date_from: str = "", date_to: str = "", db: Sess
     df, dt = _period(date_from, date_to, 30)
     teacher_ids = sched_svc.scoped_teacher_ids(db, user)
     d = calls_svc.qa_dashboard(db, df, dt, teacher_ids)
+    # Family / student class ratings (1-5 from the portals): flag 2 stars or less in the period.
+    rated_q = db.query(ClassSession).filter(ClassSession.student_rating.isnot(None), ClassSession.date >= df, ClassSession.date <= dt)
+    if teacher_ids is not None:
+        rated_q = rated_q.filter(ClassSession.teacher_id.in_(teacher_ids or [-1]))
+    rated_total = rated_q.count()
+    low_ratings = (rated_q.filter(ClassSession.student_rating <= 2)
+                   .order_by(ClassSession.student_rating, ClassSession.date.desc(), ClassSession.id.desc()).limit(25).all())
     return render(request, "qa/dashboard.html", {
         "user": user, "d": d, "date_from": df, "date_to": dt, "statuses": CALL_REVIEW_STATUSES,
+        "low_ratings": low_ratings, "rated_total": rated_total,
         "issue_labels": [n for n, _ in d["issue_breakdown"]], "issue_values": [v for _, v in d["issue_breakdown"]],
         "perf_labels": [t.full_name for t, _, _ in d["teacher_performance"]],
         "perf_values": [avg for _, avg, _ in d["teacher_performance"]]})
@@ -122,7 +130,12 @@ def calls(request: Request, page: int = 1, date_from: str = "", date_to: str = "
 async def calls_sync(request: Request, db: Session = Depends(get_db), user: User = Depends(require("qa.execute", "qa.add", any_of=True))):
     form = await request.form()
     days = max(1, min(60, parse_int(form.get("days"), 14) or 14))
-    n = calls_svc.sync_calls(db, user, days=days, request=request)
+    if not calls_svc.simulated_sync_allowed(db):
+        return redirect("/qa/calls", calls_svc.SIMULATED_SYNC_DISABLED, "warning")
+    try:
+        n = calls_svc.sync_calls(db, user, days=days, request=request)
+    except ValueError as exc:
+        return redirect("/qa/calls", str(exc), "warning")
     db.commit()
     return redirect("/qa/calls", f"{n} calls synced from Agent / Teams / Zoom." if n else "No new recordings were found on the call platforms.",
                     "success" if n else "info")

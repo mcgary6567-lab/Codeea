@@ -7,7 +7,7 @@ Every mutation is audit-logged and flash-redirected; consequential actions requi
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -25,7 +25,7 @@ from app.core.templating import render
 from app.core.utils import paginate, parse_bool, parse_date, parse_int, redirect
 from app.database import get_db
 from app.models.core import (ApiKey, AuditEvent, BackupRecord, Branch, CommunicationPreference, Department,
-                             Integration, Notification, NotificationTemplate, Organization, Role, SecurityIncident,
+                             Notification, NotificationTemplate, Organization, Role, SecurityIncident,
                              Setting, User, UserSession, Webhook, WebhookDelivery)
 from app.models.ops import MigrationJob
 from app.models.people import Client
@@ -627,6 +627,51 @@ async def settings_values(request: Request, db: Session = Depends(get_db), user:
                         "warning" if changed else "error")
     return redirect(f"/admin/settings?tab=settings&group={group}",
                     f"{len(changed)} setting(s) saved." if changed else "No changes detected.")
+
+
+SETTING_KEY_RE = r"^[a-z][a-z0-9_]{1,99}$"
+
+
+def _parse_setting_value(raw: str):
+    """Shape-based: true/false -> bool, 30 / 2.5 -> number, {...} or [...] -> JSON, anything else -> text."""
+    import re
+    text = (raw or "").strip()
+    if text.lower() in ("true", "false"):
+        return text.lower() == "true"
+    if re.fullmatch(r"-?\d+", text):
+        return int(text)
+    if re.fullmatch(r"-?\d+\.\d+", text):
+        return float(text)
+    if text[:1] in ("{", "["):
+        try:
+            return json.loads(text)
+        except ValueError:
+            pass
+    return text
+
+
+@router.post("/settings/new", include_in_schema=False)
+async def settings_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.configure"))):
+    """Create a configuration key that code reads but no seed created (whatsapp_verify_token, review_link, ...)."""
+    import re
+    form = await request.form()
+    key = (form.get("key") or "").strip().lower()
+    group = re.sub(r"[^a-z0-9_]", "", (form.get("group") or "general").strip().lower()) or "general"
+    if not re.fullmatch(SETTING_KEY_RE, key):
+        return redirect("/admin/settings?tab=settings", "The key must be snake_case: letters, digits and underscores, starting with a letter.", "error")
+    if db.query(Setting).filter(Setting.key == key).first():
+        return redirect("/admin/settings?tab=settings", f"The setting '{key}' already exists; edit it in its group below.", "error")
+    value = _parse_setting_value(form.get("value") or "")
+    value_type = "boolean" if isinstance(value, bool) else ("number" if isinstance(value, (int, float)) else ("json" if isinstance(value, (dict, list)) else "text"))
+    s = Setting(key=key, value={"value": value}, group=group[:40], description=(form.get("description") or "").strip()[:300] or None,
+                label=key.replace("_", " ").title()[:150], value_type=value_type, is_editable=True, is_secret=False, sort_no=900)
+    db.add(s)
+    db.flush()
+    log_action(db, user, "create", "settings", entity=s, severity="warning", consequential=True,
+               rationale=_need_rationale(form) or f"New configuration key '{key}' in the '{group}' group",
+               description=f"Created setting {key} ({group})", after={"key": key, "group": group, "value": value}, request=request)
+    db.commit()
+    return redirect(f"/admin/settings?tab=settings&group={group}", f"Setting '{key}' created in the '{group}' group.")
 
 
 @router.post("/settings/jobs/{job_id}/run", include_in_schema=False)

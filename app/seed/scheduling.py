@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.models.core import RiskAlert, User
 from app.models.crm import Lead
 from app.models.people import Leave, Student, Teacher
-from app.models.scheduling import (Attendance, CallLog, ClassSession, CorrectiveAction, QAReview, Recording,
+from app.models.scheduling import (Attendance, CallLog, ClassSession, QAReview, Recording,
                                    RecordingAccessLog, ReminderLog, SafeguardingFlag, Schedule, Shift, Trial)
 from app.services import classes as class_svc
 from app.services import qa as qa_svc

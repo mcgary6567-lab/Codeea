@@ -1,7 +1,7 @@
 """Recordings (Module 24/47): retention-aware library where every open is purpose-logged for safeguarding."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, or_
@@ -11,10 +11,10 @@ from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import PermissionDenied, UserContext, csrf_protect, get_user_context, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_int, redirect
+from app.core.utils import paginate, parse_date, redirect
 from app.database import get_db
 from app.models.core import User
-from app.models.people import Student, Teacher
+from app.models.people import Student
 from app.models.scheduling import ClassSession, Recording, RecordingAccessLog
 from app.services import qa as qa_svc
 from app.services import scheduling as svc

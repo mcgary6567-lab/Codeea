@@ -49,7 +49,10 @@ LOOKUPS: list[tuple[str, str, str, int, list[tuple]]] = [
         ("Internet Allowance", "Internet Allowance", None, 3000),
         ("Fuel Allowance", "Fuel Allowance", None, 5000)]),
     ("hr_complaint_type", HR, "HR Complaints Types", 50, [
-        ("Admin", "Admin", None, None), ("Staff", "Staff", None, None), ("HR", "HR", None, None)]),
+        ("Admin", "Admin", None, None), ("Staff", "Staff", None, None), ("HR", "HR", None, None),
+        # the staff complaint form's own vocabulary (app/models/hr_erp.py STAFF_COMPLAINT_TYPES)
+        ("Academics", "Academics", None, None), ("Management", "Management", None, None),
+        ("Facility", "Facility", None, None), ("Payroll", "Payroll", None, None), ("Other", "Other", None, None)]),
     ("hr_employee_request_type", HR, "HR Employee Requests", 60, [
         ("Shift Change", "Shift Change", None, None),
         ("Advance Salary", "Advance Salary", None, None),
@@ -58,6 +61,10 @@ LOOKUPS: list[tuple[str, str, str, int, list[tuple]]] = [
         ("Salary Certificate", "Salary Certificate", None, None),
         ("Leave Encashment", "Leave Encashment", None, None),
         ("Transfer", "Department Transfer", None, None),
+        # the employee request form's own vocabulary (app/models/hr_erp.py EMPLOYEE_REQUEST_TYPES)
+        ("Designation Review", "Designation Review", None, None),
+        ("Document Correction", "Document Correction", None, None),
+        ("Resignation", "Resignation", None, None),
         ("Other", "Other", None, None)]),
     ("hr_how_came_to_us", HR, "HR How Came To Us", 70, [
         ("Social Media", "Social Media", None, None),
@@ -91,7 +98,25 @@ LOOKUPS: list[tuple[str, str, str, int, list[tuple]]] = [
         ("Friend", "Friend", None, None),
         ("Colleague", "Colleague", None, None),
         ("Neighbour", "Neighbour", None, None),
-        ("Community", "Community / Masjid", None, None)]),
+        ("Community", "Community / Masjid", None, None),
+        ("Other", "Other", None, None)]),
+    # Student leave types: app/web/requests.py and app/web/student_leaves.py read this through lookups.options.
+    ("leave_type", ACAD, "Leave Types", 30, [
+        ("casual", "Casual", None, None),
+        ("sick", "Sick", None, None),
+        ("vacation", "Vacation", None, None),
+        ("emergency", "Emergency", None, None),
+        ("exam", "Exam", None, None)]),
+    # "How did you hear about us?" on the public registration form (app/web/registration.py HOW_HEARD).
+    ("lead_referral_source", BILL, "Lead Referral Sources", 10, [
+        ("Google search", "Google search", None, None),
+        ("Facebook / Instagram", "Facebook / Instagram", None, None),
+        ("YouTube", "YouTube", None, None),
+        ("TikTok", "TikTok", None, None),
+        ("A friend or family member", "A friend or family member", None, None),
+        ("My local masjid", "My local masjid", None, None),
+        ("WhatsApp", "WhatsApp", None, None),
+        ("Other", "Other", None, None)]),
     ("family_complaint_type", PORTAL, "Complaint Types", 10, [
         ("Teaching Quality", "Teaching Quality", "معیارِ تدریس", None),
         ("Teacher Punctuality", "Teacher Punctuality", "وقت کی پابندی", None),
@@ -151,6 +176,9 @@ BRANCH_PROPERTIES: list[tuple] = [
      "Charge added to an invoice left unpaid beyond the due date.", 2.5, "number", "percent", False, True, 20),
     ("billing_send_reminders", "billing", "Send Payment Reminders",
      "Whether the billing reminder job messages families about unpaid invoices.", True, "boolean", None, False, True, 30),
+    ("review_link", "general", "Google Review Link",
+     "Public link a family follows to leave a review. The AUTO-018 review request sends it as {{review_link}}; "
+     "while empty the message asks the family to reply for the link.", "", "text", None, False, True, 60),
 ]
 
 # name, company, fee %, fixed fee, currency, beneficiary account name, live mode, notes

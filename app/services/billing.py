@@ -22,7 +22,7 @@ from app.config import BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.notify import notify
-from app.core.utils import next_code, month_key
+from app.core.utils import next_code
 from app.models.core import User, Setting, NotificationTemplate, Organization, RiskAlert
 from app.models.crm import Referral
 from app.models.finance import (Currency, ExchangeRateHistory, Subscription, DiscountRequest, Scholarship, Invoice,
@@ -162,6 +162,51 @@ def _billing_reps(db: Session) -> list[User]:
             .filter(Role.slug.in_(["billing_rep", "hod_finance", "accountant"]), User.is_active.is_(True)).all())
 
 
+# --------------------------------------------------------------------------- billing Branch Properties
+# Configuration > Branch Properties (billing group). Read through the same helper the attendance relaxations use;
+# every fallback reproduces the behaviour the code had before the properties were wired in (finding 9).
+PROP_INVOICE_DUE_DAYS = "billing_invoice_due_days"
+PROP_LATE_FEE_PCT = "billing_late_fee_pct"
+PROP_SEND_REMINDERS = "billing_send_reminders"
+PROP_ADVANCE_DAYS = "advance_invoice_generation_days"
+DEFAULT_ADVANCE_DAYS = 3
+
+
+def branch_property(db: Session, key: str, default):
+    from app.services.hr import branch_property as _branch_property   # lazy: hr imports the people services
+    return _branch_property(db, key, default)
+
+
+def _prop_number(db: Session, key: str, default: float, minimum: float = 0) -> float:
+    try:
+        return max(minimum, float(branch_property(db, key, default)))
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def invoice_due_days(db: Session) -> int:
+    """Days from the invoice date until payment is overdue (Branch Property, default 7)."""
+    return int(_prop_number(db, PROP_INVOICE_DUE_DAYS, INVOICE_TERMS_DAYS))
+
+
+def late_fee_pct(db: Session) -> float:
+    """Late fee percentage posted once per overdue invoice; 0 (the default) posts nothing."""
+    return _prop_number(db, PROP_LATE_FEE_PCT, 0)
+
+
+def send_reminders_enabled(db: Session) -> bool:
+    """Whether the reminder job messages families about unpaid invoices (default on)."""
+    raw = branch_property(db, PROP_SEND_REMINDERS, True)
+    if isinstance(raw, str):
+        return raw.strip().lower() not in ("0", "false", "no", "off", "")
+    return bool(raw)
+
+
+def advance_invoice_days(db: Session) -> int:
+    """How many days ahead of the period start the invoicing job raises invoices (default 3)."""
+    return int(_prop_number(db, PROP_ADVANCE_DAYS, DEFAULT_ADVANCE_DAYS))
+
+
 def _notify_client(db: Session, client: Client, event_type: str, title: str, body: str, link: Optional[str] = None,
                    whatsapp: bool = True) -> None:
     if not client or not client.user_id:
@@ -281,7 +326,7 @@ def create_subscription(db: Session, client: Client, student: Student, package, 
             notify(db, a.id, f"Discount approval needed — {discount_pct:.0f}% for {student.full_name}",
                    f"{sub.subscription_code}: list {currency} {list_price:.2f} -> {currency} {final_price:.2f}. "
                    f"Requested by {user.full_name if user else 'system'}. Reason: {rationale or 'not given'}",
-                   event_type="discount_request", link=f"/finance/discounts")
+                   event_type="discount_request", link="/finance/discounts")
         log_action(db, user, "discount", "discounts", entity=req,
                    description=f"{discount_pct:.0f}% discount requested on {sub.subscription_code} ({tier} tier)",
                    rationale=rationale, consequential=True)
@@ -871,7 +916,7 @@ def create_client_invoice(db: Session, client: Client, subscriptions: list[Subsc
         raise ValueError("All subscriptions on one invoice must share a currency")
     currency = currencies.pop() or client.currency or "GBP"
     issued = issue_date or date.today()
-    due = due_date or issued + timedelta(days=INVOICE_TERMS_DAYS)
+    due = due_date or issued + timedelta(days=invoice_due_days(db))
 
     inv = Invoice(invoice_number=next_invoice_number(db, issued), client_id=client.id,
                   student_id=subscriptions[0].student_id if len(subscriptions) == 1 else None,
@@ -1116,6 +1161,38 @@ def send_reminder(db: Session, invoice: Invoice, user: Optional[User], stage: st
     log_action(db, user, "update", "billing", entity=invoice,
                description=f"Reminder #{invoice.reminder_count} sent for {invoice.invoice_number} ({stage})")
     return invoice
+
+
+LATE_FEE_MARKER = "invoice_late_fee"
+
+
+def late_fee_posted(db: Session, invoice: Invoice) -> bool:
+    from app.models.scheduling import ReminderLog
+    return db.query(ReminderLog.id).filter(ReminderLog.reminder_type == LATE_FEE_MARKER, ReminderLog.entity_type == "Invoice",
+                                           ReminderLog.entity_id == invoice.id).first() is not None
+
+
+def post_late_fee(db: Session, invoice: Invoice, user: Optional[User], pct: Optional[float] = None):
+    """Charge the Branch Property late fee on an overdue invoice as a confirmed "Late Fee" Ledger Addition.
+
+    Posted at most once per invoice (a ReminderLog row is the marker); returns None when the percentage is 0,
+    the invoice carries no balance, or the fee was already charged."""
+    from app.models.scheduling import ReminderLog
+    pct = late_fee_pct(db) if pct is None else float(pct)
+    balance = round(float(invoice.total or 0) - float(invoice.paid_amount or 0), 2)
+    if pct <= 0 or balance <= 0 or invoice.client is None or late_fee_posted(db, invoice):
+        return None
+    fee = round(balance * pct / 100, 2)
+    if fee <= 0:
+        return None
+    addition = create_ledger_addition(db, invoice.client, fee, invoice.currency, "Late Fee", "add", date.today(), user,
+                                      remarks=f"Late fee {pct:g}% on {invoice.invoice_number} "
+                                              f"(due {invoice.due_date:%d %b %Y}, balance {invoice.currency} {balance:,.2f})",
+                                      status="confirmed")
+    db.add(ReminderLog(reminder_type=LATE_FEE_MARKER, user_id=invoice.client.user_id, entity_type="Invoice",
+                       entity_id=invoice.id, channel="ledger", status="posted"))
+    db.flush()
+    return addition
 
 
 def mark_overdue(db: Session, invoice: Invoice, user: Optional[User] = None) -> Invoice:
@@ -1381,9 +1458,38 @@ def cancel_payment(db: Session, payment: Payment, user: Optional[User], reason: 
     return payment
 
 
+GATEWAY_SYNC_DISABLED = ("Connect a payment gateway in Configuration › Payment Gateways first; "
+                         "the simulated pull is disabled in production.")
+
+
+def live_payment_gateway(db: Session):
+    """The active, live-mode PaymentGateway backed by real credentials (a connected ``payment`` integration or a
+    configured webhook secret), or None. Only such a gateway can feed receipts outside development."""
+    from app.models.config_erp import PaymentGateway
+    from app.services.integrations import has_live_credentials
+    gateway = (db.query(PaymentGateway).filter(PaymentGateway.status == "active", PaymentGateway.live_mode.is_(True))
+               .order_by(PaymentGateway.id).first())
+    if gateway is None or not has_live_credentials(db, "payment"):
+        return None
+    return gateway
+
+
+def gateway_sync_allowed(db: Session) -> bool:
+    """The gateway pull runs freely outside production; in production it needs a live gateway (finding 7)."""
+    from app.config import settings
+    if (settings.APP_ENV or "").lower() != "production":
+        return True
+    return live_payment_gateway(db) is not None
+
+
 def sync_gateway_receipts(db: Session, user: Optional[User], limit: int = 5) -> list[Payment]:
     """Simulated gateway pull: confirmed receipts for open invoices of families paying through an auto
-    beneficiary account (Stripe / PayPal). Idempotent for an invoice: one gateway receipt per invoice."""
+    beneficiary account (Stripe / PayPal). Idempotent for an invoice: one gateway receipt per invoice.
+
+    Raises ValueError in production when no live payment gateway exists, so the button on /finance/receipts
+    cannot fabricate confirmed receipts against real families."""
+    if not gateway_sync_allowed(db):
+        raise ValueError(GATEWAY_SYNC_DISABLED)
     from app.models.erp import BeneficiaryAccount
     auto = (db.query(BeneficiaryAccount).filter(BeneficiaryAccount.is_auto.is_(True), BeneficiaryAccount.status == "active")
             .order_by(BeneficiaryAccount.id).all())
@@ -1744,7 +1850,6 @@ def generate_receipt_pdf(db: Session, receipt: Receipt) -> str:
 # ============================================================================ reporting
 def subscription_report(db: Session, group_by: str = "course") -> list[dict]:
     """Subscription economics grouped by course / package / country / teacher (consolidated in base currency)."""
-    from app.models.academic import Course, Package
     subs = (db.query(Subscription).filter(Subscription.status.in_(["active", "frozen"])).all())
     buckets: dict[str, dict] = {}
     for s in subs:

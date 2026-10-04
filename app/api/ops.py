@@ -565,7 +565,8 @@ def command_center(period: str = "this_month", start: Optional[date] = None, end
     """The executive summary behind /command-center as JSON."""
     from app.core import rbac
     from app.services import insights as insight_svc
-    p = kpi_svc.resolve_period(period, start, end)
+    from app.services import accounting as _acc
+    p = kpi_svc.resolve_period(period, start, end, fy_start_month=_acc.financial_year_start_month(db))
     m = kpi_svc.executive_metrics(db, p.start, p.end)
     health = kpi_svc.health_score(m)
     today = date.today()

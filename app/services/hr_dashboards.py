@@ -14,7 +14,7 @@ Also here because it is the same kind of read-only roll-up:
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Optional
 
 from sqlalchemy.orm import Session

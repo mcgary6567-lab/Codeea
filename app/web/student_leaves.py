@@ -2,7 +2,7 @@
 and the post-leave absence retention signal."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, or_
@@ -16,12 +16,12 @@ from app.core.utils import paginate, parse_date, parse_int, redirect
 from app.database import get_db
 from app.models.core import RiskAlert, User
 from app.models.people import Leave, Student
-from app.models.scheduling import ClassSession
+from app.services import lookups
 from app.services import scheduling as svc
 
 router = APIRouter(prefix="/leaves/students", dependencies=[Depends(csrf_protect)])
 
-LEAVE_TYPES = ["casual", "sick", "vacation", "emergency", "exam"]
+LEAVE_TYPES = ["casual", "sick", "vacation", "emergency", "exam"]   # fallback for the leave_type lookup
 STATUSES = ["pending", "approved", "rejected", "cancelled"]
 
 
@@ -70,7 +70,7 @@ def list_leaves(request: Request, page: int = 1, status: str = "", leave_type: s
     base = f"/leaves/students?status={status}&leave_type={leave_type}&q={q}&date_from={date_from}&date_to={date_to}"
     return render(request, "student_leaves/list.html", {
         "user": user, "page": pg, "status": status, "leave_type": leave_type, "q": q, "date_from": df, "date_to": dt,
-        "statuses": STATUSES, "leave_types": LEAVE_TYPES, "base_url": base,
+        "statuses": STATUSES, "leave_types": lookups.options(db, "leave_type", LEAVE_TYPES), "base_url": base,
         "stats": {"pending": counts.get("pending", 0), "approved": counts.get("approved", 0),
                   "rejected": counts.get("rejected", 0), "on_leave_now": on_leave_now},
         "student_options": [(s.id, f"{s.student_code} · {s.full_name}") for s in
@@ -88,7 +88,9 @@ async def create_leave(request: Request, db: Session = Depends(get_db), user: Us
         return redirect("/leaves/students", "Select a student and a valid date range.", "error")
     if end < start:
         return redirect("/leaves/students", "The end date must be on or after the start date.", "error")
-    lv = Leave(person_type="student", student_id=student.id, leave_type=form.get("leave_type") or "casual",
+    allowed = lookups.option_values(db, "leave_type", LEAVE_TYPES)
+    leave_type = form.get("leave_type") if form.get("leave_type") in allowed else ("casual" if "casual" in allowed else allowed[0])
+    lv = Leave(person_type="student", student_id=student.id, leave_type=leave_type,
                start_date=start, end_date=end, reason=form.get("reason") or None, status="pending", requested_by_id=user.id)
     db.add(lv)
     db.flush()

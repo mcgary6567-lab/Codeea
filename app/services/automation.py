@@ -24,7 +24,7 @@ from app.config import settings
 from app.models.automation import (STEP_KINDS, WORKFLOW_TRIGGERS, AutomationEvent, ContactTag, Tag, Workflow, WorkflowRun)
 from app.models.core import User
 from app.models.crm import LEAD_STAGES, Conversation, Lead, Message
-from app.models.people import Client, Student, Teacher
+from app.models.people import Client, Student
 
 log = logging.getLogger("oqc.automation")
 
@@ -50,8 +50,25 @@ def contact_label(contact_type: str, contact) -> str:
     return f"{code} {getattr(contact, 'full_name', '')}".strip()
 
 
+REVIEW_LINK_FALLBACK = "reply to this message and we will send you the link"
+
+
+def setting(db: Session, key: str, default=None):
+    """A Setting row's scalar value ({"value": X} unwrapped), or ``default`` when the key is absent or empty."""
+    from app.models.core import Setting
+    s = db.query(Setting).filter(Setting.key == key).first()
+    if not s or s.value is None:
+        return default
+    v = s.value
+    if isinstance(v, dict) and set(v.keys()) == {"value"}:
+        v = v["value"]
+    return default if v in ("", None) else v
+
+
 def render_context(db: Session, contact_type: str, contact, payload: Optional[dict] = None) -> dict:
-    """Placeholders available to message bodies: {{name}}, {{student}}, {{teacher}}, {{course}}, {{link}}, {{amount}}, {{date}}."""
+    """Placeholders available to message bodies: {{name}}, {{student}}, {{teacher}}, {{course}}, {{link}},
+    {{review_link}} (the ``review_link`` setting from Configuration -> Setup, or a "reply for the link" line while it
+    is empty), {{amount}}, {{date}}."""
     payload = payload or {}
     first = (getattr(contact, "full_name", "") or "").split()[0] if getattr(contact, "full_name", None) else "there"
     student = ""
@@ -71,8 +88,10 @@ def render_context(db: Session, contact_type: str, contact, payload: Optional[di
         first = (contact.client.full_name.split()[0] if contact.client and contact.client.full_name else first)
         teacher = contact.teacher.full_name if getattr(contact, "teacher", None) else teacher
         course = contact.course.name if getattr(contact, "course", None) else ""
+    review_link = str(setting(db, "review_link", "") or "").strip()
     ctx = {"name": first, "student": student, "teacher": teacher, "course": course, "college": "Online Quran College",
-           "link": settings.BASE_URL + "/portal", "amount": payload.get("amount", ""), "date": payload.get("date", date.today().strftime("%d %b %Y"))}
+           "link": settings.BASE_URL + "/portal", "review_link": review_link or REVIEW_LINK_FALLBACK,
+           "amount": payload.get("amount", ""), "date": payload.get("date", date.today().strftime("%d %b %Y"))}
     ctx.update({k: v for k, v in payload.items() if isinstance(v, (str, int, float))})
     return ctx
 
@@ -307,7 +326,6 @@ def _wait_until_at(db: Session, contact_type: str, contact, field: str) -> Optio
 def _wait_until_date(contact_type: str, contact, field: str) -> Optional[date]:
     """A date on the contact's live record: freeze_end, leave_end, next_billing_date, follow_up."""
     if contact_type == "client":
-        from app.models.finance import Subscription
         subs = [s for s in contact.subscriptions] if hasattr(contact, "subscriptions") else []
         if field == "freeze_end":
             ends = [s.freeze_end for s in subs if s.status in ("frozen", "freeze") and s.freeze_end]
@@ -362,7 +380,7 @@ def _send_sms(db: Session, contact_type: str, contact, step: dict, ctx: dict) ->
         return "skipped: no family record to message"
     if not has_tag(db, mtype, target.id, "consent:sms"):
         return "skipped: no SMS consent tag"
-    if not getattr(settings, "SMS_PROVIDER", ""):
+    if not setting(db, "sms_provider", ""):
         return "skipped: no SMS provider configured (WhatsApp and email are live)"
     return "sms queued"
 

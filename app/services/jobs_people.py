@@ -4,9 +4,8 @@ Registered automatically by app/core/scheduler.py through the ``JOBS`` list.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.people import Student

@@ -18,14 +18,14 @@ from typing import Callable, Optional
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.models.core import Department, Integration, SecurityIncident, User, WebhookDelivery
+from app.models.core import Department, Integration, SecurityIncident, WebhookDelivery
 from app.models.people import (Student, Teacher, Employee, HRAttendance, Candidate, OnboardingTask, Payslip, PayrollRun,
                                Client)
 from app.models.academic import StudentProgress, Evaluation, LessonPlan, MonthlyTest
 from app.models.scheduling import ClassSession, QAReview, AIClassAnalysis, CorrectiveAction, Trial
 from app.models.crm import Lead, Campaign, CampaignMetric, Case, Feedback, Referral
 from app.models.finance import Payment, Invoice, Subscription, Expense, Currency
-from app.models.ops import KPI, KPIValue, Task, DepartmentScorecard
+from app.models.ops import KPI, KPIValue, Task
 
 PERIOD_CHOICES = [("this_month", "This month"), ("last_month", "Last month"), ("quarter", "This quarter"),
                   ("ytd", "Year to date"), ("custom", "Custom range")]
@@ -108,7 +108,9 @@ class Period:
 
 
 def resolve_period(name: str = "this_month", start: Optional[date] = None, end: Optional[date] = None,
-                   today: Optional[date] = None) -> Period:
+                   today: Optional[date] = None, fy_start_month: int = 1) -> Period:
+    """``fy_start_month`` is the Branch Property "Financial Year Start Month"; callers with a session pass
+    ``accounting.financial_year_start_month(db)`` so the year-to-date scope opens on the financial year."""
     today = today or date.today()
     name = name or "this_month"
     if name == "last_month":
@@ -120,8 +122,10 @@ def resolve_period(name: str = "this_month", start: Optional[date] = None, end: 
         e = month_end(add_months(s, 2))
         return Period(name, s, e, f"Q{(today.month - 1) // 3 + 1} {today.year}")
     if name == "ytd":
-        s = date(today.year, 1, 1)
-        return Period(name, s, today, f"YTD {today.year}")
+        month = fy_start_month if 1 <= int(fy_start_month or 1) <= 12 else 1
+        s = date(today.year if today.month >= month else today.year - 1, month, 1)
+        label = f"YTD {today.year}" if month == 1 else f"YTD FY{s.year}/{str(s.year + 1)[-2:]}"
+        return Period(name, s, today, label)
     if name == "custom" and start and end:
         if end < start:
             start, end = end, start
@@ -634,10 +638,6 @@ def _dept_of(entity_type, entity_id) -> Optional[int]:
     return entity_id if entity_type == "department" and entity_id else None
 
 
-def _count_or_none(db, model, q_count: int) -> Optional[float]:
-    return None if _empty(db, model) else float(q_count)
-
-
 def f_classes_completed(db, s, e, et, eid):
     if _empty(db, ClassSession):
         return None
@@ -1059,24 +1059,70 @@ def latest_value(db: Session, kpi: KPI, period: Optional[str] = None, entity_typ
     return q.order_by(KPIValue.period.desc(), KPIValue.created_at.desc()).first()
 
 
-def kpi_row(db: Session, kpi: KPI, period: str, entity=None, live: bool = True) -> dict:
-    """Value + target + RAG for one KPI in one period (live compute with stored fallback)."""
+def period_is_open(period: str) -> bool:
+    """True for the current month (and any later one): its figures still move, so it is computed live."""
+    try:
+        return str(period) >= period_key()
+    except Exception:
+        return True
+
+
+def period_value(db: Session, kpi: KPI, period: str, entity=None, max_age: Optional[timedelta] = None) -> tuple[Optional[float], str, Optional[datetime]]:
+    """(value, source, computed_at) for one KPI in one period.
+
+    An open period is computed live every time. A closed period reads the stored ``KPIValue`` snapshot and, when
+    none exists yet, computes it once and stores it (system source) so later views are a single row read. The
+    caller commits. Manual entries always win over a recompute. With ``max_age`` an open period also reuses a system
+    snapshot younger than that (the catalogue reads 60+ KPIs at once) and stores the live value when it recomputes."""
     et, eid = (None, None)
     if isinstance(entity, Teacher):
         et, eid = "teacher", entity.id
     elif isinstance(entity, Department):
         et, eid = "department", entity.id
-    value, source = None, "none"
-    if live and kpi.formula_key:
+    elif isinstance(entity, (tuple, list)) and len(entity) == 2:
+        et, eid = entity
+    stored = latest_value(db, kpi, period, et, eid) if period else None
+    if stored is not None and stored.period != period:
+        stored = None  # latest_value falls back to the newest period; only an exact match is a cache hit
+    if stored is not None and (stored.source == "manual" or not period_is_open(period) or not kpi.formula_key):
+        return stored.value, stored.source, stored.created_at
+    if stored is not None and max_age is not None and stored.created_at and stored.created_at >= datetime.utcnow() - max_age:
+        return stored.value, stored.source, stored.created_at
+    if kpi.formula_key:
         value = compute_kpi(db, kpi, period, entity)
-        source = "live" if value is not None else source
+        if value is not None:
+            if not period_is_open(period) or max_age is not None:
+                row = upsert_value(db, kpi, period, value, source="system", entity_type=et, entity_id=eid)
+                return row.value, row.source, row.created_at
+            return value, "live", None
+    if stored is not None:
+        return stored.value, stored.source, stored.created_at
+    fallback = latest_value(db, kpi, None, et, eid) if kpi.formula_key is None else None
+    if fallback is not None:
+        return fallback.value, fallback.source, fallback.created_at
+    return None, "none", None
+
+
+def kpi_row(db: Session, kpi: KPI, period: str, entity=None, live: bool = True, max_age: Optional[timedelta] = None) -> dict:
+    """Value + target + RAG for one KPI in one period.
+
+    ``live=True`` computes open periods on the fly and reads (or backfills) the stored snapshot for closed ones;
+    ``live=False`` only reads stored values."""
+    et, eid = (None, None)
+    if isinstance(entity, Teacher):
+        et, eid = "teacher", entity.id
+    elif isinstance(entity, Department):
+        et, eid = "department", entity.id
+    value, source, computed_at = None, "none", None
+    if live and kpi.formula_key:
+        value, source, computed_at = period_value(db, kpi, period, entity, max_age=max_age)
     if value is None:
         row = latest_value(db, kpi, period, et, eid)
         if row:
-            value, source = row.value, row.source
+            value, source, computed_at = row.value, row.source, row.created_at
     status = rag(value, kpi.target, kpi.direction)
     return {"kpi": kpi, "value": value, "target": kpi.target, "unit": kpi.unit, "rag": status, "color": RAG_COLORS[status],
-            "label": RAG_LABELS[status], "source": source, "direction": kpi.direction}
+            "label": RAG_LABELS[status], "source": source, "direction": kpi.direction, "computed_at": computed_at}
 
 
 DEPT_ROLE_SLUGS = {"people": ["hr"], "finance": ["finance"], "academics": ["academic", "teacher"], "qa": ["qa"], "marketing": ["marketing"],

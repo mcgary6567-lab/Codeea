@@ -64,11 +64,6 @@ def invalidate(code: Optional[str] = None) -> None:
         _CACHE.pop(code, None)
 
 
-def cache_size() -> int:
-    """Number of lookups currently cached (used by the configuration screen and the tests)."""
-    return len(_CACHE)
-
-
 # --------------------------------------------------------------------------- helpers
 def _from_fallback(items: Optional[Sequence[FallbackItem]]) -> list[Option]:
     out: list[Option] = []
@@ -117,12 +112,15 @@ def labels(db: Session, code: str, fallback: Optional[Sequence[FallbackItem]] = 
     return [o.as_tuple() for o in values(db, code, fallback)]
 
 
-def label_for(db: Session, code: str, value: str, default: Optional[str] = None) -> str:
-    """The display label of one value (falls back to the value itself)."""
-    for o in values(db, code):
-        if o.value == value:
-            return o.label
-    return default if default is not None else str(value or "")
+def options(db: Session, code: str, fallback: Optional[Sequence[FallbackItem]] = None) -> list[tuple[str, str]]:
+    """``[(value, label), ...]`` for a form select: the configured lookup when it exists, else ``fallback``.
+
+    The one helper a module uses in place of a hard-coded constant: the constant becomes the fallback, so a
+    page keeps working before the college has configured the list, and validation accepts whatever the
+    options are (see :func:`option_values`). Tuples are returned even for a plain-string fallback so the
+    ``ui.select`` macro renders the configured label rather than title-casing the value.
+    """
+    return labels(db, code, fallback)
 
 
 def amount_for(db: Session, code: str, value: str, default: float = 0.0) -> float:

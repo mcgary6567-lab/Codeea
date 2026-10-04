@@ -56,7 +56,7 @@ def _subscription_page(request: Request, db: Session, user: User, amount: bool, 
         "user": user, "d": data, "opts": svc.options(db), "date_from": date_from, "date_to": date_to,
         "teacher_id": tid, "shift": shift, "status": status, "country": country, "amount": amount,
         "action": "/dashboards/subscriptions/amount" if amount else "/dashboards/subscriptions",
-        "title": "Subscriptions (Amount)" if amount else "Subscriptions (Count)"})
+        "title": "Subscriptions (Multiple)" if amount else "Subscriptions (Count)"})
 
 
 @router.get("/subscriptions/amount", include_in_schema=False)

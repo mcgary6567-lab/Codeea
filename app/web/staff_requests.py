@@ -34,8 +34,26 @@ from app.models.core import User
 from app.models.hr_erp import (EMPLOYEE_REQUEST_TYPES, STAFF_COMPLAINT_TYPES, Attachment, BonusType, EmployeeRequest,
                                HRDownload, StaffComplaint)
 from app.models.people import Bonus, Employee, SalaryAdvance
+from app.services import lookups
 
 router = APIRouter(prefix="/hr", dependencies=[Depends(csrf_protect)])
+
+
+def request_type_options(db: Session) -> list[tuple[str, str]]:
+    """Configuration -> Lookups 'hr_employee_request_type', falling back to the model constant."""
+    return lookups.options(db, "hr_employee_request_type", EMPLOYEE_REQUEST_TYPES)
+
+
+def complaint_type_options(db: Session) -> list[tuple[str, str]]:
+    """Configuration -> Lookups 'hr_complaint_type', falling back to the model constant."""
+    return lookups.options(db, "hr_complaint_type", STAFF_COMPLAINT_TYPES)
+
+
+def _configured(db: Session, code: str, fallback: list[str], submitted: str | None, default: str) -> str:
+    allowed = lookups.option_values(db, code, fallback)
+    if submitted in allowed:
+        return submitted
+    return default if (default in allowed or not allowed) else allowed[0]
 
 STATUSES = ["pending", "approved", "rejected", "cancelled"]
 TILES = [("Pending", "pending", "clock"), ("Approved", "approved", "check-circle-2"),
@@ -136,7 +154,7 @@ def render_list(request: Request, user: User, db: Session, kind: str, meta: dict
         "status_options": [(s, status_label(s, "request")) for s in STATUSES],
         "statuses": STATUSES, "group_tabs": GROUP_TABS, "can_add": can_add, "can_change": can_change,
         "employee_options": employee_options(db), "shift_options": SHIFTS,
-        "request_types": EMPLOYEE_REQUEST_TYPES, "complaint_types": STAFF_COMPLAINT_TYPES,
+        "request_types": request_type_options(db), "complaint_types": complaint_type_options(db),
         "today_iso": date.today().isoformat(), "period_default": month_key(),
         "change_status_action": f"{path}/change-status", "create_action": f"{path}/new",
         "sub_tabs": None, "sub_tab": None, "can_pick_employee": True, "type_amounts": {},
@@ -207,9 +225,9 @@ async def request_create(request: Request, db: Session = Depends(get_db), user: 
     description = (form.get("description") or "").strip()
     if not e or not description:
         return redirect("/hr/requests", "Choose the employee and describe the request.", "error")
-    rtype = form.get("request_type") or "Other"
+    rtype = _configured(db, "hr_employee_request_type", EMPLOYEE_REQUEST_TYPES, form.get("request_type"), "Other")
     r = EmployeeRequest(employee_id=e.id, request_date=parse_date(form.get("request_date")) or date.today(),
-                        request_type=rtype if rtype in EMPLOYEE_REQUEST_TYPES else "Other",
+                        request_type=rtype,
                         description=description, status="pending")
     db.add(r)
     db.flush()
@@ -522,8 +540,8 @@ async def complaint_create(request: Request, db: Session = Depends(get_db), ctx:
     title = (form.get("title") or "").strip()
     if not e or not title:
         return redirect("/hr/complaints", "A complaint needs an employee record and a title.", "error")
-    ctype = form.get("complaint_type") or "HR"
-    c = StaffComplaint(employee_id=e.id, complaint_type=ctype if ctype in STAFF_COMPLAINT_TYPES else "Other",
+    ctype = _configured(db, "hr_complaint_type", STAFF_COMPLAINT_TYPES, form.get("complaint_type"), "HR")
+    c = StaffComplaint(employee_id=e.id, complaint_type=ctype,
                        title=title[:200], description=(form.get("description") or "").strip() or None,
                        is_secret=parse_bool(form.get("is_secret")), status="pending")
     db.add(c)

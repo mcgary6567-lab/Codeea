@@ -8,7 +8,6 @@ from __future__ import annotations
 import random
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.utils import month_bounds, month_key

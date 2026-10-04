@@ -2,7 +2,7 @@
 from datetime import datetime, date, time
 from typing import Optional
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float, Numeric
+from sqlalchemy import String, Integer, Boolean, DateTime, Date, Time, Text, ForeignKey, JSON, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base, PKMixin, TimestampMixin

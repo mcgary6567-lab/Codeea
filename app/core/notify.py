@@ -7,8 +7,7 @@ from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
-from app.config import settings
-from app.models.core import Notification, User, Integration
+from app.models.core import Notification, User
 
 log = logging.getLogger("oqc.notify")
 
@@ -45,10 +44,39 @@ def notify_many(db: Session, users: Iterable[User | int], title: str, body: str 
         notify(db, u, title, body, **kw)
 
 
+SKIPPED_BY_PREFERENCE = "Channel switched off in the recipient's communication preferences"
+
+
+def channel_opted_out(db: Session, user_id: Optional[int], channel: str) -> bool:
+    """True when the recipient switched ``channel`` off (a CommunicationPreference row with opted_in False), held
+    either against their user or against the family record their login belongs to. in_app is never opted out."""
+    if not user_id or channel == "in_app":
+        return False
+    from sqlalchemy import or_
+    from app.models.core import CommunicationPreference
+    owners = [CommunicationPreference.user_id == user_id]
+    try:
+        from app.models.people import Client
+        client_ids = [cid for (cid,) in db.query(Client.id).filter(Client.user_id == user_id).all()]
+    except Exception:  # pragma: no cover - people module unavailable
+        client_ids = []
+    if client_ids:
+        owners.append(CommunicationPreference.client_id.in_(client_ids))
+    # the most recent decision wins when both a user-level and a family-level row exist
+    pref = (db.query(CommunicationPreference).filter(or_(*owners), CommunicationPreference.channel == channel)
+            .order_by(CommunicationPreference.updated_at.desc().nullslast(), CommunicationPreference.id.desc()).first())
+    return pref is not None and not pref.opted_in
+
+
 def dispatch(db: Session, n: Notification) -> None:
-    """Send through the channel adapter. External channels run in simulation mode unless credentials exist."""
+    """Send through the channel adapter. External channels run in simulation mode unless credentials exist.
+    A channel the recipient switched off in their communication preferences is skipped (status ``skipped``)."""
     n.attempts += 1
     try:
+        if channel_opted_out(db, n.user_id, n.channel):
+            n.status = "skipped"
+            n.error = SKIPPED_BY_PREFERENCE
+            return
         if n.channel == "in_app":
             n.status = "delivered"
         elif n.channel == "email":

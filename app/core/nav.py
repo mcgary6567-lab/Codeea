@@ -362,7 +362,7 @@ TEACHER_NAV = [
         _i("Monthly Tests", "/teacher/monthly-tests", "file-badge", "portal_teacher.view"),
         _i("Trials", "/teacher/trials", "flask-conical", "portal_teacher.view"),
     ]},
-    {"slug": "me", "label": "Employee Self Portal", "icon": "user", "blurb": "Performance, attendance, payslips", "items": [
+    {"slug": "me", "label": "Employee Self Portal", "icon": "user", "blurb": "Performance, attendance, payslips, requests and your record", "items": [
         _i("Performance", "/teacher/performance", "trending-up", "portal_teacher.view"),
         _i("QA Feedback", "/teacher/qa", "shield-check", "portal_teacher.view"),
         _i("Ustaadh Lab", "/teacher/training", "sparkles", "portal_teacher.view"),
@@ -370,6 +370,16 @@ TEACHER_NAV = [
         _i("Income & Payslips", "/teacher/income", "banknote", "portal_teacher.view"),
         _i("Daily Report", "/daily-reports", "file-clock", "daily_reports.view"),
         _i("Tasks", "/tasks", "list-checks", "tasks.view"),
+        # the staff self-portal pages every employee holds portal_self.* for; teachers had no way to reach them
+        _i("My Overview", "/hr/me", "layout-dashboard", "portal_self.view"),
+        _i("Requests", "/hr/me?tab=requests", "inbox", "portal_self.view"),
+        _i("Daily Progress Sheet", "/hr/me/progress", "notebook-pen", "portal_self.view"),
+        _i("Team Management", "/hr/me/team", "users-round", "portal_self.view"),
+        _i("Account Ledger", "/hr/me/ledger", "book-open-text", "portal_self.view"),
+        _i("Notifications", "/hr/me/notices", "megaphone", "portal_self.view"),
+        _i("Downloads", "/hr/downloads", "download", "portal_self.view"),
+        _i("Raise a Grievance", "/hr/me?tab=grievance", "lock", "portal_self.view"),
+        _i("My Profile", "/profile", "user-cog", "portal_self.view"),
     ]},
 ]
 

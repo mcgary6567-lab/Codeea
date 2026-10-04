@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models.academic import Course
 from app.models.core import User
 from app.models.crm import Lead, LeadSource, Referral
-from app.models.people import Client, Student, Teacher, Employee, HRAttendance, Leave, TrainingAssignment
+from app.models.people import Client, Student, Teacher, HRAttendance, Leave, TrainingAssignment
 from app.models.scheduling import TeacherMatch, Trial
 
 rnd = random.Random(4409)
@@ -133,7 +133,6 @@ def _hr_attendance(db: Session) -> int:
     for t in teachers:
         if not t.employee_id:
             continue
-        emp = db.query(Employee).get(t.employee_id)
         start_hour = base_in.get(t.shift, 14) if t.shift != "morning" else 6
         for d in range(30, 0, -1):
             day = date.today() - timedelta(days=d)

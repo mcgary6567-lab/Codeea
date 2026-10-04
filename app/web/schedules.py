@@ -2,7 +2,7 @@
 pause/end, bulk teacher change (teacher-change propagation) and shift administration."""
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, or_
@@ -239,7 +239,7 @@ async def create_schedule(request: Request, db: Session = Depends(get_db), user:
     except ValueError as exc:
         return redirect(back, str(exc), "error")
     db.commit()
-    return redirect(f"/schedules/{sch.id}", f"Schedule created and the next 14 days of classes were generated.")
+    return redirect(f"/schedules/{sch.id}", "Schedule created and the next 14 days of classes were generated.")
 
 
 # ----------------------------------------------------------------------------- detail / edit

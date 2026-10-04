@@ -14,11 +14,10 @@ from datetime import date, datetime, time, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password
-from app.models.core import User, Role, Department, Branch
+from app.models.core import User, Department
 from app.models.people import (Employee, Teacher, HRAttendance, Leave, Violation, Grievance, SalaryAdvance, Bonus,
-                               OnboardingTask, ProvisioningRecord, RecruitmentRequest, Candidate, Interview,
-                               TrainingAssignment, DevelopmentPlan, PayrollRun, SalaryStructure)
+                               ProvisioningRecord, RecruitmentRequest, Candidate, Interview,
+                               TrainingAssignment, DevelopmentPlan, PayrollRun)
 from app.services import hr as svc
 from app.services import payroll as pay
 

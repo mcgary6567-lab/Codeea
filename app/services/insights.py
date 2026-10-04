@@ -7,7 +7,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session

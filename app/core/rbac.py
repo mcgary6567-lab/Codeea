@@ -119,7 +119,7 @@ _ACADEMIC = ["courses.*", "packages.view", "curriculum.*", "lesson_plans.*", "ev
              "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view"]
 _QA = ["qa.*", "ai_monitoring.*", "recordings.*", "classes.view", "teachers.view", "students.view", "teacher_dev.*",
        "cases.*", "feedback.*", "kpis.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view",
-       "reports.*", "notifications.*", "safeguarding.view", "monthly_tests.view", "evaluations.view", "dashboards.view",
+       "reports.*", "notifications.*", "safeguarding.view", "safeguarding.add", "safeguarding.update", "monthly_tests.view", "evaluations.view", "dashboards.view",
        "requests.view"]
 _MARKETING = ["leads.*", "campaigns.*", "marketing.*", "inbox.*", "sequences.*", "automations.*", "tags.*", "referrals.*", "trials.*",
               "registration.*", "clients.view", "clients.add", "students.view", "feedback.view", "kpis.*", "tasks.*",

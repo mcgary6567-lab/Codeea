@@ -23,8 +23,14 @@ from app.services import people as svc
 
 router = APIRouter(dependencies=[Depends(csrf_protect)])
 
+# Fallback for the 'lead_referral_source' lookup (Configuration -> Lookups), read through how_heard_options().
 HOW_HEARD = ["Google search", "Facebook / Instagram", "YouTube", "TikTok", "A friend or family member",
              "My local masjid", "WhatsApp", "Other"]
+
+
+def how_heard_options(db: Session) -> list[tuple[str, str]]:
+    from app.services import lookups
+    return lookups.options(db, "lead_referral_source", HOW_HEARD)
 PREFERRED_TIMES = ["Weekday mornings", "Weekday afternoons", "Weekday evenings", "Late evenings", "Weekends", "Flexible"]
 
 
@@ -121,7 +127,7 @@ def register_form(request: Request, ref: str = "", db: Session = Depends(get_db)
     return render(request, "registration/register.html", {
         "user": None, "course_options": [(c.id, c.name) for c in courses], "countries": svc.COUNTRY_NAMES, "timezones": svc.TIMEZONES,
         "country_map": {k: {"timezone": v[1], "currency": v[2], "dial": v[3]} for k, v in svc.COUNTRY_MAP.items()},
-        "how_heard": HOW_HEARD, "preferred_times": PREFERRED_TIMES, "ref": ref.strip().upper(),
+        "how_heard": how_heard_options(db), "preferred_times": PREFERRED_TIMES, "ref": ref.strip().upper(),
         "ambassador": ambassador, "values": {}, "error": None, "signed_in": user is not None})
 
 
@@ -136,7 +142,7 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
         return render(request, "registration/register.html", {
             "user": None, "course_options": [(c.id, c.name) for c in courses], "countries": svc.COUNTRY_NAMES, "timezones": svc.TIMEZONES,
             "country_map": {k: {"timezone": v[1], "currency": v[2], "dial": v[3]} for k, v in svc.COUNTRY_MAP.items()},
-            "how_heard": HOW_HEARD, "preferred_times": PREFERRED_TIMES, "ref": (form.get("ref") or "").upper(),
+            "how_heard": how_heard_options(db), "preferred_times": PREFERRED_TIMES, "ref": (form.get("ref") or "").upper(),
             "ambassador": None, "values": dict(form), "error": msg, "signed_in": False}, status_code=200)
 
     full_name = (form.get("full_name") or "").strip()
@@ -176,7 +182,7 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
                 is_duplicate_of_id=lead_dups[0].id if lead_dups else None,
                 notes="\n".join([
                     f"How did you hear about us: {form.get('how_heard') or 'not stated'}",
-                    f"Students: " + "; ".join(f"{s['name']} ({s['gender']}, {s['age'] or '?'}y)" for s in students),
+                    "Students: " + "; ".join(f"{s['name']} ({s['gender']}, {s['age'] or '?'}y)" for s in students),
                     f"Message: {(form.get('message') or '').strip()}" if (form.get("message") or "").strip() else "",
                     f"Existing client match: {', '.join(c.client_code for c in client_dups)}" if client_dups else "",
                 ]).strip())

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 

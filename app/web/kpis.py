@@ -1,10 +1,10 @@
 """Module 26 / Section 17 - KPI framework: catalogue, values, timelines, department and role scorecards."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core import rbac
@@ -60,7 +60,9 @@ def catalogue(request: Request, period: str = "", role: str = "", department_id:
         like = f"%{q}%"
         query = query.filter(or_(KPI.name.ilike(like), KPI.code.ilike(like)))
     kpis = query.order_by(KPI.role_slug, KPI.name).all()
-    rows = [svc.kpi_row(db, k, p, live=True) for k in kpis]
+    # Closed months read their snapshot; the open month reuses a system value under 30 minutes old, else recomputes.
+    rows = [svc.kpi_row(db, k, p, live=True, max_age=timedelta(minutes=30)) for k in kpis]
+    db.commit()  # keep the snapshot rows written above so the next view is a plain read
     counts = {c: sum(1 for r in rows if r["rag"] == c) for c in ("green", "amber", "red", "grey", "blue")}
     groups: dict[str, list] = {}
     for r in rows:
@@ -208,18 +210,18 @@ def kpi_detail(kpi_id: int, request: Request, period: str = "", db: Session = De
         return redirect("/kpis", "KPI not found.", "error")
     p = _period(period)
     periods = svc.last_n_periods(12)
-    stored = {v.period: v for v in db.query(KPIValue).filter(KPIValue.kpi_id == k.id, KPIValue.entity_type.is_(None))}
     values, targets = [], []
     for per in periods:
-        v = stored.get(per)
-        live = svc.compute_kpi(db, k, per) if k.formula_key else None
-        values.append(live if live is not None else (v.value if v else None))
+        # Closed months come from the stored snapshot (backfilled once when missing); only the open month is live.
+        value, _source, _at = svc.period_value(db, k, per)
+        values.append(value)
         targets.append(k.target)
     row = svc.kpi_row(db, k, p, live=True)
     entity_rows = []
     if k.role_slug == "teacher":
         for t in db.query(Teacher).filter(Teacher.status == "active").order_by(Teacher.teacher_code).limit(40):
             entity_rows.append({"name": t.full_name, "code": t.teacher_code, "row": svc.kpi_row(db, k, p, t, live=True)})
+    db.commit()  # keep any snapshot rows backfilled above
     history = (db.query(KPIValue).filter(KPIValue.kpi_id == k.id).order_by(KPIValue.period.desc(), KPIValue.id.desc())
                .limit(60).all())
     return render(request, "kpis/detail.html", {

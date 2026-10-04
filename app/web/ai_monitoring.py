@@ -1,7 +1,6 @@
 """Module 25 — AI class monitoring: metrics, human review (approve / override / false positive), teacher trends and AI cost."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_action
 from app.core.deps import csrf_protect, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_float, parse_int, redirect
+from app.core.utils import paginate, parse_date, parse_float, redirect
 from app.database import get_db
 from app.models.core import AIModelRun, User
 from app.models.scheduling import AIClassAnalysis, ClassSession, QAReview, SafeguardingFlag

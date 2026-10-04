@@ -206,8 +206,8 @@ WORKFLOWS = [
          description="A week after completion, a 60-second review request with the direct link.",
          steps=[
              {"kind": "wait", "days": 7},
-             {"kind": "send_whatsapp", "body": "Assalamu Alaikum {{name}}, if {{student}}'s journey with us was a good one, a 60-second review helps other families find us: {{link}}. JazakAllah Khair."},
-         ], run_once_per_contact=False, needs="Set the review link in Configuration › Setup once the Google Business profile is connected."),
+             {"kind": "send_whatsapp", "body": "Assalamu Alaikum {{name}}, if {{student}}'s journey with us was a good one, a 60-second review helps other families find us: {{review_link}}. JazakAllah Khair."},
+         ], run_once_per_contact=False, needs="Set the review link in Configuration › Setup (Branch Properties › review_link) once the Google Business profile is connected."),
     dict(code="AUTO-019", name="Referral Programme Trigger (NPS 9-10)", category="alumni", pipeline=ENGAGE, trigger="feedback.submitted", trigger_filter={"nps_min": 9},
          description="A promoter score of 9 or 10 invites the family to the ambassador programme with their referral link.",
          steps=[
@@ -346,7 +346,15 @@ def seed_tags(db: Session) -> dict[str, Tag]:
 def seed_workflows(db: Session) -> int:
     created = 0
     for i, spec in enumerate(WORKFLOWS):
-        if db.query(Workflow).filter(Workflow.code == spec["code"]).first():
+        existing = db.query(Workflow).filter(Workflow.code == spec["code"]).first()
+        if existing:
+            if spec["code"] == "AUTO-018":
+                # The review request now carries the configurable {{review_link}}; refresh a row seeded with {{link}}.
+                steps = list(existing.steps or [])
+                if any("{{link}}" in str(st.get("body", "")) for st in steps if isinstance(st, dict)):
+                    existing.steps = [dict(st, body=st["body"].replace("{{link}}", "{{review_link}}")) if isinstance(st, dict) and "body" in st else st
+                                      for st in steps]
+                    existing.needs = spec.get("needs")
             continue
         errors = auto.validate_steps(spec["steps"])
         assert not errors, f"{spec['code']}: {errors}"

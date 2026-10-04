@@ -72,6 +72,9 @@ TEMPLATES = [
 ]
 
 SETTINGS = [
+    # Meta's GET handshake on /api/v1/webhooks/whatsapp compares hub.verify_token with this; empty falls back to the
+    # built-in development token, so set it on /admin/settings (Configuration) before connecting the live number.
+    ("whatsapp_verify_token", {"value": ""}, "integrations", "Meta webhook verification token (hub.verify_token)"),
     ("report_deadline_morning", {"time": "10:00"}, "governance", "Morning structured report deadline"),
     ("report_deadline_afternoon", {"time": "17:00"}, "governance", "Afternoon structured report deadline"),
     ("discount_manager_max_pct", {"value": 20}, "pricing", "Manager can approve discounts up to this %"),

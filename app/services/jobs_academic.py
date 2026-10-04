@@ -23,17 +23,27 @@ def _system_user(db: Session):
     return db.query(User).filter(User.is_superuser.is_(True)).order_by(User.id).first()
 
 
-def monthly_test_generation(db: Session) -> dict:
-    """On the 1st of each month, generate the monthly test for every active/trial student.
+CATCHUP_DAYS = 3
+TESTS_MARKER_KEY = "job_monthly_test_generation_last_period"
 
-    Runs every 12h but is idempotent: generate_monthly_test skips students that already have a
-    test for the period, so a repeated run on the same day is a no-op.
+
+def monthly_test_generation(db: Session, today: date | None = None) -> dict:
+    """Due on the 1st of each month: generate the monthly test for every active/trial student.
+
+    A 1st the scheduler missed (restart after both ticks) is caught up during the first days of the month; the
+    generated period is kept as a Setting marker so the month is handled once, and generate_tests_for_period
+    itself skips students that already hold a test for the period.
     """
-    today = date.today()
-    if today.day != 1:
-        return {"skipped": "not the 1st", "period": period_of()}
-    period = period_of()
+    from app.services import scheduling as sched_svc
+    today = today or date.today()
+    period = period_of(today)
+    if today.day > 1 + CATCHUP_DAYS:
+        return {"skipped": "not the 1st (catch-up window passed)", "period": period}
+    if sched_svc.setting_value(db, TESTS_MARKER_KEY, None, field="value") == period:
+        return {"skipped": "already generated this month", "period": period, "created": 0}
     created = generate_tests_for_period(db, period, _system_user(db))
+    sched_svc.set_setting(db, TESTS_MARKER_KEY, {"value": period, "at": datetime.utcnow().isoformat(), "created": created},
+                          group="jobs", description="Last period the monthly test generation job handled")
     if created:
         log.info("monthly test generation: %s tests created for %s", created, period)
     return {"period": period, "created": created}

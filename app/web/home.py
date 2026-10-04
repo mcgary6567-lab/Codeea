@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action
-from app.core.deps import get_current_user, get_optional_user, require, csrf_protect
+from app.core.deps import get_optional_user, require, csrf_protect
 from app.core.nav import home_for
 from app.core.templating import render
 from app.core.utils import redirect, paginate

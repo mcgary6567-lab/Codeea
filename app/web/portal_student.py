@@ -1,7 +1,7 @@
 """Student portal (/student). Scoped strictly to ctx.student."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models.academic import Certificate, Evaluation, MonthlyTest
 from app.models.core import User, Notification
 from app.models.people import Student
-from app.models.scheduling import ClassSession, Attendance
+from app.models.scheduling import ClassSession
 from app.services import people as svc
 from app.services.classes import student_attendance_pct
 

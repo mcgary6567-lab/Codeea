@@ -53,10 +53,6 @@ def set_setting(db: Session, key: str, value: dict, group: str = "jobs", descrip
     db.flush()
 
 
-def course_color(course) -> str:
-    return COURSE_COLORS.get(getattr(course, "code", "") or "", "slate")
-
-
 def day_label(days: Iterable[int]) -> str:
     return ", ".join(DAY_NAMES[d] for d in sorted(set(int(x) for x in (days or []))) if 0 <= d < 7) or "-"
 

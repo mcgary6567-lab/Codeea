@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.config import BASE_DIR
 from app.core.audit import log_action
 from app.core.notify import notify
-from app.core.utils import month_bounds, next_code
+from app.core.utils import month_bounds
 from app.models.core import User, Setting
 from app.models.people import (Employee, Teacher, Student, HRAttendance, Leave, Violation, SalaryStructure,
                                SalaryAdvance, Bonus, PayrollRun, Payslip)

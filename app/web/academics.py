@@ -22,7 +22,7 @@ from app.models.academic import (Book, Certificate, Chapter, Course, CurriculumV
                                  Evaluation, Lesson, LessonAnnotation, LessonPlan, MonthlyTest, Package,
                                  StudentProgress)
 from app.models.core import AuditEvent, User
-from app.models.people import Client, Student, Teacher
+from app.models.people import Student, Teacher
 from app.services import academic as svc
 
 router = APIRouter(prefix="/academics", dependencies=[Depends(csrf_protect)])

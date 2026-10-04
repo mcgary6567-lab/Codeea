@@ -8,16 +8,14 @@ import hashlib
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.notify import notify
-from app.models.academic import Course
 from app.models.core import AIModelRun, RiskAlert, User
 from app.models.people import Teacher
 from app.models.scheduling import (ClassSession, Recording, RecordingAccessLog, AIClassAnalysis, QAReview, CorrectiveAction,
-                                   SafeguardingFlag, Schedule, Shift)
+                                   SafeguardingFlag, Schedule)
 from app.services.ai_gateway import ai, review_run
 
 QA_WEIGHTS = {"tajweed": 0.25, "methodology": 0.20, "engagement": 0.20, "punctuality": 0.10, "environment": 0.10, "professionalism": 0.15}

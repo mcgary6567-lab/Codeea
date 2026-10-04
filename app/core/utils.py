@@ -6,7 +6,6 @@ import json
 import math
 from datetime import date, datetime, timedelta
 from typing import Any, Optional, Type
-from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
@@ -100,10 +99,6 @@ def pop_flash(request: Request) -> list[dict]:
 def back_url(request: Request, default: str = "/") -> str:
     ref = request.headers.get("referer")
     return ref if ref else default
-
-
-def login_url(request: Request) -> str:
-    return "/login?next=" + quote(str(request.url.path))
 
 
 # ----------------------------------------------------------------------------- parsing

@@ -10,19 +10,45 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.audit import log_action
 from app.core.notify import notify
-from app.core.utils import month_key
-from app.models.core import User, Role, Department
-from app.models.people import Employee, Teacher, Leave, HRAttendance, Violation, PayrollRun
+from app.models.core import Role, User
+from app.models.people import Employee, Teacher, Leave, Violation, PayrollRun
+from app.models.scheduling import ReminderLog
 from app.services import hr as svc
 from app.services import payroll as pay
+from app.services import scheduling as sched_svc
 
 log = logging.getLogger("oqc.jobs.hr")
+
+# A job keyed on a calendar date catches up this many days when its tick was missed (restart, downtime).
+CATCHUP_DAYS = 3
+CONTRACT_END_THRESHOLDS = (30, 7)
+CONTRACT_MARKER_KEY = "job_contract_end_reminders_last_run"
+PAYROLL_MARKER_KEY = "job_monthly_draft_payroll_last_period"
+GRADES_MARKER_KEY = "job_weekly_teacher_grades_last_week"
 
 
 def _system_user(db: Session):
     return db.query(User).filter(User.is_superuser.is_(True)).order_by(User.id).first()
+
+
+def _marker(db: Session, key: str, field: str = "value"):
+    return sched_svc.setting_value(db, key, None, field=field)
+
+
+def _set_marker(db: Session, key: str, value: str, extra: dict | None = None) -> None:
+    sched_svc.set_setting(db, key, {"value": value, "at": datetime.utcnow().isoformat(), **(extra or {})},
+                          group="jobs", description="Last run marker for an HR background job")
+
+
+def _already_logged(db: Session, kind: str, entity_type: str, entity_id: int) -> bool:
+    return db.query(ReminderLog.id).filter(ReminderLog.reminder_type == kind, ReminderLog.entity_type == entity_type,
+                                           ReminderLog.entity_id == entity_id).first() is not None
+
+
+def people_culture_heads(db: Session) -> list[User]:
+    """The People & Culture head(s): active users holding the hod_people role."""
+    return db.query(User).join(Role, User.role_id == Role.id).filter(Role.slug == "hod_people", User.is_active.is_(True)).all()
 
 
 def daily_mark_absent(db: Session) -> dict:
@@ -58,22 +84,73 @@ def probation_reminders(db: Session) -> dict:
     return {"upcoming": len(rows), "notifications": sent}
 
 
+def contract_end_reminders(db: Session, today: date | None = None) -> dict:
+    """Daily: 30 and 7 days before an employee's contract ends, tell the People & Culture head and the manager.
+
+    A day the job missed is caught up: every threshold whose date fell between the last run and today fires once.
+    ReminderLog rows (``contract_end_30`` / ``contract_end_7`` per employee) plus the last-run Setting guarantee
+    that a threshold is never announced twice."""
+    today = today or date.today()
+    last = _marker(db, CONTRACT_MARKER_KEY)
+    try:
+        since = date.fromisoformat(last) + timedelta(days=1) if last else today - timedelta(days=CATCHUP_DAYS)
+    except ValueError:
+        since = today - timedelta(days=CATCHUP_DAYS)
+    since = max(since, today - timedelta(days=CATCHUP_DAYS))
+    if since > today:
+        return {"skipped": "already ran today", "notifications": 0, "employees": 0}
+    heads = people_culture_heads(db)
+    sent = employees = 0
+    for threshold in CONTRACT_END_THRESHOLDS:
+        rows = (db.query(Employee).filter(Employee.status.in_(["active", "probation"]), Employee.contract_end_date.isnot(None),
+                                          Employee.contract_end_date >= since + timedelta(days=threshold),
+                                          Employee.contract_end_date <= today + timedelta(days=threshold))
+                .order_by(Employee.contract_end_date).all())
+        kind = f"contract_end_{threshold}"
+        for e in rows:
+            if _already_logged(db, kind, "Employee", e.id):
+                continue
+            days_left = (e.contract_end_date - today).days
+            when = "today" if days_left == 0 else f"in {days_left} day(s)"
+            title = f"Contract ends {when}: {e.full_name}"
+            body = (f"{e.full_name} ({e.employee_code}, {e.designation}) has a contract ending on {e.contract_end_date:%d %b %Y}. "
+                    f"Decide on renewal or exit paperwork.")
+            recipients: dict[int, User] = {u.id: u for u in heads}
+            if e.manager and e.manager.user_id:
+                recipients.setdefault(e.manager.user_id, e.manager.user)
+            for uid in recipients:
+                notify(db, uid, title, body, event_type="hr", link=f"/hr/employees/{e.id}")
+                sent += 1
+            db.add(ReminderLog(reminder_type=kind, user_id=e.user_id, entity_type="Employee", entity_id=e.id,
+                               channel="in_app", status="sent"))
+            employees += 1
+    _set_marker(db, CONTRACT_MARKER_KEY, today.isoformat(), {"employees": employees, "notifications": sent})
+    return {"since": str(since), "employees": employees, "notifications": sent}
+
+
 def leave_reminders(db: Session) -> dict:
-    """Remind the employee and their manager the day before leave starts and on the last day."""
+    """Remind the employee and their manager the day before leave starts and on the last day.
+
+    Keyed on the leave's own ``reminder_sent_*`` flags, so a missed tick catches up: any leave starting within
+    the last few days (or tomorrow) that was never announced is announced once."""
     today = date.today()
     tomorrow = today + timedelta(days=1)
+    catchup = timedelta(days=CATCHUP_DAYS)
     starting = db.query(Leave).filter(Leave.person_type == "employee", Leave.status == "approved",
-                                      Leave.start_date == tomorrow, Leave.reminder_sent_start.is_(False)).all()
+                                      Leave.start_date >= tomorrow - catchup, Leave.start_date <= tomorrow,
+                                      Leave.reminder_sent_start.is_(False)).all()
     ending = db.query(Leave).filter(Leave.person_type == "employee", Leave.status == "approved",
-                                    Leave.end_date == today, Leave.reminder_sent_end.is_(False)).all()
+                                    Leave.end_date >= today - catchup, Leave.end_date <= today,
+                                    Leave.reminder_sent_end.is_(False)).all()
     for l in starting:
         emp = l.employee
         if emp and emp.user_id:
-            notify(db, emp.user_id, "Your leave starts tomorrow",
-                   f"{l.leave_type.title()} leave {l.start_date} to {l.end_date}. Please hand over anything outstanding today.",
+            when = "tomorrow" if l.start_date == tomorrow else ("today" if l.start_date == today else f"on {l.start_date:%d %b}")
+            notify(db, emp.user_id, f"Your leave starts {when}",
+                   f"{l.leave_type.title()} leave {l.start_date} to {l.end_date}. Please hand over anything outstanding.",
                    event_type="leave", link="/hr/me?tab=leaves")
         if emp and emp.department and emp.department.hod_user_id:
-            notify(db, emp.department.hod_user_id, "Team member on leave tomorrow",
+            notify(db, emp.department.hod_user_id, "Team member on leave" + (" tomorrow" if l.start_date == tomorrow else ""),
                    f"{emp.full_name} is away {l.start_date} to {l.end_date}.", event_type="leave", link=f"/hr/leaves/{l.id}")
         l.reminder_sent_start = True
     for l in ending:
@@ -83,6 +160,7 @@ def leave_reminders(db: Session) -> dict:
                    f"Your {l.leave_type} leave ends today. Remember to check in for your next shift.",
                    event_type="leave", link="/hr/me?tab=attendance")
         l.reminder_sent_end = True
+    db.flush()   # the session does not autoflush; the flags must be visible to a run that follows in the same session
     return {"starting": len(starting), "ending": len(ending)}
 
 
@@ -116,26 +194,42 @@ def auto_violations_for_missed_classes(db: Session) -> dict:
     return {"day": str(day), "teachers_flagged": created}
 
 
-def weekly_teacher_grades(db: Session) -> dict:
-    """Recompute every teacher grade once a week (Mondays)."""
-    if date.today().weekday() != 0:
-        return {"skipped": "not Monday"}
+def weekly_teacher_grades(db: Session, today: date | None = None) -> dict:
+    """Recompute every teacher grade once a week, due on Monday.
+
+    The week's Monday is the marker: a Monday tick that was missed is caught up on the next run that week,
+    and a second run in the same week is a no-op."""
+    today = today or date.today()
+    week = (today - timedelta(days=today.weekday())).isoformat()
+    if _marker(db, GRADES_MARKER_KEY) == week:
+        return {"skipped": f"already recomputed for the week of {week}", "week": week}
     result = pay.recompute_all_grades(db, _system_user(db))
-    log.info("weekly teacher grading: %s", result)
-    return result
+    _set_marker(db, GRADES_MARKER_KEY, week)
+    log.info("weekly teacher grading (week of %s): %s", week, result)
+    return {"week": week, **(result if isinstance(result, dict) else {"result": result})}
 
 
-def monthly_draft_payroll(db: Session) -> dict:
-    """On the 1st of the month, draft the previous month's payroll for review."""
-    today = date.today()
-    if today.day != 1:
-        return {"skipped": "not the 1st"}
+def monthly_draft_payroll(db: Session, today: date | None = None) -> dict:
+    """Due on the 1st of the month: draft the previous month's payroll for review.
+
+    Catches up a missed 1st during the first days of the month; the drafted period is the marker, so the
+    draft is produced once per month however many ticks fall in that window."""
+    today = today or date.today()
+    if today.day > 1 + CATCHUP_DAYS:
+        return {"skipped": "not the 1st (catch-up window passed)"}
     period = (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    if _marker(db, PAYROLL_MARKER_KEY) == period:
+        return {"period": period, "skipped": "already drafted this month"}
     existing = db.query(PayrollRun).filter(PayrollRun.period == period).first()
-    if existing and existing.status not in ("draft",):
+    if existing and existing.status not in pay.REGENERABLE_STATUSES:
+        _set_marker(db, PAYROLL_MARKER_KEY, period, {"run_id": existing.id, "status": existing.status})
         return {"period": period, "skipped": f"already {existing.status}"}
+    if existing:
+        _set_marker(db, PAYROLL_MARKER_KEY, period, {"run_id": existing.id, "status": existing.status})
+        return {"period": period, "skipped": f"a {existing.status} run already exists", "run_id": existing.id}
     user = _system_user(db)
     run = pay.generate_payroll(db, period, user)
+    _set_marker(db, PAYROLL_MARKER_KEY, period, {"run_id": run.id})
     for u in svc.hr_notify_users(db):
         notify(db, u, "Draft payroll ready", f"Payroll for {period} has been drafted: {len(run.payslips)} payslip(s), "
                f"net {float(run.total_net):,.0f} PKR. Review and submit for approval.",
@@ -172,6 +266,7 @@ def pending_leave_reminders(db: Session) -> dict:
 JOBS = [
     ("hr_daily_mark_absent", daily_mark_absent, 120),
     ("hr_probation_reminders", probation_reminders, 720),
+    ("hr_contract_end_reminders", contract_end_reminders, 720),
     ("hr_leave_reminders", leave_reminders, 360),
     ("hr_auto_violations_missed_classes", auto_violations_for_missed_classes, 720),
     ("hr_weekly_teacher_grades", weekly_teacher_grades, 720),

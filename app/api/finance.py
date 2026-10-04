@@ -6,7 +6,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
@@ -15,7 +14,7 @@ from app.core.utils import month_bounds
 from app.database import get_db
 from app.models.academic import Package
 from app.models.core import User
-from app.models.finance import Currency, Expense, Invoice, LedgerEntry, Payment, Scholarship, Subscription
+from app.models.finance import Currency, Expense, Invoice, Payment, Scholarship, Subscription
 from app.models.people import Client, Student, Teacher
 from app.services import accounting, billing
 
@@ -321,25 +320,39 @@ def api_create_payment(payload: PaymentIn, db: Session = Depends(get_db), user: 
     return _pay_out(p)
 
 
-@router.post("/payment-webhook", response_model=PaymentOut, status_code=201)
-def api_payment_webhook(payload: WebhookIn, request: Request, db: Session = Depends(get_db),
-                        user: User = Depends(get_current_user)):
-    """Gateway callback: record a payment against an invoice number + gateway reference (idempotent on reference)."""
+def apply_gateway_payment(db: Session, payload: WebhookIn, user: Optional[User], request: Optional[Request] = None,
+                          source: str = "Gateway webhook") -> tuple[Payment, bool]:
+    """Record one gateway callback against an invoice, idempotently on the gateway reference.
+
+    Shared by the signed-in ``/api/v1/finance/payment-webhook`` route and the public, secret-verified
+    ``/api/v1/webhooks/payment`` route. A ``completed`` (or ``confirmed``) payload is allocated to the invoice,
+    posted to the ledger and journal and receipted by ``billing.record_payment`` in one go; a repeat delivery with
+    the same reference returns the existing payment and ``created=False``. Raises HTTPException 404 for an unknown
+    invoice and 400 for a payload the billing service refuses.
+    """
     invoice = db.query(Invoice).filter(Invoice.invoice_number == payload.invoice_number).first()
     if not invoice:
         raise HTTPException(404, f"Unknown invoice {payload.invoice_number}")
     existing = db.query(Payment).filter(Payment.reference == payload.reference).first()
     if existing:
-        return _pay_out(existing)
+        return existing, False
     try:
         p = billing.record_payment(db, invoice.client, payload.amount, payload.currency or invoice.currency,
                                    payload.method, payload.reference, user=user, invoice=invoice, gateway=payload.gateway,
                                    received_at=payload.received_at, status=payload.status,
-                                   notes=f"Gateway webhook from {payload.gateway}")
+                                   notes=f"{source} from {payload.gateway}")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     log_action(db, user, "create", "payments", entity=p,
-               description=f"Gateway webhook payment {p.payment_number} for {invoice.invoice_number}", request=request)
+               description=f"{source} payment {p.payment_number} for {invoice.invoice_number}", request=request)
+    return p, True
+
+
+@router.post("/payment-webhook", response_model=PaymentOut, status_code=201)
+def api_payment_webhook(payload: WebhookIn, request: Request, db: Session = Depends(get_db),
+                        user: User = Depends(get_current_user)):
+    """Gateway callback: record a payment against an invoice number + gateway reference (idempotent on reference)."""
+    p, _created = apply_gateway_payment(db, payload, user, request=request)
     db.commit()
     return _pay_out(p)
 

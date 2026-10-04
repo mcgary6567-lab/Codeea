@@ -1,13 +1,12 @@
 """Module 15 — Supervisor live monitoring: real-time board, quick interventions, masked calling and coverage reports."""
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import csrf_protect, require
 from app.core.security import mask
@@ -16,7 +15,7 @@ from app.core.utils import parse_date, parse_int, redirect
 from app.database import get_db
 from app.models.core import RiskAlert, User
 from app.models.people import Client, Employee, Leave, Student, Teacher
-from app.models.scheduling import CallLog, ClassSession, Schedule, Shift
+from app.models.scheduling import CallLog, ClassSession, Shift
 from app.services import classes as class_svc
 from app.services import scheduling as svc
 

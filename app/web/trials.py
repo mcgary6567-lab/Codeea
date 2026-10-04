@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, date, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action, snapshot

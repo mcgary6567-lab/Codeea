@@ -592,7 +592,7 @@ def import_job(db: Session, job: MigrationJob, actor: Optional[User]) -> dict:
             continue
         savepoint = db.begin_nested()
         try:
-            label = _import_row(db, job.entity, clean, actor)
+            _import_row(db, job.entity, clean, actor)
             savepoint.commit()
             imported += 1
             if key:

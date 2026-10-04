@@ -5,17 +5,16 @@ against the configurable deadline in Asia/Karachi, so lateness is a fact rather 
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import PermissionDenied, csrf_protect, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_int, redirect
+from app.core.utils import paginate, parse_date, redirect
 from app.database import get_db
 from app.models.core import Department, User
 from app.models.ops import DailyReport

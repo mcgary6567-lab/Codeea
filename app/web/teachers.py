@@ -17,7 +17,7 @@ from app.database import get_db
 from app.models.academic import Course
 from app.models.core import User, AuditEvent, Role
 from app.models.crm import Case
-from app.models.people import Teacher, Employee, Student, SalaryStructure, Payslip, TrainingAssignment, Leave
+from app.models.people import Teacher, Student, SalaryStructure, Payslip, TrainingAssignment
 from app.models.scheduling import ClassSession, Schedule, QAReview, CorrectiveAction, AIClassAnalysis, TeacherMatch
 from app.services import people as svc
 from app.services.classes import teacher_stats

@@ -3,15 +3,19 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
+import csv
+import io
+
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy import or_, func
+from fastapi.responses import Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.deps import require, csrf_protect, get_user_context, UserContext, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render
-from app.core.utils import redirect, next_code, parse_date, parse_int, parse_bool, parse_float
+from app.core.utils import redirect, next_code, parse_date, parse_int, parse_bool
 from app.database import get_db
 from app.models.academic import Certificate, Evaluation, MonthlyTest
 from app.models.core import User, Notification, CommunicationPreference, Setting
@@ -20,6 +24,7 @@ from app.models.erp import ReferredContact, SessionSlot, TeacherChangeRequest, T
 from app.models.finance import Invoice, LedgerEntry, Payment, Subscription, Receipt
 from app.models.people import Client, Student, Leave, Teacher
 from app.models.scheduling import ClassSession, Attendance, Schedule
+from app.services import billing as billing_svc
 from app.services import people as svc
 from app.services.classes import student_attendance_pct
 
@@ -158,7 +163,7 @@ def leaves(request: Request, db: Session = Depends(get_db), user: User = Depends
 @router.post("/leaves", include_in_schema=False)
 async def request_leave(request: Request, db: Session = Depends(get_db), user: User = Depends(require("portal_client.view")),
                         ctx: UserContext = Depends(get_user_context)):
-    c = me(ctx)
+    me(ctx)  # asserts the signed-in family
     form = await request.form()
     s = scoped_student(db, ctx, form.get("student_id"))
     if not s:
@@ -206,8 +211,10 @@ def portal_requests(request: Request, db: Session = Depends(get_db), user: User 
     time_rows = db.query(TimeChangeRequest).filter(TimeChangeRequest.client_id == c.id).order_by(TimeChangeRequest.id.desc()).all()
     teacher_rows = db.query(TeacherChangeRequest).filter(TeacherChangeRequest.client_id == c.id).order_by(TeacherChangeRequest.id.desc()).all()
     ref_rows = db.query(ReferredContact).filter(ReferredContact.client_id == c.id).order_by(ReferredContact.id.desc()).all()
+    children = my_students(db, c)
     return render(request, "portal/requests.html", {
-        "user": user, "c": c, "children": my_students(db, c),
+        "user": user, "c": c, "children": children,
+        "student_options": [(s.id, s.full_name) for s in children],
         "sub_options": [(s.id, f"{s.subscription_code} - {s.student.full_name if s.student else ''}"
                               f"{' - ' + s.course.name if s.course else ''}") for s in subs],
         "slot_options": [(s.id, f"{s.category}: {s.label}") for s in slots],
@@ -225,6 +232,8 @@ async def portal_request_create(request: Request, db: Session = Depends(get_db),
     form = await request.form()
     kind = form.get("kind") or ""
     description = (form.get("description") or "").strip() or None
+    # Optional student picker: the chosen child must belong to this family; otherwise the subscription's student is used.
+    picked = scoped_student(db, ctx, form.get("student_id")) if parse_int(form.get("student_id")) else None
     if kind == "time_change":
         sub = _my_subscription(db, c, form.get("subscription_id"))
         if not sub:
@@ -233,7 +242,7 @@ async def portal_request_create(request: Request, db: Session = Depends(get_db),
         if not slot_id:
             return redirect("/portal/requests", "Choose the new class time.", "error")
         days = [int(d) for d in form.getlist("days") if str(d).isdigit()]
-        req = TimeChangeRequest(client_id=c.id, student_id=sub.student_id, subscription_id=sub.id,
+        req = TimeChangeRequest(client_id=c.id, student_id=picked.id if picked else sub.student_id, subscription_id=sub.id,
                                 current_slot_id=sub.slot_id, new_slot_id=slot_id,
                                 days=days or list(sub.days_of_week or []), description=description,
                                 status="pending", requested_by_id=user.id)
@@ -246,7 +255,7 @@ async def portal_request_create(request: Request, db: Session = Depends(get_db),
         sub = _my_subscription(db, c, form.get("subscription_id"))
         if not sub:
             return redirect("/portal/requests", "Choose which subscription needs a different teacher.", "error")
-        req = TeacherChangeRequest(client_id=c.id, student_id=sub.student_id, subscription_id=sub.id,
+        req = TeacherChangeRequest(client_id=c.id, student_id=picked.id if picked else sub.student_id, subscription_id=sub.id,
                                    current_teacher_id=sub.teacher_id, new_teacher_id=parse_int(form.get("new_teacher_id")),
                                    description=description, status="pending", requested_by_id=user.id)
         db.add(req)
@@ -293,6 +302,42 @@ def billing(request: Request, db: Session = Depends(get_db), user: User = Depend
         "receipts": receipts, "balance": svc.client_balance(db, c),
         "names": {s.id: s.full_name for s in my_students(db, c)},
         "outstanding": sum(float(i.total) - float(i.paid_amount) for i in invoices if i.status in ("sent", "partial", "overdue"))})
+
+
+def _statement_rows(report: dict) -> list[list]:
+    """The staff Client Ledger Report's CSV layout (app/web/finance.py ledger_statement_csv), for one family."""
+    rows = [["Srl", "Date", "Transaction Type", "Description", "Amount", "Balance", "Currency"],
+            ["", "", "Previous Balance", "", "", report["previous_balance"], report["currency"]]]
+    for r in report["rows"]:
+        rows.append([r["srl"], r["date"].isoformat(), r["type"], r["description"], r["amount"], r["balance"], report["currency"]])
+    rows.append(["", "", "Total", "", report["total"], report["closing_balance"], report["currency"]])
+    rows.append(["", "", "In Words", report["in_words"], "", "", ""])
+    return rows
+
+
+@router.get("/billing/statement.csv", include_in_schema=False)
+def billing_statement_csv(date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
+                          user: User = Depends(require("portal_client.view")), ctx: UserContext = Depends(get_user_context)):
+    """Download the family's account statement, built by the same ledger service as the staff Client Ledger Report
+    and scoped to the signed-in family."""
+    c = me(ctx)
+    report = billing_svc.ledger_report(db, c, parse_date(date_from), parse_date(date_to))
+    buf = io.StringIO()
+    csv.writer(buf).writerows(_statement_rows(report))
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="statement-{c.client_code}.csv"'})
+
+
+@router.get("/billing/statement/print", include_in_schema=False)
+def billing_statement_print(request: Request, date_from: str = "", date_to: str = "", db: Session = Depends(get_db),
+                            user: User = Depends(require("portal_client.view")), ctx: UserContext = Depends(get_user_context)):
+    """Printable account statement for the signed-in family (same Client Ledger Report rows as the CSV)."""
+    c = me(ctx)
+    df, dt = parse_date(date_from), parse_date(date_to)
+    report = billing_svc.ledger_report(db, c, df, dt)
+    return render(request, "portal/statement_print.html", {"user": user, "c": c, "report": report,
+                                                            "date_from": date_from, "date_to": date_to,
+                                                            "printed_on": date.today()})
 
 
 @router.get("/billing/pay", include_in_schema=False)

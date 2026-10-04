@@ -23,7 +23,7 @@ from app.database import get_db
 from app.models.automation import (CONTACT_TYPES, RUN_STATUSES, STEP_KINDS, TAG_CATEGORIES, WORKFLOW_CATEGORIES, WORKFLOW_TRIGGERS,
                                    AutomationEvent, ContactTag, Tag, Workflow, WorkflowRun)
 from app.models.core import User
-from app.models.crm import LEAD_STAGES, Lead
+from app.models.crm import Lead
 from app.models.people import Client, Student
 from app.services import automation as auto
 
@@ -667,8 +667,20 @@ async def unapply_tag(request: Request, db: Session = Depends(get_db), user: Use
 @router.get("/tags/{id}", include_in_schema=False)
 def tag_detail(id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require("tags.view"))):
     t = _tag(db, id)
+    # One query per contact type instead of one per tagged contact.
+    links = (db.query(ContactTag.contact_type, ContactTag.contact_id).filter(ContactTag.tag_id == t.id)
+             .order_by(ContactTag.created_at.desc()).limit(500).all())
+    models = {"lead": Lead, "client": Client, "student": Student}
+    found: dict[str, dict[int, Any]] = {}
+    for ctype, model in models.items():
+        ids = [cid for ct, cid in links if ct == ctype]
+        if ids:
+            found[ctype] = {c.id: c for c in db.query(model).filter(model.id.in_(ids)).all()}
     rows = []
-    for ctype, contact in auto.contacts_with_tag(db, t):
+    for ctype, cid in links:
+        contact = found.get(ctype, {}).get(cid)
+        if contact is None:
+            continue
         code = getattr(contact, "lead_code", None) or getattr(contact, "client_code", None) or getattr(contact, "student_code", None) or ""
         rows.append({"type": ctype, "code": code, "name": getattr(contact, "full_name", ""), "id": contact.id, "url": contact_url(ctype, contact.id),
                      "status": getattr(contact, "stage", None) or getattr(contact, "status", None)})

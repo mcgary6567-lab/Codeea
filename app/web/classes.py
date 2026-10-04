@@ -15,15 +15,15 @@ from app.core import rbac
 from app.core.audit import log_action
 from app.core.deps import PermissionDenied, UserContext, csrf_protect, get_user_context, require
 from app.core.templating import render
-from app.core.utils import back_url, paginate, parse_bool, parse_date, parse_datetime, parse_int, redirect
+from app.core.utils import paginate, parse_bool, parse_date, parse_datetime, parse_int, redirect
 from app.database import get_db
 from app.models.academic import Course, LessonPlan
 from app.models.core import AuditEvent, User
 from app.models.erp import (CLASS_QUERY_TYPES, ClassActivity, ClassArrangement, ClassQuery, RescheduleRequest,
                             SessionSlot)
 from app.models.finance import Subscription
-from app.models.people import Client, Employee, Student, Teacher
-from app.models.scheduling import (Attendance, ClassSession, QAReview, Recording, Schedule, Shift, SESSION_STATUSES)
+from app.models.people import Student, Teacher
+from app.models.scheduling import (Attendance, ClassSession, QAReview, Schedule, Shift, SESSION_STATUSES)
 from app.services import arrangements as arr_svc
 from app.services import classes as class_svc
 from app.services import scheduling as svc

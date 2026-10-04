@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, date, timedelta
 from typing import Optional
 
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -22,9 +22,9 @@ from app.core.utils import next_code
 from app.models.academic import Course
 from app.models.core import User, Role, Setting, Department, RiskAlert, CommunicationPreference, NotificationTemplate
 from app.models.crm import (LEAD_STAGES, Lead, LeadActivity, LeadSource, Campaign, CampaignMetric, Conversation, Message,
-                            InternalNote, MessageTemplate, Sequence, SequenceEnrollment, Referral, Survey, Feedback, Case,
-                            CaseComment, RetentionAction)
-from app.models.finance import Subscription, LedgerEntry, Invoice
+                            MessageTemplate, Sequence, SequenceEnrollment, Referral, Survey, Feedback, Case,
+                            CaseComment)
+from app.models.finance import Subscription, LedgerEntry
 from app.models.people import Client, Student, Teacher, Grievance, Employee
 from app.models.scheduling import Trial
 from app.services.ai_gateway import ai
@@ -742,7 +742,7 @@ def change_case_status(db: Session, case: Case, status: str, user: Optional[User
     if cu and status in ("resolved", "closed", "in_progress", "waiting"):
         contact = case.client or (case.student.client if case.student else None)
         notify(db, cu, f"Your case {case.case_number} is {status.replace('_', ' ')}", (resolution or note or case.title)[:300],
-               event_type="case_status", link=f"/portal/cases", channels=("in_app", "whatsapp"), recipient_address=contact.whatsapp if contact else None)
+               event_type="case_status", link="/portal/cases", channels=("in_app", "whatsapp"), recipient_address=contact.whatsapp if contact else None)
     if status in ("resolved", "closed"):
         for fb in db.query(Feedback).filter(Feedback.case_id == case.id):
             fb.status = "resolved"

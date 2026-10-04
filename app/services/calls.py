@@ -10,7 +10,7 @@ import hashlib
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
@@ -57,23 +57,6 @@ def active_parameters(db: Session) -> list[QAReviewParameter]:
 
 def active_issue_types(db: Session) -> list[QAIssueType]:
     return db.query(QAIssueType).filter(QAIssueType.status == "active").order_by(QAIssueType.severity.desc(), QAIssueType.name).all()
-
-
-def ensure_config(db: Session) -> tuple[int, int]:
-    """Create the default parameters / issue types when none exist (by name). Returns (params_added, issues_added)."""
-    added_p = added_i = 0
-    existing = {p.name.lower() for p in db.query(QAReviewParameter).all()}
-    if not existing:
-        for name, desc, weight, sort_no in DEFAULT_PARAMETERS:
-            db.add(QAReviewParameter(name=name, description=desc, weight=weight, max_rating=5, sort_no=sort_no, status="active"))
-            added_p += 1
-    existing_i = {i.name.lower() for i in db.query(QAIssueType).all()}
-    if not existing_i:
-        for name, severity, desc in DEFAULT_ISSUE_TYPES:
-            db.add(QAIssueType(name=name, severity=severity, description=desc, status="active"))
-            added_i += 1
-    db.flush()
-    return added_p, added_i
 
 
 def compute_overall_rating(params: list[QAReviewParameter], scores: dict) -> Optional[float]:
@@ -131,10 +114,107 @@ def build_unmatched_agent_call(teacher: Teacher, day: date, seq: int) -> CallRec
                       review_state="unmapped")
 
 
+# ----------------------------------------------------------------------------- live recordings (Zoom webhook)
+SIMULATED_SYNC_DISABLED = ("Connect the call provider in the Integration Hub first; "
+                           "the simulated pull is disabled in production.")
+
+
+def simulated_sync_allowed(db: Session) -> bool:
+    """The fabricated Agent / Teams / Zoom pull only runs outside production, or once Zoom has live credentials."""
+    from app.config import settings
+    from app.services import integrations
+    return settings.APP_ENV != "production" or integrations.has_live_credentials(db, "zoom")
+
+
+def _parse_when(value) -> Optional[datetime]:
+    """Zoom sends ISO-8601 UTC ("2026-10-04T09:00:00Z"); return it as naive college time like ClassSession keeps."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        from app.services.people import ORG_TZ, safe_zone
+        dt = dt.astimezone(safe_zone(ORG_TZ)).replace(tzinfo=None)
+    return dt
+
+
+def _teacher_for_host(db: Session, email: str) -> Optional[Teacher]:
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    from app.models.people import Employee
+    user = db.query(User).filter(func.lower(User.email) == email).first()
+    if user:
+        t = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+        if t:
+            return t
+    emp = db.query(Employee).filter(func.lower(Employee.email) == email).first()
+    return db.query(Teacher).filter(Teacher.employee_id == emp.id).first() if emp else None
+
+
+def _session_for_recording(db: Session, teacher: Optional[Teacher], start: datetime, window_minutes: int = 45) -> Optional[ClassSession]:
+    taken = db.query(CallRecord.session_id).filter(CallRecord.session_id.isnot(None))
+    q = (db.query(ClassSession).filter(ClassSession.status == "done", ClassSession.id.notin_(taken),
+                                       ClassSession.scheduled_start >= start - timedelta(minutes=window_minutes),
+                                       ClassSession.scheduled_start <= start + timedelta(minutes=window_minutes)))
+    if teacher is None:
+        return None
+    return q.filter(ClassSession.teacher_id == teacher.id).order_by(ClassSession.scheduled_start).first()
+
+
+def ingest_zoom_recording(db: Session, obj: dict, user: Optional[User] = None, request=None) -> tuple[CallRecord, bool]:
+    """A Zoom ``recording.completed`` payload object becomes the CallRecord the simulated sync would have built.
+
+    ``obj`` is Zoom's ``payload.object``: ``uuid``/``id``, ``topic``, ``host_email``, ``start_time`` (UTC ISO),
+    ``duration`` (minutes), ``share_url`` and ``recording_files[]`` (``play_url`` / ``download_url``). The host's
+    email finds the teacher (through their login or employee record) and the nearest done class within 45 minutes
+    of the start maps the call; otherwise it lands in the un-matched queue. Idempotent on the meeting uuid/id.
+    """
+    meeting_id = str(obj.get("uuid") or obj.get("id") or "").strip()
+    external_id = f"zoom-{meeting_id}"[:120] if meeting_id else None
+    if external_id:
+        existing = db.query(CallRecord).filter(CallRecord.source == "ZOOM", CallRecord.external_id == external_id).first()
+        if existing:
+            return existing, False
+    start = _parse_when(obj.get("start_time")) or datetime.utcnow()
+    duration = int(obj.get("duration") or 0)
+    files = [f for f in (obj.get("recording_files") or []) if isinstance(f, dict)]
+    if not duration and files:
+        ends = [(_parse_when(f.get("recording_start")), _parse_when(f.get("recording_end"))) for f in files]
+        spans = [int((e - s).total_seconds() // 60) for s, e in ends if s and e]
+        duration = max(spans) if spans else 0
+    duration = duration or 30
+    url = next((f.get("play_url") or f.get("download_url") for f in files if f.get("play_url") or f.get("download_url")), None)
+    url = url or obj.get("share_url") or None
+    teacher = _teacher_for_host(db, obj.get("host_email") or "")
+    session = _session_for_recording(db, teacher, start)
+    if session and teacher is None:
+        teacher = session.teacher
+    rec = CallRecord(
+        source="ZOOM", platform=PLATFORMS["ZOOM"], source_name=str(obj.get("topic") or "Zoom meeting")[:150],
+        external_id=external_id, recording_date=start.date(),
+        employee_id=teacher.employee_id if teacher else None, teacher_id=teacher.id if teacher else None,
+        session_id=session.id if session else None, start_time=start, end_time=start + timedelta(minutes=duration),
+        duration_minutes=duration, meeting_status="ended", recording_url=(url or "")[:500] or None,
+        review_state="mapped" if session else "unmapped")
+    db.add(rec)
+    db.flush()
+    log_action(db, user, "create", "qa", entity=rec,
+               description=f"Zoom recording {external_id or '(no id)'} received"
+                           + (f" and mapped to class session #{session.id}" if session else "; no matching class, queued as un-matched"),
+               after={"teacher_id": rec.teacher_id, "session_id": rec.session_id, "duration": duration}, request=request)
+    return rec, True
+
+
 # ----------------------------------------------------------------------------- sync + mapping
 def sync_calls(db: Session, user: Optional[User], days: int = 14, limit: int = 60, request=None) -> int:
     """Simulated pull from the call platforms: one CallRecord per recent done session without one, plus a few
-    unmatched Agent calls. Returns the number of records created."""
+    unmatched Agent calls. Returns the number of records created. Refused (ValueError) when
+    :func:`simulated_sync_allowed` is false."""
+    if not simulated_sync_allowed(db):
+        raise ValueError(SIMULATED_SYNC_DISABLED)
     since = date.today() - timedelta(days=days)
     have = db.query(CallRecord.session_id).filter(CallRecord.session_id.isnot(None))
     sessions = (db.query(ClassSession).filter(ClassSession.status == "done", ClassSession.date >= since, ClassSession.date <= date.today(),

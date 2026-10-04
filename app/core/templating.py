@@ -48,12 +48,12 @@ STATUS_COLORS = {
     "ended": "slate", "paused": "amber", "probation": "amber", "resigned": "slate", "terminated": "rose",
     "present": "emerald", "late": "amber", "half_day": "sky", "holiday": "slate", "expired": "slate",
     "succeeded": "emerald", "waiting": "amber", "reversed": "rose", "posted": "emerald", "implemented": "emerald",
-    "decided": "indigo", "proposed": "amber", "achieved": "emerald", "processing": "amber", "available": "emerald",
+    "decided": "indigo", "proposed": "amber", "achieved": "emerald", "processing": "amber",
     "analysed": "indigo", "overridden": "amber", "false_positive": "slate",
     # ERP vocabularies
     "regular": "emerald", "freeze": "violet", "on_leave": "violet", "drop_out": "rose", "black_list": "slate",
     "pass_out": "indigo", "available": "sky", "flagged": "orange", "unmapped": "slate", "mapped": "sky",
-    "in_review": "indigo", "add": "emerald", "minus": "rose", "forward_to_verifier": "amber",
+    "add": "emerald", "minus": "rose", "forward_to_verifier": "amber",
 }
 
 # Display labels that match the college's existing ERP vocabulary. Use ``{{ value|label('student') }}``.

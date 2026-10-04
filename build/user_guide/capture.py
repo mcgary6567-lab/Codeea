@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 
 import os
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Screenshots, page facts and the finished PDF land here (override with GUIDE_DIR).

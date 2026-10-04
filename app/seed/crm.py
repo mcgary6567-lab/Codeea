@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import sign_value
 from app.models.academic import Course
-from app.models.core import User, Setting, Department
-from app.models.crm import (LEAD_STAGES, Lead, LeadActivity, LeadSource, Campaign, CampaignMetric, Conversation, Message,
+from app.models.core import Setting
+from app.models.crm import (Lead, LeadActivity, LeadSource, Campaign, CampaignMetric, Conversation, Message,
                             InternalNote, MessageTemplate, Sequence, SequenceEnrollment, Referral, Survey, Feedback,
                             Case, CaseComment, RetentionAction)
 from app.models.people import Client, Student, Teacher, Employee
@@ -230,7 +230,6 @@ def seed_leads(db: Session, rnd: random.Random, sources: dict, campaigns: list[C
     if existing >= 70:
         return db.query(Lead).order_by(Lead.id).all()
     courses = db.query(Course).order_by(Course.id).all()
-    closers = svc.closers(db)
     generators = svc.users_with_role(db, "lead_generator")
     stage_weights = [("new", 14), ("contacted", 16), ("trial_scheduled", 10), ("trial_done", 8),
                      ("negotiation", 7), ("won", 20), ("lost", 15)]
@@ -396,7 +395,6 @@ def seed_surveys_feedback(db: Session, rnd: random.Random) -> None:
     surveys = {s.trigger: s for s in db.query(Survey).all()}
     client_surveys = [s for s in db.query(Survey).filter(Survey.audience == "client").order_by(Survey.id).all()]
     clients = db.query(Client).order_by(Client.id).all()
-    qa_hod = svc.user_by_email(db, "qa@oqc.local")
     for i in range(60):
         client = clients[i % len(clients)] if clients else None
         if not client:

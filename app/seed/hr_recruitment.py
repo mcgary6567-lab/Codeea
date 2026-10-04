@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.models.core import Department, User
-from app.models.hr_erp import APPLICATION_STATUSES, InterviewPanel, JobApplication
+from app.models.hr_erp import InterviewPanel, JobApplication
 from app.models.people import Candidate, Employee, Interview, PayrollRun, RecruitmentRequest
 from app.services import payroll as pay
 

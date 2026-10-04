@@ -15,13 +15,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import BASE_DIR
-from app.models.academic import Course, Evaluation, MonthlyTest, StudentProgress
-from app.models.core import AIModelRun, Department, User
-from app.models.crm import Campaign, Case, Feedback, Lead, LeadSource, Referral
+from app.models.academic import Course
+from app.models.crm import Case, Feedback, Lead, Referral
 from app.models.finance import Expense, Invoice, Payment, Subscription
 from app.models.ops import KPI, KPIValue, ReportRun
 from app.models.people import Client, Employee, HRAttendance, PayrollRun, Payslip, Student, Teacher

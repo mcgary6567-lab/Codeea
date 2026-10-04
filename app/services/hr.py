@@ -331,6 +331,11 @@ def mark_absent_for_missing(db: Session, day: Optional[date] = None, user: Optio
     day = day or org_now().date()
     if day.weekday() == 6:  # Sunday closed
         return 0
+    # Active holidays on the day, the way leave-day counting skips them: 'all' applies to everyone, otherwise
+    # only to the employee's shift group.
+    holiday_groups = {(h.shift_group or "all") for h in holidays_between(db, day, day)}
+    if "all" in holiday_groups:
+        return 0
     now = org_now()
     n = 0
     on_leave = {l.employee_id for l in db.query(Leave).filter(Leave.person_type == "employee", Leave.status == "approved",
@@ -338,6 +343,8 @@ def mark_absent_for_missing(db: Session, day: Optional[date] = None, user: Optio
     q = db.query(Employee).filter(Employee.status.in_(["active", "probation"]))
     for emp in q:
         if emp.join_date and emp.join_date > day:
+            continue
+        if emp.shift in holiday_groups:
             continue
         if only_after_shift_end and day == now.date():
             _, end = shift_minutes(emp)

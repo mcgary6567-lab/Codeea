@@ -214,17 +214,6 @@ def get_user(user_id: int, db: Session = Depends(get_db), user: User = Depends(r
     return _user_out(obj)
 
 
-@router.get("/users/{user_id}/permissions/{permission}", response_model=PermissionCheckOut,
-            summary="Test whether a user holds a permission, with the reason chain")
-def check_permission(user_id: int, permission: str, db: Session = Depends(get_db),
-                     user: User = Depends(require("roles.view"))):
-    obj = db.get(User, user_id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="User not found")
-    result = sys_svc.explain_permission(obj, permission)
-    return PermissionCheckOut(user_id=user_id, permission=permission, allowed=result["allowed"], reasons=result["steps"])
-
-
 @router.get("/roles", response_model=list[RoleOut], summary="List roles and their permission patterns")
 def list_roles(db: Session = Depends(get_db), user: User = Depends(require("roles.view"))):
     counts = sys_svc.role_user_counts(db)

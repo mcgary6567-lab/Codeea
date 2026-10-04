@@ -21,11 +21,11 @@ from app.database import get_db
 from app.models.academic import Course, Package
 from app.models.core import User, AuditEvent, Department
 from app.models.crm import Referral
-from app.models.erp import (BeneficiaryAccount, ClientAcademicGroup, InvoiceAdditionType, LedgerAddition,
+from app.models.erp import (BeneficiaryAccount, InvoiceAdditionType, LedgerAddition,
                             LEDGER_ADDITION_TYPES)
 from app.models.finance import (Account, Budget, Currency, DiscountRequest, ExchangeRateHistory, Expense,
-                                FinancialPeriod, Invoice, InvoiceItem, JournalEntry, JournalLine, LedgerEntry,
-                                Payment, Receipt, Scholarship, Subscription)
+                                FinancialPeriod, Invoice, JournalEntry, JournalLine, LedgerEntry,
+                                Payment, Scholarship, Subscription)
 from app.models.people import Client, Employee, Student, Teacher
 from app.services import accounting, billing
 
@@ -483,7 +483,7 @@ async def scholarship_create(request: Request, db: Session = Depends(get_db),
         return redirect("/finance/discounts/scholarships", "Select a family.", "error")
     student = db.query(Student).get(parse_int(form.get("student_id"), 0) or 0) if form.get("student_id") else None
     try:
-        s = billing.request_scholarship(db, client, student, form.get("scholarship_type") or "need_based",
+        billing.request_scholarship(db, client, student, form.get("scholarship_type") or "need_based",
                                         parse_float(form.get("coverage_pct"), 0), parse_float(form.get("monthly_amount"), 0),
                                         form.get("currency") or client.currency, (form.get("reason") or "").strip(), user,
                                         parse_date(form.get("start_date"), date.today()), parse_date(form.get("end_date")))
@@ -796,7 +796,21 @@ def receipt_new(request: Request, client_id: str = "", invoice_id: str = "", db:
         "gateways": billing.GATEWAYS, "categories": billing.PAYMENT_CATEGORIES, "rep_options": _rep_options(db),
         "rates": {c.code: float(c.rate_to_base) for c in db.query(Currency).all()},
         "client_meta": {str(c.id): {"currency": c.currency, "rep": c.billing_rep_id or ""} for c in db.query(Client).all()},
-        "base": billing.base_currency(db), **_receipt_filters(db)})
+        "base": billing.base_currency(db), **_receipt_filters(db),
+        # the Payment Mode select on the receipt form reads Configuration -> Lookups 'payment_mode'
+        "methods": _receipt_method_options(db)})
+
+
+def _receipt_method_options(db: Session) -> list[tuple[str, str]]:
+    from app.services import lookups
+    return lookups.options(db, "payment_mode", billing.PAYMENT_METHODS)
+
+
+def _receipt_method(db: Session, submitted: str | None) -> str:
+    """A configured payment mode, or one of the billing service's own method codes; else bank_transfer."""
+    from app.services import lookups
+    allowed = set(lookups.option_values(db, "payment_mode", billing.PAYMENT_METHODS)) | set(billing.PAYMENT_METHODS)
+    return submitted if submitted in allowed else "bank_transfer"
 
 
 @router.post("/receipts/new", include_in_schema=False)
@@ -814,7 +828,7 @@ async def receipt_create(request: Request, db: Session = Depends(get_db), user: 
     try:
         pay = billing.record_payment(
             db, client, parse_float(form.get("amount"), 0), form.get("currency") or client.currency,
-            form.get("method") or "bank_transfer", (form.get("reference") or "").strip() or None, user=user, invoice=invoice,
+            _receipt_method(db, form.get("method")), (form.get("reference") or "").strip() or None, user=user, invoice=invoice,
             gateway=(form.get("gateway") or None), received_at=datetime.combine(received, datetime.min.time()),
             status=form.get("status") or "confirmed", notes=(form.get("notes") or None),
             receipt_date=parse_date(form.get("receipt_date"), date.today()),
@@ -831,8 +845,12 @@ async def receipt_create(request: Request, db: Session = Depends(get_db), user: 
 
 @router.post("/receipts/sync-gateway", include_in_schema=False)
 async def receipts_sync_gateway(request: Request, db: Session = Depends(get_db), user: User = Depends(require("payments.add"))):
-    """Simulated Stripe / PayPal pull: confirmed receipts arrive automatically for open invoices."""
-    created = billing.sync_gateway_receipts(db, user)
+    """Gateway pull: confirmed receipts arrive for open invoices. Simulated outside production; in production
+    it needs a live gateway, otherwise the service refuses with a message shown here."""
+    try:
+        created = billing.sync_gateway_receipts(db, user)
+    except ValueError as exc:
+        return redirect("/finance/receipts", str(exc), "error")
     db.commit()
     return redirect("/finance/receipts", f"Gateway sync complete: {len(created)} auto receipt(s) pulled."
                     if created else "Gateway sync complete: nothing new to pull.", "success" if created else "info")
@@ -1348,8 +1366,9 @@ def accounts_pnl(request: Request, scope: str = "month", period: str = "", db: S
     period = period or month_key()
     today = date.today()
     if scope == "ytd":
-        start, end = date(today.year, 1, 1), today
-        label = f"Year to date {today.year}"
+        from app.services import accounting as acc
+        start, end = acc.year_to_date_range(db)  # honours the financial-year start month branch property
+        label = f"Year to date from {start:%b %Y}"
     elif scope == "quarter":
         q = (today.month - 1) // 3
         start = date(today.year, q * 3 + 1, 1)

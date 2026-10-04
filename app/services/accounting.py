@@ -13,7 +13,7 @@ from app.core.audit import log_action, snapshot
 from app.core.utils import next_code, month_key, month_bounds
 from app.models.core import User, Department
 from app.models.finance import (Account, JournalEntry, JournalLine, Expense, Budget, FinancialPeriod, Invoice,
-                                Subscription, Currency)
+                                Currency)
 
 # code, name, type
 CHART = [
@@ -92,6 +92,59 @@ def period_is_closed(db: Session, period: str) -> bool:
     return bool(fp and fp.status == "closed")
 
 
+# ----------------------------------------------------------------------------- accounts Branch Properties
+# Configuration > Branch Properties (accounts group), read through the same helper as the attendance relaxations.
+# The fallbacks reproduce the behaviour before the properties were wired in: no back-dating lock, calendar year.
+PROP_POSTING_LOCK_DAYS = "accounts_posting_lock_days"
+PROP_FY_START_MONTH = "accounts_financial_year_start_month"
+
+
+def _branch_int(db: Session, key: str, default: int, low: int, high: int) -> int:
+    from app.services.hr import branch_property
+    try:
+        value = int(float(branch_property(db, key, default)))
+    except (TypeError, ValueError):
+        return default
+    return default if value < low or value > high else value
+
+
+def posting_lock_days(db: Session) -> int:
+    """Days back from today a journal entry may still be dated; 0 (the default) means no lock."""
+    return _branch_int(db, PROP_POSTING_LOCK_DAYS, 0, 0, 3660)
+
+
+def posting_lock_date(db: Session, today: Optional[date] = None) -> Optional[date]:
+    """Earliest entry date accepted today under the posting lock, or None when the lock is off."""
+    days = posting_lock_days(db)
+    if days <= 0:
+        return None
+    return (today or date.today()) - timedelta(days=days)
+
+
+def financial_year_start_month(db: Session) -> int:
+    """Month the accounting year opens on (1 = January, the default; 7 = July)."""
+    return _branch_int(db, PROP_FY_START_MONTH, 1, 1, 12)
+
+
+def financial_year_start(db: Session, on: Optional[date] = None) -> date:
+    """First day of the financial year that contains ``on`` (today by default), per the Branch Property."""
+    on = on or date.today()
+    month = financial_year_start_month(db)
+    year = on.year if on.month >= month else on.year - 1
+    return date(year, month, 1)
+
+
+def financial_year_bounds(db: Session, on: Optional[date] = None) -> tuple[date, date]:
+    start = financial_year_start(db, on)
+    return start, date(start.year + 1, start.month, 1) - timedelta(days=1)
+
+
+def year_to_date_range(db: Session, today: Optional[date] = None) -> tuple[date, date]:
+    """Year-to-date scope: from the financial-year start to ``today``."""
+    today = today or date.today()
+    return financial_year_start(db, today), today
+
+
 def get_period(db: Session, period: str) -> FinancialPeriod:
     fp = db.query(FinancialPeriod).filter(FinancialPeriod.period == period).first()
     if not fp:
@@ -118,6 +171,10 @@ def post_journal(db: Session, description: str, lines: list, reference_type: Opt
     period = month_key(entry_date)
     if period_is_closed(db, period):
         raise ValueError(f"Period {period} is closed; journal entries cannot be dated inside it")
+    lock_from = posting_lock_date(db)
+    if lock_from and entry_date < lock_from:
+        raise ValueError(f"Journal entries cannot be dated before {lock_from:%d %b %Y}: the posting lock "
+                         f"(Branch Property \"Posting Lock After Close\") allows {posting_lock_days(db)} day(s) of back-dating")
     je = JournalEntry(entry_number=next_code(db, JournalEntry, "entry_number", "JE-", 6), entry_date=entry_date,
                       description=description[:250], reference_type=reference_type, reference_id=reference_id,
                       currency=currency or base_currency(db), total=total_debit, status=status,
@@ -173,19 +230,6 @@ def profit_and_loss(db: Session, period_start: date, period_end: date) -> dict:
     return {"period_start": period_start, "period_end": period_end, "income": income, "expenses": expenses,
             "total_income": total_income, "total_expenses": total_expenses, "net": net,
             "margin_pct": round(100.0 * net / total_income, 1) if total_income else 0.0, "currency": base_currency(db)}
-
-
-def balance_sheet_snapshot(db: Session, as_of: Optional[date] = None) -> dict:
-    as_of = as_of or date.today()
-    rows = _line_rows(db, date(2000, 1, 1), as_of)
-    out = {"asset": [], "liability": [], "equity": []}
-    for code, name, typ, debit, credit in rows:
-        debit, credit = float(debit), float(credit)
-        if typ in ("asset",):
-            out["asset"].append({"code": code, "name": name, "amount": round(debit - credit, 2)})
-        elif typ in ("liability", "equity"):
-            out[typ].append({"code": code, "name": name, "amount": round(credit - debit, 2)})
-    return out
 
 
 def cash_flow(db: Session, months: int = 6) -> list[dict]:
@@ -467,15 +511,6 @@ def titleize_type(value: str) -> str:
 
 def account_has_postings(db: Session, account: Account) -> bool:
     return bool(db.query(JournalLine.id).filter(JournalLine.account_id == account.id).first())
-
-
-def postable_accounts(db: Session, account_type: str = "", head_id: Optional[int] = None) -> list:
-    q = db.query(Account).filter(Account.is_head.is_(False))
-    if account_type:
-        q = q.filter(Account.account_type == account_type)
-    if head_id:
-        q = q.filter(Account.parent_id == head_id)
-    return q.order_by(Account.account_type, Account.sort_no, Account.code).all()
 
 
 def head_accounts(db: Session, account_type: str = "") -> list:

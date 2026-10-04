@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_action
 from app.core.deps import csrf_protect, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_int, redirect
+from app.core.utils import paginate, parse_date, redirect
 from app.database import get_db
 from app.models.academic import Course
 from app.models.core import Department, User

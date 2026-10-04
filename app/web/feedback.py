@@ -5,12 +5,11 @@ import json
 from datetime import datetime, date, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy import or_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect, get_optional_user
+from app.core.deps import require, csrf_protect
 from app.core.security import verify_signed
 from app.core.templating import render
 from app.core.utils import redirect, paginate, parse_date, parse_int, parse_bool

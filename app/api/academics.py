@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core import rbac
 from app.core.deps import get_user_context, require, UserContext
 from app.database import get_db
-from app.models.academic import (Book, Certificate, Chapter, Course, Division, DorSchedule, Evaluation, Lesson,
+from app.models.academic import (Book, Certificate, Course, DorSchedule, Evaluation, Lesson,
                                  LessonPlan, MonthlyTest, Package)
 from app.models.core import User
 from app.models.people import Student

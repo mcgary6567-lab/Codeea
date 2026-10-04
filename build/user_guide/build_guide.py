@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image as PILImage, ImageDraw, ImageFont
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
@@ -24,7 +24,6 @@ from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, Image, KeepTog
 from reportlab.platypus.tableofcontents import TableOfContents
 
 import os
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Screenshots, page facts and the finished PDF land here (override with GUIDE_DIR).

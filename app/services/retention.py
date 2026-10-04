@@ -19,7 +19,7 @@ from app.models.crm import Case, RetentionAction, SequenceEnrollment, Sequence
 
 OPEN_CASE_STATUSES = ("open", "in_progress", "waiting", "escalated")
 from app.models.finance import Invoice, Subscription
-from app.models.people import Client, Student
+from app.models.people import Student
 from app.models.scheduling import ClassSession
 from app.services.ai_gateway import ai
 

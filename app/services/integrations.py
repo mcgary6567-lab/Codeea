@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import smtplib
 import time
 from datetime import datetime
@@ -62,13 +63,78 @@ def _record(db: Session, provider: str, ok: bool, error: Optional[str] = None, s
         integ.last_error = (error or "")[:500]
 
 
+# ----------------------------------------------------------------------------- inbound webhook secrets
+# Where each provider's inbound webhook secret / shared token is looked for, in order: the Integration row's
+# configuration (saved on /admin/integrations/<provider>), then the environment (.env) under these names.
+# Nothing is added to app.config: a name that is not a Settings field is read straight from the environment.
+INBOUND_SECRET_SOURCES: dict[str, dict] = {
+    "whatsapp": {"config": ["app_secret", "webhook_secret"], "env": ["META_APP_SECRET", "WHATSAPP_APP_SECRET"]},
+    "meta_ads": {"config": ["app_secret", "webhook_secret"], "env": ["META_APP_SECRET"]},
+    "ghl": {"config": ["webhook_secret"], "env": ["GHL_WEBHOOK_SECRET"]},
+    "n8n": {"config": ["webhook_secret", "inbound_secret"], "env": ["N8N_WEBHOOK_SECRET"]},
+    "payment": {"config": ["webhook_secret"], "env": ["PAYMENT_WEBHOOK_SECRET"]},
+    "zoom": {"config": ["webhook_secret"], "env": ["ZOOM_WEBHOOK_SECRET", "ZOOM_CLIENT_SECRET"]},
+}
+
+
+def inbound_secret(db: Session, provider: str) -> str:
+    """The secret an inbound webhook from ``provider`` must be signed with (or present as a shared token).
+
+    Returns "" when nothing is configured anywhere, so the caller decides between rejecting (production) and
+    accepting with a warning (development).
+    """
+    spec = INBOUND_SECRET_SOURCES.get(provider, {"config": ["webhook_secret"], "env": []})
+    integ = db.query(Integration).filter(Integration.provider == provider).first()
+    config = (integ.config or {}) if integ else {}
+    for key in spec["config"]:
+        val = str(config.get(key) or "").strip()
+        if val:
+            return val
+    for name in spec["env"]:
+        val = str(getattr(settings, name, "") or os.environ.get(name, "") or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def has_live_credentials(db: Session, provider: str) -> bool:
+    """True when the provider has real credentials (a configured inbound secret, or a connected Integration row)."""
+    if inbound_secret(db, provider):
+        return True
+    integ = db.query(Integration).filter(Integration.provider == provider).first()
+    return bool(integ and integ.status == "connected")
+
+
 # ----------------------------------------------------------------------------- WhatsApp Cloud API
-def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = None) -> dict:
-    if not settings.WHATSAPP_TOKEN or not settings.WHATSAPP_PHONE_ID:
-        log.info("[SIMULATED WhatsApp] to=%s body=%s", to, body[:80])
+def _catalogue_sender(db: Session, purpose: str):
+    """The connected WhatsApp Number from Configuration > WhatsApp Senders whose throttle allows a send now."""
+    try:
+        from app.web.company_config import pick_sender   # lazy: the catalogue lives with its configuration screen
+        return pick_sender(db, purpose or "general")
+    except Exception as exc:  # the catalogue must never stop a message going out
+        log.debug("sender catalogue unavailable: %s", exc)
+        return None
+
+
+def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = None, purpose: str = "general") -> dict:
+    """Send one WhatsApp message.
+
+    Every send goes through the sender catalogue first: the active, connected WhatsApp Number for ``purpose``
+    (general | academics | billing | marketing) whose throttle allows a message now is used, its
+    ``last_message_sent_at`` is stamped, and the result carries ``sender`` / ``sender_id`` so the caller can
+    record which number spoke. With no catalogue entry ready the env-configured WHATSAPP_PHONE_ID is used.
+    """
+    sender = _catalogue_sender(db, purpose)
+    phone_id = settings.WHATSAPP_PHONE_ID
+    sender_info = {}
+    if sender is not None:
+        sender.last_message_sent_at = datetime.utcnow()
+        sender_info = {"sender": sender.number, "sender_id": sender.id, "sender_purpose": sender.purpose}
+    if not settings.WHATSAPP_TOKEN or not phone_id:
+        log.info("[SIMULATED WhatsApp] to=%s via=%s body=%s", to, sender_info.get("sender") or "env", body[:80])
         _record(db, "whatsapp", True, simulated=True)
-        return {"simulated": True, "id": f"wamid.sim.{int(time.time()*1000)}"}
-    url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_ID}/messages"
+        return {"simulated": True, "id": f"wamid.sim.{int(time.time()*1000)}", **sender_info}
+    url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
     payload: dict[str, Any] = {"messaging_product": "whatsapp", "to": to.lstrip("+"), "type": "text", "text": {"body": body}}
     if template:
         payload = {"messaging_product": "whatsapp", "to": to.lstrip("+"), "type": "template",
@@ -77,7 +143,10 @@ def send_whatsapp(db: Session, to: str, body: str, template: Optional[str] = Non
         r = httpx.post(url, json=payload, headers={"Authorization": f"Bearer {settings.WHATSAPP_TOKEN}"}, timeout=15)
         r.raise_for_status()
         _record(db, "whatsapp", True)
-        return r.json()
+        out = r.json()
+        if isinstance(out, dict):
+            out.update(sender_info)
+        return out
     except Exception as exc:
         _record(db, "whatsapp", False, str(exc))
         raise

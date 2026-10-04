@@ -1,21 +1,21 @@
 """Teacher portal (/teacher). Everything is scoped to the signed-in teacher (ctx.teacher)."""
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from app.core.audit import log_action, snapshot
+from app.core.audit import log_action
 from app.core.deps import require, csrf_protect, get_user_context, UserContext, PermissionDenied, client_ip
 from app.core.notify import notify
 from app.core.templating import render
-from app.core.utils import (redirect, paginate, parse_date, parse_int, parse_float, parse_bool, month_key,
+from app.core.utils import (redirect, paginate, parse_date, parse_int, parse_float, month_key,
                             month_bounds, pct)
 from app.database import get_db
-from app.models.academic import Course, Evaluation, LessonPlan, MonthlyTest, Certificate, DorSchedule, Lesson
+from app.models.academic import Evaluation, LessonPlan, MonthlyTest, DorSchedule
 from app.models.core import User
 from app.models.crm import Case
 from app.models.ops import Task
@@ -487,8 +487,16 @@ def qa(request: Request, db: Session = Depends(get_db), user: User = Depends(req
     analyses = (db.query(AIClassAnalysis).filter(AIClassAnalysis.teacher_id == t.id)
                 .order_by(AIClassAnalysis.created_at.desc()).limit(20).all())
     actions = db.query(CorrectiveAction).filter(CorrectiveAction.teacher_id == t.id).order_by(CorrectiveAction.status, CorrectiveAction.due_date).all()
+    # Class ratings left by students / families from their portals (1-5 with a comment)
+    rated = (db.query(ClassSession).filter(ClassSession.teacher_id == t.id, ClassSession.student_rating.isnot(None))
+             .order_by(ClassSession.date.desc(), ClassSession.id.desc()).limit(30).all())
+    rating_stats = db.query(func.count(ClassSession.id), func.avg(ClassSession.student_rating)).filter(
+        ClassSession.teacher_id == t.id, ClassSession.student_rating.isnot(None)).first()
     return render(request, "teacher_portal/qa.html", {"user": user, "t": t, "reviews": reviews, "analyses": analyses,
-                                                      "actions": actions})
+                                                      "actions": actions, "rated": rated,
+                                                      "rating_count": int(rating_stats[0] or 0) if rating_stats else 0,
+                                                      "rating_avg": round(float(rating_stats[1]), 1) if rating_stats and rating_stats[1] is not None else None,
+                                                      "rating_low": sum(1 for cs in rated if (cs.student_rating or 0) <= 2)})
 
 
 @router.post("/corrective-actions/{aid}/done", include_in_schema=False)

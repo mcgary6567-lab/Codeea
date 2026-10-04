@@ -13,13 +13,13 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action
-from app.core.deps import PermissionDenied, csrf_protect, require, require_ceo
+from app.core.deps import PermissionDenied, csrf_protect, require
 from app.core.templating import render
-from app.core.utils import paginate, parse_date, parse_int, redirect
+from app.core.utils import paginate, parse_int, redirect
 from app.database import get_db
 from app.models.core import RiskAlert, User
-from app.models.people import Student, Teacher
-from app.models.scheduling import (AIClassAnalysis, ClassSession, Recording, RecordingAccessLog, SafeguardingFlag, Schedule)
+from app.models.people import Teacher
+from app.models.scheduling import (AIClassAnalysis, ClassSession, RecordingAccessLog, SafeguardingFlag, Schedule)
 
 router = APIRouter(prefix="/safeguarding", dependencies=[Depends(csrf_protect)])
 

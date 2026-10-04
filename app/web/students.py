@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core import rbac
 from app.core.audit import log_action, snapshot
-from app.core.deps import require, csrf_protect, get_current_user, PermissionDenied
+from app.core.deps import require, csrf_protect, PermissionDenied
 from app.core.notify import notify
 from app.core.templating import render, label as status_label
 from app.core.utils import redirect, paginate, parse_date, parse_int, parse_bool

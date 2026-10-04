@@ -20,7 +20,6 @@ import logging
 import os
 import re
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import Iterable, Optional
 
 from sqlalchemy import func
@@ -30,10 +29,10 @@ from app.config import settings, BASE_DIR
 from app.core.audit import log_action, snapshot
 from app.core.notify import notify
 from app.core.utils import month_bounds
-from app.models.academic import (Book, Certificate, Chapter, Course, CurriculumVersion, Division, DorSchedule, Evaluation,
+from app.models.academic import (Book, Certificate, Chapter, Course, DorSchedule, Evaluation,
                                  Lesson, LessonAnnotation, LessonPlan, MonthlyTest, StudentProgress)
 from app.models.core import RiskAlert, Setting, User
-from app.models.people import Client, Student, Teacher
+from app.models.people import Client, Student
 
 log = logging.getLogger("oqc.academic")
 
@@ -843,7 +842,6 @@ _ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]
 
 def _shape_word(word: str) -> str:
     """Contextual shaping of one Arabic/Urdu word into presentation forms (visual order, right-to-left reversed)."""
-    letters = [c for c in word if c not in _MARKS]  # marks are transparent for joining
     # build list of (base, marks) units
     units: list[list[str]] = []
     for c in word:
@@ -917,10 +915,6 @@ def shape_rtl(text: str) -> str:
     return " ".join(visual)
 
 
-def is_rtl(text: str) -> bool:
-    return bool(text and _ARABIC_RE.search(text))
-
-
 # =============================================================================== PDF: result card
 def _pdf_common(c, width, height, title_en: str, title_ur: str, ufont: Optional[str]):
     from reportlab.lib import colors
@@ -952,7 +946,6 @@ def generate_result_card_pdf(db: Session, test: MonthlyTest) -> str:
     fname = f"result_card_{student.student_code}_{test.period}.pdf"
     path = CARD_DIR / fname
     ufont = unicode_font()
-    ubold = _font_state.get("bold") or ufont
     width, height = A4
     c = canvas.Canvas(str(path), pagesize=A4)
     c.setTitle(f"Result card {student.full_name} {test.period}")
