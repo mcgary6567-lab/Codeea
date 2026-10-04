@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
@@ -41,8 +42,9 @@ export const statusTone = (s: string) =>
 
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16" onMouseDown={onClose}>
+  // portal to <body> so a modal opened from the sidebar (or any positioned parent) sits above the whole page
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-lg"} p-5`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -50,7 +52,8 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

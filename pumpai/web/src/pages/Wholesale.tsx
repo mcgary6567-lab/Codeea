@@ -75,7 +75,7 @@ function ClientList() {
   );
 }
 
-function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: (c: any) => void }) {
+export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: (c: any) => void }) {
   const { can } = useAuth();
   const admin = can("wholesale.rates");
   const [f, setF] = useState<any>({

@@ -115,7 +115,7 @@ export default function Users() {
   );
 }
 
-function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>; stations: any[]; onClose: () => void; onSaved: () => void }) {
+export function UserForm({ initial, stations, onClose, onSaved }: { initial: Partial<U>; stations: any[]; onClose: () => void; onSaved: () => void }) {
   const isNew = !initial.id;
   const [f, setF] = useState({ name: initial.name ?? "", email: initial.email ?? "", phone: (initial as any).phone ?? "", role: initial.role ?? "salesman", station_id: initial.station_id ?? "", password: "" });
   const { busy, run } = useAction();

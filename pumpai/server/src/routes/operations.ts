@@ -7,7 +7,7 @@ import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
 import { recordPurchase } from "./suppliers.js";
 import { settleShift, shiftReadings, shiftSummary } from "../shifts.js";
-import { notify, staff } from "../notifications.js";
+import { notify, staff, announce } from "../notifications.js";
 
 export const operations = Router();
 const product = z.enum(["PMG", "HOBC", "HSD"]);
@@ -32,20 +32,26 @@ operations.get("/stations", requireAny("sales.view", "stock.manage", "wholesale.
 }));
 }));
 
-operations.post("/stations", requirePerm("stations.manage"), h((req) => {
+operations.post("/stations", requirePerm("stations.manage"), h(async (req) => {
   const b = parse(z.object({ name: z.string().min(2), city: z.string().optional(), address: z.string().optional(), omc: z.string().optional(), timings: z.string().optional(), services: z.string().optional() }), req.body);
-  return get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services) VALUES (?,?,?,?,?,?,?)",
-    tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null).id);
+  const st = get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services) VALUES (?,?,?,?,?,?,?)",
+    tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null).id)!;
+  await announce(tid(req), req.user!.id, ["manager", "admin"], { type: "new_station", data: { station_id: st.id }, title: `⛽ New station: ${st.name}`, body: "Add its tanks and assign salesmen." });
+  return st;
 }));
 
-operations.post("/tanks", requirePerm("stock.manage"), h((req) => {
+operations.post("/tanks", requirePerm("stock.manage"), h(async (req) => {
   const b = parse(z.object({ station_id: z.number(), name: z.string(), product, capacity_l: z.number().positive(), current_l: z.number().min(0), reorder_pct: z.number().min(5).max(80).default(25), nozzles: z.number().int().min(0).max(12).default(2) }), req.body);
-  ownStation(tid(req), b.station_id);
-  return tx(() => {
+  const st = ownStation(tid(req), b.station_id);
+  if (b.current_l > b.capacity_l) throw new AppError(400, "Current stock cannot be more than the capacity");
+  const tank = tx(() => {
     const { id } = run("INSERT INTO tanks (station_id,name,product,capacity_l,current_l,reorder_pct) VALUES (?,?,?,?,?,?)", b.station_id, b.name, b.product, b.capacity_l, b.current_l, b.reorder_pct);
     for (let i = 1; i <= b.nozzles; i++) run("INSERT INTO nozzles (station_id,tank_id,label,totalizer) VALUES (?,?,?,0)", b.station_id, id, `${b.product}-${id}-${i}`);
-    return get("SELECT * FROM tanks WHERE id=?", id);
+    return get("SELECT * FROM tanks WHERE id=?", id)!;
   });
+  await announce(tid(req), req.user!.id, ["manager", "admin", "salesman"], { type: "new_tank", data: { tank_id: tank.id }, stationId: st.id,
+    title: `🛢️ New tank at ${st.name}: ${b.name}`, body: `${PRODUCTS[b.product]} · ${b.capacity_l.toLocaleString()} L · ${b.nozzles} nozzles. Nayi shift se meter readings mein shamil hoga.` });
+  return tank;
 }));
 
 /* ---------------- Prices ---------------- */

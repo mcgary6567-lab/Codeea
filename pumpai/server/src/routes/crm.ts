@@ -1,10 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, now } from "../db.js";
+import { all, get, run, tx, now } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { writeCampaign } from "../ai/agent.js";
+import { announce } from "../notifications.js";
+
+const TYPE_LABEL: Record<string, string> = { retail: "Customer", fleet: "Fleet", farmer: "Farmer", business: "Business", police: "Police", school: "School", government: "Govt. office", hospital: "Hospital" };
+const TYPE_ICON: Record<string, string> = { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" };
+
 
 export const crm = Router();
 
@@ -32,22 +37,44 @@ const customerBody = z.object({
   city: z.string().optional().nullable(), credit_limit: z.number().min(0).default(0), opt_in: z.boolean().default(true), notes: z.string().optional().nullable(),
 });
 
-crm.post("/customers", requirePerm("customers.create"), h((req) => {
-  const b = parse(customerBody, req.body);
+const vehicleBody = z.object({ plate_no: z.string().min(3).max(40), fuel: z.enum(["PMG", "HOBC", "HSD"]).optional().nullable(), daily_limit_l: z.number().positive().optional().nullable() });
+
+/** Add a customer or a khata (credit) account, optionally with its vehicles, and tell the team. */
+crm.post("/customers", requirePerm("customers.create"), h(async (req) => {
+  const b = parse(customerBody.extend({ vehicles: z.array(vehicleBody).max(50).optional() }), req.body);
   if (b.credit_limit > 0 && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can give khata credit");
   const phone = normalizePhone(b.phone);
   if (get("SELECT id FROM customers WHERE tenant_id=? AND phone=?", tid(req), phone)) throw new AppError(400, "A customer with this phone already exists");
-  const { id } = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-    tid(req), b.name, phone, b.type, b.city ?? null, b.credit_limit, b.opt_in ? 1 : 0, b.notes ?? null, now());
-  return get("SELECT * FROM customers WHERE id=?", id);
+  const id = tx(() => {
+    const { id } = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      tid(req), b.name, phone, b.type, b.city ?? null, b.credit_limit, b.opt_in ? 1 : 0, b.notes ?? null, now());
+    for (const v of b.vehicles ?? []) run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", id, v.plate_no.toUpperCase().trim(), v.fuel ?? null, v.daily_limit_l ?? null);
+    return id;
+  });
+  const plates = (b.vehicles ?? []).map((v) => v.plate_no.toUpperCase().trim());
+  if (b.credit_limit > 0)
+    await announce(tid(req), req.user!.id, ["salesman", "manager", "admin"], { type: "new_khata", data: { customer_id: id },
+      title: `📒 New khata account: ${TYPE_ICON[b.type] ?? ""} ${b.name}`,
+      body: `${TYPE_LABEL[b.type] ?? b.type}${b.city ? ` · ${b.city}` : ""}. Ab POS par "Khata" mein mil jayega.${plates.length ? `\nGaariyan: ${plates.join(", ")}` : ""}` });
+  else
+    await announce(tid(req), req.user!.id, ["manager", "admin"], { type: "new_customer", data: { customer_id: id },
+      title: `New customer: ${b.name}`, body: `${TYPE_LABEL[b.type] ?? b.type} · added by ${req.user!.name}` });
+  return { ...get("SELECT * FROM customers WHERE id=?", id)!, vehicles: all("SELECT * FROM vehicles WHERE customer_id=?", id) };
 }));
 
-crm.patch("/customers/:id", requirePerm("customers.edit"), h((req) => {
+crm.patch("/customers/:id", requirePerm("customers.edit"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(customerBody.partial(), req.body);
   if (b.credit_limit !== undefined && b.credit_limit !== c.credit_limit && !can(req.user, "credit.set_limit")) throw new AppError(403, "Only the admin can change credit limits");
   const m = { ...c, ...b, phone: b.phone ? normalizePhone(b.phone) : c.phone, opt_in: b.opt_in === undefined ? c.opt_in : b.opt_in ? 1 : 0 };
   run("UPDATE customers SET name=?, phone=?, type=?, city=?, credit_limit=?, opt_in=?, notes=? WHERE id=?", m.name, m.phone, m.type, m.city ?? null, m.credit_limit, m.opt_in, m.notes ?? null, c.id);
+  // khata opened or closed: the salesmen need to know straight away
+  if (c.credit_limit <= 0 && m.credit_limit > 0)
+    await announce(tid(req), req.user!.id, ["salesman", "manager", "admin"], { type: "new_khata", data: { customer_id: c.id },
+      title: `📒 Khata opened: ${TYPE_ICON[m.type] ?? ""} ${m.name}`, body: `Ab POS par "Khata" mein mil jayega.` });
+  if (c.credit_limit > 0 && m.credit_limit <= 0)
+    await announce(tid(req), req.user!.id, ["salesman", "manager", "admin"], { type: "khata_closed", data: { customer_id: c.id },
+      title: `⛔ Khata closed: ${m.name}`, body: `Is account par ab udhaar tel na dein.` });
   return get("SELECT * FROM customers WHERE id=?", c.id);
 }));
 
@@ -64,10 +91,22 @@ crm.get("/customers/:id", requirePerm("customers.view"), h((req) => {
   };
 }));
 
-crm.post("/customers/:id/vehicles", requirePerm("customers.create"), h((req) => {
+crm.post("/customers/:id/vehicles", requirePerm("customers.create"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
-  const b = parse(z.object({ plate_no: z.string().min(3), fuel: z.enum(["PMG", "HOBC", "HSD"]).optional(), daily_limit_l: z.number().positive().optional() }), req.body);
-  return get("SELECT * FROM vehicles WHERE id=?", run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", c.id, b.plate_no.toUpperCase(), b.fuel ?? null, b.daily_limit_l ?? null).id);
+  const b = parse(vehicleBody, req.body);
+  const plate = b.plate_no.toUpperCase().trim();
+  if (get("SELECT id FROM vehicles WHERE customer_id=? AND plate_no=?", c.id, plate)) throw new AppError(400, "This vehicle is already on the account");
+  const v = get("SELECT * FROM vehicles WHERE id=?", run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", c.id, plate, b.fuel ?? null, b.daily_limit_l ?? null).id);
+  if (c.credit_limit > 0)
+    await announce(tid(req), req.user!.id, ["salesman", "manager"], { type: "new_vehicle", data: { customer_id: c.id },
+      title: `🚗 New vehicle on ${c.name}'s khata`, body: `${plate} ab is khate par tel le sakti hai.` });
+  return v;
+}));
+
+crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req) => {
+  const c = ownCustomer(tid(req), Number(req.params.id));
+  run("DELETE FROM vehicles WHERE id=? AND customer_id=?", Number(req.params.vid), c.id);
+  return { ok: true };
 }));
 
 /* ---------------- Khata ---------------- */

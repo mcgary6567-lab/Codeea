@@ -5,6 +5,7 @@ import { Fuel, Wallet, BookOpen, Bell, MessageCircle, Sparkles, TrendingUp, User
 import { api, useApi, useLiveEvents } from "../lib/api";
 import { PageHeader, Stat, Loading, ErrorBox, Badge, severityTone } from "../components/ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkrShort, d, ago } from "../lib/format";
+import { QuickAddTiles } from "../components/QuickAdd";
 
 const insightIcon: Record<string, any> = { fuel: Fuel, trend: TrendingUp, users: Users, credit: CreditCard, chart: BarChart3 };
 const toneCls: Record<string, string> = { good: "border-l-emerald-500", warn: "border-l-amber-500", bad: "border-l-red-500", info: "border-l-blue-500" };
@@ -89,6 +90,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <QuickAddTiles />
 
       <AskAI />
 

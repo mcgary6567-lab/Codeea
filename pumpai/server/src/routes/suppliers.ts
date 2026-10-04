@@ -4,6 +4,7 @@ import { z } from "zod";
 import { all, get, run, now } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
+import { announce } from "../notifications.js";
 
 export const suppliers = Router();
 suppliers.use("/suppliers", requirePerm("suppliers.manage"));
@@ -37,10 +38,12 @@ suppliers.get("/suppliers", h((req) => all("SELECT * FROM suppliers WHERE tenant
     new Date().toISOString().slice(0, 7) + "-01", s.id)!,
 }))));
 
-suppliers.post("/suppliers", h((req) => {
+suppliers.post("/suppliers", h(async (req) => {
   const b = parse(z.object({ name: z.string().min(2), phone: z.string().optional().nullable(), opening_balance: z.number().optional(), notes: z.string().optional().nullable() }), req.body);
   const { id } = run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?)",
     tid(req), b.name, b.phone ? normalizePhone(b.phone) : null, b.opening_balance ?? 0, b.notes ?? null, now());
+  await announce(tid(req), req.user!.id, ["manager", "admin"], { type: "new_supplier", data: { supplier_id: id },
+    title: `🏭 New supplier: ${b.name}`, body: `Tanker delivery par ab ye supplier chuna ja sakta hai.` });
   return { ...get("SELECT * FROM suppliers WHERE id=?", id)!, owed: supplierOwed(id) };
 }));
 

@@ -6,6 +6,7 @@ import {
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
+import { QuickAddButton } from "./QuickAdd";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
@@ -48,6 +49,7 @@ export default function Layout() {
         </div>
         <div className="hidden lg:block"><NotificationBell dark /></div>
       </div>
+      <QuickAddButton />
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
         {NAV.filter((n) => can(n.perm)).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
+import { StationForm, TankForm } from "../components/QuickAdd";
+import { PRODUCTS, num } from "../lib/format";
 
 const Status = ({ ok, label }: { ok: boolean; label: string }) => (
   <span className={`inline-flex items-center gap-1 text-sm font-medium ${ok ? "text-emerald-700" : "text-slate-500"}`}>
@@ -39,10 +41,39 @@ export default function SettingsPage() {
           <div className="rounded bg-slate-50 p-2 font-mono text-xs break-all">Webhook URL: {i.whatsapp.webhook_url}<br />WA_TOKEN, WA_PHONE_NUMBER_ID, WA_VERIFY_TOKEN, WA_APP_SECRET</div>
         </div>
       </div>
+      <StationsSection />
       <div className="card flex items-center justify-between p-4">
         <div><h2 className="font-semibold">Team & access</h2><p className="text-sm text-slate-600">Create Admin, Manager and Salesman logins and control what each can do.</p></div>
         <Link to="/users" className="btn-secondary">Manage users →</Link>
       </div>
+    </div>
+  );
+}
+
+function StationsSection() {
+  const { data, reload } = useApi<any[]>("/stations");
+  const [addStation, setAddStation] = useState(false);
+  const [tankFor, setTankFor] = useState<number | null>(null);
+  if (!data) return <Loading />;
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Stations & tanks</h2><button className="btn-secondary" onClick={() => setAddStation(true)}>+ Add station</button></div>
+      <div className="space-y-3">
+        {data.map((s) => (
+          <div key={s.id} className="rounded-lg border border-slate-200 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><div className="font-medium">{s.name}</div><div className="text-xs text-slate-500">{[s.omc, s.city, s.address, s.timings].filter(Boolean).join(" · ")}</div></div>
+              <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => setTankFor(s.id)}>+ Add tank</button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {s.tanks.map((t: any) => <span key={t.id} className="rounded-lg bg-slate-50 px-2 py-1 text-xs">{t.name} · {PRODUCTS[t.product]} · {num(t.capacity_l)} L · {s.nozzles.filter((n: any) => n.tank_id === t.id).length} nozzles</span>)}
+              {!s.tanks.length && <span className="text-xs text-amber-700">No tanks yet</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      {addStation && <StationForm onClose={() => setAddStation(false)} onSaved={() => { setAddStation(false); reload(); }} />}
+      {tankFor && <TankForm stations={data} stationId={tankFor} onClose={() => setTankFor(null)} onSaved={() => { setTankFor(null); reload(); }} />}
     </div>
   );
 }

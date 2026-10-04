@@ -316,7 +316,7 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
                     className={`flex items-center gap-3 rounded-2xl p-4 text-left ring-2 transition active:scale-95 ${a.status === "full" ? "cursor-not-allowed bg-red-50 ring-red-200 opacity-70" : "bg-white ring-slate-200 hover:ring-amber-400"}`}>
                     <span className="text-4xl">{TYPE_ICON[a.type] ?? "📒"}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-lg font-semibold leading-tight">{a.name}</span>
+                      <span className="block text-lg font-semibold leading-tight">{a.name} {a.is_new && <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 align-middle text-xs font-bold text-white">NEW</span>}</span>
                       <span className="text-sm text-slate-500">{TYPE_LABEL[a.type] ?? a.type}{a.city ? ` · ${a.city}` : ""}</span>
                       {a.status !== "ok" && <span className={`mt-1 block text-sm font-semibold ${a.status === "full" ? "text-red-600" : "text-amber-600"}`}>{a.status === "full" ? "Limit full — ask manager" : "Near limit"}</span>}
                     </span>

@@ -9,6 +9,7 @@ import { all, get, run, tx, now, type Row } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
+import { announce } from "../notifications.js";
 
 export const wholesale = Router();
 wholesale.use("/wholesale", requirePerm("wholesale.view"));
@@ -116,10 +117,10 @@ function saveRates(clientId: number, newRates: Record<string, number>, by: strin
   }
 }
 
-wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h((req) => {
+wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h(async (req) => {
   const b = parse(clientBody, req.body);
   guardFinancials(req, b);
-  return tx(() => {
+  const created = tx(() => {
     const { id } = run(
       "INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,address,credit_limit,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
       tid(req), b.name, b.business_name ?? null, b.phone ? normalizePhone(b.phone) : null, b.city ?? null, b.address ?? null,
@@ -128,6 +129,10 @@ wholesale.post("/wholesale/clients", requirePerm("wholesale.manage"), h((req) =>
     if (b.rates) saveRates(id, b.rates, req.user!.name);
     return { ...get("SELECT * FROM wholesale_clients WHERE id=?", id)!, rates: rates(id), due: clientDue(id) };
   });
+  await announce(tid(req), req.user!.id, ["wholesale", "admin"], { type: "new_wholesale_client", data: { client_id: created.id },
+    title: `🚛 New wholesale client: ${b.name}`,
+    body: b.rates ? Object.entries(b.rates).map(([p, r]) => `${PRODUCTS[p]} Rs ${r}/L`).join(" · ") : "Rate abhi set nahi — admin rate card set karein." });
+  return created;
 }));
 
 wholesale.patch("/wholesale/clients/:id", requirePerm("wholesale.manage"), h((req) => {

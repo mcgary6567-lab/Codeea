@@ -15,7 +15,7 @@ export const INSTITUTION_TYPES = ["police", "school", "government", "hospital"];
  * Exact balances are not exposed to salesmen — only whether the account can still take credit.
  */
 pos.get("/pos/khata-accounts", h((req) => {
-  const rows = all("SELECT id, name, type, city, balance, credit_limit FROM customers WHERE tenant_id=? AND credit_limit > 0 ORDER BY name", tid(req));
+  const rows = all("SELECT id, name, type, city, balance, credit_limit, created_at FROM customers WHERE tenant_id=? AND credit_limit > 0 ORDER BY name", tid(req));
   const order = (t: string) => (INSTITUTION_TYPES.includes(t) ? 0 : t === "fleet" ? 1 : t === "farmer" ? 2 : 3);
   const showBalance = req.user!.role !== "salesman";
   return rows
@@ -23,6 +23,7 @@ pos.get("/pos/khata-accounts", h((req) => {
       const used = c.balance / c.credit_limit;
       return {
         id: c.id, name: c.name, type: c.type, city: c.city,
+        is_new: Date.now() - Date.parse(c.created_at) < 3 * 86_400_000,
         status: used >= 1 ? "full" : used >= 0.9 ? "near" : "ok",
         ...(showBalance ? { balance: c.balance, credit_limit: c.credit_limit, available: Math.max(0, c.credit_limit - c.balance) } : {}),
         vehicles: all("SELECT plate_no FROM vehicles WHERE customer_id=? ORDER BY plate_no", c.id).map((v) => v.plate_no),

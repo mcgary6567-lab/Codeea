@@ -6,6 +6,7 @@ import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, status
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import KhataStatement from "../components/KhataStatement";
+import { AccountForm } from "../components/QuickAdd";
 import { TYPE_ICON } from "./Pos";
 
 const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri", "Institution"];
@@ -14,6 +15,7 @@ const TYPES = [["retail", "Retail customer"], ["fleet", "Fleet / transport"], ["
 
 export default function Customers() {
   const { id } = useParams();
+  const { can } = useAuth();
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [seg, setSeg] = useState("");
@@ -23,7 +25,7 @@ export default function Customers() {
   return (
     <div>
       <PageHeader title="Customers" subtitle="AI-segmented CRM with churn & credit-risk scores"
-        actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add customer</button>} />
+        actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> {can("credit.set_limit") ? "Add customer / khata" : "Add customer"}</button>} />
       <div className="card">
         <div className="flex flex-wrap gap-2 border-b border-slate-200 p-3">
           <div className="relative min-w-[220px] flex-1"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search by name or phone" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -57,7 +59,7 @@ export default function Customers() {
           {list.data && !list.data.length && <Empty>No customers found</Empty>}
         </div>
       </div>
-      <CustomerForm open={adding} onClose={() => setAdding(false)} onSaved={(c) => { list.reload(); nav(`/customers/${c.id}`); }} />
+      {adding && <AccountForm khata={can("credit.set_limit")} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); list.reload(); nav(`/customers/${c.id}`); }} />}
       {id && <CustomerDetail id={id} onClose={() => nav("/customers")} onChanged={list.reload} />}
     </div>
   );
@@ -180,8 +182,11 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             </section>
             <section>
               <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold"><Car size={14} /> Vehicles</h3>
-              <div className="flex flex-wrap gap-2">{c.vehicles.map((v: any) => <Badge key={v.id}>{v.plate_no} {v.fuel && `· ${v.fuel}`}</Badge>)}</div>
-              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate } }), "Vehicle added")) { setPlate(""); reload(); } }}>
+              <div className="flex flex-wrap gap-2">{c.vehicles.map((v: any) => (
+                <span key={v.id} className="badge gap-1 bg-slate-100 text-slate-700">{v.plate_no} {v.fuel && `· ${v.fuel}`}
+                  {can("customers.edit") && <button aria-label={`Remove ${v.plate_no}`} className="text-slate-400 hover:text-red-600" onClick={() => confirm(`Remove ${v.plate_no}?`) && run(() => api(`/customers/${c.id}/vehicles/${v.id}`, { method: "DELETE" }), "Vehicle removed").then(reload)}>×</button>}
+                </span>))}</div>
+              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate } }), c.credit_limit > 0 ? "Vehicle added — salesmen notified" : "Vehicle added")) { setPlate(""); reload(); } }}>
                 <input className="input" placeholder="LEA-1234" value={plate} onChange={(e) => setPlate(e.target.value)} /><button className="btn-secondary" disabled={!plate}>Add</button>
               </form>
             </section>
