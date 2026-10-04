@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -29,7 +29,9 @@ const NAV = [
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
   { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
-  { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale"] },
+  { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
+  { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
+  { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager"] },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];

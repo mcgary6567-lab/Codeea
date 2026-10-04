@@ -3,6 +3,8 @@ import { Wallet, Plus, Minus, Banknote } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
+import { photoUrl } from "../components/Capture";
+import { DAY_STATUS, LeaveForm } from "./MyAccount";
 import { useAuth } from "../App";
 
 const TYPE: Record<string, { label: string; tone: string; sign: string }> = {
@@ -13,6 +15,66 @@ const TYPE: Record<string, { label: string; tone: string; sign: string }> = {
 
 /** Staff khata: advances, cash shortages from shifts, salary — no salary register on paper. */
 export default function Staff() {
+  const [tab, setTab] = useState<"accounts" | "attendance">("accounts");
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2">
+        {(["accounts", "attendance"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === t ? "bg-slate-900 text-white" : "bg-white ring-1 ring-slate-200"}`}>{t === "accounts" ? "Accounts & salary" : "Attendance & leave"}</button>)}
+      </div>
+      {tab === "accounts" ? <Accounts /> : <Attendance />}
+    </div>
+  );
+}
+
+/** Whole team's attendance this month, who is in today, and leave requests. */
+function Attendance() {
+  const { data, reload } = useApi<any>("/attendance");
+  const { run } = useAction();
+  const [leaveFor, setLeaveFor] = useState<number | null>(null);
+  if (!data) return <Loading />;
+  const pending = data.leaves.filter((l: any) => l.status === "pending");
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Attendance & leave" subtitle={`Check-ins (selfie + location), lateness, weekly off and leave — ${data.month}`} />
+      {pending.length > 0 && <div className="card p-4"><h2 className="mb-2 font-semibold">Leave requests</h2>
+        {pending.map((l: any) => (
+          <div key={l.id} className="flex flex-wrap items-center gap-2 border-b border-slate-100 py-2 text-sm">
+            <span className="flex-1"><b>{l.name}</b> · {l.from_day}{l.to_day !== l.from_day ? ` – ${l.to_day}` : ""} · {l.type}{l.reason ? ` — ${l.reason}` : ""}</span>
+            <button className="btn-primary !py-1" onClick={() => run(() => api(`/leaves/${l.id}/approve`, { body: {} }), "Approved").then(reload)}>Approve</button>
+            <button className="btn-secondary !py-1" onClick={() => run(() => api(`/leaves/${l.id}/reject`, { body: {} }), "Rejected").then(reload)}>Reject</button>
+          </div>
+        ))}</div>}
+      <div className="card p-4">
+        <h2 className="mb-2 font-semibold">In today ({data.present_today.length})</h2>
+        <div className="flex flex-wrap gap-2">{data.present_today.map((a: any) => (
+          <span key={a.id} className="badge gap-1 bg-slate-100 text-slate-700">{a.in_photo_id ? <a href={photoUrl(a.in_photo_id)} target="_blank" rel="noreferrer">📷</a> : null}{a.name} · {new Date(a.check_in).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}
+            {a.late_minutes > 15 && <span className="text-amber-700"> · {a.late_minutes}m late</span>}{a.away_m > 300 && <span className="text-red-600"> · {a.away_m} m away</span>}{a.check_out && " · out"}</span>
+        ))}{!data.present_today.length && <span className="text-sm text-slate-500">Nobody yet</span>}</div>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full">
+          <thead><tr><th className="th">Name</th><th className="th">Duty</th><th className="th">This month</th><th className="th text-right">Present</th><th className="th text-right">Late</th><th className="th text-right">Absent</th><th className="th text-right">Leave</th><th className="th text-right">Salary cut</th><th className="th" /></tr></thead>
+          <tbody>{data.staff.map((s: any) => (
+            <tr key={s.user.id}>
+              <td className="td font-medium">{s.user.name}</td>
+              <td className="td text-xs text-slate-600">{s.user.duty_start ?? <span className="text-slate-400">not set</span>}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</td>
+              <td className="td"><div className="flex flex-wrap gap-0.5">{s.days.map((x: any) => <span key={x.day} title={`${x.day}: ${DAY_STATUS[x.status]?.label}`} className={`h-3 w-3 rounded-sm ${DAY_STATUS[x.status]?.cls}`} />)}</div></td>
+              <td className="td text-right tabular-nums">{s.present}</td><td className="td text-right tabular-nums">{s.late}</td>
+              <td className={`td text-right tabular-nums ${s.absent ? "font-semibold text-red-600" : ""}`}>{s.absent}</td><td className="td text-right tabular-nums">{s.paid_leave + s.unpaid_leave}</td>
+              <td className="td text-right tabular-nums">{s.salary_cut ? pkr(s.salary_cut) : "—"}</td>
+              <td className="td text-right"><button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => setLeaveFor(s.user.id)}>Record leave</button></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {leaveFor && <LeaveForm userId={leaveFor} onClose={() => setLeaveFor(null)} onDone={() => { setLeaveFor(null); reload(); }} />}
+    </div>
+  );
+}
+
+const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function Accounts() {
   const { data, reload } = useApi<any[]>("/staff");
   const [open, setOpen] = useState<number | null>(null);
   if (!data) return <Loading />;
@@ -50,11 +112,12 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
   const { busy, run } = useAction();
   const [form, setForm] = useState<null | "advance" | "repayment" | "salary" | "set-salary">(null);
-  const [f, setF] = useState({ amount: "", note: "", deduct: "", bonus: "", salary: "" });
+  const [f, setF] = useState({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" });
   if (!data) return <Modal open onClose={onClose} title="Staff account"><Loading /></Modal>;
   const u = data.user;
-  const done = () => { setForm(null); setF({ amount: "", note: "", deduct: "", bonus: "", salary: "" }); reload(); };
-  const net = (u.salary ?? 0) + (Number(f.bonus) || 0) - (Number(f.deduct) || 0);
+  const done = () => { setForm(null); setF({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" }); reload(); };
+  const cut = f.cut === "" ? data.attendance?.salary_cut ?? 0 : Number(f.cut) || 0;
+  const net = (u.salary ?? 0) - cut + (Number(f.bonus) || 0) - (Number(f.deduct) || 0);
   return (
     <Modal open onClose={onClose} title={`${u.name} — staff account`} wide>
       <div className="flex flex-wrap items-center gap-3">
@@ -71,7 +134,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
       {form && (
         <form className="mt-4 space-y-3 rounded-xl border border-slate-200 p-3" onSubmit={async (e) => {
           e.preventDefault();
-          const call = form === "salary" ? api(`/staff/${id}/pay-salary`, { body: { deduct: Number(f.deduct) || 0, bonus: Number(f.bonus) || 0 } })
+          const call = form === "salary" ? api(`/staff/${id}/pay-salary`, { body: { deduct: Number(f.deduct) || 0, bonus: Number(f.bonus) || 0, absence_cut: cut } })
             : form === "set-salary" ? api(`/staff/${id}`, { method: "PATCH", body: { salary: Number(f.salary) || null } })
             : api(`/staff/${id}/entry`, { body: { type: form, amount: Number(f.amount), note: f.note || null } });
           if (await run(() => call, form === "salary" ? `Salary paid: ${pkr(net)}` : "Saved")) done();
@@ -82,8 +145,9 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
             <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. for family need" /></Field>
           </div>}
           {form === "salary" && <>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <Field label="Salary"><input className="input" disabled value={pkr(u.salary)} /></Field>
+              <Field label={`Absence cut (${data.attendance?.unpaid_days ?? 0} unpaid days)`}><input className="input" type="number" min={0} value={f.cut === "" ? String(data.attendance?.salary_cut ?? 0) : f.cut} onChange={(e) => setF({ ...f, cut: e.target.value })} /></Field>
               <Field label="Bonus (optional)"><input className="input" type="number" min={0} value={f.bonus} onChange={(e) => setF({ ...f, bonus: e.target.value })} /></Field>
               <Field label={`Cut advance / short (owes ${pkr(data.balance)})`}><input className="input" type="number" min={0} max={Math.min(data.balance, u.salary + (Number(f.bonus) || 0))} value={f.deduct} onChange={(e) => setF({ ...f, deduct: e.target.value })} /></Field>
             </div>
@@ -92,8 +156,23 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
           <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setForm(null)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
         </form>
       )}
+      <DutyForm u={u} att={data.attendance} onSaved={reload} />
       <LedgerList lines={data.lines} />
     </Modal>
+  );
+}
+
+function DutyForm({ u, att, onSaved }: { u: any; att: any; onSaved: () => void }) {
+  const [start, setStart] = useState(att?.user.duty_start ?? "");
+  const [off, setOff] = useState(att?.user.weekly_off == null ? "" : String(att.user.weekly_off));
+  const { run } = useAction();
+  return (
+    <form className="mt-4 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3" onSubmit={(e) => { e.preventDefault(); run(() => api(`/staff/${u.id}/duty`, { method: "PATCH", body: { duty_start: start || null, weekly_off: off === "" ? null : Number(off) } }), "Duty saved").then(onSaved); }}>
+      <Field label="Duty starts"><input className="input" type="time" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
+      <Field label="Weekly off"><select className="input" value={off} onChange={(e) => setOff(e.target.value)}><option value="">None</option>{WEEK.map((w, i) => <option key={w} value={i}>{w}</option>)}</select></Field>
+      <button className="btn-secondary">Save duty</button>
+      {att?.tracked && <span className="ml-auto text-sm text-slate-600">This month: present {att.present}, late {att.late}, absent {att.absent}</span>}
+    </form>
   );
 }
 

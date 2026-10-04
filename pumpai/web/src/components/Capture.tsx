@@ -23,7 +23,7 @@ export const photoUrl = (id: number) => `/api/photos/${id}?token=${encodeURIComp
  * and, when AI is on, the numbers come back in `onRead`.
  */
 export function PhotoButton({ kind, hint, onRead, label = "Photo", big, className = "" }: {
-  kind: "meter" | "invoice" | "receipt"; hint?: string; label?: string; big?: boolean; className?: string;
+  kind: "meter" | "invoice" | "receipt" | "proof" | "selfie"; hint?: string; label?: string; big?: boolean; className?: string;
   onRead: (result: any | null, photoId: number) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);

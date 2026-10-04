@@ -14,9 +14,9 @@ export const capture = Router();
 
 const MAX_BYTES = 4 * 1024 * 1024;
 
-capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses"), h(async (req) => {
+capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses", "wholesale.manage"), h(async (req) => {
   const b = parse(z.object({
-    kind: z.enum(["meter", "invoice", "receipt"]),
+    kind: z.enum(["meter", "invoice", "receipt", "selfie", "proof"]),
     image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Send a JPEG, PNG or WebP photo"),
     hint: z.string().max(300).optional(),
   }), req.body);
@@ -25,12 +25,13 @@ capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stoc
   if (bytes.length > MAX_BYTES) throw new AppError(400, "Photo is too large");
   let extra = b.hint ?? "";
   if (b.kind === "receipt") extra += `\nCategories: ${all("SELECT name FROM expense_categories WHERE tenant_id=?", tid(req)).map((c) => c.name).join(", ")}`;
-  const result = await readPhoto(b.kind as PhotoKind, data, mime, extra);
+  // selfies (attendance) and proof photos (checklist, licence) are only stored, not read
+  const result = ["selfie", "proof"].includes(b.kind) ? null : await readPhoto(b.kind as PhotoKind, data, mime, extra);
   const { id } = run("INSERT INTO photos (tenant_id,kind,mime,data,ai_result,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
     tid(req), b.kind, mime, bytes, result ? JSON.stringify(result) : null, req.user!.id, now());
   return {
     photo_id: id, ai: Boolean(result), result,
-    message: result ? null : aiEnabled() ? "Could not read the photo clearly. Please type the numbers." : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
+    message: result || ["selfie", "proof"].includes(b.kind) ? null : aiEnabled() ? "Could not read the photo clearly. Please type the numbers." : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
   };
 }));
 

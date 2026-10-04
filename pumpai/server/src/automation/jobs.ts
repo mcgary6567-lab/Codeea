@@ -8,6 +8,7 @@ import { aiEnabled } from "../config.js";
 import { notify, staff, shiftUser } from "../notifications.js";
 import { monthlyBills } from "../billing.js";
 import { closeDay } from "../routes/backoffice.js";
+import { licenceWatch, checklistWatch, attendanceWatch } from "../routes/compliance.js";
 
 export interface Job {
   key: string;
@@ -169,6 +170,27 @@ export const JOBS: Job[] = [
       const r = await closeDay(t);
       return "already" in r ? `${r.day} was already closed` : `${r.day} closed · sales ${pkr(r.revenue)}`;
     },
+  },
+  {
+    key: "licence_watch",
+    name: "Licence & certificate expiry",
+    description: "Every morning: explosives licence, OGRA, fire NOC, nap-tol (calibration) and other certificates — reminders 30, 7 and 1 day before expiry, on the day and weekly after, to the owner on WhatsApp.",
+    cron: "0 9 * * *",
+    run: async (t) => `${await licenceWatch(t)} reminders`,
+  },
+  {
+    key: "checklist_watch",
+    name: "Daily checklist follow-up",
+    description: "At noon and 8pm, tells the managers which daily checks (cleaning, water in tank, density, 5-litre measure, fire extinguishers…) are not done yet.",
+    cron: "0 12,20 * * *",
+    run: async (t) => `${await checklistWatch(t)} stations with missing checks`,
+  },
+  {
+    key: "attendance_watch",
+    name: "Attendance follow-up",
+    description: "Every hour: staff who have not checked in an hour after their duty time (not on weekly off or leave) are reported to the manager.",
+    cron: "15 * * * *",
+    run: async (t) => `${await attendanceWatch(t)} not checked in`,
   },
   {
     key: "monthly_bills",

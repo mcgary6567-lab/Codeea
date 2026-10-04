@@ -280,6 +280,27 @@ export function migrate() {
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, type TEXT NOT NULL, qty REAL NOT NULL, cost REAL, ref TEXT, note TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS loyalty_redemptions (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, points INTEGER NOT NULL, sale_id INTEGER, created_by TEXT, created_at TEXT NOT NULL)`);
+  // licences / certificates with expiry
+  db.exec(`CREATE TABLE IF NOT EXISTS licences (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, number TEXT, authority TEXT,
+    issued_on TEXT, expires_on TEXT NOT NULL, photo_id INTEGER, note TEXT, created_at TEXT NOT NULL)`);
+  // daily / weekly checklist (safety, cleanliness, quality, calibration)
+  db.exec(`CREATE TABLE IF NOT EXISTS checklist_items (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, title TEXT NOT NULL, urdu TEXT, frequency TEXT NOT NULL DEFAULT 'daily',
+    kind TEXT NOT NULL DEFAULT 'check', unit TEXT, min_ok REAL, max_ok REAL, needs_photo INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS checklist_entries (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, item_id INTEGER NOT NULL, day TEXT NOT NULL,
+    ok INTEGER NOT NULL, value REAL, note TEXT, photo_id INTEGER, done_by TEXT, created_at TEXT NOT NULL)`);
+  // attendance and leave
+  addColumn("users", "duty_start", "TEXT"); // "08:00"
+  addColumn("users", "weekly_off", "INTEGER"); // 0 = Sunday … 6 = Saturday
+  db.exec(`CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, station_id INTEGER, day TEXT NOT NULL,
+    check_in TEXT NOT NULL, check_out TEXT, in_photo_id INTEGER, out_photo_id INTEGER, in_lat REAL, in_lng REAL, away_m REAL,
+    late_minutes INTEGER NOT NULL DEFAULT 0, source TEXT, UNIQUE (user_id, day))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS leaves (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'paid', reason TEXT, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, created_at TEXT NOT NULL)`);
   db.exec(`CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER, user_name TEXT, action TEXT NOT NULL,
     ref TEXT, data TEXT, created_at TEXT NOT NULL)`);

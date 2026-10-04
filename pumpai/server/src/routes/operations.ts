@@ -10,6 +10,7 @@ import { followPumpPrice } from "./wholesale.js";
 import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
+import { checkIn, checkOut } from "./compliance.js";
 import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
@@ -255,6 +256,9 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
     if (a) await notify(tid(req), staff(tid(req), ["admin", "manager"]), { type: "handover_gap", data: { shift_id: shift.id }, title: a.title, body });
   }
   linkPhotos(tid(req), b.photo_ids, `shift-open:${shift.id}`);
+  // opening a shift marks the salesman present
+  const att = get("SELECT id, name FROM users WHERE tenant_id=? AND name=? AND role='salesman' AND active=1", tid(req), shift.attendant);
+  if (att) checkIn(tid(req), att, { station_id: shift.station_id, source: "shift" });
   return { ...shift, nozzles: chosen.length, handover_gaps: gaps };
 }));
 
@@ -348,6 +352,8 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
       `Sales ${pkr(summary.amount)} · Cash expected ${pkr(closed.cash_expected)} · Counted ${pkr(b.cash_actual)} · ${v < 0 ? "Short" : "Over"} ${pkr(Math.abs(v))}`,
   });
   await chargeShortage(t, shift, v);
+  const att = get("SELECT id FROM users WHERE tenant_id=? AND name=? AND role='salesman'", t, shift.attendant);
+  if (att) checkOut(att.id);
   return { ...closed, summary, readings: shiftReadings(shift.id) };
 }));
 

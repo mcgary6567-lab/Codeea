@@ -202,6 +202,7 @@ export function seed() {
 
     seedWholesaleAndExpenses(tenantId, st1, st2, T0);
     seedShop(tenantId, [st1, st2], T0);
+    seedCompliance(tenantId, [st1, st2], T0);
     simulateStock(tenantId, st1, st2, T0);
     ensureAutomations(tenantId);
   });
@@ -241,6 +242,53 @@ function seedShop(tenantId: number, stations: number[], T0: number) {
       run("INSERT INTO shop_sale_lines (sale_id,item_id,qty,price,cost) VALUES (?,?,?,?,?)", sale, id, qty, price, cost);
       run("UPDATE shop_items SET stock = stock - ? WHERE id=?", qty, id);
       run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?)", id, "sale", -qty, cost, `shop:${sale}`, "Imran", at);
+    }
+  }
+}
+
+/** Licences with expiry dates, the standard daily/weekly checklist, duty times and past attendance. */
+function seedCompliance(tenantId: number, stations: number[], T0: number) {
+  const day = (offset: number) => new Date(T0 + offset * DAY + 5 * 3600_000).toISOString().slice(0, 10);
+  const lic: [string, string, string, number, number | null][] = [
+    ["Explosives licence (petroleum storage)", "EXP/LHR/2231", "Dept. of Explosives", 210, stations[0]],
+    ["OGRA marketing licence", "OGRA-RO-8841", "OGRA", 95, null],
+    ["Fire safety NOC", "FD-7712", "Rescue 1122 / Fire Dept.", 6, stations[0]],
+    ["Nozzle calibration (nap-tol) certificate", "WM-55102", "Weights & Measures", 25, stations[0]],
+    ["Fire extinguisher refill", null as unknown as string, "Safety contractor", 40, stations[1]],
+    ["Trade licence", "TL-3390", "District council", -3, stations[1]],
+  ];
+  for (const [name, num, auth, days, st] of lic)
+    run("INSERT INTO licences (tenant_id,station_id,name,number,authority,issued_on,expires_on,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      tenantId, st, name, num ?? null, auth, day(days - 365), day(days), iso(T0 - 60 * DAY));
+  const items: [string, string, string, string, string | null, number | null, number | null, number][] = [
+    // title, urdu, frequency, kind, unit, min_ok, max_ok, needs_photo
+    ["Forecourt and canopy clean", "فورکورٹ صاف", "daily", "check", null, null, null, 1],
+    ["Water in tanks (water-finding paste)", "ٹینک میں پانی", "daily", "number", "mm", 0, 10, 1],
+    ["Petrol density at 15°C", "پیٹرول ڈینسٹی", "daily", "number", "kg/m³", 720, 775, 0],
+    ["Diesel density at 15°C", "ڈیزل ڈینسٹی", "daily", "number", "kg/m³", 815, 870, 0],
+    ["5-litre measure test (difference)", "5 لیٹر ناپ", "daily", "number", "ml", -25, 25, 0],
+    ["Fire extinguishers & sand buckets in place", "آگ بجھانے کا سامان", "daily", "check", null, null, null, 0],
+    ["Washrooms clean", "واش روم صاف", "daily", "check", null, null, null, 1],
+    ["Air & water machine working", "ہوا اور پانی", "daily", "check", null, null, null, 0],
+    ["Generator oil & fuel check", "جنریٹر", "weekly", "check", null, null, null, 0],
+    ["Emergency shut-off & earthing check", "ایمرجنسی بند", "weekly", "check", null, null, null, 0],
+  ];
+  items.forEach(([title, urdu, freq, kind, unit, min, max, photo], i) =>
+    run("INSERT INTO checklist_items (tenant_id,title,urdu,frequency,kind,unit,min_ok,max_ok,needs_photo,sort) VALUES (?,?,?,?,?,?,?,?,?,?)", tenantId, title, urdu, freq, kind, unit, min, max, photo, i));
+  // duty times; Friday off for the salesman; ~40 days of check-ins and one paid leave
+  for (const [email, start, off] of [["salesman", "08:00", 5], ["manager", "09:00", 0], ["wholesale", "09:00", 0]] as const) {
+    const u = get("SELECT id, station_id FROM users WHERE email=?", `${email}@pumpai.pk`)!;
+    run("UPDATE users SET duty_start=?, weekly_off=? WHERE id=?", start, off, u.id);
+    const leaveDay = day(-12);
+    run("INSERT INTO leaves (tenant_id,user_id,from_day,to_day,type,reason,status,decided_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      tenantId, u.id, leaveDay, leaveDay, "paid", "Family wedding", "approved", "Kamran Shah", iso(T0 - 14 * DAY));
+    for (let d = -40; d <= -1; d++) {
+      const dd = day(d);
+      if (new Date(`${dd}T12:00:00+05:00`).getUTCDay() === off || dd === leaveDay) continue;
+      const late = rnd() < 0.15 ? 20 + Math.round(rnd() * 40) : Math.round(rnd() * 10);
+      const inAt = Date.parse(`${dd}T${start}:00+05:00`) + late * 60_000;
+      run("INSERT INTO attendance (tenant_id,user_id,station_id,day,check_in,check_out,late_minutes,source) VALUES (?,?,?,?,?,?,?,?)",
+        tenantId, u.id, u.station_id ?? stations[0], dd, iso(inAt), iso(inAt + 12 * 3600_000), late, "app");
     }
   }
 }

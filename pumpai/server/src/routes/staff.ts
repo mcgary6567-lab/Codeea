@@ -9,6 +9,7 @@ import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr } from "../services.js";
 import { notify } from "../notifications.js";
+import { attendanceMonth } from "./compliance.js";
 
 export const staffRouter = Router();
 staffRouter.use("/staff", requirePerm("staff.manage"));
@@ -42,7 +43,7 @@ staffRouter.get("/staff", h((req) => {
 
 staffRouter.get("/staff/:id", h((req) => {
   const u = ownUser(tid(req), Number(req.params.id));
-  return { user: u, balance: staffBalance(u.id), lines: ledger(u.id) };
+  return { user: u, balance: staffBalance(u.id), lines: ledger(u.id), attendance: attendanceMonth(tid(req), u.id) };
 }));
 
 staffRouter.patch("/staff/:id", h((req) => {
@@ -65,12 +66,15 @@ staffRouter.post("/staff/:id/entry", h(async (req) => {
 /** Pay a month's salary: optional bonus, recover advances/shortages, book the salary expense. */
 staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
   const u = ownUser(tid(req), Number(req.params.id));
-  const b = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), deduct: z.number().min(0).default(0), bonus: z.number().min(0).default(0), note: z.string().max(200).optional() }), req.body);
+  const b = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), deduct: z.number().min(0).default(0), bonus: z.number().min(0).default(0), note: z.string().max(200).optional(),
+    absence_cut: z.number().min(0).optional() }), req.body);
   const month = b.month ?? pkDate().slice(0, 7);
   if (!u.salary) throw new AppError(400, `Set ${u.name}'s monthly salary first`);
   if (get("SELECT id FROM staff_ledger WHERE user_id=? AND type='salary' AND month=?", u.id, month)) throw new AppError(400, `${u.name}'s salary for ${month} is already paid`);
   if (b.deduct > staffBalance(u.id) + 0.01) throw new AppError(400, `Deduction is more than ${u.name} owes (${pkr(staffBalance(u.id))})`);
-  const gross = round2(u.salary + b.bonus);
+  // unpaid absences (staff with a duty time) are cut at salary / 30 per day unless the manager changes it
+  const absenceCut = round2(Math.min(u.salary, b.absence_cut ?? attendanceMonth(tid(req), u.id, b.month ?? pkDate().slice(0, 7)).salary_cut));
+  const gross = round2(u.salary - absenceCut + b.bonus);
   if (b.deduct > gross) throw new AppError(400, "Deduction is more than the salary");
   const net = round2(gross - b.deduct);
   const t = tid(req);
@@ -79,14 +83,14 @@ staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
       run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,month,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", t, u.id, type, amount, note, month, req.user!.name, now());
     if (b.bonus) ins("bonus", b.bonus, b.note ?? `Bonus ${month}`);
     if (b.deduct) ins("deduction", b.deduct, `Recovered from ${month} salary`);
-    ins("salary", net, `Salary ${month}: ${pkr(u.salary)}${b.bonus ? ` + bonus ${pkr(b.bonus)}` : ""}${b.deduct ? ` − ${pkr(b.deduct)} advance/shortage` : ""}`);
+    ins("salary", net, `Salary ${month}: ${pkr(u.salary)}${absenceCut ? ` − ${pkr(absenceCut)} absences` : ""}${b.bonus ? ` + bonus ${pkr(b.bonus)}` : ""}${b.deduct ? ` − ${pkr(b.deduct)} advance/shortage` : ""}`);
     // the expense book shows the full salary cost; the recovered part was paid out earlier as an advance
     if (get("SELECT id FROM expense_categories WHERE tenant_id=? AND name='Salaries & wages'", t))
       run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, t, u.station_id ?? null, "Salaries & wages", gross, u.name, "cash", `Salary ${month}`, "approved", req.user!.name, req.user!.name, pkDate(), now());
   });
   await notify(t, [u], { type: "staff_ledger", title: `Salary paid: ${pkr(net)}`, body: `${month}${b.deduct ? ` · ${pkr(b.deduct)} adjusted from advance/shortage` : ""}. Remaining to adjust: ${pkr(staffBalance(u.id))}.` });
-  return { net, balance: staffBalance(u.id), lines: ledger(u.id) };
+  return { net, absence_cut: absenceCut, balance: staffBalance(u.id), lines: ledger(u.id) };
 }));
 
 /** Every staff member can see their own account. */
