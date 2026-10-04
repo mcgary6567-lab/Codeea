@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -11,6 +11,7 @@ import { QuickAddButton } from "./QuickAdd";
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
+  { to: "/insights", label: "Owner insights", icon: HeartPulse, perm: "reports.view" },
   { to: "/inbox", label: "WhatsApp Inbox", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },

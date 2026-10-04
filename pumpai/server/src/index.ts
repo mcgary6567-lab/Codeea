@@ -23,6 +23,7 @@ import { staffRouter } from "./routes/staff.js";
 import { backoffice, renderDay } from "./routes/backoffice.js";
 import { shop } from "./routes/shop.js";
 import { compliance } from "./routes/compliance.js";
+import { analysis } from "./routes/analysis.js";
 import { renderReceipt } from "./billing.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
@@ -86,6 +87,7 @@ api.use(staffRouter);
 api.use(backoffice);
 api.use(shop);
 api.use(compliance);
+api.use(analysis);
 app.use("/api", api);
 
 // Serve the built dashboard in production

@@ -9,6 +9,7 @@ import { notify, staff, shiftUser } from "../notifications.js";
 import { monthlyBills } from "../billing.js";
 import { closeDay } from "../routes/backoffice.js";
 import { licenceWatch, checklistWatch, attendanceWatch } from "../routes/compliance.js";
+import { weeklyStaffRisk } from "../routes/analysis.js";
 
 export interface Job {
   key: string;
@@ -191,6 +192,13 @@ export const JOBS: Job[] = [
     description: "Every hour: staff who have not checked in an hour after their duty time (not on weekly off or leave) are reported to the manager.",
     cron: "15 * * * *",
     run: async (t) => `${await attendanceWatch(t)} not checked in`,
+  },
+  {
+    key: "staff_risk",
+    name: "Weekly staff risk report",
+    description: "Monday 10am: the owner gets each salesman with a risk score — short shifts, litres not entered on the POS, undone sales, late days and failed checks.",
+    cron: "0 10 * * 1",
+    run: async (t) => `${await weeklyStaffRisk(t)} salesmen flagged`,
   },
   {
     key: "monthly_bills",

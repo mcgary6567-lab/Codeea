@@ -235,7 +235,8 @@ export function migrate() {
   addColumn("users", "pin_locked_until", "TEXT");
   addColumn("sales", "slip_no", "TEXT");
   addColumn("sales", "created_by", "INTEGER"); // user who entered it (for undo)
-  addColumn("sales", "client_uid", "TEXT"); // id from the POS so an offline sale synced twice is saved once
+  addColumn("sales", "client_uid", "TEXT");
+  addColumn("sales", "source", "TEXT"); // pos | meter (litres on the meter not entered on the POS) // id from the POS so an offline sale synced twice is saved once
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_uid ON sales(client_uid)");
   db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,

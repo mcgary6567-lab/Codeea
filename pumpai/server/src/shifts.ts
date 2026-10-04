@@ -45,7 +45,7 @@ export function settleShift(tenantId: number, shift: Row, readings: Record<strin
       : get("SELECT COALESCE(SUM(litres),0) l FROM sales WHERE shift_id=? AND product=? AND created_at >= ?", shift.id, product, shift.opened_at)!.l;
     const unrecorded = round2(dispensed - recorded);
     if (unrecorded > 0.01)
-      recordSale(tenantId, { station_id: shift.station_id, product, litres: unrecorded, payment_method: "cash", nozzle_id: noz[0].nozzle_id, shift_id: shift.id, rate: rateFor(product), created_at: ts });
+      recordSale(tenantId, { station_id: shift.station_id, product, litres: unrecorded, payment_method: "cash", nozzle_id: noz[0].nozzle_id, shift_id: shift.id, rate: rateFor(product), created_at: ts, source: "meter" });
     for (const r of noz) {
       const meter = readings[String(r.nozzle_id)];
       run("UPDATE meter_readings SET checkpoint=?, checkpoint_at=? WHERE id=?", meter, ts, r.id);
