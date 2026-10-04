@@ -5,9 +5,12 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { ago, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
+import KhataStatement from "../components/KhataStatement";
+import { TYPE_ICON } from "./Pos";
 
-const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri"];
-const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber" };
+const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri", "Institution"];
+const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber", Institution: "blue" };
+const TYPES = [["retail", "Retail customer"], ["fleet", "Fleet / transport"], ["farmer", "Farmer"], ["business", "Business"], ["police", "Police station"], ["school", "School / college"], ["government", "Government office"], ["hospital", "Hospital / health"]];
 
 export default function Customers() {
   const { id } = useParams();
@@ -38,7 +41,7 @@ export default function Customers() {
             <tbody>
               {(list.data ?? []).map((c) => (
                 <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
-                  <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{!c.opt_in && " · opted out"}</div></td>
+                  <td className="td"><div className="font-medium">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{!c.opt_in && " · opted out"}</div></td>
                   <td className="td">{c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}</td>
                   <td className="td text-right tabular-nums">{pkr(c.spend_30d ?? 0)}</td>
                   <td className="td text-right tabular-nums">{c.balance > 0 ? pkr(c.balance) : "—"}</td>
@@ -88,7 +91,7 @@ function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onCl
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="WhatsApp number"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
-          {["retail", "fleet", "farmer", "business"].map((t) => <option key={t}>{t}</option>)}</select></Field>
+          {TYPES.map(([t, l]) => <option key={t} value={t}>{l}</option>)}</select></Field>
         <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         {can("credit.set_limit") ? <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
           : <div className="pt-5 text-xs text-slate-500">Khata credit limits are set by the admin.</div>}
@@ -109,6 +112,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
   const [msg, setMsg] = useState("");
   const [edit, setEdit] = useState(false);
   const [plate, setPlate] = useState("");
+  const [bill, setBill] = useState(false);
   const refresh = () => { reload(); onChanged(); };
 
   return (
@@ -130,6 +134,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             {c.conversation && can("whatsapp.inbox") && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
             {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment</button>}
             {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge</button>}
+            {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <button className="btn-secondary" onClick={() => setBill(true)}>📄 Bill / statement</button> : null}
             {c.balance > 0 && can("khata.manage") && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder</button>}
           </div>
           {pay && (
@@ -153,7 +158,8 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
               <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
                 <table className="w-full"><tbody>
                   {c.ledger.map((l: any) => (
-                    <tr key={l.id}><td className="td text-xs text-slate-500">{d(l.created_at)}</td><td className="td text-xs">{l.note ?? l.ref}</td>
+                    <tr key={l.id}><td className="td text-xs text-slate-500">{d(l.created_at)}</td>
+                      <td className="td text-xs">{l.product ? <>{num(l.litres, 2)} L {l.product} @ Rs {l.rate}<div className="text-slate-400">{[l.vehicle_no, l.slip_no && `Slip ${l.slip_no}`].filter(Boolean).join(" · ")}</div></> : l.note ?? l.ref}</td>
                       <td className={`td text-right text-sm tabular-nums ${l.type === "credit" ? "text-emerald-600" : ""}`}>{l.type === "credit" ? "−" : "+"}{pkr(l.amount)}</td></tr>
                   ))}
                 </tbody></table>
@@ -189,6 +195,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             </section>
           </div>
           {edit && <CustomerForm open initial={c} onClose={() => setEdit(false)} onSaved={refresh} />}
+          {bill && <KhataStatement customerId={c.id} onClose={() => setBill(false)} />}
         </div>
       )}
     </Modal>

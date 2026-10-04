@@ -128,7 +128,7 @@ export function scoreCustomers(tenantId: number) {
       risk = Math.min(100, Math.round(util * 55 + Math.min(daysSincePay, 60) * 0.6 + churn * 15));
     }
     const segment =
-      c.type === "fleet" ? "Fleet" : c.type === "farmer" ? "Agri" :
+      c.type === "fleet" ? "Fleet" : c.type === "farmer" ? "Agri" : ["police", "school", "government", "hospital"].includes(c.type) ? "Institution" :
       s && s.spend >= vipCut ? "VIP" : churn > 0.6 ? "At risk" : s ? "Regular" : "New";
     run("UPDATE customers SET churn_score=?, risk_score=?, segment=? WHERE id=?", Math.round(churn * 100) / 100, risk, segment, c.id);
     updated++;

@@ -20,6 +20,8 @@ const NAMES = [
   ["Rana Arshad (Tube-well)", "farmer"], ["Chaudhry Nazir Farms", "farmer"], ["Malik Sarwar Agri", "farmer"], ["Haji Bashir Zamindar", "farmer"],
   ["Daewoo Cargo Lahore", "fleet"], ["Bismillah Goods Transport", "fleet"], ["Al-Karam Rent a Car", "fleet"], ["Shaheen Rickshaw Union", "fleet"],
   ["Lahore School Vans", "fleet"], ["Punjab Builders (Pvt) Ltd", "business"], ["City Bakers Generators", "business"], ["Green Valley Hospital", "business"],
+  ["Police Station Kahna", "police"], ["Police Station Model Town", "police"], ["Rescue 1122 Lahore", "government"],
+  ["Govt. High School No. 1 Kahna", "school"], ["District Health Office Lahore", "hospital"],
 ] as const;
 
 export function seed() {
@@ -63,19 +65,28 @@ export function seed() {
     // Customers
     const customers = NAMES.map(([name, type], i) => {
       const phone = `923${String(10 + (i % 40)).padStart(2, "0")}${String(1000000 + Math.floor(rnd() * 8999999))}`;
-      const limit = type === "fleet" ? pick([300000, 500000, 800000]) : type === "farmer" ? pick([200000, 400000]) : type === "business" ? 250000 : i % 5 === 0 ? 30000 : 0;
+      const limit = type === "fleet" ? pick([300000, 500000, 800000]) : type === "farmer" ? pick([200000, 400000]) : type === "business" ? 250000
+        : ({ police: 600000, government: 500000, school: 150000, hospital: 400000 } as Record<string, number>)[type] ?? (i % 5 === 0 ? 30000 : 0);
+      const institution = ["police", "school", "government", "hospital"].includes(type);
       const id = run("INSERT INTO customers (tenant_id,name,phone,type,city,credit_limit,opt_in,loyalty_points,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-        tenantId, name, phone, type, i % 3 === 0 ? "Okara" : "Lahore", limit, i % 11 === 10 ? 0 : 1, 0, iso(T0 - 120 * DAY)).id;
-      if (type === "fleet") for (let v = 0; v < 3; v++) run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", id, `${pick(["LES", "LEA", "LEB", "LZT"])}-${1000 + Math.floor(rnd() * 8999)}`, pick(["HSD", "PMG"]), 120);
-      else if (type === "retail") run("INSERT INTO vehicles (customer_id,plate_no,fuel) VALUES (?,?,?)", id, `${pick(["LEC", "LEH", "LXR", "OKA"])}-${100 + Math.floor(rnd() * 899)}`, "PMG");
+        tenantId, name, phone, type, institution || i % 3 !== 0 ? "Lahore" : "Okara", limit, i % 11 === 10 || institution ? 0 : 1, 0, iso(T0 - 120 * DAY)).id;
+      const plates: { plate: string; fuel: string }[] = [];
+      const addVehicle = (plate: string, fuel: string, limitL?: number) => { plates.push({ plate, fuel }); run("INSERT INTO vehicles (customer_id,plate_no,fuel,daily_limit_l) VALUES (?,?,?,?)", id, plate, fuel, limitL ?? null); };
+      if (type === "police") for (let v = 1; v <= 4; v++) addVehicle(`LEJ-${1100 + Math.floor(rnd() * 800)} (Mobile ${v})`, v === 4 ? "HSD" : "PMG", 40);
+      if (type === "government") for (let v = 1; v <= 3; v++) addVehicle(`LEC-1122-${v}`, "HSD", 80);
+      if (type === "school") addVehicle(`LES-${2000 + Math.floor(rnd() * 900)} (School van)`, "PMG", 30);
+      if (type === "hospital") for (let v = 1; v <= 2; v++) addVehicle(`LED-${3000 + Math.floor(rnd() * 900)} (Ambulance)`, "HSD", 60);
+      if (type === "fleet") for (let v = 0; v < 3; v++) addVehicle(`${pick(["LES", "LEA", "LEB", "LZT"])}-${1000 + Math.floor(rnd() * 8999)}`, pick(["HSD", "PMG"]), 120);
+      else if (type === "retail") addVehicle(`${pick(["LEC", "LEH", "LXR", "OKA"])}-${100 + Math.floor(rnd() * 899)}`, "PMG");
       // some regulars churn: last visit set by sales below; mark a few as "stopped coming" 25-40 days ago
-      return { id, type, limit, churnFrom: i % 7 === 3 ? 20 + Math.floor(rnd() * 20) : 0, freq: type === "retail" ? 0.25 + rnd() * 0.3 : 0.6 };
+      return { id, type, limit, institution, plates, churnFrom: i % 7 === 3 ? 20 + Math.floor(rnd() * 20) : 0, freq: type === "retail" ? 0.25 + rnd() * 0.3 : 0.6 };
     });
 
     // 8 weeks of sales
     const base: Record<string, number> = { [`${st1}PMG`]: 5200, [`${st1}HOBC`]: 650, [`${st1}HSD`]: 3800, [`${st2}PMG`]: 2600, [`${st2}HSD`]: 6400 };
     const weekday = [1.08, 0.94, 0.96, 0.98, 1.12, 1.15, 0.92]; // Sun..Sat (Friday/Saturday peaks)
-    const insertSale = db.prepare(`INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+    const insertSale = db.prepare(`INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+    let slipNo = 4100;
     const ledger: Record<number, { debit: number; last: number }> = {};
     for (let d = 56; d >= 0; d--) {
       const dayStart = new Date(T0 - d * DAY); dayStart.setUTCHours(0, 0, 0, 0);
@@ -90,17 +101,23 @@ export function seed() {
         while (sold < target) {
           const t = ds + Math.floor(rnd() * Math.min(DAY, T0 - ds));
           const cust = rnd() < 0.28 ? pick(customers) : null;
-          const usable = cust && !(cust.churnFrom && d < cust.churnFrom) && (cust.type !== "retail" || tk.p !== "HSD") ? cust : null;
-          const litres = Math.round((tk.p === "HSD" ? (usable && usable.type !== "retail" ? 60 + rnd() * 240 : 15 + rnd() * 60) : 3 + rnd() * 30) * 100) / 100;
+          const usable = cust && !(cust.churnFrom && d < cust.churnFrom) && (cust.type !== "retail" || tk.p !== "HSD")
+            && !(cust.institution && (tk.sid !== st1 || !cust.plates.some((v) => v.fuel === tk.p))) ? cust : null;
+          const litres = Math.round((usable?.institution ? (tk.p === "HSD" ? 30 + rnd() * 70 : 15 + rnd() * 30)
+            : tk.p === "HSD" ? (usable && usable.type !== "retail" ? 60 + rnd() * 240 : 15 + rnd() * 60) : 3 + rnd() * 30) * 100) / 100;
           const rate = priceAt(tk.p, t);
           const amount = Math.round(litres * rate * 100) / 100;
           let method = pick(["cash", "cash", "cash", "cash", "jazzcash", "easypaisa", "card", "raast"]);
-          if (usable && usable.limit > 0 && rnd() < 0.75) method = "khata";
-          insertSale.run(tk.sid, null, usable?.id ?? null, pick(tk.noz), tk.p, litres, rate, amount, method, null, iso(t));
+          if (usable && usable.limit > 0 && (usable.institution || rnd() < 0.75)) method = "khata";
+          const fits = usable?.plates.filter((v) => v.fuel === tk.p) ?? [];
+          const vehicle = fits.length ? pick(fits).plate : usable?.plates.length && !usable.institution ? pick(usable.plates).plate : null;
+          const slip = usable?.institution ? `${usable.type === "police" ? "PS" : usable.type === "school" ? "SCH" : "GOV"}-${slipNo++}` : null;
+          insertSale.run(tk.sid, null, usable?.id ?? null, pick(tk.noz), tk.p, litres, rate, amount, method, vehicle, slip, iso(t));
           if (usable) {
             run("UPDATE customers SET last_visit_at = MAX(COALESCE(last_visit_at,''), ?), loyalty_points = loyalty_points + ? WHERE id=?", iso(t), Math.floor(amount / 100), usable.id);
             if (method === "khata") {
-              run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)", usable.id, "debit", amount, "SALE", `${litres}L ${tk.p}`, iso(t));
+              run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+                usable.id, "debit", amount, "SALE", `${litres}L ${tk.p} @ Rs ${rate}`, tk.p, litres, rate, vehicle, slip, tk.sid, iso(t));
               (ledger[usable.id] ??= { debit: 0, last: 0 }).debit += amount;
             }
           }

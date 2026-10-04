@@ -222,6 +222,10 @@ export function migrate() {
   CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
   `);
   addColumn("users", "phone", "TEXT");
+  addColumn("sales", "slip_no", "TEXT"); // indent / parchi number from police, schools, govt offices
+  // khata entries keep the fuel detail at the time of sale (litres, rate then, vehicle, slip)
+  for (const [c, t] of [["product", "TEXT"], ["litres", "REAL"], ["rate", "REAL"], ["vehicle_no", "TEXT"], ["slip_no", "TEXT"], ["station_id", "INTEGER"]])
+    addColumn("khata_ledger", c, t);
   addColumn("meter_readings", "checkpoint", "REAL"); // last settled meter reading (e.g. at a price change)
   addColumn("meter_readings", "checkpoint_at", "TEXT");
   addColumn("deliveries", "supplier_id", "INTEGER");

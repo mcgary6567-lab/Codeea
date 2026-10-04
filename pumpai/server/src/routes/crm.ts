@@ -28,7 +28,7 @@ crm.get("/customers", requirePerm("customers.view"), h((req) => {
 }));
 
 const customerBody = z.object({
-  name: z.string().min(2), phone: z.string().min(10), type: z.enum(["retail", "fleet", "farmer", "business"]).default("retail"),
+  name: z.string().min(2), phone: z.string().min(10), type: z.enum(["retail", "fleet", "farmer", "business", "police", "school", "government", "hospital"]).default("retail"),
   city: z.string().optional().nullable(), credit_limit: z.number().min(0).default(0), opt_in: z.boolean().default(true), notes: z.string().optional().nullable(),
 });
 
@@ -79,6 +79,59 @@ crm.post("/customers/:id/khata", requirePerm("khata.manage"), h(async (req) => {
     await sendWhatsApp(tid(req), updated, `✅ Shukriya ${updated.name}! ${pkr(b.amount)} ki payment mil gayi${b.method ? ` (${b.method})` : ""}. Naya khata balance: ${pkr(updated.balance)}.`, "system", { kind: "payment_receipt" });
   return updated;
 }));
+
+/** Khata statement / monthly bill: every fuel entry with litres, the rate at that time, vehicle and slip, plus payments. */
+function khataStatement(tenantId: number, id: number, from?: string, to?: string) {
+  const c = ownCustomer(tenantId, id);
+  const before = from ? get("SELECT COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE -amount END),0) b FROM khata_ledger WHERE customer_id=? AND created_at < ?", c.id, from)!.b : 0;
+  let bal = before;
+  const lines = all(
+    `SELECT k.*, s.name station_name FROM khata_ledger k LEFT JOIN stations s ON s.id=k.station_id
+     WHERE k.customer_id=? ${from ? "AND k.created_at >= ?" : ""} ${to ? "AND k.created_at < date(?, '+1 day')" : ""} ORDER BY k.created_at, k.id`,
+    ...[c.id, ...(from ? [from] : []), ...(to ? [to] : [])],
+  ).map((l) => { bal += l.type === "debit" ? l.amount : -l.amount; return { ...l, balance: Math.round(bal * 100) / 100 }; });
+  const fuel = lines.filter((l) => l.type === "debit");
+  return {
+    customer: { id: c.id, name: c.name, type: c.type, phone: c.phone, city: c.city, credit_limit: c.credit_limit, balance: c.balance },
+    from: from ?? null, to: to ?? null, opening_balance: before, closing_balance: bal, lines,
+    totals: {
+      by_product: Object.values(fuel.reduce((a: Record<string, any>, l) => {
+        const k = l.product ?? "Other";
+        a[k] ??= { product: k, litres: 0, amount: 0, entries: 0 };
+        a[k].litres += l.litres ?? 0; a[k].amount += l.amount; a[k].entries++;
+        return a;
+      }, {})),
+      charged: fuel.reduce((a, l) => a + l.amount, 0),
+      paid: lines.filter((l) => l.type === "credit").reduce((a, l) => a + l.amount, 0),
+    },
+  };
+}
+
+const dateQ = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+
+crm.get("/customers/:id/statement", requirePerm("khata.manage"), h((req) => {
+  const q = parse(dateQ, req.query);
+  return khataStatement(tid(req), Number(req.params.id), q.from, q.to);
+}));
+
+crm.get("/customers/:id/statement.csv", requirePerm("khata.manage"), (req, res, next) => {
+  try {
+    const q = parse(dateQ, req.query);
+    const s = khataStatement(tid(req), Number(req.params.id), q.from, q.to);
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const out = [
+      [`Khata statement — ${s.customer.name}`, s.from ?? "start", s.to ?? "today"].map(esc).join(","),
+      ["Opening balance", s.opening_balance].map(esc).join(","),
+      ["Date", "Time", "Vehicle", "Slip no.", "Product", "Litres", "Rate (Rs/L)", "Charged", "Paid", "Balance", "Station", "Note"].map(esc).join(","),
+      ...s.lines.map((l) => [l.created_at.slice(0, 10), new Date(l.created_at).toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" }),
+        l.vehicle_no, l.slip_no, l.product, l.litres, l.rate, l.type === "debit" ? l.amount : "", l.type === "credit" ? l.amount : "", l.balance, l.station_name, l.type === "credit" ? (l.ref ?? l.note) : ""].map(esc).join(",")),
+      ["Closing balance (due)", s.closing_balance].map(esc).join(","),
+    ].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="khata-${s.customer.name.replace(/[^\w-]+/g, "_")}.csv"`);
+    res.send("\uFEFF" + out);
+  } catch (e) { next(e); }
+});
 
 crm.post("/customers/:id/remind", requirePerm("khata.manage"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));

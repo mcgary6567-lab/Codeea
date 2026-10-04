@@ -116,7 +116,8 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
     payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]),
-    customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().nullable().optional(),
+    customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(20).nullable().optional(),
+    slip_no: z.string().max(40).nullable().optional(),
   }), req.body);
   b.station_id = scopedStation(req, b.station_id)!;
   // a salesman's sale goes on their own open shift; others use the station's latest open shift

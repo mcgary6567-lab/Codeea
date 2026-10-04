@@ -16,6 +16,7 @@ import { expenses } from "./routes/expenses.js";
 import { suppliers } from "./routes/suppliers.js";
 import { reports } from "./routes/reports.js";
 import { notifications } from "./routes/notifications.js";
+import { pos } from "./routes/pos.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -53,6 +54,7 @@ api.use(expenses);
 api.use(suppliers);
 api.use(reports);
 api.use(notifications);
+api.use(pos);
 app.use("/api", api);
 
 // Serve the built dashboard in production

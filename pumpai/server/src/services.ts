@@ -70,6 +70,7 @@ export interface SaleInput {
   nozzle_id?: number | null;
   shift_id?: number | null;
   vehicle_no?: string | null;
+  slip_no?: string | null;
   created_at?: string;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
@@ -94,10 +95,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   const ts = s.created_at ?? now();
   return tx(() => {
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no ?? null, ts,
+      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, ts,
     );
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litres, tank.id);
     if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", litres, s.nozzle_id);
@@ -105,8 +106,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
       run("UPDATE customers SET last_visit_at=?, loyalty_points = loyalty_points + ? WHERE id=?",
         ts, Math.floor(amount / 100), customer.id);
       if (s.payment_method === "khata") {
-        run("INSERT INTO khata_ledger (customer_id,type,amount,ref,note,created_at) VALUES (?,?,?,?,?,?)",
-          customer.id, "debit", amount, `SALE-${id}`, `${round2(litres)}L ${s.product}`, ts);
+        run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+          customer.id, "debit", amount, `SALE-${id}`, `${round2(litres)}L ${s.product} @ Rs ${rate}`, s.product, round2(litres), rate,
+          s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.station_id, ts);
         run("UPDATE customers SET balance = balance + ? WHERE id=?", amount, customer.id);
       }
     }
