@@ -1,0 +1,9 @@
+{
+  "name": "PumpAI",
+  "short_name": "PumpAI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#064e3b",
+  "icons": []
+}

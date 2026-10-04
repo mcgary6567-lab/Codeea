@@ -1,0 +1,178 @@
+import { Router } from "express";
+import { z } from "zod";
+import { all, get, run, tx, now } from "../db.js";
+import { h, parse, tid, requireRole } from "../auth.js";
+import { AppError, recordSale, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
+import { sendWhatsApp } from "../whatsapp/cloud.js";
+import { PRODUCTS } from "../config.js";
+
+export const operations = Router();
+const product = z.enum(["PMG", "HOBC", "HSD"]);
+
+function ownStation(tenantId: number, stationId: number) {
+  const s = get("SELECT * FROM stations WHERE id=? AND tenant_id=?", stationId, tenantId);
+  if (!s) throw new AppError(404, "Station not found");
+  return s;
+}
+function ownTank(tenantId: number, tankId: number) {
+  const t = get("SELECT t.* FROM tanks t JOIN stations s ON s.id=t.station_id WHERE t.id=? AND s.tenant_id=?", tankId, tenantId);
+  if (!t) throw new AppError(404, "Tank not found");
+  return t;
+}
+
+operations.get("/stations", h((req) => all("SELECT * FROM stations WHERE tenant_id=? ORDER BY id", tid(req)).map((s) => ({
+  ...s,
+  tanks: all("SELECT * FROM tanks WHERE station_id=? ORDER BY id", s.id),
+  nozzles: all("SELECT n.*, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.id", s.id),
+}))));
+
+operations.post("/stations", requireRole("owner"), h((req) => {
+  const b = parse(z.object({ name: z.string().min(2), city: z.string().optional(), address: z.string().optional(), omc: z.string().optional(), timings: z.string().optional(), services: z.string().optional() }), req.body);
+  return get("SELECT * FROM stations WHERE id=?", run("INSERT INTO stations (tenant_id,name,city,address,omc,timings,services) VALUES (?,?,?,?,?,?,?)",
+    tid(req), b.name, b.city ?? null, b.address ?? null, b.omc ?? null, b.timings ?? "24 hours", b.services ?? null).id);
+}));
+
+operations.post("/tanks", requireRole("owner", "manager"), h((req) => {
+  const b = parse(z.object({ station_id: z.number(), name: z.string(), product, capacity_l: z.number().positive(), current_l: z.number().min(0), reorder_pct: z.number().min(5).max(80).default(25), nozzles: z.number().int().min(0).max(12).default(2) }), req.body);
+  ownStation(tid(req), b.station_id);
+  return tx(() => {
+    const { id } = run("INSERT INTO tanks (station_id,name,product,capacity_l,current_l,reorder_pct) VALUES (?,?,?,?,?,?)", b.station_id, b.name, b.product, b.capacity_l, b.current_l, b.reorder_pct);
+    for (let i = 1; i <= b.nozzles; i++) run("INSERT INTO nozzles (station_id,tank_id,label,totalizer) VALUES (?,?,?,0)", b.station_id, id, `${b.product}-${id}-${i}`);
+    return get("SELECT * FROM tanks WHERE id=?", id);
+  });
+}));
+
+/* ---------------- Prices ---------------- */
+operations.get("/prices", h((req) => ({
+  current: currentPrices(tid(req)),
+  history: all("SELECT * FROM prices WHERE tenant_id=? ORDER BY effective_from DESC, id DESC LIMIT 60", tid(req)),
+  products: PRODUCTS,
+})));
+
+operations.post("/prices", requireRole("owner", "manager"), h(async (req) => {
+  const b = parse(z.object({ prices: z.record(product, z.number().positive()), broadcast: z.boolean().default(false), note: z.string().optional() }), req.body);
+  const t = tid(req);
+  const old = currentPrices(t);
+  const ts = now();
+  for (const [p, price] of Object.entries(b.prices)) run("INSERT INTO prices (tenant_id,product,price,effective_from,created_by) VALUES (?,?,?,?,?)", t, p, price, ts, req.user!.name);
+  // Revalue stock at the moment of change (price change gain/loss)
+  const stock = all("SELECT t.product, SUM(t.current_l) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? GROUP BY t.product", t);
+  const impact = stock.reduce((a, s) => a + (b.prices[s.product as keyof typeof b.prices] && old[s.product] ? (b.prices[s.product as keyof typeof b.prices]! - old[s.product].price) * s.l : 0), 0);
+  createAlert(t, {
+    type: "price_change", severity: "info", title: `Prices updated by ${req.user!.name}`,
+    body: Object.entries(b.prices).map(([p, v]) => `${p}: ${old[p] ? pkr(old[p].price) + " → " : ""}${pkr(v)}`).join(", ") + `. Stock revaluation ${impact >= 0 ? "gain" : "loss"} ${pkr(Math.abs(impact))}.`,
+  });
+  let queued = 0;
+  if (b.broadcast) {
+    const customers = all("SELECT * FROM customers WHERE tenant_id=? AND opt_in=1", t);
+    const msg = `⛽ Nayi qeematein (${new Date().toLocaleDateString("en-PK")}):\n` +
+      Object.entries(b.prices).map(([p, v]) => `• ${PRODUCTS[p]}: ${rateFmt(v)}/L`).join("\n") + (b.note ? `\n${b.note}` : "") + "\nSTOP likh kar unsubscribe karein.";
+    queued = customers.length;
+    void (async () => { for (const c of customers) await sendWhatsApp(t, c, msg, "campaign", { kind: "price_update" }); })();
+  }
+  return { ok: true, stock_revaluation: Math.round(impact), broadcast_queued: queued };
+}));
+
+/* ---------------- Sales / POS ---------------- */
+operations.get("/sales", h((req) => {
+  const limit = Math.min(500, Number(req.query.limit ?? 100));
+  return all(
+    `SELECT s.*, c.name customer_name, st.name station_name FROM sales s JOIN stations st ON st.id=s.station_id
+     LEFT JOIN customers c ON c.id=s.customer_id WHERE st.tenant_id=? ORDER BY s.id DESC LIMIT ?`, tid(req), limit);
+}));
+
+operations.post("/sales", h((req) => {
+  const b = parse(z.object({
+    station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
+    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata"]),
+    customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().nullable().optional(),
+  }), req.body);
+  const shift = get("SELECT id FROM shifts WHERE station_id=? AND status='open' ORDER BY id DESC LIMIT 1", b.station_id);
+  return recordSale(tid(req), { ...b, shift_id: shift?.id ?? null });
+}));
+
+/* ---------------- Shifts ---------------- */
+operations.get("/shifts", h((req) => all(
+  `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=? ORDER BY sh.id DESC LIMIT 60`, tid(req),
+).map((s) => ({ ...s, readings: all("SELECT r.*, n.label FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=?", s.id) }))));
+
+operations.post("/shifts/open", h((req) => {
+  const b = parse(z.object({ station_id: z.number(), attendant: z.string().min(2) }), req.body);
+  ownStation(tid(req), b.station_id);
+  if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", b.station_id, b.attendant)) throw new AppError(400, "This attendant already has an open shift");
+  return tx(() => {
+    const { id } = run("INSERT INTO shifts (station_id,attendant,opened_at,status) VALUES (?,?,?, 'open')", b.station_id, b.attendant, now());
+    for (const n of all("SELECT * FROM nozzles WHERE station_id=?", b.station_id)) run("INSERT INTO meter_readings (shift_id,nozzle_id,opening) VALUES (?,?,?)", id, n.id, n.totalizer);
+    return get("SELECT * FROM shifts WHERE id=?", id);
+  });
+}));
+
+/**
+ * Close a shift with closing totalizer readings and counted cash.
+ * Litres on the meter not already recorded as sales are booked as cash sales, so stock follows the meters.
+ * Expected cash = all cash sales in the shift; variance = counted - expected.
+ */
+operations.post("/shifts/:id/close", h(async (req) => {
+  const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional() }), req.body);
+  const t = tid(req);
+  const shift = get("SELECT sh.* FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=? AND s.tenant_id=?", Number(req.params.id), t);
+  if (!shift || shift.status !== "open") throw new AppError(400, "Shift is not open");
+  const readings = all("SELECT r.*, t.product FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=?", shift.id);
+  let totalLitres = 0;
+  for (const r of readings) {
+    const closing = b.readings[String(r.nozzle_id)];
+    if (closing === undefined) throw new AppError(400, `Missing closing reading for nozzle ${r.nozzle_id}`);
+    if (closing < r.opening) throw new AppError(400, `Closing reading below opening for nozzle ${r.nozzle_id}`);
+    const dispensed = closing - r.opening;
+    totalLitres += dispensed;
+    const recorded = get("SELECT COALESCE(SUM(litres),0) l FROM sales WHERE shift_id=? AND nozzle_id=?", shift.id, r.nozzle_id)!.l;
+    const unrecorded = round2(dispensed - recorded);
+    if (unrecorded > 0.01) recordSale(t, { station_id: shift.station_id, product: r.product, litres: unrecorded, payment_method: "cash", nozzle_id: r.nozzle_id, shift_id: shift.id });
+    run("UPDATE meter_readings SET closing=? WHERE id=?", closing, r.id);
+    run("UPDATE nozzles SET totalizer=? WHERE id=?", closing, r.nozzle_id);
+  }
+  const expected = get("SELECT COALESCE(SUM(amount),0) a FROM sales WHERE shift_id=? AND payment_method='cash'", shift.id)!.a;
+  const variance = round2(b.cash_actual - expected);
+  run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
+    now(), round2(totalLitres), expected, b.cash_actual, variance, b.notes ?? null, shift.id);
+  if (variance < -500)
+    createAlert(t, { station_id: shift.station_id, type: "cash_short", severity: variance < -5000 ? "critical" : "warning",
+      title: `Cash short ${pkr(-variance)} — ${shift.attendant}`, body: `Shift #${shift.id}: expected ${pkr(expected)}, counted ${pkr(b.cash_actual)}.`, dedupe_key: `shift-${shift.id}` });
+  return get("SELECT * FROM shifts WHERE id=?", shift.id);
+}));
+
+/* ---------------- Stock: dips & deliveries ---------------- */
+operations.get("/stock", h((req) => ({
+  dips: all(`SELECT d.*, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
+  deliveries: all(`SELECT d.*, t.name tank, t.product, s.name station FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
+})));
+
+operations.post("/stock/dip", h((req) => {
+  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0) }), req.body);
+  const t = ownTank(tid(req), b.tank_id);
+  const variance = t.current_l ? ((b.measured_l - t.current_l) / t.current_l) * 100 : 0;
+  return tx(() => {
+    const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,book_l,variance_pct,created_at) VALUES (?,?,?,?,?)", t.id, b.measured_l, t.current_l, round2(variance), now());
+    run("UPDATE tanks SET current_l=? WHERE id=?", b.measured_l, t.id);
+    if (Math.abs(variance) >= 0.5)
+      createAlert(tid(req), { station_id: t.station_id, type: "stock_variance", severity: Math.abs(variance) >= 1 ? "critical" : "warning",
+        title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(b.measured_l)}L vs book ${Math.round(t.current_l)}L.`, dedupe_key: `dip-${id}` });
+    return get("SELECT * FROM dip_readings WHERE id=?", id);
+  });
+}));
+
+operations.post("/stock/delivery", h((req) => {
+  const b = parse(z.object({ tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional() }), req.body);
+  const t = ownTank(tid(req), b.tank_id);
+  if (t.current_l + b.received_l > t.capacity_l * 1.001) throw new AppError(400, `Exceeds tank capacity (${t.capacity_l}L)`);
+  const shortage = ((b.invoice_l - b.received_l) / b.invoice_l) * 100;
+  return tx(() => {
+    const { id } = run("INSERT INTO deliveries (tank_id,supplier,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?)",
+      t.id, b.supplier ?? null, b.tanker_no ?? null, b.invoice_l, b.received_l, round2(shortage), now());
+    run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", b.received_l, t.id);
+    if (shortage >= 0.3)
+      createAlert(tid(req), { station_id: t.station_id, type: "short_delivery", severity: shortage >= 0.8 ? "critical" : "warning",
+        title: `Tanker ${b.tanker_no ?? ""} short by ${shortage.toFixed(2)}%`, body: `${t.name}: invoice ${b.invoice_l}L, received ${b.received_l}L.`, dedupe_key: `delivery-${id}` });
+    return get("SELECT * FROM deliveries WHERE id=?", id);
+  });
+}));

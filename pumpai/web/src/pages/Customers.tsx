@@ -1,0 +1,191 @@
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Plus, Search, MessageCircle, Wallet, BellRing, Car, Pencil } from "lucide-react";
+import { api, useApi } from "../lib/api";
+import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
+import { ago, d, dt, num, phone, pkr } from "../lib/format";
+
+const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri"];
+const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber" };
+
+export default function Customers() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const [q, setQ] = useState("");
+  const [seg, setSeg] = useState("");
+  const list = useApi<any[]>(`/customers?q=${encodeURIComponent(q)}&segment=${encodeURIComponent(seg)}`);
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <div>
+      <PageHeader title="Customers" subtitle="AI-segmented CRM with churn & credit-risk scores"
+        actions={<button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add customer</button>} />
+      <div className="card">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 p-3">
+          <div className="relative min-w-[220px] flex-1"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search by name or phone" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <select className="input w-auto" value={seg} onChange={(e) => setSeg(e.target.value)}>
+            {SEGMENTS.map((s) => <option key={s} value={s}>{s || "All segments"}</option>)}
+          </select>
+        </div>
+        {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>
+              <th className="th">Customer</th><th className="th">Segment</th><th className="th text-right">30-day spend</th><th className="th text-right">Khata</th>
+              <th className="th text-right">Points</th><th className="th">Churn risk</th><th className="th">Credit risk</th><th className="th">Last visit</th>
+            </tr></thead>
+            <tbody>
+              {(list.data ?? []).map((c) => (
+                <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
+                  <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{phone(c.phone)} · {c.type}{!c.opt_in && " · opted out"}</div></td>
+                  <td className="td">{c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>}</td>
+                  <td className="td text-right tabular-nums">{pkr(c.spend_30d ?? 0)}</td>
+                  <td className="td text-right tabular-nums">{c.balance > 0 ? pkr(c.balance) : "—"}</td>
+                  <td className="td text-right tabular-nums">{num(c.loyalty_points)}</td>
+                  <td className="td"><RiskBar v={c.churn_score * 100} /></td>
+                  <td className="td">{c.credit_limit > 0 ? <RiskBar v={c.risk_score} /> : <span className="text-xs text-slate-400">no credit</span>}</td>
+                  <td className="td text-xs text-slate-500">{ago(c.last_visit_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.loading && !list.data && <Loading />}
+          {list.data && !list.data.length && <Empty>No customers found</Empty>}
+        </div>
+      </div>
+      <CustomerForm open={adding} onClose={() => setAdding(false)} onSaved={(c) => { list.reload(); nav(`/customers/${c.id}`); }} />
+      {id && <CustomerDetail id={id} onClose={() => nav("/customers")} onChanged={list.reload} />}
+    </div>
+  );
+}
+
+function RiskBar({ v }: { v: number }) {
+  const val = Math.round(v ?? 0);
+  const color = val >= 60 ? "#e34948" : val >= 35 ? "#eda100" : "#1baf7a";
+  return (
+    <div className="flex items-center gap-2" title={`${val}/100`}>
+      <div className="h-1.5 w-16 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${val}%`, background: color }} /></div>
+      <span className="w-6 text-xs tabular-nums text-slate-600">{val}</span>
+    </div>
+  );
+}
+
+function CustomerForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved: (c: any) => void; initial?: any }) {
+  const [f, setF] = useState<any>(initial ?? { name: "", phone: "", type: "retail", city: "", credit_limit: 0, opt_in: true });
+  const { busy, run } = useAction();
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = { ...f, credit_limit: Number(f.credit_limit) || 0 };
+    const r = await run(() => initial ? api(`/customers/${initial.id}`, { method: "PATCH", body }) : api("/customers", { body }), "Customer saved");
+    if (r) { onSaved(r); onClose(); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={initial ? "Edit customer" : "Add customer"}>
+      <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="WhatsApp number"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="Type"><select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
+          {["retail", "fleet", "farmer", "business"].map((t) => <option key={t}>{t}</option>)}</select></Field>
+        <Field label="City"><input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
+        <Field label="Khata credit limit (Rs)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
+        <label className="flex items-center gap-2 pt-6 text-sm"><input type="checkbox" checked={!!f.opt_in} onChange={(e) => setF({ ...f, opt_in: e.target.checked })} /> WhatsApp marketing opt-in</label>
+        <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const { data: c, reload, error } = useApi<any>(`/customers/${id}`);
+  const { busy, run } = useAction();
+  const [pay, setPay] = useState<"credit" | "debit" | null>(null);
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("Cash");
+  const [msg, setMsg] = useState("");
+  const [edit, setEdit] = useState(false);
+  const [plate, setPlate] = useState("");
+  const refresh = () => { reload(); onChanged(); };
+
+  return (
+    <Modal open onClose={onClose} title={c?.name ?? "Customer"} wide>
+      {error && <ErrorBox error={error} />}
+      {!c ? <Loading /> : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            {phone(c.phone)} · {c.type} · {c.city ?? "—"} {c.segment && <Badge tone={segTone[c.segment]}>{c.segment}</Badge>} {!c.opt_in && <Badge tone="slate">Opted out</Badge>}
+            <button className="ml-auto text-xs text-brand-600 hover:underline" onClick={() => setEdit(true)}><Pencil size={12} className="inline" /> Edit</button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Khata balance" value={pkr(c.balance)} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)}` : "No credit"} />
+            <Stat label="Loyalty points" value={num(c.loyalty_points)} />
+            <Stat label="Churn risk" value={`${Math.round(c.churn_score * 100)}%`} />
+            <Stat label="Credit risk" value={c.credit_limit ? `${Math.round(c.risk_score)}/100` : "—"} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {c.conversation && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
+            <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment</button>
+            <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge</button>
+            {c.balance > 0 && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder</button>}
+          </div>
+          {pay && (
+            <form className="flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-3" onSubmit={async (e) => {
+              e.preventDefault();
+              const r = await run(() => api(`/customers/${c.id}/khata`, { body: { type: pay, amount: Number(amount), method, note: pay === "credit" ? "Payment received" : "Manual charge" } }), pay === "credit" ? "Payment recorded & receipt sent on WhatsApp" : "Charge added");
+              if (r) { setPay(null); setAmount(""); refresh(); }
+            }}>
+              <Field label={pay === "credit" ? "Payment amount" : "Charge amount"}><input className="input w-40" type="number" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+              <Field label="Method"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
+              <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel</button>
+            </form>
+          )}
+          <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>
+            <input className="input" placeholder="Send a WhatsApp message…" value={msg} onChange={(e) => setMsg(e.target.value)} />
+            <button className="btn-primary" disabled={busy || !msg}>Send</button>
+          </form>
+          <div className="grid gap-4 md:grid-cols-2">
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Khata ledger</h3>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
+                <table className="w-full"><tbody>
+                  {c.ledger.map((l: any) => (
+                    <tr key={l.id}><td className="td text-xs text-slate-500">{d(l.created_at)}</td><td className="td text-xs">{l.note ?? l.ref}</td>
+                      <td className={`td text-right text-sm tabular-nums ${l.type === "credit" ? "text-emerald-600" : ""}`}>{l.type === "credit" ? "−" : "+"}{pkr(l.amount)}</td></tr>
+                  ))}
+                </tbody></table>
+                {!c.ledger.length && <Empty>No khata entries</Empty>}
+              </div>
+            </section>
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Recent purchases</h3>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
+                <table className="w-full"><tbody>
+                  {c.sales.map((s: any) => (
+                    <tr key={s.id}><td className="td text-xs text-slate-500">{dt(s.created_at)}</td><td className="td text-xs">{num(s.litres, 1)} L {s.product}</td>
+                      <td className="td text-xs capitalize">{s.payment_method}</td><td className="td text-right text-sm tabular-nums">{pkr(s.amount)}</td></tr>
+                  ))}
+                </tbody></table>
+                {!c.sales.length && <Empty>No purchases yet</Empty>}
+              </div>
+            </section>
+            <section>
+              <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold"><Car size={14} /> Vehicles</h3>
+              <div className="flex flex-wrap gap-2">{c.vehicles.map((v: any) => <Badge key={v.id}>{v.plate_no} {v.fuel && `· ${v.fuel}`}</Badge>)}</div>
+              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api(`/customers/${c.id}/vehicles`, { body: { plate_no: plate } }), "Vehicle added")) { setPlate(""); reload(); } }}>
+                <input className="input" placeholder="LEA-1234" value={plate} onChange={(e) => setPlate(e.target.value)} /><button className="btn-secondary" disabled={!plate}>Add</button>
+              </form>
+            </section>
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Orders & complaints</h3>
+              <ul className="space-y-1 text-sm">
+                {c.orders.map((o: any) => <li key={"o" + o.id}>#{o.id} {num(o.litres)} L {o.product} — <Badge tone={statusTone(o.status)}>{o.status}</Badge></li>)}
+                {c.complaints.map((k: any) => <li key={"k" + k.id}>C-{k.id} {k.category} — <Badge tone={statusTone(k.status)}>{k.status}</Badge></li>)}
+                {!c.orders.length && !c.complaints.length && <li className="text-slate-500">None</li>}
+              </ul>
+            </section>
+          </div>
+          {edit && <CustomerForm open initial={c} onClose={() => setEdit(false)} onSaved={refresh} />}
+        </div>
+      )}
+    </Modal>
+  );
+}
