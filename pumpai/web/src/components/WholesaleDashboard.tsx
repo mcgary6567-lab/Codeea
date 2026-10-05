@@ -95,8 +95,8 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: (
               return (
                 <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
                   <L.icon size={18} className={`shrink-0 ${L.cls}`} aria-label={L.label} />
-                  <div className="min-w-0 flex-1"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
-                  {s.action && manage && <button className="btn-secondary !py-1.5 text-sm" onClick={() => act(s.action)}>{s.action.label}</button>}
+                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
+                  {s.action && manage && <button className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" onClick={() => act(s.action)}>{s.action.label}</button>}
                 </li>
               );
             })}

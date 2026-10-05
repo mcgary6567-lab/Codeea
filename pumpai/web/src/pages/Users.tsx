@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
 import { ago } from "../lib/format";
 
@@ -92,25 +92,7 @@ export default function Users() {
         </table>
       </div>
 
-      <div className="card overflow-x-auto">
-        <h2 className="p-4 pb-2 font-semibold">What each role can do</h2>
-        <table className="w-full">
-          <thead><tr><th className="th">Permission</th>{data.roles.map((r: string) => <th key={r} className="th text-center">{ROLE_LABEL[r]}</th>)}</tr></thead>
-          <tbody>
-            {Object.entries(data.permissions as Record<string, string[]>).map(([p, roles]) => (
-              <tr key={p}>
-                <td className="td text-sm">{PERM_LABEL[p] ?? p}</td>
-                {data.roles.map((r: string) => (
-                  <td key={r} className="td text-center">
-                    {roles.includes(r) ? <Check size={16} className="mx-auto text-emerald-600" aria-label="Allowed" /> : <X size={16} className="mx-auto text-slate-300" aria-label="Not allowed" />}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="p-4 pt-2 text-xs text-slate-500">Salesmen only see their own station's sales and their own shifts.</p>
-      </div>
+      <RoleMatrix data={data} onChanged={reload} />
 
       {pinFor && <ResetPin user={pinFor} onClose={() => { setPinFor(null); reload(); }} />}
       {editing && <UserForm initial={editing} stations={stations.data} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
@@ -202,5 +184,62 @@ function ResetPin({ user, onClose }: { user: U; onClose: () => void }) {
         </div>
       )}
     </Modal>
+  );
+}
+
+/** What each role may do — the admin ticks / unticks a box to give or take a right. The owner's own column is fixed. */
+function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
+  const { refresh } = useAuth();
+  const [perms, setPerms] = useState<Record<string, string[]>>(data.permissions);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const toast = useToast();
+  const { run } = useAction();
+  const defaults = data.defaults as Record<string, string[]>;
+  const changed = Object.keys(perms).filter((p) => data.roles.some((r: string) => perms[p].includes(r) !== defaults[p].includes(r))).length;
+  const flip = async (p: string, r: string) => {
+    const allow = !perms[p].includes(r);
+    setBusyKey(`${p}|${r}`);
+    try {
+      const res = await api("/roles/permissions", { method: "PUT", body: { perm: p, role: r, allowed: allow } });
+      setPerms(res.permissions);
+      toast("ok", `${ROLE_LABEL[r]}: ${allow ? "can now" : "can no longer"} — ${PERM_LABEL[p] ?? p}`);
+      refresh?.();
+    } catch (e: any) { toast("err", e.message); }
+    finally { setBusyKey(null); }
+  };
+  return (
+    <div className="card overflow-x-auto">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
+        <div><h2 className="font-semibold">What each role can do</h2>
+          <p className="text-xs text-slate-500">Tap a box to give ✓ or take away ✗ a right. Changes work at once (the person may need to refresh). The admin (owner) always has everything.</p></div>
+        {changed > 0 && <button className="btn-secondary text-sm" onClick={async () => { if (!confirm("Put every role back to the standard rights?")) return; const r: any = await run(() => api("/roles/permissions/reset", { body: {} }), "Back to the standard rights"); if (r) { setPerms(r.permissions); onChanged(); refresh?.(); } }}>Reset to standard ({changed} changed)</button>}
+      </div>
+      <table className="w-full min-w-[640px]">
+        <thead><tr><th className="th">Permission</th>{data.roles.map((r: string) => <th key={r} className="th text-center">{ROLE_LABEL[r]}</th>)}</tr></thead>
+        <tbody>
+          {Object.keys(perms).map((p) => (
+            <tr key={p} className="hover:bg-slate-50">
+              <td className="td text-sm">{PERM_LABEL[p] ?? p}</td>
+              {data.roles.map((r: string) => {
+                const on = perms[p].includes(r);
+                const isDefault = on === defaults[p].includes(r);
+                const locked = r === "admin";
+                return (
+                  <td key={r} className="td text-center">
+                    <button type="button" disabled={locked || busyKey === `${p}|${r}`} onClick={() => flip(p, r)} role="switch" aria-checked={on}
+                      aria-label={`${ROLE_LABEL[r]} — ${PERM_LABEL[p] ?? p}`} title={locked ? "The owner always has every right" : isDefault ? "Standard" : "Changed from standard"}
+                      className={`relative mx-auto flex h-8 w-8 items-center justify-center rounded-lg border-2 transition ${on ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-300"} ${locked ? "cursor-not-allowed opacity-60" : "hover:border-brand-600 active:scale-95"}`}>
+                      {on ? <Check size={18} /> : <X size={16} />}
+                      {!isDefault && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-500" />}
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="p-4 pt-2 text-xs text-slate-500"><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-500 align-middle" /> = changed from the standard. Salesmen only see their own station's sales and their own shifts.</p>
+    </div>
   );
 }

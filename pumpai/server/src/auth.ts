@@ -62,10 +62,32 @@ export const PERMISSIONS = {
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 
-export const can = (user: AuthUser | undefined, perm: Permission) =>
-  Boolean(user && (PERMISSIONS[perm] as readonly Role[]).includes(user.role));
-export const permissionsOf = (role: Role) =>
-  (Object.keys(PERMISSIONS) as Permission[]).filter((p) => (PERMISSIONS[p] as readonly Role[]).includes(role));
+/*
+ * Each pump can change what a role may do (Users & Roles → tick / untick). Changes are kept in
+ * role_permissions and laid over the defaults above. The admin (owner) always has everything,
+ * so nobody can lock the owner out.
+ */
+const overrides = new Map<number, Map<string, boolean>>(); // tenant → "perm|role" → allowed
+function tenantOverrides(t: number) {
+  let m = overrides.get(t);
+  if (!m) {
+    m = new Map(all("SELECT perm, role, allowed FROM role_permissions WHERE tenant_id=?", t).map((r) => [`${r.perm}|${r.role}`, Boolean(r.allowed)]));
+    overrides.set(t, m);
+  }
+  return m;
+}
+export const forgetRoleOverrides = (t: number) => overrides.delete(t);
+export function allowed(tenantId: number, role: Role, perm: Permission): boolean {
+  if (role === "admin") return true;
+  const o = tenantOverrides(tenantId).get(`${perm}|${role}`);
+  return o ?? (PERMISSIONS[perm] as readonly Role[]).includes(role);
+}
+/** Who may do what at this pump: every permission → the roles allowed. */
+export const permissionMatrix = (tenantId: number) =>
+  Object.fromEntries((Object.keys(PERMISSIONS) as Permission[]).map((p) => [p, ROLES.filter((r) => allowed(tenantId, r, p))])) as Record<Permission, Role[]>;
+
+export const can = (user: AuthUser | undefined, perm: Permission) => Boolean(user && allowed(user.tenant_id, user.role, perm));
+export const permissionsOf = (role: Role, tenantId: number) => (Object.keys(PERMISSIONS) as Permission[]).filter((p) => allowed(tenantId, role, p));
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -116,7 +138,7 @@ export function pinLogin(device: string | undefined, userId: number, pin: string
   run("UPDATE users SET pin_fails=0, pin_locked_until=NULL WHERE id=?", u.id);
   auditLogin(u, true, "PIN");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), device_token: deviceToken(u.tenant_id) };
 }
 
 export function login(email: string, password: string) {
@@ -125,7 +147,7 @@ export function login(email: string, password: string) {
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   auditLogin(u, true, "password");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), device_token: deviceToken(u.tenant_id) };
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {

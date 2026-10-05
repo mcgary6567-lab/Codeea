@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { all, get, run, now } from "../db.js";
-import { h, parse, tid, requirePerm, ROLES, PERMISSIONS } from "../auth.js";
+import { h, parse, tid, requirePerm, ROLES, PERMISSIONS, permissionMatrix, forgetRoleOverrides, type Permission } from "../auth.js";
 import crypto from "node:crypto";
 import { AppError, normalizePhone, audit } from "../services.js";
 
@@ -17,7 +17,27 @@ const list = (tenantId: number) => all(
   tenantId,
 );
 
-users.get("/users", h((req) => ({ users: list(tid(req)), roles: ROLES, permissions: PERMISSIONS })));
+users.get("/users", h((req) => ({ users: list(tid(req)), roles: ROLES, permissions: permissionMatrix(tid(req)), defaults: PERMISSIONS })));
+
+/** Tick / untick what a role may do at this pump (the owner's own rights cannot be taken away). */
+users.put("/roles/permissions", requirePerm("users.manage"), h((req) => {
+  const b = parse(z.object({ perm: z.string(), role: z.enum(ROLES), allowed: z.boolean() }), req.body);
+  if (!(b.perm in PERMISSIONS)) throw new AppError(400, "Unknown permission");
+  if (b.role === "admin") throw new AppError(400, "The admin (owner) always has every permission");
+  const def = (PERMISSIONS[b.perm as Permission] as readonly string[]).includes(b.role);
+  // back to the default: no override needed
+  if (b.allowed === def) run("DELETE FROM role_permissions WHERE tenant_id=? AND perm=? AND role=?", tid(req), b.perm, b.role);
+  else run(`INSERT INTO role_permissions (tenant_id,perm,role,allowed,updated_by,updated_at) VALUES (?,?,?,?,?,?)
+    ON CONFLICT (tenant_id, perm, role) DO UPDATE SET allowed=excluded.allowed, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
+    tid(req), b.perm, b.role, b.allowed ? 1 : 0, req.user!.name, now());
+  forgetRoleOverrides(tid(req));
+  return { permissions: permissionMatrix(tid(req)) };
+}));
+users.post("/roles/permissions/reset", requirePerm("users.manage"), h((req) => {
+  run("DELETE FROM role_permissions WHERE tenant_id=?", tid(req));
+  forgetRoleOverrides(tid(req));
+  return { permissions: permissionMatrix(tid(req)) };
+}));
 
 /** 4-digit PIN for quick sign-in; null removes it. */
 const pinField = z.string().regex(/^\d{4}$/, "PIN must be 4 digits").nullable().optional();

@@ -149,3 +149,25 @@ test("own khata page with link + PIN for wholesale clients and khata customers; 
   assert.equal(old.status, 302); assert.match(old.headers.get("location")!, /^\/k\//);
   assert.equal((await call("manager", "GET", `/api/wholesale/clients/${c.id}/portal`)).status, 403);
 });
+
+test("admin ticks / unticks what a role can do; it takes effect at once; owner cannot be locked out", async () => {
+  const before = (await call("admin", "GET", "/api/users")).data;
+  assert.ok(before.permissions["expenses.view"].includes("manager"));
+  // take away expenses from the manager
+  const r = await call("admin", "PUT", "/api/roles/permissions", { perm: "expenses.view", role: "manager", allowed: false });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(!r.data.permissions["expenses.view"].includes("manager"));
+  assert.equal((await call("manager", "GET", "/api/expenses")).status, 403, "blocked at once");
+  assert.ok(!(await call("manager", "GET", "/api/me")).data.permissions.includes("expenses.view"));
+  // give the salesman the dashboard
+  await call("admin", "PUT", "/api/roles/permissions", { perm: "dashboard.view", role: "salesman", allowed: true });
+  assert.ok((await call("admin", "GET", "/api/users")).data.permissions["dashboard.view"].includes("salesman"));
+  // the owner's own rights and unknown rights are refused; only the admin can change rights
+  assert.equal((await call("admin", "PUT", "/api/roles/permissions", { perm: "users.manage", role: "admin", allowed: false })).status, 400);
+  assert.equal((await call("admin", "PUT", "/api/roles/permissions", { perm: "nope", role: "manager", allowed: true })).status, 400);
+  assert.equal((await call("manager", "PUT", "/api/roles/permissions", { perm: "expenses.view", role: "manager", allowed: true })).status, 403);
+  // back to standard
+  const reset = await call("admin", "POST", "/api/roles/permissions/reset", {});
+  assert.ok(reset.data.permissions["expenses.view"].includes("manager") && !reset.data.permissions["dashboard.view"].includes("salesman"));
+  assert.equal((await call("manager", "GET", "/api/expenses")).status, 200);
+});

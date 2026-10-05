@@ -140,7 +140,7 @@ api.use(auditTrail); // every change is written to the audit log
 api.get("/me", h((req) => ({
   user: { ...req.user, station_name: req.user!.station_id ? get("SELECT name FROM stations WHERE id=?", req.user!.station_id)?.name : null },
   tenant: get("SELECT id, name FROM tenants WHERE id=?", req.user!.tenant_id),
-  permissions: permissionsOf(req.user!.role),
+  permissions: permissionsOf(req.user!.role, req.user!.tenant_id),
 })));
 api.use(operations);
 api.use(crm);

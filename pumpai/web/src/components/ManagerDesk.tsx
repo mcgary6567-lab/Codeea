@@ -43,8 +43,8 @@ export function ManagerDesk({ k }: { k: any }) {
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
         {ACTIONS.map((a) => (
-          <Link key={a.to} to={a.to} className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 shadow-sm active:scale-[.98] ${a.cls}`}>
-            <a.icon size={20} className="shrink-0" /><span className="min-w-0"><span className="block truncate font-semibold">{a.label}</span><span className="block truncate text-xs opacity-75">{a.sub}</span></span>
+          <Link key={a.to} to={a.to} className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center shadow-sm active:scale-[.98] sm:flex-row sm:gap-2.5 sm:px-3 sm:text-left ${a.cls}`}>
+            <a.icon size={22} className="shrink-0" /><span className="min-w-0 max-w-full"><span className="block text-sm font-semibold leading-tight sm:truncate sm:text-base">{a.label}</span><span className="hidden truncate text-xs opacity-75 sm:block">{a.sub}</span></span>
           </Link>
         ))}
       </div>
@@ -71,8 +71,8 @@ export function ManagerDesk({ k }: { k: any }) {
               return (
                 <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
                   <L.icon size={18} className={`shrink-0 ${L.cls}`} aria-label={L.label} />
-                  <div className="min-w-0 flex-1"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
-                  {s.to && <Link className="btn-secondary !py-1.5 text-sm" to={s.to}>{s.label ?? "Open"}</Link>}
+                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
+                  {s.to && <Link className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" to={s.to}>{s.label ?? "Open"}</Link>}
                 </li>
               );
             })}

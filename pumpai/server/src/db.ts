@@ -353,6 +353,10 @@ export function migrate() {
     tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT, litres REAL NOT NULL, amount REAL NOT NULL,
     drops INTEGER NOT NULL, note TEXT, created_by TEXT, trip_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   addColumn("wholesale_txns", "trip_id", "INTEGER");
+  // what each role may do, changed per pump from Users & Roles (laid over the built-in defaults)
+  db.exec(`CREATE TABLE IF NOT EXISTS role_permissions (
+    tenant_id INTEGER NOT NULL, perm TEXT NOT NULL, role TEXT NOT NULL, allowed INTEGER NOT NULL,
+    updated_by TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (tenant_id, perm, role))`);
   // the customer's own khata page behind a PIN (wholesale clients and khata customers)
   for (const tbl of ["wholesale_clients", "customers"]) {
     addColumn(tbl, "portal_v", `INTEGER NOT NULL DEFAULT ${tbl === "customers" ? 1 : 0}`);

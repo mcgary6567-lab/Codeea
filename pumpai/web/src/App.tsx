@@ -46,7 +46,7 @@ loadBranding().catch(() => {});
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
   user: User | null; tenant: { id: number; name: string } | null; permissions: string[];
-  can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void;
+  can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void; refresh: () => Promise<void>;
 };
 export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer" };
 const AuthCtx = createContext<Auth>(null as unknown as Auth);
@@ -65,11 +65,19 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   useEffect(() => { load(); }, []);
+  // rights can be changed by the admin at any time: pick them up when the app comes back to the screen
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === "visible" && getToken()) api("/me").then((me) => setState((s) => ({ ...s, user: me.user, tenant: me.tenant, permissions: me.permissions }))).catch(() => {}); };
+    document.addEventListener("visibilitychange", again);
+    const t = setInterval(again, 5 * 60_000);
+    return () => { document.removeEventListener("visibilitychange", again); clearInterval(t); };
+  }, []);
   const value: Auth = {
     user: state.user, tenant: state.tenant, permissions: state.permissions,
     can: (perm) => state.permissions.includes(perm),
     login: async (token) => { setToken(token); await load(); },
     logout: () => { setToken(null); setState(empty); },
+    refresh: load,
   };
   if (!state.ready) return <Loading />;
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

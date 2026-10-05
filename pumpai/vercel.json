@@ -21,6 +21,10 @@
       "destination": "/api/index.mjs"
     },
     {
+      "source": "/k/:path*",
+      "destination": "/api/index.mjs"
+    },
+    {
       "source": "/webhooks/:path*",
       "destination": "/api/index.mjs"
     },

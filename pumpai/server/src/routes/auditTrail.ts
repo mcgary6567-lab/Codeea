@@ -32,7 +32,7 @@ const NAMES: Record<string, string> = {
   integrations: "integrations", backups: "backup", licences: "licence", checklist: "checklist", leaves: "leave", training: "training", loans: "loan",
   claims: "tanker claim", tax: "tax", machines: "machine", "recurring-expenses": "monthly expense", "utility-bills": "utility bill", commission: "commission rates",
   board: "TV board", campaigns: "campaign", orders: "order", complaints: "complaint", automations: "automation", alerts: "alert", bookings: "booking",
-  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", system: "system", coaching: "coaching message",
+  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", roles: "role rights", system: "system", coaching: "coaching message",
 };
 const HIDDEN = new Set(["password", "password_hash", "pin", "pin_hash", "image", "logo", "csv", "data", "token", "anthropic_key", "wa_token", "wa_app_secret", "code"]);
 
@@ -53,7 +53,7 @@ export function describe(method: string, path: string) {
   if (/undo$/.test(path)) return { kind: "undo", label: `Undid a ${parts[0] === "shop" ? "shop sale" : "sale"}` };
   if (parts[0] === "prices" || parts[0] === "price-requests") return { kind: "price", label: parts[0] === "prices" ? "Changed fuel prices" : `${last === "approve" ? "Approved" : "Rejected"} a price change` };
   if (["approve", "reject"].includes(last)) return { kind: "approval", label: `${last === "approve" ? "Approved" : "Rejected"} ${NAMES[parts[0]] ?? noun}` };
-  if (["settings", "business", "integrations", "automations", "tax", "commission", "board", "system"].includes(parts[0]) || last === "settings") return { kind: "settings", label: `Changed ${noun}` };
+  if (["settings", "business", "integrations", "automations", "tax", "commission", "board", "system", "roles"].includes(parts[0]) || last === "settings") return { kind: "settings", label: `Changed ${noun}` };
   if (method === "DELETE") return { kind: "delete", label: `Deleted ${noun}` };
   if (method === "PATCH" || method === "PUT") return { kind: "edit", label: `Edited ${noun}` };
   const action = parts.length > 1 && !/^\d+$/.test(last) ? ` — ${last.replace(/-/g, " ")}` : "";
