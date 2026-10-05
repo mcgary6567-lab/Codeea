@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import KhataStatement from "../components/KhataStatement";
+import { KhataVoice } from "../components/KhataVoice";
+import { Ur } from "../components/VoiceShell";
 import { TYPE_ICON } from "./Pos";
 import { BellRing } from "lucide-react";
 import { api, useApi } from "../lib/api";
@@ -22,17 +24,18 @@ export default function Khata() {
 
   return (
     <div>
-      <PageHeader title="Khata (credit accounts)" subtitle="Automatic WhatsApp reminders with JazzCash / Easypaisa / Raast links run daily at 11am"
-        actions={<button className="btn-secondary" disabled={busy} onClick={() => run(() => api("/automations/khata_reminders/run", { body: {} }), (r: any) => r.result).then(reload)}><BellRing size={15} /> Send reminders now</button>} />
+      <PageHeader title="Khata (credit accounts) · کھاتہ" subtitle="Automatic WhatsApp reminders with JazzCash / Easypaisa / Raast links run daily at 11am · روزانہ 11 بجے واٹس ایپ یاد دہانی"
+        actions={<button className="btn-secondary" disabled={busy} onClick={() => run(() => api("/automations/khata_reminders/run", { body: {} }), (r: any) => r.result).then(reload)}><BellRing size={15} /> Send reminders now · <Ur>ابھی یاد دہانی بھیجیں</Ur></button>} />
+      <div className="mb-4"><KhataVoice onDone={reload} /></div>
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Total outstanding" value={pkrShort(total)} />
-        <Stat label="Credit customers" value={data.length} />
-        <Stat label="Near limit (80%+)" value={nearLimit} tone="amber" />
-        <Stat label="High credit risk" value={highRisk} tone="red" />
+        <Stat label="Total outstanding · کل ادھار" value={pkrShort(total)} />
+        <Stat label="Credit customers · گاہک" value={data.length} />
+        <Stat label="Near limit (80%+) · حد کے قریب" value={nearLimit} tone="amber" />
+        <Stat label="High credit risk · خطرہ" value={highRisk} tone="red" />
       </div>
       <OpenGovtBills onOpen={setBill} />
       <div className="mb-3 flex flex-wrap gap-2">
-        {[["", "All"], ["institution", "🏛️ Police / Govt / Schools"], ["fleet", "🚚 Fleets"], ["farmer", "🚜 Farmers"], ["business", "🏢 Businesses"], ["retail", "🚗 Retail"]].map(([k, l]) => (
+        {[["", "All · سب"], ["institution", "🏛️ Police / Govt / Schools · سرکاری"], ["fleet", "🚚 Fleets · گاڑیاں"], ["farmer", "🚜 Farmers · زمیندار"], ["business", "🏢 Businesses · کاروبار"], ["retail", "🚗 Retail · عام"]].map(([k, l]) => (
           <button key={k} onClick={() => setGroup(k)} className={`rounded-full px-3 py-1.5 text-sm ${group === k ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`}>
             {l} <span className="opacity-70">{pkrShort(data.filter((c) => !k || (k === "institution" ? INST.includes(c.type) : c.type === k)).reduce((a, c) => a + Math.max(0, c.balance), 0))}</span>
           </button>
@@ -40,7 +43,7 @@ export default function Khata() {
       </div>
       <div className="card overflow-x-auto">
         <table className="w-full">
-          <thead><tr><th className="th">Customer</th><th className="th text-right">Balance</th><th className="th text-right">Limit</th><th className="th">Utilisation</th><th className="th">Risk</th><th className="th">Last payment</th><th className="th" /></tr></thead>
+          <thead><tr><th className="th">Customer · <Ur>گاہک</Ur></th><th className="th text-right">Balance · <Ur>بقایا</Ur></th><th className="th text-right">Limit · <Ur>حد</Ur></th><th className="th">Used · <Ur>استعمال</Ur></th><th className="th">Risk · <Ur>خطرہ</Ur></th><th className="th">Last payment · <Ur>آخری ادائیگی</Ur></th><th className="th" /></tr></thead>
           <tbody>
             {rows.map((c) => {
               const util = c.credit_limit ? Math.min(100, (c.balance / c.credit_limit) * 100) : 0;
@@ -52,13 +55,13 @@ export default function Khata() {
                   <td className="td"><div className="h-1.5 w-28 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${util}%`, background: util >= 80 ? "#e34948" : "#2a78d6" }} /></div><span className="text-xs text-slate-500">{Math.round(util)}%</span></td>
                   <td className={`td text-sm tabular-nums ${c.risk_score >= 60 ? "font-semibold text-red-600" : ""}`}>{Math.round(c.risk_score)}</td>
                   <td className="td text-xs text-slate-500">{ago(c.last_payment)}</td>
-                  <td className="td"><button className="btn-secondary !px-2 !py-1 text-xs" onClick={(e) => { e.stopPropagation(); setBill(c.id); }}>📄 Bill</button></td>
+                  <td className="td"><button className="btn-secondary !px-2 !py-1 text-xs" onClick={(e) => { e.stopPropagation(); setBill(c.id); }}>📄 Bill · <Ur>بل</Ur></button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        {!rows.length && <Empty>No credit customers</Empty>}
+        {!rows.length && <Empty>No credit customers · کوئی کھاتہ نہیں</Empty>}
       </div>
       {bill && <KhataStatement customerId={bill} onClose={() => setBill(null)} />}
     </div>
@@ -72,7 +75,7 @@ function OpenGovtBills({ onOpen }: { onOpen: (id: number) => void }) {
   if (!open.length) return null;
   return (
     <div className="card mb-4 p-4">
-      <h2 className="mb-2 font-semibold">Government bills waiting for payment · {pkr(open.reduce((a, b) => a + b.outstanding, 0))}</h2>
+      <h2 className="mb-2 font-semibold">Government bills waiting for payment · <Ur>سرکاری بل باقی</Ur> · {pkr(open.reduce((a, b) => a + b.outstanding, 0))}</h2>
       {open.map((b) => (
         <button key={b.id} onClick={() => onOpen(b.customer_id)} className="flex w-full justify-between border-b border-slate-100 py-1.5 text-left text-sm hover:bg-slate-50">
           <span>{b.customer_name} · {b.bill_no}{b.po_number ? ` · PO ${b.po_number}` : ""}</span>

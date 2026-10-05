@@ -24,8 +24,8 @@ export type ParsedWholesale = {
   missing: string[];
 };
 
-const DIGITS: Record<string, string> = { "۰": "0", "۱": "1", "۲": "2", "۳": "3", "۴": "4", "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9", "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4", "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9" };
-const WORDS: Record<string, number> = {
+export const DIGITS: Record<string, string> = { "۰": "0", "۱": "1", "۲": "2", "۳": "3", "۴": "4", "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9", "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4", "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9" };
+export const WORDS: Record<string, number> = {
   ek: 1, aik: 1, "ایک": 1, do: 2, "دو": 2, teen: 3, "تین": 3, char: 4, chaar: 4, "چار": 4, panch: 5, paanch: 5, "پانچ": 5,
   chay: 6, che: 6, chhe: 6, "چھ": 6, saat: 7, "سات": 7, aath: 8, "آٹھ": 8, nau: 9, "نو": 9, das: 10, "دس": 10, bara: 12, "بارہ": 12,
   pandra: 15, "پندرہ": 15, bees: 20, "بیس": 20, pachees: 25, "پچیس": 25, tees: 30, "تیس": 30, chalees: 40, "چالیس": 40,
@@ -35,12 +35,12 @@ const WORDS: Record<string, number> = {
 const MULT: [RegExp, number][] = [
   [/^(crore|karor|کروڑ)$/, 10_000_000], [/^(lakh|lac|lacs|lakhs|laakh|لاکھ)$/, 100_000], [/^(hazar|hazaar|hajar|thousand|k|ہزار)$/, 1000], [/^(sau|سو|hundred)$/, 100],
 ];
-const PRODUCT: [string, RegExp][] = [
+export const PRODUCT: [string, RegExp][] = [
   ["HOBC", /(hi[\s-]?octane|high[\s-]?octane|octane|hobc|آکٹین|اوکٹین)/i],
   ["HSD", /(diesel|deezal|dizal|deezel|hsd|ڈیزل)/i],
   ["PMG", /(\bpetrol\b|\bpatrol\b|\bsuper\b|\bpmg\b|پیٹرول(?!یم)|پٹرول(?!یم)|سپر)/i],
 ];
-const METHOD: [string, RegExp][] = [
+export const METHOD: [string, RegExp][] = [
   ["Cheque", /(cheque|check|chek|چیک)/i],
   ["Raast", /(raast|راست)/i],
   ["JazzCash", /(jazz\s?cash|جاز\s?کیش)/i],
@@ -68,12 +68,16 @@ const UR: Record<string, string> = {
 };
 export const romanize = (s: string) => s.replace(/[؀-ۿ]/g, (c) => UR[c] ?? "");
 /** Consonant skeleton: survives the vowel differences between spoken Urdu and English spelling. */
-const skel = (w: string) => romanize(w.toLowerCase()).replace(/[^a-z0-9]/g, "").replace(/q/g, "k").replace(/ph/g, "f").replace(/(.)\1+/g, "$1").replace(/(?!^)[aeiouyw]/g, "");
+const skel = (w: string) => romanize(w.toLowerCase()).replace(/[^a-z0-9]/g, "")
+  .replace(/tion/g, "shn").replace(/ce/g, "s").replace(/c/g, "k").replace(/q/g, "k").replace(/ph/g, "f")
+  .replace(/^a(?=s[^aeiou])/, "") // Urdu writes "station" as اسٹیشن (a-station)
+  .replace(/(.)h$/, "$1") // final ہ is a vowel ("kahna" / کاہنہ)
+  .replace(/(.)\1+/g, "$1").replace(/(?!^)[aeiouyw]/g, "");
 const STOP = new Set(["the", "and", "ltd", "pvt", "company", "co", "services", "service", "traders", "trading", "petroleum", "filling", "station", "point", "ka", "ki", "ke", "ko", "se", "ne"]);
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
 
-function parseDate(t: string, past: boolean): string | null {
+export function parseDate(t: string, past: boolean): string | null {
   const today = pkDate();
   if (/\b(parson|parsoon)\b|پرسوں/.test(t)) return addDays(today, past ? -2 : 2);
   if (/\b(kal|tomorrow|yesterday)\b|کل/.test(t)) return addDays(today, past || /yesterday/.test(t) ? -1 : 1);
@@ -98,7 +102,7 @@ function parseDate(t: string, past: boolean): string | null {
 }
 
 /** Numbers in the sentence with their multiplier ("2 lakh", "dedh lakh", "5 hazar") and what follows (litres?). */
-function quantities(t: string) {
+export function quantities(t: string) {
   const toks = t.split(/\s+/).filter(Boolean);
   const out: { value: number; litres: boolean; big: boolean; at: number }[] = [];
   for (let i = 0; i < toks.length; i++) {
@@ -117,7 +121,7 @@ function quantities(t: string) {
   return out;
 }
 
-function matchNamed(list: Named[], t: string): { best: Named | null; candidates: Named[]; spans: string[] } {
+export function matchNamed(list: Named[], t: string): { best: Named | null; candidates: Named[]; spans: string[] } {
   const words = t.split(/[^a-z0-9؀-ۿ]+/).filter((w) => w.length >= 3);
   const sk = new Map(words.map((w) => [skel(w), w]));
   const scored = list.map((n) => {

@@ -97,13 +97,13 @@ export function VoiceButton({ onParsed, className = "" }: { onParsed: (sale: any
           <button type="button" onClick={() => setLang(lang === "ur-PK" ? "en-PK" : "ur-PK")} title="Speech language"
             className="rounded-2xl bg-violet-100 px-3 text-sm font-semibold text-violet-800">{lang === "ur-PK" ? "اردو" : "Eng"}</button>
         )}
-        <button type="button" onClick={() => setTyping(true)} className="rounded-2xl bg-violet-100 px-3 text-sm font-semibold text-violet-800">Type</button>
+        <button type="button" onClick={() => setTyping(true)} className="rounded-2xl bg-violet-100 px-3 text-sm font-semibold text-violet-800">Type<span lang="ur" dir="rtl" className="font-urdu block text-xs font-normal">لکھیں</span></button>
       </div>
-      <Modal open={typing} onClose={() => setTyping(false)} title="Say or type the sale">
+      <Modal open={typing} onClose={() => setTyping(false)} title="Say or type the sale · بول کر یا لکھ کر">
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); parse(text); }}>
           <input autoFocus className="input py-3 text-lg" value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. police station kahna 20 litre diesel slip 7781" />
-          <p className="text-xs text-slate-500">Examples: “do hazar petrol easypaisa” · “diesel 30 litre rehman transport” · “پیٹرول 500 روپے نقد”</p>
-          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setTyping(false)}>Cancel</button><button className="btn-primary" disabled={busy}>Fill the sale</button></div>
+          <p className="text-xs text-slate-500">Examples: “do hazar petrol easypaisa” · “diesel 30 litre rehman transport” · “پیٹرول 500 روپے نقد” · expense: “chai ka kharcha 300” · “جنریٹر کا خرچہ دو ہزار”</p>
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setTyping(false)}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy}>Fill the sale · بھریں</button></div>
         </form>
       </Modal>
     </>

@@ -30,7 +30,7 @@ before(async () => {
   db = await import("../src/db.js");
   await new Promise<void>((r) => { server = app.listen(0, () => r()); });
   base = `http://127.0.0.1:${(server.address() as any).port}`;
-  for (const who of ["admin", "manager", "wholesale"]) tokens[who] = (await call("", "POST", "/api/auth/login", { email: `${who}@pumpai.pk`, password: "demo1234" })).data.token;
+  for (const who of ["admin", "manager", "wholesale", "salesman"]) tokens[who] = (await call("", "POST", "/api/auth/login", { email: `${who}@pumpai.pk`, password: "demo1234" })).data.token;
 });
 after(() => server?.close());
 
@@ -134,4 +134,30 @@ test("voice command: a sentence becomes the entry to confirm, questions get an a
   // suggestions carry an Urdu line too
   const dash = ok(await call("wholesale", "GET", "/api/wholesale/dashboard"), "dashboard");
   assert.ok(dash.suggestions.every((x: any) => x.ur), JSON.stringify(dash.suggestions.filter((x: any) => !x.ur)));
+});
+
+test("khata by voice and POS expense by voice", async () => {
+  const cmd = async (text: string, extra: object = {}) => ok(await call("manager", "POST", "/api/khata/ai/command", { text, ...extra }), text);
+  const c = db.get("SELECT id, name, balance FROM customers WHERE tenant_id=1 AND credit_limit > 0 AND balance > 0 ORDER BY balance DESC LIMIT 1")!;
+  const pay = await cmd(`${c.name} se 20 hazar naqd mile`);
+  assert.equal(pay.intent, "payment"); assert.equal(pay.customer_id, c.id); assert.equal(pay.amount, 20000); assert.equal(pay.method, "Cash");
+  near(pay.preview.after, c.balance - 20000); assert.match(pay.confirm_ur, /روپے/);
+  const ch = await cmd(`${c.name} ke khate mein 5000 likh do tyre repair`);
+  assert.equal(ch.intent, "charge"); assert.equal(ch.amount, 5000); assert.match(ch.note, /tyre repair/);
+  const lit = await cmd(`${c.name} ko 20 litre diesel udhaar`);
+  assert.equal(lit.intent, "charge"); assert.ok(lit.amount > 20 * 200); assert.match(lit.note, /20 L Diesel/);
+  const bal = await cmd(`${c.name} ka khata kitna hai`);
+  assert.equal(bal.intent, "balance"); assert.match(bal.answer.ur, /روپے/);
+  assert.equal((await cmd(`${c.name} ko reminder bhejo`)).intent, "reminder");
+  assert.equal((await cmd(`${c.name} ko bill bhejo`)).intent, "bill");
+  const top = await cmd("sab se zyada udhaar kis ka hai");
+  assert.equal(top.intent, "top"); assert.ok(top.answer.en.includes(c.name));
+  // on the customer's page the name need not be said
+  assert.equal((await cmd("10 hazar jazzcash se mile", { customer_id: c.id })).customer_id, c.id);
+  assert.equal((await call("salesman", "POST", "/api/khata/ai/command", { text: "test" })).status, 403);
+  // POS: an expense is told apart from a sale
+  const exp = ok(await call("salesman", "POST", "/api/ai/parse-sale", { text: "chai ka kharcha 300" }), "expense");
+  assert.equal(exp.intent, "expense"); assert.equal(exp.amount, 300); assert.match(exp.category, /Tea/);
+  const sale = ok(await call("salesman", "POST", "/api/ai/parse-sale", { text: "20 litre diesel cash" }), "sale");
+  assert.equal(sale.product, "HSD"); assert.equal(sale.litres, 20);
 });

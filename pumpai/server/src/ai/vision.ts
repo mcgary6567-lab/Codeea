@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, PRODUCTS } from "../config.js";
 import { parseSaleText, type ParsedSale } from "./parseSale.js";
 import { parseWholesaleText, type ParsedWholesale, type Named } from "./parseWholesale.js";
+import { parseKhataText, type ParsedKhata } from "./parseKhata.js";
 import { pkDate } from "../db.js";
 export type WholesaleCtx = { clients: Named[]; tankers: { id: number; number: string }[]; drivers: Named[]; clientId?: number | null };
 
@@ -164,6 +165,35 @@ export async function parseWholesale(text: string, ctx: WholesaleCtx): Promise<P
     return merged;
   } catch (e) {
     console.error("[wholesale voice]", (e as Error).message);
+    return rules;
+  }
+}
+
+/** Khata command (payment / charge / balance / reminder / bill / top debtors) from one sentence. */
+export async function parseKhata(text: string, ctx: { customers: Named[]; customerId?: number | null; prices?: Record<string, number> }): Promise<ParsedKhata> {
+  const rules = parseKhataText(text, ctx);
+  if (!aiEnabled()) return rules;
+  try {
+    const r = await record<Partial<ParsedKhata>>([{ type: "text", text:
+      `The manager of a petrol pump in Pakistan said this about khata (credit accounts) — Urdu, Roman Urdu, English or mixed: "${text}".\n` +
+      "Work out what they want: payment (money received from a customer), charge (add an amount to a customer's khata / udhaar), balance (ask how much a customer owes), " +
+      "reminder (send a WhatsApp reminder), bill (send the monthly bill), top (who owes the most).\n" +
+      "Numbers: hazar = 1,000, lakh = 100,000, dedh = 1.5, dhai = 2.5. Payment methods: Cash, Bank transfer, Cheque, Raast, JazzCash, Easypaisa.\n" +
+      `Customers (id: name): ${ctx.customers.map((c) => `${c.id}: ${c.name}`).join("; ") || "none"}. Only use ids from this list. Leave out anything not said.` }],
+    "Record the khata action that was said.", {
+      properties: {
+        intent: { type: "string", enum: ["payment", "charge", "balance", "reminder", "bill", "top", "unknown"] },
+        customer_id: { type: "integer" }, amount: { type: "number" }, method: { type: "string", enum: ["Cash", "Bank transfer", "Cheque", "Raast", "JazzCash", "Easypaisa"] },
+        note: { type: "string" },
+      },
+      required: ["intent"],
+    });
+    if (!r || !r.intent) return rules;
+    const c = ctx.customers.find((x) => x.id === r.customer_id);
+    return { ...rules, engine: "claude", intent: r.intent as ParsedKhata["intent"], customer_id: c?.id ?? rules.customer_id, customer_name: c?.name ?? rules.customer_name,
+      amount: r.amount ?? rules.amount, method: r.method ?? rules.method, note: r.note ?? rules.note };
+  } catch (e) {
+    console.error("[khata voice]", (e as Error).message);
     return rules;
   }
 }

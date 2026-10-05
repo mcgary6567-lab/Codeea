@@ -94,10 +94,12 @@ export const MeterNo = ({ n, small }: { n?: number | null; small?: boolean }) =>
 const QUICK_EXP = [["Tea & food", "☕"], ["Generator fuel", "⚡"], ["Maintenance & repairs", "🔧"], ["Other", "📝"]];
 
 /** Expenses paid from the shift's cash. */
-export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number; expenses: any[]; onChange: () => void }) {
+export function ShiftExpenses({ shiftId, expenses, onChange, preset }: { shiftId: number; expenses: any[]; onChange: () => void; preset?: { category: string; amount: number | null; note: string | null; key: number } | null }) {
   const cats = useApi<string[]>("/shifts/expense-categories");
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ category: "Tea & food", amount: "", note: "", photo_id: null as number | null });
+  // said by voice on the POS ("chai ka kharcha 300"): open the form already filled
+  useEffect(() => { if (preset) { setF((x) => ({ ...x, category: preset.category, amount: preset.amount ? String(preset.amount) : "", note: preset.note ?? "" })); setOpen(true); } }, [preset?.key]);
   const { busy, run } = useAction();
   const total = expenses.reduce((a, e) => a + e.amount, 0);
   return (
@@ -117,7 +119,7 @@ export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number
         {!expenses.length && <li className="text-slate-500">None</li>}
         {expenses.length > 0 && <li className="flex justify-between border-t border-slate-200 pt-1 font-semibold"><span>Total</span><span className="tabular-nums">{pkr(total)}</span></li>}
       </ul>
-      <Modal open={open} onClose={() => setOpen(false)} title="Expense paid from shift cash">
+      <Modal open={open} onClose={() => setOpen(false)} title="Expense paid from shift cash · شفٹ کے نقد سے خرچہ">
         <form className="space-y-3" onSubmit={async (e) => {
           e.preventDefault();
           if (await run(() => api(`/shifts/${shiftId}/expenses`, { body: { category: f.category, amount: Number(f.amount), note: f.note || null, photo_id: f.photo_id } }), (r: any) => r.expense.status === "pending" ? "Saved — waiting for manager approval" : "Expense saved")) {
@@ -125,12 +127,12 @@ export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number
           }
         }}>
           <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
-            <PhotoButton kind="receipt" label="Photo of bill" onRead={(r, id) => setF((x) => ({
+            <PhotoButton kind="receipt" label="Photo of bill · بل کی تصویر" onRead={(r, id) => setF((x) => ({
               ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount,
               category: r?.category && (cats.data ?? []).includes(r.category) ? r.category : x.category,
               note: [r?.description, r?.paid_to].filter(Boolean).join(" · ") || x.note,
             }))} />
-            <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached" : "Have a bill? Take its photo."}</span>
+            <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached" : "Have a bill? Take its photo. · بل ہو تو تصویر لیں"}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {QUICK_EXP.map(([c, icon]) => (
@@ -138,10 +140,10 @@ export function ShiftExpenses({ shiftId, expenses, onChange }: { shiftId: number
                 className={`rounded-xl border-2 p-3 text-left text-base font-medium ${f.category === c ? "border-amber-500 bg-amber-50" : "border-slate-200"}`}>{icon} {c}</button>
             ))}
           </div>
-          <Field label="Other category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{(cats.data ?? []).map((c) => <option key={c}>{c}</option>)}</select></Field>
-          <Field label="Amount (Rs)"><input className="input py-3 text-2xl" type="number" inputMode="numeric" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-          <Field label="What for?"><input className="input" placeholder="e.g. chai, generator diesel 5 L" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+          <Field label="Other category · دوسری قسم"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{(cats.data ?? []).map((c) => <option key={c}>{c}</option>)}</select></Field>
+          <Field label="Amount (Rs) · رقم"><input className="input py-3 text-2xl" type="number" inputMode="numeric" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="What for? · کس لیے"><input className="input" placeholder="e.g. chai, generator diesel 5 L" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy}>Save · محفوظ کریں</button></div>
         </form>
       </Modal>
     </div>

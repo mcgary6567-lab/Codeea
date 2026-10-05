@@ -9,6 +9,7 @@ import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
 import { AppError } from "../services.js";
 import { aiEnabled } from "../config.js";
 import { readPhoto, parseSale, type PhotoKind } from "../ai/vision.js";
+import { expenseFromText } from "../ai/parseSale.js";
 
 export const capture = Router();
 
@@ -46,6 +47,9 @@ capture.get("/photos/:id", h((req, res) => {
 
 capture.post("/ai/parse-sale", requirePerm("sales.create"), h(async (req) => {
   const b = parse(z.object({ text: z.string().min(2).max(400) }), req.body);
+  // "chai ka kharcha 300" is an expense from the shift's cash, not a sale
+  const exp = expenseFromText(b.text, all("SELECT name FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)).map((c) => c.name as string));
+  if (exp?.amount) return exp;
   const accounts = all("SELECT id, name FROM customers WHERE tenant_id=? AND credit_limit > 0", tid(req)) as { id: number; name: string }[];
   return parseSale(b.text, accounts);
 }));

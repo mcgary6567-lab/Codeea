@@ -14,7 +14,7 @@ export const auditRouter = Router();
 const SKIP: [string, RegExp][] = [
   ["POST", /^\/sales$/], ["POST", /^\/shop\/sales$/], ["POST", /^\/notifications/], ["POST", /^\/push\//], ["POST", /^\/ai\//],
   ["POST", /^\/attendance\/check-(in|out)$/], ["POST", /^\/checklist\/\d+$/], ["POST", /^\/analysis\/reconcile$/], ["POST", /^\/bank\/reconcile$/],
-  ["POST", /^\/whatsapp\/simulate/], ["POST", /^\/ai\/ask$/], ["POST", /^\/wholesale\/ai\/command$/], ["PUT", /^\/notifications/],
+  ["POST", /^\/whatsapp\/simulate/], ["POST", /^\/ai\/ask$/], ["POST", /^\/wholesale\/ai\/command$/], ["POST", /^\/khata\/ai\/command$/], ["PUT", /^\/notifications/],
 ];
 /** Records we snapshot before an edit / delete, so the log shows old → new. */
 const RESOURCES: [RegExp, string, string][] = [

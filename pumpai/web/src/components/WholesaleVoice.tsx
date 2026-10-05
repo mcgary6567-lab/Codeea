@@ -1,13 +1,13 @@
-import { useRef, useState } from "react";
-import { Keyboard, Loader2, Mic, MicOff, Sparkles, Volume2, X, Check, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Volume2, X, Check, AlertTriangle } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Field, useAction, useToast } from "./ui";
+import { Field, useAction } from "./ui";
 import { PRODUCTS, num, pkr } from "../lib/format";
-import { ProofPhotos, Recognition } from "./Capture";
+import { ProofPhotos } from "./Capture";
+import { VoiceShell, speak, Ur } from "./VoiceShell";
 import { AccountPicker, BankLogo, BankNamePicker } from "./BankParts";
 import { useAuth } from "../App";
 
-const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 const INTENT: Record<string, { en: string; ur: string; cls: string }> = {
   supply: { en: "Supply", ur: "سپلائی", cls: "bg-brand-600" }, return: { en: "Fuel return", ur: "واپسی", cls: "bg-amber-600" },
   payment: { en: "Payment received", ur: "ادائیگی وصول", cls: "bg-emerald-600" }, order: { en: "Order", ur: "آرڈر", cls: "bg-amber-500" },
@@ -26,85 +26,15 @@ const EXAMPLES = [
 const METHODS = ["Cash", "Bank transfer", "Cheque", "Raast", "JazzCash", "Easypaisa"];
 const today = (n = 0) => new Date(Date.now() + 5 * 3600_000 + n * 86_400_000).toISOString().slice(0, 10);
 
-/** Read a sentence aloud in Urdu if the phone has an Urdu voice (else in the default voice). */
-function speak(text: string) {
-  try {
-    const u = new SpeechSynthesisUtterance(text);
-    const v = speechSynthesis.getVoices().find((x) => x.lang.startsWith("ur")) ?? speechSynthesis.getVoices().find((x) => x.lang.startsWith("hi"));
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "ur-PK";
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  } catch { /* no speech on this device */ }
-}
-
 /**
  * Wholesale by voice: say the entry in Urdu / Roman Urdu / English, check the card, press Save.
  * Nothing is saved until the officer confirms.
  */
 export function WholesaleVoice({ clientId, onDone, compact }: { clientId?: number; onDone: () => void; compact?: boolean }) {
-  const [listening, setListening] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [text, setText] = useState("");
-  const [lang, setLang] = useState<"ur-PK" | "en-PK">("ur-PK");
-  const [res, setRes] = useState<any>(null);
-  const rec = useRef<any>(null);
-  const toast = useToast();
-
-  const ask = async (said: string) => {
-    if (!said.trim()) return;
-    setBusy(true);
-    try {
-      const r = await api("/wholesale/ai/command", { body: { text: said, client_id: clientId ?? null } });
-      setRes(r); setTyping(false); setText("");
-      if (r.answer) speak(r.answer.ur); else if (r.confirm_ur) speak(r.confirm_ur);
-    } catch (e: any) { toast("err", e.message); }
-    finally { setBusy(false); }
-  };
-  const listen = () => {
-    if (!Recognition) return setTyping(true);
-    if (listening) return rec.current?.stop();
-    const r = new Recognition();
-    r.lang = lang; r.interimResults = false; r.maxAlternatives = 1;
-    r.onresult = (e: any) => ask(e.results[0][0].transcript);
-    r.onerror = (e: any) => { if (e.error !== "no-speech" && e.error !== "aborted") { toast("err", "Could not hear clearly — type it instead · لکھ دیں"); setTyping(true); } };
-    r.onend = () => setListening(false);
-    rec.current = r; setListening(true); r.start();
-  };
-
   return (
-    <div className={`overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 to-violet-600 text-white shadow-sm ${compact ? "" : ""}`}>
-      <div className="flex flex-wrap items-center gap-3 p-4">
-        <button type="button" onClick={listen} disabled={busy} aria-label="Speak"
-          className={`flex h-14 w-14 shrink-0 items-center sm:h-16 sm:w-16 justify-center rounded-full shadow-lg active:scale-95 ${listening ? "animate-pulse bg-red-500" : "bg-white text-violet-700"}`}>
-          {busy ? <Loader2 className="animate-spin" size={28} /> : listening ? <MicOff size={28} /> : <Mic size={30} />}
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="text-base font-bold leading-tight sm:text-lg"><Sparkles size={16} className="mr-1 inline" />{listening ? "Listening… speak now" : busy ? "Understanding…" : "Speak the entry"}</div>
-          <Ur className="block text-base leading-relaxed">{listening ? "بولیں" : "بول کر انٹری کریں — جو کام ہو بول دیں"}</Ur>
-          <div className="hidden text-sm opacity-90 sm:block">Supply, payment, order, promise, cheque, return — or ask "baqaya kitna hai?"</div>
-        </div>
-        <div className="flex w-full justify-end gap-1.5 sm:w-auto">
-          {Recognition && <button type="button" onClick={() => setLang(lang === "ur-PK" ? "en-PK" : "ur-PK")} className="rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold hover:bg-white/25" title="Speech language">{lang === "ur-PK" ? "اردو" : "English"}</button>}
-          <button type="button" onClick={() => setTyping(!typing)} className="rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold hover:bg-white/25" title="Type instead"><Keyboard size={16} /></button>
-        </div>
-      </div>
-      {typing && (
-        <form className="flex gap-2 px-4 pb-4" onSubmit={(e) => { e.preventDefault(); ask(text); }}>
-          <input className="input flex-1 text-slate-900" autoFocus placeholder="e.g. Shah ko 5000 litre diesel bheja · لکھیں" value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="rounded-xl bg-white px-4 font-semibold text-violet-700" disabled={busy || !text.trim()}>Go</button>
-        </form>
-      )}
-      {!res && !compact && (
-        <div className="flex gap-2 overflow-x-auto px-4 pb-4">
-          {EXAMPLES.map((x) => (
-            <button key={x.en} type="button" onClick={() => ask(x.en)} className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-left text-xs hover:bg-white/20">
-              “{x.en}”<Ur className="block opacity-80">{x.ur}</Ur>
-            </button>
-          ))}
-        </div>
-      )}
-      {res && <div className="bg-white p-4 text-slate-900"><Result r={res} onClose={() => setRes(null)} onSaved={() => { setRes(null); onDone(); }} /></div>}
-    </div>
+    <VoiceShell endpoint="/wholesale/ai/command" body={{ client_id: clientId ?? null }} compact={compact} examples={EXAMPLES}
+      sub='Supply, payment, order, promise, cheque, return — or ask "baqaya kitna hai?"' placeholder="e.g. Shah ko 5000 litre diesel bheja · لکھیں"
+      result={(r, close) => <Result r={r} onClose={close} onSaved={() => { close(); onDone(); }} />} />
   );
 }
 

@@ -10,6 +10,8 @@ import { AccountForm } from "../components/QuickAdd";
 import { TYPE_ICON } from "./Pos";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
+import { KhataVoice } from "../components/KhataVoice";
+import { Ur } from "../components/VoiceShell";
 
 const SEGMENTS = ["", "VIP", "Regular", "At risk", "New", "Fleet", "Agri", "Institution"];
 const segTone: Record<string, string> = { VIP: "violet", Regular: "green", "At risk": "red", New: "blue", Fleet: "amber", Agri: "amber", Institution: "blue" };
@@ -140,22 +142,23 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
           </div>
           <div className="flex flex-wrap gap-2">
             {c.conversation && can("whatsapp.inbox") && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
-            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment</button>}
-            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge</button>}
-            {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <button className="btn-secondary" onClick={() => setBill(true)}>📄 Bill / statement</button> : null}
-            {c.balance > 0 && can("khata.manage") && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder</button>}
+            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>}
+            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge · <Ur>کھاتے میں لکھیں</Ur></button>}
+            {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <button className="btn-secondary" onClick={() => setBill(true)}>📄 Bill / statement · <Ur>بل</Ur></button> : null}
+            {c.balance > 0 && can("khata.manage") && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder · <Ur>یاد دہانی</Ur></button>}
           </div>
+          {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <KhataVoice compact customerId={c.id} onDone={refresh} /> : null}
           {pay && (
             <form className="flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-3" onSubmit={async (e) => {
               e.preventDefault();
               const r = await run(() => api(`/customers/${c.id}/khata`, { body: { type: pay, amount: Number(amount), method, note: pay === "credit" ? "Payment received" : "Manual charge", photo_ids: photos, account_id: pay === "credit" ? account : null } }), pay === "credit" ? "Payment recorded & receipt sent on WhatsApp" : "Charge added");
               if (r) { setPay(null); setAmount(""); setPhotos([]); refresh(); }
             }}>
-              <Field label={pay === "credit" ? "Payment amount" : "Charge amount"}><input className="input w-40" type="number" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-              <Field label="Method"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
+              <Field label={pay === "credit" ? "Payment amount · رقم وصول" : "Charge amount · کھاتے میں رقم"}><input className="input w-40" type="number" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+              <Field label="Method · طریقہ"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               {pay === "credit" && <div className="w-full"><AccountPicker method={method} value={account} onChange={setAccount} /></div>}
               <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay === "credit" && method === "Cheque"} hint={pay === "credit" ? "cheque, receipt, payment screenshot" : "bill / slip for the charge"} /></div>
-              <button className="btn-primary" disabled={busy || (pay === "credit" && method === "Cheque" && !photos.length)}>Save</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel</button>
+              <button className="btn-primary" disabled={busy || (pay === "credit" && method === "Cheque" && !photos.length)}>Save · محفوظ کریں</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel · منسوخ</button>
             </form>
           )}
           {can("whatsapp.inbox") && <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>
@@ -164,7 +167,7 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
           </form>}
           <div className="grid gap-4 md:grid-cols-2">
             <section>
-              <h3 className="mb-2 text-sm font-semibold">Khata ledger</h3>
+              <h3 className="mb-2 text-sm font-semibold">Khata ledger · <Ur>کھاتہ</Ur></h3>
               <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200">
                 <table className="w-full"><tbody>
                   {c.ledger.map((l: any) => (

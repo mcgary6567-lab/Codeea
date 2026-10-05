@@ -79,3 +79,19 @@ export function parseSaleText(raw: string, accounts: { id: number; name: string 
   out.payment_method = PAY.find(([, re]) => re.test(t))?.[0] ?? (out.candidates.length ? "khata" : "cash");
   return out;
 }
+
+/** "chai ka kharcha 300", "generator mein 2000 ka diesel dala kharcha" → an expense from the shift's cash. */
+export function expenseFromText(raw: string, categories: string[]) {
+  const t = ` ${raw.replace(/[۰-۹٠-٩]/g, (d) => DIGITS[d]).replace(/(\d),(\d)/g, "$1$2").toLowerCase()} `;
+  if (!/(kharcha|kharch|kharche|expense|خرچہ|خرچ|خرچے)/.test(t)) return null;
+  const k = t.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${THOUSAND}`, "i"));
+  const n = t.match(/(\d+(?:\.\d+)?)/);
+  const amount = k ? Number(k[1]) * 1000 : n ? Number(n[1]) : null;
+  const pick = (re: RegExp, name: string) => (re.test(t) ? categories.find((c) => c.toLowerCase().startsWith(name.toLowerCase())) : undefined);
+  const category = pick(/(chai|chaye|tea|khana|roti|food|چائے|کھانا|روٹی)/, "Tea")
+    ?? pick(/(generator|genny|جنریٹر)/, "Generator") ?? pick(/(bijli|bill|electric|بجلی)/, "Electricity")
+    ?? pick(/(repair|mistri|mechanic|theek|مرمت|مستری)/, "Maintenance") ?? pick(/(safai|cleaning|صفائی)/, "Other")
+    ?? pick(/(stationery|register|pen|کاپی)/, "Office") ?? categories.find((c) => c === "Other") ?? categories[0];
+  const note = raw.replace(/\d[\d,.]*/g, " ").replace(/(kharcha|kharch|kharche|expense|ka|ki|ke|rupay|rupees|rs|hazar|خرچہ|خرچ|کا|کی|کے|روپے|ہزار)/gi, " ").replace(/\s+/g, " ").trim();
+  return { intent: "expense" as const, amount, category, note: note || null, heard: raw.trim() };
+}

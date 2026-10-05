@@ -21,18 +21,18 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const openBill = async () => { const r = await run(() => api(`/customers/${customerId}/bill-link?month=${month}`)); if (r) window.open(r.url, "_blank"); };
 
   return (
-    <Modal open onClose={onClose} title="Khata bill / statement" wide>
+    <Modal open onClose={onClose} title="Khata bill / statement · کھاتہ بل" wide>
       <div className="flex flex-wrap items-end gap-2 print:hidden">
-        <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
-        <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
-        <button className="btn-secondary" onClick={() => setRange({ from: monthStart(), to: today() })}>This month</button>
-        <button className="btn-secondary" onClick={() => setRange({ from: "", to: "" })}>All time</button>
+        <Field label="From · سے"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
+        <Field label="To · تک"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
+        <button className="btn-secondary" onClick={() => setRange({ from: monthStart(), to: today() })}>This month · اس مہینے</button>
+        <button className="btn-secondary" onClick={() => setRange({ from: "", to: "" })}>All time · سارا</button>
         <div className="ml-auto flex gap-2">
-          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/send-bill`, { body: { month } }), `${month} bill sent on WhatsApp`)}><Send size={15} /> WhatsApp bill</button>
-          <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link</button>
+          <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/send-bill`, { body: { month } }), `${month} bill sent on WhatsApp`)}><Send size={15} /> WhatsApp bill · واٹس ایپ</button>
+          <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link · لنک</button>
           <a className="btn-secondary" href={`/cards/${customerId}`} target="_blank" rel="noreferrer"><QrCode size={15} /> QR cards</a>
           <a className="btn-secondary" href={csv}><Download size={15} /> Excel</a>
-          <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print bill</button>
+          <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print bill · پرنٹ</button>
         </div>
       </div>
       {!s ? <Loading /> : (

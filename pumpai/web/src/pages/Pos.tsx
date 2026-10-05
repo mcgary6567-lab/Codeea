@@ -10,6 +10,7 @@ import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
 import { VoiceButton } from "../components/Capture";
+import { speak } from "../components/VoiceShell";
 import { CardScanner } from "../components/CardScanner";
 
 /* Big, colourful, bilingual (English + Urdu) point of sale designed for one-hand use on a tablet. */
@@ -67,6 +68,7 @@ export default function Pos() {
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
   const [heard, setHeard] = useState<string | null>(null);
+  const [voiceExp, setVoiceExp] = useState<any>(null);
   const [tab, setTab] = useState<"fuel" | "shop">("fuel");
   // practice mode for new staff: nothing is sent to the server
   const [training, setTraining] = useState(() => { try { return sessionStorage.getItem("pumpai_training") === "1"; } catch { return false; } });
@@ -88,6 +90,14 @@ export default function Pos() {
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
+    // "chai ka kharcha 300": an expense from the shift's cash
+    if (v.intent === "expense") {
+      if (!d?.shift) { toast("err", "Start the shift first · پہلے شفٹ شروع کریں"); return; }
+      setVoiceExp({ ...v, key: Date.now() });
+      speak(`${Math.round(v.amount ?? 0)} روپے کا خرچہ۔ ٹھیک ہے؟`);
+      setTimeout(() => document.getElementById("pos-expenses")?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+      return;
+    }
     if (v.product && d?.products.includes(v.product)) setProduct(v.product);
     if (v.litres) { setMode("litres"); setEntry(String(v.litres)); } else if (v.amount) { setMode("amount"); setEntry(String(v.amount)); }
     if (v.payment_method) setPay(v.payment_method);
@@ -99,6 +109,9 @@ export default function Pos() {
       else { setKhata(null); setPickKhata(true); }
     } else setKhata(null);
     setHeard(v.heard);
+    // say back what was understood, in Urdu
+    const what = [v.litres ? `${v.litres} لیٹر` : v.amount ? `${Math.round(v.amount)} روپے` : "", v.product ? FUEL[v.product]?.ur : "", v.payment_method ? PAY.find((x) => x.key === v.payment_method)?.ur : "", v.customer_name ?? ""].filter(Boolean).join("، ");
+    if (what) speak(`${what}۔ ٹھیک ہے تو محفوظ کریں`);
   };
 
   const press = (k: string) => {
@@ -198,7 +211,8 @@ export default function Pos() {
       <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
         {tab === "shop" ? <ShopPos d={d} training={training} disabled={!training && ((!shiftOpen && isSalesman) || !!priceLock)} onSaved={(r) => { setDone({ ...r, shop: true }); if (!r.training) today.reload(); }} /> : <div className="space-y-3">
           <VoiceButton onParsed={applyVoice} />
-          {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b></div>}
+          {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b> · <Ur>نیچے دیکھ کر محفوظ کریں</Ur>
+            <div className="text-xs text-violet-700">Also: “chai ka kharcha 300” · <Ur>خرچہ بھی بول کر لکھیں</Ur></div></div>}
           {/* 1. fuel */}
           <Step n={1} en="Choose fuel" ur="تیل چنیں">
             <div className="grid grid-cols-3 gap-3">
@@ -327,7 +341,7 @@ export default function Pos() {
           </div>
         </div>}
 
-        <ShiftPanel d={d} reload={today.reload} onUndo={undo} myId={user?.id} />
+        <ShiftPanel d={d} reload={today.reload} onUndo={undo} myId={user?.id} expPreset={voiceExp} />
       </div>
 
       {/* blocking states */}
@@ -410,7 +424,7 @@ function StartShift({ onStarted }: { onStarted: () => void }) {
   );
 }
 
-function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; onUndo: (sale: any) => void; myId?: number }) {
+function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: () => void; onUndo: (sale: any) => void; myId?: number; expPreset?: any }) {
   const s = d.shift?.summary;
   // server clock offset, so the 2-minute undo window matches the server even if the tablet clock is wrong
   const skew = d.server_time ? Date.parse(d.server_time) - Date.now() : 0;
@@ -441,7 +455,7 @@ function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; o
           <div className="flex justify-between text-red-300"><span>− Expenses · <Ur>خرچہ</Ur></span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
         </div>
       </div>
-      {d.shift && <div id="pos-expenses" className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} /></div>}
+      {d.shift && <div id="pos-expenses" className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} preset={expPreset} /></div>}
       <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
         <h3 className="mb-2 font-semibold">Last sales · <Ur className="text-slate-500">آخری سیل</Ur></h3>
         <ul className="divide-y divide-slate-100">
