@@ -13,7 +13,7 @@ import { insightsRouter } from "./routes/insights.js";
 import { managerDesk } from "./routes/managerDesk.js";
 import { users } from "./routes/users.js";
 import { wholesale } from "./routes/wholesale.js";
-import { clientPortalAdmin, clientPortalPublic } from "./routes/clientPortal.js";
+import { pinPortalAdmin, pinPortalPublic, pinLink } from "./routes/pinPortal.js";
 import { expenses } from "./routes/expenses.js";
 import { suppliers } from "./routes/suppliers.js";
 import { reports } from "./routes/reports.js";
@@ -26,7 +26,7 @@ import { backoffice, renderDay } from "./routes/backoffice.js";
 import { shop } from "./routes/shop.js";
 import { compliance } from "./routes/compliance.js";
 import { analysis } from "./routes/analysis.js";
-import { care, renderPortal } from "./routes/customerCare.js";
+import { care, portalFromOldToken } from "./routes/customerCare.js";
 import { system } from "./routes/system.js";
 import { renderReceipt } from "./billing.js";
 import { prepaid } from "./routes/prepaid.js";
@@ -107,11 +107,12 @@ app.get("/r/:token", (req, res) => {
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>Receipt not found.</p>");
 });
 // wholesale client's own khata (short link + PIN)
-app.use(clientPortalPublic);
+app.use(pinPortalPublic);
 // khata customer's own page (private link)
 app.get("/portal/:token", (req, res) => {
-  const html = renderPortal(req.params.token);
-  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This link is no longer valid. Ask the pump for a new one.</p>");
+  // links sent before PINs: open the PIN page for the same customer
+  const c = portalFromOldToken(req.params.token);
+  c ? res.redirect(302, new URL(pinLink("k", c)).pathname) : res.status(404).type("html").send("<p style='font-family:sans-serif'>This link is no longer valid. Ask the pump for a new one.</p>");
 });
 // TV rate board at the pump (signed link, refreshes by itself)
 app.get("/board/:token", (req, res) => {
@@ -148,7 +149,7 @@ api.use(insightsRouter);
 api.use(managerDesk);
 api.use(users);
 api.use(wholesale);
-api.use(clientPortalAdmin);
+api.use(pinPortalAdmin);
 api.use(expenses);
 api.use(suppliers);
 api.use(reports);

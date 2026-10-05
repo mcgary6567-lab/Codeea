@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
+import { PortalCard } from "./PortalCard";
 import { Field, Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, num, pkr } from "../lib/format";
 
@@ -48,12 +49,11 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm print:hidden">
-            <button className="btn-secondary !py-1" onClick={async () => { const r = await run(() => api(`/customers/${customerId}/portal-link`)); if (r) window.open(r.url, "_blank"); }}><ExternalLink size={14} /> Customer page</button>
-            <button className="btn-secondary !py-1" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/portal-link/send`, { body: {} }), "Page link sent on WhatsApp")}><Send size={14} /> Send page link</button>
             <a className="btn-secondary !py-1" href={`/api/customers/${customerId}/notice?token=${encodeURIComponent(getToken() ?? "")}`} target="_blank" rel="noreferrer">📜 Payment notice</a>
             <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={Boolean(s.customer.khata_blocked)} onChange={(e) => run(() => api(`/customers/${customerId}/khata-hold`, { body: { blocked: e.target.checked } }), e.target.checked ? "Khata on hold" : "Khata open again").then(reload)} />
               <span className={s.customer.khata_blocked ? "font-semibold text-red-600" : ""}>{s.customer.khata_blocked ? "On hold (overdue)" : "Hold khata"}</span></label>
           </div>
+          <div className="print:hidden"><PortalCard base={`/customers/${customerId}/portal`} name={s.customer.name} phone={s.customer.phone} canManage /></div>
           {["police", "school", "government", "hospital"].includes(s.customer.type) && <GovtBills customerId={customerId} />}
           <div className="flex flex-wrap gap-2">
             {s.totals.by_product.map((p: any) => (

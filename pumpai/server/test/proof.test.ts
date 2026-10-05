@@ -26,6 +26,7 @@ before(async () => {
   const { app } = await import("../src/index.js");
   await new Promise<void>((r) => { server = app.listen(0, () => r()); });
   base = `http://127.0.0.1:${(server.address() as any).port}`;
+  (globalThis as any).base = base;
   for (const who of ["admin", "manager", "wholesale"]) tokens[who] = (await call("", "POST", "/api/auth/login", { email: `${who}@pumpai.pk`, password: "demo1234" })).data.token;
 });
 after(() => server?.close());
@@ -104,39 +105,47 @@ test("cheque payments and salary cannot be saved without a photo", async () => {
   assert.equal(sal.status, 400); assert.match(sal.data.error, /salary sheet is required/);
 });
 
-test("wholesale client's own khata page: short link + system PIN, lock after wrong PINs, new PIN / link / off", async () => {
-  const client = (await call("wholesale", "GET", "/api/wholesale/clients")).data[0];
-  assert.equal((await call("wholesale", "GET", `/api/wholesale/clients/${client.id}/portal`)).data.has_pin, false);
-  assert.equal((await call("manager", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).status, 403);
-  const made = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).data;
-  assert.match(made.pin, /^\d{6}$/); assert.match(made.url, /\/w\/[\w-]{8,}$/);
-  const path = new URL(made.url).pathname;
-  const open = await fetch(base + path); assert.equal(open.status, 200);
-  assert.match(await open.text(), /Enter the 6-digit PIN/);
-  const post = (pin: string, extra = "", cookie?: string) => fetch(base + path, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) }, body: `pin=${pin}${extra}` });
-  const wrongPin = made.pin === "000000" ? "111111" : "000000";
-  const bad = await post(wrongPin); assert.equal(bad.status, 401); assert.match(await bad.text(), /Wrong PIN/);
-  const good = await post(made.pin, "&remember=1"); assert.equal(good.status, 200);
-  const html = await good.text();
-  assert.ok(html.includes(client.name.replace(/&/g, "&amp;")) && /Balance due/.test(html) && /Your rates today/.test(html));
-  const cookie = good.headers.get("set-cookie")!.split(";")[0];
-  // remembered phone opens straight away
-  assert.match(await (await fetch(base + path, { headers: { cookie } })).text(), /Balance due/);
-  // five wrong PINs lock the page, even the right PIN waits
-  for (let i = 0; i < 5; i++) await post(wrongPin);
-  assert.equal((await post(made.pin)).status, 429);
-  // a new PIN unlocks, and the old PIN and remembered phones stop working
-  const pin2 = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).data;
-  assert.equal(new URL(pin2.url).pathname, path, "same link");
-  assert.match(await (await fetch(base + path, { headers: { cookie } })).text(), /Enter the 6-digit PIN/);
-  if (pin2.pin !== made.pin) assert.equal((await post(made.pin)).status, 401);
-  assert.equal((await post(pin2.pin)).status, 200);
-  // a new link: the old one is gone
-  const link3 = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/new-link`, {})).data;
-  assert.equal((await fetch(base + path)).status, 404);
-  const path3 = new URL(link3.url).pathname;
-  assert.equal((await fetch(base + path3)).status, 200);
-  // turned off
-  await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/off`, {});
-  assert.equal((await fetch(base + path3)).status, 404);
+test("own khata page with link + PIN for wholesale clients and khata customers; lock, new link, off, old links", async () => {
+  for (const [who, base] of [["wholesale", `/api/wholesale/clients/${(await call("wholesale", "GET", "/api/wholesale/clients")).data[0].id}/portal`],
+    ["manager", `/api/customers/${(await call("manager", "GET", "/api/customers")).data.find((c: any) => c.balance > 0).id}/portal`]] as const) {
+    const p = (await call(who, "GET", base)).data;
+    assert.match(p.pin, /^\d{6}$/); assert.match(p.url, /\/(w|k)\/\d+-\d+-[\w-]{10}$/); assert.equal(p.enabled, true);
+    const path = new URL(p.url).pathname;
+    const open = await fetch((globalThis as any).base + path); assert.equal(open.status, 200); assert.match(await open.text(), /Enter the 6-digit PIN/);
+    // a forged link does not open
+    assert.equal((await fetch((globalThis as any).base + path.replace(/-[\w-]{10}$/, "-AAAAAAAAAA"))).status, 404);
+    const post = (pin: string, extra = "") => fetch((globalThis as any).base + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${pin}${extra}` });
+    const wrong = p.pin === "000000" ? "111111" : "000000";
+    assert.equal((await post(wrong)).status, 401);
+    const good = await post(p.pin, "&remember=1"); assert.equal(good.status, 200);
+    assert.match(await good.text(), /Balance due/);
+    const cookie = good.headers.get("set-cookie")!.split(";")[0];
+    assert.match(await (await fetch((globalThis as any).base + path, { headers: { cookie } })).text(), /Balance due/, "remembered phone");
+    for (let i = 0; i < 5; i++) await post(wrong);
+    assert.equal((await post(p.pin)).status, 429, "locked after 5 wrong PINs");
+    // new link + PIN: the old link is gone, the new one opens with the new PIN
+    const n = (await call(who, "POST", `${base}/new`, {})).data;
+    assert.notEqual(n.url, p.url);
+    assert.equal((await fetch((globalThis as any).base + path)).status, 404);
+    const npath = new URL(n.url).pathname;
+    assert.equal((await fetch((globalThis as any).base + npath, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${n.pin}` })).status, 200);
+    // turned off / on
+    await call(who, "POST", `${base}/off`, {});
+    assert.equal((await fetch((globalThis as any).base + npath)).status, 404);
+    await call(who, "POST", `${base}/on`, {});
+    assert.equal((await fetch((globalThis as any).base + npath)).status, 200);
+  }
+  // a copy of the server whose database never saw the "new link" (serverless) still accepts the newer link
+  const db = await import("../src/db.js");
+  const c = (await call("wholesale", "GET", "/api/wholesale/clients")).data[1];
+  const fresh = (await call("wholesale", "POST", `/api/wholesale/clients/${c.id}/portal/new`, {})).data;
+  db.run("UPDATE wholesale_clients SET portal_v=0 WHERE id=?", c.id);
+  assert.equal((await fetch((globalThis as any).base + new URL(fresh.url).pathname, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${fresh.pin}` })).status, 200);
+  // old khata links sent before PINs lead to the PIN page
+  const jwt = (await import("jsonwebtoken")).default;
+  const { config } = await import("../src/config.js");
+  const cust = db.get("SELECT * FROM customers WHERE balance > 0 LIMIT 1");
+  const old = await fetch((globalThis as any).base + `/portal/${jwt.sign({ portal: cust.id, t: cust.tenant_id, v: cust.portal_v }, config.jwtSecret)}`, { redirect: "manual" });
+  assert.equal(old.status, 302); assert.match(old.headers.get("location")!, /^\/k\//);
+  assert.equal((await call("manager", "GET", `/api/wholesale/clients/${c.id}/portal`)).status, 403);
 });

@@ -34,12 +34,14 @@ after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); 
 
 test("customer portal: private link shows balance and fills; resetting the link kills the old one", async () => {
   const c = db.get("SELECT * FROM customers WHERE credit_limit > 0 AND balance > 0 ORDER BY id LIMIT 1");
-  const { url } = ok(await call("manager", "GET", `/api/customers/${c.id}/portal-link`), "link");
-  const html = await (await fetch(local(url))).text();
+  const { url, pin } = ok(await call("manager", "GET", `/api/customers/${c.id}/portal`), "link");
+  assert.match(await (await fetch(local(url))).text(), /Enter the 6-digit PIN/, "PIN asked first");
+  const html = await (await fetch(local(url), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${pin}` })).text();
   assert.match(html, new RegExp(c.name)); assert.match(html, /Balance due/); assert.match(html, /Monthly bills/);
-  ok(await call("manager", "POST", `/api/customers/${c.id}/portal-link/send`, {}), "send");
-  assert.ok(db.get("SELECT m.id FROM messages m JOIN conversations v ON v.id=m.conversation_id WHERE v.customer_id=? AND m.meta LIKE '%portal_link%'", c.id));
-  const fresh = ok(await call("manager", "POST", `/api/customers/${c.id}/portal-link/reset`, {}), "reset");
+  ok(await call("manager", "POST", `/api/customers/${c.id}/portal/send`, {}), "send");
+  const sent = db.get("SELECT m.* FROM messages m JOIN conversations v ON v.id=m.conversation_id WHERE v.customer_id=? AND m.meta LIKE '%portal_link%' ORDER BY m.id DESC", c.id);
+  assert.ok(sent && sent.body.includes(pin), "link and PIN sent on WhatsApp");
+  const fresh = ok(await call("manager", "POST", `/api/customers/${c.id}/portal/new`, {}), "reset");
   assert.equal((await fetch(local(url))).status, 404, "old link dead");
   assert.equal((await fetch(local(fresh.url))).status, 200);
 });

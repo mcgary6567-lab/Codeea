@@ -5,6 +5,7 @@ import { PRODUCTS } from "../config.js";
 import { currentPrices, paymentLink, createAlert, pkr, round2 } from "../services.js";
 import { bus } from "../whatsapp/cloud.js";
 import { createBooking, portalLink } from "../routes/customerCare.js";
+import { pinOf } from "../routes/pinPortal.js";
 
 export interface ToolCtx {
   tenantId: number;
@@ -183,7 +184,7 @@ export const customerTools: ToolDef[] = [
     name: "get_my_khata_page",
     description: "Private link where a khata customer can see their balance, every fill with slip numbers and monthly bills.",
     input_schema: obj({}),
-    run: (ctx) => (ctx.customer.credit_limit > 0 ? { link: portalLink(ctx.customer as any) } : { error: "No khata account" }),
+    run: (ctx) => (ctx.customer.credit_limit > 0 ? { link: portalLink(ctx.customer as any), pin: pinOf("k", ctx.customer.id, (ctx.customer as any).portal_v ?? 0), note: "Give the link and the PIN; the PIN opens the page." } : { error: "No khata account" }),
   },
   {
     name: "update_my_name",

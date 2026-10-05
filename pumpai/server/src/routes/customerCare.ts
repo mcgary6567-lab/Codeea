@@ -10,6 +10,7 @@ import { Router } from "express";
 import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import { pinLink } from "./pinPortal.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, scopedStation } from "../auth.js";
 import { AppError, round2, pkr, khataEntry, paymentLink, upsertCustomerByPhone } from "../services.js";
@@ -32,47 +33,32 @@ function ownCustomer(t: number, id: number) {
 }
 
 /* ================= Customer portal ================= */
-export const portalLink = (c: { id: number; tenant_id: number; portal_v: number }) =>
-  `${config.publicUrl}/portal/${jwt.sign({ portal: c.id, t: c.tenant_id, v: c.portal_v }, config.jwtSecret)}`;
+/** The customer's own page (short link; the customer enters their PIN to open it). */
+export const portalLink = (c: { id: number; tenant_id: number; portal_v: number }) => pinLink("k", c);
 
-care.get("/customers/:id/portal-link", requirePerm("khata.manage"), h((req) => ({ url: portalLink(ownCustomer(tid(req), Number(req.params.id))) })));
-/** Shared the link with the wrong person? Make a new one; the old link stops working. */
-care.post("/customers/:id/portal-link/reset", requirePerm("khata.manage"), h((req) => {
-  const c = ownCustomer(tid(req), Number(req.params.id));
-  run("UPDATE customers SET portal_v = portal_v + 1 WHERE id=?", c.id);
-  return { url: portalLink(get("SELECT * FROM customers WHERE id=?", c.id)!) };
-}));
-care.post("/customers/:id/portal-link/send", requirePerm("khata.manage"), h(async (req) => {
-  const c = ownCustomer(tid(req), Number(req.params.id));
-  await sendWhatsApp(tid(req), c, `📒 ${c.name}, apna khata kabhi bhi dekhein (balance, har fill, slip aur bill):\n${portalLink(c)}`, "system", { kind: "portal_link" });
-  return { ok: true };
-}));
-
-export function renderPortal(token: string): string | null {
+/** Old signed links (sent before PINs): still recognised, and now lead to the PIN page. */
+export function portalFromOldToken(token: string) {
   let p: { portal: number; t: number; v: number };
   try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
-  const c = get("SELECT * FROM customers WHERE id=? AND tenant_id=?", p.portal, p.t);
-  if (!c || c.portal_v !== p.v) return null;
-  const tenant = get("SELECT * FROM tenants WHERE id=?", p.t)!;
+  return get("SELECT * FROM customers WHERE id=? AND tenant_id=?", p.portal, p.t) ?? null;
+}
+
+/** What a khata customer sees after entering their PIN: balance, limit, pay link, bills and the last 45 days. */
+export function khataPortalBody(c: any): string {
+  const t = c.tenant_id;
   const since = pkDate(Date.now() - 45 * DAY);
-  const s = khataStatement(p.t, c.id, since);
+  const s = khataStatement(t, c.id, since);
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(Date.parse(`${pkDate().slice(0, 7)}-15T00:00:00Z`)); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
   const bills = all("SELECT * FROM khata_bills WHERE customer_id=? ORDER BY month DESC LIMIT 6", c.id);
-  const rows = [...s.lines].reverse().slice(0, 60).map((l: any) => `<tr><td>${esc(new Date(l.created_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</td>
-    <td>${l.type === "debit" ? `${esc(PRODUCTS[l.product] ?? l.note ?? "")}${l.litres ? ` · ${n2(l.litres)} L × ${n2(l.rate)}` : ""}<div class=m>${esc([l.vehicle_no, l.slip_no && `slip ${l.slip_no}`].filter(Boolean).join(" · "))}</div>` : `<b class=g>Payment</b>`}</td>
-    <td class=r>${l.type === "debit" ? n2(l.amount) : `<span class=g>−${n2(l.amount)}</span>`}</td></tr>`).join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(c.name)} — khata</title>
-<style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.w{max-width:640px;margin:0 auto;padding:14px}.c{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px}
-h1{font-size:20px;margin:0}.m{color:#64748b;font-size:12px}.big{font-size:26px;font-weight:700;word-break:break-word}.g{color:#047857}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.t{background:#f8fafc;border-radius:10px;padding:10px}
-table{width:100%;border-collapse:collapse}td{padding:7px 4px;border-bottom:1px solid #e2e8f0;vertical-align:top}.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}a.b{display:block;text-align:center;background:#064e3b;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;margin-top:10px}
-.hold{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}</style></head><body><div class=w>
-<div class=c>${logoTag(tenant.id, "height:36px;max-width:140px;object-fit:contain;background:#fff;border-radius:6px;padding:2px")}<div class=m>⛽ ${esc(tenant.name)}</div><h1>${esc(c.name)}</h1>
-<div class=grid><div class=t><div class=m>Balance due · بقایا</div><div class=big>Rs ${Math.round(c.balance).toLocaleString("en-IN")}</div></div><div class=t><div class=m>Credit limit · حد</div><div class=big style="font-size:22px">Rs ${Math.round(c.credit_limit).toLocaleString("en-IN")}</div><div class=m>Available Rs ${Math.round(Math.max(0, c.credit_limit - c.balance)).toLocaleString("en-IN")}</div></div></div>
-${c.khata_blocked ? `<div class=hold>Khata is on hold because payment is overdue. Please pay to continue.</div>` : ""}
+  const rows = [...s.lines].reverse().slice(0, 80).map((l: any) => `<div class=row><div class=l><div class=m>${esc(new Date(l.created_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</div>
+    ${l.type === "debit" ? `<b>${esc(PRODUCTS[l.product] ?? l.note ?? "")}</b>${l.litres ? ` · ${n2(l.litres)} L × ${n2(l.rate)}` : ""}<div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `slip ${l.slip_no}`].filter(Boolean).join(" · "))}</div>` : `<b class=g>Payment received</b><div class=m>${esc(l.ref ?? "")}</div>`}</div>
+    <div class=rr>${l.type === "debit" ? `<b>${n2(l.amount)}</b>` : `<b class=g>−${n2(l.amount)}</b>`}<div class=m>bal ${n2(l.balance)}</div></div></div>`).join("");
+  return `<div class=c><h1>${esc(c.name)}</h1>
+<div class=grid><div class=t><div class=m>Balance due · بقایا</div><div class="big ${c.balance > 0 ? "red" : "g"}">Rs ${Math.round(c.balance).toLocaleString("en-IN")}</div></div><div class=t><div class=m>Credit limit · حد</div><div class=big style="font-size:20px">Rs ${Math.round(c.credit_limit).toLocaleString("en-IN")}</div><div class=m>Available Rs ${Math.round(Math.max(0, c.credit_limit - c.balance)).toLocaleString("en-IN")}</div></div></div>
+${c.khata_blocked ? `<div class=err>Khata is on hold because payment is overdue. Please pay to continue.</div>` : ""}
 ${c.balance > 0 ? `<a class=b href="${esc(paymentLink(c, c.balance))}">Pay now (JazzCash / Easypaisa / Raast)</a>` : ""}</div>
-<div class=c><b>Monthly bills</b><ul>${months.map((m) => `<li><a href="${esc(billLink(p.t, "k", c.id, m))}">${esc(new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "long", year: "numeric" }))}</a>${(() => { const b = bills.find((x) => x.month === m); return b ? ` · bill ${esc(b.bill_no)}${b.po_number ? ` · PO ${esc(b.po_number)}` : ""} · ${esc(b.status)}` : ""; })()}</li>`).join("")}</ul></div>
-<div class=c><b>Last 45 days</b><table>${rows || "<tr><td class=m>No entries</td></tr>"}</table></div>
-<div class=m style="text-align:center">Updated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div></div></body></html>`;
+<div class=c><b>Last 45 days</b><div class=m>fuel in black, payments in green (−)</div>${rows || "<p class=m>No entries</p>"}</div>
+<div class=c><b>Monthly bills</b><ul>${months.map((m) => `<li><a href="${esc(billLink(t, "k", c.id, m))}">${esc(new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "long", year: "numeric" }))}</a>${(() => { const b = bills.find((x) => x.month === m); return b ? ` · bill ${esc(b.bill_no)}${b.po_number ? ` · PO ${esc(b.po_number)}` : ""} · ${esc(b.status)}` : ""; })()}</li>`).join("")}</ul></div>`;
 }
 
 /* ================= Overdue hold and late charge ================= */

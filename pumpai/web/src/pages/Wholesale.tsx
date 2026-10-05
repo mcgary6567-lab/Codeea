@@ -7,7 +7,8 @@ import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
-import { ClientPortalCard, FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
+import { PortalCard } from "../components/PortalCard";
+import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
@@ -249,7 +250,7 @@ function ClientDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="print:hidden"><ClientPortalCard client={c} /></div>
+      <div className="print:hidden"><PortalCard base={`/wholesale/clients/${c.id}/portal`} name={c.name} phone={c.phone} canManage={can("wholesale.manage")} /></div>
 
       <div className="card">
         <div className="flex flex-wrap items-end gap-3 p-4 print:hidden">
