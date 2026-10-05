@@ -379,26 +379,28 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
   const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supplierOwed(s.id)) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);
 
-  // what to do now, in English and Urdu
+  // what to do now, in English and Urdu (numbers and dates kept left-to-right inside the Urdu line)
+  const L = (x: string | number) => `\u2066${x}\u2069`;
+  const many = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
   type Tip = { key: string; tone: "red" | "amber" | "blue" | "green"; en: string; ur: string; tab: string };
   const tips: Tip[] = [];
   for (const s of ho.pending) tips.push({ key: `ho-${s.id}`, tone: "amber", tab: "handover",
-    en: `Take ${pkr(s.cash_actual)} from ${s.attendant} (shift #${s.id})`, ur: `${s.attendant} سے ${pkr(s.cash_actual)} کیش وصول کریں` });
+    en: `Take ${pkr(s.cash_actual)} from ${s.attendant} (shift #${s.id})`, ur: `${s.attendant} سے ${L(pkr(s.cash_actual))} کیش وصول کریں` });
   if (ct.to_deposit.n) tips.push({ key: "deposit", tone: "blue", tab: "cheques",
-    en: `${ct.to_deposit.n} cheque(s) ready to deposit — ${pkr(ct.to_deposit.amount)}`, ur: `${ct.to_deposit.n} چیک بینک میں جمع کروانے ہیں — ${pkr(ct.to_deposit.amount)}` });
+    en: `${many(ct.to_deposit.n, "cheque")} ready to deposit — ${pkr(ct.to_deposit.amount)}`, ur: `${L(ct.to_deposit.n)} چیک بینک میں جمع کروانے ہیں — ${L(pkr(ct.to_deposit.amount))}` });
   for (const q of cheques.filter((x) => x.status === "issued" && x.cheque_date <= pkDate(Date.now() + 3 * 86400_000))) {
     const bal = banks?.accounts.find((a) => a.id === q.account_id)?.balance;
     const short = bal != null && bal < q.amount;
     tips.push({ key: `iss-${q.id}`, tone: short ? "red" : "amber", tab: "cheques",
       en: `Our cheque to ${q.party_name} ${pkr(q.amount)} is due ${q.cheque_date}${short ? ` — only ${pkr(bal!)} in ${q.account_name}` : ""}`,
-      ur: `${q.party_name} کو دیا گیا چیک ${pkr(q.amount)} ${q.cheque_date} کو کیش ہوگا${short ? " — بینک میں رقم کم ہے" : ""}` });
+      ur: `${q.party_name} کو دیا گیا چیک ${L(pkr(q.amount))} تاریخ ${L(q.cheque_date)} کو کیش ہوگا${short ? " — بینک میں رقم کم ہے" : ""}` });
   }
-  if (ct.bounced.n) tips.push({ key: "bounced", tone: "red", tab: "cheques", en: `${ct.bounced.n} cheque(s) bounced this month — ${pkr(ct.bounced.amount)}`, ur: `اس مہینے ${ct.bounced.n} چیک واپس آئے` });
+  if (ct.bounced.n) tips.push({ key: "bounced", tone: "red", tab: "cheques", en: `${many(ct.bounced.n, "cheque")} bounced this month — ${pkr(ct.bounced.amount)}`, ur: `اس مہینے ${L(ct.bounced.n)} چیک واپس آئے — ${L(pkr(ct.bounced.amount))}` });
   for (const p of promised.filter((x) => x.state === "today")) tips.push({ key: `pr-${p.client_id}`, tone: "blue", tab: "receive",
-    en: `${p.name} promised ${pkr(p.amount)} today`, ur: `${p.name} نے آج ${pkr(p.amount)} دینے کا وعدہ کیا ہے` });
+    en: `${p.name} promised ${pkr(p.amount)} today`, ur: `${p.name} نے آج ${L(pkr(p.amount))} دینے کا وعدہ کیا ہے` });
   const limit = 500_000;
   if (cash.cash_in_hand > limit) tips.push({ key: "bank", tone: "amber", tab: "bank",
-    en: `${pkr(cash.cash_in_hand)} cash in hand — deposit some in the bank`, ur: `${pkr(cash.cash_in_hand)} کیش ہاتھ میں ہے — بینک میں جمع کروائیں` });
+    en: `${pkr(cash.cash_in_hand)} cash in hand — deposit some in the bank`, ur: `${L(pkr(cash.cash_in_hand))} کیش ہاتھ میں ہے — بینک میں جمع کروائیں` });
   if (!counted) tips.push({ key: "count", tone: "green", tab: "count", en: "Count the cash before you close the counter", ur: "کاؤنٹر بند کرنے سے پہلے کیش گنیں" });
 
   return {

@@ -413,7 +413,7 @@ export function BankSummary() {
       </ul>
       <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-4 py-2 text-sm">
         {unlinked > 0 && <span className="flex items-center gap-1 text-amber-700"><AlertTriangle size={14} /> {pkr(unlinked)} not linked to a bank (30 days)</span>}
-        <Link to="/cash" className="ml-auto font-medium text-brand-700 hover:underline">Statements & entries →</Link>
+        <Link to="/cash" className="ml-auto inline-block py-2 font-medium text-brand-700 hover:underline">Statements & entries →</Link>
       </div>
     </div>
   );

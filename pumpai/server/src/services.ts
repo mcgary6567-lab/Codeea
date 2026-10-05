@@ -16,7 +16,8 @@ export function normalizePhone(raw: string): string {
   return d;
 }
 
-export const pkr = (n: number) => "Rs " + Math.round(n).toLocaleString("en-PK");
+/** Rupees the Pakistani way: Rs 15,20,945 (lakh / crore grouping, same as the app screens). */
+export const pkr = (n: number) => "Rs " + Math.round(n).toLocaleString("en-IN");
 export const rateFmt = (n: number) => "Rs " + n.toFixed(2);
 
 export function currentPrices(tenantId: number, at: string = now()): Record<string, { price: number; effective_from: string }> {

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
-import { ago, dt, phone, pkr } from "../lib/format";
+import { ago, dt, phone, pkr, pkrShort } from "../lib/format";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker, BankSummary } from "../components/BankParts";
 import { Ur } from "../components/VoiceShell";
@@ -85,9 +85,9 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
         <div className="text-3xl font-bold tabular-nums sm:text-4xl">{pkr(data.cash.in_hand)}</div>
         <div className="mt-1 text-xs opacity-80">{data.cash.last_count ? <>Last counted {pkr(data.cash.last_count.amount)} by {data.cash.last_count.by}, {ago(data.cash.last_count.at)}</> : "Not counted yet — count the cash once to start the book"}</div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Came in · <Ur>آیا</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.in_cash + data.today.in_bank)}</div></div>
-          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Went out · <Ur>گیا</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.out_cash + data.today.out_bank)}</div></div>
-          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">To bank · <Ur>بینک</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.deposited)}</div></div>
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Came in · <Ur>آیا</Ur></div><Amt v={data.today.in_cash + data.today.in_bank} /></div>
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Went out · <Ur>گیا</Ur></div><Amt v={data.today.out_cash + data.today.out_bank} /></div>
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">To bank · <Ur>بینک</Ur></div><Amt v={data.today.deposited} /></div>
         </div>
       </div>
 
@@ -129,11 +129,11 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
       <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
         {data.handovers.pending.length > 0 && can("shifts.handover") && (
           <div className="card">
-            <div className="flex items-center justify-between p-4 pb-1"><h2 className="font-semibold">Cash to take from salesmen · <Ur>سیلزمین سے کیش</Ur></h2><span className="whitespace-nowrap font-semibold tabular-nums">{pkr(data.handovers.pending_amount)}</span></div>
+            <div className="flex items-start justify-between gap-3 p-4 pb-1"><h2 className="font-semibold">Cash to take from salesmen · <Ur>سیلزمین سے کیش</Ur></h2><span className="whitespace-nowrap font-semibold tabular-nums">{pkr(data.handovers.pending_amount)}</span></div>
             <ul className="divide-y divide-slate-100">{data.handovers.pending.map((s: any) => (
               <li key={s.id}><button onClick={() => go("handover")} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
-                <span className="min-w-0 flex-1"><b>{s.attendant}</b><span className="block truncate text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {ago(s.closed_at)}</span></span>
-                <span className="font-semibold tabular-nums">{pkr(s.cash_actual)}</span></button></li>
+                <span className="min-w-0 flex-1"><b>{s.attendant}</b><span className="block text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {ago(s.closed_at)}</span></span>
+                <span className="shrink-0 font-semibold tabular-nums">{pkr(s.cash_actual)}</span></button></li>
             ))}</ul>
           </div>
         )}
@@ -142,9 +142,9 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
             <h2 className="p-4 pb-1 font-semibold">Promised payments · <Ur>وعدے</Ur></h2>
             <ul className="divide-y divide-slate-100">{data.promised.map((p: any) => (
               <li key={`${p.client_id}-${p.promised_on}`} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                <span className="min-w-0 flex-1"><b>{p.name}</b><span className={`block text-xs ${p.state === "broken" ? "text-red-600" : "text-slate-500"}`}>{p.state === "broken" ? "Promise broken · وعدہ ٹوٹا" : "Today · آج"} · {p.promised_on}</span></span>
-                <span className="font-semibold tabular-nums">{pkr(p.amount)}</span>
-                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => go("receive", { type: "wholesale", id: String(p.client_id), amount: String(p.amount) })}>Receive</button>
+                <span className="min-w-0 flex-1"><b>{p.name}</b><span className={`block text-xs ${p.state === "broken" ? "text-red-600" : "text-slate-500"}`}>{p.state === "broken" ? "Promise broken" : "Today"} · <span className="whitespace-nowrap">{p.promised_on}</span> · <Ur>{p.state === "broken" ? "وعدہ ٹوٹا" : "آج"}</Ur></span></span>
+                <span className="shrink-0 font-semibold tabular-nums">{pkr(p.amount)}</span>
+                <button className="btn-secondary min-h-9 shrink-0 !px-3 !py-1.5 text-xs" onClick={() => go("receive", { type: "wholesale", id: String(p.client_id), amount: String(p.amount) })}>Receive</button>
               </li>
             ))}</ul>
           </div>
@@ -154,8 +154,8 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
             <h2 className="p-4 pb-1 font-semibold">Suppliers to pay · <Ur>سپلائر کو دینا ہے</Ur></h2>
             <ul className="divide-y divide-slate-100">{data.payables.map((s: any) => (
               <li key={s.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span><span className="font-semibold tabular-nums">{pkr(s.owed)}</span>
-                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => go("pay", { type: "supplier", id: String(s.id) })}>Pay</button>
+                <span className="min-w-0 flex-1 font-medium">{s.name}</span><span className="shrink-0 font-semibold tabular-nums">{pkr(s.owed)}</span>
+                <button className="btn-secondary min-h-9 shrink-0 !px-3 !py-1.5 text-xs" onClick={() => go("pay", { type: "supplier", id: String(s.id) })}>Pay</button>
               </li>
             ))}</ul>
           </div>
@@ -174,6 +174,11 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
     </div>
   );
 }
+
+/** Full rupees where there is room; "Rs 39.2 L" in the small boxes on a phone. */
+const Amt = ({ v }: { v: number }) => (
+  <div className="font-semibold tabular-nums"><span className="sm:hidden">{pkrShort(v)}</span><span className="hidden sm:inline">{pkr(v)}</span></div>
+);
 
 const Mini = ({ label, ur, n, v, tone = "", onClick }: { label: string; ur: string; n: number; v: number; tone?: string; onClick: () => void }) => (
   <button onClick={onClick} className="card min-w-0 p-3 text-left hover:bg-slate-50">
