@@ -54,6 +54,8 @@ test("cash book: counted cash + shift cash + cash received − bank deposit − 
 
 test("tanker order in one tap goes to the supplier on WhatsApp and closes when the tanker arrives", async () => {
   const tank = ok(await call("manager", "GET", "/api/stations"), "stations")[0].tanks[0];
+  // demo stock depends on the time of day the data was made; leave room for a 5,000 L tanker
+  db.run("UPDATE tanks SET current_l = capacity_l - 12000 WHERE id=?", tank.id);
   const sug = ok(await call("manager", "GET", `/api/stock/order-suggestion/${tank.id}`), "suggestion");
   assert.ok(sug.supplier_id, "last supplier suggested");
   assert.equal((await call("manager", "POST", "/api/stock/orders", { tank_id: tank.id, supplier_id: sug.supplier_id, litres: sug.room + 5000 })).status, 400, "no space");

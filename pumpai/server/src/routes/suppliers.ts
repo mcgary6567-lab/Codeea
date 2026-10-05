@@ -1,7 +1,8 @@
 /** Supplier accounts (payables): fuel purchases from depots and our payments to them. */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, now } from "../db.js";
+import { recordWithholding, taxSettings } from "./tax.js";
+import { all, get, run, now, tx } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
@@ -61,10 +62,21 @@ suppliers.get("/suppliers/:id", h((req) => {
 suppliers.post("/suppliers/:id/payment", h((req) => {
   const s = own(tid(req), Number(req.params.id));
   const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),
-    txn_date: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional() }), req.body);
+    txn_date: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional(),
+    /** income tax withheld from this payment (paid to FBR instead of the supplier) */
+    withholding: z.number().min(0).optional(), wht_section: z.string().max(30).optional().nullable() }), req.body);
   const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
-  run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-    tid(req), s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
+  const t = tid(req);
+  tx(() => {
+    run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now());
+    if (b.withholding) {
+      const w = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        t, s.id, "payment", b.withholding, "WHT", b.ref ?? null, "Income tax withheld", req.user!.name, ts, now()).id;
+      recordWithholding(t, { payee: s.name, supplier_id: s.id, supplier_txn_id: w, section: b.wht_section ?? taxSettings(t).wht_section, gross: round2(b.amount + b.withholding),
+        rate: round2((b.withholding / (b.amount + b.withholding)) * 100), amount: b.withholding, note: b.ref ? `Payment ${b.ref}` : null, by: req.user!.name, date: ts });
+    }
+  });
   return { owed: supplierOwed(s.id) };
 }));
 

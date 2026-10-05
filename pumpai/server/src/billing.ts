@@ -5,6 +5,7 @@
  * Bill links are signed, so they open without a login but cannot be guessed.
  */
 import jwt from "jsonwebtoken";
+import { shopSaleTax } from "./routes/tax.js";
 import { config, PRODUCTS } from "./config.js";
 import { all, get, getSetting, pkDate, type Row } from "./db.js";
 import { paymentLink, pkr } from "./services.js";
@@ -165,7 +166,7 @@ export function renderReceipt(token: string): string | null {
   try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
   const tenant = get("SELECT * FROM tenants WHERE id=?", p.t);
   if (!tenant) return null;
-  let rows: string, total: number, when: string, pay: string, station: string;
+  let rows: string, total: number, when: string, pay: string, station: string, taxLine = "";
   if (p.r === "f") {
     const s = get("SELECT s.*, st.name station FROM sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND st.tenant_id=?", p.id, p.t);
     if (!s) return null;
@@ -177,6 +178,9 @@ export function renderReceipt(token: string): string | null {
     rows = all("SELECT l.*, i.name FROM shop_sale_lines l JOIN shop_items i ON i.id=l.item_id WHERE l.sale_id=?", s.id)
       .map((l) => `<tr><td>${esc(l.name)}<div class=muted>${n2(l.qty)} × Rs ${n2(l.price)}</div></td><td class=r>Rs ${n2(l.qty * l.price)}</td></tr>`).join("");
     total = s.total; when = s.created_at; pay = s.payment_method; station = s.station;
+    const tx = shopSaleTax(p.t, s.id);
+    if (tx.tax > 0) taxLine = `<tr><td class=muted>${tx.inclusive ? "Includes" : "Plus"} sales tax ${tx.pct}% on Rs ${n2(tx.value)}</td><td class="r muted">Rs ${n2(tx.tax)}</td></tr>`;
+    if (tx.ntn || tx.strn) taxLine += `<tr><td colspan=2 class=muted>${tx.ntn ? `NTN ${esc(tx.ntn)}` : ""}${tx.ntn && tx.strn ? " · " : ""}${tx.strn ? `STRN ${esc(tx.strn)}` : ""}</td></tr>`;
   }
   const review = getSetting(p.t, "google_review_url", "");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt — ${esc(tenant.name)}</title>
@@ -184,7 +188,7 @@ export function renderReceipt(token: string): string | null {
 h1{font-size:19px;margin:0}.muted{color:#64748b;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:8px 0;border-bottom:1px dashed #cbd5e1}.r{text-align:right;font-variant-numeric:tabular-nums}
 .total{font-size:22px;font-weight:700}.btn{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:10px;text-decoration:none;font-weight:600}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}</style></head>
 <body><div class=card><h1>⛽ ${esc(tenant.name)}</h1><div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
-<table>${rows}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
+<table>${rows}${taxLine}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
 <div class=muted style="margin-top:6px">Paid: ${esc(pay)} · Receipt ${p.r === "f" ? "F" : "S"}-${p.id}</div>
 ${review ? `<a class="btn g" href="${esc(review)}">⭐ Rate us on Google</a>` : ""}
 ${tenant.owner_phone ? `<a class="btn w" href="https://wa.me/${esc(tenant.owner_phone)}">WhatsApp us</a>` : ""}

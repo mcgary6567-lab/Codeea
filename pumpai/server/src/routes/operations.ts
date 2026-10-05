@@ -3,6 +3,7 @@ import { z } from "zod";
 import { registerDecider, requestApproval, closeApproval } from "./approvals.js";
 import { walletAfterFill } from "./prepaid.js";
 import { askRating } from "./feedback.js";
+import { claimForDelivery } from "./claims.js";
 import { all, get, run, tx, now, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
@@ -426,6 +427,7 @@ operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
   const b = parse(z.object({
     tank_id: z.number(), invoice_l: z.number().positive(), received_l: z.number().positive(), tanker_no: z.string().optional(), supplier: z.string().optional(),
     supplier_id: z.number().optional().nullable(), purchase_rate: z.number().positive().optional().nullable(), photo_id: z.number().optional().nullable(),
+    freight: z.number().min(0).optional().nullable(),
   }), req.body);
   const t = ownTank(tid(req), b.tank_id);
   const supplier = b.supplier_id ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, tid(req)) : null;
@@ -434,16 +436,17 @@ operations.post("/stock/delivery", requirePerm("stock.manage"), h((req) => {
   if (t.current_l + b.received_l > t.capacity_l * 1.001) throw new AppError(400, `Exceeds tank capacity (${t.capacity_l}L)`);
   const shortage = ((b.invoice_l - b.received_l) / b.invoice_l) * 100;
   return tx(() => {
-    const { id } = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-      t.id, supplier?.name ?? b.supplier ?? null, supplier?.id ?? null, b.purchase_rate ?? null, b.tanker_no ?? null, b.invoice_l, b.received_l, round2(shortage), now());
+    const { id } = run("INSERT INTO deliveries (tank_id,supplier,supplier_id,purchase_rate,tanker_no,invoice_l,received_l,shortage_pct,freight,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t.id, supplier?.name ?? b.supplier ?? null, supplier?.id ?? null, b.purchase_rate ?? null, b.tanker_no ?? null, b.invoice_l, b.received_l, round2(shortage), b.freight ?? null, now());
     // we pay the supplier for the invoiced litres; any shortage is claimed separately
     if (supplier && b.purchase_rate) recordPurchase(tid(req), { supplier_id: supplier.id, delivery_id: id, product: t.product, litres: b.invoice_l, rate: b.purchase_rate, ref: b.tanker_no, by: req.user!.name });
     run("UPDATE tanks SET current_l = current_l + ? WHERE id=?", b.received_l, t.id);
     closeOrderOnDelivery(tid(req), supplier?.id ?? null, t.id, id);
     if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `delivery:${id}`)) { run("UPDATE deliveries SET photo_id=? WHERE id=?", b.photo_id, id); }
+    const claim = claimForDelivery(tid(req), id);
     if (shortage >= 0.3)
       createAlert(tid(req), { station_id: t.station_id, type: "short_delivery", severity: shortage >= 0.8 ? "critical" : "warning",
-        title: `Tanker ${b.tanker_no ?? ""} short by ${shortage.toFixed(2)}%`, body: `${t.name}: invoice ${b.invoice_l}L, received ${b.received_l}L.`, dedupe_key: `delivery-${id}` });
-    return get("SELECT * FROM deliveries WHERE id=?", id);
+        title: `Tanker ${b.tanker_no ?? ""} short by ${shortage.toFixed(2)}%`, body: `${t.name}: invoice ${b.invoice_l}L, received ${b.received_l}L.${claim ? " A shortage claim was opened (Suppliers → Claims)." : ""}`, dedupe_key: `delivery-${id}` });
+    return { ...get("SELECT * FROM deliveries WHERE id=?", id)!, claim_id: claim };
   });
 }));

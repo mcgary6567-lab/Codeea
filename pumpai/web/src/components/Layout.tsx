@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -22,6 +22,7 @@ const NAV = [
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
   { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
+  { to: "/accounts", label: "Accounts & tax", icon: Calculator, perm: "reports.view" },
   { to: "/suppliers", label: "Suppliers", icon: Factory, perm: "suppliers.manage" },
   { to: "/orders", label: "Orders", icon: Truck, badge: "orders", perm: "orders.manage" },
   { to: "/bookings", label: "Bookings", icon: CalendarClock, perm: "sales.create" },

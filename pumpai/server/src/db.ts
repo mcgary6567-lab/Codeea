@@ -369,6 +369,18 @@ export function migrate() {
     units REAL, amount REAL NOT NULL, due_date TEXT, reference TEXT, photo_id INTEGER, expense_id INTEGER, prev_amount REAL, prev_units REAL,
     change_pct REAL, created_by TEXT, created_at TEXT NOT NULL)`);
   addColumn("sales", "coupon_id", "INTEGER");
+  // money: tanker shortage claims, freight per tanker, withholding tax
+  addColumn("deliveries", "freight", "REAL"); // Rs paid for transport of this tanker
+  db.exec(`CREATE TABLE IF NOT EXISTS shortage_claims (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER NOT NULL UNIQUE, supplier_id INTEGER, litres REAL NOT NULL, rate REAL NOT NULL,
+    amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'open', claim_ref TEXT, claimed_on TEXT, recovered REAL NOT NULL DEFAULT 0, recovered_by TEXT,
+    note TEXT, created_at TEXT NOT NULL, updated_at TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS tax_withholdings (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, payee TEXT NOT NULL, supplier_id INTEGER, supplier_txn_id INTEGER, section TEXT,
+    gross REAL NOT NULL, rate REAL, amount REAL NOT NULL, cpr_no TEXT, deposited_on TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS bank_recons (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, bank TEXT, period_from TEXT, period_to TEXT, statement_closing REAL, lines INTEGER, matched INTEGER,
+    bank_only REAL, books_only REAL, created_by TEXT, created_at TEXT NOT NULL)`);
   migrateUserRoles();
 }
 

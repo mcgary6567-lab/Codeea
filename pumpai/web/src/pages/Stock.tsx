@@ -22,7 +22,7 @@ export default function Stock() {
     const id = setTimeout(() => api(`/tanks/${dipTank}/dip-litres?cm=${Number(dip.cm)}`).then((x) => setDipL({ litres: x.litres })).catch((e) => setDipL({ error: e.message })), 250);
     return () => clearTimeout(id);
   }, [dip.cm, dipTank]);
-  const [del, setDel] = useState<any>({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "", photo_id: null });
+  const [del, setDel] = useState<any>({ tank_id: "", invoice_l: "", received_l: "", tanker_no: "", supplier_id: "", purchase_rate: "", freight: "", photo_id: null });
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
   const refresh = () => { dash.reload(); stock.reload(); };
@@ -74,8 +74,9 @@ export default function Stock() {
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
           const r = await run(() => api("/stock/delivery", { body: { tank_id: Number(del.tank_id || tanks[0].id), invoice_l: Number(del.invoice_l), received_l: Number(del.received_l), tanker_no: del.tanker_no,
-            supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null, photo_id: del.photo_id ?? null } }), (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%`);
-          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "", purchase_rate: "", photo_id: null }); refresh(); suppliers.reload(); }
+            supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null, freight: del.freight ? Number(del.freight) : null, photo_id: del.photo_id ?? null } }),
+            (x: any) => `Delivery saved. Shortage ${x.shortage_pct}%${x.claim_id ? " — a shortage claim was opened (Accounts & tax → Tanker claims)" : ""}`);
+          if (r) { setDel({ ...del, invoice_l: "", received_l: "", tanker_no: "", purchase_rate: "", freight: "", photo_id: null }); refresh(); suppliers.reload(); }
         }}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">Receive tanker delivery</h2>
@@ -96,6 +97,7 @@ export default function Stock() {
             <Field label="Supplier"><select className="input" value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
               <option value="">— not on account —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             {del.supplier_id && <Field label="Purchase rate (Rs/L, from invoice)"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>}
+            <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} /></Field>
             {del.supplier_id && Number(del.invoice_l) > 0 && Number(del.purchase_rate) > 0 && <div className="col-span-2 text-xs text-slate-600">Adds Rs {Math.round(Number(del.invoice_l) * Number(del.purchase_rate)).toLocaleString("en-IN")} to what we owe this supplier.</div>}
           </div>
           <button className="btn-primary" disabled={busy}>Save delivery</button>

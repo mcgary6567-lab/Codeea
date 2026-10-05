@@ -33,6 +33,10 @@ import { feedback } from "./routes/feedback.js";
 import { board, boardData, renderBoard } from "./routes/board.js";
 import { register } from "./routes/register.js";
 import { recurring } from "./routes/recurring.js";
+import { claims } from "./routes/claims.js";
+import { tax } from "./routes/tax.js";
+import { bankrec } from "./routes/bankrec.js";
+import { ledger } from "./routes/ledger.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -119,6 +123,10 @@ api.use(feedback);
 api.use(board);
 api.use(register);
 api.use(recurring);
+api.use(claims);
+api.use(tax);
+api.use(bankrec);
+api.use(ledger);
 app.use("/api", api);
 
 // Serve the built dashboard in production

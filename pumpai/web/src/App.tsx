@@ -35,6 +35,7 @@ import Bookings from "./pages/Bookings";
 import Register from "./pages/Register";
 import Prepaid, { CouponSheet } from "./pages/Prepaid";
 import Team from "./pages/Team";
+import Accounts from "./pages/Accounts";
 
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
@@ -134,6 +135,7 @@ export default function App() {
               <Route path="register" element={<Need perm="stock.manage"><Register /></Need>} />
               <Route path="prepaid" element={<Need perm="khata.manage"><Prepaid /></Need>} />
               <Route path="team" element={<Need perm="staff.manage"><Team /></Need>} />
+              <Route path="accounts" element={<Need perm="reports.view"><Accounts /></Need>} />
             </Route>
             <Route path="/cards/:id" element={<Protected><Need perm="khata.manage"><Cards /></Need></Protected>} />
             <Route path="/coupons/:batch" element={<Protected><Need perm="khata.manage"><CouponSheet /></Need></Protected>} />

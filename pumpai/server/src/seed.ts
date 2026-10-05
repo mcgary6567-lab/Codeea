@@ -205,6 +205,7 @@ export function seed() {
     seedCompliance(tenantId, [st1, st2], T0);
     simulateStock(tenantId, st1, st2, T0);
     seedPrepaidAndMore(tenantId, st1, st2, T0);
+    seedMoney(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -484,4 +485,35 @@ function seedPrepaidAndMore(tenantId: number, st1: number, st2: number, T0: numb
       tenantId, c.id, i % 4 === 3 ? st2 : st1, imran, score, score <= 2 ? "Bohat der intezar karna para, salesman phone par baat kar raha tha" : null, score <= 2 ? "low" : "rated", at, at);
   });
   setSetting(tenantId, "board_offers", "Free air & water check with every fill\n1 point on every Rs 100 — pay with points!");
+}
+
+/** A second depot to compare with, freight on each tanker, tax numbers. */
+function seedMoney(tenantId: number) {
+  const first = get("SELECT * FROM suppliers WHERE tenant_id=? ORDER BY id LIMIT 1", tenantId);
+  if (!first) return;
+  const second = run("INSERT INTO suppliers (tenant_id,name,phone,opening_balance,notes,created_at) VALUES (?,?,?,?,?,?)",
+    tenantId, "Shell Machike Depot", "923004445566", 0, "Second depot, used when PSO is short", iso(Date.now() - 70 * DAY)).id;
+  // every third tanker came from the second depot: a little cheaper per litre, more freight and more shortage
+  const dels = all("SELECT d.* FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id", tenantId);
+  dels.forEach((d, i) => {
+    const alt = i % 3 === 2;
+    const freight = Math.round(d.received_l * (alt ? 2.4 : 1.6));
+    run("UPDATE deliveries SET freight=? WHERE id=?", freight, d.id);
+    if (!alt) return;
+    const rate = d.purchase_rate ? Math.round((d.purchase_rate - 0.6) * 100) / 100 : null;
+    const received = Math.round(d.invoice_l * 0.9955);
+    run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", d.received_l - received, d.tank_id);
+    run("UPDATE deliveries SET supplier_id=?, supplier=?, purchase_rate=?, received_l=?, shortage_pct=? WHERE id=?", second, "Shell Machike Depot", rate, received, Math.round(((d.invoice_l - received) / d.invoice_l) * 10000) / 100, d.id);
+    if (rate) run("UPDATE supplier_txns SET supplier_id=?, rate=?, amount=? WHERE delivery_id=?", second, rate, Math.round(d.invoice_l * rate * 100) / 100, d.id);
+  });
+  // pay the second depot what it is owed except the last tanker; move the same amount off the first depot's payments
+  const owed2 = get("SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE supplier_id=? AND type='purchase'", second)!.v;
+  const last = get("SELECT amount FROM supplier_txns WHERE supplier_id=? AND type='purchase' ORDER BY txn_date DESC LIMIT 1", second)?.amount ?? 0;
+  let toMove = owed2 - last;
+  for (const p of all("SELECT * FROM supplier_txns WHERE supplier_id=? AND type='payment' ORDER BY txn_date", first.id)) {
+    if (toMove <= 0) break;
+    if (p.amount <= toMove) { run("UPDATE supplier_txns SET supplier_id=? WHERE id=?", second, p.id); toMove -= p.amount; }
+  }
+  setSetting(tenantId, "ntn", "4217651-3");
+  setSetting(tenantId, "strn", "3277876154321");
 }
