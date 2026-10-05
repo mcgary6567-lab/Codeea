@@ -27,7 +27,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
         <Field label="To · تک"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
         <button className="btn-secondary" onClick={() => setRange({ from: monthStart(), to: today() })}>This month · اس مہینے</button>
         <button className="btn-secondary" onClick={() => setRange({ from: "", to: "" })}>All time · سارا</button>
-        <div className="ml-auto flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
           <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${customerId}/send-bill`, { body: { month } }), `${month} bill sent on WhatsApp`)}><Send size={15} /> WhatsApp bill · واٹس ایپ</button>
           <button className="btn-secondary" onClick={openBill}><ExternalLink size={15} /> Bill link · لنک</button>
           <a className="btn-secondary" href={`/cards/${customerId}`} target="_blank" rel="noreferrer"><QrCode size={15} /> QR cards</a>

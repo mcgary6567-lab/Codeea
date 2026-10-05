@@ -22,7 +22,7 @@ export function Stat({ label, value, hint, icon, tone = "slate" }: { label: stri
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
         {icon && <span className={`rounded-lg p-1.5 ${tones[tone]}`}>{icon}</span>}
       </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
+      <div className="mt-2 break-words text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{value}</div>
       {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
     </div>
   );

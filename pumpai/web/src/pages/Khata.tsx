@@ -41,7 +41,29 @@ export default function Khata() {
           </button>
         ))}
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per customer */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {rows.map((c) => {
+          const util = c.credit_limit ? Math.min(100, (c.balance / c.credit_limit) * 100) : 0;
+          return (
+            <li key={c.id} className="px-4 py-3 active:bg-slate-50" onClick={() => nav(`/customers/${c.id}`)}>
+              <div className="flex items-start gap-2">
+                <span className="min-w-0 flex-1"><span className="block font-semibold">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</span>
+                  <span className="text-xs text-slate-500">{phone(c.phone)}{c.khata_blocked ? <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-700">On hold · روکا</span> : null}</span></span>
+                <span className="text-right"><span className="block font-bold tabular-nums">{pkr(c.balance)}</span><span className="text-xs text-slate-500">{ago(c.last_payment) === "—" ? "never paid" : `paid ${ago(c.last_payment)}`}</span></span>
+              </div>
+              {c.credit_limit > 0 && <div className="mt-2 flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${util}%`, background: util >= 80 ? "#e34948" : "#2a78d6" }} /></div>
+                <span className="text-xs tabular-nums text-slate-600">{Math.round(util)}% of {pkr(c.credit_limit)}</span></div>}
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className={c.risk_score >= 60 ? "font-semibold text-red-600" : "text-slate-500"}>Risk · <Ur>خطرہ</Ur> {Math.round(c.risk_score)}</span>
+                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={(e) => { e.stopPropagation(); setBill(c.id); }}>📄 Bill · <Ur>بل</Ur></button>
+              </div>
+            </li>
+          );
+        })}
+        {!rows.length && <li><Empty>No credit customers · کوئی کھاتہ نہیں</Empty></li>}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Customer · <Ur>گاہک</Ur></th><th className="th text-right">Balance · <Ur>بقایا</Ur></th><th className="th text-right">Limit · <Ur>حد</Ur></th><th className="th">Used · <Ur>استعمال</Ur></th><th className="th">Risk · <Ur>خطرہ</Ur></th><th className="th">Last payment · <Ur>آخری ادائیگی</Ur></th><th className="th" /></tr></thead>
           <tbody>

@@ -140,12 +140,12 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             <Stat label="Churn risk" value={`${Math.round(c.churn_score * 100)}%`} />
             <Stat label="Credit risk" value={c.credit_limit ? `${Math.round(c.risk_score)}/100` : "—"} />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {c.conversation && can("whatsapp.inbox") && <Link className="btn-secondary" to={`/inbox/${c.conversation.id}`}><MessageCircle size={15} /> Open chat</Link>}
-            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>}
-            {can("khata.manage") && <button className="btn-secondary" onClick={() => setPay("debit")}>+ Add charge · <Ur>کھاتے میں لکھیں</Ur></button>}
-            {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <button className="btn-secondary" onClick={() => setBill(true)}>📄 Bill / statement · <Ur>بل</Ur></button> : null}
-            {c.balance > 0 && can("khata.manage") && <button className="btn-secondary" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder · <Ur>یاد دہانی</Ur></button>}
+            {can("khata.manage") && <button className="btn-secondary flex-col !gap-0 text-center sm:flex-row sm:!gap-1.5" onClick={() => setPay("credit")}><Wallet size={15} /> Receive payment<span className="hidden sm:inline"> · </span><Ur className="block text-xs sm:inline sm:text-sm">رقم وصول</Ur></button>}
+            {can("khata.manage") && <button className="btn-secondary flex-col !gap-0 text-center sm:flex-row sm:!gap-1.5" onClick={() => setPay("debit")}>+ Add charge<span className="hidden sm:inline"> · </span><Ur className="block text-xs sm:inline sm:text-sm">کھاتے میں لکھیں</Ur></button>}
+            {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <button className="btn-secondary flex-col !gap-0 text-center sm:flex-row sm:!gap-1.5" onClick={() => setBill(true)}>📄 Bill / statement<span className="hidden sm:inline"> · </span><Ur className="block text-xs sm:inline sm:text-sm">بل</Ur></button> : null}
+            {c.balance > 0 && can("khata.manage") && <button className="btn-secondary flex-col !gap-0 text-center sm:flex-row sm:!gap-1.5" disabled={busy} onClick={() => run(() => api(`/customers/${c.id}/remind`, { body: {} }), "Reminder with payment link sent on WhatsApp").then(refresh)}><BellRing size={15} /> Send reminder<span className="hidden sm:inline"> · </span><Ur className="block text-xs sm:inline sm:text-sm">یاد دہانی</Ur></button>}
           </div>
           {can("khata.manage") && (c.credit_limit > 0 || c.balance) ? <KhataVoice compact customerId={c.id} onDone={refresh} /> : null}
           {pay && (
