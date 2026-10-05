@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -12,11 +12,11 @@ import { useBranding, useInstallPrompt } from "../lib/brand";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
 const WHOLESALE_SUB = [
-  { to: "/wholesale?tab=clients", label: "Clients", perm: "wholesale.view" },
-  { to: "/wholesale?tab=trips", label: "Tanker trips", perm: "wholesale.view" },
-  { to: "/wholesale?do=rate", label: "Change rate", perm: "wholesale.rates" },
-  { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", perm: "wholesale.manage" },
-  { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", perm: "wholesale.manage" },
+  { to: "/wholesale?tab=clients", label: "Clients", icon: Users, perm: "wholesale.view" },
+  { to: "/wholesale?tab=trips", label: "Tanker trips", icon: Route, perm: "wholesale.view" },
+  { to: "/wholesale?do=rate", label: "Change rate", icon: Tag, perm: "wholesale.rates" },
+  { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", icon: Truck, perm: "wholesale.manage" },
+  { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", icon: UserPlus, perm: "wholesale.manage" },
 ];
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
@@ -80,7 +80,11 @@ export default function Layout() {
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
         {NAV.filter((n) => (!n.perm || can(n.perm)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? ""))).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
-            className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${isActive ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`}>
+            className={({ isActive }) => {
+              // on the wholesale page a shortcut below is highlighted instead, unless it is the dashboard
+              const on = isActive && !(n.to === "/wholesale" && loc.pathname === "/wholesale" && WHOLESALE_SUB.some((x) => x.to.slice("/wholesale".length) === loc.search));
+              return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
+            }}>
             <n.icon size={17} />
             <span className="flex-1">{n.label}</span>
             {n.badge && badgeVal[n.badge] > 0 && <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{badgeVal[n.badge]}</span>}
@@ -88,15 +92,16 @@ export default function Layout() {
         )).flatMap((el, i, arr) => {
           // wholesale shortcuts right under "Wholesale Supply"
           if ((el as any).key !== "/wholesale") return [el];
-          return [el, ...WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => {
+          return [el, <div key="wholesale-sub" className="ml-4 space-y-0.5 border-l border-white/15 pl-2">{WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => {
             const active = loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length);
             return (
               <Link key={x.to} to={x.to} onClick={() => setOpen(false)}
-                className={`ml-7 flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition ${active ? "bg-white/15 text-white" : "text-emerald-100/75 hover:bg-white/10"}`}>
-                <span className="h-1 w-1 rounded-full bg-current" />{x.label}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${active ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`}>
+                <x.icon size={16} />
+                <span className="flex-1">{x.label}</span>
               </Link>
             );
-          })];
+          })}</div>];
         })}
       </div>
       <div className="border-t border-white/10 p-4 text-sm">
