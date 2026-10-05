@@ -78,7 +78,7 @@ export async function sendKhataBill(tenantId: number, customerId: number, month 
   const fuel = s.totals.by_product.map((p: any) => `${PRODUCTS[p.product] ?? p.product} ${Math.round(p.litres)} L = ${pkr(p.amount)}`).join("\n");
   const text = `📄 ${c.name} — ${monthName(month)} ka bill\n${fuel || "Is mahine koi fuel nahi liya"}\nIs mahine: ${pkr(s.totals.charged)} · Payment: ${pkr(s.totals.paid)}\n` +
     `Kul baqaya: ${pkr(s.closing_balance)}\nPoora bill (slips ke saath, print ke liye): ${billLink(tenantId, "k", c.id, month)}\nApna khata kabhi bhi dekhein: ${portalLink(c)} (PIN: ${pinOf("k", c.id, c.portal_v ?? 0)})` +
-    (s.closing_balance > 0 ? `\nPay karein: ${paymentLink(c, s.closing_balance)}` : "");
+    (s.closing_balance > 0 && paymentLink(c, s.closing_balance) ? `\nPay karein: ${paymentLink(c, s.closing_balance)}` : "");
   await sendWhatsApp(tenantId, c, text, "system", { kind: "monthly_bill", month });
   return { month, charged: s.totals.charged, closing: s.closing_balance };
 }
@@ -166,6 +166,7 @@ export const receiptUrl = (tenantId: number, kind: "f" | "s", id: number) =>
 export function renderReceipt(token: string): string | null {
   let p: { r: "f" | "s"; t: number; id: number };
   try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
+  if (p.r !== "f" && p.r !== "s") return null; // only receipt links, never another kind of signed link
   const tenant = get("SELECT * FROM tenants WHERE id=?", p.t);
   if (!tenant) return null;
   let rows: string, total: number, when: string, pay: string, station: string, taxLine = "";

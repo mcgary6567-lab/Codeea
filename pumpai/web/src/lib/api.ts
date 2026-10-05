@@ -4,6 +4,11 @@ const TOKEN_KEY = "pumpai_token";
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
 export const setToken = (t: string | null) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ } };
 
+/** Short-lived read-only token for links the browser opens by itself (photos, downloads, live feed) — never the session. */
+let media = "";
+export const setMediaToken = (t: string | null | undefined) => { media = t ?? ""; };
+export const linkToken = () => encodeURIComponent(media);
+
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
 const DEVICE_KEY = "pumpai_device";
@@ -61,9 +66,8 @@ export function useLiveEvents(onEvent: (e: any) => void, enabled = true) {
   const cb = useRef(onEvent);
   cb.current = onEvent;
   useEffect(() => {
-    const token = getToken();
-    if (!token || !enabled) return;
-    const es = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
+    if (!getToken() || !media || !enabled) return;
+    const es = new EventSource(`/api/events?token=${linkToken()}`);
     es.onmessage = (m) => { try { cb.current(JSON.parse(m.data)); } catch { /* ignore */ } };
     return () => es.close();
   }, [enabled]);

@@ -37,7 +37,7 @@ test("customer portal: private link shows balance and fills; resetting the link 
   const { url, pin } = ok(await call("manager", "GET", `/api/customers/${c.id}/portal`), "link");
   assert.match(await (await fetch(local(url))).text(), /Enter the 6-digit PIN/, "PIN asked first");
   const html = await (await fetch(local(url), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${pin}` })).text();
-  assert.match(html, new RegExp(c.name)); assert.match(html, /You have to pay|All paid/); assert.match(html, /Entries/); assert.match(html, /Pay now/);
+  assert.match(html, new RegExp(c.name)); assert.match(html, /You have to pay|All paid/); assert.match(html, /Entries/); assert.doesNotMatch(html, /Pay now/, "no payment link unless the pump has set one");
   ok(await call("manager", "POST", `/api/customers/${c.id}/portal/send`, {}), "send");
   const sent = db.get("SELECT m.* FROM messages m JOIN conversations v ON v.id=m.conversation_id WHERE v.customer_id=? AND m.meta LIKE '%portal_link%' ORDER BY m.id DESC", c.id);
   assert.ok(sent && sent.body.includes(pin), "link and PIN sent on WhatsApp");
@@ -92,7 +92,7 @@ test("government bill: made from the month's fills, PO and submission recorded, 
   assert.ok(Math.abs(db.get("SELECT balance FROM customers WHERE id=?", police.id).balance - (bal0 - bill.amount)) < 0.02);
   const list = ok(await call("manager", "GET", "/api/govt-bills"), "list");
   assert.equal(list.find((b: any) => b.id === bill.id).status, "paid");
-  const notice = await (await fetch(`${base}/api/customers/${police.id}/notice?token=${tokens.manager}`)).text();
+  const notice = await (await fetch(`${base}/api/customers/${police.id}/notice?token=${(await call("manager", "GET", "/api/me")).data.media_token}`)).text();
   assert.match(notice, /NOTICE FOR PAYMENT/); assert.match(notice, /واجب الادا/);
 });
 

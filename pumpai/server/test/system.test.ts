@@ -37,7 +37,7 @@ test("backups: nightly job and on demand, downloadable, restore is staged for th
   const made = ok(await call("admin", "POST", "/api/backups", {}), "backup");
   const list = ok(await call("admin", "GET", "/api/backups"), "list");
   assert.ok(list.backups.some((b: any) => b.name === made.name)); assert.equal(list.restore_pending, false);
-  const file = await fetch(`${base}/api/backups/${made.name}?token=${tokens.admin}`);
+  const file = await fetch(`${base}/api/backups/${made.name}?token=${(await call("admin", "GET", "/api/me")).data.media_token}`);
   assert.equal(file.status, 200);
   const bytes = Buffer.from(await file.arrayBuffer());
   assert.equal(bytes.subarray(0, 15).toString(), "SQLite format 3", "a real SQLite file");

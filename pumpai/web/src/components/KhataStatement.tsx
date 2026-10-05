@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
 import { PortalCard } from "./PortalCard";
 import { Field, Loading, Modal, useAction } from "./ui";
@@ -15,7 +15,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const { data: s, reload } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
-  const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`;
+  const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${linkToken()}`;
   const { busy, run } = useAction();
   const month = (range.from || pkToday()).slice(0, 7);
   const openBill = async () => { const r = await run(() => api(`/customers/${customerId}/bill-link?month=${month}`)); if (r) window.open(r.url, "_blank"); };
@@ -49,7 +49,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm print:hidden">
-            <a className="btn-secondary !py-1" href={`/api/customers/${customerId}/notice?token=${encodeURIComponent(getToken() ?? "")}`} target="_blank" rel="noreferrer">📜 Payment notice</a>
+            <a className="btn-secondary !py-1" href={`/api/customers/${customerId}/notice?token=${linkToken()}`} target="_blank" rel="noreferrer">📜 Payment notice</a>
             <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={Boolean(s.customer.khata_blocked)} onChange={(e) => run(() => api(`/customers/${customerId}/khata-hold`, { body: { blocked: e.target.checked } }), e.target.checked ? "Khata on hold" : "Khata open again").then(reload)} />
               <span className={s.customer.khata_blocked ? "font-semibold text-red-600" : ""}>{s.customer.khata_blocked ? "On hold (overdue)" : "Hold khata"}</span></label>
           </div>

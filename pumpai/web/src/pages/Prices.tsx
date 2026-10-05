@@ -96,7 +96,7 @@ function TvBoard({ canEdit }: { canEdit: boolean }) {
     <div className="card p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Tv size={18} className="text-brand-600" /><h2 className="flex-1 font-semibold">TV rate board</h2>
-        <select className="input w-auto py-1 text-sm" value={station} onChange={(e) => setStation(e.target.value)} aria-label="Station">
+        <select className="input min-h-9 w-auto py-1 text-sm" value={station} onChange={(e) => setStation(e.target.value)} aria-label="Station">
           <option value="">All products</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         {link.data && <a className="btn-primary" href={link.data.url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open board</a>}

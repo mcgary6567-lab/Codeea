@@ -282,7 +282,7 @@ function tablesFor(tab: Tab, r: any): TableDef[] {
       return [
         { title: "By product", rows: r.sales.by_product, cols: [prod(), l("Litres", "litres"), m("Amount", "amount"), l("Transactions", "txns")] },
         { title: "By station", rows: r.sales.by_station, cols: [txt("Station", "station"), l("Litres", "litres"), m("Amount", "amount"), l("Transactions", "txns")] },
-        { title: "By meter (No.1, No.2 …) — from meter readings", rows: r.sales.by_meter ?? [], cols: [txt("Station", (x) => x.station.replace("Al-Madina ", "")), txt("Meter", "meter"), prod(), l("Litres", "litres"), m("Sale (Rs)", "amount"), l("Shifts", "shifts"), txt("Salesmen", (x) => x.salesmen.join(", "))] },
+        { title: "By meter (No.1, No.2 …) — from meter readings", rows: r.sales.by_meter ?? [], cols: [txt("Station", (x) => x.station), txt("Meter", "meter"), prod(), l("Litres", "litres"), m("Sale (Rs)", "amount"), l("Shifts", "shifts"), txt("Salesmen", (x) => x.salesmen.join(", "))] },
         { title: "By payment method", rows: r.sales.by_payment, cols: [txt("Method", "method"), m("Amount", "amount"), l("Transactions", "txns")] },
         { title: "Top customers", rows: r.sales.top_customers, cols: [txt("Customer", "name"), txt("Type", "type"), l("Litres", "litres"), m("Amount", "amount"), l("Visits", "visits")] },
       ];
@@ -290,8 +290,8 @@ function tablesFor(tab: Tab, r: any): TableDef[] {
       return [
         { title: "Tanks now", rows: r.stock.tanks, cols: [txt("Station", "station"), txt("Tank", "tank"), l("Capacity", "capacity_l"), l("Stock L", "current_l"), { h: "Fill %", v: (x) => `${x.fill_pct}%`, csv: (x) => x.fill_pct, right: true }, { h: "Days to empty", v: (x) => x.days_to_empty, right: true }] },
         { title: "Fuel purchased (supplier invoices)", rows: r.stock.purchases, cols: [prod(), l("Litres", "litres"), m("Cost", "cost")] },
-        { title: "Tanker deliveries", rows: r.stock.deliveries, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station.replace("Al-Madina ", "")} ${x.tank}`), txt("Tanker", "tanker_no"), l("Invoice L", "invoice_l"), l("Received L", "received_l"), { h: "Short %", v: (x) => <span className={x.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{x.shortage_pct}%</span>, csv: (x) => x.shortage_pct, right: true }, { h: "Rate", v: (x) => x.purchase_rate ? `Rs ${x.purchase_rate}` : "—", csv: (x) => x.purchase_rate, right: true }] },
-        { title: "Dip readings", rows: r.stock.dips, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station.replace("Al-Madina ", "")} ${x.tank}`), l("Book L", "book_l"), l("Dip L", "measured_l"), { h: "Variance", v: (x) => <span className={Math.abs(x.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{x.variance_pct}%</span>, csv: (x) => x.variance_pct, right: true }] },
+        { title: "Tanker deliveries", rows: r.stock.deliveries, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station} ${x.tank}`), txt("Tanker", "tanker_no"), l("Invoice L", "invoice_l"), l("Received L", "received_l"), { h: "Short %", v: (x) => <span className={x.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{x.shortage_pct}%</span>, csv: (x) => x.shortage_pct, right: true }, { h: "Rate", v: (x) => x.purchase_rate ? `Rs ${x.purchase_rate}` : "—", csv: (x) => x.purchase_rate, right: true }] },
+        { title: "Dip readings", rows: r.stock.dips, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station} ${x.tank}`), l("Book L", "book_l"), l("Dip L", "measured_l"), { h: "Variance", v: (x) => <span className={Math.abs(x.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{x.variance_pct}%</span>, csv: (x) => x.variance_pct, right: true }] },
       ];
     case "expenses":
       return [

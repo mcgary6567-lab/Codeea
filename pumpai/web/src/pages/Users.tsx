@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote, LogOut } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
@@ -48,6 +48,7 @@ export default function Users() {
   const stations = useApi<any[]>("/stations");
   const { user: me } = useAuth();
   const { busy, run } = useAction();
+  const signOut = (u: U) => { if (confirm(`Sign ${u.name} out of every phone and browser?`)) run(() => api(`/users/${u.id}/sign-out`, { body: {} }), `${u.name} signed out everywhere`); };
   const [editing, setEditing] = useState<Partial<U> | null>(null);
   const [pinFor, setPinFor] = useState<U | null>(null);
   if (!data || !stations.data) return <Loading />;
@@ -85,6 +86,7 @@ export default function Users() {
             <div className="mt-1 flex flex-wrap gap-1">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}{u.has_pin ? <Badge tone="blue">PIN set</Badge> : null}{u.pin_locked_until ? <Badge tone="red">🔒 Locked — wrong PINs</Badge> : null}</div>
             <div className="mt-2 flex flex-wrap gap-2">
               <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={() => setPinFor(u)}><KeyRound size={14} /> {u.pin_locked_until ? "Unlock / reset PIN" : "Reset PIN"}</button>
+              {u.id !== me?.id && <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={() => signOut(u)}><LogOut size={14} /> Sign out everywhere</button>}
               <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={() => setEditing(u)}><Pencil size={14} /> Edit</button>
               {u.id !== me?.id && <>
                 <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" disabled={busy} onClick={() => run(() => api(`/users/${u.id}`, { method: "PATCH", body: { active: !u.active } }), u.active ? `${u.name} disabled` : `${u.name} enabled`).then(reload)}>{u.active ? "Disable" : "Enable"}</button>
@@ -109,6 +111,7 @@ export default function Users() {
                 <td className="td">
                   <div className="flex justify-end gap-1">
                     <button className="btn-secondary !px-2 !py-1 text-xs" title="Forgot PIN? Set a new one" onClick={() => setPinFor(u)}><KeyRound size={14} /> {u.pin_locked_until ? "Unlock / reset PIN" : "Reset PIN"}</button>
+                    {u.id !== me?.id && <button className="btn-secondary !px-2 !py-1 text-xs" title="Lost phone / left the job: sign out of every device" onClick={() => signOut(u)}><LogOut size={14} /></button>}
                     <button className="btn-secondary !px-2 !py-1" title="Edit" onClick={() => setEditing(u)}><Pencil size={14} /></button>
                     {u.id !== me?.id && (
                       <>
@@ -130,6 +133,11 @@ export default function Users() {
         </table>
       </div>
 
+      <div className="card flex flex-wrap items-center gap-3 p-4">
+        <ShieldCheck size={20} className="shrink-0 text-slate-600" />
+        <div className="min-w-0 flex-1 text-sm"><b>Shared tablets (PIN sign-in)</b><span className="block text-slate-500">A tablet is linked when the owner or a manager signs in on it once. Lost a tablet or changed staff? Unlink them all — each needs an owner / manager sign-in again.</span></div>
+        <button className="btn-secondary min-h-9" disabled={busy} onClick={() => { if (confirm("Unlink every tablet? Staff will need an owner / manager sign-in on each tablet again.")) run(() => api("/security/unlink-devices", { body: {} }), "All tablets unlinked"); }}>Unlink all tablets</button>
+      </div>
       <RoleMatrix data={data} onChanged={reload} />
 
       {pinFor && <ResetPin user={pinFor} onClose={() => { setPinFor(null); reload(); }} />}
@@ -179,8 +187,8 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
             {stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </Field>
-        <Field label={isNew ? "Password (min 6 characters)" : "New password (leave blank to keep)"}>
-          <input className="input" type="password" minLength={6} required={isNew} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
+        <Field label={isNew ? "Password (min 8 characters)" : "New password (leave blank to keep)"}>
+          <input className="input" type="password" minLength={8} required={isNew} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
         </Field>
         <Field label={initial.has_pin ? "Quick sign-in PIN (4 digits) — set, type a new one to change" : "Quick sign-in PIN (4 digits, for the pump tablet)"}>
           <div className="flex items-center gap-3">

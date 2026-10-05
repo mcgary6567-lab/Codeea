@@ -6,7 +6,8 @@ import { Router } from "express";
 import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
-import { db, getSetting, setSetting } from "../db.js";
+import { db, getSetting, setSetting, closeDb } from "../db.js";
+import { execFile } from "node:child_process";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, audit } from "../services.js";
 import { config } from "../config.js";
@@ -28,7 +29,21 @@ export function makeBackup(): { name: string; bytes: number } {
   db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
   const all = listBackups();
   for (const old of all.slice(KEEP)) fs.rmSync(path.join(backupDir(), old.name), { force: true });
+  copyOffsite(file);
   return { name, bytes: fs.statSync(file).size };
+}
+
+/**
+ * A backup on the same server is lost with the server: BACKUP_COPY_CMD copies each new one elsewhere,
+ * e.g. `rclone copy "$BACKUP_FILE" gdrive:pumpai` or `aws s3 cp "$BACKUP_FILE" s3://my-bucket/`. The result shows in Settings → Backups.
+ */
+function copyOffsite(file: string) {
+  const cmd = process.env.BACKUP_COPY_CMD;
+  if (!cmd) return;
+  execFile("sh", ["-c", cmd], { env: { ...process.env, BACKUP_FILE: file }, timeout: 15 * 60_000 }, (err, _out, errOut) => {
+    setSetting(0, "offsite_last", JSON.stringify({ at: new Date().toISOString(), ok: !err, message: err ? String(errOut || err.message).slice(0, 300) : null }));
+    if (err) console.error("[backup] off-site copy failed:", err.message);
+  });
 }
 export function listBackups() {
   if (!fs.existsSync(backupDir())) return [];
@@ -36,12 +51,13 @@ export function listBackups() {
     .sort((a, b) => b.name.localeCompare(a.name));
 }
 
-system.get("/backups", requirePerm("settings.manage"), h(() => ({ dir: backupDir(), backups: listBackups(), restore_pending: fs.existsSync(`${config.dbPath}.restore`), can_restart: process.env.SUPERVISED === "1" })));
+system.get("/backups", requirePerm("settings.manage"), h(() => ({ dir: backupDir(), backups: listBackups(), restore_pending: fs.existsSync(`${config.dbPath}.restore`), can_restart: process.env.SUPERVISED === "1",
+  offsite: { configured: Boolean(process.env.BACKUP_COPY_CMD), last: (() => { try { return JSON.parse(getSetting(0, "offsite_last", "null")); } catch { return null; } })() } })));
 /** Under systemd / Docker the app comes straight back after exiting — used to finish a restore from the browser. */
 system.post("/system/restart", requirePerm("settings.manage"), h((req) => {
   if (process.env.SUPERVISED !== "1") throw new AppError(400, "Restart the app from the server (it is not running as a service)");
   audit(tid(req), req.user!, "app_restart", "system", {});
-  setTimeout(() => process.exit(0), 600);
+  setTimeout(() => { closeDb(); process.exit(0); }, 600);
   return { ok: true, message: "Restarting — the app is back in a few seconds" };
 }));
 system.post("/backups", requirePerm("settings.manage"), h(() => makeBackup()));

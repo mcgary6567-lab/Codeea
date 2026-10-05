@@ -55,17 +55,17 @@ managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
 
   /* ---- stock ---- */
   for (const tk of tankOutlook(t)) if (tk.days_to_reorder <= 1.5)
-    sug.push({ level: tk.days_to_empty <= 1 ? "critical" : "warning", title: `${tk.name} (${tk.station_name.replace(/^Al-Madina /, "")}): order ${Math.round(tk.suggested_order_l).toLocaleString()} L`, detail: `${Math.round(tk.current_l).toLocaleString()} L left — about ${tk.days_to_empty} days at ${Math.round(tk.forecast_daily_l).toLocaleString()} L a day.`, to: "/stock", label: "Order fuel" });
+    sug.push({ level: tk.days_to_empty <= 1 ? "critical" : "warning", title: `${tk.name} (${tk.station_name}): order ${Math.round(tk.suggested_order_l).toLocaleString()} L`, detail: `${Math.round(tk.current_l).toLocaleString()} L left — about ${tk.days_to_empty} days at ${Math.round(tk.forecast_daily_l).toLocaleString()} L a day.`, to: "/stock", label: "Order fuel" });
   if (pkHour >= 9) {
     const noDip = all(`SELECT t.name, s.name station FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND NOT EXISTS (SELECT 1 FROM dip_readings d WHERE d.tank_id=t.id AND d.created_at >= ?)`, t, dayStart);
-    if (noDip.length) sug.push({ level: "info", title: `No dip reading today for ${noDip.length} tank${noDip.length > 1 ? "s" : ""}`, detail: noDip.map((x) => `${x.name} (${x.station.replace(/^Al-Madina /, "")})`).join(", ") + ". A daily dip catches leaks and short deliveries early.", to: "/stock", label: "Enter dip" });
+    if (noDip.length) sug.push({ level: "info", title: `No dip reading today for ${noDip.length} tank${noDip.length > 1 ? "s" : ""}`, detail: noDip.map((x) => `${x.name} (${x.station})`).join(", ") + ". A daily dip catches leaks and short deliveries early.", to: "/stock", label: "Enter dip" });
   }
   // a meter that sold nothing while its twin sold plenty may be faulty or blocked
   const ms = meterSales(t, new Date(nowMs - 3 * DAY).toISOString(), new Date(nowMs).toISOString());
   for (const m of ms) {
     const twin = ms.filter((x) => x.station_id === m.station_id && x.product === m.product && x.nozzle_id !== m.nozzle_id);
     if (m.litres < 1 && twin.some((x) => x.litres > 500))
-      sug.push({ level: "info", title: `Meter ${m.meter} sold nothing in 3 days`, detail: `${m.station.replace(/^Al-Madina /, "")} — the other ${PRODUCTS[m.product]} meter is busy. Check the dispenser for a fault.`, to: "/machines", label: "Machines" });
+      sug.push({ level: "info", title: `Meter ${m.meter} sold nothing in 3 days`, detail: `${m.station} — the other ${PRODUCTS[m.product]} meter is busy. Check the dispenser for a fault.`, to: "/machines", label: "Machines" });
   }
 
   /* ---- money owed ---- */
@@ -100,7 +100,7 @@ managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
     const items = get("SELECT COUNT(*) n FROM checklist_items WHERE tenant_id=? AND active=1 AND frequency='daily'", t)!.n;
     if (items) for (const s of all("SELECT id, name FROM stations WHERE tenant_id=?", t)) {
       const done = get("SELECT COUNT(DISTINCT item_id) n FROM checklist_entries WHERE station_id=? AND day=?", s.id, today)!.n;
-      if (done < items) sug.push({ level: "info", title: `Daily checks: ${done} of ${items} done at ${s.name.replace(/^Al-Madina /, "")}`, detail: "Fire extinguishers, leaks, cleanliness and the 5-litre measure.", to: "/checklist", label: "Daily checks" });
+      if (done < items) sug.push({ level: "info", title: `Daily checks: ${done} of ${items} done at ${s.name}`, detail: "Fire extinguishers, leaks, cleanliness and the 5-litre measure.", to: "/checklist", label: "Daily checks" });
     }
   }
   const in30 = new Date(nowMs + 30 * DAY + 5 * 3600_000).toISOString().slice(0, 10);

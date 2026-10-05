@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Download, Check, X, Trash2, Settings2, Repeat } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { FixedCosts } from "../components/FixedCosts";
 import { d, pkr, pkrShort } from "../lib/format";
@@ -28,7 +28,7 @@ export default function Expenses() {
   const s = data.summary;
   const change = s.previous_month ? Math.round(((s.total - s.previous_month) / s.previous_month) * 100) : null;
   const maxCat = Math.max(1, ...s.by_category.map((c: any) => Math.max(c.spent, c.budget ?? 0)));
-  const csvUrl = `/api/expenses.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`;
+  const csvUrl = `/api/expenses.csv?${qs}&token=${linkToken()}`;
   const refresh = () => { reload(); cats.reload(); };
 
   const actions = (e: any) => (
@@ -92,7 +92,7 @@ export default function Expenses() {
               </div>
               {(e.note || e.receipt_ref || e.photo_id) && <div className="break-words text-xs text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div>}
               <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge>{e.station_name?.replace("Al-Madina ", "") ?? "All"} · {e.created_by}</span>
+                <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge>{e.station_name ?? "All"} · {e.created_by}</span>
                 {actions(e)}
               </div>
             </li>
@@ -107,7 +107,7 @@ export default function Expenses() {
                 <td className="td text-xs">{d(e.expense_date)}</td>
                 <td className="td text-sm">{e.category}</td>
                 <td className="td text-xs"><div>{e.paid_to ?? "—"} <span className="text-slate-400">· {e.method}</span></div><div className="text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div></td>
-                <td className="td text-xs">{e.station_name?.replace("Al-Madina ", "") ?? "All"}</td>
+                <td className="td text-xs">{e.station_name ?? "All"}</td>
                 <td className="td text-right font-medium tabular-nums">{pkr(e.amount)}</td>
                 <td className="td"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge><div className="text-[11px] text-slate-400">{e.created_by}</div></td>
                 <td className="td">

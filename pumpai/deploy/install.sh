@@ -113,6 +113,8 @@ EnvironmentFile=$ENV_FILE
 ExecStart=$(command -v node) --disable-warning=ExperimentalWarning dist/index.js
 Restart=always
 RestartSec=3
+# the app closes the database cleanly on stop
+TimeoutStopSec=30
 NoNewPrivileges=true
 ProtectSystem=full
 ReadWritePaths=$DATA_DIR
@@ -131,6 +133,11 @@ server {
     listen 80;
     server_name $SERVER_NAME;
     client_max_body_size 12m;
+    server_tokens off;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    # links carry short read-only tokens; keep them out of the access log anyway
+    access_log /var/log/nginx/pumpai.access.log pumpai;
     location / {
         proxy_pass http://127.0.0.1:$PORT;
         proxy_http_version 1.1;
@@ -142,11 +149,19 @@ server {
     }
 }
 NGINX
+# log requests without their query string (no tokens in log files)
+cat > /etc/nginx/conf.d/pumpai-log.conf <<'NGLOG'
+log_format pumpai '$remote_addr - [$time_local] "$request_method $uri" $status $body_bytes_sent';
+NGLOG
 ln -sf /etc/nginx/sites-available/pumpai /etc/nginx/sites-enabled/pumpai
 rm -f /etc/nginx/sites-enabled/default
 nginx -t -q && systemctl reload nginx
 
-if command -v ufw >/dev/null; then ufw allow OpenSSH >/dev/null; ufw allow 'Nginx Full' >/dev/null; ufw --force enable >/dev/null || true; fi
+if command -v ufw >/dev/null; then
+  # keep the SSH port this server really uses open (not only 22), or the firewall could lock you out
+  SSH_PORT=$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}'); SSH_PORT=${SSH_PORT:-22}
+  ufw allow "$SSH_PORT"/tcp >/dev/null; ufw allow 'Nginx Full' >/dev/null; ufw --force enable >/dev/null || true
+fi
 
 if [[ -n "$DOMAIN" && $SSL -eq 1 ]]; then
   say "Getting a free SSL certificate for $DOMAIN"
@@ -155,6 +170,12 @@ if [[ -n "$DOMAIN" && $SSL -eq 1 ]]; then
     || echo "  SSL failed — check that $DOMAIN points to this server, then run: certbot --nginx -d $DOMAIN"
 fi
 
+if [[ -z "$DOMAIN" || $SSL -ne 1 ]]; then
+  echo
+  echo "  ⚠️  No domain / SSL: sign-in and passwords travel UNENCRYPTED over plain http."
+  echo "      Fine for a quick test on the pump's own network — for real use run again with --domain your.domain --email you@mail"
+  echo
+fi
 say "Checking that it is running"
 for i in $(seq 1 30); do curl -fs "http://127.0.0.1:$PORT/api/health" >/dev/null && break; sleep 1; done
 curl -fs "http://127.0.0.1:$PORT/api/health" >/dev/null || die "PumpAI did not start. See: journalctl -u pumpai -n 50"

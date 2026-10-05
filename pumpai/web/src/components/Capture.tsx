@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Camera, Loader2, Mic, MicOff } from "lucide-react";
-import { api, getToken } from "../lib/api";
+import { api, linkToken } from "../lib/api";
 import { Modal, useToast } from "./ui";
 
 /** Shrink a camera photo before upload (phones take 4–12 MB pictures). */
@@ -16,7 +16,7 @@ export async function resizeImage(file: File, max = 1600): Promise<string> {
   } finally { URL.revokeObjectURL(url); }
 }
 
-export const photoUrl = (id: number) => `/api/photos/${id}?token=${encodeURIComponent(getToken() ?? "")}`;
+export const photoUrl = (id: number) => `/api/photos/${id}?token=${linkToken()}`;
 
 /**
  * Camera button: take a photo of a meter, tanker invoice or receipt. The photo is kept as proof

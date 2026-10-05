@@ -24,7 +24,7 @@ export default function Bookings() {
           {list.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 py-2">
               <span className="w-16 text-lg font-bold tabular-nums">{new Date(b.at).toLocaleTimeString("en-PK", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" })}</span>
-              <span className="min-w-[180px] flex-1"><b>{SERVICE[b.service]}</b> · {b.customer_name}<span className="block text-xs text-slate-500">+{b.phone}{b.vehicle_no ? ` · ${b.vehicle_no}` : ""} · {b.station_name.replace("Al-Madina ", "")}{b.created_by === "WhatsApp AI" ? " · booked on WhatsApp" : ""}</span></span>
+              <span className="min-w-[180px] flex-1"><b>{SERVICE[b.service]}</b> · {b.customer_name}<span className="block text-xs text-slate-500">+{b.phone}{b.vehicle_no ? ` · ${b.vehicle_no}` : ""} · {b.station_name}{b.created_by === "WhatsApp AI" ? " · booked on WhatsApp" : ""}</span></span>
               {b.status === "booked" ? <span className="flex gap-1">
                 <button className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => act(b.id, "done", "Done ✓")}>Done</button>
                 <button className="btn-secondary !py-2 text-sm" onClick={() => act(b.id, "no_show", "Marked no-show")}>No-show</button>

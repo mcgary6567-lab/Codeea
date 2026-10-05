@@ -102,7 +102,7 @@ export default function Dashboard() {
         <div className="card p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold">Tank stock & stock-out prediction</h2>
-            <Link to="/stock" className="text-xs text-brand-600 hover:underline">Manage stock →</Link>
+            <Link to="/stock" className="inline-block py-2 text-xs text-brand-600 hover:underline">Manage stock →</Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {data.tanks.map((t: any) => {
@@ -111,7 +111,7 @@ export default function Dashboard() {
                 <div key={t.id} className="rounded-lg border border-slate-200 p-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{t.name}</span>
-                    <span className="text-xs text-slate-500">{t.station_name.replace("Al-Madina ", "")}</span>
+                    <span className="text-xs text-slate-500">{t.station_name}</span>
                   </div>
                   <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100" role="meter" aria-valuenow={t.fill_pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${t.name} fill level`}>
                     <div className="h-full rounded-full" style={{ width: `${t.fill_pct}%`, background: low ? "#e34948" : PRODUCT_COLORS[t.product] }} />
@@ -143,7 +143,7 @@ export default function Dashboard() {
             })()}
           </div>
           <div className="card p-4">
-            <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Latest alerts</h2><Link to="/alerts" className="text-xs text-brand-600 hover:underline">All →</Link></div>
+            <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Latest alerts</h2><Link to="/alerts" className="inline-block py-2 text-xs text-brand-600 hover:underline">All →</Link></div>
             <ul className="space-y-2">
               {data.alerts.slice(0, 5).map((a: any) => (
                 <li key={a.id} className="text-sm">
@@ -180,9 +180,9 @@ function TodayBook({ b }: { b: any }) {
         <h2 className="font-semibold">Today's book <span className="font-urdu ml-1 text-sm font-normal text-slate-500">آج کا حساب</span>
           <span className="ml-2 text-xs font-normal text-slate-400">since 12:00 am · updates every minute</span></h2>
         <span className="flex gap-3">
-          <button className="text-xs text-brand-600 hover:underline" onClick={() => setPast(true)}>Closed days</button>
-          <Link to="/cash" className="text-xs text-brand-600 hover:underline">Cash & bank →</Link>
-          <Link to="/reports" className="text-xs text-brand-600 hover:underline">Full report →</Link>
+          <button className="inline-block py-2 text-xs text-brand-600 hover:underline" onClick={() => setPast(true)}>Closed days</button>
+          <Link to="/cash" className="inline-block py-2 text-xs text-brand-600 hover:underline">Cash & bank →</Link>
+          <Link to="/reports" className="inline-block py-2 text-xs text-brand-600 hover:underline">Full report →</Link>
         </span>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

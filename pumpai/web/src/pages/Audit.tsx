@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Download, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
-import { getToken, useApi } from "../lib/api";
+import { linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader } from "../components/ui";
 import { dt } from "../lib/format";
 
@@ -21,7 +21,7 @@ export default function Audit() {
   return (
     <div className="space-y-4">
       <PageHeader title="Audit log" subtitle="Every change in the system: who did it, when, and what it was before"
-        actions={<a className="btn-secondary" href={`/api/audit.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`}><Download size={15} /> Excel / CSV</a>} />
+        actions={<a className="btn-secondary" href={`/api/audit.csv?${qs}&token=${linkToken()}`}><Download size={15} /> Excel / CSV</a>} />
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {KINDS.map(([k, l]) => <button key={k} onClick={() => setF({ ...f, kind: k, page: 1 })} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm sm:min-h-0 ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
       </div>

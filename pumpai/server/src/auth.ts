@@ -105,24 +105,40 @@ declare global {
 }
 
 export function signToken(u: AuthUser) {
-  return jwt.sign({ sub: u.id }, config.jwtSecret, { expiresIn: "7d" });
+  const tv = get("SELECT token_version v FROM users WHERE id=?", u.id)?.v ?? 0;
+  return jwt.sign({ sub: u.id, tv }, config.jwtSecret, { expiresIn: "7d" });
 }
+/** A short-lived, read-only token for links the browser opens by itself (photos, downloads, the live feed). */
+export function mediaToken(userId: number) {
+  const tv = get("SELECT token_version v FROM users WHERE id=?", userId)?.v ?? 0;
+  return jwt.sign({ sub: userId, tv, media: 1 }, config.jwtSecret, { expiresIn: "12h" });
+}
+/** Sign this person out everywhere (password / PIN change, disabled, "sign out all"). */
+export const revokeSessions = (userId: number) => run("UPDATE users SET token_version = token_version + 1 WHERE id=?", userId);
 
 /** A device token links a pump tablet to the business so staff can sign in by tapping their name + PIN. */
-export const deviceToken = (tenantId: number) => jwt.sign({ dev: tenantId }, config.jwtSecret, { expiresIn: "365d" });
+// linked tablets carry the pump's device "epoch": the owner can unlink every tablet at once by moving it on
+const deviceEpoch = (tenantId: number) => Number(get("SELECT value FROM settings WHERE tenant_id=? AND key='device_epoch'", tenantId)?.value ?? 0);
+export const deviceToken = (tenantId: number) => jwt.sign({ dev: tenantId, ep: deviceEpoch(tenantId) }, config.jwtSecret, { expiresIn: "365d" });
+export const unlinkDevices = (tenantId: number) => run(
+  "INSERT INTO settings (tenant_id,key,value) VALUES (?,'device_epoch',?) ON CONFLICT(tenant_id,key) DO UPDATE SET value=excluded.value", tenantId, String(deviceEpoch(tenantId) + 1));
 function deviceTenant(token: string | undefined): number {
   try {
-    const p = jwt.verify(token ?? "", config.jwtSecret) as { dev?: number };
-    if (typeof p.dev === "number") return p.dev;
+    const p = jwt.verify(token ?? "", config.jwtSecret) as { dev?: number; ep?: number };
+    if (typeof p.dev === "number" && (p.ep ?? 0) === deviceEpoch(p.dev)) return p.dev;
   } catch { /* fall through */ }
   throw new AppError(401, "This device is not linked. Sign in once with email and password.");
 }
+/** The owner signs in with a password; PIN sign-in is for staff on a shared tablet (setting "pin_admin" allows it). */
+const pinAllowed = (u: { role: string; tenant_id: number }) => u.role !== "admin" || get("SELECT value FROM settings WHERE tenant_id=? AND key='pin_admin'", u.tenant_id)?.value === "1";
 
 /** Staff who can sign in with a PIN on this device. */
 export function pinUsers(device: string | undefined) {
-  return all(`SELECT u.id, u.name, u.role, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
+  const t = deviceTenant(device);
+  return all(`SELECT u.id, u.name, u.role, u.tenant_id, s.name station_name FROM users u LEFT JOIN stations s ON s.id=u.station_id
     WHERE u.tenant_id=? AND u.active=1 AND u.pin_hash IS NOT NULL
-    ORDER BY CASE u.role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 WHEN 'wholesale' THEN 2 ELSE 3 END, u.name`, deviceTenant(device));
+    ORDER BY CASE u.role WHEN 'salesman' THEN 0 WHEN 'manager' THEN 1 WHEN 'wholesale' THEN 2 WHEN 'cashier' THEN 3 ELSE 4 END, u.name`, t)
+    .filter(pinAllowed).map(({ tenant_id: _t, ...u }) => u);
 }
 
 const PIN_TRIES = 5, PIN_LOCK_MIN = 10;
@@ -134,7 +150,7 @@ function auditLogin(u: { id: number; tenant_id: number; name: string }, ok: bool
 
 export function pinLogin(device: string | undefined, userId: number, pin: string) {
   const u = get("SELECT * FROM users WHERE id=? AND tenant_id=?", userId, deviceTenant(device));
-  if (!u || !u.pin_hash) throw new AppError(401, "PIN login is not set up for this person");
+  if (!u || !u.pin_hash || !pinAllowed(u)) throw new AppError(401, "PIN login is not set up for this person");
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
   if (u.pin_locked_until && Date.parse(u.pin_locked_until) > Date.now())
     throw new AppError(429, `Too many wrong PINs. Try again after ${Math.ceil((Date.parse(u.pin_locked_until) - Date.now()) / 60000)} minutes, or ask the admin to reset your PIN.`);
@@ -148,28 +164,49 @@ export function pinLogin(device: string | undefined, userId: number, pin: string
   run("UPDATE users SET pin_fails=0, pin_locked_until=NULL WHERE id=?", u.id);
   auditLogin(u, true, "PIN");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), device_token: deviceToken(u.tenant_id) };
+  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id) };
 }
 
+const PW_TRIES = 8, PW_LOCK_MIN = 15;
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 export function login(email: string, password: string) {
   const u = get("SELECT * FROM users WHERE email=?", email.toLowerCase().trim());
-  if (!u || !bcrypt.compareSync(password, u.password_hash)) { if (u) auditLogin(u, false, "password"); throw new AppError(401, "Invalid email or password"); }
+  if (u?.pw_locked_until && Date.parse(u.pw_locked_until) > Date.now())
+    throw new AppError(429, `Too many wrong passwords. Try again after ${Math.ceil((Date.parse(u.pw_locked_until) - Date.now()) / 60000)} minutes.`);
+  // the same work is done whether or not the email exists, so the answer time doesn't give it away
+  const good = bcrypt.compareSync(password, u?.password_hash ?? DUMMY_HASH);
+  if (!u || !good) {
+    if (u) {
+      const fails = (u.pw_fails ?? 0) + 1;
+      run("UPDATE users SET pw_fails=?, pw_locked_until=? WHERE id=?", fails >= PW_TRIES ? 0 : fails, fails >= PW_TRIES ? new Date(Date.now() + PW_LOCK_MIN * 60000).toISOString() : null, u.id);
+      auditLogin(u, false, fails >= PW_TRIES ? "password — locked for 15 minutes" : "password");
+    }
+    throw new AppError(401, "Invalid email or password");
+  }
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
+  run("UPDATE users SET pw_fails=0, pw_locked_until=NULL WHERE id=?", u.id);
   auditLogin(u, true, "password");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
-  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), device_token: deviceToken(u.tenant_id) };
+  // only the owner / a manager links a shared tablet for PIN sign-in
+  const links = ["admin", "manager"].includes(u.role);
+  return { token: signToken(user), user, permissions: permissionsOf(user.role, user.tenant_id), ...(links ? { device_token: deviceToken(u.tenant_id) } : {}) };
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const h = req.headers.authorization;
-  const token = h?.startsWith("Bearer ") ? h.slice(7) : (req.query.token as string | undefined);
+  const inUrl = !h?.startsWith("Bearer ");
+  const token = inUrl ? (req.query.token as string | undefined) : h!.slice(7);
   if (!token) return next(new AppError(401, "Not signed in"));
   try {
-    const p = jwt.verify(token, config.jwtSecret) as unknown as { sub: number };
+    const p = jwt.verify(token, config.jwtSecret) as unknown as { sub: number; tv?: number; media?: number };
     if (typeof p.sub !== "number") return next(new AppError(401, "Not signed in"));
-    const u = get("SELECT id, tenant_id, name, email, role, station_id, active FROM users WHERE id=?", p.sub);
+    // a token in a link (photo, download, live feed) must be a short read-only media token, never a full session
+    if (inUrl && (!p.media || req.method !== "GET")) return next(new AppError(401, "Not signed in"));
+    if (!inUrl && p.media) return next(new AppError(401, "Not signed in"));
+    const u = get("SELECT id, tenant_id, name, email, role, station_id, active, token_version FROM users WHERE id=?", p.sub);
     if (!u || !u.active) return next(new AppError(401, "User not found or disabled"));
-    delete u.active;
+    if ((p.tv ?? 0) !== (u.token_version ?? 0)) return next(new AppError(401, "Signed out — please sign in again"));
+    delete u.active; delete u.token_version;
     req.user = u as AuthUser;
     next();
   } catch {
@@ -208,6 +245,8 @@ export const parse = <T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer
 export function errorHandler(err: any, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) return res.status(400).json({ error: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") });
   if (err instanceof AppError) return res.status(err.status).json({ error: err.message });
+  if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "The request was not valid JSON" });
+  if (err?.type === "entity.too.large") return res.status(413).json({ error: "Too much data in one go (photo too large?)" });
   console.error(err);
   res.status(500).json({ error: "Internal server error" });
 }

@@ -42,7 +42,7 @@ export default function Shifts() {
           return (
             <li key={s.id} className="cursor-pointer px-4 py-3 active:bg-slate-50" onClick={() => setReport(s.id)}>
               <div className="flex items-start justify-between gap-2">
-                <span className="min-w-0"><span className="block font-semibold">{s.attendant}</span><span className="text-xs text-slate-500">#{s.id} · {s.station_name.replace("Al-Madina ", "")}</span></span>
+                <span className="min-w-0"><span className="block font-semibold">{s.attendant}</span><span className="text-xs text-slate-500">#{s.id} · {s.station_name}</span></span>
                 <span className="shrink-0 text-right">
                   <span className={`block font-semibold tabular-nums ${s.variance < -500 ? "text-red-600" : s.variance > 0 ? "text-emerald-600" : ""}`}>{s.variance != null ? pkr(s.variance) : "—"}</span>
                   <span className="text-[11px] text-slate-500">Short / over · <Ur>کمی بیشی</Ur></span>
@@ -72,7 +72,7 @@ export default function Shifts() {
             const hours = (Date.now() - Date.parse(s.opened_at)) / 3600_000;
             return (
               <tr key={s.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setReport(s.id)}>
-                <td className="td text-xs">#{s.id} · {s.station_name.replace("Al-Madina ", "")}</td>
+                <td className="td text-xs">#{s.id} · {s.station_name}</td>
                 <td className="td font-medium">{s.attendant}</td>
                 <td className="td text-xs">{dt(s.opened_at)}</td>
                 <td className="td text-xs">{s.status === "open" ? <Badge tone={hours >= 12 ? "red" : statusTone("open")}>open {hhmm(hours)}</Badge> : dt(s.closed_at)}</td>
@@ -178,7 +178,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
               const last = r.checkpoint ?? r.opening;
               const bad = readings[r.nozzle_id] && v < last;
               return (
-                <div key={r.nozzle_id} className="grid grid-cols-2 items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[1.4fr_1fr_2.4fr_1fr_0.9fr] sm:px-0 sm:py-0">
+                <div key={r.nozzle_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[1.4fr_1fr_2.4fr_1fr_0.9fr] sm:px-0 sm:py-0">
                   <div className="min-w-0 text-sm font-medium sm:px-3 sm:py-2 sm:font-normal">{r.label} <span className="text-xs font-normal text-slate-500">{PRODUCTS[r.product]}</span></div>
                   <div className="col-span-2 order-3 text-xs tabular-nums text-slate-500 sm:order-none sm:col-span-1 sm:px-3 sm:py-2 sm:text-right sm:text-slate-900"><span className="sm:hidden">Opening </span>{num(r.opening, 2)}<span className="sm:hidden"> · Rs {data.prices[r.product]}/L</span>{r.checkpoint != null && <div className="text-slate-400">price change at {num(r.checkpoint, 2)}</div>}</div>
                   <div className="col-span-2 order-4 flex items-center gap-2 sm:order-none sm:col-span-1 sm:px-3 sm:py-2"><input className={`input min-w-0 flex-1 text-lg tabular-nums sm:w-40 sm:flex-none ${bad ? "border-red-400" : ""}`} type="number" step="0.01" min={last} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} aria-label={`${r.label} closing reading`} />

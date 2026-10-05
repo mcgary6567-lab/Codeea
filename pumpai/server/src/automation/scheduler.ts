@@ -3,12 +3,15 @@ import { all, get, run, now } from "../db.js";
 import { config } from "../config.js";
 import { JOBS } from "./jobs.js";
 
+/** Jobs that message customers, charge them or block their khata start switched off — the owner turns them on knowingly. */
+const OFF_AT_START = new Set(["khata_reminders", "churn_winback", "khata_overdue", "khata_late_fee", "monthly_bills", "staff_coaching"]);
+
 export function ensureAutomations(tenantId: number) {
   for (const j of JOBS) {
     run(
-      `INSERT INTO automations (tenant_id,key,name,description,cron,enabled) VALUES (?,?,?,?,?,1)
+      `INSERT INTO automations (tenant_id,key,name,description,cron,enabled) VALUES (?,?,?,?,?,?)
        ON CONFLICT(tenant_id,key) DO UPDATE SET name=excluded.name, description=excluded.description`,
-      tenantId, j.key, j.name, j.description, j.cron,
+      tenantId, j.key, j.name, j.description, j.cron, OFF_AT_START.has(j.key) ? 0 : 1,
     );
   }
 }

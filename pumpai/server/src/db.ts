@@ -12,7 +12,12 @@ if (fs.existsSync(`${config.dbPath}.restore`)) {
   console.log(`[db] restored backup; previous database kept as ${path.basename(config.dbPath)}.before-restore-${stamp}`);
 }
 export const db = new DatabaseSync(config.dbPath);
-db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA synchronous = NORMAL;");
+
+/** Write everything into the main database file and close it (on stop / restart), so pumpai.db alone is a full copy. */
+export function closeDb() {
+  try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); db.close(); } catch { /* already closed */ }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Row = any;
@@ -239,6 +244,7 @@ export function migrate() {
   );
   CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
   `);
+  migrateUserRoles(); // old role list: rebuild users before any later columns are added to it
   addColumn("users", "phone", "TEXT");
   addColumn("users", "pin_hash", "TEXT"); // 4-digit quick login on the pump's shared tablet
   addColumn("users", "pin_fails", "INTEGER NOT NULL DEFAULT 0");
@@ -463,7 +469,6 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL,
     cheque_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'in_hand', account_id INTEGER, payment_txn_id INTEGER, bounce_reason TEXT, note TEXT,
     created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
-  migrateUserRoles();
   addCashierRole();
   // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
   db.exec(`CREATE TABLE IF NOT EXISTS cheques (
@@ -485,6 +490,10 @@ export function migrate() {
   addColumn("cheques", "category", "TEXT");
   addColumn("tax_withholdings", "paid_method", "TEXT");
   addColumn("tax_withholdings", "paid_account_id", "INTEGER");
+  // sign-in safety: wrong passwords lock the account for a while; a password change signs out old sessions
+  addColumn("users", "pw_fails", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("users", "pw_locked_until", "TEXT");
+  addColumn("users", "token_version", "INTEGER NOT NULL DEFAULT 0");
 }
 
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */

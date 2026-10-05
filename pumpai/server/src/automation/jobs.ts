@@ -106,7 +106,7 @@ export const JOBS: Job[] = [
       for (const c of due) {
         if (recentlySent(c.id, "khata_reminder", 3)) continue;
         const link = paymentLink(c, c.balance);
-        await sendWhatsApp(t, c, `Assalam-o-Alaikum ${c.name}! 📒 Aap ka khata balance ${pkr(c.balance)} hai (limit ${pkr(c.credit_limit)}).\nAasani se pay karein (JazzCash / Easypaisa / Raast):\n${link}\nShukriya! 🙏`, "system", { kind: "khata_reminder" });
+        await sendWhatsApp(t, c, `Assalam-o-Alaikum ${c.name}! 📒 Aap ka khata balance ${pkr(c.balance)} hai (limit ${pkr(c.credit_limit)}).\n${link ? `Aasani se pay karein (JazzCash / Easypaisa / Raast):\n${link}` : "Meharbani kar ke pump par ya bank transfer se ada kar dein."}\nShukriya! 🙏`, "system", { kind: "khata_reminder" });
         sent++;
       }
       return `${sent} reminders sent (${due.length} customers with dues)`;

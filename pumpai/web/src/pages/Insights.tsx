@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Download, Upload } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
 
@@ -54,7 +54,7 @@ function Stations() {
     ["Shifts (short)", (s) => `${s.shifts} (${s.short_shifts})`], ["Cash short / over", (s) => pkr(s.cash_variance)], ["Dip gain / loss", (s) => `${num(s.dip_gain_loss_l)} L`]];
   return (
     <div className="card overflow-x-auto"><h2 className="p-4 pb-2 font-semibold">Last 30 days</h2>
-      <table className="w-full"><thead><tr><th className="th" />{data.stations.map((s: any) => <th key={s.id} className="th text-right">{s.name.replace("Al-Madina ", "")}</th>)}</tr></thead>
+      <table className="w-full"><thead><tr><th className="th" />{data.stations.map((s: any) => <th key={s.id} className="th text-right">{s.name}</th>)}</tr></thead>
         <tbody>{rows.map(([l, f]) => <tr key={l}><td className="td text-sm font-medium">{l}</td>{data.stations.map((s: any) => <td key={s.id} className="td text-right tabular-nums">{f(s)}</td>)}</tr>)}</tbody></table>
     </div>
   );
@@ -91,7 +91,7 @@ function PL() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Month"><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></Field>
-        <a className="btn-secondary" href={`/api/analysis/pl.csv?month=${month}&token=${encodeURIComponent(getToken() ?? "")}`}><Download size={15} /> Excel</a>
+        <a className="btn-secondary" href={`/api/analysis/pl.csv?month=${month}&token=${linkToken()}`}><Download size={15} /> Excel</a>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Income" value={pkr(p.income.total)} tone="blue" />
@@ -141,7 +141,7 @@ function Reconcile() {
         </div>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="card p-4"><h2 className="mb-2 font-semibold">Sales with no money in the statement</h2>
-            {r.sales_without_money.map((s: any) => <div key={`${s.kind}${s.id}`} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{dt(s.created_at)} · {s.station?.replace("Al-Madina ", "")} · {s.kind} #{s.id}</span><b className="tabular-nums">{pkr(s.amount)}</b></div>)}
+            {r.sales_without_money.map((s: any) => <div key={`${s.kind}${s.id}`} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{dt(s.created_at)} · {s.station} · {s.kind} #{s.id}</span><b className="tabular-nums">{pkr(s.amount)}</b></div>)}
             {!r.sales_without_money.length && <p className="text-sm text-emerald-700">All sales were paid ✓</p>}</div>
           <div className="card p-4"><h2 className="mb-2 font-semibold">Money with no matching sale</h2>
             {r.money_without_sale.map((l: any, i: number) => <div key={i} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{l.at ? dt(l.at) : "—"} · {l.ref}</span><b className="tabular-nums">{pkr(l.amount)}</b></div>)}
@@ -178,7 +178,7 @@ function Tanks() {
     <div className="card overflow-x-auto"><h2 className="p-4 pb-2 font-semibold">Dip gain / loss — last 30 days</h2>
       <table className="w-full"><thead><tr><th className="th">Tank</th><th className="th text-right">Dips</th><th className="th text-right">Sold</th><th className="th text-right">Gain / loss</th><th className="th text-right">% of sold</th><th className="th text-right">Value</th><th className="th">Status</th></tr></thead>
         <tbody>{data.tanks.map((t: any) => (
-          <tr key={t.id}><td className="td font-medium">{t.station.replace("Al-Madina ", "")} · {t.name}</td><td className="td text-right">{t.dips}</td><td className="td text-right tabular-nums">{num(t.throughput_l)} L</td>
+          <tr key={t.id}><td className="td font-medium">{t.station} · {t.name}</td><td className="td text-right">{t.dips}</td><td className="td text-right tabular-nums">{num(t.throughput_l)} L</td>
             <td className={`td text-right tabular-nums ${t.gain_loss_l < 0 ? "text-red-600" : "text-emerald-700"}`}>{num(t.gain_loss_l)} L</td><td className="td text-right tabular-nums">{t.pct}%</td><td className="td text-right tabular-nums">{pkr(t.value)}</td>
             <td className="td"><Badge tone={t.status === "leak_suspected" ? "red" : t.status === "watch" ? "amber" : "green"}>{t.status === "leak_suspected" ? "Possible leak — check tank & lines" : t.status === "watch" ? "Watch" : "OK"}</Badge></td></tr>
         ))}</tbody></table>

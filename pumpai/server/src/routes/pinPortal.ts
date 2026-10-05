@@ -217,7 +217,7 @@ function khataBody(c: any, month: string | null, code: string): string {
     if (l.type === "credit") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.ref, l.note !== "Payment received" ? l.note : null].filter(Boolean).join(" · "))}</div></div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
     if (l.product) return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
-      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name).replace(/^Al-Madina /, "")}`].filter(Boolean).join("  "))}</div></div>
+      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name)}`].filter(Boolean).join("  "))}</div></div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Charge · <span class=ur>چارج</span></div><div class=m>${esc(l.note ?? l.ref ?? "")}</div></div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
@@ -231,7 +231,7 @@ ${due > 0 ? `<div class=lbl>You have to pay · <span class=ur>آپ کے ذمے</
 ${c.credit_limit > 0 ? `<div class=m style="margin-top:6px">Credit limit · <span class=ur>حد</span> ${rs(c.credit_limit)} — left · <span class=ur>باقی حد</span> <b>${rs(Math.max(0, c.credit_limit - due))}</b></div>
 <div class=bar><i style="width:${used}%;background:${used >= 90 ? "#dc2626" : used >= 75 ? "#d97706" : "#059669"}"></i></div>` : ""}
 ${c.khata_blocked ? `<div class=err>⛔ Khata is on hold — payment is overdue. Please pay to fill again · <span class=ur>ادائیگی کے بعد کھاتہ دوبارہ چلے گا</span></div>` : ""}
-${due > 0 ? `<a class="b np" href="${esc(paymentLink(c, due))}">💳 Pay now · <span class=ur>ابھی ادائیگی کریں</span> <span style="font-weight:400;font-size:14px">(JazzCash / Easypaisa / Raast)</span></a>` : ""}</div>
+${due > 0 && paymentLink(c, due) ? `<a class="b np" href="${esc(paymentLink(c, due))}">💳 Pay now · <span class=ur>ابھی ادائیگی کریں</span> <span style="font-weight:400;font-size:14px">(JazzCash / Easypaisa / Raast)</span></a>` : ""}</div>
 <div class=tiles><div class=tile><div class=i>⛽</div><b>${Math.round(litres).toLocaleString("en-IN")} L</b><div class=m>Fuel taken · <span class=ur>تیل لیا</span></div></div>
 <div class=tile><div class=i>🧾</div><b>${rs(billed)}</b><div class=m>Bill · <span class=ur>بل</span></div></div>
 <div class=tile><div class=i>💵</div><b class=g>${rs(paid)}</b><div class=m>Paid · <span class=ur>ادا کیا</span></div></div></div>

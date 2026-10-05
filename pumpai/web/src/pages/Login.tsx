@@ -28,6 +28,7 @@ export default function Login() {
           {canInstall && <button onClick={install} className="mt-3 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold ring-1 ring-white/40 hover:bg-white/25">⬇ Install app on this device</button>}
         </div>
         {mode === "pin" ? <PinLogin onDone={done} onEmail={() => setMode("email")} /> : <EmailLogin demo={Boolean(brand?.demo)} onDone={done} onPin={getDevice() ? () => setMode("pin") : undefined} />}
+        <p className="mt-4 text-center text-xs text-white/70"><a className="underline" href="/privacy">Privacy</a> · <a className="underline" href="/terms">Terms</a></p>
       </div>
     </div>
   );
@@ -68,7 +69,7 @@ function PinLogin({ onDone, onEmail }: { onDone: (r: any) => Promise<void>; onEm
                 className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 p-4 hover:border-brand-500 hover:bg-emerald-50 active:scale-95">
                 <span className={`flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${ROLE_TONE[p.role] ?? "bg-slate-500"}`}>{p.name[0]}</span>
                 <span className="text-center font-semibold leading-tight">{p.name}</span>
-                <span className="text-xs text-slate-500">{ROLE[p.role]}{p.station_name ? ` · ${p.station_name.replace("Al-Madina ", "")}` : ""}</span>
+                <span className="text-xs text-slate-500">{ROLE[p.role]}{p.station_name ? ` · ${p.station_name}` : ""}</span>
               </button>
             ))}
           </div>
@@ -124,7 +125,7 @@ function EmailLogin({ demo, onDone, onPin }: { demo: boolean; onDone: (r: any) =
       {onPin && <button type="button" onClick={onPin} className="w-full text-sm text-brand-600 hover:underline">Quick sign in with PIN</button>}
       {demo && <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
         <div className="mb-1.5 font-medium">Demo accounts (password <b>demo1234</b>, PIN in brackets)</div>
-        {[["admin@pumpai.pk", "Admin (CEO) [1111]"], ["manager@pumpai.pk", "Manager [2222]"], ["salesman@pumpai.pk", "Salesman [3333]"], ["wholesale@pumpai.pk", "Wholesale officer [4444]"]].map(([e, l]) => (
+        {[["admin@pumpai.pk", "Admin (CEO) — password only"], ["manager@pumpai.pk", "Manager [2222]"], ["salesman@pumpai.pk", "Salesman [3333]"], ["wholesale@pumpai.pk", "Wholesale officer [4444]"], ["cashier@pumpai.pk", "Cashier [5555]"]].map(([e, l]) => (
           <button type="button" key={e} onClick={() => { setEmail(e); setPassword("demo1234"); }} className="flex w-full justify-between rounded px-1.5 py-1 text-left hover:bg-white">
             <span className="font-mono">{e}</span><span className="text-slate-500">{l}</span>
           </button>

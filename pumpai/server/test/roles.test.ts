@@ -100,26 +100,29 @@ test("salesman can add a walk-in customer but not give credit", async () => {
 
 test("admin creates, edits, disables and deletes users", async () => {
   const stations = (await call("admin", "GET", "/api/stations")).data;
-  assert.equal((await call("admin", "POST", "/api/users", { name: "No Station", email: "x@pumpai.pk", password: "secret1", role: "salesman" })).status, 400);
-  const created = await call("admin", "POST", "/api/users", { name: "Naveed", email: "Naveed@PumpAI.pk", password: "secret1", role: "salesman", station_id: stations[1].id });
+  assert.equal((await call("admin", "POST", "/api/users", { name: "No Station", email: "x@pumpai.pk", password: "secret123", role: "salesman" })).status, 400);
+  const created = await call("admin", "POST", "/api/users", { name: "Naveed", email: "Naveed@PumpAI.pk", password: "secret123", role: "salesman", station_id: stations[1].id });
   assert.equal(created.status, 200);
   assert.equal(created.data.email, "naveed@pumpai.pk");
-  assert.equal((await loginAs("naveed", "naveed@pumpai.pk", "secret1")).status, 200);
+  assert.equal((await loginAs("naveed", "naveed@pumpai.pk", "secret123")).status, 200);
   const st = (await call("naveed", "GET", "/api/stations")).data;
   assert.equal(st[0].id, stations[1].id);
   // promote to manager
   const promoted = await call("admin", "PATCH", `/api/users/${created.data.id}`, { role: "manager" });
   assert.equal(promoted.data.role, "manager");
+  // a role change signs the person out; the next sign-in has the new rights
+  assert.equal((await call("naveed", "GET", "/api/dashboard")).status, 401);
+  assert.equal((await loginAs("naveed", "naveed@pumpai.pk", "secret123")).status, 200);
   assert.equal((await call("naveed", "GET", "/api/dashboard")).status, 200);
   // disable: existing token and new logins stop working
   await call("admin", "PATCH", `/api/users/${created.data.id}`, { active: false });
   assert.equal((await call("naveed", "GET", "/api/dashboard")).status, 401);
-  assert.equal((await loginAs("naveed2", "naveed@pumpai.pk", "secret1")).status, 403);
+  assert.equal((await loginAs("naveed2", "naveed@pumpai.pk", "secret123")).status, 403);
   // reset password + re-enable
-  await call("admin", "PATCH", `/api/users/${created.data.id}`, { active: true, password: "newpass1" });
-  assert.equal((await loginAs("naveed3", "naveed@pumpai.pk", "newpass1")).status, 200);
+  await call("admin", "PATCH", `/api/users/${created.data.id}`, { active: true, password: "newpass123" });
+  assert.equal((await loginAs("naveed3", "naveed@pumpai.pk", "newpass123")).status, 200);
   assert.equal((await call("admin", "DELETE", `/api/users/${created.data.id}`)).status, 200);
-  assert.equal((await call("admin", "POST", "/api/users", { name: "Dup", email: "manager@pumpai.pk", password: "secret1", role: "manager" })).status, 400);
+  assert.equal((await call("admin", "POST", "/api/users", { name: "Dup", email: "manager@pumpai.pk", password: "secret123", role: "manager" })).status, 400);
 });
 
 test("the last admin cannot be demoted, disabled or delete themselves", async () => {

@@ -38,7 +38,7 @@ export function PortalCard({ base, name, phone, canManage }: { base: string; nam
       <p className="mb-3 text-sm text-slate-600">{name} opens the link on their phone and enters the PIN to see balance, every entry, payments and monthly bills.</p>
       {data.enabled ? <>
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm">
-          <code className="min-w-0 flex-1 break-all">{data.url}</code>
+          <code className="min-w-0 basis-full break-all sm:basis-0 sm:flex-1">{data.url}</code>
           <button type="button" className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" onClick={() => copy(data.url, "Link")}><Copy size={13} /> Copy link</button>
           <a className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" href={data.url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Open</a>
         </div>

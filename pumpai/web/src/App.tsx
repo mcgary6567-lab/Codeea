@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { api, getToken, setToken } from "./lib/api";
+import { api, getToken, setToken, setMediaToken } from "./lib/api";
 import { ToastProvider, Loading } from "./components/ui";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -60,6 +60,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     if (!getToken()) return setState(empty);
     try {
       const me = await api("/me");
+      setMediaToken(me.media_token);
       setState({ user: me.user, tenant: me.tenant, permissions: me.permissions, ready: true });
     } catch {
       setState(empty);
@@ -68,7 +69,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { load(); }, []);
   // rights can be changed by the admin at any time: pick them up when the app comes back to the screen
   useEffect(() => {
-    const again = () => { if (document.visibilityState === "visible" && getToken()) api("/me").then((me) => setState((s) => ({ ...s, user: me.user, tenant: me.tenant, permissions: me.permissions }))).catch(() => {}); };
+    const again = () => { if (document.visibilityState === "visible" && getToken()) api("/me").then((me) => { setMediaToken(me.media_token); setState((s) => ({ ...s, user: me.user, tenant: me.tenant, permissions: me.permissions })); }).catch(() => {}); };
     document.addEventListener("visibilitychange", again);
     const t = setInterval(again, 5 * 60_000);
     return () => { document.removeEventListener("visibilitychange", again); clearInterval(t); };

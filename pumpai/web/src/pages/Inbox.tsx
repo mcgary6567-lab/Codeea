@@ -52,8 +52,8 @@ export default function Inbox() {
                     <span className="shrink-0 text-[11px] text-slate-400">{ago(c.last_message_at)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-slate-500">
-                    {c.last_sender === "ai" && <Bot size={12} className="text-violet-500" />}
-                    <span className="truncate">{c.last_body}</span>
+                    {c.last_sender === "ai" && <Bot size={12} className="shrink-0 text-violet-500" />}
+                    <span className="line-clamp-2 min-w-0 break-words sm:line-clamp-1">{c.last_body}</span>
                   </div>
                   <div className="mt-1 flex gap-1">
                     {c.mode === "human" ? <Badge tone="amber">Human</Badge> : <Badge tone="violet">AI</Badge>}

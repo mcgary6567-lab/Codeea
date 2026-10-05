@@ -27,7 +27,7 @@ export default function Stock() {
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
   const refresh = () => { dash.reload(); stock.reload(); };
-  const tankOpts = tanks.map((t: any) => <option key={t.id} value={t.id}>{t.station_name.replace("Al-Madina ", "")} · {t.name}</option>);
+  const tankOpts = tanks.map((t: any) => <option key={t.id} value={t.id}>{t.station_name} · {t.name}</option>);
 
   return (
     <div className="space-y-5">
@@ -35,7 +35,7 @@ export default function Stock() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {tanks.map((t: any) => (
           <div key={t.id} className="card min-w-0 p-3">
-            <div className="text-xs text-slate-500">{t.station_name.replace("Al-Madina ", "")}</div>
+            <div className="text-xs text-slate-500">{t.station_name}</div>
             <div className="font-medium">{t.name}</div>
             <div className="relative mx-auto my-3 h-28 w-16 overflow-hidden rounded-b-xl rounded-t-md border-2 border-slate-300 bg-slate-50" role="meter" aria-valuenow={t.fill_pct} aria-label={`${t.name} level`}>
               <div className="absolute bottom-0 w-full" style={{ height: `${t.fill_pct}%`, background: t.days_to_reorder <= 1.5 ? "#e34948" : PRODUCT_COLORS[t.product] }} />
@@ -105,10 +105,10 @@ export default function Stock() {
           <button className="btn-primary" disabled={busy}>Save delivery</button>
         </form>
       </div>
-      {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name.replace("Al-Madina ", "")], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
+      {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => <ProofThumbs ids={r.proof_ids} />]]} />
-        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+        <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => (r.proof_ids?.length ? <ProofThumbs ids={r.proof_ids} /> : null)]]} />
+        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
@@ -121,7 +121,7 @@ function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[
   const [f, setF] = useState({ supplier_id: String(s.supplier_id ?? suppliers[0]?.id ?? ""), litres: String(s.litres || ""), note: "" });
   const { busy, run } = useAction();
   return (
-    <Modal open onClose={onClose} title={`Order tanker — ${s.tank.station_name.replace("Al-Madina ", "")} ${s.tank.name}`}>
+    <Modal open onClose={onClose} title={`Order tanker — ${s.tank.station_name} ${s.tank.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => api("/stock/orders", { body: { tank_id: s.tank.id, supplier_id: Number(f.supplier_id), litres: Number(f.litres), note: f.note || null } }), (x: any) => x.whatsapp === "sent" ? "Order sent to the supplier on WhatsApp" : "Order saved (supplier has no WhatsApp number)")) onDone();
@@ -175,7 +175,7 @@ function History({ title, rows, cols, right }: { title: string; rows: any[]; col
         {rows.map((r) => (
           <li key={r.id} className="px-3 py-2.5">
             <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words font-medium">{cols[1][1](r)}</span><span className="shrink-0 text-right tabular-nums">{cols[ri][1](r)}</span></div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">{cols.map(([h, f], i) => i === 1 || i === ri ? null : <span key={h}>{i === 0 ? f(r) : <>{h} <span className="tabular-nums text-slate-700">{f(r)}</span></>}</span>)}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">{cols.map(([h, f], i) => i === 1 || i === ri || f(r) == null ? null : <span key={h}>{i === 0 ? f(r) : <>{h} <span className="tabular-nums text-slate-700">{f(r)}</span></>}</span>)}</div>
           </li>
         ))}
       </ul>

@@ -24,12 +24,17 @@ capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stoc
   const [, mime, data] = b.image.match(/^data:(image\/[a-z]+);base64,(.*)$/s)!;
   const bytes = Buffer.from(data, "base64");
   if (bytes.length > MAX_BYTES) throw new AppError(400, "Photo is too large");
+  // the bytes must really be a picture of the type claimed (not a web page dressed up as one)
+  const real = bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ? "image/jpeg"
+    : bytes.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])) ? "image/png"
+    : bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP" ? "image/webp" : null;
+  if (!real) throw new AppError(400, "Send a JPEG, PNG or WebP photo");
   let extra = b.hint ?? "";
   if (b.kind === "receipt") extra += `\nCategories: ${all("SELECT name FROM expense_categories WHERE tenant_id=?", tid(req)).map((c) => c.name).join(", ")}`;
   // selfies (attendance) and proof photos (checklist, licence) are only stored, not read
   const result = ["selfie", "proof"].includes(b.kind) ? null : await readPhoto(b.kind as PhotoKind, data, mime, extra);
   const { id } = run("INSERT INTO photos (tenant_id,kind,mime,data,ai_result,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
-    tid(req), b.kind, mime, bytes, result ? JSON.stringify(result) : null, req.user!.id, now());
+    tid(req), b.kind, real, bytes, result ? JSON.stringify(result) : null, req.user!.id, now());
   return {
     photo_id: id, ai: Boolean(result), result,
     message: result || ["selfie", "proof"].includes(b.kind) ? null : aiEnabled() ? "Could not read the photo clearly. Please type the numbers." : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
@@ -37,9 +42,12 @@ capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stoc
 }));
 
 capture.get("/photos/:id", h((req, res) => {
-  const p = get("SELECT mime, data FROM photos WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+  const p = get("SELECT mime, data, created_by FROM photos WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
   if (!p) throw new AppError(404, "Photo not found");
-  res.setHeader("content-type", p.mime);
+  // a salesman sees only the photos they took (cheques, salary sheets and selfies of others stay private)
+  if (req.user!.role === "salesman" && p.created_by !== req.user!.id) throw new AppError(404, "Photo not found");
+  res.setHeader("content-type", /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : "application/octet-stream");
+  res.setHeader("content-disposition", "inline");
   res.setHeader("cache-control", "private, max-age=86400");
   res.end(Buffer.from(p.data as Uint8Array));
   return undefined;

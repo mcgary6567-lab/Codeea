@@ -34,7 +34,7 @@ test("meter photos are saved as proof on the shift even without AI reading", asy
   const p = ok(await call("salesman", "POST", "/api/ai/read-photo", { kind: "meter", image: PNG }), "photo");
   assert.equal(p.ai, false); assert.match(p.message, /type the numbers/);
   const shift = ok(await call("salesman", "POST", "/api/shifts/open", { photo_ids: [p.photo_id] }), "open");
-  const img = await fetch(`${base}/api/photos/${p.photo_id}?token=${tokens.manager}`);
+  const img = await fetch(`${base}/api/photos/${p.photo_id}?token=${(await call("manager", "GET", "/api/me")).data.media_token}`);
   assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/png");
   assert.ok((await img.arrayBuffer()).byteLength > 50);
   const rep = ok(await call("manager", "GET", `/api/shifts/${shift.id}/report`), "report");

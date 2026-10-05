@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
@@ -212,7 +212,7 @@ function ClientDetail({ id }: { id: string }) {
   const c = client.data;
   const s = c.summary;
   const m = c.month;
-  const csvUrl = `/api/wholesale/clients/${id}/statement.csv?${qs ? qs + "&" : ""}token=${encodeURIComponent(getToken() ?? "")}`;
+  const csvUrl = `/api/wholesale/clients/${id}/statement.csv?${qs ? qs + "&" : ""}token=${linkToken()}`;
 
   return (
     <div className="space-y-5">
@@ -291,8 +291,8 @@ function ClientDetail({ id }: { id: string }) {
       <div className="print:hidden"><PortalCard base={`/wholesale/clients/${c.id}/portal`} name={c.name} phone={c.phone} canManage={can("wholesale.manage")} /></div>
 
       <div className="card">
-        <div className="flex flex-wrap items-end gap-3 p-4 print:hidden">
-          <h2 className="mr-auto font-semibold">Account statement · <Ur>کھاتہ</Ur></h2>
+        <div className="grid grid-cols-2 items-end gap-3 p-4 sm:flex sm:flex-wrap print:hidden">
+          <h2 className="col-span-2 mr-auto font-semibold">Account statement · <Ur>کھاتہ</Ur></h2>
           <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
           <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
@@ -371,7 +371,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
                 {showClient && <td className="td text-sm"><Link to={`/wholesale/${r.client_id}`} className="hover:underline">{r.client_name}</Link></td>}
                 <td className="td"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge> {r.voided ? <Badge tone="red">VOID</Badge> : null}</td>
                 <td className="td text-xs">
-                  {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name.replace("Al-Madina ", "")}` : ""}</div>}
+                  {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
                   <ProofThumbs ids={r.proof_ids} />
                   <div className="text-slate-500">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>

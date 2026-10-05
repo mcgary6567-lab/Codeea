@@ -221,9 +221,11 @@ export function createAlert(
   return get("SELECT * FROM alerts WHERE id=?", id)!;
 }
 
+/** The pump's online payment page with this khata's reference — "" when the pump has none (no link is sent then). */
 export function paymentLink(customer: Row, amount: number): string {
+  if (!config.paymentLinkBase) return "";
   const ref = `KH${customer.id}-${Date.now().toString(36).toUpperCase()}`;
-  return `${config.paymentLinkBase}?ref=${ref}&amt=${Math.round(amount)}&phone=${customer.phone}`;
+  return `${config.paymentLinkBase}?ref=${ref}&amt=${Math.round(amount)}`;
 }
 
 export function getStations(tenantId: number) {

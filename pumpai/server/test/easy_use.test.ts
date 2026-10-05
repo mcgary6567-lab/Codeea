@@ -43,7 +43,11 @@ test("PIN login: the tablet is linked by one email sign-in, then staff tap their
   const r = ok(await call("", "POST", "/api/auth/pin", { user_id: imran.id, pin: "3333" }, { "x-device": device }), "pin login");
   tokens.salesman = r.token;
   assert.equal(ok(await call("salesman", "GET", "/api/me"), "me").user.name, "Imran");
-  tokens.admin = ok(await call("", "POST", "/api/auth/pin", { user_id: people.find((p: any) => p.role === "admin").id, pin: "1111" }, { "x-device": device }), "admin pin").token;
+  // the owner signs in with a password: no admin on the PIN list, and a PIN for the admin is refused
+  tokens.admin = ok(await call("", "POST", "/api/auth/login", { email: "admin@pumpai.pk", password: "demo1234" }), "admin login").token;
+  const admin = ok(await call("admin", "GET", "/api/me"), "me").user;
+  assert.ok(!people.some((p: any) => p.role === "admin"), "admin not on the tablet list");
+  assert.equal((await call("", "POST", "/api/auth/pin", { user_id: admin.id, pin: "1111" }, { "x-device": device })).status, 401);
   tokens.manager = first.token;
 });
 

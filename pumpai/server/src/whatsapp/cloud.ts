@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
-import { config, waLive } from "../config.js";
+import { config, waLive, isProduction } from "../config.js";
 import { get, run, now, type Row } from "../db.js";
 
 /** In-process event bus; the dashboard listens over SSE for live inbox updates. */
@@ -103,7 +103,8 @@ export async function sendToPhone(phone: string, text: string) {
 }
 
 export function verifySignature(rawBody: Buffer, header: string | undefined): boolean {
-  if (!config.wa.appSecret) return true; // signature check disabled when no secret configured
+  // without the app secret nothing can prove a message came from Meta: only allowed while testing locally
+  if (!config.wa.appSecret) return !waLive() && !isProduction;
   if (!header?.startsWith("sha256=")) return false;
   const expected = crypto.createHmac("sha256", config.wa.appSecret).update(rawBody).digest("hex");
   const given = header.slice(7);

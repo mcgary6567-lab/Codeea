@@ -25,7 +25,7 @@ export default function Complaints() {
                 <span className="text-xs text-slate-400">{ago(k.created_at)}</span>
               </div>
               <p className="mt-1 text-sm">{k.message}</p>
-              {k.customer_id && <Link to={`/customers/${k.customer_id}`} className="text-xs text-brand-600 hover:underline">{k.customer_name}</Link>}
+              {k.customer_id && <Link to={`/customers/${k.customer_id}`} className="inline-flex min-h-9 items-center text-xs text-brand-600 hover:underline sm:min-h-0">{k.customer_name}</Link>}
             </div>
             {k.status !== "resolved" && (
               <div className="flex gap-2">

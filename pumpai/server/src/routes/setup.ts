@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 /**
  * Selling and installing PumpAI on a pump owner's own server:
  *  - First-run setup wizard (only while the database is empty): business details and logo, the owner's admin
@@ -84,7 +85,10 @@ const setupBody = z.object({
 setupPublic.post("/setup", h((req) => {
   if (firstTenant()) throw new AppError(409, "This pump is already set up. Sign in instead.");
   const b = parse(setupBody, req.body);
-  if (config.setupToken && (b.code ?? "").trim().toUpperCase() !== config.setupToken.trim().toUpperCase()) throw new AppError(403, "Setup code is not correct (the installer printed it)");
+  if (config.setupToken) {
+    const want = Buffer.from(config.setupToken.trim().toUpperCase()), got = Buffer.from((b.code ?? "").trim().toUpperCase());
+    if (want.length !== got.length || !crypto.timingSafeEqual(want, got)) throw new AppError(403, "Setup code is not correct (the installer printed it)");
+  }
   const used = new Set(b.stations.flatMap((s) => s.tanks.map((t) => t.product)));
   for (const p of used) if (!b.prices[p]) throw new AppError(400, `Enter today's price for ${PRODUCTS[p]}`);
   const ts = now();
@@ -162,6 +166,10 @@ business.get("/integrations", requirePerm("settings.manage"), h(() => ({
 })));
 business.put("/integrations", requirePerm("settings.manage"), h((req) => {
   const b = parse(z.record(z.enum(Object.keys(CFG) as [string, ...string[]]), z.string().max(400)), req.body);
+  // a live WhatsApp number must have its app secret, or anyone could post fake messages to the webhook
+  const token = b.wa_token !== undefined && !b.wa_token.startsWith("•") ? b.wa_token.trim() : config.wa.token;
+  const secret = b.wa_app_secret !== undefined && !b.wa_app_secret.startsWith("•") ? b.wa_app_secret.trim() : config.wa.appSecret;
+  if (token && !secret) throw new AppError(400, "Add the WhatsApp App Secret too (Meta app → Settings → Basic) — it proves messages really come from WhatsApp");
   const changed: string[] = [];
   for (const [k, v] of Object.entries(b)) {
     if (CFG[k].secret && v.startsWith("•")) continue; // unchanged masked value

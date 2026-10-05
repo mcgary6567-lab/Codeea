@@ -73,7 +73,7 @@ test("monthly P&L and balance sheet, with CSV export", async () => {
   const b = r.balance_sheet;
   assert.equal(b.net_worth, b.total_assets - b.total_liabilities);
   assert.ok(b.assets.fuel_stock > 0 && b.assets.shop_stock > 0);
-  const csv = await (await fetch(`${base}/api/analysis/pl.csv?month=${month}&token=${tokens.admin}`)).text();
+  const csv = await (await fetch(`${base}/api/analysis/pl.csv?month=${month}&token=${(await call("admin", "GET", "/api/me")).data.media_token}`)).text();
   assert.match(csv, /Net profit/); assert.match(csv, /Net worth/);
 });
 

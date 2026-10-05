@@ -60,7 +60,7 @@ export async function khataOverdue(t: number) {
     run("UPDATE customers SET khata_blocked=1 WHERE id=?", c.id);
     n++;
     await notify(t, staff(t, ["manager", "admin"]), { type: "khata_hold", title: `Khata on hold: ${c.name}`, body: `${pkr(c.balance)} due; no payment for ${days}+ days.` });
-    await sendWhatsApp(t, c, `${c.name}, aap ke khata par ${pkr(c.balance)} baqaya hai aur ${days} din se payment nahi hui. Khata abhi roka gaya hai — payment karte hi dobara chalu ho jayega.\n${paymentLink(c, c.balance)}`, "system", { kind: "khata_hold" });
+    await sendWhatsApp(t, c, `${c.name}, aap ke khata par ${pkr(c.balance)} baqaya hai aur ${days} din se payment nahi hui. Khata abhi roka gaya hai — payment karte hi dobara chalu ho jayega.${paymentLink(c, c.balance) ? `\n${paymentLink(c, c.balance)}` : ""}`, "system", { kind: "khata_hold" });
   }
   return n;
 }

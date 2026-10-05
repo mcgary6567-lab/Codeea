@@ -65,7 +65,8 @@ export const customerTools: ToolDef[] = [
       if (!(amount > 0)) return { error: "Nothing outstanding to pay" };
       const link = paymentLink(c, amount);
       ctx.actions.push(`Payment link ${pkr(amount)}`);
-      return { amount_pkr: Math.round(amount), link, methods: ["JazzCash", "Easypaisa", "Raast QR", "Debit card"] };
+      return link ? { amount_pkr: Math.round(amount), link, methods: ["JazzCash", "Easypaisa", "Raast QR", "Debit card"] }
+        : { amount_pkr: Math.round(amount), note: "No online payment link is set up — ask the customer to pay at the pump (cash, bank transfer, Raast, JazzCash, Easypaisa)." };
     },
   },
   {

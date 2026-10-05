@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { all, get, run, now } from "../db.js";
-import { h, parse, tid, requirePerm, ROLES, PERMISSIONS, permissionMatrix, forgetRoleOverrides, type Permission } from "../auth.js";
+import { h, parse, tid, requirePerm, ROLES, PERMISSIONS, permissionMatrix, forgetRoleOverrides, revokeSessions, unlinkDevices, type Permission } from "../auth.js";
 import crypto from "node:crypto";
 import { AppError, normalizePhone, audit } from "../services.js";
 
@@ -49,7 +49,7 @@ function checkStation(tenantId: number, role: string, stationId: number | null |
 
 users.post("/users", h((req) => {
   const b = parse(z.object({
-    name: z.string().min(2), email: z.string().email(), password: z.string().min(6, "Password must be at least 6 characters"),
+    name: z.string().min(2), email: z.string().email(), password: z.string().min(8, "Password must be at least 8 characters").max(72),
     role: z.enum(ROLES), station_id: z.number().nullable().optional(), phone: z.string().optional().nullable(), pin: pinField,
   }), req.body);
   const email = b.email.toLowerCase().trim();
@@ -72,7 +72,7 @@ users.patch("/users/:id", h((req) => {
   const u = ownUser(tid(req), Number(req.params.id));
   const b = parse(z.object({
     name: z.string().min(2).optional(), email: z.string().email().optional(), role: z.enum(ROLES).optional(),
-    station_id: z.number().nullable().optional(), active: z.boolean().optional(), password: z.string().min(6).optional(),
+    station_id: z.number().nullable().optional(), active: z.boolean().optional(), password: z.string().min(8, "Password must be at least 8 characters").max(72).optional(),
     phone: z.string().optional().nullable(), pin: pinField,
   }), req.body);
   const role = b.role ?? u.role;
@@ -86,9 +86,23 @@ users.patch("/users/:id", h((req) => {
   if (email !== u.email && get("SELECT id FROM users WHERE email=?", email)) throw new AppError(400, "This email is already in use");
   run("UPDATE users SET name=?, email=?, role=?, station_id=?, active=? WHERE id=?", b.name ?? u.name, email, role, stationId ?? null, active ? 1 : 0, u.id);
   if (b.phone !== undefined) run("UPDATE users SET phone=? WHERE id=?", b.phone ? normalizePhone(b.phone) : null, u.id);
-  if (b.password) run("UPDATE users SET password_hash=? WHERE id=?", bcrypt.hashSync(b.password, 10), u.id);
+  if (b.password) run("UPDATE users SET password_hash=?, pw_fails=0, pw_locked_until=NULL WHERE id=?", bcrypt.hashSync(b.password, 10), u.id);
+  // a new password, a role change or a disabled account signs that person out of every phone
+  if (b.password || (b.role && b.role !== u.role) || (b.active === false && u.active)) revokeSessions(u.id);
   if (b.pin !== undefined) run("UPDATE users SET pin_hash=?, pin_fails=0, pin_locked_until=NULL WHERE id=?", b.pin ? bcrypt.hashSync(b.pin, 10) : null, u.id);
   return list(tid(req)).find((x) => x.id === u.id);
+}));
+
+/** Sign one person out of every phone / browser (lost phone, staff left). */
+users.post("/users/:id/sign-out", h((req) => {
+  const u = ownUser(tid(req), Number(req.params.id));
+  revokeSessions(u.id);
+  return { ok: true };
+}));
+/** Unlink every shared tablet (PIN sign-in): each one needs an owner / manager sign-in again. */
+users.post("/security/unlink-devices", requirePerm("users.manage"), h((req) => {
+  unlinkDevices(tid(req));
+  return { ok: true };
 }));
 
 /** Forgotten PIN: the admin sets a new one (or lets the app pick one) and the lock is lifted. */

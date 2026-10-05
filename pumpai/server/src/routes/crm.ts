@@ -112,7 +112,7 @@ crm.patch("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req)
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(vehicleBody.omit({ plate_no: true }), req.body);
   run("UPDATE vehicles SET fuel=?, daily_limit_l=? WHERE id=? AND customer_id=?", b.fuel ?? null, b.daily_limit_l ?? null, Number(req.params.vid), c.id);
-  return get("SELECT * FROM vehicles WHERE id=?", Number(req.params.vid));
+  return get("SELECT * FROM vehicles WHERE id=? AND customer_id=?", Number(req.params.vid), c.id);
 }));
 
 crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req) => {
@@ -236,7 +236,7 @@ crm.post("/customers/:id/remind", requirePerm("khata.manage"), h(async (req) => 
   const c = ownCustomer(tid(req), Number(req.params.id));
   if (c.balance <= 0) throw new AppError(400, "No balance due");
   const link = paymentLink(c, c.balance);
-  await sendWhatsApp(tid(req), c, `Assalam-o-Alaikum ${c.name}! 📒 Aap ka khata balance ${pkr(c.balance)} hai.\nPay karein: ${link}`, "agent", { kind: "khata_reminder" });
+  await sendWhatsApp(tid(req), c, `Assalam-o-Alaikum ${c.name}! 📒 Aap ka khata balance ${pkr(c.balance)} hai.${link ? `\nPay karein: ${link}` : "\nMeharbani kar ke jald ada kar dein. Shukriya!"}`, "agent", { kind: "khata_reminder" });
   return { ok: true, link };
 }));
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LogIn, LogOut, CalendarPlus } from "lucide-react";
-import { api, useApi } from "../lib/api";
+import { api, useApi, setToken } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { pkr } from "../lib/format";
 import { LedgerList } from "./Staff";
@@ -83,6 +83,7 @@ export default function MyAccount() {
       <MyTraining />
       <div className="card p-3"><LedgerList lines={data.lines} /></div>
       {leave && <LeaveForm onClose={() => setLeave(false)} onDone={() => { setLeave(false); att.reload(); }} />}
+      <ChangePassword />
     </div>
   );
 }
@@ -121,5 +122,33 @@ function MyTraining() {
             {r.status === "missing" ? "Needed — ask the manager" : r.status === "overdue" ? `Overdue (${r.next_due})` : r.next_due ? `OK till ${r.next_due}` : "Done"}</span></div>
       ))}
     </div>
+  );
+}
+
+/** Change your own password; other phones / browsers are signed out. */
+function ChangePassword() {
+  const [f, setF] = useState({ old_password: "", new_password: "", again: "" });
+  const [open, setOpen] = useState(false);
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  if (!open) return <button className="btn-secondary min-h-9" onClick={() => setOpen(true)}>Change my password · <Ur>پاس ورڈ بدلیں</Ur></button>;
+  return (
+    <form className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" onSubmit={async (e) => {
+      e.preventDefault();
+      if (f.new_password !== f.again) return toast("err", "The two new passwords are not the same");
+      setBusy(true);
+      try {
+        const r = await api("/me/password", { body: { old_password: f.old_password, new_password: f.new_password } });
+        setToken(r.token);
+        toast("ok", "Password changed · پاس ورڈ بدل گیا — other phones are signed out");
+        setOpen(false); setF({ old_password: "", new_password: "", again: "" });
+      } catch (err: any) { toast("err", err.message); } finally { setBusy(false); }
+    }}>
+      <div className="font-semibold">Change my password · <Ur>پاس ورڈ بدلیں</Ur></div>
+      <input className="input" type="password" autoComplete="current-password" placeholder="Current password" required value={f.old_password} onChange={(e) => setF({ ...f, old_password: e.target.value })} />
+      <input className="input" type="password" autoComplete="new-password" placeholder="New password (8+ characters)" minLength={8} required value={f.new_password} onChange={(e) => setF({ ...f, new_password: e.target.value })} />
+      <input className="input" type="password" autoComplete="new-password" placeholder="New password again" minLength={8} required value={f.again} onChange={(e) => setF({ ...f, again: e.target.value })} />
+      <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+    </form>
   );
 }

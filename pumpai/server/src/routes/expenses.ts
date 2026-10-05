@@ -50,7 +50,7 @@ expenses.post("/expense-categories", requirePerm("expenses.approve"), h((req) =>
 expenses.patch("/expense-categories/:id", requirePerm("expenses.approve"), h((req) => {
   const b = parse(z.object({ monthly_budget: z.number().min(0).nullable() }), req.body);
   run("UPDATE expense_categories SET monthly_budget=? WHERE id=? AND tenant_id=?", b.monthly_budget, Number(req.params.id), tid(req));
-  return get("SELECT * FROM expense_categories WHERE id=?", Number(req.params.id));
+  return get("SELECT * FROM expense_categories WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
 }));
 expenses.put("/expenses/settings", requirePerm("expenses.approve"), h((req) => {
   const b = parse(z.object({ approval_limit: z.number().min(0) }), req.body);

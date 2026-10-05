@@ -1,11 +1,14 @@
 import express from "express";
-import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { z } from "zod";
 import { config, aiEnabled, waLive, APP_VERSION } from "./config.js";
-import { migrate, get } from "./db.js";
-import { requireAuth, errorHandler, login, pinLogin, pinUsers, h, parse, permissionsOf } from "./auth.js";
+import { migrate, get, run, closeDb } from "./db.js";
+import bcrypt from "bcryptjs";
+import { AppError } from "./services.js";
+import { requireAuth, errorHandler, login, pinLogin, pinUsers, h, parse, permissionsOf, mediaToken, signToken, revokeSessions } from "./auth.js";
+import { securityHeaders, rateLimit } from "./security.js";
+import { privacyPage, termsPage } from "./legal.js";
 import { operations } from "./routes/operations.js";
 import { crm } from "./routes/crm.js";
 import { waWebhook, inbox } from "./routes/whatsapp.js";
@@ -63,10 +66,23 @@ if (!get("SELECT id FROM tenants LIMIT 1")) {
 }
 
 export const app = express();
-app.use(cors());
-app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
+app.disable("x-powered-by");
+app.set("trust proxy", 1); // the real visitor's address comes from nginx / Caddy in front
+app.use(securityHeaders);
+// the web app is served from the same address, so no cross-site access is needed (the demo on Vercel too)
+// small bodies for the doors anyone can reach; photos and logos only after sign-in (or in the one-time setup)
+const rawBody = (req: any, _res: unknown, buf: Buffer) => { req.rawBody = buf; };
+app.use(/^\/(api\/auth|webhooks|w\/|k\/)/, express.json({ limit: "256kb", verify: rawBody }));
+app.use(express.json({ limit: "8mb", verify: rawBody }));
+app.use("/api/auth", rateLimit("auth", 30, 10 * 60_000));
+app.use("/api/setup", rateLimit("setup", 20, 10 * 60_000));
+app.use(/^\/(w|k)\//, rateLimit("portal", 60, 10 * 60_000));
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, version: APP_VERSION, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" }));
+app.get("/api/health", (_req, res) => {
+  let db = true;
+  try { get("SELECT 1 x"); } catch { db = false; }
+  res.status(db ? 200 : 503).json({ ok: db, db, version: APP_VERSION, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" });
+});
 app.use("/api", setupPublic); // setup wizard + branding (no login)
 // business logo (login page, receipts, bills, TV board, app icon)
 app.get("/branding/logo", (_req, res) => {
@@ -107,6 +123,8 @@ app.get("/day/:token", (req, res) => {
   const html = renderDay(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This report link is not valid.</p>");
 });
+app.get("/privacy", (_req, res) => res.type("html").send(privacyPage()));
+app.get("/terms", (_req, res) => res.type("html").send(termsPage()));
 // digital receipt for walk-in customers (QR on the POS)
 app.get("/r/:token", (req, res) => {
   const html = renderReceipt(req.params.token);
@@ -147,7 +165,18 @@ api.get("/me", h((req) => ({
   user: { ...req.user, station_name: req.user!.station_id ? get("SELECT name FROM stations WHERE id=?", req.user!.station_id)?.name : null },
   tenant: get("SELECT id, name FROM tenants WHERE id=?", req.user!.tenant_id),
   permissions: permissionsOf(req.user!.role, req.user!.tenant_id),
+  // for links the browser opens itself (photos, downloads, live feed): short-lived and read-only
+  media_token: mediaToken(req.user!.id),
 })));
+/** Change your own password (the old one is needed); every other session is signed out. */
+api.post("/me/password", rateLimit("pw-change", 10, 10 * 60_000), h((req) => {
+  const b = parse(z.object({ old_password: z.string().min(1), new_password: z.string().min(8, "Use at least 8 characters").max(72) }), req.body);
+  const u = get("SELECT * FROM users WHERE id=?", req.user!.id)!;
+  if (!bcrypt.compareSync(b.old_password, u.password_hash)) throw new AppError(400, "The current password is not correct");
+  run("UPDATE users SET password_hash=? WHERE id=?", bcrypt.hashSync(b.new_password, 10), u.id);
+  revokeSessions(u.id);
+  return { token: signToken(req.user!) };
+}));
 api.use(operations);
 api.use(crm);
 api.use("/whatsapp", inbox);
@@ -201,8 +230,18 @@ app.use(errorHandler);
 
 // on Vercel the app runs as a serverless function (api/index.mjs): no listen, no background scheduler
 if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     console.log(`PumpAI API on http://localhost:${config.port}  (AI: ${aiEnabled() ? config.aiModel : "rule engine"}, WhatsApp: ${waLive() ? "live" : "simulated"})`);
+    if (!get("SELECT id FROM tenants LIMIT 1") && config.setupToken) console.log(`[setup] SETUP CODE: ${config.setupToken}  (the owner types it in the setup wizard)`);
     startScheduler();
   });
+  // a clean stop writes everything into pumpai.db (a copy of that one file is then a full backup)
+  const stop = (sig: string) => {
+    console.log(`[server] ${sig} — closing`);
+    server.close();
+    closeDb();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => stop("SIGTERM"));
+  process.on("SIGINT", () => stop("SIGINT"));
 }

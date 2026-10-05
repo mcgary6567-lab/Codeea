@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Field, Loading, PageHeader, useAction } from "../components/ui";
 import { StationForm, TankForm } from "../components/QuickAdd";
 import { BusinessProfile, Integrations, About } from "../components/BusinessSettings";
@@ -170,7 +170,7 @@ function Backups() {
       <ul className="divide-y divide-slate-100 text-sm">{data.backups.map((b: any) => (
         <li key={b.name} className="flex flex-wrap items-center gap-2 py-1.5">
           <span className="flex-1 font-mono text-xs">{b.name}</span><span className="text-xs text-slate-500">{Math.round(b.bytes / 1024).toLocaleString()} KB</span>
-          <a className="btn-secondary !py-1 text-xs" href={`/api/backups/${b.name}?token=${encodeURIComponent(getToken() ?? "")}`}>Download</a>
+          <a className="btn-secondary !py-1 text-xs" href={`/api/backups/${b.name}?token=${linkToken()}`}>Download</a>
           <button className="btn-secondary !py-1 text-xs" onClick={() => confirm(`Restore ${b.name}? Today's data is backed up first; the restore finishes when the app restarts.`) && run(() => api(`/backups/${b.name}/restore`, { body: {} }), (r: any) => r.message).then(reload)}>Restore</button>
         </li>
       ))}{!data.backups.length && <li className="py-2 text-slate-500">No backups yet — the first one is made tonight.</li>}</ul>

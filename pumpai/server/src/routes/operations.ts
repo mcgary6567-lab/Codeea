@@ -415,7 +415,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
   // shift report to managers/admin (WhatsApp only when cash is short)
   await notify(t, staff(t, ["admin", "manager"], req.user!.id), {
     type: "shift_closed", data: { shift_id: shift.id }, whatsapp: v < -500,
-    title: `${v < -500 ? "⚠️" : "✅"} Shift closed — ${shift.attendant} (${shift.station_name.replace("Al-Madina ", "")})`,
+    title: `${v < -500 ? "⚠️" : "✅"} Shift closed — ${shift.attendant} (${shift.station_name})`,
     body: `${summary.by_product.map((p) => `${PRODUCTS[p.product]} ${Math.round(p.litres).toLocaleString()} L`).join(" · ")}\n` +
       `Sales ${pkr(summary.amount)} · Cash expected ${pkr(closed.cash_expected)} · Counted ${pkr(b.cash_actual)} · ${v < 0 ? "Short" : "Over"} ${pkr(Math.abs(v))}`,
   });

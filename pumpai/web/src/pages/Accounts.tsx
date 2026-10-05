@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Truck, Scale, Percent, Landmark, BookOpenCheck, Download, Upload, Send } from "lucide-react";
-import { api, getToken, useApi } from "../lib/api";
+import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction, ErrorBox } from "../components/ui";
 import { d as day, dt, num, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
@@ -16,7 +16,7 @@ const TABS = [
 ] as const;
 const thisMonth = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
-const dl = (path: string) => `/api${path}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(getToken() ?? "")}`;
+const dl = (path: string) => `/api${path}${path.includes("?") ? "&" : "?"}token=${linkToken()}`;
 
 /** Money side of the pump: tanker shortage claims, which depot is cheapest, tax, bank statement matching and the accountant's export. */
 export default function Accounts() {

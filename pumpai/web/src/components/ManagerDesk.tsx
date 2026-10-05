@@ -90,7 +90,7 @@ export function ManagerDesk({ k }: { k: any }) {
       {data && (
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="card">
-            <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><Clock size={16} /> Shifts running now</h2><Link to="/shifts" className="text-xs text-brand-600 hover:underline">All shifts →</Link></div>
+            <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><Clock size={16} /> Shifts running now</h2><Link to="/shifts" className="inline-block py-2 text-xs text-brand-600 hover:underline">All shifts →</Link></div>
             {data.shifts.length ? (
               <table className="w-full"><thead><tr><th className="th">Salesman</th><th className="th">Open for</th><th className="th text-right">Litres</th><th className="th text-right">Sales</th><th className="th text-right">Cash in bag</th></tr></thead>
                 <tbody>{data.shifts.map((s: any) => (
@@ -101,7 +101,7 @@ export function ManagerDesk({ k }: { k: any }) {
             ) : <p className="px-4 pb-4 text-sm text-slate-500">No shift is open right now.</p>}
           </div>
           <div className="card">
-            <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><Users size={16} /> Staff today</h2><Link to="/staff" className="text-xs text-brand-600 hover:underline">Attendance →</Link></div>
+            <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><Users size={16} /> Staff today</h2><Link to="/staff" className="inline-block py-2 text-xs text-brand-600 hover:underline">Attendance →</Link></div>
             {data.staff.length ? (
               <ul className="grid gap-x-4 px-4 pb-4 sm:grid-cols-2">
                 {data.staff.map((s: any) => (

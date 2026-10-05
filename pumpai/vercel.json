@@ -57,6 +57,14 @@
       "destination": "/api/index.mjs"
     },
     {
+      "source": "/privacy",
+      "destination": "/api/index.mjs"
+    },
+    {
+      "source": "/terms",
+      "destination": "/api/index.mjs"
+    },
+    {
       "source": "/slip/:path*",
       "destination": "/api/index.mjs"
     },

@@ -145,7 +145,7 @@ prepaid.post("/customers/:id/wallet/deposit", requirePerm("khata.manage"), h(asy
 prepaid.patch("/customers/:id/wallet", requirePerm("khata.manage"), h((req) => {
   const b = parse(z.object({ wallet_low: z.number().min(0).max(10_000_000) }), req.body);
   run("UPDATE customers SET wallet_low=?, wallet_low_sent=0 WHERE id=? AND tenant_id=?", b.wallet_low, Number(req.params.id), tid(req));
-  return get("SELECT id, wallet_balance, wallet_low FROM customers WHERE id=?", Number(req.params.id));
+  return get("SELECT id, wallet_balance, wallet_low FROM customers WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
 }));
 
 /** After a wallet fill: one WhatsApp when the balance first drops below the alert level. */
