@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
@@ -18,9 +18,9 @@ const TABS = [
   { k: "receive", en: "Receive", ur: "وصولی", perm: "cash.receive" },
   { k: "pay", en: "Pay", ur: "ادائیگی", perm: "cash.pay" },
   { k: "cheques", en: "Cheques", ur: "چیک", perm: "cheques.manage" },
-  { k: "handover", en: "Salesmen cash", ur: "سیلزمین کیش", perm: "shifts.handover" },
+  { k: "handover", en: "Salesmen", ur: "سیلزمین کیش", perm: "shifts.handover" },
   { k: "daybook", en: "Day book", ur: "روزنامچہ", perm: "cashier.desk" },
-  { k: "bank", en: "Cash & bank", ur: "کیش اور بینک", perm: "cash.book" },
+  { k: "bank", en: "Bank", ur: "کیش اور بینک", perm: "cash.book" },
 ];
 
 /** The cash counter: every rupee in and out, cheques, the salesmen's cash, banks — one screen for the cashier. */
@@ -32,12 +32,18 @@ export default function Cashier() {
   const [slip, setSlip] = useState<any>(null);
   const [key, setKey] = useState(0);
   const done = (r: any) => { setSlip(r); setKey((k) => k + 1); };
+  // on a phone the tab row scrolls sideways: keep the open tab in view (only sideways, never the page)
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = tabsRef.current, el = row?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+    if (row && el) row.scrollLeft = el.offsetLeft - row.offsetLeft - (row.clientWidth - el.clientWidth) / 2;
+  }, [tab]);
   return (
     <div className="min-w-0 space-y-5">
       <PageHeader title="Cashier · کیشیئر" subtitle="Money received and paid, cheques, the salesmen's cash and the banks — with a voucher for every entry" />
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+      <div ref={tabsRef} className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {TABS.filter((t) => can(t.perm)).map((t) => (
-          <button key={t.k} onClick={() => go(t.k)} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === t.k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>
+          <button key={t.k} onClick={() => go(t.k)} data-tab={t.k} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === t.k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>
             {t.en}<Ur className="block text-xs">{t.ur}</Ur>
           </button>
         ))}
@@ -567,10 +573,10 @@ function CashBank({ start }: { start: string | null }) {
   if (!data) return <Loading />;
   return (
     <div className="space-y-5">
-      <div className="card flex flex-wrap items-center gap-3 p-4">
+      <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1"><div className="text-sm text-slate-500">Cash in hand (should be) · <Ur>ہاتھ میں نقد</Ur></div><div className="text-2xl font-bold tabular-nums">{pkr(data.cash_in_hand)}</div>
           <div className="text-xs text-slate-500">{data.last_count ? `Last counted ${pkr(data.last_count.amount)} by ${data.last_count.by}, ${dt(data.last_count.at)}` : "Not counted yet"}</div></div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button className="btn-secondary" onClick={() => setForm("count")}><Calculator size={15} /> Count · <Ur>گنیں</Ur></button>
           <button className="btn-primary" onClick={() => setForm("deposit")}><Landmark size={15} /> Deposit · <Ur>جمع</Ur></button>
         </div>

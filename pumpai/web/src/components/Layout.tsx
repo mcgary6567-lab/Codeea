@@ -25,9 +25,9 @@ const CASHIER_SUB = [
   { to: "/cashier?tab=receive", label: "Receive money", ur: "وصولی", icon: ArrowDownCircle, perm: "cash.receive" },
   { to: "/cashier?tab=pay", label: "Pay", ur: "ادائیگی", icon: ArrowUpCircle, perm: "cash.pay" },
   { to: "/cashier?tab=cheques", label: "Cheques", ur: "چیک", icon: FileCheck2, perm: "cheques.manage" },
-  { to: "/cashier?tab=handover", label: "Shift cash", ur: "سیلزمین کیش", icon: Users, perm: "shifts.handover" },
+  { to: "/cashier?tab=handover", label: "Salesmen", ur: "سیلزمین کیش", icon: Users, perm: "shifts.handover" },
   { to: "/cashier?tab=daybook", label: "Day book", ur: "روزنامچہ", icon: BookOpenText, perm: "cashier.desk" },
-  { to: "/cashier?tab=bank", label: "Bank & count", ur: "کیش اور بینک", icon: Landmark, perm: "cash.book" },
+  { to: "/cashier?tab=bank", label: "Bank", ur: "کیش اور بینک", icon: Landmark, perm: "cash.book" },
 ];
 const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB, "/cashier": CASHIER_SUB };
 /** Urdu next to the English in the short menus (salesman, wholesale officer, cashier). */

@@ -288,7 +288,7 @@ function seedCompliance(tenantId: number, stations: number[], T0: number) {
       tenantId, st, name, num ?? null, auth, day(days - 365), day(days), iso(T0 - 60 * DAY));
   addDefaultChecklist(tenantId);
   // duty times; Friday off for the salesman; ~40 days of check-ins and one paid leave
-  for (const [email, start, off] of [["salesman", "08:00", 5], ["manager", "09:00", 0], ["wholesale", "09:00", 0]] as const) {
+  for (const [email, start, off] of [["salesman", "08:00", 5], ["manager", "09:00", 0], ["wholesale", "09:00", 0], ["cashier", "09:00", 0]] as const) {
     const u = get("SELECT id, station_id FROM users WHERE email=?", `${email}@pumpai.pk`)!;
     run("UPDATE users SET duty_start=?, weekly_off=? WHERE id=?", start, off, u.id);
     const leaveDay = day(-12);
