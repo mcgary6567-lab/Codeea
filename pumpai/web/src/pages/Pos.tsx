@@ -31,6 +31,8 @@ const PAY = [
   { key: "coupon", en: "Coupon", ur: "کوپن", icon: Ticket, cls: "bg-orange-600" },
   { key: "wallet", en: "Wallet", ur: "والٹ", icon: Wallet, cls: "bg-sky-700" },
 ] as const;
+/** Payment options switched off on this pump's POS (points and coupons are not used). */
+const OFF_PAY: string[] = ["loyalty", "coupon"];
 /** Paid before (coupon / wallet / points): needs internet to check, cannot be kept offline. */
 const ONLINE_ONLY = ["loyalty", "coupon", "wallet"];
 
@@ -242,8 +244,8 @@ export default function Pos() {
 
           {/* 3. payment */}
           <Step n={3} en="Payment" ur="ادائیگی">
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 xl:grid-cols-9">
-              {PAY.map((p) => (
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+              {PAY.filter((p) => !OFF_PAY.includes(p.key)).map((p) => (
                 <button key={p.key} aria-pressed={pay === p.key} onClick={() => {
                   setPay(p.key);
                   if (p.key === "khata") setPickKhata(true); else setKhata(null);

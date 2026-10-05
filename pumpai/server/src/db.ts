@@ -50,6 +50,9 @@ export function tx<T>(fn: () => T): T {
 }
 export const now = () => new Date().toISOString();
 /** Pakistan (UTC+5, no DST) calendar date, e.g. "2026-10-04". */
+/** Meter name shown everywhere: "No.3 · HOBC-11" (needs the nozzles table aliased as n). */
+export const METER = "('No.' || n.meter_no || ' · ' || n.label)";
+export const meterName = (n: { meter_no?: number | null; label: string }) => (n.meter_no ? `No.${n.meter_no} · ${n.label}` : n.label);
 export const pkDate = (ms = Date.now()) => new Date(ms + 5 * 3600_000).toISOString().slice(0, 10);
 /** A "YYYY-MM-DD" Pakistan date → UTC timestamp of its midnight (ISO strings pass through). */
 export const pkStart = (d: string) => (d.length === 10 ? new Date(`${d}T00:00:00+05:00`).toISOString() : d);
@@ -336,7 +339,13 @@ export function migrate() {
   addColumn("wholesale_rates", "mode", "TEXT NOT NULL DEFAULT 'fixed'"); // fixed | discount (pump price − discount)
   addColumn("wholesale_rates", "discount", "REAL"); // Rs/L below the pump price; negative = above
   addColumn("wholesale_rate_history", "note", "TEXT");
-  addColumn("meter_readings", "handover_gap", "REAL"); // litres the meter moved between the two shifts // indent / parchi number from police, schools, govt offices
+  addColumn("meter_readings", "handover_gap", "REAL");
+  // meter numbers per station (No.1, No.2 …): existing meters get numbers in the order they were added,
+  // new ones get the next free number automatically
+  addColumn("nozzles", "meter_no", "INTEGER");
+  db.exec(`UPDATE nozzles SET meter_no = (SELECT COUNT(*) FROM nozzles n2 WHERE n2.station_id=nozzles.station_id AND n2.id<=nozzles.id) WHERE meter_no IS NULL`);
+  db.exec(`CREATE TRIGGER IF NOT EXISTS nozzle_meter_no AFTER INSERT ON nozzles WHEN NEW.meter_no IS NULL BEGIN
+    UPDATE nozzles SET meter_no = (SELECT COALESCE(MAX(meter_no),0)+1 FROM nozzles WHERE station_id=NEW.station_id) WHERE id=NEW.id; END`); // litres the meter moved between the two shifts // indent / parchi number from police, schools, govt offices
   // khata entries keep the fuel detail at the time of sale (litres, rate then, vehicle, slip)
   for (const [c, t] of [["product", "TEXT"], ["litres", "REAL"], ["rate", "REAL"], ["vehicle_no", "TEXT"], ["slip_no", "TEXT"], ["station_id", "INTEGER"]])
     addColumn("khata_ledger", c, t);

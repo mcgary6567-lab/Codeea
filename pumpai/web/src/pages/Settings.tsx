@@ -57,11 +57,42 @@ function StationsSection() {
               {s.tanks.map((t: any) => <span key={t.id} className="rounded-lg bg-slate-50 px-2 py-1 text-xs">{t.name} · {PRODUCTS[t.product]} · {num(t.capacity_l)} L · {s.nozzles.filter((n: any) => n.tank_id === t.id).length} nozzles</span>)}
               {!s.tanks.length && <span className="text-xs text-amber-700">No tanks yet</span>}
             </div>
+            {s.nozzles.length > 0 && <Meters nozzles={s.nozzles} onSaved={reload} />}
           </div>
         ))}
       </div>
       {addStation && <StationForm onClose={() => setAddStation(false)} onSaved={() => { setAddStation(false); reload(); }} />}
       {tankFor && <TankForm stations={data} stationId={tankFor} onClose={() => setTankFor(null)} onSaved={() => { setTankFor(null); reload(); }} />}
+    </div>
+  );
+}
+
+/** Meters of a station with their numbers (No.1, No.2 …); the number and name can be changed. */
+function Meters({ nozzles, onSaved }: { nozzles: any[]; onSaved: () => void }) {
+  const [edit, setEdit] = useState<any | null>(null);
+  const { busy, run } = useAction();
+  return (
+    <div className="mt-2">
+      <div className="mb-1 text-xs font-medium text-slate-500">Meters (numbers show on shifts, reports and alerts — tap to change)</div>
+      <div className="flex flex-wrap gap-2">
+        {nozzles.map((n) => (
+          <button key={n.id} type="button" onClick={() => setEdit({ id: n.id, meter_no: String(n.meter_no ?? ""), label: n.label })}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-800 font-bold text-white">{n.meter_no}</span>{n.label} · {PRODUCTS[n.product]}
+          </button>
+        ))}
+      </div>
+      {edit && (
+        <form className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 p-2" onSubmit={async (e) => {
+          e.preventDefault();
+          if (await run(() => api(`/nozzles/${edit.id}`, { method: "PATCH", body: { meter_no: Number(edit.meter_no), label: edit.label } }), "Meter saved")) { setEdit(null); onSaved(); }
+        }}>
+          <Field label="Meter No."><input className="input w-20" type="number" min={1} max={99} required value={edit.meter_no} onChange={(e) => setEdit({ ...edit, meter_no: e.target.value })} /></Field>
+          <Field label="Name on the dispenser"><input className="input w-40" required maxLength={30} value={edit.label} onChange={(e) => setEdit({ ...edit, label: e.target.value })} /></Field>
+          <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setEdit(null)}>Cancel</button>
+          <span className="w-full text-xs text-slate-500">If another meter already has this number, the two swap numbers.</span>
+        </form>
+      )}
     </div>
   );
 }

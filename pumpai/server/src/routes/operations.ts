@@ -4,7 +4,8 @@ import { registerDecider, requestApproval, closeApproval } from "./approvals.js"
 import { walletAfterFill } from "./prepaid.js";
 import { askRating } from "./feedback.js";
 import { claimForDelivery } from "./claims.js";
-import { all, get, run, tx, now, getSetting, pkDate } from "../db.js";
+import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName } from "../db.js";
+import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -37,7 +38,7 @@ operations.get("/stations", requireAny("sales.view", "stock.manage", "wholesale.
   return all(`SELECT * FROM stations WHERE tenant_id=? ${own ? "AND id=" + Number(own) : ""} ORDER BY id`, tid(req)).map((s) => ({
   ...s,
   tanks: all("SELECT * FROM tanks WHERE station_id=? ORDER BY id", s.id),
-  nozzles: all("SELECT n.*, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.id", s.id),
+  nozzles: all(`SELECT n.*, ${METER} name, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no, n.id`, s.id),
 }));
 }));
 
@@ -61,6 +62,29 @@ operations.post("/tanks", requirePerm("stock.manage"), h(async (req) => {
   await announce(tid(req), req.user!.id, ["manager", "admin", "salesman"], { type: "new_tank", data: { tank_id: tank.id }, stationId: st.id,
     title: `🛢️ New tank at ${st.name}: ${b.name}`, body: `${PRODUCTS[b.product]} · ${b.capacity_l.toLocaleString()} L · ${b.nozzles} nozzles. Nayi shift se meter readings mein shamil hoga.` });
   return tank;
+}));
+
+/** Renumber or rename a meter (No.1, No.2 …). Taking a number another meter has swaps the two. */
+operations.patch("/nozzles/:id", requirePerm("stock.manage"), h((req) => {
+  const b = parse(z.object({ meter_no: z.number().int().min(1).max(99).optional(), label: z.string().trim().min(1).max(30).optional() }), req.body);
+  const n = get("SELECT n.* FROM nozzles n JOIN stations s ON s.id=n.station_id WHERE n.id=? AND s.tenant_id=?", Number(req.params.id), tid(req));
+  if (!n) throw new AppError(404, "Meter not found");
+  tx(() => {
+    if (b.meter_no && b.meter_no !== n.meter_no) {
+      run("UPDATE nozzles SET meter_no=? WHERE station_id=? AND meter_no=?", n.meter_no, n.station_id, b.meter_no);
+      run("UPDATE nozzles SET meter_no=? WHERE id=?", b.meter_no, n.id);
+    }
+    if (b.label) run("UPDATE nozzles SET label=? WHERE id=?", b.label, n.id);
+  });
+  return get(`SELECT n.*, ${METER} name FROM nozzles n WHERE n.id=?`, n.id);
+}));
+
+/** Litres and money per meter for a period (default: today). */
+operations.get("/meters/sales", requirePerm("reports.view"), h((req) => {
+  const q = parse(z.object({ from: z.string().datetime({ offset: true }).optional(), to: z.string().datetime({ offset: true }).optional(), station_id: z.coerce.number().optional() }), req.query);
+  const to = q.to ? new Date(q.to).toISOString() : new Date().toISOString();
+  const from = q.from ? new Date(q.from).toISOString() : pkDayStart();
+  return { from, to, meters: meterSales(tid(req), from, to, q.station_id) };
 }));
 
 /* ---------------- Prices ---------------- */
@@ -233,7 +257,7 @@ operations.get("/shifts", requirePerm("shifts.manage"), h((req) => all(
   `SELECT sh.*, st.name station_name FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=?
    ${req.user!.role === "salesman" ? "AND sh.station_id=" + Number(scopedStation(req)) + " AND sh.attendant=?" : "AND ?=?"} ORDER BY sh.id DESC LIMIT 60`,
   tid(req), ...(req.user!.role === "salesman" ? [req.user!.name] : [1, 1]),
-).map((s) => ({ ...s, readings: all("SELECT r.*, n.label FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=?", s.id) }))));
+).map((s) => ({ ...s, readings: all(`SELECT r.*, ${METER} label, n.meter_no FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id WHERE r.shift_id=? ORDER BY n.meter_no`, s.id) }))));
 
 /** Nozzles that are not part of another open shift. */
 const busyNozzles = (stationId: number) => new Set(all(
@@ -246,10 +270,10 @@ operations.get("/shifts/handover", requirePerm("shifts.manage"), h((req) => {
   const busy = busyNozzles(stationId);
   return {
     station_id: stationId,
-    nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.id", stationId).map((n) => {
+    nozzles: all("SELECT n.*, t.product, t.name tank FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no, n.id", stationId).map((n) => {
       const last = get(`SELECT sh.attendant, sh.closed_at, r.closing FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id
         WHERE r.nozzle_id=? AND sh.status='closed' AND r.closing IS NOT NULL ORDER BY sh.closed_at DESC LIMIT 1`, n.id);
-      return { nozzle_id: n.id, label: n.label, product: n.product, tank: n.tank, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
+      return { nozzle_id: n.id, meter_no: n.meter_no, code: n.label, label: meterName(n as any), product: n.product, tank: n.tank, last_reading: n.totalizer, handed_over_by: last?.attendant ?? null, handed_over_at: last?.closed_at ?? null, busy: busy.has(n.id) };
     }),
   };
 }));
@@ -268,7 +292,8 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
   const st = ownStation(tid(req), stationId);
   if (get("SELECT id FROM shifts WHERE station_id=? AND status='open' AND attendant=?", stationId, attendant)) throw new AppError(400, "This attendant already has an open shift");
   const busy = busyNozzles(stationId);
-  const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=?", stationId);
+  const stationNozzles = all("SELECT n.*, t.product, t.id tank_id FROM nozzles n JOIN tanks t ON t.id=n.tank_id WHERE n.station_id=? ORDER BY n.meter_no", stationId)
+    .map((n) => ({ ...n, label: meterName(n as any) }));
   const chosen = b.readings ? stationNozzles.filter((n) => String(n.id) in b.readings!) : stationNozzles.filter((n) => !busy.has(n.id));
   if (b.readings && chosen.length !== Object.keys(b.readings).length) throw new AppError(400, "Unknown nozzle in readings");
   for (const n of chosen) if (busy.has(n.id)) throw new AppError(400, `Nozzle ${n.label} is already running in another open shift`);

@@ -37,7 +37,7 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
     const readings = Object.fromEntries(chosen.map((n: any) => [n.nozzle_id, Number(vals[n.nozzle_id])]));
     const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings, photo_ids: photos } }),
       (x: any) => (x.handover_gaps?.length ? `Shift started. Manager alerted about ${x.handover_gaps.reduce((a: number, g: any) => a + g.litres, 0)} L meter gap.` : "Shift started")
-        + (x.attendance_missing ? ` · ${attendant}: attendance not marked — check in with selfie in My account · حاضری لگائیں` : ""));
+        + (x.attendance_missing ? ` · ${x.attendant}: attendance not marked — check in with selfie in My account · حاضری لگائیں` : ""));
     if (r) onStarted(r);
   };
 
@@ -51,7 +51,8 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
             <div key={n.nozzle_id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-2 ${n.busy ? "border-slate-200 bg-slate-50 opacity-60" : use[n.nozzle_id] ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200"}`}>
               <label className="flex min-w-[150px] flex-1 items-center gap-3">
                 <input type="checkbox" className="h-6 w-6" disabled={n.busy} checked={!!use[n.nozzle_id] && !n.busy} onChange={(e) => setUse({ ...use, [n.nozzle_id]: e.target.checked })} />
-                <span><span className={`block font-semibold ${big ? "text-lg" : ""}`}>{n.label} · {PRODUCTS[n.product]}</span>
+                <MeterNo n={n.meter_no} />
+                <span><span className={`block font-semibold ${big ? "text-lg" : ""}`}>{n.code ?? n.label} · {PRODUCTS[n.product]}</span>
                   <span className="text-xs text-slate-500">{n.busy ? "In use by another open shift" : `Last closing: ${num(n.last_reading, 2)}`}</span></span>
               </label>
               {!n.busy && use[n.nozzle_id] && (
@@ -80,6 +81,13 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
     </div>
   );
 }
+
+/** Round "No." badge so each meter is easy to spot (No.1, No.2 …). */
+export const MeterNo = ({ n, small }: { n?: number | null; small?: boolean }) => n ? (
+  <span className={`inline-flex shrink-0 flex-col items-center justify-center rounded-lg bg-slate-800 font-bold leading-none text-white ${small ? "h-7 w-7 text-xs" : "h-11 w-11 text-lg"}`} title={`Meter No.${n}`}>
+    {!small && <span className="text-[9px] font-medium opacity-70">No.</span>}{n}
+  </span>
+) : null;
 
 const QUICK_EXP = [["Tea & food", "☕"], ["Generator fuel", "⚡"], ["Maintenance & repairs", "🔧"], ["Other", "📝"]];
 
@@ -174,12 +182,13 @@ function ReportBody({ r }: { r: any }) {
       <div>
         <h3 className="mb-1 text-sm font-semibold">Meter readings</h3>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full"><thead><tr>{["Nozzle", "Handed over", "Opening", "Closing", "Litres"].map((h, i) => <th key={h} className={`th ${i > 1 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+          <table className="w-full"><thead><tr>{["Meter", "Handed over", "Opening", "Closing", "Litres", "Sale (Rs)"].map((h, i) => <th key={h} className={`th ${i > 1 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
             <tbody>{r.readings.map((x: any) => (
               <tr key={x.nozzle_id}><td className="td text-sm">{x.label} <span className="text-xs text-slate-500">{PRODUCTS[x.product]}</span></td>
                 <td className="td text-xs text-slate-500">{x.handover_prev != null ? num(x.handover_prev, 2) : "—"}</td>
                 <td className="td text-right tabular-nums">{num(x.opening, 2)}</td><td className="td text-right tabular-nums">{x.closing != null ? num(x.closing, 2) : "—"}</td>
-                <td className="td text-right font-medium tabular-nums">{x.litres != null ? num(x.litres, 2) : "—"}</td></tr>
+                <td className="td text-right font-medium tabular-nums">{x.litres != null ? num(x.litres, 2) : "—"}</td>
+                <td className="td text-right tabular-nums">{x.amount != null ? pkr(x.amount) : "—"}</td></tr>
             ))}</tbody></table>
         </div>
         {r.photos?.length > 0 && (

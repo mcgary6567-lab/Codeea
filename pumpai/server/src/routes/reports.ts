@@ -6,7 +6,7 @@
  */
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, pkDayStart } from "../db.js";
+import { all, get, pkDayStart, METER } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
@@ -21,6 +21,27 @@ reports.use("/reports", requirePerm("reports.view"));
 const PK = "'+5 hours'"; // Pakistan time (UTC+5, no DST) for grouping by hour/day/month
 const r0 = (n: number) => Math.round(n ?? 0);
 const DAY = 86_400_000;
+
+/**
+ * Sales per meter (No.1, No.2 …) from the meter readings of the shifts in the period: litres the meter
+ * moved, and the money at the average rate that fuel sold for at that station in the period.
+ */
+export function meterSales(t: number, from: string, to: string, stationId?: number) {
+  const rows = all(`SELECT n.id nozzle_id, n.meter_no, ${METER} meter, n.label, st.id station_id, st.name station, tk.product,
+      ROUND(SUM(COALESCE(r.closing, r.checkpoint, r.opening) - r.opening), 2) litres, COUNT(DISTINCT r.shift_id) shifts,
+      GROUP_CONCAT(DISTINCT sh.attendant) salesmen, n.totalizer
+    FROM meter_readings r JOIN shifts sh ON sh.id=r.shift_id JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks tk ON tk.id=n.tank_id
+    JOIN stations st ON st.id=n.station_id
+    WHERE st.tenant_id=? AND sh.opened_at >= ? AND sh.opened_at < ? ${stationId ? "AND st.id=" + Number(stationId) : ""}
+    GROUP BY n.id ORDER BY st.name, n.meter_no`, t, from, to);
+  const rate = new Map(all(`SELECT s.station_id, s.product, SUM(s.amount)/SUM(s.litres) r FROM sales s JOIN stations st ON st.id=s.station_id
+    WHERE st.tenant_id=? AND s.created_at >= ? AND s.created_at < ? AND s.litres > 0 GROUP BY s.station_id, s.product`, t, from, to)
+    .map((x) => [`${x.station_id}:${x.product}`, x.r as number]));
+  return rows.map((r) => {
+    const rt = rate.get(`${r.station_id}:${r.product}`);
+    return { ...r, rate: rt ? Math.round(rt * 100) / 100 : null, amount: rt ? Math.round(r.litres * rt) : null, salesmen: String(r.salesmen ?? "").split(",").filter(Boolean) };
+  });
+}
 
 export function buildReport(t: number, from: string, to: string) {
   const span = Date.parse(to) - Date.parse(from);
@@ -55,6 +76,7 @@ export function buildReport(t: number, from: string, to: string) {
     by_station: all(`SELECT st.name station, ROUND(SUM(s.litres)) litres, ROUND(SUM(s.amount)) amount, COUNT(*) txns ${S} GROUP BY st.id ORDER BY amount DESC`, ...P),
     by_payment: all(`SELECT s.payment_method method, ROUND(SUM(s.amount)) amount, COUNT(*) txns ${S} GROUP BY s.payment_method ORDER BY amount DESC`, ...P),
     top_customers: [] as any[],
+    by_meter: meterSales(t, from, to),
   };
   sales.top_customers = all(
     `SELECT c.name, c.type, ROUND(SUM(s.litres)) litres, ROUND(SUM(s.amount)) amount, COUNT(*) visits

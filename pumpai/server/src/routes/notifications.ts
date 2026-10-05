@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { all, get, run, tx, now } from "../db.js";
+import { all, get, run, tx, now, METER } from "../db.js";
 import { h, parse, tid } from "../auth.js";
 import { AppError } from "../services.js";
 import { settleShift } from "../shifts.js";
@@ -20,8 +20,8 @@ notifications.get("/notifications", h((req) => {
     items, unread: items.filter((n) => !n.read_at).length, pending_ack: pending,
     open_shift: open ? {
       id: open.id,
-      readings: all(`SELECT r.nozzle_id, n.label, t.product, COALESCE(r.checkpoint, r.opening) last_reading FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id
-        JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=? ORDER BY n.id`, open.id),
+      readings: all(`SELECT r.nozzle_id, ${METER} label, n.meter_no, t.product, COALESCE(r.checkpoint, r.opening) last_reading FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id
+        JOIN tanks t ON t.id=n.tank_id WHERE r.shift_id=? ORDER BY n.meter_no`, open.id),
     } : null,
   };
 }));

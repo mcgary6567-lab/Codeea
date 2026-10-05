@@ -282,6 +282,7 @@ function tablesFor(tab: Tab, r: any): TableDef[] {
       return [
         { title: "By product", rows: r.sales.by_product, cols: [prod(), l("Litres", "litres"), m("Amount", "amount"), l("Transactions", "txns")] },
         { title: "By station", rows: r.sales.by_station, cols: [txt("Station", "station"), l("Litres", "litres"), m("Amount", "amount"), l("Transactions", "txns")] },
+        { title: "By meter (No.1, No.2 …) — from meter readings", rows: r.sales.by_meter ?? [], cols: [txt("Station", (x) => x.station.replace("Al-Madina ", "")), txt("Meter", "meter"), prod(), l("Litres", "litres"), m("Sale (Rs)", "amount"), l("Shifts", "shifts"), txt("Salesmen", (x) => x.salesmen.join(", "))] },
         { title: "By payment method", rows: r.sales.by_payment, cols: [txt("Method", "method"), m("Amount", "amount"), l("Transactions", "txns")] },
         { title: "Top customers", rows: r.sales.top_customers, cols: [txt("Customer", "name"), txt("Type", "type"), l("Litres", "litres"), m("Amount", "amount"), l("Visits", "visits")] },
       ];

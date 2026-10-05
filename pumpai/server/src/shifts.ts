@@ -5,13 +5,13 @@
  * are booked as cash sales at the rate valid for that segment, so a mid-shift price change is billed
  * correctly: before the change at the old rate, after it at the new rate.
  */
-import { all, get, run, now, type Row } from "./db.js";
+import { all, get, run, now, METER, type Row } from "./db.js";
 import { AppError, recordSale, round2 } from "./services.js";
 
 export function shiftReadings(shiftId: number) {
   return all(
-    `SELECT r.*, n.label, t.product, t.name tank FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id
-     WHERE r.shift_id=? ORDER BY n.id`, shiftId);
+    `SELECT r.*, ${METER} label, n.meter_no, t.product, t.name tank FROM meter_readings r JOIN nozzles n ON n.id=r.nozzle_id JOIN tanks t ON t.id=n.tank_id
+     WHERE r.shift_id=? ORDER BY n.meter_no, n.id`, shiftId);
 }
 
 /**
@@ -84,7 +84,12 @@ export function shiftSummary(shiftId: number) {
 /** Everything about one shift, for the shift report / receipt. */
 export function shiftReport(shiftId: number) {
   const shift = get("SELECT sh.*, s.name station_name FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=?", shiftId)!;
-  const readings = shiftReadings(shiftId).map((r) => ({ ...r, litres: r.closing != null ? round2(r.closing - r.opening) : null }));
+  // money per meter: its litres at the average rate this shift sold that fuel at
+  const rate = Object.fromEntries(all("SELECT product, SUM(amount)/SUM(litres) r FROM sales WHERE shift_id=? AND litres > 0 GROUP BY product", shiftId).map((x) => [x.product, x.r]));
+  const readings = shiftReadings(shiftId).map((r) => {
+    const litres = r.closing != null ? round2(r.closing - r.opening) : null;
+    return { ...r, litres, amount: litres != null && rate[r.product] ? Math.round(litres * rate[r.product]) : null };
+  });
   return {
     shift, readings, summary: shiftSummary(shiftId),
     // litres and amount at each rate (two lines if the price changed during the shift)

@@ -160,6 +160,22 @@ export function seed() {
           sid, att, iso(opened), iso(opened + 12 * 3600_000), "closed", Math.round(cash / 260), Math.round(cash), Math.round(cash + variance), variance);
       }
     }
+    // meter readings of past shifts, worked back from today's meters, so "sales by meter" has history
+    const nozRows = all("SELECT n.id, n.totalizer, n.station_id, t.product FROM nozzles n JOIN tanks t ON t.id=n.tank_id");
+    const meterAt = new Map(nozRows.map((n) => [n.id as number, n.totalizer as number]));
+    const r2 = (x: number) => Math.round(x * 100) / 100;
+    for (const sh of all("SELECT id, station_id, opened_at, closed_at FROM shifts WHERE status='closed' ORDER BY opened_at DESC")) {
+      for (const sold of all("SELECT product, SUM(litres) l FROM sales WHERE station_id=? AND created_at >= ? AND created_at < ? GROUP BY product", sh.station_id, sh.opened_at, sh.closed_at)) {
+        const noz = nozRows.filter((n) => n.station_id === sh.station_id && n.product === sold.product);
+        const share = 0.35 + rnd() * 0.3;
+        noz.forEach((n, i) => {
+          const litres = r2(sold.l * (noz.length === 2 ? (i === 0 ? share : 1 - share) : 1 / noz.length));
+          const closing = meterAt.get(n.id)!, opening = r2(closing - litres);
+          meterAt.set(n.id, opening);
+          run("INSERT INTO meter_readings (shift_id,nozzle_id,opening,closing) VALUES (?,?,?,?)", sh.id, n.id, opening, closing);
+        });
+      }
+    }
     // balances from ledger
     run(`UPDATE customers SET balance = COALESCE((SELECT SUM(CASE WHEN type='debit' THEN amount ELSE -amount END) FROM khata_ledger k WHERE k.customer_id=customers.id),0)`);
     run("UPDATE customers SET credit_limit = MAX(credit_limit, ROUND(balance/10000+1)*10000) WHERE balance > credit_limit");
