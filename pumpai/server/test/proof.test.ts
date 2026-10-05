@@ -118,9 +118,9 @@ test("own khata page with link + PIN for wholesale clients and khata customers; 
     const wrong = p.pin === "000000" ? "111111" : "000000";
     assert.equal((await post(wrong)).status, 401);
     const good = await post(p.pin, "&remember=1"); assert.equal(good.status, 200);
-    assert.match(await good.text(), /Balance due/);
+    assert.match(await good.text(), /Balance due|You have to pay|All paid/);
     const cookie = good.headers.get("set-cookie")!.split(";")[0];
-    assert.match(await (await fetch((globalThis as any).base + path, { headers: { cookie } })).text(), /Balance due/, "remembered phone");
+    assert.match(await (await fetch((globalThis as any).base + path, { headers: { cookie } })).text(), /Balance due|You have to pay|All paid/, "remembered phone");
     for (let i = 0; i < 5; i++) await post(wrong);
     assert.equal((await post(p.pin)).status, 429, "locked after 5 wrong PINs");
     // new link + PIN: the old link is gone, the new one opens with the new PIN

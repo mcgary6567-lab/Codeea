@@ -84,60 +84,122 @@ for (const [kind, base, view, manage] of [["w", "/wholesale/clients/:id/portal",
 }
 
 /* ---------------- customer side ---------------- */
-const page = (title: string, body: string, tenantId?: number) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>${esc(title)}</title><style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.w{max-width:720px;margin:0 auto;padding:14px}
-.c{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px}h1{font-size:20px;margin:0}.m{color:#64748b;font-size:12px}.big{font-size:24px;font-weight:700;white-space:nowrap}.g{color:#047857}.red{color:#b91c1c}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}.t{background:#f8fafc;border-radius:10px;padding:10px}table{width:100%;border-collapse:collapse}
-td,th{padding:7px 4px;border-bottom:1px solid #e2e8f0;vertical-align:top;text-align:left}th{font-size:11px;color:#64748b;text-transform:uppercase}.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.row{display:flex;gap:10px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e2e8f0}.l{min-width:0}.rr{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-input{font-size:28px;letter-spacing:10px;text-align:center;width:100%;box-sizing:border-box;padding:12px;border:2px solid #cbd5e1;border-radius:12px}button,a.b{display:block;width:100%;box-sizing:border-box;text-align:center;background:#064e3b;color:#fff;border:0;padding:13px;border-radius:12px;font-size:16px;font-weight:600;text-decoration:none;margin-top:10px;cursor:pointer}
-.err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}.ur{font-family:"Noto Nastaliq Urdu",serif}ul{padding-left:18px;margin:6px 0}@media print{.np{display:none}body{background:#fff}}</style></head>
-<body><div class=w>${tenantId ? `<div class=c style="display:flex;gap:10px;align-items:center">${logoTag(tenantId, "height:36px;max-width:120px;object-fit:contain")}<b>${esc(get("SELECT name FROM tenants WHERE id=?", tenantId)?.name)}</b></div>` : ""}${body}</div></body></html>`;
+const FUEL_UR: Record<string, string> = { PMG: "پیٹرول", HOBC: "ہائی آکٹین", HSD: "ڈیزل" };
+const DAYMS = 86_400_000;
+const CSS = `:root{color-scheme:light}*{box-sizing:border-box}body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#eef2f6;color:#0f172a}
+.ur{font-family:"Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Noto Naskh Arabic",serif;direction:rtl;unicode-bidi:isolate}
+.w{max-width:760px;margin:0 auto;padding:12px}.c{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.top{position:sticky;top:0;z-index:5;background:#064e3b;color:#fff;border-radius:0 0 16px 16px;padding:10px 12px;margin:-12px -12px 12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700}.brand img{background:#fff;border-radius:8px;padding:2px}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.acts a,.acts button{display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:12px;padding:8px 4px;font:600 13px system-ui;text-decoration:none;cursor:pointer}
+.acts .i{font-size:22px;line-height:1}.acts .ur{font-size:12px;font-weight:400}
+h1{font-size:22px;margin:0}.m{color:#64748b;font-size:13px}.g{color:#047857}.red{color:#b91c1c}
+.hero{border-radius:16px;padding:16px;text-align:center}.hero.owe{background:#fef2f2;border:2px solid #fecaca}.hero.ok{background:#ecfdf5;border:2px solid #a7f3d0}
+.hero .amt{font-size:38px;font-weight:800;letter-spacing:.5px;white-space:nowrap}.hero .lbl{font-size:16px;font-weight:600}.hero .ur{font-size:20px}
+.bar{height:10px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:6px}.bar>i{display:block;height:100%;border-radius:99px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.tile{background:#f8fafc;border-radius:12px;padding:10px;text-align:center}.tile .i{font-size:22px}.tile{min-width:0}.tile b{display:block;font-size:clamp(14px,4.2vw,19px);overflow-wrap:anywhere}
+.rates{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.rate{border-radius:12px;padding:12px;color:#fff;text-align:center}.rate b{display:block;font-size:24px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.chips a{flex:none;padding:7px 12px;border-radius:99px;background:#f1f5f9;color:#0f172a;text-decoration:none;font-size:14px;border:1px solid #e2e8f0}.chips a.on{background:#064e3b;color:#fff;border-color:#064e3b}
+.e{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #e2e8f0}.e .ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.e .l{min-width:0;flex:1}.et{font-weight:700;font-size:16px}.e .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.e .r b{font-size:18px}
+.sup .ic{background:#eff6ff}.pay .ic{background:#ecfdf5}.ret .ic{background:#fefce8}.adj .ic{background:#f5f3ff}
+.sum{display:flex;justify-content:space-between;padding:10px 0;font-weight:700;border-top:2px solid #0f172a}
+.row{display:flex;gap:10px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e2e8f0}.row .l{min-width:0}.rr{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}.t{background:#f8fafc;border-radius:10px;padding:10px}.big{font-size:24px;font-weight:700;white-space:nowrap}
+a.b,button.b{display:block;width:100%;text-align:center;background:#064e3b;color:#fff;border:0;padding:14px;border-radius:12px;font-size:17px;font-weight:600;text-decoration:none;margin-top:10px;cursor:pointer}
+input[name=pin]{font-size:30px;letter-spacing:10px;text-align:center;width:100%;padding:12px;border:2px solid #cbd5e1;border-radius:12px}
+.err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}.po{display:none}
+@media print{body{background:#fff;font-size:12px}.np,.top{display:none!important}.po{display:block}.c{box-shadow:none;border:1px solid #cbd5e1;break-inside:avoid;padding:10px;margin-bottom:8px}
+.e{break-inside:avoid;padding:6px 0}.rate{background:#fff!important;color:#000;border:1px solid #94a3b8}.tile{border:1px solid #e2e8f0}.e .ic{width:28px;height:28px;font-size:15px}.hero .amt{font-size:26px}.w{max-width:none;padding:0}a{color:inherit;text-decoration:none}}`;
+
+const page = (title: string, body: string, tenantId?: number, top = "") => `<!doctype html><html lang="ur"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
+<title>${esc(title)}</title><style>${CSS}</style></head>
+<body><div class=w>${top || (tenantId ? `<div class=c><div class=brand>${logoTag(tenantId, "height:34px;max-width:110px;object-fit:contain")}<span>${esc(get("SELECT name FROM tenants WHERE id=?", tenantId)?.name)}</span></div></div>` : "")}${body}</div></body></html>`;
 
 function pinForm(c: any, error?: string) {
-  return page(`${c.name} — khata`, `<div class=c><h1>${esc(c.name)}</h1><p class=m>Enter the 6-digit PIN the pump sent you · <span class=ur>اپنا پن درج کریں</span></p>
+  return page(`${c.name} — khata`, `<div class=c style="text-align:center"><div style="font-size:44px">🔒</div><h1>${esc(c.name)}</h1>
+<p style="margin:6px 0 2px">Enter the 6-digit PIN</p><p class=ur style="margin:0 0 12px;font-size:20px">اپنا ۶ ہندسوں کا پن لکھیں</p>
 <form method=post><input name=pin inputmode=numeric autocomplete=one-time-code pattern="[0-9]{6}" maxlength=6 required autofocus placeholder="••••••">
-<label class=m style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type=checkbox name=remember value=1 style="width:auto;font-size:14px" checked> Remember this phone for 30 days</label>
-<button>Open my khata · کھاتہ دیکھیں</button></form>${error ? `<div class=err>${esc(error)}</div>` : ""}</div>`, c.tenant_id);
+<label class=m style="display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px"><input type=checkbox name=remember value=1 checked> Remember this phone 30 days · <span class=ur>یہ فون یاد رکھیں</span></label>
+<button class=b>Open my khata · <span class=ur>کھاتہ کھولیں</span></button></form>${error ? `<div class=err>${esc(error)}</div>` : ""}</div>`, c.tenant_id);
 }
 
-function wholesaleBody(c: any): string {
+/** Top bar with the pump's name and the main buttons (print, monthly bill, call, WhatsApp, lock). */
+function topBar(c: any, code: string, billUrl: string) {
   const t = c.tenant_id;
-  const since = pkDate(Date.now() - 60 * 86_400_000);
-  const s = statement(t, c.id, since);
+  const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
+  const phone = String(get("SELECT value FROM settings WHERE tenant_id=? AND key='biz_phone'", t)?.value || tenant.owner_phone || "").replace(/[^\d+]/g, "");
+  const wa = phone.replace(/^\+/, "").replace(/^0/, "92");
+  return `<div class="top np"><div class=brand>${logoTag(t, "height:30px;max-width:90px;object-fit:contain")}<span>${esc(tenant.name)}</span></div>
+<div class=acts>
+<button onclick="print()"><span class=i>🖨️</span>Print<span class=ur>پرنٹ</span></button>
+<a href="${esc(billUrl)}"><span class=i>🧾</span>Bill<span class=ur>ماہانہ بل</span></a>
+${phone ? `<a href="tel:${esc(phone)}"><span class=i>📞</span>Call<span class=ur>کال کریں</span></a>` : `<a href="#"><span class=i>📞</span>Call<span class=ur>کال</span></a>`}
+<form method=post action="${esc(code)}/logout" style="display:contents"><button><span class=i>🔒</span>Lock<span class=ur>بند کریں</span></button></form>
+</div>${wa ? `<a href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(`${c.name}: khata ke baare mein`)}" style="display:block;margin-top:8px;background:#25d366;color:#fff;text-align:center;padding:9px;border-radius:12px;text-decoration:none;font-weight:600">💬 WhatsApp the pump · <span class=ur>واٹس ایپ کریں</span></a>` : ""}</div>`;
+}
+
+const monthsBack = (n: number) => Array.from({ length: n }, (_, i) => { const d = new Date(Date.parse(`${pkDate().slice(0, 7)}-15T00:00:00Z`)); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
+const monthName = (m: string) => new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "short", year: "numeric" });
+const dateStr = (iso: string) => new Date(iso).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", year: "numeric" });
+
+function wholesaleBody(c: any, month: string | null, code: string): string {
+  const t = c.tenant_id;
+  const from = month ? `${month}-01` : pkDate(Date.now() - 60 * DAYMS);
+  const to = month ? new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10) : undefined;
+  const s = statement(t, c.id, from, to);
   const due = clientDue(c.id);
   const card = rateCard(c.id);
-  const monthStart = new Date(pkDate().slice(0, 7) + "-01T00:00:00+05:00").toISOString();
-  const m = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) l, COALESCE(SUM(CASE WHEN type='supply' THEN amount END),0) billed,
-    COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) paid FROM wholesale_txns WHERE client_id=? AND voided=0 AND txn_date >= ?`, c.id, monthStart)!;
-  const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(Date.parse(`${pkDate().slice(0, 7)}-15T00:00:00Z`)); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
-  const rows = [...s.lines].reverse().filter((l: any) => !l.voided).slice(0, 80).map((l: any) => {
-    const what = l.type === "supply" ? `<b>${esc(PRODUCTS[l.product] ?? l.product)}</b> · ${n2(l.litres)} L × ${n2(l.rate)}`
-      : l.type === "payment" ? `<b class=g>Payment received</b>` : l.type === "return" ? `Fuel returned · ${n2(l.litres)} L` : `Adjustment`;
-    const sub = l.type === "supply" ? [l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref]
-      : l.type === "payment" ? [l.method, l.ref] : [l.note];
-    const amt = l.debit ? `<b>${n2(l.debit)}</b>` : `<b class=g>−${n2(l.credit)}</b>`;
-    return `<div class=row><div class=l><div class=m>${esc(new Date(l.txn_date).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", year: "numeric" }))}</div>${what}<div class=m>${esc(sub.filter(Boolean).join(" · "))}</div></div>
-      <div class=rr>${amt}<div class=m>bal ${n2(l.balance)}</div></div></div>`;
+  const live = s.lines.filter((l: any) => !l.voided);
+  const litres = live.filter((l: any) => l.type === "supply").reduce((a: number, l: any) => a + l.litres, 0);
+  const billed = live.filter((l: any) => l.type === "supply").reduce((a: number, l: any) => a + l.amount, 0);
+  const paid = live.filter((l: any) => l.type === "payment").reduce((a: number, l: any) => a + l.amount, 0);
+  const used = c.credit_limit > 0 ? Math.min(100, Math.max(0, (due / c.credit_limit) * 100)) : 0;
+  const periodLabel = month ? monthName(month) : "Last 60 days";
+  const COLORS: Record<string, string> = { PMG: "#2a78d6", HOBC: "#eb6834", HSD: "#1baf7a" };
+  const rows = [...live].reverse().map((l: any) => {
+    const d = `<div class=m>${esc(dateStr(l.txn_date))}</div>`;
+    const bal = `<div class=m>Baqi · <span class=ur>باقی</span> ${n2(l.balance)}</div>`;
+    if (l.type === "supply") return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
+      <div>${n2(l.litres)} L × Rs ${n2(l.rate)}</div><div class=m>${esc([l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref && `🧾 ${l.ref}`].filter(Boolean).join("  "))}</div></div>
+      <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
+    if (l.type === "payment") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.method, l.ref].filter(Boolean).join(" · "))}</div></div>
+      <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
+    if (l.type === "return") return `<div class="e ret"><div class=ic>↩️</div><div class=l>${d}<div class=et>Fuel returned · <span class=ur>تیل واپس</span></div><div>${n2(l.litres)} L ${esc(PRODUCTS[l.product] ?? "")}</div></div>
+      <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
+    return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Adjustment · <span class=ur>ایڈجسٹمنٹ</span></div><div class=m>${esc(l.note ?? "")}</div></div>
+      <div class=r><b class="${l.amount < 0 ? "g" : ""}">${l.amount < 0 ? "−" : "+"}${n2(Math.abs(l.amount))}</b>${bal}</div></div>`;
   }).join("");
-  return `<div class=c><h1>${esc(c.name)}</h1><div class=m>${esc([c.business_name, c.city].filter(Boolean).join(" · "))}</div>
-<div class=grid><div class=t><div class=m>Balance due · بقایا</div><div class="big ${due > 0 ? "red" : "g"}">${rs(due)}</div></div>
-<div class=t><div class=m>Credit limit</div><div class=big style="font-size:20px">${c.credit_limit ? rs(c.credit_limit) : "—"}</div>${c.credit_limit ? `<div class=m>Available ${rs(Math.max(0, c.credit_limit - due))}</div>` : ""}</div>
-<div class=t><div class=m>This month</div><div class=big style="font-size:20px">${Math.round(m.l).toLocaleString("en-IN")} L</div><div class=m>Billed ${rs(m.billed)} · paid ${rs(m.paid)}</div></div></div></div>
-<div class=c><b>Your rates today · آج کا ریٹ</b><table>${Object.entries(card).map(([p, r]) => `<tr><td>${esc(PRODUCTS[p] ?? p)}</td><td class=r><b>${r.rate != null ? `Rs ${r.rate.toFixed(2)} / L` : "—"}</b></td></tr>`).join("") || "<tr><td class=m>No rate set</td></tr>"}</table></div>
-<div class=c><b>Last 60 days</b><div class=m>Opening balance ${rs(s.opening_balance)} · supplies in black, payments in green (−)</div>${rows || "<p class=m>No entries</p>"}</div>
-<div class=c><b>Monthly statements</b><ul>${months.map((mm) => `<li><a href="${esc(billLink(t, "w", c.id, mm))}">${esc(new Date(`${mm}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "long", year: "numeric" }))}</a></li>`).join("")}</ul></div>
-`;
+  const chips = [`<a href="${esc(code)}" class="${month ? "" : "on"}">60 days · <span class=ur>۶۰ دن</span></a>`, ...monthsBack(6).map((m) => `<a href="${esc(code)}?m=${m}" class="${month === m ? "on" : ""}">${esc(monthName(m))}</a>`)].join("");
+  return `<div class=po><b>${esc(get("SELECT name FROM tenants WHERE id=?", t)?.name)}</b> — Account statement · <span class=ur>کھاتہ</span><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
+<div class=c><h1>${esc(c.name)}</h1><div class=m>${esc([c.business_name, c.city].filter(Boolean).join(" · "))}</div>
+<div class="hero ${due > 0 ? "owe" : "ok"}" style="margin-top:12px">
+${due > 0 ? `<div class=lbl>You have to pay · <span class=ur>آپ کے ذمے</span></div><div class="amt red">${rs(due)}</div>`
+  : `<div class=lbl>${due < 0 ? "Advance with the pump · <span class=ur>پمپ پر ایڈوانس</span>" : "All paid · <span class=ur>حساب صاف</span>"} ✅</div><div class="amt g">${rs(Math.abs(due))}</div>`}
+${c.credit_limit > 0 ? `<div class=m style="margin-top:6px">Credit limit · <span class=ur>حد</span> ${rs(c.credit_limit)} — left · <span class=ur>باقی حد</span> <b>${rs(Math.max(0, c.credit_limit - due))}</b></div>
+<div class=bar><i style="width:${used}%;background:${used >= 90 ? "#dc2626" : used >= 75 ? "#d97706" : "#059669"}"></i></div>` : ""}</div>
+<div class=tiles><div class=tile><div class=i>⛽</div><b>${Math.round(litres).toLocaleString("en-IN")} L</b><div class=m>Fuel taken · <span class=ur>تیل لیا</span></div></div>
+<div class=tile><div class=i>🧾</div><b>${rs(billed)}</b><div class=m>Bill · <span class=ur>بل</span></div></div>
+<div class=tile><div class=i>💵</div><b class=g>${rs(paid)}</b><div class=m>Paid · <span class=ur>ادا کیا</span></div></div></div>
+<div class=m style="text-align:center;margin-top:6px">${esc(periodLabel)}</div></div>
+<div class=c><b>Your rate today · <span class=ur>آج آپ کا ریٹ</span></b><div class=rates style="margin-top:10px">${Object.entries(card).map(([p, r]) => `<div class=rate style="background:${COLORS[p] ?? "#475569"}">${esc(PRODUCTS[p] ?? p)} · <span class=ur>${FUEL_UR[p] ?? ""}</span><b>Rs ${r.rate != null ? r.rate.toFixed(2) : "—"}</b><span style="font-size:12px">per litre · <span class=ur>فی لیٹر</span></span></div>`).join("") || "<p class=m>No rate set</p>"}</div></div>
+<div class=c><div class=np style="margin-bottom:8px"><div class=chips>${chips}</div></div>
+<b>Entries · <span class=ur>تفصیل</span> — ${esc(periodLabel)}</b>
+<div class=m>⛽ fuel taken (+) · 💵 payment (−) · <span class=ur>باقی</span> = balance after each entry</div>
+<div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:600"><span>Opening · <span class=ur>شروع کا باقی</span></span><span>${n2(s.opening_balance)}</span></div>
+${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}
+<div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
 }
 
-
-function khataPage(kind: Kind, c: any, code: string) {
-  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c) : khataPortalBody(c)) +
-    `<div class=np><a class=b href="javascript:print()">Print / save as PDF</a><form method=post action="${esc(code)}/logout"><button style="background:#e2e8f0;color:#0f172a">Lock this page</button></form></div>
-<div class=m style="text-align:center;margin-top:8px">Updated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>`, c.tenant_id);
+function khataPage(kind: Kind, c: any, code: string, month: string | null) {
+  const bill = billLink(c.tenant_id, kind, c.id, month ?? pkDate().slice(0, 7));
+  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c, month, code) : khataPortalBody(c)) +
+    `<div class=m style="text-align:center;margin:8px 0 20px">Updated · <span class=ur>تازہ ترین</span> ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>`, c.tenant_id, topBar(c, code, bill));
 }
 
 const cookieName = (kind: Kind, id: number) => `pp_${kind}${id}`;
+const monthQ = (req: Request) => (/^\d{4}-\d{2}$/.test(String(req.query.m ?? "")) ? String(req.query.m) : null);
 function remembered(req: Request, kind: Kind, c: any, v: number) {
   const raw = String(req.headers.cookie ?? "").split(/;\s*/).find((x) => x.startsWith(cookieName(kind, c.id) + "="));
   if (!raw) return false;
@@ -151,7 +213,7 @@ for (const kind of ["w", "k"] as const) {
     const r = fromCode(kind, req.params.code);
     if (!r) return gone(res);
     res.setHeader("cache-control", "no-store");
-    if (remembered(req, kind, r.c, r.v)) { seen(kind, r.c.id); return res.type("html").send(khataPage(kind, r.c, req.params.code)); }
+    if (remembered(req, kind, r.c, r.v)) { seen(kind, r.c.id); return res.type("html").send(khataPage(kind, r.c, req.params.code, monthQ(req))); }
     res.type("html").send(pinForm(r.c));
   });
   pinPortalPublic.post(`/${kind}/:code`, express.urlencoded({ extended: false, limit: "2kb" }), (req, res) => {
@@ -169,11 +231,11 @@ for (const kind of ["w", "k"] as const) {
       return res.status(401).type("html").send(pinForm(c, lock ? `Wrong PIN. The page is locked for ${LOCK_MIN} minutes.` : `Wrong PIN · غلط پن (${MAX_FAILS - fails} tries left)`));
     }
     run(`UPDATE ${TABLE[kind]} SET portal_fails=0, portal_locked_until=NULL, portal_seen_at=? WHERE id=?`, now(), c.id);
-    if (req.body?.remember) {
-      const tok = jwt.sign({ k: kind, id: c.id, v: r.v }, config.jwtSecret, { expiresIn: "30d" });
-      res.setHeader("set-cookie", `${cookieName(kind, c.id)}=${encodeURIComponent(tok)}; Path=/${kind}/; Max-Age=${30 * 86400}; HttpOnly; SameSite=Lax${config.publicUrl.startsWith("https") ? "; Secure" : ""}`);
-    }
-    res.type("html").send(khataPage(kind, c, req.params.code));
+    // remembered phones keep the cookie 30 days; otherwise it lasts until the browser closes (so the month buttons work)
+    const keep = Boolean(req.body?.remember);
+    const tok = jwt.sign({ k: kind, id: c.id, v: r.v }, config.jwtSecret, { expiresIn: keep ? "30d" : "12h" });
+    res.setHeader("set-cookie", `${cookieName(kind, c.id)}=${encodeURIComponent(tok)}; Path=/${kind}/; ${keep ? `Max-Age=${30 * 86400}; ` : ""}HttpOnly; SameSite=Lax${config.publicUrl.startsWith("https") ? "; Secure" : ""}`);
+    res.type("html").send(khataPage(kind, c, req.params.code, null));
   });
   pinPortalPublic.post(`/${kind}/:code/logout`, (req, res) => {
     const r = fromCode(kind, req.params.code);
