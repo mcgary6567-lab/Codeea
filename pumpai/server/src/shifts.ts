@@ -74,7 +74,7 @@ export function shiftSummary(shiftId: number) {
   return {
     by_product: byProduct, by_payment: byPayment,
     litres: round2(byProduct.reduce((a, p) => a + p.litres, 0)), amount: round2(byProduct.reduce((a, p) => a + p.amount, 0)),
-    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), shop,
+    cash_sales: cashSales, digital: sum(["easypaisa", "jazzcash", "raast", "card"]), khata: sum(["khata"]), points: sum(["loyalty"]), prepaid: sum(["coupon", "wallet"]), shop,
     expenses, expenses_total: expensesTotal,
     // what must be in the cash bag at the end: cash sales minus expenses paid from that cash
     cash_expected: round2(cashSales - expensesTotal),

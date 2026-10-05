@@ -5,7 +5,7 @@ import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../component
 import { dt, pkr } from "../lib/format";
 import { PhotoButton, photoUrl } from "../components/Capture";
 
-const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", staff_repaid: "Staff advances paid back" };
+const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back" };
 const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", staff_advances: "Staff advances / bonus" };
 
 /** Office cash book: what should be in the drawer now, bank deposits and cash counts — no cash register on paper. */

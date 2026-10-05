@@ -117,7 +117,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const u = data.user;
   const done = () => { setForm(null); setF({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" }); reload(); };
   const cut = f.cut === "" ? data.attendance?.salary_cut ?? 0 : Number(f.cut) || 0;
-  const net = (u.salary ?? 0) - cut + (Number(f.bonus) || 0) - (Number(f.deduct) || 0);
+  const net = (u.salary ?? 0) - cut + (Number(f.bonus) || 0) + (data.commission ?? 0) - (Number(f.deduct) || 0);
   return (
     <Modal open onClose={onClose} title={`${u.name} — staff account`} wide>
       <div className="flex flex-wrap items-center gap-3">
@@ -151,6 +151,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
               <Field label="Bonus (optional)"><input className="input" type="number" min={0} value={f.bonus} onChange={(e) => setF({ ...f, bonus: e.target.value })} /></Field>
               <Field label={`Cut advance / short (owes ${pkr(data.balance)})`}><input className="input" type="number" min={0} max={Math.min(data.balance, u.salary + (Number(f.bonus) || 0))} value={f.deduct} onChange={(e) => setF({ ...f, deduct: e.target.value })} /></Field>
             </div>
+            {data.commission > 0 && <div className="text-sm text-slate-600">+ Commission this month (shop / fuel): <b>{pkr(data.commission)}</b> — added by itself</div>}
             <div className="rounded-lg bg-emerald-50 p-3 text-lg">Hand over in cash: <b className="tabular-nums">{pkr(net)}</b></div>
           </>}
           <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setForm(null)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>

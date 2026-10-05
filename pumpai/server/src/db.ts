@@ -340,6 +340,35 @@ export function migrate() {
   addColumn("meter_readings", "checkpoint_at", "TEXT");
   addColumn("deliveries", "supplier_id", "INTEGER");
   addColumn("deliveries", "purchase_rate", "REAL");
+  // prepaid fuel: coupons sold in advance (single use) and company wallets (money deposited first)
+  db.exec(`CREATE TABLE IF NOT EXISTS fuel_coupons (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, code TEXT NOT NULL UNIQUE, batch TEXT NOT NULL, value REAL NOT NULL, product TEXT,
+    buyer TEXT, customer_id INTEGER, method TEXT NOT NULL DEFAULT 'cash', status TEXT NOT NULL DEFAULT 'active', expires_on TEXT,
+    sold_by TEXT, sold_at TEXT NOT NULL, sale_id INTEGER, used_at TEXT, used_by TEXT, void_reason TEXT)`);
+  addColumn("customers", "wallet_balance", "REAL NOT NULL DEFAULT 0");
+  addColumn("customers", "wallet_low", "REAL"); // WhatsApp when the wallet falls below this
+  addColumn("customers", "wallet_low_sent", "INTEGER NOT NULL DEFAULT 0");
+  db.exec(`CREATE TABLE IF NOT EXISTS wallet_ledger (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('deposit','fill','refund','adjustment')),
+    amount REAL NOT NULL, method TEXT, ref TEXT, note TEXT, sale_id INTEGER, created_by TEXT, created_at TEXT NOT NULL)`);
+  // customer rating after a fill (WhatsApp 1-5)
+  db.exec(`CREATE TABLE IF NOT EXISTS ratings (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, sale_id INTEGER, station_id INTEGER, salesman_id INTEGER,
+    score INTEGER, comment TEXT, status TEXT NOT NULL DEFAULT 'asked', complaint_id INTEGER, asked_at TEXT NOT NULL, rated_at TEXT)`);
+  // things waiting for the owner's "1" on WhatsApp (price change, big expense)
+  db.exec(`CREATE TABLE IF NOT EXISTS approvals (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref_id INTEGER NOT NULL, summary TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, decided_via TEXT, created_at TEXT NOT NULL, decided_at TEXT, UNIQUE (kind, ref_id))`);
+  // rent, bijli, security… booked by themselves every month; utility bills read from a photo
+  db.exec(`CREATE TABLE IF NOT EXISTS recurring_expenses (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, category TEXT NOT NULL, amount REAL NOT NULL, paid_to TEXT,
+    method TEXT NOT NULL DEFAULT 'cash', day_of_month INTEGER NOT NULL DEFAULT 1, note TEXT, active INTEGER NOT NULL DEFAULT 1,
+    last_month TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS utility_bills (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, kind TEXT NOT NULL DEFAULT 'electricity', month TEXT NOT NULL,
+    units REAL, amount REAL NOT NULL, due_date TEXT, reference TEXT, photo_id INTEGER, expense_id INTEGER, prev_amount REAL, prev_units REAL,
+    change_pct REAL, created_by TEXT, created_at TEXT NOT NULL)`);
+  addColumn("sales", "coupon_id", "INTEGER");
   migrateUserRoles();
 }
 

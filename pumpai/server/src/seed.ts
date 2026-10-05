@@ -1,6 +1,6 @@
 /** Demo data: one business, two stations, 8 weeks of realistic sales, customers, khata and WhatsApp chats. */
 import bcrypt from "bcryptjs";
-import { db, migrate, run, all, get, tx } from "./db.js";
+import { db, migrate, run, all, get, tx, setSetting } from "./db.js";
 import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
 import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
@@ -204,6 +204,7 @@ export function seed() {
     seedShop(tenantId, [st1, st2], T0);
     seedCompliance(tenantId, [st1, st2], T0);
     simulateStock(tenantId, st1, st2, T0);
+    seedPrepaidAndMore(tenantId, st1, st2, T0);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -437,4 +438,50 @@ function simulateStock(tenantId: number, st1: number, st2: number, T0: number) {
       run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
         tenantId, supplierId, "payment", pay, pick(["Bank transfer", "Pay order", "Online (1LINK)"]), `PO-${7000 + d}`, "Haji Abdul Rehman (CEO)", cutoff, cutoff);
   }
+}
+
+/** Company wallet, a coupon book, monthly fixed costs, bijli bills, customer ratings, TV board offers. */
+function seedPrepaidAndMore(tenantId: number, st1: number, st2: number, T0: number) {
+  const fleet = get("SELECT * FROM customers WHERE tenant_id=? AND name='Al-Karam Rent a Car'", tenantId);
+  if (fleet) {
+    const dep = (amount: number, d: number, ref: string) => run("INSERT INTO wallet_ledger (tenant_id,customer_id,type,amount,method,ref,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      tenantId, fleet.id, "deposit", amount, "raast", ref, "Advance for fuel", "Kamran Shah", iso(T0 - d * DAY));
+    dep(200000, 15, "RAAST-88213");
+    dep(150000, 3, "RAAST-90417");
+    let bal = 350000;
+    // a few of their recent cash fills were paid from the wallet
+    for (const sale of all("SELECT * FROM sales WHERE customer_id=? AND payment_method <> 'khata' AND created_at >= ? ORDER BY id LIMIT 8", fleet.id, iso(T0 - 14 * DAY))) {
+      run("UPDATE sales SET payment_method='wallet' WHERE id=?", sale.id);
+      run("INSERT INTO wallet_ledger (tenant_id,customer_id,type,amount,note,sale_id,created_at) VALUES (?,?,?,?,?,?,?)", tenantId, fleet.id, "fill", sale.amount, `${sale.litres}L ${sale.product} @ Rs ${sale.rate}`, sale.id, sale.created_at);
+      bal -= sale.amount;
+    }
+    run("UPDATE customers SET wallet_balance=?, wallet_low=50000 WHERE id=?", Math.round(bal * 100) / 100, fleet.id);
+  }
+  // a book of 20 x Rs 1,000 petrol coupons sold to a company, 6 already used
+  const buyer = get("SELECT id FROM customers WHERE tenant_id=? AND name='Punjab Builders (Pvt) Ltd'", tenantId);
+  for (let i = 0; i < 20; i++) {
+    const code = `C${(0x5a3f00000 + i * 7919 + 1234567).toString(16).toUpperCase().slice(0, 9)}`;
+    run("INSERT INTO fuel_coupons (tenant_id,code,batch,value,product,buyer,customer_id,method,status,expires_on,sold_by,sold_at,used_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      tenantId, code, "B-DEMO-01", 1000, null, "Punjab Builders (Pvt) Ltd", buyer?.id ?? null, "cash", i < 6 ? "used" : "active", iso(T0 + 80 * DAY).slice(0, 10),
+      "Kamran Shah", iso(T0 - 10 * DAY), i < 6 ? iso(T0 - (8 - i) * DAY) : null);
+  }
+  // rent, guard and internet booked by themselves each month
+  const month = iso(T0 + 5 * 3600_000).slice(0, 7);
+  for (const [cat, amount, to, day, station] of [["Rent", 150000, "Malik Property (land owner)", 1, st1], ["Security", 45000, "Shield Security Services", 5, null], ["Office & stationery", 3500, "PTCL Flash Fiber", 10, st1]] as const)
+    run("INSERT INTO recurring_expenses (tenant_id,station_id,category,amount,paid_to,method,day_of_month,note,last_month,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      tenantId, station, cat, amount, to, "bank", day, cat === "Office & stationery" ? "Internet" : null, month, "Haji Abdul Rehman (CEO)", iso(T0 - 60 * DAY));
+  // last two bijli bills of the Lahore pump
+  const mAgo = (n: number) => { const d = new Date(T0); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - n); return d.toISOString().slice(0, 7); };
+  run("INSERT INTO utility_bills (tenant_id,station_id,kind,month,units,amount,reference,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)", tenantId, st1, "electricity", mAgo(2), 2850, 168400, "24 11215 0412300", "Kamran Shah", iso(T0 - 40 * DAY));
+  run("INSERT INTO utility_bills (tenant_id,station_id,kind,month,units,amount,reference,prev_amount,prev_units,change_pct,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", tenantId, st1, "electricity", mAgo(1), 2910, 171200, "24 11215 0412300", 168400, 2850, 1.66, "Kamran Shah", iso(T0 - 10 * DAY));
+  // customer ratings after fills (WhatsApp 1-5)
+  const imran = get("SELECT id FROM users WHERE email='salesman@pumpai.pk'")!.id;
+  const raters = all("SELECT id FROM customers WHERE tenant_id=? ORDER BY id LIMIT 30", tenantId);
+  raters.forEach((c, i) => {
+    const score = i === 7 ? 2 : i % 6 === 0 ? 3 : i % 3 === 0 ? 4 : 5;
+    const at = iso(T0 - (i % 14) * DAY - 3 * 3600_000);
+    run("INSERT INTO ratings (tenant_id,customer_id,station_id,salesman_id,score,comment,status,asked_at,rated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      tenantId, c.id, i % 4 === 3 ? st2 : st1, imran, score, score <= 2 ? "Bohat der intezar karna para, salesman phone par baat kar raha tha" : null, score <= 2 ? "low" : "rated", at, at);
+  });
+  setSetting(tenantId, "board_offers", "Free air & water check with every fill\n1 point on every Rs 100 — pay with points!");
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Download, Check, X, Trash2, Settings2 } from "lucide-react";
+import { Plus, Download, Check, X, Trash2, Settings2, Repeat } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
+import { FixedCosts } from "../components/FixedCosts";
 import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { PhotoButton, photoUrl } from "../components/Capture";
@@ -21,6 +22,7 @@ export default function Expenses() {
   const { busy, run } = useAction();
   const [adding, setAdding] = useState(false);
   const [setup, setSetup] = useState(false);
+  const [fixed, setFixed] = useState(false);
   if (!data || !cats.data) return <Loading />;
   const s = data.summary;
   const change = s.previous_month ? Math.round(((s.total - s.previous_month) / s.previous_month) * 100) : null;
@@ -33,6 +35,7 @@ export default function Expenses() {
       <PageHeader title="Expenses" subtitle={`Manager entries above ${pkr(data.approval_limit)} need admin approval`}
         actions={<>
           {can("expenses.approve") && <button className="btn-secondary" onClick={() => setSetup(true)}><Settings2 size={15} /> Categories & budgets</button>}
+          <button className="btn-secondary" onClick={() => setFixed(true)}><Repeat size={15} /> Monthly & bills</button>
           <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
           <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add expense</button>
         </>} />
@@ -97,6 +100,7 @@ export default function Expenses() {
       </div>
 
       {adding && <ExpenseForm categories={cats.data.categories} stations={stations.data ?? []} limit={data.approval_limit} canApprove={can("expenses.approve")} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); refresh(); }} />}
+      {fixed && <FixedCosts categories={cats.data.categories} stations={stations.data ?? []} onClose={() => { setFixed(false); refresh(); }} />}
       {setup && <CategorySetup data={cats.data} onClose={() => setSetup(false)} onChanged={refresh} />}
     </div>
   );

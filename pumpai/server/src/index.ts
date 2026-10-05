@@ -27,6 +27,12 @@ import { analysis } from "./routes/analysis.js";
 import { care, renderPortal } from "./routes/customerCare.js";
 import { system } from "./routes/system.js";
 import { renderReceipt } from "./billing.js";
+import { prepaid } from "./routes/prepaid.js";
+import { approvals } from "./routes/approvals.js";
+import { feedback } from "./routes/feedback.js";
+import { board, boardData, renderBoard } from "./routes/board.js";
+import { register } from "./routes/register.js";
+import { recurring } from "./routes/recurring.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -69,6 +75,16 @@ app.get("/portal/:token", (req, res) => {
   const html = renderPortal(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This link is no longer valid. Ask the pump for a new one.</p>");
 });
+// TV rate board at the pump (signed link, refreshes by itself)
+app.get("/board/:token", (req, res) => {
+  const html = renderBoard(req.params.token);
+  res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>This board link is not valid.</p>");
+});
+app.get("/board/:token/data", (req, res) => {
+  const d = boardData(req.params.token);
+  res.setHeader("cache-control", "no-store");
+  d ? res.json(d) : res.status(404).json({ error: "Not found" });
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -97,6 +113,12 @@ api.use(compliance);
 api.use(analysis);
 api.use(care);
 api.use(system);
+api.use(prepaid);
+api.use(approvals);
+api.use(feedback);
+api.use(board);
+api.use(register);
+api.use(recurring);
 app.use("/api", api);
 
 // Serve the built dashboard in production

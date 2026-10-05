@@ -32,6 +32,9 @@ import Compliance from "./pages/Compliance";
 import ChecklistPage from "./pages/ChecklistPage";
 import Insights from "./pages/Insights";
 import Bookings from "./pages/Bookings";
+import Register from "./pages/Register";
+import Prepaid, { CouponSheet } from "./pages/Prepaid";
+import Team from "./pages/Team";
 
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
@@ -128,8 +131,12 @@ export default function App() {
               <Route path="checklist" element={<Need perm="sales.create"><ChecklistPage /></Need>} />
               <Route path="insights" element={<Need perm="reports.view"><Insights /></Need>} />
               <Route path="bookings" element={<Need perm="sales.create"><Bookings /></Need>} />
+              <Route path="register" element={<Need perm="stock.manage"><Register /></Need>} />
+              <Route path="prepaid" element={<Need perm="khata.manage"><Prepaid /></Need>} />
+              <Route path="team" element={<Need perm="staff.manage"><Team /></Need>} />
             </Route>
             <Route path="/cards/:id" element={<Protected><Need perm="khata.manage"><Cards /></Need></Protected>} />
+            <Route path="/coupons/:batch" element={<Protected><Need perm="khata.manage"><CouponSheet /></Need></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

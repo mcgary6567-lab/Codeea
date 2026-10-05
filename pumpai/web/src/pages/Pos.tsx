@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode } from "lucide-react";
+import { Fuel, Delete, Banknote, Smartphone, CreditCard, BookOpen, Check, Search, X, Clock, Zap, Undo2, WifiOff, CloudUpload, Gift, ShoppingBasket, Plus, Minus, ScanBarcode, Ticket, Wallet } from "lucide-react";
 import QRCode from "qrcode";
 import { api, useApi } from "../lib/api";
 import { Loading, useAction, useToast } from "../components/ui";
@@ -28,7 +28,11 @@ const PAY = [
   { key: "raast", en: "Raast", ur: "راست", icon: Zap, cls: "bg-[#4a3aa7]" },
   { key: "khata", en: "Khata", ur: "کھاتہ", icon: BookOpen, cls: "bg-amber-600" },
   { key: "loyalty", en: "Points", ur: "پوائنٹس", icon: Gift, cls: "bg-pink-600" },
+  { key: "coupon", en: "Coupon", ur: "کوپن", icon: Ticket, cls: "bg-orange-600" },
+  { key: "wallet", en: "Wallet", ur: "والٹ", icon: Wallet, cls: "bg-sky-700" },
 ] as const;
+/** Paid before (coupon / wallet / points): needs internet to check, cannot be kept offline. */
+const ONLINE_ONLY = ["loyalty", "coupon", "wallet"];
 
 export const TYPE_ICON: Record<string, string> = { police: "🚓", school: "🏫", government: "🏛️", hospital: "🚑", fleet: "🚚", farmer: "🚜", business: "🏢", retail: "🚗" };
 const TYPE_LABEL: Record<string, string> = { police: "Police", school: "School", government: "Govt.", hospital: "Health", fleet: "Fleet", farmer: "Farmer", business: "Business", retail: "Customer" };
@@ -67,14 +71,18 @@ export default function Pos() {
   const toggleTraining = () => setTraining((x) => { try { sessionStorage.setItem("pumpai_training", x ? "0" : "1"); } catch { /* ignore */ } return !x; });
   const [pointsCust, setPointsCust] = useState<any>(null);
   const [pickPoints, setPickPoints] = useState(false);
+  const [coupon, setCoupon] = useState<any>(null);
+  const [scanCoupon, setScanCoupon] = useState(false);
+  const [walletAcct, setWalletAcct] = useState<any>(null);
+  const [pickWallet, setPickWallet] = useState(false);
 
   const d = today.data ?? cacheGet<any>(cacheKey);
   const rate = product && d ? d.prices[product] : 0;
   const value = Number(entry) || 0;
   const litres = mode === "litres" ? value : rate ? value / rate : 0;
   const amount = mode === "amount" ? value : value * rate;
-  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust));
-  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); };
+  const ready = Boolean(product && value > 0 && pay && (pay !== "khata" || khata) && (pay !== "loyalty" || pointsCust) && (pay !== "coupon" || coupon) && (pay !== "wallet" || walletAcct));
+  const reset = () => { setProduct(null); setEntry(""); setPay(null); setKhata(null); setMode("amount"); setHeard(null); setPointsCust(null); setCoupon(null); setWalletAcct(null); };
 
   /** Fill the POS from a spoken sentence; the salesman checks it and presses Save. */
   const applyVoice = async (v: any) => {
@@ -104,16 +112,18 @@ export default function Pos() {
     const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
     if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null });
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
-    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name, client_uid: body.client_uid };
+    if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
+    if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
+    const shown = { product, litres, rate, amount, payment_method: pay, khata_name: khata?.account.name ?? walletAcct?.name, client_uid: body.client_uid };
     if (training) { setDone({ ...shown, training: true }); reset(); return; }
     setSaving(true);
     try {
       const r = await api("/sales", { body });
-      setDone({ ...r, khata_name: khata?.account.name });
+      setDone({ ...r, khata_name: khata?.account.name ?? walletAcct?.name });
       today.reload();
     } catch (e: any) {
       if (!isOffline(e)) { toast("err", e.message); return; }
-      if (pay === "loyalty") { toast("err", "Paying with points needs internet"); return; }
+      if (ONLINE_ONLY.includes(pay!)) { toast("err", "Points, coupons and wallets need internet · انٹرنیٹ ضروری ہے"); return; }
       // no internet: keep it on the tablet, it uploads by itself when the connection is back
       queueSale(body, `${FUEL[product!].en} ${num(litres, 2)} L · ${pkr(amount)} · ${pay}`);
       setDone({ ...shown, offline: true });
@@ -232,9 +242,15 @@ export default function Pos() {
 
           {/* 3. payment */}
           <Step n={3} en="Payment" ur="ادائیگی">
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 xl:grid-cols-9">
               {PAY.map((p) => (
-                <button key={p.key} aria-pressed={pay === p.key} onClick={() => { setPay(p.key); if (p.key === "khata") setPickKhata(true); else setKhata(null); if (p.key === "loyalty") setPickPoints(true); else setPointsCust(null); }}
+                <button key={p.key} aria-pressed={pay === p.key} onClick={() => {
+                  setPay(p.key);
+                  if (p.key === "khata") setPickKhata(true); else setKhata(null);
+                  if (p.key === "loyalty") setPickPoints(true); else setPointsCust(null);
+                  if (p.key === "coupon") setScanCoupon(true); else setCoupon(null);
+                  if (p.key === "wallet") setPickWallet(true); else setWalletAcct(null);
+                }}
                   className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow transition active:scale-95 ${p.cls} ${pay === p.key ? "scale-[1.03] ring-4 ring-slate-900 ring-offset-2" : pay ? "opacity-50" : ""}`}>
                   <p.icon size={28} />
                   <span className="mt-1 text-base font-bold">{p.en}</span>
@@ -246,6 +262,18 @@ export default function Pos() {
               <button onClick={() => setPickPoints(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-pink-50 p-3 text-left ring-1 ring-pink-300">
                 <Gift className="text-pink-600" /><span className="flex-1"><b>{pointsCust.name}</b><span className="block text-sm text-slate-600">{pointsCust.loyalty_points} points = Rs {pointsCust.loyalty_points}</span></span>
                 {amount > pointsCust.loyalty_points && <span className="text-sm font-semibold text-red-600">Not enough points</span>}
+              </button>
+            )}
+            {pay === "coupon" && coupon && (
+              <button onClick={() => setScanCoupon(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-orange-50 p-3 text-left ring-1 ring-orange-300">
+                <Ticket className="text-orange-600" /><span className="flex-1"><b>Coupon {coupon.code}</b><span className="block text-sm text-slate-600">Worth {pkr(coupon.value)}{coupon.product ? ` · ${FUEL[coupon.product]?.en} only` : ""} · one time</span></span>
+                <span className="text-sm text-orange-700 underline">Change</span>
+              </button>
+            )}
+            {pay === "wallet" && walletAcct && (
+              <button onClick={() => setPickWallet(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-sky-50 p-3 text-left ring-1 ring-sky-300">
+                <Wallet className="text-sky-700" /><span className="flex-1"><b>{walletAcct.name}</b><span className="block text-sm text-slate-600">Wallet {pkr(walletAcct.wallet_balance)}</span></span>
+                {amount > walletAcct.wallet_balance && <span className="text-sm font-semibold text-red-600">Not enough · کم ہے</span>}
               </button>
             )}
             <button onClick={() => setScan(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-100 py-3 text-lg font-semibold text-amber-900 ring-1 ring-amber-300 active:scale-95">
@@ -266,7 +294,7 @@ export default function Pos() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1 text-lg">
                 {product && value > 0 ? (
-                  <><b>{FUEL[product].en}</b> {num(litres, 2)} L × Rs {rate} = <b className="text-2xl">{pkr(amount)}</b>{pay && <> · <span className="capitalize">{pay === "khata" ? `Khata${khata ? ` (${khata.account.name})` : ""}` : pay}</span></>}</>
+                  <><b>{FUEL[product].en}</b> {num(litres, 2)} L × Rs {rate} = <b className="text-2xl">{pkr(amount)}</b>{pay && <> · <span className="capitalize">{pay === "khata" ? `Khata${khata ? ` (${khata.account.name})` : ""}` : pay === "wallet" && walletAcct ? `Wallet (${walletAcct.name})` : pay}</span></>}</>
                 ) : <span className="text-slate-500">Choose fuel, amount and payment · <Ur>تیل، رقم اور ادائیگی چنیں</Ur></span>}
               </div>
               <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel</button>
@@ -300,6 +328,11 @@ export default function Pos() {
         setKhata({ account: f.account, vehicle: f.vehicle ?? "", slip: "" });
         setPickKhata(true);
       }} />}
+      {scanCoupon && <CardScanner path="/pos/coupon/" title="Scan coupon" urdu="کوپن سکین" placeholder="Coupon code" onClose={() => { setScanCoupon(false); if (!coupon) setPay(null); }} onFound={(c) => {
+        setScanCoupon(false); setCoupon(c); setPay("coupon"); setMode("amount"); setEntry(String(c.value));
+        if (c.product && d.products.includes(c.product)) setProduct(c.product);
+      }} />}
+      {pickWallet && <WalletPicker onClose={() => { setPickWallet(false); if (!walletAcct) setPay(null); }} onPick={(a) => { setWalletAcct(a); setPickWallet(false); }} />}
       {pickPoints && <PointsPicker onClose={() => { setPickPoints(false); if (!pointsCust) setPay(null); }} onPick={(c) => { setPointsCust(c); setPickPoints(false); }} />}
       {pickKhata && <KhataPicker onClose={() => { setPickKhata(false); if (!khata) setPay(null); }} onPick={(k) => { setKhata(k); setPickKhata(false); }} initial={khata} />}
       {done && (
@@ -313,7 +346,7 @@ export default function Pos() {
               ? <div className="mt-2 text-xl">{done.lines.map((l: any) => `${num(l.qty)} × ${l.name}`).join(", ")}</div>
               : <div className="mt-2 text-2xl">{FUEL[done.product].en} {num(done.litres, 2)} L × Rs {done.rate}</div>}
             <div className="text-5xl font-bold tabular-nums">{pkr(done.shop ? done.total : done.amount)}</div>
-            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method}</div>
+            <div className="mt-2 text-xl capitalize">{done.payment_method === "khata" ? `Khata — ${done.khata_name ?? ""}` : done.payment_method === "loyalty" ? "Paid with points" : done.payment_method === "wallet" ? `Wallet — ${done.khata_name ?? ""}` : done.payment_method === "coupon" ? "Coupon · کوپن" : done.payment_method}</div>
             {done.receipt_url && <ReceiptQr url={done.receipt_url} />}
             <div className="mt-6 flex justify-center gap-3">
               {!done.training && <button onClick={(e) => { e.stopPropagation(); undo(done); }} className="flex items-center gap-2 rounded-xl bg-white/20 px-6 py-4 text-xl font-bold ring-2 ring-white active:scale-95">
@@ -383,6 +416,7 @@ function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; o
           <div className="flex justify-between"><span className="text-slate-300">📱 Digital</span><span className="tabular-nums">{pkr(s?.digital ?? 0)}</span></div>
           {s?.shop?.total > 0 && <div className="flex justify-between"><span className="text-slate-300">🛒 Shop (cash {pkr(s.shop.cash)})</span><span className="tabular-nums">{pkr(s.shop.total)}</span></div>}
           {s?.points > 0 && <div className="flex justify-between"><span className="text-slate-300">🎁 Paid with points</span><span className="tabular-nums">{pkr(s.points)}</span></div>}
+          {s?.prepaid > 0 && <div className="flex justify-between"><span className="text-slate-300">🎟️ Coupons / wallet</span><span className="tabular-nums">{pkr(s.prepaid)}</span></div>}
           <div className="flex justify-between text-red-300"><span>− Expenses</span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
         </div>
       </div>
@@ -494,6 +528,32 @@ function ReceiptQr({ url }: { url: string }) {
   ) : null;
 }
 
+/** Company that pays from its prepaid wallet. */
+function WalletPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: any) => void }) {
+  const [q, setQ] = useState("");
+  const { data } = useApi<any[]>("/pos/wallet-accounts");
+  const list = (data ?? []).filter((c) => !q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-xl">
+        <div className="mb-3 flex items-center gap-2"><Wallet className="text-sky-700" /><h2 className="flex-1 text-2xl font-bold">Pay from wallet · <Ur>والٹ</Ur></h2>
+          <button onClick={onClose} className="rounded-xl bg-slate-100 p-3" aria-label="Close"><X /></button></div>
+        <input autoFocus className="input py-3 text-lg" placeholder="Company name" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="mt-3 space-y-2">
+          {list.map((c) => (
+            <button key={c.id} onClick={() => onPick(c)} disabled={c.wallet_balance <= 0} className="flex w-full items-center gap-3 rounded-xl p-3 text-left ring-2 ring-slate-200 hover:ring-sky-400 disabled:opacity-50">
+              <span className="text-3xl">{TYPE_ICON[c.type] ?? "🏢"}</span>
+              <span className="flex-1 text-lg font-semibold">{c.name}</span>
+              <span className={`rounded-lg px-3 py-1 font-semibold ${c.wallet_balance > 0 ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700"}`}>{pkr(c.wallet_balance)}</span>
+            </button>
+          ))}
+          {data && !list.length && <p className="py-4 text-center text-slate-500">No wallet found. Ask the manager.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Find the customer who pays with loyalty points (by phone or name). */
 function PointsPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: any) => void }) {
   const [q, setQ] = useState("");
@@ -592,7 +652,7 @@ function ShopPos({ d, disabled, training, onSaved }: { d: any; disabled: boolean
       <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <h2 className="mb-2 text-lg font-semibold">Payment · <Ur>ادائیگی</Ur></h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {PAY.filter((p) => p.key !== "loyalty").map((p) => (
+          {PAY.filter((p) => !ONLINE_ONLY.includes(p.key)).map((p) => (
             <button key={p.key} aria-pressed={pay === p.key} onClick={() => { setPay(p.key); if (p.key === "khata") setPick(true); else setKhata(null); }}
               className={`flex flex-col items-center justify-center rounded-2xl py-3 text-white shadow active:scale-95 ${p.cls} ${pay === p.key ? "ring-4 ring-slate-900 ring-offset-2" : pay ? "opacity-50" : ""}`}>
               <p.icon size={26} /><span className="mt-1 font-bold">{p.en}</span>

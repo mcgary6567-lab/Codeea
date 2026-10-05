@@ -1,5 +1,8 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { registerDecider, requestApproval, closeApproval } from "./approvals.js";
+import { walletAfterFill } from "./prepaid.js";
+import { askRating } from "./feedback.js";
 import { all, get, run, tx, now, getSetting } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
@@ -133,6 +136,7 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
       t, JSON.stringify(b.prices), b.broadcast ? 1 : 0, b.note ?? null, req.user!.name, req.user!.id, "pending", now());
     await notify(t, staff(t, ["admin"]), { type: "price_request", data: { request_id: id }, title: `Price change needs your OK — ${req.user!.name}`,
       body: Object.entries(b.prices).map(([p, v]) => `${PRODUCTS[p]}: ${old[p] ? `${rateFmt(old[p].price)} → ` : ""}${rateFmt(v!)}`).join("\n") });
+    await requestApproval(t, "price", id, `⛽ Price change by ${req.user!.name}\n` + Object.entries(b.prices).map(([p, v]) => `${PRODUCTS[p]}: ${old[p] ? `${rateFmt(old[p].price)} → ` : ""}${rateFmt(v!)}`).join("\n") + (b.note ? `\n${b.note}` : ""));
     return { pending: true, request_id: id };
   }
   return applyPrices(t, req.user!, b);
@@ -140,16 +144,20 @@ operations.post("/prices", requirePerm("prices.update"), h(async (req) => {
 
 operations.get("/price-requests", requirePerm("prices.update"), h((req) =>
   all("SELECT * FROM price_requests WHERE tenant_id=? ORDER BY id DESC LIMIT 20", tid(req)).map((r) => ({ ...r, prices: JSON.parse(r.prices) }))));
-operations.post("/price-requests/:id/:decision(approve|reject)", requirePerm("settings.manage"), h(async (req) => {
-  const r = get("SELECT * FROM price_requests WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+/** Approve or reject a manager's price change (from the app, or the owner's "1" on WhatsApp). */
+export async function decidePriceRequest(t: number, id: number, approve: boolean, by: string) {
+  const r = get("SELECT * FROM price_requests WHERE id=? AND tenant_id=?", id, t);
   if (!r) throw new AppError(404, "Request not found");
   if (r.status !== "pending") throw new AppError(400, `Already ${r.status}`);
-  const approve = req.params.decision === "approve";
-  run("UPDATE price_requests SET status=?, decided_by=?, decided_at=? WHERE id=?", approve ? "approved" : "rejected", req.user!.name, now(), r.id);
+  run("UPDATE price_requests SET status=?, decided_by=?, decided_at=? WHERE id=?", approve ? "approved" : "rejected", by, now(), r.id);
+  closeApproval("price", r.id, approve, by);
   const asker = get("SELECT id, phone FROM users WHERE id=?", r.requested_by_id);
-  if (asker) await notify(tid(req), [asker], { type: "price_request_decision", whatsapp: false, title: `Price change ${approve ? "approved" : "rejected"} by ${req.user!.name}`, body: "" });
-  return approve ? applyPrices(tid(req), { id: r.requested_by_id, name: `${r.requested_by} (approved by ${req.user!.name})` }, { prices: JSON.parse(r.prices), broadcast: Boolean(r.broadcast), note: r.note ?? undefined }) : { ok: true };
-}));
+  if (asker) await notify(t, [asker], { type: "price_request_decision", whatsapp: false, title: `Price change ${approve ? "approved" : "rejected"} by ${by}`, body: "" });
+  return approve ? applyPrices(t, { id: r.requested_by_id, name: `${r.requested_by} (approved by ${by})` }, { prices: JSON.parse(r.prices), broadcast: Boolean(r.broadcast), note: r.note ?? undefined }) : { ok: true };
+}
+registerDecider("price", async (t, id, approve, by) => { await decidePriceRequest(t, id, approve, by); return approve ? "New prices are live; salesmen have been told." : "Prices stay the same."; });
+operations.post("/price-requests/:id/:decision(approve|reject)", requirePerm("settings.manage"), h((req) =>
+  decidePriceRequest(tid(req), Number(req.params.id), req.params.decision === "approve", req.user!.name)));
 
 /* ---------------- Sales / POS ---------------- */
 operations.get("/sales", requirePerm("sales.view"), h((req) => {
@@ -163,7 +171,8 @@ operations.get("/sales", requirePerm("sales.view"), h((req) => {
 operations.post("/sales", requirePerm("sales.create"), h((req) => {
   const b = parse(z.object({
     station_id: z.number(), product, litres: z.number().positive().optional(), amount: z.number().positive().optional(),
-    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata", "loyalty"]),
+    payment_method: z.enum(["cash", "card", "jazzcash", "easypaisa", "raast", "khata", "loyalty", "coupon", "wallet"]),
+    coupon_code: z.string().max(40).nullable().optional(),
     customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(40).nullable().optional(),
     override_limit: z.boolean().optional(),
     slip_no: z.string().max(40).nullable().optional(),
@@ -193,7 +202,11 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
   if (b.override_limit && !can(req.user, "customers.edit")) throw new AppError(403, "Only a manager can allow more than the vehicle's daily limit");
   const { offline_at: _o, ...sale } = b;
   const saved = recordSale(tid(req), { ...sale, shift_id: shift?.id ?? null, created_by: req.user!.id, ...(at ? { created_at: at } : {}) });
-  if (!saved.duplicate) setImmediate(() => khataFillReceipt(tid(req), saved).catch((e) => console.error("[khata receipt]", e.message)));
+  if (!saved.duplicate) setImmediate(() => {
+    khataFillReceipt(tid(req), saved).catch((e) => console.error("[khata receipt]", e.message));
+    walletAfterFill(tid(req), saved).catch((e) => console.error("[wallet]", e.message));
+    askRating(tid(req), saved).catch((e) => console.error("[rating]", e.message));
+  });
   return { ...saved, receipt_url: receiptUrl(tid(req), "f", saved.id) };
 }));
 

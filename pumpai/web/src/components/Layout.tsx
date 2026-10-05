@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
   { to: "/customers", label: "Customers", icon: Users, perm: "customers.view" },
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
+  { to: "/prepaid", label: "Coupons & wallets", icon: Ticket, perm: "khata.manage" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
   { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
@@ -27,11 +28,13 @@ const NAV = [
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: "campaigns.manage" },
   { to: "/stock", label: "Tanks & Stock", icon: Droplets, perm: "stock.manage" },
+  { to: "/register", label: "Stock register", icon: ScrollText, perm: "stock.manage" },
   { to: "/shop", label: "Shop & lubricants", icon: ShoppingBasket, perm: "stock.manage" },
   { to: "/prices", label: "Prices", icon: Tag, perm: "prices.view" },
   { to: "/alerts", label: "Alerts", icon: Bell, badge: "alerts", perm: "alerts.view" },
   { to: "/automations", label: "AI Automations", icon: Bot, perm: "automations.manage" },
   { to: "/staff", label: "Staff accounts", icon: Wallet, perm: "staff.manage" },
+  { to: "/team", label: "Ratings & commission", icon: Star, perm: "staff.manage" },
   { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
   { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
   { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager"] },
@@ -83,21 +86,21 @@ export default function Layout() {
   return (
     <NotificationsProvider>
     <div className="flex min-h-screen">
-      <aside className="fixed inset-y-0 left-0 hidden w-60 lg:block">{sidebar}</aside>
+      <aside className="fixed inset-y-0 left-0 hidden w-60 lg:block print:hidden">{sidebar}</aside>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 w-64">{sidebar}</aside>
         </div>
       )}
-      <div className="flex-1 lg:pl-60 min-w-0">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+      <div className="flex-1 lg:pl-60 min-w-0 print:pl-0">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
           <button onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button>
           <span className="flex-1 font-semibold">⛽ PumpAI</span>
           <NotificationBell />
         </header>
-        <main className="mx-auto max-w-7xl p-4 lg:p-6"><Outlet />
-          <HelpButton /></main>
+        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><Outlet />
+          <div className="print:hidden"><HelpButton /></div></main>
       </div>
     </div>
     </NotificationsProvider>

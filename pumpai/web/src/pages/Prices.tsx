@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
+import { Tv, ExternalLink } from "lucide-react";
 import { Loading, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS, dt, pkr } from "../lib/format";
 import { useAuth } from "../App";
@@ -54,6 +55,7 @@ export default function Prices() {
           <button className="btn-primary w-full" disabled={busy || !changed.length} onClick={submit}>Update {changed.length || ""} price{changed.length === 1 ? "" : "s"}</button>
         </div>}
         <div className="space-y-5">
+        <TvBoard canEdit={can("prices.update")} />
         {data.last_change && (
           <div className="card">
             <h2 className="px-4 pt-3 font-semibold">Dispenser update — last price change {dt(data.last_change.at)}</h2>
@@ -78,6 +80,33 @@ export default function Prices() {
         </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Link for a TV / LED screen at the pump: big prices in English and Urdu, changes by itself. */
+function TvBoard({ canEdit }: { canEdit: boolean }) {
+  const stations = useApi<any[]>("/stations");
+  const [station, setStation] = useState("");
+  const link = useApi<any>(`/board-link${station ? `?station_id=${station}` : ""}`);
+  const [offers, setOffers] = useState<string | null>(null);
+  const { busy, run } = useAction();
+  const text = offers ?? link.data?.offers ?? "";
+  return (
+    <div className="card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Tv size={18} className="text-brand-600" /><h2 className="flex-1 font-semibold">TV rate board</h2>
+        <select className="input w-auto py-1 text-sm" value={station} onChange={(e) => setStation(e.target.value)} aria-label="Station">
+          <option value="">All products</option>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        {link.data && <a className="btn-primary" href={link.data.url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open board</a>}
+        {link.data && <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(link.data.url).then(() => alert("Link copied — open it on the TV's browser"))}>Copy link</button>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Open this link once on the TV / LED screen (smart TV browser or a small Android box). Prices update by themselves within 20 seconds of a change.</p>
+      {canEdit && <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <textarea className="input min-h-[64px] flex-1 text-sm" placeholder="Offers shown on the board, one per line" value={text} onChange={(e) => setOffers(e.target.value)} />
+        <button className="btn-secondary self-end" disabled={busy} onClick={() => run(() => api("/board/settings", { method: "PUT", body: { offers: text } }), "Offers updated on the board")}>Save offers</button>
+      </div>}
     </div>
   );
 }

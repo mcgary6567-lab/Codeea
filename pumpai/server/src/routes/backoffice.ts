@@ -31,6 +31,8 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
     shift_cash: one("SELECT COALESCE(SUM(sh.cash_actual),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at > ? AND sh.closed_at <= ?", ...P),
     khata_cash: one("SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND LOWER(COALESCE(k.ref,''))='cash' AND k.created_at > ? AND k.created_at <= ?", ...P),
     wholesale_cash: one("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
+    prepaid_cash: round2(one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND method='cash' AND sold_at > ? AND sold_at <= ?", ...P)
+      + one("SELECT COALESCE(SUM(CASE WHEN type='refund' THEN -amount ELSE amount END),0) v FROM wallet_ledger WHERE tenant_id=? AND type IN ('deposit','refund') AND method='cash' AND created_at > ? AND created_at <= ?", ...P)),
     staff_repaid: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND type IN ('repayment','deduction') AND created_at > ? AND created_at <= ?", ...P),
   };
   const outs = {

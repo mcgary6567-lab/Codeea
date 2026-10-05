@@ -81,6 +81,8 @@ export interface SaleInput {
   source?: "pos" | "meter";
   /** A manager may let a vehicle go over its daily litre limit. */
   override_limit?: boolean;
+  /** Prepaid coupon scanned at the POS (payment_method "coupon"). */
+  coupon_code?: string | null;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
 }
@@ -93,7 +95,15 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (dup) return { ...dup, duplicate: true };
   }
   const rate = s.rate ?? priceOf(tenantId, s.product, s.created_at);
-  const litres = s.litres ?? (s.amount ? s.amount / rate : 0);
+  // a prepaid coupon pays for exactly its value of fuel, once
+  const coupon = s.payment_method === "coupon" ? get("SELECT * FROM fuel_coupons WHERE tenant_id=? AND code=?", tenantId, (s.coupon_code ?? "").toUpperCase().replace(/^PUMPAI-/, "").trim()) : null;
+  if (s.payment_method === "coupon") {
+    if (!coupon) throw new AppError(400, "Coupon not found. Scan it again or type the code.");
+    if (coupon.status !== "active") throw new AppError(400, `Coupon ${coupon.code} is ${coupon.status === "used" ? `already used (${coupon.used_at?.slice(0, 10)})` : "cancelled"}`);
+    if (coupon.expires_on && coupon.expires_on < new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)) throw new AppError(400, `Coupon ${coupon.code} expired on ${coupon.expires_on}`);
+    if (coupon.product && coupon.product !== s.product) throw new AppError(400, `Coupon ${coupon.code} is only for ${coupon.product}`);
+  }
+  const litres = coupon ? coupon.value / rate : s.litres ?? (s.amount ? s.amount / rate : 0);
   if (!(litres > 0)) throw new AppError(400, "Litres or amount required");
   const amount = Math.round(litres * rate * 100) / 100;
   const customer = s.customer_id ? get("SELECT * FROM customers WHERE id=? AND tenant_id=?", s.customer_id, tenantId) : undefined;
@@ -102,6 +112,10 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (customer.khata_blocked) throw new AppError(400, `${customer.name}: khata is on hold because payment is overdue. Ask the manager.`);
     if (customer.balance + amount > customer.credit_limit)
       throw new AppError(400, `Credit limit exceeded: balance ${pkr(customer.balance)}, limit ${pkr(customer.credit_limit)}`);
+  }
+  if (s.payment_method === "wallet") {
+    if (!customer) throw new AppError(400, "Choose the company whose wallet pays");
+    if (customer.wallet_balance + 0.005 < amount) throw new AppError(400, `${customer.name}: wallet has ${pkr(customer.wallet_balance)}, this fill is ${pkr(amount)}. Ask them to top up.`);
   }
   // paying with loyalty points: 1 point = Rs 1
   const points = s.payment_method === "loyalty" ? Math.ceil(amount) : 0;
@@ -124,11 +138,18 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
   const ts = s.created_at ?? now();
   return tx(() => {
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), ts,
+      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, ts,
     );
+    if (coupon && run("UPDATE fuel_coupons SET status='used', sale_id=?, used_at=?, used_by=? WHERE id=? AND status='active'", id, ts, String(s.created_by ?? ""), coupon.id).changes !== 1)
+      throw new AppError(409, `Coupon ${coupon.code} was just used`);
+    if (s.payment_method === "wallet") {
+      run("UPDATE customers SET wallet_balance = wallet_balance - ? WHERE id=?", amount, customer!.id);
+      run("INSERT INTO wallet_ledger (tenant_id,customer_id,type,amount,note,sale_id,created_at) VALUES (?,?,?,?,?,?,?)",
+        tenantId, customer!.id, "fill", amount, `${round2(litres)}L ${s.product} @ Rs ${rate}${s.vehicle_no ? ` · ${s.vehicle_no.toUpperCase()}` : ""}`, id, ts);
+    }
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litres, tank.id);
     if (s.nozzle_id) run("UPDATE nozzles SET totalizer = totalizer + ? WHERE id=?", litres, s.nozzle_id);
     if (customer) {
@@ -168,6 +189,11 @@ export function undoSale(sale: Row) {
         run("DELETE FROM khata_ledger WHERE customer_id=? AND ref=?", sale.customer_id, `SALE-${sale.id}`);
         run("UPDATE customers SET balance = balance - ? WHERE id=?", sale.amount, sale.customer_id);
       }
+    }
+    if (sale.coupon_id) run("UPDATE fuel_coupons SET status='active', sale_id=NULL, used_at=NULL, used_by=NULL WHERE id=?", sale.coupon_id);
+    if (sale.payment_method === "wallet" && sale.customer_id) {
+      run("DELETE FROM wallet_ledger WHERE sale_id=? AND type='fill'", sale.id);
+      run("UPDATE customers SET wallet_balance = wallet_balance + ? WHERE id=?", sale.amount, sale.customer_id);
     }
     run("DELETE FROM sales WHERE id=?", sale.id);
   });

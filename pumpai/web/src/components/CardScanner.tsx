@@ -8,7 +8,9 @@ import { ErrorBox } from "./ui";
  * Scan a customer's QR card with the tablet camera (or type the code under it).
  * Returns the khata account and, for a vehicle sticker, the plate number.
  */
-export function CardScanner({ onFound, onClose }: { onFound: (r: { account: any; vehicle: string | null }) => void; onClose: () => void }) {
+export function CardScanner({ onFound, onClose, path = "/pos/card/", title = "Scan card", urdu = "کارڈ سکین", placeholder = "Card code" }: {
+  onFound: (r: any) => void; onClose: () => void; path?: string; title?: string; urdu?: string; placeholder?: string;
+}) {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -18,7 +20,7 @@ export function CardScanner({ onFound, onClose }: { onFound: (r: { account: any;
   const lookup = async (raw: string) => {
     if (busy.current) return;
     busy.current = true;
-    try { onFound(await api(`/pos/card/${encodeURIComponent(raw.trim())}`)); }
+    try { onFound(await api(`${path}${encodeURIComponent(raw.trim())}`)); }
     catch (e: any) { setError(e.message); setTimeout(() => { busy.current = false; }, 1500); return; }
   };
 
@@ -58,7 +60,7 @@ export function CardScanner({ onFound, onClose }: { onFound: (r: { account: any;
       <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
         <div className="mb-3 flex items-center gap-2">
           <QrCode className="text-brand-600" />
-          <h2 className="flex-1 text-xl font-bold">Scan card · <span lang="ur" dir="rtl" className="font-urdu">کارڈ سکین</span></h2>
+          <h2 className="flex-1 text-xl font-bold">{title} · <span lang="ur" dir="rtl" className="font-urdu">{urdu}</span></h2>
           <button onClick={onClose} className="rounded-xl bg-slate-100 p-2" aria-label="Close"><X /></button>
         </div>
         {camera ? (
@@ -69,7 +71,7 @@ export function CardScanner({ onFound, onClose }: { onFound: (r: { account: any;
         ) : <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Camera not available. Type the code printed under the QR.</p>}
         {error && <div className="mt-3"><ErrorBox error={error} /></div>}
         <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); busy.current = false; lookup(code); }}>
-          <input className="input py-3 font-mono text-lg uppercase" placeholder="Card code" value={code} onChange={(e) => setCode(e.target.value)} />
+          <input className="input py-3 font-mono text-lg uppercase" placeholder={placeholder} value={code} onChange={(e) => setCode(e.target.value)} />
           <button className="btn-primary px-5" disabled={code.trim().length < 6}>OK</button>
         </form>
       </div>

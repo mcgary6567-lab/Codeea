@@ -15,6 +15,8 @@ import { ensureConversation, storeMessage, sendWhatsApp, sendDirect, bus } from 
 import { quickAnswer, summaryAnswer } from "./ownerAnswers.js";
 import { upsertCustomerByPhone, currentPrices, pkr, normalizePhone } from "../services.js";
 import { insights, kpis } from "./analytics.js";
+import { handleApprovalReply } from "../routes/approvals.js";
+import { handleRatingReply } from "../routes/feedback.js";
 
 let client: Anthropic | null = null;
 const claude = () => (client ??= new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 }));
@@ -111,6 +113,9 @@ export async function handleInbound(tenantId: number, msg: { from: string; name?
     if (msg.waId && get("SELECT id FROM outbox WHERE ref=?", `wa:${msg.waId}`)) return { duplicate: true };
     run("INSERT INTO outbox (tenant_id,to_phone,to_name,kind,ref,text,simulated,created_at) VALUES (?,?,?,?,?,?,?,?)",
       tenantId, boss.phone, boss.name, "owner_question", msg.waId ? `wa:${msg.waId}` : null, msg.text, 1, new Date().toISOString());
+    // "1" / "2" answers a waiting approval (price change, big expense)
+    const approval = await handleApprovalReply(tenantId, msg.from, msg.text);
+    if (approval) { await sendDirect(tenantId, boss, "approval_reply", null, approval); return { handled_by: "approval", reply: approval }; }
     const r = await askBusiness(tenantId, msg.text);
     const answer = r.engine === "rules" && !quickAnswer(tenantId, msg.text) ? summaryAnswer(tenantId) + "\n\n(Poochhein: sale, kharcha, stock, cash, supply, shift, kis ne dene hain — 'kal' likhein to kal ka.)" : r.answer;
     await sendDirect(tenantId, boss, "owner_answer", null, answer);
@@ -120,6 +125,12 @@ export async function handleInbound(tenantId: number, msg: { from: string; name?
   const conv = ensureConversation(tenantId, customer.id);
   if (msg.waId && get("SELECT id FROM messages WHERE wa_id=?", msg.waId)) return { duplicate: true };
   storeMessage(conv, "in", "customer", msg.text, null, msg.waId);
+  // "1"-"5" answers the rating question sent after a fill
+  const rating = await handleRatingReply(tenantId, customer, msg.text);
+  if (rating) {
+    const sent = await sendWhatsApp(tenantId, get("SELECT * FROM customers WHERE id=?", customer.id)!, rating, "system", { kind: "rating_reply" });
+    return { handled_by: "rating", reply: rating, message: sent.message };
+  }
   const fresh = get("SELECT * FROM conversations WHERE id=?", conv.id)!;
   if (fresh.mode === "human") {
     bus.emit("event", { type: "needs_human", tenant_id: tenantId, conversation_id: conv.id });

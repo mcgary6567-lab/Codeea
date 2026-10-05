@@ -87,6 +87,8 @@ const SWITCHES: [string, string, string][] = [
   ["khata_receipts", "WhatsApp receipt for every khata fill", "Police stations, schools, offices and other khata accounts get litres, rate, slip and new balance after each fill."],
   ["wholesale_messages", "WhatsApp to wholesale clients", "Each supply, payment and return, and their new rate when the pump price changes."],
   ["khata_auto_block", "Put overdue khata on hold", "An account with no payment for the days set below is put on hold at the POS until it pays; the customer is told on WhatsApp."],
+  ["ask_rating", "Ask customers to rate each fill (1–5)", "After a fill on a customer's account they get a WhatsApp; a bad rating asks what went wrong, opens a complaint and alerts the manager."],
+  ["wa_approvals", "Approvals on WhatsApp", "A manager's price change (when two-person rule is on) or an expense above the limit is sent to the owner — reply 1 to approve, 2 to reject."],
   ["shortage_to_staff", "Put cash shortages on the salesman's account", "When a shift closes short (Rs 100 or more), the amount is added to the salesman's staff account to adjust from salary."],
 ];
 function AutoSwitches({ values, review, onSaved }: { values: Record<string, boolean>; review?: string; onSaved: () => void }) {

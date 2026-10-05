@@ -25,7 +25,7 @@ async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], descri
   return (use?.input as T) ?? null;
 }
 
-export type PhotoKind = "meter" | "invoice" | "receipt";
+export type PhotoKind = "meter" | "invoice" | "receipt" | "bill";
 const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Record<string, unknown> }> = {
   meter: {
     text: "This is a photo of a fuel dispenser at a Pakistani petrol pump. Read the TOTALIZER (the cumulative litres counter, often labelled 'Total' or 'Totalizer', usually the longest number), not the sale amount or the price per litre. If more than one totalizer is visible (one per nozzle), return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
@@ -47,6 +47,17 @@ const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Re
         product: { type: "string", enum: Object.keys(PRODUCTS) }, invoice_litres: { type: "number" }, rate_per_litre: { type: "number" },
         total_amount: { type: "number" }, tanker_no: { type: "string" }, supplier_name: { type: "string" }, invoice_no: { type: "string" }, date: { type: "string" },
         confidence: { type: "string", enum: ["high", "medium", "low"] },
+      },
+      required: ["confidence"],
+    },
+  },
+  bill: {
+    text: "This is a utility bill in Pakistan (electricity from LESCO, IESCO, MEPCO, GEPCO, FESCO, PESCO, HESCO, QESCO, K-Electric etc., or a gas bill from SNGPL / SSGC). Read the units consumed this month (for electricity: total units / KWH, add peak and off-peak if shown separately), the amount payable within the due date, the due date, the billing month as YYYY-MM, and the reference / consumer number.",
+    description: "Record the utility bill details.",
+    schema: {
+      properties: {
+        units: { type: "number" }, amount: { type: "number" }, due_date: { type: "string" }, month: { type: "string", description: "YYYY-MM" },
+        reference: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
       },
       required: ["confidence"],
     },

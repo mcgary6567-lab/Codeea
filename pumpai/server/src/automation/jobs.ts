@@ -12,6 +12,8 @@ import { licenceWatch, checklistWatch, attendanceWatch } from "../routes/complia
 import { weeklyStaffRisk } from "../routes/analysis.js";
 import { khataOverdue, khataLateFees, bookingReminders, serviceDue } from "../routes/customerCare.js";
 import { makeBackup } from "../routes/system.js";
+import { bookRecurring } from "../routes/recurring.js";
+import { weeklyLeaderboard } from "../routes/feedback.js";
 
 export interface Job {
   key: string;
@@ -236,6 +238,20 @@ export const JOBS: Job[] = [
     description: "At 2:30am a full copy of the database is saved (the last 14 are kept). Download or restore them in Settings → Backups.",
     cron: "30 2 * * *",
     run: async () => { const b = makeBackup(); return `${b.name} (${Math.round(b.bytes / 1024)} KB)`; },
+  },
+  {
+    key: "recurring_expenses",
+    name: "Monthly fixed expenses",
+    description: "Every morning: rent, security, internet and other fixed costs set in Expenses → Monthly are booked by themselves on their day of the month.",
+    cron: "0 7 * * *",
+    run: async (t) => `${await bookRecurring(t)} booked`,
+  },
+  {
+    key: "leaderboard",
+    name: "Weekly salesman leaderboard",
+    description: "Monday 9am: every salesman gets last week's top 3 (litres, shop sales, customer rating) and their own place and commission.",
+    cron: "0 9 * * 1",
+    run: async (t) => `${await weeklyLeaderboard(t)} salesmen ranked`,
   },
   {
     key: "monthly_bills",

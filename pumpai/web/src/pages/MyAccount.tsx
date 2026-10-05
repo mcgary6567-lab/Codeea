@@ -4,6 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { pkr } from "../lib/format";
 import { LedgerList } from "./Staff";
+import { Leaderboard } from "./Team";
 import { resizeImage } from "../components/Capture";
 
 const Ur = ({ children }: { children: React.ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -72,6 +73,10 @@ export default function MyAccount() {
         <div className="rounded-2xl bg-amber-50 px-5 py-4 ring-1 ring-amber-200"><div className="text-sm text-amber-800">To adjust from salary · <Ur>تنخواہ سے کٹے گا</Ur></div><div className="text-3xl font-bold tabular-nums">{pkr(data.balance)}</div></div>
         {data.user.salary ? <div className="rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200"><div className="text-sm text-slate-600">Monthly salary</div><div className="text-3xl font-bold tabular-nums">{pkr(data.user.salary)}</div></div> : null}
       </div>
+      {data.user.role === "salesman" && <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+        <div className="mb-1 text-lg font-semibold">🏆 This week · <Ur>اس ہفتے</Ur></div>
+        <Leaderboard compact />
+      </div>}
       <div className="card p-3"><LedgerList lines={data.lines} /></div>
       {leave && <LeaveForm onClose={() => setLeave(false)} onDone={() => { setLeave(false); att.reload(); }} />}
     </div>

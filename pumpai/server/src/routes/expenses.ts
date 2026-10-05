@@ -6,6 +6,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
 import { linkPhotos } from "./capture.js";
 import { guardClosedDay } from "./backoffice.js";
+import { registerDecider, requestApproval, closeApproval } from "./approvals.js";
 
 export const expenses = Router();
 
@@ -128,7 +129,7 @@ const body = z.object({
   photo_id: z.number().optional().nullable(),
 });
 
-expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
+expenses.post("/expenses", requirePerm("expenses.create"), h(async (req) => {
   const t = tid(req);
   const b = parse(body, req.body);
   if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", t, b.category)) throw new AppError(400, "Unknown category");
@@ -144,8 +145,11 @@ expenses.post("/expenses", requirePerm("expenses.create"), h((req) => {
   );
   if (b.photo_id && linkPhotos(t, [b.photo_id], `expense:${id}`)) { run("UPDATE expenses SET photo_id=? WHERE id=?", b.photo_id, id); }
   if (autoApprove) checkBudget(t, b.category, monthOf(date));
-  else createAlert(t, { type: "expense_approval", severity: "warning", title: `Expense needs approval: ${pkr(b.amount)} ${b.category}`,
-    body: `Entered by ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}` });
+  else {
+    createAlert(t, { type: "expense_approval", severity: "warning", title: `Expense needs approval: ${pkr(b.amount)} ${b.category}`,
+      body: `Entered by ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}` });
+    await requestApproval(t, "expense", id, `💸 Expense ${pkr(b.amount)} — ${b.category}\nBy ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}`);
+  }
   return get("SELECT * FROM expenses WHERE id=?", id);
 }));
 
@@ -172,15 +176,22 @@ expenses.delete("/expenses/:id", requirePerm("expenses.create"), h((req) => {
   const e = ownExpense(req);
   guardClosedDay(req, tid(req), e.expense_date);
   run("DELETE FROM expenses WHERE id=?", e.id);
+  closeApproval("expense", e.id, false, `${req.user!.name} (deleted)`);
   return { ok: true };
 }));
 
-expenses.post("/expenses/:id/:decision(approve|reject)", requirePerm("expenses.approve"), h((req) => {
-  const e = get("SELECT * FROM expenses WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
+/** Approve or reject a pending expense (from the app, or the owner's "1" on WhatsApp). */
+export function decideExpense(t: number, id: number, approve: boolean, by: string) {
+  const e = get("SELECT * FROM expenses WHERE id=? AND tenant_id=?", id, t);
   if (!e) throw new AppError(404, "Expense not found");
   if (e.status !== "pending") throw new AppError(400, `Expense is already ${e.status}`);
-  const status = req.params.decision === "approve" ? "approved" : "rejected";
-  run("UPDATE expenses SET status=?, approved_by=? WHERE id=?", status, req.user!.name, e.id);
-  if (status === "approved") checkBudget(tid(req), e.category, monthOf(e.expense_date));
+  const status = approve ? "approved" : "rejected";
+  run("UPDATE expenses SET status=?, approved_by=? WHERE id=?", status, by, e.id);
+  closeApproval("expense", e.id, approve, by);
+  if (approve) checkBudget(t, e.category, monthOf(e.expense_date));
   return get("SELECT * FROM expenses WHERE id=?", e.id);
-}));
+}
+registerDecider("expense", async (t, id, approve, by) => { const e = decideExpense(t, id, approve, by); return `${pkr(e.amount)} ${e.category} is now ${e.status}.`; });
+
+expenses.post("/expenses/:id/:decision(approve|reject)", requirePerm("expenses.approve"), h((req) =>
+  decideExpense(tid(req), Number(req.params.id), req.params.decision === "approve", req.user!.name)));

@@ -64,7 +64,7 @@ insightsRouter.post("/automations/:key/run", requirePerm("automations.manage"), 
 
 /* ---------------- Settings ---------------- */
 /** On/off switches for the automatic messages and bookkeeping (all on by default). */
-const AUTO_SETTINGS = ["khata_receipts", "wholesale_messages", "shortage_to_staff", "khata_auto_block"] as const;
+const AUTO_SETTINGS = ["khata_receipts", "wholesale_messages", "shortage_to_staff", "khata_auto_block", "ask_rating", "wa_approvals"] as const;
 insightsRouter.get("/settings", requirePerm("settings.manage"), h((req) => {
   const t = tid(req);
   const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
