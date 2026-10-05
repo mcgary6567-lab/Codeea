@@ -7,7 +7,6 @@ import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
-import { HelpButton } from "./Help";
 import { useBranding, useInstallPrompt } from "../lib/brand";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
@@ -184,7 +183,7 @@ export default function Layout() {
           <NotificationBell />
         </header>
         <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><Outlet />
-          <div className="print:hidden"><HelpButton /></div></main>
+          </main>
       </div>
     </div>
     </NotificationsProvider>
