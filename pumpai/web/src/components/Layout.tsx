@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
 import { NotificationsProvider, NotificationBell } from "./Notifications";
 import { QuickAddButton } from "./QuickAdd";
 import { HelpButton } from "./Help";
+import { useBranding, useInstallPrompt } from "../lib/brand";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
@@ -38,8 +39,10 @@ const NAV = [
   { to: "/team", label: "Ratings & commission", icon: Star, perm: "staff.manage" },
   { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
   { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
+  { to: "/machines", label: "Machines", icon: Wrench, perm: "sales.create" },
   { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager"] },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
+  { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
 ];
 
@@ -47,6 +50,8 @@ export default function Layout() {
   const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
+  const brand = useBranding();
+  const { canInstall, install } = useInstallPrompt();
   const counts = useApi<any>(can("dashboard.view") ? "/dashboard" : null, 60_000);
   useLiveEvents(() => counts.reload(), can("whatsapp.inbox"));
   const k = counts.data?.kpis;
@@ -55,7 +60,7 @@ export default function Layout() {
   const sidebar = (
     <nav className="flex h-full flex-col bg-brand-900 text-emerald-50">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="text-2xl">⛽</span>
+        {brand?.logo_url ? <img src={brand.logo_url} alt="" className="h-9 w-9 rounded-lg bg-white object-contain p-0.5" /> : <span className="text-2xl">⛽</span>}
         <div className="min-w-0 flex-1">
           <div className="font-semibold leading-tight">PumpAI</div>
           <div className="text-xs text-emerald-200/80 truncate max-w-[9rem]">{tenant?.name}</div>
@@ -77,6 +82,7 @@ export default function Layout() {
         <div className="font-medium">{user?.name}</div>
         <div className="text-xs text-emerald-200/80">{ROLE_LABEL[user?.role ?? ""]}</div>
         {user?.station_name && <div className="mt-0.5 flex items-center gap-1 text-xs text-emerald-200/80"><MapPin size={11} />{user.station_name}</div>}
+        {canInstall && <button onClick={install} className="mt-3 block text-xs text-emerald-100 underline hover:text-white">⬇ Install app on this device</button>}
         <button onClick={() => { logout(); nav("/login"); }} className="mt-3 flex items-center gap-2 text-xs text-emerald-200 hover:text-white">
           <LogOut size={14} /> Sign out
         </button>

@@ -274,3 +274,23 @@ export async function attendanceWatch(t: number) {
   if (a) await notify(t, staff(t, ["manager"]), { type: "attendance_missing", title: a.title, body: "More than an hour after duty start." });
   return missing.length;
 }
+
+/** The standard daily / weekly checks every new pump starts with (can be changed later). */
+const DEFAULT_CHECKLIST: [string, string, string, string, string | null, number | null, number | null, number][] = [
+    // title, urdu, frequency, kind, unit, min_ok, max_ok, needs_photo
+    ["Forecourt and canopy clean", "فورکورٹ صاف", "daily", "check", null, null, null, 1],
+    ["Water in tanks (water-finding paste)", "ٹینک میں پانی", "daily", "number", "mm", 0, 10, 1],
+    ["Petrol density at 15°C", "پیٹرول ڈینسٹی", "daily", "number", "kg/m³", 720, 775, 0],
+    ["Diesel density at 15°C", "ڈیزل ڈینسٹی", "daily", "number", "kg/m³", 815, 870, 0],
+    ["5-litre measure test (difference)", "5 لیٹر ناپ", "daily", "number", "ml", -25, 25, 0],
+    ["Fire extinguishers & sand buckets in place", "آگ بجھانے کا سامان", "daily", "check", null, null, null, 0],
+    ["Washrooms clean", "واش روم صاف", "daily", "check", null, null, null, 1],
+    ["Air & water machine working", "ہوا اور پانی", "daily", "check", null, null, null, 0],
+    ["Generator oil & fuel check", "جنریٹر", "weekly", "check", null, null, null, 0],
+    ["Emergency shut-off & earthing check", "ایمرجنسی بند", "weekly", "check", null, null, null, 0],
+  ];
+export function addDefaultChecklist(tenantId: number) {
+  if (get("SELECT id FROM checklist_items WHERE tenant_id=? LIMIT 1", tenantId)) return;
+  DEFAULT_CHECKLIST.forEach(([title, urdu, freq, kind, unit, min, max, photo], i) =>
+    run("INSERT INTO checklist_items (tenant_id,title,urdu,frequency,kind,unit,min_ok,max_ok,needs_photo,sort) VALUES (?,?,?,?,?,?,?,?,?,?)", tenantId, title, urdu, freq, kind, unit, min, max, photo, i));
+}

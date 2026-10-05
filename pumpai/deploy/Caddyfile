@@ -1,0 +1,10 @@
+# Automatic HTTPS for the domain in .env (DOMAIN=pump.example.pk)
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:4000 {
+		flush_interval -1
+	}
+	request_body {
+		max_size 12MB
+	}
+}

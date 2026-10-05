@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { z } from "zod";
-import { config, aiEnabled, waLive } from "./config.js";
+import { config, aiEnabled, waLive, APP_VERSION } from "./config.js";
 import { migrate, get } from "./db.js";
 import { requireAuth, errorHandler, login, pinLogin, pinUsers, h, parse, permissionsOf } from "./auth.js";
 import { operations } from "./routes/operations.js";
@@ -38,20 +38,49 @@ import { tax } from "./routes/tax.js";
 import { bankrec } from "./routes/bankrec.js";
 import { ledger } from "./routes/ledger.js";
 import { people, slipPdf } from "./routes/people.js";
+import { setupPublic, business, applyStoredConfig } from "./routes/setup.js";
+import { auditTrail, auditRouter } from "./routes/auditTrail.js";
+import { machines } from "./routes/machines.js";
+import { getSetting } from "./db.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
 migrate();
+applyStoredConfig();
 if (!get("SELECT id FROM tenants LIMIT 1")) {
-  console.log("[db] empty database — loading demo data");
-  seed();
+  if (config.demoData) {
+    console.log("[db] empty database — loading demo data");
+    seed();
+  } else console.log("[setup] new installation — open the app in a browser to run the setup wizard");
 }
 
 export const app = express();
 app.use(cors());
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" }));
+app.get("/api/health", (_req, res) => res.json({ ok: true, version: APP_VERSION, ai: aiEnabled() ? "claude" : "rules", whatsapp: waLive() ? "live" : "simulated" }));
+app.use("/api", setupPublic); // setup wizard + branding (no login)
+// business logo (login page, receipts, bills, TV board, app icon)
+app.get("/branding/logo", (_req, res) => {
+  const t = get("SELECT id FROM tenants ORDER BY id LIMIT 1");
+  const id = t ? Number(getSetting(t.id, "logo_photo_id")) : 0;
+  const p = id ? get("SELECT mime, data FROM photos WHERE id=?", id) : null;
+  if (!p) return res.status(404).end();
+  res.setHeader("content-type", p.mime);
+  res.setHeader("cache-control", "public, max-age=3600");
+  res.end(Buffer.from(p.data as Uint8Array));
+});
+// install-as-app manifest with this pump's own name and logo
+app.get("/manifest.webmanifest", (_req, res) => {
+  const t = get("SELECT * FROM tenants ORDER BY id LIMIT 1");
+  const logo = t && getSetting(t.id, "logo_photo_id");
+  const color = (t && getSetting(t.id, "brand_color")) || "#064e3b";
+  res.type("application/manifest+json").send(JSON.stringify({
+    name: t?.name ? `${t.name} — PumpAI` : "PumpAI", short_name: t?.name?.slice(0, 12) ?? "PumpAI", start_url: "/", display: "standalone",
+    background_color: "#ffffff", theme_color: color,
+    icons: logo ? [{ src: "/branding/logo", sizes: "512x512", type: "image/jpeg", purpose: "any" }] : [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+  }));
+});
 app.post("/api/auth/login", h((req) => {
   const b = parse(z.object({ email: z.string().email(), password: z.string().min(1) }), req.body);
   return login(b.email, b.password);
@@ -102,6 +131,7 @@ app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
 api.use(requireAuth);
+api.use(auditTrail); // every change is written to the audit log
 api.get("/me", h((req) => ({
   user: { ...req.user, station_name: req.user!.station_id ? get("SELECT name FROM stations WHERE id=?", req.user!.station_id)?.name : null },
   tenant: get("SELECT id, name FROM tenants WHERE id=?", req.user!.tenant_id),
@@ -137,6 +167,9 @@ api.use(tax);
 api.use(bankrec);
 api.use(ledger);
 api.use(people);
+api.use(business);
+api.use(auditRouter);
+api.use(machines);
 app.use("/api", api);
 
 // Serve the built dashboard in production

@@ -98,6 +98,7 @@ export async function applyPrices(t: number, by: { id: number; name: string }, b
   // tell every salesman to change the dispenser rate (they must confirm, with meter readings if on shift)
   const changes = Object.entries(b.prices).filter(([p, v]) => old[p]?.price !== v)
     .map(([p, v]) => ({ product: p, old: old[p]?.price ?? null, new: v, diff: old[p] ? round2(v - old[p].price) : null }));
+  audit(t, by, "price:Changed fuel prices", "prices", { changes: changes.map((c) => ({ field: PRODUCTS[c.product] ?? c.product, from: c.old, to: c.new })), note: b.note ?? null });
   const lines = changes.map((c) => `${PRODUCTS[c.product]}: ${c.old != null ? `${rateFmt(c.old)} → ` : ""}${rateFmt(c.new)}${c.diff ? ` (${c.diff > 0 ? "+" : "−"}Rs ${Math.abs(c.diff).toFixed(2)}/L ${c.diff > 0 ? "barh gaya" : "kam ho gaya"})` : ""}`);
   const salesmen = staff(t, ["salesman"]);
   if (changes.length) {

@@ -58,6 +58,7 @@ export const PERMISSIONS = {
   "expenses.approve": ADMIN, // approve manager expenses above the approval limit
   "reports.view": MGMT,
   "suppliers.manage": MGMT, // supplier accounts, fuel purchase cost, payments to suppliers
+  "audit.view": ADMIN, // who changed what (prices, undo, deletes, edits, sign-ins)
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 
@@ -93,6 +94,12 @@ export function pinUsers(device: string | undefined) {
 }
 
 const PIN_TRIES = 5, PIN_LOCK_MIN = 10;
+/** Sign-ins and wrong passwords / PINs go in the audit log. */
+function auditLogin(u: { id: number; tenant_id: number; name: string }, ok: boolean, how: string) {
+  run("INSERT INTO audit_log (tenant_id,user_id,user_name,action,ref,created_at) VALUES (?,?,?,?,?,?)",
+    u.tenant_id, u.id, u.name, `login:${ok ? `Signed in (${how})` : `Wrong ${how}`}`, how, new Date().toISOString());
+}
+
 export function pinLogin(device: string | undefined, userId: number, pin: string) {
   const u = get("SELECT * FROM users WHERE id=? AND tenant_id=?", userId, deviceTenant(device));
   if (!u || !u.pin_hash) throw new AppError(401, "PIN login is not set up for this person");
@@ -103,17 +110,20 @@ export function pinLogin(device: string | undefined, userId: number, pin: string
     const fails = u.pin_fails + 1;
     run("UPDATE users SET pin_fails=?, pin_locked_until=? WHERE id=?", fails >= PIN_TRIES ? 0 : fails,
       fails >= PIN_TRIES ? new Date(Date.now() + PIN_LOCK_MIN * 60000).toISOString() : null, u.id);
+    auditLogin(u, false, fails >= PIN_TRIES ? "PIN — locked for 10 minutes" : "PIN");
     throw new AppError(401, fails >= PIN_TRIES ? `Wrong PIN. Locked for ${PIN_LOCK_MIN} minutes — forgot it? Ask the admin to reset it.` : `Wrong PIN (${PIN_TRIES - fails} tries left)`);
   }
   run("UPDATE users SET pin_fails=0, pin_locked_until=NULL WHERE id=?", u.id);
+  auditLogin(u, true, "PIN");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
   return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
 }
 
 export function login(email: string, password: string) {
   const u = get("SELECT * FROM users WHERE email=?", email.toLowerCase().trim());
-  if (!u || !bcrypt.compareSync(password, u.password_hash)) throw new AppError(401, "Invalid email or password");
+  if (!u || !bcrypt.compareSync(password, u.password_hash)) { if (u) auditLogin(u, false, "password"); throw new AppError(401, "Invalid email or password"); }
   if (!u.active) throw new AppError(403, "This account is disabled. Contact your admin.");
+  auditLogin(u, true, "password");
   const user: AuthUser = { id: u.id, tenant_id: u.tenant_id, name: u.name, email: u.email, role: u.role, station_id: u.station_id };
   return { token: signToken(user), user, permissions: permissionsOf(user.role), device_token: deviceToken(u.tenant_id) };
 }

@@ -390,6 +390,15 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS trainings (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, topic TEXT NOT NULL, done_on TEXT NOT NULL, next_due TEXT,
     trainer TEXT, note TEXT, photo_id INTEGER, created_by TEXT, created_at TEXT NOT NULL)`);
+  // machines register: dispensers, generator, compressor, fans, lights… with service schedule, faults and warranty
+  db.exec(`CREATE TABLE IF NOT EXISTS machines (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'other',
+    make TEXT, model TEXT, serial_no TEXT, location TEXT, installed_on TEXT, cost REAL, vendor TEXT, vendor_phone TEXT, warranty_until TEXT,
+    service_every_days INTEGER, service_every_hours REAL, last_service_on TEXT, next_service_on TEXT, hours REAL, last_service_hours REAL,
+    status TEXT NOT NULL DEFAULT 'working', photo_id INTEGER, notes TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS machine_logs (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, machine_id INTEGER NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, description TEXT NOT NULL,
+    cost REAL, done_by TEXT, hours REAL, downtime_hours REAL, photo_id INTEGER, expense_id INTEGER, resolved_at TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
   migrateUserRoles();
 }
 

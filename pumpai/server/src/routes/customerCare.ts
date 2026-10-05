@@ -7,6 +7,7 @@
  *  - Car wash / oil change / tyre bookings, with reminders and "oil change due" follow-ups
  */
 import { Router } from "express";
+import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
@@ -65,7 +66,7 @@ export function renderPortal(token: string): string | null {
 h1{font-size:20px;margin:0}.m{color:#64748b;font-size:12px}.big{font-size:26px;font-weight:700;word-break:break-word}.g{color:#047857}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.t{background:#f8fafc;border-radius:10px;padding:10px}
 table{width:100%;border-collapse:collapse}td{padding:7px 4px;border-bottom:1px solid #e2e8f0;vertical-align:top}.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}a.b{display:block;text-align:center;background:#064e3b;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;margin-top:10px}
 .hold{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}</style></head><body><div class=w>
-<div class=c><div class=m>⛽ ${esc(tenant.name)}</div><h1>${esc(c.name)}</h1>
+<div class=c>${logoTag(tenant.id, "height:36px;max-width:140px;object-fit:contain;background:#fff;border-radius:6px;padding:2px")}<div class=m>⛽ ${esc(tenant.name)}</div><h1>${esc(c.name)}</h1>
 <div class=grid><div class=t><div class=m>Balance due · بقایا</div><div class=big>Rs ${Math.round(c.balance).toLocaleString("en-IN")}</div></div><div class=t><div class=m>Credit limit · حد</div><div class=big style="font-size:22px">Rs ${Math.round(c.credit_limit).toLocaleString("en-IN")}</div><div class=m>Available Rs ${Math.round(Math.max(0, c.credit_limit - c.balance)).toLocaleString("en-IN")}</div></div></div>
 ${c.khata_blocked ? `<div class=hold>Khata is on hold because payment is overdue. Please pay to continue.</div>` : ""}
 ${c.balance > 0 ? `<a class=b href="${esc(paymentLink(c, c.balance))}">Pay now (JazzCash / Easypaisa / Raast)</a>` : ""}</div>

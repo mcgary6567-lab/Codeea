@@ -3,6 +3,7 @@
  * letters, with offers. It checks for changes every 20 seconds, so a price change shows up by itself.
  */
 import { Router } from "express";
+import { logoTag } from "./setup.js";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { config, PRODUCTS } from "../config.js";
@@ -71,7 +72,7 @@ main{flex:1;display:grid;gap:2.4vh;padding:0 4vw;align-content:center}
 footer{padding:2vh 4vw 3vh}.offer{font-size:4vh;background:#facc15;color:#111;border-radius:1.6vh;padding:1.4vh 2vw;margin-top:1.2vh;font-weight:700}
 @media (max-width:700px){.row{grid-template-columns:1fr 1fr}.ur{display:none}}
 </style></head><body>
-<header><b id="name">${esc(d.name)}</b><span id="clock"></span></header>
+<header><span style="display:flex;align-items:center;gap:2vw">${logoTag(verify(token)!.board, "height:7vh;background:#fff;border-radius:1vh;padding:.4vh")}<b id="name">${esc(d.name)}</b></span><span id="clock"></span></header>
 <main id="rows"></main>
 <footer id="offers"></footer>
 <script>

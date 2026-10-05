@@ -4,6 +4,7 @@ import { Delete, Mail, ArrowLeft } from "lucide-react";
 import { api, getDevice, setDevice } from "../lib/api";
 import { useAuth } from "../App";
 import { ErrorBox } from "../components/ui";
+import { useBranding, useInstallPrompt } from "../lib/brand";
 
 const ROLE: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale" };
 const ROLE_TONE: Record<string, string> = { salesman: "bg-emerald-500", manager: "bg-blue-500", wholesale: "bg-violet-500", admin: "bg-slate-700" };
@@ -12,17 +13,21 @@ export default function Login() {
   const { user, login } = useAuth();
   const nav = useNavigate();
   const [mode, setMode] = useState<"pin" | "email">(getDevice() ? "pin" : "email");
+  const brand = useBranding();
+  const { canInstall, install } = useInstallPrompt();
   if (user) return <Navigate to="/" replace />;
+  if (brand?.setup_needed) return <Navigate to="/setup" replace />;
   const done = async (r: any) => { if (r.device_token) setDevice(r.device_token); await login(r.token); nav("/"); };
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-900 via-brand-700 to-emerald-500 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-900 via-brand-700 to-brand-500 p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center text-white">
-          <div className="text-5xl">⛽</div>
-          <h1 className="mt-2 text-2xl font-bold">PumpAI</h1>
-          <p className="text-emerald-100">AI WhatsApp CRM & forecourt management</p>
+          {brand?.logo_url ? <img src={brand.logo_url} alt="" className="mx-auto h-20 w-20 rounded-2xl bg-white object-contain p-1.5 shadow" /> : <div className="text-5xl">⛽</div>}
+          <h1 className="mt-2 text-2xl font-bold">{brand?.name ?? "PumpAI"}</h1>
+          <p className="text-white/80">{brand?.name && brand.name !== "PumpAI" ? "PumpAI — forecourt management & WhatsApp CRM" : "AI WhatsApp CRM & forecourt management"}</p>
+          {canInstall && <button onClick={install} className="mt-3 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold ring-1 ring-white/40 hover:bg-white/25">⬇ Install app on this device</button>}
         </div>
-        {mode === "pin" ? <PinLogin onDone={done} onEmail={() => setMode("email")} /> : <EmailLogin onDone={done} onPin={getDevice() ? () => setMode("pin") : undefined} />}
+        {mode === "pin" ? <PinLogin onDone={done} onEmail={() => setMode("email")} /> : <EmailLogin demo={Boolean(brand?.demo)} onDone={done} onPin={getDevice() ? () => setMode("pin") : undefined} />}
       </div>
     </div>
   );
@@ -95,9 +100,11 @@ function PinLogin({ onDone, onEmail }: { onDone: (r: any) => Promise<void>; onEm
   );
 }
 
-function EmailLogin({ onDone, onPin }: { onDone: (r: any) => Promise<void>; onPin?: () => void }) {
-  const [email, setEmail] = useState("admin@pumpai.pk");
-  const [password, setPassword] = useState("demo1234");
+function EmailLogin({ demo, onDone, onPin }: { demo: boolean; onDone: (r: any) => Promise<void>; onPin?: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  // the demo pump fills in a sample login; a real installation starts empty
+  useEffect(() => { if (demo) { setEmail((x) => x || "admin@pumpai.pk"); setPassword((x) => x || "demo1234"); } }, [demo]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
@@ -111,11 +118,11 @@ function EmailLogin({ onDone, onPin }: { onDone: (r: any) => Promise<void>; onPi
   return (
     <form onSubmit={submit} className="card space-y-4 p-6">
       {error && <ErrorBox error={error} />}
-      <label className="block"><span className="label">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-      <label className="block"><span className="label">Password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+      <label className="block"><span className="label">Email</span><input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+      <label className="block"><span className="label">Password</span><input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
       <button className="btn-primary w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       {onPin && <button type="button" onClick={onPin} className="w-full text-sm text-brand-600 hover:underline">Quick sign in with PIN</button>}
-      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+      {demo && <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
         <div className="mb-1.5 font-medium">Demo accounts (password <b>demo1234</b>, PIN in brackets)</div>
         {[["admin@pumpai.pk", "Admin (CEO) [1111]"], ["manager@pumpai.pk", "Manager [2222]"], ["salesman@pumpai.pk", "Salesman [3333]"], ["wholesale@pumpai.pk", "Wholesale officer [4444]"]].map(([e, l]) => (
           <button type="button" key={e} onClick={() => { setEmail(e); setPassword("demo1234"); }} className="flex w-full justify-between rounded px-1.5 py-1 text-left hover:bg-white">
@@ -123,7 +130,8 @@ function EmailLogin({ onDone, onPin }: { onDone: (r: any) => Promise<void>; onPi
           </button>
         ))}
         <p className="mt-1.5 text-slate-500">After one email sign-in, this device shows the quick PIN screen.</p>
-      </div>
+      </div>}
+      {!demo && <p className="text-center text-xs text-slate-500">After one email sign-in, this device shows the quick PIN screen. Forgot your password? Ask the owner / admin.</p>}
     </form>
   );
 }

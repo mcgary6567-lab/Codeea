@@ -8,7 +8,9 @@ import { config, aiEnabled, PRODUCTS } from "../config.js";
 import { parseSaleText, type ParsedSale } from "./parseSale.js";
 
 let client: Anthropic | null = null;
-const claude = () => (client ??= new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 }));
+let clientKey = "";
+// rebuilt when the key is changed from Settings → Integrations
+const claude = () => { if (!client || clientKey !== config.anthropicKey) { clientKey = config.anthropicKey; client = new Anthropic({ apiKey: clientKey, maxRetries: 2, timeout: 60_000 }); } return client; };
 
 async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], description: string, schema: Record<string, unknown>): Promise<T | null> {
   const res = await claude().beta.messages.create({

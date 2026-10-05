@@ -15,6 +15,7 @@ import { makeBackup } from "../routes/system.js";
 import { bookRecurring } from "../routes/recurring.js";
 import { weeklyLeaderboard } from "../routes/feedback.js";
 import { trainingWatch, dailyCoaching } from "../routes/people.js";
+import { machineWatch } from "../routes/machines.js";
 
 export interface Job {
   key: string;
@@ -267,6 +268,13 @@ export const JOBS: Job[] = [
     description: "Monday 9:30am: staff whose fire safety, POS or other training is overdue, due in 30 days or never done — to the managers and to each person.",
     cron: "30 9 * * 1",
     run: async (t) => `${await trainingWatch(t)} staff need training`,
+  },
+  {
+    key: "machine_watch",
+    name: "Machine service & warranty",
+    description: "Every morning: dispensers, generator, compressor and other machines whose service is due (by date or generator hours), warranty ending, or a fault not repaired for 2 days — to the managers and the owner.",
+    cron: "15 9 * * *",
+    run: async (t) => `${await machineWatch(t)} machines need attention`,
   },
   {
     key: "monthly_bills",

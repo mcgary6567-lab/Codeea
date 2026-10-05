@@ -5,6 +5,7 @@
  * Bill links are signed, so they open without a login but cannot be guessed.
  */
 import jwt from "jsonwebtoken";
+import { logoTag } from "./routes/setup.js";
 import { shopSaleTax } from "./routes/tax.js";
 import { config, PRODUCTS } from "./config.js";
 import { all, get, getSetting, pkDate, type Row } from "./db.js";
@@ -147,7 +148,7 @@ h1{margin:0;font-size:22px}.muted{color:#64748b}.top{display:flex;justify-conten
 @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none}button{display:none}}
 @media (max-width:600px){.page{margin:0;border-radius:0;padding:16px}}
 </style></head><body><div class="page">
-<div class="top"><div><h1>${esc(tenant.name)}</h1><div class="muted">${esc(title)} · ${esc(monthName(p.m))}</div></div>
+<div class="top"><div>${logoTag(p.t)}<h1>${esc(tenant.name)}</h1><div class="muted">${esc(title)} · ${esc(monthName(p.m))}</div></div>
 <div><b>${esc(who.name)}</b>${who.business_name ? `<div class=muted>${esc(who.business_name)}</div>` : ""}${who.phone ? `<div class=muted>+${esc(who.phone)}</div>` : ""}${who.city ? `<div class=muted>${esc(who.city)}</div>` : ""}</div></div>
 <div class="muted">Opening balance (1 ${esc(monthName(p.m))}): <b>Rs ${n2(opening)}</b></div>
 <div class="wrap"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Slip / ref</th><th>Entry</th><th class=r>Litres</th><th class=r>Rate</th><th class=r>Charged</th><th class=r>Paid</th><th class=r>Balance</th></tr></thead>
@@ -187,10 +188,10 @@ export function renderReceipt(token: string): string | null {
 <style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.card{max-width:420px;margin:16px auto;background:#fff;border-radius:14px;padding:20px}
 h1{font-size:19px;margin:0}.muted{color:#64748b;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:8px 0;border-bottom:1px dashed #cbd5e1}.r{text-align:right;font-variant-numeric:tabular-nums}
 .total{font-size:22px;font-weight:700}.btn{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:10px;text-decoration:none;font-weight:600}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}</style></head>
-<body><div class=card><h1>⛽ ${esc(tenant.name)}</h1><div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
+<body><div class=card>${logoTag(p.t)}<h1>${logoTag(p.t) ? "" : "⛽ "}${esc(tenant.name)}</h1><div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
 <table>${rows}${taxLine}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
 <div class=muted style="margin-top:6px">Paid: ${esc(pay)} · Receipt ${p.r === "f" ? "F" : "S"}-${p.id}</div>
 ${review ? `<a class="btn g" href="${esc(review)}">⭐ Rate us on Google</a>` : ""}
 ${tenant.owner_phone ? `<a class="btn w" href="https://wa.me/${esc(tenant.owner_phone)}">WhatsApp us</a>` : ""}
-<div class=muted style="text-align:center;margin-top:12px">Shukriya! Phir tashreef layein 🙏</div></div></body></html>`;
+<div class=muted style="text-align:center;margin-top:12px">${esc(getSetting(p.t, "receipt_footer", "") || "Shukriya! Phir tashreef layein 🙏")}</div></div></body></html>`;
 }

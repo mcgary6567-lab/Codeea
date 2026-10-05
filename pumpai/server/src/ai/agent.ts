@@ -19,7 +19,9 @@ import { handleApprovalReply } from "../routes/approvals.js";
 import { handleRatingReply } from "../routes/feedback.js";
 
 let client: Anthropic | null = null;
-const claude = () => (client ??= new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 }));
+let clientKey = "";
+// rebuilt when the key is changed from Settings → Integrations
+const claude = () => { if (!client || clientKey !== config.anthropicKey) { clientKey = config.anthropicKey; client = new Anthropic({ apiKey: clientKey, maxRetries: 2, timeout: 60_000 }); } return client; };
 
 type Tools = Parameters<typeof runTool>[0];
 

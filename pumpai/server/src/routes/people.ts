@@ -16,6 +16,7 @@ import { AppError, round2, pkr, audit } from "../services.js";
 import { notify, staff } from "../notifications.js";
 import { linkPhotos } from "./capture.js";
 import { Pdf } from "../pdf.js";
+import { logoJpeg } from "./setup.js";
 
 export const people = Router();
 const DAY = 86_400_000;
@@ -103,7 +104,10 @@ export function slipPdf(token: string): Buffer | null {
   const pdf = new Pdf();
   const L = 50, R = Pdf.W - 50;
   pdf.rect(0, 0, Pdf.W, 92, 0.16);
-  pdf.text(L, 42, tenant, 20, { bold: true, gray: 1 }).text(L, 64, "Salary slip", 12, { gray: 0.85 }).text(R, 42, monthName, 14, { bold: true, align: "right", gray: 1 })
+  const logo = logoJpeg(s.tenant_id);
+  const lx = logo ? L + 72 : L;
+  if (logo) { pdf.rect(L - 4, 14, 68, 64, 1); pdf.image(logo, L, 18, 60, 56); }
+  pdf.text(lx, 42, tenant, 20, { bold: true, gray: 1 }).text(lx, 64, "Salary slip", 12, { gray: 0.85 }).text(R, 42, monthName, 14, { bold: true, align: "right", gray: 1 })
     .text(R, 64, `Slip no. SS-${s.id}`, 10, { align: "right", gray: 0.85 });
   let y = 128;
   const kv = (k: string, v: string, x: number) => { pdf.text(x, y, k, 9, { gray: 0.4 }).text(x, y + 14, v, 11, { bold: true }); };
@@ -271,7 +275,7 @@ let client: Anthropic | null = null;
 export async function coachMessage(s: Stats): Promise<{ text: string; engine: string }> {
   if (aiEnabled()) {
     try {
-      client ??= new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 });
+      if (!client || client.apiKey !== config.anthropicKey) client = new Anthropic({ apiKey: config.anthropicKey, maxRetries: 2, timeout: 60_000 });
       const r = await client.messages.create({
         model: config.aiModel, max_tokens: 1500, output_config: { effort: "low" },
         system: "You coach petrol pump salesmen in Pakistan. Write one short WhatsApp message in simple Roman Urdu (under 550 characters): greet by first name, praise one specific thing with its number, then one or two things to improve today with a concrete, practical tip. Warm and respectful, never insulting, 1-3 emojis, no markdown headings. If there is little data, give one useful general tip. Output only the message.",

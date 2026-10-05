@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { db, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { AppError } from "../services.js";
+import { AppError, audit } from "../services.js";
 import { config } from "../config.js";
 import { vapidPublicKey, saveSubscription, removeSubscription, subscriptionCount, pushToUser } from "../push.js";
 
@@ -36,7 +36,14 @@ export function listBackups() {
     .sort((a, b) => b.name.localeCompare(a.name));
 }
 
-system.get("/backups", requirePerm("settings.manage"), h(() => ({ dir: backupDir(), backups: listBackups(), restore_pending: fs.existsSync(`${config.dbPath}.restore`) })));
+system.get("/backups", requirePerm("settings.manage"), h(() => ({ dir: backupDir(), backups: listBackups(), restore_pending: fs.existsSync(`${config.dbPath}.restore`), can_restart: process.env.SUPERVISED === "1" })));
+/** Under systemd / Docker the app comes straight back after exiting — used to finish a restore from the browser. */
+system.post("/system/restart", requirePerm("settings.manage"), h((req) => {
+  if (process.env.SUPERVISED !== "1") throw new AppError(400, "Restart the app from the server (it is not running as a service)");
+  audit(tid(req), req.user!, "app_restart", "system", {});
+  setTimeout(() => process.exit(0), 600);
+  return { ok: true, message: "Restarting — the app is back in a few seconds" };
+}));
 system.post("/backups", requirePerm("settings.manage"), h(() => makeBackup()));
 system.get("/backups/:name", requirePerm("settings.manage"), (req, res, next) => {
   try {

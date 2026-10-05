@@ -6,6 +6,7 @@ import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
 import { DEFAULT_CATEGORIES } from "./routes/expenses.js";
 import { cylinderChart } from "./routes/backoffice.js";
+import { addDefaultChecklist } from "./routes/compliance.js";
 
 let s = 42;
 const rnd = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -207,6 +208,7 @@ export function seed() {
     seedPrepaidAndMore(tenantId, st1, st2, T0);
     seedMoney(tenantId);
     seedPeople(tenantId);
+    seedMachines(tenantId, st1, st2);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -263,21 +265,7 @@ function seedCompliance(tenantId: number, stations: number[], T0: number) {
   for (const [name, num, auth, days, st] of lic)
     run("INSERT INTO licences (tenant_id,station_id,name,number,authority,issued_on,expires_on,created_at) VALUES (?,?,?,?,?,?,?,?)",
       tenantId, st, name, num ?? null, auth, day(days - 365), day(days), iso(T0 - 60 * DAY));
-  const items: [string, string, string, string, string | null, number | null, number | null, number][] = [
-    // title, urdu, frequency, kind, unit, min_ok, max_ok, needs_photo
-    ["Forecourt and canopy clean", "فورکورٹ صاف", "daily", "check", null, null, null, 1],
-    ["Water in tanks (water-finding paste)", "ٹینک میں پانی", "daily", "number", "mm", 0, 10, 1],
-    ["Petrol density at 15°C", "پیٹرول ڈینسٹی", "daily", "number", "kg/m³", 720, 775, 0],
-    ["Diesel density at 15°C", "ڈیزل ڈینسٹی", "daily", "number", "kg/m³", 815, 870, 0],
-    ["5-litre measure test (difference)", "5 لیٹر ناپ", "daily", "number", "ml", -25, 25, 0],
-    ["Fire extinguishers & sand buckets in place", "آگ بجھانے کا سامان", "daily", "check", null, null, null, 0],
-    ["Washrooms clean", "واش روم صاف", "daily", "check", null, null, null, 1],
-    ["Air & water machine working", "ہوا اور پانی", "daily", "check", null, null, null, 0],
-    ["Generator oil & fuel check", "جنریٹر", "weekly", "check", null, null, null, 0],
-    ["Emergency shut-off & earthing check", "ایمرجنسی بند", "weekly", "check", null, null, null, 0],
-  ];
-  items.forEach(([title, urdu, freq, kind, unit, min, max, photo], i) =>
-    run("INSERT INTO checklist_items (tenant_id,title,urdu,frequency,kind,unit,min_ok,max_ok,needs_photo,sort) VALUES (?,?,?,?,?,?,?,?,?,?)", tenantId, title, urdu, freq, kind, unit, min, max, photo, i));
+  addDefaultChecklist(tenantId);
   // duty times; Friday off for the salesman; ~40 days of check-ins and one paid leave
   for (const [email, start, off] of [["salesman", "08:00", 5], ["manager", "09:00", 0], ["wholesale", "09:00", 0]] as const) {
     const u = get("SELECT id, station_id FROM users WHERE email=?", `${email}@pumpai.pk`)!;
@@ -536,4 +524,38 @@ function seedPeople(tenantId: number) {
   add(imran, "Emergency shutdown & spill handling", d(345), 12, "PSO HSE officer");
   add(manager, "Fire safety & extinguisher use", d(100), 12, "Rescue 1122 Lahore");
   add(manager, "First aid", d(200), 24, "Red Crescent");
+}
+
+/** Dispensers, generator, compressor, lights… with a service history, one open fault and a warranty ending. */
+function seedMachines(tenantId: number, st1: number, st2: number) {
+  const d = (days: number) => iso(Date.now() + days * DAY).slice(0, 10);
+  const add = (station: number, name: string, type: string, o: Record<string, any>) => {
+    const every = o.every as number | undefined;
+    const last = o.last as string | undefined;
+    const next = every ? iso(Date.parse(`${last ?? d(-30)}T12:00:00+05:00`) + every * DAY).slice(0, 10) : null;
+    return run(`INSERT INTO machines (tenant_id,station_id,name,type,make,model,serial_no,location,installed_on,cost,vendor,vendor_phone,warranty_until,service_every_days,service_every_hours,last_service_on,next_service_on,hours,last_service_hours,status,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, station, name, type, o.make ?? null, o.model ?? null, o.serial ?? null, o.location ?? null, o.installed ?? d(-700),
+      o.cost ?? null, o.vendor ?? null, o.phone ?? null, o.warranty ?? null, every ?? null, o.everyHours ?? null, last ?? null, next, o.hours ?? null, o.lastHours ?? null, o.status ?? "working", iso(Date.now() - 300 * DAY)).id;
+  };
+  const log = (m: number, kind: string, day: string, text: string, cost: number | null, by: string | null, extra: Record<string, any> = {}) =>
+    run("INSERT INTO machine_logs (tenant_id,machine_id,kind,day,description,cost,done_by,hours,resolved_at,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      tenantId, m, kind, day, text, cost, by, extra.hours ?? null, extra.resolved ?? null, "Kamran Shah", iso(Date.now()));
+  const tokheim = { make: "Tokheim", model: "Quantium 510", vendor: "Al-Noor Dispenser Services", phone: "923214455667", every: 90 };
+  const d1 = add(st1, "Dispenser 1 (Petrol / Hi-Octane)", "dispenser", { ...tokheim, serial: "TK-510-88213", location: "Island 1", last: d(-40), warranty: d(20), installed: d(-345), cost: 1850000 });
+  add(st1, "Dispenser 2 (Diesel)", "dispenser", { ...tokheim, serial: "TK-510-88247", location: "Island 2", last: d(-86) });
+  const gen = add(st1, "Generator 30 kVA", "generator", { make: "Perkins", model: "403A-33G", serial: "PK-30-7712", location: "Back yard", vendor: "Power Tech Lahore", phone: "923335566778",
+    every: 90, everyHours: 250, last: d(-62), hours: 4268, lastHours: 4050, cost: 1450000 });
+  const comp = add(st1, "Air compressor", "compressor", { make: "Atlas", model: "GX 5", location: "Air & water point", every: 60, last: d(-30), vendor: "Mian Compressor Works", phone: "923007788990", status: "faulty" });
+  add(st1, "Canopy LED lights (12)", "light", { location: "Canopy", every: 180, last: d(-150) });
+  add(st1, "Ceiling fans — office & tuck shop (4)", "fan", { location: "Office", every: 365, last: d(-200) });
+  add(st1, "UPS 5 kVA (POS & CCTV)", "ups", { make: "Homage", every: 180, last: d(-170), warranty: d(-10) });
+  add(st2, "Dispenser 1 (Petrol / Diesel)", "dispenser", { ...tokheim, serial: "TK-510-90102", location: "Island 1", last: d(-95) });
+  add(st2, "Generator 20 kVA", "generator", { make: "FG Wilson", model: "P22-3", vendor: "Power Tech Lahore", phone: "923335566778", every: 90, everyHours: 250, last: d(-30), hours: 2810, lastHours: 2700 });
+  add(st2, "Submersible pump (diesel tank)", "submersible_pump", { make: "Red Jacket", every: 365, last: d(-120) });
+  log(d1, "service", d(-40), "Filters cleaned, nozzles and hoses checked, calibration verified (5-litre measure within limits)", 6500, "Al-Noor Dispenser Services");
+  log(d1, "repair", d(-130), "Display board replaced", 18000, "Al-Noor Dispenser Services");
+  log(gen, "service", d(-62), "Oil and filter change, air filter cleaned", 14500, "Power Tech Lahore", { hours: 4050 });
+  log(gen, "reading", d(-1), "Hours meter reading", null, null, { hours: 4268 });
+  log(comp, "service", d(-30), "Belt tightened, oil topped up", 1500, "Mian Compressor Works");
+  log(comp, "fault", d(-3), "Compressor trips after 5 minutes, air pressure not building up", null, null);
 }

@@ -4,7 +4,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: { 50: "#ecfdf5", 100: "#d1fae5", 500: "#10b981", 600: "#059669", 700: "#047857", 900: "#064e3b" },
+        // set from the pump's own brand colour at runtime (see src/lib/brand.ts)
+        brand: Object.fromEntries([50, 100, 500, 600, 700, 900].map((k) => [k, `rgb(var(--brand-${k}) / <alpha-value>)`])),
         wa: { bg: "#efeae2", out: "#d9fdd3" },
       },
       fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"], urdu: ["\"Noto Nastaliq Urdu\"", "\"Noto Naskh Arabic\"", "serif"] },

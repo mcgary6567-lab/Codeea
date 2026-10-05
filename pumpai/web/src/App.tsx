@@ -36,6 +36,12 @@ import Register from "./pages/Register";
 import Prepaid, { CouponSheet } from "./pages/Prepaid";
 import Team from "./pages/Team";
 import Accounts from "./pages/Accounts";
+import Setup from "./pages/Setup";
+import Audit from "./pages/Audit";
+import Machines from "./pages/Machines";
+import { loadBranding } from "./lib/brand";
+
+loadBranding().catch(() => {});
 
 type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
@@ -101,6 +107,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<Setup />} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route index element={<Home />} />
               <Route path="inbox" element={<Need perm="whatsapp.inbox"><Inbox /></Need>} />
@@ -136,6 +143,8 @@ export default function App() {
               <Route path="prepaid" element={<Need perm="khata.manage"><Prepaid /></Need>} />
               <Route path="team" element={<Need perm="staff.manage"><Team /></Need>} />
               <Route path="accounts" element={<Need perm="reports.view"><Accounts /></Need>} />
+              <Route path="audit" element={<Need perm="audit.view"><Audit /></Need>} />
+              <Route path="machines" element={<Need perm="sales.create"><Machines /></Need>} />
             </Route>
             <Route path="/cards/:id" element={<Protected><Need perm="khata.manage"><Cards /></Need></Protected>} />
             <Route path="/coupons/:batch" element={<Protected><Need perm="khata.manage"><CouponSheet /></Need></Protected>} />
