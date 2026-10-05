@@ -33,11 +33,15 @@ before(async () => {
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 test("cash book: counted cash + shift cash + cash received − bank deposit − cash expenses", async () => {
+  db.run("DELETE FROM cash_counts"); // the demo data has a count from last night; this test starts a fresh book
   const first = ok(await call("manager", "POST", "/api/cash/count", { amount: 50000 }), "first count");
   assert.equal(first.variance, 0, "first count sets the starting cash"); near(first.cash_in_hand, 50000);
   const shift = ok(await call("salesman", "POST", "/api/shifts/open", {}), "open");
   const live = ok(await call("salesman", "GET", `/api/shifts/${shift.id}/live`), "live");
   ok(await call("salesman", "POST", `/api/shifts/${shift.id}/close`, { readings: Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening])), cash_actual: 10000 }), "close");
+  // this pump has a cash counter: the shift's cash is in the office only once it is handed over
+  near(ok(await call("manager", "GET", "/api/cash"), "cash").cash_in_hand, 50000, "still with the salesman");
+  ok(await call("manager", "POST", `/api/cashier/handovers/${shift.id}`, { amount: 10000 }), "handover");
   const acct = ok(await call("manager", "GET", "/api/pos/khata-accounts"), "accts").find((a: any) => a.balance > 2000);
   ok(await call("manager", "POST", `/api/customers/${acct.id}/khata`, { type: "credit", amount: 2000, method: "cash", notify: false }), "khata cash");
   near(ok(await call("manager", "GET", "/api/cash"), "cash").cash_in_hand, 62000, "after shift + khata cash");

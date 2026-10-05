@@ -676,5 +676,9 @@ function seedCashier(tenantId: number) {
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, c.direction, c.party_type, c.party_id, c.party_name, c.amount, c.bank, c.cheque_no, c.cheque_date, c.status, c.account_id ?? null, c.note ?? null, "Bilal Cashier", c.at, c.at);
   if (cust[0]) ins({ direction: "in", party_type: "khata", party_id: cust[0].id, party_name: cust[0].name, amount: 45000, bank: "Bank Alfalah", cheque_no: "00418821", cheque_date: day(-1), status: "in_hand", at: at(-3) });
   if (cust[1]) ins({ direction: "in", party_type: "khata", party_id: cust[1].id, party_name: cust[1].name, amount: 30000, bank: "UBL", cheque_no: "73310245", cheque_date: day(6), status: "in_hand", note: "Post-dated", at: at(-1) });
+  // last night the cashier counted the drawer (the cash book runs from that count)
+  const lastNight = new Date(Date.parse(new Date(NOW + 5 * 3600_000).toISOString().slice(0, 10) + "T00:00:00+05:00") - 2 * 3600_000).toISOString();
+  run("INSERT INTO cash_counts (tenant_id,amount,expected,variance,note,counted_by,created_at,notes_json) VALUES (?,?,?,?,?,?,?,?)",
+    tenantId, 385000, 385000, 0, "Day close count", "Bilal Cashier", lastNight, JSON.stringify({ "5000": 40, "1000": 150, "500": 60, "100": 50 }));
   if (sup && acc) ins({ direction: "out", party_type: "supplier", party_id: sup.id, party_name: sup.name, amount: 850000, bank: "HBL", cheque_no: "10022871", cheque_date: day(2), status: "issued", account_id: acc, note: "PSO invoice payment", at: at(-2) });
 }

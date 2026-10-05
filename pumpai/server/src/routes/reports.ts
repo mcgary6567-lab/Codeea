@@ -210,7 +210,7 @@ export function buildReport(t: number, from: string, to: string) {
     },
     money_out: {
       expenses: r0(expenses.total),
-      supplier_payments: r0(get(`SELECT COALESCE(SUM(amount),0) s FROM supplier_txns WHERE tenant_id=? AND type='payment' AND txn_date >= ? AND txn_date < ?`, ...P)!.s),
+      supplier_payments: r0(get(`SELECT COALESCE(SUM(amount),0) s FROM supplier_txns WHERE tenant_id=? AND type='payment' AND COALESCE(method,'')<>'WHT' AND txn_date >= ? AND txn_date < ?`, ...P)!.s),
     },
     cash_variance: r0(shifts.totals!.variance),
   };

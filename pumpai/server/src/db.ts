@@ -478,6 +478,13 @@ export function migrate() {
   // the cashier takes the cash from the salesman after the shift closes
   for (const [c, t] of [["handed_amount", "REAL"], ["handed_to", "TEXT"], ["handed_at", "TEXT"], ["handover_note", "TEXT"]]) addColumn("shifts", c, t);
   addColumn("cash_counts", "notes_json", "TEXT");
+  // money wiring: how a staff advance was paid, which bank got coupon money, what an expense cheque is for
+  addColumn("staff_ledger", "method", "TEXT");
+  addColumn("staff_ledger", "account_id", "INTEGER");
+  addColumn("fuel_coupons", "account_id", "INTEGER");
+  addColumn("cheques", "category", "TEXT");
+  addColumn("tax_withholdings", "paid_method", "TEXT");
+  addColumn("tax_withholdings", "paid_account_id", "INTEGER");
 }
 
 /** Allow the cashier role on databases made before it (the users table keeps every column it has today). */

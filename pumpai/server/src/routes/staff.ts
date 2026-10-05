@@ -10,6 +10,7 @@ import { loanDue, loansOf, takeInstalments, saveSlip, slipUrl } from "./people.j
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
 import { h, parse, tid, can } from "../auth.js";
+import { bankAccountFor } from "./banks.js";
 import { AppError, round2, pkr } from "../services.js";
 import { notify } from "../notifications.js";
 import { attendanceMonth } from "./compliance.js";
@@ -63,10 +64,16 @@ staffRouter.patch("/staff/:id", h((req) => {
 
 staffRouter.post("/staff/:id/entry", h(async (req) => {
   const u = ownUser(tid(req), Number(req.params.id));
-  const b = parse(z.object({ type: z.enum(["advance", "repayment", "bonus", "shortage", "deduction"]), amount: z.number().positive().max(10_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
+  const b = parse(z.object({ type: z.enum(["advance", "repayment", "bonus", "shortage", "deduction"]), amount: z.number().positive().max(10_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
+    /** how the money moved (advance / bonus / repayment); cash when not given */
+    method: z.string().max(30).optional().nullable(), account_id: z.number().int().positive().optional().nullable() }), req.body);
   if (b.type !== "advance" && !can(req.user, "staff.manage")) throw new AppError(403, "The cashier can only give an advance");
   if (["repayment", "deduction"].includes(b.type) && b.amount > staffBalance(u.id) + 0.01) throw new AppError(400, `${u.name} owes only ${pkr(staffBalance(u.id))}`);
-  const lid = run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", tid(req), u.id, b.type, b.amount, b.note ?? null, req.user!.name, now()).id;
+  const moves = ["advance", "repayment", "bonus"].includes(b.type);
+  const method = moves ? (b.method || "Cash") : null;
+  const account = moves && method ? bankAccountFor(tid(req), b.account_id, method) : null;
+  if (moves && !/^cash$/i.test(method!) && !account) throw new AppError(400, "Choose the bank account");
+  const lid = run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at,method,account_id) VALUES (?,?,?,?,?,?,?,?,?)", tid(req), u.id, b.type, b.amount, b.note ?? null, req.user!.name, now(), method, account).id;
   linkPhotos(tid(req), b.photo_ids, `staff:${lid}`);
   if (b.type === "advance" || b.type === "bonus")
     await notify(tid(req), [u], { type: "staff_ledger", title: b.type === "advance" ? `Advance ${pkr(b.amount)} given` : `Bonus ${pkr(b.amount)} 🎉`, body: `Your account: ${pkr(staffBalance(u.id))} to be adjusted.` });
@@ -106,8 +113,10 @@ staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
     const salaryId = ins("salary", round2(gross - b.deduct - loan), `Salary ${month}: ${pkr(u.salary)}${absenceCut ? ` − ${pkr(absenceCut)} absences` : ""}${b.bonus ? ` + bonus ${pkr(b.bonus)}` : ""}${com ? ` + commission ${pkr(com)}` : ""}${b.deduct ? ` − ${pkr(b.deduct)} advance/shortage` : ""}${loan ? ` − ${pkr(loan)} loan` : ""}`);
     linkPhotos(t, b.photo_ids, `staff:${salaryId}`); // signed salary sheet / receipt
     // the expense book shows the full salary cost; the recovered part was paid out earlier as an advance
-    if (get("SELECT id FROM expense_categories WHERE tenant_id=? AND name='Salaries & wages'", t))
-      run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)
+    // (the category is made if the owner deleted it — otherwise the salary would never leave the cash book)
+    if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name='Salaries & wages'", t))
+      run("INSERT INTO expense_categories (tenant_id,name,monthly_budget) VALUES (?,?,?)", t, "Salaries & wages", 0);
+    run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, t, u.station_id ?? null, "Salaries & wages", gross, u.name, "cash", `Salary ${month}`, "approved", req.user!.name, req.user!.name, pkDate(), now());
   });
   const net = round2(gross - b.deduct - loan);

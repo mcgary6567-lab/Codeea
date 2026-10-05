@@ -8,12 +8,15 @@ import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort, d, ago } from "../lib/for
 import { QuickAddTiles } from "../components/QuickAdd";
 import { HealthCard } from "./Insights";
 import { ManagerDesk } from "../components/ManagerDesk";
+import { OwnerOverview } from "../components/OwnerOverview";
+import { useAuth } from "../App";
 
 const insightIcon: Record<string, any> = { fuel: Fuel, trend: TrendingUp, users: Users, credit: CreditCard, chart: BarChart3 };
 const toneCls: Record<string, string> = { good: "border-l-emerald-500", warn: "border-l-amber-500", bad: "border-l-red-500", info: "border-l-blue-500" };
 
 export default function Dashboard() {
   const { data, error, reload } = useApi<any>("/dashboard", 60_000);
+  const { can } = useAuth();
   useLiveEvents((e) => { if (e.type === "order") reload(); });
 
   const chart = useMemo(() => {
@@ -41,6 +44,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       <PageHeader title="Dashboard" subtitle={`Live business overview · updated ${ago(k.generated_at)}`} />
+
+      {can("reports.view") && <OwnerOverview />}
 
       <ManagerDesk k={k} />
 

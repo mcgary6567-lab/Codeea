@@ -47,10 +47,11 @@ capture.get("/photos/:id", h((req, res) => {
 
 capture.post("/ai/parse-sale", requirePerm("sales.create"), h(async (req) => {
   const b = parse(z.object({ text: z.string().min(2).max(400) }), req.body);
-  // "chai ka kharcha 300" is an expense from the shift's cash, not a sale
-  const exp = expenseFromText(b.text, all("SELECT name FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)).map((c) => c.name as string));
-  if (exp?.amount) return exp;
   const accounts = all("SELECT id, name FROM customers WHERE tenant_id=? AND credit_limit > 0", tid(req)) as { id: number; name: string }[];
+  // "chai ka kharcha 300" / "bijli ka bill 18000" is an expense from the shift's cash, not a sale
+  // (the accounts are passed so "City Bakers generator diesel 2500" stays a khata sale)
+  const exp = expenseFromText(b.text, all("SELECT name FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)).map((c) => c.name as string), accounts);
+  if (exp?.amount) return exp;
   return parseSale(b.text, accounts);
 }));
 

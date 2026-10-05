@@ -23,28 +23,42 @@ import { notify, staff } from "../notifications.js";
 export const backoffice = Router();
 
 /* ================= Cash book ================= */
+/** The pump takes the salesmen's cash at a counter (a cashier exists, or a shift was ever handed over): shift cash counts when received. */
+export const handoverMode = (t: number) => Boolean(
+  get("SELECT 1 x FROM users WHERE tenant_id=? AND role='cashier' AND active=1 LIMIT 1", t)
+  || get("SELECT 1 x FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL LIMIT 1", t));
+/** SQL: this payment method is cash (no method means cash). */
+export const cashSql = (col: string) => `LOWER(TRIM(COALESCE(${col},''))) IN ('cash','')`;
+
 export function cashPosition(t: number, until = new Date().toISOString()) {
   const last = get("SELECT * FROM cash_counts WHERE tenant_id=? AND created_at <= ? ORDER BY created_at DESC, id DESC LIMIT 1", t, until);
-  // before the first cash count, the book starts at midnight of the day being looked at
-  const since = last?.created_at ?? pkStart(pkDate(Date.parse(until) - 1));
+  // before the first cash count the book runs from the very first entry
+  const since = last?.created_at ?? "1970-01-01T00:00:00.000Z";
   const P = [t, since, until] as const;
   const one = (sql: string, ...args: unknown[]) => round2(get(sql, ...(args as []))!.v ?? 0);
   const ins = {
-    shift_cash: one("SELECT COALESCE(SUM(COALESCE(sh.handed_amount, sh.cash_actual)),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at > ? AND sh.closed_at <= ?", ...P),
-    khata_cash: one("SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND LOWER(COALESCE(k.ref,''))='cash' AND k.created_at > ? AND k.created_at <= ?", ...P),
+    shift_cash: handoverMode(t)
+      ? one("SELECT COALESCE(SUM(sh.handed_amount),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL AND sh.handed_at > ? AND sh.handed_at <= ?", ...P)
+      : one("SELECT COALESCE(SUM(sh.cash_actual),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at > ? AND sh.closed_at <= ?", ...P),
+    // cash sales a manager / owner made with no shift open (they never pass through a salesman's bag)
+    counter_sales: round2(
+      one("SELECT COALESCE(SUM(x.amount),0) v FROM sales x JOIN stations s ON s.id=x.station_id WHERE s.tenant_id=? AND x.shift_id IS NULL AND x.payment_method='cash' AND x.created_at > ? AND x.created_at <= ?", ...P)
+      + one("SELECT COALESCE(SUM(total),0) v FROM shop_sales WHERE tenant_id=? AND shift_id IS NULL AND payment_method='cash' AND created_at > ? AND created_at <= ?", ...P)),
+    khata_cash: one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND ${cashSql("k.ref")} AND k.created_at > ? AND k.created_at <= ?`, ...P),
     wholesale_cash: one("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
     prepaid_cash: round2(one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND method='cash' AND sold_at > ? AND sold_at <= ?", ...P)
       + one("SELECT COALESCE(SUM(CASE WHEN type='refund' THEN -amount ELSE amount END),0) v FROM wallet_ledger WHERE tenant_id=? AND type IN ('deposit','refund') AND method='cash' AND created_at > ? AND created_at <= ?", ...P)),
     bank_withdrawals: one("SELECT COALESCE(SUM(-amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at > ? AND created_at <= ?", ...P),
     other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='in' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
-    staff_repaid: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND type IN ('repayment','deduction') AND created_at > ? AND created_at <= ?", ...P),
+    // advances paid back in cash, and advances / loan instalments kept back out of a cash salary (the salary below is booked in full)
+    staff_repaid: one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND ((type='repayment' AND ${cashSql("method")}) OR (type='deduction' AND month IS NOT NULL)) AND created_at > ? AND created_at <= ?`, ...P),
   };
   const outs = {
     bank_deposits: one("SELECT COALESCE(SUM(amount),0) v FROM bank_deposits WHERE tenant_id=? AND created_at > ? AND created_at <= ?", ...P),
     expenses: one("SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND method='cash' AND shift_id IS NULL AND created_at > ? AND created_at <= ?", ...P),
     supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
     other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='out' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
-    staff_advances: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND created_at > ? AND created_at <= ?", ...P),
+    staff_advances: one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
   };
   const sum = (o: Record<string, number>) => round2(Object.values(o).reduce((a, b) => a + b, 0));
   return {

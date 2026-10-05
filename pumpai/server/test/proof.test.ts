@@ -38,7 +38,9 @@ test("photo proof is kept with every money and stock entry and comes back in the
   // wholesale payment (cheque front + back) and supply
   const client = (await call("wholesale", "GET", "/api/wholesale/clients")).data[0];
   const [a, b] = [await photo("wholesale"), await photo("wholesale")];
-  const pay = await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 1000, method: "Cheque", ref: "CHQ-1", photo_ids: [a, b] });
+  // a cheque already in the bank (account given) is posted at once; one still in hand waits in the cheque register
+  const acc = (await call("admin", "GET", "/api/bank/accounts")).data.accounts[0];
+  const pay = await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 1000, method: "Cheque", ref: "CHQ-1", photo_ids: [a, b], account_id: acc.id });
   assert.equal(pay.status, 200, JSON.stringify(pay.data));
   const line = (await call("wholesale", "GET", `/api/wholesale/clients/${client.id}/statement`)).data.lines.find((l: any) => l.id === pay.data.id);
   assert.ok(has(line.proof_ids, a) && has(line.proof_ids, b), "both cheque photos on the statement line");
@@ -49,7 +51,7 @@ test("photo proof is kept with every money and stock entry and comes back in the
   // khata payment
   const cust = (await call("manager", "GET", "/api/customers")).data.find((c: any) => c.balance > 0);
   const kp = await photo("manager");
-  assert.equal((await call("manager", "POST", `/api/customers/${cust.id}/khata`, { type: "credit", amount: 500, method: "Cheque", notify: false, photo_ids: [kp] })).status, 200);
+  assert.equal((await call("manager", "POST", `/api/customers/${cust.id}/khata`, { type: "credit", amount: 500, method: "Cheque", notify: false, photo_ids: [kp], account_id: acc.id })).status, 200);
   assert.ok(has((await call("manager", "GET", `/api/customers/${cust.id}`)).data.ledger[0].proof_ids, kp));
 
   // supplier payment

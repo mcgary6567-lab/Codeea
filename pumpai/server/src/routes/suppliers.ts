@@ -4,7 +4,7 @@ import { z } from "zod";
 import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountIdField } from "./banks.js";
+import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, can } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
@@ -74,6 +74,14 @@ suppliers.post("/suppliers/:id/payment", h((req) => {
   const t = tid(req);
   if (isCheque(b.method)) requireProof(t, b.photo_ids, "cheque");
   const accountId = bankAccountFor(t, b.account_id, b.method);
+  // our cheque leaves the bank only when the depot cashes it: it waits in the cheque register until then
+  if (isCheque(b.method) && !b.withholding) {
+    if (!accountId && get("SELECT id FROM bank_accounts WHERE tenant_id=? AND active=1", t)) throw new AppError(400, "Choose the bank account the cheque is drawn on");
+    const id = chequeToRegister(t, { direction: "out", party_type: "supplier", party_id: s.id, party_name: s.name, amount: b.amount, bank: accountId ? get("SELECT bank FROM bank_accounts WHERE id=?", accountId)!.bank : null,
+      cheque_no: b.ref, cheque_date: b.txn_date?.slice(0, 10), account_id: accountId, note: b.note, by: req.user!.name });
+    linkPhotos(t, b.photo_ids, `chq:${id}`);
+    return { owed: supplierOwed(s.id), cheque_pending: true, message: "Cheque is in the register — mark it cleared when the bank pays it" };
+  }
   tx(() => {
     const pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
       t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now(), accountId).id;

@@ -10,6 +10,7 @@ import { AppError, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { buildReport, balances } from "./reports.js";
 import { cashPosition } from "./backoffice.js";
+import { bankAccounts } from "./banks.js";
 import { shopSummary } from "./shop.js";
 import { tankOutlook } from "../ai/analytics.js";
 import { checklistToday } from "./compliance.js";
@@ -110,11 +111,18 @@ export function balanceSheet(t: number) {
     .reduce((a: number, p: any) => a + (p.closing_value ?? 0), 0);
   const shopStock = get("SELECT COALESCE(SUM(stock*cost),0) v FROM shop_items WHERE tenant_id=? AND active=1", t)!.v;
   const staffOwe = get(`SELECT COALESCE(SUM(CASE WHEN type IN ('advance','shortage') THEN amount WHEN type IN ('repayment','deduction') THEN -amount ELSE 0 END),0) v FROM staff_ledger WHERE tenant_id=?`, t)!.v;
-  const assets = { cash_in_hand: r0(cash), fuel_stock: r0(fuel), shop_stock: r0(shopStock), khata_receivable: r0(b.receivables.khata_total), wholesale_receivable: r0(b.receivables.wholesale_total), staff_advances: r0(Math.max(0, staffOwe)) };
-  const liabilities = { suppliers: r0(b.payables.suppliers_total), customer_advances: r0(b.payables.total - b.payables.suppliers_total), expenses_pending: r0(b.payables.pending_expenses.amount) };
+  const one = (sql: string) => r0(get(sql, t)!.v ?? 0);
+  const banks = bankAccounts(t).total;
+  // cheques received but not yet cleared are still money owed to us (they sit in the receivables), so they are not added again
+  const assets = { cash_in_hand: r0(cash), banks: r0(banks), fuel_stock: r0(fuel), shop_stock: r0(shopStock), khata_receivable: r0(b.receivables.khata_total), wholesale_receivable: r0(b.receivables.wholesale_total), staff_advances: r0(Math.max(0, staffOwe)) };
+  const liabilities = {
+    suppliers: r0(b.payables.suppliers_total), customer_advances: r0(b.payables.total - b.payables.suppliers_total), expenses_pending: r0(b.payables.pending_expenses.amount),
+    unused_coupons: one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active'"),
+    withholding_tax_payable: one("SELECT COALESCE(SUM(amount),0) v FROM tax_withholdings WHERE tenant_id=? AND cpr_no IS NULL"),
+  };
   const totalA = Object.values(assets).reduce((a, v) => a + v, 0), totalL = Object.values(liabilities).reduce((a, v) => a + v, 0);
   return { as_of: new Date().toISOString(), assets, liabilities, total_assets: totalA, total_liabilities: totalL, net_worth: totalA - totalL,
-    note: "Bank balances and fixed assets (land, building, dispensers) are not in the app; add them for a full balance sheet." };
+    note: "Fixed assets (land, building, dispensers) are not in the app; add them for a full balance sheet." };
 }
 
 analysis.get("/analysis/pl", h((req) => {

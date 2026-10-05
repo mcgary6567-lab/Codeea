@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountIdField } from "./banks.js";
+import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -124,9 +124,18 @@ crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req
 /* ---------------- Khata ---------------- */
 crm.post("/customers/:id/khata", requireAny("khata.manage", "cash.receive"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
-  const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true), photo_ids: proofPhotos, account_id: accountIdField }), req.body);
+  const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true), photo_ids: proofPhotos, account_id: accountIdField,
+    cheque_bank: z.string().max(80).optional().nullable(), cheque_no: z.string().max(30).optional().nullable(), cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable() }), req.body);
+  if (b.type === "credit" && !b.method) b.method = "Cash"; // a payment with no method is cash — every book reads it the same way
   if (b.type === "debit" && !can(req.user, "khata.manage")) throw new AppError(403, "The cashier can only receive payments");
   if (b.type === "credit" && isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
+  // a cheque not yet in the bank waits in the cheque register; the khata goes down when it clears
+  if (b.type === "credit" && isCheque(b.method) && !b.account_id) {
+    const id = chequeToRegister(tid(req), { direction: "in", party_type: "khata", party_id: c.id, party_name: c.name, amount: b.amount, bank: b.cheque_bank, cheque_no: b.cheque_no, cheque_date: b.cheque_date, note: b.note, by: req.user!.name });
+    linkPhotos(tid(req), b.photo_ids, `chq:${id}`);
+    if (b.notify) await sendWhatsApp(tid(req), c, `✅ Shukriya ${c.name}! ${pkr(b.amount)} ka cheque mil gaya. Clear hone par khate mein jama ho jayega.`, "system", { kind: "payment_receipt" });
+    return { ...get("SELECT * FROM customers WHERE id=?", c.id)!, cheque_pending: true, cheque_id: id };
+  }
   const updated = khataEntry(c.id, b.type, b.amount, b.method ?? null, b.note ?? null, b.type === "credit" ? bankAccountFor(tid(req), b.account_id, b.method) : null);
   if (b.photo_ids?.length) linkPhotos(tid(req), b.photo_ids, `khata:${get("SELECT MAX(id) id FROM khata_ledger WHERE customer_id=?", c.id)!.id}`);
   if (b.notify && b.type === "credit")

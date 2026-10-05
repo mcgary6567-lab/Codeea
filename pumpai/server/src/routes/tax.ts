@@ -8,6 +8,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, pkStart, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
+import { otherMoney } from "./banks.js";
 import { AppError, round2 } from "../services.js";
 import { SHOP_CATEGORIES } from "./shop.js";
 import { PRODUCTS } from "../config.js";
@@ -71,10 +72,17 @@ tax.post("/tax/withholding", requirePerm("expenses.create"), h((req) => {
   return get("SELECT * FROM tax_withholdings WHERE id=?", id);
 }));
 tax.post("/tax/withholding/deposit", requirePerm("expenses.create"), h((req) => {
-  const b = parse(z.object({ ids: z.array(z.number()).min(1), cpr_no: z.string().min(3).max(40), deposited_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }), req.body);
-  let n = 0;
-  for (const id of b.ids) n += run("UPDATE tax_withholdings SET cpr_no=?, deposited_on=? WHERE id=? AND tenant_id=? AND cpr_no IS NULL", b.cpr_no, b.deposited_on ?? pkDate(), id, tid(req)).changes;
-  return { updated: n };
+  const b = parse(z.object({ ids: z.array(z.number()).min(1), cpr_no: z.string().min(3).max(40), deposited_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    /** how the tax was paid to FBR (cash at the bank counter, or from an account) */
+    method: z.string().max(30).optional().nullable(), account_id: z.number().int().positive().optional().nullable() }), req.body);
+  const t = tid(req);
+  const open = all(`SELECT * FROM tax_withholdings WHERE tenant_id=? AND cpr_no IS NULL AND id IN (${b.ids.map(() => "?").join(",")})`, t, ...b.ids);
+  const total = round2(open.reduce((a, w) => a + w.amount, 0));
+  const method = b.method || (b.account_id ? "bank" : "cash");
+  for (const w of open) run("UPDATE tax_withholdings SET cpr_no=?, deposited_on=?, paid_method=?, paid_account_id=? WHERE id=?", b.cpr_no, b.deposited_on ?? pkDate(), method, b.account_id ?? null, w.id);
+  // the tax leaves the cash / bank: the books show it and the "withholding tax payable" is cleared
+  if (total > 0) otherMoney(t, { dir: "out", amount: total, method, account_id: b.account_id, party: "FBR", category: "Withholding tax deposited", note: `CPR ${b.cpr_no}`, ref: `wht:${b.cpr_no}`, by: req.user!.name });
+  return { updated: open.length, amount: total };
 }));
 
 /* ================= Monthly report ================= */

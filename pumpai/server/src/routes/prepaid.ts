@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import { all, get, run, now, pkDate, tx, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
-import { bankAccountFor, accountIdField } from "./banks.js";
+import { bankAccountFor, accountIdField, otherMoney } from "./banks.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -48,8 +48,9 @@ prepaid.post("/coupons", requirePerm("khata.manage"), h((req) => {
   const b = parse(z.object({
     count: z.number().int().min(1).max(500), value: z.number().min(100).max(1_000_000), product: z.enum(Object.keys(PRODUCTS) as [string, ...string[]]).optional().nullable(),
     buyer: z.string().max(80).optional().nullable(), customer_id: z.number().optional().nullable(), method: z.enum(METHODS).default("cash"),
-    expires_on: dateStr.optional().nullable(),
+    expires_on: dateStr.optional().nullable(), account_id: accountIdField,
   }), req.body);
+  const account = bankAccountFor(t, b.account_id, b.method);
   if (b.customer_id && !get("SELECT id FROM customers WHERE id=? AND tenant_id=?", b.customer_id, t)) throw new AppError(400, "Customer not found");
   const batch = `B${pkDate().replaceAll("-", "").slice(2)}-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
   const ts = now();
@@ -57,8 +58,8 @@ prepaid.post("/coupons", requirePerm("khata.manage"), h((req) => {
     for (let i = 0; i < b.count; i++) {
       let code = newCode();
       while (get("SELECT id FROM fuel_coupons WHERE code=?", code)) code = newCode();
-      run(`INSERT INTO fuel_coupons (tenant_id,code,batch,value,product,buyer,customer_id,method,expires_on,sold_by,sold_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-        t, code, batch, b.value, b.product ?? null, b.buyer ?? null, b.customer_id ?? null, b.method, b.expires_on ?? null, req.user!.name, ts);
+      run(`INSERT INTO fuel_coupons (tenant_id,code,batch,value,product,buyer,customer_id,method,expires_on,sold_by,sold_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        t, code, batch, b.value, b.product ?? null, b.buyer ?? null, b.customer_id ?? null, b.method, b.expires_on ?? null, req.user!.name, ts, account);
     }
   });
   audit(t, req.user!, "coupons_sold", batch, { count: b.count, value: b.value, buyer: b.buyer, method: b.method });
@@ -67,10 +68,16 @@ prepaid.post("/coupons", requirePerm("khata.manage"), h((req) => {
 
 /** Cancel unused coupons (lost book, refund given). */
 prepaid.post("/coupons/void", requirePerm("settings.manage"), h((req) => {
-  const b = parse(z.object({ codes: z.array(z.string()).optional(), batch: z.string().optional(), reason: z.string().min(3).max(120) }), req.body);
+  const b = parse(z.object({ codes: z.array(z.string()).optional(), batch: z.string().optional(), reason: z.string().min(3).max(120),
+    /** money given back for the cancelled coupons (none for a lost book) */
+    refund: z.boolean().default(false), refund_method: z.string().max(30).optional().nullable(), account_id: accountIdField }), req.body);
   if (!b.codes?.length && !b.batch) throw new AppError(400, "Choose coupons or a batch");
   const where = b.batch ? "batch=?" : `code IN (${b.codes!.map(() => "?").join(",")})`;
-  const r = run(`UPDATE fuel_coupons SET status='void', void_reason=? WHERE tenant_id=? AND status='active' AND ${where}`, b.reason, tid(req), ...(b.batch ? [b.batch] : b.codes!.map((c) => c.toUpperCase())));
+  const keys = b.batch ? [b.batch] : b.codes!.map((c) => c.toUpperCase());
+  const value = round2(get(`SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND status='active' AND ${where}`, tid(req), ...keys)!.v);
+  const r = run(`UPDATE fuel_coupons SET status='void', void_reason=? WHERE tenant_id=? AND status='active' AND ${where}`, b.reason, tid(req), ...keys);
+  if (b.refund && value > 0)
+    otherMoney(tid(req), { dir: "out", amount: value, method: b.refund_method || "cash", account_id: b.account_id, party: "Coupon refund", category: "Coupon refund", note: `${r.changes} coupons — ${b.reason}`, ref: `coupon-refund:${b.batch ?? keys[0]}`, by: req.user!.name });
   audit(tid(req), req.user!, "coupons_void", b.batch ?? b.codes!.join(","), { reason: b.reason, n: r.changes });
   return { voided: r.changes };
 }));

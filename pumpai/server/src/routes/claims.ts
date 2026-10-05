@@ -9,6 +9,7 @@ import { z } from "zod";
 import { all, get, run, now, pkDate, pkStart, pkEnd, getSetting, setSetting, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
+import { otherMoney } from "./banks.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -89,7 +90,9 @@ claims.post("/claims/:id/settle", requirePerm("suppliers.manage"), h((req) => {
   const c = get("SELECT c.*, d.tanker_no FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id WHERE c.id=? AND c.tenant_id=?", Number(req.params.id), t);
   if (!c) throw new AppError(404, "Claim not found");
   if (["recovered", "written_off"].includes(c.status)) throw new AppError(400, `Claim is already ${c.status.replace("_", " ")}`);
-  const b = parse(z.object({ action: z.enum(["recovered", "written_off"]), amount: z.number().positive().optional(), method: z.enum(["credit_note", "cash", "bank"]).default("credit_note"), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
+  const b = parse(z.object({ action: z.enum(["recovered", "written_off"]), amount: z.number().positive().optional(), method: z.enum(["credit_note", "cash", "bank"]).default("credit_note"), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
+    account_id: z.number().int().positive().optional().nullable() }), req.body);
+  if (b.action === "recovered" && b.method === "bank" && !b.account_id && get("SELECT id FROM bank_accounts WHERE tenant_id=? AND active=1", t)) throw new AppError(400, "Choose the bank account the money came into");
   linkPhotos(t, b.photo_ids, `claim:${c.id}`); // credit note / depot letter
   if (b.action === "written_off") {
     run("UPDATE shortage_claims SET status='written_off', note=?, updated_at=? WHERE id=?", b.note ?? null, now(), c.id);
@@ -101,6 +104,10 @@ claims.post("/claims/:id/settle", requirePerm("suppliers.manage"), h((req) => {
     run("UPDATE shortage_claims SET recovered=recovered+?, status=?, recovered_by=?, note=?, updated_at=? WHERE id=?",
       amount, amount >= left - 0.5 ? "recovered" : "partly", b.method, b.note ?? c.note, now(), c.id);
     // a credit note lowers what we owe the depot
+    // money paid back in cash / into a bank is recorded where it landed
+    if (b.method !== "credit_note")
+      otherMoney(t, { dir: "in", amount, method: b.method === "cash" ? "cash" : "bank", account_id: b.account_id, party: (c.supplier_id ? get("SELECT name FROM suppliers WHERE id=?", c.supplier_id)?.name : null) ?? `Tanker ${c.tanker_no ?? ""}`.trim(),
+        category: "Shortage claim recovered", note: `Shortage claim #${c.id} — tanker ${c.tanker_no ?? ""}`, ref: `claim:${c.id}`, by: req.user!.name });
     if (b.method === "credit_note" && c.supplier_id)
       run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,note,ref,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
         t, c.supplier_id, "adjustment", -amount, `Shortage credit note — tanker ${c.tanker_no ?? ""}`, `claim:${c.id}`, req.user!.name, now(), now());

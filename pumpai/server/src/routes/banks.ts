@@ -42,6 +42,42 @@ export const posMap = (t: number): Record<string, number> => {
   try { return JSON.parse(getSetting(t, "bank_pos_map", "{}")) ?? {}; } catch { return {}; }
 };
 
+/** The last moment of a Pakistan day (a backdated entry belongs to that day, not to the next midnight). */
+export const dayEnd = (d: string) => new Date(Date.parse(pkEnd(d)) - 1).toISOString();
+
+/**
+ * Money in / out that belongs to no party account (claims recovered, tax deposited, coupon refunds, other income):
+ * cash goes through a cash-counter voucher (the cash book reads it), anything else is a bank entry on the chosen account.
+ * `ref` (e.g. "wht:12") lets the accounting journal put it against the right account.
+ */
+export function otherMoney(t: number, m: { dir: "in" | "out"; amount: number; method?: string | null; account_id?: number | null; party: string; category: string; note?: string | null; ref: string; by: string; at?: string }) {
+  const at = m.at ?? now();
+  if (isCash(m.method)) {
+    const id = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_id,party_name,amount,method,account_id,category,ref,note,src,created_by,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, m.dir, "other", null, m.party, m.amount, "Cash", null, m.category, m.ref, m.note ?? null, m.ref, m.by, at).id;
+    return `voucher:${id}`;
+  }
+  const acc = bankAccountFor(t, m.account_id, m.method ?? "bank");
+  if (!acc) throw new AppError(400, "Choose the bank account");
+  const id = run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    t, acc, m.dir === "in" ? "other_in" : "other_out", m.dir === "in" ? m.amount : -m.amount, m.party, m.ref, m.note || m.category, at, m.by, now()).id;
+  return `bank:${id}`;
+}
+
+/**
+ * A cheque that has not reached the bank yet goes into the cheque register instead of the party's account
+ * (received: counted when it clears; issued: counted when the bank pays it). Wholesale cheques have their own register.
+ */
+export function chequeToRegister(t: number, c: { direction: "in" | "out"; party_type: string; party_id: number; party_name: string; amount: number;
+  bank?: string | null; cheque_no?: string | null; cheque_date?: string | null; account_id?: number | null; note?: string | null; by: string }) {
+  const no = c.cheque_no?.trim() || "—";
+  if (no !== "—" && c.bank && get("SELECT id FROM cheques WHERE tenant_id=? AND direction=? AND bank=? AND cheque_no=? AND status NOT IN ('returned','cancelled')", t, c.direction, c.bank, no))
+    throw new AppError(400, `Cheque ${no} of ${c.bank} is already in the register`);
+  return run(`INSERT INTO cheques (tenant_id,direction,party_type,party_id,party_name,amount,bank,cheque_no,cheque_date,status,account_id,note,created_by,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t, c.direction, c.party_type, c.party_id, c.party_name, c.amount, c.bank || "Bank not given", no, c.cheque_date || pkDate(),
+    c.direction === "in" ? "in_hand" : "issued", c.account_id ?? null, c.note ?? null, c.by, now(), now()).id;
+}
+
 /** Every movement of money in the owner's accounts (one account, or all of them). */
 export function bankMoves(t: number, accountId?: number | null): Row[] {
   const acc = accountId ? " AND x.account_id=?" : " AND x.account_id IS NOT NULL";
@@ -62,6 +98,13 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
       FROM wallet_ledger x JOIN customers c ON c.id=x.customer_id WHERE x.tenant_id=? AND x.type IN ('deposit','refund')${acc}`, t, ...A),
     ...all(`SELECT x.account_id, x.txn_date at, x.amount, x.kind, COALESCE(x.note, x.kind) || COALESCE(' — ' || x.party, '') text, x.created_by who, 'bank:' || x.id ref, x.id txn_id
       FROM bank_txns x WHERE x.tenant_id=?${acc}`, t, ...A),
+    // staff advances / bonus paid, or advances paid back, through a bank or wallet
+    ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='repayment' THEN x.amount ELSE -x.amount END amount, 'staff' kind,
+        CASE x.type WHEN 'repayment' THEN 'Advance paid back — ' ELSE 'Staff ' || x.type || ' — ' END || u.name text, x.created_by who, 'staff:' || x.id ref
+      FROM staff_ledger x JOIN users u ON u.id=x.user_id WHERE x.tenant_id=? AND x.type IN ('advance','bonus','repayment')${acc}`, t, ...A),
+    // fuel coupons sold by bank / wallet: one line per book
+    ...all(`SELECT x.account_id, MIN(x.sold_at) at, SUM(x.value) amount, 'receipt' kind, 'Fuel coupons sold — ' || COUNT(*) || ' (' || x.batch || ')' || COALESCE(' to ' || x.buyer, '') text,
+        MIN(x.sold_by) who, 'coupons:' || x.batch ref FROM fuel_coupons x WHERE x.tenant_id=?${acc} GROUP BY x.batch, x.account_id`, t, ...A),
   ];
   // card / Raast / Easypaisa / JazzCash sales: one line per day per method, from the day the account was opened
   const map = posMap(t);
@@ -77,7 +120,7 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
         UNION ALL
         SELECT date(created_at, '+5 hours') day, SUM(total) v, COUNT(*) n FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ? GROUP BY day)
       GROUP BY day`, t, m, since, t, m, since))
-      rows.push({ account_id: id, at: pkEnd(r.day), amount: round2(r.v), kind: "pos", text: `POS ${m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash"} sales ${r.day} (${r.n})`, who: null, ref: `pos:${m}:${r.day}` });
+      rows.push({ account_id: id, at: dayEnd(r.day), amount: round2(r.v), kind: "pos", text: `POS ${m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash"} sales ${r.day} (${r.n})`, who: null, ref: `pos:${m}:${r.day}` });
   }
   return rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
@@ -114,10 +157,12 @@ export function unlinkedMoney(t: number) {
     received: round2(
       one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
       + one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.account_id IS NULL AND ${nonCash("k.ref")} AND k.created_at >= ?`, t, since)
-      + one(`SELECT COALESCE(SUM(amount),0) v FROM wallet_ledger WHERE tenant_id=? AND type='deposit' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)),
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM wallet_ledger WHERE tenant_id=? AND type='deposit' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND account_id IS NULL AND ${nonCash("method")} AND sold_at >= ?`, t, since)),
     paid: round2(
       one(`SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
-      + one(`SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)),
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND type IN ('advance','bonus') AND account_id IS NULL AND method IS NOT NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)),
     pos, pos_methods: unmapped,
   };
   return items;
@@ -184,7 +229,7 @@ banks.get("/bank/accounts/:id/statement", requirePerm("bank.view"), h((req) => {
   const start = pkStart(from), end = pkEnd(to);
   let balance = round2(a.opening_balance + moves.filter((m) => m.at < start).reduce((s, m) => s + m.amount, 0));
   const opening = balance;
-  const lines: Row[] = moves.filter((m) => m.at >= start && m.at <= end).map((m) => ({ ...m, balance: (balance = round2(balance + m.amount)) }));
+  const lines: Row[] = moves.filter((m) => m.at >= start && m.at < end).map((m) => ({ ...m, balance: (balance = round2(balance + m.amount)) }));
   const ids = lines.filter((l) => l.txn_id).map((l) => l.txn_id);
   const proofs = new Map(ids.length ? all(`SELECT x.id, ${proofCol("'bank:'||x.id")} FROM bank_txns x WHERE x.id IN (${ids.map(() => "?").join(",")})`, ...ids).map((r) => [r.id, r.proof_ids]) : []);
   for (const l of lines as Row[]) if (l.txn_id) l.proof_ids = proofs.get(l.txn_id) ?? null;
@@ -210,7 +255,7 @@ banks.post("/bank/entries", requirePerm("bank.manage"), h((req) => {
     txn_date: day.optional(), photo_ids: proofPhotos }), req.body);
   const a = ownAccount(t, b.account_id);
   if (!a.active) throw new AppError(400, "That bank account is closed");
-  const at = b.txn_date && b.txn_date !== pkDate() ? pkEnd(b.txn_date) : now();
+  const at = b.txn_date && b.txn_date !== pkDate() ? dayEnd(b.txn_date) : now();
   const { id } = run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
     t, a.id, b.kind, ENTRY_KINDS[b.kind] * b.amount, b.party ?? null, b.ref ?? null, b.note || KIND_LABEL[b.kind], at, req.user!.name, now());
   linkPhotos(t, b.photo_ids, `bank:${id}`);
@@ -225,7 +270,7 @@ banks.post("/bank/transfers", requirePerm("bank.manage"), h((req) => {
   if (b.from_id === b.to_id) throw new AppError(400, "Choose two different accounts");
   const from = ownAccount(t, b.from_id), to = ownAccount(t, b.to_id);
   if (!from.active || !to.active) throw new AppError(400, "That bank account is closed");
-  const at = b.txn_date && b.txn_date !== pkDate() ? pkEnd(b.txn_date) : now();
+  const at = b.txn_date && b.txn_date !== pkDate() ? dayEnd(b.txn_date) : now();
   // both halves carry the same ref, so deleting one removes the pair
   const key = `${b.ref ? `${b.ref} ` : ""}#T${Date.now().toString(36)}`;
   tx(() => {
@@ -243,6 +288,9 @@ banks.delete("/bank/txns/:id", requirePerm("bank.manage"), h((req) => {
   const t = tid(req);
   const e = get("SELECT * FROM bank_txns WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!e) throw new AppError(404, "Entry not found");
+  // an entry made by a voucher or a cleared cheque is cancelled there, so the books stay in step
+  if (get("SELECT id FROM cashier_vouchers WHERE tenant_id=? AND src=?", t, `bank:${e.id}`) || get("SELECT id FROM cheques WHERE tenant_id=? AND txn_ref=?", t, `bank:${e.id}`))
+    throw new AppError(400, "This entry came from a cashier voucher or a cleared cheque — it can't be deleted here");
   if (e.kind === "transfer") run("DELETE FROM bank_txns WHERE tenant_id=? AND kind='transfer' AND ref=?", t, e.ref);
   else run("DELETE FROM bank_txns WHERE id=?", e.id);
   return bankAccounts(t);

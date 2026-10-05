@@ -26,6 +26,10 @@ const payAccount = (m: string | null | undefined) => {
   return BANK;
 };
 
+/** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
+const specialSide = (ref: string | null | undefined) =>
+  !ref ? null : ref.startsWith("wht:") ? "Withholding tax payable" : ref.startsWith("claim:") ? "Shortage claims recovered" : ref.startsWith("coupon-refund:") ? "Fuel coupons (unused)" : null;
+
 export function journal(t: number, fromDay: string, toDay: string) {
   const from = pkStart(fromDay), to = pkEnd(toDay);
   const P = [t, from, to] as const;
@@ -83,7 +87,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     if (r.type === "adjustment") add(d, "Journal", `Supplier adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(r.amount < 0 ? pay : "Supplier adjustments", Math.abs(r.amount)), cr(r.amount < 0 ? "Shortage claims recovered" : pay, Math.abs(r.amount))]);
   }
   // expenses
-  for (const r of all(`SELECT * FROM expenses WHERE tenant_id=? AND status='approved' AND created_at >= ? AND created_at < ?`, ...P))
+  for (const r of all(`SELECT * FROM expenses WHERE tenant_id=? AND (status='approved' OR (status='pending' AND shift_id IS NOT NULL)) AND created_at >= ? AND created_at < ?`, ...P))
     add(day(r.created_at), "Payment", `${r.category}${r.paid_to ? ` — ${r.paid_to}` : ""}${r.note ? ` (${r.note})` : ""}`, [dr(`Expense: ${r.category}`, r.amount), cr(payAccount(r.method), r.amount)]);
   // bank deposits, coupons, wallets
   for (const r of all(`SELECT * FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P))
@@ -91,7 +95,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // bank-only entries: cash taken out, charges, profit, owner money (transfers between own banks net to nil)
   const BANK_SIDE: Record<string, string> = { withdraw: CASH, charges: "Expense: Bank charges", profit: "Bank profit", owner_in: "Owner's capital", owner_out: "Owner's drawings", other_in: "Other income", other_out: "Other payments" };
   for (const r of all(`SELECT * FROM bank_txns WHERE tenant_id=? AND kind<>'transfer' AND txn_date >= ? AND txn_date < ?`, ...P)) {
-    const other = BANK_SIDE[r.kind] ?? "Suspense", v = Math.abs(r.amount);
+    const other = specialSide(r.ref) ?? BANK_SIDE[r.kind] ?? "Suspense", v = Math.abs(r.amount);
     add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`,
       r.amount > 0 ? [dr(BANK, v), cr(other, v)] : [dr(other, v), cr(BANK, v)]);
   }
@@ -103,14 +107,30 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // staff: advances out, repayments in, shortages charged
   for (const r of all(`SELECT l.*, u.name FROM staff_ledger l JOIN users u ON u.id=l.user_id WHERE l.tenant_id=? AND l.created_at >= ? AND l.created_at < ?`, ...P)) {
     const d = day(r.created_at);
-    if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(CASH, r.amount)]);
-    if (r.type === "repayment" || r.type === "deduction") add(d, "Receipt", `Advance recovered — ${r.name}`, [dr(CASH, r.amount), cr("Staff advances", r.amount)]);
+    const via = payAccount(r.method);
+    if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(via, r.amount)]);
+    if (r.type === "repayment") add(d, "Receipt", `Advance paid back — ${r.name}`, [dr(via, r.amount), cr("Staff advances", r.amount)]);
+    // kept back out of a cash salary (the salary expense was booked in full from cash) — or set off with no cash at all
+    if (r.type === "deduction") add(d, "Journal", `Advance recovered — ${r.name}`, [dr(r.month ? CASH : "Salaries payable", r.amount), cr("Staff advances", r.amount)]);
     if (r.type === "shortage") add(d, "Journal", `Cash shortage charged — ${r.name}`, [dr("Staff advances", r.amount), cr("Cash short / over", r.amount)]);
-    if (r.type === "bonus" && !r.month) add(d, "Payment", `Bonus — ${r.name}`, [dr("Expense: Staff bonus", r.amount), cr(CASH, r.amount)]);
+    if (r.type === "bonus" && !r.month) add(d, "Payment", `Bonus — ${r.name}`, [dr("Expense: Staff bonus", r.amount), cr(via, r.amount)]);
   }
   // shift cash short / over
   for (const r of all(`SELECT sh.id, sh.attendant, sh.closed_at, sh.variance FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at >= ? AND sh.closed_at < ? AND ABS(COALESCE(sh.variance,0)) >= 1`, ...P))
     add(day(r.closed_at), "Journal", `Shift #${r.id} cash ${r.variance < 0 ? "short" : "over"} — ${r.attendant}`, [dr("Cash short / over", -r.variance), cr(CASH, -r.variance)]);
+
+  // cash the cashier received from the salesman differs from what the salesman counted at closing
+  for (const r of all(`SELECT sh.id, sh.attendant, sh.handed_at, sh.handed_amount, sh.cash_actual FROM shifts sh JOIN stations s ON s.id=sh.station_id
+      WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL AND sh.handed_at >= ? AND sh.handed_at < ? AND ABS(sh.handed_amount - COALESCE(sh.cash_actual,0)) >= 1`, ...P)) {
+    const diff = round2(r.cash_actual - r.handed_amount);
+    add(day(r.handed_at), "Journal", `Shift #${r.id} handover ${diff > 0 ? "short" : "over"} — ${r.attendant}`, [dr("Cash short / over", diff), cr(CASH, diff)]);
+  }
+  // cash counter: money in / out that belongs to no party account
+  for (const r of all(`SELECT * FROM cashier_vouchers WHERE tenant_id=? AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at >= ? AND created_at < ?`, ...P)) {
+    const other = specialSide(r.src) ?? (r.direction === "in" ? "Other income" : "Other payments");
+    add(day(r.created_at), r.direction === "in" ? "Receipt" : "Payment", `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}`,
+      r.direction === "in" ? [dr(CASH, r.amount), cr(other, r.amount)] : [dr(other, r.amount), cr(CASH, r.amount)]);
+  }
 
   out.sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type));
   out.forEach((v, i) => { v.no = `PA-${v.date.replaceAll("-", "").slice(2)}-${String(i + 1).padStart(4, "0")}`; });

@@ -609,8 +609,20 @@ wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"),
 
 wholesale.post("/wholesale/clients/:id/payment", requireAny("wholesale.manage", "cash.receive"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
-  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos, account_id: accountIdField }), req.body);
+  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos, account_id: accountIdField,
+    cheque_bank: z.string().max(80).optional().nullable(), cheque_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable() }), req.body);
   if (isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
+  // a cheque still in hand goes into the cheque register — the due comes down when it clears
+  if (isCheque(b.method) && !b.account_id) {
+    const t = tid(req), no = b.ref?.trim() || "—", bank = b.cheque_bank?.trim() || "Bank not given";
+    if (no !== "—" && get("SELECT id FROM wholesale_cheques WHERE tenant_id=? AND bank=? AND cheque_no=? AND status<>'returned'", t, bank, no))
+      throw new AppError(400, `Cheque ${no} of ${bank} is already in the register`);
+    const { id } = run(`INSERT INTO wholesale_cheques (tenant_id,client_id,amount,bank,cheque_no,cheque_date,status,note,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      t, c.id, b.amount, bank, no, b.cheque_date || b.txn_date?.slice(0, 10) || pkDate(), "in_hand", b.note ?? null, req.user!.name, now(), now());
+    linkPhotos(t, b.photo_ids, `wchq:${id}`);
+    return { cheque_pending: true, cheque: get("SELECT * FROM wholesale_cheques WHERE id=?", id), due_after: clientDue(c.id),
+      message: "Cheque is in the register — it counts as paid when it clears" };
+  }
   return insertTxn(req, c.id, { ...b, account_id: bankAccountFor(tid(req), b.account_id, b.method), type: "payment" });
 }));
 

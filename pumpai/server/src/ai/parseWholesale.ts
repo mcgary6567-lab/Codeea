@@ -30,8 +30,17 @@ export const WORDS: Record<string, number> = {
   chay: 6, che: 6, chhe: 6, "چھ": 6, saat: 7, "سات": 7, aath: 8, "آٹھ": 8, nau: 9, "نو": 9, das: 10, "دس": 10, bara: 12, "بارہ": 12,
   pandra: 15, "پندرہ": 15, bees: 20, "بیس": 20, pachees: 25, "پچیس": 25, tees: 30, "تیس": 30, chalees: 40, "چالیس": 40,
   pachas: 50, pachaas: 50, "پچاس": 50, sau: 100, "سو": 100,
-  dedh: 1.5, derh: 1.5, "ڈیڑھ": 1.5, dhai: 2.5, dhaai: 2.5, "ڈھائی": 2.5,
+  gyarah: 11, gyara: 11, "گیارہ": 11, baara: 12, terah: 13, "تیرہ": 13, chaudah: 14, chauda: 14, "چودہ": 14, solah: 16, sola: 16, "سولہ": 16,
+  satrah: 17, satra: 17, "سترہ": 17, atharah: 18, athara: 18, "اٹھارہ": 18, unees: 19, "انیس": 19, pachis: 25, painti: 35, pantees: 35, "پینتیس": 35,
+  pachpan: 55, "پچپن": 55, sattar: 70, "ستر": 70, assi: 80, "اسی": 80, nabbe: 90, "نوے": 90,
+  dedh: 1.5, derh: 1.5, "ڈیڑھ": 1.5, dhai: 2.5, dhaai: 2.5, "ڈھائی": 2.5, sawa: 1.25, "سوا": 1.25,
 };
+/** "sawa do" = 2.25, "saade teen" = 3.5, "paune do" = 1.75 (alone before a multiplier: sawa lakh = 1.25 lakh, paune lakh = 0.75 lakh). */
+const FRACTION: [RegExp, number, number | null][] = [
+  [/^(sawa|سوا)$/, 0.25, 1.25], [/^(saade|sade|saadhe|sarhe|saarhe|ساڑھے)$/, 0.5, null], [/^(paune|pone|paunay|پونے)$/, -0.25, 0.75],
+];
+/** Hard limits: a number past these is a mis-hearing, not an entry. */
+export const MAX_LITRES = 100_000, MAX_AMOUNT = 1e10;
 const MULT: [RegExp, number][] = [
   [/^(crore|karor|کروڑ)$/, 10_000_000], [/^(lakh|lac|lacs|lakhs|laakh|لاکھ)$/, 100_000], [/^(hazar|hazaar|hajar|thousand|k|ہزار)$/, 1000], [/^(sau|سو|hundred)$/, 100],
 ];
@@ -69,16 +78,29 @@ const UR: Record<string, string> = {
 export const romanize = (s: string) => s.replace(/[؀-ۿ]/g, (c) => UR[c] ?? "");
 /** Consonant skeleton: survives the vowel differences between spoken Urdu and English spelling. */
 const skel = (w: string) => romanize(w.toLowerCase()).replace(/[^a-z0-9]/g, "")
-  .replace(/tion/g, "shn").replace(/ce/g, "s").replace(/c/g, "k").replace(/q/g, "k").replace(/ph/g, "f")
+  .replace(/tion/g, "shn").replace(/c(?=[eiy])/g, "s").replace(/c/g, "k").replace(/q/g, "k").replace(/ph/g, "f").replace(/z/g, "s")
   .replace(/^a(?=s[^aeiou])/, "") // Urdu writes "station" as اسٹیشن (a-station)
   .replace(/(.)h$/, "$1") // final ہ is a vowel ("kahna" / کاہنہ)
   .replace(/(.)\1+/g, "$1").replace(/(?!^)[aeiouyw]/g, "");
 const STOP = new Set(["the", "and", "ltd", "pvt", "company", "co", "services", "service", "traders", "trading", "petroleum", "filling", "station", "point", "ka", "ki", "ke", "ko", "se", "ne"]);
+/** Words said around a name that are not part of it ("Daewoo walay", "Khan sahab"). */
+const FILLER = /^(wala|wale|walay|walon|walo|wali|waley|walay|sahab|sahib|saab|bhai|sb|والا|والے|والوں|والی|صاحب|بھائی)$/;
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
 
+const addMonths = (d: string, n: number) => { const m = new Date(d + "T00:00:00Z"); const day = m.getUTCDate(); m.setUTCDate(1); m.setUTCMonth(m.getUTCMonth() + n); m.setUTCDate(Math.min(day, new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0)).getUTCDate())); return m.toISOString().slice(0, 10); };
+/** A real calendar date as YYYY-MM-DD, or null ("2026-10-45", month 13). */
+const ymd = (y: number, m: number, d: number) => {
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2000 && y <= 2100)) return null;
+  const x = new Date(Date.UTC(y, m - 1, d));
+  return x.getUTCMonth() === m - 1 ? x.toISOString().slice(0, 10) : null;
+};
+
 export function parseDate(t: string, past: boolean): string | null {
   const today = pkDate();
+  if (/\b(agle|agley|agla|next)\s+(hafte|hafta|haftay|week)\b|اگلے ہفتے|اگلا ہفتہ/.test(t)) return addDays(today, 7);
+  if (/\b(pichle|pichhle|last)\s+(hafte|hafta|week)\b|پچھلے ہفتے/.test(t)) return addDays(today, -7);
+  if (/\b(agle|agley|agla|next)\s+(mahine|mahina|month)\b|اگلے مہینے|اگلا مہینہ/.test(t)) return addMonths(today, 1);
   if (/\b(parson|parsoon)\b|پرسوں/.test(t)) return addDays(today, past ? -2 : 2);
   if (/\b(kal|tomorrow|yesterday)\b|کل/.test(t)) return addDays(today, past || /yesterday/.test(t) ? -1 : 1);
   if (/\b(aaj|aj|today)\b|آج/.test(t)) return today;
@@ -88,56 +110,132 @@ export function parseDate(t: string, past: boolean): string | null {
     return addDays(today, diff);
   }
   const iso = t.match(/\b(20\d\d)-(\d\d)-(\d\d)\b/);
-  if (iso) return iso[0];
-  const dm = t.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
-  if (dm) { const y = dm[3] ? (dm[3].length === 2 ? `20${dm[3]}` : dm[3]) : today.slice(0, 4); return `${y}-${dm[2].padStart(2, "0")}-${dm[1].padStart(2, "0")}`; }
+  if (iso) return ymd(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  // "12/10/2026" any time; "12/10" only with a date word around it ("1/2 hissa" is a half, not a date)
+  const dmy = t.match(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b/);
+  if (dmy) return ymd(Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]), Number(dmy[2]), Number(dmy[1]));
+  const dm = t.match(/(?:\b(?:date|dated|tareekh|tarikh|tarik|on)\s*|تاریخ\s*)(\d{1,2})[/-](\d{1,2})\b/)
+    ?? t.match(/\b(\d{1,2})[/-](\d{1,2})\s*(?:date|tareekh|tarikh|tarik|ko|tak|تاریخ|کو|تک)(?=\s|$)/);
+  if (dm) return ymd(Number(today.slice(0, 4)), Number(dm[2]), Number(dm[1]));
   const tar = t.match(/\b(\d{1,2})\s*(?:tareekh|tarikh|tarik|date)\b|(\d{1,2})\s*تاریخ/);
   if (tar) {
     const n = Number(tar[1] ?? tar[2]);
-    let d = `${today.slice(0, 8)}${String(n).padStart(2, "0")}`;
-    if (!past && d < today) { const m = new Date(today + "T00:00:00Z"); m.setUTCMonth(m.getUTCMonth() + 1, n); d = m.toISOString().slice(0, 10); }
+    const [y, m] = today.split("-").map(Number);
+    let d = ymd(y, m, n);
+    if (!past && (!d || d < today)) { const nm = addMonths(`${today.slice(0, 8)}01`, 1); d = ymd(Number(nm.slice(0, 4)), Number(nm.slice(5, 7)), n); }
     return d;
   }
   return null;
 }
 
-/** Numbers in the sentence with their multiplier ("2 lakh", "dedh lakh", "5 hazar") and what follows (litres?). */
+/** "5k" → "5 k", "1.5lakh" → "1.5 lakh", "7000L" → "7000 l" so the number and its unit are separate words. */
+export const splitUnits = (t: string) => t.replace(/(\d)(lakh|lac|laakh|hazar|hazaar|crore|k|l|ltr|ltrs|litre|litres|liter|liters)(?=[\s,.;:!?]|$)/g, "$1 $2");
+const LITRE_TOK = /^(litres?|liters?|ltrs?|ltr|l|لیٹر|لٹر)$/;
+const isNum = (w: string | undefined) => w != null && (/^\d+(\.\d+)?$/.test(w) || w in WORDS);
+const multOf = (w: string | undefined) => (w == null ? undefined : MULT.find(([re]) => re.test(w))?.[1]);
+/** One spoken number from toks[i]: "3", "teen", "sawa do", "do lakh", "dedh sau" → value, its largest multiplier, and where it ends. */
+function number(toks: string[], i: number): { v: number; mult: number; j: number } | null {
+  let v: number | undefined, j = i;
+  const fr = FRACTION.find(([re]) => re.test(toks[i]));
+  if (fr) {
+    if (isNum(toks[i + 1]) && !multOf(toks[i + 1])) { v = (/^\d/.test(toks[i + 1]) ? Number(toks[i + 1]) : WORDS[toks[i + 1]]) + fr[1]; j = i + 2; }
+    else if (fr[2] != null && multOf(toks[i + 1])) { v = fr[2]; j = i + 1; }
+    else return null;
+  } else if (/^\d+(\.\d+)?$/.test(toks[i])) { v = Number(toks[i]); j = i + 1; }
+  else if (toks[i] in WORDS) { v = WORDS[toks[i]]; j = i + 1; }
+  else if (/^(hazar|hazaar|hajar|thousand|lakh|laakh|crore|karor|ہزار|لاکھ|کروڑ)$/.test(toks[i]) && !isNum(toks[i - 1])) { v = 1; j = i; } // "hazar ka petrol"
+  if (v == null) return null;
+  let mult = 1;
+  for (let m = multOf(toks[j]); m; m = multOf(toks[j])) { v *= m; mult = Math.max(mult, m); j++; }
+  return { v, mult, j };
+}
+
+/** Numbers in the sentence with their multiplier ("2 lakh", "dedh lakh", "5 hazar") and what follows (litres?).
+ *  A compound is one number: "do lakh pachas hazar" = 250000, "3 hazar 500" = 3500. */
 export function quantities(t: string) {
   const toks = t.split(/\s+/).filter(Boolean);
-  const out: { value: number; litres: boolean; big: boolean; at: number }[] = [];
+  const out: { value: number; litres: boolean; big: boolean; at: number; mult: number; end: number }[] = [];
   for (let i = 0; i < toks.length; i++) {
-    let v = /^\d+(\.\d+)?$/.test(toks[i]) ? Number(toks[i]) : WORDS[toks[i]];
-    if (v == null) continue;
-    let j = i + 1, big = false;
-    while (j < toks.length) {
-      const m = MULT.find(([re]) => re.test(toks[j]));
-      if (!m) break;
-      v *= m[1]; big ||= m[1] >= 100_000; j++;
+    const first = number(toks, i);
+    if (!first) continue;
+    let { v, mult, j } = first;
+    // a smaller part said right after a multiplied number adds into it ("3 lakh 20 hazar", "teen hazar paanch sau")
+    while (mult > 1 && j < toks.length) {
+      const nx = number(toks, j);
+      // the tail is digits or has its own multiplier: "5 hazar do" is "give 5000", not 5002
+      if (!nx || nx.mult >= mult || nx.v >= mult || LITRE_TOK.test(toks[nx.j] ?? "") || (nx.mult === 1 && !/^\d/.test(toks[j]))) break;
+      v += nx.v; j = nx.j; mult = nx.mult > 1 ? nx.mult : 1;
+      if (mult === 1) break;
     }
-    const litres = j < toks.length && /^(litres?|liters?|ltrs?|l|لیٹر|لٹر)$/.test(toks[j]);
-    out.push({ value: v, litres, big, at: i });
+    const litres = j < toks.length && LITRE_TOK.test(toks[j]);
+    out.push({ value: v, litres, big: first.mult >= 100_000, at: i, mult: first.mult, end: j });
     i = j - 1;
   }
   return out;
 }
 
+/** Sound-alike spelling for short names: soft c = s, z = s ("City" / "سٹی", "Shah" / "شاہ"). */
+const phon = (w: string) => romanize(w.toLowerCase()).replace(/[^a-z0-9]/g, "").replace(/c(?=[eiy])/g, "s").replace(/c/g, "k").replace(/z/g, "s").replace(/y$/, "i");
+/** Does a sentence word sound like a name word? Long skeletons must match; short ones (2 letters) need closer spelling. */
+function like(word: string, tok: string): "yes" | "weak" | null {
+  const a = skel(word), b = skel(tok);
+  if (b.length >= 3) return a === b ? "yes" : null;
+  if (!b || a !== b) return null;
+  const x = phon(word), y = phon(tok);
+  if (x === y || (x.length >= 3 && y.length >= 3 && (x.startsWith(y) || y.startsWith(x)))) return "yes";
+  if (x.length >= 4 && x[0] === y[0] && x.at(-1) === y.at(-1) && Math.abs(x.length - y.length) <= 1) return "yes"; // Deewoo / Daewoo
+  return b.length >= 2 ? "weak" : null; // counts only beside another word of the same name ("سٹی بیکرز" = City Bakers)
+}
+
 export function matchNamed(list: Named[], t: string): { best: Named | null; candidates: Named[]; spans: string[] } {
-  const words = t.split(/[^a-z0-9؀-ۿ]+/).filter((w) => w.length >= 3);
-  const sk = new Map(words.map((w) => [skel(w), w]));
+  const all = t.split(/[^a-z0-9؀-ۿ]+/).filter((w) => w && !FILLER.test(w));
+  const words = all.filter((w) => w.length >= 3);
+  // "al karam" said for "Alkaram": joined neighbours are tried as one word too
+  const pairs = all.slice(1).map((w, i) => ({ w: all[i] + w, span: all[i] })).filter((p) => skel(p.w).length >= 3 && !/^\d+$/.test(p.w));
   const scored = list.map((n) => {
-    const toks = `${n.name} ${n.alt ?? ""}`.toLowerCase().split(/[^a-z0-9؀-ۿ]+/).filter((w) => w.length >= 3 && !STOP.has(w));
-    const hits = toks.filter((w) => sk.has(skel(w)) && skel(w).length >= 2);
-    return { n, hit: new Set(hits.map(skel)).size, of: toks.length, spans: hits.map((h) => sk.get(skel(h))!) };
+    const raw = `${n.name} ${n.alt ?? ""}`.toLowerCase().split(/[^a-z0-9؀-ۿ]+/).filter(Boolean);
+    const toks = raw.filter((w) => w.length >= 3 && !STOP.has(w));
+    const strong = new Map<string, string>(), weak = new Map<string, string>();
+    for (const tok of toks) {
+      for (const w of words) { const r = like(w, tok); if (r === "yes") { strong.set(tok, w); break; } if (r === "weak" && !weak.has(tok)) weak.set(tok, w); }
+      if (!strong.has(tok)) for (const p of pairs) if (skel(p.w) === skel(tok) && skel(tok).length >= 3) { strong.set(tok, p.span); break; }
+    }
+    // name words joined ("Al-Karam" said "alkaram")
+    for (let i = 0; i + 1 < raw.length; i++) {
+      const j = skel(raw[i] + raw[i + 1]);
+      if (j.length < 4) continue;
+      const w = words.find((x) => skel(x) === j);
+      if (w) for (const tok of [raw[i], raw[i + 1]]) if (toks.includes(tok)) strong.set(tok, w);
+    }
+    if (strong.size) for (const [tok, w] of weak) if (!strong.has(tok)) strong.set(tok, w);
+    return { n, hit: strong.size, of: toks.length, spans: [...strong.values()] };
   }).filter((x) => x.hit > 0).sort((a, b) => b.hit - a.hit || b.hit / b.of - a.hit / a.of);
   if (!scored.length) return { best: null, candidates: [], spans: [] };
   const top = scored.filter((x) => x.hit === scored[0].hit && x.hit / x.of === scored[0].hit / scored[0].of);
   return { best: top.length === 1 ? top[0].n : null, candidates: scored.slice(0, 5).map((x) => x.n), spans: scored[0].spans };
 }
 
+/** Digits that belong to a matched name ("Rescue 1122") are not amounts — but only where they stand next to the name. */
+export function stripNameDigits(t: string, name: string | null, spans: string[]): string {
+  const digits = (name ?? "").split(/[^a-z0-9]+/i).filter((w) => /^\d+$/.test(w));
+  if (!digits.length) return t;
+  const toks = t.split(/(\s+)/);
+  const words = toks.map((w, i) => ({ w, i })).filter((x) => x.w.trim());
+  const near = new Set(spans.filter((s) => !/^\d+$/.test(s)));
+  for (const d of digits) {
+    for (let k = 0; k < words.length; k++) {
+      if (words[k].w !== d) continue;
+      const by = [words[k - 1], words[k + 1], words[k - 2], words[k + 2]].some((x) => x && near.has(x.w));
+      if (by) { toks[words[k].i] = " "; break; }
+    }
+  }
+  return toks.join("");
+}
+
 export function parseWholesaleText(raw: string, ctx: { clients: Named[]; tankers: { id: number; number: string }[]; drivers: Named[]; clientId?: number | null }): ParsedWholesale {
   const heard = raw.trim();
   let t = ` ${heard.replace(/[۰-۹٠-٩]/g, (d) => DIGITS[d]).replace(/(\d),(\d)/g, "$1$2").toLowerCase().replace(/[،,؟?!]/g, " ")} `;
-  t = t.replace(/(\d)(lakh|lac|hazar|k|l|ltr|litre)\b/g, "$1 $2");
+  t = splitUnits(t);
   const out: ParsedWholesale = {
     intent: "unknown", heard, engine: "rules", client_id: null, client_name: null, candidates: [], product: null, litres: null, amount: null, rate: null,
     method: null, date: null, bank: null, cheque_no: null, ref: null, tanker_id: null, tanker: null, driver_id: null, driver: null, location: null, drops: [], missing: [],
@@ -154,14 +252,26 @@ export function parseWholesaleText(raw: string, ctx: { clients: Named[]; tankers
   const tk = !out.tanker && t.match(/(?:tanker|gari|gaari|truck|ٹینکر|گاڑی)\s*(?:number|no|نمبر)?\s*([a-z]{2,4}[\s-]?)?(\d{3,4})\b/);
   if (tk) { out.tanker = `${tk[1] ? tk[1].replace(/[\s-]/g, "").toUpperCase() + "-" : ""}${tk[2]}`; t = t.replace(tk[0], " "); }
   // cheque number before amounts so its digits are not read as money
-  const cn = t.match(/(?:cheque|check|chek|چیک)\s*(?:number|no\.?|nambar|نمبر|#)\s*(\d{4,12})/) ?? t.match(/(?:number|no\.?|nambar|نمبر|#)\s*(\d{5,12})/);
+  // with a cheque said: "number 1004" anywhere, or a long number right after the bank ("MCB 778899")
+  const chq = /(cheque|check|chek|چیک)/.test(t);
+  const afterBank = () => {
+    for (const [, re] of BANKS) {
+      const m = re.exec(t);
+      if (!m) continue;
+      const rest = t.slice(m.index + m[0].length).match(/^\s*(?:bank|بینک)?\s*(?:ka|ki|ke|کا|کی|کے)?\s*(\d{5,12})\b/);
+      if (rest) return [rest[0], rest[1]] as [string, string];
+    }
+    return null;
+  };
+  const cn = (chq ? t.match(/(?:number|no\.?|nambar|نمبر|#)\s*(\d{3,12})\b/) ?? afterBank() : null) ?? t.match(/(?:number|no\.?|nambar|نمبر|#)\s*(\d{5,12})\b/);
   if (cn) { out.cheque_no = cn[1]; t = t.replace(cn[0], " cheque "); }
   const isPast = /(bheja|bheji|bhej diya|diya|di |dia|dala|daala|supply ki|supply hui|deliver|mila|mile|mili|aaya|aya|aayi|jama|kiya|kia|wapas|بھیج|دیا|دی |ڈالا|ملا|ملی|ملے|آیا|جمع|واپس|کیا)/.test(t);
   out.date = parseDate(t, isPast && !/(order|booking|book|wada|waada|promise|dega|dega|denge|dein ge|de ga|دے گا|دیں گے|وعدہ|آرڈر)/.test(t));
   out.bank = BANKS.find(([, re]) => re.test(t))?.[0] ?? null;
   out.method = METHOD.find(([, re]) => re.test(t))?.[0] ?? null;
   if (out.method === "Bank transfer" && out.bank && !/(transfer|ibft|online|آن لائن|ٹرانسفر)/.test(t) && /(cheque|chek|چیک)/.test(t)) out.method = "Cheque";
-  const rate = t.match(/(?:rate|ریٹ)\s*(\d+(?:\.\d+)?)/) ?? t.match(/(\d+(?:\.\d+)?)\s*(?:ka|ke|per|fi)\s*(?:litre|liter|لیٹر)/);
+  const rate = t.match(/(?:rate|ریٹ)\s*(?:pe|par|per|پر)?\s*(\d+(?:\.\d+)?)/) ?? t.match(/(\d+(?:\.\d+)?)\s*(?:ka|ke|ki|wala|walay|والے|کے)?\s*(?:rate|ریٹ)/)
+    ?? t.match(/(\d+(?:\.\d+)?)\s*(?:ka|ke|per|fi)\s*(?:litre|liter|لیٹر)/);
   if (rate) { out.rate = Number(rate[1]); t = t.replace(rate[0], " "); }
   const loc = t.match(/(?:location|jagah|site|پر|par)\s+([a-z؀-ۿ]{3,20})\b/);
   if (loc && !/^(diesel|petrol)$/.test(loc[1])) out.location = loc[1][0].toUpperCase() + loc[1].slice(1);
@@ -172,7 +282,7 @@ export function parseWholesaleText(raw: string, ctx: { clients: Named[]; tankers
   const litQ = q.filter((x) => x.litres || (out.product && !moneyWord && !x.big && x.value >= 50)), moneyQ = q.filter((x) => !x.litres && x.value >= 500);
   const kw = {
     balance: /(kitna|kitne|kitni|baqaya|baqi|balance|due|hisab|hisaab|کتنا|کتنے|کتنی|بقایا|باقی|حساب|بیلنس)/.test(t),
-    today: /(aaj|today|آج)/.test(t),
+    today: /(aaj|today|آج)/.test(t) || /\b(kul|total)\b/.test(t),
     order: /(order|booking|book|chahiye|chaiye|mangwa|bhejna hai|bhejni hai|آرڈر|بکنگ|چاہیے|منگوا)/.test(t),
     promise: /(wada|waada|promise|dega|denge|dein ge|de ga|de dega|de den ge|dain gay|وعدہ|دے گا|دیں گے|دے دے گا)/.test(t),
     cheque: /(cheque|check|chek|چیک)/.test(t),
@@ -196,8 +306,10 @@ export function parseWholesaleText(raw: string, ctx: { clients: Named[]; tankers
     if (out.drops.length >= 2) { out.intent = "trip"; out.litres = out.drops.reduce((a, d) => a + d.litres, 0); }
   }
 
+  let clientSpans = names.flatMap((x) => x.m.spans);
   if (out.intent === "unknown") {
     const m = matchNamed(ctx.clients, t);
+    clientSpans = m.best ? m.spans : [];
     if (m.best) { out.client_id = m.best.id; out.client_name = m.best.name; }
     out.candidates = m.candidates;
     if (!out.client_id && ctx.clientId) { const c = ctx.clients.find((x) => x.id === ctx.clientId); if (c) { out.client_id = c.id; out.client_name = c.name; } }
@@ -215,15 +327,23 @@ export function parseWholesaleText(raw: string, ctx: { clients: Named[]; tankers
     else if (out.amount && (kw.pay || out.method)) out.intent = "payment";
     else if (out.amount) out.intent = "payment";
     else if (out.litres) out.intent = "supply";
+    // "today's supply total", "kul supply kitni" — a question about today, not an entry
+    else if (!out.client_id && !out.candidates.length && kw.today && /(supply|sale|paise|paisay|payment|total|kitn|کتن|سپلائی)/.test(t)) out.intent = "today";
   }
   if (out.intent === "trip" || out.intent === "supply" || out.intent === "return" || out.intent === "order") out.amount = null;
   if (["payment", "promise", "cheque", "balance", "today"].includes(out.intent)) { out.product = null; out.litres = null; }
   if (out.intent === "payment" && !out.method) out.method = "Cash";
   if (out.intent === "cheque") out.method = "Cheque";
 
-  // driver by name
+  // driver by name (drivers and clients are different tables: compare the words, not the ids)
   const d = matchNamed(ctx.drivers, t);
-  if (d.best && d.best.id !== out.client_id) { out.driver_id = d.best.id; out.driver = d.best.name; }
+  if (d.best && d.spans.some((w) => !clientSpans.includes(w))) { out.driver_id = d.best.id; out.driver = d.best.name; }
+
+  // a mis-heard huge number is no number: leave it for the officer to fill in
+  if (out.litres != null && !(out.litres > 0 && out.litres <= MAX_LITRES)) out.litres = null;
+  if (out.amount != null && !(out.amount > 0 && out.amount <= MAX_AMOUNT)) out.amount = null;
+  if (out.rate != null && !(out.rate > 0 && out.rate <= 10_000)) out.rate = null;
+  out.drops = out.drops.filter((x) => x.litres > 0 && x.litres <= MAX_LITRES);
 
   if (out.intent === "cheque" && !out.date) out.date = pkDate();
   out.missing = missingFor(out);

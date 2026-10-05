@@ -64,7 +64,7 @@ export function ManagerDesk({ k }: { k: any }) {
         <Kpi label="Open alerts" value={k.open_alerts} accent={k.open_alerts ? "text-red-600" : undefined} sub={`${k.whatsapp.human} chats need a person`} to="/alerts" />
       </div>
 
-      {can("bank.view") && <BankSummary />}
+      {can("bank.view") && !can("reports.view") && <BankSummary />}
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2>
