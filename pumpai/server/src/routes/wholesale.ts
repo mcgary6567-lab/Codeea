@@ -13,6 +13,7 @@ import { announce } from "../notifications.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
+import { deliverOrder, deskSuggestions, openOrders, promises, cheques } from "./wholesaleDesk.js";
 
 export const wholesale = Router();
 wholesale.use("/wholesale", requirePerm("wholesale.view"));
@@ -227,6 +228,7 @@ wholesale.get("/wholesale/dashboard", h((req) => {
     WHERE tr.tenant_id=? AND tk.capacity_l > 0 AND tr.trip_date >= ?`, t, new Date(nowMs - 30 * DAYMS).toISOString())!;
   if (fill.n >= 3 && fill.f < 0.6)
     sug.push({ level: "info", title: `Tankers leave only ${Math.round(fill.f * 100)}% full on average`, detail: "Combine nearby clients into one tanker trip to save diesel and driver time.", action: { kind: "trip", label: "Plan a trip" } });
+  sug.push(...deskSuggestions(t, clients));
   const order = { critical: 0, warning: 1, info: 2, good: 3 };
   sug.sort((a, b) => order[a.level] - order[b.level]);
 
@@ -240,9 +242,18 @@ wholesale.get("/wholesale/dashboard", h((req) => {
       profit_estimate: costedL ? Math.round(profit) : null, margin_per_l: costedL ? round2(profit / costedL) : null,
       today: get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) litres, COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, pkDayStart()),
       trips_month: get("SELECT COUNT(*) n FROM wholesale_trips WHERE tenant_id=? AND trip_date >= ?", t, monthStart.toISOString())!.n,
+      ...(() => {
+        const o = openOrders(t), p = promises(t), q = cheques(t);
+        return {
+          open_orders: o.length, open_orders_l: Math.round(o.reduce((a, x) => a + x.litres, 0)), orders_today: o.filter((x) => x.needed_on <= today).length,
+          promised_today: round2(p.filter((x) => x.state === "today").reduce((a, x) => a + x.amount - x.paid, 0)),
+          broken_promises: p.filter((x) => x.state === "broken").length,
+          cheques_in_hand: round2(q.filter((x) => x.status === "in_hand" || x.status === "deposited").reduce((a, x) => a + x.amount, 0)),
+        };
+      })(),
     },
     ageing: Object.fromEntries(Object.entries(ageTotals).map(([k, v]) => [k, Math.round(v)])),
-    daily, weekly, clients, suggestions: sug.slice(0, 12),
+    daily, weekly, clients, suggestions: sug.slice(0, 20),
   };
 }));
 
@@ -433,7 +444,7 @@ const fuelBody = z.object({
   station_id: z.number(), product, litres: z.number().positive(), rate: z.number().positive().optional(),
   vehicle_no: z.string().optional().nullable(), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),
   tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), location: z.string().max(120).optional().nullable(),
-  txn_date: dateStr, override_limit: z.boolean().optional(), photo_ids: proofPhotos,
+  txn_date: dateStr, override_limit: z.boolean().optional(), photo_ids: proofPhotos, order_id: z.number().int().optional().nullable(),
 });
 
 /** Tanker number and driver name from the fleet register (a typed vehicle number still works). */
@@ -475,6 +486,7 @@ wholesale.post("/wholesale/clients/:id/supply", requirePerm("wholesale.manage"),
   return tx(() => {
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", b.litres, tank.id);
     const t = insertTxn(req, c.id, { ...b, ...fl, type: "supply", tank_id: tank.id, rate, amount });
+    deliverOrder(tid(req), b.order_id, c.id, t.id);
     limitAlert(req, c, t.due_after);
     return t;
   });
@@ -487,6 +499,7 @@ const tripBody = z.object({
   drops: z.array(z.object({
     client_id: z.number().int(), litres: z.number().positive(), rate: z.number().positive().optional(),
     location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), override_limit: z.boolean().optional(),
+    order_id: z.number().int().optional().nullable(),
   })).min(1, "Add at least one drop").max(30),
 });
 wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
@@ -515,6 +528,7 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
     for (const d of priced) {
       const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tank.id, product: b.product, litres: d.litres, rate: d.rate, amount: d.amount,
         ref: d.ref ?? `TRIP-${id}`, note: b.note ?? null, location: d.location ?? null, txn_date: b.txn_date, trip_id: id, ...fl });
+      deliverOrder(tid(req), d.order_id, d.c.id, t.id);
       limitAlert(req, d.c, t.due_after);
     }
     return tripSheet(tid(req), id);

@@ -1,6 +1,6 @@
 /** Demo data: one business, two stations, 8 weeks of realistic sales, customers, khata and WhatsApp chats. */
 import bcrypt from "bcryptjs";
-import { db, migrate, run, all, get, tx, setSetting, pkDate } from "./db.js";
+import { db, migrate, run, all, get, tx, setSetting, pkDate, type Row } from "./db.js";
 import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
 import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
@@ -227,6 +227,7 @@ export function seed() {
     seedPeople(tenantId);
     seedMachines(tenantId, st1, st2);
     seedBanks(tenantId);
+    seedWholesaleDesk(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -624,4 +625,36 @@ function seedBanks(tenantId: number) {
         tenantId, id, gap > 0 ? "owner_out" : "owner_in", -gap, "Owner", gap > 0 ? "Owner took money" : "Owner put money in", at, "Owner", at);
     }
   }
+}
+
+/** Open orders, payment promises and cheques for the wholesale desk. */
+function seedWholesaleDesk(tenantId: number) {
+  const cl = all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND active=1 ORDER BY id", tenantId);
+  if (cl.length < 3) return;
+  const d = (n: number) => pkDate(Date.now() + n * DAY);
+  const at = (n: number) => iso(Date.now() + n * DAY);
+  const order = (c: Row, product: string, litres: number, on: number, note: string | null = null) =>
+    run("INSERT INTO wholesale_orders (tenant_id,client_id,product,litres,needed_on,location,note,status,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      tenantId, c.id, product, litres, d(on), c.city, note, "open", "Wholesale Officer", at(Math.min(on, 0) - 1));
+  order(cl[0], "HSD", 8000, 0, "Generator site, gate 2");
+  order(cl[1], "HSD", 12000, 1);
+  order(cl[2 % cl.length], "HSD", 5000, -1, "Asked twice — urgent");
+  order(cl[0], "PMG", 3000, 2);
+  // on top of whatever they already paid since the promise, so the demo shows due / broken promises
+  const promise = (c: Row, amount: number, on: number, made: number) => {
+    const paid = get("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE client_id=? AND type='payment' AND voided=0 AND created_at >= ?", c.id, at(made))!.v as number;
+    run("INSERT INTO wholesale_promises (tenant_id,client_id,amount,promised_on,note,status,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      tenantId, c.id, Math.round(paid + amount), d(on), "On the phone", "open", "Wholesale Officer", at(made));
+  };
+  promise(cl[1], 250000, 0, -3);
+  promise(cl[2 % cl.length], 90000, -1, -2);
+  promise(cl[0], 300000, 4, -1);
+  const cheque = (c: Row, amount: number, bank: string, no: string, on: number, status: string, made: number) =>
+    run("INSERT INTO wholesale_cheques (tenant_id,client_id,amount,bank,cheque_no,cheque_date,status,deposited_at,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      tenantId, c.id, amount, bank, no, d(on), status, status === "deposited" ? at(-4) : null, "Wholesale Officer", at(made), at(status === "deposited" ? -4 : made));
+  cheque(cl[0], 350000, "Habib Bank (HBL)", "10045821", -1, "in_hand", -8);
+  cheque(cl[1], 500000, "Meezan Bank", "77812004", 2, "in_hand", -5);
+  cheque(cl[2 % cl.length], 180000, "MCB Bank", "55120983", -6, "deposited", -10);
+  const b = cheque(cl[1], 220000, "Bank Alfalah", "30019876", -20, "bounced", -25).id;
+  run("UPDATE wholesale_cheques SET bounce_reason='Insufficient funds', updated_at=? WHERE id=?", at(-18), b);
 }

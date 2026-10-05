@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Info, Lightbulb, Plus, Search, Truck, Wallet } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, CheckCircle2, ClipboardList, Info, Lightbulb, Plus, Search, Truck, Wallet } from "lucide-react";
+import { ChequeForm, OrderForm, PromiseForm } from "./WholesaleDesk";
 import { api, useApi } from "../lib/api";
 import { Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort } from "../lib/format";
@@ -30,7 +31,7 @@ const Change = ({ v }: { v: number | null }) => v == null ? null : (
   </span>
 );
 const Kpi = ({ label, value, sub, accent }: { label: string; value: string; sub?: React.ReactNode; accent?: string }) => (
-  <div className="card p-4">
+  <div className="card h-full p-4">
     <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
     <div className={`mt-1 text-2xl font-bold tabular-nums ${accent ?? "text-slate-900"}`}>{value}</div>
     {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
@@ -38,10 +39,11 @@ const Kpi = ({ label, value, sub, accent }: { label: string; value: string; sub?
 );
 
 /** Wholesale home: today's actions, KPIs, suggestions, trends, ageing and client health. */
-export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void }) {
+export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { onTrip: () => void; onAddClient: () => void; onFleet: () => void; onTab: (t: string) => void }) {
   const { can } = useAuth();
   const nav = useNavigate();
-  const { data } = useApi<any>("/wholesale/dashboard");
+  const { data, reload } = useApi<any>("/wholesale/dashboard");
+  const [desk, setDesk] = useState<null | "order" | "cheque" | "promise">(null);
   const [pick, setPick] = useState<null | "supply" | "payment">(null);
   const [q, setQ] = useState("");
   const { run } = useAction();
@@ -51,6 +53,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: (
   const act = async (a: any) => {
     if (a.kind === "trip") return onTrip();
     if (a.kind === "fleet") return onFleet();
+    if (a.kind === "orders" || a.kind === "collect") return onTab(a.kind);
     if (a.kind === "statement") {
       const mon = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7);
       return run(() => api(`/wholesale/clients/${a.client_id}/send-statement`, { body: { month: mon } }), "Statement sent on WhatsApp");
@@ -63,11 +66,14 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: (
   return (
     <div className="space-y-5">
       {manage && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
           {[
             { label: "New supply", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
             { label: "Tanker trip", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
             { label: "Receive payment", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
+            { label: "Book order", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
+            { label: "Cheque received", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
+            { label: "Payment promise", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
             { label: "Add client", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
           ].map((b) => (
             <button key={b.label} onClick={b.go} className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left shadow-sm active:scale-[.98] ${b.cls}`}>
@@ -84,6 +90,12 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: (
         <Kpi label="Received this month" value={pkrShort(k.month_received)} accent="text-emerald-700" sub={k.collection_pct == null ? undefined : k.collection_pct > 100 ? "More than billed — old dues are coming down" : `${k.collection_pct}% of this month's billing`} />
         <Kpi label="Profit (est.)" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)} per litre over cost` : "Add purchase rates to see profit"} />
         <Kpi label="Today" value={`${num(k.today.litres)} L`} sub={`Received ${pkr(k.today.received)}`} />
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <button className="text-left" onClick={() => onTab("orders")}><Kpi label="Open orders" value={String(k.open_orders)} accent={k.orders_today ? "text-amber-700" : undefined} sub={`${num(k.open_orders_l)} L booked${k.orders_today ? ` · ${k.orders_today} for today / late` : ""}`} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Promised today" value={pkrShort(k.promised_today)} accent="text-amber-700" sub={k.broken_promises ? <span className="font-medium text-red-600">{k.broken_promises} promise{k.broken_promises > 1 ? "s" : ""} broken</span> : "no broken promises"} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Cheques not cleared" value={pkrShort(k.cheques_in_hand)} sub="in hand + deposited" /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Collection this month" value={k.collection_pct == null ? "—" : `${k.collection_pct}%`} accent={k.collection_pct != null && k.collection_pct < 80 ? "text-red-600" : "text-emerald-700"} sub="received ÷ billed" /></button>
       </div>
 
       <div className="card overflow-hidden">
@@ -176,6 +188,9 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet }: { onTrip: (
         </div>
       </div>
 
+      {desk === "order" && <OrderForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
+      {desk === "cheque" && <ChequeForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
+      {desk === "promise" && <PromiseForm onClose={() => setDesk(null)} onDone={() => { setDesk(null); reload(); }} />}
       {pick && (
         <Modal open onClose={() => setPick(null)} title={pick === "supply" ? "Supply to which client?" : "Payment from which client?"}>
           <div className="max-h-[60vh] space-y-1 overflow-y-auto">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
+  HandCoins, ClipboardList,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -12,6 +13,8 @@ import { useBranding, useInstallPrompt } from "../lib/brand";
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
 const WHOLESALE_SUB = [
   { to: "/wholesale?tab=clients", label: "Clients", icon: Users, perm: "wholesale.view" },
+  { to: "/wholesale?tab=orders", label: "Order book", icon: ClipboardList, perm: "wholesale.view" },
+  { to: "/wholesale?tab=collect", label: "Recovery", icon: HandCoins, perm: "wholesale.view" },
   { to: "/wholesale?tab=trips", label: "Tanker trips", icon: Route, perm: "wholesale.view" },
   { to: "/wholesale?do=rate", label: "Change rate", icon: Tag, perm: "wholesale.rates" },
   { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", icon: Truck, perm: "wholesale.manage" },

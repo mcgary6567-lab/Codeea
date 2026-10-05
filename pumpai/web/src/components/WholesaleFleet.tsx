@@ -49,7 +49,7 @@ export const fleetBody = (f: any) => ({
 });
 
 /* ---------------- One tanker, many drops ---------------- */
-type Drop = { client_id: string; litres: string; rate: string; location: string; ref: string };
+type Drop = { client_id: string; litres: string; rate: string; location: string; ref: string; order_id?: number };
 const emptyDrop = (): Drop => ({ client_id: "", litres: "", rate: "", location: "", ref: "" });
 
 export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (trip: any) => void }) {
@@ -58,6 +58,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const stations = useApi<any[]>("/stations");
   const clients = useApi<any[]>("/wholesale/clients?q=");
   const fleet = useApi<any>("/wholesale/fleet");
+  const orders = useApi<any>("/wholesale/orders");
   const [f, setF] = useState<any>({ station_id: "", product: "HSD", tanker_id: "", driver_id: "", vehicle_no: "", txn_date: today(), note: "", override_limit: false });
   const [drops, setDrops] = useState<Drop[]>([emptyDrop(), emptyDrop()]);
   const [photos, setPhotos] = useState<number[]>([]);
@@ -79,7 +80,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
     const body = {
       station_id: Number(f.station_id), product: f.product, txn_date: f.txn_date, note: f.note || null, ...fleetBody(f), photo_ids: photos,
       drops: filled.map((x) => ({ client_id: Number(x.client_id), litres: Number(x.litres), location: x.location || null, ref: x.ref || null,
-        ...(admin && x.rate ? { rate: Number(x.rate) } : {}), ...(f.override_limit ? { override_limit: true } : {}) })),
+        ...(admin && x.rate ? { rate: Number(x.rate) } : {}), ...(f.override_limit ? { override_limit: true } : {}), ...(x.order_id ? { order_id: x.order_id } : {}) })),
     };
     const r = await run(() => api("/wholesale/trips", { body }), (t: any) => `Trip #${t.id} saved — ${num(t.delivered_l)} L to ${t.drops.length} drops, ${pkr(t.billed)}`);
     if (r) onDone(r);
@@ -95,6 +96,25 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
 
+        {(() => {
+          // booked orders for this fuel that are not on the trip yet: one tap adds the drop
+          const avail = (orders.data?.open ?? []).filter((o: any) => o.product === f.product && !drops.some((x) => x.order_id === o.id));
+          if (!avail.length) return null;
+          return (
+            <div className="rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200">
+              <div className="mb-2 text-sm font-semibold text-amber-900">📋 Booked {PRODUCTS[f.product]} orders — tap to add as a drop</div>
+              <div className="flex flex-wrap gap-2">{avail.map((o: any) => (
+                <button type="button" key={o.id} className={`rounded-lg bg-white px-3 py-1.5 text-left text-sm ring-1 ${o.late ? "ring-red-300" : o.today ? "ring-amber-400" : "ring-slate-200"} hover:bg-amber-100`}
+                  onClick={() => {
+                    const d = { ...emptyDrop(), client_id: String(o.client_id), litres: String(o.litres), location: o.location ?? "", order_id: o.id };
+                    const free = drops.findIndex((x) => !x.client_id && !x.litres);
+                    setDrops(free >= 0 ? drops.map((x, j) => (j === free ? d : x)) : [...drops, d]);
+                  }}>
+                  <b>{o.client_name}</b> · {num(o.litres)} L<span className="block text-xs text-slate-500">{o.late ? "late · " : o.today ? "today · " : ""}{o.needed_on}{o.location ? ` · ${o.location}` : ""}</span>
+                </button>))}</div>
+            </div>
+          );
+        })()}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full min-w-[860px]">
             <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th">Drop location</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
@@ -103,8 +123,8 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
               const card = c?.rates?.[f.product];
               return (
                 <tr key={i}>
-                  <td className="td text-sm text-slate-500">{i + 1}</td>
-                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", location: x.location || client(e.target.value)?.city || "" })}>
+                  <td className="td text-sm text-slate-500">{i + 1}{x.order_id ? <span title="Booked order" className="block text-xs">📋</span> : null}</td>
+                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: x.location || client(e.target.value)?.city || "" })}>
                     <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select></td>
                   <td className="td"><input className="input min-w-[130px]" placeholder="place / pump" value={x.location} onChange={(e) => setDrop(i, { location: e.target.value })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>

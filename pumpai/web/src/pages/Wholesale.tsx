@@ -10,6 +10,7 @@ import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { PortalCard } from "../components/PortalCard";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
+import { ChequeForm, ClientDeskCard, CollectTab, OrderForm, OrdersTab, PromiseForm } from "../components/WholesaleDesk";
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
@@ -27,7 +28,7 @@ function ClientList() {
   const { can } = useAuth();
   const summary = useApi<any>("/wholesale/summary");
   const [params, setParams] = useSearchParams();
-  const tab = (params.get("tab") ?? "dashboard") as "dashboard" | "clients" | "trips" | "fleet";
+  const tab = (params.get("tab") ?? "dashboard") as "dashboard" | "clients" | "orders" | "collect" | "trips" | "fleet";
   const action = params.get("do"); // add-client | trip | rate | tanker | driver (from the menu)
   const setTab = (t: string) => setParams(t === "dashboard" ? {} : { tab: t });
   const clearAction = () => { const p = new URLSearchParams(params); p.delete("do"); setParams(p, { replace: true }); };
@@ -39,15 +40,17 @@ function ClientList() {
     <div className="space-y-5">
       <PageHeader title="Wholesale supply" subtitle="Bulk fuel to dealers and businesses — each client has their own rate card and running account" />
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {([["dashboard", "Dashboard"], ["clients", "Clients"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
+        {([["dashboard", "Dashboard"], ["clients", "Clients"], ["orders", "Order book"], ["collect", "Recovery"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}</button>
         ))}
       </div>
       {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} />}
       {tab === "fleet" && <FleetTab key={action ?? "fleet"} start={action === "tanker" || action === "driver" ? action : null} />}
+      {tab === "orders" && <OrdersTab onTrip={() => setParams({ tab: "orders", do: "trip" })} />}
+      {tab === "collect" && <CollectTab />}
       {tab === "clients" && <ClientsTable onAdd={() => setParams({ tab: "clients", do: "add-client" })} />}
       {tab === "dashboard" && <>
-        <WholesaleDashboard key={tripsKey} onTrip={() => setParams({ do: "trip" })} onAddClient={() => setParams({ do: "add-client" })} onFleet={() => setTab("fleet")} />
+        <WholesaleDashboard key={tripsKey} onTrip={() => setParams({ do: "trip" })} onAddClient={() => setParams({ do: "add-client" })} onFleet={() => setTab("fleet")} onTab={setTab} />
         {s && (
           <div className="card">
             <h2 className="p-4 pb-2 font-semibold">Recent wholesale entries</h2>
@@ -177,11 +180,14 @@ function ClientDetail({ id }: { id: string }) {
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const stmt = useApi<any>(`/wholesale/clients/${id}/statement${qs ? `?${qs}` : ""}`);
   const [params, setParams] = useSearchParams();
-  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit">(() => (params.get("do") as any) || null);
+  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque">(() => (params.get("do") as any) || null);
+  // supplying a booked order (from the order book) fills the form and closes the order
+  const [orderId, setOrderId] = useState<number | null>(() => Number(params.get("order")) || null);
+  const [deskKey, setDeskKey] = useState(0);
   useEffect(() => { if (params.get("do")) setParams({}, { replace: true }); }, []);
   const [sending, setSending] = useState(false);
   const { run: runMsg } = useAction();
-  const refresh = () => { client.reload(); stmt.reload(); };
+  const refresh = () => { client.reload(); stmt.reload(); setDeskKey((k) => k + 1); };
 
   if (client.error) return <ErrorBox error={client.error} />;
   if (!client.data) return <Loading />;
@@ -251,6 +257,8 @@ function ClientDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      <ClientDeskCard client={c} refreshKey={deskKey} onChanged={refresh} onAction={(a, oid) => { if (a === "supply-order") { setOrderId(oid ?? null); setAction("supply"); } else setAction(a); }} />
+
       <div className="print:hidden"><PortalCard base={`/wholesale/clients/${c.id}/portal`} name={c.name} phone={c.phone} canManage={can("wholesale.manage")} /></div>
 
       <div className="card">
@@ -274,7 +282,10 @@ function ClientDetail({ id }: { id: string }) {
         ) : <Loading />}
       </div>
 
-      {(action === "supply" || action === "return") && <FuelEntry kind={action} client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
+      {(action === "supply" || action === "return") && <FuelEntry kind={action} client={c} orderId={action === "supply" ? orderId : null} onClose={() => { setAction(null); setOrderId(null); }} onDone={() => { setAction(null); setOrderId(null); refresh(); }} />}
+      {action === "order" && <OrderForm client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
+      {action === "promise" && <PromiseForm client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
+      {action === "cheque" && <ChequeForm client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "payment" && <PaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "adjustment" && <AdjustmentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "rates" && <RatesEditor client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
@@ -320,13 +331,16 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
   );
 }
 
-function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return"; client: any; onClose: () => void; onDone: () => void }) {
+function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" | "return"; client: any; orderId?: number | null; onClose: () => void; onDone: () => void }) {
+  const desk = useApi<any>(orderId ? `/wholesale/clients/${client.id}/desk` : null);
+  const order = desk.data?.orders.find((o: any) => o.id === orderId);
   const { can } = useAuth();
   const stations = useApi<any[]>("/stations");
   const products = Object.keys(client.rates).length ? Object.keys(client.rates) : Object.keys(PRODUCTS);
   const [photos, setPhotos] = useState<number[]>([]);
   const [f, setF] = useState<any>({ station_id: "", product: products[0], litres: "", rate: "", tanker_id: "", driver_id: "", vehicle_no: "", location: client.city ?? "", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10), override_limit: false });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
+  useEffect(() => { if (order) setF((x: any) => ({ ...x, product: order.product, litres: String(order.litres), location: order.location ?? x.location, note: order.note ?? x.note })); }, [order?.id]);
   const { busy, run } = useAction();
   const station = stations.data?.find((s) => s.id === Number(f.station_id));
   const tank = station?.tanks.filter((t: any) => t.product === f.product).sort((a: any, b: any) => b.current_l - a.current_l)[0];
@@ -338,11 +352,13 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
       ...(kind === "supply" ? { ...fleetBody(f), location: f.location || null } : { vehicle_no: f.vehicle_no || null }) };
     if (f.rate && can("wholesale.rates")) body.rate = Number(f.rate);
     if (f.override_limit) body.override_limit = true;
+    if (order) body.order_id = order.id;
     if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. Due now ${pkr(r.due_after)}`)) onDone();
   };
   return (
     <Modal open onClose={onClose} title={kind === "supply" ? `Supply fuel to ${client.name}` : `Fuel returned by ${client.name}`}>
       <form onSubmit={submit} className="space-y-3">
+        {order && <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-800">📋 Delivering the order for <b>{order.needed_on}</b> — {num(order.litres)} L {PRODUCTS[order.product]}. Saving closes the order.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={kind === "supply" ? "From station" : "Into station"}><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
           <Field label="Product"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>

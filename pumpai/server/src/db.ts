@@ -452,6 +452,17 @@ export function migrate() {
     party TEXT, ref TEXT, note TEXT, txn_date TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_bank_txns_acc ON bank_txns(account_id)");
   for (const tbl of ["bank_deposits", "wholesale_txns", "khata_ledger", "supplier_txns", "expenses", "wallet_ledger"]) addColumn(tbl, "account_id", "INTEGER");
+  // wholesale desk: order book, payment promises, cheque register
+  db.exec(`CREATE TABLE IF NOT EXISTS wholesale_orders (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, product TEXT NOT NULL, litres REAL NOT NULL, needed_on TEXT NOT NULL,
+    location TEXT, note TEXT, status TEXT NOT NULL DEFAULT 'open', txn_id INTEGER, created_by TEXT, created_at TEXT NOT NULL, done_at TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS wholesale_promises (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, amount REAL NOT NULL, promised_on TEXT NOT NULL, note TEXT,
+    status TEXT NOT NULL DEFAULT 'open', created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS wholesale_cheques (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL,
+    cheque_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'in_hand', account_id INTEGER, payment_txn_id INTEGER, bounce_reason TEXT, note TEXT,
+    created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
   migrateUserRoles();
 }
 
