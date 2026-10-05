@@ -372,3 +372,51 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
     </Modal>
   );
 }
+
+/** Owner dashboard: how much is in each bank right now, plus cash in hand. */
+export function BankSummary() {
+  const { data } = useApi<any>("/bank/accounts", 120_000);
+  const { can } = useAuth();
+  if (!data) return null;
+  const open = data.accounts.filter((a: any) => a.active);
+  if (!open.length) return can("bank.manage") ? (
+    <Link to="/cash?bank=add" className="card flex items-center gap-3 p-4 hover:bg-slate-50">
+      <Landmark className="text-brand-600" /><span className="flex-1"><b>Add your bank accounts</b><span className="block text-sm text-slate-500">See how much is in each bank right here · <Ur>بینک اکاؤنٹ شامل کریں</Ur></span></span><Plus size={18} />
+    </Link>
+  ) : null;
+  const top = Math.max(...open.map((a: any) => Math.abs(a.balance)), 1);
+  const unlinked = data.unlinked.received + data.unlinked.paid + data.unlinked.pos;
+  return (
+    <div className="card overflow-hidden">
+      <div className="grid grid-cols-2 gap-3 bg-gradient-to-r from-brand-700 to-brand-600 p-4 text-white sm:grid-cols-3">
+        <div className="col-span-2 sm:col-span-1"><div className="flex items-center gap-1.5 text-sm opacity-90"><Landmark size={15} /> Money in banks · <Ur>بینکوں میں</Ur></div>
+          <div className="text-3xl font-bold tabular-nums">{pkr(data.total)}</div></div>
+        <div><div className="text-sm opacity-90">Cash in hand · <Ur>نقد</Ur></div><div className="text-xl font-bold tabular-nums">{pkr(data.cash_in_hand)}</div></div>
+        <div><div className="text-sm opacity-90">Total money · <Ur>کل رقم</Ur></div><div className="text-xl font-bold tabular-nums">{pkr(data.total + data.cash_in_hand)}</div></div>
+      </div>
+      <ul className="divide-y divide-slate-100">
+        {open.map((a: any) => (
+          <li key={a.id}>
+            <Link to="/cash" className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
+              <BankLogo name={a.bank} size={36} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{a.bank}</span>
+                <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full rounded-full ${a.balance < 0 ? "bg-red-500" : "bg-brand-500"}`} style={{ width: `${Math.max(2, (Math.abs(a.balance) / top) * 100)}%` }} /></span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className={`block font-bold tabular-nums ${a.balance < 0 ? "text-red-600" : ""}`}>{pkr(a.balance)}</span>
+                <span className="block text-xs tabular-nums text-slate-500">
+                  {a.today_in || a.today_out ? <>today <span className="text-emerald-700">+{pkr(a.today_in).replace("Rs ", "")}</span>{a.today_out ? <span className="text-red-600"> −{pkr(a.today_out).replace("Rs ", "")}</span> : null}</> : "no entry today"}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-4 py-2 text-sm">
+        {unlinked > 0 && <span className="flex items-center gap-1 text-amber-700"><AlertTriangle size={14} /> {pkr(unlinked)} not linked to a bank (30 days)</span>}
+        <Link to="/cash" className="ml-auto font-medium text-brand-700 hover:underline">Statements & entries →</Link>
+      </div>
+    </div>
+  );
+}

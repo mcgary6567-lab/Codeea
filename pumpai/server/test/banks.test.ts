@@ -81,6 +81,8 @@ test("each bank account's balance tallies every payment, deposit, sale and bank 
   const bal = (id: number) => r.accounts.find((a: any) => a.id === id).balance;
   near(bal(hbl.id), 500000 + 150000 + 20000 - 100000 - 30000 - 50000, "HBL");
   near(bal(mzn.id), 80000 - 3000 + card + 50000 - 250, "Meezan");
+  assert.equal(typeof r.cash_in_hand, "number");
+  assert.ok(r.accounts.every((a: any) => typeof a.today_in === "number" && typeof a.today_out === "number"));
   near(r.total, r.accounts.filter((a: any) => a.active).reduce((t: number, a: any) => t + a.balance, 0), "total in banks");
 
   // statement runs from the opening to the closing balance

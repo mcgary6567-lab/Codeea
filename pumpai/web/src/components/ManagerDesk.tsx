@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { AlertOctagon, AlertTriangle, CheckCircle2, Clock, Droplets, Info, Lightbulb, Receipt, BookOpen, Tag, BarChart3, Users } from "lucide-react";
 import { useApi } from "../lib/api";
 import { Loading } from "./ui";
+import { BankSummary } from "./BankParts";
+import { useAuth } from "../App";
 import { num, pkr, pkrShort } from "../lib/format";
 
 const LEVEL = {
@@ -37,6 +39,7 @@ const Kpi = ({ label, value, sub, accent, to }: { label: string; value: React.Re
 /** Top of the manager / owner dashboard: one-tap actions, today's numbers, suggestions, live shifts and staff. */
 export function ManagerDesk({ k }: { k: any }) {
   const { data } = useApi<any>("/dashboard/desk", 60_000);
+  const { can } = useAuth();
   const [all, setAll] = useState(false);
   const vs = k.today.vs_yesterday_pct;
   return (
@@ -60,6 +63,8 @@ export function ManagerDesk({ k }: { k: any }) {
           sub={data ? <>{data.staff_summary.late ? <span className="text-amber-700">{data.staff_summary.late} late </span> : null}{data.staff_summary.missing ? <span className="font-medium text-red-600">· {data.staff_summary.missing} not in</span> : data.staff_summary.late ? null : "everyone on time"}</> : undefined} />
         <Kpi label="Open alerts" value={k.open_alerts} accent={k.open_alerts ? "text-red-600" : undefined} sub={`${k.whatsapp.human} chats need a person`} to="/alerts" />
       </div>
+
+      {can("bank.view") && <BankSummary />}
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2>

@@ -86,7 +86,7 @@ export function bankMoves(t: number, accountId?: number | null): Row[] {
 export function bankAccounts(t: number) {
   const accounts = all("SELECT * FROM bank_accounts WHERE tenant_id=? ORDER BY active DESC, bank, id", t);
   const moves = bankMoves(t);
-  const month = pkStart(pkDate().slice(0, 7) + "-01");
+  const month = pkStart(pkDate().slice(0, 7) + "-01"), today = pkStart(pkDate());
   const out = accounts.map((a) => {
     const mine = moves.filter((m) => m.account_id === a.id);
     const sum = (f: (m: Row) => boolean) => round2(mine.filter(f).reduce((s, m) => s + m.amount, 0));
@@ -94,6 +94,7 @@ export function bankAccounts(t: number) {
       ...a, name: accountName(a),
       balance: round2(a.opening_balance + sum(() => true)),
       month_in: sum((m) => m.at >= month && m.amount > 0), month_out: round2(-sum((m) => m.at >= month && m.amount < 0)),
+      today_in: sum((m) => m.at >= today && m.amount > 0), today_out: round2(-sum((m) => m.at >= today && m.amount < 0)),
       last_at: mine.length ? mine[mine.length - 1].at : null,
     };
   });
@@ -140,9 +141,11 @@ banks.get("/bank/accounts/pick", requireAny("expenses.create", "khata.manage", "
   accounts: all("SELECT * FROM bank_accounts WHERE tenant_id=? AND active=1 ORDER BY bank, id", tid(req)).map((a) => ({ id: a.id, name: accountName(a), bank: a.bank, kind: a.kind })),
 })));
 
-banks.get("/bank/accounts", requirePerm("bank.view"), h((req) => {
+banks.get("/bank/accounts", requirePerm("bank.view"), h(async (req) => {
   const t = tid(req);
-  return { ...bankAccounts(t), pos_map: posMap(t), unlinked: unlinkedMoney(t) };
+  // loaded here: the cash book itself uses this module
+  const { cashPosition } = await import("./backoffice.js");
+  return { ...bankAccounts(t), cash_in_hand: cashPosition(t).cash_in_hand, pos_map: posMap(t), unlinked: unlinkedMoney(t) };
 }));
 
 banks.post("/bank/accounts", requirePerm("bank.manage"), h((req) => {
