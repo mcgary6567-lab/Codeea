@@ -6,6 +6,7 @@ import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAct
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 
 const TYPE: Record<string, { label: string; tone: string }> = {
@@ -238,6 +239,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
                 <td className="td text-xs">
                   {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name.replace("Al-Madina ", "")}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
+                  <ProofThumbs ids={r.proof_ids} />
                   <div className="text-slate-500">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
                 </td>
                 <td className="td text-right tabular-nums">{debit ? pkr(debit) : ""}</td>
@@ -257,6 +259,7 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
   const { can } = useAuth();
   const stations = useApi<any[]>("/stations");
   const products = Object.keys(client.rates).length ? Object.keys(client.rates) : Object.keys(PRODUCTS);
+  const [photos, setPhotos] = useState<number[]>([]);
   const [f, setF] = useState<any>({ station_id: "", product: products[0], litres: "", rate: "", tanker_id: "", driver_id: "", vehicle_no: "", location: client.city ?? "", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10), override_limit: false });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
   const { busy, run } = useAction();
@@ -266,7 +269,7 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
   const amount = Number(f.litres) * rate;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body: any = { station_id: Number(f.station_id), product: f.product, litres: Number(f.litres), ref: f.ref || null, note: f.note || null, txn_date: f.txn_date,
+    const body: any = { station_id: Number(f.station_id), product: f.product, litres: Number(f.litres), ref: f.ref || null, note: f.note || null, txn_date: f.txn_date, photo_ids: photos,
       ...(kind === "supply" ? { ...fleetBody(f), location: f.location || null } : { vehicle_no: f.vehicle_no || null }) };
     if (f.rate && can("wholesale.rates")) body.rate = Number(f.rate);
     if (f.override_limit) body.override_limit = true;
@@ -290,6 +293,7 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
           <Field label="Delivery note / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
+        <ProofPhotos value={photos} onChange={setPhotos} hint={kind === "supply" ? "signed delivery note / chalan, tanker at site" : "return slip"} />
         {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L in stock {kind === "return" && `· space ${num(tank.capacity_l - tank.current_l)} L`}</p>}
         {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · due after: <b>{pkr(client.summary.due + (kind === "supply" ? amount : -amount))}</b></div>}
         {kind === "supply" && can("wholesale.rates") && client.credit_limit > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Allow even if it crosses the credit limit (admin)</label>}
@@ -301,12 +305,13 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
 
 function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ amount: "", method: "Bank transfer", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10) });
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={`Receive payment — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
+        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
       }}>
         <p className="text-sm text-slate-600">Current due: <b>{pkr(client.summary.due)}</b></p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -316,6 +321,7 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
         </div>
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        <ProofPhotos value={photos} onChange={setPhotos} hint={f.method === "Cheque" ? "photo of the cheque (both sides)" : f.method === "Cash" ? "cash receipt / counted notes" : "bank slip or payment screenshot"} />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save payment</button></div>
       </form>
     </Modal>
@@ -324,16 +330,18 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
 
 function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ dir: "-1", amount: "", note: "" });
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={`Adjustment — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/wholesale/clients/${client.id}/adjustment`, { body: { amount: Number(f.dir) * Number(f.amount), note: f.note } }), (r: any) => `Adjustment saved. Due now ${pkr(r.due_after)}`)) onDone();
+        if (await run(() => api(`/wholesale/clients/${client.id}/adjustment`, { body: { amount: Number(f.dir) * Number(f.amount), note: f.note, photo_ids: photos } }), (r: any) => `Adjustment saved. Due now ${pkr(r.due_after)}`)) onDone();
       }}>
         <Field label="Type"><select className="input" value={f.dir} onChange={(e) => setF({ ...f, dir: e.target.value })}><option value="-1">Reduce due (discount, write-off, correction)</option><option value="1">Increase due (charges, freight, correction)</option></select></Field>
         <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         <Field label="Reason (required)"><input className="input" required minLength={3} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        <ProofPhotos value={photos} onChange={setPhotos} hint="freight bill, letter, agreement" />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>

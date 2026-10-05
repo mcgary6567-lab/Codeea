@@ -10,6 +10,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 
 export const wholesale = Router();
@@ -112,7 +113,7 @@ wholesale.get("/wholesale/summary", h((req) => {
        FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, today),
     by_product_month: all(`SELECT product, ROUND(SUM(litres)) litres, ROUND(SUM(amount)) amount FROM wholesale_txns
        WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? GROUP BY product`, t, month),
-    recent: all(`SELECT x.*, c.name client_name FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id
+    recent: all(`SELECT x.*, ${proofCol("'wtx:'||x.id")}, c.name client_name FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id
        WHERE x.tenant_id=? ORDER BY x.txn_date DESC, x.id DESC LIMIT 15`, t),
   };
 }));
@@ -365,7 +366,7 @@ export function statement(tenantId: number, clientId: number, from?: string, to?
   const c = ownClient(tenantId, clientId);
   const opening = from ? clientDue(c.id, pkStart(from)) : c.opening_balance;
   const rows = all(
-    `SELECT x.*, s.name station_name FROM wholesale_txns x LEFT JOIN stations s ON s.id=x.station_id
+    `SELECT x.*, ${proofCol("'wtx:'||x.id")}, s.name station_name FROM wholesale_txns x LEFT JOIN stations s ON s.id=x.station_id
      WHERE x.client_id=? ${from ? "AND x.txn_date >= ?" : ""} ${to ? "AND x.txn_date < ?" : ""} ORDER BY x.txn_date, x.id`,
     ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   );
@@ -421,6 +422,7 @@ function insertTxn(req: Request, clientId: number, f: Row) {
     f.amount, f.method ?? null, f.vehicle_no ?? null, f.ref ?? null, f.note ?? null, req.user!.name, ts, now(),
     f.trip_id ?? null, f.tanker_id ?? null, f.driver_id ?? null, f.driver_name ?? null, f.location ?? null,
   );
+  linkPhotos(tid(req), f.photo_ids, `wtx:${id}`);
   // WhatsApp receipt to the client once the entry is committed
   setImmediate(() => { if (get("SELECT id FROM wholesale_txns WHERE id=?", id)) wholesaleReceipt(tid(req), clientId, get("SELECT * FROM wholesale_txns WHERE id=?", id)!).catch((e) => console.error("[wholesale receipt]", e.message)); });
   return { ...get("SELECT * FROM wholesale_txns WHERE id=?", id), due_after: clientDue(clientId) };
@@ -430,7 +432,7 @@ const fuelBody = z.object({
   station_id: z.number(), product, litres: z.number().positive(), rate: z.number().positive().optional(),
   vehicle_no: z.string().optional().nullable(), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),
   tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), location: z.string().max(120).optional().nullable(),
-  txn_date: dateStr, override_limit: z.boolean().optional(),
+  txn_date: dateStr, override_limit: z.boolean().optional(), photo_ids: proofPhotos,
 });
 
 /** Tanker number and driver name from the fleet register (a typed vehicle number still works). */
@@ -480,7 +482,7 @@ wholesale.post("/wholesale/clients/:id/supply", requirePerm("wholesale.manage"),
 /* ---------------- Tanker trips: one tanker, several clients / places, each at their own rate ---------------- */
 const tripBody = z.object({
   station_id: z.number(), product, tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(),
-  vehicle_no: z.string().optional().nullable(), txn_date: dateStr, note: z.string().max(200).optional().nullable(),
+  vehicle_no: z.string().optional().nullable(), txn_date: dateStr, note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
   drops: z.array(z.object({
     client_id: z.number().int(), litres: z.number().positive(), rate: z.number().positive().optional(),
     location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), override_limit: z.boolean().optional(),
@@ -508,6 +510,7 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
     const { id } = run(`INSERT INTO wholesale_trips (tenant_id,station_id,tank_id,product,tanker_id,driver_id,vehicle_no,driver_name,litres,amount,drops,note,created_by,trip_date,created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, tank.id, b.product, fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
       total, amount, priced.length, b.note ?? null, req.user!.name, ts, now());
+    linkPhotos(tid(req), b.photo_ids, `trip:${id}`);
     for (const d of priced) {
       const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tank.id, product: b.product, litres: d.litres, rate: d.rate, amount: d.amount,
         ref: d.ref ?? `TRIP-${id}`, note: b.note ?? null, location: d.location ?? null, txn_date: b.txn_date, trip_id: id, ...fl });
@@ -517,11 +520,11 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
   });
 }));
 export function tripSheet(t: number, id: number) {
-  const trip = get(`SELECT tr.*, s.name station_name, tk.name tank_name, d.phone driver_phone, d.cnic driver_cnic, d.licence_no driver_licence
+  const trip = get(`SELECT tr.*, ${proofCol("'trip:'||tr.id")}, s.name station_name, tk.name tank_name, d.phone driver_phone, d.cnic driver_cnic, d.licence_no driver_licence
     FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN tanks tk ON tk.id=tr.tank_id LEFT JOIN drivers d ON d.id=tr.driver_id
     WHERE tr.id=? AND tr.tenant_id=?`, id, t);
   if (!trip) throw new AppError(404, "Trip not found");
-  const drops = all(`SELECT w.id, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
+  const drops = all(`SELECT w.id, ${proofCol("'wtx:'||w.id")}, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
     FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.trip_id=? ORDER BY w.id`, id);
   const live = drops.filter((d) => !d.voided);
   return { ...trip, drops, delivered_l: round2(live.reduce((a, d) => a + d.litres, 0)), billed: round2(live.reduce((a, d) => a + d.amount, 0)) };
@@ -591,13 +594,13 @@ wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"),
 
 wholesale.post("/wholesale/clients/:id/payment", requirePerm("wholesale.manage"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
-  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr }), req.body);
+  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos }), req.body);
   return insertTxn(req, c.id, { ...b, type: "payment" });
 }));
 
 wholesale.post("/wholesale/clients/:id/adjustment", requirePerm("wholesale.rates"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
-  const b = parse(z.object({ amount: z.number().refine((v) => v !== 0, "Amount cannot be zero"), note: z.string().min(3, "Give a reason"), txn_date: dateStr }), req.body);
+  const b = parse(z.object({ amount: z.number().refine((v) => v !== 0, "Amount cannot be zero"), note: z.string().min(3, "Give a reason"), txn_date: dateStr, photo_ids: proofPhotos }), req.body);
   return insertTxn(req, c.id, { ...b, type: "adjustment" });
 }));
 

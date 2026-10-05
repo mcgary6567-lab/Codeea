@@ -15,7 +15,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
 import { sendDirect } from "../whatsapp/cloud.js";
-import { linkPhotos } from "./capture.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { dayBook } from "./reports.js";
 import { notify, staff } from "../notifications.js";
 
@@ -53,7 +53,7 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
 backoffice.get("/cash", requirePerm("expenses.view"), h((req) => ({
   ...cashPosition(tid(req)),
   deposits: all("SELECT d.*, s.name station_name FROM bank_deposits d LEFT JOIN stations s ON s.id=d.station_id WHERE d.tenant_id=? ORDER BY d.id DESC LIMIT 30", tid(req)),
-  counts: all("SELECT * FROM cash_counts WHERE tenant_id=? ORDER BY id DESC LIMIT 15", tid(req)),
+  counts: all(`SELECT c.*, ${proofCol("'cashcount:'||c.id")} FROM cash_counts c WHERE c.tenant_id=? ORDER BY c.id DESC LIMIT 15`, tid(req)),
 })));
 
 backoffice.post("/cash/deposits", requirePerm("expenses.create"), h((req) => {
@@ -69,12 +69,13 @@ backoffice.post("/cash/deposits", requirePerm("expenses.create"), h((req) => {
 
 /** Count the office cash: the difference from what the book says is reported. */
 backoffice.post("/cash/count", requirePerm("expenses.create"), h(async (req) => {
-  const b = parse(z.object({ amount: z.number().min(0).max(100_000_000), note: z.string().max(200).optional().nullable() }), req.body);
+  const b = parse(z.object({ amount: z.number().min(0).max(100_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
   const t = tid(req);
   const expected = cashPosition(t);
   // the very first count just sets the starting cash
   const variance = expected.last_count ? round2(b.amount - expected.cash_in_hand) : 0;
-  run("INSERT INTO cash_counts (tenant_id,amount,expected,variance,note,counted_by,created_at) VALUES (?,?,?,?,?,?,?)", t, b.amount, expected.cash_in_hand, variance, b.note ?? null, req.user!.name, now());
+  const cid = run("INSERT INTO cash_counts (tenant_id,amount,expected,variance,note,counted_by,created_at) VALUES (?,?,?,?,?,?,?)", t, b.amount, expected.cash_in_hand, variance, b.note ?? null, req.user!.name, now()).id;
+  linkPhotos(t, b.photo_ids, `cashcount:${cid}`);
   if (Math.abs(variance) >= 500) {
     const a = createAlert(t, { type: "cash_count", severity: Math.abs(variance) >= 5000 ? "critical" : "warning",
       title: `Office cash ${variance < 0 ? "short" : "over"} ${pkr(Math.abs(variance))}`, body: `Counted ${pkr(b.amount)} by ${req.user!.name}; book said ${pkr(expected.cash_in_hand)}.` });

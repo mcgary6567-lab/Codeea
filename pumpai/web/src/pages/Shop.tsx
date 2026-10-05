@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, PackagePlus, ClipboardCheck, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { Badge, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, num, pkr } from "../lib/format";
 
@@ -98,12 +99,13 @@ function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId:
 
 function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ qty: "", cost: String(item.cost ?? ""), supplier: "", reason: "Stock count" });
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={kind === "in" ? `Stock received — ${item.name}` : `Count stock — ${item.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const r = kind === "in" ? await run(() => api(`/shop/items/${item.id}/stock-in`, { body: { qty: Number(f.qty), cost: Number(f.cost) || 0, supplier: f.supplier || null } }), "Stock added")
+        const r = kind === "in" ? await run(() => api(`/shop/items/${item.id}/stock-in`, { body: { qty: Number(f.qty), cost: Number(f.cost) || 0, supplier: f.supplier || null, photo_ids: photos } }), "Stock added")
           : await run(() => api(`/shop/items/${item.id}/adjust`, { body: { counted: Number(f.qty), reason: f.reason } }), (x: any) => x.difference ? `Difference ${x.difference} ${item.unit} recorded` : "Matches the book");
         if (r) onDone();
       }}>
@@ -112,6 +114,7 @@ function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item
         {kind === "in" ? <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Cost per unit (Rs)"><input className="input" type="number" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
           <Field label="Supplier"><input className="input" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} /></Field>
+          <div className="sm:col-span-2"><ProofPhotos value={photos} onChange={setPhotos} hint="supplier bill / delivery slip" /></div>
         </div> : <Field label="Reason"><select className="input" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })}>{["Stock count", "Damaged", "Expired", "Used in service", "Other"].map((x) => <option key={x}>{x}</option>)}</select></Field>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
@@ -125,7 +128,7 @@ function Moves({ item, onClose }: { item: any; onClose: () => void }) {
     <Modal open onClose={onClose} title={`Stock history — ${item.name}`} wide>
       {!data ? <Loading /> : <div className="max-h-[60vh] overflow-auto"><table className="w-full">
         <thead><tr><th className="th">When</th><th className="th">Type</th><th className="th text-right">Qty</th><th className="th">Note</th><th className="th">By</th></tr></thead>
-        <tbody>{data.map((m) => <tr key={m.id}><td className="td text-xs">{dt(m.created_at)}</td><td className="td text-sm capitalize">{m.type}</td><td className={`td text-right tabular-nums ${m.qty < 0 ? "text-red-600" : "text-emerald-700"}`}>{m.qty > 0 ? "+" : ""}{num(m.qty, 2)}</td><td className="td text-sm text-slate-600">{m.note ?? m.ref ?? ""}</td><td className="td text-xs">{m.created_by}</td></tr>)}</tbody>
+        <tbody>{data.map((m) => <tr key={m.id}><td className="td text-xs">{dt(m.created_at)}</td><td className="td text-sm capitalize">{m.type}</td><td className={`td text-right tabular-nums ${m.qty < 0 ? "text-red-600" : "text-emerald-700"}`}>{m.qty > 0 ? "+" : ""}{num(m.qty, 2)}</td><td className="td text-sm text-slate-600">{m.note ?? m.ref ?? ""} <ProofThumbs ids={m.proof_ids} /></td><td className="td text-xs">{m.created_by}</td></tr>)}</tbody>
       </table></div>}
     </Modal>
   );

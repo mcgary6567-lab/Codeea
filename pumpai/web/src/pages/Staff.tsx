@@ -3,7 +3,7 @@ import { Wallet, Plus, Minus, Banknote } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
-import { photoUrl } from "../components/Capture";
+import { photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
 import { useAuth } from "../App";
 import { LoansBox, SlipsList, TrainingTab, CoachingTab } from "../components/StaffExtras";
@@ -119,9 +119,10 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { busy, run } = useAction();
   const [form, setForm] = useState<null | "advance" | "repayment" | "salary" | "set-salary">(null);
   const [f, setF] = useState({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" });
+  const [photos, setPhotos] = useState<number[]>([]);
   if (!data) return <Modal open onClose={onClose} title="Staff account"><Loading /></Modal>;
   const u = data.user;
-  const done = () => { setForm(null); setF({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" }); reload(); };
+  const done = () => { setForm(null); setF({ amount: "", note: "", deduct: "", bonus: "", salary: "", cut: "" }); setPhotos([]); reload(); };
   const cut = f.cut === "" ? data.attendance?.salary_cut ?? 0 : Number(f.cut) || 0;
   const gross = (u.salary ?? 0) - cut + (Number(f.bonus) || 0) + (data.commission ?? 0);
   const loan = Math.max(0, Math.min(data.loan_due ?? 0, gross - (Number(f.deduct) || 0)));
@@ -142,9 +143,9 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
       {form && (
         <form className="mt-4 space-y-3 rounded-xl border border-slate-200 p-3" onSubmit={async (e) => {
           e.preventDefault();
-          const call = form === "salary" ? api(`/staff/${id}/pay-salary`, { body: { deduct: Number(f.deduct) || 0, bonus: Number(f.bonus) || 0, absence_cut: cut } })
+          const call = form === "salary" ? api(`/staff/${id}/pay-salary`, { body: { deduct: Number(f.deduct) || 0, bonus: Number(f.bonus) || 0, absence_cut: cut, photo_ids: photos } })
             : form === "set-salary" ? api(`/staff/${id}`, { method: "PATCH", body: { salary: Number(f.salary) || null } })
-            : api(`/staff/${id}/entry`, { body: { type: form, amount: Number(f.amount), note: f.note || null } });
+            : api(`/staff/${id}/entry`, { body: { type: form, amount: Number(f.amount), note: f.note || null, photo_ids: photos } });
           const r: any = await run(() => call, form === "salary" ? `Salary paid: ${pkr(net)} — slip sent on WhatsApp` : "Saved");
           if (r) { if (r.slip_url) { setSlipUrl(r.slip_url); slips.reload(); } done(); }
         }}>
@@ -164,6 +165,7 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
             {loan > 0 && <div className="text-sm text-slate-600">− Loan instalment: <b>{pkr(loan)}</b> — cut by itself</div>}
             <div className="rounded-lg bg-emerald-50 p-3 text-lg">Hand over in cash: <b className="tabular-nums">{pkr(net)}</b></div>
           </>}
+          {form !== "set-salary" && <ProofPhotos value={photos} onChange={setPhotos} hint={form === "salary" ? "signed salary sheet / thumb impression" : form === "advance" ? "signed advance slip" : "receipt"} />}
           <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setForm(null)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
         </form>
       )}
@@ -200,7 +202,7 @@ export function LedgerList({ lines }: { lines: any[] }) {
           <tr key={l.id}>
             <td className="td whitespace-nowrap text-xs">{dt(l.created_at)}</td>
             <td className="td"><Badge tone={TYPE[l.type]?.tone}>{TYPE[l.type]?.label ?? l.type}</Badge></td>
-            <td className="td text-sm text-slate-600">{l.note}</td>
+            <td className="td text-sm text-slate-600">{l.note} <ProofThumbs ids={l.proof_ids} /></td>
             <td className="td text-right tabular-nums">{TYPE[l.type]?.sign}{pkr(l.amount)}</td>
             <td className="td text-right font-medium tabular-nums">{pkr(l.balance)}</td>
           </tr>

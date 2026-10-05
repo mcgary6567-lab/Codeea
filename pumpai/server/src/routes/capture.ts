@@ -14,7 +14,7 @@ export const capture = Router();
 
 const MAX_BYTES = 4 * 1024 * 1024;
 
-capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses", "wholesale.manage"), h(async (req) => {
+capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses", "wholesale.manage", "khata.manage", "staff.manage", "suppliers.manage"), h(async (req) => {
   const b = parse(z.object({
     kind: z.enum(["meter", "invoice", "receipt", "bill", "selfie", "proof"]),
     image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Send a JPEG, PNG or WebP photo"),
@@ -49,6 +49,11 @@ capture.post("/ai/parse-sale", requirePerm("sales.create"), h(async (req) => {
   const accounts = all("SELECT id, name FROM customers WHERE tenant_id=? AND credit_limit > 0", tid(req)) as { id: number; name: string }[];
   return parseSale(b.text, accounts);
 }));
+
+/** Photo proof sent with an entry: up to 10 photos (cheque, receipt, slip, invoice, signed chalan…). */
+export const proofPhotos = z.array(z.number().int().positive()).max(10).optional();
+/** The photo ids attached to a ledger row, as a comma list, for list / statement queries ("proof_ids"). */
+export const proofCol = (refSql: string) => `(SELECT GROUP_CONCAT(p.id) FROM photos p WHERE p.ref = ${refSql}) proof_ids`;
 
 /** Attach uploaded photos to what they prove (a shift's meters, a delivery, an expense). */
 export function linkPhotos(tenantId: number, ids: number[] | undefined | null, ref: string): number {

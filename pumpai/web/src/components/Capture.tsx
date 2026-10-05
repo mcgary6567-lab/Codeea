@@ -109,3 +109,60 @@ export function VoiceButton({ onParsed, className = "" }: { onParsed: (sale: any
     </>
   );
 }
+
+/**
+ * Photo proof for any entry: cheque, cash receipt, bank slip, invoice, signed chalan…
+ * Several photos can be added (camera or gallery); each is kept and linked to the saved entry.
+ */
+export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "cheque, receipt, slip, invoice" }: {
+  value: number[]; onChange: (ids: number[]) => void; label?: string; hint?: string;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const add = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const ids: number[] = [];
+      for (const f of Array.from(files).slice(0, 10 - value.length)) {
+        const r = await api("/ai/read-photo", { body: { kind: "proof", image: await resizeImage(f) } });
+        ids.push(r.photo_id);
+      }
+      onChange([...value, ...ids]);
+    } catch (e: any) { toast("err", e.message); }
+    finally { setBusy(false); if (input.current) input.current.value = ""; }
+  };
+  return (
+    <div>
+      <span className="label">{label} <span className="font-normal text-slate-400">· {hint}</span></span>
+      <div className="flex flex-wrap items-center gap-2">
+        {value.map((id) => (
+          <span key={id} className="relative">
+            <a href={photoUrl(id)} target="_blank" rel="noreferrer"><img src={photoUrl(id)} alt="Proof" className="h-14 w-14 rounded-lg border border-slate-200 object-cover" /></a>
+            <button type="button" onClick={() => onChange(value.filter((x) => x !== id))} aria-label="Remove photo"
+              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-xs text-white">×</button>
+          </span>
+        ))}
+        {value.length < 10 && (
+          <button type="button" disabled={busy} onClick={() => input.current?.click()}
+            className="flex h-14 items-center gap-1.5 rounded-lg border-2 border-dashed border-slate-300 px-3 text-sm font-medium text-slate-600 hover:border-brand-500 hover:text-brand-700">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}{value.length ? "Add more" : "Take / add photo"}
+          </button>
+        )}
+      </div>
+      <input ref={input} type="file" accept="image/*" multiple className="hidden" onChange={(e) => add(e.target.files)} />
+    </div>
+  );
+}
+
+/** Small photo links for a list row ("proof_ids" = "12,13" from the server). */
+export function ProofThumbs({ ids }: { ids?: string | number[] | null }) {
+  const list = (Array.isArray(ids) ? ids : String(ids ?? "").split(",")).map(Number).filter(Boolean);
+  if (!list.length) return null;
+  return (
+    <span className="inline-flex flex-wrap gap-1 align-middle">
+      {list.map((id) => <a key={id} href={photoUrl(id)} target="_blank" rel="noreferrer" title="Open photo proof"><img src={photoUrl(id)} alt="Proof" className="h-8 w-8 rounded border border-slate-200 object-cover" /></a>)}
+    </span>
+  );
+}

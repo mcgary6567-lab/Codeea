@@ -3,6 +3,7 @@ import { GraduationCap, HandCoins, FileText, MessageSquareHeart, Send, RefreshCw
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, PageHeader, useAction } from "./ui";
 import { num, pkr } from "../lib/format";
+import { ProofPhotos } from "./Capture";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   done: { label: "OK", cls: "bg-emerald-100 text-emerald-800" }, due_soon: { label: "Due soon", cls: "bg-amber-100 text-amber-800" },
@@ -12,6 +13,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 /** Loans with monthly instalments (inside the staff account). */
 export function LoansBox({ userId, loans, onChanged }: { userId: number; loans: any[]; onChanged: () => void }) {
   const [f, setF] = useState({ amount: "", instalment: "", note: "" });
+  const [photos, setPhotos] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
   const { busy, run } = useAction();
   const active = loans.filter((l) => l.status !== "closed");
@@ -30,11 +32,12 @@ export function LoansBox({ userId, loans, onChanged }: { userId: number; loans: 
       {!active.length && !open && <p className="mt-1 text-sm text-slate-500">No loan. The monthly instalment is cut from the salary by itself.</p>}
       {open && <form className="mt-2 grid gap-2 sm:grid-cols-4" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/staff/${userId}/loans`, { body: { amount: Number(f.amount), instalment: Number(f.instalment), note: f.note || null } }), "Loan given — paid from the office cash")) { setOpen(false); setF({ amount: "", instalment: "", note: "" }); onChanged(); }
+        if (await run(() => api(`/staff/${userId}/loans`, { body: { amount: Number(f.amount), instalment: Number(f.instalment), note: f.note || null, photo_ids: photos } }), "Loan given — paid from the office cash")) { setOpen(false); setF({ amount: "", instalment: "", note: "" }); setPhotos([]); onChanged(); }
       }}>
         <input className="input" type="number" min={1} required placeholder="Loan Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
         <input className="input" type="number" min={1} required placeholder="Per month Rs" value={f.instalment} onChange={(e) => setF({ ...f, instalment: e.target.value })} />
         <input className="input" placeholder="Reason" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
+        <div className="sm:col-span-4"><ProofPhotos value={photos} onChange={setPhotos} hint="signed loan paper / CNIC copy" /></div>
         <button className="btn-primary" disabled={busy}>Give loan{Number(f.amount) && Number(f.instalment) ? ` (${Math.ceil(Number(f.amount) / Number(f.instalment))} months)` : ""}</button>
       </form>}
     </div>

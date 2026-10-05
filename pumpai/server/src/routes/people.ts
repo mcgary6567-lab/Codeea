@@ -14,7 +14,7 @@ import { all, get, run, now, pkDate, pkStart, pkEnd, tx } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { notify, staff } from "../notifications.js";
-import { linkPhotos } from "./capture.js";
+import { linkPhotos, proofPhotos } from "./capture.js";
 import { Pdf } from "../pdf.js";
 import { logoJpeg } from "./setup.js";
 
@@ -60,7 +60,7 @@ people.get("/staff/:id/loans", requirePerm("staff.manage"), h((req) => loansOf(o
 people.post("/staff/:id/loans", requirePerm("staff.manage"), h(async (req) => {
   const t = tid(req);
   const u = ownUser(t, Number(req.params.id));
-  const b = parse(z.object({ amount: z.number().positive().max(10_000_000), instalment: z.number().positive(), note: z.string().max(200).optional().nullable() }), req.body);
+  const b = parse(z.object({ amount: z.number().positive().max(10_000_000), instalment: z.number().positive(), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
   if (b.instalment > b.amount) throw new AppError(400, "Monthly instalment is more than the loan");
   if (u.salary && b.instalment > u.salary) throw new AppError(400, `Instalment is more than ${u.name}'s salary (${pkr(u.salary)})`);
   const id = tx(() => {
@@ -68,6 +68,7 @@ people.post("/staff/:id/loans", requirePerm("staff.manage"), h(async (req) => {
     // the money goes out of the office cash like an advance
     run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)",
       t, u.id, "advance", b.amount, `Loan #${id}${b.note ? `: ${b.note}` : ""} — ${pkr(b.instalment)} a month`, `loan:${id}`, req.user!.name, now());
+    linkPhotos(t, b.photo_ids, `loan:${id}`); // signed loan paper
     return id;
   });
   audit(t, req.user!, "staff_loan", `loan:${id}`, b);

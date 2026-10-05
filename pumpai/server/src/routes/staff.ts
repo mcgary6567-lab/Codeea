@@ -8,6 +8,7 @@ import { z } from "zod";
 import { commissionForMonth } from "./feedback.js";
 import { loanDue, loansOf, takeInstalments, saveSlip, slipUrl } from "./people.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr } from "../services.js";
 import { notify } from "../notifications.js";
@@ -21,7 +22,7 @@ export const staffBalance = (userId: number) => round2(get(`SELECT COALESCE(SUM(
 
 function ledger(userId: number) {
   let bal = 0;
-  return all("SELECT * FROM staff_ledger WHERE user_id=? ORDER BY created_at, id", userId).map((l) => {
+  return all(`SELECT l.*, ${proofCol("'staff:'||l.id")} FROM staff_ledger l WHERE l.user_id=? ORDER BY l.created_at, l.id`, userId).map((l) => {
     bal = round2(bal + (["advance", "shortage"].includes(l.type) ? l.amount : ["repayment", "deduction"].includes(l.type) ? -l.amount : 0));
     return { ...l, balance: bal };
   }).reverse();
@@ -59,9 +60,10 @@ staffRouter.patch("/staff/:id", h((req) => {
 
 staffRouter.post("/staff/:id/entry", h(async (req) => {
   const u = ownUser(tid(req), Number(req.params.id));
-  const b = parse(z.object({ type: z.enum(["advance", "repayment", "bonus", "shortage", "deduction"]), amount: z.number().positive().max(10_000_000), note: z.string().max(200).optional().nullable() }), req.body);
+  const b = parse(z.object({ type: z.enum(["advance", "repayment", "bonus", "shortage", "deduction"]), amount: z.number().positive().max(10_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
   if (["repayment", "deduction"].includes(b.type) && b.amount > staffBalance(u.id) + 0.01) throw new AppError(400, `${u.name} owes only ${pkr(staffBalance(u.id))}`);
-  run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", tid(req), u.id, b.type, b.amount, b.note ?? null, req.user!.name, now());
+  const lid = run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", tid(req), u.id, b.type, b.amount, b.note ?? null, req.user!.name, now()).id;
+  linkPhotos(tid(req), b.photo_ids, `staff:${lid}`);
   if (b.type === "advance" || b.type === "bonus")
     await notify(tid(req), [u], { type: "staff_ledger", title: b.type === "advance" ? `Advance ${pkr(b.amount)} given` : `Bonus ${pkr(b.amount)} 🎉`, body: `Your account: ${pkr(staffBalance(u.id))} to be adjusted.` });
   return { balance: staffBalance(u.id), lines: ledger(u.id) };
@@ -71,7 +73,7 @@ staffRouter.post("/staff/:id/entry", h(async (req) => {
 staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
   const u = ownUser(tid(req), Number(req.params.id));
   const b = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), deduct: z.number().min(0).default(0), bonus: z.number().min(0).default(0), note: z.string().max(200).optional(),
-    absence_cut: z.number().min(0).optional(), commission: z.number().min(0).optional(), skip_loan: z.boolean().optional() }), req.body);
+    absence_cut: z.number().min(0).optional(), commission: z.number().min(0).optional(), skip_loan: z.boolean().optional(), photo_ids: proofPhotos }), req.body);
   const month = b.month ?? pkDate().slice(0, 7);
   if (!u.salary) throw new AppError(400, `Set ${u.name}'s monthly salary first`);
   if (get("SELECT id FROM staff_ledger WHERE user_id=? AND type='salary' AND month=?", u.id, month)) throw new AppError(400, `${u.name}'s salary for ${month} is already paid`);
@@ -92,11 +94,12 @@ staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
   tx(() => {
     loan = loanWanted ? takeInstalments(t, u.id, month, gross - b.deduct, req.user!.name) : 0;
     const ins = (type: string, amount: number, note: string) =>
-      run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,month,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", t, u.id, type, amount, note, month, req.user!.name, now());
+      run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,month,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", t, u.id, type, amount, note, month, req.user!.name, now()).id;
     if (b.bonus) ins("bonus", b.bonus, b.note ?? `Bonus ${month}`);
     if (com) ins("bonus", com, `Commission ${month}`);
     if (b.deduct) ins("deduction", b.deduct, `Recovered from ${month} salary`);
-    ins("salary", round2(gross - b.deduct - loan), `Salary ${month}: ${pkr(u.salary)}${absenceCut ? ` − ${pkr(absenceCut)} absences` : ""}${b.bonus ? ` + bonus ${pkr(b.bonus)}` : ""}${com ? ` + commission ${pkr(com)}` : ""}${b.deduct ? ` − ${pkr(b.deduct)} advance/shortage` : ""}${loan ? ` − ${pkr(loan)} loan` : ""}`);
+    const salaryId = ins("salary", round2(gross - b.deduct - loan), `Salary ${month}: ${pkr(u.salary)}${absenceCut ? ` − ${pkr(absenceCut)} absences` : ""}${b.bonus ? ` + bonus ${pkr(b.bonus)}` : ""}${com ? ` + commission ${pkr(com)}` : ""}${b.deduct ? ` − ${pkr(b.deduct)} advance/shortage` : ""}${loan ? ` − ${pkr(loan)} loan` : ""}`);
+    linkPhotos(t, b.photo_ids, `staff:${salaryId}`); // signed salary sheet / receipt
     // the expense book shows the full salary cost; the recovered part was paid out earlier as an advance
     if (get("SELECT id FROM expense_categories WHERE tenant_id=? AND name='Salaries & wages'", t))
       run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,approved_by,expense_date,created_at)

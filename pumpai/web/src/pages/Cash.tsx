@@ -3,7 +3,7 @@ import { Landmark, Calculator, ArrowDownCircle, ArrowUpCircle } from "lucide-rea
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
-import { PhotoButton, photoUrl } from "../components/Capture";
+import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 
 const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back" };
 const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", staff_advances: "Staff advances / bonus" };
@@ -49,7 +49,7 @@ export default function Cash() {
           <ul className="divide-y divide-slate-100 text-sm">
             {data.counts.map((c: any) => (
               <li key={c.id} className="flex justify-between py-1.5"><span>{dt(c.created_at)} · {c.counted_by}</span>
-                <span className="tabular-nums">{pkr(c.amount)} {c.variance ? <span className={c.variance < 0 ? "text-red-600" : "text-emerald-700"}>({c.variance < 0 ? "short" : "over"} {pkr(Math.abs(c.variance))})</span> : null}</span></li>
+                <span className="tabular-nums">{pkr(c.amount)} {c.variance ? <span className={c.variance < 0 ? "text-red-600" : "text-emerald-700"}>({c.variance < 0 ? "short" : "over"} {pkr(Math.abs(c.variance))})</span> : null} <ProofThumbs ids={c.proof_ids} /></span></li>
             ))}
           </ul>
         </div>
@@ -64,6 +64,7 @@ const Line = ({ k, v, neg }: { k: string; v: number; neg?: boolean }) => (
 );
 
 function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"; inHand: number; onClose: () => void; onDone: () => void }) {
+  const [photos, setPhotos] = useState<number[]>([]);
   const [f, setF] = useState({ amount: kind === "deposit" ? String(Math.max(0, Math.floor(inHand / 1000) * 1000)) : "", bank: "", slip_ref: "", note: "", photo_id: null as number | null });
   const { busy, run } = useAction();
   return (
@@ -71,7 +72,7 @@ function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
         const r = kind === "count"
-          ? await run(() => api("/cash/count", { body: { amount: Number(f.amount), note: f.note || null } }), (x: any) => x.variance ? `Counted. ${x.variance < 0 ? "Short" : "Over"} ${pkr(Math.abs(x.variance))} against the book` : "Counted — matches the book")
+          ? await run(() => api("/cash/count", { body: { amount: Number(f.amount), note: f.note || null, photo_ids: photos } }), (x: any) => x.variance ? `Counted. ${x.variance < 0 ? "Short" : "Over"} ${pkr(Math.abs(x.variance))} against the book` : "Counted — matches the book")
           : await run(() => api("/cash/deposits", { body: { amount: Number(f.amount), bank: f.bank, slip_ref: f.slip_ref || null, photo_id: f.photo_id, note: f.note || null } }), "Deposit saved");
         if (r) onDone();
       }}>
@@ -86,6 +87,7 @@ function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"
           <Field label="Slip no."><input className="input" value={f.slip_ref} onChange={(e) => setF({ ...f, slip_ref: e.target.value })} /></Field>
         </div>}
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        {kind === "count" && <ProofPhotos value={photos} onChange={setPhotos} hint="counted notes / cash register" />}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>

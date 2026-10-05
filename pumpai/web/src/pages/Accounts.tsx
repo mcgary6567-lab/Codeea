@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Truck, Scale, Percent, Landmark, BookOpenCheck, Download, Upload, Send } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
-import { Badge, Empty, Field, Loading, PageHeader, Stat, useAction, ErrorBox } from "../components/ui";
+import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction, ErrorBox } from "../components/ui";
 import { d as day, dt, num, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 
 const TABS = [
   { key: "claims", label: "Tanker claims", icon: Truck, perm: "suppliers.manage" },
@@ -43,6 +44,7 @@ const STATUS_TONE: Record<string, string> = { open: "amber", claimed: "blue", pa
 
 function Claims() {
   const [status, setStatus] = useState("");
+  const [settle, setSettle] = useState<any | null>(null);
   const { data, reload } = useApi<any>(`/claims${status ? `?status=${status}` : ""}`);
   const { busy, run } = useAction();
   if (!data) return <Loading />;
@@ -68,11 +70,11 @@ function Claims() {
                   <td>{c.supplier_name ?? "—"}</td>
                   <td className="text-right tabular-nums">{num(c.invoice_l)} / {num(c.received_l)} L<span className="block text-xs text-red-600">{c.shortage_pct}% short</span></td>
                   <td className="text-right tabular-nums"><b>{pkr(c.amount)}</b><span className="block text-xs text-slate-500">{c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}` : ""}</span></td>
-                  <td><Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge>{c.claim_ref && <span className="block text-xs text-slate-500">{c.claim_ref}</span>}</td>
+                  <td><Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge>{c.claim_ref && <span className="block text-xs text-slate-500">{c.claim_ref}</span>}<ProofThumbs ids={c.proof_ids} /></td>
                   <td className="whitespace-nowrap px-2 text-right">
                     {c.status === "open" && <button className="btn-primary px-2 py-1 text-xs" disabled={busy} onClick={() => run(() => api(`/claims/${c.id}/claim`, { body: { claim_ref: prompt("Claim / letter number (optional)") || null } }), (r: any) => r.sent ? "Claim sent to the depot on WhatsApp" : "Marked as claimed").then(reload)}><Send size={12} /> Claim</button>}
                     {["claimed", "partly"].includes(c.status) && <>
-                      <button className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => { const a = prompt(`Amount recovered (credit note), up to ${Math.round(c.amount - c.recovered)}`, String(Math.round(c.amount - c.recovered))); if (a) run(() => api(`/claims/${c.id}/settle`, { body: { action: "recovered", amount: Number(a) } }), "Credit note recorded — payable reduced").then(reload); }}>Got credit</button>
+                      <button className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => setSettle(c)}>Got credit</button>
                       <button className="ml-1 text-xs text-slate-500 underline" onClick={() => confirm("Write this claim off?") && run(() => api(`/claims/${c.id}/settle`, { body: { action: "written_off" } }), "Written off").then(reload)}>Write off</button>
                     </>}
                   </td>
@@ -89,7 +91,28 @@ function Claims() {
               <div className="text-xs text-slate-500">{x.n} tankers · {num(x.litres)} L short · recovered {pkr(x.recovered)}</div></li>))}</ul>
         </div>
       </div>
+      {settle && <SettleClaim c={settle} onClose={() => setSettle(null)} onDone={() => { setSettle(null); reload(); }} />}
     </>
+  );
+}
+
+/** Credit note from the depot for a tanker shortage, with a photo of the credit note / letter. */
+function SettleClaim({ c, onClose, onDone }: { c: any; onClose: () => void; onDone: () => void }) {
+  const left = Math.round(c.amount - c.recovered);
+  const [amount, setAmount] = useState(String(left));
+  const [photos, setPhotos] = useState<number[]>([]);
+  const { busy, run } = useAction();
+  return (
+    <Modal open onClose={onClose} title={`Credit received — ${c.tanker_no ?? "tanker"}`}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        if (await run(() => api(`/claims/${c.id}/settle`, { body: { action: "recovered", amount: Number(amount), photo_ids: photos } }), "Credit note recorded — payable reduced")) onDone();
+      }}>
+        <Field label={`Amount recovered (up to ${pkr(left)})`}><input className="input text-lg" type="number" min={1} max={left} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <ProofPhotos value={photos} onChange={setPhotos} hint="credit note / depot letter" />
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+      </form>
+    </Modal>
   );
 }
 

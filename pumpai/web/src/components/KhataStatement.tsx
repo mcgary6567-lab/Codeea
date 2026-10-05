@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, Printer, Send, QrCode, ExternalLink } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
+import { ProofThumbs } from "./Capture";
 import { Field, Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, num, pkr } from "../lib/format";
 
@@ -68,7 +69,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
                     <td className="td whitespace-nowrap text-xs">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                     <td className="td text-xs">{l.vehicle_no ?? "—"}</td>
                     <td className="td text-xs font-medium">{l.slip_no ?? (l.type === "credit" ? l.ref ?? "Payment" : "—")}</td>
-                    <td className="td text-sm">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note}</td>
+                    <td className="td text-sm">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note} <span className="print:hidden"><ProofThumbs ids={l.proof_ids} /></span></td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.litres != null ? num(l.litres, 2) : ""}</td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.rate != null ? `Rs ${Number(l.rate).toFixed(2)}` : ""}</td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.type === "debit" ? pkr(l.amount) : ""}</td>

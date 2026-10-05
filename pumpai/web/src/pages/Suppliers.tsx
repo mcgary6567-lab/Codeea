@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Wallet } from "lucide-react";
 import { api, useApi } from "../lib/api";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
@@ -59,6 +60,7 @@ function AddSupplier({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () => void; onChanged: () => void }) {
   const { data: s, reload } = useApi<any>(`/suppliers/${id}`);
   const [pay, setPay] = useState({ amount: "", method: "Bank transfer", ref: "", wht: "" });
+  const [photos, setPhotos] = useState<number[]>([]);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={s?.name ?? "Supplier"} wide>
@@ -68,13 +70,14 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
             <form className="flex flex-1 flex-wrap items-end gap-2" onSubmit={async (e) => {
               e.preventDefault();
-              if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0 } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); reload(); onChanged(); }
+              if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); }
             }}>
               <Field label="Pay amount (Rs)"><input className="input w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               <Field label="Ref"><input className="input w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
               <Field label="Tax withheld (Rs)"><input className="input w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
               <button className="btn-primary" disabled={busy}><Wallet size={15} /> Record payment</button>
+              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>
           </div>
           <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">
@@ -84,7 +87,7 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
                 <tr key={t.id}>
                   <td className="td text-xs">{dt(t.txn_date)}</td>
                   <td className="td"><Badge tone={t.type === "purchase" ? "blue" : t.type === "payment" ? "green" : "violet"}>{t.type}</Badge></td>
-                  <td className="td text-xs">{t.product ? `${num(t.litres)} L ${PRODUCTS[t.product]} @ Rs ${t.rate}` : t.method} <span className="text-slate-500">{[t.ref, t.note].filter(Boolean).join(" · ")}</span></td>
+                  <td className="td text-xs">{t.product ? `${num(t.litres)} L ${PRODUCTS[t.product]} @ Rs ${t.rate}` : t.method} <span className="text-slate-500">{[t.ref, t.note].filter(Boolean).join(" · ")}</span> <ProofThumbs ids={t.proof_ids} /></td>
                   <td className="td text-right tabular-nums">{t.debit ? pkr(t.debit) : ""}</td>
                   <td className="td text-right tabular-nums text-emerald-700">{t.credit ? pkr(t.credit) : ""}</td>
                   <td className="td text-right font-medium tabular-nums">{pkr(t.balance)}</td>

@@ -15,7 +15,7 @@ import { followPumpPrice } from "./wholesale.js";
 import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
-import { linkPhotos, photosFor } from "./capture.js";
+import { linkPhotos, photosFor, proofPhotos, proofCol } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
@@ -428,12 +428,12 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
 
 /* ---------------- Stock: dips & deliveries ---------------- */
 operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
-  dips: all(`SELECT d.*, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
+  dips: all(`SELECT d.*, ${proofCol("'dip:'||d.id")}, t.name tank, t.product, s.name station FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
   deliveries: all(`SELECT d.*, t.name tank, t.product, s.name station FROM deliveries d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? ORDER BY d.id DESC LIMIT 50`, tid(req)),
 })));
 
 operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional() })
+  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), photo_ids: proofPhotos })
     .refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in cm or litres"), req.body);
   const t = ownTank(tid(req), b.tank_id);
   // a dip in cm is turned into litres with the tank's dip chart
@@ -442,6 +442,7 @@ operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
   return tx(() => {
     const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?)", t.id, measured, b.measured_cm ?? null, t.current_l, round2(variance), now());
     run("UPDATE tanks SET current_l=? WHERE id=?", measured, t.id);
+    linkPhotos(tid(req), b.photo_ids, `dip:${id}`); // dip-stick photo
     if (Math.abs(variance) >= 0.5)
       createAlert(tid(req), { station_id: t.station_id, type: "stock_variance", severity: Math.abs(variance) >= 1 ? "critical" : "warning",
         title: `${t.name}: stock variance ${variance.toFixed(2)}%`, body: `Dip ${Math.round(measured)}L${b.measured_cm !== undefined ? ` (${b.measured_cm} cm)` : ""} vs book ${Math.round(t.current_l)}L.`, dedupe_key: `dip-${id}` });

@@ -251,6 +251,7 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, mime TEXT NOT NULL, data BLOB NOT NULL,
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof
+  db.exec("CREATE INDEX IF NOT EXISTS idx_photos_ref ON photos(ref)");
   addColumn("expenses", "photo_id", "INTEGER");
   addColumn("deliveries", "photo_id", "INTEGER");
   // messages to contacts that are not CRM customers (wholesale clients, staff, owner)

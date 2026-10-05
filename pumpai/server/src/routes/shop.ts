@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkStart, pkEnd } from "../db.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm, scopedStation, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, audit, UNDO_SECONDS } from "../services.js";
 import { notify, staff } from "../notifications.js";
@@ -57,12 +58,13 @@ shop.patch("/shop/items/:id", requirePerm("stock.manage"), h((req) => {
 /** Stock received (purchase): the average cost is updated. */
 shop.post("/shop/items/:id/stock-in", requirePerm("stock.manage"), h((req) => {
   const i = ownItem(tid(req), Number(req.params.id));
-  const b = parse(z.object({ qty: z.number().positive(), cost: z.number().min(0).optional(), supplier: z.string().max(80).optional().nullable(), ref: z.string().max(40).optional().nullable() }), req.body);
+  const b = parse(z.object({ qty: z.number().positive(), cost: z.number().min(0).optional(), supplier: z.string().max(80).optional().nullable(), ref: z.string().max(40).optional().nullable(), photo_ids: proofPhotos }), req.body);
   const unitCost = b.cost ?? i.cost;
   const avg = i.stock + b.qty > 0 ? round2((Math.max(0, i.stock) * i.cost + b.qty * unitCost) / (Math.max(0, i.stock) + b.qty)) : unitCost;
   tx(() => {
     run("UPDATE shop_items SET stock = stock + ?, cost=? WHERE id=?", b.qty, avg, i.id);
-    run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", i.id, "purchase", b.qty, unitCost, b.ref ?? null, b.supplier ?? null, req.user!.name, now());
+    const mid = run("INSERT INTO shop_moves (item_id,type,qty,cost,ref,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", i.id, "purchase", b.qty, unitCost, b.ref ?? null, b.supplier ?? null, req.user!.name, now()).id;
+    linkPhotos(tid(req), b.photo_ids, `shopmove:${mid}`); // supplier bill
   });
   return get("SELECT * FROM shop_items WHERE id=?", i.id);
 }));
@@ -81,7 +83,7 @@ shop.post("/shop/items/:id/adjust", requirePerm("stock.manage"), h((req) => {
 
 shop.get("/shop/items/:id/moves", requirePerm("stock.manage"), h((req) => {
   const i = ownItem(tid(req), Number(req.params.id));
-  return all("SELECT * FROM shop_moves WHERE item_id=? ORDER BY id DESC LIMIT 100", i.id);
+  return all(`SELECT m.*, ${proofCol("'shopmove:'||m.id")} FROM shop_moves m WHERE m.item_id=? ORDER BY m.id DESC LIMIT 100`, i.id);
 }));
 
 /** Sell shop items from the POS. */

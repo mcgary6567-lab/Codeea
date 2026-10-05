@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Printer, Trash2, Truck, UserRound, Pencil } from "lucide-react";
 import { api, useApi } from "../lib/api";
+import { ProofPhotos, ProofThumbs } from "./Capture";
 import { Badge, Empty, Field, Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, d, dt, num, phone, pkr } from "../lib/format";
 import { useAuth } from "../App";
@@ -59,6 +60,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const fleet = useApi<any>("/wholesale/fleet");
   const [f, setF] = useState<any>({ station_id: "", product: "HSD", tanker_id: "", driver_id: "", vehicle_no: "", txn_date: today(), note: "", override_limit: false });
   const [drops, setDrops] = useState<Drop[]>([emptyDrop(), emptyDrop()]);
+  const [photos, setPhotos] = useState<number[]>([]);
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: String(stations.data![0].id) })); }, [stations.data]);
   const { busy, run } = useAction();
   const active = (clients.data ?? []).filter((c) => c.active);
@@ -75,7 +77,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const body = {
-      station_id: Number(f.station_id), product: f.product, txn_date: f.txn_date, note: f.note || null, ...fleetBody(f),
+      station_id: Number(f.station_id), product: f.product, txn_date: f.txn_date, note: f.note || null, ...fleetBody(f), photo_ids: photos,
       drops: filled.map((x) => ({ client_id: Number(x.client_id), litres: Number(x.litres), location: x.location || null, ref: x.ref || null,
         ...(admin && x.rate ? { rate: Number(x.rate) } : {}), ...(f.override_limit ? { override_limit: true } : {}) })),
     };
@@ -124,6 +126,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
           {tank && <span className={tank.current_l < total ? "font-semibold text-red-600" : ""}>{tank.name}: {num(tank.current_l)} L in stock</span>}
           <span>Each client is billed at their own rate card{admin ? " (type a rate to change it for this drop)" : ""}.</span>
         </div>
+        <ProofPhotos value={photos} onChange={setPhotos} hint="loaded tanker, gate pass, signed trip sheet" />
         {admin && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Allow even if a client crosses the credit limit (admin)</label>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn-primary" disabled={busy || !filled.length || Boolean(over)}><Truck size={15} /> Save trip ({filled.length} drops)</button></div>
@@ -147,11 +150,12 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
             <tbody>{data.drops.map((x: any, i: number) => (
               <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}><td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
                 <td className="td">{x.location ?? "—"}</td><td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
-                <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref}</td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
+                <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref} <ProofThumbs ids={x.proof_ids} /></td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
             ))}</tbody>
             <tfoot><tr className="font-semibold"><td className="td" colSpan={3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table>
           {data.note && <p className="text-slate-600">Note: {data.note}</p>}
+          {data.proof_ids && <div className="flex items-center gap-2 text-slate-600">Photos: <ProofThumbs ids={data.proof_ids} /></div>}
           <p className="text-xs text-slate-500">Entered by {data.created_by}. To cancel one drop, void it in that client's statement — stock goes back to the tank.</p>
           <div className="flex justify-end print:hidden"><button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print</button></div>
         </div>

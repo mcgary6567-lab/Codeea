@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -85,7 +86,7 @@ crm.get("/customers/:id", requirePerm("customers.view"), h((req) => {
   return {
     ...c,
     vehicles: all("SELECT * FROM vehicles WHERE customer_id=?", c.id),
-    ledger: all("SELECT * FROM khata_ledger WHERE customer_id=? ORDER BY id DESC LIMIT 100", c.id),
+    ledger: all(`SELECT k.*, ${proofCol("'khata:'||k.id")} FROM khata_ledger k WHERE k.customer_id=? ORDER BY k.id DESC LIMIT 100`, c.id),
     sales: all("SELECT s.*, st.name station_name FROM sales s JOIN stations st ON st.id=s.station_id WHERE customer_id=? ORDER BY s.id DESC LIMIT 50", c.id),
     orders: all("SELECT * FROM orders WHERE customer_id=? ORDER BY id DESC LIMIT 20", c.id),
     complaints: all("SELECT * FROM complaints WHERE customer_id=? ORDER BY id DESC LIMIT 20", c.id),
@@ -122,8 +123,9 @@ crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req
 /* ---------------- Khata ---------------- */
 crm.post("/customers/:id/khata", requirePerm("khata.manage"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
-  const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true) }), req.body);
+  const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true), photo_ids: proofPhotos }), req.body);
   const updated = khataEntry(c.id, b.type, b.amount, b.method ?? null, b.note ?? null);
+  if (b.photo_ids?.length) linkPhotos(tid(req), b.photo_ids, `khata:${get("SELECT MAX(id) id FROM khata_ledger WHERE customer_id=?", c.id)!.id}`);
   if (b.notify && b.type === "credit")
     await sendWhatsApp(tid(req), updated, `✅ Shukriya ${updated.name}! ${pkr(b.amount)} ki payment mil gayi${b.method ? ` (${b.method})` : ""}. Naya khata balance: ${pkr(updated.balance)}.`, "system", { kind: "payment_receipt" });
   return updated;
@@ -135,7 +137,7 @@ export function khataStatement(tenantId: number, id: number, from?: string, to?:
   const before = from ? get("SELECT COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE -amount END),0) b FROM khata_ledger WHERE customer_id=? AND created_at < ?", c.id, pkStart(from))!.b : 0;
   let bal = before;
   const lines = all(
-    `SELECT k.*, s.name station_name FROM khata_ledger k LEFT JOIN stations s ON s.id=k.station_id
+    `SELECT k.*, ${proofCol("'khata:'||k.id")}, s.name station_name FROM khata_ledger k LEFT JOIN stations s ON s.id=k.station_id
      WHERE k.customer_id=? ${from ? "AND k.created_at >= ?" : ""} ${to ? "AND k.created_at < ?" : ""} ORDER BY k.created_at, k.id`,
     ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   ).map((l) => { bal += l.type === "debit" ? l.amount : -l.amount; return { ...l, balance: Math.round(bal * 100) / 100 }; });

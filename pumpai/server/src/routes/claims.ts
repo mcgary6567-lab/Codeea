@@ -7,6 +7,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, pkStart, pkEnd, getSetting, setSetting, tx } from "../db.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { sendDirect } from "../whatsapp/cloud.js";
@@ -41,7 +42,7 @@ claims.get("/claims", requirePerm("suppliers.manage"), h((req) => {
   const t = tid(req);
   scanClaims(t);
   const status = req.query.status ? String(req.query.status) : null;
-  const rows = all(`SELECT c.*, d.tanker_no, d.invoice_l, d.received_l, d.shortage_pct, d.created_at delivered_at, tk.product, tk.name tank, st.name station, sp.name supplier_name, sp.phone supplier_phone
+  const rows = all(`SELECT c.*, ${proofCol("'claim:'||c.id")}, d.tanker_no, d.invoice_l, d.received_l, d.shortage_pct, d.created_at delivered_at, tk.product, tk.name tank, st.name station, sp.name supplier_name, sp.phone supplier_phone
     FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id JOIN tanks tk ON tk.id=d.tank_id JOIN stations st ON st.id=tk.station_id LEFT JOIN suppliers sp ON sp.id=c.supplier_id
     WHERE c.tenant_id=? ${status ? "AND c.status=?" : ""} ORDER BY d.created_at DESC LIMIT 300`, t, ...(status ? [status] : []));
   const sum = (f: (r: any) => number) => round2(rows.reduce((a, r) => a + f(r), 0));
@@ -88,7 +89,8 @@ claims.post("/claims/:id/settle", requirePerm("suppliers.manage"), h((req) => {
   const c = get("SELECT c.*, d.tanker_no FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id WHERE c.id=? AND c.tenant_id=?", Number(req.params.id), t);
   if (!c) throw new AppError(404, "Claim not found");
   if (["recovered", "written_off"].includes(c.status)) throw new AppError(400, `Claim is already ${c.status.replace("_", " ")}`);
-  const b = parse(z.object({ action: z.enum(["recovered", "written_off"]), amount: z.number().positive().optional(), method: z.enum(["credit_note", "cash", "bank"]).default("credit_note"), note: z.string().max(200).optional().nullable() }), req.body);
+  const b = parse(z.object({ action: z.enum(["recovered", "written_off"]), amount: z.number().positive().optional(), method: z.enum(["credit_note", "cash", "bank"]).default("credit_note"), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
+  linkPhotos(t, b.photo_ids, `claim:${c.id}`); // credit note / depot letter
   if (b.action === "written_off") {
     run("UPDATE shortage_claims SET status='written_off', note=?, updated_at=? WHERE id=?", b.note ?? null, now(), c.id);
     return get("SELECT * FROM shortage_claims WHERE id=?", c.id);

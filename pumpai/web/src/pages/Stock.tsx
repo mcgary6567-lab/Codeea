@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS } from "../lib/format";
-import { PhotoButton, photoUrl } from "../components/Capture";
+import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
 export default function Stock() {
@@ -11,6 +11,7 @@ export default function Stock() {
   const suppliers = useApi<any[]>("/suppliers");
   const { busy, run } = useAction();
   const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "" });
+  const [dipPhotos, setDipPhotos] = useState<number[]>([]);
   const [dipL, setDipL] = useState<{ litres?: number; error?: string } | null>(null);
   const [order, setOrder] = useState<any>(null);
   const [chart, setChart] = useState<any>(null);
@@ -56,9 +57,9 @@ export default function Stock() {
       <div className="grid gap-5 md:grid-cols-2">
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const body = dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) };
+          const body = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos };
           const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%`);
-          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); refresh(); }
+          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); setDipPhotos([]); refresh(); }
         }}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
             <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
@@ -69,6 +70,7 @@ export default function Stock() {
           </div>
           {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
           {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} cm = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
+          <ProofPhotos value={dipPhotos} onChange={setDipPhotos} hint="dip stick showing the reading" />
           <button className="btn-primary" disabled={busy}>Save dip</button>
         </form>
         <form className="card space-y-3 p-4" onSubmit={async (e) => {
@@ -105,7 +107,7 @@ export default function Stock() {
       </div>
       {(orders.data ?? []).length > 0 && <History title="Tanker orders" rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name.replace("Al-Madina ", "")], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
       <div className="grid gap-5 md:grid-cols-2">
-        <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>]]} />
+        <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => <ProofThumbs ids={r.proof_ids} />]]} />
         <History title="Deliveries" rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
