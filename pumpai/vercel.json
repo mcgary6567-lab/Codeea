@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build && node --disable-warning=ExperimentalWarning scripts/vercel-demo-db.mjs",
+  "outputDirectory": "web/dist",
+  "functions": {
+    "api/index.mjs": { "maxDuration": 60, "memory": 1024, "includeFiles": "{data-demo/**,server/dist/**}" }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index.mjs" },
+    { "source": "/webhooks/:path*", "destination": "/api/index.mjs" },
+    { "source": "/branding/:path*", "destination": "/api/index.mjs" },
+    { "source": "/manifest.webmanifest", "destination": "/api/index.mjs" },
+    { "source": "/bill/:path*", "destination": "/api/index.mjs" },
+    { "source": "/day/:path*", "destination": "/api/index.mjs" },
+    { "source": "/r/:path*", "destination": "/api/index.mjs" },
+    { "source": "/portal/:path*", "destination": "/api/index.mjs" },
+    { "source": "/board/:path*", "destination": "/api/index.mjs" },
+    { "source": "/slip/:path*", "destination": "/api/index.mjs" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

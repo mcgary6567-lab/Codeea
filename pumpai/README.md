@@ -11,7 +11,7 @@ It runs fully offline out of the box, using demo data, a built-in rule-based Rom
 
 ## Quick start
 
-> Selling / installing for a pump owner? See **[INSTALL.md](INSTALL.md)** (one-command install with domain and HTTPS, setup wizard, updates, backups).
+> Selling / installing for a pump owner? See **[INSTALL.md](INSTALL.md)** (one-command install with domain and HTTPS, setup wizard, updates, backups). A demo can also be put on Vercel (import the repo; see INSTALL.md → Option 3).
 
 ```bash
 cd pumpai

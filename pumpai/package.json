@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "AI-powered WhatsApp CRM & forecourt management for Pakistani petrol pumps",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
     "build": "npm run build -w web && npm run build -w server",
@@ -14,5 +17,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

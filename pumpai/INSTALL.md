@@ -52,6 +52,16 @@ docker compose up -d                   # PumpAI + Caddy with automatic HTTPS
 
 Data is kept in the `pumpai-data` volume. Works on any OS with Docker (including Windows with Docker Desktop).
 
+## Option 3 — Vercel (demo / showroom only)
+
+The repository is ready for Vercel: in Vercel choose **Add New → Project → Import** `mcgary6567-lab/pumpai`
+and press **Deploy** (no settings needed; optionally add `JWT_SECRET`). It builds the app and a demo pump
+database and serves everything from one serverless function.
+
+> Vercel has no permanent disk and no always-on server, so this is **only for showing PumpAI to customers**:
+> the demo data is reset whenever Vercel restarts the function (and each instance has its own copy),
+> nightly automations, WhatsApp reminders and backups do not run there. Real pumps use Option 1 or 2.
+
 ## First run: the setup wizard (5 minutes, with the owner)
 
 Open the address. Because the database is empty, PumpAI shows the **setup wizard**:

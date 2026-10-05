@@ -180,7 +180,8 @@ if (fs.existsSync(webDist)) {
 }
 app.use(errorHandler);
 
-if (process.env.NODE_ENV !== "test") {
+// on Vercel the app runs as a serverless function (api/index.mjs): no listen, no background scheduler
+if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
   app.listen(config.port, () => {
     console.log(`PumpAI API on http://localhost:${config.port}  (AI: ${aiEnabled() ? config.aiModel : "rule engine"}, WhatsApp: ${waLive() ? "live" : "simulated"})`);
     startScheduler();

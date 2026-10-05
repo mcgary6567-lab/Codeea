@@ -4,8 +4,8 @@ import path from "node:path";
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   dbPath: process.env.DB_PATH ?? path.resolve("data/pumpai.db"),
-  jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
-  publicUrl: process.env.PUBLIC_URL ?? "http://localhost:4000",
+  jwtSecret: process.env.JWT_SECRET ?? (process.env.VERCEL_PROJECT_ID ? `pumpai-demo-${process.env.VERCEL_PROJECT_ID}` : "dev-secret-change-me"),
+  publicUrl: process.env.PUBLIC_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:4000"),
   // Claude AI. Without a key the app falls back to the built-in rule-based Roman Urdu engine.
   anthropicKey: process.env.ANTHROPIC_API_KEY ?? "",
   aiModel: process.env.AI_MODEL ?? "claude-opus-5-5",
