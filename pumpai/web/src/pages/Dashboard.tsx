@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { Fuel, Wallet, BookOpen, Bell, MessageCircle, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send, Receipt, Truck, Droplets, Scale, Coins } from "lucide-react";
+import { Fuel, Wallet, Sparkles, TrendingUp, Users, CreditCard, BarChart3, Send, Receipt, Truck, Droplets, Scale, Coins } from "lucide-react";
 import { api, useApi, useLiveEvents } from "../lib/api";
-import { PageHeader, Stat, Loading, ErrorBox, Badge, Modal, severityTone } from "../components/ui";
+import { PageHeader, Loading, ErrorBox, Badge, Modal, severityTone } from "../components/ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort, d, ago } from "../lib/format";
 import { QuickAddTiles } from "../components/QuickAdd";
 import { HealthCard } from "./Insights";
+import { ManagerDesk } from "../components/ManagerDesk";
 
 const insightIcon: Record<string, any> = { fuel: Fuel, trend: TrendingUp, users: Users, credit: CreditCard, chart: BarChart3 };
 const toneCls: Record<string, string> = { good: "border-l-emerald-500", warn: "border-l-amber-500", bad: "border-l-red-500", info: "border-l-blue-500" };
@@ -41,14 +42,7 @@ export default function Dashboard() {
     <div className="space-y-5">
       <PageHeader title="Dashboard" subtitle={`Live business overview · updated ${ago(k.generated_at)}`} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Today's sales" value={pkrShort(k.today.amount)} icon={<Wallet size={16} />} tone="green"
-          hint={<>{num(k.today.litres)} L · {k.today.txns} txns {k.today.vs_yesterday_pct !== null && <span className={k.today.vs_yesterday_pct >= 0 ? "text-emerald-600" : "text-slate-500"}>· {k.today.vs_yesterday_pct > 0 ? "+" : ""}{k.today.vs_yesterday_pct}% vs same time yesterday</span>}</>} />
-        <Stat label="Khata outstanding" value={pkrShort(k.khata.outstanding)} icon={<BookOpen size={16} />} tone="amber" hint={`${k.khata.debtors} customers owe`} />
-        <Stat label="WhatsApp" value={<span>{k.whatsapp.ai_replies_today} <span className="text-sm font-normal text-slate-500">AI replies today</span></span>} icon={<MessageCircle size={16} />} tone="blue"
-          hint={`${k.whatsapp.unread} unread · ${k.whatsapp.human} need a human · ${k.pending_orders} pending orders`} />
-        <Stat label="Open alerts" value={k.open_alerts} icon={<Bell size={16} />} tone={k.open_alerts ? "red" : "slate"} hint={<Link to="/alerts" className="text-brand-600 hover:underline">Review alerts →</Link>} />
-      </div>
+      <ManagerDesk k={k} />
 
       <Link to="/insights" className="block"><HealthCard compact /></Link>
       {data.day && <TodayBook b={data.day} />}
