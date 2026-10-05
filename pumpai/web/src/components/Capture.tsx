@@ -52,7 +52,7 @@ export function PhotoButton({ kind, hint, onRead, label = "Photo", big, classNam
 }
 
 type SR = { lang: string; interimResults: boolean; maxAlternatives: number; start: () => void; stop: () => void; onresult: (e: any) => void; onerror: (e: any) => void; onend: () => void };
-const Recognition: (new () => SR) | undefined = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+export const Recognition: (new () => SR) | undefined = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
 
 /**
  * Speak the sale ("police station kahna 20 litre diesel slip 7781"); the parsed sale comes back in

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, CalendarClock, CheckCircle2, ClipboardList, Info, Lightbulb, Plus, Search, Truck, Wallet } from "lucide-react";
 import { ChequeForm, OrderForm, PromiseForm } from "./WholesaleDesk";
+import { WholesaleVoice } from "./WholesaleVoice";
 import { api, useApi } from "../lib/api";
 import { Loading, Modal, useAction } from "./ui";
 import { PRODUCTS, PRODUCT_COLORS, num, pkr, pkrShort } from "../lib/format";
@@ -11,6 +12,7 @@ import { useAuth } from "../App";
 /* chart roles: series slots 1 and 3 of the validated palette; recessive grid and axes */
 const BILLED = "#2a78d6", RECEIVED = "#1baf7a", GRID = "#e5e7eb", AXIS = "#6b7280";
 /* due ageing: one hue, light → dark as money gets older (sequential, labelled — never colour alone) */
+const ACT_UR: Record<string, string> = { payment: "رقم لیں", statement: "حساب بھیجیں", open: "کلائنٹ", rates: "ریٹ", trip: "ٹرپ", fleet: "ڈرائیور", orders: "آرڈر", collect: "وصولی", edit: "تبدیل" };
 const AGE = [
   { k: "d0_15", label: "0–15 days", fill: "#fde68a" }, { k: "d16_30", label: "16–30 days", fill: "#fbbf24" },
   { k: "d31_60", label: "31–60 days", fill: "#d97706" }, { k: "d60", label: "60+ days", fill: "#92400e" },
@@ -30,9 +32,10 @@ const Change = ({ v }: { v: number | null }) => v == null ? null : (
     {v >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{Math.abs(v)}% vs last month
   </span>
 );
-const Kpi = ({ label, value, sub, accent }: { label: string; value: string; sub?: React.ReactNode; accent?: string }) => (
+const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
+const Kpi = ({ label, ur, value, sub, accent }: { label: string; ur?: string; value: string; sub?: React.ReactNode; accent?: string }) => (
   <div className="card h-full p-4">
-    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs font-medium uppercase tracking-wide text-slate-500"><span>{label}</span>{ur && <Ur className="text-sm normal-case">{ur}</Ur>}</div>
     <div className={`mt-1 text-2xl font-bold tabular-nums ${accent ?? "text-slate-900"}`}>{value}</div>
     {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
   </div>
@@ -66,42 +69,43 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
 
   return (
     <div className="space-y-5">
+      <WholesaleVoice onDone={reload} />
       {manage && (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4 2xl:grid-cols-7">
           {[
-            { label: "New supply", short: "Supply", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
-            { label: "Tanker trip", short: "Trip", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
-            { label: "Receive payment", short: "Payment", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
-            { label: "Book order", short: "Order", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
-            { label: "Cheque received", short: "Cheque", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
-            { label: "Payment promise", short: "Promise", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
-            { label: "Add client", short: "Client", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
+            { label: "New supply", short: "Supply", ur: "سپلائی", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
+            { label: "Tanker trip", short: "Trip", ur: "ٹینکر ٹرپ", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
+            { label: "Receive payment", short: "Payment", ur: "رقم وصول", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
+            { label: "Book order", short: "Order", ur: "آرڈر", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
+            { label: "Cheque received", short: "Cheque", ur: "چیک", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
+            { label: "Payment promise", short: "Promise", ur: "وعدہ", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
+            { label: "Add client", short: "Client", ur: "نیا کلائنٹ", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
           ].map((b) => (
             <button key={b.label} onClick={b.go} className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-center shadow-sm active:scale-[.98] sm:flex-row sm:gap-3 sm:px-4 sm:py-3 sm:text-left ${b.cls}`}>
-              <b.icon size={22} className="shrink-0" /><span className="min-w-0"><span className="block text-[13px] font-semibold leading-tight sm:hidden">{b.short}</span>
-                <span className="hidden font-semibold sm:block">{b.label}</span><span className="hidden text-xs opacity-75 sm:block">{b.sub}</span></span>
+              <b.icon size={22} className="shrink-0" /><span className="min-w-0"><span className="block text-[13px] font-semibold leading-tight sm:hidden">{b.short}</span><Ur className="block text-xs leading-tight sm:hidden">{b.ur}</Ur>
+                <span className="hidden font-semibold sm:block">{b.label} · <Ur className="font-normal">{b.ur}</Ur></span><span className="hidden text-xs opacity-75 sm:block">{b.sub}</span></span>
             </button>
           ))}
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Total due" value={pkrShort(k.total_due)} accent="text-amber-700" sub={k.overdue_30 > 0 ? <span className="font-medium text-red-600">{pkrShort(k.overdue_30)} older than 30 days</span> : "Nothing older than 30 days"} />
-        <Kpi label="Litres this month" value={`${num(k.month_litres)} L`} sub={<Change v={k.month_litres_change} />} />
-        <Kpi label="Billed this month" value={pkrShort(k.month_billed)} sub={`${k.trips_month} tanker trips`} />
-        <Kpi label="Received this month" value={pkrShort(k.month_received)} accent="text-emerald-700" sub={k.collection_pct == null ? undefined : k.collection_pct > 100 ? "More than billed — old dues are coming down" : `${k.collection_pct}% of this month's billing`} />
-        <Kpi label="Profit (est.)" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)} per litre over cost` : "Add purchase rates to see profit"} />
-        <Kpi label="Today" value={`${num(k.today.litres)} L`} sub={`Received ${pkr(k.today.received)}`} />
+        <Kpi label="Total due" ur="کل بقایا" value={pkrShort(k.total_due)} accent="text-amber-700" sub={k.overdue_30 > 0 ? <span className="font-medium text-red-600">{pkrShort(k.overdue_30)} older than 30 days</span> : "Nothing older than 30 days"} />
+        <Kpi label="Litres this month" ur="اس مہینے لیٹر" value={`${num(k.month_litres)} L`} sub={<Change v={k.month_litres_change} />} />
+        <Kpi label="Billed this month" ur="اس مہینے بل" value={pkrShort(k.month_billed)} sub={`${k.trips_month} tanker trips`} />
+        <Kpi label="Received this month" ur="اس مہینے وصولی" value={pkrShort(k.month_received)} accent="text-emerald-700" sub={k.collection_pct == null ? undefined : k.collection_pct > 100 ? "More than billed — old dues are coming down" : `${k.collection_pct}% of this month's billing`} />
+        <Kpi label="Profit (est.)" ur="منافع" value={k.profit_estimate != null ? pkrShort(k.profit_estimate) : "—"} sub={k.margin_per_l != null ? `Rs ${k.margin_per_l.toFixed(2)} per litre over cost` : "Add purchase rates to see profit"} />
+        <Kpi label="Today" ur="آج" value={`${num(k.today.litres)} L`} sub={`Received ${pkr(k.today.received)}`} />
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <button className="text-left" onClick={() => onTab("orders")}><Kpi label="Open orders" value={String(k.open_orders)} accent={k.orders_today ? "text-amber-700" : undefined} sub={`${num(k.open_orders_l)} L booked${k.orders_today ? ` · ${k.orders_today} for today / late` : ""}`} /></button>
-        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Promised today" value={pkrShort(k.promised_today)} accent="text-amber-700" sub={k.broken_promises ? <span className="font-medium text-red-600">{k.broken_promises} promise{k.broken_promises > 1 ? "s" : ""} broken</span> : "no broken promises"} /></button>
-        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Cheques not cleared" value={pkrShort(k.cheques_in_hand)} sub="in hand + deposited" /></button>
-        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Collection this month" value={k.collection_pct == null ? "—" : `${k.collection_pct}%`} accent={k.collection_pct != null && k.collection_pct < 80 ? "text-red-600" : "text-emerald-700"} sub="received ÷ billed" /></button>
+        <button className="text-left" onClick={() => onTab("orders")}><Kpi label="Open orders" ur="باقی آرڈر" value={String(k.open_orders)} accent={k.orders_today ? "text-amber-700" : undefined} sub={`${num(k.open_orders_l)} L booked${k.orders_today ? ` · ${k.orders_today} for today / late` : ""}`} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Promised today" ur="آج کے وعدے" value={pkrShort(k.promised_today)} accent="text-amber-700" sub={k.broken_promises ? <span className="font-medium text-red-600">{k.broken_promises} promise{k.broken_promises > 1 ? "s" : ""} broken</span> : "no broken promises"} /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Cheques not cleared" ur="چیک باقی" value={pkrShort(k.cheques_in_hand)} sub="in hand + deposited" /></button>
+        <button className="text-left" onClick={() => onTab("collect")}><Kpi label="Collection this month" ur="وصولی %" value={k.collection_pct == null ? "—" : `${k.collection_pct}%`} accent={k.collection_pct != null && k.collection_pct < 80 ? "text-red-600" : "text-emerald-700"} sub="received ÷ billed" /></button>
       </div>
 
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2><span className="hidden text-xs text-slate-500 sm:inline">— worked out from dues, ordering habits, rates, stock and fleet</span></div>
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today · <Ur>آج کے مشورے</Ur></h2><span className="hidden text-xs text-slate-500 sm:inline">— worked out from dues, ordering habits, rates, stock and fleet</span></div>
         {data.suggestions.length ? (
           <ul className="divide-y divide-slate-100">
             {(allSug ? data.suggestions : data.suggestions.slice(0, 6)).map((s: any, i: number) => {
@@ -109,8 +113,8 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
               return (
                 <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
                   <L.icon size={18} className={`shrink-0 ${L.cls}`} aria-label={L.label} />
-                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div><div className="text-sm text-slate-600">{s.detail}</div></div>
-                  {s.action && manage && <button className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" onClick={() => act(s.action)}>{s.action.label}</button>}
+                  <div className="min-w-0 flex-1 basis-[calc(100%-2.5rem)] sm:basis-0"><div className="font-medium">{s.title}</div>{s.ur && <div className="text-right text-slate-800"><Ur className="leading-loose">{s.ur}</Ur></div>}<div className="text-sm text-slate-600">{s.detail}</div></div>
+                  {s.action && manage && <button className="btn-secondary ml-8 !py-1.5 text-sm sm:ml-0" onClick={() => act(s.action)}>{s.action.label}{ACT_UR[s.action.kind] && <> · <Ur>{ACT_UR[s.action.kind]}</Ur></>}</button>}
                 </li>
               );
             })}
@@ -122,7 +126,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
 
       <div className="grid gap-5 xl:grid-cols-2">
         <div className="card p-4">
-          <h2 className="font-semibold">Litres supplied — last 30 days</h2>
+          <h2 className="font-semibold">Litres supplied — last 30 days · <Ur>لیٹر سپلائی</Ur></h2>
           <p className="mb-2 text-xs text-slate-500">Per day, by fuel</p>
           <div className="h-64"><ResponsiveContainer>
             <BarChart data={data.daily} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -136,7 +140,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
           </ResponsiveContainer></div>
         </div>
         <div className="card p-4">
-          <h2 className="font-semibold">Billed vs received — last 8 weeks</h2>
+          <h2 className="font-semibold">Billed vs received — last 8 weeks · <Ur>بل اور وصولی</Ur></h2>
           <p className="mb-2 text-xs text-slate-500">When received stays below billed, dues are growing</p>
           <div className="h-64"><ResponsiveContainer>
             <BarChart data={data.weekly} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={2}>
@@ -153,7 +157,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
       </div>
 
       <div className="card p-4">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><h2 className="font-semibold">How old is the money owed?</h2><span className="text-sm text-slate-600">Total due {pkr(ageTotal)}</span></div>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><h2 className="font-semibold">How old is the money owed? · <Ur>بقایا کتنا پرانا ہے</Ur></h2><span className="text-sm text-slate-600">Total due {pkr(ageTotal)}</span></div>
         {ageTotal > 0 && <div className="mb-3 flex h-4 gap-0.5 overflow-hidden rounded-md" role="img" aria-label="Due by age">
           {AGE.map((a) => data.ageing[a.k] > 0 && <div key={a.k} title={`${a.label}: ${pkr(data.ageing[a.k])}`} style={{ width: `${(data.ageing[a.k] / ageTotal) * 100}%`, background: a.fill }} />)}
         </div>}
@@ -170,7 +174,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
 
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
-          <h2 className="font-semibold">Clients at a glance</h2>
+          <h2 className="font-semibold">Clients at a glance · <Ur>کلائنٹس</Ur></h2>
           <div className="relative w-full sm:w-56"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         </div>
         {/* phone: one card per client */}

@@ -108,3 +108,30 @@ test("cheques: in hand → deposit → clear makes the payment into the bank; a 
   const col = ok(await call("wholesale", "GET", "/api/wholesale/collect"), "collect");
   assert.ok(col.cheques.some((x: any) => x.id === q.id && x.status === "bounced"));
 });
+
+test("voice command: a sentence becomes the entry to confirm, questions get an answer", async () => {
+  const cmd = async (text: string, extra: object = {}) => ok(await call("wholesale", "POST", "/api/wholesale/ai/command", { text, ...extra }), text);
+  const clients = ok(await call("wholesale", "GET", "/api/wholesale/clients"), "clients").filter((c: any) => c.rates.HSD);
+  const [a, b] = clients;
+  const first = (name: string) => name.split(" ")[0];
+  const s = await cmd(`${first(a.name)} ko 2000 litre diesel bheja`);
+  assert.equal(s.intent, "supply"); assert.equal(s.client_id, a.id); assert.equal(s.litres, 2000); assert.equal(s.product, "HSD");
+  assert.equal(s.preview.rate, a.rates.HSD); near(s.preview.amount, a.rates.HSD * 2000);
+  assert.ok(s.station_id); assert.match(s.confirm_ur, /لیٹر/);
+  const p = await cmd(`${a.name} se dedh lakh bank transfer mila`);
+  assert.equal(p.intent, "payment"); assert.equal(p.amount, 150000); assert.equal(p.method, "Bank transfer"); assert.equal(p.product, null);
+  const o = await cmd(`${first(b.name)} ka kal 6000 litre diesel ka order`);
+  assert.equal(o.intent, "order"); assert.equal(o.date, day(1));
+  const bal = await cmd(`${first(a.name)} ka baqaya kitna hai`);
+  assert.equal(bal.intent, "balance"); assert.match(bal.answer.en, /owes Rs/); assert.match(bal.answer.ur, /روپے/);
+  const tr = await cmd(`${first(a.name)} ko 3000 aur ${first(b.name)} ko 2000 litre diesel`);
+  assert.equal(tr.intent, "trip"); assert.equal(tr.drops.length, 2); assert.equal(tr.preview.drops[0].rate, a.rates.HSD);
+  // on a client's page the client is already known
+  const pg = await cmd("5 lakh ka cheque HBL number 556677", { client_id: b.id });
+  assert.equal(pg.intent, "cheque"); assert.equal(pg.client_id, b.id); assert.equal(pg.bank, "Habib Bank (HBL)"); assert.equal(pg.cheque_no, "556677");
+  assert.ok((await cmd("aaj kitni supply hui")).answer.ur);
+  assert.equal((await call("manager", "POST", "/api/wholesale/ai/command", { text: "test" })).status, 403);
+  // suggestions carry an Urdu line too
+  const dash = ok(await call("wholesale", "GET", "/api/wholesale/dashboard"), "dashboard");
+  assert.ok(dash.suggestions.every((x: any) => x.ur), JSON.stringify(dash.suggestions.filter((x: any) => !x.ur)));
+});

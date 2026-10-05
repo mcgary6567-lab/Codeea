@@ -193,41 +193,41 @@ wholesale.get("/wholesale/dashboard", h((req) => {
   });
 
   /* ---------- suggestions: what to do today, most urgent first ---------- */
-  type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
+  type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; ur?: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
   const sug: Sug[] = [];
   for (const c of clients) {
     if (c.limit_pct != null && c.limit_pct >= 80)
-      sug.push({ level: c.limit_pct >= 95 ? "critical" : "warning", title: `${c.name}: ${c.limit_pct}% of credit limit used`, detail: `Due ${pkr(c.due)} of ${pkr(c.credit_limit)}. Collect a payment before the next supply.`, action: { kind: "payment", client_id: c.id, label: "Receive payment" } });
+      sug.push({ level: c.limit_pct >= 95 ? "critical" : "warning", title: `${c.name}: ${c.limit_pct}% of credit limit used`, ur: `${c.name} کی ادھار حد ${c.limit_pct}% بھر گئی — اگلی سپلائی سے پہلے رقم لیں`, detail: `Due ${pkr(c.due)} of ${pkr(c.credit_limit)}. Collect a payment before the next supply.`, action: { kind: "payment", client_id: c.id, label: "Receive payment" } });
     if (c.oldest_days > 30 && c.due > 0)
-      sug.push({ level: c.oldest_days > 60 ? "critical" : "warning", title: `${c.name}: bills unpaid for ${c.oldest_days} days`, detail: `${pkr(c.ageing.d31_60 + c.ageing.d60)} is older than 30 days. Send the statement and call.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
+      sug.push({ level: c.oldest_days > 60 ? "critical" : "warning", title: `${c.name}: bills unpaid for ${c.oldest_days} days`, ur: `${c.name} کے بل ${c.oldest_days} دن سے باقی ہیں — حساب بھیجیں اور فون کریں`, detail: `${pkr(c.ageing.d31_60 + c.ageing.d60)} is older than 30 days. Send the statement and call.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
     else if (c.due > 50_000 && (c.last_payment_days == null || c.last_payment_days >= 15))
-      sug.push({ level: "warning", title: `${c.name}: no payment for ${c.last_payment_days ?? "many"} days`, detail: `Due ${pkr(c.due)}. A reminder now keeps it from getting old.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
+      sug.push({ level: "warning", title: `${c.name}: no payment for ${c.last_payment_days ?? "many"} days`, ur: `${c.name} نے ${c.last_payment_days ?? "کئی"} دن سے ادائیگی نہیں کی`, detail: `Due ${pkr(c.due)}. A reminder now keeps it from getting old.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
     if (c.usual_gap_days && c.last_supply_days != null && c.last_supply_days > Math.max(3, c.usual_gap_days * 2))
-      sug.push({ level: "info", title: `${c.name} has not ordered for ${c.last_supply_days} days`, detail: `Usually orders every ${c.usual_gap_days} days. Call — they may be buying elsewhere.`, action: { kind: "open", client_id: c.id, label: "Open client" } });
+      sug.push({ level: "info", title: `${c.name} has not ordered for ${c.last_supply_days} days`, ur: `${c.name} نے ${c.last_supply_days} دن سے آرڈر نہیں دیا — فون کر کے پوچھیں`, detail: `Usually orders every ${c.usual_gap_days} days. Call — they may be buying elsewhere.`, action: { kind: "open", client_id: c.id, label: "Open client" } });
     for (const m of c.margins) if (m.margin < 1)
-      sug.push({ level: m.margin < 0 ? "critical" : "warning", title: `${c.name}: ${PRODUCTS[m.product]} margin only Rs ${m.margin.toFixed(2)}/L`, detail: `Their rate Rs ${m.rate} vs our last purchase cost. Review the rate.`, action: { kind: "rates", client_id: c.id, label: "Review rate" } });
+      sug.push({ level: m.margin < 0 ? "critical" : "warning", title: `${c.name}: ${PRODUCTS[m.product]} margin only Rs ${m.margin.toFixed(2)}/L`, ur: `${c.name}: منافع صرف ${m.margin.toFixed(2)} روپے فی لیٹر — ریٹ دیکھیں`, detail: `Their rate Rs ${m.rate} vs our last purchase cost. Review the rate.`, action: { kind: "rates", client_id: c.id, label: "Review rate" } });
   }
   for (const c of clients) {
     const fixed = Object.entries(rateCard(c.id)).filter(([, r]) => r.mode === "fixed").map(([p]) => PRODUCTS[p]);
     if (fixed.length && c.month_l > 0)
-      sug.push({ level: "info", title: `${c.name}: fixed rate for ${fixed.join(", ")}`, detail: "A pump-linked rate (pump price − Rs X) changes by itself with every OGRA price change, so your margin stays the same.", action: { kind: "rates", client_id: c.id, label: "Change rate" } });
+      sug.push({ level: "info", title: `${c.name}: fixed rate for ${fixed.join(", ")}`, ur: "پمپ ریٹ کے ساتھ چلنے والا ریٹ لگائیں تاکہ منافع ایک جیسا رہے", detail: "A pump-linked rate (pump price − Rs X) changes by itself with every OGRA price change, so your margin stays the same.", action: { kind: "rates", client_id: c.id, label: "Change rate" } });
   }
   const top = [...clients].sort((a, b) => b.month_l - a.month_l)[0];
-  if (top?.month_l) sug.push({ level: "good", title: `Top client this month: ${top.name}`, detail: `${top.month_l.toLocaleString()} L so far. Keep them happy — a thank-you call or a small discount on big loads.`, action: { kind: "open", client_id: top.id, label: "Open client" } });
+  if (top?.month_l) sug.push({ level: "good", title: `Top client this month: ${top.name}`, ur: `اس مہینے سب سے بڑا کلائنٹ: ${top.name}`, detail: `${top.month_l.toLocaleString()} L so far. Keep them happy — a thank-you call or a small discount on big loads.`, action: { kind: "open", client_id: top.id, label: "Open client" } });
   // stock for the next 3 days of wholesale
   for (const p of Object.keys(PRODUCTS)) {
     const avg = (get("SELECT COALESCE(SUM(litres),0) l FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND product=? AND txn_date >= ?", t, p, new Date(nowMs - 14 * DAYMS).toISOString())!.l as number) / 14;
     const stock = get("SELECT COALESCE(SUM(t.current_l),0) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.product=?", t, p)!.l as number;
     if (avg > 0 && stock < avg * 3)
-      sug.push({ level: "warning", title: `${PRODUCTS[p]} stock covers only ${Math.max(0, Math.floor(stock / avg))} days of wholesale`, detail: `${Math.round(stock).toLocaleString()} L in tanks; wholesale takes about ${Math.round(avg).toLocaleString()} L a day (plus pump sales). Order a tanker.` });
+      sug.push({ level: "warning", title: `${PRODUCTS[p]} stock covers only ${Math.max(0, Math.floor(stock / avg))} days of wholesale`, ur: `${PRODUCTS[p]} کا اسٹاک صرف ${Math.max(0, Math.floor(stock / avg))} دن کا ہے — ٹینکر منگوائیں`, detail: `${Math.round(stock).toLocaleString()} L in tanks; wholesale takes about ${Math.round(avg).toLocaleString()} L a day (plus pump sales). Order a tanker.` });
   }
   // fleet
   for (const d of all("SELECT name, licence_expiry FROM drivers WHERE tenant_id=? AND active=1 AND licence_expiry IS NOT NULL AND licence_expiry <= ?", t, new Date(nowMs + 30 * DAYMS).toISOString().slice(0, 10)))
-    sug.push({ level: d.licence_expiry < today ? "critical" : "warning", title: `Driver ${d.name}: licence ${d.licence_expiry < today ? "expired" : "expires"} ${d.licence_expiry}`, detail: "Do not send this driver on a trip until the licence is renewed.", action: { kind: "fleet", label: "Drivers" } });
+    sug.push({ level: d.licence_expiry < today ? "critical" : "warning", title: `Driver ${d.name}: licence ${d.licence_expiry < today ? "expired" : "expires"} ${d.licence_expiry}`, ur: `ڈرائیور ${d.name} کا لائسنس ${d.licence_expiry < today ? "ختم ہو گیا" : "ختم ہونے والا ہے"}`, detail: "Do not send this driver on a trip until the licence is renewed.", action: { kind: "fleet", label: "Drivers" } });
   const fill = get(`SELECT AVG(tr.litres / tk.capacity_l) f, COUNT(*) n FROM wholesale_trips tr JOIN tankers tk ON tk.id=tr.tanker_id
     WHERE tr.tenant_id=? AND tk.capacity_l > 0 AND tr.trip_date >= ?`, t, new Date(nowMs - 30 * DAYMS).toISOString())!;
   if (fill.n >= 3 && fill.f < 0.6)
-    sug.push({ level: "info", title: `Tankers leave only ${Math.round(fill.f * 100)}% full on average`, detail: "Combine nearby clients into one tanker trip to save diesel and driver time.", action: { kind: "trip", label: "Plan a trip" } });
+    sug.push({ level: "info", title: `Tankers leave only ${Math.round(fill.f * 100)}% full on average`, ur: `ٹینکر صرف ${Math.round(fill.f * 100)}% بھر کر جاتے ہیں — قریب کے کلائنٹس ایک ٹرپ میں ملائیں`, detail: "Combine nearby clients into one tanker trip to save diesel and driver time.", action: { kind: "trip", label: "Plan a trip" } });
   sug.push(...deskSuggestions(t, clients));
   const order = { critical: 0, warning: 1, info: 2, good: 3 };
   sug.sort((a, b) => order[a.level] - order[b.level]);

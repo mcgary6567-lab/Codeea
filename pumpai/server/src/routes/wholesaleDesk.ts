@@ -243,42 +243,42 @@ wholesaleDesk.get("/wholesale/clients/:id/desk", h((req) => {
 }));
 
 /* ================= Suggestions for the wholesale dashboard ================= */
-type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
+type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; ur?: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
 export function deskSuggestions(t: number, clients: { id: number; name: string; phone: string | null; due: number; credit_limit: number; limit_pct: number | null; oldest_days: number; month_l: number }[]): Sug[] {
   const sug: Sug[] = [];
   const today = pkDate(), nowMs = Date.now();
   // orders
   const open = openOrders(t);
   const late = open.filter((o) => o.needed_on < today), dueToday = open.filter((o) => o.needed_on === today);
-  if (late.length) sug.push({ level: "critical", title: `${late.length} order${late.length > 1 ? "s" : ""} late — not delivered yet`, detail: late.slice(0, 3).map((o) => `${o.client_name} ${Math.round(o.litres).toLocaleString()} L ${PRODUCTS[o.product]} (for ${o.needed_on})`).join(" · "), action: { kind: "orders", label: "Order book" } });
+  if (late.length) sug.push({ level: "critical", title: `${late.length} order${late.length > 1 ? "s" : ""} late — not delivered yet`, ur: `${late.length} آرڈر لیٹ ہیں — ابھی تک نہیں دیے`, detail: late.slice(0, 3).map((o) => `${o.client_name} ${Math.round(o.litres).toLocaleString()} L ${PRODUCTS[o.product]} (for ${o.needed_on})`).join(" · "), action: { kind: "orders", label: "Order book" } });
   if (dueToday.length) {
     const l = dueToday.reduce((a, o) => a + o.litres, 0);
-    sug.push({ level: "warning", title: `Deliver today: ${dueToday.length} order${dueToday.length > 1 ? "s" : ""}, ${Math.round(l).toLocaleString()} L`, detail: `${dueToday.map((o) => o.client_name).slice(0, 4).join(", ")}. Put nearby drops on one tanker trip.`, action: { kind: "trip", label: "Plan a trip" } });
+    sug.push({ level: "warning", title: `Deliver today: ${dueToday.length} order${dueToday.length > 1 ? "s" : ""}, ${Math.round(l).toLocaleString()} L`, ur: `آج ${dueToday.length} آرڈر دینے ہیں، ${Math.round(l).toLocaleString()} لیٹر`, detail: `${dueToday.map((o) => o.client_name).slice(0, 4).join(", ")}. Put nearby drops on one tanker trip.`, action: { kind: "trip", label: "Plan a trip" } });
   }
   for (const p of Object.keys(PRODUCTS)) {
     const need = open.filter((o) => o.product === p && o.needed_on <= addDays(today, 2)).reduce((a, o) => a + o.litres, 0);
     const stock = get("SELECT COALESCE(SUM(t.current_l),0) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.product=?", t, p)!.l as number;
     if (need > 0 && need > stock * 0.7)
-      sug.push({ level: need > stock ? "critical" : "warning", title: `${PRODUCTS[p]}: orders for 3 days need ${Math.round(need).toLocaleString()} L`, detail: `Only ${Math.round(stock).toLocaleString()} L in tanks (pump sales need fuel too). Order a tanker from the depot now.`, action: { kind: "orders", label: "Order book" } });
+      sug.push({ level: need > stock ? "critical" : "warning", title: `${PRODUCTS[p]}: orders for 3 days need ${Math.round(need).toLocaleString()} L`, ur: `اگلے 3 دن کے آرڈر ${Math.round(need).toLocaleString()} لیٹر، ٹینک میں کم ہے — ڈپو سے ٹینکر منگوائیں`, detail: `Only ${Math.round(stock).toLocaleString()} L in tanks (pump sales need fuel too). Order a tanker from the depot now.`, action: { kind: "orders", label: "Order book" } });
   }
   // promises
   for (const p of promises(t)) {
     if (p.state === "broken" && p.promised_on >= addDays(today, -14))
-      sug.push({ level: "critical", title: `${p.client_name} broke a promise: ${pkr(p.amount)} on ${p.promised_on}`, detail: `Received ${pkr(p.paid)} since. Call today; hold the next supply until paid.`, action: { kind: "collect", label: "Call list" } });
+      sug.push({ level: "critical", title: `${p.client_name} broke a promise: ${pkr(p.amount)} on ${p.promised_on}`, ur: `${p.client_name} نے ${p.promised_on} کو رقم دینے کا وعدہ پورا نہیں کیا — آج فون کریں`, detail: `Received ${pkr(p.paid)} since. Call today; hold the next supply until paid.`, action: { kind: "collect", label: "Call list" } });
     if (p.state === "today")
-      sug.push({ level: "warning", title: `${p.client_name} promised ${pkr(p.amount - p.paid)} today`, detail: "A friendly reminder in the morning gets the money the same day.", action: { kind: "statement", client_id: p.client_id, label: "WhatsApp statement" } });
+      sug.push({ level: "warning", title: `${p.client_name} promised ${pkr(p.amount - p.paid)} today`, ur: `${p.client_name} نے آج ${Math.round(p.amount - p.paid).toLocaleString()} روپے دینے کا وعدہ کیا ہے`, detail: "A friendly reminder in the morning gets the money the same day.", action: { kind: "statement", client_id: p.client_id, label: "WhatsApp statement" } });
   }
   // cheques
   const ch = cheques(t);
   const toDeposit = ch.filter((q) => q.status === "in_hand" && q.cheque_date <= today);
-  if (toDeposit.length) sug.push({ level: "warning", title: `${toDeposit.length} cheque${toDeposit.length > 1 ? "s" : ""} ready to deposit — ${pkr(toDeposit.reduce((a, q) => a + q.amount, 0))}`, detail: toDeposit.slice(0, 3).map((q) => `${q.client_name} ${q.bank} #${q.cheque_no}`).join(" · ") + ". Deposit today so they clear by tomorrow.", action: { kind: "collect", label: "Cheques" } });
+  if (toDeposit.length) sug.push({ level: "warning", title: `${toDeposit.length} cheque${toDeposit.length > 1 ? "s" : ""} ready to deposit — ${pkr(toDeposit.reduce((a, q) => a + q.amount, 0))}`, ur: `${toDeposit.length} چیک آج بینک میں جمع کروانے ہیں`, detail: toDeposit.slice(0, 3).map((q) => `${q.client_name} ${q.bank} #${q.cheque_no}`).join(" · ") + ". Deposit today so they clear by tomorrow.", action: { kind: "collect", label: "Cheques" } });
   const slow = ch.filter((q) => q.status === "deposited" && q.deposited_at && nowMs - Date.parse(q.deposited_at) > 3 * DAY);
-  if (slow.length) sug.push({ level: "info", title: `${slow.length} deposited cheque${slow.length > 1 ? "s" : ""} not marked cleared after 3 days`, detail: "Check the bank statement and mark each cleared or bounced, so the client's due is right.", action: { kind: "collect", label: "Cheques" } });
+  if (slow.length) sug.push({ level: "info", title: `${slow.length} deposited cheque${slow.length > 1 ? "s" : ""} not marked cleared after 3 days`, ur: "جمع کروائے چیک 3 دن سے کلیئر نہیں لکھے — بینک اسٹیٹمنٹ دیکھیں", detail: "Check the bank statement and mark each cleared or bounced, so the client's due is right.", action: { kind: "collect", label: "Cheques" } });
   const soon = ch.filter((q) => q.status === "in_hand" && q.cheque_date > today && q.cheque_date <= addDays(today, 3));
-  if (soon.length) sug.push({ level: "info", title: `${soon.length} post-dated cheque${soon.length > 1 ? "s" : ""} due in the next 3 days`, detail: soon.map((q) => `${q.client_name} ${pkr(q.amount)} on ${q.cheque_date}`).slice(0, 3).join(" · "), action: { kind: "collect", label: "Cheques" } });
+  if (soon.length) sug.push({ level: "info", title: `${soon.length} post-dated cheque${soon.length > 1 ? "s" : ""} due in the next 3 days`, ur: `${soon.length} چیک اگلے 3 دن میں جمع ہونے والے ہیں`, detail: soon.map((q) => `${q.client_name} ${pkr(q.amount)} on ${q.cheque_date}`).slice(0, 3).join(" · "), action: { kind: "collect", label: "Cheques" } });
   for (const r of all(`SELECT q.client_id, c.name, COUNT(*) n, SUM(q.amount) v FROM wholesale_cheques q JOIN wholesale_clients c ON c.id=q.client_id
       WHERE q.tenant_id=? AND q.status='bounced' AND q.updated_at >= ? GROUP BY q.client_id`, t, new Date(nowMs - 90 * DAY).toISOString()))
-    sug.push({ level: "warning", title: `${r.name}: ${r.n} cheque${r.n > 1 ? "s" : ""} bounced in 90 days (${pkr(r.v)})`, detail: "Take cash / online transfer only, and keep the credit limit low until they are regular again.", action: { kind: "edit", client_id: r.client_id, label: "Credit limit" } });
+    sug.push({ level: "warning", title: `${r.name}: ${r.n} cheque${r.n > 1 ? "s" : ""} bounced in 90 days (${pkr(r.v)})`, ur: `${r.name} کا چیک باؤنس ہوا — صرف نقد یا آن لائن لیں`, detail: "Take cash / online transfer only, and keep the credit limit low until they are regular again.", action: { kind: "edit", client_id: r.client_id, label: "Credit limit" } });
   // volume drop vs the same days last month
   const monthStart = pkStart(today.slice(0, 7) + "-01");
   const lmStart = new Date(Date.parse(monthStart) - 1).toISOString().slice(0, 7);
@@ -286,14 +286,14 @@ export function deskSuggestions(t: number, clients: { id: number; name: string; 
   for (const c of clients) {
     const last = get("SELECT COALESCE(SUM(litres),0) l FROM wholesale_txns WHERE client_id=? AND type='supply' AND voided=0 AND txn_date >= ? AND txn_date < ?", c.id, lmFrom, lmTo)!.l as number;
     if (last >= 5000 && c.month_l < last * 0.6)
-      sug.push({ level: "info", title: `${c.name} is buying ${Math.round((1 - c.month_l / last) * 100)}% less than last month`, detail: `${c.month_l.toLocaleString()} L so far vs ${Math.round(last).toLocaleString()} L by this date last month. Ask why — rate, service or a new supplier?`, action: { kind: "open", client_id: c.id, label: "Open client" } });
+      sug.push({ level: "info", title: `${c.name} is buying ${Math.round((1 - c.month_l / last) * 100)}% less than last month`, ur: `${c.name} پچھلے مہینے سے ${Math.round((1 - c.month_l / last) * 100)}% کم لے رہا ہے — وجہ پوچھیں`, detail: `${c.month_l.toLocaleString()} L so far vs ${Math.round(last).toLocaleString()} L by this date last month. Ask why — rate, service or a new supplier?`, action: { kind: "open", client_id: c.id, label: "Open client" } });
     // a regular payer pressing on the limit: room to grow
     if (c.limit_pct != null && c.limit_pct >= 75 && c.limit_pct < 95 && c.oldest_days <= 15) {
       const pays = get("SELECT COUNT(*) n FROM wholesale_txns WHERE client_id=? AND type='payment' AND voided=0 AND txn_date >= ?", c.id, new Date(nowMs - 60 * DAY).toISOString())!.n;
-      if (pays >= 3) sug.push({ level: "good", title: `${c.name} pays on time and is at ${c.limit_pct}% of the limit`, detail: `${pays} payments in 60 days, nothing older than 15 days. A higher limit (${pkr(Math.round((c.credit_limit * 1.25) / 10000) * 10000)}) can bring more orders.`, action: { kind: "edit", client_id: c.id, label: "Raise limit" } });
+      if (pays >= 3) sug.push({ level: "good", title: `${c.name} pays on time and is at ${c.limit_pct}% of the limit`, ur: `${c.name} وقت پر ادائیگی کرتا ہے — ادھار حد بڑھا سکتے ہیں`, detail: `${pays} payments in 60 days, nothing older than 15 days. A higher limit (${pkr(Math.round((c.credit_limit * 1.25) / 10000) * 10000)}) can bring more orders.`, action: { kind: "edit", client_id: c.id, label: "Raise limit" } });
     }
     if (!c.phone && c.due > 0)
-      sug.push({ level: "info", title: `${c.name}: no WhatsApp number`, detail: `Due ${pkr(c.due)}. Add the number so receipts, statements and reminders go by themselves.`, action: { kind: "edit", client_id: c.id, label: "Add number" } });
+      sug.push({ level: "info", title: `${c.name}: no WhatsApp number`, ur: `${c.name} کا واٹس ایپ نمبر نہیں — نمبر ڈالیں`, detail: `Due ${pkr(c.due)}. Add the number so receipts, statements and reminders go by themselves.`, action: { kind: "edit", client_id: c.id, label: "Add number" } });
   }
   return sug;
 }

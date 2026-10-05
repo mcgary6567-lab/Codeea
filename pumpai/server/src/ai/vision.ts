@@ -6,6 +6,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config, aiEnabled, PRODUCTS } from "../config.js";
 import { parseSaleText, type ParsedSale } from "./parseSale.js";
+import { parseWholesaleText, type ParsedWholesale, type Named } from "./parseWholesale.js";
+import { pkDate } from "../db.js";
+export type WholesaleCtx = { clients: Named[]; tankers: { id: number; number: string }[]; drivers: Named[]; clientId?: number | null };
 
 let client: Anthropic | null = null;
 let clientKey = "";
@@ -118,6 +121,49 @@ export async function parseSale(text: string, accounts: { id: number; name: stri
     };
   } catch (e) {
     console.error("[voice]", (e as Error).message);
+    return rules;
+  }
+}
+
+/** Wholesale command (supply / payment / order / promise / cheque / return / trip / question) from one sentence. */
+export async function parseWholesale(text: string, ctx: WholesaleCtx): Promise<ParsedWholesale> {
+  const rules = parseWholesaleText(text, ctx);
+  if (!aiEnabled()) return rules;
+  try {
+    const list = (xs: { id: number; name?: string; number?: string }[]) => xs.map((x) => `${x.id}: ${x.name ?? x.number}`).join("; ") || "none";
+    const r = await record<Partial<ParsedWholesale> & { drops?: { client_id: number; litres: number }[] }>([{ type: "text", text:
+      `The wholesale officer of a petrol pump in Pakistan said this (Urdu, Roman Urdu, English or mixed): "${text}". Today is ${pkDate()}.\n` +
+      "Work out the ONE entry they want: supply (fuel sent to a client), return (fuel brought back), payment (money received), order (client booked fuel for a day), " +
+      "promise (client will pay on a day), cheque (cheque received, with bank and number), trip (one tanker, several clients each with litres), balance (asking a client's due) or today (asking today's totals).\n" +
+      `Products: ${Object.entries(PRODUCTS).map(([k, v]) => `${k} = ${v}`).join(", ")}. Numbers: hazar = 1,000, lakh = 100,000, crore = 10,000,000, dedh = 1.5, dhai = 2.5. ` +
+      "Dates as YYYY-MM-DD: kal is tomorrow for orders/promises and yesterday for things already done; parson is two days.\n" +
+      `Clients (id: name): ${list(ctx.clients)}. Tankers: ${list(ctx.tankers)}. Drivers: ${list(ctx.drivers)}. Only use ids from these lists. Leave out anything that was not said.` }],
+    "Record the wholesale entry that was said.", {
+      properties: {
+        intent: { type: "string", enum: ["supply", "payment", "order", "promise", "cheque", "return", "trip", "balance", "today", "unknown"] },
+        client_id: { type: "integer" }, product: { type: "string", enum: Object.keys(PRODUCTS) }, litres: { type: "number" }, amount: { type: "number" }, rate: { type: "number" },
+        method: { type: "string", enum: ["Cash", "Bank transfer", "Cheque", "Raast", "JazzCash", "Easypaisa"] }, date: { type: "string" },
+        bank: { type: "string" }, cheque_no: { type: "string" }, tanker_id: { type: "integer" }, driver_id: { type: "integer" }, location: { type: "string" },
+        drops: { type: "array", items: { type: "object", properties: { client_id: { type: "integer" }, litres: { type: "number" } }, required: ["client_id", "litres"] } },
+      },
+      required: ["intent"],
+    });
+    if (!r || !r.intent) return rules;
+    const client = ctx.clients.find((c) => c.id === r.client_id);
+    const tanker = ctx.tankers.find((x) => x.id === r.tanker_id);
+    const driver = ctx.drivers.find((x) => x.id === r.driver_id);
+    const drops = (r.drops ?? []).map((d) => ({ ...d, client_name: ctx.clients.find((c) => c.id === d.client_id)?.name ?? "" })).filter((d) => d.client_name && d.litres > 0);
+    const merged: ParsedWholesale = {
+      ...rules, engine: "claude", intent: r.intent as ParsedWholesale["intent"],
+      client_id: client?.id ?? rules.client_id, client_name: client?.name ?? rules.client_name,
+      product: r.product ?? rules.product, litres: r.litres ?? rules.litres, amount: r.amount ?? rules.amount, rate: r.rate ?? rules.rate, method: r.method ?? rules.method,
+      date: r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : rules.date, bank: r.bank ?? rules.bank, cheque_no: r.cheque_no ?? rules.cheque_no,
+      tanker_id: tanker?.id ?? rules.tanker_id, tanker: tanker?.number ?? rules.tanker, driver_id: driver?.id ?? rules.driver_id, driver: driver?.name ?? rules.driver,
+      location: r.location ?? rules.location, drops: drops.length >= 2 ? drops : rules.drops,
+    };
+    return merged;
+  } catch (e) {
+    console.error("[wholesale voice]", (e as Error).message);
     return rules;
   }
 }

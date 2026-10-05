@@ -11,6 +11,8 @@ import { AccountPicker } from "../components/BankParts";
 import { PortalCard } from "../components/PortalCard";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 import { ChequeForm, ClientDeskCard, CollectTab, OrderForm, OrdersTab, PromiseForm } from "../components/WholesaleDesk";
+import { WholesaleVoice } from "../components/WholesaleVoice";
+const Ur = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => <span lang="ur" dir="rtl" className={`font-urdu ${className}`}>{children}</span>;
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
@@ -38,10 +40,10 @@ function ClientList() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Wholesale supply" subtitle="Bulk fuel to dealers and businesses — each client has their own rate card and running account" />
+      <PageHeader title="Wholesale supply · ہول سیل سپلائی" subtitle="Bulk fuel to dealers and businesses — each client has their own rate card and running account" />
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {([["dashboard", "Dashboard"], ["clients", "Clients"], ["orders", "Order book"], ["collect", "Recovery"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}</button>
+        {([["dashboard", "Dashboard", "ڈیش بورڈ"], ["clients", "Clients", "کلائنٹس"], ["orders", "Order book", "آرڈر بک"], ["collect", "Recovery", "وصولی"], ["trips", "Tanker trips", "ٹینکر ٹرپ"], ["fleet", "Tankers & drivers", "ٹینکر اور ڈرائیور"]] as const).map(([k, l, u]) => (
+          <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}<Ur className="block text-xs">{u}</Ur></button>
         ))}
       </div>
       {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} />}
@@ -202,30 +204,32 @@ function ClientDetail({ id }: { id: string }) {
       <PageHeader title={c.name} subtitle={[c.business_name, c.city, c.phone && phone(c.phone)].filter(Boolean).join(" · ")}
         actions={<div className="flex flex-wrap gap-2 print:hidden">
           {can("wholesale.manage") && <>
-            <button className="btn-primary" onClick={() => setAction("supply")} disabled={!c.active}><Truck size={15} /> New supply</button>
-            <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment</button>
-            <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return</button>
+            <button className="btn-primary" onClick={() => setAction("supply")} disabled={!c.active}><Truck size={15} /> New supply · <Ur>سپلائی</Ur></button>
+            <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>
+            <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>
           </>}
-          {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment</button>}
+          {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment · <Ur>ایڈجسٹمنٹ</Ur></button>}
           {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
             setSending(true);
             await runMsg(() => api(`/wholesale/clients/${c.id}/send-statement`, { body: { month: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7) } }), "This month's statement sent on WhatsApp");
             setSending(false);
-          }}><Send size={15} /> WhatsApp statement</button>}
-          {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("edit")}><Pencil size={15} /> Edit</button>}
+          }}><Send size={15} /> WhatsApp statement · <Ur>حساب بھیجیں</Ur></button>}
+          {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("edit")}><Pencil size={15} /> Edit · <Ur>تبدیل</Ur></button>}
         </div>} />
 
+      {(can("wholesale.manage") || can("wholesale.view")) && <div className="print:hidden"><WholesaleVoice compact clientId={c.id} onDone={refresh} /></div>}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Stat label="Current due" value={pkr(s.due)} tone={s.due > 0 ? "amber" : "green"} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)} · ${Math.round((s.due / c.credit_limit) * 100)}% used` : "No credit limit"} />
-        <Stat label="Total billed" value={pkrShort(s.billed)} hint={`${s.supplies} supplies · opening ${pkr(c.opening_balance)}`} />
-        <Stat label="Total received" value={pkrShort(s.received)} tone="green" hint={`Last payment ${ago(s.last_payment)}`} />
-        <Stat label="Returns credited" value={pkrShort(s.returned)} hint={s.adjustments ? `Adjustments ${pkr(s.adjustments)}` : undefined} />
-        <Stat label="This month" value={`${num(m.by_product.reduce((a: number, p: any) => a + p.supplied_l, 0))} L`} hint={`Billed ${pkrShort(m.billed)} · received ${pkrShort(m.received)}`} />
+        <Stat label="Current due · بقایا" value={pkr(s.due)} tone={s.due > 0 ? "amber" : "green"} hint={c.credit_limit ? `Limit ${pkr(c.credit_limit)} · ${Math.round((s.due / c.credit_limit) * 100)}% used` : "No credit limit"} />
+        <Stat label="Total billed · کل بل" value={pkrShort(s.billed)} hint={`${s.supplies} supplies · opening ${pkr(c.opening_balance)}`} />
+        <Stat label="Total received · کل وصولی" value={pkrShort(s.received)} tone="green" hint={`Last payment ${ago(s.last_payment)}`} />
+        <Stat label="Returns credited · واپسی" value={pkrShort(s.returned)} hint={s.adjustments ? `Adjustments ${pkr(s.adjustments)}` : undefined} />
+        <Stat label="This month · اس مہینے" value={`${num(m.by_product.reduce((a: number, p: any) => a + p.supplied_l, 0))} L`} hint={`Billed ${pkrShort(m.billed)} · received ${pkrShort(m.received)}`} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="card p-4">
-          <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Rate card</h2>{can("wholesale.rates") && <button className="text-xs text-brand-600 hover:underline print:hidden" onClick={() => setAction("rates")}>Change rates</button>}</div>
+          <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Rate card · <Ur>ریٹ</Ur></h2>{can("wholesale.rates") && <button className="text-xs text-brand-600 hover:underline print:hidden" onClick={() => setAction("rates")}>Change rates</button>}</div>
           {Object.keys(PRODUCTS).map((p) => {
             const r = c.rate_card?.[p];
             return (
@@ -245,7 +249,7 @@ function ClientDetail({ id }: { id: string }) {
             <ul className="mt-1 space-y-0.5">{c.rate_history.map((h: any) => <li key={h.id}>{d(h.created_at)} · {PRODUCTS[h.product]}: {h.old_rate ? `Rs ${h.old_rate} → ` : ""}Rs {h.new_rate}{h.note ? ` · ${h.note}` : ""} ({h.changed_by})</li>)}</ul></details>}
         </div>
         <div className="card p-4 lg:col-span-2">
-          <h2 className="mb-2 font-semibold">Fuel account (all time)</h2>
+          <h2 className="mb-2 font-semibold">Fuel account (all time) · <Ur>تیل کا حساب</Ur></h2>
           <table className="w-full">
             <thead><tr><th className="th">Product</th><th className="th text-right">Supplied (out)</th><th className="th text-right">Returned (in)</th><th className="th text-right">Net litres</th><th className="th text-right">Net amount</th></tr></thead>
             <tbody>{s.by_product.map((p: any) => (
@@ -263,7 +267,7 @@ function ClientDetail({ id }: { id: string }) {
 
       <div className="card">
         <div className="flex flex-wrap items-end gap-3 p-4 print:hidden">
-          <h2 className="mr-auto font-semibold">Account statement</h2>
+          <h2 className="mr-auto font-semibold">Account statement · <Ur>کھاتہ</Ur></h2>
           <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
           <a className="btn-secondary" href={csvUrl}><Download size={15} /> Excel / CSV</a>
@@ -386,20 +390,20 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
     if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. Due now ${pkr(r.due_after)}`)) onDone();
   };
   return (
-    <Modal open onClose={onClose} title={kind === "supply" ? `Supply fuel to ${client.name}` : `Fuel returned by ${client.name}`}>
+    <Modal open onClose={onClose} title={kind === "supply" ? `Supply fuel to ${client.name} · سپلائی` : `Fuel returned by ${client.name} · واپسی`}>
       <form onSubmit={submit} className="space-y-3">
         {order && <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-800">📋 Delivering the order for <b>{order.needed_on}</b> — {num(order.litres)} L {PRODUCTS[order.product]}. Saving closes the order.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={kind === "supply" ? "From station" : "Into station"}><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field label="Product"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>
-          <Field label="Litres"><input className="input" type="number" step="0.01" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
+          <Field label={kind === "supply" ? "From station · کہاں سے" : "Into station · کہاں"}><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+          <Field label="Product · تیل"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>
+          <Field label="Litres · لیٹر"><input className="input" type="number" step="0.01" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
           <Field label={can("wholesale.rates") ? "Rate (Rs/L) — blank = rate card" : "Rate (Rs/L)"}>
             <input className="input" type="number" step="0.01" disabled={!can("wholesale.rates")} placeholder={client.rates[f.product] ? String(client.rates[f.product]) : kind === "return" ? "last supply rate" : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} />
           </Field>
-          <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
+          <Field label="Date · تاریخ"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
           {kind === "supply" ? <>
             <FleetPicker f={f} setF={setF} />
-            <Field label="Drop location"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
+            <Field label="Drop location · جگہ"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
           </> : <Field label="Tanker / vehicle no."><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>}
           <Field label="Delivery note / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
@@ -408,7 +412,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
         {tank && <p className="text-xs text-slate-500">{tank.name}: {num(tank.current_l)} L in stock {kind === "return" && `· space ${num(tank.capacity_l - tank.current_l)} L`}</p>}
         {Number(f.litres) > 0 && rate > 0 && <div className="rounded-lg bg-slate-50 p-2 text-sm">{num(Number(f.litres), 2)} L × Rs {rate} = <b>{pkr(amount)}</b> · due after: <b>{pkr(client.summary.due + (kind === "supply" ? amount : -amount))}</b></div>}
         {kind === "supply" && can("wholesale.rates") && client.credit_limit > 0 && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={f.override_limit} onChange={(e) => setF({ ...f, override_limit: e.target.checked })} /> Allow even if it crosses the credit limit (admin)</label>}
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save {kind}</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save {kind} · محفوظ کریں</button></div>
       </form>
     </Modal>
   );
@@ -420,22 +424,22 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
   const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
   return (
-    <Modal open onClose={onClose} title={`Receive payment — ${client.name}`}>
+    <Modal open onClose={onClose} title={`Receive payment — ${client.name} · رقم وصول`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
       }}>
         <p className="text-sm text-slate-600">Current due: <b>{pkr(client.summary.due)}</b></p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-          <Field label="Method"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
+          <Field label="Amount (Rs) · رقم"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+          <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
           <Field label="Cheque / transaction ref"><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
         </div>
         <AccountPicker method={f.method} value={account} onChange={setAccount} />
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         <ProofPhotos value={photos} onChange={setPhotos} required={f.method === "Cheque"} hint={f.method === "Cheque" ? "photo of the cheque (both sides)" : f.method === "Cash" ? "cash receipt / counted notes" : "bank slip or payment screenshot"} />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || (f.method === "Cheque" && !photos.length)}>Save payment</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || (f.method === "Cheque" && !photos.length)}>Save payment · محفوظ کریں</button></div>
       </form>
     </Modal>
   );
