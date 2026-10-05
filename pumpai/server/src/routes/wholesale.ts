@@ -265,9 +265,9 @@ wholesale.get("/wholesale/clients/:id/statement.csv", (req, res, next) => {
       ["Statement", s.client.name, s.client.business_name ?? ""].map(esc).join(","),
       ["Period", s.from ?? "start", s.to ?? "today"].map(esc).join(","),
       ["Opening balance", s.opening_balance].map(esc).join(","),
-      ["Date", "Type", "Product", "Litres", "Rate", "Debit (billed)", "Credit (received/returned)", "Balance", "Method", "Vehicle", "Ref", "Note", "Status"].map(esc).join(","),
+      ["Date", "Type", "Product", "Litres", "Rate", "Debit (billed)", "Credit (received/returned)", "Balance", "Method", "Vehicle", "Driver", "Drop location", "Trip", "Ref", "Note", "Status"].map(esc).join(","),
       ...s.lines.map((l) => [l.txn_date.slice(0, 10), l.type, l.product ?? "", l.litres ?? "", l.rate ?? "", l.debit || "", l.credit || "", l.balance,
-        l.method ?? "", l.vehicle_no ?? "", l.ref ?? "", l.note ?? "", l.voided ? "VOID" : ""].map(esc).join(",")),
+        l.method ?? "", l.vehicle_no ?? "", l.driver_name ?? "", l.location ?? "", l.trip_id ?? "", l.ref ?? "", l.note ?? "", l.voided ? "VOID" : ""].map(esc).join(",")),
       ["Closing balance", s.closing_balance].map(esc).join(","),
     ].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -287,10 +287,12 @@ function pickTank(tenantId: number, stationId: number, prod: string) {
 function insertTxn(req: Request, clientId: number, f: Row) {
   const ts = f.txn_date ? new Date(f.txn_date).toISOString() : now();
   const { id } = run(
-    `INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,method,vehicle_no,ref,note,created_by,txn_date,created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,method,vehicle_no,ref,note,created_by,txn_date,created_at,
+       trip_id,tanker_id,driver_id,driver_name,location)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     tid(req), clientId, f.type, f.station_id ?? null, f.tank_id ?? null, f.product ?? null, f.litres ?? null, f.rate ?? null,
     f.amount, f.method ?? null, f.vehicle_no ?? null, f.ref ?? null, f.note ?? null, req.user!.name, ts, now(),
+    f.trip_id ?? null, f.tanker_id ?? null, f.driver_id ?? null, f.driver_name ?? null, f.location ?? null,
   );
   // WhatsApp receipt to the client once the entry is committed
   setImmediate(() => { if (get("SELECT id FROM wholesale_txns WHERE id=?", id)) wholesaleReceipt(tid(req), clientId, get("SELECT * FROM wholesale_txns WHERE id=?", id)!).catch((e) => console.error("[wholesale receipt]", e.message)); });
@@ -300,32 +302,148 @@ function insertTxn(req: Request, clientId: number, f: Row) {
 const fuelBody = z.object({
   station_id: z.number(), product, litres: z.number().positive(), rate: z.number().positive().optional(),
   vehicle_no: z.string().optional().nullable(), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),
+  tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(), location: z.string().max(120).optional().nullable(),
   txn_date: dateStr, override_limit: z.boolean().optional(),
 });
 
+/** Tanker number and driver name from the fleet register (a typed vehicle number still works). */
+function fleet(t: number, b: { tanker_id?: number | null; driver_id?: number | null; vehicle_no?: string | null }) {
+  const tanker = b.tanker_id ? get("SELECT * FROM tankers WHERE id=? AND tenant_id=?", b.tanker_id, t) : null;
+  if (b.tanker_id && !tanker) throw new AppError(400, "Tanker not found");
+  const driverId = b.driver_id ?? tanker?.driver_id ?? null;
+  const driver = driverId ? get("SELECT * FROM drivers WHERE id=? AND tenant_id=?", driverId, t) : null;
+  if (b.driver_id && !driver) throw new AppError(400, "Driver not found");
+  return { tanker, driver, tanker_id: tanker?.id ?? null, driver_id: driver?.id ?? null, vehicle_no: tanker?.number ?? b.vehicle_no ?? null, driver_name: driver?.name ?? null };
+}
+
+/** Rate and amount for one supply to one client, after the rate-permission and credit-limit checks. */
+function priceSupply(req: Request, clientId: number, p: { product: string; litres: number; rate?: number; override_limit?: boolean }, alreadyAdded = 0) {
+  const c = ownClient(tid(req), clientId);
+  if (!c.active) throw new AppError(400, `${c.name} is inactive`);
+  const card = rates(c.id)[p.product];
+  if (p.rate !== undefined && p.rate !== card && !can(req.user, "wholesale.rates")) throw new AppError(403, "Only the admin can change the rate on a supply");
+  const rate = p.rate ?? card;
+  if (!rate) throw new AppError(400, `No ${PRODUCTS[p.product]} rate set for ${c.name}. Ask the admin to set the rate first.`);
+  const amount = round2(p.litres * rate);
+  const due = clientDue(c.id) + alreadyAdded;
+  if (c.credit_limit > 0 && due + amount > c.credit_limit && !(p.override_limit && can(req.user, "wholesale.rates")))
+    throw new AppError(400, `Credit limit exceeded for ${c.name}: due ${pkr(due)} + this supply ${pkr(amount)} > limit ${pkr(c.credit_limit)}`);
+  return { c, rate, amount };
+}
+function limitAlert(req: Request, c: Row, dueAfter: number) {
+  if (c.credit_limit > 0 && dueAfter >= 0.9 * c.credit_limit)
+    createAlert(tid(req), { type: "wholesale_limit", severity: "warning", title: `${c.name} is at ${Math.round((dueAfter / c.credit_limit) * 100)}% of wholesale credit limit`,
+      body: `Due ${pkr(dueAfter)} of ${pkr(c.credit_limit)}.`, dedupe_key: `wlimit-${c.id}` });
+}
+
 wholesale.post("/wholesale/clients/:id/supply", requirePerm("wholesale.manage"), h((req) => {
-  const c = ownClient(tid(req), Number(req.params.id));
-  if (!c.active) throw new AppError(400, "This client is inactive");
   const b = parse(fuelBody, req.body);
-  const card = rates(c.id)[b.product];
-  if (b.rate !== undefined && b.rate !== card && !can(req.user, "wholesale.rates")) throw new AppError(403, "Only the admin can change the rate on a supply");
-  const rate = b.rate ?? card;
-  if (!rate) throw new AppError(400, `No ${PRODUCTS[b.product]} rate set for ${c.name}. Ask the admin to set the rate first.`);
-  const amount = round2(b.litres * rate);
-  const due = clientDue(c.id);
-  if (c.credit_limit > 0 && due + amount > c.credit_limit && !(b.override_limit && can(req.user, "wholesale.rates")))
-    throw new AppError(400, `Credit limit exceeded: due ${pkr(due)} + this supply ${pkr(amount)} > limit ${pkr(c.credit_limit)}`);
+  const { c, rate, amount } = priceSupply(req, Number(req.params.id), b);
+  const fl = fleet(tid(req), b);
   const tank = pickTank(tid(req), b.station_id, b.product);
   if (tank.current_l < b.litres) throw new AppError(400, `Not enough stock in ${tank.name} (${Math.round(tank.current_l)} L available)`);
   return tx(() => {
     run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", b.litres, tank.id);
-    const t = insertTxn(req, c.id, { ...b, type: "supply", tank_id: tank.id, rate, amount });
-    if (c.credit_limit > 0 && t.due_after >= 0.9 * c.credit_limit)
-      createAlert(tid(req), { type: "wholesale_limit", severity: "warning", title: `${c.name} is at ${Math.round((t.due_after / c.credit_limit) * 100)}% of wholesale credit limit`,
-        body: `Due ${pkr(t.due_after)} of ${pkr(c.credit_limit)}.`, dedupe_key: `wlimit-${c.id}` });
+    const t = insertTxn(req, c.id, { ...b, ...fl, type: "supply", tank_id: tank.id, rate, amount });
+    limitAlert(req, c, t.due_after);
     return t;
   });
 }));
+
+/* ---------------- Tanker trips: one tanker, several clients / places, each at their own rate ---------------- */
+const tripBody = z.object({
+  station_id: z.number(), product, tanker_id: z.number().int().optional().nullable(), driver_id: z.number().int().optional().nullable(),
+  vehicle_no: z.string().optional().nullable(), txn_date: dateStr, note: z.string().max(200).optional().nullable(),
+  drops: z.array(z.object({
+    client_id: z.number().int(), litres: z.number().positive(), rate: z.number().positive().optional(),
+    location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), override_limit: z.boolean().optional(),
+  })).min(1, "Add at least one drop").max(30),
+});
+wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
+  const b = parse(tripBody, req.body);
+  const fl = fleet(tid(req), b);
+  const total = round2(b.drops.reduce((a, d) => a + d.litres, 0));
+  if (fl.tanker?.capacity_l && total > fl.tanker.capacity_l)
+    throw new AppError(400, `Tanker ${fl.tanker.number} holds ${Math.round(fl.tanker.capacity_l).toLocaleString()} L — the drops add up to ${total.toLocaleString()} L`);
+  // price every drop first (same client twice counts both against the limit) so a bad drop saves nothing
+  const added: Record<number, number> = {};
+  const priced = b.drops.map((d) => {
+    const p = priceSupply(req, d.client_id, { ...d, product: b.product }, added[d.client_id] ?? 0);
+    added[d.client_id] = (added[d.client_id] ?? 0) + p.amount;
+    return { ...d, ...p };
+  });
+  const tank = pickTank(tid(req), b.station_id, b.product);
+  if (tank.current_l < total) throw new AppError(400, `Not enough stock in ${tank.name} (${Math.round(tank.current_l)} L available, trip needs ${total} L)`);
+  const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
+  return tx(() => {
+    run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", total, tank.id);
+    const amount = round2(priced.reduce((a, d) => a + d.amount, 0));
+    const { id } = run(`INSERT INTO wholesale_trips (tenant_id,station_id,tank_id,product,tanker_id,driver_id,vehicle_no,driver_name,litres,amount,drops,note,created_by,trip_date,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, tank.id, b.product, fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
+      total, amount, priced.length, b.note ?? null, req.user!.name, ts, now());
+    for (const d of priced) {
+      const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tank.id, product: b.product, litres: d.litres, rate: d.rate, amount: d.amount,
+        ref: d.ref ?? `TRIP-${id}`, note: b.note ?? null, location: d.location ?? null, txn_date: b.txn_date, trip_id: id, ...fl });
+      limitAlert(req, d.c, t.due_after);
+    }
+    return tripSheet(tid(req), id);
+  });
+}));
+export function tripSheet(t: number, id: number) {
+  const trip = get(`SELECT tr.*, s.name station_name, tk.name tank_name, d.phone driver_phone, d.cnic driver_cnic, d.licence_no driver_licence
+    FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN tanks tk ON tk.id=tr.tank_id LEFT JOIN drivers d ON d.id=tr.driver_id
+    WHERE tr.id=? AND tr.tenant_id=?`, id, t);
+  if (!trip) throw new AppError(404, "Trip not found");
+  const drops = all(`SELECT w.id, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
+    FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.trip_id=? ORDER BY w.id`, id);
+  const live = drops.filter((d) => !d.voided);
+  return { ...trip, drops, delivered_l: round2(live.reduce((a, d) => a + d.litres, 0)), billed: round2(live.reduce((a, d) => a + d.amount, 0)) };
+}
+wholesale.get("/wholesale/trips", h((req) => all(`SELECT tr.*, s.name station_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id
+  WHERE tr.tenant_id=? ORDER BY tr.trip_date DESC, tr.id DESC LIMIT 100`, tid(req))));
+wholesale.get("/wholesale/trips/:id", h((req) => tripSheet(tid(req), Number(req.params.id))));
+
+/* ---------------- Fleet register: tankers and drivers ---------------- */
+const tankerBody = z.object({
+  number: z.string().trim().min(2).max(30).transform((v) => v.toUpperCase()), capacity_l: z.number().positive().max(100_000).optional().nullable(),
+  chambers: z.number().int().min(1).max(10).optional().nullable(), ownership: z.enum(["own", "hired"]).default("own"),
+  owner_name: z.string().max(80).optional().nullable(), owner_phone: z.string().max(20).optional().nullable(),
+  driver_id: z.number().int().optional().nullable(), notes: z.string().max(200).optional().nullable(), active: z.boolean().optional(),
+});
+const driverBody = z.object({
+  name: z.string().trim().min(2).max(80), phone: z.string().max(20).optional().nullable(), cnic: z.string().max(20).optional().nullable(),
+  licence_no: z.string().max(30).optional().nullable(), licence_expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable().or(z.literal("")),
+  address: z.string().max(160).optional().nullable(), notes: z.string().max(200).optional().nullable(), active: z.boolean().optional(),
+});
+const clean = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === "" ? null : typeof v === "boolean" ? Number(v) : v]));
+wholesale.get("/wholesale/fleet", h((req) => {
+  const today = pkDate();
+  return {
+    tankers: all(`SELECT tk.*, d.name driver_name, d.phone driver_phone, (SELECT MAX(txn_date) FROM wholesale_txns w WHERE w.tanker_id=tk.id AND w.voided=0) last_trip
+      FROM tankers tk LEFT JOIN drivers d ON d.id=tk.driver_id WHERE tk.tenant_id=? ORDER BY tk.active DESC, tk.number`, tid(req)),
+    drivers: all(`SELECT d.*, (SELECT MAX(txn_date) FROM wholesale_txns w WHERE w.driver_id=d.id AND w.voided=0) last_trip FROM drivers d WHERE d.tenant_id=? ORDER BY d.active DESC, d.name`, tid(req))
+      .map((d) => ({ ...d, licence_expired: Boolean(d.licence_expiry && d.licence_expiry < today) })),
+  };
+}));
+function saveFleet(table: "tankers" | "drivers", req: Request, data: Record<string, unknown>, id?: number) {
+  const t = tid(req);
+  if (data.driver_id && !get("SELECT id FROM drivers WHERE id=? AND tenant_id=?", data.driver_id as number, t)) throw new AppError(400, "Driver not found");
+  if (table === "tankers" && data.number && get("SELECT id FROM tankers WHERE tenant_id=? AND number=? AND id<>?", t, data.number as string, id ?? 0)) throw new AppError(400, `Tanker ${data.number} is already on file`);
+  const v = clean(data);
+  if (id) {
+    if (!get(`SELECT id FROM ${table} WHERE id=? AND tenant_id=?`, id, t)) throw new AppError(404, "Not found");
+    const keys = Object.keys(v);
+    if (keys.length) run(`UPDATE ${table} SET ${keys.map((k) => `${k}=?`).join(",")} WHERE id=?`, ...(Object.values(v) as any[]), id);
+    return get(`SELECT * FROM ${table} WHERE id=?`, id);
+  }
+  const keys = Object.keys(v);
+  const r = run(`INSERT INTO ${table} (tenant_id,${keys.join(",")},created_at) VALUES (?,${keys.map(() => "?").join(",")},?)`, t, ...(Object.values(v) as any[]), now());
+  return get(`SELECT * FROM ${table} WHERE id=?`, r.id);
+}
+wholesale.post("/wholesale/tankers", requirePerm("wholesale.manage"), h((req) => saveFleet("tankers", req, parse(tankerBody, req.body))));
+wholesale.patch("/wholesale/tankers/:id", requirePerm("wholesale.manage"), h((req) => saveFleet("tankers", req, parse(tankerBody.partial(), req.body), Number(req.params.id))));
+wholesale.post("/wholesale/drivers", requirePerm("wholesale.manage"), h((req) => saveFleet("drivers", req, parse(driverBody, req.body))));
+wholesale.patch("/wholesale/drivers/:id", requirePerm("wholesale.manage"), h((req) => saveFleet("drivers", req, parse(driverBody.partial(), req.body), Number(req.params.id))));
 
 wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));

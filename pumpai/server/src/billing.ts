@@ -53,7 +53,7 @@ export async function wholesaleReceipt(tenantId: number, clientId: number, txn: 
   if (!c?.phone) return;
   const due = clientDue(c.id);
   const head: Record<string, string> = {
-    supply: `🚛 Supply: ${txn.litres} L ${PRODUCTS[txn.product]} × Rs ${txn.rate} = ${pkr(txn.amount)}${txn.vehicle_no ? ` · gaari ${txn.vehicle_no}` : ""}`,
+    supply: `🚛 Supply: ${txn.litres} L ${PRODUCTS[txn.product]} × Rs ${txn.rate} = ${pkr(txn.amount)}${txn.vehicle_no ? ` · gaari ${txn.vehicle_no}` : ""}${txn.driver_name ? ` · driver ${txn.driver_name}` : ""}${txn.location ? ` · ${txn.location}` : ""}`,
     payment: `✅ Payment received: ${pkr(txn.amount)}${txn.method ? ` (${txn.method})` : ""}${txn.ref ? ` · ref ${txn.ref}` : ""}`,
     return: `↩️ Fuel return: ${txn.litres} L ${PRODUCTS[txn.product]} = ${pkr(txn.amount)} credited`,
   };

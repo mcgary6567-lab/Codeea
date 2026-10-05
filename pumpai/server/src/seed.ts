@@ -306,6 +306,13 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
     { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", limit: 2500000, rates: { HSD: 265.5 }, below: { HSD: 2 } as Record<string, number>, freq: 2, size: [2000, 5000] },
     { name: "Green Fields Agri Farms", business: "Tube-wells & tractors", phone: "923334445556", city: "Okara", limit: 1500000, rates: { HSD: 266.0, PMG: 259.0 }, freq: 5, size: [1500, 3000] },
   ];
+  // own tankers and drivers on file (picked from a list on every supply / trip)
+  const drv = [["Ghulam Rasool", "923015551201", "35202-4455667-1", "LHR-HTV-88231", 400], ["Muhammad Akram", "923025551202", "35401-7788990-3", "OKR-HTV-55102", 20], ["Zafar Iqbal", "923035551203", "35202-1122334-5", "LHR-HTV-71450", -12]]
+    .map(([n, ph, cnic, lic, days]) => ({ name: n as string, id: run("INSERT INTO drivers (tenant_id,name,phone,cnic,licence_no,licence_expiry,created_at) VALUES (?,?,?,?,?,?,?)",
+      tenantId, n, ph, cnic, lic, iso(T0 + (days as number) * DAY).slice(0, 10), iso(T0 - 90 * DAY)).id }));
+  const fleetTk = [["TLR-3412", 12000, 3, 0], ["TLR-5520", 25000, 4, 1], ["LES-0981", 8000, 2, 2]]
+    .map(([n, cap, ch, di]) => ({ number: n as string, driver: drv[di as number], id: run("INSERT INTO tankers (tenant_id,number,capacity_l,chambers,driver_id,created_at) VALUES (?,?,?,?,?,?)",
+      tenantId, n, cap, ch, drv[di as number].id, iso(T0 - 90 * DAY)).id }));
   for (const [ci, c] of clients.entries()) {
     const id = run("INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,credit_limit,opening_balance,created_at) VALUES (?,?,?,?,?,?,?,?)",
       tenantId, c.name, c.business, c.phone, c.city, c.limit, ci === 0 ? 250000 : 0, iso(T0 - 70 * DAY)).id;
@@ -325,9 +332,10 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
         const litres = Math.round((c.size[0] + rnd() * (c.size[1] - c.size[0])) / 500) * 500;
         const station = c.city === "Okara" ? st2 : st1;
         const tank = get("SELECT id FROM tanks WHERE station_id=? AND product=? LIMIT 1", station, p)!;
-        run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,vehicle_no,ref,created_by,txn_date,created_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, id, "supply", station, tank.id, p, litres, rate, Math.round(litres * rate * 100) / 100,
-          `TLR-${3000 + Math.floor(rnd() * 6000)}`, `DN-${1000 + d * 3 + ci}`, "Tariq Wholesale", iso(t), iso(t));
+        const tk = fleetTk[(d + ci) % fleetTk.length];
+        run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,vehicle_no,ref,created_by,txn_date,created_at,tanker_id,driver_id,driver_name,location)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, id, "supply", station, tank.id, p, litres, rate, Math.round(litres * rate * 100) / 100,
+          tk.number, `DN-${1000 + d * 3 + ci}`, "Tariq Wholesale", iso(t), iso(t), tk.id, tk.driver.id, tk.driver.name, c.city);
         due += litres * rate;
       }
       if (d % 7 === ci + 1 && due > 0) {

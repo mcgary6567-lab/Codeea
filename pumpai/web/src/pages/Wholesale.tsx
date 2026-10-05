@@ -5,6 +5,7 @@ import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
+import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
@@ -24,12 +25,18 @@ function ClientList() {
   const summary = useApi<any>("/wholesale/summary");
   const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
   const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState<"clients" | "trips" | "fleet">("clients");
+  const [trip, setTrip] = useState(false);
+  const [sheet, setSheet] = useState<number | null>(null);
+  const [tripsKey, setTripsKey] = useState(0);
   const s = summary.data;
 
   return (
     <div className="space-y-5">
       <PageHeader title="Wholesale supply" subtitle="Bulk fuel to dealers and businesses — each client has their own rate card and running account"
-        actions={can("wholesale.manage") && <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add client</button>} />
+        actions={can("wholesale.manage") && <div className="flex flex-wrap gap-2">
+          <button className="btn-primary" onClick={() => setTrip(true)}><Truck size={16} /> Tanker trip (several drops)</button>
+          <button className="btn-secondary" onClick={() => setAdding(true)}><Plus size={16} /> Add client</button></div>} />
       {s && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Total due (all clients)" value={pkrShort(s.total_due)} tone="amber" icon={<Wallet size={16} />} hint={`${s.clients} clients`} />
@@ -38,6 +45,14 @@ function ClientList() {
           <Stat label="Supplied today" value={`${num(s.today.supplied_l)} L`} hint={`This month: ${s.by_product_month.map((p: any) => `${PRODUCTS[p.product]} ${num(p.litres)} L`).join(" · ") || "—"}`} />
         </div>
       )}
+      <div className="flex gap-1 border-b border-slate-200">
+        {([["clients", "Clients"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} className={`border-b-2 px-3 py-2 text-sm ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}</button>
+        ))}
+      </div>
+      {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setTrip(true) : undefined} />}
+      {tab === "fleet" && <FleetTab />}
+      {tab === "clients" && <>
       <div className="card">
         <div className="border-b border-slate-200 p-3"><div className="relative max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>
         {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
@@ -70,6 +85,9 @@ function ClientList() {
           <LedgerTable rows={s.recent} showClient />
         </div>
       )}
+      </>}
+      {trip && <TripForm onClose={() => setTrip(false)} onDone={(t) => { setTrip(false); summary.reload(); list.reload(); setTripsKey((k) => k + 1); setSheet(t.id); }} />}
+      {sheet && <TripSheet id={sheet} onClose={() => setSheet(null)} />}
       {adding && <ClientForm onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); nav(`/wholesale/${c.id}`); }} />}
     </div>
   );
@@ -255,7 +273,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
                 <td className="td text-xs">
                   {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name.replace("Al-Madina ", "")}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
-                  <div className="text-slate-500">{[r.vehicle_no, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
+                  <div className="text-slate-500">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
                 </td>
                 <td className="td text-right tabular-nums">{debit ? pkr(debit) : ""}</td>
                 <td className="td text-right tabular-nums text-emerald-700">{credit ? pkr(credit) : ""}</td>
@@ -274,7 +292,7 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
   const { can } = useAuth();
   const stations = useApi<any[]>("/stations");
   const products = Object.keys(client.rates).length ? Object.keys(client.rates) : Object.keys(PRODUCTS);
-  const [f, setF] = useState<any>({ station_id: "", product: products[0], litres: "", rate: "", vehicle_no: "", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10), override_limit: false });
+  const [f, setF] = useState<any>({ station_id: "", product: products[0], litres: "", rate: "", tanker_id: "", driver_id: "", vehicle_no: "", location: client.city ?? "", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10), override_limit: false });
   useEffect(() => { if (stations.data && !f.station_id) setF((x: any) => ({ ...x, station_id: stations.data![0].id })); }, [stations.data]);
   const { busy, run } = useAction();
   const station = stations.data?.find((s) => s.id === Number(f.station_id));
@@ -283,7 +301,8 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
   const amount = Number(f.litres) * rate;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body: any = { station_id: Number(f.station_id), product: f.product, litres: Number(f.litres), vehicle_no: f.vehicle_no || null, ref: f.ref || null, note: f.note || null, txn_date: f.txn_date };
+    const body: any = { station_id: Number(f.station_id), product: f.product, litres: Number(f.litres), ref: f.ref || null, note: f.note || null, txn_date: f.txn_date,
+      ...(kind === "supply" ? { ...fleetBody(f), location: f.location || null } : { vehicle_no: f.vehicle_no || null }) };
     if (f.rate && can("wholesale.rates")) body.rate = Number(f.rate);
     if (f.override_limit) body.override_limit = true;
     if (await run(() => api(`/wholesale/clients/${client.id}/${kind}`, { body }), (r: any) => `${kind === "supply" ? "Supply" : "Return"} saved. Due now ${pkr(r.due_after)}`)) onDone();
@@ -299,7 +318,10 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
             <input className="input" type="number" step="0.01" disabled={!can("wholesale.rates")} placeholder={client.rates[f.product] ? String(client.rates[f.product]) : kind === "return" ? "last supply rate" : "no rate set"} value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} />
           </Field>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
-          <Field label="Tanker / vehicle no."><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
+          {kind === "supply" ? <>
+            <FleetPicker f={f} setF={setF} />
+            <Field label="Drop location"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
+          </> : <Field label="Tanker / vehicle no."><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>}
           <Field label="Delivery note / ref no."><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>

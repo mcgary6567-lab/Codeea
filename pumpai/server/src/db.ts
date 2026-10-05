@@ -339,6 +339,23 @@ export function migrate() {
   addColumn("wholesale_rates", "mode", "TEXT NOT NULL DEFAULT 'fixed'"); // fixed | discount (pump price − discount)
   addColumn("wholesale_rates", "discount", "REAL"); // Rs/L below the pump price; negative = above
   addColumn("wholesale_rate_history", "note", "TEXT");
+  // wholesale fleet: tankers and drivers kept on file, and multi-drop tanker trips
+  db.exec(`CREATE TABLE IF NOT EXISTS tankers (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, number TEXT NOT NULL, capacity_l REAL, chambers INTEGER,
+    ownership TEXT NOT NULL DEFAULT 'own', owner_name TEXT, owner_phone TEXT, driver_id INTEGER, notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, UNIQUE (tenant_id, number))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS drivers (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT NOT NULL, phone TEXT, cnic TEXT, licence_no TEXT,
+    licence_expiry TEXT, address TEXT, notes TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS wholesale_trips (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER NOT NULL, tank_id INTEGER, product TEXT NOT NULL,
+    tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT, litres REAL NOT NULL, amount REAL NOT NULL,
+    drops INTEGER NOT NULL, note TEXT, created_by TEXT, trip_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  addColumn("wholesale_txns", "trip_id", "INTEGER");
+  addColumn("wholesale_txns", "tanker_id", "INTEGER");
+  addColumn("wholesale_txns", "driver_id", "INTEGER");
+  addColumn("wholesale_txns", "driver_name", "TEXT");
+  addColumn("wholesale_txns", "location", "TEXT"); // where this drop was unloaded
   addColumn("meter_readings", "handover_gap", "REAL");
   // meter numbers per station (No.1, No.2 …): existing meters get numbers in the order they were added,
   // new ones get the next free number automatically
