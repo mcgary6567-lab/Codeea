@@ -12,10 +12,10 @@ import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { get, run, now, pkDate } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
-import { AppError, normalizePhone } from "../services.js";
+import { AppError, normalizePhone, currentPrices, paymentLink } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
 import { statement, rateCard, clientDue } from "./wholesale.js";
-import { khataPortalBody } from "./customerCare.js";
+import { khataStatement } from "./crm.js";
 import { billLink } from "../billing.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
 import { logoTag } from "./setup.js";
@@ -97,7 +97,7 @@ h1{font-size:22px;margin:0}.m{color:#64748b;font-size:13px}.g{color:#047857}.red
 .hero{border-radius:16px;padding:16px;text-align:center}.hero.owe{background:#fef2f2;border:2px solid #fecaca}.hero.ok{background:#ecfdf5;border:2px solid #a7f3d0}
 .hero .amt{font-size:38px;font-weight:800;letter-spacing:.5px;white-space:nowrap}.hero .lbl{font-size:16px;font-weight:600}.hero .ur{font-size:20px}
 .bar{height:10px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:6px}.bar>i{display:block;height:100%;border-radius:99px}
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.tile{background:#f8fafc;border-radius:12px;padding:10px;text-align:center}.tile .i{font-size:22px}.tile{min-width:0}.tile b{display:block;font-size:clamp(14px,4.2vw,19px);overflow-wrap:anywhere}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.tile{background:#f8fafc;border-radius:12px;padding:10px;text-align:center}.tile .i{font-size:22px}.tile{min-width:0}.tile b{display:block;font-size:clamp(12px,3.4vw,19px);white-space:nowrap}
 .rates{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.rate{border-radius:12px;padding:12px;color:#fff;text-align:center}.rate b{display:block;font-size:24px}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.chips a{flex:none;padding:7px 12px;border-radius:99px;background:#f1f5f9;color:#0f172a;text-decoration:none;font-size:14px;border:1px solid #e2e8f0}.chips a.on{background:#064e3b;color:#fff;border-color:#064e3b}
 .e{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #e2e8f0}.e .ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
@@ -192,9 +192,63 @@ ${rows || `<p class=m style="text-align:center;padding:16px">No entries in this 
 <div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
 }
 
+/** Khata customer's page: same look as the wholesale page — balance, pay, rate, every fill and payment. */
+function khataBody(c: any, month: string | null, code: string): string {
+  const t = c.tenant_id;
+  const from = month ? `${month}-01` : pkDate(Date.now() - 60 * DAYMS);
+  const to = month ? new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10) : undefined;
+  const s = khataStatement(t, c.id, from, to);
+  const due = c.balance;
+  const fills = s.lines.filter((l: any) => l.type === "debit");
+  const litres = fills.reduce((a: number, l: any) => a + (l.litres ?? 0), 0);
+  const billed = fills.reduce((a: number, l: any) => a + l.amount, 0);
+  const paid = s.lines.filter((l: any) => l.type === "credit").reduce((a: number, l: any) => a + l.amount, 0);
+  const used = c.credit_limit > 0 ? Math.min(100, Math.max(0, (due / c.credit_limit) * 100)) : 0;
+  const periodLabel = month ? monthName(month) : "Last 60 days";
+  const COLORS: Record<string, string> = { PMG: "#2a78d6", HOBC: "#eb6834", HSD: "#1baf7a" };
+  const prices = currentPrices(t);
+  // fuel per vehicle in this period (schools, police and fleets have several)
+  const byVehicle = Object.values(fills.reduce((a: Record<string, any>, l: any) => {
+    const k = l.vehicle_no || "—"; a[k] ??= { v: k, litres: 0, amount: 0, n: 0 }; a[k].litres += l.litres ?? 0; a[k].amount += l.amount; a[k].n++; return a;
+  }, {})) as { v: string; litres: number; amount: number; n: number }[];
+  const rows = [...s.lines].reverse().map((l: any) => {
+    const d = `<div class=m>${esc(new Date(l.created_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }))}</div>`;
+    const bal = `<div class=m>Baqi · <span class=ur>باقی</span> ${n2(l.balance)}</div>`;
+    if (l.type === "credit") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.ref, l.note !== "Payment received" ? l.note : null].filter(Boolean).join(" · "))}</div></div>
+      <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
+    if (l.product) return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
+      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name).replace(/^Al-Madina /, "")}`].filter(Boolean).join("  "))}</div></div>
+      <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
+    return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Charge · <span class=ur>چارج</span></div><div class=m>${esc(l.note ?? l.ref ?? "")}</div></div>
+      <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
+  }).join("");
+  const chips = [`<a href="${esc(code)}" class="${month ? "" : "on"}">60 days · <span class=ur>۶۰ دن</span></a>`, ...monthsBack(6).map((m) => `<a href="${esc(code)}?m=${m}" class="${month === m ? "on" : ""}">${esc(monthName(m))}</a>`)].join("");
+  return `<div class=po><b>${esc(get("SELECT name FROM tenants WHERE id=?", t)?.name)}</b> — Khata statement · <span class=ur>کھاتہ</span><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
+<div class=c><h1>${esc(c.name)}</h1><div class=m>${esc([c.city, c.phone].filter(Boolean).join(" · "))}</div>
+<div class="hero ${due > 0 ? "owe" : "ok"}" style="margin-top:12px">
+${due > 0 ? `<div class=lbl>You have to pay · <span class=ur>آپ کے ذمے</span></div><div class="amt red">${rs(due)}</div>`
+  : `<div class=lbl>${due < 0 ? "Advance with the pump · <span class=ur>پمپ پر ایڈوانس</span>" : "All paid · <span class=ur>حساب صاف</span>"} ✅</div><div class="amt g">${rs(Math.abs(due))}</div>`}
+${c.credit_limit > 0 ? `<div class=m style="margin-top:6px">Credit limit · <span class=ur>حد</span> ${rs(c.credit_limit)} — left · <span class=ur>باقی حد</span> <b>${rs(Math.max(0, c.credit_limit - due))}</b></div>
+<div class=bar><i style="width:${used}%;background:${used >= 90 ? "#dc2626" : used >= 75 ? "#d97706" : "#059669"}"></i></div>` : ""}
+${c.khata_blocked ? `<div class=err>⛔ Khata is on hold — payment is overdue. Please pay to fill again · <span class=ur>ادائیگی کے بعد کھاتہ دوبارہ چلے گا</span></div>` : ""}
+${due > 0 ? `<a class="b np" href="${esc(paymentLink(c, due))}">💳 Pay now · <span class=ur>ابھی ادائیگی کریں</span> <span style="font-weight:400;font-size:14px">(JazzCash / Easypaisa / Raast)</span></a>` : ""}</div>
+<div class=tiles><div class=tile><div class=i>⛽</div><b>${Math.round(litres).toLocaleString("en-IN")} L</b><div class=m>Fuel taken · <span class=ur>تیل لیا</span></div></div>
+<div class=tile><div class=i>🧾</div><b>${rs(billed)}</b><div class=m>Bill · <span class=ur>بل</span></div></div>
+<div class=tile><div class=i>💵</div><b class=g>${rs(paid)}</b><div class=m>Paid · <span class=ur>ادا کیا</span></div></div></div>
+<div class=m style="text-align:center;margin-top:6px">${esc(periodLabel)}</div></div>
+<div class=c><b>Today's rate · <span class=ur>آج کا ریٹ</span></b><div class=rates style="margin-top:10px">${Object.entries(prices).map(([p, r]) => `<div class=rate style="background:${COLORS[p] ?? "#475569"}">${esc(PRODUCTS[p] ?? p)} · <span class=ur>${FUEL_UR[p] ?? ""}</span><b>Rs ${r.price.toFixed(2)}</b><span style="font-size:12px">per litre · <span class=ur>فی لیٹر</span></span></div>`).join("")}</div></div>
+${byVehicle.length > 1 ? `<div class=c><b>By vehicle · <span class=ur>گاڑی وار</span> — ${esc(periodLabel)}</b>${byVehicle.sort((a, b) => b.amount - a.amount).map((v) => `<div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:400"><span>🚗 <b>${esc(v.v)}</b> <span class=m>${v.n} fills</span></span><span>${n2(v.litres)} L · <b>${rs(v.amount)}</b></span></div>`).join("")}</div>` : ""}
+<div class=c><div class=np style="margin-bottom:8px"><div class=chips>${chips}</div></div>
+<b>Entries · <span class=ur>تفصیل</span> — ${esc(periodLabel)}</b>
+<div class=m>⛽ fuel taken (+) · 💵 payment (−) · <span class=ur>باقی</span> = balance after each entry</div>
+<div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:600"><span>Opening · <span class=ur>شروع کا باقی</span></span><span>${n2(s.opening_balance)}</span></div>
+${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}
+<div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
+}
+
 function khataPage(kind: Kind, c: any, code: string, month: string | null) {
   const bill = billLink(c.tenant_id, kind, c.id, month ?? pkDate().slice(0, 7));
-  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c, month, code) : khataPortalBody(c)) +
+  return page(`${c.name} — khata`, (kind === "w" ? wholesaleBody(c, month, code) : khataBody(c, month, code)) +
     `<div class=m style="text-align:center;margin:8px 0 20px">Updated · <span class=ur>تازہ ترین</span> ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>`, c.tenant_id, topBar(c, code, bill));
 }
 

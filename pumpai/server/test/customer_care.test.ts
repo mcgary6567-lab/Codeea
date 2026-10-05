@@ -37,7 +37,7 @@ test("customer portal: private link shows balance and fills; resetting the link 
   const { url, pin } = ok(await call("manager", "GET", `/api/customers/${c.id}/portal`), "link");
   assert.match(await (await fetch(local(url))).text(), /Enter the 6-digit PIN/, "PIN asked first");
   const html = await (await fetch(local(url), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${pin}` })).text();
-  assert.match(html, new RegExp(c.name)); assert.match(html, /Balance due/); assert.match(html, /Monthly bills/);
+  assert.match(html, new RegExp(c.name)); assert.match(html, /You have to pay|All paid/); assert.match(html, /Entries/); assert.match(html, /Pay now/);
   ok(await call("manager", "POST", `/api/customers/${c.id}/portal/send`, {}), "send");
   const sent = db.get("SELECT m.* FROM messages m JOIN conversations v ON v.id=m.conversation_id WHERE v.customer_id=? AND m.meta LIKE '%portal_link%' ORDER BY m.id DESC", c.id);
   assert.ok(sent && sent.body.includes(pin), "link and PIN sent on WhatsApp");

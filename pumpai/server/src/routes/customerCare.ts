@@ -43,24 +43,6 @@ export function portalFromOldToken(token: string) {
   return get("SELECT * FROM customers WHERE id=? AND tenant_id=?", p.portal, p.t) ?? null;
 }
 
-/** What a khata customer sees after entering their PIN: balance, limit, pay link, bills and the last 45 days. */
-export function khataPortalBody(c: any): string {
-  const t = c.tenant_id;
-  const since = pkDate(Date.now() - 45 * DAY);
-  const s = khataStatement(t, c.id, since);
-  const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(Date.parse(`${pkDate().slice(0, 7)}-15T00:00:00Z`)); d.setUTCMonth(d.getUTCMonth() - i); return d.toISOString().slice(0, 7); });
-  const bills = all("SELECT * FROM khata_bills WHERE customer_id=? ORDER BY month DESC LIMIT 6", c.id);
-  const rows = [...s.lines].reverse().slice(0, 80).map((l: any) => `<div class=row><div class=l><div class=m>${esc(new Date(l.created_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</div>
-    ${l.type === "debit" ? `<b>${esc(PRODUCTS[l.product] ?? l.note ?? "")}</b>${l.litres ? ` · ${n2(l.litres)} L × ${n2(l.rate)}` : ""}<div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `slip ${l.slip_no}`].filter(Boolean).join(" · "))}</div>` : `<b class=g>Payment received</b><div class=m>${esc(l.ref ?? "")}</div>`}</div>
-    <div class=rr>${l.type === "debit" ? `<b>${n2(l.amount)}</b>` : `<b class=g>−${n2(l.amount)}</b>`}<div class=m>bal ${n2(l.balance)}</div></div></div>`).join("");
-  return `<div class=c><h1>${esc(c.name)}</h1>
-<div class=grid><div class=t><div class=m>Balance due · بقایا</div><div class="big ${c.balance > 0 ? "red" : "g"}">Rs ${Math.round(c.balance).toLocaleString("en-IN")}</div></div><div class=t><div class=m>Credit limit · حد</div><div class=big style="font-size:20px">Rs ${Math.round(c.credit_limit).toLocaleString("en-IN")}</div><div class=m>Available Rs ${Math.round(Math.max(0, c.credit_limit - c.balance)).toLocaleString("en-IN")}</div></div></div>
-${c.khata_blocked ? `<div class=err>Khata is on hold because payment is overdue. Please pay to continue.</div>` : ""}
-${c.balance > 0 ? `<a class=b href="${esc(paymentLink(c, c.balance))}">Pay now (JazzCash / Easypaisa / Raast)</a>` : ""}</div>
-<div class=c><b>Last 45 days</b><div class=m>fuel in black, payments in green (−)</div>${rows || "<p class=m>No entries</p>"}</div>
-<div class=c><b>Monthly bills</b><ul>${months.map((m) => `<li><a href="${esc(billLink(t, "k", c.id, m))}">${esc(new Date(`${m}-15T00:00:00Z`).toLocaleDateString("en-PK", { month: "long", year: "numeric" }))}</a>${(() => { const b = bills.find((x) => x.month === m); return b ? ` · bill ${esc(b.bill_no)}${b.po_number ? ` · PO ${esc(b.po_number)}` : ""} · ${esc(b.status)}` : ""; })()}</li>`).join("")}</ul></div>`;
-}
-
 /* ================= Overdue hold and late charge ================= */
 const lastPaymentOrFirstDebit = (customerId: number) =>
   get("SELECT MAX(created_at) d FROM khata_ledger WHERE customer_id=? AND type='credit'", customerId)?.d
