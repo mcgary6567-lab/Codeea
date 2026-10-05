@@ -1,12 +1,13 @@
 /** Demo data: one business, two stations, 8 weeks of realistic sales, customers, khata and WhatsApp chats. */
 import bcrypt from "bcryptjs";
-import { db, migrate, run, all, get, tx, setSetting } from "./db.js";
+import { db, migrate, run, all, get, tx, setSetting, pkDate } from "./db.js";
 import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
 import { createAlert } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
 import { DEFAULT_CATEGORIES } from "./routes/expenses.js";
 import { cylinderChart } from "./routes/backoffice.js";
 import { addDefaultChecklist } from "./routes/compliance.js";
+import { bankMoves } from "./routes/banks.js";
 
 let s = 42;
 const rnd = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
@@ -225,6 +226,7 @@ export function seed() {
     seedMoney(tenantId);
     seedPeople(tenantId);
     seedMachines(tenantId, st1, st2);
+    seedBanks(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -582,4 +584,44 @@ function seedMachines(tenantId: number, st1: number, st2: number) {
   log(gen, "reading", d(-1), "Hours meter reading", null, null, { hours: 4268 });
   log(comp, "service", d(-30), "Belt tightened, oil topped up", 1500, "Mian Compressor Works");
   log(comp, "fault", d(-3), "Compressor trips after 5 minutes, air pressure not building up", null, null);
+}
+
+/** The owner's bank accounts, with past non-cash payments linked so each bank shows a real balance. */
+function seedBanks(tenantId: number) {
+  const opened = pkDate(Date.now() - 90 * DAY);
+  const add = (bank: string, branch: string | null, account_no: string | null, kind: string) =>
+    run("INSERT INTO bank_accounts (tenant_id,bank,branch,title,account_no,kind,opening_balance,opening_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      tenantId, bank, branch, "Al-Madina Petroleum", account_no, kind, 0, opened, "Owner", iso(Date.now() - 90 * DAY)).id;
+  const hbl = add("Habib Bank (HBL)", "Ferozepur Road, Lahore", "0123-79001234-03", "current");
+  const mzn = add("Meezan Bank", "Okara Bypass", "0210-0104567891", "current");
+  const ep = add("Easypaisa (Telenor Microfinance)", null, "0300-1234567", "wallet");
+  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','')`;
+  run(`UPDATE bank_deposits SET account_id=? WHERE tenant_id=?`, hbl, tenantId);
+  run(`UPDATE wholesale_txns SET account_id=CASE WHEN id % 3 = 0 THEN ? ELSE ? END WHERE tenant_id=? AND type='payment' AND ${nonCash("method")}`, mzn, hbl, tenantId);
+  run(`UPDATE khata_ledger SET account_id=CASE WHEN LOWER(ref) IN ('jazzcash','easypaisa') THEN ? ELSE ? END WHERE type='credit' AND ${nonCash("ref")}
+    AND customer_id IN (SELECT id FROM customers WHERE tenant_id=?)`, ep, mzn, tenantId);
+  run(`UPDATE supplier_txns SET account_id=? WHERE tenant_id=? AND type='payment' AND ${nonCash("method")}`, hbl, tenantId);
+  run(`UPDATE expenses SET account_id=? WHERE tenant_id=? AND status='approved' AND ${nonCash("method")}`, mzn, tenantId);
+  run(`UPDATE wallet_ledger SET account_id=? WHERE tenant_id=? AND type IN ('deposit','refund') AND ${nonCash("method")}`, mzn, tenantId);
+  setSetting(tenantId, "bank_pos_map", JSON.stringify({ card: hbl, raast: mzn, easypaisa: ep, jazzcash: ep }));
+  // every week the owner takes out the surplus (or tops up), so the balance moves smoothly to today's
+  const opening: Record<number, number> = { [hbl]: 1_500_000, [mzn]: 400_000, [ep]: 25_000 };
+  const target: Record<number, number> = { [hbl]: 4_850_000, [mzn]: 1_265_000, [ep]: 86_500 };
+  for (const [id, v] of Object.entries(opening)) run("UPDATE bank_accounts SET opening_balance=? WHERE id=?", v, Number(id));
+  const weeks = Array.from({ length: 13 }, (_, i) => 85 - i * 7); // 85 … 1 day ago
+  for (const id of [hbl, mzn, ep]) {
+    for (const [n, ago] of weeks.entries()) {
+      const at = iso(Date.now() - ago * DAY);
+      const moves = bankMoves(tenantId, id);
+      const now = opening[id] + moves.filter((m) => m.at <= at).reduce((a, m) => a + m.amount, 0);
+      // keep enough for the coming week's payments (supplier tankers are paid from the bank)
+      const until = iso(Date.now() - (ago - 7) * DAY);
+      const due = -moves.filter((m) => m.at > at && m.at <= until && m.amount < 0).reduce((a, m) => a + m.amount, 0);
+      const want = opening[id] + ((target[id] - opening[id]) * (n + 1)) / weeks.length + (ago > 1 ? due : 0);
+      const gap = Math.round((now - want) / 1000) * 1000;
+      if (Math.abs(gap) < 1000) continue;
+      run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        tenantId, id, gap > 0 ? "owner_out" : "owner_in", -gap, "Owner", gap > 0 ? "Owner took money" : "Owner put money in", at, "Owner", at);
+    }
+  }
 }

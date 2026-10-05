@@ -4,6 +4,7 @@ import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction, ErrorBox } from "../components/ui";
 import { d as day, dt, num, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
+import { ALL_PK_BANKS } from "../lib/banks";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 
 const TABS = [
@@ -244,7 +245,8 @@ function Bank() {
         <p className="text-sm text-slate-600">Download the statement from internet banking as <b>CSV / Excel (save as CSV)</b> and upload it. Deposits, cheques and payments are matched with the books by amount and date.</p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="btn-secondary cursor-pointer"><Upload size={15} /> Choose statement file<input type="file" accept=".csv,text/csv" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setCsv(await f.text()); }} /></label>
-          <Field label="Bank (to match deposits)"><input className="input" placeholder="e.g. HBL" value={bankName} onChange={(e) => setBankName(e.target.value)} /></Field>
+          <Field label="Bank (to match deposits)"><input className="input" list="pk-banks" placeholder="e.g. HBL" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+            <datalist id="pk-banks">{ALL_PK_BANKS.map((b) => <option key={b} value={b} />)}</datalist></Field>
           <button className="btn-primary" disabled={!csv || busy} onClick={go}>Match with books</button>
           {csv && <span className="text-xs text-slate-500">{csv.split("\n").length} lines loaded</span>}
         </div>

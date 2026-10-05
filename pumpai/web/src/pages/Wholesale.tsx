@@ -7,6 +7,7 @@ import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
+import { AccountPicker } from "../components/BankParts";
 import { PortalCard } from "../components/PortalCard";
 import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 
@@ -370,12 +371,13 @@ function FuelEntry({ kind, client, onClose, onDone }: { kind: "supply" | "return
 function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
   const [f, setF] = useState({ amount: "", method: "Bank transfer", ref: "", note: "", txn_date: new Date().toISOString().slice(0, 10) });
   const [photos, setPhotos] = useState<number[]>([]);
+  const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={`Receive payment — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
+        if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
       }}>
         <p className="text-sm text-slate-600">Current due: <b>{pkr(client.summary.due)}</b></p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -384,6 +386,7 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
           <Field label="Cheque / transaction ref"><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
         </div>
+        <AccountPicker method={f.method} value={account} onChange={setAccount} />
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         <ProofPhotos value={photos} onChange={setPhotos} required={f.method === "Cheque"} hint={f.method === "Cheque" ? "photo of the cheque (both sides)" : f.method === "Cash" ? "cash receipt / counted notes" : "bank slip or payment screenshot"} />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || (f.method === "Cheque" && !photos.length)}>Save payment</button></div>

@@ -6,6 +6,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
+import { AccountPicker } from "../components/BankParts";
 
 const METHODS = ["cash", "bank", "raast", "easypaisa", "jazzcash", "cheque"];
 
@@ -176,6 +177,7 @@ function Wallets() {
 function WalletModal({ w, onClose }: { w: any; onClose: () => void }) {
   const { data, reload } = useApi<any>(`/customers/${w.id}/wallet`);
   const [f, setF] = useState({ amount: "", method: "raast", ref: "", type: "deposit" });
+  const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
   const [low, setLow] = useState<string>("");
   useEffect(() => { if (data) setLow(String(data.wallet_low)); }, [data?.wallet_low]);
@@ -189,13 +191,14 @@ function WalletModal({ w, onClose }: { w: any; onClose: () => void }) {
         </div>
         <form className="grid gap-2 sm:grid-cols-5" onSubmit={async (e) => {
           e.preventDefault();
-          if (await run(() => api(`/customers/${w.id}/wallet/deposit`, { body: { amount: Number(f.amount), method: f.method, ref: f.ref || null, type: f.type } }), f.type === "deposit" ? "Deposit saved — customer told on WhatsApp" : "Saved")) { setF({ ...f, amount: "", ref: "" }); reload(); }
+          if (await run(() => api(`/customers/${w.id}/wallet/deposit`, { body: { amount: Number(f.amount), method: f.method, ref: f.ref || null, type: f.type, account_id: account } }), f.type === "deposit" ? "Deposit saved — customer told on WhatsApp" : "Saved")) { setF({ ...f, amount: "", ref: "" }); reload(); }
         }}>
           <select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} aria-label="Type"><option value="deposit">Deposit</option><option value="refund">Refund (money back)</option></select>
           <input className="input" type="number" min={1} required placeholder="Amount Rs" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
           <select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })} aria-label="Method">{METHODS.map((m) => <option key={m}>{m}</option>)}</select>
           <input className="input" placeholder="Ref / TID" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} />
           <button className="btn-primary" disabled={busy}>Save</button>
+          <div className="sm:col-span-5"><AccountPicker method={f.method} label={f.type === "refund" ? "Paid back from which bank?" : "Into which bank account? · کس بینک میں"} value={account} onChange={setAccount} /></div>
         </form>
         <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-sm">

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
+import { bankAccountFor, accountIdField } from "./banks.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
@@ -65,13 +66,14 @@ suppliers.post("/suppliers/:id/payment", h((req) => {
   const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(),
     txn_date: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional(),
     /** income tax withheld from this payment (paid to FBR instead of the supplier) */
-    withholding: z.number().min(0).optional(), wht_section: z.string().max(30).optional().nullable(), photo_ids: proofPhotos }), req.body);
+    withholding: z.number().min(0).optional(), wht_section: z.string().max(30).optional().nullable(), photo_ids: proofPhotos, account_id: accountIdField }), req.body);
   const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
   const t = tid(req);
   if (isCheque(b.method)) requireProof(t, b.photo_ids, "cheque");
+  const accountId = bankAccountFor(t, b.account_id, b.method);
   tx(() => {
-    const pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-      t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now()).id;
+    const pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now(), accountId).id;
     linkPhotos(t, b.photo_ids, `stx:${pid}`);
     if (b.withholding) {
       const w = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",

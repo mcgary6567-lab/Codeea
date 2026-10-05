@@ -1,0 +1,248 @@
+/**
+ * The owner's bank accounts (HBL, Meezan, Easypaisa …) and how much is in each.
+ *
+ * A balance is never typed in: it is worked out from the opening balance plus every entry that names
+ * the account — cash deposited, khata / wholesale / wallet payments received, supplier payments and
+ * expenses paid from it, card / Raast / Easypaisa / JazzCash sales at the POS (each method is linked
+ * to one account) and the bank-only entries kept here (cash taken out, transfers, charges, profit).
+ * Voiding or deleting the source entry takes it out of the bank too.
+ */
+import { Router } from "express";
+import { z } from "zod";
+import { all, get, run, tx, now, pkDate, pkStart, pkEnd, getSetting, setSetting } from "../db.js";
+import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
+import { AppError, round2 } from "../services.js";
+import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
+
+export const banks = Router();
+
+type Row = Record<string, any>;
+/** POS payment methods whose money lands in a bank account rather than the cash bag. */
+export const POS_DIGITAL = ["card", "raast", "easypaisa", "jazzcash"] as const;
+
+export const accountName = (a: Row) =>
+  `${a.bank}${a.branch ? ` ${a.branch}` : ""}${a.account_no ? ` ··${String(a.account_no).replace(/[^0-9A-Za-z]/g, "").slice(-4)}` : ""}`;
+
+const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
+
+/**
+ * The account a payment names, checked to belong to this pump. Cash never goes to a bank account;
+ * a non-cash payment without an account is still allowed (it shows up under "not linked to a bank").
+ */
+export function bankAccountFor(t: number, accountId: number | null | undefined, method?: string | null): number | null {
+  if (!accountId || isCash(method)) return null;
+  const a = get("SELECT id, active FROM bank_accounts WHERE id=? AND tenant_id=?", accountId, t);
+  if (!a) throw new AppError(400, "Bank account not found");
+  if (!a.active) throw new AppError(400, "That bank account is closed");
+  return a.id;
+}
+export const accountIdField = z.number().int().positive().optional().nullable();
+
+export const posMap = (t: number): Record<string, number> => {
+  try { return JSON.parse(getSetting(t, "bank_pos_map", "{}")) ?? {}; } catch { return {}; }
+};
+
+/** Every movement of money in the owner's accounts (one account, or all of them). */
+export function bankMoves(t: number, accountId?: number | null): Row[] {
+  const acc = accountId ? " AND x.account_id=?" : " AND x.account_id IS NOT NULL";
+  const A = accountId ? [accountId] : [];
+  const rows: Row[] = [
+    ...all(`SELECT x.account_id, x.created_at at, x.amount, 'deposit' kind, 'Cash deposited' || COALESCE(' · slip ' || x.slip_ref, '') text, x.deposited_by who, 'deposit:' || x.id ref
+      FROM bank_deposits x WHERE x.tenant_id=?${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.txn_date at, x.amount, 'receipt' kind, 'Wholesale payment — ' || c.name || ' (' || COALESCE(x.method,'') || COALESCE(' ' || x.ref, '') || ')' text, x.created_by who, 'wtx:' || x.id ref
+      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.created_at at, x.amount, 'receipt' kind, 'Khata payment — ' || c.name || ' (' || COALESCE(x.ref,'') || ')' text, NULL who, 'khata:' || x.id ref
+      FROM khata_ledger x JOIN customers c ON c.id=x.customer_id WHERE c.tenant_id=? AND x.type='credit'${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.txn_date at, -x.amount amount, 'payment' kind, 'Paid supplier — ' || s.name || ' (' || COALESCE(x.method,'') || COALESCE(' ' || x.ref, '') || ')' text, x.created_by who, 'stx:' || x.id ref
+      FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT'${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.created_at at, -x.amount amount, 'expense' kind, 'Expense — ' || x.category || COALESCE(' · ' || x.paid_to, '') text, x.created_by who, 'expense:' || x.id ref
+      FROM expenses x WHERE x.tenant_id=? AND x.status='approved'${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.created_at at, CASE WHEN x.type='refund' THEN -x.amount ELSE x.amount END amount, 'receipt' kind,
+        'Wallet ' || x.type || ' — ' || c.name text, x.created_by who, 'wallet:' || x.id ref
+      FROM wallet_ledger x JOIN customers c ON c.id=x.customer_id WHERE x.tenant_id=? AND x.type IN ('deposit','refund')${acc}`, t, ...A),
+    ...all(`SELECT x.account_id, x.txn_date at, x.amount, x.kind, COALESCE(x.note, x.kind) || COALESCE(' — ' || x.party, '') text, x.created_by who, 'bank:' || x.id ref, x.id txn_id
+      FROM bank_txns x WHERE x.tenant_id=?${acc}`, t, ...A),
+  ];
+  // card / Raast / Easypaisa / JazzCash sales: one line per day per method, from the day the account was opened
+  const map = posMap(t);
+  for (const m of POS_DIGITAL) {
+    const id = map[m];
+    if (!id || (accountId && id !== accountId)) continue;
+    const a = get("SELECT opening_date FROM bank_accounts WHERE id=? AND tenant_id=?", id, t);
+    if (!a) continue;
+    const since = pkStart(a.opening_date);
+    for (const r of all(`SELECT day, SUM(v) v, SUM(n) n FROM (
+        SELECT date(s.created_at, '+5 hours') day, SUM(s.amount) v, COUNT(*) n FROM sales s JOIN stations st ON st.id=s.station_id
+          WHERE st.tenant_id=? AND s.payment_method=? AND s.created_at >= ? GROUP BY day
+        UNION ALL
+        SELECT date(created_at, '+5 hours') day, SUM(total) v, COUNT(*) n FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ? GROUP BY day)
+      GROUP BY day`, t, m, since, t, m, since))
+      rows.push({ account_id: id, at: pkEnd(r.day), amount: round2(r.v), kind: "pos", text: `POS ${m === "raast" ? "Raast" : m === "card" ? "card" : m === "easypaisa" ? "Easypaisa" : "JazzCash"} sales ${r.day} (${r.n})`, who: null, ref: `pos:${m}:${r.day}` });
+  }
+  return rows.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+
+/** Each account with its balance now and this month's money in / out. */
+export function bankAccounts(t: number) {
+  const accounts = all("SELECT * FROM bank_accounts WHERE tenant_id=? ORDER BY active DESC, bank, id", t);
+  const moves = bankMoves(t);
+  const month = pkStart(pkDate().slice(0, 7) + "-01");
+  const out = accounts.map((a) => {
+    const mine = moves.filter((m) => m.account_id === a.id);
+    const sum = (f: (m: Row) => boolean) => round2(mine.filter(f).reduce((s, m) => s + m.amount, 0));
+    return {
+      ...a, name: accountName(a),
+      balance: round2(a.opening_balance + sum(() => true)),
+      month_in: sum((m) => m.at >= month && m.amount > 0), month_out: round2(-sum((m) => m.at >= month && m.amount < 0)),
+      last_at: mine.length ? mine[mine.length - 1].at : null,
+    };
+  });
+  return { accounts: out, total: round2(out.filter((a) => a.active).reduce((s, a) => s + a.balance, 0)) };
+}
+
+/** Non-cash money in the last 30 days that does not say which bank it went to — so the owner can fix the tally. */
+export function unlinkedMoney(t: number) {
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const one = (sql: string, ...a: unknown[]) => round2(get(sql, ...(a as []))!.v ?? 0);
+  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','')`;
+  const map = posMap(t);
+  const unmapped = POS_DIGITAL.filter((m) => !map[m]);
+  const pos = unmapped.length ? one(`SELECT COALESCE(SUM(s.amount),0) v FROM sales s JOIN stations st ON st.id=s.station_id
+    WHERE st.tenant_id=? AND s.payment_method IN (${unmapped.map(() => "?").join(",")}) AND s.created_at >= ?`, t, ...unmapped, since) : 0;
+  const items = {
+    received: round2(
+      one(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.account_id IS NULL AND ${nonCash("k.ref")} AND k.created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM wallet_ledger WHERE tenant_id=? AND type='deposit' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)),
+    paid: round2(
+      one(`SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)
+      + one(`SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND account_id IS NULL AND ${nonCash("method")} AND created_at >= ?`, t, since)),
+    pos, pos_methods: unmapped,
+  };
+  return items;
+}
+
+/* ================= routes ================= */
+const ownAccount = (t: number, id: number) => {
+  const a = get("SELECT * FROM bank_accounts WHERE id=? AND tenant_id=?", id, t);
+  if (!a) throw new AppError(404, "Bank account not found");
+  return a;
+};
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const accountBody = z.object({
+  bank: z.string().trim().min(2).max(80), branch: z.string().trim().max(80).optional().nullable(), title: z.string().trim().max(80).optional().nullable(),
+  account_no: z.string().trim().max(40).optional().nullable(), kind: z.enum(["current", "savings", "wallet"]).default("current"),
+  opening_balance: z.number().min(-1_000_000_000).max(10_000_000_000).default(0), opening_date: day.optional(), note: z.string().max(200).optional().nullable(),
+});
+
+/** Names only, for the "which bank?" picker on payment forms (anyone who records money can pick). */
+banks.get("/bank/accounts/pick", requireAny("expenses.create", "khata.manage", "wholesale.manage", "suppliers.manage", "bank.view"), h((req) => ({
+  accounts: all("SELECT * FROM bank_accounts WHERE tenant_id=? AND active=1 ORDER BY bank, id", tid(req)).map((a) => ({ id: a.id, name: accountName(a), bank: a.bank, kind: a.kind })),
+})));
+
+banks.get("/bank/accounts", requirePerm("bank.view"), h((req) => {
+  const t = tid(req);
+  return { ...bankAccounts(t), pos_map: posMap(t), unlinked: unlinkedMoney(t) };
+}));
+
+banks.post("/bank/accounts", requirePerm("bank.manage"), h((req) => {
+  const b = parse(accountBody, req.body);
+  const { id } = run(`INSERT INTO bank_accounts (tenant_id,bank,branch,title,account_no,kind,opening_balance,opening_date,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    tid(req), b.bank, b.branch ?? null, b.title ?? null, b.account_no ?? null, b.kind, b.opening_balance, b.opening_date ?? pkDate(), b.note ?? null, req.user!.name, now());
+  return bankAccounts(tid(req)).accounts.find((a) => a.id === id);
+}));
+
+banks.patch("/bank/accounts/:id", requirePerm("bank.manage"), h((req) => {
+  const a = ownAccount(tid(req), Number(req.params.id));
+  const b = parse(accountBody.partial().extend({ active: z.boolean().optional() }), req.body);
+  const m = { ...a, ...b, active: b.active === undefined ? a.active : b.active ? 1 : 0 };
+  run("UPDATE bank_accounts SET bank=?, branch=?, title=?, account_no=?, kind=?, opening_balance=?, opening_date=?, note=?, active=? WHERE id=?",
+    m.bank, m.branch ?? null, m.title ?? null, m.account_no ?? null, m.kind, m.opening_balance, m.opening_date, m.note ?? null, m.active, a.id);
+  return bankAccounts(tid(req)).accounts.find((x) => x.id === a.id);
+}));
+
+/** Card / Raast / Easypaisa / JazzCash sales → which account they settle into. */
+banks.put("/bank/pos-map", requirePerm("bank.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.record(z.enum(POS_DIGITAL), z.number().int().positive().nullable()), req.body);
+  const map = posMap(t);
+  for (const [k, v] of Object.entries(b)) { if (v) { ownAccount(t, v); map[k] = v; } else delete map[k]; }
+  setSetting(t, "bank_pos_map", JSON.stringify(map));
+  return { pos_map: map };
+}));
+
+/** Statement of one account: opening, every line with running balance, closing. */
+banks.get("/bank/accounts/:id/statement", requirePerm("bank.view"), h((req) => {
+  const t = tid(req);
+  const a = ownAccount(t, Number(req.params.id));
+  const to = String(req.query.to ?? pkDate());
+  const from = String(req.query.from ?? `${to.slice(0, 7)}-01`);
+  const moves = bankMoves(t, a.id);
+  const start = pkStart(from), end = pkEnd(to);
+  let balance = round2(a.opening_balance + moves.filter((m) => m.at < start).reduce((s, m) => s + m.amount, 0));
+  const opening = balance;
+  const lines: Row[] = moves.filter((m) => m.at >= start && m.at <= end).map((m) => ({ ...m, balance: (balance = round2(balance + m.amount)) }));
+  const ids = lines.filter((l) => l.txn_id).map((l) => l.txn_id);
+  const proofs = new Map(ids.length ? all(`SELECT x.id, ${proofCol("'bank:'||x.id")} FROM bank_txns x WHERE x.id IN (${ids.map(() => "?").join(",")})`, ...ids).map((r) => [r.id, r.proof_ids]) : []);
+  for (const l of lines as Row[]) if (l.txn_id) l.proof_ids = proofs.get(l.txn_id) ?? null;
+  return {
+    account: { ...a, name: accountName(a) }, from, to, opening, closing: balance,
+    money_in: round2(lines.filter((l) => l.amount > 0).reduce((s, l) => s + l.amount, 0)),
+    money_out: round2(-lines.filter((l) => l.amount < 0).reduce((s, l) => s + l.amount, 0)),
+    lines: lines.reverse(),
+  };
+}));
+
+const ENTRY_KINDS = { withdraw: -1, charges: -1, owner_out: -1, other_out: -1, profit: 1, owner_in: 1, other_in: 1 } as const;
+const KIND_LABEL: Record<string, string> = {
+  withdraw: "Cash taken out of bank", charges: "Bank charges", owner_out: "Owner took money", other_out: "Other payment",
+  profit: "Bank profit", owner_in: "Owner put money in", other_in: "Other money in", transfer: "Transfer",
+};
+
+/** A bank-only entry. Cash taken out of the bank goes into the office cash book. */
+banks.post("/bank/entries", requirePerm("bank.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({ account_id: z.number().int(), kind: z.enum(Object.keys(ENTRY_KINDS) as [keyof typeof ENTRY_KINDS]), amount: z.number().positive().max(10_000_000_000),
+    party: z.string().max(80).optional().nullable(), ref: z.string().max(60).optional().nullable(), note: z.string().max(200).optional().nullable(),
+    txn_date: day.optional(), photo_ids: proofPhotos }), req.body);
+  const a = ownAccount(t, b.account_id);
+  if (!a.active) throw new AppError(400, "That bank account is closed");
+  const at = b.txn_date && b.txn_date !== pkDate() ? pkEnd(b.txn_date) : now();
+  const { id } = run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    t, a.id, b.kind, ENTRY_KINDS[b.kind] * b.amount, b.party ?? null, b.ref ?? null, b.note || KIND_LABEL[b.kind], at, req.user!.name, now());
+  linkPhotos(t, b.photo_ids, `bank:${id}`);
+  return { entry: get("SELECT * FROM bank_txns WHERE id=?", id), ...bankAccounts(t) };
+}));
+
+/** Move money between two of the owner's accounts. */
+banks.post("/bank/transfers", requirePerm("bank.manage"), h((req) => {
+  const t = tid(req);
+  const b = parse(z.object({ from_id: z.number().int(), to_id: z.number().int(), amount: z.number().positive().max(10_000_000_000),
+    ref: z.string().max(60).optional().nullable(), note: z.string().max(200).optional().nullable(), txn_date: day.optional(), photo_ids: proofPhotos }), req.body);
+  if (b.from_id === b.to_id) throw new AppError(400, "Choose two different accounts");
+  const from = ownAccount(t, b.from_id), to = ownAccount(t, b.to_id);
+  if (!from.active || !to.active) throw new AppError(400, "That bank account is closed");
+  const at = b.txn_date && b.txn_date !== pkDate() ? pkEnd(b.txn_date) : now();
+  // both halves carry the same ref, so deleting one removes the pair
+  const key = `${b.ref ? `${b.ref} ` : ""}#T${Date.now().toString(36)}`;
+  tx(() => {
+    const ins = (acc: number, amount: number, party: string) => run("INSERT INTO bank_txns (tenant_id,account_id,kind,amount,party,ref,note,txn_date,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t, acc, "transfer", amount, party, key, b.note || (amount < 0 ? "Transfer out" : "Transfer in"), at, req.user!.name, now()).id;
+    const out = ins(from.id, -b.amount, `to ${accountName(to)}`);
+    ins(to.id, b.amount, `from ${accountName(from)}`);
+    linkPhotos(t, b.photo_ids, `bank:${out}`);
+  });
+  return bankAccounts(t);
+}));
+
+/** Remove a wrong bank-only entry (a transfer goes with its other half). */
+banks.delete("/bank/txns/:id", requirePerm("bank.manage"), h((req) => {
+  const t = tid(req);
+  const e = get("SELECT * FROM bank_txns WHERE id=? AND tenant_id=?", Number(req.params.id), t);
+  if (!e) throw new AppError(404, "Entry not found");
+  if (e.kind === "transfer") run("DELETE FROM bank_txns WHERE tenant_id=? AND kind='transfer' AND ref=?", t, e.ref);
+  else run("DELETE FROM bank_txns WHERE id=?", e.id);
+  return bankAccounts(t);
+}));
+
+export const bankKindLabel = KIND_LABEL;

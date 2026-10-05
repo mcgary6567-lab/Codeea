@@ -442,6 +442,16 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS machine_logs (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, machine_id INTEGER NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, description TEXT NOT NULL,
     cost REAL, done_by TEXT, hours REAL, downtime_hours REAL, photo_id INTEGER, expense_id INTEGER, resolved_at TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  // the owner's bank accounts; every non-cash payment can say which account the money went to / came from
+  db.exec(`CREATE TABLE IF NOT EXISTS bank_accounts (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, bank TEXT NOT NULL, branch TEXT, title TEXT, account_no TEXT, kind TEXT NOT NULL DEFAULT 'current',
+    opening_balance REAL NOT NULL DEFAULT 0, opening_date TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, note TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  // money that moves only in the bank: cash taken out, transfers, charges, profit, owner money in / out
+  db.exec(`CREATE TABLE IF NOT EXISTS bank_txns (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, account_id INTEGER NOT NULL, kind TEXT NOT NULL, amount REAL NOT NULL,
+    party TEXT, ref TEXT, note TEXT, txn_date TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_bank_txns_acc ON bank_txns(account_id)");
+  for (const tbl of ["bank_deposits", "wholesale_txns", "khata_ledger", "supplier_txns", "expenses", "wallet_ledger"]) addColumn(tbl, "account_id", "INTEGER");
   migrateUserRoles();
 }
 

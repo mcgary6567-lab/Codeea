@@ -17,6 +17,7 @@ import { config, PRODUCTS } from "../config.js";
 import { sendDirect } from "../whatsapp/cloud.js";
 import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
 import { dayBook } from "./reports.js";
+import { bankAccountFor, accountIdField, accountName } from "./banks.js";
 import { notify, staff } from "../notifications.js";
 
 export const backoffice = Router();
@@ -34,6 +35,7 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
     wholesale_cash: one("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
     prepaid_cash: round2(one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND method='cash' AND sold_at > ? AND sold_at <= ?", ...P)
       + one("SELECT COALESCE(SUM(CASE WHEN type='refund' THEN -amount ELSE amount END),0) v FROM wallet_ledger WHERE tenant_id=? AND type IN ('deposit','refund') AND method='cash' AND created_at > ? AND created_at <= ?", ...P)),
+    bank_withdrawals: one("SELECT COALESCE(SUM(-amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at > ? AND created_at <= ?", ...P),
     staff_repaid: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND type IN ('repayment','deduction') AND created_at > ? AND created_at <= ?", ...P),
   };
   const outs = {
@@ -57,12 +59,15 @@ backoffice.get("/cash", requirePerm("expenses.view"), h((req) => ({
 })));
 
 backoffice.post("/cash/deposits", requirePerm("expenses.create"), h((req) => {
-  const b = parse(z.object({ amount: z.number().positive().max(100_000_000), bank: z.string().min(2).max(60), slip_ref: z.string().max(60).optional().nullable(),
+  const b = parse(z.object({ amount: z.number().positive().max(100_000_000), bank: z.string().min(2).max(60).optional().nullable(), account_id: accountIdField, slip_ref: z.string().max(60).optional().nullable(),
     station_id: z.number().optional().nullable(), photo_id: z.number().optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
+  const accountId = bankAccountFor(tid(req), b.account_id, "bank");
+  const bank = accountId ? accountName(get("SELECT * FROM bank_accounts WHERE id=?", accountId)!) : b.bank;
+  if (!bank) throw new AppError(400, "Choose the bank");
   const pos = cashPosition(tid(req));
   if (b.amount > pos.cash_in_hand + 0.01 && pos.last_count) throw new AppError(400, `Only ${pkr(pos.cash_in_hand)} cash should be in hand`);
-  const { id } = run("INSERT INTO bank_deposits (tenant_id,station_id,amount,bank,slip_ref,photo_id,note,deposited_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-    tid(req), b.station_id ?? null, b.amount, b.bank, b.slip_ref ?? null, null, b.note ?? null, req.user!.name, now());
+  const { id } = run("INSERT INTO bank_deposits (tenant_id,station_id,amount,bank,slip_ref,photo_id,note,deposited_by,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    tid(req), b.station_id ?? null, b.amount, bank, b.slip_ref ?? null, null, b.note ?? null, req.user!.name, now(), accountId);
   if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `deposit:${id}`)) run("UPDATE bank_deposits SET photo_id=? WHERE id=?", b.photo_id, id);
   return { deposit: get("SELECT * FROM bank_deposits WHERE id=?", id), ...cashPosition(tid(req)) };
 }));

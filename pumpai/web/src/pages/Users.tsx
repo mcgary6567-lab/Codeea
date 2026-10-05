@@ -24,6 +24,8 @@ const PERM_LABEL: Record<string, string> = {
   "wholesale.rates": "Wholesale: set client rates & credit limits", "wholesale.void": "Wholesale: void wrong entries",
   "reports.view": "Reports (all periods)", "suppliers.manage": "Suppliers & payments to depots",
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
+  "audit.view": "Audit log (who changed what)", "shifts.expenses": "Expenses from shift cash",
+  "bank.view": "Banks: see balances & statements", "bank.manage": "Banks: add accounts, cash out, transfers",
 };
 
 type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string; has_pin?: number; pin_locked_until?: string | null };

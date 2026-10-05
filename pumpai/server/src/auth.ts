@@ -59,6 +59,8 @@ export const PERMISSIONS = {
   "reports.view": MGMT,
   "suppliers.manage": MGMT, // supplier accounts, fuel purchase cost, payments to suppliers
   "audit.view": ADMIN, // who changed what (prices, undo, deletes, edits, sign-ins)
+  "bank.view": ADMIN, // how much is in each bank account, statements
+  "bank.manage": ADMIN, // add bank accounts, cash withdrawals, transfers, bank charges / profit
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Wallet } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
+import { AccountPicker } from "../components/BankParts";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
@@ -61,6 +62,7 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
   const { data: s, reload } = useApi<any>(`/suppliers/${id}`);
   const [pay, setPay] = useState({ amount: "", method: "Bank transfer", ref: "", wht: "" });
   const [photos, setPhotos] = useState<number[]>([]);
+  const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title={s?.name ?? "Supplier"} wide>
@@ -70,12 +72,13 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
             <form className="flex flex-1 flex-wrap items-end gap-2" onSubmit={async (e) => {
               e.preventDefault();
-              if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); }
+              if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); }
             }}>
               <Field label="Pay amount (Rs)"><input className="input w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               <Field label="Ref"><input className="input w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
               <Field label="Tax withheld (Rs)"><input className="input w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
+              <div className="w-full sm:w-64"><AccountPicker method={pay.method} label="Paid from which bank? · کس بینک سے" value={account} onChange={setAccount} /></div>
               <button className="btn-primary" disabled={busy || (pay.method === "Cheque" && !photos.length)}><Wallet size={15} /> Record payment</button>
               <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>

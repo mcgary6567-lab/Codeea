@@ -3,6 +3,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
 import { h, parse, tid, requirePerm, can } from "../auth.js";
+import { bankAccountFor, accountIdField } from "./banks.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
 import { linkPhotos } from "./capture.js";
 import { guardClosedDay } from "./backoffice.js";
@@ -126,7 +127,7 @@ const body = z.object({
   method: z.enum(["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"]).default("cash"),
   note: z.string().optional().nullable(), receipt_ref: z.string().optional().nullable(),
   station_id: z.number().nullable().optional(), expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  photo_id: z.number().optional().nullable(),
+  photo_id: z.number().optional().nullable(), account_id: accountIdField,
 });
 
 expenses.post("/expenses", requirePerm("expenses.create"), h(async (req) => {
@@ -138,10 +139,10 @@ expenses.post("/expenses", requirePerm("expenses.create"), h(async (req) => {
   const date = b.expense_date ?? pkDate();
   guardClosedDay(req, t, date);
   const { id } = run(
-    `INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,receipt_ref,status,created_by,approved_by,expense_date,created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,receipt_ref,status,created_by,approved_by,expense_date,created_at,account_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     t, b.station_id ?? null, b.category, b.amount, b.paid_to ?? null, b.method, b.note ?? null, b.receipt_ref ?? null,
-    autoApprove ? "approved" : "pending", req.user!.name, autoApprove ? req.user!.name : null, date, now(),
+    autoApprove ? "approved" : "pending", req.user!.name, autoApprove ? req.user!.name : null, date, now(), bankAccountFor(t, b.account_id, b.method),
   );
   if (b.photo_id && linkPhotos(t, [b.photo_id], `expense:${id}`)) { run("UPDATE expenses SET photo_id=? WHERE id=?", b.photo_id, id); }
   if (autoApprove) checkBudget(t, b.category, monthOf(date));
@@ -167,8 +168,8 @@ expenses.patch("/expenses/:id", requirePerm("expenses.create"), h((req) => {
   const m = { ...e, ...b };
   guardClosedDay(req, tid(req), e.expense_date);
   guardClosedDay(req, tid(req), m.expense_date);
-  run("UPDATE expenses SET category=?, amount=?, paid_to=?, method=?, note=?, receipt_ref=?, station_id=?, expense_date=? WHERE id=?",
-    m.category, m.amount, m.paid_to ?? null, m.method, m.note ?? null, m.receipt_ref ?? null, m.station_id ?? null, m.expense_date, e.id);
+  run("UPDATE expenses SET category=?, amount=?, paid_to=?, method=?, note=?, receipt_ref=?, station_id=?, expense_date=?, account_id=? WHERE id=?",
+    m.category, m.amount, m.paid_to ?? null, m.method, m.note ?? null, m.receipt_ref ?? null, m.station_id ?? null, m.expense_date, bankAccountFor(tid(req), m.account_id, m.method), e.id);
   return get("SELECT * FROM expenses WHERE id=?", e.id);
 }));
 

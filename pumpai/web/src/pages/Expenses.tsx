@@ -6,6 +6,7 @@ import { FixedCosts } from "../components/FixedCosts";
 import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { PhotoButton, photoUrl } from "../components/Capture";
+import { AccountPicker } from "../components/BankParts";
 
 const METHODS = ["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"];
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -108,12 +109,13 @@ export default function Expenses() {
 
 function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved }: { categories: any[]; stations: any[]; limit: number; canApprove: boolean; onClose: () => void; onSaved: () => void }) {
   const [f, setF] = useState({ category: categories[0]?.name ?? "", amount: "", paid_to: "", method: "cash", station_id: "", note: "", receipt_ref: "", expense_date: new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10), photo_id: null as number | null });
+  const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
   return (
     <Modal open onClose={onClose} title="Add expense">
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        const body = { ...f, amount: Number(f.amount), station_id: f.station_id ? Number(f.station_id) : null, paid_to: f.paid_to || null, note: f.note || null, receipt_ref: f.receipt_ref || null };
+        const body = { ...f, amount: Number(f.amount), station_id: f.station_id ? Number(f.station_id) : null, paid_to: f.paid_to || null, note: f.note || null, receipt_ref: f.receipt_ref || null, account_id: f.method === "cash" ? null : account };
         if (await run(() => api("/expenses", { body }), (r: any) => r.status === "pending" ? "Saved — waiting for admin approval" : "Expense saved")) onSaved();
       }}>
         <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
@@ -134,6 +136,7 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
           <Field label="Bill / receipt no."><input className="input" value={f.receipt_ref} onChange={(e) => setF({ ...f, receipt_ref: e.target.value })} /></Field>
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
+        <AccountPicker method={f.method} label="Paid from which bank? · کس بینک سے" value={account} onChange={setAccount} />
         {!canApprove && Number(f.amount) > limit && <p className="rounded bg-amber-50 p-2 text-xs text-amber-800">Above {pkr(limit)} — this will wait for admin approval.</p>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>

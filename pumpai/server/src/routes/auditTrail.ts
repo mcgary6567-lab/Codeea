@@ -24,6 +24,7 @@ const RESOURCES: [RegExp, string, string][] = [
   [/^\/shop\/items\/(\d+)$/, "shop_items", "shop item"], [/^\/machines\/(\d+)$/, "machines", "machine"], [/^\/licences\/(\d+)$/, "licences", "licence"],
   [/^\/checklist\/items\/(\d+)$/, "checklist_items", "checklist item"], [/^\/recurring-expenses\/(\d+)$/, "recurring_expenses", "monthly expense"],
   [/^\/vehicles\/(\d+)$/, "vehicles", "vehicle"], [/^\/nozzles\/(\d+)$/, "nozzles", "meter"], [/^\/loans\/(\d+)$/, "staff_loans", "loan"], [/^\/bookings\/(\d+)$/, "bookings", "booking"],
+  [/^\/bank\/accounts\/(\d+)$/, "bank_accounts", "bank account"], [/^\/bank\/txns\/(\d+)$/, "bank_txns", "bank entry"],
 ];
 const NAMES: Record<string, string> = {
   prices: "fuel prices", "price-requests": "price change request", sales: "sale", shifts: "shift", customers: "customer", khata: "khata", users: "user",
@@ -32,7 +33,7 @@ const NAMES: Record<string, string> = {
   integrations: "integrations", backups: "backup", licences: "licence", checklist: "checklist", leaves: "leave", training: "training", loans: "loan",
   claims: "tanker claim", tax: "tax", machines: "machine", "recurring-expenses": "monthly expense", "utility-bills": "utility bill", commission: "commission rates",
   board: "TV board", campaigns: "campaign", orders: "order", complaints: "complaint", automations: "automation", alerts: "alert", bookings: "booking",
-  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", roles: "role rights", system: "system", coaching: "coaching message",
+  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", roles: "role rights", system: "system", coaching: "coaching message", bank: "bank",
 };
 const HIDDEN = new Set(["password", "password_hash", "pin", "pin_hash", "image", "logo", "csv", "data", "token", "anthropic_key", "wa_token", "wa_app_secret", "code"]);
 

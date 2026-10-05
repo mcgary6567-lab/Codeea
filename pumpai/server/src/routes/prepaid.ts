@@ -9,6 +9,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import { all, get, run, now, pkDate, tx, type Row } from "../db.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
+import { bankAccountFor, accountIdField } from "./banks.js";
 import { AppError, round2, pkr, audit } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { PRODUCTS } from "../config.js";
@@ -117,13 +118,14 @@ prepaid.post("/customers/:id/wallet/deposit", requirePerm("khata.manage"), h(asy
   const c = get("SELECT * FROM customers WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!c) throw new AppError(404, "Customer not found");
   const b = parse(z.object({ amount: z.number().positive().max(100_000_000), method: z.enum(METHODS).default("raast"), ref: z.string().max(60).optional().nullable(),
-    note: z.string().max(200).optional().nullable(), type: z.enum(["deposit", "refund", "adjustment"]).default("deposit") }), req.body);
+    note: z.string().max(200).optional().nullable(), type: z.enum(["deposit", "refund", "adjustment"]).default("deposit"), account_id: accountIdField }), req.body);
+  const accountId = bankAccountFor(t, b.account_id, b.method);
   // refund = money given back (balance goes down); adjustment can go either way via the sign of a deposit/refund
   const delta = b.type === "refund" ? -b.amount : b.amount;
   if (c.wallet_balance + delta < -0.005) throw new AppError(400, `Wallet has only ${pkr(c.wallet_balance)}`);
   tx(() => {
-    run("INSERT INTO wallet_ledger (tenant_id,customer_id,type,amount,method,ref,note,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-      t, c.id, b.type, b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, now());
+    run("INSERT INTO wallet_ledger (tenant_id,customer_id,type,amount,method,ref,note,created_by,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      t, c.id, b.type, b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, now(), b.type === "adjustment" ? null : accountId);
     run("UPDATE customers SET wallet_balance = wallet_balance + ?, wallet_low_sent = CASE WHEN wallet_balance + ? >= COALESCE(wallet_low, 10000) THEN 0 ELSE wallet_low_sent END WHERE id=?", delta, delta, c.id);
   });
   const fresh = get("SELECT * FROM customers WHERE id=?", c.id)!;

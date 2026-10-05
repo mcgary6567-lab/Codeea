@@ -88,6 +88,13 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // bank deposits, coupons, wallets
   for (const r of all(`SELECT * FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P))
     add(day(r.created_at), "Contra", `Cash deposited — ${r.bank}${r.slip_ref ? ` slip ${r.slip_ref}` : ""}`, [dr(BANK, r.amount), cr(CASH, r.amount)]);
+  // bank-only entries: cash taken out, charges, profit, owner money (transfers between own banks net to nil)
+  const BANK_SIDE: Record<string, string> = { withdraw: CASH, charges: "Expense: Bank charges", profit: "Bank profit", owner_in: "Owner's capital", owner_out: "Owner's drawings", other_in: "Other income", other_out: "Other payments" };
+  for (const r of all(`SELECT * FROM bank_txns WHERE tenant_id=? AND kind<>'transfer' AND txn_date >= ? AND txn_date < ?`, ...P)) {
+    const other = BANK_SIDE[r.kind] ?? "Suspense", v = Math.abs(r.amount);
+    add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`,
+      r.amount > 0 ? [dr(BANK, v), cr(other, v)] : [dr(other, v), cr(BANK, v)]);
+  }
   for (const r of all(`SELECT batch, method, MIN(sold_at) sold_at, SUM(value) v, COUNT(*) n, buyer FROM fuel_coupons WHERE tenant_id=? AND sold_at >= ? AND sold_at < ? GROUP BY batch`, ...P))
     add(day(r.sold_at), "Receipt", `Fuel coupons sold — ${r.n} (${r.batch})${r.buyer ? ` to ${r.buyer}` : ""}`, [dr(payAccount(r.method), r.v), cr("Fuel coupons (unused)", r.v)]);
   for (const r of all(`SELECT w.*, c.name FROM wallet_ledger w JOIN customers c ON c.id=w.customer_id WHERE w.tenant_id=? AND w.type IN ('deposit','refund') AND w.created_at >= ? AND w.created_at < ?`, ...P))

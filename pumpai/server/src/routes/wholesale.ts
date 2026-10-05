@@ -11,6 +11,7 @@ import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } fro
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
+import { bankAccountFor, accountIdField } from "./banks.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 
 export const wholesale = Router();
@@ -416,11 +417,11 @@ function insertTxn(req: Request, clientId: number, f: Row) {
   const ts = f.txn_date ? new Date(f.txn_date).toISOString() : now();
   const { id } = run(
     `INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,method,vehicle_no,ref,note,created_by,txn_date,created_at,
-       trip_id,tanker_id,driver_id,driver_name,location)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       trip_id,tanker_id,driver_id,driver_name,location,account_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     tid(req), clientId, f.type, f.station_id ?? null, f.tank_id ?? null, f.product ?? null, f.litres ?? null, f.rate ?? null,
     f.amount, f.method ?? null, f.vehicle_no ?? null, f.ref ?? null, f.note ?? null, req.user!.name, ts, now(),
-    f.trip_id ?? null, f.tanker_id ?? null, f.driver_id ?? null, f.driver_name ?? null, f.location ?? null,
+    f.trip_id ?? null, f.tanker_id ?? null, f.driver_id ?? null, f.driver_name ?? null, f.location ?? null, f.account_id ?? null,
   );
   linkPhotos(tid(req), f.photo_ids, `wtx:${id}`);
   // WhatsApp receipt to the client once the entry is committed
@@ -594,9 +595,9 @@ wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"),
 
 wholesale.post("/wholesale/clients/:id/payment", requirePerm("wholesale.manage"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
-  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos }), req.body);
+  const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos, account_id: accountIdField }), req.body);
   if (isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
-  return insertTxn(req, c.id, { ...b, type: "payment" });
+  return insertTxn(req, c.id, { ...b, account_id: bankAccountFor(tid(req), b.account_id, b.method), type: "payment" });
 }));
 
 wholesale.post("/wholesale/clients/:id/adjustment", requirePerm("wholesale.rates"), h((req) => {
