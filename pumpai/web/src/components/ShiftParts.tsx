@@ -48,16 +48,16 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
         {data.nozzles.map((n: any) => {
           const gap = Number(vals[n.nozzle_id]) - n.last_reading;
           return (
-            <div key={n.nozzle_id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${n.busy ? "border-slate-200 bg-slate-50 opacity-60" : use[n.nozzle_id] ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200"}`}>
-              <label className="flex min-w-[160px] flex-1 items-center gap-3">
+            <div key={n.nozzle_id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-2 ${n.busy ? "border-slate-200 bg-slate-50 opacity-60" : use[n.nozzle_id] ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200"}`}>
+              <label className="flex min-w-[150px] flex-1 items-center gap-3">
                 <input type="checkbox" className="h-6 w-6" disabled={n.busy} checked={!!use[n.nozzle_id] && !n.busy} onChange={(e) => setUse({ ...use, [n.nozzle_id]: e.target.checked })} />
                 <span><span className={`block font-semibold ${big ? "text-lg" : ""}`}>{n.label} · {PRODUCTS[n.product]}</span>
                   <span className="text-xs text-slate-500">{n.busy ? "In use by another open shift" : `Last closing: ${num(n.last_reading, 2)}`}</span></span>
               </label>
               {!n.busy && use[n.nozzle_id] && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Meter now</span>
-                  <input className={`input w-40 tabular-nums ${big ? "py-3 text-xl" : ""} ${gap < 0 ? "border-red-400" : gap > 0.009 ? "border-amber-400" : ""}`} type="number" step="0.01" min={n.last_reading}
+                  <span className="hidden text-xs text-slate-500 sm:inline">Meter now</span>
+                  <input className={`input w-36 tabular-nums ${big ? "py-2.5 text-xl" : ""} ${gap < 0 ? "border-red-400" : gap > 0.009 ? "border-amber-400" : ""}`} type="number" step="0.01" min={n.last_reading}
                     value={vals[n.nozzle_id] ?? ""} onChange={(e) => setVals({ ...vals, [n.nozzle_id]: e.target.value })} aria-label={`${n.label} opening reading`} />
                   <PhotoButton kind="meter" label="Meter" big={big} hint={`Nozzle ${n.label}; last closing reading was ${n.last_reading}.`} onRead={fromPhoto(n)} />
                 </div>
@@ -70,10 +70,13 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
       </div>
       {photos.length > 0 && <p className="text-xs text-slate-500">📷 {photos.length} meter photo{photos.length === 1 ? "" : "s"} will be kept with this shift.</p>}
       {gaps.length > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Litres pumped between shifts are taken out of tank stock and reported to the manager.</p>}
-      <button className={`w-full rounded-xl bg-emerald-600 font-bold text-white active:scale-95 disabled:bg-slate-300 ${big ? "py-5 text-2xl" : "py-3 text-lg"}`}
-        disabled={busy || !chosen.length || gaps.some((g: any) => g.gap < 0)} onClick={start}>
-        Start shift · <Ur>شفٹ شروع کریں</Ur> ({chosen.length} nozzle{chosen.length === 1 ? "" : "s"})
-      </button>
+      {/* stays on screen while the nozzle list scrolls */}
+      <div className="sticky bottom-0 -mx-1 bg-white px-1 pb-1 pt-2">
+        <button className={`w-full rounded-xl bg-emerald-600 font-bold text-white shadow-lg active:scale-95 disabled:bg-slate-300 ${big ? "py-4 text-xl" : "py-3 text-lg"}`}
+          disabled={busy || !chosen.length || gaps.some((g: any) => g.gap < 0)} onClick={start}>
+          Start shift · <Ur>شفٹ شروع کریں</Ur> ({chosen.length} nozzle{chosen.length === 1 ? "" : "s"})
+        </button>
+      </div>
     </div>
   );
 }

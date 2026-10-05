@@ -375,15 +375,15 @@ function Step({ n, en, ur, children }: { n: number; en: string; ur: string; chil
 }
 
 const Blocker = ({ children }: { children: ReactNode }) => (
-  <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-4 sm:items-center lg:left-60"><div className="w-full max-w-xl rounded-2xl bg-white p-6 text-center shadow-xl">{children}</div></div>
+  // my-auto centres a short box but lets a tall one scroll from its top (items-center would cut the top off)
+  <div className="fixed inset-0 z-40 flex justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6 lg:left-60"><div className="my-auto w-full max-w-3xl rounded-2xl bg-white p-4 text-center shadow-xl sm:p-6">{children}</div></div>
 );
 
 function StartShift({ onStarted }: { onStarted: () => void }) {
   return (
     <>
-      <div className="text-5xl">🕘</div>
-      <h2 className="mt-1 text-2xl font-bold">Start your shift · <Ur>شفٹ شروع کریں</Ur></h2>
-      <p className="mb-3 mt-1 text-slate-600">Check each meter and confirm the reading.</p>
+      <h2 className="text-xl font-bold sm:text-2xl">🕘 Start your shift · <Ur>شفٹ شروع کریں</Ur></h2>
+      <p className="mb-3 mt-1 text-sm text-slate-600">Check each meter and confirm the reading · <Ur>ہر میٹر کی ریڈنگ چیک کریں</Ur></p>
       <StartShiftSheet big onStarted={onStarted} />
     </>
   );
