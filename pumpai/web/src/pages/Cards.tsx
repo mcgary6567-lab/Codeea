@@ -24,7 +24,7 @@ export default function Cards() {
         <button className="btn-primary ml-auto" onClick={() => window.print()}><Printer size={15} /> Print cards</button>
       </div>
       <p className="mx-auto mb-3 max-w-4xl text-sm text-slate-600 print:hidden">Stick the vehicle card on the windscreen. At the pump the salesman taps <b>Scan card</b> and the account, vehicle and khata are filled in. Lost a card? Make a new one — the old card stops working.</p>
-      <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 print:grid-cols-2 print:gap-2">
+      <div className="mx-auto grid grid-cols-1 max-w-4xl gap-4 sm:grid-cols-2 print:grid-cols-2 print:gap-2">
         {cards.map((c) => (
           <div key={c.key} className="break-inside-avoid">
             <QrCard business={data.business} name={data.customer.name} type={data.customer.type} title={c.title} plate={c.plate} code={c.code} />

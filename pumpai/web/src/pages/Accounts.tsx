@@ -59,7 +59,7 @@ function Claims() {
         <Stat label="Written off" value={pkr(s.written_off)} />
       </div>
       <div className="card p-3 text-sm text-slate-600">Every tanker that arrives short by more than <b>{data.tolerance_pct}%</b> (allowed transit loss) becomes a claim of the extra litres × purchase rate. The allowed loss can be changed by the admin.</div>
-      <div className="grid gap-5 2xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1fr_300px]">
         <div className="card overflow-x-auto">
           <div className="flex gap-1 p-2 text-sm">{["", "open", "claimed", "partly", "recovered", "written_off"].map((x) => <button key={x} onClick={() => setStatus(x)} className={`rounded-full px-3 py-1 ${status === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x ? x.replace("_", " ") : "All"}</button>)}</div>
           <table className="w-full min-w-[720px] text-sm">
@@ -173,7 +173,7 @@ function Tax() {
         <Stat label="Tax withheld this month" value={pkr(data.wht_total.amount)} tone="amber" hint={`${pkr(data.wht_total.pending)} not deposited yet`} />
         <Stat label="All withholding to deposit" value={pkr(data.wht_pending_all.v)} tone={data.wht_pending_all.v ? "red" : "slate"} hint={`${data.wht_pending_all.n} entries without a CPR`} />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="card p-4">
           <h3 className="mb-2 font-semibold">Sales tax on shop sales</h3>
           <table className="w-full text-sm"><thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-1">Category</th><th className="text-right">Sales</th><th className="text-right">Value</th><th className="text-right">Tax</th></tr></thead>
@@ -211,7 +211,7 @@ function Tax() {
         </div>
       </div>
       {can("settings.manage") && f && (
-        <form className="card grid gap-3 p-4 sm:grid-cols-4" onSubmit={async (e) => {
+        <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-4" onSubmit={async (e) => {
           e.preventDefault();
           if (await run(() => api("/tax/settings", { method: "PUT", body: { gst_pct: Number(f.gst_pct), prices_include_tax: Boolean(f.prices_include_tax), fuel_gst_pct: Number(f.fuel_gst_pct), ntn: f.ntn, strn: f.strn, wht_section: f.wht_section,
             exempt: String(f.exempt).split(",").map((x) => x.trim()).filter(Boolean) } }), "Tax settings saved")) reload();
@@ -259,7 +259,7 @@ function Bank() {
           <Stat label="In bank, not in books" value={pkr(res.bank_only_total.in + res.bank_only_total.out)} tone="amber" hint={`${res.bank_only.length} lines`} />
           <Stat label="In books, not in bank yet" value={pkr(res.books_only_total.in + res.books_only_total.out)} tone="blue" hint={`${res.books_only.length} entries`} />
         </div>
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="card p-4">
             <h3 className="mb-2 font-semibold">In the bank but not in the books</h3>
             <ul className="divide-y divide-slate-100 text-sm">{res.bank_only.map((l: any, i: number) => (
@@ -301,7 +301,7 @@ function Ledger() {
       </div>
       {error && <ErrorBox error={error} />}
       {!data ? !error && <Loading /> : (
-        <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
           <div className="card overflow-x-auto p-4">
             <h3 className="mb-2 font-semibold">Trial balance</h3>
             <table className="w-full text-sm"><thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-1">Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>

@@ -6,6 +6,7 @@ import { PRODUCTS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { PhotoButton } from "../components/Capture";
 import { ShiftExpenses, ShiftReport, StartShiftSheet } from "../components/ShiftParts";
+import { Ur } from "../components/VoiceShell";
 
 const hhmm = (h: number) => `${Math.floor(h)}h ${String(Math.floor((h % 1) * 60)).padStart(2, "0")}m`;
 
@@ -34,7 +35,37 @@ export default function Shifts() {
         </div>
       ))}
 
-      <div className="card overflow-x-auto">
+      {/* phone: one card per shift */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {shifts.data.map((s) => {
+          const hours = (Date.now() - Date.parse(s.opened_at)) / 3600_000;
+          return (
+            <li key={s.id} className="cursor-pointer px-4 py-3 active:bg-slate-50" onClick={() => setReport(s.id)}>
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0"><span className="block font-semibold">{s.attendant}</span><span className="text-xs text-slate-500">#{s.id} · {s.station_name.replace("Al-Madina ", "")}</span></span>
+                <span className="shrink-0 text-right">
+                  <span className={`block font-semibold tabular-nums ${s.variance < -500 ? "text-red-600" : s.variance > 0 ? "text-emerald-600" : ""}`}>{s.variance != null ? pkr(s.variance) : "—"}</span>
+                  <span className="text-[11px] text-slate-500">Short / over · <Ur>کمی بیشی</Ur></span>
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                <span>{dt(s.opened_at)} →</span>
+                {s.status === "open" ? <Badge tone={hours >= 12 ? "red" : statusTone("open")}>open {hhmm(hours)}</Badge> : <span>{dt(s.closed_at)}</span>}
+              </div>
+              <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
+                <span><span className="tabular-nums text-slate-700">{s.litres != null ? num(s.litres) : "—"}</span> L</span>
+                <span>Hand over <span className="tabular-nums text-slate-700">{s.cash_expected != null ? pkr(s.cash_expected) : "—"}</span></span>
+                <span>Counted <span className="tabular-nums text-slate-700">{s.cash_actual != null ? pkr(s.cash_actual) : "—"}</span></span>
+              </div>
+              <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                {s.status === "open" && !isSalesman ? <button className="btn-primary min-h-9 !py-1 text-xs" onClick={() => setClosing(s.id)}>Close · <Ur>بند کریں</Ur></button>
+                  : <button className="btn-secondary min-h-9 !py-1 text-xs" onClick={() => setReport(s.id)}>Report · <Ur>رپورٹ</Ur></button>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Shift</th><th className="th">Salesman</th><th className="th">Opened</th><th className="th">Closed</th><th className="th text-right">Litres</th><th className="th text-right">Cash to hand over</th><th className="th text-right">Counted</th><th className="th text-right">Short / over</th><th className="th" /></tr></thead>
           <tbody>{shifts.data.map((s) => {
@@ -61,7 +92,7 @@ export default function Shifts() {
 
       {mgrOpen && (
         <Modal open onClose={() => setMgrOpen(null)} title="Open a shift" wide>
-          <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Station"><select className="input" value={mgrOpen.station_id} onChange={(e) => setMgrOpen({ ...mgrOpen, station_id: e.target.value })}>{stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
             <Field label="Salesman name"><input className="input" required value={mgrOpen.attendant} onChange={(e) => setMgrOpen({ ...mgrOpen, attendant: e.target.value })} /></Field>
           </div>
@@ -84,17 +115,17 @@ function MyShift({ id, onEnd }: { id: number; onEnd: () => void }) {
     <div className={`card p-5 ${over ? "border-red-300" : ""}`}>
       <div className="flex flex-wrap items-center gap-4">
         <div className={`rounded-xl p-3 ${over ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}><Clock size={22} /></div>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <div className="text-2xl font-semibold tabular-nums">{hhmm(data.hours_open)}</div>
           <div className="text-sm text-slate-600">Shift #{data.shift.id} · started {dt(data.shift.opened_at)} · {data.shift.station_name} · {data.readings.length} nozzles</div>
         </div>
         <button className="btn-primary px-5 py-3 text-base" onClick={onEnd}>End shift</button>
       </div>
       {over && <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-700"><AlertTriangle size={16} /> 12 hours are over — please end your shift with the meter readings and cash.</div>}
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="mb-1 font-semibold">Entered on POS so far</div>
-          {s.by_product.map((p: any) => <div key={p.product} className="flex justify-between"><span>{PRODUCTS[p.product]}</span><span className="tabular-nums">{num(p.litres, 1)} L · {pkr(p.amount)}</span></div>)}
+          {s.by_product.map((p: any) => <div key={p.product} className="flex justify-between gap-2"><span>{PRODUCTS[p.product]}</span><span className="text-right tabular-nums">{num(p.litres, 1)} L · {pkr(p.amount)}</span></div>)}
           {!s.by_product.length && <div className="text-slate-500">Nothing yet. Meter litres not entered are booked as cash at the end.</div>}
         </div>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
@@ -104,7 +135,7 @@ function MyShift({ id, onEnd }: { id: number; onEnd: () => void }) {
           <div className="flex justify-between text-red-700"><span>− Expenses</span><span className="tabular-nums">{pkr(s.expenses_total)}</span></div>
           <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold"><span>Cash in bag (so far)</span><span className="tabular-nums">{pkr(s.cash_expected)}</span></div>
         </div>
-        <div className="rounded-xl bg-amber-50/60 p-3"><ShiftExpenses shiftId={id} expenses={s.expenses} onChange={reload} /></div>
+        <div className="min-w-0 rounded-xl bg-amber-50/60 p-3"><ShiftExpenses shiftId={id} expenses={s.expenses} onChange={reload} /></div>
       </div>
     </div>
   );
@@ -139,32 +170,31 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
         if (r) onClosed(r);
       }}>
         <p className="text-sm font-medium">Step 1 — closing meter reading of every nozzle</p>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full">
-            <thead><tr><th className="th">Nozzle</th><th className="th text-right">Opening</th><th className="th">Closing reading</th><th className="th text-right">Litres</th><th className="th text-right">× Rate</th></tr></thead>
-            <tbody>{data.readings.map((r: any) => {
+        {/* one row per nozzle: a card on phones, table-like columns from sm up */}
+        <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+          <div className="hidden grid-cols-[1.4fr_1fr_2.4fr_1fr_0.9fr] sm:grid"><div className="th">Nozzle</div><div className="th text-right">Opening</div><div className="th">Closing reading</div><div className="th text-right">Litres</div><div className="th text-right">× Rate</div></div>
+            {data.readings.map((r: any) => {
               const v = Number(readings[r.nozzle_id]);
               const last = r.checkpoint ?? r.opening;
               const bad = readings[r.nozzle_id] && v < last;
               return (
-                <tr key={r.nozzle_id}>
-                  <td className="td text-sm">{r.label} <span className="text-xs text-slate-500">{PRODUCTS[r.product]}</span></td>
-                  <td className="td text-right text-xs tabular-nums">{num(r.opening, 2)}{r.checkpoint != null && <div className="text-slate-400">price change at {num(r.checkpoint, 2)}</div>}</td>
-                  <td className="td"><input className={`input w-40 text-lg tabular-nums ${bad ? "border-red-400" : ""}`} type="number" step="0.01" min={last} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} aria-label={`${r.label} closing reading`} />
-                    <PhotoButton kind="meter" label="Meter" className="ml-2" hint={`Nozzle ${r.label}; opening reading was ${r.opening}.`} onRead={(res, pid) => {
+                <div key={r.nozzle_id} className="grid grid-cols-2 items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[1.4fr_1fr_2.4fr_1fr_0.9fr] sm:px-0 sm:py-0">
+                  <div className="min-w-0 text-sm font-medium sm:px-3 sm:py-2 sm:font-normal">{r.label} <span className="text-xs font-normal text-slate-500">{PRODUCTS[r.product]}</span></div>
+                  <div className="col-span-2 order-3 text-xs tabular-nums text-slate-500 sm:order-none sm:col-span-1 sm:px-3 sm:py-2 sm:text-right sm:text-slate-900"><span className="sm:hidden">Opening </span>{num(r.opening, 2)}<span className="sm:hidden"> · Rs {data.prices[r.product]}/L</span>{r.checkpoint != null && <div className="text-slate-400">price change at {num(r.checkpoint, 2)}</div>}</div>
+                  <div className="col-span-2 order-4 flex items-center gap-2 sm:order-none sm:col-span-1 sm:px-3 sm:py-2"><input className={`input min-w-0 flex-1 text-lg tabular-nums sm:w-40 sm:flex-none ${bad ? "border-red-400" : ""}`} type="number" step="0.01" min={last} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} aria-label={`${r.label} closing reading`} />
+                    <PhotoButton kind="meter" label="Meter" className="shrink-0" hint={`Nozzle ${r.label}; opening reading was ${r.opening}.`} onRead={(res, pid) => {
                       setPhotos((p) => [...p, pid]);
                       const vs: number[] = (res?.readings ?? []).map((x: any) => Number(x.value)).filter((x: number) => x >= last && x - last < 50_000);
                       if (vs.length) setReadings((rd) => ({ ...rd, [r.nozzle_id]: String(Math.min(...vs)) }));
-                    }} /></td>
-                  <td className="td text-right font-medium tabular-nums">{readings[r.nozzle_id] && v >= r.opening ? num(v - r.opening, 2) : "—"}</td>
-                  <td className="td text-right text-xs tabular-nums">Rs {data.prices[r.product]}</td>
-                </tr>
+                    }} /></div>
+                  <div className="order-2 text-right font-medium tabular-nums sm:order-none sm:px-3 sm:py-2">{readings[r.nozzle_id] && v >= r.opening ? <>{num(v - r.opening, 2)}<span className="text-xs font-normal text-slate-500 sm:hidden"> L</span></> : "—"}</div>
+                  <div className="hidden text-right text-xs tabular-nums sm:block sm:px-3 sm:py-2">Rs {data.prices[r.product]}</div>
+                </div>
               );
-            })}</tbody>
-          </table>
+            })}
         </div>
         {allFilled && (
-          <div className="grid gap-3 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-2">
             <div>{Object.entries(meterL).map(([p, l]) => <div key={p} className="flex justify-between"><span>{PRODUCTS[p]} on meters</span><span className="tabular-nums">{num(l, 2)} L</span></div>)}</div>
             <div>
               <div className="flex justify-between"><span>📒 Khata</span><span className="tabular-nums">{pkr(s.khata)}</span></div>

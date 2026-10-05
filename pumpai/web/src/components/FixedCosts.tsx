@@ -20,7 +20,7 @@ export function FixedCosts({ categories, stations, onClose }: { categories: any[
   const [result, setResult] = useState<any>(null);
   return (
     <Modal open wide onClose={onClose} title="Monthly costs & utility bills">
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section>
           <h3 className="mb-1 flex items-center gap-2 font-semibold"><Repeat size={16} /> Booked every month by themselves</h3>
           <p className="mb-2 text-xs text-slate-500">Rent, guard, internet… On its day each month the expense is added as approved; managers get a note.</p>

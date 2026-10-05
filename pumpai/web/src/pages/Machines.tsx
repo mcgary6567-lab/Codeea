@@ -45,9 +45,9 @@ export default function Machines() {
         <Stat label="Service this week" value={s.due_soon} tone={s.due_soon ? "amber" : "slate"} />
         <Stat label="Spent (90 days)" value={pkr(s.spent_90d)} hint={`${s.warranty_ending} warranties ending`} icon={<ShieldCheck size={16} />} />
       </div>
-      <div className="flex flex-wrap gap-1.5 text-sm">
+      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 text-sm sm:mx-0 sm:flex-wrap sm:px-0">
         {[["", "All"], ["attention", "Needs attention"], ...data.types.filter((t: string) => data.machines.some((m: any) => m.type === t)).map((t: string) => [t, TYPE_LABEL[t]])].map(([k, l]) =>
-          <button key={k} onClick={() => setFilter(k)} className={`rounded-full px-3 py-1 ${filter === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
+          <button key={k} onClick={() => setFilter(k)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 sm:min-h-0 ${filter === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
       </div>
       {groups.map((g) => (
         <div key={g} className="card overflow-hidden">
@@ -89,7 +89,7 @@ function MachineForm({ m, stations, types, onClose, onSaved }: { m: any; station
           service_every_hours: num(f.service_every_hours), last_service_on: str(f.last_service_on), hours: num(f.hours), notes: str(f.notes), ...(m.id ? { status: f.status } : {}) };
         if (await run(() => api(m.id ? `/machines/${m.id}` : "/machines", { method: m.id ? "PATCH" : "POST", body }), "Saved")) onSaved();
       }}>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Name *"><input className="input" required placeholder="e.g. Dispenser 1, Generator 30 kVA" value={f.name} onChange={set("name")} /></Field>
           <Field label="Type"><select className="input" value={f.type} onChange={set("type")}>{types.map((t) => <option key={t} value={t}>{TYPE_LABEL[t] ?? t}</option>)}</select></Field>
           <Field label="Station"><select className="input" value={f.station_id} onChange={set("station_id")}><option value="">All stations</option>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
@@ -136,8 +136,8 @@ function MachineDetail({ id, manager, onEdit, onClose }: { id: number; manager: 
         const body = { kind: f.kind, description: f.description || undefined, cost: f.cost ? Number(f.cost) : null, done_by: f.done_by || null, hours: f.hours ? Number(f.hours) : null, downtime_hours: f.downtime_hours ? Number(f.downtime_hours) : null, photo_id: f.photo_id };
         if (await run(() => api(`/machines/${id}/logs`, { body }), f.kind === "fault" ? "Fault reported — the manager has been told" : "Saved")) { setF({ ...f, description: "", cost: "", done_by: "", hours: "", downtime_hours: "", photo_id: null }); reload(); }
       }}>
-        <div className="flex flex-wrap gap-1.5">{kinds.map((k) => <button type="button" key={k} onClick={() => setF({ ...f, kind: k })} className={`rounded-full px-3 py-1 text-sm ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{k === "fault" ? "Report fault" : LOG[k].label}</button>)}</div>
-        <div className="grid gap-2 sm:grid-cols-4">
+        <div className="flex flex-wrap gap-1.5">{kinds.map((k) => <button type="button" key={k} onClick={() => setF({ ...f, kind: k })} className={`min-h-9 rounded-full px-3 py-1 text-sm sm:min-h-0 ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{k === "fault" ? "Report fault" : LOG[k].label}</button>)}</div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
           <input className="input sm:col-span-2" placeholder={f.kind === "fault" ? "What is wrong? *" : f.kind === "service" ? "What was done (oil, filters, calibration…)" : "Details"} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} required={f.kind === "fault"} />
           {["service", "repair"].includes(f.kind) && <><input className="input" type="number" min={0} placeholder="Cost Rs (goes to expenses)" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} />
             <input className="input" placeholder="Done by" value={f.done_by} onChange={(e) => setF({ ...f, done_by: e.target.value })} /></>}

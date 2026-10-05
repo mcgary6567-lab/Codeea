@@ -28,7 +28,7 @@ export default function Register() {
               {stations.data.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select></label>
           <div className="flex rounded-lg bg-slate-100 p-1">
-            {(["days", "month"] as const).map((m) => <button key={m} onClick={() => setF({ ...f, mode: m })} className={`rounded-md px-3 py-1.5 ${f.mode === m ? "bg-white shadow font-semibold" : "text-slate-600"}`}>{m === "days" ? "Daily register" : "Monthly return"}</button>)}
+            {(["days", "month"] as const).map((m) => <button key={m} onClick={() => setF({ ...f, mode: m })} className={`min-h-9 rounded-md px-3 py-1.5 ${f.mode === m ? "bg-white shadow font-semibold" : "text-slate-600"}`}>{m === "days" ? "Daily register" : "Monthly return"}</button>)}
           </div>
           {f.mode === "days" ? <>
             <label className="grid gap-1"><span className="text-slate-500">From</span><input type="date" className="input" value={f.from} max={f.to} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
@@ -45,8 +45,16 @@ export default function Register() {
             <div className="text-sm">Period: <b>{d.from}</b> to <b>{d.to}</b></div>
             {d.licences.length > 0 && <div className="mt-1 text-xs text-slate-600">{d.licences.map((l: any) => `${l.name}${l.number ? ` No. ${l.number}` : ""}${l.authority ? ` (${l.authority})` : ""}, valid till ${l.expires_on}`).join(" · ")}</div>}
           </div>
-          {f.mode === "month" && (
-            <table className="mt-4 w-full text-sm">
+          {f.mode === "month" && (<>
+            {/* phone: one card per product */}
+            <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-800 text-sm sm:hidden print:hidden">
+              {d.products.map((p: any) => (
+                <li key={p.product} className="py-2">
+                  <div className="flex items-start justify-between gap-2"><span className="min-w-0 font-semibold">{p.name}</span><span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{L(p.month.closing)} L</span><span className="text-[11px] text-slate-500">closing</span></span></div>
+                  <div className="text-xs text-slate-500">Opening <b className="tabular-nums text-slate-700">{L(p.month.opening)}</b> · received <b className="tabular-nums text-slate-700">{L(p.month.receipts)}</b> · sold <b className="tabular-nums text-slate-700">{L(p.month.sales)}</b> · wholesale <b className="tabular-nums text-slate-700">{L(p.month.wholesale)}</b> · gain / loss <b className={`tabular-nums ${p.month.gain_loss < 0 ? "text-red-700" : "text-slate-700"}`}>{L(p.month.gain_loss)}</b> · variation <b className="tabular-nums text-slate-700">{p.month.variation_pct}%</b></div>
+                </li>))}
+            </ul>
+            <table className="mt-4 hidden w-full text-sm sm:table print:table">
               <thead><tr className="border-b border-slate-800 text-left text-xs uppercase">
                 <th className="py-1.5">Product</th><th className="text-right">Opening (L)</th><th className="text-right">Received (L)</th><th className="text-right">Sold retail (L)</th>
                 <th className="text-right">Wholesale (L)</th><th className="text-right">Gain / loss (L)</th><th className="text-right">Closing (L)</th><th className="text-right">Variation</th>
@@ -58,11 +66,22 @@ export default function Register() {
                   <td className="text-right">{p.month.variation_pct}%</td>
                 </tr>))}</tbody>
             </table>
-          )}
+          </>)}
           {d.products.map((p: any) => (
             <div key={p.product} className="mt-5 break-inside-avoid">
               <h2 className="font-semibold">{p.name} <span className="text-sm font-normal text-slate-500">· {p.tanks} tank{p.tanks > 1 ? "s" : ""}, capacity {L(p.capacity)} L</span></h2>
-              <div className="overflow-x-auto">
+              {/* phone: one card per day */}
+              <ul className="mt-1 divide-y divide-slate-200 rounded-lg border border-slate-300 sm:hidden print:hidden">
+                {p.days.map((x: any) => (
+                  <li key={x.day} className="px-3 py-2">
+                    <div className="flex items-start justify-between gap-2"><span className="min-w-0 text-sm font-medium">{x.day}</span><span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{L(x.closing)} L</span><span className="text-[11px] text-slate-500">closing c/f</span></span></div>
+                    <div className="text-xs text-slate-500">Opening <b className="tabular-nums text-slate-700">{L(x.opening)}</b>{x.receipts ? <> · received <b className="tabular-nums text-slate-700">{L(x.receipts)}</b></> : null} · sold <b className="tabular-nums text-slate-700">{L(x.sales)}</b>{x.wholesale ? <> · wholesale <b className="tabular-nums text-slate-700">{L(x.wholesale)}</b></> : null}</div>
+                    <div className="text-xs text-slate-500">Book <b className="tabular-nums text-slate-700">{L(x.book_closing)}</b> · dip <b className="tabular-nums text-slate-700">{L(x.dip_closing)}</b>{x.gain_loss ? <> · gain / loss <b className={`tabular-nums ${x.gain_loss < 0 ? "text-red-700" : "text-slate-700"}`}>{L(x.gain_loss)}</b></> : null}</div>
+                    {x.receipts ? <div className="break-words text-[11px] text-slate-400">{x.receipt_lines.map((rl: any) => `${rl.tanker_no ?? ""} inv ${L(rl.invoice_l)}`).join("; ")}</div> : null}
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto sm:block print:block">
                 <table className="mt-1 w-full min-w-[760px] border border-slate-300 text-xs">
                   <thead className="bg-slate-50"><tr className="text-left">
                     {["Date", "Opening stock", "Received (tanker / invoice)", "Total", "Sold (meter)", "Wholesale", "Book closing", "Dip closing", "Gain / loss", "Closing c/f", "Sign"].map((h) =>

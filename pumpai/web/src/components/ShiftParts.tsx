@@ -207,7 +207,7 @@ function ReportBody({ r }: { r: any }) {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <h3 className="mb-1 text-sm font-semibold">Fuel sold (litres × rate)</h3>
           {r.by_rate.map((x: any) => <Row key={x.product + x.rate} k={`${PRODUCTS[x.product]} ${num(x.litres, 2)} L × Rs ${x.rate}`} v={pkr(x.amount)} />)}

@@ -33,11 +33,11 @@ export function BusinessProfile() {
         </label>
         <div className="space-y-1">
           <div className="text-sm text-slate-600">Brand colour</div>
-          <div className="flex flex-wrap gap-1.5">{COLORS.map((c) => <button key={c} type="button" aria-label={`Colour ${c}`} onClick={() => { setF({ ...f, brand_color: c }); applyBrand(c); }} className={`h-7 w-7 rounded-full ring-offset-2 ${f.brand_color === c ? "ring-2 ring-slate-900" : ""}`} style={{ background: c }} />)}
-            <input type="color" aria-label="Other colour" className="h-7 w-9 cursor-pointer rounded" value={f.brand_color || "#059669"} onChange={(e) => { setF({ ...f, brand_color: e.target.value }); applyBrand(e.target.value); }} /></div>
+          <div className="flex flex-wrap gap-1.5">{COLORS.map((c) => <button key={c} type="button" aria-label={`Colour ${c}`} onClick={() => { setF({ ...f, brand_color: c }); applyBrand(c); }} className={`h-9 w-9 rounded-full ring-offset-2 sm:h-7 sm:w-7 ${f.brand_color === c ? "ring-2 ring-slate-900" : ""}`} style={{ background: c }} />)}
+            <input type="color" aria-label="Other colour" className="h-9 w-11 cursor-pointer rounded sm:h-7 sm:w-9" value={f.brand_color || "#059669"} onChange={(e) => { setF({ ...f, brand_color: e.target.value }); applyBrand(e.target.value); }} /></div>
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Business name"><input className="input" value={f.name ?? ""} onChange={set("name")} /></Field>
         <Field label="Owner name"><input className="input" value={f.owner_name ?? ""} onChange={set("owner_name")} /></Field>
         <Field label="Owner WhatsApp (alerts, approvals, daily brief)"><input className="input" value={f.owner_phone ?? ""} onChange={set("owner_phone")} /></Field>
@@ -72,7 +72,7 @@ export function Integrations({ ai, wa }: { ai: boolean; wa: boolean }) {
   );
   const save = () => run(() => api("/integrations", { method: "PUT", body: v }), "Saved — working now (no restart needed)").then(() => { reload(); });
   return (
-    <div className="grid gap-5 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div className="card space-y-2 p-4">
         <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><KeyRound size={16} /> Claude AI</h2><Status ok={ai} label={ai ? "Connected" : "Rule engine (offline)"} /></div>
         <p className="text-sm text-slate-600">WhatsApp agent, Ask AI, photo reading, voice sales, coaching and campaign writing. Without a key the built-in rules still work.</p>
@@ -83,7 +83,7 @@ export function Integrations({ ai, wa }: { ai: boolean; wa: boolean }) {
       <div className="card space-y-2 p-4">
         <div className="flex items-center justify-between"><h2 className="font-semibold">WhatsApp Cloud API</h2><Status ok={wa} label={wa ? "Live" : "Simulated"} /></div>
         <p className="text-sm text-slate-600">In Meta Business → WhatsApp → Configuration set the webhook <span className="break-all font-mono text-xs">{data.webhook_url}</span> with the verify token below, subscribe to <b>messages</b>, and create a utility template with one body variable.</p>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {inp("wa_token", "Access token", "EAAG…", true)}
           {inp("wa_phone_number_id", "Phone number ID")}
           {inp("wa_verify_token", "Verify token")}

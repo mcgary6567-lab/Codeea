@@ -103,7 +103,7 @@ function PriceChangeGate() {
         </div>
         <p className="text-sm text-slate-700"><b>1.</b> Dispenser par naya rate set karein. {shift && <><br /><b>2.</b> Abhi har nozzle ki meter reading likhein — is se pehle ka tel purane rate par hisab hoga.</>}</p>
         {shift && (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {shift.readings.map((r) => (
               <Field key={r.nozzle_id} label={`${r.label} (${PRODUCTS[r.product]}) — last ${num(r.last_reading, 2)}`}>
                 <input className="input" type="number" step="0.01" min={r.last_reading} required value={readings[r.nozzle_id] ?? ""} onChange={(e) => setReadings({ ...readings, [r.nozzle_id]: e.target.value })} />

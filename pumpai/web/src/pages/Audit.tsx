@@ -22,8 +22,8 @@ export default function Audit() {
     <div className="space-y-4">
       <PageHeader title="Audit log" subtitle="Every change in the system: who did it, when, and what it was before"
         actions={<a className="btn-secondary" href={`/api/audit.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`}><Download size={15} /> Excel / CSV</a>} />
-      <div className="flex flex-wrap gap-1.5">
-        {KINDS.map(([k, l]) => <button key={k} onClick={() => setF({ ...f, kind: k, page: 1 })} className={`rounded-full px-3 py-1 text-sm ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
+      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {KINDS.map(([k, l]) => <button key={k} onClick={() => setF({ ...f, kind: k, page: 1 })} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm sm:min-h-0 ${f.kind === k ? "bg-brand-600 text-white" : "bg-white ring-1 ring-slate-200"}`}>{l}</button>)}
       </div>
       <div className="card flex flex-wrap items-end gap-3 p-3">
         <Field label="Who"><select className="input" value={f.user_id} onChange={(e) => setF({ ...f, user_id: e.target.value, page: 1 })}><option value="">Everyone</option>{(data?.users ?? []).map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></Field>
@@ -40,15 +40,15 @@ export default function Audit() {
               <div key={r.id}>
                 <button onClick={() => setOpen(isOpen ? null : r.id)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-slate-50">
                   {isOpen ? <ChevronDown size={16} className="mt-0.5 text-slate-400" /> : <ChevronRight size={16} className="mt-0.5 text-slate-400" />}
-                  <span className="w-36 shrink-0 text-xs text-slate-500">{dt(r.at)}</span>
+                  <span className="hidden w-36 shrink-0 text-xs text-slate-500 sm:block">{dt(r.at)}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="font-medium">{r.user ?? "System"}</span> <span className="text-slate-700">{r.label}</span>
-                    {changes.length > 0 && <span className="block truncate text-xs text-slate-500">{changes.slice(0, 3).map((c: any) => `${c.field}: ${show(c.from)} → ${show(c.to)}`).join(" · ")}</span>}
+                    <span className="block text-xs text-slate-500 sm:hidden">{dt(r.at)}</span><span className="font-medium">{r.user ?? "System"}</span> <span className="text-slate-700">{r.label}</span>
+                    {changes.length > 0 && <span className="block break-words text-xs text-slate-500 sm:truncate">{changes.slice(0, 3).map((c: any) => `${c.field}: ${show(c.from)} → ${show(c.to)}`).join(" · ")}</span>}
                   </span>
-                  <Badge tone={tone(r.kind)}>{KINDS.find((k) => k[0] === r.kind)?.[1] ?? r.kind}</Badge>
+                  <span className="shrink-0"><Badge tone={tone(r.kind)}>{KINDS.find((k) => k[0] === r.kind)?.[1] ?? r.kind}</Badge></span>
                 </button>
                 {isOpen && (
-                  <div className="bg-slate-50 px-4 pb-3 pl-11 text-sm">
+                  <div className="overflow-x-auto bg-slate-50 px-4 pb-3 text-sm sm:pl-11">
                     {changes.length > 0 && <table className="mb-2 w-full max-w-2xl text-xs"><thead className="text-left text-slate-500"><tr><th className="py-1">Field</th><th>Before</th><th>After</th></tr></thead>
                       <tbody>{changes.map((c: any) => <tr key={c.field} className="border-t border-slate-200"><td className="py-1 font-medium">{c.field}</td><td className="text-red-700 line-through decoration-red-300">{show(c.from)}</td><td className="text-emerald-700">{show(c.to)}</td></tr>)}</tbody></table>}
                     {r.data?.deleted && <div className="mb-2 text-xs"><b>Deleted record:</b> <span className="break-all font-mono">{JSON.stringify(r.data.deleted)}</span></div>}
@@ -62,7 +62,7 @@ export default function Audit() {
           {!data.rows.length && <Empty><ShieldCheck className="mx-auto mb-1 text-slate-300" />Nothing found for this filter</Empty>}
         </div>
       )}
-      {data && data.pages > 1 && <div className="flex items-center justify-center gap-3 text-sm">
+      {data && data.pages > 1 && <div className="flex flex-wrap items-center justify-center gap-3 text-center text-sm">
         <button className="btn-secondary" disabled={f.page <= 1} onClick={() => setF({ ...f, page: f.page - 1 })}>Newer</button>
         <span>Page {data.page} of {data.pages} · {data.total.toLocaleString()} entries</span>
         <button className="btn-secondary" disabled={f.page >= data.pages} onClick={() => setF({ ...f, page: f.page + 1 })}>Older</button>

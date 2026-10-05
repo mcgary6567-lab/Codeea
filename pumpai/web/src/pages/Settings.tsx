@@ -51,7 +51,7 @@ function StationsSection() {
           <div key={s.id} className="rounded-lg border border-slate-200 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><div className="font-medium">{s.name}</div><div className="text-xs text-slate-500">{[s.omc, s.city, s.address, s.timings].filter(Boolean).join(" · ")}</div></div>
-              <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => setTankFor(s.id)}>+ Add tank</button>
+              <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs sm:min-h-0" onClick={() => setTankFor(s.id)}>+ Add tank</button>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {s.tanks.map((t: any) => <span key={t.id} className="rounded-lg bg-slate-50 px-2 py-1 text-xs">{t.name} · {PRODUCTS[t.product]} · {num(t.capacity_l)} L · {s.nozzles.filter((n: any) => n.tank_id === t.id).length} nozzles</span>)}
@@ -131,7 +131,7 @@ function KhataRules({ r, onSaved }: { r?: { block_days: number; block_institutio
   const [f, setF] = useState({ block_days: String(r?.block_days ?? 60), block_institutions: r?.block_institutions ?? false, late_fee_pct: String(r?.late_fee_pct ?? 0) });
   const { busy, run } = useAction();
   return (
-    <form className="card grid gap-3 p-4 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { khata_rules: { block_days: Number(f.block_days), block_institutions: f.block_institutions, late_fee_pct: Number(f.late_fee_pct) } } }), "Khata rules saved").then(onSaved); }}>
+    <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); run(() => api("/settings", { method: "PUT", body: { khata_rules: { block_days: Number(f.block_days), block_institutions: f.block_institutions, late_fee_pct: Number(f.late_fee_pct) } } }), "Khata rules saved").then(onSaved); }}>
       <h2 className="font-semibold sm:col-span-3">Khata rules</h2>
       <label className="block"><span className="label">Hold khata after no payment for (days)</span><input className="input" type="number" min={15} max={365} value={f.block_days} onChange={(e) => setF({ ...f, block_days: e.target.value })} /></label>
       <label className="block"><span className="label">Late-payment charge per month (%, 0 = off)</span><input className="input" type="number" min={0} max={5} step="0.1" value={f.late_fee_pct} onChange={(e) => setF({ ...f, late_fee_pct: e.target.value })} /></label>

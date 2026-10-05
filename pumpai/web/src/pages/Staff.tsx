@@ -6,6 +6,7 @@ import { dt, pkr } from "../lib/format";
 import { photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { DAY_STATUS, LeaveForm } from "./MyAccount";
 import { useAuth } from "../App";
+import { Ur } from "../components/VoiceShell";
 import { LoansBox, SlipsList, TrainingTab, CoachingTab } from "../components/StaffExtras";
 
 const TYPE: Record<string, { label: string; tone: string; sign: string }> = {
@@ -41,9 +42,9 @@ function Attendance() {
       {pending.length > 0 && <div className="card p-4"><h2 className="mb-2 font-semibold">Leave requests</h2>
         {pending.map((l: any) => (
           <div key={l.id} className="flex flex-wrap items-center gap-2 border-b border-slate-100 py-2 text-sm">
-            <span className="flex-1"><b>{l.name}</b> · {l.from_day}{l.to_day !== l.from_day ? ` – ${l.to_day}` : ""} · {l.type}{l.reason ? ` — ${l.reason}` : ""}</span>
-            <button className="btn-primary !py-1" onClick={() => run(() => api(`/leaves/${l.id}/approve`, { body: {} }), "Approved").then(reload)}>Approve</button>
-            <button className="btn-secondary !py-1" onClick={() => run(() => api(`/leaves/${l.id}/reject`, { body: {} }), "Rejected").then(reload)}>Reject</button>
+            <span className="min-w-0 flex-1 basis-full sm:basis-0"><b>{l.name}</b> · {l.from_day}{l.to_day !== l.from_day ? ` – ${l.to_day}` : ""} · {l.type}{l.reason ? ` — ${l.reason}` : ""}</span>
+            <button className="btn-primary min-h-9 !py-1" onClick={() => run(() => api(`/leaves/${l.id}/approve`, { body: {} }), "Approved").then(reload)}>Approve</button>
+            <button className="btn-secondary min-h-9 !py-1" onClick={() => run(() => api(`/leaves/${l.id}/reject`, { body: {} }), "Rejected").then(reload)}>Reject</button>
           </div>
         ))}</div>}
       <div className="card p-4">
@@ -55,7 +56,23 @@ function Attendance() {
             {a.check_out && <> · out{a.out_photo_id ? <a href={photoUrl(a.out_photo_id)} target="_blank" rel="noreferrer"> 📷</a> : null}{a.out_lat != null && <a href={`https://maps.google.com/?q=${a.out_lat},${a.out_lng}`} target="_blank" rel="noreferrer" title="Check-out location">📍</a>}</>}</span>
         ))}{!data.present_today.length && <span className="text-sm text-slate-500">Nobody yet</span>}</div>
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per person */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {data.staff.map((s: any) => (
+          <li key={s.user.id} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><span className="block font-semibold">{s.user.name}</span><span className="text-xs text-slate-500">Duty {s.user.duty_start ?? "not set"}{s.user.weekly_off != null && ` · off ${WEEK[s.user.weekly_off]}`}</span></span>
+              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{s.salary_cut ? pkr(s.salary_cut) : "—"}</span><span className="text-[11px] text-slate-500">Salary cut · <Ur>کٹوتی</Ur></span></span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-0.5">{s.days.map((x: any) => <span key={x.day} title={`${x.day}: ${DAY_STATUS[x.status]?.label}`} className={`h-3 w-3 rounded-sm ${DAY_STATUS[x.status]?.cls}`} />)}</div>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>Present <b className="tabular-nums text-slate-700">{s.present}</b> · late <b className="tabular-nums text-slate-700">{s.late}</b> · absent <b className={`tabular-nums ${s.absent ? "text-red-600" : "text-slate-700"}`}>{s.absent}</b> · leave <b className="tabular-nums text-slate-700">{s.paid_leave + s.unpaid_leave}</b></span>
+              <button className="btn-secondary min-h-9 !py-1 text-xs" onClick={() => setLeaveFor(s.user.id)}>Record leave · <Ur>چھٹی</Ur></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Name</th><th className="th">Duty</th><th className="th">This month</th><th className="th text-right">Present</th><th className="th text-right">Late</th><th className="th text-right">Absent</th><th className="th text-right">Leave</th><th className="th text-right">Salary cut</th><th className="th" /></tr></thead>
           <tbody>{data.staff.map((s: any) => (
@@ -86,12 +103,28 @@ function Accounts() {
   return (
     <div className="space-y-5">
       <PageHeader title="Staff accounts" subtitle="Advances, cash shortages from shifts and salary — every entry kept automatically" />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Staff owe (advances + short)" value={pkr(owed)} tone="amber" icon={<Wallet size={16} />} />
         <Stat label="Short this month" value={pkr(data.reduce((a, u) => a + u.shortages_this_month, 0))} tone="red" />
         <Stat label="Salary paid this month" value={`${data.filter((u) => u.salary_paid_this_month).length} / ${data.filter((u) => u.salary && u.active).length}`} tone="blue" hint="staff with a salary set" />
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per person */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {data.map((u) => (
+          <li key={u.id} className={`cursor-pointer px-4 py-3 active:bg-slate-50 ${u.active ? "" : "opacity-50"}`} onClick={() => setOpen(u.id)}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><span className="block font-semibold">{u.name}</span><span className="text-xs capitalize text-slate-500">{u.role}{u.station_name ? ` · ${u.station_name}` : ""}</span></span>
+              <span className="shrink-0 text-right"><span className={`block font-semibold tabular-nums ${u.balance > 0 ? "text-amber-700" : ""}`}>{pkr(u.balance)}</span><span className="text-[11px] text-slate-500">Owes · <Ur>بقایا</Ur></span></span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+              <span>Salary <span className="tabular-nums text-slate-700">{u.salary ? pkr(u.salary) : "not set"}</span></span>
+              <span>Short this month <span className={`tabular-nums ${u.shortages_this_month ? "text-red-600" : "text-slate-700"}`}>{pkr(u.shortages_this_month)}</span></span>
+              {u.salary_paid_this_month ? <Badge tone="green">Salary paid</Badge> : u.salary ? <Badge tone="amber">Salary due</Badge> : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Name</th><th className="th">Role</th><th className="th text-right">Salary</th><th className="th text-right">Owes</th><th className="th text-right">Short this month</th><th className="th">This month</th></tr></thead>
           <tbody>{data.map((u) => (
@@ -150,12 +183,12 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
           if (r) { if (r.slip_url) { setSlipUrl(r.slip_url); slips.reload(); } done(); }
         }}>
           {form === "set-salary" && <Field label="Monthly salary (Rs)"><input className="input text-lg" type="number" min={0} required value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} /></Field>}
-          {(form === "advance" || form === "repayment") && <div className="grid gap-3 sm:grid-cols-2">
+          {(form === "advance" || form === "repayment") && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label={form === "advance" ? "Advance given (Rs)" : "Amount paid back (Rs)"}><input className="input text-lg" type="number" min={1} max={form === "repayment" ? data.balance : undefined} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
             <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. for family need" /></Field>
           </div>}
           {form === "salary" && <>
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <Field label="Salary"><input className="input" disabled value={pkr(u.salary)} /></Field>
               <Field label={`Absence cut (${data.attendance?.unpaid_days ?? 0} unpaid days)`}><input className="input" type="number" min={0} value={f.cut === "" ? String(data.attendance?.salary_cut ?? 0) : f.cut} onChange={(e) => setF({ ...f, cut: e.target.value })} /></Field>
               <Field label="Bonus (optional)"><input className="input" type="number" min={0} value={f.bonus} onChange={(e) => setF({ ...f, bonus: e.target.value })} /></Field>
@@ -196,7 +229,20 @@ export function LedgerList({ lines }: { lines: any[] }) {
   if (!lines.length) return <Empty>No entries yet.</Empty>;
   return (
     <div className="mt-4 max-h-[50vh] overflow-auto rounded-lg border border-slate-200">
-      <table className="w-full">
+      {/* phone: one line per entry */}
+      <ul className="divide-y divide-slate-100 sm:hidden">
+        {lines.map((l) => (
+          <li key={l.id} className="px-3 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><Badge tone={TYPE[l.type]?.tone}>{TYPE[l.type]?.label ?? l.type}</Badge> <span className="text-xs text-slate-500">{dt(l.created_at)}</span></span>
+              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{TYPE[l.type]?.sign}{pkr(l.amount)}</span><span className="text-[11px] tabular-nums text-slate-500">owes {pkr(l.balance)}</span></span>
+            </div>
+            {l.note && <div className="break-words text-sm text-slate-600">{l.note}</div>}
+            <ProofThumbs ids={l.proof_ids} />
+          </li>
+        ))}
+      </ul>
+      <table className="hidden w-full sm:table">
         <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Note</th><th className="th text-right">Amount</th><th className="th text-right">Owes after</th></tr></thead>
         <tbody>{lines.map((l) => (
           <tr key={l.id}>

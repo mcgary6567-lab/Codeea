@@ -135,7 +135,7 @@ function Overview({ r }: { r: any }) {
         <Stat label="Gross profit (est.)" value={est ? pkrShort(s.gross_profit_estimate) : "—"} tone="blue" hint={est ? `Revenue − fuel cost ${pkrShort(s.fuel_cost_estimate)}` : "Add purchase rates on deliveries"} />
         <Stat label="Net profit (est.)" value={est ? pkrShort(s.net_profit_estimate) : "—"} tone={est && s.net_profit_estimate < 0 ? "red" : "green"} hint="Gross profit − expenses" />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="card p-4">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold"><ArrowDownLeft size={15} className="text-emerald-600" /> Money in</h3>
           {[["Cash sales", s.money_in.cash_sales], ["Digital (JazzCash, Easypaisa, Raast, card)", s.money_in.digital_sales], ["Khata collected", s.money_in.khata_collected], ["Wholesale payments received", s.money_in.wholesale_received]].map(([k, v]) => <Row key={k as string} k={k as string} v={pkr(v as number)} />)}
@@ -225,7 +225,7 @@ function StockHead({ r }: { r: any }) {
 function ExpensesHead({ r }: { r: any }) {
   const max = Math.max(1, ...r.expenses.by_category.map((c: any) => c.amount));
   return (
-    <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[260px_1fr]">
       <Stat label="Total expenses" value={pkr(r.expenses.total)} tone="red" hint={`${r.expenses.count} entries · ${r.summary.revenue ? ((r.expenses.total / r.summary.revenue) * 100).toFixed(1) : 0}% of revenue`} />
       <div className="card space-y-1.5 p-4">
         {r.expenses.by_category.map((c: any) => (

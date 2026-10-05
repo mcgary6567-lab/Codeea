@@ -29,8 +29,25 @@ function Licences() {
   if (!data) return <Loading />;
   const tone = (n: number) => (n < 0 ? "red" : n <= 7 ? "red" : n <= 30 ? "amber" : "green");
   return (
-    <div className="card overflow-x-auto">
+    <div className="card">
       <div className="flex items-center justify-between p-4 pb-2"><h2 className="font-semibold">Licences & certificates</h2><button className="btn-primary" onClick={() => setEdit({})}><Plus size={15} /> Add</button></div>
+      {/* phone: one card per licence */}
+      <ul className="divide-y divide-slate-100 border-t border-slate-100 sm:hidden">
+        {data.map((l) => (
+          <li key={l.id} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 font-semibold">{l.name}{l.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(l.photo_id)} target="_blank" rel="noreferrer" aria-label="Certificate photo">📷</a> : null}</span>
+              <span className="shrink-0 text-right text-sm tabular-nums">{d(l.expires_on)}</span>
+            </div>
+            <div className="break-words text-xs text-slate-500">{[l.number, l.authority, l.station_name ?? "All stations"].filter(Boolean).join(" · ")}</div>
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <Badge tone={tone(l.days_left)}>{l.days_left < 0 ? `Expired ${-l.days_left} days ago` : l.days_left === 0 ? "Expires today" : `${l.days_left} days left`}</Badge>
+              <button className="btn-secondary min-h-9 !py-1 text-xs" onClick={() => setEdit(l)}><RefreshCw size={13} /> Renew / edit</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto sm:block">
       <table className="w-full">
         <thead><tr><th className="th">Licence</th><th className="th">Number / authority</th><th className="th">Station</th><th className="th">Expires</th><th className="th" /></tr></thead>
         <tbody>{data.map((l) => (
@@ -43,6 +60,7 @@ function Licences() {
           </tr>
         ))}</tbody>
       </table>
+      </div>
       {edit && <LicenceForm l={edit} stations={stations.data ?? []} onClose={() => setEdit(null)} onDone={() => { setEdit(null); reload(); }} />}
     </div>
   );
@@ -59,7 +77,7 @@ function LicenceForm({ l, stations, onClose, onDone }: { l: any; stations: any[]
         if (await run(() => (l.id ? api(`/licences/${l.id}`, { method: "PATCH", body }) : api("/licences", { body })), "Saved")) onDone();
       }}>
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Explosives licence" /></Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Number"><input className="input" value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} /></Field>
           <Field label="Issued by"><input className="input" value={f.authority} onChange={(e) => setF({ ...f, authority: e.target.value })} /></Field>
           <Field label="Issued on"><input className="input" type="date" value={f.issued_on} onChange={(e) => setF({ ...f, issued_on: e.target.value })} /></Field>
@@ -103,7 +121,7 @@ function CheckItemForm({ onClose }: { onClose: () => void }) {
       }}>
         <Field label="What to check"><input className="input" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
         <Field label="Urdu (optional)"><input className="input font-urdu" dir="rtl" value={f.urdu} onChange={(e) => setF({ ...f, urdu: e.target.value })} /></Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="How often"><select className="input" value={f.frequency} onChange={(e) => setF({ ...f, frequency: e.target.value })}><option value="daily">Every day</option><option value="weekly">Every week</option></select></Field>
           <Field label="Answer"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="check">OK / problem</option><option value="number">A reading (number)</option></select></Field>
           {f.kind === "number" && <>

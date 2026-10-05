@@ -23,7 +23,7 @@ export default function Campaigns() {
   return (
     <div>
       <PageHeader title="WhatsApp campaigns" subtitle="AI-written broadcasts to opted-in customer segments. Placeholders: {name} {balance} {points}" />
-      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[400px_1fr]">
         <div className="card space-y-3 p-4">
           <h2 className="font-semibold">New campaign</h2>
           <Field label="Campaign name"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Weekend car wash offer" /></Field>

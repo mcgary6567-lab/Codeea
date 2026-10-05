@@ -29,13 +29,13 @@ export default function Inbox() {
     <div>
       <PageHeader title="WhatsApp Inbox" subtitle="AI answers customers 24/7. Take over any chat with one click."
         actions={<button className="btn-secondary" onClick={() => setSimOpen(true)}><Smartphone size={16} /> WhatsApp simulator</button>} />
-      <div className="card grid h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden md:grid-cols-[320px_1fr]">
-        <div className={`flex flex-col border-r border-slate-200 ${id ? "hidden md:flex" : "flex"}`}>
+      <div className="card grid h-[calc(100vh-11rem)] min-h-[520px] grid-cols-1 overflow-hidden md:grid-cols-[320px_minmax(0,1fr)]">
+        <div className={`min-w-0 flex-col border-r border-slate-200 ${id ? "hidden md:flex" : "flex"}`}>
           <div className="space-y-2 border-b border-slate-200 p-3">
             <div className="relative"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search name or number" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-            <div className="flex gap-1 text-xs">
+            <div className="-mx-3 flex gap-1 overflow-x-auto px-3 text-xs">
               {(["all", "unread", "human"] as const).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-1 ${filter === f ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                <button key={f} onClick={() => setFilter(f)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 sm:min-h-0 ${filter === f ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>
                   {f === "human" ? "Needs human" : f[0].toUpperCase() + f.slice(1)}
                 </button>
               ))}
@@ -96,7 +96,7 @@ function Thread({ data, reload, onBack }: { data: any; reload: () => void; onBac
   return (
     <>
       <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5">
-        <button className="md:hidden text-sm text-brand-600" onClick={onBack}>←</button>
+        <button className="-ml-2 h-9 w-9 shrink-0 text-lg text-brand-600 md:hidden" aria-label="Back" onClick={onBack}>←</button>
         <div className="min-w-0 flex-1">
           <Link to={`/customers/${cust.id}`} className="font-medium hover:underline">{cust.name}</Link>
           <div className="text-xs text-slate-500">{phone(cust.phone)} · {cust.type} {cust.balance > 0 && `· Khata ${pkr(cust.balance)}`}</div>
@@ -163,12 +163,12 @@ function Simulator({ open, onClose, onSent }: { open: boolean; onClose: () => vo
   return (
     <Modal open={open} onClose={onClose} title="WhatsApp simulator" wide>
       <p className="mb-3 text-sm text-slate-600">Messages go through the exact same pipeline as real WhatsApp webhooks: AI agent → tools → reply → CRM records.</p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label><span className="label">Customer number</span><input className="input" value={ph} onChange={(e) => setPh(e.target.value)} /></label>
         <label><span className="label">Profile name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {SAMPLES.map((s) => <button key={s} onClick={() => send(s)} disabled={busy} className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:bg-emerald-100">{s}</button>)}
+        {SAMPLES.map((s) => <button key={s} onClick={() => send(s)} disabled={busy} className="min-h-9 rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:bg-emerald-100 sm:min-h-0">{s}</button>)}
       </div>
       <div className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-lg bg-wa-bg p-3">
         {log.map((l, i) => (

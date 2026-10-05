@@ -30,7 +30,7 @@ export function LoansBox({ userId, loans, onChanged }: { userId: number; loans: 
         </div>
       ))}
       {!active.length && !open && <p className="mt-1 text-sm text-slate-500">No loan. The monthly instalment is cut from the salary by itself.</p>}
-      {open && <form className="mt-2 grid gap-2 sm:grid-cols-4" onSubmit={async (e) => {
+      {open && <form className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-4" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => api(`/staff/${userId}/loans`, { body: { amount: Number(f.amount), instalment: Number(f.instalment), note: f.note || null, photo_ids: photos } }), "Loan given — paid from the office cash")) { setOpen(false); setF({ amount: "", instalment: "", note: "" }); setPhotos([]); onChanged(); }
       }}>
@@ -80,7 +80,7 @@ export function TrainingTab() {
         </table>
         {!data.staff.length && <Empty>No staff</Empty>}
       </div>
-      <form className="card grid gap-3 p-4 sm:grid-cols-4" onSubmit={async (e) => {
+      <form className="card grid grid-cols-1 gap-3 p-4 sm:grid-cols-4" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => api("/training", { body: { user_ids: f.users, topic, done_on: f.done_on, trainer: f.trainer || null } }), (r: any) => `Saved for ${r.added} staff${r.next_due ? ` — due again ${r.next_due}` : ""}`)) { setF({ ...f, users: [], trainer: "" }); reload(); }
       }}>
@@ -120,7 +120,7 @@ export function CoachingTab() {
         <Field label="Day"><input type="date" className="input" value={day} onChange={(e) => { setDay(e.target.value); setText(null); }} /></Field>
       </div>
       {!data ? (who ? <Loading /> : <Empty>No salesmen</Empty>) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="card p-4 text-sm">
             <h3 className="mb-2 font-semibold">{day}</h3>
             {[["Shifts closed", s.shifts], ["Litres sold", num(s.litres)], ["Sales", pkr(s.amount)], ["Litres not entered on POS", `${num(s.not_entered_l)} L (${s.not_entered_pct}%)`],

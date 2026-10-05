@@ -93,12 +93,12 @@ function PL() {
         <Field label="Month"><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></Field>
         <a className="btn-secondary" href={`/api/analysis/pl.csv?month=${month}&token=${encodeURIComponent(getToken() ?? "")}`}><Download size={15} /> Excel</a>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Income" value={pkr(p.income.total)} tone="blue" />
         <Stat label="Gross profit" value={pkr(p.gross_profit)} tone="green" />
         <Stat label="Net profit" value={pkr(p.net_profit)} tone={p.net_profit >= 0 ? "green" : "red"} hint={`${p.margin_pct}% of income`} />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="card p-4"><h2 className="mb-2 font-semibold">Profit & loss — {month}</h2>
           <L k="Fuel sales (pump)" v={p.income.fuel_retail} /><L k="Fuel sales (wholesale)" v={p.income.fuel_wholesale} /><L k="Shop sales" v={p.income.shop} /><L k="Total income" v={p.income.total} b />
           <L k="Fuel cost" v={p.cost_of_sales.fuel} neg /><L k="Shop cost" v={p.cost_of_sales.shop} neg />
@@ -134,12 +134,12 @@ function Reconcile() {
         </div>
       </div>
       {r && <>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat label="Matched" value={`${r.matched} / ${r.statement_lines}`} tone="green" hint={pkr(r.matched_amount)} />
           <Stat label="Money with no sale" value={pkr(r.money_without_sale_total)} tone="amber" hint={`${r.money_without_sale.length} payments — khata/wholesale payment or not entered`} />
           <Stat label="Sales with no money" value={pkr(r.sales_without_money_total)} tone="red" hint={`${r.sales_without_money.length} sales — check these`} />
         </div>
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="card p-4"><h2 className="mb-2 font-semibold">Sales with no money in the statement</h2>
             {r.sales_without_money.map((s: any) => <div key={`${s.kind}${s.id}`} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{dt(s.created_at)} · {s.station?.replace("Al-Madina ", "")} · {s.kind} #{s.id}</span><b className="tabular-nums">{pkr(s.amount)}</b></div>)}
             {!r.sales_without_money.length && <p className="text-sm text-emerald-700">All sales were paid ✓</p>}</div>
@@ -158,7 +158,7 @@ function Prices() {
   return (
     <div className="space-y-3">
       <div className="card p-4 text-sm">Next usual price revision: <b>{data.next_revision}</b> ({data.days_to_next} day{data.days_to_next === 1 ? "" : "s"}). Prices are usually changed on the 1st and 16th.</div>
-      <div className="grid gap-4 lg:grid-cols-3">{data.products.map((p: any) => (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">{data.products.map((p: any) => (
         <div key={p.product} className="card p-4">
           <div className="flex items-center justify-between"><h3 className="font-semibold">{p.name}</h3><Badge tone={p.trend === "up" ? "red" : p.trend === "down" ? "green" : "slate"}>{p.trend === "up" ? "going up" : p.trend === "down" ? "going down" : "no trend"}</Badge></div>
           <div className="mt-1 text-sm text-slate-600">Rs {p.price.toFixed(2)} · stock {num(p.stock_l)} L</div>

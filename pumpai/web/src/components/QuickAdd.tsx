@@ -128,7 +128,7 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
             ))}
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label={["police", "school", "government", "hospital"].includes(f.type) ? "Name (e.g. Police Station Shadbagh)" : "Name"}><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Phone / WhatsApp (contact person)"><input className="input" required placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
           <Field label="City / area"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
@@ -184,12 +184,12 @@ export function StationForm({ onClose, onSaved }: { onClose: () => void; onSaved
       if (r) onSaved(r);
     }}>
       <Field label="Station name"><input className="input" required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="City"><input className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
         <Field label="Oil company"><select className="input" value={f.omc} onChange={(e) => setF({ ...f, omc: e.target.value })}>{["PSO", "Shell", "TotalEnergies Parco", "Attock", "GO", "Hascol", "Byco", "Other"].map((o) => <option key={o}>{o}</option>)}</select></Field>
       </div>
       <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Timings"><input className="input" value={f.timings} onChange={(e) => setF({ ...f, timings: e.target.value })} /></Field>
         <Field label="Services"><input className="input" placeholder="Tuck shop, air, car wash" value={f.services} onChange={(e) => setF({ ...f, services: e.target.value })} /></Field>
       </div>
@@ -207,7 +207,7 @@ export function TankForm({ stations, stationId, onClose, onSaved }: { stations: 
       if (r) onSaved(r);
     }}>
       <Field label="Station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Fuel"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
         <Field label="Tank name"><input className="input" placeholder="Tank-4 Diesel" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Capacity (litres)"><input className="input" type="number" min={1} required value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>

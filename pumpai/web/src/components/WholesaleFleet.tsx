@@ -88,7 +88,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   return (
     <Modal open onClose={onClose} title="Tanker trip — one tanker, several drops" wide>
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Loaded from station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
           <Field label="Product"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
@@ -162,7 +162,7 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
     <Modal open onClose={onClose} title={`Trip sheet #${id}`} wide>
       {!data ? <Loading /> : (
         <div className="space-y-3 text-sm">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div><b>{dt(data.trip_date)}</b> · {PRODUCTS[data.product]} from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</div>
             <div>🚛 <b>{data.vehicle_no ?? "—"}</b> · 👤 {data.driver_name ?? "—"}{data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}{data.driver_cnic ? ` · CNIC ${data.driver_cnic}` : ""}{data.driver_licence ? ` · licence ${data.driver_licence}` : ""}</div>
           </div>
@@ -220,7 +220,7 @@ export function FleetTab({ start }: { start?: "tanker" | "driver" | null }) {
   const edit = can("wholesale.manage");
   if (!data) return <Loading />;
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <div className="card">
         <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 whitespace-nowrap font-semibold"><Truck size={17} /> Tankers · <span lang="ur" className="font-urdu">ٹینکر</span> ({data.tankers.length})</h2>{edit && <button className="btn-secondary whitespace-nowrap" onClick={() => setTk({})}><Plus size={15} /> Add · <span lang="ur" className="font-urdu">شامل کریں</span></button>}</div>
         <ul className="divide-y divide-slate-100 sm:hidden">{data.tankers.map((t: any) => (
@@ -280,7 +280,7 @@ function TankerForm({ initial, drivers, onClose, onSaved }: { initial: any; driv
     owner_name: f.owner_name || null, owner_phone: f.owner_phone || null, driver_id: f.driver_id ? Number(f.driver_id) : null, notes: f.notes || null, active: f.active }), [f]);
   return (
     <Modal open onClose={onClose} title={initial.id ? `Tanker ${initial.number}` : "Add tanker · نیا ٹینکر"}>
-      <form className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
+      <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => initial.id ? api(`/wholesale/tankers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/tankers", { body }), "Tanker saved")) onSaved();
       }}>
@@ -306,7 +306,7 @@ function DriverForm({ initial, onClose, onSaved }: { initial: any; onClose: () =
   const body = { name: f.name, phone: f.phone || null, cnic: f.cnic || null, licence_no: f.licence_no || null, licence_expiry: f.licence_expiry || null, address: f.address || null, notes: f.notes || null, active: f.active };
   return (
     <Modal open onClose={onClose} title={initial.id ? `Driver: ${initial.name}` : "Add driver · نیا ڈرائیور"}>
-      <form className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
+      <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => initial.id ? api(`/wholesale/drivers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/drivers", { body }), "Driver saved")) onSaved();
       }}>

@@ -4,6 +4,7 @@ import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
+import { Ur } from "../components/VoiceShell";
 import { PRODUCTS, ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
 export default function Suppliers() {
@@ -22,7 +23,20 @@ export default function Suppliers() {
         <Stat label="Suppliers" value={data.length} />
         <Stat label="Bought this month" value={`${num(data.reduce((a, s) => a + s.month_l, 0))} L`} />
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per supplier */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {data.map((s) => (
+          <li key={s.id} className="cursor-pointer px-4 py-3 active:bg-slate-50" onClick={() => setOpen(s.id)}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><span className="block font-semibold">{s.name}</span>{s.phone && <span className="text-xs text-slate-500">{phone(s.phone)}</span>}</span>
+              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{pkr(s.owed)}</span><span className="text-[11px] text-slate-500">We owe · <Ur>ادائیگی باقی</Ur></span></span>
+            </div>
+            <div className="mt-0.5 text-xs text-slate-500">{num(s.month_l)} L this month · bought {ago(s.last_purchase)} · paid {ago(s.last_payment)}</div>
+          </li>
+        ))}
+        {!data.length && <li><Empty>No suppliers yet</Empty></li>}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Supplier</th><th className="th text-right">We owe</th><th className="th text-right">This month</th><th className="th">Last purchase</th><th className="th">Last payment</th></tr></thead>
           <tbody>{data.map((s) => (
@@ -70,21 +84,33 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
         <div className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
-            <form className="flex flex-1 flex-wrap items-end gap-2" onSubmit={async (e) => {
+            <form className="grid min-w-0 flex-1 grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" onSubmit={async (e) => {
               e.preventDefault();
               if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); }
             }}>
-              <Field label="Pay amount (Rs)"><input className="input w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
+              <Field label="Pay amount (Rs)"><input className="input sm:w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
-              <Field label="Ref"><input className="input w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
-              <Field label="Tax withheld (Rs)"><input className="input w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
-              <div className="w-full"><AccountPicker method={pay.method} label="Paid from which bank? · کس بینک سے" value={account} onChange={setAccount} /></div>
-              <button className="btn-primary" disabled={busy || (pay.method === "Cheque" && !photos.length)}><Wallet size={15} /> Record payment</button>
-              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
+              <Field label="Ref"><input className="input sm:w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
+              <Field label="Tax withheld (Rs)"><input className="input sm:w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
+              <div className="col-span-2 w-full"><AccountPicker method={pay.method} label="Paid from which bank? · کس بینک سے" value={account} onChange={setAccount} /></div>
+              <button className="btn-primary col-span-2" disabled={busy || (pay.method === "Cheque" && !photos.length)}><Wallet size={15} /> Record payment</button>
+              <div className="col-span-2 w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>
           </div>
           <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">
-            <table className="w-full">
+            <ul className="divide-y divide-slate-100 sm:hidden">
+              {s.lines.map((t: any) => (
+                <li key={t.id} className="px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0"><Badge tone={t.type === "purchase" ? "blue" : t.type === "payment" ? "green" : "violet"}>{t.type}</Badge> <span className="text-xs text-slate-500">{dt(t.txn_date)}</span></span>
+                    <span className="shrink-0 text-right tabular-nums">{t.debit ? <span className="block font-semibold">{pkr(t.debit)}</span> : null}{t.credit ? <span className="block font-semibold text-emerald-700">−{pkr(t.credit)}</span> : null}<span className="text-[11px] text-slate-500">owe {pkr(t.balance)}</span></span>
+                  </div>
+                  <div className="break-words text-xs text-slate-600">{t.product ? `${num(t.litres)} L ${PRODUCTS[t.product]} @ Rs ${t.rate}` : t.method} <span className="text-slate-500">{[t.ref, t.note].filter(Boolean).join(" · ")}</span></div>
+                  <ProofThumbs ids={t.proof_ids} />
+                </li>
+              ))}
+            </ul>
+            <table className="hidden w-full sm:table">
               <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Details</th><th className="th text-right">Purchased</th><th className="th text-right">Paid</th><th className="th text-right">We owe</th></tr></thead>
               <tbody>{s.lines.map((t: any) => (
                 <tr key={t.id}>

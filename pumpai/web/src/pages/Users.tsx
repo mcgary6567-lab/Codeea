@@ -59,20 +59,42 @@ export default function Users() {
       <PageHeader title="Users & roles" subtitle="Create staff logins and give each one the access their role needs"
         actions={<button className="btn-primary" onClick={() => setEditing({ role: "salesman", station_id: stations.data![0]?.id })}><Plus size={16} /> Add user</button>} />
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         {data.roles.map((r: string) => {
           const I = ROLE_INFO[r].icon;
           return (
-            <div key={r} className="card p-4">
-              <div className="flex items-center gap-2"><I size={18} className="text-slate-600" /><span className="font-semibold">{ROLE_LABEL[r]}</span><Badge tone={ROLE_INFO[r].tone}>{counts[r] ?? 0} {(counts[r] ?? 0) === 1 ? "user" : "users"}</Badge></div>
+            <div key={r} className="card min-w-0 p-4">
+              <div className="flex flex-wrap items-center gap-2"><I size={18} className="text-slate-600" /><span className="font-semibold">{ROLE_LABEL[r]}</span><Badge tone={ROLE_INFO[r].tone}>{counts[r] ?? 0} {(counts[r] ?? 0) === 1 ? "user" : "users"}</Badge></div>
               <p className="mt-2 text-sm text-slate-600">{ROLE_INFO[r].text}</p>
-              {r !== "admin" && <a href={`#rights-${r}`} onClick={() => setTimeout(() => window.dispatchEvent(new CustomEvent("pumpai:role", { detail: r })), 0)} className="mt-2 inline-block text-sm font-medium text-brand-700 underline">Manage {ROLE_LABEL[r]} access →</a>}
+              {r !== "admin" && <a href={`#rights-${r}`} onClick={() => setTimeout(() => window.dispatchEvent(new CustomEvent("pumpai:role", { detail: r })), 0)} className="mt-1 inline-flex min-h-9 items-center text-sm font-medium text-brand-700 underline">Manage {ROLE_LABEL[r]} access →</a>}
             </div>
           );
         })}
       </div>
 
-      <div className="card overflow-x-auto">
+      {/* phone: one card per user */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {data.users.map((u: U) => (
+          <li key={u.id} className={`px-4 py-3 ${u.active ? "" : "opacity-60"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 font-semibold">{u.name} {u.id === me?.id && <span className="text-xs font-normal text-slate-400">(you)</span>}</span>
+              <span className="shrink-0"><Badge tone={ROLE_INFO[u.role]?.tone}>{ROLE_LABEL[u.role]}</Badge></span>
+            </div>
+            <div className="break-all text-xs text-slate-500">{u.email}{(u as any).phone && ` · +${(u as any).phone}`}</div>
+            <div className="text-xs text-slate-500">{u.station_name ?? "All stations"} · added {ago(u.created_at)}</div>
+            <div className="mt-1 flex flex-wrap gap-1">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Disabled</Badge>}{u.has_pin ? <Badge tone="blue">PIN set</Badge> : null}{u.pin_locked_until ? <Badge tone="red">🔒 Locked — wrong PINs</Badge> : null}</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={() => setPinFor(u)}><KeyRound size={14} /> {u.pin_locked_until ? "Unlock / reset PIN" : "Reset PIN"}</button>
+              <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={() => setEditing(u)}><Pencil size={14} /> Edit</button>
+              {u.id !== me?.id && <>
+                <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" disabled={busy} onClick={() => run(() => api(`/users/${u.id}`, { method: "PATCH", body: { active: !u.active } }), u.active ? `${u.name} disabled` : `${u.name} enabled`).then(reload)}>{u.active ? "Disable" : "Enable"}</button>
+                <button className="btn-secondary min-h-9 !px-3 !py-1 text-red-600" aria-label="Delete" disabled={busy} onClick={() => confirm(`Delete ${u.name}? This cannot be undone.`) && run(() => api(`/users/${u.id}`, { method: "DELETE" }), "User deleted").then(reload)}><Trash2 size={14} /></button>
+              </>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Name</th><th className="th">Email (login)</th><th className="th">Role</th><th className="th">Station</th><th className="th">Status</th><th className="th">Added</th><th className="th" /></tr></thead>
           <tbody>
@@ -132,13 +154,13 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
   return (
     <Modal open onClose={onClose} title={isNew ? "Add user" : `Edit ${initial.name}`}>
       <form onSubmit={save} className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Full name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Email (used to sign in)"><input className="input" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
           <div className="sm:col-span-2"><Field label="WhatsApp number (price-change & shift alerts)"><input className="input" placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field></div>
         </div>
         <Field label="Role">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {["admin", "manager", "salesman", "wholesale", "cashier"].map((r) => {
               const I = ROLE_INFO[r].icon;
               return (
@@ -208,7 +230,8 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
   const { refresh } = useAuth();
   const [perms, setPerms] = useState<Record<string, string[]>>(data.permissions);
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [one, setOne] = useState<string | null>(() => (location.hash.startsWith("#rights-") ? location.hash.slice(8) : null));
+  // phones get one role at a time (the all-roles table is too wide for a phone screen)
+  const [one, setOne] = useState<string | null>(() => (location.hash.startsWith("#rights-") ? location.hash.slice(8) : window.matchMedia?.("(max-width: 639px)").matches ? data.roles.find((r: string) => r !== "admin") ?? null : null));
   useEffect(() => {
     const pick = (e: Event) => { setOne((e as CustomEvent).detail); document.getElementById("rights")?.scrollIntoView({ behavior: "smooth" }); };
     window.addEventListener("pumpai:role", pick);
@@ -230,7 +253,7 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
     finally { setBusyKey(null); }
   };
   return (
-    <div id="rights" className="card overflow-x-auto">
+    <div id="rights" className="card min-w-0 overflow-x-auto">
       <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
         <div><h2 className="font-semibold">What each role can do · <span lang="ur" className="font-urdu">کون کیا کر سکتا ہے</span></h2>
           <p className="text-xs text-slate-500">Tap a box to give ✓ or take away ✗ a right. Changes work at once (the person may need to refresh). The admin (owner) always has everything.</p></div>
@@ -238,7 +261,7 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
       </div>
       <div className="flex gap-1 overflow-x-auto px-4 pb-2">
         {[null, ...data.roles.filter((r: string) => r !== "admin")].map((r: string | null) => (
-          <button key={r ?? "all"} type="button" onClick={() => setOne(r)} className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${one === r ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"}`}>{r ? ROLE_LABEL[r] : "All roles (table)"}</button>
+          <button key={r ?? "all"} type="button" onClick={() => setOne(r)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm sm:min-h-0 ${one === r ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"}`}>{r ? ROLE_LABEL[r] : "All roles (table)"}</button>
         ))}
       </div>
       {one && (
@@ -254,7 +277,7 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
                     const on = perms[p].includes(one);
                     const isDefault = on === defaults[p].includes(one);
                     return (
-                      <li key={p}><button type="button" role="switch" aria-checked={on} disabled={busyKey === `${p}|${one}`} onClick={() => flip(p, one)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50">
+                      <li key={p}><button type="button" role="switch" aria-checked={on} disabled={busyKey === `${p}|${one}`} onClick={() => flip(p, one)} className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50">
                         <span className="min-w-0 flex-1">{PERM_LABEL[p] ?? p}{PERM_UR[p] && <span lang="ur" className="font-urdu ml-1 text-slate-500">· {PERM_UR[p]}</span>}{!isDefault && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500 align-middle" title="Changed from standard" />}</span>
                         <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${on ? "left-[22px]" : "left-0.5"}`} /></span>
                       </button></li>

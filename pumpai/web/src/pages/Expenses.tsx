@@ -31,6 +31,16 @@ export default function Expenses() {
   const csvUrl = `/api/expenses.csv?${qs}&token=${encodeURIComponent(getToken() ?? "")}`;
   const refresh = () => { reload(); cats.reload(); };
 
+  const actions = (e: any) => (
+    <div className="flex justify-end gap-1">
+      {e.status === "pending" && can("expenses.approve") && <>
+        <button className="btn-primary min-h-9 !px-2 !py-1 sm:min-h-0" title="Approve" aria-label="Approve" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/approve`, { body: {} }), "Approved").then(refresh)}><Check size={14} /></button>
+        <button className="btn-secondary min-h-9 !px-2 !py-1 sm:min-h-0" title="Reject" aria-label="Reject" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/reject`, { body: {} }), "Rejected").then(refresh)}><X size={14} /></button>
+      </>}
+      {(can("expenses.approve") || (e.status === "pending" && e.created_by === user?.name)) &&
+        <button className="btn-secondary min-h-9 !px-2 !py-1 text-red-600 sm:min-h-0" title="Delete" aria-label="Delete" disabled={busy} onClick={() => confirm("Delete this expense?") && run(() => api(`/expenses/${e.id}`, { method: "DELETE" }), "Deleted").then(refresh)}><Trash2 size={14} /></button>}
+    </div>
+  );
   return (
     <div className="space-y-5">
       <PageHeader title="Expenses" subtitle={`Manager entries above ${pkr(data.approval_limit)} need admin approval`}
@@ -41,8 +51,8 @@ export default function Expenses() {
           <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add expense</button>
         </>} />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="Month"><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value || thisMonth())} /></Field>
+      <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+        <div className="col-span-2 sm:col-span-1"><Field label="Month"><input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value || thisMonth())} /></Field></div>
         <Field label="Category"><select className="input" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All</option>{cats.data.categories.map((c: any) => <option key={c.id}>{c.name}</option>)}</select></Field>
         <Field label="Status"><select className="input" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
       </div>
@@ -54,8 +64,8 @@ export default function Expenses() {
         <Stat label="Waiting approval" value={s.pending.n} tone={s.pending.n ? "amber" : "slate"} hint={s.pending.n ? pkr(s.pending.s) : "Nothing pending"} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-        <div className="card p-4">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="card min-w-0 p-4">
           <h2 className="mb-3 font-semibold">By category</h2>
           <div className="space-y-2.5">
             {s.by_category.filter((c: any) => c.spent > 0 || c.budget).map((c: any) => (
@@ -72,7 +82,24 @@ export default function Expenses() {
           <h3 className="mb-1 mt-4 text-sm font-semibold">Paid by</h3>
           <div className="flex flex-wrap gap-1.5">{s.by_method.map((m: any) => <Badge key={m.method}>{m.method}: {pkrShort(m.total)}</Badge>)}</div>
         </div>
-        <div className="card overflow-x-auto">
+        {/* phone: one card per expense */}
+        <ul className="card min-w-0 divide-y divide-slate-100 sm:hidden">
+          {data.expenses.map((e: any) => (
+            <li key={e.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <span className="min-w-0"><span className="block font-semibold">{e.paid_to ?? e.category}</span><span className="text-xs text-slate-500">{e.category} · {d(e.expense_date)} · {e.method}</span></span>
+                <span className="shrink-0 font-semibold tabular-nums">{pkr(e.amount)}</span>
+              </div>
+              {(e.note || e.receipt_ref || e.photo_id) && <div className="break-words text-xs text-slate-500">{[e.note, e.receipt_ref].filter(Boolean).join(" · ")}{e.photo_id ? <a className="ml-1 text-sky-700 underline" href={photoUrl(e.photo_id)} target="_blank" rel="noreferrer">📷 bill</a> : null}</div>}
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge>{e.station_name?.replace("Al-Madina ", "") ?? "All"} · {e.created_by}</span>
+                {actions(e)}
+              </div>
+            </li>
+          ))}
+          {!data.expenses.length && <li><Empty>No expenses for this filter</Empty></li>}
+        </ul>
+        <div className="card hidden min-w-0 overflow-x-auto sm:block">
           <table className="w-full">
             <thead><tr><th className="th">Date</th><th className="th">Category</th><th className="th">Paid to / note</th><th className="th">Station</th><th className="th text-right">Amount</th><th className="th">Status</th><th className="th" /></tr></thead>
             <tbody>{data.expenses.map((e: any) => (
@@ -84,14 +111,7 @@ export default function Expenses() {
                 <td className="td text-right font-medium tabular-nums">{pkr(e.amount)}</td>
                 <td className="td"><Badge tone={statusTone(e.status === "approved" ? "delivered" : e.status === "rejected" ? "cancelled" : "pending")}>{e.status}</Badge><div className="text-[11px] text-slate-400">{e.created_by}</div></td>
                 <td className="td">
-                  <div className="flex justify-end gap-1">
-                    {e.status === "pending" && can("expenses.approve") && <>
-                      <button className="btn-primary !px-2 !py-1" title="Approve" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/approve`, { body: {} }), "Approved").then(refresh)}><Check size={14} /></button>
-                      <button className="btn-secondary !px-2 !py-1" title="Reject" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/reject`, { body: {} }), "Rejected").then(refresh)}><X size={14} /></button>
-                    </>}
-                    {(can("expenses.approve") || (e.status === "pending" && e.created_by === user?.name)) &&
-                      <button className="btn-secondary !px-2 !py-1 text-red-600" title="Delete" disabled={busy} onClick={() => confirm("Delete this expense?") && run(() => api(`/expenses/${e.id}`, { method: "DELETE" }), "Deleted").then(refresh)}><Trash2 size={14} /></button>}
-                  </div>
+                  {actions(e)}
                 </td>
               </tr>
             ))}</tbody>
@@ -126,7 +146,7 @@ function ExpenseForm({ categories, stations, limit, canApprove, onClose, onSaved
           }))} />
           <span className="text-slate-600">{f.photo_id ? "📷 Bill photo attached — check the filled details" : "Take a photo of the bill to fill this form"}</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{categories.map((c) => <option key={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Amount (Rs)"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Paid to"><input className="input" value={f.paid_to} onChange={(e) => setF({ ...f, paid_to: e.target.value })} /></Field>
@@ -153,7 +173,7 @@ function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () =>
   return (
     <Modal open onClose={onClose} title="Expense categories & budgets" wide>
       <div className="space-y-4">
-        <form className="flex items-end gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expenses/settings", { method: "PUT", body: { approval_limit: Number(limit) } }), "Approval limit saved")) onChanged(); }}>
+        <form className="flex flex-wrap items-end gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expenses/settings", { method: "PUT", body: { approval_limit: Number(limit) } }), "Approval limit saved")) onChanged(); }}>
           <Field label="Manager approval limit (Rs) — above this needs admin approval"><input className="input w-48" type="number" min={0} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
           <button className="btn-secondary" disabled={busy}>Save</button>
         </form>
@@ -161,8 +181,8 @@ function CategorySetup({ data, onClose, onChanged }: { data: any; onClose: () =>
           <thead><tr><th className="th">Category</th><th className="th">Monthly budget (Rs)</th><th className="th" /></tr></thead>
           <tbody>{data.categories.map((c: any) => (
             <tr key={c.id}><td className="td text-sm">{c.name}</td>
-              <td className="td"><input className="input w-40" type="number" min={0} placeholder="no budget" value={budgets[c.id] ?? ""} onChange={(e) => setBudgets({ ...budgets, [c.id]: e.target.value })} /></td>
-              <td className="td"><button className="btn-secondary !px-2 !py-1 text-xs" disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { monthly_budget: budgets[c.id] ? Number(budgets[c.id]) : null } }), "Budget saved").then(onChanged)}>Save</button></td></tr>
+              <td className="td"><input className="input w-28 sm:w-40" type="number" min={0} placeholder="no budget" value={budgets[c.id] ?? ""} onChange={(e) => setBudgets({ ...budgets, [c.id]: e.target.value })} /></td>
+              <td className="td"><button className="btn-secondary min-h-9 !px-2 !py-1 text-xs sm:min-h-0" disabled={busy} onClick={() => run(() => api(`/expense-categories/${c.id}`, { method: "PATCH", body: { monthly_budget: budgets[c.id] ? Number(budgets[c.id]) : null } }), "Budget saved").then(onChanged)}>Save</button></td></tr>
           ))}</tbody>
         </table>
         <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/expense-categories", { body: { name } }), "Category added")) { setName(""); onChanged(); } }}>

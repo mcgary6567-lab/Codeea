@@ -32,9 +32,9 @@ export default function Stock() {
   return (
     <div className="space-y-5">
       <PageHeader title="Tanks & stock" subtitle="Wet-stock reconciliation: dip vs book stock, tanker short-delivery detection and AI stock-out forecasts" />
-      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {tanks.map((t: any) => (
-          <div key={t.id} className="card p-3">
+          <div key={t.id} className="card min-w-0 p-3">
             <div className="text-xs text-slate-500">{t.station_name.replace("Al-Madina ", "")}</div>
             <div className="font-medium">{t.name}</div>
             <div className="relative mx-auto my-3 h-28 w-16 overflow-hidden rounded-b-xl rounded-t-md border-2 border-slate-300 bg-slate-50" role="meter" aria-valuenow={t.fill_pct} aria-label={`${t.name} level`}>
@@ -48,21 +48,21 @@ export default function Stock() {
               const open = (orders.data ?? []).find((o: any) => o.tank_id === t.id && o.status === "ordered");
               return open
                 ? <div className="mt-2 rounded-lg bg-blue-50 p-1.5 text-center text-xs text-blue-800">🚛 Ordered {num(open.litres)} L</div>
-                : <button className={`mt-2 w-full rounded-lg py-1.5 text-xs font-semibold ${t.days_to_reorder <= 1.5 ? "bg-red-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                : <button className={`mt-2 min-h-9 w-full rounded-lg py-1.5 text-xs font-semibold ${t.days_to_reorder <= 1.5 ? "bg-red-600 text-white" : "bg-slate-100 text-slate-700"}`}
                     onClick={() => api(`/stock/order-suggestion/${t.id}`).then(setOrder)}>Order tanker</button>;
             })()}
           </div>
         ))}
       </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <form className="card space-y-3 p-4" onSubmit={async (e) => {
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
           const body = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos };
           const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%`);
           if (r) { setDip({ ...dip, measured_l: "", cm: "" }); setDipPhotos([]); refresh(); }
         }}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
-            <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
+            <button type="button" className="-my-2 min-h-9 px-1 text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
           <Field label="Tank"><select className="input" value={dip.tank_id} onChange={(e) => setDip({ ...dip, tank_id: e.target.value })}>{tankOpts}</select></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Dip stick reading (cm)"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => setDip({ ...dip, cm: e.target.value, measured_l: "" })} /></Field>
@@ -73,7 +73,7 @@ export default function Stock() {
           <ProofPhotos value={dipPhotos} onChange={setDipPhotos} hint="dip stick showing the reading" />
           <button className="btn-primary" disabled={busy}>Save dip</button>
         </form>
-        <form className="card space-y-3 p-4" onSubmit={async (e) => {
+        <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
           const r = await run(() => api("/stock/delivery", { body: { tank_id: Number(del.tank_id || tanks[0].id), invoice_l: Number(del.invoice_l), received_l: Number(del.received_l), tanker_no: del.tanker_no,
             supplier_id: del.supplier_id ? Number(del.supplier_id) : null, purchase_rate: del.purchase_rate ? Number(del.purchase_rate) : null, freight: del.freight ? Number(del.freight) : null, photo_id: del.photo_id ?? null } }),
@@ -105,10 +105,10 @@ export default function Stock() {
           <button className="btn-primary" disabled={busy}>Save delivery</button>
         </form>
       </div>
-      {(orders.data ?? []).length > 0 && <History title="Tanker orders" rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name.replace("Al-Madina ", "")], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
-      <div className="grid gap-5 md:grid-cols-2">
-        <History title="Dip readings" rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => <ProofThumbs ids={r.proof_ids} />]]} />
-        <History title="Deliveries" rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+      {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name.replace("Al-Madina ", "")], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => <ProofThumbs ids={r.proof_ids} />]]} />
+        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station.replace("Al-Madina ", "")} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
@@ -129,7 +129,7 @@ function OrderModal({ s, suppliers, onClose, onDone }: { s: any; suppliers: any[
         <p className="text-sm text-slate-600">{PRODUCTS[s.tank.product]} · space in tank: <b>{num(s.room)} L</b></p>
         <Field label="Supplier"><select className="input" value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>{suppliers.map((x) => <option key={x.id} value={x.id}>{x.name}{x.phone ? "" : " (no WhatsApp)"}</option>)}</select></Field>
         <Field label="Litres"><input className="input py-3 text-2xl" type="number" min={1000} step={1000} max={s.room} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
-        <div className="flex flex-wrap gap-2">{[10000, 20000, 30000, 40000].filter((x) => x <= s.room).map((x) => <button type="button" key={x} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm" onClick={() => setF({ ...f, litres: String(x) })}>{num(x)} L</button>)}</div>
+        <div className="flex flex-wrap gap-2">{[10000, 20000, 30000, 40000].filter((x) => x <= s.room).map((x) => <button type="button" key={x} className="min-h-9 rounded-lg bg-slate-100 px-3 py-1.5 text-sm" onClick={() => setF({ ...f, litres: String(x) })}>{num(x)} L</button>)}</div>
         <Field label="Note for supplier (optional)"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. deliver before 6pm" /></Field>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Send order</button></div>
       </form>
@@ -145,7 +145,7 @@ function ChartModal({ c, onClose }: { c: any; onClose: () => void }) {
   const save = (body: any) => run(() => api(`/tanks/${c.tank.id}/chart`, { method: "PUT", body }), (x: any) => `Chart saved: ${x.rows} rows, full = ${num(x.max_litres)} L`).then((x) => x && onClose());
   return (
     <Modal open onClose={onClose} title={`Dip chart — ${c.tank.name}`} wide>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Field label="One row per line: cm litres (from the oil company's chart)">
             <textarea className="input h-72 font-mono text-sm" value={text} onChange={(e) => setText(e.target.value)} />
@@ -165,11 +165,21 @@ function ChartModal({ c, onClose }: { c: any; onClose: () => void }) {
   );
 }
 
-function History({ title, rows, cols }: { title: string; rows: any[]; cols: [string, (r: any) => React.ReactNode][] }) {
+/** Desktop: a table. Phone: one card per row — the 2nd column as the title, the last-but-one (or `right`) column on the right, the rest below. */
+function History({ title, rows, cols, right }: { title: string; rows: any[]; cols: [string, (r: any) => React.ReactNode][]; right?: number }) {
+  const ri = right ?? cols.length - 1;
   return (
-    <div className="card">
+    <div className="card min-w-0">
       <h2 className="p-3 font-semibold">{title}</h2>
-      <div className="max-h-80 overflow-auto">
+      <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto border-t border-slate-100 sm:hidden">
+        {rows.map((r) => (
+          <li key={r.id} className="px-3 py-2.5">
+            <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words font-medium">{cols[1][1](r)}</span><span className="shrink-0 text-right tabular-nums">{cols[ri][1](r)}</span></div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">{cols.map(([h, f], i) => i === 1 || i === ri ? null : <span key={h}>{i === 0 ? f(r) : <>{h} <span className="tabular-nums text-slate-700">{f(r)}</span></>}</span>)}</div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden max-h-80 overflow-auto sm:block">
         <table className="w-full"><thead><tr>{cols.map(([h]) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>{rows.map((r) => <tr key={r.id}>{cols.map(([h, f]) => <td key={h} className="td text-xs">{f(r)}</td>)}</tr>)}</tbody></table>
       </div>

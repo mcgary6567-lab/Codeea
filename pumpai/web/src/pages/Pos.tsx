@@ -208,7 +208,7 @@ export default function Pos() {
         </div>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_340px]">
         {tab === "shop" ? <ShopPos d={d} training={training} disabled={!training && ((!shiftOpen && isSalesman) || !!priceLock)} onSaved={(r) => { setDone({ ...r, shop: true }); if (!r.training) today.reload(); }} /> : <div className="space-y-3">
           <VoiceButton onParsed={applyVoice} />
           {heard && <div className="rounded-xl bg-violet-50 px-4 py-2 text-violet-900 ring-1 ring-violet-200">🎤 Heard: “{heard}” — check below and press <b>Save</b> · <Ur>نیچے دیکھ کر محفوظ کریں</Ur>
@@ -230,7 +230,7 @@ export default function Pos() {
 
           {/* 2. amount */}
           <Step n={2} en="How much?" ur="کتنا؟">
-            <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_300px]">
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {(["amount", "litres"] as const).map((m) => (
@@ -319,7 +319,7 @@ export default function Pos() {
           {/* 4. save — reads like a receipt: what, how much, how paid, and the amount to collect */}
           <div className="sticky bottom-0 z-10 rounded-2xl bg-white p-3 shadow-xl ring-2 ring-brand-600/30">
             {product && value > 0 ? (
-              <div className="mb-2 grid gap-2 sm:mb-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="mb-2 grid grid-cols-1 gap-2 sm:mb-3 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
                   <span className={`rounded-lg px-2 py-0.5 font-bold sm:px-3 sm:py-1 text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
@@ -504,7 +504,7 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
               ))}
             </div>
             {!data ? <Loading /> : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {list.map((a) => (
                   <button key={a.id} disabled={a.status === "full"} onClick={() => { setAccount(a); setVehicle(""); }}
                     className={`flex items-center gap-3 rounded-2xl p-4 text-left ring-2 transition active:scale-95 ${a.status === "full" ? "cursor-not-allowed bg-red-50 ring-red-200 opacity-70" : "bg-white ring-slate-200 hover:ring-amber-400"}`}>

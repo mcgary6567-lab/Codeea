@@ -124,7 +124,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
           {allSug ? "Show fewer" : `Show all ${data.suggestions.length} suggestions`}</button>}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <div className="card p-4">
           <h2 className="font-semibold">Litres supplied — last 30 days · <Ur>لیٹر سپلائی</Ur></h2>
           <p className="mb-2 text-xs text-slate-500">Per day, by fuel</p>

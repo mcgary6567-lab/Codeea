@@ -189,7 +189,7 @@ export default function Setup() {
           </>}
           {step === 3 && <>
             <p className="text-sm text-slate-600">Today's selling price per litre (from the latest OGRA notification). Change it any time on the Prices page.</p>
-            <div className="grid gap-3 sm:grid-cols-3">{used.map((p) => (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{used.map((p) => (
               <F key={p} label={`${FUELS[p]} — Rs / litre *`}><input className="input py-3 text-2xl" type="number" step="0.01" min={1} value={prices[p]} onChange={(e) => setPrices({ ...prices, [p]: e.target.value })} /></F>))}</div>
           </>}
           {step === 4 && (
@@ -215,5 +215,5 @@ export default function Setup() {
 }
 
 const F = ({ label, children }: { label: string; children: ReactNode }) => <label className="block"><span className="label">{label}</span>{children}</label>;
-const Grid = ({ children }: { children: ReactNode }) => <div className="grid gap-3 sm:grid-cols-2">{children}</div>;
+const Grid = ({ children }: { children: ReactNode }) => <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>;
 const Row = ({ k, children }: { k: string; children: ReactNode }) => <div className="flex gap-3 border-b border-slate-100 pb-2"><span className="w-28 shrink-0 text-slate-500">{k}</span><span>{children}</span></div>;

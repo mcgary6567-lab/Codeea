@@ -87,7 +87,7 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
           return (
             <li key={c.id} className={`cursor-pointer space-y-1.5 p-3 active:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0"><div className="truncate font-medium">{c.name}</div><div className="truncate text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></div>
+                <div className="min-w-0"><div className="break-words font-medium">{c.name}</div><div className="break-words text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></div>
                 <div className="shrink-0 text-right"><div className={`font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</div><div className="text-[11px] text-slate-500">Due · <span lang="ur" className="font-urdu">بقایا</span></div></div>
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <span key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b></span>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set · <span lang="ur" className="font-urdu">ریٹ نہیں</span></span>}</div>
@@ -166,7 +166,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
   return (
     <Modal open onClose={onClose} title={initial ? `Edit ${initial.name}` : "Add wholesale client"} wide>
       <form onSubmit={save} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Contact / client name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="Business name"><input className="input" value={f.business_name} onChange={(e) => setF({ ...f, business_name: e.target.value })} /></Field>
           <Field label="WhatsApp / phone"><input className="input" placeholder="03xx xxxxxxx" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
@@ -177,7 +177,7 @@ export function ClientForm({ initial, onClose, onSaved }: { initial?: any; onClo
           <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-3">
             <div className="mb-2 text-sm font-medium">Rate card & credit (admin only)</div>
             <RateCardEditor draft={rc} setDraft={setRc} pump={prices.data?.current} />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Credit limit (Rs, 0 = none)"><input className="input" type="number" min={0} value={f.credit_limit} onChange={(e) => setF({ ...f, credit_limit: e.target.value })} /></Field>
               <Field label="Opening balance (Rs due)"><input className="input" type="number" value={f.opening_balance} onChange={(e) => setF({ ...f, opening_balance: e.target.value })} /></Field>
             </div>
@@ -216,7 +216,7 @@ function ClientDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="print:hidden"><Link to="/wholesale" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline"><ArrowLeft size={14} /> All clients</Link></div>
+      <div className="print:hidden"><Link to="/wholesale" className="inline-flex min-h-9 items-center gap-1 text-sm text-brand-600 hover:underline"><ArrowLeft size={14} /> All clients</Link></div>
       <PageHeader title={c.name} subtitle={[c.business_name, c.city, c.phone && phone(c.phone)].filter(Boolean).join(" · ")}
         actions={<div className="flex flex-wrap gap-2 print:hidden">
           {can("wholesale.manage") && <>
@@ -243,9 +243,9 @@ function ClientDetail({ id }: { id: string }) {
         <Stat label="This month · اس مہینے" value={`${num(m.by_product.reduce((a: number, p: any) => a + p.supplied_l, 0))} L`} hint={`Billed ${pkrShort(m.billed)} · received ${pkrShort(m.received)}`} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="card p-4">
-          <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Rate card · <Ur>ریٹ</Ur></h2>{can("wholesale.rates") && <button className="text-xs text-brand-600 hover:underline print:hidden" onClick={() => setAction("rates")}>Change rates</button>}</div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="card min-w-0 p-4">
+          <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Rate card · <Ur>ریٹ</Ur></h2>{can("wholesale.rates") && <button className="-my-2 min-h-9 px-1 text-xs text-brand-600 hover:underline print:hidden" onClick={() => setAction("rates")}>Change rates</button>}</div>
           {Object.keys(PRODUCTS).map((p) => {
             const r = c.rate_card?.[p];
             return (
@@ -264,9 +264,18 @@ function ClientDetail({ id }: { id: string }) {
           {c.rate_history.length > 0 && <details className="mt-2 text-xs text-slate-500"><summary className="cursor-pointer">Rate history</summary>
             <ul className="mt-1 space-y-0.5">{c.rate_history.map((h: any) => <li key={h.id}>{d(h.created_at)} · {PRODUCTS[h.product]}: {h.old_rate ? `Rs ${h.old_rate} → ` : ""}Rs {h.new_rate}{h.note ? ` · ${h.note}` : ""} ({h.changed_by})</li>)}</ul></details>}
         </div>
-        <div className="card p-4 lg:col-span-2">
+        <div className="card min-w-0 p-4 lg:col-span-2">
           <h2 className="mb-2 font-semibold">Fuel account (all time) · <Ur>تیل کا حساب</Ur></h2>
-          <table className="w-full">
+          {/* phone: one row per product */}
+          <ul className="divide-y divide-slate-100 sm:hidden print:hidden">
+            {s.by_product.map((p: any) => (
+              <li key={p.product} className="py-2">
+                <div className="flex items-start justify-between gap-2"><span className="min-w-0 font-medium">{PRODUCTS[p.product]}</span><span className="shrink-0 font-semibold tabular-nums">{pkr(p.net_amount)}</span></div>
+                <div className="text-xs text-slate-500">Out {num(p.supplied_l)} L · returned {num(p.returned_l)} L · net <b className="tabular-nums text-slate-700">{num(p.supplied_l - p.returned_l)} L</b></div>
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full sm:table print:table">
             <thead><tr><th className="th">Product</th><th className="th text-right">Supplied (out)</th><th className="th text-right">Returned (in)</th><th className="th text-right">Net litres</th><th className="th text-right">Net amount</th></tr></thead>
             <tbody>{s.by_product.map((p: any) => (
               <tr key={p.product}><td className="td">{PRODUCTS[p.product]}</td><td className="td text-right tabular-nums">{num(p.supplied_l)} L</td><td className="td text-right tabular-nums">{num(p.returned_l)} L</td>
@@ -331,16 +340,16 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
           <li key={r.id} className={`flex gap-3 px-4 py-2.5 ${r.voided ? "text-slate-400 line-through" : ""}`}>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge>{r.voided ? <Badge tone="red">VOID</Badge> : null}{dt(r.txn_date)}</div>
-              {showClient && <Link to={`/wholesale/${r.client_id}`} className="block font-medium hover:underline">{r.client_name}</Link>}
+              {showClient && <Link to={`/wholesale/${r.client_id}`} className="flex min-h-9 items-center font-medium hover:underline">{r.client_name}</Link>}
               <div className="text-sm">{r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
-              {extra(r) && <div className="truncate text-xs text-slate-500">{extra(r)}</div>}
+              {extra(r) && <div className="break-words text-xs text-slate-500">{extra(r)}</div>}
               <ProofThumbs ids={r.proof_ids} />
             </div>
             <div className="shrink-0 text-right tabular-nums">
               {debit ? <div className="font-semibold">{pkr(debit)}</div> : null}
               {credit ? <div className="font-semibold text-emerald-700">−{pkr(credit)}</div> : null}
               {running && <div className="text-xs text-slate-500">bal {pkr(r.balance)}</div>}
-              {onVoid && !r.voided && <button className="mt-1 text-slate-400 hover:text-red-600" title="Void entry" onClick={() => onVoid(r)}><Ban size={14} /></button>}
+              {onVoid && !r.voided && <button className="-mr-2 inline-flex h-9 w-9 items-center justify-center text-slate-400 hover:text-red-600" title="Void entry" aria-label="Void entry" onClick={() => onVoid(r)}><Ban size={14} /></button>}
             </div>
           </li>
         );
@@ -409,7 +418,7 @@ function FuelEntry({ kind, client, orderId, onClose, onDone }: { kind: "supply" 
     <Modal open onClose={onClose} title={kind === "supply" ? `Supply fuel to ${client.name} · سپلائی` : `Fuel returned by ${client.name} · واپسی`}>
       <form onSubmit={submit} className="space-y-3">
         {order && <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-800">📋 Delivering the order for <b>{order.needed_on}</b> — {num(order.litres)} L {PRODUCTS[order.product]}. Saving closes the order.</p>}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={kind === "supply" ? "From station · کہاں سے" : "Into station · کہاں"}><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
           <Field label="Product · تیل"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{products.map((p) => <option key={p} value={p}>{PRODUCTS[p]}</option>)}</select></Field>
           <Field label="Litres · لیٹر"><input className="input" type="number" step="0.01" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
@@ -446,7 +455,7 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
         if (await run(() => api(`/wholesale/clients/${client.id}/payment`, { body: { ...f, amount: Number(f.amount), ref: f.ref || null, note: f.note || null, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. Due now ${pkr(r.due_after)}`)) onDone();
       }}>
         <p className="text-sm text-slate-600">Current due: <b>{pkr(client.summary.due)}</b></p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Amount (Rs) · رقم"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Method · طریقہ"><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{["Bank transfer", "Cash", "Cheque", "Raast", "JazzCash", "Easypaisa", "Online"].map((m) => <option key={m}>{m}</option>)}</select></Field>
           <Field label="Cheque / transaction ref"><input className="input" value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value })} /></Field>

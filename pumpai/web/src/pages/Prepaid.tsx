@@ -16,10 +16,10 @@ export default function Prepaid() {
   return (
     <div className="space-y-5">
       <PageHeader title="Coupons & wallets" subtitle="Money received first, fuel given later — scanned at the POS, no paper khata" />
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {([["coupons", "Fuel coupons", Ticket], ["wallets", "Company wallets", Wallet]] as const).map(([k, l, I]) => (
           <button key={k} onClick={() => { setTab(k); history.replaceState(null, "", `#${k}`); }}
-            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium ${tab === k ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}><I size={15} />{l}</button>
+            className={`-mb-px flex min-h-9 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${tab === k ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"}`}><I size={15} />{l}</button>
         ))}
       </div>
       {tab === "coupons" ? <Coupons /> : <Wallets />}
@@ -35,12 +35,31 @@ function Coupons() {
   if (!data) return <Loading />;
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Unused coupons (fuel owed)" value={pkr(data.summary.outstanding)} hint={`${data.summary.active} coupons not used yet`} tone="amber" />
         <Stat label="Used" value={pkr(data.summary.used_value)} hint={`${data.summary.used} coupons scanned at the pump`} tone="green" />
         <div className="card flex items-center justify-center p-4"><button className="btn-primary" onClick={() => setSell(true)}><Plus size={15} /> Sell a coupon book</button></div>
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per coupon book */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {data.batches.map((b: any) => (
+          <li key={b.batch} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><span className="block font-semibold">{b.buyer ?? "—"}</span><span className="font-mono text-xs text-slate-500">{b.batch}</span></span>
+              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{pkr(b.n * b.value)}</span><span className="text-xs tabular-nums text-slate-500">{b.n} × {pkr(b.value)}</span></span>
+            </div>
+            <div className="text-xs text-slate-500">{dt(b.sold_at)} · {b.sold_by} · {b.method}{b.product ? ` · ${PRODUCTS[b.product]} only` : ""}{b.expires_on ? ` · expires ${b.expires_on}` : ""}</div>
+            <div className="mt-1.5 flex items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-100"><div className="h-full bg-emerald-500" style={{ width: `${(b.used / b.n) * 100}%` }} /></div><span className="shrink-0 text-xs text-slate-500">{b.used} used{b.void ? ` · ${b.void} cancelled` : ""}</span></div>
+            <div className="mt-2 flex justify-end gap-2">
+              <Link className="btn-secondary min-h-9 !py-1 text-xs" to={`/coupons/${b.batch}`}><Printer size={13} /> Print / view</Link>
+              {can("settings.manage") && b.n - b.used - b.void > 0 && <button className="btn-secondary min-h-9 !px-2.5 !py-1 text-red-600" aria-label="Cancel unused coupons of this book"
+                onClick={() => { const reason = prompt("Why cancel the unused coupons of this book? (lost, refunded…)"); if (reason) run(() => api("/coupons/void", { body: { batch: b.batch, reason } }), "Unused coupons cancelled").then(reload); }}><Ban size={15} /></button>}
+            </div>
+          </li>
+        ))}
+        {!data.batches.length && <li><Empty>No coupons sold yet. Sell a book to a company or for gifts — each coupon is scanned once at the POS.</Empty></li>}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr>
             <th className="px-3 py-2">Book</th><th>Buyer</th><th className="text-right">Coupons</th><th className="text-right">Value</th><th>Used</th><th>Expiry</th><th /></tr></thead>
@@ -110,7 +129,7 @@ export function CouponSheet() {
         <h1 className="text-lg font-semibold">Coupon book {data.batch}</h1>
         <button className="btn-primary ml-auto" onClick={() => window.print()}><Printer size={15} /> Print</button>
       </div>
-      <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 print:grid-cols-2 print:gap-2">
+      <div className="mx-auto grid grid-cols-1 max-w-4xl gap-3 sm:grid-cols-2 print:grid-cols-2 print:gap-2">
         {data.coupons.map((c: any) => <CouponCard key={c.code} business={data.tenant} c={c} />)}
       </div>
     </div>
@@ -147,11 +166,11 @@ function Wallets() {
   if (!data) return <Loading />;
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Money held in wallets" value={pkr(data.total)} hint="Fuel owed to companies that paid in advance" tone="blue" />
         <Stat label="Low wallets" value={data.wallets.filter((w: any) => w.low).length} hint="They got a WhatsApp to top up" tone="amber" />
-        <div className="card flex items-center gap-2 p-4">
-          <select className="input" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Customer">
+        <div className="card flex min-w-0 items-center gap-2 p-4">
+          <select className="input min-w-0" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Customer">
             <option value="">Start a wallet for…</option>
             {(customers.data ?? []).filter((c) => !data.wallets.some((w: any) => w.id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -161,10 +180,10 @@ function Wallets() {
       <div className="card divide-y divide-slate-100">
         {data.wallets.map((w: any) => (
           <button key={w.id} onClick={() => setOpen(w)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
-            <Wallet className={w.low ? "text-amber-600" : "text-brand-600"} size={20} />
-            <span className="flex-1"><b>{w.name}</b><span className="block text-xs text-slate-500">{w.last_deposit ? `Last deposit ${dt(w.last_deposit)}` : "No deposit yet"} · used {pkr(w.used_30d)} in 30 days{w.days_left != null ? ` · ~${w.days_left} days left` : ""}</span></span>
-            {w.low && <Badge tone="amber">Low</Badge>}
-            <span className="text-lg font-bold tabular-nums">{pkr(w.wallet_balance)}</span>
+            <Wallet className={`shrink-0 ${w.low ? "text-amber-600" : "text-brand-600"}`} size={20} />
+            <span className="min-w-0 flex-1"><b>{w.name}</b><span className="block text-xs text-slate-500">{w.last_deposit ? `Last deposit ${dt(w.last_deposit)}` : "No deposit yet"} · used {pkr(w.used_30d)} in 30 days{w.days_left != null ? ` · ~${w.days_left} days left` : ""}</span></span>
+            {w.low && <span className="shrink-0"><Badge tone="amber">Low</Badge></span>}
+            <span className="shrink-0 text-right text-lg font-bold tabular-nums">{pkr(w.wallet_balance)}</span>
           </button>
         ))}
         {!data.wallets.length && <Empty>No wallets yet. A fleet or company pays first (Raast / bank), every fill is taken from the wallet, and they get the balance on WhatsApp.</Empty>}
@@ -189,7 +208,7 @@ function WalletModal({ w, onClose }: { w: any; onClose: () => void }) {
           <label className="text-sm">WhatsApp when below Rs<div className="flex gap-1"><input className="input w-28" type="number" min={0} value={low} onChange={(e) => setLow(e.target.value)} />
             <button className="btn-secondary" onClick={() => run(() => api(`/customers/${w.id}/wallet`, { method: "PATCH", body: { wallet_low: Number(low) } }), "Saved").then(reload)}>Save</button></div></label>
         </div>
-        <form className="grid gap-2 sm:grid-cols-5" onSubmit={async (e) => {
+        <form className="grid grid-cols-1 gap-2 sm:grid-cols-5" onSubmit={async (e) => {
           e.preventDefault();
           if (await run(() => api(`/customers/${w.id}/wallet/deposit`, { body: { amount: Number(f.amount), method: f.method, ref: f.ref || null, type: f.type, account_id: account } }), f.type === "deposit" ? "Deposit saved — customer told on WhatsApp" : "Saved")) { setF({ ...f, amount: "", ref: "" }); reload(); }
         }}>

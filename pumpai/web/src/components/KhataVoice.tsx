@@ -76,7 +76,7 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
   return (
     <div className="space-y-3">{head}
       {r.confirm_ur && <p className="text-lg"><Ur className="leading-loose">{r.confirm_ur}</Ur></p>}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Customer · گاہک"><select className="input" value={f.customer_id} onChange={(e) => set("customer_id", e.target.value)}>
           <option value="">— choose —</option>{(customers.data ?? []).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         {money && <Field label="Amount (Rs) · رقم"><input className="input text-lg" type="number" value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>}

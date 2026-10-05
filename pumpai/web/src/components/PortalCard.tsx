@@ -38,15 +38,15 @@ export function PortalCard({ base, name, phone, canManage }: { base: string; nam
       <p className="mb-3 text-sm text-slate-600">{name} opens the link on their phone and enters the PIN to see balance, every entry, payments and monthly bills.</p>
       {data.enabled ? <>
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2 text-sm">
-          <code className="min-w-0 flex-1 truncate">{data.url}</code>
-          <button type="button" className="btn-secondary !py-1 text-xs" onClick={() => copy(data.url, "Link")}><Copy size={13} /> Copy link</button>
-          <a className="btn-secondary !py-1 text-xs" href={data.url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Open</a>
+          <code className="min-w-0 flex-1 break-all">{data.url}</code>
+          <button type="button" className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" onClick={() => copy(data.url, "Link")}><Copy size={13} /> Copy link</button>
+          <a className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" href={data.url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Open</a>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 p-2 ring-1 ring-amber-200">
           <span className="text-sm text-amber-900">PIN</span>
           <span className="font-mono text-2xl font-bold tracking-[.3em]">{showPin ? data.pin : "••••••"}</span>
-          <button type="button" className="text-xs underline" onClick={() => setShowPin(!showPin)}>{showPin ? "Hide" : "Show"}</button>
-          <button type="button" className="btn-secondary ml-auto !py-1 text-xs" onClick={() => copy(`${name}\n${data.url}\nPIN: ${data.pin}`, "Link and PIN")}><Copy size={13} /> Copy link + PIN</button>
+          <button type="button" className="min-h-9 px-1 text-xs underline sm:min-h-0" onClick={() => setShowPin(!showPin)}>{showPin ? "Hide" : "Show"}</button>
+          <button type="button" className="btn-secondary ml-auto min-h-9 !py-1 text-xs sm:min-h-0" onClick={() => copy(`${name}\n${data.url}\nPIN: ${data.pin}`, "Link and PIN")}><Copy size={13} /> Copy link + PIN</button>
         </div>
       </> : <p className="mb-3 text-sm text-slate-500">The page is turned off — the link does not open.</p>}
       {canManage && (

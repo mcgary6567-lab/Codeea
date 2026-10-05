@@ -34,9 +34,9 @@ export default function Khata() {
         <Stat label="High credit risk · خطرہ" value={highRisk} tone="red" />
       </div>
       <OpenGovtBills onOpen={setBill} />
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {[["", "All · سب"], ["institution", "🏛️ Police / Govt / Schools · سرکاری"], ["fleet", "🚚 Fleets · گاڑیاں"], ["farmer", "🚜 Farmers · زمیندار"], ["business", "🏢 Businesses · کاروبار"], ["retail", "🚗 Retail · عام"]].map(([k, l]) => (
-          <button key={k} onClick={() => setGroup(k)} className={`rounded-full px-3 py-1.5 text-sm ${group === k ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`}>
+          <button key={k} onClick={() => setGroup(k)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm ${group === k ? "bg-brand-600 text-white" : "border border-slate-300 bg-white"}`}>
             {l} <span className="opacity-70">{pkrShort(data.filter((c) => !k || (k === "institution" ? INST.includes(c.type) : c.type === k)).reduce((a, c) => a + Math.max(0, c.balance), 0))}</span>
           </button>
         ))}
@@ -50,13 +50,13 @@ export default function Khata() {
               <div className="flex items-start gap-2">
                 <span className="min-w-0 flex-1"><span className="block font-semibold">{TYPE_ICON[c.type] && c.type !== "retail" ? `${TYPE_ICON[c.type]} ` : ""}{c.name}</span>
                   <span className="text-xs text-slate-500">{phone(c.phone)}{c.khata_blocked ? <span className="ml-1 rounded bg-red-100 px-1.5 font-semibold text-red-700">On hold · روکا</span> : null}</span></span>
-                <span className="text-right"><span className="block font-bold tabular-nums">{pkr(c.balance)}</span><span className="text-xs text-slate-500">{ago(c.last_payment) === "—" ? "never paid" : `paid ${ago(c.last_payment)}`}</span></span>
+                <span className="shrink-0 text-right"><span className="block font-bold tabular-nums">{pkr(c.balance)}</span><span className="text-xs text-slate-500">{ago(c.last_payment) === "—" ? "never paid" : `paid ${ago(c.last_payment)}`}</span></span>
               </div>
               {c.credit_limit > 0 && <div className="mt-2 flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${util}%`, background: util >= 80 ? "#e34948" : "#2a78d6" }} /></div>
                 <span className="text-xs tabular-nums text-slate-600">{Math.round(util)}% of {pkr(c.credit_limit)}</span></div>}
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className={c.risk_score >= 60 ? "font-semibold text-red-600" : "text-slate-500"}>Risk · <Ur>خطرہ</Ur> {Math.round(c.risk_score)}</span>
-                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={(e) => { e.stopPropagation(); setBill(c.id); }}>📄 Bill · <Ur>بل</Ur></button>
+                <button className="btn-secondary min-h-9 !px-3 !py-1 text-xs" onClick={(e) => { e.stopPropagation(); setBill(c.id); }}>📄 Bill · <Ur>بل</Ur></button>
               </div>
             </li>
           );
@@ -99,9 +99,9 @@ function OpenGovtBills({ onOpen }: { onOpen: (id: number) => void }) {
     <div className="card mb-4 p-4">
       <h2 className="mb-2 font-semibold">Government bills waiting for payment · <Ur>سرکاری بل باقی</Ur> · {pkr(open.reduce((a, b) => a + b.outstanding, 0))}</h2>
       {open.map((b) => (
-        <button key={b.id} onClick={() => onOpen(b.customer_id)} className="flex w-full justify-between border-b border-slate-100 py-1.5 text-left text-sm hover:bg-slate-50">
-          <span>{b.customer_name} · {b.bill_no}{b.po_number ? ` · PO ${b.po_number}` : ""}</span>
-          <span className={b.days_waiting > 45 ? "font-semibold text-red-600" : ""}>{pkr(b.outstanding)} · {b.days_waiting} days</span>
+        <button key={b.id} onClick={() => onOpen(b.customer_id)} className="flex min-h-9 w-full items-center justify-between gap-2 border-b border-slate-100 py-1.5 text-left text-sm hover:bg-slate-50">
+          <span className="min-w-0">{b.customer_name} · {b.bill_no}{b.po_number ? ` · PO ${b.po_number}` : ""}</span>
+          <span className={`shrink-0 text-right tabular-nums ${b.days_waiting > 45 ? "font-semibold text-red-600" : ""}`}>{pkr(b.outstanding)} · {b.days_waiting} days</span>
         </button>
       ))}
     </div>

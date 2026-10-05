@@ -25,13 +25,32 @@ export default function Shop() {
           <select className="input w-auto" value={sid} onChange={(e) => setStation(Number(e.target.value))}>{stations.data.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
           <button className="btn-primary" onClick={() => setForm({ kind: "item" })}><Plus size={15} /> Add item</button>
         </>} />
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Shop sales today" value={pkr(s.sales)} hint={`${s.count} sales`} tone="green" />
         <Stat label="Profit today" value={pkr(s.profit)} tone="blue" />
         <Stat label="Stock value (cost)" value={pkr(s.stock_value)} />
         <Stat label="Low stock" value={s.low_stock.length} tone={s.low_stock.length ? "red" : "slate"} hint={s.low_stock.slice(0, 2).map((x: any) => x.name).join(", ")} />
       </div>
-      <div className="card overflow-x-auto">
+      {/* phone: one card per item */}
+      <ul className="card divide-y divide-slate-100 sm:hidden">
+        {items.data.map((i) => (
+          <li key={i.id} className={`px-4 py-3 ${i.active ? "" : "opacity-50"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0"><span className="block font-semibold">{i.name}</span><span className="text-xs text-slate-500">{CATS[i.category] ?? i.category}{i.barcode ? <> · <span className="font-mono">{i.barcode}</span></> : null}</span></span>
+              <span className="shrink-0 text-right"><span className="block font-semibold tabular-nums">{pkr(i.price)}</span><span className="text-xs tabular-nums text-emerald-700">+{pkr(i.price - i.cost)}</span></span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-slate-500"><span>Cost <span className="tabular-nums text-slate-700">{pkr(i.cost)}</span></span>
+              <span>Stock {i.stock <= i.reorder_level && i.reorder_level > 0 ? <Badge tone="red">{num(i.stock)} {i.unit}</Badge> : <span className="tabular-nums text-slate-700">{num(i.stock)} {i.unit}</span>}</span></div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button className="btn-secondary min-h-9 !px-2.5 !py-1 text-xs" onClick={() => setForm({ kind: "in", item: i })}><PackagePlus size={14} /> Stock in</button>
+              <button className="btn-secondary min-h-9 !px-2.5 !py-1 text-xs" onClick={() => setForm({ kind: "count", item: i })}><ClipboardCheck size={14} /> Count</button>
+              <button className="btn-secondary min-h-9 !px-2.5 !py-1 text-xs" onClick={() => setForm({ kind: "moves", item: i })}>History</button>
+              <button className="btn-secondary min-h-9 !px-2.5 !py-1" aria-label={`Edit ${i.name}`} onClick={() => setForm({ kind: "item", item: i })}><Pencil size={14} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="card hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Item</th><th className="th">Category</th><th className="th">Barcode</th><th className="th text-right">Cost</th><th className="th text-right">Price</th><th className="th text-right">Margin</th><th className="th text-right">Stock</th><th className="th" /></tr></thead>
           <tbody>{items.data.map((i) => (
@@ -53,9 +72,9 @@ export default function Shop() {
           ))}</tbody>
         </table>
       </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="card p-4"><h2 className="mb-2 font-semibold">Best sellers today</h2>
-          {s.top.map((t: any) => <div key={t.name} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{t.name}</span><span className="tabular-nums">{num(t.qty)} · {pkr(t.sales)}</span></div>)}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="card min-w-0 p-4"><h2 className="mb-2 font-semibold">Best sellers today</h2>
+          {s.top.map((t: any) => <div key={t.name} className="flex justify-between gap-2 border-b border-slate-100 py-1.5 text-sm"><span className="min-w-0">{t.name}</span><span className="shrink-0 tabular-nums">{num(t.qty)} · {pkr(t.sales)}</span></div>)}
           {!s.top.length && <p className="text-sm text-slate-500">No shop sales yet today</p>}</div>
         <div className="card p-4"><h2 className="mb-2 font-semibold">Profit by category today</h2>
           {s.by_category.map((c: any) => <div key={c.category} className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span>{CATS[c.category] ?? c.category}</span><span className="tabular-nums">{pkr(c.sales)} · profit {pkr(c.profit)}</span></div>)}</div>
@@ -81,7 +100,7 @@ function ItemForm({ item, stationId, onClose, onDone }: { item?: any; stationId:
         if (r) onDone();
       }}>
         <Field label="Name"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Shell Helix HX7 (4 L)" /></Field>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Category"><select className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{Object.entries(CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
           <Field label="Barcode"><input className="input font-mono" value={f.barcode} onChange={(e) => setF({ ...f, barcode: e.target.value })} /></Field>
           <Field label="Unit"><input className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} placeholder="pc / can / bottle" /></Field>
@@ -111,7 +130,7 @@ function StockForm({ kind, item, onClose, onDone }: { kind: "in" | "count"; item
       }}>
         <p className="text-sm text-slate-600">Book stock: <b>{num(item.stock)} {item.unit}</b></p>
         <Field label={kind === "in" ? "Quantity received" : "Quantity counted on the shelf"}><input className="input py-3 text-2xl" type="number" min={kind === "in" ? 1 : 0} step="any" required value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></Field>
-        {kind === "in" ? <div className="grid gap-3 sm:grid-cols-2">
+        {kind === "in" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Cost per unit (Rs)"><input className="input" type="number" min={0} step="0.01" value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></Field>
           <Field label="Supplier"><input className="input" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} /></Field>
           <div className="sm:col-span-2"><ProofPhotos value={photos} onChange={setPhotos} hint="supplier bill / delivery slip" /></div>

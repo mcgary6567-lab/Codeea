@@ -37,13 +37,13 @@ export function OrderForm({ client, onClose, onDone }: { client?: any; onClose: 
         {!client && <ClientSelect value={f.client_id} onChange={(client_id) => setF({ ...f, client_id })} />}
         <div className="grid grid-cols-3 gap-2">{Object.entries(PRODUCTS).map(([k, v]) => (
           <button type="button" key={k} onClick={() => setF({ ...f, product: k })} className={`rounded-xl py-2.5 font-semibold ${f.product === k ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700"}`}>{v}</button>))}</div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Litres"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} /></Field>
           <Field label="Deliver on"><input className="input" type="date" min={today()} required value={f.needed_on} onChange={(e) => setF({ ...f, needed_on: e.target.value })} /></Field>
           <Field label="Drop location"><input className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
           <Field label="Note"><input className="input" placeholder="e.g. gate 2, call before coming" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
-        <div className="flex gap-2">{[0, 1, 2].map((n) => <button type="button" key={n} className="btn-secondary !py-1 text-xs" onClick={() => setF({ ...f, needed_on: today(n) })}>{nice(today(n))}</button>)}</div>
+        <div className="flex gap-2">{[0, 1, 2].map((n) => <button type="button" key={n} className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" onClick={() => setF({ ...f, needed_on: today(n) })}>{nice(today(n))}</button>)}</div>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Book order</button></div>
       </form>
     </Modal>
@@ -61,7 +61,7 @@ export function PromiseForm({ client, onClose, onDone }: { client?: any; onClose
       }}>
         <p className="text-sm text-slate-600">When the client says "I will pay on …", note it here. On that day it shows in the call list; if the money does not come it is marked <b>broken</b>.</p>
         {!client && <ClientSelect value={f.client_id} onChange={(client_id) => setF({ ...f, client_id })} />}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Amount promised (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Will pay on"><input className="input" type="date" min={today()} required value={f.promised_on} onChange={(e) => setF({ ...f, promised_on: e.target.value })} /></Field>
         </div>
@@ -85,7 +85,7 @@ export function ChequeForm({ client, onClose, onDone }: { client?: any; onClose:
       }}>
         <p className="rounded-lg bg-sky-50 p-2 text-sm text-sky-900">The cheque is <b>not counted as payment</b> until it clears. Then the payment is added by itself.</p>
         {!client && <ClientSelect value={f.client_id} onChange={(client_id) => setF({ ...f, client_id })} />}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Amount (Rs)"><input className="input py-2.5 text-xl" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
           <Field label="Cheque date"><input className="input" type="date" required value={f.cheque_date} onChange={(e) => setF({ ...f, cheque_date: e.target.value })} /></Field>
           <Field label="Cheque no."><input className="input" required value={f.cheque_no} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} /></Field>
@@ -119,7 +119,7 @@ export function OrdersTab({ onTrip }: { onTrip: () => void }) {
         {manage && <button className="btn-primary" onClick={() => setForm(true)}><Plus size={15} /> New order · آرڈر</button>}
         {manage && <button className="btn-secondary" onClick={onTrip}><Truck size={15} /> Tanker trip from orders</button>}
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {Object.entries(PRODUCTS).map(([p, name]) => {
           const need = data.need_3_days[p] ?? 0, stock = data.stock[p] ?? 0;
           const short = need > stock;
@@ -215,7 +215,7 @@ export function CollectTab() {
           </li>))}</ul> : <Empty>Nobody to chase today 🎉</Empty>}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <div className="card overflow-hidden">
           <h2 className="border-b border-slate-100 px-4 py-2.5 font-semibold">Cheque register · <Ur>چیک رجسٹر</Ur></h2>
           {data.cheques.length ? <ul className="divide-y divide-slate-100">{data.cheques.map((q: any) => {
@@ -228,10 +228,10 @@ export function CollectTab() {
                   <div className="text-xs text-slate-500">{q.bank} · #{q.cheque_no} · dated <b className={ready ? "text-amber-700" : ""}>{q.cheque_date}</b>{q.bounce_reason ? ` · ${q.bounce_reason}` : ""} <ProofThumbs ids={q.proof_ids} /></div>
                 </div>
                 {manage && <div className="flex flex-wrap gap-1.5">
-                  {q.status === "in_hand" && <button className="btn-secondary !py-1 text-xs" disabled={!ready} title={ready ? "" : `Dated ${q.cheque_date}`} onClick={() => setAct({ q, kind: "deposit" })}><Landmark size={13} /> Deposit</button>}
-                  {(q.status === "in_hand" || q.status === "deposited") && <button className="btn-primary !py-1 text-xs" onClick={() => setAct({ q, kind: "clear" })}><CheckCircle2 size={13} /> Cleared</button>}
-                  {["in_hand", "deposited", "cleared"].includes(q.status) && <button className="btn-secondary !py-1 text-xs text-red-600" onClick={() => setAct({ q, kind: "bounce" })}>Bounced</button>}
-                  {q.status === "in_hand" && <button className="btn-secondary !px-2 !py-1 text-xs" title="Give back to the client" disabled={busy} onClick={async () => {
+                  {q.status === "in_hand" && <button className="btn-secondary min-h-9 !py-1 text-xs sm:min-h-0" disabled={!ready} title={ready ? "" : `Dated ${q.cheque_date}`} onClick={() => setAct({ q, kind: "deposit" })}><Landmark size={13} /> Deposit</button>}
+                  {(q.status === "in_hand" || q.status === "deposited") && <button className="btn-primary min-h-9 !py-1 text-xs sm:min-h-0" onClick={() => setAct({ q, kind: "clear" })}><CheckCircle2 size={13} /> Cleared</button>}
+                  {["in_hand", "deposited", "cleared"].includes(q.status) && <button className="btn-secondary min-h-9 !py-1 text-xs text-red-600 sm:min-h-0" onClick={() => setAct({ q, kind: "bounce" })}>Bounced</button>}
+                  {q.status === "in_hand" && <button className="btn-secondary min-h-9 !px-2 !py-1 text-xs sm:min-h-0" title="Give back to the client" disabled={busy} onClick={async () => {
                     const reason = prompt("Why is the cheque given back? (e.g. paid in cash instead)"); if (!reason) return;
                     if (await run(() => api(`/wholesale/cheques/${q.id}/return`, { body: { reason } }), "Cheque marked as given back")) reload();
                   }}><Undo2 size={13} /></button>}
@@ -317,12 +317,12 @@ export function ClientDeskCard({ client, onAction, refreshKey, onChanged }: { cl
           <button className="btn-secondary !py-1.5 text-sm" onClick={() => onAction("cheque")}><Banknote size={14} /> Cheque</button>
         </>}
       </div>
-      <div className="grid gap-4 md:grid-cols-3 text-sm">
+      <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
         <div><div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Open orders</div>
           {data.orders.length ? data.orders.map((o: any) => (
             <div key={o.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-1.5">
               <span><b>{num(o.litres)} L</b> {PRODUCTS[o.product]} · {nice(o.needed_on)}</span>
-              {manage && <button className="text-brand-700 hover:underline" onClick={() => onAction("supply-order", o.id)}>Supply</button>}
+              {manage && <button className="-my-1.5 min-h-9 shrink-0 px-1 text-brand-700 hover:underline" onClick={() => onAction("supply-order", o.id)}>Supply</button>}
             </div>)) : <p className="text-slate-400">None</p>}</div>
         <div><div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Promises</div>
           {proms.length ? proms.map((p: any) => (
@@ -331,7 +331,7 @@ export function ClientDeskCard({ client, onAction, refreshKey, onChanged }: { cl
           {live.length ? live.map((q: any) => (
             <div key={q.id} className="flex items-center gap-2 border-b border-slate-100 py-1.5"><BankLogo name={q.bank} size={24} />
               <span className="flex-1">{pkr(q.amount)} · {q.cheque_date}</span><Badge tone={CHQ[q.status].tone}>{CHQ[q.status].label}</Badge>
-              {manage && <button className="text-brand-700 hover:underline" onClick={() => setAct({ q: { ...q, client_name: client.name }, kind: "clear" })}>Cleared</button>}
+              {manage && <button className="-my-1.5 min-h-9 shrink-0 px-1 text-brand-700 hover:underline" onClick={() => setAct({ q: { ...q, client_name: client.name }, kind: "clear" })}>Cleared</button>}
             </div>)) : <p className="text-slate-400">None</p>}</div>
       </div>
       {act && <ChequeAction q={act.q} kind={act.kind} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); onChanged(); }} />}

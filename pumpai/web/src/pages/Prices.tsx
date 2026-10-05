@@ -37,7 +37,7 @@ export default function Prices() {
       ))}
       <div className={`grid gap-5 ${can("prices.update") ? "lg:grid-cols-[420px_1fr]" : ""}`}>
         {!can("prices.update") && (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {Object.keys(PRODUCTS).map((p) => (
               <div key={p} className="card p-4"><div className="text-sm text-slate-500">{PRODUCTS[p]}</div><div className="text-2xl font-semibold tabular-nums">Rs {data.current[p]?.price.toFixed(2)}</div><div className="text-xs text-slate-400">per litre</div></div>
             ))}

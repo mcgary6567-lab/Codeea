@@ -106,7 +106,7 @@ function Result({ r, onClose, onSaved }: { r: any; onClose: () => void; onSaved:
       </div>
       {r.confirm_ur && <p className="text-lg"><Ur className="leading-loose">{r.confirm_ur}</Ur></p>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {r.intent !== "trip" && <Field label="Client · کلائنٹ"><select className="input" value={f.client_id} onChange={(e) => set("client_id", e.target.value)}>
           <option value="">— choose —</option>{(clients.data ?? []).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>}
         {["supply", "return", "order", "trip"].includes(r.intent) && <Field label="Fuel · تیل"><select className="input" value={f.product} onChange={(e) => set("product", e.target.value)}>
