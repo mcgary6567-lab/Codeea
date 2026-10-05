@@ -9,7 +9,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, type Row } from "../db.js";
-import { h, parse, tid, requirePerm } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
@@ -125,7 +125,7 @@ const ownCheque = (t: number, id: number) => {
 };
 
 /** A cheque received (often post-dated). It is not a payment until it clears. */
-wholesaleDesk.post("/wholesale/clients/:id/cheques", requirePerm("wholesale.manage"), h((req) => {
+wholesaleDesk.post("/wholesale/clients/:id/cheques", requireAny("wholesale.manage", "cheques.manage"), h((req) => {
   const t = tid(req);
   const c = own(t, Number(req.params.id));
   const b = parse(z.object({ amount: z.number().positive().max(1_000_000_000), bank: z.string().trim().min(2).max(80), cheque_no: z.string().trim().min(2).max(30),
@@ -140,7 +140,7 @@ wholesaleDesk.post("/wholesale/clients/:id/cheques", requirePerm("wholesale.mana
 }));
 
 /** deposit → clear (the payment is entered, into the chosen bank account) / bounce / return to the client. */
-wholesaleDesk.post("/wholesale/cheques/:id/:action", requirePerm("wholesale.manage"), h(async (req) => {
+wholesaleDesk.post("/wholesale/cheques/:id/:action", requireAny("wholesale.manage", "cheques.manage"), h(async (req) => {
   const t = tid(req);
   const q = ownCheque(t, Number(req.params.id));
   const action = parse(z.enum(["deposit", "clear", "bounce", "return"]), req.params.action);

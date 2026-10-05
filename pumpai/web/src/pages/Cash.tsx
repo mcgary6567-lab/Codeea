@@ -7,8 +7,8 @@ import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/C
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker } from "../components/BankParts";
 import { useAuth } from "../App";
 
-const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back", bank_withdrawals: "Cash taken out of bank" };
-const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", staff_advances: "Staff advances / bonus" };
+const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back", bank_withdrawals: "Cash taken out of bank", other_cash: "Other money in (cash counter)" };
+const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", staff_advances: "Staff advances / bonus", other_cash: "Other payments (cash counter)" };
 
 /** Office cash book: what should be in the drawer now, bank deposits and cash counts — no cash register on paper. */
 export default function Cash() {
@@ -34,7 +34,7 @@ export default function Cash() {
         <div className="card p-4">
           <h2 className="mb-2 font-semibold">Cash movement since the last count</h2>
           {Object.entries(IN).filter(([k]) => k in data.ins).map(([k, l]) => <Line key={k} k={`+ ${l}`} v={data.ins[k]} />)}
-          {Object.entries(OUT).map(([k, l]) => <Line key={k} k={`− ${l}`} v={data.outs[k]} neg />)}
+          {Object.entries(OUT).filter(([k]) => k in data.outs).map(([k, l]) => <Line key={k} k={`− ${l}`} v={data.outs[k]} neg />)}
           <div className="mt-2 flex justify-between border-t-2 border-slate-800 pt-2 text-lg font-bold"><span>Cash in hand</span><span className="tabular-nums">{pkr(data.cash_in_hand)}</span></div>
         </div>
         <div className="card p-4">
@@ -68,7 +68,7 @@ const Line = ({ k, v, neg }: { k: string; v: number; neg?: boolean }) => (
   <div className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span className="text-slate-600">{k}</span><span className={`tabular-nums ${neg && v ? "text-red-600" : ""}`}>{pkr(v)}</span></div>
 );
 
-function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"; inHand: number; onClose: () => void; onDone: () => void }) {
+export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"; inHand: number; onClose: () => void; onDone: () => void }) {
   const [photos, setPhotos] = useState<number[]>([]);
   const [f, setF] = useState({ amount: kind === "deposit" ? String(Math.max(0, Math.floor(inHand / 1000) * 1000)) : "", bank: "", slip_ref: "", note: "", photo_id: null as number | null });
   const [account, setAccount] = useState<number | null>(null);

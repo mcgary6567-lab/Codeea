@@ -12,8 +12,9 @@ import { AppError } from "./services.js";
  *  - manager   : runs daily operations, CRM, WhatsApp, stock, prices, automations, expenses
  *  - salesman  : POS sales, own shifts and customer lookup at their assigned station only
  *  - wholesale : wholesale officer — only the wholesale supply module (supplies, returns, payments, statements)
+ *  - cashier   : the cash counter — money received and paid, cheques, banks, cash from the salesmen, day book
  */
-export const ROLES = ["admin", "manager", "salesman", "wholesale"] as const;
+export const ROLES = ["admin", "manager", "salesman", "wholesale", "cashier"] as const;
 export type Role = (typeof ROLES)[number];
 export interface AuthUser { id: number; tenant_id: number; name: string; email: string; role: Role; station_id: number | null }
 
@@ -21,6 +22,7 @@ const ALL: Role[] = ["admin", "manager", "salesman"];
 const WHOLESALE: Role[] = ["admin", "wholesale"];
 const MGMT: Role[] = ["admin", "manager"];
 const ADMIN: Role[] = ["admin"];
+const CASHIER: Role[] = ["admin", "cashier"];
 
 /** Single source of truth for access control; sent to the dashboard via /api/me. */
 export const PERMISSIONS = {
@@ -59,8 +61,14 @@ export const PERMISSIONS = {
   "reports.view": MGMT,
   "suppliers.manage": MGMT, // supplier accounts, fuel purchase cost, payments to suppliers
   "audit.view": ADMIN, // who changed what (prices, undo, deletes, edits, sign-ins)
-  "bank.view": ADMIN, // how much is in each bank account, statements
-  "bank.manage": ADMIN, // add bank accounts, cash withdrawals, transfers, bank charges / profit
+  "bank.view": CASHIER, // how much is in each bank account, statements
+  "bank.manage": CASHIER, // add bank accounts, cash withdrawals, transfers, bank charges / profit
+  "cashier.desk": CASHIER, // the cashier desk: what to collect, pay, deposit and clear today
+  "cash.book": ["admin", "manager", "cashier"], // office cash book: count the cash, bank deposits
+  "cash.receive": CASHIER, // take payments from khata customers, wholesale clients and others (receipt no.)
+  "cash.pay": CASHIER, // pay suppliers, expenses, staff advances and others
+  "cheques.manage": CASHIER, // cheque register: cheques received and issued — deposit, clear, bounce
+  "shifts.handover": ["admin", "manager", "cashier"], // take the cash from a salesman when the shift closes
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 

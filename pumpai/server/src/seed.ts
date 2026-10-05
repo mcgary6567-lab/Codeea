@@ -40,11 +40,12 @@ export function seed() {
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Kamran Shah", "manager@pumpai.pk", hash, "manager");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role,station_id,phone) VALUES (?,?,?,?,?,1,?)", tenantId, "Imran", "salesman@pumpai.pk", hash, "salesman", "923011234567");
     run("INSERT INTO users (tenant_id,name,email,password_hash,role) VALUES (?,?,?,?,?)", tenantId, "Tariq Wholesale", "wholesale@pumpai.pk", hash, "wholesale");
-    // demo quick-login PINs: admin 1111, manager 2222, salesman 3333, wholesale 4444
-    for (const [email, pin] of [["admin", "1111"], ["manager", "2222"], ["salesman", "3333"], ["wholesale", "4444"]])
+    run("INSERT INTO users (tenant_id,name,email,password_hash,role,phone) VALUES (?,?,?,?,?,?)", tenantId, "Bilal Cashier", "cashier@pumpai.pk", hash, "cashier", "923041234567");
+    // demo quick-login PINs: admin 1111, manager 2222, salesman 3333, wholesale 4444, cashier 5555
+    for (const [email, pin] of [["admin", "1111"], ["manager", "2222"], ["salesman", "3333"], ["wholesale", "4444"], ["cashier", "5555"]])
       run("UPDATE users SET pin_hash=? WHERE email=?", bcrypt.hashSync(pin, 8), `${email}@pumpai.pk`);
     // staff salaries and an advance, so the staff accounts page has a starting point
-    for (const [email, salary] of [["manager", 65000], ["salesman", 32000], ["wholesale", 45000]] as const)
+    for (const [email, salary] of [["manager", 65000], ["salesman", 32000], ["wholesale", 45000], ["cashier", 40000]] as const)
       run("UPDATE users SET salary=? WHERE email=?", salary, `${email}@pumpai.pk`);
     const imran = get("SELECT id FROM users WHERE email='salesman@pumpai.pk'")!.id;
     run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
@@ -228,6 +229,7 @@ export function seed() {
     seedMachines(tenantId, st1, st2);
     seedBanks(tenantId);
     seedWholesaleDesk(tenantId);
+    seedCashier(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -657,4 +659,22 @@ function seedWholesaleDesk(tenantId: number) {
   cheque(cl[2 % cl.length], 180000, "MCB Bank", "55120983", -6, "deposited", -10);
   const b = cheque(cl[1], 220000, "Bank Alfalah", "30019876", -20, "bounced", -25).id;
   run("UPDATE wholesale_cheques SET bounce_reason='Insufficient funds', updated_at=? WHERE id=?", at(-18), b);
+}
+
+/** Cashier desk: shift cash already handed over (except the latest), cheques received and issued. */
+function seedCashier(tenantId: number) {
+  const NOW = Date.now();
+  const cutoff = new Date(NOW - 20 * 3600_000).toISOString();
+  for (const sh of all("SELECT sh.id, sh.closed_at, sh.cash_actual FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at < ?", tenantId, cutoff))
+    run("UPDATE shifts SET handed_amount=?, handed_to=?, handed_at=? WHERE id=?", sh.cash_actual, "Bilal Cashier", new Date(Date.parse(sh.closed_at) + 30 * 60_000).toISOString(), sh.id);
+  const acc = get("SELECT id FROM bank_accounts WHERE tenant_id=? AND kind='current' ORDER BY id LIMIT 1", tenantId)?.id ?? null;
+  const day = (d: number) => new Date(NOW + d * DAY + 5 * 3600_000).toISOString().slice(0, 10);
+  const at = (d: number) => new Date(NOW + d * DAY).toISOString();
+  const cust = all("SELECT id, name FROM customers WHERE tenant_id=? AND balance > 0 ORDER BY balance DESC LIMIT 2", tenantId);
+  const sup = get("SELECT id, name FROM suppliers WHERE tenant_id=? ORDER BY id LIMIT 1", tenantId);
+  const ins = (c: Record<string, any>) => run(`INSERT INTO cheques (tenant_id,direction,party_type,party_id,party_name,amount,bank,cheque_no,cheque_date,status,account_id,note,created_by,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tenantId, c.direction, c.party_type, c.party_id, c.party_name, c.amount, c.bank, c.cheque_no, c.cheque_date, c.status, c.account_id ?? null, c.note ?? null, "Bilal Cashier", c.at, c.at);
+  if (cust[0]) ins({ direction: "in", party_type: "khata", party_id: cust[0].id, party_name: cust[0].name, amount: 45000, bank: "Bank Alfalah", cheque_no: "00418821", cheque_date: day(-1), status: "in_hand", at: at(-3) });
+  if (cust[1]) ins({ direction: "in", party_type: "khata", party_id: cust[1].id, party_name: cust[1].name, amount: 30000, bank: "UBL", cheque_no: "73310245", cheque_date: day(6), status: "in_hand", note: "Post-dated", at: at(-1) });
+  if (sup && acc) ins({ direction: "out", party_type: "supplier", party_id: sup.id, party_name: sup.name, amount: 850000, bank: "HBL", cheque_no: "10022871", cheque_date: day(2), status: "issued", account_id: acc, note: "PSO invoice payment", at: at(-2) });
 }

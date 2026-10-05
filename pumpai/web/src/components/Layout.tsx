@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
-  HandCoins, ClipboardList,
+  HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -20,10 +20,20 @@ const WHOLESALE_SUB = [
   { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", ur: "نیا ٹینکر", icon: Truck, perm: "wholesale.manage" },
   { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", ur: "نیا ڈرائیور", icon: UserPlus, perm: "wholesale.manage" },
 ];
-/** Urdu next to the English in the short menus (salesman, wholesale officer). */
+/** Shortcuts under "Cashier desk" (open the right tab). */
+const CASHIER_SUB = [
+  { to: "/cashier?tab=receive", label: "Receive money", ur: "وصولی", icon: ArrowDownCircle, perm: "cash.receive" },
+  { to: "/cashier?tab=pay", label: "Pay", ur: "ادائیگی", icon: ArrowUpCircle, perm: "cash.pay" },
+  { to: "/cashier?tab=cheques", label: "Cheques", ur: "چیک", icon: FileCheck2, perm: "cheques.manage" },
+  { to: "/cashier?tab=handover", label: "Shift cash", ur: "سیلزمین کیش", icon: Users, perm: "shifts.handover" },
+  { to: "/cashier?tab=daybook", label: "Day book", ur: "روزنامچہ", icon: BookOpenText, perm: "cashier.desk" },
+  { to: "/cashier?tab=bank", label: "Bank & count", ur: "کیش اور بینک", icon: Landmark, perm: "cash.book" },
+];
+const SUBS: Record<string, typeof WHOLESALE_SUB> = { "/wholesale": WHOLESALE_SUB, "/cashier": CASHIER_SUB };
+/** Urdu next to the English in the short menus (salesman, wholesale officer, cashier). */
 const NAV_UR: Record<string, string> = {
   "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/bookings": "بکنگ", "/prices": "ریٹ", "/checklist": "روزانہ چیک",
-  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل",
+  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل", "/cashier": "کیشیئر", "/cash": "کیش بک",
 };
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
@@ -31,7 +41,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "customers", label: "Customers & khata", icon: Users, items: ["/customers", "/khata", "/prepaid", "/inbox", "/orders", "/complaints", "/campaigns"] },
   { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale"] },
   { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
-  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/expenses", "/cash", "/accounts", "/suppliers"] },
+  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
   { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/settings"] },
@@ -44,8 +54,9 @@ type NavItem = (typeof NAV)[number];
 function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: boolean; badges: Record<string, number>; onGo: () => void }) {
   const { can } = useAuth();
   const loc = useLocation();
-  const wholesaleShortcut = loc.pathname === "/wholesale" && WHOLESALE_SUB.some((x) => x.to.slice("/wholesale".length) === loc.search);
-  const isOn = (to: string, end?: boolean) => (end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/")) && !(to === "/wholesale" && wholesaleShortcut);
+  // on a shortcut (e.g. /cashier?tab=pay) the shortcut is lit, not its parent
+  const onShortcut = (base: string) => loc.pathname === base && (SUBS[base] ?? []).some((x) => x.to.slice(base.length) === loc.search);
+  const isOn = (to: string, end?: boolean) => (end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/")) && !onShortcut(to);
   const [openSet, setOpenSet] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("pumpai.nav.open") ?? "[]"); } catch { return []; } });
   const toggle = (k: string) => setOpenSet((cur) => { const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]; try { localStorage.setItem("pumpai.nav.open", JSON.stringify(next)); } catch { /* private mode */ } return next; });
 
@@ -57,18 +68,19 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
       {(n as any).badge && <Badge n={badges[(n as any).badge] ?? 0} />}
     </NavLink>
   );
-  const wholesaleSub = (
-    <div key="wholesale-sub" className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
-      {WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => (
-        <Link key={x.to} to={x.to} onClick={onGo} className={itemCls(loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length))}>
+  const sub = (base: string) => (
+    <div key={`${base}-sub`} className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
+      {SUBS[base].filter((x) => can(x.perm)).map((x) => (
+        <Link key={x.to} to={x.to} onClick={onGo} className={itemCls(loc.pathname === base && loc.search === x.to.slice(base.length))}>
           <x.icon size={16} /><span className="min-w-0 flex-1 truncate">{x.label}</span>
           {!grouped && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-75">{x.ur}</span>}
         </Link>
       ))}
     </div>
   );
+  const withSub = (n: NavItem, size?: number) => (SUBS[n.to] ? [link(n, size), sub(n.to)] : [link(n, size)]);
 
-  if (!grouped) return <>{items.flatMap((n) => (n.to === "/wholesale" ? [link(n), wholesaleSub] : [link(n)]))}</>;
+  if (!grouped) return <>{items.flatMap((n) => withSub(n))}</>;
 
   const inGroup = new Set(GROUPS.flatMap((g) => g.items));
   return (
@@ -77,7 +89,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
       {GROUPS.map((g) => {
         const kids = g.items.map((to) => items.find((n) => n.to === to)).filter(Boolean) as NavItem[];
         if (!kids.length) return null;
-        const active = kids.some((n) => isOn(n.to)) || (g.key === "wholesale" && loc.pathname.startsWith("/wholesale"));
+        const active = kids.some((n) => isOn(n.to) || (SUBS[n.to] && loc.pathname.startsWith(n.to)));
         const open = active || openSet.includes(g.key);
         const count = kids.reduce((a, n) => a + ((n as any).badge ? badges[(n as any).badge] ?? 0 : 0), 0);
         return (
@@ -91,7 +103,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
             </button>
             {open && (
               <div className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
-                {kids.flatMap((n) => (n.to === "/wholesale" ? [link(n, 16), wholesaleSub] : [link(n, 16)]))}
+                {kids.flatMap((n) => withSub(n, 16))}
               </div>
             )}
           </div>
@@ -112,6 +124,7 @@ const NAV = [
   { to: "/khata", label: "Khata (Credit)", icon: BookOpen, perm: "khata.manage" },
   { to: "/prepaid", label: "Coupons & wallets", icon: Ticket, perm: "khata.manage" },
   { to: "/wholesale", label: "Wholesale Supply", icon: Container, perm: "wholesale.view" },
+  { to: "/cashier", label: "Cashier desk", icon: Banknote, perm: "cashier.desk" },
   { to: "/expenses", label: "Expenses", icon: Receipt, perm: "expenses.view" },
   { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
   { to: "/accounts", label: "Accounts & tax", icon: Calculator, perm: "reports.view" },
@@ -131,7 +144,7 @@ const NAV = [
   { to: "/checklist", label: "Daily checks", icon: ClipboardCheck, perm: "sales.create", only: ["salesman"] },
   { to: "/compliance", label: "Licences & checklist", icon: ShieldCheck, perm: "alerts.view" },
   { to: "/machines", label: "Machines", icon: Wrench, perm: "sales.create" },
-  { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager"] },
+  { to: "/my-account", label: "My account", icon: Wallet, perm: "", only: ["salesman", "wholesale", "manager", "cashier"] },
   { to: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage" },
   { to: "/audit", label: "Audit log", icon: History, perm: "audit.view" },
   { to: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },

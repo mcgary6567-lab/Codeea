@@ -6,7 +6,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDayStart, pkDate, pkStart, pkEnd, type Row } from "../db.js";
-import { h, parse, tid, requirePerm, can } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
@@ -424,7 +424,7 @@ function pickTank(tenantId: number, stationId: number, prod: string) {
   return t;
 }
 
-function insertTxn(req: Request, clientId: number, f: Row) {
+export function insertTxn(req: Request, clientId: number, f: Row) {
   const ts = f.txn_date ? new Date(f.txn_date).toISOString() : now();
   const { id } = run(
     `INSERT INTO wholesale_txns (tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,method,vehicle_no,ref,note,created_by,txn_date,created_at,
@@ -607,7 +607,7 @@ wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"),
   });
 }));
 
-wholesale.post("/wholesale/clients/:id/payment", requirePerm("wholesale.manage"), h((req) => {
+wholesale.post("/wholesale/clients/:id/payment", requireAny("wholesale.manage", "cash.receive"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos, account_id: accountIdField }), req.body);
   if (isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");

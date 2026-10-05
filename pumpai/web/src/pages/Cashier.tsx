@@ -1,0 +1,630 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
+} from "lucide-react";
+import { api, useApi } from "../lib/api";
+import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { ago, dt, phone, pkr } from "../lib/format";
+import { ProofPhotos, ProofThumbs } from "../components/Capture";
+import { AccountPicker, BankAccounts, BankLogo, BankNamePicker, BankSummary } from "../components/BankParts";
+import { Ur } from "../components/VoiceShell";
+import { CashForm } from "./Cash";
+import { useAuth } from "../App";
+
+const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+const TABS = [
+  { k: "desk", en: "Desk", ur: "ڈیسک", perm: "cashier.desk" },
+  { k: "receive", en: "Receive", ur: "وصولی", perm: "cash.receive" },
+  { k: "pay", en: "Pay", ur: "ادائیگی", perm: "cash.pay" },
+  { k: "cheques", en: "Cheques", ur: "چیک", perm: "cheques.manage" },
+  { k: "handover", en: "Salesmen cash", ur: "سیلزمین کیش", perm: "shifts.handover" },
+  { k: "daybook", en: "Day book", ur: "روزنامچہ", perm: "cashier.desk" },
+  { k: "bank", en: "Cash & bank", ur: "کیش اور بینک", perm: "cash.book" },
+];
+
+/** The cash counter: every rupee in and out, cheques, the salesmen's cash, banks — one screen for the cashier. */
+export default function Cashier() {
+  const { can } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "desk";
+  const go = (k: string, extra: Record<string, string> = {}) => setParams(k === "desk" ? {} : { tab: k, ...extra });
+  const [slip, setSlip] = useState<any>(null);
+  const [key, setKey] = useState(0);
+  const done = (r: any) => { setSlip(r); setKey((k) => k + 1); };
+  return (
+    <div className="min-w-0 space-y-5">
+      <PageHeader title="Cashier · کیشیئر" subtitle="Money received and paid, cheques, the salesmen's cash and the banks — with a voucher for every entry" />
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {TABS.filter((t) => can(t.perm)).map((t) => (
+          <button key={t.k} onClick={() => go(t.k)} className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-center text-sm leading-tight ${tab === t.k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>
+            {t.en}<Ur className="block text-xs">{t.ur}</Ur>
+          </button>
+        ))}
+      </div>
+      {tab === "desk" && <Desk key={key} go={go} onSlip={setSlip} />}
+      {tab === "receive" && <MoneyForm key={`in-${params.toString()}-${key}`} dir="in" preset={Object.fromEntries(params)} onDone={done} />}
+      {tab === "pay" && <MoneyForm key={`out-${params.toString()}-${key}`} dir="out" preset={Object.fromEntries(params)} onDone={done} />}
+      {tab === "cheques" && <Cheques go={go} />}
+      {tab === "handover" && <Handover />}
+      {tab === "daybook" && <DayBook />}
+      {tab === "bank" && <CashBank start={params.get("do")} />}
+      {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
+    </div>
+  );
+}
+
+/* ================= desk ================= */
+const TONE: Record<string, string> = { red: "bg-red-500", amber: "bg-amber-500", blue: "bg-sky-500", green: "bg-emerald-500" };
+
+function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) => void; onSlip: (v: any) => void }) {
+  const { data, error } = useApi<any>("/cashier/desk", 60_000);
+  const { can } = useAuth();
+  if (error) return <ErrorBox error={error} />;
+  if (!data) return <Loading />;
+  const actions = [
+    { k: "receive", en: "Receive", ur: "وصولی", icon: ArrowDownCircle, cls: "bg-emerald-600", perm: "cash.receive" },
+    { k: "pay", en: "Pay", ur: "ادائیگی", icon: ArrowUpCircle, cls: "bg-rose-600", perm: "cash.pay" },
+    { k: "cheques", en: "Cheques", ur: "چیک", icon: FileCheck2, cls: "bg-violet-600", perm: "cheques.manage", n: data.cheques.to_deposit.n },
+    { k: "handover", en: "Salesmen", ur: "سیلزمین کیش", icon: Users, cls: "bg-amber-600", perm: "shifts.handover", n: data.handovers.pending.length },
+    { k: "bank", en: "Deposit", ur: "بینک جمع", icon: Landmark, cls: "bg-sky-600", perm: "cash.book", extra: { do: "deposit" } },
+    { k: "bank", en: "Count", ur: "کیش گنیں", icon: Calculator, cls: "bg-slate-700", perm: "cash.book", extra: { do: "count" } },
+    { k: "daybook", en: "Day book", ur: "روزنامچہ", icon: BookOpenText, cls: "bg-teal-600", perm: "cashier.desk" },
+  ].filter((a) => can(a.perm));
+  const c = data.cheques;
+  return (
+    <div className="space-y-5">
+      <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 to-brand-600 p-4 text-white shadow">
+        <div className="flex items-center gap-1.5 text-sm opacity-90"><Banknote size={16} /> Cash in hand · <Ur>ہاتھ میں نقد</Ur></div>
+        <div className="text-3xl font-bold tabular-nums sm:text-4xl">{pkr(data.cash.in_hand)}</div>
+        <div className="mt-1 text-xs opacity-80">{data.cash.last_count ? <>Last counted {pkr(data.cash.last_count.amount)} by {data.cash.last_count.by}, {ago(data.cash.last_count.at)}</> : "Not counted yet — count the cash once to start the book"}</div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Came in · <Ur>آیا</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.in_cash + data.today.in_bank)}</div></div>
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">Went out · <Ur>گیا</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.out_cash + data.today.out_bank)}</div></div>
+          <div className="rounded-xl bg-white/10 p-2"><div className="text-xs opacity-80">To bank · <Ur>بینک</Ur></div><div className="truncate text-sm font-semibold tabular-nums sm:text-base">{pkr(data.today.deposited)}</div></div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+        {actions.map((a) => (
+          <button key={a.en} onClick={() => go(a.k, a.extra)} className={`relative flex flex-col items-center gap-1 rounded-2xl px-1 py-3 text-white shadow-sm active:scale-95 ${a.cls}`}>
+            <a.icon size={22} /><span className="text-xs font-semibold leading-tight">{a.en}</span><Ur className="text-[11px] leading-none opacity-90">{a.ur}</Ur>
+            {a.n ? <span className="absolute -right-1 -top-1 rounded-full bg-white px-1.5 text-xs font-bold text-slate-900 shadow">{a.n}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {data.tips.length > 0 && (
+        <div className="card">
+          <h2 className="p-4 pb-1 font-semibold">What to do now · <Ur>ابھی کیا کرنا ہے</Ur></h2>
+          <ul className="divide-y divide-slate-100">
+            {data.tips.map((t: any) => (
+              <li key={t.key}><button onClick={() => go(t.tab === "count" || t.tab === "bank" ? "bank" : t.tab, t.tab === "count" ? { do: "count" } : t.tab === "bank" ? { do: "deposit" } : {})}
+                className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-slate-50">
+                <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE[t.tone]}`} />
+                <span className="min-w-0 flex-1 text-sm">{t.en}<Ur className="block text-[13px] text-slate-500">{t.ur}</Ur></span>
+              </button></li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {can("cheques.manage") && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Mini label="Cheques in hand" ur="ہاتھ میں چیک" n={c.in_hand.n} v={c.in_hand.amount} onClick={() => go("cheques")} />
+          <Mini label="Ready to deposit" ur="جمع کروانے ہیں" n={c.to_deposit.n} v={c.to_deposit.amount} tone="text-sky-700" onClick={() => go("cheques")} />
+          <Mini label="Our cheques due (7 days)" ur="ہمارے چیک" n={c.issued_due.n} v={c.issued_due.amount} tone="text-amber-700" onClick={() => go("cheques")} />
+          <Mini label="Bounced (30 days)" ur="واپس آئے" n={c.bounced.n} v={c.bounced.amount} tone="text-red-600" onClick={() => go("cheques")} />
+        </div>
+      )}
+
+      {can("bank.view") && <BankSummary />}
+
+      <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+        {data.handovers.pending.length > 0 && can("shifts.handover") && (
+          <div className="card">
+            <div className="flex items-center justify-between p-4 pb-1"><h2 className="font-semibold">Cash to take from salesmen · <Ur>سیلزمین سے کیش</Ur></h2><span className="whitespace-nowrap font-semibold tabular-nums">{pkr(data.handovers.pending_amount)}</span></div>
+            <ul className="divide-y divide-slate-100">{data.handovers.pending.map((s: any) => (
+              <li key={s.id}><button onClick={() => go("handover")} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
+                <span className="min-w-0 flex-1"><b>{s.attendant}</b><span className="block truncate text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {ago(s.closed_at)}</span></span>
+                <span className="font-semibold tabular-nums">{pkr(s.cash_actual)}</span></button></li>
+            ))}</ul>
+          </div>
+        )}
+        {data.promised.length > 0 && can("cash.receive") && (
+          <div className="card">
+            <h2 className="p-4 pb-1 font-semibold">Promised payments · <Ur>وعدے</Ur></h2>
+            <ul className="divide-y divide-slate-100">{data.promised.map((p: any) => (
+              <li key={`${p.client_id}-${p.promised_on}`} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1"><b>{p.name}</b><span className={`block text-xs ${p.state === "broken" ? "text-red-600" : "text-slate-500"}`}>{p.state === "broken" ? "Promise broken · وعدہ ٹوٹا" : "Today · آج"} · {p.promised_on}</span></span>
+                <span className="font-semibold tabular-nums">{pkr(p.amount)}</span>
+                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => go("receive", { type: "wholesale", id: String(p.client_id), amount: String(p.amount) })}>Receive</button>
+              </li>
+            ))}</ul>
+          </div>
+        )}
+        {data.payables.length > 0 && can("cash.pay") && (
+          <div className="card">
+            <h2 className="p-4 pb-1 font-semibold">Suppliers to pay · <Ur>سپلائر کو دینا ہے</Ur></h2>
+            <ul className="divide-y divide-slate-100">{data.payables.map((s: any) => (
+              <li key={s.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span><span className="font-semibold tabular-nums">{pkr(s.owed)}</span>
+                <button className="btn-secondary !px-2 !py-1 text-xs" onClick={() => go("pay", { type: "supplier", id: String(s.id) })}>Pay</button>
+              </li>
+            ))}</ul>
+          </div>
+        )}
+        <div className="card">
+          <h2 className="p-4 pb-1 font-semibold">Today's vouchers · <Ur>آج کی رسیدیں</Ur></h2>
+          <ul className="divide-y divide-slate-100">{data.vouchers.map((v: any) => (
+            <li key={v.id}><button onClick={() => onSlip({ voucher: v })} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
+              <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
+              <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
+              <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
+            </button></li>
+          ))}{!data.vouchers.length && <li><Empty>No vouchers yet today · <Ur>آج کوئی رسید نہیں</Ur></Empty></li>}</ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const Mini = ({ label, ur, n, v, tone = "", onClick }: { label: string; ur: string; n: number; v: number; tone?: string; onClick: () => void }) => (
+  <button onClick={onClick} className="card min-w-0 p-3 text-left hover:bg-slate-50">
+    <div className="text-xs text-slate-500">{label}<Ur className="block">{ur}</Ur></div>
+    <div className={`truncate text-lg font-bold tabular-nums ${tone}`}>{pkr(v)}</div><div className="text-xs text-slate-500">{n} cheque{n === 1 ? "" : "s"}</div>
+  </button>
+);
+
+/* ================= receive / pay ================= */
+const IN_TYPES = [["khata", "Khata customer", "کھاتہ گاہک"], ["wholesale", "Wholesale client", "ہول سیل کلائنٹ"], ["other", "Other", "دیگر"]] as const;
+const OUT_TYPES = [["supplier", "Supplier", "سپلائر"], ["expense", "Expense", "خرچہ"], ["staff", "Staff advance", "ملازم ایڈوانس"], ["other", "Other", "دیگر"]] as const;
+const METHODS = [["Cash", "نقد"], ["Bank transfer", "بینک"], ["Raast", "راست"], ["JazzCash", "جاز کیش"], ["Easypaisa", "ایزی پیسہ"], ["Cheque", "چیک"]] as const;
+const isCash = (m: string) => m === "Cash";
+
+function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<string, string>; onDone: (r: any) => void }) {
+  const types = dir === "in" ? IN_TYPES : OUT_TYPES;
+  const [type, setType] = useState<string>(types.some((t) => t[0] === preset.type) ? preset.type : types[0][0]);
+  const [party, setParty] = useState<any>(null);
+  const [f, setF] = useState({ amount: preset.amount ?? "", method: preset.method ?? "Cash", party_name: "", category: "", note: "", ref: "", bank: "", cheque_no: "", cheque_date: today(), notify: true });
+  const [account, setAccount] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<number[]>([]);
+  const cats = useApi<any>(dir === "out" && type === "expense" ? "/expense-categories" : null);
+  const picks = useApi<any>("/bank/accounts/pick");
+  const { busy, run } = useAction();
+  const set = (k: string, v: any) => setF((x) => ({ ...x, [k]: v }));
+  const cheque = f.method === "Cheque";
+  const needsParty = type !== "other" && type !== "expense";
+  const amount = Number(f.amount) || 0;
+  const after = party?.balance != null && amount ? (dir === "in" ? party.balance - amount : type === "staff" ? party.balance + amount : party.balance - amount) : null;
+  const methods = METHODS.filter(([m]) => !(type === "staff" && m === "Cheque"));
+  const ourBank = dir === "out" && cheque && account ? picks.data?.accounts?.find((a: any) => a.id === account)?.bank : null;
+
+  // preset from the desk (e.g. "Pay" next to a supplier, "Receive" next to a promise)
+  useEffect(() => {
+    if (!preset.id || !needsParty) return;
+    api(`/cashier/parties?kind=${type}`).then((r) => setParty((r[type] ?? []).find((x: any) => String(x.id) === preset.id) ?? null)).catch(() => {});
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = {
+      party_type: type, party_id: party?.id ?? null, party_name: f.party_name || null, category: f.category || null, amount, method: f.method,
+      account_id: isCash(f.method) ? null : account, ref: f.ref || null, note: f.note || null, photo_ids: photos, notify: f.notify,
+      cheque: cheque ? { bank: ourBank ?? f.bank, cheque_no: f.cheque_no, cheque_date: f.cheque_date } : null,
+    };
+    const r = await run(() => api(`/cashier/${dir === "in" ? "receive" : "pay"}`, { body }), (x: any) => `${x.voucher.no} saved · محفوظ`);
+    if (r) onDone({ ...r, party_type: type, party, cheque: body.cheque, account: picks.data?.accounts?.find((a: any) => a.id === account)?.name ?? null });
+  };
+
+  return (
+    <form onSubmit={submit} className="card mx-auto max-w-2xl space-y-4 p-4">
+      <h2 className="text-lg font-semibold">{dir === "in" ? <>Money received · <Ur>رقم وصول</Ur></> : <>Payment · <Ur>ادائیگی</Ur></>}</h2>
+      <div className={`grid gap-2 ${types.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+        {types.map(([k, en, ur]) => (
+          <button type="button" key={k} onClick={() => { setType(k); setParty(null); if (k === "staff" && cheque) set("method", "Cash"); }} aria-pressed={type === k}
+            className={`rounded-xl px-2 py-2 text-sm leading-tight ${type === k ? "bg-brand-600 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>{en}<Ur className="block text-xs">{ur}</Ur></button>
+        ))}
+      </div>
+
+      {needsParty && <PartyPicker kind={type} value={party} onChange={setParty} dir={dir} />}
+      {type === "expense" && <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Expense head · خرچے کی قسم *"><select className="input" required value={f.category} onChange={(e) => set("category", e.target.value)}>
+          <option value="">— choose —</option>{(cats.data?.categories ?? []).map((c: any) => <option key={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="Paid to · کس کو"><input className="input" value={f.party_name} onChange={(e) => set("party_name", e.target.value)} placeholder="e.g. Electrician" /></Field>
+      </div>}
+      {type === "other" && <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={dir === "in" ? "Received from · کس سے *" : "Paid to · کس کو *"}><input className="input" required value={f.party_name} onChange={(e) => set("party_name", e.target.value)} /></Field>
+        <Field label="For what · کس لیے"><input className="input" value={f.category} onChange={(e) => set("category", e.target.value)} placeholder={dir === "in" ? "e.g. Scrap sale, rent" : "e.g. Committee, donation"} /></Field>
+      </div>}
+
+      <Field label="Amount (Rs) · رقم *"><input className="input py-3 text-2xl font-semibold" type="number" min={1} step="any" required value={f.amount} onChange={(e) => set("amount", e.target.value)} /></Field>
+      {amount > 0 && <p className="-mt-2 text-xs text-slate-500">{toWords(amount)}</p>}
+
+      <fieldset>
+        <legend className="label">How · <Ur>کیسے</Ur></legend>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {methods.map(([m, ur]) => (
+            <button type="button" key={m} onClick={() => set("method", m)} aria-pressed={f.method === m}
+              className={`rounded-xl px-1 py-2 text-xs leading-tight ${f.method === m ? "bg-slate-800 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>{m}<Ur className="block">{ur}</Ur></button>
+          ))}
+        </div>
+      </fieldset>
+
+      {!isCash(f.method) && !(dir === "in" && cheque) && (
+        <AccountPicker method={cheque ? "bank" : f.method} value={account} onChange={setAccount} required={dir === "out" || type === "other"}
+          label={dir === "in" ? undefined : cheque ? "Cheque from which of our accounts? · کس اکاؤنٹ کا چیک" : "Paid from which account? · کس اکاؤنٹ سے"} />
+      )}
+      {cheque && (
+        <div className="space-y-3 rounded-xl bg-violet-50 p-3">
+          <p className="text-sm text-violet-900">{dir === "in" ? "The cheque goes into the register. It counts as paid when it clears." : "The cheque goes into the register. It counts as paid when the bank pays it."}
+            <Ur className="block">{dir === "in" ? "چیک کلیئر ہونے پر ادائیگی شمار ہوگی" : "بینک سے کیش ہونے پر ادائیگی شمار ہوگی"}</Ur></p>
+          {dir === "in" && <div><span className="label">Cheque of which bank? · <Ur>کس بینک کا چیک</Ur></span><BankNamePicker required value={f.bank} onChange={(v) => set("bank", v)} /></div>}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cheque no. · چیک نمبر *"><input className="input" required value={f.cheque_no} onChange={(e) => set("cheque_no", e.target.value)} inputMode="numeric" /></Field>
+            <Field label="Cheque date · تاریخ *"><input className="input" type="date" required value={f.cheque_date} onChange={(e) => set("cheque_date", e.target.value)} /></Field>
+          </div>
+        </div>
+      )}
+
+      {party && <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+        <span>{dir === "in" ? "Owes now" : type === "staff" ? "Advance now" : "We owe"} · <Ur>ابھی</Ur>: <b>{pkr(party.balance)}</b></span>
+        {after != null && !cheque && <span>After · <Ur>بعد میں</Ur>: <b>{pkr(after)}</b></span>}
+      </div>}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Ref / slip no. · حوالہ"><input className="input" value={f.ref} onChange={(e) => set("ref", e.target.value)} /></Field>
+        <Field label="Note · نوٹ"><input className="input" value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
+      </div>
+      <ProofPhotos value={photos} onChange={setPhotos} required={cheque} hint={cheque ? "photo of the cheque" : "receipt / slip / screenshot"} />
+      {dir === "in" && type === "khata" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.notify} onChange={(e) => set("notify", e.target.checked)} /> Send the receipt on WhatsApp · <Ur>رسید واٹس ایپ پر</Ur></label>}
+
+      <button className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-lg font-bold text-white shadow active:scale-[.98] disabled:bg-slate-300 ${dir === "in" ? "bg-emerald-600" : "bg-rose-600"}`}
+        disabled={busy || !amount || (needsParty && !party) || (cheque && !photos.length)}>
+        <Check size={22} /> {dir === "in" ? <>Save receipt · <Ur>محفوظ</Ur></> : <>Save payment · <Ur>محفوظ</Ur></>}
+      </button>
+    </form>
+  );
+}
+
+function PartyPicker({ kind, value, onChange, dir }: { kind: string; value: any; onChange: (p: any) => void; dir: "in" | "out" }) {
+  const [q, setQ] = useState("");
+  const { data } = useApi<any>(value ? null : `/cashier/parties?kind=${kind}&q=${encodeURIComponent(q)}`);
+  const label: Record<string, string> = { khata: "Customer · گاہک", wholesale: "Client · کلائنٹ", supplier: "Supplier · سپلائر", staff: "Staff member · ملازم" };
+  if (value) return (
+    <div className="flex items-center gap-3 rounded-xl bg-brand-50 p-3 ring-1 ring-brand-200">
+      <span className="min-w-0 flex-1"><b className="block truncate">{value.name}</b><span className="text-xs text-slate-600">{value.phone ? phone(value.phone) : value.role ?? ""}</span></span>
+      <span className="text-right"><span className="block font-semibold tabular-nums">{pkr(value.balance)}</span><span className="text-[11px] text-slate-500">{kind === "supplier" ? "we owe" : kind === "staff" ? "advance" : "owes"}</span></span>
+      <button type="button" className="p-1 text-slate-500" onClick={() => onChange(null)} aria-label="Change"><X size={18} /></button>
+    </div>
+  );
+  return (
+    <div>
+      <span className="label">{label[kind]} *</span>
+      <div className="relative"><Search size={15} className="absolute left-2.5 top-3 text-slate-400" /><input className="input pl-8" placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <ul className="mt-1 max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl ring-1 ring-slate-200">
+        {(data?.[kind] ?? []).slice(0, 12).map((p: any) => (
+          <li key={p.id}><button type="button" onClick={() => onChange(p)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+            <span className="min-w-0 flex-1 truncate">{p.name}{p.business_name ? <span className="text-slate-500"> · {p.business_name}</span> : null}</span>
+            <span className={`tabular-nums ${p.balance > 0 && dir === "in" ? "font-semibold text-amber-700" : "text-slate-500"}`}>{pkr(p.balance)}</span>
+          </button></li>
+        ))}
+        {data && !data[kind]?.length && <li className="px-3 py-3 text-center text-sm text-slate-500">Nothing found</li>}
+      </ul>
+    </div>
+  );
+}
+
+/** Amount in words, Pakistani style (lakh / crore) — printed on the voucher. */
+function toWords(n: number): string {
+  const a = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const two = (x: number) => (x < 20 ? a[x] : `${b[Math.floor(x / 10)]}${x % 10 ? " " + a[x % 10] : ""}`);
+  const three = (x: number) => `${x >= 100 ? a[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " : "") : ""}${x % 100 ? two(x % 100) : ""}`;
+  let x = Math.round(n);
+  if (!x) return "Zero rupees";
+  const parts: string[] = [];
+  for (const [v, w] of [[10_000_000, "Crore"], [100_000, "Lakh"], [1000, "Thousand"]] as const) {
+    if (x >= v) { parts.push(`${v === 10_000_000 && x >= 1_000_000_000 ? toWords(Math.floor(x / v)).replace(" rupees only", "") : three(Math.floor(x / v))} ${w}`); x %= v; }
+  }
+  if (x) parts.push(three(x));
+  return `${parts.join(" ")} rupees only`;
+}
+
+function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
+  const { tenant } = useAuth();
+  const v = r.voucher;
+  const isIn = v.direction === "in";
+  return (
+    <Modal open onClose={onClose} title={`${isIn ? "Receipt" : "Payment"} voucher ${v.no}`}>
+      <div className="space-y-3 text-sm" id="voucher">
+        <div className="text-center">
+          <div className="text-lg font-bold">{tenant?.name}</div>
+          <div className="font-semibold">{isIn ? <>Receipt voucher · <Ur>رسید</Ur></> : <>Payment voucher · <Ur>ادائیگی واؤچر</Ur></>}</div>
+          <div className="text-xs text-slate-500">{v.no} · {dt(v.created_at)}</div>
+        </div>
+        <div className={`rounded-xl p-3 text-center ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
+          <div className="text-3xl font-bold tabular-nums">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
+        </div>
+        <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5">
+          <dt className="text-slate-500">{isIn ? "Received from" : "Paid to"}</dt><dd className="font-medium">{v.party_name}</dd>
+          {v.category && <><dt className="text-slate-500">For</dt><dd>{v.category}</dd></>}
+          <dt className="text-slate-500">How</dt><dd>{v.method}{r.account ? ` · ${r.account}` : ""}</dd>
+          {r.cheque && <><dt className="text-slate-500">Cheque</dt><dd>{r.cheque.bank} · {r.cheque.cheque_no} · dated {r.cheque.cheque_date}</dd></>}
+          {v.ref && !r.cheque && <><dt className="text-slate-500">Ref</dt><dd>{v.ref}</dd></>}
+          {v.note && <><dt className="text-slate-500">Note</dt><dd>{v.note}</dd></>}
+          {r.balance_after != null && <><dt className="text-slate-500">Balance now</dt><dd className="font-semibold">{pkr(r.balance_after)}</dd></>}
+          <dt className="text-slate-500">By</dt><dd>{v.created_by}</dd>
+        </dl>
+        {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">{r.message}</p>}
+        <div className="grid grid-cols-2 gap-6 pt-8 text-center text-xs text-slate-500"><div className="border-t border-slate-400 pt-1">Cashier · <Ur>کیشیئر</Ur></div><div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2 print:hidden">
+        <button className="btn-secondary" onClick={onClose}>Close · <Ur>بند</Ur></button>
+        <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print · <Ur>پرنٹ</Ur></button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ================= cheques ================= */
+const STATUS: Record<string, { en: string; ur: string; tone: string }> = {
+  in_hand: { en: "In hand", ur: "ہاتھ میں", tone: "blue" }, deposited: { en: "Deposited", ur: "جمع", tone: "amber" }, cleared: { en: "Cleared", ur: "کلیئر", tone: "green" },
+  bounced: { en: "Bounced", ur: "واپس", tone: "red" }, returned: { en: "Given back", ur: "واپس دیا", tone: "slate" }, issued: { en: "Issued", ur: "جاری", tone: "violet" }, cancelled: { en: "Cancelled", ur: "منسوخ", tone: "slate" },
+};
+const FILTERS = [["open", "Open", "کھلے"], ["in", "Received", "وصول شدہ"], ["out", "Issued", "جاری کیے"], ["bounced", "Bounced", "واپس"], ["all", "All", "سب"]] as const;
+
+function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => void }) {
+  const { data, reload, error } = useApi<any>("/cashier/cheques");
+  const { can } = useAuth();
+  const [filter, setFilter] = useState("open");
+  const [act, setAct] = useState<{ q: any; action: string } | null>(null);
+  const list = useMemo(() => (data?.cheques ?? []).filter((q: any) =>
+    filter === "all" ? true : filter === "bounced" ? q.status === "bounced" : filter === "in" ? q.direction === "in" && ["in_hand", "deposited"].includes(q.status)
+      : filter === "out" ? q.direction === "out" && q.status === "issued" : ["in_hand", "deposited", "issued"].includes(q.status)), [data, filter]);
+  if (error) return <ErrorBox error={error} />;
+  if (!data) return <Loading />;
+  const t = data.totals;
+  const now = today();
+  const actions = (q: any): [string, string, string][] =>
+    q.direction === "in"
+      ? q.status === "in_hand" ? [["deposit", "Deposit", "جمع کریں"], ["return", "Give back", "واپس دیں"], ["bounce", "Bounced", "واپس آیا"]] : q.status === "deposited" ? [["clear", "Cleared", "کلیئر"], ["bounce", "Bounced", "واپس آیا"]] : []
+      : q.status === "issued" ? [["clear", "Paid by bank", "کیش ہوگیا"], ["bounce", "Bounced", "واپس آیا"], ["cancel", "Cancel", "منسوخ"]] : [];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Mini label="In hand" ur="ہاتھ میں" n={t.in_hand.n} v={t.in_hand.amount} onClick={() => setFilter("in")} />
+        <Mini label="Ready to deposit" ur="جمع کروانے ہیں" n={t.to_deposit.n} v={t.to_deposit.amount} tone="text-sky-700" onClick={() => setFilter("in")} />
+        <Mini label="In bank, not cleared" ur="بینک میں" n={t.deposited.n} v={t.deposited.amount} tone="text-amber-700" onClick={() => setFilter("in")} />
+        <Mini label="Our cheques out" ur="ہمارے چیک" n={t.issued.n} v={t.issued.amount} tone="text-violet-700" onClick={() => setFilter("out")} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1 overflow-x-auto">
+          {FILTERS.map(([k, en, ur]) => <button key={k} onClick={() => setFilter(k)} className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${filter === k ? "bg-slate-800 text-white" : "bg-slate-100"}`}>{en} · <Ur>{ur}</Ur></button>)}
+        </div>
+        <div className="flex flex-1 justify-end gap-2">
+          {can("cash.receive") && <button className="btn-secondary !px-3 text-sm" onClick={() => go("receive", { method: "Cheque" })}>+ Received · <Ur>وصول</Ur></button>}
+          {can("cash.pay") && <button className="btn-secondary !px-3 text-sm" onClick={() => go("pay", { method: "Cheque" })}>+ Issue · <Ur>جاری</Ur></button>}
+        </div>
+      </div>
+      <ul className="space-y-2">
+        {list.map((q: any) => {
+          const s = STATUS[q.status] ?? STATUS.in_hand;
+          const due = ["in_hand", "issued"].includes(q.status) && q.cheque_date <= now;
+          return (
+            <li key={`${q.src}-${q.id}`} className="card p-3">
+              <div className="flex items-start gap-3">
+                <BankLogo name={q.bank} size={38} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2"><b className="truncate">{q.party_name}</b><Badge tone={s.tone}>{s.en} · {s.ur}</Badge>
+                    <span className={`text-xs ${q.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{q.direction === "in" ? "↓ received" : "↑ issued"} · {q.party_type}</span></div>
+                  <div className="text-xs text-slate-500">{q.bank} · # {q.cheque_no} · <span className={due ? "font-semibold text-sky-700" : ""}>dated {q.cheque_date}{due && q.status === "in_hand" ? " — deposit now" : ""}</span>
+                    {q.account_name ? ` · ${q.account_name}` : ""}</div>
+                  {q.reason && <div className="text-xs text-red-600">{q.reason}</div>}
+                </div>
+                <div className="text-right"><div className="font-bold tabular-nums">{pkr(q.amount)}</div><ProofThumbs ids={q.proof_ids} /></div>
+              </div>
+              {actions(q).length > 0 && <div className="mt-2 flex flex-wrap gap-2">
+                {actions(q).map(([a, en, ur]) => (
+                  <button key={a} onClick={() => setAct({ q, action: a })} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${a === "bounce" ? "bg-red-50 text-red-700" : a === "clear" || a === "deposit" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}>{en} · <Ur>{ur}</Ur></button>
+                ))}
+              </div>}
+            </li>
+          );
+        })}
+        {!list.length && <li><Empty>No cheques here · <Ur>کوئی چیک نہیں</Ur></Empty></li>}
+      </ul>
+      {act && <ChequeAct q={act.q} action={act.action} onClose={() => setAct(null)} onDone={() => { setAct(null); reload(); }} />}
+    </div>
+  );
+}
+
+function ChequeAct({ q, action, onClose, onDone }: { q: any; action: string; onClose: () => void; onDone: () => void }) {
+  const [account, setAccount] = useState<number | null>(q.account_id ?? null);
+  const [reason, setReason] = useState("");
+  const { busy, run } = useAction();
+  const needAccount = action === "deposit" || (action === "clear" && !q.account_id);
+  const title: Record<string, string> = { deposit: "Deposit in bank · بینک میں جمع", clear: "Cleared · کلیئر", bounce: "Bounced · واپس آیا", return: "Give back · واپس دیں", cancel: "Cancel cheque · منسوخ" };
+  const url = q.src === "w" ? `/wholesale/cheques/${q.id}/${action}` : `/cashier/cheques/${q.id}/${action}`;
+  return (
+    <Modal open onClose={onClose} title={title[action]}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        if (await run(() => api(url, { body: { account_id: account, reason: reason || null } }), "Saved · محفوظ")) onDone();
+      }}>
+        <p className="text-sm"><b>{q.party_name}</b> · {q.bank} # {q.cheque_no} · <b>{pkr(q.amount)}</b></p>
+        {action === "clear" && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{q.direction === "in" ? "The payment is entered in their account and the bank balance goes up." : "The payment is entered in the supplier's account and the bank balance goes down."}</p>}
+        {action === "bounce" && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">The owner gets an alert{q.direction === "in" ? " and the customer a WhatsApp message" : ""}. · <Ur>مالک کو اطلاع جائے گی</Ur></p>}
+        {needAccount && <AccountPicker method="bank" required value={account} onChange={setAccount} label="Which account? · کون سا اکاؤنٹ" />}
+        {["bounce", "return", "cancel"].includes(action) && <Field label="Reason · وجہ"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={action === "bounce" ? "e.g. Insufficient funds" : ""} /></Field>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy || (needAccount && !account)}>Save · محفوظ کریں</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ================= salesmen's cash ================= */
+function Handover() {
+  const { data, reload, error } = useApi<any>("/cashier/handovers");
+  const [amt, setAmt] = useState<Record<number, string>>({});
+  const [note, setNote] = useState<Record<number, string>>({});
+  const { busy, run } = useAction();
+  if (error) return <ErrorBox error={error} />;
+  if (!data) return <Loading />;
+  return (
+    <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+      <div className="space-y-3">
+        <h2 className="font-semibold">Cash to take · <Ur>کیش وصول کرنا ہے</Ur></h2>
+        {data.pending.map((s: any) => {
+          const got = Number(amt[s.id] ?? s.cash_actual);
+          const diff = Math.round(got - s.cash_actual);
+          return (
+            <div key={s.id} className="card space-y-2 p-3">
+              <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b>{s.attendant}</b><div className="truncate text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {dt(s.closed_at)}</div></div>
+                <div className="text-right text-sm"><div className="text-xs text-slate-500">Salesman counted · <Ur>سیلزمین</Ur></div><b className="tabular-nums">{pkr(s.cash_actual)}</b></div></div>
+              {s.variance ? <p className={`text-xs ${s.variance < 0 ? "text-red-600" : "text-emerald-700"}`}>At closing: {s.variance < 0 ? "short" : "over"} {pkr(Math.abs(s.variance))} against the sales</p> : null}
+              <div className="grid grid-cols-[1fr,auto] gap-2">
+                <input className="input text-lg font-semibold" type="number" min={0} value={amt[s.id] ?? String(s.cash_actual)} onChange={(e) => setAmt({ ...amt, [s.id]: e.target.value })} aria-label="Cash received" />
+                <button className="btn-primary whitespace-nowrap" disabled={busy} onClick={async () => {
+                  if (await run(() => api(`/cashier/handovers/${s.id}`, { body: { amount: got, note: note[s.id] || null } }), (r: any) => r.difference < 0 ? `Received — short ${pkr(-r.difference)}` : "Received · وصول")) reload();
+                }}><Check size={16} /> Received · <Ur>وصول</Ur></button>
+              </div>
+              {diff !== 0 && <p className={`text-sm font-semibold ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? `Short ${pkr(-diff)} · کم` : `Over ${pkr(diff)} · زیادہ`}</p>}
+              {diff !== 0 && <input className="input" placeholder="Why the difference? · فرق کی وجہ" value={note[s.id] ?? ""} onChange={(e) => setNote({ ...note, [s.id]: e.target.value })} />}
+            </div>
+          );
+        })}
+        {!data.pending.length && <div className="card"><Empty>All shift cash received · <Ur>سب کیش وصول ہو گیا</Ur></Empty></div>}
+      </div>
+      <div className="card">
+        <h2 className="p-4 pb-1 font-semibold">Received · <Ur>وصول شدہ</Ur></h2>
+        <ul className="divide-y divide-slate-100">{data.done.map((s: any) => {
+          const diff = Math.round((s.handed_amount ?? 0) - (s.cash_actual ?? 0));
+          return (
+            <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
+              <span className="min-w-0 flex-1"><b>{s.attendant}</b> · #{s.id}<span className="block truncate text-xs text-slate-500">{dt(s.handed_at)} · {s.handed_to}{s.handover_note ? ` · ${s.handover_note}` : ""}</span></span>
+              <span className="text-right"><b className="tabular-nums">{pkr(s.handed_amount)}</b>{diff !== 0 && <span className={`block text-xs ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? "short" : "over"} {pkr(Math.abs(diff))}</span>}</span>
+            </li>
+          );
+        })}</ul>
+      </div>
+    </div>
+  );
+}
+
+/* ================= day book ================= */
+function DayBook() {
+  const [date, setDate] = useState(today());
+  const { data, error } = useApi<any>(`/cashier/daybook?date=${date}`);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <input type="date" className="input w-auto" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+        <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print · <Ur>پرنٹ</Ur></button>
+      </div>
+      {error && <ErrorBox error={error} />}
+      {!data ? <Loading /> : <>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <Box label="Opening cash" ur="شروع میں نقد" v={data.cash.opening} />
+          <Box label="Cash in" ur="نقد آیا" v={data.totals.in_cash} tone="text-emerald-700" />
+          <Box label="Cash out" ur="نقد گیا" v={data.totals.out_cash} tone="text-rose-700" />
+          <Box label="Put in bank" ur="بینک میں جمع" v={data.totals.deposited} tone="text-sky-700" />
+          <Box label={date === today() ? "Cash now" : "Closing cash"} ur="آخر میں نقد" v={data.cash.closing} tone="font-bold" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Box label="Bank / digital in" ur="بینک میں آیا" v={data.totals.in_bank} tone="text-emerald-700" />
+          <Box label="Bank / digital out" ur="بینک سے گیا" v={data.totals.out_bank} tone="text-rose-700" />
+        </div>
+        <div className="card">
+          <ul className="divide-y divide-slate-100">
+            {data.rows.map((r: any, i: number) => (
+              <li key={i} className="flex items-center gap-3 px-4 py-2 text-sm">
+                <span className="w-12 shrink-0 text-xs text-slate-500">{new Date(r.at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.what}</span><span className="block truncate text-xs text-slate-500">{[r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
+                <span className={`whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : "⇄"} {pkr(r.amount)}</span>
+              </li>
+            ))}
+            {!data.rows.length && <li><Empty>Nothing on this day · <Ur>اس دن کچھ نہیں</Ur></Empty></li>}
+          </ul>
+        </div>
+      </>}
+    </div>
+  );
+}
+const Box = ({ label, ur, v, tone = "" }: { label: string; ur: string; v: number; tone?: string }) => (
+  <div className="card min-w-0 p-3"><div className="text-xs text-slate-500">{label} · <Ur>{ur}</Ur></div><div className={`truncate text-lg tabular-nums ${tone}`}>{pkr(v)}</div></div>
+);
+
+/* ================= cash & bank ================= */
+const NOTES = [5000, 1000, 500, 100, 50, 20, 10];
+
+function CashBank({ start }: { start: string | null }) {
+  const { data, reload } = useApi<any>("/cash");
+  const { can } = useAuth();
+  const [, setParams] = useSearchParams();
+  const [form, setForm] = useState<string | null>(start);
+  const close = () => { setForm(null); setParams({ tab: "bank" }, { replace: true }); };
+  if (!data) return <Loading />;
+  return (
+    <div className="space-y-5">
+      <div className="card flex flex-wrap items-center gap-3 p-4">
+        <div className="min-w-0 flex-1"><div className="text-sm text-slate-500">Cash in hand (should be) · <Ur>ہاتھ میں نقد</Ur></div><div className="text-2xl font-bold tabular-nums">{pkr(data.cash_in_hand)}</div>
+          <div className="text-xs text-slate-500">{data.last_count ? `Last counted ${pkr(data.last_count.amount)} by ${data.last_count.by}, ${dt(data.last_count.at)}` : "Not counted yet"}</div></div>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setForm("count")}><Calculator size={15} /> Count · <Ur>گنیں</Ur></button>
+          <button className="btn-primary" onClick={() => setForm("deposit")}><Landmark size={15} /> Deposit · <Ur>جمع</Ur></button>
+        </div>
+      </div>
+      {can("bank.view") && <BankAccounts cashInHand={data.cash_in_hand} onChanged={reload} />}
+      <div className="card p-4 text-sm">
+        <h2 className="mb-2 font-semibold">Last cash counts · <Ur>پچھلی گنتی</Ur></h2>
+        <ul className="divide-y divide-slate-100">{data.counts.map((c: any) => (
+          <li key={c.id} className="flex flex-wrap justify-between gap-x-3 py-1.5"><span>{dt(c.created_at)} · {c.counted_by}</span>
+            <span className="tabular-nums">{pkr(c.amount)} {c.variance ? <span className={c.variance < 0 ? "text-red-600" : "text-emerald-700"}>({c.variance < 0 ? "short" : "over"} {pkr(Math.abs(c.variance))})</span> : null}</span></li>
+        ))}{!data.counts.length && <li className="py-2 text-slate-500">No counts yet</li>}</ul>
+        {can("expenses.view") && <Link to="/cash" className="mt-2 inline-block text-brand-700 underline">Full cash book →</Link>}
+      </div>
+      {form === "count" && <CountCash inHand={data.cash_in_hand} onClose={close} onDone={() => { close(); reload(); }} />}
+      {form === "deposit" && <CashForm kind="deposit" inHand={data.cash_in_hand} onClose={close} onDone={() => { close(); reload(); }} />}
+    </div>
+  );
+}
+
+/** Count the drawer note by note; the difference from the book shows as you type. */
+function CountCash({ inHand, onClose, onDone }: { inHand: number; onClose: () => void; onDone: () => void }) {
+  const [n, setN] = useState<Record<string, string>>({});
+  const [coins, setCoins] = useState("");
+  const [note, setNote] = useState("");
+  const [photos, setPhotos] = useState<number[]>([]);
+  const { busy, run } = useAction();
+  const total = NOTES.reduce((a, d) => a + d * (Number(n[d]) || 0), 0) + (Number(coins) || 0);
+  const diff = Math.round(total - inHand);
+  return (
+    <Modal open onClose={onClose} title="Count the cash · کیش گنیں">
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const notes = Object.fromEntries(Object.entries(n).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+        if (await run(() => api("/cash/count", { body: { amount: total, notes, note: note || null, photo_ids: photos } }), (x: any) => x.variance ? `${x.variance < 0 ? "Short" : "Over"} ${pkr(Math.abs(x.variance))}` : "Matches the book · درست")) onDone();
+      }}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {NOTES.map((d) => (
+            <label key={d} className="flex items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5">
+              <span className="w-14 shrink-0 text-right text-sm font-semibold">Rs {d}</span><span className="text-slate-400">×</span>
+              <input className="input !py-1.5 text-center" type="number" min={0} inputMode="numeric" value={n[d] ?? ""} onChange={(e) => setN({ ...n, [d]: e.target.value })} aria-label={`Rs ${d} notes`} />
+            </label>
+          ))}
+          <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-2 py-1.5"><span className="w-14 shrink-0 text-right text-sm font-semibold">Coins</span><span className="text-slate-400">=</span>
+            <input className="input !py-1.5 text-center" type="number" min={0} value={coins} onChange={(e) => setCoins(e.target.value)} aria-label="Coins" /></label>
+        </div>
+        <div className="rounded-xl bg-slate-800 p-3 text-white">
+          <div className="flex justify-between text-sm opacity-80"><span>Book says · <Ur>حساب کے مطابق</Ur></span><span className="tabular-nums">{pkr(inHand)}</span></div>
+          <div className="flex items-baseline justify-between gap-2 text-xl font-bold"><span className="whitespace-nowrap">Counted · <Ur>گنا</Ur></span><span className="tabular-nums">{pkr(total)}</span></div>
+          {total > 0 && <div className={`text-right text-sm font-semibold ${diff < 0 ? "text-red-300" : diff > 0 ? "text-emerald-300" : "text-emerald-300"}`}>{diff === 0 ? "Matches · درست" : diff < 0 ? `Short ${pkr(-diff)} · کم` : `Over ${pkr(diff)} · زیادہ`}</div>}
+        </div>
+        <Field label="Note · نوٹ"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <ProofPhotos value={photos} onChange={setPhotos} hint="counted notes" />
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy || total <= 0}><HandCoins size={15} /> Save · <Ur>محفوظ</Ur></button></div>
+      </form>
+    </Modal>
+  );
+}

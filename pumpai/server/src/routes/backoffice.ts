@@ -11,7 +11,7 @@ import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, getSetting } from "../db.js";
-import { h, parse, tid, requirePerm, can } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
 import { sendDirect } from "../whatsapp/cloud.js";
@@ -30,18 +30,20 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
   const P = [t, since, until] as const;
   const one = (sql: string, ...args: unknown[]) => round2(get(sql, ...(args as []))!.v ?? 0);
   const ins = {
-    shift_cash: one("SELECT COALESCE(SUM(sh.cash_actual),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at > ? AND sh.closed_at <= ?", ...P),
+    shift_cash: one("SELECT COALESCE(SUM(COALESCE(sh.handed_amount, sh.cash_actual)),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at > ? AND sh.closed_at <= ?", ...P),
     khata_cash: one("SELECT COALESCE(SUM(k.amount),0) v FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND LOWER(COALESCE(k.ref,''))='cash' AND k.created_at > ? AND k.created_at <= ?", ...P),
     wholesale_cash: one("SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND type='payment' AND voided=0 AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
     prepaid_cash: round2(one("SELECT COALESCE(SUM(value),0) v FROM fuel_coupons WHERE tenant_id=? AND method='cash' AND sold_at > ? AND sold_at <= ?", ...P)
       + one("SELECT COALESCE(SUM(CASE WHEN type='refund' THEN -amount ELSE amount END),0) v FROM wallet_ledger WHERE tenant_id=? AND type IN ('deposit','refund') AND method='cash' AND created_at > ? AND created_at <= ?", ...P)),
     bank_withdrawals: one("SELECT COALESCE(SUM(-amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at > ? AND created_at <= ?", ...P),
+    other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='in' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
     staff_repaid: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND type IN ('repayment','deduction') AND created_at > ? AND created_at <= ?", ...P),
   };
   const outs = {
     bank_deposits: one("SELECT COALESCE(SUM(amount),0) v FROM bank_deposits WHERE tenant_id=? AND created_at > ? AND created_at <= ?", ...P),
     expenses: one("SELECT COALESCE(SUM(amount),0) v FROM expenses WHERE tenant_id=? AND status='approved' AND method='cash' AND shift_id IS NULL AND created_at > ? AND created_at <= ?", ...P),
     supplier_payments: one("SELECT COALESCE(SUM(amount),0) v FROM supplier_txns WHERE tenant_id=? AND type='payment' AND LOWER(COALESCE(method,''))='cash' AND created_at > ? AND created_at <= ?", ...P),
+    other_cash: one("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE tenant_id=? AND direction='out' AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at > ? AND created_at <= ?", ...P),
     staff_advances: one("SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND created_at > ? AND created_at <= ?", ...P),
   };
   const sum = (o: Record<string, number>) => round2(Object.values(o).reduce((a, b) => a + b, 0));
@@ -52,13 +54,13 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
   };
 }
 
-backoffice.get("/cash", requirePerm("expenses.view"), h((req) => ({
+backoffice.get("/cash", requireAny("expenses.view", "cash.book"), h((req) => ({
   ...cashPosition(tid(req)),
   deposits: all("SELECT d.*, s.name station_name FROM bank_deposits d LEFT JOIN stations s ON s.id=d.station_id WHERE d.tenant_id=? ORDER BY d.id DESC LIMIT 30", tid(req)),
   counts: all(`SELECT c.*, ${proofCol("'cashcount:'||c.id")} FROM cash_counts c WHERE c.tenant_id=? ORDER BY c.id DESC LIMIT 15`, tid(req)),
 })));
 
-backoffice.post("/cash/deposits", requirePerm("expenses.create"), h((req) => {
+backoffice.post("/cash/deposits", requireAny("expenses.create", "cash.book"), h((req) => {
   const b = parse(z.object({ amount: z.number().positive().max(100_000_000), bank: z.string().min(2).max(60).optional().nullable(), account_id: accountIdField, slip_ref: z.string().max(60).optional().nullable(),
     station_id: z.number().optional().nullable(), photo_id: z.number().optional().nullable(), note: z.string().max(200).optional().nullable() }), req.body);
   const accountId = bankAccountFor(tid(req), b.account_id, "bank");
@@ -73,13 +75,16 @@ backoffice.post("/cash/deposits", requirePerm("expenses.create"), h((req) => {
 }));
 
 /** Count the office cash: the difference from what the book says is reported. */
-backoffice.post("/cash/count", requirePerm("expenses.create"), h(async (req) => {
-  const b = parse(z.object({ amount: z.number().min(0).max(100_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
+backoffice.post("/cash/count", requireAny("expenses.create", "cash.book"), h(async (req) => {
+  const b = parse(z.object({ amount: z.number().min(0).max(100_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
+    /** notes counted by denomination: { "5000": 12, "1000": 30, ... } */
+    notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)).optional().nullable() }), req.body);
   const t = tid(req);
   const expected = cashPosition(t);
   // the very first count just sets the starting cash
   const variance = expected.last_count ? round2(b.amount - expected.cash_in_hand) : 0;
-  const cid = run("INSERT INTO cash_counts (tenant_id,amount,expected,variance,note,counted_by,created_at) VALUES (?,?,?,?,?,?,?)", t, b.amount, expected.cash_in_hand, variance, b.note ?? null, req.user!.name, now()).id;
+  const cid = run("INSERT INTO cash_counts (tenant_id,amount,expected,variance,note,counted_by,created_at,notes_json) VALUES (?,?,?,?,?,?,?,?)",
+    t, b.amount, expected.cash_in_hand, variance, b.note ?? null, req.user!.name, now(), b.notes ? JSON.stringify(b.notes) : null).id;
   linkPhotos(t, b.photo_ids, `cashcount:${cid}`);
   if (Math.abs(variance) >= 500) {
     const a = createAlert(t, { type: "cash_count", severity: Math.abs(variance) >= 5000 ? "critical" : "warning",

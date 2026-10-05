@@ -5,12 +5,15 @@ import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
-import { h, parse, tid, requirePerm } from "../auth.js";
+import { h, parse, tid, can } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
 
 export const suppliers = Router();
-suppliers.use("/suppliers", requirePerm("suppliers.manage"));
+// the cashier may pay a supplier (cash.pay) without seeing the rest of the supplier accounts
+suppliers.use("/suppliers", (req, _res, next) =>
+  can(req.user, "suppliers.manage") || (req.method === "POST" && /^\/\d+\/payment$/.test(req.path) && can(req.user, "cash.pay"))
+    ? next() : next(new AppError(403, "You don't have permission for this")));
 
 const OWED_SQL = `CASE type WHEN 'purchase' THEN amount WHEN 'payment' THEN -amount ELSE amount END`;
 

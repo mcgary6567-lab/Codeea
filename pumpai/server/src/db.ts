@@ -70,7 +70,7 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id),
     name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale')),
+    role TEXT NOT NULL CHECK (role IN ('admin','manager','salesman','wholesale','cashier')),
     station_id INTEGER, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   CREATE TABLE IF NOT EXISTS stations (
@@ -464,6 +464,29 @@ export function migrate() {
     cheque_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'in_hand', account_id INTEGER, payment_txn_id INTEGER, bounce_reason TEXT, note TEXT,
     created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
   migrateUserRoles();
+  addCashierRole();
+  // cashier: cheques received from khata customers / others and cheques we issue (wholesale cheques have their own register)
+  db.exec(`CREATE TABLE IF NOT EXISTS cheques (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, direction TEXT NOT NULL, party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL,
+    amount REAL NOT NULL, bank TEXT NOT NULL, cheque_no TEXT NOT NULL, cheque_date TEXT NOT NULL, status TEXT NOT NULL, account_id INTEGER,
+    txn_ref TEXT, reason TEXT, note TEXT, created_by TEXT, created_at TEXT NOT NULL, deposited_at TEXT, cleared_at TEXT, updated_at TEXT NOT NULL)`);
+  // every receipt / payment voucher made at the cashier desk (serial no. for the slip); 'other' cash ones feed the cash book
+  db.exec(`CREATE TABLE IF NOT EXISTS cashier_vouchers (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, direction TEXT NOT NULL, party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL,
+    amount REAL NOT NULL, method TEXT NOT NULL, account_id INTEGER, category TEXT, ref TEXT, note TEXT, src TEXT, voided INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT, created_at TEXT NOT NULL)`);
+  // the cashier takes the cash from the salesman after the shift closes
+  for (const [c, t] of [["handed_amount", "REAL"], ["handed_to", "TEXT"], ["handed_at", "TEXT"], ["handover_note", "TEXT"]]) addColumn("shifts", c, t);
+  addColumn("cash_counts", "notes_json", "TEXT");
+}
+
+/** Allow the cashier role on databases made before it (the users table keeps every column it has today). */
+function addCashierRole() {
+  const ddl = get<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")?.sql ?? "";
+  if (ddl.includes("'cashier'")) return;
+  const indexes = all<{ sql: string }>("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='users' AND sql IS NOT NULL").map((i) => i.sql);
+  const fresh = ddl.replace("'wholesale')", "'wholesale','cashier')").replace(/CREATE TABLE\s+"?users"?/i, "CREATE TABLE users_new");
+  db.exec(`PRAGMA foreign_keys = OFF; BEGIN; ${fresh}; INSERT INTO users_new SELECT * FROM users; DROP TABLE users; ALTER TABLE users_new RENAME TO users; ${indexes.map((x) => x + ";").join(" ")} COMMIT; PRAGMA foreign_keys = ON;`);
 }
 
 /** Add a column to an existing table if it is missing (for databases created by older versions). */

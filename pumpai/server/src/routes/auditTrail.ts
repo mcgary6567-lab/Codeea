@@ -33,7 +33,7 @@ const NAMES: Record<string, string> = {
   integrations: "integrations", backups: "backup", licences: "licence", checklist: "checklist", leaves: "leave", training: "training", loans: "loan",
   claims: "tanker claim", tax: "tax", machines: "machine", "recurring-expenses": "monthly expense", "utility-bills": "utility bill", commission: "commission rates",
   board: "TV board", campaigns: "campaign", orders: "order", complaints: "complaint", automations: "automation", alerts: "alert", bookings: "booking",
-  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", roles: "role rights", system: "system", coaching: "coaching message", bank: "bank",
+  "govt-bills": "government bill", vehicles: "vehicle", cards: "QR card", "day-closes": "closed day", nozzles: "meter", roles: "role rights", system: "system", coaching: "coaching message", bank: "bank", cashier: "cash counter",
 };
 const HIDDEN = new Set(["password", "password_hash", "pin", "pin_hash", "image", "logo", "csv", "data", "token", "anthropic_key", "wa_token", "wa_app_secret", "code"]);
 

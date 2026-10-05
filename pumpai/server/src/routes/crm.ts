@@ -4,7 +4,7 @@ import { z } from "zod";
 import { all, get, run, tx, now, pkStart, pkEnd, pkDate } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
-import { h, parse, tid, requirePerm, can } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, khataEntry, normalizePhone, paymentLink, pkr, recordSale } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
 import { billLink, sendKhataBill, prevMonth } from "../billing.js";
@@ -122,9 +122,10 @@ crm.delete("/customers/:id/vehicles/:vid", requirePerm("customers.edit"), h((req
 }));
 
 /* ---------------- Khata ---------------- */
-crm.post("/customers/:id/khata", requirePerm("khata.manage"), h(async (req) => {
+crm.post("/customers/:id/khata", requireAny("khata.manage", "cash.receive"), h(async (req) => {
   const c = ownCustomer(tid(req), Number(req.params.id));
   const b = parse(z.object({ type: z.enum(["debit", "credit"]), amount: z.number().positive(), note: z.string().optional(), method: z.string().optional(), notify: z.boolean().default(true), photo_ids: proofPhotos, account_id: accountIdField }), req.body);
+  if (b.type === "debit" && !can(req.user, "khata.manage")) throw new AppError(403, "The cashier can only receive payments");
   if (b.type === "credit" && isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
   const updated = khataEntry(c.id, b.type, b.amount, b.method ?? null, b.note ?? null, b.type === "credit" ? bankAccountFor(tid(req), b.account_id, b.method) : null);
   if (b.photo_ids?.length) linkPhotos(tid(req), b.photo_ids, `khata:${get("SELECT MAX(id) id FROM khata_ledger WHERE customer_id=?", c.id)!.id}`);

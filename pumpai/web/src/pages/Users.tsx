@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, Check, X, ShieldCheck, Briefcase, Fuel, Container, KeyRound, Banknote } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { useAuth, ROLE_LABEL } from "../App";
@@ -10,6 +10,7 @@ const ROLE_INFO: Record<string, { icon: any; tone: string; text: string }> = {
   manager: { icon: Briefcase, tone: "blue", text: "Runs daily operations: dashboard, WhatsApp inbox, customers & khata, orders, stock, prices, campaigns, alerts and automations." },
   salesman: { icon: Fuel, tone: "green", text: "Works at one station: records sales on the POS, opens/closes their own shift, looks up customers and sees prices." },
   wholesale: { icon: Container, tone: "amber", text: "Separate access to the wholesale module only: clients, fuel supplies and returns, payments received, dues and statements. Rates are set by the admin." },
+  cashier: { icon: Banknote, tone: "green", text: "The cash counter: money received and paid with vouchers, cheques (received & issued), cash from the salesmen, bank deposits, cash count and day book." },
 };
 
 /** Human-readable names for the permission matrix. */
@@ -26,7 +27,19 @@ const PERM_LABEL: Record<string, string> = {
   "expenses.view": "Expenses: view & reports", "expenses.create": "Expenses: add", "expenses.approve": "Expenses: approve, budgets & categories",
   "audit.view": "Audit log (who changed what)", "shifts.expenses": "Expenses from shift cash",
   "bank.view": "Banks: see balances & statements", "bank.manage": "Banks: add accounts, cash out, transfers",
+  "cashier.desk": "Cashier desk & day book", "cash.book": "Cash book: count cash, bank deposits", "cash.receive": "Cashier: receive payments (vouchers)",
+  "cash.pay": "Cashier: pay suppliers, expenses, staff advances", "cheques.manage": "Cheque register: deposit, clear, bounce", "shifts.handover": "Take cash from salesmen after the shift",
 };
+const PERM_UR: Record<string, string> = {
+  "cashier.desk": "کیشیئر ڈیسک", "cash.book": "کیش بک", "cash.receive": "رقم وصول", "cash.pay": "ادائیگی", "cheques.manage": "چیک رجسٹر", "shifts.handover": "سیلزمین سے کیش",
+  "bank.view": "بینک بیلنس", "bank.manage": "بینک اندراج", "khata.manage": "کھاتہ", "expenses.create": "خرچہ", "suppliers.manage": "سپلائر",
+};
+/** Rights grouped by area for the one-role view (phone friendly). */
+const AREAS: [string, RegExp][] = [
+  ["Cashier & money · کیشیئر", /^(cashier|cash|cheques|bank|shifts\.handover|expenses|suppliers)/], ["Sales & shifts · سیل", /^(sales|shifts|prices)/],
+  ["Customers & khata · گاہک", /^(customers|credit|khata|whatsapp|orders|complaints|campaigns)/], ["Wholesale · ہول سیل", /^wholesale/],
+  ["Stock · سٹاک", /^stock/], ["Staff · عملہ", /^staff/], ["Owner & system · مالک", /./],
+];
 
 type U = { id: number; name: string; email: string; role: string; station_id: number | null; station_name: string | null; active: number; created_at: string; has_pin?: number; pin_locked_until?: string | null };
 
@@ -46,13 +59,14 @@ export default function Users() {
       <PageHeader title="Users & roles" subtitle="Create staff logins and give each one the access their role needs"
         actions={<button className="btn-primary" onClick={() => setEditing({ role: "salesman", station_id: stations.data![0]?.id })}><Plus size={16} /> Add user</button>} />
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {data.roles.map((r: string) => {
           const I = ROLE_INFO[r].icon;
           return (
             <div key={r} className="card p-4">
               <div className="flex items-center gap-2"><I size={18} className="text-slate-600" /><span className="font-semibold">{ROLE_LABEL[r]}</span><Badge tone={ROLE_INFO[r].tone}>{counts[r] ?? 0} {(counts[r] ?? 0) === 1 ? "user" : "users"}</Badge></div>
               <p className="mt-2 text-sm text-slate-600">{ROLE_INFO[r].text}</p>
+              {r !== "admin" && <a href={`#rights-${r}`} onClick={() => setTimeout(() => window.dispatchEvent(new CustomEvent("pumpai:role", { detail: r })), 0)} className="mt-2 inline-block text-sm font-medium text-brand-700 underline">Manage {ROLE_LABEL[r]} access →</a>}
             </div>
           );
         })}
@@ -125,7 +139,7 @@ export function UserForm({ initial, stations, onClose, onSaved }: { initial: Par
         </div>
         <Field label="Role">
           <div className="grid gap-2 sm:grid-cols-2">
-            {["admin", "manager", "salesman", "wholesale"].map((r) => {
+            {["admin", "manager", "salesman", "wholesale", "cashier"].map((r) => {
               const I = ROLE_INFO[r].icon;
               return (
                 <button type="button" key={r} onClick={() => setF({ ...f, role: r })}
@@ -194,6 +208,12 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
   const { refresh } = useAuth();
   const [perms, setPerms] = useState<Record<string, string[]>>(data.permissions);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [one, setOne] = useState<string | null>(() => (location.hash.startsWith("#rights-") ? location.hash.slice(8) : null));
+  useEffect(() => {
+    const pick = (e: Event) => { setOne((e as CustomEvent).detail); document.getElementById("rights")?.scrollIntoView({ behavior: "smooth" }); };
+    window.addEventListener("pumpai:role", pick);
+    return () => window.removeEventListener("pumpai:role", pick);
+  }, []);
   const toast = useToast();
   const { run } = useAction();
   const defaults = data.defaults as Record<string, string[]>;
@@ -210,13 +230,43 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
     finally { setBusyKey(null); }
   };
   return (
-    <div className="card overflow-x-auto">
+    <div id="rights" className="card overflow-x-auto">
       <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
-        <div><h2 className="font-semibold">What each role can do</h2>
+        <div><h2 className="font-semibold">What each role can do · <span lang="ur" className="font-urdu">کون کیا کر سکتا ہے</span></h2>
           <p className="text-xs text-slate-500">Tap a box to give ✓ or take away ✗ a right. Changes work at once (the person may need to refresh). The admin (owner) always has everything.</p></div>
         {changed > 0 && <button className="btn-secondary text-sm" onClick={async () => { if (!confirm("Put every role back to the standard rights?")) return; const r: any = await run(() => api("/roles/permissions/reset", { body: {} }), "Back to the standard rights"); if (r) { setPerms(r.permissions); onChanged(); refresh?.(); } }}>Reset to standard ({changed} changed)</button>}
       </div>
-      <table className="w-full min-w-[640px]">
+      <div className="flex gap-1 overflow-x-auto px-4 pb-2">
+        {[null, ...data.roles.filter((r: string) => r !== "admin")].map((r: string | null) => (
+          <button key={r ?? "all"} type="button" onClick={() => setOne(r)} className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${one === r ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"}`}>{r ? ROLE_LABEL[r] : "All roles (table)"}</button>
+        ))}
+      </div>
+      {one && (
+        <div className="space-y-4 px-4 pb-4">
+          {AREAS.map(([area, re], i) => {
+            const mine = Object.keys(perms).filter((p) => re.test(p) && !AREAS.slice(0, i).some(([, r2]) => r2.test(p)));
+            if (!mine.length) return null;
+            return (
+              <div key={area}>
+                <h3 className="mb-1 text-sm font-semibold text-slate-700">{area}</h3>
+                <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+                  {mine.map((p) => {
+                    const on = perms[p].includes(one);
+                    const isDefault = on === defaults[p].includes(one);
+                    return (
+                      <li key={p}><button type="button" role="switch" aria-checked={on} disabled={busyKey === `${p}|${one}`} onClick={() => flip(p, one)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-slate-50">
+                        <span className="min-w-0 flex-1">{PERM_LABEL[p] ?? p}{PERM_UR[p] && <span lang="ur" className="font-urdu ml-1 text-slate-500">· {PERM_UR[p]}</span>}{!isDefault && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500 align-middle" title="Changed from standard" />}</span>
+                        <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${on ? "left-[22px]" : "left-0.5"}`} /></span>
+                      </button></li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {!one && <table className="w-full min-w-[640px]">
         <thead><tr><th className="th">Permission</th>{data.roles.map((r: string) => <th key={r} className="th text-center">{ROLE_LABEL[r]}</th>)}</tr></thead>
         <tbody>
           {Object.keys(perms).map((p) => (
@@ -240,7 +290,7 @@ function RoleMatrix({ data, onChanged }: { data: any; onChanged: () => void }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table>}
       <p className="p-4 pt-2 text-xs text-slate-500"><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-500 align-middle" /> = changed from the standard. Salesmen only see their own station's sales and their own shifts.</p>
     </div>
   );

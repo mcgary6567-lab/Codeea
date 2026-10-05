@@ -39,16 +39,17 @@ import Accounts from "./pages/Accounts";
 import Setup from "./pages/Setup";
 import Audit from "./pages/Audit";
 import Machines from "./pages/Machines";
+import Cashier from "./pages/Cashier";
 import { loadBranding } from "./lib/brand";
 
 loadBranding().catch(() => {});
 
-type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale"; tenant_id: number; station_id: number | null; station_name: string | null };
+type User = { id: number; name: string; email: string; role: "admin" | "manager" | "salesman" | "wholesale" | "cashier"; tenant_id: number; station_id: number | null; station_name: string | null };
 type Auth = {
   user: User | null; tenant: { id: number; name: string } | null; permissions: string[];
   can: (perm: string) => boolean; login: (token: string) => Promise<void>; logout: () => void; refresh: () => Promise<void>;
 };
-export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer" };
+export const ROLE_LABEL: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale Officer", cashier: "Cashier" };
 const AuthCtx = createContext<Auth>(null as unknown as Auth);
 export const useAuth = () => useContext(AuthCtx);
 
@@ -91,7 +92,7 @@ function Protected({ children }: { children: ReactNode }) {
 /** Route guard: shows a friendly "no access" page instead of the screen. */
 function Need({ perm, children }: { perm: string; children: ReactNode }) {
   const { can, user } = useAuth();
-  if (can(perm)) return <>{children}</>;
+  if (perm.split("|").some(can)) return <>{children}</>;
   return (
     <div className="card mx-auto mt-10 max-w-md p-6 text-center">
       <div className="text-4xl">🔒</div>
@@ -105,7 +106,7 @@ function Need({ perm, children }: { perm: string; children: ReactNode }) {
 function Home() {
   const { can } = useAuth();
   if (can("dashboard.view")) return <Dashboard />;
-  return <Navigate to={can("wholesale.view") ? "/wholesale" : "/pos"} replace />;
+  return <Navigate to={can("wholesale.view") ? "/wholesale" : can("cashier.desk") ? "/cashier" : "/pos"} replace />;
 }
 
 export default function App() {
@@ -141,7 +142,8 @@ export default function App() {
               <Route path="settings" element={<Need perm="settings.manage"><SettingsPage /></Need>} />
               <Route path="staff" element={<Need perm="staff.manage"><Staff /></Need>} />
               <Route path="my-account" element={<MyAccount />} />
-              <Route path="cash" element={<Need perm="expenses.view"><Cash /></Need>} />
+              <Route path="cash" element={<Need perm="expenses.view|cash.book"><Cash /></Need>} />
+              <Route path="cashier" element={<Need perm="cashier.desk"><Cashier /></Need>} />
               <Route path="shop" element={<Need perm="stock.manage"><Shop /></Need>} />
               <Route path="compliance" element={<Need perm="alerts.view"><Compliance /></Need>} />
               <Route path="checklist" element={<Need perm="sales.create"><ChecklistPage /></Need>} />

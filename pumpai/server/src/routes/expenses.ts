@@ -2,7 +2,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { all, get, run, now, pkDate, getSetting, setSetting } from "../db.js";
-import { h, parse, tid, requirePerm, can } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
 import { AppError, createAlert, pkr, round2 } from "../services.js";
 import { linkPhotos } from "./capture.js";
@@ -38,7 +38,7 @@ function checkBudget(t: number, category: string, month: string) {
 }
 
 /* ---------------- Categories & settings ---------------- */
-expenses.get("/expense-categories", requirePerm("expenses.view"), h((req) => {
+expenses.get("/expense-categories", requireAny("expenses.view", "cash.pay"), h((req) => {
   ensureCategories(tid(req));
   return { categories: all("SELECT * FROM expense_categories WHERE tenant_id=? ORDER BY name", tid(req)), approval_limit: approvalLimit(tid(req)) };
 }));
@@ -122,7 +122,7 @@ expenses.get("/expenses.csv", requirePerm("expenses.view"), (req, res, next) => 
 });
 
 /* ---------------- Create / edit / approve ---------------- */
-const body = z.object({
+export const expenseBody = z.object({
   category: z.string().min(2), amount: z.number().positive(), paid_to: z.string().optional().nullable(),
   method: z.enum(["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"]).default("cash"),
   note: z.string().optional().nullable(), receipt_ref: z.string().optional().nullable(),
@@ -130,9 +130,11 @@ const body = z.object({
   photo_id: z.number().optional().nullable(), account_id: accountIdField,
 });
 
-expenses.post("/expenses", requirePerm("expenses.create"), h(async (req) => {
+expenses.post("/expenses", requireAny("expenses.create", "cash.pay"), h((req) => createExpense(req, parse(expenseBody, req.body))));
+
+/** Book an expense (approved at once up to the approval limit, else sent to the owner). Also used by the cashier desk. */
+export async function createExpense(req: Request, b: z.infer<typeof expenseBody>) {
   const t = tid(req);
-  const b = parse(body, req.body);
   if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", t, b.category)) throw new AppError(400, "Unknown category");
   if (b.station_id && !get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, t)) throw new AppError(400, "Station not found");
   const autoApprove = can(req.user, "expenses.approve") || b.amount <= approvalLimit(t);
@@ -151,8 +153,8 @@ expenses.post("/expenses", requirePerm("expenses.create"), h(async (req) => {
       body: `Entered by ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}` });
     await requestApproval(t, "expense", id, `💸 Expense ${pkr(b.amount)} — ${b.category}\nBy ${req.user!.name}${b.paid_to ? ` · paid to ${b.paid_to}` : ""}${b.note ? ` · ${b.note}` : ""}`);
   }
-  return get("SELECT * FROM expenses WHERE id=?", id);
-}));
+  return get("SELECT * FROM expenses WHERE id=?", id)!;
+}
 
 function ownExpense(req: Request) {
   const e = get("SELECT * FROM expenses WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));
@@ -164,7 +166,7 @@ function ownExpense(req: Request) {
 
 expenses.patch("/expenses/:id", requirePerm("expenses.create"), h((req) => {
   const e = ownExpense(req);
-  const b = parse(body.partial(), req.body);
+  const b = parse(expenseBody.partial(), req.body);
   const m = { ...e, ...b };
   guardClosedDay(req, tid(req), e.expense_date);
   guardClosedDay(req, tid(req), m.expense_date);

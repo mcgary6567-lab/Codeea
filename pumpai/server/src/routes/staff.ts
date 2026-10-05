@@ -9,13 +9,16 @@ import { commissionForMonth } from "./feedback.js";
 import { loanDue, loansOf, takeInstalments, saveSlip, slipUrl } from "./people.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
-import { h, parse, tid, requirePerm } from "../auth.js";
+import { h, parse, tid, can } from "../auth.js";
 import { AppError, round2, pkr } from "../services.js";
 import { notify } from "../notifications.js";
 import { attendanceMonth } from "./compliance.js";
 
 export const staffRouter = Router();
-staffRouter.use("/staff", requirePerm("staff.manage"));
+// the cashier may hand out a staff advance (cash.pay); everything else here is the manager's
+staffRouter.use("/staff", (req, _res, next) =>
+  can(req.user, "staff.manage") || (req.method === "POST" && /^\/\d+\/entry$/.test(req.path) && can(req.user, "cash.pay"))
+    ? next() : next(new AppError(403, "You don't have permission for this")));
 
 const OWES = "CASE WHEN type IN ('advance','shortage') THEN amount WHEN type IN ('repayment','deduction') THEN -amount ELSE 0 END";
 export const staffBalance = (userId: number) => round2(get(`SELECT COALESCE(SUM(${OWES}),0) b FROM staff_ledger WHERE user_id=?`, userId)!.b);
@@ -61,6 +64,7 @@ staffRouter.patch("/staff/:id", h((req) => {
 staffRouter.post("/staff/:id/entry", h(async (req) => {
   const u = ownUser(tid(req), Number(req.params.id));
   const b = parse(z.object({ type: z.enum(["advance", "repayment", "bonus", "shortage", "deduction"]), amount: z.number().positive().max(10_000_000), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos }), req.body);
+  if (b.type !== "advance" && !can(req.user, "staff.manage")) throw new AppError(403, "The cashier can only give an advance");
   if (["repayment", "deduction"].includes(b.type) && b.amount > staffBalance(u.id) + 0.01) throw new AppError(400, `${u.name} owes only ${pkr(staffBalance(u.id))}`);
   const lid = run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", tid(req), u.id, b.type, b.amount, b.note ?? null, req.user!.name, now()).id;
   linkPhotos(tid(req), b.photo_ids, `staff:${lid}`);

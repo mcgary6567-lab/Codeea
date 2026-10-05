@@ -7,7 +7,7 @@ import { ErrorBox } from "../components/ui";
 import { useBranding, useInstallPrompt } from "../lib/brand";
 
 const ROLE: Record<string, string> = { admin: "Admin (CEO)", manager: "Manager", salesman: "Salesman", wholesale: "Wholesale" };
-const ROLE_TONE: Record<string, string> = { salesman: "bg-emerald-500", manager: "bg-blue-500", wholesale: "bg-violet-500", admin: "bg-slate-700" };
+const ROLE_TONE: Record<string, string> = { salesman: "bg-emerald-500", manager: "bg-blue-500", wholesale: "bg-violet-500", cashier: "bg-amber-500", admin: "bg-slate-700" };
 
 export default function Login() {
   const { user, login } = useAuth();
