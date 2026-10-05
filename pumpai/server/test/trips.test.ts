@@ -81,3 +81,23 @@ test("wholesale fleet: tankers and drivers on file; one tanker trip drops fuel a
   assert.equal(one.data.vehicle_no, "TST-100"); assert.equal(one.data.driver_name, "Test Driver"); assert.equal(one.data.location, "Pattoki");
 });
 function ok(r: { status: number; data: any }) { assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; }
+
+test("wholesale dashboard: KPIs, 30-day trend, ageing, client health and suggestions", async () => {
+  const r = await call("wholesale", "GET", "/api/wholesale/dashboard");
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const dsh = r.data;
+  assert.equal(dsh.daily.length, 30); assert.equal(dsh.weekly.length, 8);
+  assert.ok(dsh.kpi.month_litres >= 0 && typeof dsh.kpi.total_due === "number");
+  const ageSum = Object.values(dsh.ageing).reduce((a: number, b: any) => a + b, 0) as number;
+  const dueSum = dsh.clients.reduce((a: number, c: any) => a + Math.max(0, c.due), 0);
+  assert.ok(Math.abs(ageSum - dueSum) < 5, `ageing ${ageSum} = due ${dueSum}`);
+  assert.ok(dsh.clients.every((c: any) => ["green", "amber", "red"].includes(c.health)));
+  // the driver with the expired licence from the first test is flagged
+  assert.ok(dsh.suggestions.some((x: any) => /Test Driver: licence expired/.test(x.title)));
+  // a client at the limit gets a "collect payment" suggestion
+  const c = dsh.clients[0];
+  await call("admin", "PATCH", `/api/wholesale/clients/${c.id}`, { credit_limit: Math.max(1, Math.round(c.due / 0.9)) });
+  const again = (await call("wholesale", "GET", "/api/wholesale/dashboard")).data;
+  assert.ok(again.suggestions.some((x: any) => x.action?.kind === "payment" && x.action.client_id === c.id));
+  assert.equal((await call("manager", "GET", "/api/wholesale/dashboard")).status, 403);
+});

@@ -117,6 +117,133 @@ wholesale.get("/wholesale/summary", h((req) => {
   };
 }));
 
+/* ---------------- Dashboard: KPIs, trends, ageing and suggestions ---------------- */
+const DAYMS = 86_400_000;
+/** How old the unpaid amount is: the due is matched to the newest supplies first (oldest bills count as paid first). */
+function ageing(clientId: number, due: number, nowMs: number) {
+  const buckets = { d0_15: 0, d16_30: 0, d31_60: 0, d60: 0 };
+  let left = due, oldest = 0;
+  if (left <= 0) return { buckets, oldest_days: 0 };
+  for (const s of all("SELECT amount, txn_date FROM wholesale_txns WHERE client_id=? AND type='supply' AND voided=0 ORDER BY txn_date DESC, id DESC", clientId)) {
+    const part = Math.min(left, s.amount), days = Math.floor((nowMs - Date.parse(s.txn_date)) / DAYMS);
+    buckets[days <= 15 ? "d0_15" : days <= 30 ? "d16_30" : days <= 60 ? "d31_60" : "d60"] += part;
+    oldest = days; left -= part;
+    if (left <= 0.01) break;
+  }
+  if (left > 0.01) { buckets.d60 += left; oldest = Math.max(oldest, 61); } // opening balance / older than any supply
+  return { buckets, oldest_days: oldest };
+}
+
+wholesale.get("/wholesale/dashboard", h((req) => {
+  const t = tid(req), nowMs = Date.now(), today = pkDate();
+  const monthStart = new Date(today.slice(0, 7) + "-01T00:00:00+05:00");
+  const dayOfMonth = Number(today.slice(8, 10));
+  const lastMonthStart = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() - 1, 1) - 5 * 3600_000);
+  const lastMonthSameDay = new Date(lastMonthStart.getTime() + dayOfMonth * DAYMS);
+  const period = (from: Date, to: Date) => get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) litres, COALESCE(SUM(CASE WHEN type='supply' THEN amount END),0) billed,
+      COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received, COUNT(CASE WHEN type='supply' THEN 1 END) supplies
+    FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ? AND txn_date < ?`, t, from.toISOString(), to.toISOString())!;
+  const mtd = period(monthStart, new Date(nowMs + 1000)), lastMtd = period(lastMonthStart, lastMonthSameDay);
+  const pct = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+  const cost: Record<string, number | null> = Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p, lastCost(t, p)]));
+  const monthSupplies = all("SELECT client_id, product, litres, rate, amount FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ?", t, monthStart.toISOString());
+  const withCost = monthSupplies.filter((x) => cost[x.product] != null);
+  const profit = withCost.reduce((a, x) => a + x.litres * (x.rate - cost[x.product]!), 0);
+  const costedL = withCost.reduce((a, x) => a + x.litres, 0);
+
+  // clients: due, limit, ageing, ordering rhythm, margin
+  const clients = all("SELECT * FROM wholesale_clients WHERE tenant_id=? AND active=1 ORDER BY name", t).map((c) => {
+    const due = clientDue(c.id);
+    const ag = ageing(c.id, due, nowMs);
+    const sup = all("SELECT txn_date FROM wholesale_txns WHERE client_id=? AND type='supply' AND voided=0 AND txn_date >= ? ORDER BY txn_date", c.id, new Date(nowMs - 60 * DAYMS).toISOString()).map((x) => Date.parse(x.txn_date));
+    const gaps = sup.slice(1).map((x, i) => (x - sup[i]) / DAYMS);
+    const usual = gaps.length >= 2 ? Math.round((gaps.reduce((a, b) => a + b, 0) / gaps.length) * 10) / 10 : null;
+    const last = get("SELECT MAX(CASE WHEN type='supply' THEN txn_date END) ls, MAX(CASE WHEN type='payment' THEN txn_date END) lp FROM wholesale_txns WHERE client_id=? AND voided=0", c.id)!;
+    const mine = monthSupplies.filter((x) => x.client_id === c.id);
+    const card = rateCard(c.id);
+    const margins = Object.entries(card).filter(([, r]) => r.margin != null).map(([p, r]) => ({ product: p, margin: r.margin!, rate: r.rate }));
+    const days = (iso: string | null) => (iso ? Math.floor((nowMs - Date.parse(iso)) / DAYMS) : null);
+    const limitPct = c.credit_limit > 0 ? Math.round((due / c.credit_limit) * 100) : null;
+    const health = (limitPct ?? 0) >= 90 || ag.oldest_days > 60 ? "red" : (limitPct ?? 0) >= 75 || ag.oldest_days > 30 ? "amber" : "green";
+    return {
+      id: c.id, name: c.name, city: c.city, phone: c.phone, credit_limit: c.credit_limit, due: round2(due), limit_pct: limitPct, ageing: ag.buckets, oldest_days: ag.oldest_days,
+      month_l: Math.round(mine.reduce((a, x) => a + x.litres, 0)), month_billed: Math.round(mine.reduce((a, x) => a + x.amount, 0)),
+      last_supply_days: days(last.ls), last_payment_days: days(last.lp), usual_gap_days: usual, margins, health,
+    };
+  });
+  const ageTotals = clients.reduce((a, c) => { for (const k of Object.keys(a) as (keyof typeof a)[]) a[k] += c.ageing[k]; return a; }, { d0_15: 0, d16_30: 0, d31_60: 0, d60: 0 });
+
+  // trends: daily litres by product (30 days) and weekly billed vs received (8 weeks)
+  const from30 = new Date(Date.parse(today + "T00:00:00+05:00") - 29 * DAYMS);
+  const dayRows = all(`SELECT strftime('%Y-%m-%d', txn_date, '+5 hours') d, product, SUM(litres) l FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND txn_date >= ? GROUP BY d, product`, t, from30.toISOString());
+  const daily = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(from30.getTime() + i * DAYMS + 5 * 3600_000).toISOString().slice(0, 10);
+    return { day: d, ...Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p, Math.round(dayRows.find((r) => r.d === d && r.product === p)?.l ?? 0)])) };
+  });
+  const weekStart = (ms: number) => { const dd = new Date(ms + 5 * 3600_000); const back = (dd.getUTCDay() + 6) % 7; return Date.parse(dd.toISOString().slice(0, 10) + "T00:00:00+05:00") - back * DAYMS; };
+  const w0 = weekStart(nowMs) - 7 * 7 * DAYMS;
+  const wkRows = all(`SELECT txn_date, type, amount FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type IN ('supply','payment') AND txn_date >= ?`, t, new Date(w0).toISOString());
+  const weekly = Array.from({ length: 8 }, (_, i) => {
+    const a = w0 + i * 7 * DAYMS, b = a + 7 * DAYMS;
+    const rows = wkRows.filter((r) => { const x = Date.parse(r.txn_date); return x >= a && x < b; });
+    return { week: new Date(a + 5 * 3600_000).toISOString().slice(5, 10), billed: Math.round(rows.filter((r) => r.type === "supply").reduce((s, r) => s + r.amount, 0)), received: Math.round(rows.filter((r) => r.type === "payment").reduce((s, r) => s + r.amount, 0)) };
+  });
+
+  /* ---------- suggestions: what to do today, most urgent first ---------- */
+  type Sug = { level: "critical" | "warning" | "info" | "good"; title: string; detail: string; action?: { kind: string; client_id?: number; label: string } };
+  const sug: Sug[] = [];
+  for (const c of clients) {
+    if (c.limit_pct != null && c.limit_pct >= 80)
+      sug.push({ level: c.limit_pct >= 95 ? "critical" : "warning", title: `${c.name}: ${c.limit_pct}% of credit limit used`, detail: `Due ${pkr(c.due)} of ${pkr(c.credit_limit)}. Collect a payment before the next supply.`, action: { kind: "payment", client_id: c.id, label: "Receive payment" } });
+    if (c.oldest_days > 30 && c.due > 0)
+      sug.push({ level: c.oldest_days > 60 ? "critical" : "warning", title: `${c.name}: bills unpaid for ${c.oldest_days} days`, detail: `${pkr(c.ageing.d31_60 + c.ageing.d60)} is older than 30 days. Send the statement and call.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
+    else if (c.due > 50_000 && (c.last_payment_days == null || c.last_payment_days >= 15))
+      sug.push({ level: "warning", title: `${c.name}: no payment for ${c.last_payment_days ?? "many"} days`, detail: `Due ${pkr(c.due)}. A reminder now keeps it from getting old.`, action: { kind: "statement", client_id: c.id, label: "WhatsApp statement" } });
+    if (c.usual_gap_days && c.last_supply_days != null && c.last_supply_days > Math.max(3, c.usual_gap_days * 2))
+      sug.push({ level: "info", title: `${c.name} has not ordered for ${c.last_supply_days} days`, detail: `Usually orders every ${c.usual_gap_days} days. Call — they may be buying elsewhere.`, action: { kind: "open", client_id: c.id, label: "Open client" } });
+    for (const m of c.margins) if (m.margin < 1)
+      sug.push({ level: m.margin < 0 ? "critical" : "warning", title: `${c.name}: ${PRODUCTS[m.product]} margin only Rs ${m.margin.toFixed(2)}/L`, detail: `Their rate Rs ${m.rate} vs our last purchase cost. Review the rate.`, action: { kind: "rates", client_id: c.id, label: "Review rate" } });
+  }
+  for (const c of clients) {
+    const fixed = Object.entries(rateCard(c.id)).filter(([, r]) => r.mode === "fixed").map(([p]) => PRODUCTS[p]);
+    if (fixed.length && c.month_l > 0)
+      sug.push({ level: "info", title: `${c.name}: fixed rate for ${fixed.join(", ")}`, detail: "A pump-linked rate (pump price − Rs X) changes by itself with every OGRA price change, so your margin stays the same.", action: { kind: "rates", client_id: c.id, label: "Change rate" } });
+  }
+  const top = [...clients].sort((a, b) => b.month_l - a.month_l)[0];
+  if (top?.month_l) sug.push({ level: "good", title: `Top client this month: ${top.name}`, detail: `${top.month_l.toLocaleString()} L so far. Keep them happy — a thank-you call or a small discount on big loads.`, action: { kind: "open", client_id: top.id, label: "Open client" } });
+  // stock for the next 3 days of wholesale
+  for (const p of Object.keys(PRODUCTS)) {
+    const avg = (get("SELECT COALESCE(SUM(litres),0) l FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='supply' AND product=? AND txn_date >= ?", t, p, new Date(nowMs - 14 * DAYMS).toISOString())!.l as number) / 14;
+    const stock = get("SELECT COALESCE(SUM(t.current_l),0) l FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND t.product=?", t, p)!.l as number;
+    if (avg > 0 && stock < avg * 3)
+      sug.push({ level: "warning", title: `${PRODUCTS[p]} stock covers only ${Math.max(0, Math.floor(stock / avg))} days of wholesale`, detail: `${Math.round(stock).toLocaleString()} L in tanks; wholesale takes about ${Math.round(avg).toLocaleString()} L a day (plus pump sales). Order a tanker.` });
+  }
+  // fleet
+  for (const d of all("SELECT name, licence_expiry FROM drivers WHERE tenant_id=? AND active=1 AND licence_expiry IS NOT NULL AND licence_expiry <= ?", t, new Date(nowMs + 30 * DAYMS).toISOString().slice(0, 10)))
+    sug.push({ level: d.licence_expiry < today ? "critical" : "warning", title: `Driver ${d.name}: licence ${d.licence_expiry < today ? "expired" : "expires"} ${d.licence_expiry}`, detail: "Do not send this driver on a trip until the licence is renewed.", action: { kind: "fleet", label: "Drivers" } });
+  const fill = get(`SELECT AVG(tr.litres / tk.capacity_l) f, COUNT(*) n FROM wholesale_trips tr JOIN tankers tk ON tk.id=tr.tanker_id
+    WHERE tr.tenant_id=? AND tk.capacity_l > 0 AND tr.trip_date >= ?`, t, new Date(nowMs - 30 * DAYMS).toISOString())!;
+  if (fill.n >= 3 && fill.f < 0.6)
+    sug.push({ level: "info", title: `Tankers leave only ${Math.round(fill.f * 100)}% full on average`, detail: "Combine nearby clients into one tanker trip to save diesel and driver time.", action: { kind: "trip", label: "Plan a trip" } });
+  const order = { critical: 0, warning: 1, info: 2, good: 3 };
+  sug.sort((a, b) => order[a.level] - order[b.level]);
+
+  const totalDue = round2(clients.reduce((a, c) => a + c.due, 0));
+  return {
+    kpi: {
+      total_due: totalDue, overdue_30: Math.round(ageTotals.d31_60 + ageTotals.d60),
+      month_litres: Math.round(mtd.litres), month_litres_change: pct(mtd.litres, lastMtd.litres),
+      month_billed: Math.round(mtd.billed), month_received: Math.round(mtd.received), month_received_change: pct(mtd.received, lastMtd.received),
+      collection_pct: mtd.billed > 0 ? Math.round((mtd.received / mtd.billed) * 100) : null,
+      profit_estimate: costedL ? Math.round(profit) : null, margin_per_l: costedL ? round2(profit / costedL) : null,
+      today: get(`SELECT COALESCE(SUM(CASE WHEN type='supply' THEN litres END),0) litres, COALESCE(SUM(CASE WHEN type='payment' THEN amount END),0) received FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND txn_date >= ?`, t, pkDayStart()),
+      trips_month: get("SELECT COUNT(*) n FROM wholesale_trips WHERE tenant_id=? AND trip_date >= ?", t, monthStart.toISOString())!.n,
+    },
+    ageing: Object.fromEntries(Object.entries(ageTotals).map(([k, v]) => [k, Math.round(v)])),
+    daily, weekly, clients, suggestions: sug.slice(0, 12),
+  };
+}));
+
 /* ---------------- Clients ---------------- */
 wholesale.get("/wholesale/clients", h((req) => {
   const q = `%${String(req.query.q ?? "").trim()}%`;
