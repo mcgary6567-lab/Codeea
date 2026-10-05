@@ -81,7 +81,23 @@ function ClientsTable({ onAdd }: { onAdd: () => void }) {
         {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
       </div>
       {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
-      <div className="overflow-x-auto">
+      <ul className="divide-y divide-slate-100 sm:hidden">
+        {(list.data ?? []).map((c) => {
+          const used = c.credit_limit ? Math.min(100, (c.due / c.credit_limit) * 100) : 0;
+          return (
+            <li key={c.id} className={`cursor-pointer space-y-1.5 p-3 active:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0"><div className="truncate font-medium">{c.name}</div><div className="truncate text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></div>
+                <div className="shrink-0 text-right"><div className={`font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</div><div className="text-[11px] text-slate-500">Due · <span lang="ur" className="font-urdu">بقایا</span></div></div>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <span key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b></span>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set · <span lang="ur" className="font-urdu">ریٹ نہیں</span></span>}</div>
+              {c.credit_limit > 0 && <div className="flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${used}%`, background: used >= 90 ? "#e34948" : "#2a78d6" }} /></div><span className="shrink-0 text-[11px] text-slate-500">{Math.round(used)}% of {pkrShort(c.credit_limit)}</span></div>}
+              <div className="flex justify-between text-[11px] text-slate-500"><span>{num(c.month_l)} L this month</span><span>Supply {ago(c.last_supply)} · Paid {ago(c.last_payment)}</span></div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full">
           <thead><tr><th className="th">Client</th><th className="th">Rates (per litre)</th><th className="th text-right">This month</th><th className="th text-right">Due</th><th className="th">Limit used</th><th className="th">Last supply</th><th className="th">Last payment</th></tr></thead>
           <tbody>

@@ -166,14 +166,14 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
             <div><b>{dt(data.trip_date)}</b> · {PRODUCTS[data.product]} from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</div>
             <div>🚛 <b>{data.vehicle_no ?? "—"}</b> · 👤 {data.driver_name ?? "—"}{data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}{data.driver_cnic ? ` · CNIC ${data.driver_cnic}` : ""}{data.driver_licence ? ` · licence ${data.driver_licence}` : ""}</div>
           </div>
-          <table className="w-full"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th><th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
+          <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th><th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
             <tbody>{data.drops.map((x: any, i: number) => (
               <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}><td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
                 <td className="td">{x.location ?? "—"}</td><td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
                 <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref} <ProofThumbs ids={x.proof_ids} /></td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
             ))}</tbody>
             <tfoot><tr className="font-semibold"><td className="td" colSpan={3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
-          </table>
+          </table></div>
           {data.note && <p className="text-slate-600">Note: {data.note}</p>}
           {data.proof_ids && <div className="flex items-center gap-2 text-slate-600">Photos: <ProofThumbs ids={data.proof_ids} /></div>}
           <p className="text-xs text-slate-500">Entered by {data.created_by}. To cancel one drop, void it in that client's statement — stock goes back to the tank.</p>
@@ -190,8 +190,14 @@ export function TripsTab({ onNew }: { onNew?: () => void }) {
   if (!data) return <Loading />;
   return (
     <div className="card">
-      <div className="flex items-center justify-between p-4 pb-2"><h2 className="font-semibold">Tanker trips</h2>{onNew && <button className="btn-primary" onClick={onNew}><Truck size={15} /> New tanker trip</button>}</div>
-      <div className="overflow-x-auto"><table className="w-full">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2"><h2 className="font-semibold">Tanker trips · <span lang="ur" className="font-urdu">ٹینکر ٹرپ</span></h2>{onNew && <button className="btn-primary" onClick={onNew}><Truck size={15} /> New trip · <span lang="ur" className="font-urdu">نیا ٹرپ</span></button>}</div>
+      <ul className="divide-y divide-slate-100 sm:hidden">{data.map((t) => (
+        <li key={t.id} className="cursor-pointer space-y-1 px-4 py-3 active:bg-slate-50" onClick={() => setOpen(t.id)}>
+          <div className="flex justify-between gap-2"><span className="font-medium">#{t.id} · {t.vehicle_no ?? "—"}</span><span className="font-semibold tabular-nums">{pkr(t.amount)}</span></div>
+          <div className="flex justify-between gap-2 text-xs text-slate-500"><span className="truncate">{dt(t.trip_date)} · {t.driver_name ?? "—"}</span><span className="shrink-0">{PRODUCTS[t.product]} · {num(t.litres)} L · {t.drops} drops</span></div>
+        </li>
+      ))}</ul>
+      <div className="hidden overflow-x-auto sm:block"><table className="w-full">
         <thead><tr><th className="th">Trip</th><th className="th">Date</th><th className="th">Tanker</th><th className="th">Driver</th><th className="th">Product</th><th className="th text-right">Litres</th><th className="th text-right">Drops</th><th className="th text-right">Billed</th></tr></thead>
         <tbody>{data.map((t) => (
           <tr key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setOpen(t.id)}>
@@ -199,7 +205,7 @@ export function TripsTab({ onNew }: { onNew?: () => void }) {
             <td className="td">{PRODUCTS[t.product]}</td><td className="td text-right tabular-nums">{num(t.litres)} L</td><td className="td text-right">{t.drops}</td><td className="td text-right tabular-nums">{pkr(t.amount)}</td>
           </tr>
         ))}</tbody>
-      </table>{!data.length && <Empty>No tanker trips yet. One trip can drop fuel at several clients — each at their own rate.</Empty>}</div>
+      </table></div>{!data.length && <Empty>No tanker trips yet · ابھی کوئی ٹرپ نہیں. One trip can drop fuel at several clients — each at their own rate.</Empty>}
       {open && <TripSheet id={open} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -216,8 +222,19 @@ export function FleetTab({ start }: { start?: "tanker" | "driver" | null }) {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <div className="card">
-        <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><Truck size={17} /> Tankers ({data.tankers.length})</h2>{edit && <button className="btn-secondary" onClick={() => setTk({})}><Plus size={15} /> Add tanker</button>}</div>
-        <table className="w-full"><thead><tr><th className="th">Number</th><th className="th text-right">Capacity</th><th className="th">Usual driver</th><th className="th">Last trip</th><th className="th" /></tr></thead>
+        <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 whitespace-nowrap font-semibold"><Truck size={17} /> Tankers · <span lang="ur" className="font-urdu">ٹینکر</span> ({data.tankers.length})</h2>{edit && <button className="btn-secondary whitespace-nowrap" onClick={() => setTk({})}><Plus size={15} /> Add · <span lang="ur" className="font-urdu">شامل کریں</span></button>}</div>
+        <ul className="divide-y divide-slate-100 sm:hidden">{data.tankers.map((t: any) => (
+          <li key={t.id} className={`flex items-start gap-3 px-4 py-3 ${t.active ? "" : "opacity-50"}`}>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{t.number} {t.ownership === "hired" && <Badge tone="amber">hired</Badge>}</div>
+              <div className="text-xs text-slate-500">{t.capacity_l ? `${num(t.capacity_l)} L` : "—"}{t.chambers ? ` · ${t.chambers} chambers` : ""} · 👤 {t.driver_name ?? "—"}</div>
+              {t.owner_name && <div className="text-xs text-slate-500">Owner: {t.owner_name}{t.owner_phone ? ` · ${t.owner_phone}` : ""}</div>}
+              <div className="text-[11px] text-slate-400">Last trip {t.last_trip ? d(t.last_trip) : "—"}</div>
+            </div>
+            {edit && <button className="p-1 text-slate-400" onClick={() => setTk(t)} aria-label={`Edit ${t.number}`}><Pencil size={16} /></button>}
+          </li>
+        ))}</ul>
+        <table className="hidden w-full sm:table"><thead><tr><th className="th">Number</th><th className="th text-right">Capacity</th><th className="th">Usual driver</th><th className="th">Last trip</th><th className="th" /></tr></thead>
           <tbody>{data.tankers.map((t: any) => (
             <tr key={t.id} className={t.active ? "" : "opacity-50"}><td className="td font-medium">{t.number} {t.ownership === "hired" && <Badge tone="amber">hired</Badge>}{t.owner_name && <div className="text-xs text-slate-500">{t.owner_name}{t.owner_phone ? ` · ${t.owner_phone}` : ""}</div>}</td>
               <td className="td text-right tabular-nums">{t.capacity_l ? `${num(t.capacity_l)} L` : "—"}{t.chambers ? <div className="text-xs text-slate-500">{t.chambers} chambers</div> : null}</td>
@@ -227,8 +244,19 @@ export function FleetTab({ start }: { start?: "tanker" | "driver" | null }) {
         {!data.tankers.length && <Empty>No tankers on file yet</Empty>}
       </div>
       <div className="card">
-        <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 font-semibold"><UserRound size={17} /> Drivers ({data.drivers.length})</h2>{edit && <button className="btn-secondary" onClick={() => setDr({})}><Plus size={15} /> Add driver</button>}</div>
-        <table className="w-full"><thead><tr><th className="th">Driver</th><th className="th">CNIC</th><th className="th">Licence</th><th className="th">Last trip</th><th className="th" /></tr></thead>
+        <div className="flex items-center justify-between p-4 pb-2"><h2 className="flex items-center gap-2 whitespace-nowrap font-semibold"><UserRound size={17} /> Drivers · <span lang="ur" className="font-urdu">ڈرائیور</span> ({data.drivers.length})</h2>{edit && <button className="btn-secondary whitespace-nowrap" onClick={() => setDr({})}><Plus size={15} /> Add · <span lang="ur" className="font-urdu">شامل کریں</span></button>}</div>
+        <ul className="divide-y divide-slate-100 sm:hidden">{data.drivers.map((x: any) => (
+          <li key={x.id} className={`flex items-start gap-3 px-4 py-3 ${x.active ? "" : "opacity-50"}`}>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{x.name}{x.phone && <span className="ml-2 text-xs font-normal text-slate-500">{phone(x.phone)}</span>}</div>
+              <div className="text-xs text-slate-500">CNIC {x.cnic ?? "—"} · Licence {x.licence_no ?? "—"}</div>
+              {x.licence_expiry && <div className={`text-xs ${x.licence_expired ? "font-semibold text-red-600" : "text-slate-500"}`}>{x.licence_expired ? "Licence expired · لائسنس ختم " : "Valid till "}{x.licence_expiry}</div>}
+              <div className="text-[11px] text-slate-400">Last trip {x.last_trip ? d(x.last_trip) : "—"}</div>
+            </div>
+            {edit && <button className="p-1 text-slate-400" onClick={() => setDr(x)} aria-label={`Edit ${x.name}`}><Pencil size={16} /></button>}
+          </li>
+        ))}</ul>
+        <table className="hidden w-full sm:table"><thead><tr><th className="th">Driver</th><th className="th">CNIC</th><th className="th">Licence</th><th className="th">Last trip</th><th className="th" /></tr></thead>
           <tbody>{data.drivers.map((x: any) => (
             <tr key={x.id} className={x.active ? "" : "opacity-50"}><td className="td font-medium">{x.name}{x.phone && <div className="text-xs text-slate-500">{phone(x.phone)}</div>}</td>
               <td className="td text-xs">{x.cnic ?? "—"}</td>
@@ -251,21 +279,21 @@ function TankerForm({ initial, drivers, onClose, onSaved }: { initial: any; driv
   const body = useMemo(() => ({ number: f.number, capacity_l: f.capacity_l ? Number(f.capacity_l) : null, chambers: f.chambers ? Number(f.chambers) : null, ownership: f.ownership,
     owner_name: f.owner_name || null, owner_phone: f.owner_phone || null, driver_id: f.driver_id ? Number(f.driver_id) : null, notes: f.notes || null, active: f.active }), [f]);
   return (
-    <Modal open onClose={onClose} title={initial.id ? `Tanker ${initial.number}` : "Add tanker"}>
+    <Modal open onClose={onClose} title={initial.id ? `Tanker ${initial.number}` : "Add tanker · نیا ٹینکر"}>
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => initial.id ? api(`/wholesale/tankers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/tankers", { body }), "Tanker saved")) onSaved();
       }}>
-        <Field label="Number plate *"><input className="input uppercase" required value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder="TLA-1234" /></Field>
-        <Field label="Capacity (litres)"><input className="input" type="number" min={1} value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
-        <Field label="Chambers"><input className="input" type="number" min={1} max={10} value={f.chambers} onChange={(e) => setF({ ...f, chambers: e.target.value })} /></Field>
-        <Field label="Ownership"><select className="input" value={f.ownership} onChange={(e) => setF({ ...f, ownership: e.target.value })}><option value="own">Our own</option><option value="hired">Hired</option></select></Field>
-        {f.ownership === "hired" && <><Field label="Owner name"><input className="input" value={f.owner_name} onChange={(e) => setF({ ...f, owner_name: e.target.value })} /></Field>
-          <Field label="Owner phone"><input className="input" value={f.owner_phone} onChange={(e) => setF({ ...f, owner_phone: e.target.value })} /></Field></>}
-        <Field label="Usual driver"><select className="input" value={f.driver_id} onChange={(e) => setF({ ...f, driver_id: e.target.value })}><option value="">—</option>{drivers.filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        <Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+        <Field label="Number plate · نمبر پلیٹ *"><input className="input uppercase" required value={f.number} onChange={(e) => setF({ ...f, number: e.target.value })} placeholder="TLA-1234" /></Field>
+        <Field label="Capacity (litres) · گنجائش"><input className="input" type="number" min={1} value={f.capacity_l} onChange={(e) => setF({ ...f, capacity_l: e.target.value })} /></Field>
+        <Field label="Chambers · خانے"><input className="input" type="number" min={1} max={10} value={f.chambers} onChange={(e) => setF({ ...f, chambers: e.target.value })} /></Field>
+        <Field label="Ownership · ملکیت"><select className="input" value={f.ownership} onChange={(e) => setF({ ...f, ownership: e.target.value })}><option value="own">Our own · اپنا</option><option value="hired">Hired · کرائے کا</option></select></Field>
+        {f.ownership === "hired" && <><Field label="Owner name · مالک کا نام"><input className="input" value={f.owner_name} onChange={(e) => setF({ ...f, owner_name: e.target.value })} /></Field>
+          <Field label="Owner phone · مالک کا فون"><input className="input" value={f.owner_phone} onChange={(e) => setF({ ...f, owner_phone: e.target.value })} /></Field></>}
+        <Field label="Usual driver · ڈرائیور"><select className="input" value={f.driver_id} onChange={(e) => setF({ ...f, driver_id: e.target.value })}><option value="">—</option>{drivers.filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        <Field label="Notes · نوٹ"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         {initial.id && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> In use</label>}
-        <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+        <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy}>Save · محفوظ کریں</button></div>
       </form>
     </Modal>
   );
@@ -277,20 +305,20 @@ function DriverForm({ initial, onClose, onSaved }: { initial: any; onClose: () =
   const { busy, run } = useAction();
   const body = { name: f.name, phone: f.phone || null, cnic: f.cnic || null, licence_no: f.licence_no || null, licence_expiry: f.licence_expiry || null, address: f.address || null, notes: f.notes || null, active: f.active };
   return (
-    <Modal open onClose={onClose} title={initial.id ? `Driver: ${initial.name}` : "Add driver"}>
+    <Modal open onClose={onClose} title={initial.id ? `Driver: ${initial.name}` : "Add driver · نیا ڈرائیور"}>
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         if (await run(() => initial.id ? api(`/wholesale/drivers/${initial.id}`, { method: "PATCH", body }) : api("/wholesale/drivers", { body }), "Driver saved")) onSaved();
       }}>
-        <Field label="Name *"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-        <Field label="Mobile"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="03xx xxxxxxx" /></Field>
-        <Field label="CNIC"><input className="input" value={f.cnic} onChange={(e) => setF({ ...f, cnic: e.target.value })} placeholder="35202-1234567-1" /></Field>
-        <Field label="Licence no."><input className="input" value={f.licence_no} onChange={(e) => setF({ ...f, licence_no: e.target.value })} /></Field>
-        <Field label="Licence valid till"><input className="input" type="date" value={f.licence_expiry} onChange={(e) => setF({ ...f, licence_expiry: e.target.value })} /></Field>
-        <Field label="Address"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
-        <div className="sm:col-span-2"><Field label="Notes"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field></div>
+        <Field label="Name · نام *"><input className="input" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="Mobile · موبائل"><input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="03xx xxxxxxx" /></Field>
+        <Field label="CNIC · شناختی کارڈ"><input className="input" value={f.cnic} onChange={(e) => setF({ ...f, cnic: e.target.value })} placeholder="35202-1234567-1" /></Field>
+        <Field label="Licence no. · لائسنس نمبر"><input className="input" value={f.licence_no} onChange={(e) => setF({ ...f, licence_no: e.target.value })} /></Field>
+        <Field label="Licence valid till · لائسنس کی میعاد"><input className="input" type="date" value={f.licence_expiry} onChange={(e) => setF({ ...f, licence_expiry: e.target.value })} /></Field>
+        <Field label="Address · پتہ"><input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
+        <div className="sm:col-span-2"><Field label="Notes · نوٹ"><input className="input" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field></div>
         {initial.id && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Still working</label>}
-        <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+        <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel · منسوخ</button><button className="btn-primary" disabled={busy}>Save · محفوظ کریں</button></div>
       </form>
     </Modal>
   );

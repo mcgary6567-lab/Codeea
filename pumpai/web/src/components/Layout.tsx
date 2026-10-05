@@ -12,14 +12,19 @@ import { useBranding, useInstallPrompt } from "../lib/brand";
 
 /** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
 const WHOLESALE_SUB = [
-  { to: "/wholesale?tab=clients", label: "Clients", icon: Users, perm: "wholesale.view" },
-  { to: "/wholesale?tab=orders", label: "Order book", icon: ClipboardList, perm: "wholesale.view" },
-  { to: "/wholesale?tab=collect", label: "Recovery", icon: HandCoins, perm: "wholesale.view" },
-  { to: "/wholesale?tab=trips", label: "Tanker trips", icon: Route, perm: "wholesale.view" },
-  { to: "/wholesale?do=rate", label: "Change rate", icon: Tag, perm: "wholesale.rates" },
-  { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", icon: Truck, perm: "wholesale.manage" },
-  { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", icon: UserPlus, perm: "wholesale.manage" },
+  { to: "/wholesale?tab=clients", label: "Clients", ur: "کلائنٹس", icon: Users, perm: "wholesale.view" },
+  { to: "/wholesale?tab=orders", label: "Order book", ur: "آرڈر بک", icon: ClipboardList, perm: "wholesale.view" },
+  { to: "/wholesale?tab=collect", label: "Recovery", ur: "وصولی", icon: HandCoins, perm: "wholesale.view" },
+  { to: "/wholesale?tab=trips", label: "Tanker trips", ur: "ٹینکر ٹرپ", icon: Route, perm: "wholesale.view" },
+  { to: "/wholesale?do=rate", label: "Change rate", ur: "ریٹ", icon: Tag, perm: "wholesale.rates" },
+  { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", ur: "نیا ٹینکر", icon: Truck, perm: "wholesale.manage" },
+  { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", ur: "نیا ڈرائیور", icon: UserPlus, perm: "wholesale.manage" },
 ];
+/** Urdu next to the English in the short menus (salesman, wholesale officer). */
+const NAV_UR: Record<string, string> = {
+  "/pos": "سیل", "/shifts": "شفٹ", "/customers": "گاہک", "/bookings": "بکنگ", "/prices": "ریٹ", "/checklist": "روزانہ چیک",
+  "/machines": "مشینیں", "/my-account": "میرا حساب", "/wholesale": "ہول سیل",
+};
 /** Manager / owner menu groups (other roles have short menus and see them flat). */
 const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "sales", label: "Sales & shifts", icon: Fuel, items: ["/pos", "/shifts", "/bookings"] },
@@ -48,6 +53,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
     <NavLink key={n.to} to={n.to} end={(n as any).end} onClick={onGo} className={() => itemCls(isOn(n.to, (n as any).end))}>
       <n.icon size={size} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate">{n.label}</span>
+      {!grouped && NAV_UR[n.to] && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-75">{NAV_UR[n.to]}</span>}
       {(n as any).badge && <Badge n={badges[(n as any).badge] ?? 0} />}
     </NavLink>
   );
@@ -56,6 +62,7 @@ function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: 
       {WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => (
         <Link key={x.to} to={x.to} onClick={onGo} className={itemCls(loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length))}>
           <x.icon size={16} /><span className="min-w-0 flex-1 truncate">{x.label}</span>
+          {!grouped && <span lang="ur" dir="rtl" className="font-urdu shrink-0 text-sm opacity-75">{x.ur}</span>}
         </Link>
       ))}
     </div>
