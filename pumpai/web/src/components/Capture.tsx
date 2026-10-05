@@ -114,8 +114,8 @@ export function VoiceButton({ onParsed, className = "" }: { onParsed: (sale: any
  * Photo proof for any entry: cheque, cash receipt, bank slip, invoice, signed chalan…
  * Several photos can be added (camera or gallery); each is kept and linked to the saved entry.
  */
-export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "cheque, receipt, slip, invoice" }: {
-  value: number[]; onChange: (ids: number[]) => void; label?: string; hint?: string;
+export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "cheque, receipt, slip, invoice", required }: {
+  value: number[]; onChange: (ids: number[]) => void; label?: string; hint?: string; required?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -135,7 +135,7 @@ export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "ch
   };
   return (
     <div>
-      <span className="label">{label} <span className="font-normal text-slate-400">· {hint}</span></span>
+      <span className="label">{label}{required && <span className="text-red-600"> * required</span>} <span className="font-normal text-slate-400">· {hint}</span></span>
       <div className="flex flex-wrap items-center gap-2">
         {value.map((id) => (
           <span key={id} className="relative">
@@ -151,6 +151,7 @@ export function ProofPhotos({ value, onChange, label = "Photo proof", hint = "ch
           </button>
         )}
       </div>
+      {required && !value.length && <p className="mt-1 text-xs font-medium text-red-600">Take a photo before saving · تصویر لازمی ہے</p>}
       <input ref={input} type="file" accept="image/*" multiple className="hidden" onChange={(e) => add(e.target.files)} />
     </div>
   );

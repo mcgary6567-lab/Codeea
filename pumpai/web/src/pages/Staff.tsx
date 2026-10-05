@@ -165,8 +165,8 @@ function StaffDetail({ id, onClose }: { id: number; onClose: () => void }) {
             {loan > 0 && <div className="text-sm text-slate-600">− Loan instalment: <b>{pkr(loan)}</b> — cut by itself</div>}
             <div className="rounded-lg bg-emerald-50 p-3 text-lg">Hand over in cash: <b className="tabular-nums">{pkr(net)}</b></div>
           </>}
-          {form !== "set-salary" && <ProofPhotos value={photos} onChange={setPhotos} hint={form === "salary" ? "signed salary sheet / thumb impression" : form === "advance" ? "signed advance slip" : "receipt"} />}
-          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setForm(null)}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+          {form !== "set-salary" && <ProofPhotos value={photos} onChange={setPhotos} required={form === "salary"} hint={form === "salary" ? "signed salary sheet / thumb impression" : form === "advance" ? "signed advance slip" : "receipt"} />}
+          <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={() => setForm(null)}>Cancel</button><button className="btn-primary" disabled={busy || (form === "salary" && !photos.length)}>Save</button></div>
         </form>
       )}
       {slipUrl && <a href={slipUrl} target="_blank" rel="noreferrer" className="mt-3 block rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">📄 Open the salary slip (PDF) — also sent on WhatsApp</a>}

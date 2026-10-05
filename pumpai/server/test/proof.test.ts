@@ -83,3 +83,23 @@ test("photo proof is kept with every money and stock entry and comes back in the
   assert.equal((await call("manager", "POST", `/api/shop/items/${item.id}/stock-in`, { qty: 2, photo_ids: [sh] })).status, 200);
   assert.ok((await call("manager", "GET", `/api/shop/items/${item.id}/moves`)).data.some((m: any) => has(m.proof_ids, sh)));
 });
+
+test("cheque payments and salary cannot be saved without a photo", async () => {
+  const client = (await call("wholesale", "GET", "/api/wholesale/clients")).data[0];
+  const no = await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 100, method: "Cheque" });
+  assert.equal(no.status, 400); assert.match(no.data.error, /Photo of the cheque is required/);
+  assert.equal((await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 100, method: "Cash" })).status, 200, "cash without photo is fine");
+  assert.equal((await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 100, method: "Cheque", photo_ids: [await photo("wholesale")] })).status, 200);
+  // a photo already used for another entry does not count
+  const used = await photo("wholesale");
+  await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 100, method: "Cash", photo_ids: [used] });
+  assert.equal((await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/payment`, { amount: 100, method: "Cheque", photo_ids: [used] })).status, 400);
+  const cust = (await call("manager", "GET", "/api/customers")).data.find((c: any) => c.balance > 0);
+  assert.equal((await call("manager", "POST", `/api/customers/${cust.id}/khata`, { type: "credit", amount: 100, method: "Cheque", notify: false })).status, 400);
+  const sup = (await call("admin", "GET", "/api/suppliers")).data[0];
+  assert.equal((await call("admin", "POST", `/api/suppliers/${sup.id}/payment`, { amount: 100, method: "Cheque" })).status, 400);
+  const staff = (await call("manager", "GET", "/api/staff")).data;
+  const sid = (staff.staff ?? staff)[0].id ?? (staff.staff ?? staff)[0].user?.id;
+  const sal = await call("manager", "POST", `/api/staff/${sid}/pay-salary`, {});
+  assert.equal(sal.status, 400); assert.match(sal.data.error, /salary sheet is required/);
+});

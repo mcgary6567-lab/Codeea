@@ -8,7 +8,7 @@ import { z } from "zod";
 import { commissionForMonth } from "./feedback.js";
 import { loanDue, loansOf, takeInstalments, saveSlip, slipUrl } from "./people.js";
 import { all, get, run, tx, now, pkDate, getSetting } from "../db.js";
-import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
+import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, pkr } from "../services.js";
 import { notify } from "../notifications.js";
@@ -75,6 +75,7 @@ staffRouter.post("/staff/:id/pay-salary", h(async (req) => {
   const b = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional(), deduct: z.number().min(0).default(0), bonus: z.number().min(0).default(0), note: z.string().max(200).optional(),
     absence_cut: z.number().min(0).optional(), commission: z.number().min(0).optional(), skip_loan: z.boolean().optional(), photo_ids: proofPhotos }), req.body);
   const month = b.month ?? pkDate().slice(0, 7);
+  requireProof(tid(req), b.photo_ids, "signed salary sheet");
   if (!u.salary) throw new AppError(400, `Set ${u.name}'s monthly salary first`);
   if (get("SELECT id FROM staff_ledger WHERE user_id=? AND type='salary' AND month=?", u.id, month)) throw new AppError(400, `${u.name}'s salary for ${month} is already paid`);
   // loans are recovered by their own instalments; the manual cut is for advances and shortages only

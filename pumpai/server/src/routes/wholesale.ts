@@ -10,7 +10,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
-import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
+import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 
 export const wholesale = Router();
@@ -595,6 +595,7 @@ wholesale.post("/wholesale/clients/:id/return", requirePerm("wholesale.manage"),
 wholesale.post("/wholesale/clients/:id/payment", requirePerm("wholesale.manage"), h((req) => {
   const c = ownClient(tid(req), Number(req.params.id));
   const b = parse(z.object({ amount: z.number().positive(), method: z.string().min(2), ref: z.string().optional().nullable(), note: z.string().optional().nullable(), txn_date: dateStr, photo_ids: proofPhotos }), req.body);
+  if (isCheque(b.method)) requireProof(tid(req), b.photo_ids, "cheque");
   return insertTxn(req, c.id, { ...b, type: "payment" });
 }));
 

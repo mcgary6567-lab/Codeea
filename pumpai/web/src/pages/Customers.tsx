@@ -151,8 +151,8 @@ function CustomerDetail({ id, onClose, onChanged }: { id: string; onClose: () =>
             }}>
               <Field label={pay === "credit" ? "Payment amount" : "Charge amount"}><input className="input w-40" type="number" min={1} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
               <Field label="Method"><select className="input w-40" value={method} onChange={(e) => setMethod(e.target.value)}>{["Cash", "JazzCash", "Easypaisa", "Raast", "Bank transfer", "Cheque"].map((m) => <option key={m}>{m}</option>)}</select></Field>
-              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} hint={pay === "credit" ? "cheque, receipt, payment screenshot" : "bill / slip for the charge"} /></div>
-              <button className="btn-primary" disabled={busy}>Save</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel</button>
+              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay === "credit" && method === "Cheque"} hint={pay === "credit" ? "cheque, receipt, payment screenshot" : "bill / slip for the charge"} /></div>
+              <button className="btn-primary" disabled={busy || (pay === "credit" && method === "Cheque" && !photos.length)}>Save</button><button type="button" className="btn-secondary" onClick={() => setPay(null)}>Cancel</button>
             </form>
           )}
           {can("whatsapp.inbox") && <form className="flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (await run(() => api("/whatsapp/send", { body: { customer_id: c.id, text: msg } }), "Sent on WhatsApp")) { setMsg(""); refresh(); } }}>

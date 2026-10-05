@@ -120,7 +120,13 @@ test("attendance: live selfie + live location are mandatory; lateness; leave; sa
   const sum = ok(await call("manager", "GET", `/api/staff/${imran.id}`), "staff").attendance;
   if (yesterday.slice(0, 7) === month) {
     assert.ok(sum.absent >= 1);
-    const paid = ok(await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, {}), "pay");
+    const paid = ok(await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, { photo_ids: await salaryProof() }), "pay");
     assert.ok(Math.abs(paid.absence_cut - (imran.salary / 30) * sum.unpaid_days) < 0.02, "salary / 30 per unpaid day");
   }
 });
+
+/** Salary needs a photo of the signed salary sheet. */
+async function salaryProof() {
+  const r = await call("manager", "POST", "/api/ai/read-photo", { kind: "proof", image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" });
+  return [r.data.photo_id as number];
+}

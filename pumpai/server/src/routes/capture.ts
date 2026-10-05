@@ -55,6 +55,13 @@ export const proofPhotos = z.array(z.number().int().positive()).max(10).optional
 /** The photo ids attached to a ledger row, as a comma list, for list / statement queries ("proof_ids"). */
 export const proofCol = (refSql: string) => `(SELECT GROUP_CONCAT(p.id) FROM photos p WHERE p.ref = ${refSql}) proof_ids`;
 
+/** For entries where a photo is compulsory (cheques, salary): at least one new, unused photo of this pump. */
+export function requireProof(tenantId: number, ids: number[] | undefined | null, what: string) {
+  const ok = (ids ?? []).filter((id) => get("SELECT id FROM photos WHERE id=? AND tenant_id=? AND ref IS NULL", id, tenantId));
+  if (!ok.length) throw new AppError(400, `Photo of the ${what} is required · ${what === "cheque" ? "چیک" : "رسید"} کی تصویر لازمی ہے`);
+}
+export const isCheque = (method?: string | null) => /cheque|check/i.test(method ?? "");
+
 /** Attach uploaded photos to what they prove (a shift's meters, a delivery, an expense). */
 export function linkPhotos(tenantId: number, ids: number[] | undefined | null, ref: string): number {
   let n = 0;

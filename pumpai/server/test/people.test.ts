@@ -43,8 +43,8 @@ test("loan: given from cash, instalments come off the salary by themselves; sala
   assert.equal(st.loan_due, 9000, "5,000 + 4,000 this month");
   const month = db.pkDate().slice(0, 7);
   db.run("DELETE FROM staff_ledger WHERE user_id=? AND type='salary' AND month=?", imran, month);
-  assert.equal((await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { month, deduct: 20000, absence_cut: 0, commission: 0 })).status, 400, "manual cut cannot take the loans");
-  const paid = ok(await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { month, absence_cut: 0, commission: 0 }), "pay");
+  assert.equal((await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { photo_ids: await salaryProof(),  month, deduct: 20000, absence_cut: 0, commission: 0 })).status, 400, "manual cut cannot take the loans");
+  const paid = ok(await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { photo_ids: await salaryProof(),  month, absence_cut: 0, commission: 0 }), "pay");
   assert.equal(paid.loan, 9000);
   assert.equal(paid.net, 32000 - 9000);
   assert.match(paid.slip_url, /\/slip\/.+\.pdf$/);
@@ -67,7 +67,7 @@ test("loan: given from cash, instalments come off the salary by themselves; sala
   assert.equal(small.remaining, 4000);
   // next month the small loan is finished and closes
   const next = month.slice(5) === "12" ? `${Number(month.slice(0, 4)) + 1}-01` : `${month.slice(0, 4)}-${String(Number(month.slice(5)) + 1).padStart(2, "0")}`;
-  const paid2 = ok(await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { month: next, absence_cut: 0, commission: 0 }), "pay 2");
+  const paid2 = ok(await call("manager", "POST", `/api/staff/${imran}/pay-salary`, { photo_ids: await salaryProof(),  month: next, absence_cut: 0, commission: 0 }), "pay 2");
   assert.equal(paid2.loan, 9000);
   assert.equal(db.get("SELECT status FROM staff_loans WHERE id=?", small.id).status, "closed");
 });
@@ -104,3 +104,9 @@ test("daily coaching: built from yesterday's numbers, sent to the salesman", asy
   ok(await call("manager", "POST", `/api/coaching/${imran}/send`, { text: "Shabash Imran! Aaj bhi zabardast kaam karein." }), "send");
   assert.equal((await call("salesman", "GET", `/api/coaching/${imran}`)).status, 403);
 });
+
+/** Salary needs a photo of the signed salary sheet. */
+async function salaryProof() {
+  const r = await call("manager", "POST", "/api/ai/read-photo", { kind: "proof", image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" });
+  return [r.data.photo_id as number];
+}

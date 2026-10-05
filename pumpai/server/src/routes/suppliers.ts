@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
-import { linkPhotos, proofPhotos, proofCol } from "./capture.js";
+import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
@@ -68,6 +68,7 @@ suppliers.post("/suppliers/:id/payment", h((req) => {
     withholding: z.number().min(0).optional(), wht_section: z.string().max(30).optional().nullable(), photo_ids: proofPhotos }), req.body);
   const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
   const t = tid(req);
+  if (isCheque(b.method)) requireProof(t, b.photo_ids, "cheque");
   tx(() => {
     const pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
       t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now()).id;

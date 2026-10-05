@@ -76,8 +76,8 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
               <Field label="Ref"><input className="input w-32" value={pay.ref} onChange={(e) => setPay({ ...pay, ref: e.target.value })} /></Field>
               <Field label="Tax withheld (Rs)"><input className="input w-32" type="number" min={0} placeholder="0" value={pay.wht} onChange={(e) => setPay({ ...pay, wht: e.target.value })} /></Field>
-              <button className="btn-primary" disabled={busy}><Wallet size={15} /> Record payment</button>
-              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} hint="pay order, cheque, bank / 1LINK receipt" /></div>
+              <button className="btn-primary" disabled={busy || (pay.method === "Cheque" && !photos.length)}><Wallet size={15} /> Record payment</button>
+              <div className="w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>
           </div>
           <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">

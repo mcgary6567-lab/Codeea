@@ -321,8 +321,8 @@ function PaymentEntry({ client, onClose, onDone }: { client: any; onClose: () =>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
         </div>
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-        <ProofPhotos value={photos} onChange={setPhotos} hint={f.method === "Cheque" ? "photo of the cheque (both sides)" : f.method === "Cash" ? "cash receipt / counted notes" : "bank slip or payment screenshot"} />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save payment</button></div>
+        <ProofPhotos value={photos} onChange={setPhotos} required={f.method === "Cheque"} hint={f.method === "Cheque" ? "photo of the cheque (both sides)" : f.method === "Cash" ? "cash receipt / counted notes" : "bank slip or payment screenshot"} />
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || (f.method === "Cheque" && !photos.length)}>Save payment</button></div>
       </form>
     </Modal>
   );

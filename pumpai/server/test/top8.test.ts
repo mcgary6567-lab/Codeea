@@ -133,7 +133,7 @@ test("commission on shop sales goes into the salary; weekly leaderboard", async 
   assert.doesNotMatch(await runJob(1, "leaderboard"), /^Error/);
   const u = db.get("SELECT id FROM users WHERE email='salesman@pumpai.pk'");
   db.run("DELETE FROM staff_ledger WHERE user_id=? AND type='salary' AND month=?", u.id, month);
-  const paid = ok(await call("manager", "POST", `/api/staff/${u.id}/pay-salary`, { month }), "pay");
+  const paid = ok(await call("manager", "POST", `/api/staff/${u.id}/pay-salary`, { photo_ids: await salaryProof(),  month }), "pay");
   assert.equal(paid.commission, c2.total);
   assert.ok(db.get("SELECT id FROM staff_ledger WHERE user_id=? AND type='bonus' AND note=?", u.id, `Commission ${month}`));
 });
@@ -207,3 +207,9 @@ test("WhatsApp approvals: owner replies 1 to a manager's price change and 2 to a
   const r4: any = await handleInbound(1, { from: owner, text: "aaj ki sale" });
   assert.equal(r4.handled_by, "owner_assistant");
 });
+
+/** Salary needs a photo of the signed salary sheet. */
+async function salaryProof() {
+  const r = await call("manager", "POST", "/api/ai/read-photo", { kind: "proof", image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" });
+  return [r.data.photo_id as number];
+}
