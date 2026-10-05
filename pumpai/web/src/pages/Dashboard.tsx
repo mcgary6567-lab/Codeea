@@ -207,7 +207,18 @@ function TodayBook({ b }: { b: any }) {
           b.shifts.closed > 0 && `${b.shifts.closed} shift${b.shifts.closed === 1 ? "" : "s"} closed · cash ${b.shifts.variance < 0 ? "short" : "over"} ${pkr(Math.abs(b.shifts.variance))}`,
         ], "bg-red-100 text-red-700")}
       </div>
-      <div className="mt-4 overflow-x-auto">
+      {/* phone: one card per fuel */}
+      <ul className="mt-4 space-y-2 sm:hidden">
+        {b.stock.products.map((p: any) => (
+          <li key={p.product} className="rounded-xl bg-slate-50 p-3 text-sm tabular-nums">
+            <div className="flex items-center justify-between font-semibold"><span><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: PRODUCT_COLORS[p.product] }} />{p.name}</span><span>{num(p.closing_l)} L left</span></div>
+            <div className="mt-1 text-slate-600">{num(p.opening_l)} opening + {num(p.received_l)} in − {num(p.sold_l)} sold{p.dip_adjust_l ? ` (dip ${p.dip_adjust_l > 0 ? "+" : ""}${num(p.dip_adjust_l)})` : ""}</div>
+            <div className="text-xs text-slate-500">Value {pkr(p.value_at_cost)} at cost · {pkr(p.value_at_sale)} at sale price</div>
+          </li>
+        ))}
+        <li className="flex justify-between px-3 text-sm font-semibold"><span>Total</span><span>{num(b.stock.litres)} L · {pkr(b.stock.value_at_cost)}</span></li>
+      </ul>
+      <div className="mt-4 hidden overflow-x-auto sm:block">
         <table className="w-full min-w-[640px] text-sm">
           <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
             <th className="py-2 pr-3">Fuel</th><th className="py-2 pr-3 text-right">Opening</th><th className="py-2 pr-3 text-right">+ Received</th>

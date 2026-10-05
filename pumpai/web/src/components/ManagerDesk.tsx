@@ -68,7 +68,7 @@ export function ManagerDesk({ k }: { k: any }) {
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2>
-          <span className="text-xs text-slate-500">— from shifts, cash, stock, staff, khata, approvals and checks</span></div>
+          <span className="hidden text-xs text-slate-500 sm:inline">— from shifts, cash, stock, staff, khata, approvals and checks</span></div>
         {!data ? <Loading /> : data.suggestions.length ? (
           <ul className="divide-y divide-slate-100">
             {(all ? data.suggestions : data.suggestions.slice(0, 6)).map((s: any, i: number) => {

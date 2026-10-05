@@ -391,8 +391,8 @@ export function BankSummary() {
       <div className="grid grid-cols-2 gap-3 bg-gradient-to-r from-brand-700 to-brand-600 p-4 text-white sm:grid-cols-3">
         <div className="col-span-2 sm:col-span-1"><div className="flex items-center gap-1.5 text-sm opacity-90"><Landmark size={15} /> Money in banks · <Ur>بینکوں میں</Ur></div>
           <div className="text-3xl font-bold tabular-nums">{pkr(data.total)}</div></div>
-        <div><div className="text-sm opacity-90">Cash in hand · <Ur>نقد</Ur></div><div className="text-xl font-bold tabular-nums">{pkr(data.cash_in_hand)}</div></div>
-        <div><div className="text-sm opacity-90">Total money · <Ur>کل رقم</Ur></div><div className="text-xl font-bold tabular-nums">{pkr(data.total + data.cash_in_hand)}</div></div>
+        <div className="min-w-0"><div className="text-sm opacity-90">Cash in hand · <Ur>نقد</Ur></div><div className="whitespace-nowrap text-base font-bold tabular-nums sm:text-xl">{pkr(data.cash_in_hand)}</div></div>
+        <div className="min-w-0"><div className="text-sm opacity-90">Total money · <Ur>کل رقم</Ur></div><div className="whitespace-nowrap text-base font-bold tabular-nums sm:text-xl">{pkr(data.total + data.cash_in_hand)}</div></div>
       </div>
       <ul className="divide-y divide-slate-100">
         {open.map((a: any) => (
@@ -400,12 +400,10 @@ export function BankSummary() {
             <Link to="/cash" className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
               <BankLogo name={a.bank} size={36} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{a.bank}</span>
+                <span className="flex items-baseline justify-between gap-2"><span className="truncate font-semibold">{a.bank.replace(/\s*\(.*\)/, "")}</span>
+                  <span className={`shrink-0 font-bold tabular-nums ${a.balance < 0 ? "text-red-600" : ""}`}>{pkr(a.balance)}</span></span>
                 <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full rounded-full ${a.balance < 0 ? "bg-red-500" : "bg-brand-500"}`} style={{ width: `${Math.max(2, (Math.abs(a.balance) / top) * 100)}%` }} /></span>
-              </span>
-              <span className="shrink-0 text-right">
-                <span className={`block font-bold tabular-nums ${a.balance < 0 ? "text-red-600" : ""}`}>{pkr(a.balance)}</span>
-                <span className="block text-xs tabular-nums text-slate-500">
+                <span className="mt-0.5 block text-xs tabular-nums text-slate-500">
                   {a.today_in || a.today_out ? <>today <span className="text-emerald-700">+{pkr(a.today_in).replace("Rs ", "")}</span>{a.today_out ? <span className="text-red-600"> −{pkr(a.today_out).replace("Rs ", "")}</span> : null}</> : "no entry today"}
                 </span>
               </span>
