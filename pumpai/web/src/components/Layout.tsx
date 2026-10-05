@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench,
 } from "lucide-react";
@@ -10,6 +10,14 @@ import { QuickAddButton } from "./QuickAdd";
 import { HelpButton } from "./Help";
 import { useBranding, useInstallPrompt } from "../lib/brand";
 
+/** Shortcuts under "Wholesale Supply" in the menu (open the right tab or form). */
+const WHOLESALE_SUB = [
+  { to: "/wholesale?tab=clients", label: "Clients", perm: "wholesale.view" },
+  { to: "/wholesale?tab=trips", label: "Tanker trips", perm: "wholesale.view" },
+  { to: "/wholesale?do=rate", label: "Change rate", perm: "wholesale.rates" },
+  { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", perm: "wholesale.manage" },
+  { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", perm: "wholesale.manage" },
+];
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
@@ -49,6 +57,7 @@ const NAV = [
 export default function Layout() {
   const { user, tenant, logout, can } = useAuth();
   const nav = useNavigate();
+  const loc = useLocation();
   const [open, setOpen] = useState(false);
   const brand = useBranding();
   const { canInstall, install } = useInstallPrompt();
@@ -76,7 +85,19 @@ export default function Layout() {
             <span className="flex-1">{n.label}</span>
             {n.badge && badgeVal[n.badge] > 0 && <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{badgeVal[n.badge]}</span>}
           </NavLink>
-        ))}
+        )).flatMap((el, i, arr) => {
+          // wholesale shortcuts right under "Wholesale Supply"
+          if ((el as any).key !== "/wholesale") return [el];
+          return [el, ...WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => {
+            const active = loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length);
+            return (
+              <Link key={x.to} to={x.to} onClick={() => setOpen(false)}
+                className={`ml-7 flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition ${active ? "bg-white/15 text-white" : "text-emerald-100/75 hover:bg-white/10"}`}>
+                <span className="h-1 w-1 rounded-full bg-current" />{x.label}
+              </Link>
+            );
+          })];
+        })}
       </div>
       <div className="border-t border-white/10 p-4 text-sm">
         <div className="font-medium">{user?.name}</div>

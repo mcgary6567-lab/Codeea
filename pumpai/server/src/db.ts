@@ -353,6 +353,15 @@ export function migrate() {
     tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT, litres REAL NOT NULL, amount REAL NOT NULL,
     drops INTEGER NOT NULL, note TEXT, created_by TEXT, trip_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   addColumn("wholesale_txns", "trip_id", "INTEGER");
+  // wholesale client's own khata page: short link + system PIN
+  addColumn("wholesale_clients", "portal_code", "TEXT");
+  addColumn("wholesale_clients", "portal_pin_hash", "TEXT");
+  addColumn("wholesale_clients", "portal_v", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("wholesale_clients", "portal_on", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("wholesale_clients", "portal_fails", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("wholesale_clients", "portal_locked_until", "TEXT");
+  addColumn("wholesale_clients", "portal_seen_at", "TEXT");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_wc_portal ON wholesale_clients(portal_code)");
   addColumn("wholesale_txns", "tanker_id", "INTEGER");
   addColumn("wholesale_txns", "driver_id", "INTEGER");
   addColumn("wholesale_txns", "driver_name", "TEXT");

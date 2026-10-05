@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send } from "lucide-react";
+import { Plus, Search, Truck, Wallet, Undo2, SlidersHorizontal, Download, Printer, Ban, ArrowLeft, Pencil, Send } from "lucide-react";
 import { api, getToken, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { WholesaleDashboard } from "../components/WholesaleDashboard";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
-import { FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
+import { ClientPortalCard, FleetPicker, FleetTab, TripForm, TripSheet, TripsTab, fleetBody } from "../components/WholesaleFleet";
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
@@ -24,9 +24,11 @@ function ClientList() {
   const nav = useNavigate();
   const { can } = useAuth();
   const summary = useApi<any>("/wholesale/summary");
-  const [adding, setAdding] = useState(false);
-  const [tab, setTab] = useState<"clients" | "trips" | "fleet">("clients");
-  const [trip, setTrip] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get("tab") ?? "dashboard") as "dashboard" | "clients" | "trips" | "fleet";
+  const action = params.get("do"); // add-client | trip | rate | tanker | driver (from the menu)
+  const setTab = (t: string) => setParams(t === "dashboard" ? {} : { tab: t });
+  const clearAction = () => { const p = new URLSearchParams(params); p.delete("do"); setParams(p, { replace: true }); };
   const [sheet, setSheet] = useState<number | null>(null);
   const [tripsKey, setTripsKey] = useState(0);
   const s = summary.data;
@@ -34,26 +36,85 @@ function ClientList() {
   return (
     <div className="space-y-5">
       <PageHeader title="Wholesale supply" subtitle="Bulk fuel to dealers and businesses — each client has their own rate card and running account" />
-      <div className="flex gap-1 border-b border-slate-200">
-        {([["clients", "Dashboard"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`border-b-2 px-3 py-2 text-sm ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}</button>
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {([["dashboard", "Dashboard"], ["clients", "Clients"], ["trips", "Tanker trips"], ["fleet", "Tankers & drivers"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm ${tab === k ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-slate-600"}`}>{l}</button>
         ))}
       </div>
-      {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setTrip(true) : undefined} />}
-      {tab === "fleet" && <FleetTab />}
-      {tab === "clients" && <>
-      <WholesaleDashboard key={tripsKey} onTrip={() => setTrip(true)} onAddClient={() => setAdding(true)} onFleet={() => setTab("fleet")} />
-      {s && (
-        <div className="card">
-          <h2 className="p-4 pb-2 font-semibold">Recent wholesale entries</h2>
-          <LedgerTable rows={s.recent} showClient />
-        </div>
-      )}
+      {tab === "trips" && <TripsTab key={tripsKey} onNew={can("wholesale.manage") ? () => setParams({ tab: "trips", do: "trip" }) : undefined} />}
+      {tab === "fleet" && <FleetTab key={action ?? "fleet"} start={action === "tanker" || action === "driver" ? action : null} />}
+      {tab === "clients" && <ClientsTable onAdd={() => setParams({ tab: "clients", do: "add-client" })} />}
+      {tab === "dashboard" && <>
+        <WholesaleDashboard key={tripsKey} onTrip={() => setParams({ do: "trip" })} onAddClient={() => setParams({ do: "add-client" })} onFleet={() => setTab("fleet")} />
+        {s && (
+          <div className="card">
+            <h2 className="p-4 pb-2 font-semibold">Recent wholesale entries</h2>
+            <LedgerTable rows={s.recent} showClient />
+          </div>
+        )}
       </>}
-      {trip && <TripForm onClose={() => setTrip(false)} onDone={(t) => { setTrip(false); summary.reload(); setTripsKey((k) => k + 1); setSheet(t.id); }} />}
+      {action === "trip" && <TripForm onClose={clearAction} onDone={(t) => { clearAction(); summary.reload(); setTripsKey((k) => k + 1); setSheet(t.id); }} />}
+      {action === "rate" && <ClientPicker title="Change rate — which client?" onClose={clearAction} onPick={(c) => nav(`/wholesale/${c.id}?do=rates`)} />}
       {sheet && <TripSheet id={sheet} onClose={() => setSheet(null)} />}
-      {adding && <ClientForm onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); nav(`/wholesale/${c.id}`); }} />}
+      {action === "add-client" && <ClientForm onClose={clearAction} onSaved={(c) => nav(`/wholesale/${c.id}`)} />}
     </div>
+  );
+}
+
+/** All clients with their rates, due and limit — the plain list. */
+function ClientsTable({ onAdd }: { onAdd: () => void }) {
+  const nav = useNavigate();
+  const { can } = useAuth();
+  const [q, setQ] = useState("");
+  const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
+  return (
+    <div className="card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
+        <div className="relative w-full max-w-sm"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        {can("wholesale.manage") && <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add client</button>}
+      </div>
+      {list.error && <div className="p-3"><ErrorBox error={list.error} /></div>}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead><tr><th className="th">Client</th><th className="th">Rates (per litre)</th><th className="th text-right">This month</th><th className="th text-right">Due</th><th className="th">Limit used</th><th className="th">Last supply</th><th className="th">Last payment</th></tr></thead>
+          <tbody>
+            {(list.data ?? []).map((c) => {
+              const used = c.credit_limit ? Math.min(100, (c.due / c.credit_limit) * 100) : 0;
+              return (
+                <tr key={c.id} className={`cursor-pointer hover:bg-slate-50 ${c.active ? "" : "opacity-50"}`} onClick={() => nav(`/wholesale/${c.id}`)}>
+                  <td className="td"><div className="font-medium">{c.name}</div><div className="text-xs text-slate-500">{c.business_name ?? ""}{c.phone && ` · ${phone(c.phone)}`}</div></td>
+                  <td className="td text-xs">{Object.entries(c.rate_card ?? {}).map(([p, r]: any) => <div key={p}>{PRODUCTS[p]}: <b>Rs {r.rate?.toFixed(2) ?? "—"}</b> <span className={`whitespace-nowrap ${r.mode === "discount" ? "text-violet-700" : "text-slate-400"}`}>{r.label}</span></div>)}{!Object.keys(c.rates).length && <span className="text-amber-600">No rate set</span>}</td>
+                  <td className="td text-right tabular-nums">{num(c.month_l)} L</td>
+                  <td className={`td text-right font-semibold tabular-nums ${c.due > 0 ? "" : "text-emerald-600"}`}>{pkr(c.due)}</td>
+                  <td className="td">{c.credit_limit ? <><div className="h-1.5 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${used}%`, background: used >= 90 ? "#e34948" : "#2a78d6" }} /></div><span className="text-xs text-slate-500">{Math.round(used)}% of {pkrShort(c.credit_limit)}</span></> : <span className="text-xs text-slate-400">No limit</span>}</td>
+                  <td className="td text-xs text-slate-500">{ago(c.last_supply)}</td>
+                  <td className="td text-xs text-slate-500">{ago(c.last_payment)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {list.data && !list.data.length && <Empty>No wholesale clients yet</Empty>}
+      </div>
+    </div>
+  );
+}
+
+function ClientPicker({ title, onClose, onPick }: { title: string; onClose: () => void; onPick: (c: any) => void }) {
+  const [q, setQ] = useState("");
+  const list = useApi<any[]>(`/wholesale/clients?q=${encodeURIComponent(q)}`);
+  return (
+    <Modal open onClose={onClose} title={title}>
+      <input className="input mb-2" autoFocus placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+        {(list.data ?? []).filter((c) => c.active).map((c) => (
+          <button key={c.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-slate-50" onClick={() => onPick(c)}>
+            <span><span className="font-medium">{c.name}</span> <span className="text-xs text-slate-500">{c.city}</span></span>
+            <span className="text-xs text-slate-600">{Object.entries(c.rates ?? {}).map(([p, r]: any) => `${PRODUCTS[p]} ${r}`).join(" · ")}</span>
+          </button>
+        ))}
+      </div>
+    </Modal>
   );
 }
 
@@ -187,6 +248,8 @@ function ClientDetail({ id }: { id: string }) {
           {!s.by_product.length && <Empty>No fuel supplied yet</Empty>}
         </div>
       </div>
+
+      <div className="print:hidden"><ClientPortalCard client={c} /></div>
 
       <div className="card">
         <div className="flex flex-wrap items-end gap-3 p-4 print:hidden">

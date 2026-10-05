@@ -103,3 +103,40 @@ test("cheque payments and salary cannot be saved without a photo", async () => {
   const sal = await call("manager", "POST", `/api/staff/${sid}/pay-salary`, {});
   assert.equal(sal.status, 400); assert.match(sal.data.error, /salary sheet is required/);
 });
+
+test("wholesale client's own khata page: short link + system PIN, lock after wrong PINs, new PIN / link / off", async () => {
+  const client = (await call("wholesale", "GET", "/api/wholesale/clients")).data[0];
+  assert.equal((await call("wholesale", "GET", `/api/wholesale/clients/${client.id}/portal`)).data.has_pin, false);
+  assert.equal((await call("manager", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).status, 403);
+  const made = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).data;
+  assert.match(made.pin, /^\d{6}$/); assert.match(made.url, /\/w\/[\w-]{8,}$/);
+  const path = new URL(made.url).pathname;
+  const open = await fetch(base + path); assert.equal(open.status, 200);
+  assert.match(await open.text(), /Enter the 6-digit PIN/);
+  const post = (pin: string, extra = "", cookie?: string) => fetch(base + path, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) }, body: `pin=${pin}${extra}` });
+  const wrongPin = made.pin === "000000" ? "111111" : "000000";
+  const bad = await post(wrongPin); assert.equal(bad.status, 401); assert.match(await bad.text(), /Wrong PIN/);
+  const good = await post(made.pin, "&remember=1"); assert.equal(good.status, 200);
+  const html = await good.text();
+  assert.ok(html.includes(client.name.replace(/&/g, "&amp;")) && /Balance due/.test(html) && /Your rates today/.test(html));
+  const cookie = good.headers.get("set-cookie")!.split(";")[0];
+  // remembered phone opens straight away
+  assert.match(await (await fetch(base + path, { headers: { cookie } })).text(), /Balance due/);
+  // five wrong PINs lock the page, even the right PIN waits
+  for (let i = 0; i < 5; i++) await post(wrongPin);
+  assert.equal((await post(made.pin)).status, 429);
+  // a new PIN unlocks, and the old PIN and remembered phones stop working
+  const pin2 = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/pin`, {})).data;
+  assert.equal(new URL(pin2.url).pathname, path, "same link");
+  assert.match(await (await fetch(base + path, { headers: { cookie } })).text(), /Enter the 6-digit PIN/);
+  if (pin2.pin !== made.pin) assert.equal((await post(made.pin)).status, 401);
+  assert.equal((await post(pin2.pin)).status, 200);
+  // a new link: the old one is gone
+  const link3 = (await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/new-link`, {})).data;
+  assert.equal((await fetch(base + path)).status, 404);
+  const path3 = new URL(link3.url).pathname;
+  assert.equal((await fetch(base + path3)).status, 200);
+  // turned off
+  await call("wholesale", "POST", `/api/wholesale/clients/${client.id}/portal/off`, {});
+  assert.equal((await fetch(base + path3)).status, 404);
+});

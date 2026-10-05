@@ -17,6 +17,10 @@
       "destination": "/api/index.mjs"
     },
     {
+      "source": "/w/:path*",
+      "destination": "/api/index.mjs"
+    },
+    {
       "source": "/webhooks/:path*",
       "destination": "/api/index.mjs"
     },

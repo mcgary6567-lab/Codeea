@@ -13,6 +13,7 @@ import { insightsRouter } from "./routes/insights.js";
 import { managerDesk } from "./routes/managerDesk.js";
 import { users } from "./routes/users.js";
 import { wholesale } from "./routes/wholesale.js";
+import { clientPortalAdmin, clientPortalPublic } from "./routes/clientPortal.js";
 import { expenses } from "./routes/expenses.js";
 import { suppliers } from "./routes/suppliers.js";
 import { reports } from "./routes/reports.js";
@@ -105,6 +106,8 @@ app.get("/r/:token", (req, res) => {
   const html = renderReceipt(req.params.token);
   res.status(html ? 200 : 404).type("html").send(html ?? "<p style='font-family:sans-serif'>Receipt not found.</p>");
 });
+// wholesale client's own khata (short link + PIN)
+app.use(clientPortalPublic);
 // khata customer's own page (private link)
 app.get("/portal/:token", (req, res) => {
   const html = renderPortal(req.params.token);
@@ -145,6 +148,7 @@ api.use(insightsRouter);
 api.use(managerDesk);
 api.use(users);
 api.use(wholesale);
+api.use(clientPortalAdmin);
 api.use(expenses);
 api.use(suppliers);
 api.use(reports);
