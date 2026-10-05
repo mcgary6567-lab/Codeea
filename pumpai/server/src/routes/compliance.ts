@@ -153,7 +153,7 @@ const lateBy = (dutyStart: string | null, at: number) => {
   return Math.max(0, Math.round((at - start) / 60_000));
 };
 
-export function checkIn(t: number, user: { id: number; name: string }, o: { station_id?: number | null; photo_id?: number | null; lat?: number | null; lng?: number | null; source: string }) {
+export function checkIn(t: number, user: { id: number; name: string }, o: { station_id?: number | null; photo_id?: number | null; lat?: number | null; lng?: number | null; accuracy?: number | null; source: string }) {
   const day = pkDate();
   const existing = get("SELECT * FROM attendance WHERE user_id=? AND day=?", user.id, day);
   if (existing) return existing;
@@ -161,26 +161,50 @@ export function checkIn(t: number, user: { id: number; name: string }, o: { stat
   const st = get("SELECT * FROM stations WHERE id=?", o.station_id ?? u.station_id ?? 0);
   const away = st?.lat != null && o.lat != null && o.lng != null ? metres({ lat: st.lat, lng: st.lng }, { lat: o.lat, lng: o.lng }) : null;
   const late = lateBy(u.duty_start, Date.now());
-  const { id } = run("INSERT INTO attendance (tenant_id,user_id,station_id,day,check_in,in_lat,in_lng,away_m,late_minutes,source) VALUES (?,?,?,?,?,?,?,?,?,?)",
-    t, user.id, st?.id ?? null, day, now(), o.lat ?? null, o.lng ?? null, away, late, o.source);
+  const { id } = run("INSERT INTO attendance (tenant_id,user_id,station_id,day,check_in,in_lat,in_lng,in_acc,away_m,late_minutes,source) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+    t, user.id, st?.id ?? null, day, now(), o.lat ?? null, o.lng ?? null, o.accuracy ?? null, away, late, o.source);
   if (o.photo_id && linkPhotos(t, [o.photo_id], `attend-in:${id}`)) run("UPDATE attendance SET in_photo_id=? WHERE id=?", o.photo_id, id);
   if (away != null && away > 300)
     createAlert(t, { station_id: st?.id, type: "attendance_away", severity: "warning", title: `${user.name} checked in ${away.toLocaleString()} m away from ${st!.name}`, dedupe_key: `away-${id}` });
   return get("SELECT * FROM attendance WHERE id=?", id);
 }
-export function checkOut(userId: number, photoId?: number | null, t?: number) {
+export function checkOut(userId: number, photoId?: number | null, t?: number, pos?: { lat?: number | null; lng?: number | null; accuracy?: number | null }) {
   const a = get("SELECT * FROM attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", userId);
   if (!a) return null;
-  run("UPDATE attendance SET check_out=? WHERE id=?", now(), a.id);
+  const st = a.station_id ? get("SELECT * FROM stations WHERE id=?", a.station_id) : null;
+  const away = st?.lat != null && pos?.lat != null && pos?.lng != null ? metres({ lat: st.lat, lng: st.lng }, { lat: pos.lat, lng: pos.lng }) : null;
+  run("UPDATE attendance SET check_out=?, out_lat=?, out_lng=?, out_away_m=? WHERE id=?", now(), pos?.lat ?? null, pos?.lng ?? null, away, a.id);
   if (photoId && t && linkPhotos(t, [photoId], `attend-out:${a.id}`)) run("UPDATE attendance SET out_photo_id=? WHERE id=?", photoId, a.id);
   return get("SELECT * FROM attendance WHERE id=?", a.id);
 }
 
-const geo = z.object({ photo_id: z.number().optional().nullable(), lat: z.number().min(-90).max(90).optional().nullable(), lng: z.number().min(-180).max(180).optional().nullable() });
-compliance.post("/attendance/check-in", h((req) => checkIn(tid(req), req.user!, { ...parse(geo, req.body), station_id: req.user!.station_id, source: "app" })));
+/**
+ * Check-in / out from the app needs BOTH a live selfie and the phone's live location:
+ * the selfie must be taken by this person in the last few minutes (camera, not an old photo)
+ * and not already used, and the location must come with the request.
+ */
+const SELFIE_MAX_AGE_MS = 5 * 60_000;
+const proof = z.object({
+  photo_id: z.number({ required_error: "Take a live selfie first · پہلے سیلفی لیں", invalid_type_error: "Take a live selfie first · پہلے سیلفی لیں" }).int(),
+  lat: z.number({ required_error: "Turn on location · لوکیشن آن کریں", invalid_type_error: "Turn on location · لوکیشن آن کریں" }).min(-90).max(90),
+  lng: z.number({ required_error: "Turn on location · لوکیشن آن کریں", invalid_type_error: "Turn on location · لوکیشن آن کریں" }).min(-180).max(180),
+  accuracy: z.number().min(0).optional().nullable(),
+});
+function liveSelfie(t: number, userId: number, photoId: number) {
+  const p = get("SELECT * FROM photos WHERE id=? AND tenant_id=?", photoId, t);
+  if (!p || p.kind !== "selfie" || p.created_by !== userId) throw new AppError(400, "Take a live selfie from your own phone · اپنی سیلفی لیں");
+  if (p.ref) throw new AppError(400, "This selfie was already used — take a new one · نئی سیلفی لیں");
+  if (Date.now() - Date.parse(p.created_at) > SELFIE_MAX_AGE_MS) throw new AppError(400, "Selfie is too old — take a new one · نئی سیلفی لیں");
+}
+compliance.post("/attendance/check-in", h((req) => {
+  const b = parse(proof, req.body);
+  liveSelfie(tid(req), req.user!.id, b.photo_id);
+  return checkIn(tid(req), req.user!, { ...b, station_id: req.user!.station_id, source: "app" });
+}));
 compliance.post("/attendance/check-out", h((req) => {
-  const b = parse(geo, req.body);
-  const r = checkOut(req.user!.id, b.photo_id, tid(req));
+  const b = parse(proof, req.body);
+  liveSelfie(tid(req), req.user!.id, b.photo_id);
+  const r = checkOut(req.user!.id, b.photo_id, tid(req), b);
   if (!r) throw new AppError(400, "You have not checked in");
   return r;
 }));

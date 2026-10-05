@@ -4,7 +4,7 @@ import { registerDecider, requestApproval, closeApproval } from "./approvals.js"
 import { walletAfterFill } from "./prepaid.js";
 import { askRating } from "./feedback.js";
 import { claimForDelivery } from "./claims.js";
-import { all, get, run, tx, now, getSetting } from "../db.js";
+import { all, get, run, tx, now, getSetting, pkDate } from "../db.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
 import { sendWhatsApp } from "../whatsapp/cloud.js";
@@ -14,7 +14,7 @@ import { followPumpPrice } from "./wholesale.js";
 import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
-import { checkIn, checkOut } from "./compliance.js";
+import { checkOut } from "./compliance.js";
 import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
@@ -300,10 +300,10 @@ operations.post("/shifts/open", requirePerm("shifts.manage"), h(async (req) => {
     if (a) await notify(tid(req), staff(tid(req), ["admin", "manager"]), { type: "handover_gap", data: { shift_id: shift.id }, title: a.title, body });
   }
   linkPhotos(tid(req), b.photo_ids, `shift-open:${shift.id}`);
-  // opening a shift marks the salesman present
-  const att = get("SELECT id, name FROM users WHERE tenant_id=? AND name=? AND role='salesman' AND active=1", tid(req), shift.attendant);
-  if (att) checkIn(tid(req), att, { station_id: shift.station_id, source: "shift" });
-  return { ...shift, nozzles: chosen.length, handover_gaps: gaps };
+  // attendance is NOT marked by opening a shift: it needs the salesman's own live selfie + location
+  const att = get("SELECT id FROM users WHERE tenant_id=? AND name=? AND role='salesman' AND active=1", tid(req), shift.attendant);
+  const notCheckedIn = Boolean(att && !get("SELECT id FROM attendance WHERE user_id=? AND day=?", att.id, pkDate()));
+  return { ...shift, nozzles: chosen.length, handover_gaps: gaps, attendance_missing: notCheckedIn };
 }));
 
 /** Expenses paid from the shift's cash (tea, generator diesel, small repairs...). */

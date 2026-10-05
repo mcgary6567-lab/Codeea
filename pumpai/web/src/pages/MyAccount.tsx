@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { LogIn, LogOut, CalendarPlus } from "lucide-react";
 import { api, useApi } from "../lib/api";
-import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
+import { Badge, Field, Loading, Modal, PageHeader, useAction, useToast } from "../components/ui";
 import { pkr } from "../lib/format";
 import { LedgerList } from "./Staff";
 import { Leaderboard } from "./Team";
 import { SlipsList } from "../components/StaffExtras";
-import { resizeImage } from "../components/Capture";
+import { LiveSelfie } from "../components/LiveSelfie";
 
 const Ur = ({ children }: { children: React.ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
 export const DAY_STATUS: Record<string, { label: string; cls: string }> = {
@@ -15,24 +15,21 @@ export const DAY_STATUS: Record<string, { label: string; cls: string }> = {
   leave_unpaid: { label: "Unpaid leave", cls: "bg-violet-400" }, not_yet: { label: "Today", cls: "bg-white ring-2 ring-slate-300" },
 };
 
-/** Where am I? (best effort; check-in still works without it) */
-const position = () => new Promise<{ lat: number; lng: number } | null>((res) => {
-  if (!navigator.geolocation) return res(null);
-  navigator.geolocation.getCurrentPosition((p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), { timeout: 8000, maximumAge: 60_000 });
-});
-
 /** A staff member's own page: attendance, leave, advances and salary. */
 export default function MyAccount() {
   const { data } = useApi<any>("/me/account");
   const att = useApi<any>("/attendance/me");
   const [leave, setLeave] = useState(false);
-  const { busy, run } = useAction();
+  const toast = useToast();
+  const [proofFor, setProofFor] = useState<"in" | "out" | null>(null);
   if (!data || !att.data) return <Loading />;
   const a = att.data;
-  const mark = async (kind: "in" | "out", file?: File) => {
-    const photo = file ? await api("/ai/read-photo", { body: { kind: "selfie", image: await resizeImage(file, 800) } }).catch(() => null) : null;
-    const pos = await position();
-    if (await run(() => api(`/attendance/check-${kind}`, { body: { photo_id: photo?.photo_id ?? null, ...(pos ?? {}) } }), kind === "in" ? "Checked in · حاضری لگ گئی" : "Checked out")) att.reload();
+  const mark = async (kind: "in" | "out", proof: { photo_id: number; lat: number; lng: number; accuracy: number }) => {
+    // throws on failure so the camera window stays open with the message
+    await api(`/attendance/check-${kind}`, { body: proof });
+    setProofFor(null);
+    toast("ok", kind === "in" ? "Checked in · حاضری لگ گئی" : "Checked out");
+    att.reload();
   };
   return (
     <div className="space-y-4">
@@ -40,19 +37,18 @@ export default function MyAccount() {
       <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
         <div className="mb-3 text-lg font-semibold">Attendance today · <Ur>آج کی حاضری</Ur></div>
         {!a.today ? (
-          <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl bg-emerald-600 py-5 text-2xl font-bold text-white active:scale-95">
-            <LogIn size={28} /> {busy ? "…" : <>Check in with selfie · <Ur>حاضری</Ur></>}
-            <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => mark("in", e.target.files?.[0])} />
-          </label>
+          <button type="button" onClick={() => setProofFor("in")} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 py-5 text-2xl font-bold text-white active:scale-95">
+            <LogIn size={28} /> Check in with selfie · <Ur>حاضری</Ur>
+          </button>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-lg">✅ In at <b>{new Date(a.today.check_in).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}</b>
               {a.today.late_minutes > 15 && <Badge tone="amber">{a.today.late_minutes} min late</Badge>}
               {a.today.check_out && <> · out at <b>{new Date(a.today.check_out).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}</b></>}</div>
             {!a.today.check_out && (
-              <label className="ml-auto flex cursor-pointer items-center gap-2 rounded-xl bg-slate-800 px-5 py-3 text-lg font-semibold text-white">
-                <LogOut /> Check out <input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => mark("out", e.target.files?.[0])} />
-              </label>
+              <button type="button" onClick={() => setProofFor("out")} className="ml-auto flex items-center gap-2 rounded-xl bg-slate-800 px-5 py-3 text-lg font-semibold text-white">
+                <LogOut /> Check out
+              </button>
             )}
           </div>
         )}
@@ -67,6 +63,8 @@ export default function MyAccount() {
             </div>
           </>
         ) : <p className="mt-3 text-sm text-slate-500">Your duty time is not set yet, so attendance is not counted.</p>}
+        <LiveSelfie open={proofFor !== null} title={proofFor === "out" ? "Check out · selfie + location" : "Check in · selfie + location"}
+          onClose={() => setProofFor(null)} onDone={(p) => mark(proofFor ?? "in", p)} />
         <button className="btn-secondary mt-3" onClick={() => setLeave(true)}><CalendarPlus size={15} /> Ask for leave · <Ur>چھٹی</Ur></button>
         {a.leaves.length > 0 && <ul className="mt-2 text-sm">{a.leaves.slice(0, 3).map((l: any) => <li key={l.id}>{l.from_day}{l.to_day !== l.from_day ? ` – ${l.to_day}` : ""} · {l.type} · <Badge tone={l.status === "approved" ? "green" : l.status === "rejected" ? "red" : "amber"}>{l.status}</Badge></li>)}</ul>}
       </div>

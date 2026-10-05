@@ -306,6 +306,10 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, station_id INTEGER, day TEXT NOT NULL,
     check_in TEXT NOT NULL, check_out TEXT, in_photo_id INTEGER, out_photo_id INTEGER, in_lat REAL, in_lng REAL, away_m REAL,
     late_minutes INTEGER NOT NULL DEFAULT 0, source TEXT, UNIQUE (user_id, day))`);
+  addColumn("attendance", "in_acc", "REAL"); // GPS accuracy in metres
+  addColumn("attendance", "out_lat", "REAL");
+  addColumn("attendance", "out_lng", "REAL");
+  addColumn("attendance", "out_away_m", "REAL");
   db.exec(`CREATE TABLE IF NOT EXISTS leaves (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'paid', reason TEXT, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, created_at TEXT NOT NULL)`);

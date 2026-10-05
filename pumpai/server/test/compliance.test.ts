@@ -65,20 +65,39 @@ test("checklist: salesman ticks checks; a reading out of range or a missing phot
   assert.ok(db.get("SELECT id FROM alerts WHERE type='checklist_missing'"));
 });
 
-test("attendance: shift opening checks the salesman in; lateness; selfie check-in; leave; salary cut for absences", async () => {
+test("attendance: live selfie + live location are mandatory; lateness; leave; salary cut for absences", async () => {
   const imran = db.get("SELECT * FROM users WHERE email='salesman@pumpai.pk'");
+  db.run("DELETE FROM attendance WHERE user_id=? AND day=?", imran.id, db.pkDate());
+  // opening a shift no longer marks attendance by itself
   const shift = ok(await call("salesman", "POST", "/api/shifts/open", {}), "open");
+  assert.equal(shift.attendance_missing, true);
+  assert.equal(ok(await call("salesman", "GET", "/api/attendance/me"), "me").today, null);
+  const selfie = async (who: string) => ok(await call(who, "POST", "/api/ai/read-photo", { kind: "selfie", image: PNG }), "selfie").photo_id as number;
+  // no selfie, no location, someone else's selfie, an old selfie, a non-selfie photo: all refused
+  assert.match((await call("salesman", "POST", "/api/attendance/check-in", { lat: 31.6, lng: 74.4 })).data.error, /selfie/i);
+  assert.match((await call("salesman", "POST", "/api/attendance/check-in", { photo_id: await selfie("salesman") })).data.error, /location/i);
+  assert.equal((await call("salesman", "POST", "/api/attendance/check-in", { photo_id: await selfie("manager"), lat: 31.6, lng: 74.4 })).status, 400);
+  const old = await selfie("salesman");
+  db.run("UPDATE photos SET created_at=? WHERE id=?", new Date(Date.now() - 10 * 60_000).toISOString(), old);
+  assert.match((await call("salesman", "POST", "/api/attendance/check-in", { photo_id: old, lat: 31.6, lng: 74.4 })).data.error, /too old/);
+  const meter = ok(await call("salesman", "POST", "/api/ai/read-photo", { kind: "proof", image: PNG }), "proof").photo_id;
+  assert.equal((await call("salesman", "POST", "/api/attendance/check-in", { photo_id: meter, lat: 31.6, lng: 74.4 })).status, 400);
+  // live selfie + location: checked in
+  const live = await selfie("salesman");
+  const ci = ok(await call("salesman", "POST", "/api/attendance/check-in", { photo_id: live, lat: 31.6, lng: 74.4, accuracy: 12 }), "check in");
+  assert.equal(ci.in_photo_id, live); assert.equal(ci.in_lat, 31.6); assert.equal(ci.in_acc, 12); assert.equal(ci.source, "app");
+  // the same selfie cannot be used again
+  assert.match((await call("salesman", "POST", "/api/attendance/check-out", { photo_id: live, lat: 31.6, lng: 74.4 })).data.error, /already used/);
   const me = ok(await call("salesman", "GET", "/api/attendance/me"), "me");
-  assert.ok(me.today, "checked in by opening the shift"); assert.equal(me.today.source, "shift");
-  assert.equal(me.month.tracked, true);
+  assert.ok(me.today); assert.equal(me.month.tracked, true);
   assert.ok(me.month.present > 0, "past days present");
-  const live = ok(await call("salesman", "GET", `/api/shifts/${shift.id}/live`), "live");
-  ok(await call("salesman", "POST", `/api/shifts/${shift.id}/close`, { readings: Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening])), cash_actual: 0 }), "close");
+  const sl = ok(await call("salesman", "GET", `/api/shifts/${shift.id}/live`), "live");
+  ok(await call("salesman", "POST", `/api/shifts/${shift.id}/close`, { readings: Object.fromEntries(sl.readings.map((r: any) => [r.nozzle_id, r.opening])), cash_actual: 0 }), "close");
   assert.ok(ok(await call("salesman", "GET", "/api/attendance/me"), "me").today.check_out, "checked out at shift close");
-  // manager checks in with a selfie far from the station
-  const selfie = ok(await call("manager", "POST", "/api/ai/read-photo", { kind: "selfie", image: PNG }), "selfie");
-  const ci = ok(await call("manager", "POST", "/api/attendance/check-in", { photo_id: selfie.photo_id, lat: 31.60, lng: 74.40 }), "check in");
-  assert.equal(ci.in_photo_id, selfie.photo_id);
+  // manager checks in and out with selfies and location
+  ok(await call("manager", "POST", "/api/attendance/check-in", { photo_id: await selfie("manager"), lat: 31.60, lng: 74.40 }), "manager in");
+  const co = ok(await call("manager", "POST", "/api/attendance/check-out", { photo_id: await selfie("manager"), lat: 31.61, lng: 74.41 }), "manager out");
+  assert.ok(co.out_photo_id); assert.equal(co.out_lat, 31.61);
   // leave request and approval
   const tomorrow = db.pkDate(Date.now() + 86_400_000);
   const lv = ok(await call("salesman", "POST", "/api/leaves", { from_day: tomorrow, to_day: tomorrow, type: "unpaid", reason: "sick child" }), "leave");

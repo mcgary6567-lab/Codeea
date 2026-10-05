@@ -36,7 +36,8 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
   const start = async () => {
     const readings = Object.fromEntries(chosen.map((n: any) => [n.nozzle_id, Number(vals[n.nozzle_id])]));
     const r: any = await run(() => api("/shifts/open", { body: { station_id: data.station_id, attendant, readings, photo_ids: photos } }),
-      (x: any) => x.handover_gaps?.length ? `Shift started. Manager alerted about ${x.handover_gaps.reduce((a: number, g: any) => a + g.litres, 0)} L meter gap.` : "Shift started");
+      (x: any) => (x.handover_gaps?.length ? `Shift started. Manager alerted about ${x.handover_gaps.reduce((a: number, g: any) => a + g.litres, 0)} L meter gap.` : "Shift started")
+        + (x.attendance_missing ? ` · ${attendant}: attendance not marked — check in with selfie in My account · حاضری لگائیں` : ""));
     if (r) onStarted(r);
   };
 

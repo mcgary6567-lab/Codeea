@@ -50,7 +50,9 @@ function Attendance() {
         <h2 className="mb-2 font-semibold">In today ({data.present_today.length})</h2>
         <div className="flex flex-wrap gap-2">{data.present_today.map((a: any) => (
           <span key={a.id} className="badge gap-1 bg-slate-100 text-slate-700">{a.in_photo_id ? <a href={photoUrl(a.in_photo_id)} target="_blank" rel="noreferrer">📷</a> : null}{a.name} · {new Date(a.check_in).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}
-            {a.late_minutes > 15 && <span className="text-amber-700"> · {a.late_minutes}m late</span>}{a.away_m > 300 && <span className="text-red-600"> · {a.away_m} m away</span>}{a.check_out && " · out"}</span>
+            {a.in_lat != null && <a href={`https://maps.google.com/?q=${a.in_lat},${a.in_lng}`} target="_blank" rel="noreferrer" title="Check-in location">📍</a>}
+            {a.late_minutes > 15 && <span className="text-amber-700"> · {a.late_minutes}m late</span>}{a.away_m > 300 && <span className="text-red-600"> · {a.away_m} m away</span>}
+            {a.check_out && <> · out{a.out_photo_id ? <a href={photoUrl(a.out_photo_id)} target="_blank" rel="noreferrer"> 📷</a> : null}{a.out_lat != null && <a href={`https://maps.google.com/?q=${a.out_lat},${a.out_lng}`} target="_blank" rel="noreferrer" title="Check-out location">📍</a>}</>}</span>
         ))}{!data.present_today.length && <span className="text-sm text-slate-500">Nobody yet</span>}</div>
       </div>
       <div className="card overflow-x-auto">
