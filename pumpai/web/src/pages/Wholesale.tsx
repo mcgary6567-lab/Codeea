@@ -296,8 +296,37 @@ function ClientDetail({ id }: { id: string }) {
 
 function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; running?: boolean; showClient?: boolean; onVoid?: (row: any) => void }) {
   if (!rows.length) return <Empty>No entries</Empty>;
+  const amounts = (r: any) => {
+    const debit = running ? r.debit : r.type === "supply" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
+    return { debit, credit: running ? r.credit : debit ? 0 : Math.abs(r.amount) };
+  };
+  const extra = (r: any) => [r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ");
   return (
-    <div className="overflow-x-auto">
+    <>
+    {/* phone: one line per entry */}
+    <ul className="divide-y divide-slate-100 sm:hidden print:hidden">
+      {rows.map((r) => {
+        const { debit, credit } = amounts(r);
+        return (
+          <li key={r.id} className={`flex gap-3 px-4 py-2.5 ${r.voided ? "text-slate-400 line-through" : ""}`}>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge>{r.voided ? <Badge tone="red">VOID</Badge> : null}{dt(r.txn_date)}</div>
+              {showClient && <Link to={`/wholesale/${r.client_id}`} className="block font-medium hover:underline">{r.client_name}</Link>}
+              <div className="text-sm">{r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
+              {extra(r) && <div className="truncate text-xs text-slate-500">{extra(r)}</div>}
+              <ProofThumbs ids={r.proof_ids} />
+            </div>
+            <div className="shrink-0 text-right tabular-nums">
+              {debit ? <div className="font-semibold">{pkr(debit)}</div> : null}
+              {credit ? <div className="font-semibold text-emerald-700">−{pkr(credit)}</div> : null}
+              {running && <div className="text-xs text-slate-500">bal {pkr(r.balance)}</div>}
+              {onVoid && !r.voided && <button className="mt-1 text-slate-400 hover:text-red-600" title="Void entry" onClick={() => onVoid(r)}><Ban size={14} /></button>}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+    <div className="hidden overflow-x-auto sm:block print:block">
       <table className="w-full">
         <thead><tr>
           <th className="th">Date</th>{showClient && <th className="th">Client</th>}<th className="th">Entry</th><th className="th">Details</th>
@@ -328,6 +357,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

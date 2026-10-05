@@ -44,6 +44,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
   const nav = useNavigate();
   const { data, reload } = useApi<any>("/wholesale/dashboard");
   const [desk, setDesk] = useState<null | "order" | "cheque" | "promise">(null);
+  const [allSug, setAllSug] = useState(false);
   const [pick, setPick] = useState<null | "supply" | "payment">(null);
   const [q, setQ] = useState("");
   const { run } = useAction();
@@ -66,18 +67,19 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
   return (
     <div className="space-y-5">
       {manage && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4 2xl:grid-cols-7">
           {[
-            { label: "New supply", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
-            { label: "Tanker trip", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
-            { label: "Receive payment", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
-            { label: "Book order", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
-            { label: "Cheque received", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
-            { label: "Payment promise", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
-            { label: "Add client", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
+            { label: "New supply", short: "Supply", sub: "one client", icon: Truck, cls: "bg-brand-600 text-white", go: () => setPick("supply") },
+            { label: "Tanker trip", short: "Trip", sub: "several drops", icon: Truck, cls: "bg-slate-800 text-white", go: onTrip },
+            { label: "Receive payment", short: "Payment", sub: "cash / bank", icon: Wallet, cls: "bg-emerald-600 text-white", go: () => setPick("payment") },
+            { label: "Book order", short: "Order", sub: "litres for a day", icon: ClipboardList, cls: "bg-amber-500 text-white", go: () => setDesk("order") },
+            { label: "Cheque received", short: "Cheque", sub: "post-dated too", icon: Banknote, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("cheque") },
+            { label: "Payment promise", short: "Promise", sub: "will pay on …", icon: CalendarClock, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: () => setDesk("promise") },
+            { label: "Add client", short: "Client", sub: "with rate card", icon: Plus, cls: "bg-white text-slate-800 ring-1 ring-slate-200", go: onAddClient },
           ].map((b) => (
-            <button key={b.label} onClick={b.go} className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left shadow-sm active:scale-[.98] ${b.cls}`}>
-              <b.icon size={22} /><span><span className="block font-semibold">{b.label}</span><span className="text-xs opacity-75">{b.sub}</span></span>
+            <button key={b.label} onClick={b.go} className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-center shadow-sm active:scale-[.98] sm:flex-row sm:gap-3 sm:px-4 sm:py-3 sm:text-left ${b.cls}`}>
+              <b.icon size={22} className="shrink-0" /><span className="min-w-0"><span className="block text-[13px] font-semibold leading-tight sm:hidden">{b.short}</span>
+                <span className="hidden font-semibold sm:block">{b.label}</span><span className="hidden text-xs opacity-75 sm:block">{b.sub}</span></span>
             </button>
           ))}
         </div>
@@ -99,10 +101,10 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
       </div>
 
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2><span className="text-xs text-slate-500">— worked out from dues, ordering habits, rates, stock and fleet</span></div>
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"><Lightbulb size={18} className="text-amber-500" /><h2 className="font-semibold">Suggestions for today</h2><span className="hidden text-xs text-slate-500 sm:inline">— worked out from dues, ordering habits, rates, stock and fleet</span></div>
         {data.suggestions.length ? (
           <ul className="divide-y divide-slate-100">
-            {data.suggestions.map((s: any, i: number) => {
+            {(allSug ? data.suggestions : data.suggestions.slice(0, 6)).map((s: any, i: number) => {
               const L = LEVEL[s.level as keyof typeof LEVEL];
               return (
                 <li key={i} className={`flex flex-wrap items-center gap-3 border-l-4 px-4 py-3 ${L.ring}`}>
@@ -114,6 +116,8 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
             })}
           </ul>
         ) : <p className="p-4 text-sm text-slate-500">All clear — nothing needs attention today.</p>}
+        {data.suggestions.length > 6 && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700 hover:bg-slate-50" onClick={() => setAllSug(!allSug)}>
+          {allSug ? "Show fewer" : `Show all ${data.suggestions.length} suggestions`}</button>}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -167,9 +171,21 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-2">
           <h2 className="font-semibold">Clients at a glance</h2>
-          <div className="relative w-56"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div className="relative w-full sm:w-56"><Search size={15} className="absolute left-2.5 top-2.5 text-slate-400" /><input className="input pl-8" placeholder="Search client" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         </div>
-        <div className="overflow-x-auto">
+        {/* phone: one card per client */}
+        <ul className="divide-y divide-slate-100 sm:hidden">{clients.map((c: any) => (
+          <li key={c.id}><button className="w-full px-4 py-3 text-left active:bg-slate-50" onClick={() => nav(`/wholesale/${c.id}`)}>
+            <div className="flex items-start gap-2">
+              <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${HEALTH[c.health].dot}`} />
+              <span className="min-w-0 flex-1"><span className="block font-semibold">{c.name}</span><span className="text-xs text-slate-500">{c.city}{c.city ? " · " : ""}{num(c.month_l)} L this month</span></span>
+              <span className="text-right"><span className="block font-bold tabular-nums">{pkr(c.due)}</span><span className={`text-xs ${c.oldest_days > 30 ? "font-semibold text-red-600" : "text-slate-500"}`}>{c.due > 0 ? `oldest ${c.oldest_days} d` : "nothing due"}</span></span>
+            </div>
+            {c.limit_pct != null && <div className="ml-4 mt-2 flex items-center gap-2"><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, c.limit_pct))}%`, background: c.limit_pct >= 90 ? "#e34948" : c.limit_pct >= 75 ? "#eda100" : "#2a78d6" }} /></div><span className="text-xs tabular-nums text-slate-600">{c.limit_pct}% of limit</span></div>}
+            <div className="ml-4 mt-1 text-xs text-slate-500">Last order {c.last_supply_days == null ? "never" : c.last_supply_days === 0 ? "today" : `${c.last_supply_days} day${c.last_supply_days === 1 ? "" : "s"} ago`}{c.margins.length ? ` · margin ${c.margins.map((m: any) => `${PRODUCTS[m.product].split(" ")[0]} Rs ${m.margin.toFixed(2)}`).join(", ")}` : ""}</div>
+          </button></li>
+        ))}</ul>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full">
             <thead><tr><th className="th">Client</th><th className="th">Health</th><th className="th text-right">Due</th><th className="th">Credit limit used</th><th className="th text-right">Oldest unpaid</th><th className="th text-right">This month</th><th className="th">Last order</th><th className="th">Margin / L</th></tr></thead>
             <tbody>{clients.map((c: any) => (
@@ -180,7 +196,7 @@ export function WholesaleDashboard({ onTrip, onAddClient, onFleet, onTab }: { on
                 <td className="td">{c.limit_pct != null ? <div className="flex items-center gap-2"><div className="h-1.5 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, c.limit_pct))}%`, background: c.limit_pct >= 90 ? "#e34948" : c.limit_pct >= 75 ? "#eda100" : "#2a78d6" }} /></div><span className="text-xs tabular-nums text-slate-600">{c.limit_pct}%</span></div> : <span className="text-xs text-slate-400">no limit</span>}</td>
                 <td className={`td text-right text-sm tabular-nums ${c.oldest_days > 30 ? "font-semibold text-red-600" : ""}`}>{c.due > 0 ? `${c.oldest_days} days` : "—"}</td>
                 <td className="td text-right tabular-nums">{num(c.month_l)} L</td>
-                <td className="td text-xs">{c.last_supply_days == null ? "never" : c.last_supply_days === 0 ? "today" : `${c.last_supply_days} days ago`}{c.usual_gap_days ? <div className="text-slate-500">usually every {c.usual_gap_days} d</div> : null}</td>
+                <td className="td text-xs">{c.last_supply_days == null ? "never" : c.last_supply_days === 0 ? "today" : `${c.last_supply_days} day${c.last_supply_days === 1 ? "" : "s"} ago`}{c.usual_gap_days ? <div className="text-slate-500">usually every {c.usual_gap_days} d</div> : null}</td>
                 <td className="td text-xs">{c.margins.map((m: any) => <div key={m.product} className={m.margin < 1 ? "font-semibold text-red-600" : "text-slate-700"}>{PRODUCTS[m.product]} Rs {m.margin.toFixed(2)}</div>)}{!c.margins.length && <span className="text-slate-400">—</span>}</td>
               </tr>
             ))}</tbody>
