@@ -89,7 +89,7 @@ export function VoiceButton({ onParsed, className = "" }: { onParsed: (sale: any
     <>
       <div className={`flex items-stretch gap-1 ${className}`}>
         <button type="button" onClick={listen} disabled={busy}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-lg font-bold text-white shadow active:scale-95 ${listening ? "animate-pulse bg-red-600" : "bg-violet-600"}`}>
+          className={`flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-3 text-base font-bold sm:px-4 sm:text-lg text-white shadow active:scale-95 ${listening ? "animate-pulse bg-red-600" : "bg-violet-600"}`}>
           {busy ? <Loader2 className="animate-spin" /> : listening ? <MicOff /> : <Mic />}
           {listening ? "Listening… tap to stop" : busy ? "Understanding…" : <>Speak the sale · <span lang="ur" dir="rtl" className="font-urdu font-normal">بول کر</span></>}
         </button>

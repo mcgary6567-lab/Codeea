@@ -37,8 +37,8 @@ export default function MyAccount() {
       <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
         <div className="mb-3 text-lg font-semibold">Attendance today · <Ur>آج کی حاضری</Ur></div>
         {!a.today ? (
-          <button type="button" onClick={() => setProofFor("in")} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 py-5 text-2xl font-bold text-white active:scale-95">
-            <LogIn size={28} /> Check in with selfie · <Ur>حاضری</Ur>
+          <button type="button" onClick={() => setProofFor("in")} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-3 py-4 text-xl font-bold text-white active:scale-95 sm:py-5 sm:text-2xl">
+            <LogIn size={28} className="shrink-0" /><span className="flex flex-col items-center leading-tight sm:flex-row sm:gap-2"><span className="whitespace-nowrap">Check in with selfie</span><Ur>حاضری لگائیں</Ur></span>
           </button>
         ) : (
           <div className="flex flex-wrap items-center gap-3">

@@ -72,10 +72,12 @@ export function StartShiftSheet({ stationId, attendant, onStarted, big }: { stat
       {photos.length > 0 && <p className="text-xs text-slate-500">📷 {photos.length} meter photo{photos.length === 1 ? "" : "s"} will be kept with this shift.</p>}
       {gaps.length > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Litres pumped between shifts are taken out of tank stock and reported to the manager.</p>}
       {/* stays on screen while the nozzle list scrolls */}
-      <div className="sticky bottom-0 -mx-1 bg-white px-1 pb-1 pt-2">
+      {/* negative bottom = sits on the very edge of the screen, so no rows peek out below it */}
+      <div className={`sticky -mx-1 bg-white px-1 pt-2 ${big ? "-bottom-3 pb-6 sm:-bottom-6 sm:pb-4" : "bottom-0 pb-1"}`}>
         <button className={`w-full rounded-xl bg-emerald-600 font-bold text-white shadow-lg active:scale-95 disabled:bg-slate-300 ${big ? "py-4 text-xl" : "py-3 text-lg"}`}
           disabled={busy || !chosen.length || gaps.some((g: any) => g.gap < 0)} onClick={start}>
-          Start shift · <Ur>شفٹ شروع کریں</Ur> ({chosen.length} nozzle{chosen.length === 1 ? "" : "s"})
+          <span className="whitespace-nowrap">Start shift · <Ur>شفٹ شروع کریں</Ur></span>{" "}
+          <span className="whitespace-nowrap text-base font-semibold opacity-90">({chosen.length} nozzle{chosen.length === 1 ? "" : "s"})</span>
         </button>
       </div>
     </div>

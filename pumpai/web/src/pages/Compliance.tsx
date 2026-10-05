@@ -130,6 +130,7 @@ export function Checklist({ stationId }: { stationId?: number }) {
         <div className="flex items-center justify-between"><span className="text-lg font-semibold">Today · <Ur>آج</Ur></span><span className="text-2xl font-bold tabular-nums">{data.done} / {data.total}</span></div>
         <div className="mt-2 h-3 rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${(data.done / Math.max(1, data.total)) * 100}%` }} /></div>
       </div>
+      {!data.items.length && <p className="rounded-2xl bg-white p-6 text-center text-slate-500 ring-1 ring-slate-200">No checks for today. The manager adds them in Safety &amp; checks. · <Ur>آج کوئی چیک نہیں</Ur></p>}
       {data.items.map((i: any) => <CheckRow key={i.id} i={i} stationId={data.station_id} onDone={reload} canRedo={user?.role !== "salesman"} />)}
     </div>
   );

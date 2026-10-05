@@ -189,7 +189,7 @@ export default function Pos() {
             { k: "end", i: "⏹️", en: "End shift", ur: "شفٹ ختم", to: "/shifts", warn: shiftOpen && d.shift.hours_open >= 12 },
           ].map((b) => {
             const cls = `flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-sm font-semibold active:scale-95 ${b.on ? "bg-amber-400 text-amber-950" : b.warn ? "bg-red-600 text-white" : "bg-white/10 text-white hover:bg-white/15"}`;
-            const body = <><span className="text-2xl leading-none">{b.i}</span><span>{b.en}</span><Ur className="text-xs font-normal opacity-90">{b.ur}</Ur></>;
+            const body = <><span className="text-2xl leading-none">{b.i}</span><span className="whitespace-nowrap text-[13px] leading-tight sm:text-sm">{b.en}</span><Ur className="text-xs font-normal opacity-90">{b.ur}</Ur></>;
             return b.to ? <Link key={b.k} to={b.to} className={cls}>{body}</Link> : <button key={b.k} type="button" onClick={b.go} className={cls}>{body}</button>;
           })}
         </div>
@@ -305,23 +305,23 @@ export default function Pos() {
           {/* 4. save — reads like a receipt: what, how much, how paid, and the amount to collect */}
           <div className="sticky bottom-0 z-10 rounded-2xl bg-white p-3 shadow-xl ring-2 ring-brand-600/30">
             {product && value > 0 ? (
-              <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div className="flex flex-wrap items-center gap-2 text-lg">
-                  <span className={`rounded-lg px-3 py-1 font-bold text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
+              <div className="mb-2 grid gap-2 sm:mb-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-lg">
+                  <span className={`rounded-lg px-2 py-0.5 font-bold sm:px-3 sm:py-1 text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
                   <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
-                  {pay && <span className="rounded-lg bg-slate-100 px-3 py-1 font-semibold">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : ""}</span>}
+                  {pay && <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-semibold sm:px-3 sm:py-1">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : ""}</span>}
                 </div>
-                <div className="rounded-xl bg-emerald-50 px-4 py-2 text-right ring-1 ring-emerald-200">
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-1.5 ring-1 ring-emerald-200 sm:block sm:py-2 sm:text-right">
                   <div className="text-sm text-emerald-800">{pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
-                  <div className="text-3xl font-extrabold tabular-nums text-emerald-800">{pkr(amount)}</div>
+                  <div className="text-2xl font-extrabold tabular-nums text-emerald-800 sm:text-3xl">{pkr(amount)}</div>
                 </div>
               </div>
-            ) : <div className="mb-3 text-center text-lg text-slate-500">① fuel · ② amount · ③ payment — <Ur>تیل، رقم اور ادائیگی چنیں</Ur></div>}
+            ) : <div className="mb-3 hidden text-center text-lg text-slate-500 sm:block">① fuel · ② amount · ③ payment — <Ur>تیل، رقم اور ادائیگی چنیں</Ur></div>}
             <div className="grid grid-cols-[auto_1fr] gap-3">
-              <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel · <Ur>منسوخ</Ur></button>
+              <button onClick={reset} className="flex items-center justify-center gap-1 whitespace-nowrap rounded-xl bg-slate-200 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-300 sm:px-5 sm:py-4 sm:text-lg"><X size={20} /> Cancel<span className="hidden sm:inline"> · <Ur>منسوخ</Ur></span></button>
               <button onClick={save} disabled={!ready || saving || (!training && ((!shiftOpen && isSalesman) || !!priceLock))}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-2xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300">
-                <Check size={28} /> Save · <Ur>محفوظ کریں</Ur>
+                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-3 text-xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300 sm:px-8 sm:py-4 sm:text-2xl">
+                <Check size={28} /> Save · <Ur>محفوظ<span className="hidden sm:inline"> کریں</span></Ur>
               </button>
             </div>
           </div>
@@ -403,8 +403,8 @@ const Blocker = ({ children }: { children: ReactNode }) => (
 function StartShift({ onStarted }: { onStarted: () => void }) {
   return (
     <>
-      <h2 className="text-xl font-bold sm:text-2xl">🕘 Start your shift · <Ur>شفٹ شروع کریں</Ur></h2>
-      <p className="mb-3 mt-1 text-sm text-slate-600">Check each meter and confirm the reading · <Ur>ہر میٹر کی ریڈنگ چیک کریں</Ur></p>
+      <h2 className="text-xl font-bold sm:text-2xl">🕘 Start your shift <span className="block text-lg sm:inline sm:text-2xl"><span className="hidden sm:inline">· </span><Ur>شفٹ شروع کریں</Ur></span></h2>
+      <p className="mb-3 mt-1 text-sm text-slate-600">Check each meter and confirm the reading <span className="block sm:inline"><Ur>ہر میٹر کی ریڈنگ چیک کریں</Ur></span></p>
       <StartShiftSheet big onStarted={onStarted} />
     </>
   );
