@@ -206,6 +206,7 @@ export function seed() {
     simulateStock(tenantId, st1, st2, T0);
     seedPrepaidAndMore(tenantId, st1, st2, T0);
     seedMoney(tenantId);
+    seedPeople(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -516,4 +517,23 @@ function seedMoney(tenantId: number) {
   }
   setSetting(tenantId, "ntn", "4217651-3");
   setSetting(tenantId, "strn", "3277876154321");
+}
+
+/** A staff loan and training records (one overdue). */
+function seedPeople(tenantId: number) {
+  const imran = get("SELECT id FROM users WHERE email='salesman@pumpai.pk'")!.id;
+  const manager = get("SELECT id FROM users WHERE email='manager@pumpai.pk'")!.id;
+  const at = iso(Date.now() - 50 * DAY);
+  const loan = run("INSERT INTO staff_loans (tenant_id,user_id,amount,instalment,note,created_by,created_at) VALUES (?,?,?,?,?,?,?)", tenantId, imran, 30000, 5000, "Motorcycle repair", "Kamran Shah", at).id;
+  run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,ref,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", tenantId, imran, "advance", 30000, `Loan #${loan}: Motorcycle repair — Rs 5,000 a month`, `loan:${loan}`, "Kamran Shah", at);
+  const d = (days: number) => iso(Date.now() - days * DAY).slice(0, 10);
+  const add = (uid: number, topic: string, done: string, months: number, trainer: string) => {
+    const x = new Date(`${done}T12:00:00Z`); x.setUTCMonth(x.getUTCMonth() + months);
+    run("INSERT INTO trainings (tenant_id,user_id,topic,done_on,next_due,trainer,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)", tenantId, uid, topic, done, x.toISOString().slice(0, 10), trainer, "Kamran Shah", iso(Date.now()));
+  };
+  add(imran, "Fire safety & extinguisher use", d(380), 12, "Rescue 1122 Lahore");
+  add(imran, "POS & cash handling", d(40), 12, "Kamran Shah");
+  add(imran, "Emergency shutdown & spill handling", d(345), 12, "PSO HSE officer");
+  add(manager, "Fire safety & extinguisher use", d(100), 12, "Rescue 1122 Lahore");
+  add(manager, "First aid", d(200), 24, "Red Crescent");
 }

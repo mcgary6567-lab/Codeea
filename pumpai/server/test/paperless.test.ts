@@ -118,10 +118,13 @@ test("staff account: cash short goes on the salesman's account; salary pays it b
   ok(await call("admin", "PATCH", `/api/staff/${imran.id}`, { salary: null }), "clear salary");
   assert.equal((await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, {})).status, 400, "salary not set");
   ok(await call("admin", "PATCH", `/api/staff/${imran.id}`, { salary: 30000 }), "salary");
-  const owed = base + short + 2000;
+  // the demo salesman also has a loan: it is recovered by its own monthly instalment, not by the manual cut
+  const detail = ok(await call("manager", "GET", `/api/staff/${imran.id}`), "detail");
+  const owed = base + short + 2000 - detail.loans_left;
   assert.equal((await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, { deduct: owed + 10 })).status, 400, "cannot deduct more than owed");
-  const paid = ok(await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, { deduct: owed, bonus: 1000 }), "pay");
-  assert.ok(Math.abs(paid.net - (31000 - owed)) < 0.02); assert.ok(Math.abs(paid.balance) < 0.02);
+  const paid = ok(await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, { deduct: owed, bonus: 1000, commission: 0 }), "pay");
+  assert.ok(Math.abs(paid.net - (31000 - owed - detail.loan_due)) < 0.02);
+  assert.ok(Math.abs(paid.balance - (detail.loans_left - detail.loan_due)) < 0.02, "only the rest of the loan is left");
   const exp = db.get("SELECT * FROM expenses WHERE category='Salaries & wages' AND paid_to='Imran' ORDER BY id DESC LIMIT 1");
   assert.equal(exp.amount, 31000);
   assert.equal((await call("manager", "POST", `/api/staff/${imran.id}/pay-salary`, {})).status, 400, "paid once a month");

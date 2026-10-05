@@ -5,6 +5,7 @@ import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../componen
 import { pkr } from "../lib/format";
 import { LedgerList } from "./Staff";
 import { Leaderboard } from "./Team";
+import { SlipsList } from "../components/StaffExtras";
 import { resizeImage } from "../components/Capture";
 
 const Ur = ({ children }: { children: React.ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -77,6 +78,11 @@ export default function MyAccount() {
         <div className="mb-1 text-lg font-semibold">🏆 This week · <Ur>اس ہفتے</Ur></div>
         <Leaderboard compact />
       </div>}
+      {(data.loans?.length > 0 || data.slips?.length > 0) && <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+        {data.loans?.map((l: any) => <div key={l.id} className="mb-2 text-sm"><b>Loan</b> {l.note ?? ""}: {pkr(l.remaining)} left · {pkr(l.instalment)} every month · {l.months_left} months to go</div>)}
+        {data.slips?.length > 0 && <><div className="font-semibold">Salary slips · <Ur>تنخواہ کی پرچی</Ur></div><SlipsList slips={data.slips} /></>}
+      </div>}
+      <MyTraining />
       <div className="card p-3"><LedgerList lines={data.lines} /></div>
       {leave && <LeaveForm onClose={() => setLeave(false)} onDone={() => { setLeave(false); att.reload(); }} />}
     </div>
@@ -99,5 +105,23 @@ export function LeaveForm({ userId, onClose, onDone }: { userId?: number; onClos
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>
+  );
+}
+
+function MyTraining() {
+  const { data } = useApi<any>("/me/training");
+  const me = data?.staff?.[0];
+  if (!me) return null;
+  const rows = Object.entries(me.records).filter(([, r]: [string, any]) => r.status !== "none");
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+      <div className="mb-1 font-semibold">My training · <Ur>تربیت</Ur></div>
+      {rows.map(([topic, r]: [string, any]) => (
+        <div key={topic} className="flex justify-between border-b border-slate-100 py-1 text-sm"><span>{topic}</span>
+          <span className={r.status === "overdue" || r.status === "missing" ? "font-semibold text-red-600" : r.status === "due_soon" ? "text-amber-700" : "text-emerald-700"}>
+            {r.status === "missing" ? "Needed — ask the manager" : r.status === "overdue" ? `Overdue (${r.next_due})` : r.next_due ? `OK till ${r.next_due}` : "Done"}</span></div>
+      ))}
+    </div>
   );
 }

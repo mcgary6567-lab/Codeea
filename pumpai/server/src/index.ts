@@ -37,6 +37,7 @@ import { claims } from "./routes/claims.js";
 import { tax } from "./routes/tax.js";
 import { bankrec } from "./routes/bankrec.js";
 import { ledger } from "./routes/ledger.js";
+import { people, slipPdf } from "./routes/people.js";
 import { startScheduler } from "./automation/scheduler.js";
 import { seed } from "./seed.js";
 
@@ -89,6 +90,14 @@ app.get("/board/:token/data", (req, res) => {
   res.setHeader("cache-control", "no-store");
   d ? res.json(d) : res.status(404).json({ error: "Not found" });
 });
+// salary slip PDF (signed link sent to the staff member on WhatsApp)
+app.get("/slip/:token", (req, res) => {
+  const pdf = slipPdf(req.params.token);
+  if (!pdf) return res.status(404).type("html").send("<p style='font-family:sans-serif'>This salary slip link is not valid.</p>");
+  res.setHeader("content-type", "application/pdf");
+  res.setHeader("content-disposition", "inline; filename=salary-slip.pdf");
+  res.end(pdf);
+});
 app.use("/webhooks/whatsapp", waWebhook);
 
 const api = express.Router();
@@ -127,6 +136,7 @@ api.use(claims);
 api.use(tax);
 api.use(bankrec);
 api.use(ledger);
+api.use(people);
 app.use("/api", api);
 
 // Serve the built dashboard in production

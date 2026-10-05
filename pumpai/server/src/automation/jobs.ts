@@ -14,6 +14,7 @@ import { khataOverdue, khataLateFees, bookingReminders, serviceDue } from "../ro
 import { makeBackup } from "../routes/system.js";
 import { bookRecurring } from "../routes/recurring.js";
 import { weeklyLeaderboard } from "../routes/feedback.js";
+import { trainingWatch, dailyCoaching } from "../routes/people.js";
 
 export interface Job {
   key: string;
@@ -252,6 +253,20 @@ export const JOBS: Job[] = [
     description: "Monday 9am: every salesman gets last week's top 3 (litres, shop sales, customer rating) and their own place and commission.",
     cron: "0 9 * * 1",
     run: async (t) => `${await weeklyLeaderboard(t)} salesmen ranked`,
+  },
+  {
+    key: "staff_coaching",
+    name: "Daily coaching for salesmen",
+    description: "8:30am: each salesman who worked yesterday gets a short message (app + WhatsApp) with what went well and one or two tips — cash short, litres not entered, late, ratings, shop sales. Written by AI when the key is set.",
+    cron: "30 8 * * *",
+    run: async (t) => `${await dailyCoaching(t)} messages sent`,
+  },
+  {
+    key: "training_due",
+    name: "Training due",
+    description: "Monday 9:30am: staff whose fire safety, POS or other training is overdue, due in 30 days or never done — to the managers and to each person.",
+    cron: "30 9 * * 1",
+    run: async (t) => `${await trainingWatch(t)} staff need training`,
   },
   {
     key: "monthly_bills",

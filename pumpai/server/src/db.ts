@@ -381,6 +381,15 @@ export function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS bank_recons (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, bank TEXT, period_from TEXT, period_to TEXT, statement_closing REAL, lines INTEGER, matched INTEGER,
     bank_only REAL, books_only REAL, created_by TEXT, created_at TEXT NOT NULL)`);
+  // staff: salary slips, loans with monthly instalments, training records
+  db.exec(`CREATE TABLE IF NOT EXISTS salary_slips (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, month TEXT NOT NULL, data TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL, UNIQUE (user_id, month))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS staff_loans (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, amount REAL NOT NULL, instalment REAL NOT NULL, note TEXT,
+    status TEXT NOT NULL DEFAULT 'active', created_by TEXT, created_at TEXT NOT NULL, closed_at TEXT)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS trainings (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, topic TEXT NOT NULL, done_on TEXT NOT NULL, next_due TEXT,
+    trainer TEXT, note TEXT, photo_id INTEGER, created_by TEXT, created_at TEXT NOT NULL)`);
   migrateUserRoles();
 }
 
