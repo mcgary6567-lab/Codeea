@@ -288,7 +288,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
         <Field label="Note · نوٹ"><input className="input" value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
       </div>
       <ProofPhotos value={photos} onChange={setPhotos} required={cheque} hint={cheque ? "photo of the cheque" : "receipt / slip / screenshot"} />
-      {dir === "in" && type === "khata" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.notify} onChange={(e) => set("notify", e.target.checked)} /> Send the receipt on WhatsApp · <Ur>رسید واٹس ایپ پر</Ur></label>}
+      {dir === "in" && type === "khata" && <label className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" className="h-5 w-5 shrink-0" checked={f.notify} onChange={(e) => set("notify", e.target.checked)} /> Send the receipt on WhatsApp · <Ur>رسید واٹس ایپ پر</Ur></label>}
 
       <button className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-lg font-bold text-white shadow active:scale-[.98] disabled:bg-slate-300 ${dir === "in" ? "bg-emerald-600" : "bg-rose-600"}`}
         disabled={busy || !amount || (needsParty && !party) || (cheque && !photos.length)}>
@@ -304,9 +304,9 @@ function PartyPicker({ kind, value, onChange, dir }: { kind: string; value: any;
   const label: Record<string, string> = { khata: "Customer · گاہک", wholesale: "Client · کلائنٹ", supplier: "Supplier · سپلائر", staff: "Staff member · ملازم" };
   if (value) return (
     <div className="flex items-center gap-3 rounded-xl bg-brand-50 p-3 ring-1 ring-brand-200">
-      <span className="min-w-0 flex-1"><b className="block truncate">{value.name}</b><span className="text-xs text-slate-600">{value.phone ? phone(value.phone) : value.role ?? ""}</span></span>
+      <span className="min-w-0 flex-1"><b className="block">{value.name}</b><span className="text-xs text-slate-600">{value.phone ? phone(value.phone) : value.role ?? ""}</span></span>
       <span className="text-right"><span className="block font-semibold tabular-nums">{pkr(value.balance)}</span><span className="text-[11px] text-slate-500">{kind === "supplier" ? "we owe" : kind === "staff" ? "advance" : "owes"}</span></span>
-      <button type="button" className="p-1 text-slate-500" onClick={() => onChange(null)} aria-label="Change"><X size={18} /></button>
+      <button type="button" className="-mr-1 p-2.5 text-slate-500" onClick={() => onChange(null)} aria-label="Change"><X size={20} /></button>
     </div>
   );
   return (
@@ -316,8 +316,8 @@ function PartyPicker({ kind, value, onChange, dir }: { kind: string; value: any;
       <ul className="mt-1 max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl ring-1 ring-slate-200">
         {(data?.[kind] ?? []).slice(0, 12).map((p: any) => (
           <li key={p.id}><button type="button" onClick={() => onChange(p)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
-            <span className="min-w-0 flex-1 truncate">{p.name}{p.business_name ? <span className="text-slate-500"> · {p.business_name}</span> : null}</span>
-            <span className={`tabular-nums ${p.balance > 0 && dir === "in" ? "font-semibold text-amber-700" : "text-slate-500"}`}>{pkr(p.balance)}</span>
+            <span className="min-w-0 flex-1">{p.name}{p.business_name ? <span className="text-slate-500"> · {p.business_name}</span> : null}</span>
+            <span className={`shrink-0 tabular-nums ${p.balance > 0 && dir === "in" ? "font-semibold text-amber-700" : "text-slate-500"}`}>{pkr(p.balance)}</span>
           </button></li>
         ))}
         {data && !data[kind]?.length && <li className="px-3 py-3 text-center text-sm text-slate-500">Nothing found</li>}
@@ -364,7 +364,7 @@ function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
           {r.cheque && <><dt className="text-slate-500">Cheque</dt><dd>{r.cheque.bank} · {r.cheque.cheque_no} · dated {r.cheque.cheque_date}</dd></>}
           {v.ref && !r.cheque && <><dt className="text-slate-500">Ref</dt><dd>{v.ref}</dd></>}
           {v.note && <><dt className="text-slate-500">Note</dt><dd>{v.note}</dd></>}
-          {r.balance_after != null && <><dt className="text-slate-500">Balance now</dt><dd className="font-semibold">{pkr(r.balance_after)}</dd></>}
+          {r.balance_after != null && <><dt className="text-slate-500">{r.party_type === "supplier" ? <>We still owe · <Ur>باقی دینا</Ur></> : r.party_type === "staff" ? <>Total advance · <Ur>کل ایڈوانس</Ur></> : <>Still owes · <Ur>باقی</Ur></>}</dt><dd className="font-semibold">{pkr(r.balance_after)}</dd></>}
           <dt className="text-slate-500">By</dt><dd>{v.created_by}</dd>
         </dl>
         {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">{r.message}</p>}
@@ -411,7 +411,7 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 overflow-x-auto">
-          {FILTERS.map(([k, en, ur]) => <button key={k} onClick={() => setFilter(k)} className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${filter === k ? "bg-slate-800 text-white" : "bg-slate-100"}`}>{en} · <Ur>{ur}</Ur></button>)}
+          {FILTERS.map(([k, en, ur]) => <button key={k} onClick={() => setFilter(k)} className={`min-h-9 whitespace-nowrap rounded-full px-3 py-1 text-sm ${filter === k ? "bg-slate-800 text-white" : "bg-slate-100"}`}>{en} · <Ur>{ur}</Ur></button>)}
         </div>
         <div className="flex flex-1 justify-end gap-2">
           {can("cash.receive") && <button className="btn-secondary !px-3 text-sm" onClick={() => go("receive", { method: "Cheque" })}>+ Received · <Ur>وصول</Ur></button>}
@@ -427,9 +427,9 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
               <div className="flex items-start gap-3">
                 <BankLogo name={q.bank} size={38} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-2"><b className="truncate">{q.party_name}</b><Badge tone={s.tone}>{s.en} · {s.ur}</Badge>
+                  <div className="flex flex-wrap items-center gap-x-2"><b>{q.party_name}</b><Badge tone={s.tone}>{s.en} · {s.ur}</Badge>
                     <span className={`text-xs ${q.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{q.direction === "in" ? "↓ received" : "↑ issued"} · {q.party_type}</span></div>
-                  <div className="text-xs text-slate-500">{q.bank} · # {q.cheque_no} · <span className={due ? "font-semibold text-sky-700" : ""}>dated {q.cheque_date}{due && q.status === "in_hand" ? " — deposit now" : ""}</span>
+                  <div className="text-xs text-slate-500">{q.bank} · # {q.cheque_no} · <span className={`whitespace-nowrap ${due ? "font-semibold text-sky-700" : ""}`}>dated {q.cheque_date}{due && q.status === "in_hand" ? " — deposit now" : ""}</span>
                     {q.account_name ? ` · ${q.account_name}` : ""}</div>
                   {q.reason && <div className="text-xs text-red-600">{q.reason}</div>}
                 </div>
@@ -437,7 +437,7 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
               </div>
               {actions(q).length > 0 && <div className="mt-2 flex flex-wrap gap-2">
                 {actions(q).map(([a, en, ur]) => (
-                  <button key={a} onClick={() => setAct({ q, action: a })} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${a === "bounce" ? "bg-red-50 text-red-700" : a === "clear" || a === "deposit" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}>{en} · <Ur>{ur}</Ur></button>
+                  <button key={a} onClick={() => setAct({ q, action: a })} className={`min-h-9 rounded-lg px-3 py-1.5 text-xs font-semibold ${a === "bounce" ? "bg-red-50 text-red-700" : a === "clear" || a === "deposit" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}>{en} · <Ur>{ur}</Ur></button>
                 ))}
               </div>}
             </li>
@@ -491,7 +491,7 @@ function Handover() {
           const diff = Math.round(got - s.cash_actual);
           return (
             <div key={s.id} className="card space-y-2 p-3">
-              <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b>{s.attendant}</b><div className="truncate text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {dt(s.closed_at)}</div></div>
+              <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b>{s.attendant}</b><div className="text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {dt(s.closed_at)}</div></div>
                 <div className="text-right text-sm"><div className="text-xs text-slate-500">Salesman counted · <Ur>سیلزمین</Ur></div><b className="tabular-nums">{pkr(s.cash_actual)}</b></div></div>
               {s.variance ? <p className={`text-xs ${s.variance < 0 ? "text-red-600" : "text-emerald-700"}`}>At closing: {s.variance < 0 ? "short" : "over"} {pkr(Math.abs(s.variance))} against the sales</p> : null}
               <div className="grid grid-cols-[1fr,auto] gap-2">
@@ -513,8 +513,8 @@ function Handover() {
           const diff = Math.round((s.handed_amount ?? 0) - (s.cash_actual ?? 0));
           return (
             <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
-              <span className="min-w-0 flex-1"><b>{s.attendant}</b> · #{s.id}<span className="block truncate text-xs text-slate-500">{dt(s.handed_at)} · {s.handed_to}{s.handover_note ? ` · ${s.handover_note}` : ""}</span></span>
-              <span className="text-right"><b className="tabular-nums">{pkr(s.handed_amount)}</b>{diff !== 0 && <span className={`block text-xs ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? "short" : "over"} {pkr(Math.abs(diff))}</span>}</span>
+              <span className="min-w-0 flex-1"><b>{s.attendant}</b> · #{s.id}<span className="block text-xs text-slate-500">{dt(s.handed_at)} · {s.handed_to}{s.handover_note ? ` · ${s.handover_note}` : ""}</span></span>
+              <span className="shrink-0 text-right"><b className="tabular-nums">{pkr(s.handed_amount)}</b>{diff !== 0 && <span className={`block text-xs ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? "short" : "over"} {pkr(Math.abs(diff))}</span>}</span>
             </li>
           );
         })}</ul>
@@ -550,9 +550,8 @@ function DayBook() {
           <ul className="divide-y divide-slate-100">
             {data.rows.map((r: any, i: number) => (
               <li key={i} className="flex items-center gap-3 px-4 py-2 text-sm">
-                <span className="w-12 shrink-0 text-xs text-slate-500">{new Date(r.at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.what}</span><span className="block truncate text-xs text-slate-500">{[r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
-                <span className={`whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : "⇄"} {pkr(r.amount)}</span>
+                <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}</span><span className="block break-words text-xs text-slate-500">{[new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
+                <span className={`shrink-0 self-start whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : "⇄"} {pkr(r.amount)}</span>
               </li>
             ))}
             {!data.rows.length && <li><Empty>Nothing on this day · <Ur>اس دن کچھ نہیں</Ur></Empty></li>}

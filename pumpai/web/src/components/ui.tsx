@@ -48,7 +48,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-lg"} p-5`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="-m-1.5 rounded-lg p-2.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={20} /></button>
         </div>
         {children}
       </div>

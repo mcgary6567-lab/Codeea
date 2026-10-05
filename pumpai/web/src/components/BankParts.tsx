@@ -67,7 +67,7 @@ export function BankNamePicker({ value, onChange, required }: { value: string; o
       </div>
       {other ? <div className="flex gap-2"><input className="input" autoFocus placeholder="Bank name" value={value} onChange={(e) => onChange(e.target.value)} />
         {value && <button type="button" className="btn-primary" onClick={() => setOpen(false)}>OK</button>}</div>
-        : <button type="button" className="text-sm text-brand-700 underline" onClick={() => { setOther(true); onChange(""); }}>Bank not in the list? Type its name</button>}
+        : <button type="button" className="py-2 text-sm text-brand-700 underline" onClick={() => { setOther(true); onChange(""); }}>Bank not in the list? Type its name</button>}
     </div>
   );
 }
@@ -96,8 +96,8 @@ export function AccountPicker({ value, onChange, method, label, required }: { va
         {list.map((a) => (
           <button type="button" key={a.id} onClick={() => onChange(value === a.id && !required ? null : a.id)} aria-pressed={value === a.id}
             className={`flex min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition ${value === a.id ? "bg-brand-50 ring-2 ring-brand-600" : "bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`}>
-            <BankLogo name={a.bank} size={34} /><span className="min-w-0 flex-1 leading-tight"><span className="block truncate font-semibold">{a.bank}</span>
-              <span className="block truncate text-xs text-slate-500">{a.name.slice(a.bank.length).trim() || (a.kind === "wallet" ? "Wallet" : "Account")}</span></span>
+            <BankLogo name={a.bank} size={34} /><span className="min-w-0 flex-1 leading-tight"><span className="block font-semibold">{a.bank}</span>
+              <span className="block text-xs text-slate-500">{a.name.slice(a.bank.length).trim() || (a.kind === "wallet" ? "Wallet" : "Account")}</span></span>
             {value === a.id && <span className="text-brand-700">✓</span>}
           </button>
         ))}
@@ -164,13 +164,13 @@ export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; on
               <div className="flex items-start gap-3">
                 <BankLogo name={a.bank} size={44} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{a.bank}</span>
-                  <span className="block truncate text-xs text-slate-500">{[a.branch, a.account_no && `A/C ${a.account_no}`, a.title].filter(Boolean).join(" · ") || (a.kind === "wallet" ? "Mobile wallet" : "Account")}</span>
+                  <span className="block font-semibold">{a.bank}</span>
+                  <span className="block break-words text-xs text-slate-500">{[a.branch, a.account_no && `A/C ${a.account_no}`, a.title].filter(Boolean).join(" · ") || (a.kind === "wallet" ? "Mobile wallet" : "Account")}</span>
                 </span>
               </div>
               <div className={`mt-3 text-2xl font-bold tabular-nums ${a.balance < 0 ? "text-red-600" : "text-slate-900"}`}>{pkr(a.balance)}</div>
-              <div className="mt-1 flex gap-3 text-xs text-slate-500">
-                <span className="text-emerald-700">▲ {pkr(a.month_in)}</span><span className="text-red-600">▼ {pkr(a.month_out)}</span><span>this month</span>
+              <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
+                <span className="whitespace-nowrap text-emerald-700">▲ {pkr(a.month_in)}</span><span className="whitespace-nowrap text-red-600">▼ {pkr(a.month_out)}</span><span className="whitespace-nowrap">this month</span>
               </div>
             </button>
           ))}
@@ -191,9 +191,9 @@ export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; on
           <div className="mb-2 text-sm font-semibold">POS sales go into · <Ur>پی او ایس کی رقم کس بینک میں</Ur></div>
           <div className="grid gap-2 sm:grid-cols-2">
             {POS.map((p) => (
-              <label key={p.k} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                <p.icon size={16} className="shrink-0 text-slate-500" /><span className="w-28 shrink-0">{p.en}</span>
-                <select className="input !py-1.5 text-sm" disabled={!manage} value={data.pos_map[p.k] ?? ""}
+              <label key={p.k} className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+                <p.icon size={16} className="shrink-0 text-slate-500" /><span className="shrink-0 sm:w-28">{p.en}</span>
+                <select className="input min-w-0 flex-[1_1_100%] !py-1.5 text-sm sm:flex-1" disabled={!manage} value={data.pos_map[p.k] ?? ""}
                   onChange={async (e) => { await api("/bank/pos-map", { method: "PUT", body: { [p.k]: e.target.value ? Number(e.target.value) : null } }); reload(); }}>
                   <option value="">— not linked —</option>
                   {open.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
