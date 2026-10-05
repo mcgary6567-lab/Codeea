@@ -134,7 +134,8 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
     <Modal open onClose={onClose} title={`End shift — ${data.shift.attendant}`} wide>
       <form className="space-y-4" onSubmit={async (e) => {
         e.preventDefault();
-        const r = await run(() => api(`/shifts/${id}/close`, { body: { readings: Object.fromEntries(Object.entries(readings).map(([k, v]) => [k, Number(v)])), cash_actual: Number(cash), photo_ids: photos } }));
+        const r = await run(() => api(`/shifts/${id}/close`, { body: { readings: Object.fromEntries(Object.entries(readings).map(([k, v]) => [k, Number(v)])), cash_actual: Number(cash), photo_ids: photos } }),
+          (x: any) => x.checkout_missing ? "Shift closed · Now check out with selfie in My account · چیک آؤٹ کریں" : "Shift closed");
         if (r) onClosed(r);
       }}>
         <p className="text-sm font-medium">Step 1 — closing meter reading of every nozzle</p>

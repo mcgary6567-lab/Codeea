@@ -92,8 +92,14 @@ test("attendance: live selfie + live location are mandatory; lateness; leave; sa
   assert.ok(me.today); assert.equal(me.month.tracked, true);
   assert.ok(me.month.present > 0, "past days present");
   const sl = ok(await call("salesman", "GET", `/api/shifts/${shift.id}/live`), "live");
-  ok(await call("salesman", "POST", `/api/shifts/${shift.id}/close`, { readings: Object.fromEntries(sl.readings.map((r: any) => [r.nozzle_id, r.opening])), cash_actual: 0 }), "close");
-  assert.ok(ok(await call("salesman", "GET", "/api/attendance/me"), "me").today.check_out, "checked out at shift close");
+  const closed = ok(await call("salesman", "POST", `/api/shifts/${shift.id}/close`, { readings: Object.fromEntries(sl.readings.map((r: any) => [r.nozzle_id, r.opening])), cash_actual: 0 }), "close");
+  // closing the shift does not check out: that also needs a live selfie + location
+  assert.equal(closed.checkout_missing, true);
+  assert.equal(ok(await call("salesman", "GET", "/api/attendance/me"), "me").today.check_out, null);
+  assert.match((await call("salesman", "POST", "/api/attendance/check-out", { photo_id: await selfie("salesman") })).data.error, /location/i);
+  assert.match((await call("salesman", "POST", "/api/attendance/check-out", { lat: 31.6, lng: 74.4 })).data.error, /selfie/i);
+  const out = ok(await call("salesman", "POST", "/api/attendance/check-out", { photo_id: await selfie("salesman"), lat: 31.6, lng: 74.4 }), "check out");
+  assert.ok(out.check_out); assert.ok(out.out_photo_id); assert.equal(out.out_lat, 31.6);
   // manager checks in and out with selfies and location
   ok(await call("manager", "POST", "/api/attendance/check-in", { photo_id: await selfie("manager"), lat: 31.60, lng: 74.40 }), "manager in");
   const co = ok(await call("manager", "POST", "/api/attendance/check-out", { photo_id: await selfie("manager"), lat: 31.61, lng: 74.41 }), "manager out");

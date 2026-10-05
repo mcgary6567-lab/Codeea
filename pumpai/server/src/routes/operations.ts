@@ -14,7 +14,6 @@ import { followPumpPrice } from "./wholesale.js";
 import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.js";
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
-import { checkOut } from "./compliance.js";
 import { linkPhotos, photosFor } from "./capture.js";
 import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
@@ -396,9 +395,10 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
       `Sales ${pkr(summary.amount)} · Cash expected ${pkr(closed.cash_expected)} · Counted ${pkr(b.cash_actual)} · ${v < 0 ? "Short" : "Over"} ${pkr(Math.abs(v))}`,
   });
   await chargeShortage(t, shift, v);
+  // check-out is NOT marked by closing the shift: it needs the salesman's own live selfie + location
   const att = get("SELECT id FROM users WHERE tenant_id=? AND name=? AND role='salesman'", t, shift.attendant);
-  if (att) checkOut(att.id);
-  return { ...closed, summary, readings: shiftReadings(shift.id) };
+  const notCheckedOut = Boolean(att && get("SELECT id FROM attendance WHERE user_id=? AND check_out IS NULL", att.id));
+  return { ...closed, summary, readings: shiftReadings(shift.id), checkout_missing: notCheckedOut };
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */
