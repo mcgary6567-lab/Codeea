@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus,
+  LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -18,11 +18,85 @@ const WHOLESALE_SUB = [
   { to: "/wholesale?tab=fleet&do=tanker", label: "Add tanker", icon: Truck, perm: "wholesale.manage" },
   { to: "/wholesale?tab=fleet&do=driver", label: "Add driver", icon: UserPlus, perm: "wholesale.manage" },
 ];
+/** Manager / owner menu groups (other roles have short menus and see them flat). */
+const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
+  { key: "sales", label: "Sales & shifts", icon: Fuel, items: ["/pos", "/shifts", "/bookings"] },
+  { key: "customers", label: "Customers & khata", icon: Users, items: ["/customers", "/khata", "/prepaid", "/inbox", "/orders", "/complaints", "/campaigns"] },
+  { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale"] },
+  { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
+  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/expenses", "/cash", "/accounts", "/suppliers"] },
+  { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
+  { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
+  { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/settings"] },
+];
+const itemCls = (on: boolean) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
+const Badge = ({ n }: { n: number }) => n > 0 ? <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{n}</span> : null;
+
+type NavItem = (typeof NAV)[number];
+/** The side menu: flat for short menus; for the manager / owner, groups that open and close. */
+function NavMenu({ items, grouped, badges, onGo }: { items: NavItem[]; grouped: boolean; badges: Record<string, number>; onGo: () => void }) {
+  const { can } = useAuth();
+  const loc = useLocation();
+  const wholesaleShortcut = loc.pathname === "/wholesale" && WHOLESALE_SUB.some((x) => x.to.slice("/wholesale".length) === loc.search);
+  const isOn = (to: string, end?: boolean) => (end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/")) && !(to === "/wholesale" && wholesaleShortcut);
+  const [openSet, setOpenSet] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("pumpai.nav.open") ?? "[]"); } catch { return []; } });
+  const toggle = (k: string) => setOpenSet((cur) => { const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]; try { localStorage.setItem("pumpai.nav.open", JSON.stringify(next)); } catch { /* private mode */ } return next; });
+
+  const link = (n: NavItem, size = 17) => (
+    <NavLink key={n.to} to={n.to} end={(n as any).end} onClick={onGo} className={() => itemCls(isOn(n.to, (n as any).end))}>
+      <n.icon size={size} className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{n.label}</span>
+      {(n as any).badge && <Badge n={badges[(n as any).badge] ?? 0} />}
+    </NavLink>
+  );
+  const wholesaleSub = (
+    <div key="wholesale-sub" className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
+      {WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => (
+        <Link key={x.to} to={x.to} onClick={onGo} className={itemCls(loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length))}>
+          <x.icon size={16} /><span className="min-w-0 flex-1 truncate">{x.label}</span>
+        </Link>
+      ))}
+    </div>
+  );
+
+  if (!grouped) return <>{items.flatMap((n) => (n.to === "/wholesale" ? [link(n), wholesaleSub] : [link(n)]))}</>;
+
+  const inGroup = new Set(GROUPS.flatMap((g) => g.items));
+  return (
+    <>
+      {items.filter((n) => !inGroup.has(n.to)).map((n) => link(n))}
+      {GROUPS.map((g) => {
+        const kids = g.items.map((to) => items.find((n) => n.to === to)).filter(Boolean) as NavItem[];
+        if (!kids.length) return null;
+        const active = kids.some((n) => isOn(n.to)) || (g.key === "wholesale" && loc.pathname.startsWith("/wholesale"));
+        const open = active || openSet.includes(g.key);
+        const count = kids.reduce((a, n) => a + ((n as any).badge ? badges[(n as any).badge] ?? 0 : 0), 0);
+        return (
+          <div key={g.key} className="pt-1">
+            <button type="button" onClick={() => toggle(g.key)} aria-expanded={open}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${active ? "text-white" : "text-emerald-100/90"} hover:bg-white/10`}>
+              <g.icon size={17} className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate font-medium">{g.label}</span>
+              {!open && <Badge n={count} />}
+              <ChevronDown size={15} className={`opacity-70 transition ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+              <div className="ml-4 space-y-0.5 border-l border-white/15 pl-2">
+                {kids.flatMap((n) => (n.to === "/wholesale" ? [link(n, 16), wholesaleSub] : [link(n, 16)]))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, perm: "dashboard.view" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "reports.view" },
   { to: "/insights", label: "Owner insights", icon: HeartPulse, perm: "reports.view" },
-  { to: "/inbox", label: "WhatsApp Inbox", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
+  { to: "/inbox", label: "WhatsApp", icon: MessageCircle, badge: "unread", perm: "whatsapp.inbox" },
   { to: "/pos", label: "Sales / POS", icon: Fuel, perm: "sales.create" },
   { to: "/shifts", label: "Shifts", icon: Clock, perm: "shifts.manage" },
   { to: "/customers", label: "Customers", icon: Users, perm: "customers.view" },
@@ -78,31 +152,8 @@ export default function Layout() {
       </div>
       <QuickAddButton />
       <div className="flex-1 space-y-0.5 overflow-y-auto px-3">
-        {NAV.filter((n) => (!n.perm || can(n.perm)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? ""))).map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setOpen(false)}
-            className={({ isActive }) => {
-              // on the wholesale page a shortcut below is highlighted instead, unless it is the dashboard
-              const on = isActive && !(n.to === "/wholesale" && loc.pathname === "/wholesale" && WHOLESALE_SUB.some((x) => x.to.slice("/wholesale".length) === loc.search));
-              return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${on ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`;
-            }}>
-            <n.icon size={17} />
-            <span className="flex-1">{n.label}</span>
-            {n.badge && badgeVal[n.badge] > 0 && <span className="rounded-full bg-emerald-400 px-1.5 text-xs font-semibold text-emerald-950">{badgeVal[n.badge]}</span>}
-          </NavLink>
-        )).flatMap((el, i, arr) => {
-          // wholesale shortcuts right under "Wholesale Supply"
-          if ((el as any).key !== "/wholesale") return [el];
-          return [el, <div key="wholesale-sub" className="ml-4 space-y-0.5 border-l border-white/15 pl-2">{WHOLESALE_SUB.filter((x) => can(x.perm)).map((x) => {
-            const active = loc.pathname === "/wholesale" && loc.search === x.to.slice("/wholesale".length);
-            return (
-              <Link key={x.to} to={x.to} onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${active ? "bg-white/15 text-white" : "text-emerald-100/90 hover:bg-white/10"}`}>
-                <x.icon size={16} />
-                <span className="flex-1">{x.label}</span>
-              </Link>
-            );
-          })}</div>];
-        })}
+        <NavMenu items={NAV.filter((n) => (!n.perm || can(n.perm)) && (!("only" in n) || (n.only as string[]).includes(user?.role ?? "")))}
+          grouped={["admin", "manager"].includes(user?.role ?? "")} badges={badgeVal} onGo={() => setOpen(false)} />
       </div>
       <div className="border-t border-white/10 p-4 text-sm">
         <div className="font-medium">{user?.name}</div>
