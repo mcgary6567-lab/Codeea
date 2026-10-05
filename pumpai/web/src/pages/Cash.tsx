@@ -4,7 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
-import { AccountPicker, BankAccounts, BankNamePicker } from "../components/BankParts";
+import { AccountPicker, BankAccounts, BankLogo, BankNamePicker } from "../components/BankParts";
 import { useAuth } from "../App";
 
 const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back", bank_withdrawals: "Cash taken out of bank" };
@@ -42,7 +42,8 @@ export default function Cash() {
           <ul className="divide-y divide-slate-100 text-sm">
             {data.deposits.map((d: any) => (
               <li key={d.id} className="flex items-center gap-2 py-2">
-                <span className="flex-1"><b>{d.bank}</b>{d.slip_ref ? ` · slip ${d.slip_ref}` : ""}<span className="block text-xs text-slate-500">{dt(d.created_at)} · {d.deposited_by}</span></span>
+                <BankLogo name={d.bank} size={32} />
+                <span className="min-w-0 flex-1"><b>{d.bank}</b>{d.slip_ref ? ` · slip ${d.slip_ref}` : ""}<span className="block text-xs text-slate-500">{dt(d.created_at)} · {d.deposited_by}</span></span>
                 {d.photo_id && <a href={photoUrl(d.photo_id)} target="_blank" rel="noreferrer" className="text-sky-700" aria-label="Deposit slip photo">📷</a>}
                 <span className="font-semibold tabular-nums">{pkr(d.amount)}</span>
               </li>
@@ -91,7 +92,7 @@ function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"
         {kind === "count" && <p className="text-sm text-slate-600">The book says <b>{pkr(inHand)}</b> should be in hand.</p>}
         {kind === "deposit" && <>
           {hasAccounts ? <AccountPicker method="bank" required label="Deposited in which account? · کس اکاؤنٹ میں" value={account} onChange={setAccount} />
-            : <Field label="Bank · بینک"><BankNamePicker required value={f.bank} onChange={(bank) => setF({ ...f, bank })} /></Field>}
+            : <div><span className="label">Bank · بینک</span><BankNamePicker required value={f.bank} onChange={(bank) => setF({ ...f, bank })} /></div>}
           <Field label="Slip no."><input className="input" value={f.slip_ref} onChange={(e) => setF({ ...f, slip_ref: e.target.value })} /></Field>
         </>}
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>

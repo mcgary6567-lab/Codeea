@@ -4,7 +4,7 @@ import { ArrowLeftRight, Banknote, Building2, Landmark, Pencil, Plus, Printer, T
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
 import { dt, pkr } from "../lib/format";
-import { PK_BANKS, ALL_PK_BANKS } from "../lib/banks";
+import { PK_BANKS, ALL_PK_BANKS, bankInfo, logoUrl } from "../lib/banks";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { useAuth } from "../App";
 
@@ -12,25 +12,69 @@ const Ur = ({ children }: { children: React.ReactNode }) => <span lang="ur" dir=
 const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 
-/** Pick a bank from the list of Pakistani banks; "Other" lets you type one. */
-export function BankNamePicker({ value, onChange, required }: { value: string; onChange: (v: string) => void; required?: boolean }) {
-  const listed = !value || ALL_PK_BANKS.includes(value);
-  const [other, setOther] = useState(!listed);
+/** The bank's logo; a badge in the bank's colour with its short name when the logo can't load (offline). */
+export function BankLogo({ name, size = 40 }: { name?: string | null; size?: number }) {
+  const b = bankInfo(name);
+  const [failed, setFailed] = useState(false);
+  const box = { width: size, height: size };
+  if (b && !failed) return (
+    <span style={box} className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
+      <img src={logoUrl(b)} alt={b.short} loading="lazy" referrerPolicy="no-referrer" style={{ width: size * 0.72, height: size * 0.72 }} className="object-contain"
+        onError={() => setFailed(true)} onLoad={(e) => { if ((e.target as HTMLImageElement).naturalWidth <= 16 && size > 24) setFailed(true); }} />
+    </span>
+  );
+  const short = b?.short ?? ((name ?? "").split(/\s+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join("").slice(0, 3) || "B");
   return (
-    <div className="space-y-2">
-      <select className="input" required={required && !other} value={other ? "__other" : value} onChange={(e) => { if (e.target.value === "__other") { setOther(true); onChange(""); } else { setOther(false); onChange(e.target.value); } }}>
-        <option value="">— Choose bank · بینک چنیں —</option>
-        {PK_BANKS.map((g) => <optgroup key={g.group} label={g.group}>{g.banks.map((b) => <option key={b}>{b}</option>)}</optgroup>)}
-        <option value="__other">Other bank (type the name)</option>
-      </select>
-      {other && <input className="input" required={required} autoFocus placeholder="Bank name" value={value} onChange={(e) => onChange(e.target.value)} />}
+    <span style={{ ...box, background: b?.color ?? "#0f766e", fontSize: Math.max(9, size * (short.length > 3 ? 0.24 : 0.3)) }}
+      className="flex shrink-0 items-center justify-center rounded-xl font-bold leading-none text-white">{short}</span>
+  );
+}
+
+/** Pick a bank from the list of Pakistani banks, with logos and search; "Other" lets you type one. */
+export function BankNamePicker({ value, onChange, required }: { value: string; onChange: (v: string) => void; required?: boolean }) {
+  const [open, setOpen] = useState(!value);
+  const [q, setQ] = useState("");
+  const [other, setOther] = useState(!!value && !ALL_PK_BANKS.includes(value));
+  if (!open && value) return (
+    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
+      <BankLogo name={value} size={40} /><span className="flex-1 font-semibold">{value}</span>
+      <button type="button" className="btn-secondary !py-1.5 text-sm" onClick={() => setOpen(true)}>Change</button>
+    </div>
+  );
+  const term = q.trim().toLowerCase();
+  return (
+    <div className="space-y-2 rounded-xl p-2 ring-1 ring-slate-200">
+      <input className="sr-only" tabIndex={-1} required={required} value={value} onChange={() => {}} aria-hidden />
+      <input className="input" placeholder="Search bank · بینک تلاش کریں" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+        {PK_BANKS.map((g) => {
+          const list = g.banks.filter((b) => !term || b.name.toLowerCase().includes(term) || b.short.toLowerCase().includes(term));
+          if (!list.length) return null;
+          return (
+            <div key={g.group}>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.group}</div>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {list.map((b) => (
+                  <button type="button" key={b.name} onClick={() => { onChange(b.name); setOther(false); setOpen(false); setQ(""); }}
+                    className={`flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-slate-50 ${value === b.name ? "bg-brand-50 ring-2 ring-brand-500" : "ring-1 ring-slate-200"}`}>
+                    <BankLogo name={b.name} size={28} /><span className="min-w-0 leading-tight">{b.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {other ? <div className="flex gap-2"><input className="input" autoFocus placeholder="Bank name" value={value} onChange={(e) => onChange(e.target.value)} />
+        {value && <button type="button" className="btn-primary" onClick={() => setOpen(false)}>OK</button>}</div>
+        : <button type="button" className="text-sm text-brand-700 underline" onClick={() => { setOther(true); onChange(""); }}>Bank not in the list? Type its name</button>}
     </div>
   );
 }
 
 /**
- * "Which of our bank accounts?" on a payment form. Hidden for cash. Choosing it keeps every bank's
- * balance in the system right; leaving it empty still saves (it is listed under "not linked").
+ * "Which of our bank accounts?" on a payment form — big tiles with the bank's logo. Hidden for cash.
+ * Choosing it keeps every bank's balance right; leaving it empty still saves (listed under "not linked").
  */
 export function AccountPicker({ value, onChange, method, label, required }: { value: number | null; onChange: (id: number | null) => void; method?: string | null; label?: string; required?: boolean }) {
   const { data } = useApi<any>("/bank/accounts/pick");
@@ -45,12 +89,20 @@ export function AccountPicker({ value, onChange, method, label, required }: { va
     </p>
   );
   return (
-    <Field label={label ?? "Into which bank account? · کس بینک میں"}>
-      <select className="input" required={required} value={value ?? ""} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-        <option value="">— Choose account —</option>
-        {list.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-    </Field>
+    <fieldset>
+      <legend className="label">{label ?? "Into which bank account? · کس بینک میں"}</legend>
+      <input className="sr-only" tabIndex={-1} required={required} value={value ?? ""} onChange={() => {}} aria-hidden />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {list.map((a) => (
+          <button type="button" key={a.id} onClick={() => onChange(value === a.id && !required ? null : a.id)} aria-pressed={value === a.id}
+            className={`flex min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition ${value === a.id ? "bg-brand-50 ring-2 ring-brand-600" : "bg-white ring-1 ring-slate-200 hover:bg-slate-50"}`}>
+            <BankLogo name={a.bank} size={34} /><span className="min-w-0 flex-1 leading-tight"><span className="block truncate font-semibold">{a.bank}</span>
+              <span className="block truncate text-xs text-slate-500">{a.name.slice(a.bank.length).trim() || (a.kind === "wallet" ? "Wallet" : "Account")}</span></span>
+            {value === a.id && <span className="text-brand-700">✓</span>}
+          </button>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -67,7 +119,6 @@ const POS = [
   { k: "card", en: "Card machine", icon: CreditCard }, { k: "raast", en: "Raast / QR", icon: Zap },
   { k: "easypaisa", en: "Easypaisa", icon: Smartphone }, { k: "jazzcash", en: "JazzCash", icon: Smartphone },
 ];
-const initials = (bank: string) => (bank.match(/\(([A-Z]{2,5})\)/)?.[1] ?? bank.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join("").slice(0, 3)) || "B";
 
 /** Cash & bank page: how much is in each bank, with statements and bank-only entries. */
 export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; onChanged: () => void }) {
@@ -111,7 +162,7 @@ export function BankAccounts({ cashInHand, onChanged }: { cashInHand: number; on
           {open.map((a: any) => (
             <button key={a.id} onClick={() => setForm({ kind: "statement", acc: a })} className="min-w-0 rounded-2xl p-4 text-left ring-1 ring-slate-200 transition hover:bg-slate-50 hover:ring-brand-300">
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700 ring-1 ring-brand-100">{initials(a.bank)}</span>
+                <BankLogo name={a.bank} size={44} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{a.bank}</span>
                   <span className="block truncate text-xs text-slate-500">{[a.branch, a.account_no && `A/C ${a.account_no}`, a.title].filter(Boolean).join(" · ") || (a.kind === "wallet" ? "Mobile wallet" : "Account")}</span>
@@ -180,7 +231,7 @@ function AccountForm({ acc, onClose, onDone }: { acc?: any; onClose: () => void;
         const r = await run(() => acc ? api(`/bank/accounts/${acc.id}`, { method: "PATCH", body }) : api("/bank/accounts", { body }), acc ? "Account saved" : "Bank account added");
         if (r) onDone();
       }}>
-        <Field label="Bank · بینک"><BankNamePicker required value={f.bank} onChange={(bank) => setF({ ...f, bank, kind: /Easypaisa|JazzCash|SadaPay|NayaPay|UPaisa|Omni|Konnect/i.test(bank) ? "wallet" : f.kind })} /></Field>
+        <div><span className="label">Bank · بینک</span><BankNamePicker required value={f.bank} onChange={(bank) => setF({ ...f, bank, kind: /Easypaisa|JazzCash|SadaPay|NayaPay|UPaisa|Omni|Konnect/i.test(bank) ? "wallet" : f.kind })} /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Branch"><input className="input" placeholder="e.g. Ferozepur Road, Lahore" value={f.branch} onChange={(e) => setF({ ...f, branch: e.target.value })} /></Field>
           <Field label="Account no. / IBAN"><input className="input" value={f.account_no} onChange={(e) => setF({ ...f, account_no: e.target.value })} /></Field>
@@ -264,6 +315,8 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
   return (
     <Modal open wide onClose={onClose} title={acc.name}>
       <div className="space-y-3">
+        <div className="flex items-center gap-3"><BankLogo name={acc.bank} size={48} />
+          <div className="min-w-0 text-sm text-slate-600"><b className="block text-base text-slate-900">{acc.bank}</b>{[acc.branch, acc.account_no && `A/C ${acc.account_no}`, acc.title].filter(Boolean).join(" · ")}</div></div>
         <div className="grid grid-cols-2 items-end gap-2 print:hidden sm:flex sm:flex-wrap">
           <Field label="From"><input className="input" type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} /></Field>
           <Field label="To"><input className="input" type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></Field>
