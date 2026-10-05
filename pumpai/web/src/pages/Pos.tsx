@@ -163,24 +163,35 @@ export default function Pos() {
           ))}
         </div>
       )}
-      {/* top strip */}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-lg font-semibold"><Fuel className="text-brand-600" /> {d.station.name}</div>
-        <div className="flex rounded-xl bg-white p-1 ring-1 ring-slate-200" role="tablist">
-          {([["fuel", "Fuel", "تیل", Fuel], ["shop", "Shop", "دکان", ShoppingBasket]] as const).map(([k, en, ur, I]) => (
-            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-base font-semibold ${tab === k ? "bg-slate-900 text-white" : "text-slate-600"}`}><I size={18} /> {en} · <Ur>{ur}</Ur></button>
-          ))}
+      {/* top bar: who / where / shift, and the big buttons (same look as the customer khata page) */}
+      <div className="mb-3 rounded-2xl bg-brand-900 p-3 text-white shadow">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-lg font-bold"><Fuel size={20} /> {d.station.name}</div>
+            <div className="text-sm text-emerald-100/90">{user?.name}{shiftOpen ? <> · ⏱ {Math.floor(d.shift.hours_open)}h {String(Math.floor((d.shift.hours_open % 1) * 60)).padStart(2, "0")}m</> : <> · <span className="font-semibold text-amber-300">No open shift · <Ur>شفٹ شروع نہیں</Ur></span></>}</div>
+          </div>
+          <div className="flex rounded-xl bg-white/10 p-1" role="tablist">
+            {([["fuel", "Fuel", "تیل", Fuel], ["shop", "Shop", "دکان", ShoppingBasket]] as const).map(([k, en, ur, I]) => (
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-base font-semibold ${tab === k ? "bg-white text-brand-900" : "text-white/90"}`}><I size={18} /> {en} · <Ur>{ur}</Ur></button>
+            ))}
+          </div>
+          {!isSalesman && <select className="input w-auto text-slate-900" value={stationId ?? ""} onChange={(e) => { setStationId(Number(e.target.value)); reset(); }}>{stations.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
+          {training && <span className="rounded-lg bg-amber-400 px-3 py-1 text-sm font-bold text-amber-950">🎓 TRAINING — nothing is saved · <Ur>مشق</Ur></span>}
         </div>
-        {!isSalesman && <select className="input w-auto" value={stationId ?? ""} onChange={(e) => { setStationId(Number(e.target.value)); reset(); }}>{stations.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={toggleTraining} className={`rounded-xl px-3 py-2 text-sm font-semibold ${training ? "bg-amber-500 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>🎓 {training ? "Training ON" : "Training"}</button>
-          {shiftOpen ? (
-            <Link to="/shifts" className={`flex items-center gap-2 rounded-xl px-4 py-2 font-medium text-white ${d.shift.hours_open >= 12 ? "bg-red-600" : "bg-slate-800"}`}>
-              <Clock size={18} /> {d.shift.attendant} · {Math.floor(d.shift.hours_open)}h {String(Math.floor((d.shift.hours_open % 1) * 60)).padStart(2, "0")}m
-              <span className="rounded-lg bg-white/20 px-2 py-0.5 text-sm">End shift →</span>
-            </Link>
-          ) : <span className="rounded-xl bg-amber-100 px-4 py-2 font-medium text-amber-800">No open shift</span>}
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {[
+            { k: "scan", i: "📷", en: "Scan card", ur: "کارڈ سکین", go: () => { setTab("fuel"); setScan(true); } },
+            { k: "exp", i: "💸", en: "Expense", ur: "خرچہ", go: () => document.getElementById("pos-expenses")?.scrollIntoView({ behavior: "smooth", block: "center" }) },
+            { k: "checks", i: "✅", en: "Daily checks", ur: "روزانہ چیک", to: "/checklist" },
+            { k: "att", i: "🙋", en: "Attendance", ur: "حاضری", to: "/my-account" },
+            { k: "train", i: "🎓", en: training ? "Training ON" : "Training", ur: "مشق", go: toggleTraining, on: training },
+            { k: "end", i: "⏹️", en: "End shift", ur: "شفٹ ختم", to: "/shifts", warn: shiftOpen && d.shift.hours_open >= 12 },
+          ].map((b) => {
+            const cls = `flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-sm font-semibold active:scale-95 ${b.on ? "bg-amber-400 text-amber-950" : b.warn ? "bg-red-600 text-white" : "bg-white/10 text-white hover:bg-white/15"}`;
+            const body = <><span className="text-2xl leading-none">{b.i}</span><span>{b.en}</span><Ur className="text-xs font-normal opacity-90">{b.ur}</Ur></>;
+            return b.to ? <Link key={b.k} to={b.to} className={cls}>{body}</Link> : <button key={b.k} type="button" onClick={b.go} className={cls}>{body}</button>;
+          })}
         </div>
       </div>
 
@@ -291,18 +302,26 @@ export default function Pos() {
             )}
           </Step>
 
-          {/* 4. save */}
-          <div className="sticky bottom-0 z-10 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-200">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-0 flex-1 text-lg">
-                {product && value > 0 ? (
-                  <><b>{FUEL[product].en}</b> {num(litres, 2)} L × Rs {rate} = <b className="text-2xl">{pkr(amount)}</b>{pay && <> · <span className="capitalize">{pay === "khata" ? `Khata${khata ? ` (${khata.account.name})` : ""}` : pay === "wallet" && walletAcct ? `Wallet (${walletAcct.name})` : pay}</span></>}</>
-                ) : <span className="text-slate-500">Choose fuel, amount and payment · <Ur>تیل، رقم اور ادائیگی چنیں</Ur></span>}
+          {/* 4. save — reads like a receipt: what, how much, how paid, and the amount to collect */}
+          <div className="sticky bottom-0 z-10 rounded-2xl bg-white p-3 shadow-xl ring-2 ring-brand-600/30">
+            {product && value > 0 ? (
+              <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="flex flex-wrap items-center gap-2 text-lg">
+                  <span className={`rounded-lg px-3 py-1 font-bold text-white ${FUEL[product].bg}`}>⛽ {FUEL[product].en} · <Ur>{FUEL[product].ur}</Ur></span>
+                  <span className="font-semibold tabular-nums">{num(litres, 2)} L × Rs {rate}</span>
+                  {pay && <span className="rounded-lg bg-slate-100 px-3 py-1 font-semibold">{PAY.find((x) => x.key === pay)?.en} · <Ur>{PAY.find((x) => x.key === pay)?.ur}</Ur>{pay === "khata" && khata ? ` — ${khata.account.name}` : pay === "wallet" && walletAcct ? ` — ${walletAcct.name}` : ""}</span>}
+                </div>
+                <div className="rounded-xl bg-emerald-50 px-4 py-2 text-right ring-1 ring-emerald-200">
+                  <div className="text-sm text-emerald-800">{pay === "khata" ? <>Add to khata · <Ur>کھاتے میں</Ur></> : <>Collect · <Ur>وصول کریں</Ur></>}</div>
+                  <div className="text-3xl font-extrabold tabular-nums text-emerald-800">{pkr(amount)}</div>
+                </div>
               </div>
-              <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel</button>
+            ) : <div className="mb-3 text-center text-lg text-slate-500">① fuel · ② amount · ③ payment — <Ur>تیل، رقم اور ادائیگی چنیں</Ur></div>}
+            <div className="grid grid-cols-[auto_1fr] gap-3">
+              <button onClick={reset} className="rounded-xl bg-slate-200 px-5 py-4 text-lg font-semibold text-slate-700 active:bg-slate-300"><X className="inline" size={20} /> Cancel · <Ur>منسوخ</Ur></button>
               <button onClick={save} disabled={!ready || saving || (!training && ((!shiftOpen && isSalesman) || !!priceLock))}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300">
-                <Check size={26} /> Save · <Ur>محفوظ</Ur>
+                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-8 py-4 text-2xl font-bold text-white shadow active:scale-95 disabled:bg-slate-300">
+                <Check size={28} /> Save · <Ur>محفوظ کریں</Ur>
               </button>
             </div>
           </div>
@@ -367,9 +386,9 @@ export default function Pos() {
 function Step({ n, en, ur, children }: { n: number; en: string; ur: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white">{n}</span>{en}
-        <Ur className="ml-auto text-xl text-slate-500">{ur}</Ur>
+      <h2 className="mb-3 flex items-center gap-3 text-xl font-bold">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-xl text-white">{n}</span>{en}
+        <Ur className="ml-auto text-2xl text-slate-600">{ur}</Ur>
       </h2>
       {children}
     </section>
@@ -406,23 +425,23 @@ function ShiftPanel({ d, reload, onUndo, myId }: { d: any; reload: () => void; o
   return (
     <aside className="space-y-3">
       <div className="rounded-2xl bg-slate-900 p-4 text-white">
-        <div className="text-sm text-slate-300">Cash in bag (should be) · <Ur>نقد</Ur></div>
+        <div className="flex items-center justify-between text-sm text-slate-300"><span>💰 Cash in bag (should be)</span><Ur className="text-base">بیگ میں نقد</Ur></div>
         <div className="text-4xl font-bold tabular-nums">{pkr(s?.cash_expected ?? 0)}</div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">Total sales</div><div className="text-lg font-semibold tabular-nums">{pkr(s?.amount ?? 0)}</div></div>
-          <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">Litres</div><div className="text-lg font-semibold tabular-nums">{num(s?.litres ?? 0, 1)} L</div></div>
+          <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">🧾 Total sales · <Ur>کل سیل</Ur></div><div className="text-lg font-semibold tabular-nums">{pkr(s?.amount ?? 0)}</div></div>
+          <div className="rounded-lg bg-white/10 p-2"><div className="text-slate-300">⛽ Litres · <Ur>لیٹر</Ur></div><div className="text-lg font-semibold tabular-nums">{num(s?.litres ?? 0, 1)} L</div></div>
         </div>
         <div className="mt-2 space-y-1 text-sm">
-          <div className="flex justify-between"><span className="text-slate-300">💵 Cash sales</span><span className="tabular-nums">{pkr(s?.cash_sales ?? 0)}</span></div>
-          <div className="flex justify-between"><span className="text-slate-300">📒 Khata</span><span className="tabular-nums">{pkr(s?.khata ?? 0)}</span></div>
-          <div className="flex justify-between"><span className="text-slate-300">📱 Digital</span><span className="tabular-nums">{pkr(s?.digital ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-300">💵 Cash · <Ur>نقد</Ur></span><span className="tabular-nums">{pkr(s?.cash_sales ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-300">📒 Khata · <Ur>کھاتہ</Ur></span><span className="tabular-nums">{pkr(s?.khata ?? 0)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-300">📱 Digital · <Ur>آن لائن</Ur></span><span className="tabular-nums">{pkr(s?.digital ?? 0)}</span></div>
           {s?.shop?.total > 0 && <div className="flex justify-between"><span className="text-slate-300">🛒 Shop (cash {pkr(s.shop.cash)})</span><span className="tabular-nums">{pkr(s.shop.total)}</span></div>}
           {s?.points > 0 && <div className="flex justify-between"><span className="text-slate-300">🎁 Paid with points</span><span className="tabular-nums">{pkr(s.points)}</span></div>}
           {s?.prepaid > 0 && <div className="flex justify-between"><span className="text-slate-300">🎟️ Coupons / wallet</span><span className="tabular-nums">{pkr(s.prepaid)}</span></div>}
-          <div className="flex justify-between text-red-300"><span>− Expenses</span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
+          <div className="flex justify-between text-red-300"><span>− Expenses · <Ur>خرچہ</Ur></span><span className="tabular-nums">{pkr(s?.expenses_total ?? 0)}</span></div>
         </div>
       </div>
-      {d.shift && <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} /></div>}
+      {d.shift && <div id="pos-expenses" className="rounded-2xl bg-white p-3 ring-1 ring-slate-200"><ShiftExpenses shiftId={d.shift.id} expenses={s.expenses} onChange={reload} /></div>}
       <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
         <h3 className="mb-2 font-semibold">Last sales · <Ur className="text-slate-500">آخری سیل</Ur></h3>
         <ul className="divide-y divide-slate-100">
