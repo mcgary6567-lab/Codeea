@@ -154,6 +154,8 @@ const FuelLine = ({ k, l, v }: { k: string; l: number; v?: number }) => (
   <div className="flex justify-between gap-2 text-slate-600"><span>{k} <span className="text-xs">{num(l, 2)} L</span></span>{v != null && <span className="tabular-nums">{pkr(v)}</span>}</div>
 );
 
+const ONLINE_LABEL: Record<string, string> = { card: "💳 Card machine", jazzcash: "📱 JazzCash", easypaisa: "📱 Easypaisa", raast: "🏦 Raast / QR" };
+
 /** Full shift report / receipt. */
 export function ShiftReport({ id, onClose }: { id: number; onClose: () => void }) {
   const { data: r } = useApi<any>(`/shifts/${id}/report`);
@@ -232,6 +234,35 @@ function ReportBody({ r }: { r: any }) {
               <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold"><span>= Cash<span className="block text-xs font-normal text-slate-500">{num(f.cash_l, 2)} L{f.rate ? ` × ${f.rate}` : ""}</span></span><span className="tabular-nums">{pkr(f.cash)}</span></div>
             </div>
           ))}</div>
+        </div>
+      )}
+
+      {(r.online?.length > 0 || (r.khata_split?.late_n ?? 0) > 0) && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold">Online money & khata · <Ur>آن لائن اور کھاتہ</Ur></h3>
+          <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+            {r.online.map((o: any) => (
+              <div key={o.method} className="px-3 py-2 text-sm">
+                <div className="flex items-baseline justify-between gap-2"><span className="font-medium">{ONLINE_LABEL[o.method] ?? o.method}</span><span className="shrink-0 font-semibold tabular-nums">{pkr(o.total)}</span></div>
+                <div className="text-xs text-slate-500">
+                  {o.on_pos > 0 && <>On the POS · <Ur>پی او ایس</Ur> {pkr(o.on_pos)} ({o.n} {o.n === 1 ? "entry" : "entries"})</>}
+                  {o.on_pos > 0 && o.at_close > 0 && " + "}
+                  {o.at_close > 0 && <span className="text-sky-700">added at close from the machine / app total · <Ur>آخر میں</Ur> {pkr(o.at_close)}</span>}
+                </div>
+              </div>
+            ))}
+            {r.online.length > 0 && <div className="flex items-baseline justify-between gap-2 bg-slate-50 px-3 py-2 text-sm font-semibold"><span>Total online · <Ur>کل آن لائن</Ur></span><span className="tabular-nums">{pkr(r.online.reduce((a: number, o: any) => a + o.total, 0))}</span></div>}
+            {r.khata_split && (r.khata_split.pos_n + r.khata_split.late_n) > 0 && (
+              <div className="px-3 py-2 text-sm">
+                <div className="flex items-baseline justify-between gap-2"><span className="font-medium">📒 Khata · <Ur>کھاتہ</Ur></span><span className="shrink-0 font-semibold tabular-nums">{pkr(r.khata_split.pos_amount + r.khata_split.late_amount)}</span></div>
+                <div className="text-xs text-slate-500">
+                  {r.khata_split.pos_n > 0 && <>On the POS {pkr(r.khata_split.pos_amount)} ({r.khata_split.pos_n} slip{r.khata_split.pos_n === 1 ? "" : "s"})</>}
+                  {r.khata_split.pos_n > 0 && r.khata_split.late_n > 0 && " + "}
+                  {r.khata_split.late_n > 0 && <span className="text-amber-700">slips added at close · <Ur>رہ جانے والی پرچیاں</Ur> {pkr(r.khata_split.late_amount)} ({r.khata_split.late_n})</span>}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -261,6 +261,8 @@ export function migrate() {
   addColumn("expenses", "photo_id", "INTEGER");
   // photo of the khata slip (parchi) the customer handed over; on the khata entry it is a proof photo (photos.ref = khata:<id>)
   addColumn("sales", "photo_id", "INTEGER");
+  // 1 = added at shift close (online total from the machine slip, or a khata slip missed in the rush), not entered live on the POS
+  addColumn("sales", "at_close", "INTEGER");
   addColumn("deliveries", "photo_id", "INTEGER");
   // messages to contacts that are not CRM customers (wholesale clients, staff, owner)
   db.exec(`CREATE TABLE IF NOT EXISTS outbox (

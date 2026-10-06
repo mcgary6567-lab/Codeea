@@ -212,4 +212,10 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   assert.equal(db.get("SELECT test_l FROM meter_readings WHERE shift_id=? AND nozzle_id=?", shiftId, hsd[0].nozzle_id).test_l, 3);
   assert.equal(JSON.parse(db.get("SELECT cash_notes FROM shifts WHERE id=?", shiftId).cash_notes)["1000"], 3);
   assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/close`, { ...body, cash_actual: 1 })).status, 400, "only once");
+  // the shift report splits the online money: on the POS during the shift vs added at close from the machine total
+  const rep = ok(await call("salesman", "GET", `/api/shifts/${shiftId}/report`), "report");
+  const card = rep.online.find((x: any) => x.method === "card");
+  near(card.on_pos, 1000); near(card.at_close, 4000); near(card.total, 5000); assert.equal(card.n, 1);
+  near(rep.online.find((x: any) => x.method === "jazzcash").at_close, 2000);
+  assert.equal(rep.khata_split.late_n, 1, "one late slip"); assert.equal(rep.khata_split.pos_n, 1, "one slip on the POS");
 });

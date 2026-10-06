@@ -463,7 +463,7 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
     for (const k of b.khata ?? []) {
       if (!rows.some((r) => r.product === k.product)) throw new AppError(400, `This shift has no ${PRODUCTS[k.product] ?? k.product} nozzle`);
       recordSale(t, { station_id: shift.station_id, product: k.product, litres: k.litres, amount: k.litres ? undefined : k.amount, payment_method: "khata", customer_id: k.customer_id,
-        vehicle_no: k.vehicle_no, slip_no: k.slip_no, photo_id: k.photo_id ?? null, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
+        vehicle_no: k.vehicle_no, slip_no: k.slip_no, photo_id: k.photo_id ?? null, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos", at_close: true });
     }
     // 2) online money: shared over the fuels by the value still not entered, each at its own rate
     const remaining = [...new Set(rows.map((r) => r.product))].map((product) => {
@@ -494,7 +494,7 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
       parts.forEach((r, i) => {
         const share = i === parts.length - 1 ? left : round2((amt * r.value) / openValue);
         left = round2(left - share);
-        if (share > 0) recordSale(t, { station_id: shift.station_id, product: r.product, amount: share, payment_method: m, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
+        if (share > 0) recordSale(t, { station_id: shift.station_id, product: r.product, amount: share, payment_method: m, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos", at_close: true });
       });
     }
     // 3) the rest of the meters is cash

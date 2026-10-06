@@ -120,6 +120,13 @@ export function shiftReport(shiftId: number) {
   return {
     shift, readings, summary: shiftSummary(shiftId),
     fuels: shift.status === "closed" ? shiftFuels(shiftId, (p) => (rate[p] ? round2(rate[p]) : null)) : [],
+    // online money per method: entered on the POS during the shift, and added at close from the machine / app total
+    online: all(`SELECT payment_method method, COUNT(*) FILTER (WHERE at_close IS NULL) n,
+        ROUND(COALESCE(SUM(amount) FILTER (WHERE at_close IS NULL),0),2) on_pos, ROUND(COALESCE(SUM(amount) FILTER (WHERE at_close=1),0),2) at_close, ROUND(SUM(amount),2) total
+      FROM sales WHERE shift_id=? AND payment_method IN ('card','jazzcash','easypaisa','raast') GROUP BY payment_method ORDER BY total DESC`, shiftId),
+    khata_split: get(`SELECT COUNT(*) FILTER (WHERE at_close IS NULL) pos_n, ROUND(COALESCE(SUM(amount) FILTER (WHERE at_close IS NULL),0),2) pos_amount,
+        COUNT(*) FILTER (WHERE at_close=1) late_n, ROUND(COALESCE(SUM(amount) FILTER (WHERE at_close=1),0),2) late_amount
+      FROM sales WHERE shift_id=? AND payment_method='khata'`, shiftId),
     // litres and amount at each rate (two lines if the price changed during the shift)
     by_rate: all(`SELECT product, rate, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount FROM sales WHERE shift_id=? GROUP BY product, rate ORDER BY product, rate`, shiftId),
     khata: all(`SELECT c.id, c.name, c.type, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) slips,
