@@ -145,7 +145,8 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                   value={cost[x.p] ?? (supplier?.rates?.[x.p] ?? "")} onChange={(e) => setCost({ ...cost, [x.p]: e.target.value })} /></Field>
                 <Field label="Depot billed (L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} placeholder={x.need ? String(x.need) : ""} aria-label={`${PRODUCTS[x.p]} billed litres`}
                   value={inv[x.p] ?? ""} onChange={(e) => setInv({ ...inv, [x.p]: e.target.value })} /></Field>
-                <div className="pb-2 text-right text-sm tabular-nums">{x.amount ? pkr(x.amount) : "—"}</div>
+                <div className="pb-2 text-right text-sm tabular-nums">{x.amount ? pkr(x.amount) : "—"}
+                  {x.litres > x.need && x.need > 0 && <span className="block text-[11px] text-amber-700">{num(x.litres - x.need, 2)} L short — claimed from the supplier (beyond the allowed loss)</span>}</div>
               </div>))}</div>
             {supplier && <p className="text-[11px] text-slate-500">Rate filled from {supplier.name}'s last bill — change it if this invoice is different.</p>}
           </div>
@@ -247,6 +248,7 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
               {data.depot.purchases.map((x: any, i: number) => <div key={i}>{x.product ? `${PRODUCTS[x.product]}: ${num(x.litres, 2)} L × ${x.rate}` : "Freight on the bill"} = {pkr(x.amount)}</div>)}
               {data.freight_by === "cash" && <div>Freight paid in cash: {pkr(data.freight)}</div>}
               {data.depot.short_l > 0 && <div className="text-amber-700">Depot billed {num(data.invoice_l, 2)} L, clients got {num(data.invoice_l - data.depot.short_l, 2)} L — {num(data.depot.short_l, 2)} L short</div>}
+              {data.depot.claims.map((c: any) => <div key={c.id} className="text-amber-800">Shortage claim #{c.id} on {data.supplier_name}: {PRODUCTS[c.product]} {num(c.litres, 2)} L = {pkr(c.amount)} · {c.status.replace("_", " ")}{c.recovered ? ` · got ${pkr(c.recovered)}` : ""} <span className="text-xs text-slate-500">(Accounts → Claims)</span></div>)}
               <div className="mt-1 font-semibold">Profit on this trip: <span className={data.depot.profit < 0 ? "text-red-600" : "text-emerald-700"}>{pkr(data.depot.profit)}</span></div>
             </div>
           )}

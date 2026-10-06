@@ -178,6 +178,17 @@ test("depot-direct trip (bypass): no stock moves, the supplier bills us, clients
   near(rep.stock.direct.cost - rep0.stock.direct.cost, cost + 6000, "report: depot-direct cost");
   near(rep.summary.fuel_cost_estimate - rep0.summary.fuel_cost_estimate, cost + 6000, "profit: direct cost against its sales");
   assert.ok(Math.abs(rep.summary.revenue - rep0.summary.revenue - trip.billed) < 1, "revenue has the trip's sales");
+  // the depot billed 10 L more diesel than the clients got: a claim on the supplier beyond the allowed loss, settled by credit note
+  const tol = Number(db.get("SELECT value FROM settings WHERE tenant_id=1 AND key='shortage_tolerance_pct'")?.value ?? 0.2);
+  assert.equal(trip.depot.claims.length, 1, "one claim (diesel only)");
+  const tc = trip.depot.claims[0];
+  near(tc.litres, 10 - 2010 * tol / 100, "claim beyond the allowed loss"); near(tc.amount, tc.litres * 255, "at the depot's rate");
+  const listed = ok(await call("admin", "GET", "/api/claims"), "claims").claims.find((c: any) => c.id === tc.id);
+  assert.ok(listed, "in the claims list"); assert.match(listed.tank, /Depot direct/); near(listed.invoice_l, 2010); near(listed.received_l, 2000);
+  ok(await call("admin", "POST", `/api/claims/${tc.id}/claim`, { send: false }), "claim sent");
+  ok(await call("admin", "POST", `/api/claims/${tc.id}/settle`, { action: "recovered", method: "credit_note" }), "credit note");
+  near((await books()).owed - A.owed, -tc.amount, "credit note lowers what we owe the depot");
+  db.run("DELETE FROM supplier_txns WHERE ref=?", `claim:${tc.id}`); db.run("DELETE FROM shortage_claims WHERE id=?", tc.id);
   // freight paid in cash is booked as an expense
   const cash = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", supplier_id: S.id,
     cost_rates: { HSD: 255 }, freight_by: "cash", freight: 3000, drops: [{ client_id: W1.id, litres: 500, override_limit: true }] }), "cash freight");

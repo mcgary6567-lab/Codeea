@@ -15,6 +15,7 @@ import { bankAccountFor, accountIdField } from "./banks.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 import { recordPurchase } from "./suppliers.js";
 import { createExpense } from "./expenses.js";
+import { claimForTrip } from "./claims.js";
 import { guardClosedDay } from "./backoffice.js";
 import { deliverOrder, deskSuggestions, openOrders, promises, cheques } from "./wholesaleDesk.js";
 
@@ -585,6 +586,13 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h(async (req
     // the supplier's bill for a depot-direct trip: the fuel, and the freight when it is on their bill
     const ref = b.depot_ref || `TRIP-${id}`;
     for (const x of buy) recordPurchase(tid(req), { supplier_id: supplier!.id, trip_id: id, product: x.p, litres: x.litres, rate: x.rate, ref, note: `Depot direct — trip #${id}`, by: req.user!.name, at: ts });
+    // the depot billed more than the clients got (beyond the allowed loss): claim it from the supplier, like a short tanker
+    for (const x of buy) {
+      const claim = claimForTrip(tid(req), { trip_id: id, supplier_id: supplier!.id, product: x.p, invoice_l: x.litres, received_l: litresOf(x.p), rate: x.rate, at: ts });
+      if (claim) createAlert(tid(req), { station_id: b.station_id, type: "short_delivery", severity: "warning", dedupe_key: `trip-claim-${claim}`,
+        title: `Depot ${supplier!.name} short by ${round2(x.litres - litresOf(x.p))} L ${PRODUCTS[x.p] ?? x.p} (trip #${id})`,
+        body: `Billed ${x.litres} L, clients got ${litresOf(x.p)} L. A shortage claim was opened (Suppliers → Claims).` });
+    }
     if (freight && b.freight_by === "supplier")
       recordPurchase(tid(req), { supplier_id: supplier!.id, trip_id: id, product: null, litres: null, rate: null, amount: freight, ref, note: `Freight — trip #${id}`, by: req.user!.name, at: ts });
     return id;
@@ -611,6 +619,7 @@ export function tripSheet(t: number, id: number) {
     purchases: all("SELECT product, litres, rate, amount, ref FROM supplier_txns WHERE trip_id=? AND type='purchase' ORDER BY id", id),
     short_l: round2(Math.max(0, (trip.invoice_l ?? 0) - drops.reduce((a, d) => a + d.litres, 0))),
     profit: round2(billed - (trip.cost ?? 0) - (trip.freight ?? 0)),
+    claims: all("SELECT id, product, litres, amount, recovered, status FROM shortage_claims WHERE trip_id=? ORDER BY id", id),
   } : null;
   return { ...trip, drops, delivered_l: delivered, billed, depot };
 }

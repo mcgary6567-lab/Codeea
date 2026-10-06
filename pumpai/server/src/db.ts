@@ -437,6 +437,24 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER NOT NULL UNIQUE, supplier_id INTEGER, litres REAL NOT NULL, rate REAL NOT NULL,
     amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'open', claim_ref TEXT, claimed_on TEXT, recovered REAL NOT NULL DEFAULT 0, recovered_by TEXT,
     note TEXT, created_at TEXT NOT NULL, updated_at TEXT)`);
+  // a claim can also be for a depot-direct trip (no delivery into our tanks): the depot billed more litres than the clients got
+  if (all<{ name: string; notnull: number }>("PRAGMA table_info(shortage_claims)").find((c) => c.name === "delivery_id")?.notnull) {
+    db.exec(`BEGIN;
+      CREATE TABLE shortage_claims_new (
+        id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, delivery_id INTEGER UNIQUE, supplier_id INTEGER, litres REAL NOT NULL, rate REAL NOT NULL,
+        amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'open', claim_ref TEXT, claimed_on TEXT, recovered REAL NOT NULL DEFAULT 0, recovered_by TEXT,
+        note TEXT, created_at TEXT NOT NULL, updated_at TEXT);
+      INSERT INTO shortage_claims_new (id,tenant_id,delivery_id,supplier_id,litres,rate,amount,status,claim_ref,claimed_on,recovered,recovered_by,note,created_at,updated_at)
+        SELECT id,tenant_id,delivery_id,supplier_id,litres,rate,amount,status,claim_ref,claimed_on,recovered,recovered_by,note,created_at,updated_at FROM shortage_claims;
+      DROP TABLE shortage_claims;
+      ALTER TABLE shortage_claims_new RENAME TO shortage_claims;
+      COMMIT;`);
+  }
+  addColumn("shortage_claims", "trip_id", "INTEGER");
+  addColumn("shortage_claims", "product", "TEXT");
+  addColumn("shortage_claims", "invoice_l", "REAL");
+  addColumn("shortage_claims", "received_l", "REAL");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_claim_trip ON shortage_claims(trip_id, product) WHERE trip_id IS NOT NULL");
   db.exec(`CREATE TABLE IF NOT EXISTS tax_withholdings (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, payee TEXT NOT NULL, supplier_id INTEGER, supplier_txn_id INTEGER, section TEXT,
     gross REAL NOT NULL, rate REAL, amount REAL NOT NULL, cpr_no TEXT, deposited_on TEXT, note TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL)`);

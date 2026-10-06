@@ -17,6 +17,21 @@ import { PRODUCTS } from "../config.js";
 export const claims = Router();
 const tolerance = (t: number) => Number(getSetting(t, "shortage_tolerance_pct", "0.2"));
 
+/** One claim row with where it came from: a tanker into our tank, or a depot-direct trip straight to clients. */
+const CLAIM_COLS = `c.*, COALESCE(d.tanker_no, tr.vehicle_no, tr.depot_ref) tanker_no, COALESCE(d.invoice_l, c.invoice_l) invoice_l, COALESCE(d.received_l, c.received_l) received_l,
+  COALESCE(d.shortage_pct, ROUND((c.invoice_l - c.received_l) * 100.0 / c.invoice_l, 2)) shortage_pct, COALESCE(d.created_at, tr.trip_date) delivered_at,
+  COALESCE(tk.product, c.product) product, COALESCE(tk.name, 'Depot direct · trip #' || tr.id) tank, st.name station, sp.name supplier_name, sp.phone supplier_phone, tr.depot_ref`;
+const CLAIM_FROM = `FROM shortage_claims c LEFT JOIN deliveries d ON d.id=c.delivery_id LEFT JOIN tanks tk ON tk.id=d.tank_id LEFT JOIN wholesale_trips tr ON tr.id=c.trip_id
+  LEFT JOIN stations st ON st.id=COALESCE(tk.station_id, tr.station_id) LEFT JOIN suppliers sp ON sp.id=c.supplier_id`;
+
+/** Depot-direct trip: the depot billed more of a fuel than the clients got (beyond the allowed loss) → a claim on the supplier. */
+export function claimForTrip(t: number, f: { trip_id: number; supplier_id: number; product: string; invoice_l: number; received_l: number; rate: number; at: string }) {
+  const litres = round2(f.invoice_l - f.received_l - (f.invoice_l * tolerance(t)) / 100);
+  if (litres < 1) return null;
+  return run(`INSERT INTO shortage_claims (tenant_id,trip_id,supplier_id,product,invoice_l,received_l,litres,rate,amount,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    t, f.trip_id, f.supplier_id, f.product, f.invoice_l, f.received_l, litres, f.rate, round2(litres * f.rate), f.at).id;
+}
+
 /** Make a claim for a short tanker (beyond the allowed loss). Safe to call more than once. */
 export function claimForDelivery(t: number, deliveryId: number) {
   if (get("SELECT id FROM shortage_claims WHERE delivery_id=?", deliveryId)) return null;
@@ -43,9 +58,8 @@ claims.get("/claims", requirePerm("suppliers.manage"), h((req) => {
   const t = tid(req);
   scanClaims(t);
   const status = req.query.status ? String(req.query.status) : null;
-  const rows = all(`SELECT c.*, ${proofCol("'claim:'||c.id")}, d.tanker_no, d.invoice_l, d.received_l, d.shortage_pct, d.created_at delivered_at, tk.product, tk.name tank, st.name station, sp.name supplier_name, sp.phone supplier_phone
-    FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id JOIN tanks tk ON tk.id=d.tank_id JOIN stations st ON st.id=tk.station_id LEFT JOIN suppliers sp ON sp.id=c.supplier_id
-    WHERE c.tenant_id=? ${status ? "AND c.status=?" : ""} ORDER BY d.created_at DESC LIMIT 300`, t, ...(status ? [status] : []));
+  const rows = all(`SELECT ${CLAIM_COLS}, ${proofCol("'claim:'||c.id")} ${CLAIM_FROM}
+    WHERE c.tenant_id=? ${status ? "AND c.status=?" : ""} ORDER BY delivered_at DESC LIMIT 300`, t, ...(status ? [status] : []));
   const sum = (f: (r: any) => number) => round2(rows.reduce((a, r) => a + f(r), 0));
   const all_ = all("SELECT status, amount, recovered FROM shortage_claims WHERE tenant_id=?", t);
   const tot = (s: string[]) => round2(all_.filter((r) => s.includes(r.status)).reduce((a, r) => a + r.amount - r.recovered, 0));
@@ -71,14 +85,13 @@ claims.put("/claims/settings", requirePerm("settings.manage"), h((req) => {
 /** Send the claim to the supplier (WhatsApp) and mark it claimed. */
 claims.post("/claims/:id/claim", requirePerm("suppliers.manage"), h(async (req) => {
   const t = tid(req);
-  const c = get(`SELECT c.*, d.tanker_no, d.invoice_l, d.received_l, d.created_at delivered_at, tk.product, sp.name supplier_name, sp.phone supplier_phone
-    FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id JOIN tanks tk ON tk.id=d.tank_id LEFT JOIN suppliers sp ON sp.id=c.supplier_id WHERE c.id=? AND c.tenant_id=?`, Number(req.params.id), t);
+  const c = get(`SELECT ${CLAIM_COLS} ${CLAIM_FROM} WHERE c.id=? AND c.tenant_id=?`, Number(req.params.id), t);
   if (!c) throw new AppError(404, "Claim not found");
   if (c.status !== "open") throw new AppError(400, `Claim is already ${c.status}`);
   const b = parse(z.object({ claim_ref: z.string().max(60).optional().nullable(), send: z.boolean().default(true) }), req.body);
   run("UPDATE shortage_claims SET status='claimed', claim_ref=?, claimed_on=?, updated_at=? WHERE id=?", b.claim_ref ?? null, pkDate(), now(), c.id);
   const tenant = get("SELECT name FROM tenants WHERE id=?", t)!.name;
-  const text = `Shortage claim — ${tenant}\nTanker ${c.tanker_no ?? "-"} (${PRODUCTS[c.product] ?? c.product}) received ${c.delivered_at.slice(0, 10)}\nInvoice ${c.invoice_l.toLocaleString()} L, received ${c.received_l.toLocaleString()} L.\nClaim: ${c.litres} L × Rs ${c.rate} = *${pkr(c.amount)}*${b.claim_ref ? `\nRef ${b.claim_ref}` : ""}\nPlease issue a credit note.`;
+  const text = `Shortage claim — ${tenant}\nTanker ${c.tanker_no ?? "-"} (${PRODUCTS[c.product] ?? c.product}) ${c.trip_id ? `loaded at your depot${c.depot_ref ? `, bilty ${c.depot_ref}` : ""},` : "received"} ${c.delivered_at.slice(0, 10)}\nInvoice ${c.invoice_l.toLocaleString()} L, ${c.trip_id ? "delivered" : "received"} ${c.received_l.toLocaleString()} L.\nClaim: ${c.litres} L × Rs ${c.rate} = *${pkr(c.amount)}*${b.claim_ref ? `\nRef ${b.claim_ref}` : ""}\nPlease issue a credit note.`;
   const sent = b.send && c.supplier_phone ? await sendDirect(t, { phone: c.supplier_phone, name: c.supplier_name }, "shortage_claim", `claim:${c.id}`, text) : null;
   audit(t, req.user!, "claim_sent", `claim:${c.id}`, { amount: c.amount });
   return { ok: true, sent: Boolean(sent), text };
@@ -87,7 +100,7 @@ claims.post("/claims/:id/claim", requirePerm("suppliers.manage"), h(async (req) 
 /** Money recovered (credit note reduces what we owe the supplier) or written off. */
 claims.post("/claims/:id/settle", requirePerm("suppliers.manage"), h((req) => {
   const t = tid(req);
-  const c = get("SELECT c.*, d.tanker_no FROM shortage_claims c JOIN deliveries d ON d.id=c.delivery_id WHERE c.id=? AND c.tenant_id=?", Number(req.params.id), t);
+  const c = get(`SELECT ${CLAIM_COLS} ${CLAIM_FROM} WHERE c.id=? AND c.tenant_id=?`, Number(req.params.id), t);
   if (!c) throw new AppError(404, "Claim not found");
   if (["recovered", "written_off"].includes(c.status)) throw new AppError(400, `Claim is already ${c.status.replace("_", " ")}`);
   const b = parse(z.object({ action: z.enum(["recovered", "written_off"]), amount: z.number().positive().optional(), method: z.enum(["credit_note", "cash", "bank"]).default("credit_note"), note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
