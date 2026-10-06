@@ -138,17 +138,6 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                 <option value="rate">Included in the rate</option><option value="supplier">Separate — on the supplier's bill</option><option value="cash">Separate — paid in cash</option></select></Field>
               {f.freight_by !== "rate" && <Field label="Freight amount (Rs)"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" required value={f.freight} onChange={(e) => setF({ ...f, freight: e.target.value })} /></Field>}
             </div>
-            <div className="space-y-2">{buy.map((x) => (
-              <div key={x.p} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:items-end">
-                <div className="col-span-2 text-sm font-medium sm:col-span-1 sm:pb-2">{PRODUCTS[x.p]}{x.need ? <span className="text-slate-500"> · {num(x.need)} L dropped</span> : null}</div>
-                <Field label="Purchase rate (Rs/L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} aria-label={`${PRODUCTS[x.p]} purchase rate`}
-                  value={cost[x.p] ?? (supplier?.rates?.[x.p] ?? "")} onChange={(e) => setCost({ ...cost, [x.p]: e.target.value })} /></Field>
-                <Field label="Depot billed (L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} placeholder={x.need ? String(x.need) : ""} aria-label={`${PRODUCTS[x.p]} billed litres`}
-                  value={inv[x.p] ?? ""} onChange={(e) => setInv({ ...inv, [x.p]: e.target.value })} /></Field>
-                <div className="pb-2 text-right text-sm tabular-nums">{x.amount ? pkr(x.amount) : "—"}
-                  {x.litres > x.need && x.need > 0 && <span className="block text-[11px] text-amber-700">{num(x.litres - x.need, 2)} L short — claimed from the supplier (beyond the allowed loss)</span>}</div>
-              </div>))}</div>
-            {supplier && <p className="text-[11px] text-slate-500">Rate filled from {supplier.name}'s last bill — change it if this invoice is different.</p>}
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -178,7 +167,37 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
             </div>
           );
         })()}
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="space-y-2 sm:hidden">
+          {drops.map((x, i) => {
+            const c = client(x.client_id);
+            const fuel = fuelOf(x);
+            const card = c?.rates?.[fuel];
+            return (
+              <div key={i} className="space-y-2 rounded-lg p-3 ring-1 ring-slate-200">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-600">Drop {i + 1}{x.order_id ? " · 📋 booked" : ""}</span>
+                  {drops.length > 1 && <button type="button" className="-m-2 p-2.5 text-slate-400 hover:text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))} aria-label="Remove drop"><Trash2 size={18} /></button>}
+                </div>
+                <select className="input" aria-label={`Drop ${i + 1} client`} value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: clientAddress(client(e.target.value)) })}>
+                  <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select>
+                {x.location && <div className="-mt-1 text-xs text-slate-500">📍 {x.location}</div>}
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="input" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                  <input className="input text-right tabular-nums" type="number" inputMode="decimal" min={1} step="0.01" placeholder="Litres" aria-label={`Drop ${i + 1} litres`} value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} />
+                  <input className="input text-right tabular-nums" type="number" inputMode="decimal" step="0.01" disabled={!admin} aria-label={`Drop ${i + 1} rate`} placeholder={card ? `Rate ${card}` : c ? "no rate" : "Rate"} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
+                  <input className="input" placeholder="Slip / ref" aria-label={`Drop ${i + 1} slip`} value={x.ref} onChange={(e) => setDrop(i, { ref: e.target.value })} />
+                </div>
+                <div className="flex justify-between text-sm">{c && !card ? <span className="text-xs text-red-600">No {PRODUCTS[fuel]} rate</span> : <span />}
+                  <b className="tabular-nums">{Number(x.litres) > 0 && rateOf(x) ? pkr(Number(x.litres) * rateOf(x)) : "—"}</b></div>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm font-semibold">
+            <button type="button" className="btn-secondary" onClick={() => setDrops([...drops, emptyDrop()])}><Plus size={15} /> Add drop</button>
+            <span className="text-right tabular-nums"><span className={over ? "text-red-600" : ""}>{num(total, 2)} L</span><span className="block">{pkr(amount)}</span></span>
+          </div>
+        </div>
+        <div className="hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
           <table className="w-full min-w-[820px]">
             <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th w-32">Fuel</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
             <tbody>{drops.map((x, i) => {
@@ -206,6 +225,22 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
               <td className={`td text-right tabular-nums ${over ? "text-red-600" : ""}`}>{num(total, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(amount)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table>
         </div>
+        {depot && (
+          <div className="space-y-2 rounded-lg bg-sky-50 p-3 ring-1 ring-sky-200">
+            <div className="text-sm font-semibold text-sky-900">Supplier's bill · <span lang="ur" className="font-urdu">سپلائر کا بل</span></div>
+            <div className="space-y-2">{buy.map((x) => (
+              <div key={x.p} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:items-end">
+                <div className="col-span-2 text-sm font-medium sm:col-span-1 sm:pb-2">{PRODUCTS[x.p]}{x.need ? <span className="text-slate-500"> · {num(x.need)} L dropped</span> : null}</div>
+                <Field label="Purchase rate (Rs/L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} aria-label={`${PRODUCTS[x.p]} purchase rate`}
+                  value={cost[x.p] ?? (supplier?.rates?.[x.p] ?? "")} onChange={(e) => setCost({ ...cost, [x.p]: e.target.value })} /></Field>
+                <Field label="Depot billed (L)"><input className="input text-right tabular-nums" type="number" step="0.01" min={0} placeholder={x.need ? String(x.need) : ""} aria-label={`${PRODUCTS[x.p]} billed litres`}
+                  value={inv[x.p] ?? ""} onChange={(e) => setInv({ ...inv, [x.p]: e.target.value })} /></Field>
+                <div className="pb-2 text-right text-sm tabular-nums">{x.amount ? pkr(x.amount) : "—"}
+                  {x.litres > x.need && x.need > 0 && <span className="block text-[11px] text-amber-700">{num(x.litres - x.need, 2)} L short — claimed from the supplier (beyond the allowed loss)</span>}</div>
+              </div>))}</div>
+            {supplier && <p className="text-[11px] text-slate-500">Rate filled from {supplier.name}'s last bill — change it if this invoice is different.</p>}
+          </div>
+        )}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
           {tanker?.capacity_l && <span className={over ? "font-semibold text-red-600" : ""}>Tanker {tanker.number}: {num(tanker.capacity_l)} L{over ? ` — ${num(total - tanker.capacity_l)} L too much` : ` · ${num(tanker.capacity_l - total)} L space left`}</span>}
           {!depot && stockLines.map(({ p, tank, need }) => <span key={p} className={tank.current_l < need ? "font-semibold text-red-600" : ""}>{tank.name}: {num(tank.current_l)} L in stock{mixed ? ` · ${PRODUCTS[p]} on this trip ${num(need)} L` : ""}</span>)}
@@ -234,7 +269,15 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
             <div><b>{dt(data.trip_date)}</b> · {fuels(data.product)} {data.depot ? <>straight from <b>{depotName(data.supplier_name)}</b>{data.depot_ref ? ` (${data.depot_ref})` : ""} · {data.station_name}'s books</> : <>from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</>}</div>
             <div>🚛 <b>{data.vehicle_no ?? "—"}</b> · 👤 {data.driver_name ?? "—"}{data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}{data.driver_cnic ? ` · CNIC ${data.driver_cnic}` : ""}{data.driver_licence ? ` · licence ${data.driver_licence}` : ""}</div>
           </div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th>{data.product.includes("+") && <th className="th">Fuel</th>}<th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
+          <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200 sm:hidden print:hidden">{data.drops.map((x: any, i: number) => (
+            <li key={x.id} className={`space-y-0.5 p-3 ${x.voided ? "text-slate-400 line-through" : ""}`}>
+              <div className="flex justify-between gap-2"><b className="min-w-0">{i + 1}. {x.client_name}</b><b className="shrink-0 tabular-nums">{pkr(x.amount)}</b></div>
+              <div className="flex justify-between gap-2 text-xs text-slate-600"><span>{PRODUCTS[x.product]} · {num(x.litres, 2)} L × {x.rate}</span><span className="shrink-0">{x.ref} <ProofThumbs ids={x.proof_ids} /></span></div>
+              {(x.location || x.phone) && <div className="text-xs text-slate-500">{x.location ? `📍 ${x.location}` : ""}{x.phone ? ` · ${phone(x.phone)}` : ""}</div>}
+            </li>))}
+            <li className="flex justify-between p-3 font-semibold"><span>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</span><span className="text-right tabular-nums">{num(data.delivered_l, 2)} L<span className="block">{pkr(data.billed)}</span></span></li>
+          </ul>
+          <div className="hidden overflow-x-auto sm:block print:block"><table className="w-full min-w-[640px]"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th>{data.product.includes("+") && <th className="th">Fuel</th>}<th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
             <tbody>{data.drops.map((x: any, i: number) => (
               <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}><td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
                 <td className="td">{x.location ?? "—"}</td>{data.product.includes("+") && <td className="td">{PRODUCTS[x.product]}</td>}<td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
