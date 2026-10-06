@@ -311,9 +311,9 @@ function seedCompliance(tenantId: number, stations: number[], T0: number) {
 
 function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0: number) {
   const clients = [
-    { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, below: { PMG: 4, HSD: 4 } as Record<string, number>, freq: 3, size: [3000, 6000] },
-    { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", limit: 2500000, rates: { HSD: 265.5 }, below: { HSD: 2 } as Record<string, number>, freq: 2, size: [2000, 5000] },
-    { name: "Green Fields Agri Farms", business: "Tube-wells & tractors", phone: "923334445556", city: "Okara", limit: 1500000, rates: { HSD: 266.0, PMG: 259.0 }, freq: 5, size: [1500, 3000] },
+    { name: "Malik Petroleum Services", business: "Sub-dealer, Pattoki", phone: "923004561230", city: "Pattoki", address: "Kasur Road, near Phool Nagar bypass, Pattoki", limit: 3000000, rates: { PMG: 258.5, HSD: 264.0 }, below: { PMG: 4, HSD: 4 } as Record<string, number>, freq: 3, size: [3000, 6000] },
+    { name: "Shah Transport Company", business: "Goods transport fleet", phone: "923214567890", city: "Lahore", address: "Truck Adda, Band Road, Lahore", limit: 2500000, rates: { HSD: 265.5 }, below: { HSD: 2 } as Record<string, number>, freq: 2, size: [2000, 5000] },
+    { name: "Green Fields Agri Farms", business: "Tube-wells & tractors", phone: "923334445556", city: "Okara", address: "Chak 34/2L, Depalpur Road, Okara", limit: 1500000, rates: { HSD: 266.0, PMG: 259.0 }, freq: 5, size: [1500, 3000] },
   ];
   // own tankers and drivers on file (picked from a list on every supply / trip)
   const drv = [["Ghulam Rasool", "923015551201", "35202-4455667-1", "LHR-HTV-88231", 400], ["Muhammad Akram", "923025551202", "35401-7788990-3", "OKR-HTV-55102", 20], ["Zafar Iqbal", "923035551203", "35202-1122334-5", "LHR-HTV-71450", -12]]
@@ -323,8 +323,8 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
     .map(([n, cap, ch, di]) => ({ number: n as string, driver: drv[di as number], id: run("INSERT INTO tankers (tenant_id,number,capacity_l,chambers,driver_id,created_at) VALUES (?,?,?,?,?,?)",
       tenantId, n, cap, ch, drv[di as number].id, iso(T0 - 90 * DAY)).id }));
   for (const [ci, c] of clients.entries()) {
-    const id = run("INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,credit_limit,opening_balance,created_at) VALUES (?,?,?,?,?,?,?,?)",
-      tenantId, c.name, c.business, c.phone, c.city, c.limit, ci === 0 ? 250000 : 0, iso(T0 - 70 * DAY)).id;
+    const id = run("INSERT INTO wholesale_clients (tenant_id,name,business_name,phone,city,address,credit_limit,opening_balance,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      tenantId, c.name, c.business, c.phone, c.city, c.address, c.limit, ci === 0 ? 250000 : 0, iso(T0 - 70 * DAY)).id;
     for (const [p, r] of Object.entries(c.rates)) {
       run("INSERT INTO wholesale_rates (client_id,product,rate,updated_at,updated_by) VALUES (?,?,?,?,?)", id, p, r, iso(T0 - 10 * DAY), "Haji Abdul Rehman (CEO)");
       run("INSERT INTO wholesale_rate_history (client_id,product,old_rate,new_rate,changed_by,created_at) VALUES (?,?,?,?,?,?)", id, p, r - 4, r, "Haji Abdul Rehman (CEO)", iso(T0 - 10 * DAY));

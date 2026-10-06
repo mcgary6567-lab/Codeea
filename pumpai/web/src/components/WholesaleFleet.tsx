@@ -53,6 +53,31 @@ type Drop = { client_id: string; litres: string; rate: string; location: string;
 /** A trip's fuel: "HSD", or "HSD+PMG" when one tanker carried both (separate chambers). */
 export const fuels = (p: string) => (p ?? "").split("+").map((x) => PRODUCTS[x] ?? x).join(" + ");
 const emptyDrop = (): Drop => ({ client_id: "", litres: "", rate: "", location: "", ref: "" });
+/** A client's own address first, then places their fuel went lately. */
+const clientPlaces = (c: any): string[] => {
+  const home = [c?.address, c?.city].map((x) => (x ?? "").trim()).filter(Boolean);
+  const own = home.length === 2 && home[0].toLowerCase().includes(home[1].toLowerCase()) ? home[0] : home.join(", ");
+  return [...new Set([own, ...(c?.places ?? [])].filter(Boolean))];
+};
+/** Drop location: pick the client's address (or a place used before), or "Other" to type a new one. */
+function DropPlace({ c, value, onChange }: { c: any; value: string; onChange: (v: string) => void }) {
+  const opts = clientPlaces(c);
+  const [other, setOther] = useState(false);
+  if (!c || other || !opts.length || (value && !opts.includes(value)))
+    return (
+      <div className="flex min-w-[170px] items-center gap-1">
+        <input className="input" placeholder="place / pump" value={value} autoFocus={other} onChange={(e) => onChange(e.target.value)} />
+        {c && opts.length > 0 && <button type="button" className="shrink-0 text-xs text-brand-700 underline" onClick={() => { setOther(false); onChange(opts[0]); }}>list</button>}
+      </div>
+    );
+  return (
+    <select className="input min-w-[170px]" aria-label="Drop location" value={value} onChange={(e) => (e.target.value === "__other" ? (setOther(true), onChange("")) : onChange(e.target.value))}>
+      {!value && <option value="">— place —</option>}
+      {opts.map((o, i) => <option key={o} value={o}>{i === 0 && c.address ? `🏠 ${o}` : o}</option>)}
+      <option value="__other">Other place… (type)</option>
+    </select>
+  );
+}
 
 export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (trip: any) => void }) {
   const { can } = useAuth();
@@ -132,10 +157,10 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
               return (
                 <tr key={i}>
                   <td className="td text-sm text-slate-500">{i + 1}{x.order_id ? <span title="Booked order" className="block text-xs">📋</span> : null}</td>
-                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: x.location || client(e.target.value)?.city || "" })}>
+                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: clientPlaces(client(e.target.value))[0] ?? "" })}>
                     <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select></td>
                   <td className="td"><select className="input min-w-[120px]" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-                  <td className="td"><input className="input min-w-[130px]" placeholder="place / pump" value={x.location} onChange={(e) => setDrop(i, { location: e.target.value })} /></td>
+                  <td className="td"><DropPlace key={x.client_id} c={c} value={x.location} onChange={(v) => setDrop(i, { location: v })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
                     {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[fuel]} rate</div>}</td>
