@@ -126,7 +126,7 @@ test("one tanker carrying diesel and petrol: each drop comes out of its own fuel
   const hsd = () => db.get("SELECT SUM(current_l) l FROM tanks WHERE station_id=? AND product='HSD'", st).l as number;
   const B = await books(); const p0 = pmg(), h0 = hsd();
   const mix = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", vehicle_no: "TLR-MIX",
-    drops: [{ client_id: W1.id, litres: 1000, override_limit: true }, { client_id: W1.id, product: "PMG", litres: 600, override_limit: true }] }), "mixed trip");
+    drops: [{ client_id: W1.id, litres: 1000, override_limit: true }, { client_id: W1.id, product: "PMG", litres: 600, override_limit: true }] }), `mixed trip (W1 ${W1.name} ${JSON.stringify(W1.rates)}, petrol ${pmg()})`);
   assert.equal(mix.product, "HSD+PMG", "trip shows both fuels");
   const [dh, dp] = mix.drops;
   assert.equal(dh.product, "HSD"); assert.equal(dp.product, "PMG");

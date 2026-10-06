@@ -53,31 +53,11 @@ type Drop = { client_id: string; litres: string; rate: string; location: string;
 /** A trip's fuel: "HSD", or "HSD+PMG" when one tanker carried both (separate chambers). */
 export const fuels = (p: string) => (p ?? "").split("+").map((x) => PRODUCTS[x] ?? x).join(" + ");
 const emptyDrop = (): Drop => ({ client_id: "", litres: "", rate: "", location: "", ref: "" });
-/** A client's own address first, then places their fuel went lately. */
-const clientPlaces = (c: any): string[] => {
-  const home = [c?.address, c?.city].map((x) => (x ?? "").trim()).filter(Boolean);
-  const own = home.length === 2 && home[0].toLowerCase().includes(home[1].toLowerCase()) ? home[0] : home.join(", ");
-  return [...new Set([own, ...(c?.places ?? [])].filter(Boolean))];
+/** Where a client's fuel is dropped: the address saved on the client. */
+const clientAddress = (c: any): string => {
+  const [addr, city] = [c?.address, c?.city].map((x) => (x ?? "").trim());
+  return addr && city && !addr.toLowerCase().includes(city.toLowerCase()) ? `${addr}, ${city}` : addr || city;
 };
-/** Drop location: pick the client's address (or a place used before), or "Other" to type a new one. */
-function DropPlace({ c, value, onChange }: { c: any; value: string; onChange: (v: string) => void }) {
-  const opts = clientPlaces(c);
-  const [other, setOther] = useState(false);
-  if (!c || other || !opts.length || (value && !opts.includes(value)))
-    return (
-      <div className="flex min-w-[170px] items-center gap-1">
-        <input className="input" placeholder="place / pump" value={value} autoFocus={other} onChange={(e) => onChange(e.target.value)} />
-        {c && opts.length > 0 && <button type="button" className="shrink-0 text-xs text-brand-700 underline" onClick={() => { setOther(false); onChange(opts[0]); }}>list</button>}
-      </div>
-    );
-  return (
-    <select className="input min-w-[170px]" aria-label="Drop location" value={value} onChange={(e) => (e.target.value === "__other" ? (setOther(true), onChange("")) : onChange(e.target.value))}>
-      {!value && <option value="">— place —</option>}
-      {opts.map((o, i) => <option key={o} value={o}>{i === 0 && c.address ? `🏠 ${o}` : o}</option>)}
-      <option value="__other">Other place… (type)</option>
-    </select>
-  );
-}
 
 export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (trip: any) => void }) {
   const { can } = useAuth();
@@ -148,8 +128,8 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
           );
         })()}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[960px]">
-            <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th w-32">Fuel</th><th className="th">Drop location</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
+          <table className="w-full min-w-[820px]">
+            <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th w-32">Fuel</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
             <tbody>{drops.map((x, i) => {
               const c = client(x.client_id);
               const fuel = fuelOf(x);
@@ -157,11 +137,11 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
               return (
                 <tr key={i}>
                   <td className="td text-sm text-slate-500">{i + 1}{x.order_id ? <span title="Booked order" className="block text-xs">📋</span> : null}</td>
-                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: clientPlaces(client(e.target.value))[0] ?? "" })}>
-                    <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select></td>
+                  <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: clientAddress(client(e.target.value)) })}>
+                    <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select>
+                    {x.location && <div className="mt-0.5 truncate text-[11px] text-slate-500">📍 {x.location}</div>}</td>
                   <td className="td"><select className="input min-w-[120px]" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-                  <td className="td"><DropPlace key={x.client_id} c={c} value={x.location} onChange={(v) => setDrop(i, { location: v })} /></td>
-                  <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
+                                    <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
                     {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[fuel]} rate</div>}</td>
                   <td className="td text-right text-sm tabular-nums">{Number(x.litres) > 0 && rateOf(x) ? pkr(Number(x.litres) * rateOf(x)) : "—"}</td>
@@ -170,7 +150,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
                 </tr>
               );
             })}</tbody>
-            <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={4}>
+            <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={3}>
               <button type="button" className="btn-secondary !py-1 text-xs" onClick={() => setDrops([...drops, emptyDrop()])}><Plus size={13} /> Add drop</button></td>
               <td className={`td text-right tabular-nums ${over ? "text-red-600" : ""}`}>{num(total, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(amount)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table>

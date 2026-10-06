@@ -266,10 +266,7 @@ wholesale.get("/wholesale/clients", h((req) => {
       const s = get(`SELECT COALESCE(SUM(CASE WHEN type='supply' AND txn_date >= ? THEN litres END),0) month_l,
           MAX(CASE WHEN type='payment' THEN txn_date END) last_payment, MAX(CASE WHEN type='supply' THEN txn_date END) last_supply
         FROM wholesale_txns WHERE client_id=? AND voided=0`, month, c.id)!;
-      // where this client's fuel was unloaded lately (besides their own address), for the trip form's drop list
-      const places = all(`SELECT location FROM wholesale_txns WHERE client_id=? AND voided=0 AND type='supply' AND TRIM(COALESCE(location,''))<>''
-        GROUP BY location ORDER BY MAX(txn_date) DESC LIMIT 5`, c.id).map((r) => r.location as string);
-      return { ...c, rates: rates(c.id), rate_card: rateCard(c.id), due: clientDue(c.id), month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply, places };
+      return { ...c, rates: rates(c.id), rate_card: rateCard(c.id), due: clientDue(c.id), month_l: s.month_l, last_payment: s.last_payment, last_supply: s.last_supply };
     });
 }));
 
