@@ -115,6 +115,8 @@ export async function monthlyBills(tenantId: number, month = prevMonth()) {
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 const dts = (iso: string) => new Date(iso).toLocaleString("en-PK", { timeZone: "Asia/Karachi", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 const n2 = (v: number) => Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+/** Money like a bank statement: always two decimals (7,599.40). */
+const m2 = (v: number) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function renderBill(token: string): string | null {
   let p: { bill: Kind; t: number; id: number; m: string };
@@ -128,15 +130,15 @@ export function renderBill(token: string): string | null {
     const s = khataStatement(p.t, p.id, from, to);
     who = s.customer; opening = s.opening_balance; closing = s.closing_balance; title = "Khata bill";
     rows = s.lines.map((l: any) => `<tr><td>${dts(l.created_at)}</td><td>${esc(l.vehicle_no)}</td><td>${esc(l.slip_no)}</td><td>${l.type === "debit" ? esc(PRODUCTS[l.product] ?? l.note) : `Payment${l.note ? ` — ${esc(l.note)}` : ""}`}</td>` +
-      `<td class=r>${l.litres ? n2(l.litres) : ""}</td><td class=r>${l.rate ? n2(l.rate) : ""}</td><td class=r>${l.type === "debit" ? n2(l.amount) : ""}</td><td class=r>${l.type === "credit" ? n2(l.amount) : ""}</td><td class=r>${n2(l.balance)}</td></tr>`).join("");
-    totals = s.totals.by_product.map((t: any) => `<div>${esc(PRODUCTS[t.product] ?? t.product)}: <b>${n2(t.litres)} L</b> · ${t.entries} fills · <b>Rs ${n2(t.amount)}</b></div>`).join("") +
-      `<div>Charged this month: <b>Rs ${n2(s.totals.charged)}</b> · Paid: <b>Rs ${n2(s.totals.paid)}</b></div>`;
+      `<td class=r>${l.litres ? n2(l.litres) : ""}</td><td class=r>${l.rate ? n2(l.rate) : ""}</td><td class=r>${l.type === "debit" ? m2(l.amount) : ""}</td><td class=r>${l.type === "credit" ? m2(l.amount) : ""}</td><td class=r>${m2(l.balance)}</td></tr>`).join("");
+    totals = s.totals.by_product.map((t: any) => `<div>${esc(PRODUCTS[t.product] ?? t.product)}: <b>${n2(t.litres)} L</b> · ${t.entries} fills · <b>Rs ${m2(t.amount)}</b></div>`).join("") +
+      `<div>Charged this month: <b>Rs ${m2(s.totals.charged)}</b> · Paid: <b>Rs ${m2(s.totals.paid)}</b></div>`;
   } else {
     const s = wholesaleStatement(p.t, p.id, from, to);
     who = s.client; opening = s.opening_balance; closing = s.closing_balance; title = "Wholesale statement";
     rows = s.lines.map((l: any) => `<tr${l.voided ? " class=void" : ""}><td>${dts(l.txn_date)}</td><td>${esc(l.vehicle_no)}</td><td>${esc(l.ref)}</td><td>${esc(l.type)}${l.product ? ` — ${esc(PRODUCTS[l.product])}` : ""}${l.voided ? " (void)" : ""}</td>` +
-      `<td class=r>${l.litres ? n2(l.litres) : ""}</td><td class=r>${l.rate ? n2(l.rate) : ""}</td><td class=r>${l.debit ? n2(l.debit) : ""}</td><td class=r>${l.credit ? n2(l.credit) : ""}</td><td class=r>${n2(l.balance)}</td></tr>`).join("");
-    totals = `<div>Supplied: <b>${n2(s.summary.by_product.reduce((a: number, x: any) => a + x.supplied_l, 0))} L</b> · Billed <b>Rs ${n2(s.summary.billed)}</b> · Received <b>Rs ${n2(s.summary.received)}</b></div>`;
+      `<td class=r>${l.litres ? n2(l.litres) : ""}</td><td class=r>${l.rate ? n2(l.rate) : ""}</td><td class=r>${l.debit ? m2(l.debit) : ""}</td><td class=r>${l.credit ? m2(l.credit) : ""}</td><td class=r>${m2(l.balance)}</td></tr>`).join("");
+    totals = `<div>Supplied: <b>${n2(s.summary.by_product.reduce((a: number, x: any) => a + x.supplied_l, 0))} L</b> · Billed <b>Rs ${m2(s.summary.billed)}</b> · Received <b>Rs ${m2(s.summary.received)}</b></div>`;
   }
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} — ${esc(who.name)} — ${esc(monthName(p.m))}</title>
@@ -166,10 +168,10 @@ ${BRAND_CSS}
 ${brandHead(p.t, title)}
 <div class="doc">${esc(title.toUpperCase())} · ${esc(monthName(p.m))}</div>
 <div class="acct"><div class="box"><span>Account of</span><b>${esc(who.name)}</b>${who.business_name ? `<div class=muted>${esc(who.business_name)}</div>` : ""}${who.phone ? `<div class=muted>+${esc(who.phone)}</div>` : ""}${who.city ? `<div class=muted>${esc(who.city)}</div>` : ""}</div>
-<div class="box"><span>Period</span><b>${esc(monthName(p.m))}</b><div class=muted>Opening balance: <b>Rs ${n2(opening)}</b></div><div class=muted>Closing balance: <b>Rs ${n2(closing)}</b></div></div></div>
+<div class="box"><span>Period</span><b>${esc(monthName(p.m))}</b><div class=muted>Opening balance: <b>Rs ${m2(opening)}</b></div><div class=muted>Closing balance: <b>Rs ${m2(closing)}</b></div></div></div>
 <div class="wrap"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Slip / ref</th><th>Entry</th><th class=r>Litres</th><th class=r>Rate</th><th class=r>Charged</th><th class=r>Paid</th><th class=r>Balance</th></tr></thead>
 <tbody>${rows || `<tr><td colspan=9 class=muted>No entries this month</td></tr>`}</tbody></table></div>
-<div class="sum">${totals}<div class="big">Balance due: <b>Rs ${n2(closing)}</b></div></div>
+<div class="sum">${totals}<div class="big">Balance due: <b>Rs ${m2(closing)}</b></div></div>
 <div class="muted" style="margin-top:8px">Generated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))} · computer statement, no signature needed</div>
 ${brandFoot(p.t)}
 <button onclick="print()">Print / Save as PDF</button></div></body></html>`;
