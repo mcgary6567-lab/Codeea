@@ -218,4 +218,10 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   near(card.on_pos, 1000); near(card.at_close, 4000); near(card.total, 5000); assert.equal(card.n, 1);
   near(rep.online.find((x: any) => x.method === "jazzcash").at_close, 2000);
   assert.equal(rep.khata_split.late_n, 1, "one late slip"); assert.equal(rep.khata_split.pos_n, 1, "one slip on the POS");
+  // the cashier's desk shows today's online money per method, with what was added at close
+  const desk = ok(await call("cashier", "GET", "/api/cashier/desk"), "desk");
+  const dc = desk.online.methods.find((x: any) => x.method === "card");
+  assert.ok(dc.at_close >= 4000 - 0.05, "added at close shows on the desk");
+  near(dc.total, dc.on_pos + dc.at_close + dc.shop, "parts add up");
+  near(desk.online.total, desk.online.methods.reduce((a: number, x: any) => a + x.total, 0));
 });

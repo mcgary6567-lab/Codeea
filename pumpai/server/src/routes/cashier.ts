@@ -14,7 +14,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, khataEntry } from "../services.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountName, bankAccounts, accountIdField } from "./banks.js";
+import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL } from "./banks.js";
 import { cashPosition, handoverMode } from "./backoffice.js";
 import { chargeShortage } from "./staff.js";
 import { clientDue, insertTxn } from "./wholesale.js";
@@ -419,6 +419,18 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const book = cashierDayBook(t, today);
   const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => ({ ...v, no: vno(v.direction, v.id) }));
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
+  // today's online money (card / JazzCash / Easypaisa / Raast): it never comes in the cash bag, it lands in a bank account
+  const map = posMap(t);
+  const accName = (id?: number) => { const a = id ? get("SELECT * FROM bank_accounts WHERE id=? AND tenant_id=?", id, t) : null; return a ? accountName(a) : null; };
+  const dayStart = pkDayStart();
+  const online = POS_DIGITAL.map((m) => {
+    const f = get(`SELECT COUNT(*) FILTER (WHERE s.at_close IS NULL) n, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close IS NULL),0) on_pos, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close=1),0) at_close
+      FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method=? AND s.created_at >= ?`, t, m, dayStart)!;
+    const shop = get("SELECT COUNT(*) n, COALESCE(SUM(total),0) v FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ?", t, m, dayStart)!;
+    const on_pos = round2(f.on_pos), at_close = round2(f.at_close), shopV = round2(shop.v);
+    return { method: m, on_pos, at_close, shop: shopV, n: f.n + shop.n, total: round2(on_pos + at_close + shopV), account_id: map[m] ?? null, account: accName(map[m]) };
+  }).filter((o) => o.total > 0);
+  const openShifts = get("SELECT COUNT(*) n FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=? AND sh.status='open'", t)!.n;
   const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supplierOwed(s.id)) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);
 
   // what to do now, in English and Urdu (numbers and dates kept left-to-right inside the Urdu line)
@@ -451,5 +463,6 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
     handovers: { pending: ho.pending, pending_amount: round2(ho.pending.reduce((a, s) => a + (s.cash_actual ?? 0), 0)) },
     cheques: ct, upcoming: cheques.filter((q) => ["in_hand", "issued", "deposited"].includes(q.status)).slice(0, 6),
     banks, promised, payables, vouchers, tips,
+    online: { methods: online, total: round2(online.reduce((a, o) => a + o.total, 0)), open_shifts: openShifts },
   };
 }));
