@@ -479,6 +479,7 @@ function Handover() {
   const { data, reload, error } = useApi<any>("/cashier/handovers");
   const [amt, setAmt] = useState<Record<number, string>>({});
   const [note, setNote] = useState<Record<number, string>>({});
+  const [allDone, setAllDone] = useState(false);
   const { busy, run } = useAction();
   if (error) return <ErrorBox error={error} />;
   if (!data) return <Loading />;
@@ -491,15 +492,17 @@ function Handover() {
           const diff = Math.round(got - s.cash_actual);
           return (
             <div key={s.id} className="card space-y-2 p-3">
-              <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b>{s.attendant}</b><div className="text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {dt(s.closed_at)}</div></div>
-                <div className="text-right text-sm"><div className="text-xs text-slate-500">Salesman counted · <Ur>سیلزمین</Ur></div><b className="tabular-nums">{pkr(s.cash_actual)}</b></div></div>
+              <div><b>{s.attendant}</b><div className="text-xs text-slate-500">{s.station_name} · shift #{s.id} · closed {dt(s.closed_at)}</div></div>
+              <div className="flex items-baseline justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-sm"><span className="min-w-0 text-slate-600">Salesman counted · <Ur>گنا</Ur></span><b className="shrink-0 whitespace-nowrap tabular-nums">{pkr(s.cash_actual)}</b></div>
               {s.variance ? <p className={`text-xs ${s.variance < 0 ? "text-red-600" : "text-emerald-700"}`}>At closing: {s.variance < 0 ? "short" : "over"} {pkr(Math.abs(s.variance))} against the sales</p> : null}
               <div className="grid grid-cols-[1fr,auto] gap-2">
-                <input className="input text-lg font-semibold" type="number" min={0} value={amt[s.id] ?? String(s.cash_actual)} onChange={(e) => setAmt({ ...amt, [s.id]: e.target.value })} aria-label="Cash received" />
-                <button className="btn-primary whitespace-nowrap" disabled={busy} onClick={async () => {
+                <label className="min-w-0"><span className="sr-only">Cash received</span>
+                  <input className="input text-lg font-semibold tabular-nums" type="number" min={0} inputMode="numeric" value={amt[s.id] ?? String(s.cash_actual)} onChange={(e) => setAmt({ ...amt, [s.id]: e.target.value })} aria-label="Cash received" /></label>
+                <button className="btn-primary self-start whitespace-nowrap" disabled={busy} onClick={async () => {
                   if (await run(() => api(`/cashier/handovers/${s.id}`, { body: { amount: got, note: note[s.id] || null } }), (r: any) => r.difference < 0 ? `Received — short ${pkr(-r.difference)}` : "Received · وصول")) reload();
                 }}><Check size={16} /> Received · <Ur>وصول</Ur></button>
               </div>
+              <p className="-mt-1 text-xs text-slate-500">You got · <Ur>آپ کو ملا</Ur> <b className="whitespace-nowrap tabular-nums">{pkr(got || 0)}</b></p>
               {diff !== 0 && <p className={`text-sm font-semibold ${diff < 0 ? "text-red-600" : "text-emerald-700"}`}>{diff < 0 ? `Short ${pkr(-diff)} · کم` : `Over ${pkr(diff)} · زیادہ`}</p>}
               {diff !== 0 && <input className="input" placeholder="Why the difference? · فرق کی وجہ" value={note[s.id] ?? ""} onChange={(e) => setNote({ ...note, [s.id]: e.target.value })} />}
             </div>
@@ -509,7 +512,7 @@ function Handover() {
       </div>
       <div className="card">
         <h2 className="p-4 pb-1 font-semibold">Received · <Ur>وصول شدہ</Ur></h2>
-        <ul className="divide-y divide-slate-100">{data.done.map((s: any) => {
+        <ul className="divide-y divide-slate-100">{(allDone ? data.done : data.done.slice(0, 8)).map((s: any) => {
           const diff = Math.round((s.handed_amount ?? 0) - (s.cash_actual ?? 0));
           return (
             <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
@@ -518,6 +521,7 @@ function Handover() {
             </li>
           );
         })}</ul>
+        {data.done.length > 8 && !allDone && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700" onClick={() => setAllDone(true)}>Show all {data.done.length} · <Ur>سب دیکھیں</Ur></button>}
       </div>
     </div>
   );
