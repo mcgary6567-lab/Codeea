@@ -102,6 +102,7 @@ h1{font-size:22px;margin:0}.m{color:#64748b;font-size:13px}.g{color:#047857}.red
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.chips a{flex:none;padding:7px 12px;border-radius:99px;background:#f1f5f9;color:#0f172a;text-decoration:none;font-size:14px;border:1px solid #e2e8f0}.chips a.on{background:#064e3b;color:#fff;border-color:#064e3b}
 .e{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #e2e8f0}.e .ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
 .e .l{min-width:0;flex:1}.et{font-weight:700;font-size:16px}.e .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.e .r b{font-size:18px}
+.slips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.slips a{display:block;color:#475569;font-size:12px;text-align:center}.slips img{display:block;width:96px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:2px}
 .sup .ic{background:#eff6ff}.pay .ic{background:#ecfdf5}.ret .ic{background:#fefce8}.adj .ic{background:#f5f3ff}
 .sum{display:flex;justify-content:space-between;padding:10px 0;font-weight:700;border-top:2px solid #0f172a}
 .row{display:flex;gap:10px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e2e8f0}.row .l{min-width:0}.rr{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -217,7 +218,7 @@ function khataBody(c: any, month: string | null, code: string): string {
     if (l.type === "credit") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.ref, l.note !== "Payment received" ? l.note : null].filter(Boolean).join(" · "))}</div></div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
     if (l.product) return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
-      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name)}`].filter(Boolean).join("  "))}</div></div>
+      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name)}`].filter(Boolean).join("  "))}</div>${slipThumbs(code, l.proof_ids)}</div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Charge · <span class=ur>چارج</span></div><div class=m>${esc(l.note ?? l.ref ?? "")}</div></div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
@@ -244,6 +245,13 @@ ${byVehicle.length > 1 ? `<div class=c><b>By vehicle · <span class=ur>گاڑی 
 <div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:600"><span>Opening · <span class=ur>شروع کا باقی</span></span><span>${n2(s.opening_balance)}</span></div>
 ${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}
 <div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
+}
+
+/** Photos of the customer's own fuel slips (parchi), shown under each fill; they open full size from this page only. */
+function slipThumbs(code: string, ids: unknown) {
+  const list = String(ids ?? "").split(",").map(Number).filter((n) => n > 0);
+  if (!list.length) return "";
+  return `<div class="slips np">${list.map((id) => `<a href="${esc(code)}/slip/${id}" target="_blank" rel="noopener"><img src="${esc(code)}/slip/${id}" alt="Slip photo" loading="lazy">Slip · <span class=ur>پرچی</span></a>`).join("")}</div>`;
 }
 
 function khataPage(kind: Kind, c: any, code: string, month: string | null) {
@@ -290,6 +298,19 @@ for (const kind of ["w", "k"] as const) {
     const tok = jwt.sign({ k: kind, id: c.id, v: r.v }, config.jwtSecret, { expiresIn: keep ? "30d" : "12h" });
     res.setHeader("set-cookie", `${cookieName(kind, c.id)}=${encodeURIComponent(tok)}; Path=/${kind}/; ${keep ? `Max-Age=${30 * 86400}; ` : ""}HttpOnly; SameSite=Lax${config.publicUrl.startsWith("https") ? "; Secure" : ""}`);
     res.type("html").send(khataPage(kind, c, req.params.code, null));
+  });
+  if (kind === "k") pinPortalPublic.get(`/${kind}/:code/slip/:photo`, (req, res) => {
+    const r = fromCode(kind, req.params.code);
+    // only after the PIN, and only a photo of one of this customer's own fuel entries
+    if (!r || !remembered(req, kind, r.c, r.v)) return res.status(404).end();
+    const p = get(`SELECT p.mime, p.data FROM photos p JOIN khata_ledger k ON p.ref = 'khata:' || k.id
+      WHERE p.id=? AND p.tenant_id=? AND k.customer_id=? AND k.type='debit'`, Number(req.params.photo), r.c.tenant_id, r.c.id);
+    if (!p) return res.status(404).end();
+    res.setHeader("content-type", /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : "application/octet-stream");
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("content-disposition", "inline");
+    res.setHeader("cache-control", "private, max-age=3600");
+    res.end(Buffer.from(p.data as Uint8Array));
   });
   pinPortalPublic.post(`/${kind}/:code/logout`, (req, res) => {
     const r = fromCode(kind, req.params.code);

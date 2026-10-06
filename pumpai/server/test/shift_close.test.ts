@@ -74,6 +74,26 @@ test("slip photo: on the khata statement, and can be added after the rush", asyn
   ok(await call("manager", "POST", `/api/sales/${sale.id}/undo`, {}), "undo");
 });
 
+test("customer PIN page: the customer sees their own slip photos, nobody else does", async () => {
+  const pic = Number(String(ok(await call("manager", "GET", `/api/customers/${khataCust.id}/statement`), "statement").lines.find((l: any) => l.slip_no === "P-1").proof_ids));
+  const portal = async (id: number) => {
+    const p = ok(await call("manager", "GET", `/api/customers/${id}/portal`), "portal link");
+    const path = new URL(p.url).pathname;
+    const res = await fetch(base + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${p.pin}` });
+    assert.equal(res.status, 200);
+    return { path, cookie: res.headers.get("set-cookie")!.split(";")[0], html: await res.text() };
+  };
+  const mine = await portal(khataCust.id);
+  assert.ok(mine.html.includes(`/slip/${pic}`), "slip photo on the page");
+  const img = await fetch(base + `${mine.path}/slip/${pic}`, { headers: { cookie: mine.cookie } });
+  assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/png");
+  assert.equal((await fetch(base + `${mine.path}/slip/${pic}`)).status, 404, "not without the PIN");
+  // another customer, with their own PIN, cannot open this customer's slip
+  const other = db.get("SELECT id FROM customers WHERE tenant_id=1 AND id<>? ORDER BY id LIMIT 1", khataCust.id).id;
+  const theirs = await portal(other);
+  assert.equal((await fetch(base + `${theirs.path}/slip/${pic}`, { headers: { cookie: theirs.cookie } })).status, 404, "not another customer's slip");
+});
+
 test("preview: meters minus khata, online, test and late slips = cash; nothing is saved", async () => {
   const hsd = live.readings.filter((r: any) => r.product === "HSD");
   const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));

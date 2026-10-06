@@ -76,7 +76,8 @@ app.use(/^\/(api\/auth|webhooks|w\/|k\/)/, express.json({ limit: "256kb", verify
 app.use(express.json({ limit: "8mb", verify: rawBody }));
 app.use("/api/auth", rateLimit("auth", 30, 10 * 60_000));
 app.use("/api/setup", rateLimit("setup", 20, 10 * 60_000));
-app.use(/^\/(w|k)\//, rateLimit("portal", 60, 10 * 60_000));
+// the PIN page and its PIN tries; slip photos on the page (behind the PIN cookie) are not counted
+app.use(/^\/(w|k)\/[^/]+\/?$/, rateLimit("portal", 60, 10 * 60_000));
 
 app.get("/api/health", (_req, res) => {
   let db = true;
