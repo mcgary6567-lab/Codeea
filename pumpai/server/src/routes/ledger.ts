@@ -8,6 +8,7 @@ import { h, tid, requirePerm } from "../auth.js";
 import { AppError, round2 } from "../services.js";
 import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
+import { posMap } from "./banks.js";
 
 export const ledger = Router();
 
@@ -45,6 +46,11 @@ export function journal(t: number, fromDay: string, toDay: string) {
   const dr = (account: string, v: number): Line => (v >= 0 ? { account, debit: v, credit: 0 } : { account, debit: 0, credit: -v });
   const cr = (account: string, v: number): Line => (v >= 0 ? { account, debit: 0, credit: v } : { account, debit: -v, credit: 0 });
   const tax = taxSettings(t);
+  // money that names a bank account sits in the bank (as the bank module counts it), whatever the method was called;
+  // POS card / JazzCash / Easypaisa / Raast sales go to the account each method is linked to
+  const posBank = posMap(t);
+  const via = (m: string | null | undefined, accountId?: number | null) => (accountId ? BANK : payAccount(m));
+  const sold = (m: string | null | undefined) => (m && posBank[m.toLowerCase()] ? BANK : payAccount(m));
 
   // fuel sales: one voucher per day, money side by payment method
   const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
@@ -54,7 +60,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const total = rows.reduce((a, r) => a + r.a, 0);
     const split = splitTax(total, tax.fuel_gst_pct, true);
     add(d, "Sales", `Fuel sales ${d} (${Math.round(rows.reduce((a, r) => a + r.l, 0)).toLocaleString()} L)`,
-      [...rows.map((r) => dr(payAccount(r.m), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
+      [...rows.map((r) => dr(sold(r.m), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
   }
   // shop sales (sales tax split out)
   const shop = all(`SELECT date(datetime(ss.created_at,'+5 hours')) d, ss.payment_method m, SUM(ss.total) a FROM shop_sales ss WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? GROUP BY d, m`, ...P);
@@ -64,11 +70,11 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const rows = shop.filter((r) => r.d === d);
     const total = rows.reduce((a, r) => a + r.a, 0);
     const taxAmt = round2(shopTax.filter((r) => r.d === d && !tax.exempt.includes(r.c)).reduce((a, r) => a + splitTax(r.a, tax.gst_pct, true).tax, 0));
-    add(d, "Sales", `Shop & lubricant sales ${d}`, [...rows.map((r) => dr(payAccount(r.m), r.a)), cr("Shop sales", total - taxAmt), cr("Output sales tax", taxAmt)]);
+    add(d, "Sales", `Shop & lubricant sales ${d}`, [...rows.map((r) => dr(sold(r.m), r.a)), cr("Shop sales", total - taxAmt), cr("Output sales tax", taxAmt)]);
   }
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
-    if (r.type === "credit") add(day(r.created_at), "Receipt", `Khata payment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(payAccount(r.ref), r.amount), cr("Khata receivable", r.amount)]);
+    if (r.type === "credit") add(day(r.created_at), "Receipt", `Khata payment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(via(r.ref, r.account_id), r.amount), cr("Khata receivable", r.amount)]);
     else add(day(r.created_at), "Journal", `Khata charge — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Khata receivable", r.amount), cr("Other income", r.amount)]);
   }
   // wholesale
@@ -76,19 +82,19 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const d = day(r.created_at);
     if (r.type === "supply") add(d, "Sales", `Wholesale supply — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}`, [dr("Wholesale receivable", r.amount), cr("Wholesale sales", r.amount)]);
     if (r.type === "return") add(d, "Credit note", `Wholesale return — ${r.name} ${r.litres} L`, [dr("Wholesale sales", r.amount), cr("Wholesale receivable", r.amount)]);
-    if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(payAccount(r.method), r.amount), cr("Wholesale receivable", r.amount)]);
+    if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
   }
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
     const d = day(r.created_at), pay = `Payable — ${r.name}`;
     if (r.type === "purchase") add(d, "Purchase", `Fuel purchase — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? ""} @ ${r.rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Fuel purchases", r.amount), cr(pay, r.amount)]);
-    if (r.type === "payment") add(d, "Payment", `${r.method === "WHT" ? "Income tax withheld" : "Paid"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(pay, r.amount), cr(r.method === "WHT" ? "Withholding tax payable" : payAccount(r.method), r.amount)]);
+    if (r.type === "payment") add(d, "Payment", `${r.method === "WHT" ? "Income tax withheld" : "Paid"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(pay, r.amount), cr(r.method === "WHT" ? "Withholding tax payable" : via(r.method, r.account_id), r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Supplier adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(r.amount < 0 ? pay : "Supplier adjustments", Math.abs(r.amount)), cr(r.amount < 0 ? "Shortage claims recovered" : pay, Math.abs(r.amount))]);
   }
   // expenses
   for (const r of all(`SELECT * FROM expenses WHERE tenant_id=? AND (status='approved' OR (status='pending' AND shift_id IS NOT NULL)) AND created_at >= ? AND created_at < ?`, ...P))
-    add(day(r.created_at), "Payment", `${r.category}${r.paid_to ? ` — ${r.paid_to}` : ""}${r.note ? ` (${r.note})` : ""}`, [dr(`Expense: ${r.category}`, r.amount), cr(payAccount(r.method), r.amount)]);
+    add(day(r.created_at), "Payment", `${r.category}${r.paid_to ? ` — ${r.paid_to}` : ""}${r.note ? ` (${r.note})` : ""}`, [dr(`Expense: ${r.category}`, r.amount), cr(via(r.method, r.account_id), r.amount)]);
   // bank deposits, coupons, wallets
   for (const r of all(`SELECT * FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P))
     add(day(r.created_at), "Contra", `Cash deposited — ${r.bank}${r.slip_ref ? ` slip ${r.slip_ref}` : ""}`, [dr(BANK, r.amount), cr(CASH, r.amount)]);
@@ -99,29 +105,29 @@ export function journal(t: number, fromDay: string, toDay: string) {
     add(day(r.txn_date), r.kind === "withdraw" ? "Contra" : r.amount > 0 ? "Receipt" : "Payment", `${r.note ?? r.kind}${r.party ? ` — ${r.party}` : ""}`,
       r.amount > 0 ? [dr(BANK, v), cr(other, v)] : [dr(other, v), cr(BANK, v)]);
   }
-  for (const r of all(`SELECT batch, method, MIN(sold_at) sold_at, SUM(value) v, COUNT(*) n, buyer FROM fuel_coupons WHERE tenant_id=? AND sold_at >= ? AND sold_at < ? GROUP BY batch`, ...P))
-    add(day(r.sold_at), "Receipt", `Fuel coupons sold — ${r.n} (${r.batch})${r.buyer ? ` to ${r.buyer}` : ""}`, [dr(payAccount(r.method), r.v), cr("Fuel coupons (unused)", r.v)]);
+  for (const r of all(`SELECT batch, method, account_id, MIN(sold_at) sold_at, SUM(value) v, COUNT(*) n, buyer FROM fuel_coupons WHERE tenant_id=? AND sold_at >= ? AND sold_at < ? GROUP BY batch, account_id`, ...P))
+    add(day(r.sold_at), "Receipt", `Fuel coupons sold — ${r.n} (${r.batch})${r.buyer ? ` to ${r.buyer}` : ""}`, [dr(via(r.method, r.account_id), r.v), cr("Fuel coupons (unused)", r.v)]);
   for (const r of all(`SELECT w.*, c.name FROM wallet_ledger w JOIN customers c ON c.id=w.customer_id WHERE w.tenant_id=? AND w.type IN ('deposit','refund') AND w.created_at >= ? AND w.created_at < ?`, ...P))
     add(day(r.created_at), r.type === "deposit" ? "Receipt" : "Payment", `Wallet ${r.type} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`,
-      r.type === "deposit" ? [dr(payAccount(r.method), r.amount), cr("Customer wallets", r.amount)] : [dr("Customer wallets", r.amount), cr(payAccount(r.method), r.amount)]);
+      r.type === "deposit" ? [dr(via(r.method, r.account_id), r.amount), cr("Customer wallets", r.amount)] : [dr("Customer wallets", r.amount), cr(via(r.method, r.account_id), r.amount)]);
   // staff: advances out, repayments in, shortages charged
   for (const r of all(`SELECT l.*, u.name FROM staff_ledger l JOIN users u ON u.id=l.user_id WHERE l.tenant_id=? AND l.created_at >= ? AND l.created_at < ?`, ...P)) {
     const d = day(r.created_at);
-    const via = payAccount(r.method);
-    if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(via, r.amount)]);
-    if (r.type === "repayment") add(d, "Receipt", `Advance paid back — ${r.name}`, [dr(via, r.amount), cr("Staff advances", r.amount)]);
+    const way = via(r.method, r.account_id);
+    if (r.type === "advance") add(d, "Payment", `Advance — ${r.name}`, [dr("Staff advances", r.amount), cr(way, r.amount)]);
+    if (r.type === "repayment") add(d, "Receipt", `Advance paid back — ${r.name}`, [dr(way, r.amount), cr("Staff advances", r.amount)]);
     // kept back out of a cash salary (the salary expense was booked in full from cash) — or set off with no cash at all
     if (r.type === "deduction") add(d, "Journal", `Advance recovered — ${r.name}`, [dr(r.month ? CASH : "Salaries payable", r.amount), cr("Staff advances", r.amount)]);
     if (r.type === "shortage") add(d, "Journal", `Cash shortage charged — ${r.name}`, [dr("Staff advances", r.amount), cr("Cash short / over", r.amount)]);
-    if (r.type === "bonus" && !r.month) add(d, "Payment", `Bonus — ${r.name}`, [dr("Expense: Staff bonus", r.amount), cr(via, r.amount)]);
+    if (r.type === "bonus" && !r.month) add(d, "Payment", `Bonus — ${r.name}`, [dr("Expense: Staff bonus", r.amount), cr(way, r.amount)]);
   }
   // shift cash short / over
-  for (const r of all(`SELECT sh.id, sh.attendant, sh.closed_at, sh.variance FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at >= ? AND sh.closed_at < ? AND ABS(COALESCE(sh.variance,0)) >= 1`, ...P))
+  for (const r of all(`SELECT sh.id, sh.attendant, sh.closed_at, sh.variance FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at >= ? AND sh.closed_at < ? AND ABS(COALESCE(sh.variance,0)) >= 0.005`, ...P))
     add(day(r.closed_at), "Journal", `Shift #${r.id} cash ${r.variance < 0 ? "short" : "over"} — ${r.attendant}`, [dr("Cash short / over", -r.variance), cr(CASH, -r.variance)]);
 
   // cash the cashier received from the salesman differs from what the salesman counted at closing
   for (const r of all(`SELECT sh.id, sh.attendant, sh.handed_at, sh.handed_amount, sh.cash_actual FROM shifts sh JOIN stations s ON s.id=sh.station_id
-      WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL AND sh.handed_at >= ? AND sh.handed_at < ? AND ABS(sh.handed_amount - COALESCE(sh.cash_actual,0)) >= 1`, ...P)) {
+      WHERE s.tenant_id=? AND sh.handed_at IS NOT NULL AND sh.handed_at >= ? AND sh.handed_at < ? AND ABS(sh.handed_amount - COALESCE(sh.cash_actual,0)) >= 0.005`, ...P)) {
     const diff = round2(r.cash_actual - r.handed_amount);
     add(day(r.handed_at), "Journal", `Shift #${r.id} handover ${diff > 0 ? "short" : "over"} — ${r.attendant}`, [dr("Cash short / over", diff), cr(CASH, diff)]);
   }

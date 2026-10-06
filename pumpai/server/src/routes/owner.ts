@@ -7,12 +7,11 @@ import { Router } from "express";
 import { all, get, pkDate, pkDayStart, pkStart } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { round2 } from "../services.js";
-import { cashPosition, handoverMode } from "./backoffice.js";
+import { cashPosition } from "./backoffice.js";
 import { bankAccounts } from "./banks.js";
 import { balances, buildReport } from "./reports.js";
 import { profitAndLoss } from "./analysis.js";
-import { cashierDayBook, onlineToday } from "./cashier.js";
-import { shiftSummary } from "../shifts.js";
+import { cashierDayBook, onlineToday, cashWithSalesmen } from "./cashier.js";
 
 export const owner = Router();
 
@@ -24,11 +23,7 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
 
   // ---- where the money is ----
   const cash = cashPosition(t);
-  const open = all("SELECT sh.id FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='open'", t);
-  const inOpenShifts = round2(open.reduce((a, s) => a + (shiftSummary(s.id).cash_expected ?? 0), 0));
-  const notHanded = handoverMode(t)
-    ? one("SELECT COALESCE(SUM(sh.cash_actual),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.handed_at IS NULL AND sh.closed_at >= ?", t, new Date(Date.now() - 3 * 86_400_000).toISOString())
-    : 0;
+  const ws = cashWithSalesmen(t);
   const banks = bankAccounts(t);
   const chqIn = get(`SELECT COUNT(*) n, COALESCE(SUM(amount),0) v FROM (
       SELECT amount FROM wholesale_cheques WHERE tenant_id=? AND status IN ('in_hand','deposited')
@@ -36,9 +31,9 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
   const chqOut = get("SELECT COUNT(*) n, COALESCE(SUM(amount),0) v FROM cheques WHERE tenant_id=? AND direction='out' AND status='issued'", t)!;
   const money = {
     office_cash: cash.cash_in_hand, last_count: cash.last_count,
-    with_salesmen: round2(inOpenShifts + notHanded), open_shifts: open.length,
+    with_salesmen: ws.total, open_shifts: ws.open_shifts,
     banks: banks.total, accounts: banks.accounts.filter((a) => a.active).map((a) => ({ id: a.id, bank: a.bank, name: a.name, balance: a.balance })),
-    total: round2(cash.cash_in_hand + inOpenShifts + notHanded + banks.total),
+    total: round2(cash.cash_in_hand + ws.total + banks.total),
     cheques_in: { n: chqIn.n, amount: round2(chqIn.v) },
   };
 

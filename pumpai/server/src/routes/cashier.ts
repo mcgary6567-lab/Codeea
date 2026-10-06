@@ -23,6 +23,7 @@ import { supplierOwed } from "./suppliers.js";
 import { staffBalance } from "./staff.js";
 import { createExpense } from "./expenses.js";
 import { notify, staff } from "../notifications.js";
+import { shiftSummary } from "../shifts.js";
 
 export const cashier = Router();
 
@@ -298,7 +299,8 @@ cashier.post("/cashier/cheques/:id/:action", requirePerm("cheques.manage"), h(as
 }));
 
 /* ---------------- cash from the salesmen ---------------- */
-const HANDOVER_DAYS = 3;
+// a shift's cash stays "to take" until the cashier receives it (a month back, so none slips out of the books unseen)
+const HANDOVER_DAYS = 30;
 function handovers(t: number) {
   const since = new Date(Date.now() - HANDOVER_DAYS * 86400_000).toISOString();
   const cols = `sh.id, sh.attendant, sh.opened_at, sh.closed_at, sh.cash_expected, sh.cash_actual, sh.variance, sh.handed_amount, sh.handed_to, sh.handed_at, sh.handover_note, s.name station_name`;
@@ -309,6 +311,17 @@ function handovers(t: number) {
 }
 
 cashier.get("/cashier/handovers", requirePerm("shifts.handover"), h((req) => handovers(tid(req))));
+
+/**
+ * Cash still with the salesmen: what open shifts should have in the bag now, plus shifts closed but not yet handed to the
+ * cashier. Without a cashier (no handover step) closed shifts' cash is already in the office cash book.
+ */
+export function cashWithSalesmen(t: number) {
+  const open = all("SELECT sh.id FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='open'", t);
+  const in_open_shifts = round2(open.reduce((a, s) => a + (shiftSummary(s.id).cash_expected ?? 0), 0));
+  const not_handed = handoverMode(t) ? round2(handovers(t).pending.reduce((a, s) => a + (s.cash_actual ?? 0), 0)) : 0;
+  return { in_open_shifts, not_handed, open_shifts: open.length, total: round2(in_open_shifts + not_handed) };
+}
 
 cashier.post("/cashier/handovers/:id", requirePerm("shifts.handover"), h(async (req) => {
   const t = tid(req);
