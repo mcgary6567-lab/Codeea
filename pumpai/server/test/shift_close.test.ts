@@ -224,4 +224,9 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   assert.ok(dc.at_close >= 4000 - 0.05, "added at close shows on the desk");
   near(dc.total, dc.on_pos + dc.at_close + dc.shop, "parts add up");
   near(desk.online.total, desk.online.methods.reduce((a: number, x: any) => a + x.total, 0));
+  // the owner sees the same figures, plus this month's total per method
+  const ov = ok(await call("admin", "GET", "/api/owner/overview"), "owner overview");
+  near(ov.online.total, desk.online.total, "owner = cashier");
+  assert.ok(ov.online.month_total >= ov.online.total - 0.05, "month includes today");
+  assert.ok(ov.online.month.some((x: any) => x.method === "card"));
 });

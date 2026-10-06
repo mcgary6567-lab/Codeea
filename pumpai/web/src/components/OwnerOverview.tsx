@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Banknote, Landmark, Scale, TrendingUp, Users, FileCheck2 } from "lucide-react";
 import { useApi } from "../lib/api";
 import { Loading } from "./ui";
 import { Ur } from "./VoiceShell";
 import { BankLogo } from "./BankParts";
+import { OnlineToday } from "./OnlineMoney";
 import { num, pkr, pkrShort } from "../lib/format";
 
 const Row = ({ label, ur, v, to, tone = "", note }: { label: string; ur: string; v: number; to?: string; tone?: string; note?: string }) => {
@@ -19,6 +20,7 @@ const Row = ({ label, ur, v, to, tone = "", note }: { label: string; ur: string;
 /** The owner's first look: where the money is, who owes what, today across every module, and this month's profit. */
 export function OwnerOverview() {
   const { data } = useApi<any>("/owner/overview", 60_000);
+  const nav = useNavigate();
   if (!data) return <div className="card"><Loading /></div>;
   const m = data.money, o = data.owed_to_us, w = data.we_owe, t = data.today, mo = data.month;
   return (
@@ -96,6 +98,9 @@ export function OwnerOverview() {
           <Link to="/insights" className="mt-1 inline-block py-1 text-xs font-medium text-brand-700 hover:underline">Profit & loss, balance sheet → </Link>
         </div>
       </div>
+
+      {/* online money: not in the cash, it goes to the bank */}
+      <OnlineToday o={data.online} onBank={() => nav("/cash")} />
 
       {/* every module today */}
       <div className="card p-4">

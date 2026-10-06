@@ -404,6 +404,24 @@ export function cashierDayBook(t: number, d: string) {
   return { date: d, rows, totals: { ...totals, withdrawn, counted }, cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
 }
 
+/**
+ * Online money (card / JazzCash / Easypaisa / Raast) from \`since\`: it never comes in the cash bag, it lands in a bank account.
+ * Per method: entered on the POS, added at shift close from the machine total, shop sales, and the linked account.
+ */
+export function onlineToday(t: number, since = pkDayStart()) {
+  const map = posMap(t);
+  const accName = (id?: number) => { const a = id ? get("SELECT * FROM bank_accounts WHERE id=? AND tenant_id=?", id, t) : null; return a ? accountName(a) : null; };
+  const methods = POS_DIGITAL.map((m) => {
+    const f = get(`SELECT COUNT(*) FILTER (WHERE s.at_close IS NULL) n, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close IS NULL),0) on_pos, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close=1),0) at_close
+      FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method=? AND s.created_at >= ?`, t, m, since)!;
+    const shop = get("SELECT COUNT(*) n, COALESCE(SUM(total),0) v FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ?", t, m, since)!;
+    const on_pos = round2(f.on_pos), at_close = round2(f.at_close), shopV = round2(shop.v);
+    return { method: m, on_pos, at_close, shop: shopV, n: f.n + shop.n, total: round2(on_pos + at_close + shopV), account_id: map[m] ?? null, account: accName(map[m]) };
+  }).filter((o) => o.total > 0);
+  const open_shifts = get("SELECT COUNT(*) n FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=? AND sh.status='open'", t)!.n;
+  return { methods, total: round2(methods.reduce((a, o) => a + o.total, 0)), open_shifts };
+}
+
 cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate())));
 
 /* ---------------- the desk ---------------- */
@@ -419,18 +437,7 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const book = cashierDayBook(t, today);
   const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => ({ ...v, no: vno(v.direction, v.id) }));
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
-  // today's online money (card / JazzCash / Easypaisa / Raast): it never comes in the cash bag, it lands in a bank account
-  const map = posMap(t);
-  const accName = (id?: number) => { const a = id ? get("SELECT * FROM bank_accounts WHERE id=? AND tenant_id=?", id, t) : null; return a ? accountName(a) : null; };
-  const dayStart = pkDayStart();
-  const online = POS_DIGITAL.map((m) => {
-    const f = get(`SELECT COUNT(*) FILTER (WHERE s.at_close IS NULL) n, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close IS NULL),0) on_pos, COALESCE(SUM(s.amount) FILTER (WHERE s.at_close=1),0) at_close
-      FROM sales s JOIN stations st ON st.id=s.station_id WHERE st.tenant_id=? AND s.payment_method=? AND s.created_at >= ?`, t, m, dayStart)!;
-    const shop = get("SELECT COUNT(*) n, COALESCE(SUM(total),0) v FROM shop_sales WHERE tenant_id=? AND payment_method=? AND created_at >= ?", t, m, dayStart)!;
-    const on_pos = round2(f.on_pos), at_close = round2(f.at_close), shopV = round2(shop.v);
-    return { method: m, on_pos, at_close, shop: shopV, n: f.n + shop.n, total: round2(on_pos + at_close + shopV), account_id: map[m] ?? null, account: accName(map[m]) };
-  }).filter((o) => o.total > 0);
-  const openShifts = get("SELECT COUNT(*) n FROM shifts sh JOIN stations st ON st.id=sh.station_id WHERE st.tenant_id=? AND sh.status='open'", t)!.n;
+  const online = onlineToday(t);
   const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supplierOwed(s.id)) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);
 
   // what to do now, in English and Urdu (numbers and dates kept left-to-right inside the Urdu line)
@@ -463,6 +470,6 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
     handovers: { pending: ho.pending, pending_amount: round2(ho.pending.reduce((a, s) => a + (s.cash_actual ?? 0), 0)) },
     cheques: ct, upcoming: cheques.filter((q) => ["in_hand", "issued", "deposited"].includes(q.status)).slice(0, 6),
     banks, promised, payables, vouchers, tips,
-    online: { methods: online, total: round2(online.reduce((a, o) => a + o.total, 0)), open_shifts: openShifts },
+    online,
   };
 }));

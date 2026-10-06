@@ -4,14 +4,14 @@
  * and this month's profit. Every number comes from the same books the cashier, banks and accounts use.
  */
 import { Router } from "express";
-import { all, get, pkDate, pkDayStart } from "../db.js";
+import { all, get, pkDate, pkDayStart, pkStart } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { round2 } from "../services.js";
 import { cashPosition, handoverMode } from "./backoffice.js";
 import { bankAccounts } from "./banks.js";
 import { balances, buildReport } from "./reports.js";
 import { profitAndLoss } from "./analysis.js";
-import { cashierDayBook } from "./cashier.js";
+import { cashierDayBook, onlineToday } from "./cashier.js";
 import { shiftSummary } from "../shifts.js";
 
 export const owner = Router();
@@ -88,6 +88,10 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
     { key: "bank", to: "/cash", en: "Put in bank", ur: "بینک میں جمع", n: cnt("SELECT COUNT(*) n FROM bank_deposits WHERE tenant_id=? AND created_at >= ?", t, dayStart), v: book.totals.deposited },
   ];
 
+  // ---- online money: today per method (and where it lands), plus this month's total per method ----
+  const onlineMonth = onlineToday(t, pkStart(`${today.slice(0, 7)}-01`));
+  const online = { ...onlineToday(t), month: onlineMonth.methods.map((m) => ({ method: m.method, total: m.total })), month_total: onlineMonth.total };
+
   // ---- this month ----
   const pl = profitAndLoss(t, today.slice(0, 7));
 
@@ -96,7 +100,7 @@ owner.get("/owner/overview", requirePerm("reports.view"), h((req) => {
     owed_to_us: { ...owedToUs, total: sum(owedToUs) },
     we_owe: { ...weOwe, total: sum(weOwe), cheques_issued: { n: chqOut.n, amount: round2(chqOut.v) } },
     net_position: round2(money.total + sum(owedToUs) - sum(weOwe)),
-    today: today_, activity,
+    today: today_, activity, online,
     month: { month: pl.month, income: pl.income.total, gross_profit: pl.gross_profit, expenses: pl.expenses.total, net_profit: pl.net_profit, margin_pct: pl.margin_pct },
   };
 }));
