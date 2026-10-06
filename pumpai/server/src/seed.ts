@@ -155,6 +155,7 @@ export function seed() {
       // shifts (2 per station per day)
       if (d > 0) for (const sid of [st1, st2]) for (const [hStart, att] of [[6, sid === st1 ? "Imran" : "Shakeel"], [18, sid === st1 ? "Asghar" : "Nadeem"]] as const) {
         const opened = ds + hStart * 3600_000;
+        if (opened + 12 * 3600_000 > Date.now()) continue; // a night shift that has not ended yet is not "closed"
         const cash = 600000 + rnd() * 400000;
         let variance = Math.round((rnd() - 0.55) * 600);
         if (att === "Imran" && d <= 2) variance = -6400; // recent shortage for the anomaly detector

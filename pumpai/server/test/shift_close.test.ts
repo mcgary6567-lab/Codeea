@@ -1,0 +1,98 @@
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import type { Server } from "node:http";
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pumpai-rushclose-"));
+process.env.DB_PATH = path.join(dir, "test.db");
+process.env.NODE_ENV = "test";
+process.env.ANTHROPIC_API_KEY = "";
+process.env.WA_TOKEN = "";
+
+let server: Server;
+let base = "";
+let db: typeof import("../src/db.js");
+const tokens: Record<string, string> = {};
+async function call(who: string, method: string, url: string, body?: unknown) {
+  const res = await fetch(base + url, { method, headers: { "content-type": "application/json", ...(tokens[who] ? { authorization: `Bearer ${tokens[who]}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  return { status: res.status, data: (await res.json().catch(() => null)) as any };
+}
+const ok = (r: { status: number; data: any }, msg: string) => { assert.equal(r.status, 200, `${msg}: ${JSON.stringify(r.data)}`); return r.data; };
+const near = (a: number, b: number, msg?: string) => assert.ok(Math.abs(a - b) < 0.05, `${msg ?? ""} ${a} ≈ ${b}`);
+const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const photo = async (who: string) => ok(await call(who, "POST", "/api/ai/read-photo", { kind: "proof", image: PNG }), "photo").photo_id as number;
+const day = (n: number) => new Date(Date.now() + 5 * 3600_000 + n * 86_400_000).toISOString().slice(0, 10);
+
+before(async () => {
+  const { app } = await import("../src/index.js");
+  db = await import("../src/db.js");
+  await new Promise<void>((r) => { server = app.listen(0, () => r()); });
+  base = `http://127.0.0.1:${(server.address() as any).port}`;
+  for (const who of ["admin", "manager", "wholesale", "salesman", "cashier"]) tokens[who] = (await call("", "POST", "/api/auth/login", { email: `${who}@pumpai.pk`, password: "demo1234" })).data.token;
+});
+after(() => server?.close());
+
+const prices = async () => Object.fromEntries((ok(await call("manager", "GET", "/api/prices"), "prices").current ?? []).map((p: any) => [p.product, p.price]));
+let shiftId = 0, live: any = null, khataCust: any = null;
+
+test("setup: the salesman opens a shift and enters only one khata sale on the POS", async () => {
+  db.run("UPDATE shifts SET status='closed', closed_at=? WHERE status='open'", new Date().toISOString());
+  const open = ok(await call("salesman", "POST", "/api/shifts/open", {}), "open");
+  shiftId = open.id;
+  live = ok(await call("salesman", "GET", `/api/shifts/${shiftId}/live`), "live");
+  const accts = ok(await call("salesman", "GET", "/api/pos/khata-accounts"), "accounts");
+  khataCust = accts.find((a: any) => !a.khata_blocked) ?? accts[0];
+  // room on the khata for the test fills
+  db.run("UPDATE customers SET credit_limit = balance + 1000000, khata_blocked=0 WHERE id=?", khataCust.id);
+  const hsd = live.readings.find((r: any) => r.product === "HSD");
+  ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "HSD", litres: 20, payment_method: "khata", customer_id: khataCust.id }), "khata on POS");
+  assert.ok(hsd, "station has a diesel nozzle");
+});
+
+test("preview: meters minus khata, online, test and late slips = cash; nothing is saved", async () => {
+  const hsd = live.readings.filter((r: any) => r.product === "HSD");
+  const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
+  readings[hsd[0].nozzle_id] = hsd[0].opening + 200; // 200 L of diesel on the meter
+  const rate = live.prices.HSD;
+  const body = { readings, digital: { card: 5000, jazzcash: 2000 }, test: { [hsd[0].nozzle_id]: 3 },
+    khata: [{ customer_id: khataCust.id, product: "HSD", litres: 10, vehicle_no: "LES-1234", slip_no: "S-77" }] };
+  const before = db.get("SELECT COUNT(*) n FROM sales WHERE shift_id=?", shiftId).n;
+  const p = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, body), "preview");
+  const d = p.fuels.find((f: any) => f.product === "HSD");
+  near(d.meter_l, 200); near(d.test_l, 3); near(d.khata_l, 30, "20 on POS + 10 late slip");
+  near(d.digital, 7000, "card + JazzCash");
+  near(d.cash_l, 200 - 3 - 30 - d.digital_l, "rest of the meter is cash");
+  near(d.cash, Math.round(d.cash_l * rate * 100) / 100, "cash at the rate");
+  assert.equal(db.get("SELECT COUNT(*) n FROM sales WHERE shift_id=?", shiftId).n, before, "preview saved nothing");
+  const again = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, body), "preview again");
+  near(again.cash_expected, p.cash_expected, "same answer twice");
+  // guards
+  assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { ...body, digital: { card: 99_000_000 } })).status, 400, "online more than the meter sale");
+  assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { ...body, test: { [hsd[0].nozzle_id]: 15 } })).status, 403, "big test needs the manager");
+  ok(await call("manager", "POST", `/api/shifts/${shiftId}/preview`, { ...body, test: { [hsd[0].nozzle_id]: 15 } }), "manager may");
+  assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { ...body, khata: [{ customer_id: khataCust.id, product: "HSD", litres: 5, vehicle_no: "LES-1", slip_no: "" }] })).status, 400, "slip no. required");
+});
+
+test("close in one click: saved exactly as previewed; online money, khata and stock land in the right places", async () => {
+  const hsd = live.readings.filter((r: any) => r.product === "HSD");
+  const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
+  readings[hsd[0].nozzle_id] = hsd[0].opening + 200;
+  const body = { readings, digital: { card: 5000, jazzcash: 2000 }, test: { [hsd[0].nozzle_id]: 3 },
+    khata: [{ customer_id: khataCust.id, product: "HSD", litres: 10, vehicle_no: "LES-1234", slip_no: "S-77" }] };
+  const p = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, body), "preview");
+  const tank = db.get("SELECT t.id, t.current_l FROM tanks t JOIN nozzles n ON n.tank_id=t.id WHERE n.id=?", hsd[0].nozzle_id);
+  const kBefore = db.get("SELECT balance FROM customers WHERE id=?", khataCust.id).balance;
+  const counted = Math.round(p.cash_expected) - 500;
+  const c = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/close`, { ...body, cash_actual: counted, cash_notes: { "1000": 3 } }), "close");
+  near(c.cash_expected, p.cash_expected, "saved = preview");
+  near(c.variance, counted - p.cash_expected);
+  near(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, tank.current_l - (200 - 3 - 20), "tank down by what was sold now (the 20 L POS sale was already taken; 3 L test went back)");
+  assert.ok(db.get("SELECT balance FROM customers WHERE id=?", khataCust.id).balance > kBefore, "late slip on the khata");
+  assert.ok(db.get("SELECT id FROM sales WHERE shift_id=? AND slip_no='S-77' AND vehicle_no='LES-1234'", shiftId));
+  near(db.get("SELECT COALESCE(SUM(amount),0) v FROM sales WHERE shift_id=? AND payment_method='card'", shiftId).v, 5000, "card money recorded");
+  assert.equal(db.get("SELECT test_l FROM meter_readings WHERE shift_id=? AND nozzle_id=?", shiftId, hsd[0].nozzle_id).test_l, 3);
+  assert.equal(JSON.parse(db.get("SELECT cash_notes FROM shifts WHERE id=?", shiftId).cash_notes)["1000"], 3);
+  assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/close`, { ...body, cash_actual: 1 })).status, 400, "only once");
+});

@@ -263,7 +263,7 @@ const WS: [string, Record<string, unknown>][] = [
   ["Malik Petroleum ko 5000 litre PMG supply ki", { intent: "supply", client_id: 1, product: "PMG", litres: 5000 }],
   ["گرین فیلڈز کو تین ہزار لیٹر پیٹرول بھیجا", { intent: "supply", client_id: 3, product: "PMG", litres: 3000 }],
   ["Shah Transport parson 10000 litre diesel mangwa raha hai", { intent: "order", client_id: 2, product: "HSD", litres: 10000, date: F2 }],
-  ["Malik ka agle hafte 5000 litre diesel ka order", { intent: "order", client_id: 1, product: "HSD", litres: 5000, date: next(1) }],
+  ["Malik ka agle hafte 5000 litre diesel ka order", { intent: "order", client_id: 1, product: "HSD", litres: 5000, date: pk(7) }],
   ["Green Fields monday ko 20 hazar dega", { intent: "promise", client_id: 3, amount: 20000, date: next(1) }],
   ["Malik 15 tareekh ko 2 lakh dega", { intent: "promise", client_id: 1, amount: 200000, date: ym + "15" }],
   ["Shah Transport ka UBL cheque 150000 number 556677 mila", { intent: "cheque", client_id: 2, amount: 150000, bank: "United Bank (UBL)", cheque_no: "556677" }],

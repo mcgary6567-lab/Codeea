@@ -150,6 +150,10 @@ export function ShiftExpenses({ shiftId, expenses, onChange, preset }: { shiftId
   );
 }
 
+const FuelLine = ({ k, l, v }: { k: string; l: number; v?: number }) => (
+  <div className="flex justify-between gap-2 text-slate-600"><span>{k} <span className="text-xs">{num(l, 2)} L</span></span>{v != null && <span className="tabular-nums">{pkr(v)}</span>}</div>
+);
+
 /** Full shift report / receipt. */
 export function ShiftReport({ id, onClose }: { id: number; onClose: () => void }) {
   const { data: r } = useApi<any>(`/shifts/${id}/report`);
@@ -185,7 +189,15 @@ function ReportBody({ r }: { r: any }) {
 
       <div>
         <h3 className="mb-1 text-sm font-semibold">Meter readings</h3>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 sm:hidden">{r.readings.map((x: any) => (
+          <li key={x.nozzle_id} className="px-3 py-2 text-sm">
+            <div className="flex items-baseline justify-between gap-2"><span className="font-medium">{x.label} <span className="text-xs font-normal text-slate-500">{PRODUCTS[x.product]}</span></span>
+              <span className="shrink-0 font-semibold tabular-nums">{x.litres != null ? `${num(x.litres, 2)} L` : "—"}</span></div>
+            <div className="flex justify-between gap-2 text-xs text-slate-500 tabular-nums"><span>{num(x.opening, 2)} → {x.closing != null ? num(x.closing, 2) : "—"}</span><span>{x.amount != null ? pkr(x.amount) : ""}</span></div>
+            {x.test_l > 0 && <div className="text-xs text-amber-700">{num(x.test_l, 2)} L put back in the tank</div>}
+          </li>
+        ))}</ul>
+        <div className="hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
           <table className="w-full"><thead><tr>{["Meter", "Handed over", "Opening", "Closing", "Litres", "Sale (Rs)"].map((h, i) => <th key={h} className={`th ${i > 1 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
             <tbody>{r.readings.map((x: any) => (
               <tr key={x.nozzle_id}><td className="td text-sm">{x.label} <span className="text-xs text-slate-500">{PRODUCTS[x.product]}</span></td>
@@ -206,6 +218,22 @@ function ReportBody({ r }: { r: any }) {
           </div>
         )}
       </div>
+
+      {r.fuels?.length > 0 && (
+        <div>
+          <h3 className="mb-1 text-sm font-semibold">Each fuel: meter → khata → online → cash · <Ur>ہر فیول کا حساب</Ur></h3>
+          <div className="grid gap-2 sm:grid-cols-2">{r.fuels.map((f: any) => (
+            <div key={f.product} className="rounded-lg bg-slate-50 p-2.5 text-sm">
+              <div className="flex justify-between font-semibold"><span>{PRODUCTS[f.product]}</span><span className="tabular-nums">{num(f.meter_l, 2)} L</span></div>
+              {f.test_l > 0 && <FuelLine k="− Put back in tank" l={f.test_l} />}
+              {f.khata_l > 0 && <FuelLine k="− Khata" l={f.khata_l} v={f.khata} />}
+              {f.digital_l > 0 && <FuelLine k="− Online" l={f.digital_l} v={f.digital} />}
+              {f.other_l > 0 && <FuelLine k="− Coupon / wallet" l={f.other_l} v={f.other} />}
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold"><span>= Cash<span className="block text-xs font-normal text-slate-500">{num(f.cash_l, 2)} L{f.rate ? ` × ${f.rate}` : ""}</span></span><span className="tabular-nums">{pkr(f.cash)}</span></div>
+            </div>
+          ))}</div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>

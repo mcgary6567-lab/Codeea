@@ -19,7 +19,9 @@ export function shiftReadings(shiftId: number) {
  * @param rateFor rate to bill unrecorded litres of this segment at (undefined = current price)
  * @returns litres settled per nozzle in this segment
  */
-export function settleShift(tenantId: number, shift: Row, readings: Record<string, number>, rateFor: (product: string) => number | undefined) {
+export function settleShift(tenantId: number, shift: Row, readings: Record<string, number>, rateFor: (product: string) => number | undefined,
+  /** litres per product that went back into the tank (nozzle test / calibration): pumped but not sold */
+  backToTank: Record<string, number> = {}) {
   const rows = shiftReadings(shift.id);
   const out: { product: string; litres: number; recorded_on_pos: number; unrecorded: number; rate: number | null }[] = [];
   // validate everything first so a bad reading changes nothing
@@ -36,7 +38,7 @@ export function settleShift(tenantId: number, shift: Row, readings: Record<strin
   const products = [...new Set(rows.map((r) => r.product))];
   for (const product of products) {
     const noz = rows.filter((r) => r.product === product);
-    const dispensed = noz.reduce((a, r) => a + readings[String(r.nozzle_id)] - (r.checkpoint ?? r.opening), 0);
+    const dispensed = noz.reduce((a, r) => a + readings[String(r.nozzle_id)] - (r.checkpoint ?? r.opening), 0) - (backToTank[product] ?? 0);
     // The settlement sale of the previous checkpoint is stamped exactly at checkpoint_at, so a
     // checkpoint segment counts only sales strictly after it.
     const cp = noz.find((r) => r.checkpoint_at)?.checkpoint_at;
@@ -82,6 +84,31 @@ export function shiftSummary(shiftId: number) {
 }
 
 /** Everything about one shift, for the shift report / receipt. */
+const DIGITAL_METHODS = ["card", "jazzcash", "easypaisa", "raast"];
+const OTHER_METHODS = ["coupon", "wallet", "loyalty"];
+/**
+ * Per fuel, how the meters were settled: litres pumped − put back in the tank − khata − online − coupons/wallet = cash.
+ * Reads the saved closing readings, so it works for the close preview (inside its rolled-back transaction) and the report.
+ */
+export function shiftFuels(shiftId: number, rateOf: (product: string) => number | null = () => null) {
+  const rows = shiftReadings(shiftId);
+  const sold = all(`SELECT product, payment_method m, ROUND(SUM(litres),2) l, ROUND(SUM(amount),2) a FROM sales WHERE shift_id=? GROUP BY product, payment_method`, shiftId);
+  return [...new Set(rows.map((r) => r.product as string))].map((product) => {
+    const by = (f: (m: string) => boolean) => sold.filter((x) => x.product === product && f(x.m));
+    const L = (f: (m: string) => boolean) => round2(by(f).reduce((a, x) => a + x.l, 0)), A = (f: (m: string) => boolean) => round2(by(f).reduce((a, x) => a + x.a, 0));
+    const mine = rows.filter((r) => r.product === product);
+    return {
+      product,
+      meter_l: round2(mine.reduce((a, r) => a + (r.closing != null ? r.closing - r.opening : 0), 0)),
+      test_l: round2(mine.reduce((a, r) => a + (r.test_l ?? 0), 0)),
+      khata_l: L((m) => m === "khata"), khata: A((m) => m === "khata"),
+      digital_l: L((m) => DIGITAL_METHODS.includes(m)), digital: A((m) => DIGITAL_METHODS.includes(m)),
+      other_l: L((m) => OTHER_METHODS.includes(m)), other: A((m) => OTHER_METHODS.includes(m)),
+      cash_l: L((m) => m === "cash"), cash: A((m) => m === "cash"), rate: rateOf(product),
+    };
+  });
+}
+
 export function shiftReport(shiftId: number) {
   const shift = get("SELECT sh.*, s.name station_name FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE sh.id=?", shiftId)!;
   // money per meter: its litres at the average rate this shift sold that fuel at
@@ -92,6 +119,7 @@ export function shiftReport(shiftId: number) {
   });
   return {
     shift, readings, summary: shiftSummary(shiftId),
+    fuels: shift.status === "closed" ? shiftFuels(shiftId, (p) => (rate[p] ? round2(rate[p]) : null)) : [],
     // litres and amount at each rate (two lines if the price changed during the shift)
     by_rate: all(`SELECT product, rate, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount FROM sales WHERE shift_id=? GROUP BY product, rate ORDER BY product, rate`, shiftId),
     khata: all(`SELECT c.id, c.name, c.type, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) slips,

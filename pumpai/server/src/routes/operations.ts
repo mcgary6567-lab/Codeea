@@ -4,7 +4,7 @@ import { registerDecider, requestApproval, closeApproval } from "./approvals.js"
 import { walletAfterFill } from "./prepaid.js";
 import { askRating } from "./feedback.js";
 import { claimForDelivery } from "./claims.js";
-import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName } from "../db.js";
+import { all, get, run, tx, now, getSetting, pkDate, pkDayStart, METER, meterName, type Row } from "../db.js";
 import { meterSales } from "./reports.js";
 import { h, parse, tid, requirePerm, requireAny, scopedStation, can } from "../auth.js";
 import { AppError, recordSale, undoSale, audit, UNDO_SECONDS, currentPrices, createAlert, round2, pkr, rateFmt } from "../services.js";
@@ -16,7 +16,7 @@ import { khataFillReceipt, wholesaleRateMessage, receiptUrl } from "../billing.j
 import { chargeShortage } from "./staff.js";
 import { closeOrderOnDelivery, litresFromCm } from "./backoffice.js";
 import { linkPhotos, photosFor, proofPhotos, proofCol } from "./capture.js";
-import { settleShift, shiftReadings, shiftSummary, shiftReport } from "../shifts.js";
+import { settleShift, shiftReadings, shiftSummary, shiftReport, shiftFuels } from "../shifts.js";
 import { notify, staff, announce } from "../notifications.js";
 
 export const operations = Router();
@@ -388,23 +388,117 @@ operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
 }));
 
 /**
- * Close a shift with closing meter readings and counted cash.
- * Litres on the meter not entered on the POS are booked as cash sales (stock follows the meters).
- * Expected cash = all cash sales in the shift; variance = counted - expected.
+ * Close a shift with closing meter readings and counted cash — built for a rush day:
+ * the salesman only enters khata on the POS during the day; at the end he adds
+ *   - the online money taken (card / JazzCash / Easypaisa / Raast totals, e.g. the card machine's settlement slip),
+ *   - any khata slips he could not enter during the rush (slip no. and vehicle no. required),
+ *   - litres put back in the tank after a nozzle test.
+ * Everything else the meters show is cash at the rate of the time. Expected cash = cash sales − expenses from the bag;
+ * variance = counted − expected. The preview runs exactly the same steps and then rolls them back, so what the
+ * salesman sees before pressing "close" is what gets saved.
  */
+const DIGITAL = ["card", "jazzcash", "easypaisa", "raast"] as const;
+const closeBody = z.object({
+  readings: z.record(z.string(), z.number().min(0)),
+  cash_actual: z.number().min(0).optional(),
+  notes: z.string().max(500).optional(),
+  photo_ids: z.array(z.number()).max(20).optional(),
+  digital: z.object(Object.fromEntries(DIGITAL.map((m) => [m, z.number().min(0).max(100_000_000).optional()])) as Record<(typeof DIGITAL)[number], z.ZodOptional<z.ZodNumber>>).optional(),
+  test: z.record(z.string(), z.number().min(0).max(5000)).optional(),
+  khata: z.array(z.object({
+    customer_id: z.number().int(), product: z.string(), litres: z.number().positive().max(60000).optional(), amount: z.number().positive().max(100_000_000).optional(),
+    vehicle_no: z.string().trim().min(2, "Vehicle no. is needed on every khata slip").max(40), slip_no: z.string().trim().min(1, "Slip no. is needed on every khata slip").max(40),
+  }).refine((k) => k.litres || k.amount, "Litres or amount on each khata slip")).max(200).optional(),
+  cash_notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)).optional(),
+});
+type CloseInput = z.infer<typeof closeBody>;
+class DryRun { constructor(public result: unknown) {} }
+
+function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean) {
+  const t = tid(req);
+  const prices = currentPrices(t);
+  const rows = shiftReadings(shift.id);
+  const testLimit = Number(getSetting(t, "test_limit_l", "10"));
+  for (const r of rows) if (b.readings[String(r.nozzle_id)] === undefined) throw new AppError(400, `Enter the meter reading for nozzle ${r.label}`);
+  // litres back to the tank: never more than the nozzle pumped; above the limit only a manager may close
+  const backToTank: Record<string, number> = {};
+  const tests: { id: number; label: string; litres: number }[] = [];
+  for (const r of rows) {
+    const l = round2(b.test?.[String(r.nozzle_id)] ?? 0);
+    if (!l) continue;
+    const pumped = b.readings[String(r.nozzle_id)] - (r.checkpoint ?? r.opening);
+    if (l > pumped + 0.001) throw new AppError(400, `${r.label}: ${l} L test is more than the ${round2(pumped)} L this nozzle pumped`);
+    if (l > testLimit && !can(req.user, "shifts.view_all")) throw new AppError(403, `${r.label}: ${l} L test / back-to-tank is more than ${testLimit} L — ask the manager to close this shift`);
+    backToTank[r.product] = round2((backToTank[r.product] ?? 0) + l);
+    tests.push({ id: r.id, label: r.label, litres: l });
+  }
+  const stamp = now();
+  const run_ = () => {
+    // 1) khata slips not entered during the rush
+    for (const k of b.khata ?? []) {
+      if (!rows.some((r) => r.product === k.product)) throw new AppError(400, `This shift has no ${PRODUCTS[k.product] ?? k.product} nozzle`);
+      recordSale(t, { station_id: shift.station_id, product: k.product, litres: k.litres, amount: k.litres ? undefined : k.amount, payment_method: "khata", customer_id: k.customer_id,
+        vehicle_no: k.vehicle_no, slip_no: k.slip_no, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
+    }
+    // 2) online money: shared over the fuels by the value still not entered, each at its own rate
+    const remaining = [...new Set(rows.map((r) => r.product))].map((product) => {
+      const noz = rows.filter((r) => r.product === product);
+      const pumped = noz.reduce((a, r) => a + b.readings[String(r.nozzle_id)] - (r.checkpoint ?? r.opening), 0) - (backToTank[product] ?? 0);
+      const cp = noz.find((r) => r.checkpoint_at)?.checkpoint_at;
+      const recorded = get(`SELECT COALESCE(SUM(litres),0) l FROM sales WHERE shift_id=? AND product=? AND created_at ${cp ? ">" : ">="} ?`, shift.id, product, cp ?? shift.opened_at)!.l;
+      const rate = prices[product]?.price ?? 0;
+      return { product, litres: Math.max(0, round2(pumped - recorded)), rate, value: Math.max(0, round2((pumped - recorded) * rate)) };
+    });
+    const openValue = round2(remaining.reduce((a, r) => a + r.value, 0));
+    const digitalTotal = round2(DIGITAL.reduce((a, m) => a + (b.digital?.[m] ?? 0), 0));
+    if (digitalTotal > openValue + 1)
+      throw new AppError(400, `Online total ${pkr(digitalTotal)} is more than the meter sale not yet entered (${pkr(openValue)}). Check the amounts, or that khata / card sales were not entered twice.`);
+    for (const m of DIGITAL) {
+      const amt = round2(b.digital?.[m] ?? 0);
+      if (!amt) continue;
+      const parts = remaining.filter((r) => r.value > 0);
+      let left = amt;
+      parts.forEach((r, i) => {
+        const share = i === parts.length - 1 ? left : round2((amt * r.value) / openValue);
+        left = round2(left - share);
+        if (share > 0) recordSale(t, { station_id: shift.station_id, product: r.product, amount: share, payment_method: m, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
+      });
+    }
+    // 3) the rest of the meters is cash
+    settleShift(t, shift, b.readings, () => undefined, backToTank);
+    for (const r of shiftReadings(shift.id)) run("UPDATE meter_readings SET closing=?, test_l=? WHERE id=?", b.readings[String(r.nozzle_id)], tests.find((x) => x.id === r.id)?.litres ?? null, r.id);
+    // the full picture per fuel, from what is now saved
+    const fuels = shiftFuels(shift.id, (p) => prices[p]?.price ?? null);
+    const sold = all(`SELECT payment_method m, ROUND(SUM(amount),2) a FROM sales WHERE shift_id=? GROUP BY payment_method`, shift.id);
+    const summary = shiftSummary(shift.id);
+    return { fuels, summary, cash_expected: summary.cash_expected, digital_by_method: Object.fromEntries(DIGITAL.map((m) => [m, round2(sold.filter((x) => x.m === m).reduce((a, x) => a + x.a, 0))])) };
+  };
+  if (dryRun) {
+    try { tx(() => { throw new DryRun(run_()); }); } catch (e) { if (e instanceof DryRun) return e.result as ReturnType<typeof run_>; throw e; }
+  }
+  return tx(() => {
+    const r = run_();
+    const totalLitres = shiftReadings(shift.id).reduce((a, x) => a + (x.closing - x.opening), 0);
+    const counted = b.cash_actual ?? 0;
+    run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=?, cash_notes=? WHERE id=?",
+      now(), round2(totalLitres), r.cash_expected, counted, round2(counted - r.cash_expected), b.notes ?? null, b.cash_notes ? JSON.stringify(b.cash_notes) : null, shift.id);
+    return r;
+  })!;
+}
+
+/** What closing with these readings would give — nothing is saved. */
+operations.post("/shifts/:id/preview", requirePerm("shifts.manage"), h((req) => {
+  const shift = ownOpenShift(req, Number(req.params.id));
+  if (shift.status !== "open") throw new AppError(400, "Shift is not open");
+  return closeShiftCore(req, shift, parse(closeBody, req.body), true);
+}));
+
 operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req) => {
-  const b = parse(z.object({ readings: z.record(z.string(), z.number().min(0)), cash_actual: z.number().min(0), notes: z.string().optional(), photo_ids: z.array(z.number()).max(20).optional() }), req.body);
+  const b = parse(closeBody.extend({ cash_actual: z.number().min(0) }), req.body);
   const t = tid(req);
   const shift = ownOpenShift(req, Number(req.params.id));
   if (shift.status !== "open") throw new AppError(400, "Shift is not open");
-  tx(() => {
-    settleShift(t, shift, b.readings, () => undefined);
-    for (const r of shiftReadings(shift.id)) run("UPDATE meter_readings SET closing=? WHERE id=?", b.readings[String(r.nozzle_id)], r.id);
-    const totalLitres = shiftReadings(shift.id).reduce((a, r) => a + (r.closing - r.opening), 0);
-    const expected = shiftSummary(shift.id).cash_expected; // cash sales − expenses paid from the shift cash
-    run("UPDATE shifts SET status='closed', closed_at=?, litres=?, cash_expected=?, cash_actual=?, variance=?, notes=? WHERE id=?",
-      now(), round2(totalLitres), expected, b.cash_actual, round2(b.cash_actual - expected), b.notes ?? null, shift.id);
-  });
+  const result = closeShiftCore(req, shift, b, false);
   linkPhotos(t, b.photo_ids, `shift-close:${shift.id}`);
   const closed = get("SELECT * FROM shifts WHERE id=?", shift.id)!;
   const summary = shiftSummary(shift.id);
@@ -423,7 +517,7 @@ operations.post("/shifts/:id/close", requirePerm("shifts.manage"), h(async (req)
   // check-out is NOT marked by closing the shift: it needs the salesman's own live selfie + location
   const att = get("SELECT id FROM users WHERE tenant_id=? AND name=? AND role='salesman'", t, shift.attendant);
   const notCheckedOut = Boolean(att && get("SELECT id FROM attendance WHERE user_id=? AND check_out IS NULL", att.id));
-  return { ...closed, summary, readings: shiftReadings(shift.id), checkout_missing: notCheckedOut };
+  return { ...closed, summary, fuels: result.fuels, readings: shiftReadings(shift.id), checkout_missing: notCheckedOut };
 }));
 
 /* ---------------- Stock: dips & deliveries ---------------- */
