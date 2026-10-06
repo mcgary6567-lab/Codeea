@@ -6,6 +6,7 @@ import { d as day, dt, num, pkr, PRODUCTS } from "../lib/format";
 import { useAuth } from "../App";
 import { ALL_PK_BANKS } from "../lib/banks";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
+import { AccountPicker } from "../components/BankParts";
 
 const TABS = [
   { key: "claims", label: "Tanker claims", icon: Truck, perm: "suppliers.manage" },
@@ -71,12 +72,12 @@ function Claims() {
                   <span className="min-w-0"><b>{c.tanker_no ?? "—"}</b> <span className="text-slate-500">· {c.supplier_name ?? "—"}</span><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></span>
                   <span className="shrink-0 text-right"><b className="tabular-nums">{pkr(c.amount)}</b><span className="block"><Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge></span></span>
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500">{num(c.invoice_l)} / {num(c.received_l)} L · <span className="text-red-600">{c.shortage_pct}% short</span> · {c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}` : ""}{c.claim_ref ? ` · ${c.claim_ref}` : ""}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{num(c.invoice_l)} / {num(c.received_l)} L · <span className="text-red-600">{c.shortage_pct}% short</span> · {c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}${c.recovered_by && c.recovered_by !== "credit_note" ? ` in ${c.recovered_by}` : ""}` : ""}{c.claim_ref ? ` · ${c.claim_ref}` : ""}</div>
                 <ProofThumbs ids={c.proof_ids} />
                 {(c.status === "open" || ["claimed", "partly"].includes(c.status)) && <div className="mt-2 flex flex-wrap gap-2">
                   {c.status === "open" && <button className="btn-primary min-h-10 text-sm" disabled={busy} onClick={() => run(() => api(`/claims/${c.id}/claim`, { body: { claim_ref: prompt("Claim / letter number (optional)") || null } }), (r: any) => r.sent ? "Claim sent to the depot on WhatsApp" : "Marked as claimed").then(reload)}><Send size={14} /> Claim from depot</button>}
                   {["claimed", "partly"].includes(c.status) && <>
-                    <button className="btn-secondary min-h-10 text-sm" disabled={busy} onClick={() => setSettle(c)}>Got credit</button>
+                    <button className="btn-secondary min-h-10 text-sm" disabled={busy} onClick={() => setSettle(c)}>Got money</button>
                     <button className="min-h-10 px-2 text-sm text-slate-500 underline" onClick={() => confirm("Write this claim off?") && run(() => api(`/claims/${c.id}/settle`, { body: { action: "written_off" } }), "Written off").then(reload)}>Write off</button>
                   </>}
                 </div>}
@@ -92,12 +93,12 @@ function Claims() {
                   <td className="px-3 py-2"><b>{c.tanker_no ?? "—"}</b><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></td>
                   <td>{c.supplier_name ?? "—"}</td>
                   <td className="text-right tabular-nums">{num(c.invoice_l)} / {num(c.received_l)} L<span className="block text-xs text-red-600">{c.shortage_pct}% short</span></td>
-                  <td className="text-right tabular-nums"><b>{pkr(c.amount)}</b><span className="block text-xs text-slate-500">{c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}` : ""}</span></td>
+                  <td className="text-right tabular-nums"><b>{pkr(c.amount)}</b><span className="block text-xs text-slate-500">{c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}${c.recovered_by && c.recovered_by !== "credit_note" ? ` in ${c.recovered_by}` : ""}` : ""}</span></td>
                   <td><Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge>{c.claim_ref && <span className="block text-xs text-slate-500">{c.claim_ref}</span>}<ProofThumbs ids={c.proof_ids} /></td>
                   <td className="whitespace-nowrap px-2 text-right">
                     {c.status === "open" && <button className="btn-primary px-2 py-1 text-xs" disabled={busy} onClick={() => run(() => api(`/claims/${c.id}/claim`, { body: { claim_ref: prompt("Claim / letter number (optional)") || null } }), (r: any) => r.sent ? "Claim sent to the depot on WhatsApp" : "Marked as claimed").then(reload)}><Send size={12} /> Claim</button>}
                     {["claimed", "partly"].includes(c.status) && <>
-                      <button className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => setSettle(c)}>Got credit</button>
+                      <button className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => setSettle(c)}>Got money</button>
                       <button className="ml-1 text-xs text-slate-500 underline" onClick={() => confirm("Write this claim off?") && run(() => api(`/claims/${c.id}/settle`, { body: { action: "written_off" } }), "Written off").then(reload)}>Write off</button>
                     </>}
                   </td>
@@ -124,15 +125,27 @@ function SettleClaim({ c, onClose, onDone }: { c: any; onClose: () => void; onDo
   const left = Math.round(c.amount - c.recovered);
   const [amount, setAmount] = useState(String(left));
   const [photos, setPhotos] = useState<number[]>([]);
+  const [method, setMethod] = useState<"credit_note" | "cash" | "bank">("credit_note");
+  const [account, setAccount] = useState<number | null>(null);
   const { busy, run } = useAction();
+  const done = { credit_note: "Credit note recorded — what we owe the depot is lower", cash: "Cash received — in the cash book", bank: "Money received — in the bank account" }[method];
   return (
-    <Modal open onClose={onClose} title={`Credit received — ${c.tanker_no ?? "tanker"}`}>
+    <Modal open onClose={onClose} title={`Claim money received — ${c.tanker_no ?? "tanker"}`}>
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault();
-        if (await run(() => api(`/claims/${c.id}/settle`, { body: { action: "recovered", amount: Number(amount), photo_ids: photos } }), "Credit note recorded — payable reduced")) onDone();
+        if (await run(() => api(`/claims/${c.id}/settle`, { body: { action: "recovered", amount: Number(amount), method, photo_ids: photos, ...(method === "bank" && account ? { account_id: account } : {}) } }), done)) onDone();
       }}>
+        <fieldset>
+          <legend className="label">How did the depot pay? · ڈپو نے کیسے دیا</legend>
+          <div className="grid grid-cols-3 gap-2">{([["credit_note", "Credit note", "کریڈٹ نوٹ"], ["cash", "Cash", "نقد"], ["bank", "Bank", "بینک"]] as const).map(([k, en, ur]) => (
+            <button type="button" key={k} aria-pressed={method === k} onClick={() => setMethod(k)}
+              className={`min-h-12 rounded-lg px-2 py-1.5 text-sm ring-1 ${method === k ? "bg-brand-50 font-semibold text-brand-800 ring-2 ring-brand-600" : "bg-white ring-slate-200"}`}>
+              {en}<span lang="ur" className="block font-urdu text-xs font-normal">{ur}</span></button>))}</div>
+          <p className="mt-1 text-xs text-slate-500">{{ credit_note: "Taken off what we owe this depot (their next bill).", cash: "Goes into today's cash book.", bank: "Goes into the bank account you pick." }[method]}</p>
+        </fieldset>
+        {method === "bank" && <AccountPicker method="bank" label="Into which bank account? · کس بینک میں" value={account} onChange={setAccount} required />}
         <Field label={`Amount recovered (up to ${pkr(left)})`}><input className="input text-lg" type="number" min={1} max={left} required value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-        <ProofPhotos value={photos} onChange={setPhotos} hint="credit note / depot letter" />
+        <ProofPhotos value={photos} onChange={setPhotos} hint={method === "credit_note" ? "credit note / depot letter" : method === "bank" ? "bank slip / SMS" : "receipt"} />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
     </Modal>

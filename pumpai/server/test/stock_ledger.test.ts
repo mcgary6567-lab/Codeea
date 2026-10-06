@@ -228,3 +228,31 @@ test("claim settled by credit note, supplier paid from the bank, a dip: everythi
   near(r.closing, B.hsd, "register closing = tanks");
   near(B.l.totals.debit, B.l.totals.credit, "journal balances");
 });
+
+test("a depot pays a claim in cash or into the bank: cash book / bank up, supplier balance unchanged, ledger income", async () => {
+  const claimOf = async (short: number) => {
+    const t = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", supplier_id: S.id, cost_rates: { HSD: 250 },
+      invoice_l: { HSD: 1000 + short }, drops: [{ client_id: W1.id, litres: 1000 }] }), "depot trip");
+    const c = t.depot.claims[0]; assert.ok(c, "claim opened");
+    ok(await call("admin", "POST", `/api/claims/${c.id}/claim`, { send: false }), "claimed");
+    return c;
+  };
+  const cashBook = () => db.get("SELECT COALESCE(SUM(amount),0) v FROM cashier_vouchers WHERE ref LIKE 'claim:%' AND direction='in' AND voided=0").v as number;
+  const cash0 = cashBook();
+  const c1 = await claimOf(40), c2 = await claimOf(30);
+  const mid = await books();
+  // bank: an account must be chosen when the pump has bank accounts
+  const noAcc = await call("admin", "POST", `/api/claims/${c2.id}/settle`, { action: "recovered", method: "bank" });
+  assert.equal(noAcc.status, 400);
+  ok(await call("admin", "POST", `/api/claims/${c1.id}/settle`, { action: "recovered", method: "cash" }), "cash");
+  ok(await call("admin", "POST", `/api/claims/${c2.id}/settle`, { action: "recovered", method: "bank", account_id: acc }), "bank");
+  const A = await books();
+  near(cashBook() - cash0, c1.amount, "cash book has the claim money");
+  near(A.bank - mid.bank, c2.amount, "bank account up");
+  near(A.tb("Bank") - mid.tb("Bank"), c2.amount, "ledger bank");
+  near(A.tb("Shortage claims recovered") - mid.tb("Shortage claims recovered"), -(c1.amount + c2.amount), "ledger income for both");
+  near(A.owed - mid.owed, 0, "the depot's account is not touched (they paid, not credited)");
+  const list = ok(await call("admin", "GET", "/api/claims"), "claims").claims;
+  assert.equal(list.find((x: any) => x.id === c1.id).recovered_by, "cash");
+  assert.equal(list.find((x: any) => x.id === c2.id).status, "recovered");
+});
