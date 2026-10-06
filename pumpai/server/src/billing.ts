@@ -151,7 +151,16 @@ tbody tr:nth-child(even) td{background:#f8fafc}th{background:#0f172a;color:#fff}
 .acct{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}.box{border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px}.box b{font-size:15px}
 .box span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#64748b}.doc{font-size:16px;font-weight:800;letter-spacing:.02em;margin:2px 0 8px}
 @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;padding:10mm}button{display:none}table{min-width:0}}
-@media (max-width:600px){.page{margin:0;border-radius:0;padding:16px}.acct{grid-template-columns:1fr}}
+@media (max-width:600px){.page{margin:0;border-radius:0;padding:16px}.acct{grid-template-columns:1fr}
+  /* phone screen: each entry a small card instead of a wide table (paper keeps the table) */
+  .wrap table{min-width:0}.wrap thead{display:none}.wrap tr{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;padding:9px 2px;border-bottom:1px solid #e2e8f0}
+  .wrap td{border:0;padding:0;font-size:13px}.wrap td:empty{display:none}
+  .wrap td:nth-child(1){color:#64748b}.wrap td:nth-child(4){grid-column:1/-1;order:-1;font-weight:600}
+  .wrap td:nth-child(2)::before{content:"🚛 "}.wrap td:nth-child(3)::before{content:"Slip "}
+  .wrap td:nth-child(5)::before{content:"Litres ";color:#64748b}.wrap td:nth-child(6)::before{content:"Rate ";color:#64748b}
+  .wrap td:nth-child(7)::before{content:"Charged ";color:#64748b}.wrap td:nth-child(8)::before{content:"Paid ";color:#64748b}
+  .wrap td:nth-child(9){font-weight:700}.wrap td:nth-child(9)::before{content:"Balance ";font-weight:400;color:#64748b}
+  .wrap td.r{text-align:left}.wrap tbody tr:nth-child(even) td{background:none}}
 ${BRAND_CSS}
 </style></head><body><div class="page">
 ${brandHead(p.t, title)}

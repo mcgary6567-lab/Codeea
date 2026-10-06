@@ -29,7 +29,9 @@
   [role="dialog"] > .card { max-width: none !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; }
   /* screen-only things */
   button, .btn, .btn-primary, .btn-secondary, input[type="file"], [role="tablist"] { display: none !important; }
-  .card { box-shadow: none !important; border-color: #cbd5e1 !important; break-inside: avoid-page; }
+  /* boxes may run over a page (a long statement would otherwise jump to the next page and leave a blank one) */
+  .card { box-shadow: none !important; border-color: #cbd5e1 !important; break-inside: auto; }
+  h1, h2, h3, thead { break-after: avoid; }
   .overflow-x-auto, .overflow-auto { overflow: visible !important; }
   /* tables like a bank statement: dark header, light bands, figures lined up */
   table { border-collapse: collapse !important; width: 100% !important; min-width: 0 !important; font-size: 11px; }
