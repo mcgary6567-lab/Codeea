@@ -158,6 +158,7 @@ function Overview({ r }: { r: any }) {
           <Row k="Expenses" v={pkr(s.money_out.expenses)} />
           <Row k="Paid to fuel suppliers" v={pkr(s.money_out.supplier_payments)} />
           <Row k="Fuel purchased in period (cost)" v={pkr(s.purchases_cost)} muted />
+          {r.stock.direct?.cost > 0 && <Row k={`Depot direct to clients (${num(r.stock.direct.litres)} L, not in stock)`} v={pkr(r.stock.direct.cost)} muted />}
           <Row k="Shift cash variance" v={pkr(s.cash_variance)} muted />
           <Row k="Total paid out" v={pkr(s.money_out.expenses + s.money_out.supplier_payments)} bold />
         </div>

@@ -25,10 +25,12 @@ export function supplierOwed(supplierId: number, before?: string): number {
   return round2(s.opening_balance + r.o);
 }
 
-export function recordPurchase(tenantId: number, f: { supplier_id: number; delivery_id: number; product: string; litres: number; rate: number; ref?: string | null; by: string }) {
-  run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,delivery_id,product,litres,rate,amount,ref,created_by,txn_date,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-    tenantId, f.supplier_id, "purchase", f.delivery_id, f.product, f.litres, f.rate, round2(f.litres * f.rate), f.ref ?? null, f.by, now(), now());
+export function recordPurchase(tenantId: number, f: { supplier_id: number; delivery_id?: number | null; trip_id?: number | null; product: string | null; litres: number | null; rate: number | null;
+  amount?: number; ref?: string | null; note?: string | null; by: string; at?: string }) {
+  run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,delivery_id,trip_id,product,litres,rate,amount,ref,note,created_by,txn_date,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    tenantId, f.supplier_id, "purchase", f.delivery_id ?? null, f.trip_id ?? null, f.product, f.litres, f.rate, f.amount ?? round2((f.litres ?? 0) * (f.rate ?? 0)),
+    f.ref ?? null, f.note ?? null, f.by, f.at ?? now(), now());
 }
 
 function own(tenantId: number, id: number) {

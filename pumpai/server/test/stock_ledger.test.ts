@@ -68,6 +68,10 @@ test("setup", async () => {
   S = ok(await call("admin", "GET", "/api/suppliers"), "sup")[0];
   [W1, W2] = ok(await call("wholesale", "GET", "/api/wholesale/clients"), "clients");
   acc = ok(await call("admin", "GET", "/api/bank/accounts"), "banks").accounts.find((a: any) => a.active).id;
+  // the demo's state depends on when the seed ran: give client 1 room under its credit limit (the wholesale officer cannot override it)
+  // and the petrol tank something to carry, so the trips below test the books, not the demo's luck
+  db.run("UPDATE wholesale_clients SET credit_limit=? WHERE id=?", 50_000_000, W1.id);
+  db.run("UPDATE tanks SET current_l=MAX(current_l, 5000) WHERE station_id=? AND product='PMG'", st);
   B0 = await books();
 });
 
@@ -141,6 +145,51 @@ test("one tanker carrying diesel and petrol: each drop comes out of its own fuel
   // put it back so the later checks work on the earlier numbers
   for (const d of mix.drops) ok(await call("admin", "POST", `/api/wholesale/txns/${d.id}/void`, { reason: "test" }), "void");
   near(hsd(), h0); near(pmg(), p0);
+});
+
+test("depot-direct trip (bypass): no stock moves, the supplier bills us, clients billed, profit counted", async () => {
+  const tanksL = () => db.get("SELECT SUM(current_l) l FROM tanks WHERE station_id=?", st).l as number;
+  const B = await books(); const t0 = tanksL();
+  const rep0 = ok(await call("admin", "GET", `/api/reports?from=${encodeURIComponent(dayStart())}&to=${encodeURIComponent(new Date().toISOString())}`), "report");
+  const noSup = await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", drops: [{ client_id: W1.id, litres: 1000, override_limit: true }] });
+  assert.equal(noSup.status, 400); assert.match(noSup.data.error, /supplier/i);
+  const noRate = await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", supplier_id: S.id, drops: [{ client_id: W1.id, litres: 1000, override_limit: true }] });
+  assert.equal(noRate.status, 400); assert.match(noRate.data.error, /rate/i);
+  const depots = ok(await call("wholesale", "GET", "/api/wholesale/depots"), "depots");
+  assert.ok(depots.find((d: any) => d.id === S.id)?.rates.HSD > 0, "the wholesale officer sees the supplier with its last rate");
+  // wholesale officer: 2,000 L diesel + 1,000 L petrol from the depot, depot billed 2,010 L diesel, freight on the supplier's bill
+  const trip = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", supplier_id: S.id, depot_ref: "BILTY-77",
+    cost_rates: { HSD: 255, PMG: 250 }, invoice_l: { HSD: 2010 }, freight_by: "supplier", freight: 6000,
+    drops: [{ client_id: W1.id, litres: 2000, override_limit: true }, { client_id: W1.id, product: "PMG", litres: 1000, override_limit: true }] }), "depot trip");
+  const cost = 2010 * 255 + 1000 * 250;
+  near(trip.cost, cost); near(trip.depot.short_l, 10, "10 L short at the depot");
+  near(trip.depot.profit, trip.billed - cost - 6000, "trip profit");
+  near(tanksL(), t0, "our tanks did not move");
+  const A = await books();
+  near(A.owed - B.owed, cost + 6000, "supplier owed the fuel and the freight");
+  near(A.tb(`Payable — ${S.name}`) - B.tb(`Payable — ${S.name}`), -(cost + 6000), "ledger payable");
+  near(A.tb("Fuel purchases") - B.tb("Fuel purchases"), cost + 6000, "ledger purchases");
+  near(A.due1 - B.due1, trip.billed, "client owes the drops");
+  near(A.tb("Wholesale receivable") - B.tb("Wholesale receivable"), trip.billed, "ledger receivable");
+  near(A.reg.wholesale - B.reg.wholesale, 0, "stock register: nothing left our tanks");
+  near(A.reg.receipts - B.reg.receipts, 0, "stock register: nothing came in");
+  const rep = ok(await call("admin", "GET", `/api/reports?from=${encodeURIComponent(dayStart())}&to=${encodeURIComponent(new Date().toISOString())}`), "report");
+  near(rep.summary.purchases_cost, rep0.summary.purchases_cost, "stock purchases unchanged (not stock)");
+  near(rep.stock.direct.cost - rep0.stock.direct.cost, cost + 6000, "report: depot-direct cost");
+  near(rep.summary.fuel_cost_estimate - rep0.summary.fuel_cost_estimate, cost + 6000, "profit: direct cost against its sales");
+  assert.ok(Math.abs(rep.summary.revenue - rep0.summary.revenue - trip.billed) < 1, "revenue has the trip's sales");
+  // freight paid in cash is booked as an expense
+  const cash = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", source: "depot", supplier_id: S.id,
+    cost_rates: { HSD: 255 }, freight_by: "cash", freight: 3000, drops: [{ client_id: W1.id, litres: 500, override_limit: true }] }), "cash freight");
+  const exp = db.get("SELECT * FROM expenses WHERE note LIKE ?", `Trip #${cash.id} %`);
+  assert.ok(exp, "freight expense"); assert.equal(exp.amount, 3000); assert.equal(exp.category, "Tanker freight & transport");
+  near((await books()).owed - A.owed, 500 * 255, "cash freight not on the supplier's bill");
+  const list = ok(await call("wholesale", "GET", "/api/wholesale/trips"), "trips");
+  assert.equal(list.find((x: any) => x.id === trip.id).source, "depot");
+  // undo for the later checks: void the drops and take the supplier bills off
+  for (const t of [trip, cash]) for (const d of t.drops) ok(await call("admin", "POST", `/api/wholesale/txns/${d.id}/void`, { reason: "test" }), "void");
+  db.run("DELETE FROM supplier_txns WHERE trip_id IN (?,?)", trip.id, cash.id);
+  db.run("DELETE FROM expenses WHERE id=?", exp.id);
 });
 
 test("claim settled by credit note, supplier paid from the bank, a dip: everything still agrees", async () => {

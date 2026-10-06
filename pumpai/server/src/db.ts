@@ -363,6 +363,15 @@ export function migrate() {
     tanker_id INTEGER, driver_id INTEGER, vehicle_no TEXT, driver_name TEXT, litres REAL NOT NULL, amount REAL NOT NULL,
     drops INTEGER NOT NULL, note TEXT, created_by TEXT, trip_date TEXT NOT NULL, created_at TEXT NOT NULL)`);
   addColumn("wholesale_txns", "trip_id", "INTEGER");
+  // a trip straight from the depot to the clients (bypass): the fuel never enters our tanks, we buy it from the supplier on the way
+  addColumn("wholesale_trips", "source", "TEXT NOT NULL DEFAULT 'pump'");
+  addColumn("wholesale_trips", "supplier_id", "INTEGER");
+  addColumn("wholesale_trips", "depot_ref", "TEXT");
+  addColumn("wholesale_trips", "invoice_l", "REAL");
+  addColumn("wholesale_trips", "cost", "REAL"); // what the supplier billed for the fuel
+  addColumn("wholesale_trips", "freight", "REAL");
+  addColumn("wholesale_trips", "freight_by", "TEXT"); // rate (in the purchase rate) | supplier (on their bill) | cash (paid, booked as an expense)
+  addColumn("supplier_txns", "trip_id", "INTEGER"); // a depot-direct purchase: not stock, its cost goes straight against that trip's sales
   // what each role may do, changed per pump from Users & Roles (laid over the built-in defaults)
   db.exec(`CREATE TABLE IF NOT EXISTS role_permissions (
     tenant_id INTEGER NOT NULL, perm TEXT NOT NULL, role TEXT NOT NULL, allowed INTEGER NOT NULL,

@@ -13,6 +13,9 @@ import { announce } from "../notifications.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
 import { bankAccountFor, accountIdField } from "./banks.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
+import { recordPurchase } from "./suppliers.js";
+import { createExpense } from "./expenses.js";
+import { guardClosedDay } from "./backoffice.js";
 import { deliverOrder, deskSuggestions, openOrders, promises, cheques } from "./wholesaleDesk.js";
 
 export const wholesale = Router();
@@ -505,9 +508,30 @@ const tripBody = z.object({
     location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), override_limit: z.boolean().optional(),
     order_id: z.number().int().optional().nullable(),
   })).min(1, "Add at least one drop").max(30),
+  // bypass: loaded at the supplier's depot and taken straight to the clients — never in our tanks
+  source: z.enum(["pump", "depot"]).default("pump"),
+  supplier_id: z.number().int().optional().nullable(),
+  cost_rates: z.record(product, z.number().positive()).optional(), // purchase rate per fuel (Rs/L)
+  invoice_l: z.record(product, z.number().positive()).optional(), // litres the depot billed per fuel (default: what was dropped)
+  depot_ref: z.string().max(60).optional().nullable(),
+  freight: z.number().min(0).optional().nullable(),
+  freight_by: z.enum(["rate", "supplier", "cash"]).default("rate"),
 });
-wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
+const FREIGHT_CAT = "Tanker freight & transport";
+wholesale.get("/wholesale/depots", h((req) => {
+  // suppliers to buy a depot-direct trip from, each with the last rate they charged per fuel (any supplier's when they have none)
+  const t = tid(req);
+  return all("SELECT id, name, phone FROM suppliers WHERE tenant_id=? AND COALESCE(active,1)=1 ORDER BY name", t).map((s) => ({
+    ...s, rates: Object.fromEntries(Object.keys(PRODUCTS).map((p) => [p,
+      get("SELECT rate FROM supplier_txns WHERE supplier_id=? AND type='purchase' AND product=? AND rate > 0 ORDER BY txn_date DESC, id DESC LIMIT 1", s.id, p)?.rate ?? lastCost(t, p)])),
+  }));
+}));
+wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h(async (req) => {
   const b = parse(tripBody, req.body);
+  const depot = b.source === "depot";
+  const supplier = depot ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id ?? 0, tid(req)) : null;
+  if (depot && !supplier) throw new AppError(400, "Choose the supplier (depot) the tanker was loaded from · سپلائر منتخب کریں");
+  if (!get("SELECT id FROM stations WHERE id=? AND tenant_id=?", b.station_id, tid(req))) throw new AppError(400, "Station not found");
   const fl = fleet(tid(req), b);
   const total = round2(b.drops.reduce((a, d) => a + d.litres, 0));
   if (fl.tanker?.capacity_l && total > fl.tanker.capacity_l)
@@ -520,43 +544,77 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
     added[d.client_id] = (added[d.client_id] ?? 0) + p.amount;
     return { ...d, ...p, product: prod };
   });
-  // each fuel comes out of its own tank
   const products = [...new Set(priced.map((d) => d.product))];
-  const tanks = Object.fromEntries(products.map((p) => [p, pickTank(tid(req), b.station_id, p)]));
-  for (const p of products) {
-    const need = round2(priced.filter((d) => d.product === p).reduce((a, d) => a + d.litres, 0));
-    if (tanks[p].current_l < need) throw new AppError(400, `Not enough stock in ${tanks[p].name} (${Math.round(tanks[p].current_l)} L ${PRODUCTS[p] ?? p} available, trip needs ${need} L)`);
+  const litresOf = (p: string) => round2(priced.filter((d) => d.product === p).reduce((a, d) => a + d.litres, 0));
+  // from our pump: each fuel comes out of its own tank. From the depot: nothing touches the tanks, the supplier bills us instead
+  const tanks: Record<string, Row> = depot ? {} : Object.fromEntries(products.map((p) => [p, pickTank(tid(req), b.station_id, p)]));
+  if (!depot) for (const p of products) {
+    if (tanks[p].current_l < litresOf(p)) throw new AppError(400, `Not enough stock in ${tanks[p].name} (${Math.round(tanks[p].current_l)} L ${PRODUCTS[p] ?? p} available, trip needs ${litresOf(p)} L)`);
   }
+  const buy = depot ? products.map((p) => {
+    const rate = b.cost_rates?.[p];
+    if (!rate) throw new AppError(400, `Enter the purchase rate for ${PRODUCTS[p] ?? p} from the depot invoice · خریداری ریٹ لکھیں`);
+    const litres = b.invoice_l?.[p] ?? litresOf(p);
+    if (litres < litresOf(p) - 0.01) throw new AppError(400, `${PRODUCTS[p] ?? p}: the depot billed ${litres} L but ${litresOf(p)} L were dropped — check the litres`);
+    return { p, rate, litres, amount: round2(litres * rate) };
+  }) : [];
+  const freight = depot && b.freight_by !== "rate" ? round2(b.freight ?? 0) : 0;
+  if (depot && b.freight_by !== "rate" && !freight) throw new AppError(400, "Enter the freight amount, or choose \"included in the rate\"");
+  // the freight expense must be bookable on that day (a closed day would refuse it after the trip was saved)
+  const freightDay = new Date(Date.parse(b.txn_date ?? now()) + 5 * 3600_000).toISOString().slice(0, 10);
+  if (freight && b.freight_by === "cash") guardClosedDay(req, tid(req), freightDay);
   const mixed = products.length > 1;
   const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
-  return tx(() => {
-    for (const p of products) run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", round2(priced.filter((d) => d.product === p).reduce((a, d) => a + d.litres, 0)), tanks[p].id);
-    const tank = tanks[products[0]];
+  const trip = tx(() => {
+    for (const p of Object.keys(tanks)) run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", litresOf(p), tanks[p].id);
+    const tank = depot ? null : tanks[products[0]];
     const amount = round2(priced.reduce((a, d) => a + d.amount, 0));
-    const { id } = run(`INSERT INTO wholesale_trips (tenant_id,station_id,tank_id,product,tanker_id,driver_id,vehicle_no,driver_name,litres,amount,drops,note,created_by,trip_date,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, mixed ? null : tank.id, products.join("+"), fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
-      total, amount, priced.length, b.note ?? null, req.user!.name, ts, now());
+    const { id } = run(`INSERT INTO wholesale_trips (tenant_id,station_id,tank_id,product,tanker_id,driver_id,vehicle_no,driver_name,litres,amount,drops,note,created_by,trip_date,created_at,
+        source,supplier_id,depot_ref,invoice_l,cost,freight,freight_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, mixed || !tank ? null : tank.id, products.join("+"), fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
+      total, amount, priced.length, b.note ?? null, req.user!.name, ts, now(),
+      b.source, supplier?.id ?? null, depot ? b.depot_ref ?? null : null, depot ? round2(buy.reduce((a, x) => a + x.litres, 0)) : null,
+      depot ? round2(buy.reduce((a, x) => a + x.amount, 0)) : null, depot ? freight : null, depot ? b.freight_by : null);
     linkPhotos(tid(req), b.photo_ids, `trip:${id}`);
     for (const d of priced) {
-      const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tanks[d.product].id, product: d.product, litres: d.litres, rate: d.rate, amount: d.amount,
+      const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: depot ? null : tanks[d.product].id, product: d.product, litres: d.litres, rate: d.rate, amount: d.amount,
         ref: d.ref ?? `TRIP-${id}`, note: b.note ?? null, location: d.location ?? null, txn_date: b.txn_date, trip_id: id, ...fl });
       deliverOrder(tid(req), d.order_id, d.c.id, t.id);
       limitAlert(req, d.c, t.due_after);
     }
-    return tripSheet(tid(req), id);
+    // the supplier's bill for a depot-direct trip: the fuel, and the freight when it is on their bill
+    const ref = b.depot_ref || `TRIP-${id}`;
+    for (const x of buy) recordPurchase(tid(req), { supplier_id: supplier!.id, trip_id: id, product: x.p, litres: x.litres, rate: x.rate, ref, note: `Depot direct — trip #${id}`, by: req.user!.name, at: ts });
+    if (freight && b.freight_by === "supplier")
+      recordPurchase(tid(req), { supplier_id: supplier!.id, trip_id: id, product: null, litres: null, rate: null, amount: freight, ref, note: `Freight — trip #${id}`, by: req.user!.name, at: ts });
+    return id;
   });
+  // freight paid in cash is an expense (it goes to the owner for approval above the limit, like any other)
+  if (freight && b.freight_by === "cash") {
+    if (!get("SELECT id FROM expense_categories WHERE tenant_id=? AND name=?", tid(req), FREIGHT_CAT)) run("INSERT INTO expense_categories (tenant_id,name) VALUES (?,?)", tid(req), FREIGHT_CAT);
+    await createExpense(req, { category: FREIGHT_CAT, amount: freight, method: "cash", station_id: b.station_id, paid_to: fl.vehicle_no ?? fl.driver_name ?? null,
+      note: `Trip #${trip} — depot ${supplier!.name}`, expense_date: freightDay } as any);
+  }
+  return tripSheet(tid(req), trip);
 }));
 export function tripSheet(t: number, id: number) {
-  const trip = get(`SELECT tr.*, ${proofCol("'trip:'||tr.id")}, s.name station_name, tk.name tank_name, d.phone driver_phone, d.cnic driver_cnic, d.licence_no driver_licence
-    FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN tanks tk ON tk.id=tr.tank_id LEFT JOIN drivers d ON d.id=tr.driver_id
+  const trip = get(`SELECT tr.*, ${proofCol("'trip:'||tr.id")}, s.name station_name, tk.name tank_name, d.phone driver_phone, d.cnic driver_cnic, d.licence_no driver_licence, sp.name supplier_name
+    FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN tanks tk ON tk.id=tr.tank_id LEFT JOIN drivers d ON d.id=tr.driver_id LEFT JOIN suppliers sp ON sp.id=tr.supplier_id
     WHERE tr.id=? AND tr.tenant_id=?`, id, t);
   if (!trip) throw new AppError(404, "Trip not found");
   const drops = all(`SELECT w.id, ${proofCol("'wtx:'||w.id")}, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.product, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
     FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.trip_id=? ORDER BY w.id`, id);
   const live = drops.filter((d) => !d.voided);
-  return { ...trip, drops, delivered_l: round2(live.reduce((a, d) => a + d.litres, 0)), billed: round2(live.reduce((a, d) => a + d.amount, 0)) };
+  const delivered = round2(live.reduce((a, d) => a + d.litres, 0)), billed = round2(live.reduce((a, d) => a + d.amount, 0));
+  // depot-direct: what the trip earned after the supplier's bill and the freight
+  const depot = trip.source === "depot" ? {
+    purchases: all("SELECT product, litres, rate, amount, ref FROM supplier_txns WHERE trip_id=? AND type='purchase' ORDER BY id", id),
+    short_l: round2(Math.max(0, (trip.invoice_l ?? 0) - drops.reduce((a, d) => a + d.litres, 0))),
+    profit: round2(billed - (trip.cost ?? 0) - (trip.freight ?? 0)),
+  } : null;
+  return { ...trip, drops, delivered_l: delivered, billed, depot };
 }
-wholesale.get("/wholesale/trips", h((req) => all(`SELECT tr.*, s.name station_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id
+wholesale.get("/wholesale/trips", h((req) => all(`SELECT tr.*, s.name station_name, sp.name supplier_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN suppliers sp ON sp.id=tr.supplier_id
   WHERE tr.tenant_id=? ORDER BY tr.trip_date DESC, tr.id DESC LIMIT 100`, tid(req))));
 wholesale.get("/wholesale/trips/:id", h((req) => tripSheet(tid(req), Number(req.params.id))));
 

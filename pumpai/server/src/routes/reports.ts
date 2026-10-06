@@ -126,11 +126,15 @@ export function buildReport(t: number, from: string, to: string) {
   const products = Object.keys(PRODUCTS).filter((p) => p in current);
 
   /* ---------- Purchases & cost ---------- */
-  const purchases = all(`SELECT product, SUM(litres) litres, SUM(amount) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND txn_date >= ? AND txn_date < ? GROUP BY product`, ...P);
+  // fuel bought into our tanks (depot-direct trips never entered stock: their cost is counted against their own sales below)
+  const purchases = all(`SELECT product, SUM(litres) litres, SUM(amount) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NULL AND txn_date >= ? AND txn_date < ? GROUP BY product`, ...P);
+  const direct = get(`SELECT COALESCE(SUM(amount),0) cost FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NOT NULL AND txn_date >= ? AND txn_date < ?`, ...P)!.cost as number;
+  const directL: Record<string, number> = Object.fromEntries(all(`SELECT w.product, SUM(w.litres) l FROM wholesale_txns w JOIN wholesale_trips tr ON tr.id=w.trip_id
+    WHERE w.tenant_id=? AND w.voided=0 AND w.type='supply' AND tr.source='depot' AND w.txn_date >= ? AND w.txn_date < ? GROUP BY w.product`, ...P).map((x) => [x.product, x.l as number]));
   const avgCost: Record<string, number | null> = {};
   for (const p of products) {
     // weighted average purchase rate over the 120 days up to the end of the period
-    const r = get(`SELECT SUM(amount) a, SUM(litres) l FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND product=? AND txn_date < ? AND txn_date >= ?`,
+    const r = get(`SELECT SUM(amount) a, SUM(litres) l FROM supplier_txns WHERE tenant_id=? AND type='purchase' AND trip_id IS NULL AND product=? AND txn_date < ? AND txn_date >= ?`,
       t, p, to, new Date(Date.parse(to) - 120 * DAY).toISOString())!;
     // no purchases in that window → fall back to the last purchase rate ever recorded
     avgCost[p] = r.l ? r.a / r.l
@@ -142,7 +146,7 @@ export function buildReport(t: number, from: string, to: string) {
       return {
         product: p, name: PRODUCTS[p], opening_l: r0(opening[p]), received_l: r0(inPeriod.received[p]), returns_in_l: r0(inPeriod.returns_in[p]),
         retail_sold_l: r0(inPeriod.retail_out[p]), wholesale_out_l: r0(inPeriod.wholesale_out[p]), dip_adjust_l: r0(inPeriod.dip_adjust[p]),
-        closing_l: r0(closing[p]), net_sold_l: r0(soldL), avg_cost: avgCost[p] ? round2(avgCost[p]!) : null,
+        closing_l: r0(closing[p]), net_sold_l: r0(soldL), direct_l: r0(directL[p]), avg_cost: avgCost[p] ? round2(avgCost[p]!) : null,
         closing_value: avgCost[p] ? r0((closing[p] ?? 0) * avgCost[p]!) : null,
       };
     }),
@@ -152,6 +156,7 @@ export function buildReport(t: number, from: string, to: string) {
     dips: all(`SELECT d.created_at, s.name station, t.name tank, t.product, d.book_l, d.measured_l, d.variance_pct
       FROM dip_readings d JOIN tanks t ON t.id=d.tank_id JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=? AND d.created_at >= ? AND d.created_at < ? ORDER BY d.created_at DESC`, ...P),
     purchases: purchases.map((p) => ({ product: p.product, litres: r0(p.litres), cost: r0(p.cost) })),
+    direct: { litres: r0(Object.values(directL).reduce((a, v) => a + v, 0)), cost: r0(direct) },
   };
 
   /* ---------- Expenses ---------- */
@@ -187,11 +192,13 @@ export function buildReport(t: number, from: string, to: string) {
   };
 
   /* ---------- Summary ---------- */
-  const cogs = products.reduce<number | null>((a, p) => {
+  const tankCogs = products.reduce<number | null>((a, p) => {
     const row = stock.products.find((x) => x.product === p)!;
     if (row.net_sold_l === 0) return a;
     return avgCost[p] == null || a == null ? null : a + row.net_sold_l * avgCost[p]!;
   }, 0);
+  // + what depot-direct trips cost (the supplier's bill, freight on it included); cash freight is already an expense
+  const cogs = tankCogs == null ? null : tankCogs + direct;
   const shopS = shopSummary(t, from, to);
   const revenue = round2(retail.amount + wholesale.net_billed + shopS.sales);
   const digital = sales.by_payment.filter((m) => ["jazzcash", "easypaisa", "raast", "card"].includes(m.method)).reduce((a, m) => a + m.amount, 0);
