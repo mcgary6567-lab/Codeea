@@ -2,7 +2,7 @@
 import bcrypt from "bcryptjs";
 import { db, migrate, run, all, get, tx, setSetting, pkDate, type Row } from "./db.js";
 import { scoreCustomers, detectAnomalies } from "./ai/analytics.js";
-import { createAlert } from "./services.js";
+import { createAlert, recordSale } from "./services.js";
 import { ensureAutomations } from "./automation/scheduler.js";
 import { DEFAULT_CATEGORIES } from "./routes/expenses.js";
 import { cylinderChart } from "./routes/backoffice.js";
@@ -232,6 +232,9 @@ export function seed() {
     seedMachines(tenantId, st1, st2);
     seedBanks(tenantId);
     seedWholesaleDesk(tenantId);
+    // 6 of the coupon book were filled at the pump (a real coupon sale each: stock out, coupon used, money taken off the coupon liability)
+    all("SELECT code FROM fuel_coupons WHERE tenant_id=? AND batch='B-DEMO-01' ORDER BY id LIMIT 6", tenantId).forEach((c, i) =>
+      recordSale(tenantId, { station_id: st1, product: "PMG", payment_method: "coupon", coupon_code: c.code, created_at: iso(T0 - (8 - i) * DAY + 3 * 3600_000) } as any));
     seedCashier(tenantId);
     alignDips(tenantId);
     ensureAutomations(tenantId);
@@ -510,8 +513,8 @@ function seedPrepaidAndMore(tenantId: number, st1: number, st2: number, T0: numb
   for (let i = 0; i < 20; i++) {
     const code = `C${(0x5a3f00000 + i * 7919 + 1234567).toString(16).toUpperCase().slice(0, 9)}`;
     run("INSERT INTO fuel_coupons (tenant_id,code,batch,value,product,buyer,customer_id,method,status,expires_on,sold_by,sold_at,used_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      tenantId, code, "B-DEMO-01", 1000, null, "Punjab Builders (Pvt) Ltd", buyer?.id ?? null, "cash", i < 6 ? "used" : "active", iso(T0 + 80 * DAY).slice(0, 10),
-      "Kamran Shah", iso(T0 - 10 * DAY), i < 6 ? iso(T0 - (8 - i) * DAY) : null);
+      tenantId, code, "B-DEMO-01", 1000, null, "Punjab Builders (Pvt) Ltd", buyer?.id ?? null, "cash", "active", iso(T0 + 80 * DAY).slice(0, 10),
+      "Kamran Shah", iso(T0 - 10 * DAY), null);
   }
   // rent, guard and internet booked by themselves each month
   const month = iso(T0 + 5 * 3600_000).slice(0, 7);
@@ -697,6 +700,15 @@ function seedWholesaleDesk(tenantId: number) {
 function seedCashier(tenantId: number) {
   const NOW = Date.now();
   const cutoff = new Date(NOW - 20 * 3600_000).toISOString();
+  // a shift's cash is what it sold for cash less its cash expenses (as closing a shift works it out), with the made-up short / over on top
+  for (const sh of all("SELECT sh.id, sh.variance FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed'", tenantId)) {
+    const cash = get(`SELECT COALESCE((SELECT SUM(amount) FROM sales WHERE shift_id=? AND payment_method='cash'),0)
+      + COALESCE((SELECT SUM(total) FROM shop_sales WHERE shift_id=? AND payment_method='cash'),0)
+      - COALESCE((SELECT SUM(amount) FROM expenses WHERE shift_id=? AND LOWER(COALESCE(method,'cash'))='cash'),0) v`, sh.id, sh.id, sh.id)!.v as number;
+    const litres = get("SELECT COALESCE(SUM(litres),0) l FROM sales WHERE shift_id=?", sh.id)!.l as number;
+    const expected = Math.round(cash * 100) / 100;
+    run("UPDATE shifts SET cash_expected=?, cash_actual=?, litres=? WHERE id=?", expected, Math.round((expected + (sh.variance ?? 0)) * 100) / 100, Math.round(litres), sh.id);
+  }
   for (const sh of all("SELECT sh.id, sh.closed_at, sh.cash_actual FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.closed_at < ?", tenantId, cutoff))
     run("UPDATE shifts SET handed_amount=?, handed_to=?, handed_at=? WHERE id=?", sh.cash_actual, "Bilal Cashier", new Date(Date.parse(sh.closed_at) + 30 * 60_000).toISOString(), sh.id);
   const acc = get("SELECT id FROM bank_accounts WHERE tenant_id=? AND kind='current' ORDER BY id LIMIT 1", tenantId)?.id ?? null;

@@ -161,3 +161,8 @@ test("expense summary, budgets, categories and CSV", async () => {
   const ask = await call("admin", "POST", "/api/ai/ask", { question: "expenses?" });
   assert.equal(ask.status, 200);
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("wholesale");
+});

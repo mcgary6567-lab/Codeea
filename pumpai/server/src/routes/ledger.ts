@@ -9,6 +9,7 @@ import { AppError, round2 } from "../services.js";
 import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
 import { posMap, DEPOT_PAY } from "./banks.js";
+import { cashPosition } from "./backoffice.js";
 
 export const ledger = Router();
 
@@ -16,6 +17,8 @@ interface Line { account: string; debit: number; credit: number }
 interface Voucher { date: string; no: string; type: string; narration: string; lines: Line[] }
 
 const CASH = "Cash in hand", BANK = "Bank", DIGITAL = "Digital collections (Easypaisa/JazzCash/Card/Raast)";
+/** Money said to be "bank transfer" / "cheque" with no bank account chosen: it waits here until linked (Cash & bank shows it to link). */
+const UNLINKED = "Bank — account not chosen";
 const payAccount = (m: string | null | undefined) => {
   const x = (m ?? "").toLowerCase();
   if (x === "cash" || x === "") return CASH;
@@ -24,7 +27,7 @@ const payAccount = (m: string | null | undefined) => {
   if (x === "loyalty") return "Loyalty points redeemed";
   if (x === "coupon") return "Fuel coupons (unused)";
   if (x === "wallet") return "Customer wallets";
-  return BANK;
+  return UNLINKED;
 };
 
 /** Money tagged by where it came from: tax paid to FBR clears the tax payable, a recovered claim, a coupon refund. */
@@ -50,7 +53,9 @@ export function journal(t: number, fromDay: string, toDay: string) {
   // POS card / JazzCash / Easypaisa / Raast sales go to the account each method is linked to
   const posBank = posMap(t);
   const via = (m: string | null | undefined, accountId?: number | null) => (accountId ? BANK : payAccount(m));
-  const sold = (m: string | null | undefined) => (m && posBank[m.toLowerCase()] ? BANK : payAccount(m));
+  // ...from the day that account was opened (as the bank module counts them); before that they stay in digital collections
+  const posFrom: Record<string, string> = Object.fromEntries(Object.entries(posBank).map(([m, id]) => [m, get("SELECT opening_date d FROM bank_accounts WHERE id=? AND tenant_id=?", id, t)?.d ?? "9999-12-31"]));
+  const sold = (m: string | null | undefined, d: string) => (m && posBank[m.toLowerCase()] && d >= posFrom[m.toLowerCase()] ? BANK : payAccount(m));
 
   // fuel sales: one voucher per day, money side by payment method
   const fuel = all(`SELECT date(datetime(s.created_at,'+5 hours')) d, s.payment_method m, SUM(s.amount) a, SUM(s.litres) l FROM sales s JOIN stations st ON st.id=s.station_id
@@ -60,7 +65,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const total = rows.reduce((a, r) => a + r.a, 0);
     const split = splitTax(total, tax.fuel_gst_pct, true);
     add(d, "Sales", `Fuel sales ${d} (${Math.round(rows.reduce((a, r) => a + r.l, 0)).toLocaleString()} L)`,
-      [...rows.map((r) => dr(sold(r.m), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
+      [...rows.map((r) => dr(sold(r.m, d), r.a)), cr("Fuel sales", split.value), cr("Output sales tax", split.tax)]);
   }
   // shop sales (sales tax split out)
   const shop = all(`SELECT date(datetime(ss.created_at,'+5 hours')) d, ss.payment_method m, SUM(ss.total) a FROM shop_sales ss WHERE ss.tenant_id=? AND ss.created_at >= ? AND ss.created_at < ? GROUP BY d, m`, ...P);
@@ -70,7 +75,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const rows = shop.filter((r) => r.d === d);
     const total = rows.reduce((a, r) => a + r.a, 0);
     const taxAmt = round2(shopTax.filter((r) => r.d === d && !tax.exempt.includes(r.c)).reduce((a, r) => a + splitTax(r.a, tax.gst_pct, true).tax, 0));
-    add(d, "Sales", `Shop & lubricant sales ${d}`, [...rows.map((r) => dr(sold(r.m), r.a)), cr("Shop sales", total - taxAmt), cr("Output sales tax", taxAmt)]);
+    add(d, "Sales", `Shop & lubricant sales ${d}`, [...rows.map((r) => dr(sold(r.m, d), r.a)), cr("Shop sales", total - taxAmt), cr("Output sales tax", taxAmt)]);
   }
   // khata: payments received, and charges other than fuel (late fee, adjustments)
   for (const r of all(`SELECT k.*, c.name FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.created_at >= ? AND k.created_at < ? AND COALESCE(k.ref,'') NOT LIKE 'SALE%' AND COALESCE(k.ref,'') NOT LIKE 'SHOP-%'`, ...P)) {
@@ -101,7 +106,7 @@ export function journal(t: number, fromDay: string, toDay: string) {
     add(day(r.created_at), "Payment", `${r.category}${r.paid_to ? ` — ${r.paid_to}` : ""}${r.note ? ` (${r.note})` : ""}`, [dr(`Expense: ${r.category}`, r.amount), cr(via(r.method, r.account_id), r.amount)]);
   // bank deposits, coupons, wallets
   for (const r of all(`SELECT * FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ?`, ...P))
-    add(day(r.created_at), "Contra", `Cash deposited — ${r.bank}${r.slip_ref ? ` slip ${r.slip_ref}` : ""}`, [dr(BANK, r.amount), cr(CASH, r.amount)]);
+    add(day(r.created_at), "Contra", `Cash deposited — ${r.bank}${r.slip_ref ? ` slip ${r.slip_ref}` : ""}`, [dr(r.account_id ? BANK : UNLINKED, r.amount), cr(CASH, r.amount)]);
   // bank-only entries: cash taken out, charges, profit, owner money (transfers between own banks net to nil)
   const BANK_SIDE: Record<string, string> = { withdraw: CASH, charges: "Expense: Bank charges", profit: "Bank profit", owner_in: "Owner's capital", owner_out: "Owner's drawings", other_in: "Other income", other_out: "Other payments" };
   for (const r of all(`SELECT * FROM bank_txns WHERE tenant_id=? AND kind<>'transfer' AND txn_date >= ? AND txn_date < ?`, ...P)) {
@@ -140,6 +145,17 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const other = specialSide(r.src) ?? (r.direction === "in" ? "Other income" : "Other payments");
     add(day(r.created_at), r.direction === "in" ? "Receipt" : "Payment", `${r.category ?? (r.direction === "in" ? "Other money in" : "Other payment")} — ${r.party_name}`,
       r.direction === "in" ? [dr(CASH, r.amount), cr(other, r.amount)] : [dr(other, r.amount), cr(CASH, r.amount)]);
+  }
+
+  // cash counts: the counted cash is the truth. The first count starts the cash book (its difference from what the books
+  // made of the cash so far is the owner's — cash taken or put in without an entry); later counts' short / over is booked
+  const first = get("SELECT MIN(created_at) v FROM cash_counts WHERE tenant_id=?", t)?.v as string | null;
+  for (const r of all("SELECT * FROM cash_counts WHERE tenant_id=? AND created_at >= ? AND created_at < ? ORDER BY created_at, id", ...P)) {
+    const isFirst = r.created_at === first;
+    const diff = isFirst ? round2(r.amount - cashPosition(t, new Date(Date.parse(r.created_at) - 1).toISOString()).cash_in_hand) : round2(r.variance ?? 0);
+    if (Math.abs(diff) < 0.005) continue;
+    add(day(r.created_at), "Journal", isFirst ? `Cash counted — cash book starts (${diff > 0 ? "more" : "less"} than the books)` : `Cash counted — ${diff < 0 ? "short" : "over"}`,
+      isFirst ? [dr(CASH, diff), cr("Owner's capital", diff)] : [dr(CASH, diff), cr("Cash short / over", diff)]);
   }
 
   out.sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type));

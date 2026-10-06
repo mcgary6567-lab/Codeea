@@ -157,3 +157,8 @@ test("salesman cannot see the owner's book", async () => {
   assert.equal((await call("salesman", "GET", "/api/dashboard")).status, 403);
   assert.equal((await call("salesman", "GET", "/api/reports")).status, 403);
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("full_circle");
+});

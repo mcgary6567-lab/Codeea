@@ -205,7 +205,7 @@ function ReportBody({ r }: { r: any }) {
               <tr key={x.nozzle_id}><td className="td text-sm">{x.label} <span className="text-xs text-slate-500">{PRODUCTS[x.product]}</span></td>
                 <td className="td text-xs text-slate-500">{x.handover_prev != null ? num(x.handover_prev, 2) : "—"}</td>
                 <td className="td text-right tabular-nums">{num(x.opening, 2)}</td><td className="td text-right tabular-nums">{x.closing != null ? num(x.closing, 2) : "—"}</td>
-                <td className="td text-right font-medium tabular-nums">{x.litres != null ? num(x.litres, 2) : "—"}</td>
+                <td className="td text-right font-medium tabular-nums">{x.litres != null ? num(x.litres, 2) : "—"}{x.test_l > 0 && <div className="text-[11px] font-normal text-amber-700">+{num(x.test_l, 2)} L test, back in tank</div>}</td>
                 <td className="td text-right tabular-nums">{x.amount != null ? pkr(x.amount) : "—"}</td></tr>
             ))}</tbody></table>
         </div>

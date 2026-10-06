@@ -65,3 +65,8 @@ test("meters are numbered No.1, No.2 … per station; number shows on shifts; sa
   const report = (await call("manager", "GET", "/api/reports")).data;
   assert.ok(report.sales.by_meter.some((x: any) => x.nozzle_id === first.nozzle_id));
 });
+
+test("shift reports: meter lines less test litres = litres sold, for every closed shift", async () => {
+  const { shiftMetersTally } = await import("./helpers/shiftMeters.js");
+  await shiftMetersTally("meters");
+});

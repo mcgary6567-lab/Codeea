@@ -101,3 +101,8 @@ test("wholesale dashboard: KPIs, 30-day trend, ageing, client health and suggest
   assert.ok(again.suggestions.some((x: any) => x.action?.kind === "payment" && x.action.client_id === c.id));
   assert.equal((await call("manager", "GET", "/api/wholesale/dashboard")).status, 403);
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("trips");
+});

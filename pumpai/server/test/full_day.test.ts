@@ -197,3 +197,8 @@ test("every book agrees", async () => {
   const card = o.online.methods.find((m: any) => m.method === "card");
   assert.equal(card.account_id, acc1, "card shown going to its bank");
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("full_day");
+});

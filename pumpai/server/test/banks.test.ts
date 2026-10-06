@@ -114,3 +114,8 @@ test("each bank account's balance tallies every payment, deposit, sale and bank 
   const j = ok(await call("admin", "GET", `/api/ledger?from=${db.pkDate()}&to=${db.pkDate()}`), "journal");
   assert.ok(JSON.stringify(j).includes("Cash taken out of bank"));
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("banks");
+});

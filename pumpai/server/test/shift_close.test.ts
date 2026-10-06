@@ -232,3 +232,13 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   // and the manager's desk too
   near(ok(await call("manager", "GET", "/api/dashboard/desk"), "manager desk").online.total, desk.online.total, "manager = cashier");
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("shift_close");
+});
+
+test("shift reports: meter lines less test litres = litres sold, for every closed shift", async () => {
+  const { shiftMetersTally } = await import("./helpers/shiftMeters.js");
+  await shiftMetersTally("shift_close");
+});

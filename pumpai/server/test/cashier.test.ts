@@ -140,3 +140,8 @@ test("handover: the cashier takes the salesman's cash; short cash is reported; d
   const countRows = book.rows.filter((x: any) => x.dir === "count");
   if (!countRows.length) near(t.counted, 0, "no count, no difference"); else near(countRows.reduce((a: number, x: any) => a + x.signed, 0), t.counted, "count line");
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("cashier");
+});

@@ -186,3 +186,8 @@ test("owner overview adds up from the same books; quick answers find the right p
   assert.match(await ask("bank mein kitna paisa hai"), /Bankon mein/);
   assert.match(await ask("cheque kitne pending hain"), /Cheque:/);
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("money_wiring");
+});

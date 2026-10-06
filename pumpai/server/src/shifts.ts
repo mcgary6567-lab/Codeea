@@ -114,8 +114,10 @@ export function shiftReport(shiftId: number) {
   // money per meter: its litres at the average rate this shift sold that fuel at
   const rate = Object.fromEntries(all("SELECT product, SUM(amount)/SUM(litres) r FROM sales WHERE shift_id=? AND litres > 0 GROUP BY product", shiftId).map((x) => [x.product, x.r]));
   const readings = shiftReadings(shiftId).map((r) => {
-    const litres = r.closing != null ? round2(r.closing - r.opening) : null;
-    return { ...r, litres, amount: litres != null && rate[r.product] ? Math.round(litres * rate[r.product]) : null };
+    // sold = what the meter ran less the test litres put back in the tank (those are not a sale)
+    const run_l = r.closing != null ? round2(r.closing - r.opening) : null;
+    const litres = run_l != null ? round2(run_l - (r.test_l ?? 0)) : null;
+    return { ...r, run_l, litres, amount: litres != null && rate[r.product] ? Math.round(litres * rate[r.product]) : null };
   });
   return {
     shift, readings, summary: shiftSummary(shiftId),

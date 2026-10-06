@@ -284,3 +284,8 @@ test("a wholesale client pays our depot direct (bypass): client due and depot ba
   near(V.due1, B.due1, "client back"); near(V.owed, B.owed, "depot back");
   near(V.tb(`Payable — ${S.name}`), B.tb(`Payable — ${S.name}`), "ledger back");
 });
+
+test("after all of the above: every book still tallies with the ledger", async () => {
+  const { tallyBooks } = await import("./helpers/tally.js");
+  await tallyBooks("stock_ledger");
+});
