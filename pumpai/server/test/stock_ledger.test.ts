@@ -124,6 +124,10 @@ test("claim settled by credit note, supplier paid from the bank, a dip: everythi
   ok(await call("admin", "POST", `/api/claims/${claimId}/settle`, { action: "recovered", method: "credit_note" }), "credit note");
   ok(await call("admin", "POST", `/api/suppliers/${S.id}/payment`, { amount: 1_000_000, method: "Bank transfer", account_id: acc }), "pay by bank");
   const book = db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l;
+  // a dip far from the book (a typing slip like 150 for 15 cm) is held until someone confirms it
+  const slip = await call("manager", "POST", "/api/stock/dip", { tank_id: tank.id, measured_l: book * 0.7 });
+  assert.equal(slip.status, 409); assert.match(slip.data.error, /confirm/);
+  near(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, book, "stock not touched");
   ok(await call("manager", "POST", "/api/stock/dip", { tank_id: tank.id, measured_l: book - 40 }), "dip 40 L less");
   const B = await books();
   near(B.owed - B0.owed, invoice * rate - claim.amount - 1_000_000, "supplier: bill − credit note − payment");

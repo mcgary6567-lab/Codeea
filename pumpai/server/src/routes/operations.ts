@@ -560,12 +560,15 @@ operations.get("/stock", requirePerm("stock.manage"), h((req) => ({
 })));
 
 operations.post("/stock/dip", requirePerm("stock.manage"), h((req) => {
-  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), photo_ids: proofPhotos })
+  const b = parse(z.object({ tank_id: z.number(), measured_l: z.number().min(0).optional(), measured_cm: z.number().min(0).optional(), photo_ids: proofPhotos, confirm: z.boolean().optional() })
     .refine((x) => x.measured_l !== undefined || x.measured_cm !== undefined, "Enter the dip in cm or litres"), req.body);
   const t = ownTank(tid(req), b.tank_id);
   // a dip in cm is turned into litres with the tank's dip chart
   const measured = b.measured_cm !== undefined ? litresFromCm(t.id, b.measured_cm) : b.measured_l!;
   const variance = t.current_l ? ((measured - t.current_l) / t.current_l) * 100 : 0;
+  // the dip replaces the book stock, so a slip of the finger (15 typed as 150) must not go through unasked
+  if (Math.abs(variance) >= 5 && !b.confirm)
+    throw new AppError(409, `Dip ${Math.round(measured).toLocaleString("en-IN")} L is ${variance.toFixed(1)}% from the book stock ${Math.round(t.current_l).toLocaleString("en-IN")} L. Check the reading, then confirm · ڈپ دوبارہ چیک کریں`);
   return tx(() => {
     const { id } = run("INSERT INTO dip_readings (tank_id,measured_l,measured_cm,book_l,variance_pct,created_at) VALUES (?,?,?,?,?,?)", t.id, measured, b.measured_cm ?? null, t.current_l, round2(variance), now());
     run("UPDATE tanks SET current_l=? WHERE id=?", measured, t.id);

@@ -82,7 +82,7 @@ test("dip chart: dip in cm becomes litres", async () => {
   const mid = (chart.rows[10].litres + chart.rows[11].litres) / 2;
   const cm = (chart.rows[10].cm + chart.rows[11].cm) / 2;
   near(ok(await call("manager", "GET", `/api/tanks/${tank.id}/dip-litres?cm=${cm}`), "mid").litres, mid, "interpolated");
-  ok(await call("manager", "POST", "/api/stock/dip", { tank_id: tank.id, measured_cm: chart.rows[20].cm }), "dip");
+  ok(await call("manager", "POST", "/api/stock/dip", { tank_id: tank.id, measured_cm: chart.rows[20].cm, confirm: true }), "dip");
   near(ok(await call("manager", "GET", "/api/stations"), "stations")[0].tanks[1].current_l, chart.rows[20].litres, "tank set from chart");
   assert.equal((await call("manager", "PUT", `/api/tanks/${tank.id}/chart`, { rows: [{ cm: 0, litres: 0 }, { cm: 10, litres: 500 }, { cm: 20, litres: 400 }] })).status, 400, "litres must not go down");
   const gen = ok(await call("manager", "PUT", `/api/tanks/${tank.id}/chart`, { diameter_cm: 250 }), "generate");

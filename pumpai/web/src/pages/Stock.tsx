@@ -17,6 +17,7 @@ export default function Stock() {
   const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "" });
   const [dipPhotos, setDipPhotos] = useState<number[]>([]);
   const [dipL, setDipL] = useState<{ litres?: number; error?: string } | null>(null);
+  const [dipSure, setDipSure] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [chart, setChart] = useState<any>(null);
   const orders = useApi<any[]>("/stock/orders");
@@ -61,21 +62,35 @@ export default function Stock() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
-          const body = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos };
+          const body = { ...(dip.cm ? { tank_id: dipTank, measured_cm: Number(dip.cm) } : { tank_id: dipTank, measured_l: Number(dip.measured_l) }), photo_ids: dipPhotos, confirm: dipSure };
           const r = await run(() => api("/stock/dip", { body }), (x: any) => `Dip saved: ${num(x.measured_l)} L. Variance ${x.variance_pct}%`);
-          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); setDipPhotos([]); refresh(); }
+          if (r) { setDip({ ...dip, measured_l: "", cm: "" }); setDipPhotos([]); setDipSure(false); refresh(); }
         }}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">Record dip reading</h2>
             <button type="button" className="-my-2 min-h-9 px-1 text-xs text-brand-600 hover:underline" onClick={() => api(`/tanks/${dipTank}/chart`).then(setChart)}>Dip chart</button></div>
-          <Field label="Tank"><select className="input" value={dip.tank_id} onChange={(e) => setDip({ ...dip, tank_id: e.target.value })}>{tankOpts}</select></Field>
+          <Field label="Tank · ٹینک"><select className="input" value={dip.tank_id || String(dipTank ?? "")} onChange={(e) => { setDip({ ...dip, tank_id: e.target.value }); setDipSure(false); }}>{tankOpts}</select></Field>
+          {(() => { const tk = tanks.find((t: any) => t.id === dipTank); return tk ? <p className="-mt-1 text-xs text-slate-500">Book stock now · <span lang="ur" dir="rtl" className="font-urdu">سسٹم میں</span> <b className="tabular-nums">{num(tk.current_l)} L</b> of {num(tk.capacity_l)} L</p> : null; })()}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Dip stick reading (cm)"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => setDip({ ...dip, cm: e.target.value, measured_l: "" })} /></Field>
-            <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => setDip({ ...dip, measured_l: e.target.value })} /></Field>
+            <Field label="Dip stick (cm) · ڈپ"><input className="input py-3 text-xl" type="number" step="0.1" min={0} value={dip.cm} onChange={(e) => { setDip({ ...dip, cm: e.target.value, measured_l: "" }); setDipSure(false); }} /></Field>
+            <Field label="…or litres"><input className="input py-3 text-xl" type="number" min={0} disabled={Boolean(dip.cm)} required={!dip.cm} value={dip.cm && dipL?.litres != null ? String(dipL.litres) : dip.measured_l} onChange={(e) => { setDip({ ...dip, measured_l: e.target.value }); setDipSure(false); }} /></Field>
           </div>
           {dipL?.error && <p className="text-xs text-red-600">{dipL.error}</p>}
           {dip.cm && dipL?.litres != null && <p className="text-sm text-slate-600">{dip.cm} cm = <b>{num(dipL.litres)} L</b> from the dip chart</p>}
+          {(() => {
+            const tk = tanks.find((t: any) => t.id === dipTank);
+            const m = dip.cm ? dipL?.litres : dip.measured_l !== "" ? Number(dip.measured_l) : undefined;
+            if (!tk || m == null || !(tk.current_l > 0)) return null;
+            const diff = m - tk.current_l, pct = (diff / tk.current_l) * 100, big = Math.abs(pct) >= 5;
+            return (
+              <div className={`rounded-lg px-2.5 py-2 text-sm ${big ? "bg-red-50 text-red-800" : Math.abs(pct) >= 0.5 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
+                Book {num(tk.current_l)} L → dip {num(m)} L: <b className="tabular-nums">{diff >= 0 ? "+" : "−"}{num(Math.abs(diff))} L ({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)</b>
+                {big && <label className="mt-1.5 flex items-start gap-2 font-medium"><input type="checkbox" className="mt-1 h-4 w-4" checked={dipSure} onChange={(e) => setDipSure(e.target.checked)} />
+                  <span>Big difference — I checked the dip stick again, it is right · <span lang="ur" dir="rtl" className="font-urdu">میں نے دوبارہ چیک کیا</span></span></label>}
+              </div>
+            );
+          })()}
           <ProofPhotos value={dipPhotos} onChange={setDipPhotos} hint="dip stick showing the reading" />
-          <button className="btn-primary" disabled={busy}>Save dip</button>
+          <button className="btn-primary" disabled={busy}>Save dip · <span lang="ur" dir="rtl" className="font-urdu">محفوظ</span></button>
         </form>
         <form className="card min-w-0 space-y-3 p-4" onSubmit={async (e) => {
           e.preventDefault();
