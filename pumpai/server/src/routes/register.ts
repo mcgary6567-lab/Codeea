@@ -47,11 +47,13 @@ export function stockRegister(t: number, stationId: number, from: string, to: st
       const receipts = all(`SELECT d.tanker_no, d.supplier, d.invoice_l, d.received_l, d.shortage_pct, d.created_at, s.name supplier_name
         FROM deliveries d LEFT JOIN suppliers s ON s.id=d.supplier_id WHERE d.tank_id IN (${tankIds.join(",")}) AND d.created_at >= ? AND d.created_at < ? ORDER BY d.id`, pkStart(day), pkEnd(day));
       // physical stock: the last dip of the day in each tank (only when every tank was dipped)
-      const dips = tankIds.map((id) => get("SELECT measured_l, measured_cm FROM dip_readings WHERE tank_id=? AND created_at >= ? AND created_at < ? ORDER BY id DESC LIMIT 1", id, pkStart(day), pkEnd(day)));
+      const dips = tankIds.map((id) => get("SELECT measured_l, measured_cm, created_at FROM dip_readings WHERE tank_id=? AND created_at >= ? AND created_at < ? ORDER BY id DESC LIMIT 1", id, pkStart(day), pkEnd(day)));
       const dip = dips.every(Boolean) ? round2(dips.reduce((a, x) => a + x!.measured_l, 0)) : null;
+      // when the dip was taken: sales after it are not in it, so it can differ from the day's book closing
+      const dipAt = dip != null ? dips.map((x) => x!.created_at as string).sort().pop()! : null;
       rows.push({
         day, opening, receipts: m.receipts, receipt_lines: receipts, total: round2(opening + m.receipts), sales: m.sales, wholesale: m.wholesale,
-        book_closing: round2(opening + m.receipts - m.sales - m.wholesale), dip_closing: dip, gain_loss: m.dip_adj,
+        book_closing: round2(opening + m.receipts - m.sales - m.wholesale), dip_closing: dip, dip_at: dipAt, gain_loss: m.dip_adj,
         closing,
       });
       closing = opening;

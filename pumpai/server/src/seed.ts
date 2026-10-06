@@ -233,6 +233,7 @@ export function seed() {
     seedBanks(tenantId);
     seedWholesaleDesk(tenantId);
     seedCashier(tenantId);
+    alignDips(tenantId);
     ensureAutomations(tenantId);
   });
   const tenantId = get("SELECT id FROM tenants LIMIT 1")!.id;
@@ -395,6 +396,31 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
   const today = new Date(T0).toISOString().slice(0, 10);
   run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,note,status,created_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     tenantId, st1, "Maintenance & repairs", 68000, "Gilbarco service engineer", "cash", "Dispenser 2 pulser replacement", "pending", "Kamran Shah", today, iso(T0));
+}
+
+/**
+ * Entries added after the stock replay (wholesale desk, trips…) move the tanks too, so each dip is set again from the
+ * real stock at its moment (working back from today's tank level), keeping its gain / loss. The stock register then
+ * shows a dip that agrees with the book at the time it was taken.
+ */
+function alignDips(tenantId: number) {
+  for (const tank of all("SELECT t.* FROM tanks t JOIN stations s ON s.id=t.station_id WHERE s.tenant_id=?", tenantId)) {
+    const sameFuel = get("SELECT COUNT(*) n FROM tanks WHERE station_id=? AND product=?", tank.station_id, tank.product)!.n;
+    if (sameFuel !== 1) continue; // sales are per station and fuel; only exact for one tank of a fuel
+    const moved = (after: string) =>
+      get("SELECT COALESCE(SUM(received_l),0) v FROM deliveries WHERE tank_id=? AND created_at > ?", tank.id, after)!.v
+      - get("SELECT COALESCE(SUM(litres),0) v FROM sales WHERE station_id=? AND product=? AND created_at > ?", tank.station_id, tank.product, after)!.v
+      - get("SELECT COALESCE(SUM(CASE type WHEN 'supply' THEN litres WHEN 'return' THEN -litres END),0) v FROM wholesale_txns WHERE tank_id=? AND voided=0 AND created_at > ?", tank.id, after)!.v
+      + get("SELECT COALESCE(SUM(measured_l - book_l),0) v FROM dip_readings WHERE tank_id=? AND created_at > ?", tank.id, after)!.v;
+    // newest first: a dip's stock depends only on what happened after it
+    for (const d of all("SELECT * FROM dip_readings WHERE tank_id=? ORDER BY created_at DESC, id DESC", tank.id)) {
+      const adj = d.measured_l - d.book_l;
+      const measured = Math.round(tank.current_l - moved(d.created_at));
+      if (measured < 0 || measured > tank.capacity_l) continue;
+      const book = measured - adj;
+      run("UPDATE dip_readings SET measured_l=?, book_l=?, variance_pct=? WHERE id=?", measured, book, book ? Math.round((adj / book) * 10000) / 100 : 0, d.id);
+    }
+  }
 }
 
 /**
