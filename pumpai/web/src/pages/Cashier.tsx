@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PrintFooter, PrintHeader } from "../components/Letterhead";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
@@ -371,21 +372,40 @@ function toWords(n: number): string {
 }
 
 function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
-  const { tenant } = useAuth();
   const v = r.voucher;
   const isIn = v.direction === "in";
   return (
     <Modal open onClose={onClose} title={`${isIn ? "Receipt" : "Payment"} voucher ${v.no}`}>
-      <div className="space-y-3 text-sm" id="voucher">
+      {/* on paper: two copies on one page, each with the letterhead — the top one for the party, the bottom one stays in the office */}
+      <div className="voucher-2up">
+        <div className="print:break-inside-avoid"><PrintHeader /><VoucherBody r={r} copy={isIn ? "Party copy · گاہک کی کاپی" : "Payee copy · وصول کنندہ کی کاپی"} /><PrintFooter /></div>
+        <div className="my-5 hidden border-t-2 border-dashed border-slate-400 pt-1 text-center text-[10px] text-slate-500 print:block">✂ cut here · یہاں سے کاٹیں</div>
+        <div className="hidden print:block print:break-inside-avoid"><PrintHeader /><VoucherBody r={r} copy="Office copy · دفتر کی کاپی" /><PrintFooter /></div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2 print:hidden">
+        <button className="btn-secondary" onClick={onClose}>Close · <Ur>بند</Ur></button>
+        <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print 2 copies · <Ur>پرنٹ</Ur></button>
+      </div>
+    </Modal>
+  );
+}
+
+function VoucherBody({ r, copy }: { r: any; copy: string }) {
+  const { tenant } = useAuth();
+  const v = r.voucher;
+  const isIn = v.direction === "in";
+  return (
+      <div className="space-y-3 text-sm print:space-y-2">
         <div className="text-center">
           <div className="text-lg font-bold print:hidden">{tenant?.name}</div>
           <div className="font-semibold">{isIn ? <>Receipt voucher · <Ur>رسید</Ur></> : <>Payment voucher · <Ur>ادائیگی واؤچر</Ur></>}</div>
           <div className="text-xs text-slate-500">{v.no} · {dt(v.created_at)}</div>
+          <span className="mt-1 hidden rounded border border-slate-800 px-2 text-[10px] font-bold uppercase tracking-wide print:inline-block">{copy}</span>
         </div>
-        <div className={`rounded-xl p-3 text-center ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
-          <div className="text-3xl font-bold tabular-nums">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
+        <div className={`rounded-xl p-3 text-center print:p-2 ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
+          <div className="text-3xl font-bold tabular-nums print:text-2xl">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
         </div>
-        <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5">
+        <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 print:gap-y-0.5">
           <dt className="text-slate-500">{isIn ? "Received from" : "Paid to"}</dt><dd className="font-medium">{v.party_name}</dd>
           {v.category && <><dt className="text-slate-500">For</dt><dd>{v.category}</dd></>}
           <dt className="text-slate-500">How</dt><dd>{v.method}{r.account ? ` · ${r.account}` : ""}</dd>
@@ -395,14 +415,9 @@ function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
           {r.balance_after != null && <><dt className="text-slate-500">{r.party_type === "supplier" ? <>We still owe · <Ur>باقی دینا</Ur></> : r.party_type === "staff" ? <>Total advance · <Ur>کل ایڈوانس</Ur></> : <>Still owes · <Ur>باقی</Ur></>}</dt><dd className="font-semibold">{pkr(r.balance_after)}</dd></>}
           <dt className="text-slate-500">By</dt><dd>{v.created_by}</dd>
         </dl>
-        {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">{r.message}</p>}
-        <div className="grid grid-cols-2 gap-6 pt-8 text-center text-xs text-slate-500"><div className="border-t border-slate-400 pt-1">Cashier · <Ur>کیشیئر</Ur></div><div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
+        {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 print:hidden">{r.message}</p>}
+        <div className="grid grid-cols-2 gap-6 pt-8 text-center text-xs text-slate-500 print:pt-6"><div className="border-t border-slate-400 pt-1">Cashier · <Ur>کیشیئر</Ur></div><div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
       </div>
-      <div className="mt-4 flex justify-end gap-2 print:hidden">
-        <button className="btn-secondary" onClick={onClose}>Close · <Ur>بند</Ur></button>
-        <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print · <Ur>پرنٹ</Ur></button>
-      </div>
-    </Modal>
   );
 }
 
