@@ -378,7 +378,9 @@ export function statement(tenantId: number, clientId: number, from?: string, to?
   const c = ownClient(tenantId, clientId);
   const opening = from ? clientDue(c.id, pkStart(from)) : c.opening_balance;
   const rows = all(
-    `SELECT x.*, ${proofCol("'wtx:'||x.id")}, s.name station_name FROM wholesale_txns x LEFT JOIN stations s ON s.id=x.station_id
+    `SELECT x.*, ${proofCol("'wtx:'||x.id")}, s.name station_name,
+       (SELECT GROUP_CONCAT(p.id) FROM photos p WHERE x.trip_id IS NOT NULL AND p.ref = 'trip:' || x.trip_id) trip_proof_ids
+     FROM wholesale_txns x LEFT JOIN stations s ON s.id=x.station_id
      WHERE x.client_id=? ${from ? "AND x.txn_date >= ?" : ""} ${to ? "AND x.txn_date < ?" : ""} ORDER BY x.txn_date, x.id`,
     ...[c.id, ...(from ? [pkStart(from)] : []), ...(to ? [pkEnd(to)] : [])],
   );

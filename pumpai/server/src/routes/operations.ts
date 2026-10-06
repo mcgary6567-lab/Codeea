@@ -401,6 +401,12 @@ operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
     shift, hours_open: round2((Date.parse(shift.closed_at ?? now()) - Date.parse(shift.opened_at)) / 3600_000),
     readings: shiftReadings(shift.id), summary: shiftSummary(shift.id),
     prices: Object.fromEntries(Object.entries(currentPrices(tid(req))).map(([k, v]) => [k, v.price])),
+    // what was already entered on the POS this shift: the close screen starts from these, nothing is typed twice
+    recorded: {
+      online: Object.fromEntries(DIGITAL.map((m) => [m, round2(get("SELECT COALESCE(SUM(amount),0) v FROM sales WHERE shift_id=? AND payment_method=?", shift.id, m)!.v)])),
+      khata: all(`SELECT s.id, s.product, s.litres, s.amount, s.vehicle_no, s.slip_no, s.photo_id, s.created_at, c.name customer_name FROM sales s
+        JOIN customers c ON c.id=s.customer_id WHERE s.shift_id=? AND s.payment_method='khata' ORDER BY s.id`, shift.id),
+    },
   };
 }));
 
@@ -415,6 +421,7 @@ operations.get("/shifts/:id/live", requirePerm("shifts.manage"), h((req) => {
  * salesman sees before pressing "close" is what gets saved.
  */
 const DIGITAL = ["card", "jazzcash", "easypaisa", "raast"] as const;
+const ONLINE_NAME: Record<string, string> = { card: "Card machine", jazzcash: "JazzCash", easypaisa: "Easypaisa", raast: "Raast" };
 const closeBody = z.object({
   readings: z.record(z.string(), z.number().min(0)),
   cash_actual: z.number().min(0).optional(),
@@ -468,11 +475,19 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
       return { product, litres: Math.max(0, round2(pumped - recorded)), rate, value: Math.max(0, round2((pumped - recorded) * rate)) };
     });
     const openValue = round2(remaining.reduce((a, r) => a + r.value, 0));
-    const digitalTotal = round2(DIGITAL.reduce((a, m) => a + (b.digital?.[m] ?? 0), 0));
-    if (digitalTotal > openValue + 1)
-      throw new AppError(400, `Online total ${pkr(digitalTotal)} is more than the meter sale not yet entered (${pkr(openValue)}). Check the amounts, or that khata / card sales were not entered twice.`);
+    // each online total is for the WHOLE shift (as on the card machine's slip); what the POS already has is taken off
+    const extra: Record<string, number> = {};
     for (const m of DIGITAL) {
-      const amt = round2(b.digital?.[m] ?? 0);
+      if (b.digital?.[m] == null) { extra[m] = 0; continue; }
+      const onPos = round2(get("SELECT COALESCE(SUM(amount),0) v FROM sales WHERE shift_id=? AND payment_method=?", shift.id, m)!.v);
+      if (b.digital[m]! < onPos - 1) throw new AppError(400, `${ONLINE_NAME[m]}: ${pkr(onPos)} was already entered on the POS this shift — the shift total cannot be less (${pkr(b.digital[m]!)}).`);
+      extra[m] = Math.max(0, round2(b.digital[m]! - onPos));
+    }
+    const digitalTotal = round2(DIGITAL.reduce((a, m) => a + extra[m], 0));
+    if (digitalTotal > openValue + 1)
+      throw new AppError(400, `Online money not on the POS (${pkr(digitalTotal)}) is more than the meter sale not yet entered (${pkr(openValue)}). Check the amounts, or that khata / card sales were not entered twice.`);
+    for (const m of DIGITAL) {
+      const amt = extra[m];
       if (!amt) continue;
       const parts = remaining.filter((r) => r.value > 0);
       let left = amt;

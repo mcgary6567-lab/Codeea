@@ -118,6 +118,53 @@ test("wholesale client PIN page: their own delivery / payment photos, nobody els
   assert.equal((await fetch(base + `${mine.path}/slip/${pic}`, { headers: { cookie: mine.cookie } })).status, 404, "voided");
 });
 
+test("wholesale PIN page: tanker trip photos show to every client on that trip, and to no one else", async () => {
+  const clients = ok(await call("wholesale", "GET", "/api/wholesale/clients"), "clients");
+  const [a, b, c] = clients;
+  const station = ok(await call("manager", "GET", "/api/stations"), "stations");
+  const tripPic = await photo("wholesale");
+  const trip = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: (station.stations ?? station)[0].id, product: "HSD", vehicle_no: "TLR-1", photo_ids: [tripPic],
+    drops: [{ client_id: a.id, litres: 100, override_limit: true }, { client_id: b.id, litres: 100, override_limit: true }] }), "trip");
+  const portal = async (id: number) => {
+    const p = ok(await call("wholesale", "GET", `/api/wholesale/clients/${id}/portal`), "portal link");
+    const path = new URL(p.url).pathname;
+    const res = await fetch(base + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${p.pin}` });
+    return { path, cookie: res.headers.get("set-cookie")!.split(";")[0], html: await res.text() };
+  };
+  for (const cl of [a, b]) {
+    const pg = await portal(cl.id);
+    assert.ok(pg.html.includes(`/slip/${tripPic}`), "trip photo under the delivery");
+    assert.equal((await fetch(base + `${pg.path}/slip/${tripPic}`, { headers: { cookie: pg.cookie } })).status, 200);
+  }
+  const other = await portal(c.id);
+  assert.ok(!other.html.includes(`/slip/${tripPic}`));
+  assert.equal((await fetch(base + `${other.path}/slip/${tripPic}`, { headers: { cookie: other.cookie } })).status, 404, "client not on the trip");
+  // once b's drop is voided, b no longer sees the trip photo
+  const dropB = trip.drops.find((d: any) => d.client_id === b.id);
+  ok(await call("admin", "POST", `/api/wholesale/txns/${dropB.id}/void`, { reason: "not delivered" }), "void drop");
+  const pb = await portal(b.id);
+  assert.equal((await fetch(base + `${pb.path}/slip/${tripPic}`, { headers: { cookie: pb.cookie } })).status, 404, "voided drop");
+});
+
+let posCardL = 0;
+test("POS entries come in by themselves: online totals start from the POS, khata slips are listed", async () => {
+  const card = ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "HSD", amount: 1000, payment_method: "card" }), "card on POS");
+  posCardL = card.litres;
+  const l = ok(await call("salesman", "GET", `/api/shifts/${shiftId}/live`), "live");
+  near(l.recorded.online.card, 1000, "card already on the POS");
+  assert.ok(l.recorded.khata.some((k: any) => k.slip_no === "P-1" && k.photo_id), "POS khata slip listed with its photo");
+  const hsd = live.readings.filter((r: any) => r.product === "HSD");
+  const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
+  readings[hsd[0].nozzle_id] = hsd[0].opening + 200;
+  // the card machine's slip says 5000 for the whole shift: 1000 is on the POS, so only 4000 more is added
+  const p = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { readings, digital: { card: 5000 } }), "preview");
+  near(p.digital_by_method.card, 5000, "card total = machine total, not 6000");
+  // less than the POS already has is refused
+  assert.equal((await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { readings, digital: { card: 500 } })).status, 400);
+  // left empty: the POS amount stays as it is
+  near(ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, { readings }), "preview").digital_by_method.card, 1000);
+});
+
 test("preview: meters minus khata, online, test and late slips = cash; nothing is saved", async () => {
   const hsd = live.readings.filter((r: any) => r.product === "HSD");
   const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
@@ -157,7 +204,7 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   const c = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/close`, { ...body, cash_actual: counted, cash_notes: { "1000": 3 } }), "close");
   near(c.cash_expected, p.cash_expected, "saved = preview");
   near(c.variance, counted - p.cash_expected);
-  near(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, tank.current_l - (200 - 3 - 20), "tank down by what was sold now (the 20 L POS sale was already taken; 3 L test went back)");
+  near(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, tank.current_l - (200 - 3 - 20 - posCardL), "tank down by what was sold now (the POS khata and card sales were already taken; 3 L test went back)");
   assert.ok(db.get("SELECT balance FROM customers WHERE id=?", khataCust.id).balance > kBefore, "late slip on the khata");
   assert.equal(db.get("SELECT photo_id FROM sales WHERE shift_id=? AND slip_no='S-77' AND vehicle_no='LES-1234'", shiftId).photo_id, latePic, "late slip keeps its photo");
   assert.match(String(db.get("SELECT ref FROM photos WHERE id=?", latePic).ref), /^khata:\d+$/, "on the khata statement");

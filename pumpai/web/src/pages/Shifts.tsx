@@ -156,6 +156,11 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
   const [test, setTest] = useState<Record<string, string>>({});
   const [showTest, setShowTest] = useState(false);
   const [digital, setDigital] = useState<Record<string, string>>({});
+  // start the online totals from what the POS already has, so nothing is typed twice
+  useEffect(() => {
+    if (!data?.recorded) return;
+    setDigital((d) => Object.keys(d).length ? d : Object.fromEntries(Object.entries(data.recorded.online as Record<string, number>).filter(([, v]) => v > 0).map(([k, v]) => [k, String(Math.round(v * 100) / 100)])));
+  }, [data?.recorded]);
   const [slips, setSlips] = useState<any[]>([]);
   const [slipForm, setSlipForm] = useState<any>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -234,14 +239,31 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
         {/* ---------- step 2 ---------- */}
         <section>
           <h3 className="mb-2 font-semibold">2 · Online money & khata slips · <Ur>آن لائن رقم اور کھاتہ پرچی</Ur></h3>
-          <p className="mb-2 text-xs text-slate-500">Totals for the whole shift — e.g. the card machine's settlement slip, or the JazzCash / Easypaisa / Raast received today. Leave empty if none.</p>
+          <p className="mb-2 text-xs text-slate-500">Total for the whole shift, e.g. the card machine's settlement slip. What was entered on the POS is already filled in — change it only if the machine / app shows more · <Ur>پی او ایس والی رقم خود آ گئی ہے</Ur></p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {ONLINE.map(([k, en, ur]) => (
-              <label key={k} className="block rounded-xl bg-slate-50 p-2 text-xs text-slate-600">{en} · <Ur>{ur}</Ur>
-                <input className="input mt-1 min-h-9 text-right tabular-nums" type="number" min={0} inputMode="numeric" placeholder="Rs" value={digital[k] ?? ""} onChange={(e) => setDigital({ ...digital, [k]: e.target.value })} aria-label={`${en} total`} />
-              </label>
-            ))}
+            {ONLINE.map(([k, en, ur]) => {
+              const onPos = Number(data.recorded?.online?.[k] ?? 0);
+              const v = Number(digital[k] || 0);
+              return (
+                <label key={k} className="block rounded-xl bg-slate-50 p-2 text-xs text-slate-600">{en} · <Ur>{ur}</Ur>
+                  <input className={`input mt-1 min-h-9 text-right tabular-nums ${digital[k] !== undefined && digital[k] !== "" && v < onPos - 1 ? "border-red-400" : ""}`} type="number" min={0} inputMode="numeric" placeholder="Rs" value={digital[k] ?? ""} onChange={(e) => setDigital({ ...digital, [k]: e.target.value })} aria-label={`${en} total`} />
+                  {onPos > 0 && <span className="mt-0.5 block text-[11px]">On POS · <Ur>پی او ایس</Ur> {rs(onPos)}{v > onPos + 0.5 ? <b className="text-emerald-700"> + {rs(v - onPos)}</b> : v < onPos - 1 ? <b className="text-red-600"> — not less</b> : ""}</span>}
+                </label>
+              );
+            })}
           </div>
+          {data.recorded?.khata?.length > 0 && (
+            <details className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50">
+              <summary className="cursor-pointer px-3 py-2 text-sm"><b>{data.recorded.khata.length}</b> khata slip{data.recorded.khata.length === 1 ? "" : "s"} already on the POS · <Ur>پی او ایس پر کھاتہ</Ur> — {rs(data.recorded.khata.reduce((a: number, k: any) => a + k.amount, 0))} <span className="text-xs text-slate-500">(counted automatically)</span></summary>
+              <ul className="divide-y divide-amber-100 border-t border-amber-200">{data.recorded.khata.map((k: any) => (
+                <li key={k.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                  {k.photo_id && <img src={photoUrl(k.photo_id)} alt="Slip photo" className="h-8 w-8 shrink-0 rounded border border-slate-200 object-cover" />}
+                  <span className="min-w-0 flex-1"><b>{k.customer_name}</b><span className="block text-xs text-slate-500">{PRODUCTS[k.product]} {num(k.litres, 2)} L{k.vehicle_no ? ` · ${k.vehicle_no}` : ""}{k.slip_no ? ` · slip ${k.slip_no}` : ""}</span></span>
+                  <span className="shrink-0 tabular-nums">{rs(k.amount)}</span>
+                </li>
+              ))}</ul>
+            </details>
+          )}
           <div className="mt-3 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between gap-2 px-3 py-2">
               <span className="text-sm font-medium">Khata slips not entered yet · <Ur>رہ جانے والی کھاتہ پرچیاں</Ur></span>

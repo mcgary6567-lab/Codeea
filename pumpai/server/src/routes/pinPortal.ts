@@ -163,7 +163,7 @@ function wholesaleBody(c: any, month: string | null, code: string): string {
     const d = `<div class=m>${esc(dateStr(l.txn_date))}</div>`;
     const bal = `<div class=m>Baqi · <span class=ur>باقی</span> ${n2(l.balance)}</div>`;
     if (l.type === "supply") return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
-      <div>${n2(l.litres)} L × Rs ${n2(l.rate)}</div><div class=m>${esc([l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref && `🧾 ${l.ref}`].filter(Boolean).join("  "))}</div>${photoThumbs(code, l.proof_ids, "Delivery", "ڈیلیوری")}</div>
+      <div>${n2(l.litres)} L × Rs ${n2(l.rate)}</div><div class=m>${esc([l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref && `🧾 ${l.ref}`].filter(Boolean).join("  "))}</div>${photoThumbs(code, l.proof_ids, "Delivery", "ڈیلیوری")}${photoThumbs(code, l.trip_proof_ids, "Tanker", "ٹینکر")}</div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
     if (l.type === "payment") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.method, l.ref].filter(Boolean).join(" · "))}</div>${photoThumbs(code, l.proof_ids, "Receipt", "رسید")}</div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
@@ -306,8 +306,9 @@ for (const kind of ["w", "k"] as const) {
     const p = kind === "k"
       ? get(`SELECT p.mime, p.data FROM photos p JOIN khata_ledger k ON p.ref = 'khata:' || k.id
           WHERE p.id=? AND p.tenant_id=? AND k.customer_id=? AND k.type='debit'`, Number(req.params.photo), r.c.tenant_id, r.c.id)
-      : get(`SELECT p.mime, p.data FROM photos p JOIN wholesale_txns x ON p.ref = 'wtx:' || x.id
-          WHERE p.id=? AND p.tenant_id=? AND x.client_id=? AND x.voided=0`, Number(req.params.photo), r.c.tenant_id, r.c.id);
+      // the client's own entry, or the tanker trip one of their (not voided) deliveries came on
+      : get(`SELECT p.mime, p.data FROM photos p JOIN wholesale_txns x ON (p.ref = 'wtx:' || x.id OR (x.trip_id IS NOT NULL AND p.ref = 'trip:' || x.trip_id))
+          WHERE p.id=? AND p.tenant_id=? AND x.client_id=? AND x.voided=0 LIMIT 1`, Number(req.params.photo), r.c.tenant_id, r.c.id);
     if (!p) return res.status(404).end();
     res.setHeader("content-type", /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : "application/octet-stream");
     res.setHeader("x-content-type-options", "nosniff");
