@@ -59,5 +59,5 @@ cash counter, cheques into the register) before the old registers are dropped.
 ## Known limits (be honest with customers)
 
 - One pump business per install (several stations of one owner are fine).
-- Two accountant tables (Reports, Accounts) scroll sideways on a phone.
+- The accountant table on the Accounts page (ledger) scrolls sideways on a phone; reports show as cards.
 - WhatsApp and AI need the pump's own Meta / Anthropic accounts and have running costs.

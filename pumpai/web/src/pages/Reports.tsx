@@ -25,14 +25,26 @@ function Table({ title, rows, cols }: TableDef) {
   return (
     <div className="card overflow-hidden break-inside-avoid">
       <h3 className="px-4 pb-2 pt-3 text-sm font-semibold">{title} <span className="font-normal text-slate-400">({rows.length})</span></h3>
-      {rows.length ? (
-        <div className="max-h-[480px] overflow-auto print:max-h-none">
+      {rows.length ? (<>
+        {/* phone: one card per row — names on top, every number with its label */}
+        <ul className="max-h-[520px] divide-y divide-slate-100 overflow-auto border-t border-slate-100 sm:hidden print:hidden">
+          {rows.map((r, i) => {
+            const names = cols.filter((c) => !c.right), nums = cols.filter((c) => c.right);
+            return (
+              <li key={i} className="px-4 py-2.5 text-sm">
+                <div className="min-w-0">{names.map((c, j) => <span key={c.h} className={j === 0 ? "block font-medium" : "mr-2 text-xs text-slate-500"}>{c.v(r)}</span>)}</div>
+                {nums.length > 0 && <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">{nums.map((c) => <span key={c.h} className="whitespace-nowrap">{c.h} <b className="tabular-nums text-slate-800">{c.v(r)}</b></span>)}</div>}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden max-h-[480px] overflow-auto sm:block print:block print:max-h-none">
           <table className="w-full">
             <thead className="sticky top-0"><tr>{cols.map((c) => <th key={c.h} className={`th ${c.right ? "text-right" : ""}`}>{c.h}</th>)}</tr></thead>
             <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c.h} className={`td text-sm ${c.right ? "text-right tabular-nums" : ""}`}>{c.v(r)}</td>)}</tr>)}</tbody>
           </table>
         </div>
-      ) : <Empty>Nothing in this period</Empty>}
+      </>) : <Empty>Nothing in this period</Empty>}
     </div>
   );
 }
@@ -205,7 +217,22 @@ function StockHead({ r }: { r: any }) {
   return (
     <div className="card overflow-x-auto">
       <h3 className="px-4 pt-3 text-sm font-semibold">Stock movement (litres)</h3>
-      <table className="w-full">
+      {/* phone: one card per fuel, closing first */}
+      <ul className="mt-1 divide-y divide-slate-100 sm:hidden print:hidden">{r.stock.products.map((p: any) => (
+        <li key={p.product} className="px-4 py-2.5 text-sm">
+          <div className="flex items-baseline justify-between gap-2"><span className="min-w-0 font-medium">{p.name}</span>
+            <span className="shrink-0 text-right"><b className="tabular-nums">{num(p.closing_l)} L</b><span className="block text-[11px] text-slate-500">{p.closing_value != null ? `${pkr(p.closing_value)} at cost` : "closing"}</span></span></div>
+          <div className="mt-0.5 text-xs leading-relaxed text-slate-500">
+            Opening <b className="tabular-nums text-slate-700">{num(p.opening_l)}</b> + received <b className="tabular-nums text-slate-700">{num(p.received_l)}</b>
+            {p.returns_in_l ? <> + returns <b className="tabular-nums text-slate-700">{num(p.returns_in_l)}</b></> : null}
+            {" "}− sold <b className="tabular-nums text-slate-700">{num(p.retail_sold_l)}</b>
+            {p.wholesale_out_l ? <> − wholesale <b className="tabular-nums text-slate-700">{num(p.wholesale_out_l)}</b></> : null}
+            {p.dip_adjust_l ? <> ± dip <b className={`tabular-nums ${p.dip_adjust_l < 0 ? "text-red-600" : "text-slate-700"}`}>{num(p.dip_adjust_l)}</b></> : null}
+            {p.avg_cost ? <> · avg cost <b className="tabular-nums text-slate-700">Rs {p.avg_cost}/L</b></> : null}
+          </div>
+        </li>
+      ))}</ul>
+      <table className="hidden w-full sm:table print:table">
         <thead><tr>{["Product", "Opening", "+ Received", "+ Returns", "− Retail sold", "− Wholesale", "± Dip adj.", "= Closing", "Avg cost / L", "Closing value"].map((h, i) => <th key={h} className={`th ${i ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
         <tbody>{r.stock.products.map((p: any) => (
           <tr key={p.product}>
@@ -290,7 +317,7 @@ function tablesFor(tab: Tab, r: any): TableDef[] {
       return [
         { title: "Tanks now", rows: r.stock.tanks, cols: [txt("Station", "station"), txt("Tank", "tank"), l("Capacity", "capacity_l"), l("Stock L", "current_l"), { h: "Fill %", v: (x) => `${x.fill_pct}%`, csv: (x) => x.fill_pct, right: true }, { h: "Days to empty", v: (x) => x.days_to_empty, right: true }] },
         { title: "Fuel purchased (supplier invoices)", rows: r.stock.purchases, cols: [prod(), l("Litres", "litres"), m("Cost", "cost")] },
-        { title: "Tanker deliveries", rows: r.stock.deliveries, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station} ${x.tank}`), txt("Tanker", "tanker_no"), l("Invoice L", "invoice_l"), l("Received L", "received_l"), { h: "Short %", v: (x) => <span className={x.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{x.shortage_pct}%</span>, csv: (x) => x.shortage_pct, right: true }, { h: "Rate", v: (x) => x.purchase_rate ? `Rs ${x.purchase_rate}` : "—", csv: (x) => x.purchase_rate, right: true }] },
+        { title: "Tanker deliveries", rows: r.stock.deliveries, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station} ${x.tank}`), txt("Tanker", "tanker_no"), txt("Supplier", "supplier"), l("Invoice L", "invoice_l"), l("Received L", "received_l"), { h: "Short %", v: (x) => <span className={x.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{x.shortage_pct}%</span>, csv: (x) => x.shortage_pct, right: true }, { h: "Rate", v: (x) => x.purchase_rate ? `Rs ${x.purchase_rate}` : "—", csv: (x) => x.purchase_rate, right: true }] },
         { title: "Dip readings", rows: r.stock.dips, cols: [{ h: "Date", v: (x) => dt(x.created_at) }, txt("Tank", (x) => `${x.station} ${x.tank}`), l("Book L", "book_l"), l("Dip L", "measured_l"), { h: "Variance", v: (x) => <span className={Math.abs(x.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{x.variance_pct}%</span>, csv: (x) => x.variance_pct, right: true }] },
       ];
     case "expenses":
