@@ -31,7 +31,7 @@ export default function Stock() {
   if (!dash.data || !stock.data) return <Loading />;
   const tanks = dash.data.tanks;
   const refresh = () => { dash.reload(); stock.reload(); };
-  const tankOpts = tanks.map((t: any) => <option key={t.id} value={t.id}>{t.station_name} · {t.name}</option>);
+  const tankOpts = tanks.map((t: any) => <option key={t.id} value={t.id}>{t.name} · {t.station_name}</option>);
 
   return (
     <div className="space-y-5">
@@ -100,12 +100,18 @@ export default function Stock() {
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
             <Field label="Received (dip difference)"><input className="input" type="number" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
             <Field label="Tanker no."><input className="input" value={del.tanker_no} onChange={(e) => setDel({ ...del, tanker_no: e.target.value })} /></Field>
-            <Field label="Supplier (depot) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
+            <div className="col-span-2"><Field label="Supplier (depot) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
               <option value="">— choose supplier —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-              {can("suppliers.manage") && <button type="button" className="mt-1 min-h-9 text-xs font-medium text-brand-700 hover:underline" onClick={() => setAddSup(true)}>+ New supplier · نیا سپلائر</button>}</Field>
+              {can("suppliers.manage") && <button type="button" className="mt-1 min-h-9 text-xs font-medium text-brand-700 hover:underline" onClick={() => setAddSup(true)}>+ New supplier · نیا سپلائر</button>}</Field></div>
             <Field label="Purchase rate (Rs/L, from invoice) · ریٹ"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>
             <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} />
               <span className="mt-0.5 block text-[11px] text-slate-500">For comparing depots only — pay it as an expense (Tanker freight) · <span lang="ur" dir="rtl" className="font-urdu">کرایہ خرچے میں لکھیں</span></span></Field>
+            {Number(del.invoice_l) > 0 && Number(del.received_l) > 0 && (() => {
+              const short = Number(del.invoice_l) - Number(del.received_l), pct = (short / Number(del.invoice_l)) * 100;
+              return <div className={`col-span-2 rounded-lg px-2 py-1.5 text-xs ${pct >= 0.3 ? "bg-red-50 font-medium text-red-700" : "bg-slate-50 text-slate-600"}`}>
+                {short > 0 ? <>Short {num(short)} L ({pct.toFixed(2)}%) · <span lang="ur" dir="rtl" className="font-urdu">کم آیا</span>{short >= 1 ? " — above the allowed loss it goes on a shortage claim" : ""}</> : short < 0 ? <>Received {num(-short)} L more than the invoice — check the dip</> : <>Full quantity received ✓</>}
+              </div>;
+            })()}
             {del.supplier_id && Number(del.invoice_l) > 0 && Number(del.purchase_rate) > 0 && <div className="col-span-2 text-xs text-slate-600">Adds Rs {Math.round(Number(del.invoice_l) * Number(del.purchase_rate)).toLocaleString("en-IN")} to what we owe this supplier.</div>}
           </div>
           <button className="btn-primary" disabled={busy}>Save delivery</button>
@@ -114,7 +120,7 @@ export default function Stock() {
       {(orders.data ?? []).length > 0 && <History title="Tanker orders" right={4} rows={orders.data!} cols={[["When", (r) => dt(r.created_at)], ["Supplier", (r) => r.supplier_name], ["Fuel", (r) => `${PRODUCTS[r.product]} ${num(r.litres)} L`], ["Station", (r) => r.station_name], ["Status", (r) => <Badge tone={r.status === "delivered" ? "green" : r.status === "ordered" ? "blue" : "slate"}>{r.status}</Badge>]]} />}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <History title="Dip readings" right={4} rows={stock.data.dips} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Book", (r) => num(r.book_l)], ["Dip", (r) => <>{num(r.measured_l)}{r.measured_cm != null ? <span className="text-xs text-slate-400"> ({r.measured_cm} cm)</span> : null}</>], ["Var %", (r) => <span className={Math.abs(r.variance_pct) >= 0.5 ? "font-semibold text-red-600" : ""}>{r.variance_pct}%</span>], ["Photo", (r) => (r.proof_ids?.length ? <ProofThumbs ids={r.proof_ids} /> : null)]]} />
-        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
+        <History title="Deliveries" right={4} rows={stock.data.deliveries} cols={[["When", (r) => dt(r.created_at)], ["Tank", (r) => `${r.station} ${r.tank}`], ["Tanker", (r) => <>{r.tanker_no}{r.photo_id ? <a className="ml-1 text-sky-700" href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" aria-label="Invoice photo">📷</a> : null}</>], ["Supplier", (r) => r.supplier ?? "—"], ["Invoice/Recv", (r) => `${num(r.invoice_l)} / ${num(r.received_l)}`], ["Short %", (r) => <span className={r.shortage_pct >= 0.3 ? "font-semibold text-red-600" : ""}>{r.shortage_pct}%</span>]]} />
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
