@@ -58,10 +58,12 @@ async function books() {
 let B0: Awaited<ReturnType<typeof books>>;
 
 test("setup", async () => {
-  st = ok(await call("admin", "GET", "/api/stations"), "stations")[0].id;
-  tank = db.get("SELECT * FROM tanks WHERE station_id=? AND product='HSD' ORDER BY capacity_l - current_l DESC LIMIT 1", st);
+  // the diesel tank with the most room (how full the demo tanks are depends on the time of day the seed ran)
+  const ids = ok(await call("admin", "GET", "/api/stations"), "stations").map((s: any) => s.id);
+  tank = db.get(`SELECT * FROM tanks WHERE station_id IN (${ids.join(",")}) AND product='HSD' ORDER BY capacity_l - current_l DESC LIMIT 1`);
+  st = tank.station_id;
   invoice = Math.min(10000, Math.floor(tank.capacity_l - tank.current_l) - 100);
-  assert.ok(invoice > 6000, "room in the tank for a tanker");
+  assert.ok(invoice > 6000, `room in the tank for a tanker: ${JSON.stringify(tank)}`);
   received = invoice - 50;
   S = ok(await call("admin", "GET", "/api/suppliers"), "sup")[0];
   [W1, W2] = ok(await call("wholesale", "GET", "/api/wholesale/clients"), "clients");
@@ -117,6 +119,28 @@ test("wholesale tanker trip with two drops, one voided: stock, dues, trip sheet,
   near(B.rep.wholesale_out_l - B0.rep.wholesale_out_l, 3000, "report: only the real drop");
   const sheet = ok(await call("wholesale", "GET", `/api/wholesale/trips/${trip.id}`), "sheet");
   near(sheet.delivered_l, 3000); near(sheet.billed, d1.amount);
+});
+
+test("one tanker carrying diesel and petrol: each drop comes out of its own fuel's tank, billed at that fuel's rate", async () => {
+  const pmg = () => db.get("SELECT SUM(current_l) l FROM tanks WHERE station_id=? AND product='PMG'", st).l as number;
+  const hsd = () => db.get("SELECT SUM(current_l) l FROM tanks WHERE station_id=? AND product='HSD'", st).l as number;
+  const B = await books(); const p0 = pmg(), h0 = hsd();
+  const mix = ok(await call("wholesale", "POST", "/api/wholesale/trips", { station_id: st, product: "HSD", vehicle_no: "TLR-MIX",
+    drops: [{ client_id: W1.id, litres: 1000, override_limit: true }, { client_id: W1.id, product: "PMG", litres: 600, override_limit: true }] }), "mixed trip");
+  assert.equal(mix.product, "HSD+PMG", "trip shows both fuels");
+  const [dh, dp] = mix.drops;
+  assert.equal(dh.product, "HSD"); assert.equal(dp.product, "PMG");
+  const cards = db.all("SELECT product FROM wholesale_txns WHERE trip_id=? ORDER BY id", mix.id).map((r: any) => r.product);
+  assert.deepEqual(cards, ["HSD", "PMG"]);
+  near(h0 - hsd(), 1000, "diesel tank down by the diesel drop"); near(p0 - pmg(), 600, "petrol tank down by the petrol drop");
+  const A = await books();
+  near(A.due1 - B.due1, dh.amount + dp.amount, "client owes both drops");
+  near(A.tb("Wholesale receivable") - B.tb("Wholesale receivable"), dh.amount + dp.amount, "ledger receivable");
+  near(A.reg.wholesale - B.reg.wholesale, 1000, "diesel register: only the diesel drop");
+  near(mix.delivered_l, 1600); near(mix.billed, dh.amount + dp.amount);
+  // put it back so the later checks work on the earlier numbers
+  for (const d of mix.drops) ok(await call("admin", "POST", `/api/wholesale/txns/${d.id}/void`, { reason: "test" }), "void");
+  near(hsd(), h0); near(pmg(), p0);
 });
 
 test("claim settled by credit note, supplier paid from the bank, a dip: everything still agrees", async () => {

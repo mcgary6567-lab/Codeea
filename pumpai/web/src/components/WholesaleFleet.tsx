@@ -49,7 +49,9 @@ export const fleetBody = (f: any) => ({
 });
 
 /* ---------------- One tanker, many drops ---------------- */
-type Drop = { client_id: string; litres: string; rate: string; location: string; ref: string; order_id?: number };
+type Drop = { client_id: string; litres: string; rate: string; location: string; ref: string; order_id?: number; product?: string };
+/** A trip's fuel: "HSD", or "HSD+PMG" when one tanker carried both (separate chambers). */
+export const fuels = (p: string) => (p ?? "").split("+").map((x) => PRODUCTS[x] ?? x).join(" + ");
 const emptyDrop = (): Drop => ({ client_id: "", litres: "", rate: "", location: "", ref: "" });
 
 export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (trip: any) => void }) {
@@ -66,11 +68,16 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
   const { busy, run } = useAction();
   const active = (clients.data ?? []).filter((c) => c.active);
   const client = (id: string) => active.find((c) => c.id === Number(id));
-  const rateOf = (dr: Drop) => Number(dr.rate) || client(dr.client_id)?.rates?.[f.product] || 0;
+  const fuelOf = (dr: Drop) => dr.product || f.product;
+  const rateOf = (dr: Drop) => Number(dr.rate) || client(dr.client_id)?.rates?.[fuelOf(dr)] || 0;
   const tanker = fleet.data?.tankers?.find((t: any) => t.id === Number(f.tanker_id));
   const station = stations.data?.find((s) => s.id === Number(f.station_id));
-  const tank = station?.tanks.filter((t: any) => t.product === f.product).sort((a: any, b: any) => b.current_l - a.current_l)[0];
   const filled = drops.filter((x) => x.client_id && Number(x.litres) > 0);
+  // one tanker can carry diesel and petrol in separate chambers: stock comes out of each fuel's own tank
+  const used = [...new Set([f.product, ...filled.map(fuelOf)])];
+  const mixed = new Set(filled.map(fuelOf)).size > 1;
+  const stockLines = used.map((p) => ({ p, tank: station?.tanks.filter((t: any) => t.product === p).sort((a: any, b: any) => b.current_l - a.current_l)[0],
+    need: filled.filter((x) => fuelOf(x) === p).reduce((a, x) => a + Number(x.litres), 0) })).filter((x) => x.tank && (x.need > 0 || x.p === f.product));
   const total = filled.reduce((a, x) => a + Number(x.litres), 0);
   const amount = filled.reduce((a, x) => a + Number(x.litres) * rateOf(x), 0);
   const over = tanker?.capacity_l && total > tanker.capacity_l;
@@ -79,7 +86,7 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
     e.preventDefault();
     const body = {
       station_id: Number(f.station_id), product: f.product, txn_date: f.txn_date, note: f.note || null, ...fleetBody(f), photo_ids: photos,
-      drops: filled.map((x) => ({ client_id: Number(x.client_id), litres: Number(x.litres), location: x.location || null, ref: x.ref || null,
+      drops: filled.map((x) => ({ client_id: Number(x.client_id), product: fuelOf(x), litres: Number(x.litres), location: x.location || null, ref: x.ref || null,
         ...(admin && x.rate ? { rate: Number(x.rate) } : {}), ...(f.override_limit ? { override_limit: true } : {}), ...(x.order_id ? { order_id: x.order_id } : {}) })),
     };
     const r = await run(() => api("/wholesale/trips", { body }), (t: any) => `Trip #${t.id} saved — ${num(t.delivered_l)} L to ${t.drops.length} drops, ${pkr(t.billed)}`);
@@ -90,60 +97,63 @@ export function TripForm({ onClose, onDone }: { onClose: () => void; onDone: (tr
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Loaded from station"><select className="input" value={f.station_id} onChange={(e) => setF({ ...f, station_id: e.target.value })}>{(stations.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field label="Product"><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+          <Field label={mixed ? "Main fuel (drops can differ)" : "Fuel"}><select className="input" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
           <Field label="Date"><input className="input" type="date" value={f.txn_date} onChange={(e) => setF({ ...f, txn_date: e.target.value })} /></Field>
           <FleetPicker f={f} setF={setF} />
           <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         </div>
 
         {(() => {
-          // booked orders for this fuel that are not on the trip yet: one tap adds the drop
-          const avail = (orders.data?.open ?? []).filter((o: any) => o.product === f.product && !drops.some((x) => x.order_id === o.id));
+          // booked orders not on the trip yet (any fuel — one tanker can carry both): one tap adds the drop
+          const avail = (orders.data?.open ?? []).filter((o: any) => PRODUCTS[o.product] && !drops.some((x) => x.order_id === o.id));
           if (!avail.length) return null;
           return (
             <div className="rounded-lg bg-amber-50 p-3 ring-1 ring-amber-200">
-              <div className="mb-2 text-sm font-semibold text-amber-900">📋 Booked {PRODUCTS[f.product]} orders — tap to add as a drop</div>
+              <div className="mb-2 text-sm font-semibold text-amber-900">📋 Booked orders — tap to add as a drop</div>
               <div className="flex flex-wrap gap-2">{avail.map((o: any) => (
                 <button type="button" key={o.id} className={`rounded-lg bg-white px-3 py-1.5 text-left text-sm ring-1 ${o.late ? "ring-red-300" : o.today ? "ring-amber-400" : "ring-slate-200"} hover:bg-amber-100`}
                   onClick={() => {
-                    const d = { ...emptyDrop(), client_id: String(o.client_id), litres: String(o.litres), location: o.location ?? "", order_id: o.id };
+                    const d = { ...emptyDrop(), client_id: String(o.client_id), litres: String(o.litres), location: o.location ?? "", order_id: o.id, product: o.product };
                     const free = drops.findIndex((x) => !x.client_id && !x.litres);
                     setDrops(free >= 0 ? drops.map((x, j) => (j === free ? d : x)) : [...drops, d]);
                   }}>
-                  <b>{o.client_name}</b> · {num(o.litres)} L<span className="block text-xs text-slate-500">{o.late ? "late · " : o.today ? "today · " : ""}{o.needed_on}{o.location ? ` · ${o.location}` : ""}</span>
+                  <b>{o.client_name}</b> · {PRODUCTS[o.product]} {num(o.litres)} L<span className="block text-xs text-slate-500">{o.late ? "late · " : o.today ? "today · " : ""}{o.needed_on}{o.location ? ` · ${o.location}` : ""}</span>
                 </button>))}</div>
             </div>
           );
         })()}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[860px]">
-            <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th">Drop location</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
+          <table className="w-full min-w-[960px]">
+            <thead><tr><th className="th w-8">#</th><th className="th">Client</th><th className="th w-32">Fuel</th><th className="th">Drop location</th><th className="th w-28 text-right">Litres</th><th className="th w-32 text-right">Rate (Rs/L)</th><th className="th text-right">Amount</th><th className="th">Slip / ref</th><th className="th w-8" /></tr></thead>
             <tbody>{drops.map((x, i) => {
               const c = client(x.client_id);
-              const card = c?.rates?.[f.product];
+              const fuel = fuelOf(x);
+              const card = c?.rates?.[fuel];
               return (
                 <tr key={i}>
                   <td className="td text-sm text-slate-500">{i + 1}{x.order_id ? <span title="Booked order" className="block text-xs">📋</span> : null}</td>
                   <td className="td"><select className="input min-w-[200px]" value={x.client_id} onChange={(e) => setDrop(i, { client_id: e.target.value, rate: "", order_id: undefined, location: x.location || client(e.target.value)?.city || "" })}>
                     <option value="">— client —</option>{active.map((c) => <option key={c.id} value={c.id}>{c.name}{c.city ? ` · ${c.city}` : ""}</option>)}</select></td>
+                  <td className="td"><select className="input min-w-[120px]" aria-label={`Drop ${i + 1} fuel`} value={fuel} onChange={(e) => setDrop(i, { product: e.target.value, rate: "", order_id: undefined })}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
                   <td className="td"><input className="input min-w-[130px]" placeholder="place / pump" value={x.location} onChange={(e) => setDrop(i, { location: e.target.value })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" min={1} step="0.01" value={x.litres} onChange={(e) => setDrop(i, { litres: e.target.value })} /></td>
                   <td className="td"><input className="input text-right tabular-nums" type="number" step="0.01" disabled={!admin} placeholder={card ? String(card) : c ? "no rate" : ""} value={x.rate} onChange={(e) => setDrop(i, { rate: e.target.value })} />
-                    {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[f.product]} rate</div>}</td>
+                    {c && !card && <div className="text-[11px] text-red-600">No {PRODUCTS[fuel]} rate</div>}</td>
                   <td className="td text-right text-sm tabular-nums">{Number(x.litres) > 0 && rateOf(x) ? pkr(Number(x.litres) * rateOf(x)) : "—"}</td>
                   <td className="td"><input className="input w-24" value={x.ref} onChange={(e) => setDrop(i, { ref: e.target.value })} /></td>
                   <td className="td">{drops.length > 1 && <button type="button" className="text-slate-400 hover:text-red-600" onClick={() => setDrops(drops.filter((_, j) => j !== i))} aria-label="Remove drop"><Trash2 size={15} /></button>}</td>
                 </tr>
               );
             })}</tbody>
-            <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={3}>
+            <tfoot><tr className="bg-slate-50 font-semibold"><td className="td" colSpan={4}>
               <button type="button" className="btn-secondary !py-1 text-xs" onClick={() => setDrops([...drops, emptyDrop()])}><Plus size={13} /> Add drop</button></td>
               <td className={`td text-right tabular-nums ${over ? "text-red-600" : ""}`}>{num(total, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(amount)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
           {tanker?.capacity_l && <span className={over ? "font-semibold text-red-600" : ""}>Tanker {tanker.number}: {num(tanker.capacity_l)} L{over ? ` — ${num(total - tanker.capacity_l)} L too much` : ` · ${num(tanker.capacity_l - total)} L space left`}</span>}
-          {tank && <span className={tank.current_l < total ? "font-semibold text-red-600" : ""}>{tank.name}: {num(tank.current_l)} L in stock</span>}
+          {stockLines.map(({ p, tank, need }) => <span key={p} className={tank.current_l < need ? "font-semibold text-red-600" : ""}>{tank.name}: {num(tank.current_l)} L in stock{mixed ? ` · ${PRODUCTS[p]} on this trip ${num(need)} L` : ""}</span>)}
+          {mixed && <span className="font-medium text-brand-700">Mixed load — each fuel comes out of its own tank.</span>}
           <span>Each client is billed at their own rate card{admin ? " (type a rate to change it for this drop)" : ""}.</span>
         </div>
         <ProofPhotos value={photos} onChange={setPhotos} hint="loaded tanker, gate pass, signed trip sheet" />
@@ -163,16 +173,16 @@ export function TripSheet({ id, onClose }: { id: number; onClose: () => void }) 
       {!data ? <Loading /> : (
         <div className="space-y-3 text-sm">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div><b>{dt(data.trip_date)}</b> · {PRODUCTS[data.product]} from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</div>
+            <div><b>{dt(data.trip_date)}</b> · {fuels(data.product)} from {data.station_name}{data.tank_name ? ` (${data.tank_name})` : ""}</div>
             <div>🚛 <b>{data.vehicle_no ?? "—"}</b> · 👤 {data.driver_name ?? "—"}{data.driver_phone ? ` · ${phone(data.driver_phone)}` : ""}{data.driver_cnic ? ` · CNIC ${data.driver_cnic}` : ""}{data.driver_licence ? ` · licence ${data.driver_licence}` : ""}</div>
           </div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th><th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
+          <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr><th className="th">#</th><th className="th">Client</th><th className="th">Location</th>{data.product.includes("+") && <th className="th">Fuel</th>}<th className="th text-right">Litres</th><th className="th text-right">Rate</th><th className="th text-right">Amount</th><th className="th">Ref</th><th className="th">Signature</th></tr></thead>
             <tbody>{data.drops.map((x: any, i: number) => (
               <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}><td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
-                <td className="td">{x.location ?? "—"}</td><td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
+                <td className="td">{x.location ?? "—"}</td>{data.product.includes("+") && <td className="td">{PRODUCTS[x.product]}</td>}<td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
                 <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref} <ProofThumbs ids={x.proof_ids} /></td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
             ))}</tbody>
-            <tfoot><tr className="font-semibold"><td className="td" colSpan={3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
+            <tfoot><tr className="font-semibold"><td className="td" colSpan={data.product.includes("+") ? 4 : 3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table></div>
           {data.note && <p className="text-slate-600">Note: {data.note}</p>}
           {data.proof_ids && <div className="flex items-center gap-2 text-slate-600">Photos: <ProofThumbs ids={data.proof_ids} /></div>}
@@ -194,7 +204,7 @@ export function TripsTab({ onNew }: { onNew?: () => void }) {
       <ul className="divide-y divide-slate-100 sm:hidden">{data.map((t) => (
         <li key={t.id} className="cursor-pointer space-y-1 px-4 py-3 active:bg-slate-50" onClick={() => setOpen(t.id)}>
           <div className="flex justify-between gap-2"><span className="font-medium">#{t.id} · {t.vehicle_no ?? "—"}</span><span className="font-semibold tabular-nums">{pkr(t.amount)}</span></div>
-          <div className="flex justify-between gap-2 text-xs text-slate-500"><span className="truncate">{dt(t.trip_date)} · {t.driver_name ?? "—"}</span><span className="shrink-0">{PRODUCTS[t.product]} · {num(t.litres)} L · {t.drops} drops</span></div>
+          <div className="flex justify-between gap-2 text-xs text-slate-500"><span className="truncate">{dt(t.trip_date)} · {t.driver_name ?? "—"}</span><span className="shrink-0">{fuels(t.product)} · {num(t.litres)} L · {t.drops} drops</span></div>
         </li>
       ))}</ul>
       <div className="hidden overflow-x-auto sm:block"><table className="w-full">
@@ -202,7 +212,7 @@ export function TripsTab({ onNew }: { onNew?: () => void }) {
         <tbody>{data.map((t) => (
           <tr key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setOpen(t.id)}>
             <td className="td font-medium">#{t.id}</td><td className="td text-xs">{dt(t.trip_date)}</td><td className="td">{t.vehicle_no ?? "—"}</td><td className="td">{t.driver_name ?? "—"}</td>
-            <td className="td">{PRODUCTS[t.product]}</td><td className="td text-right tabular-nums">{num(t.litres)} L</td><td className="td text-right">{t.drops}</td><td className="td text-right tabular-nums">{pkr(t.amount)}</td>
+            <td className="td">{fuels(t.product)}</td><td className="td text-right tabular-nums">{num(t.litres)} L</td><td className="td text-right">{t.drops}</td><td className="td text-right tabular-nums">{pkr(t.amount)}</td>
           </tr>
         ))}</tbody>
       </table></div>{!data.length && <Empty>No tanker trips yet · ابھی کوئی ٹرپ نہیں. One trip can drop fuel at several clients — each at their own rate.</Empty>}

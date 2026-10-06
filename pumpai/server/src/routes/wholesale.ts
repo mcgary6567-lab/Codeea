@@ -500,6 +500,8 @@ const tripBody = z.object({
   vehicle_no: z.string().optional().nullable(), txn_date: dateStr, note: z.string().max(200).optional().nullable(), photo_ids: proofPhotos,
   drops: z.array(z.object({
     client_id: z.number().int(), litres: z.number().positive(), rate: z.number().positive().optional(),
+    // a tanker with chambers can carry petrol and diesel on one trip: each drop says its fuel (default: the trip's)
+    product: product.optional(),
     location: z.string().max(120).optional().nullable(), ref: z.string().max(60).optional().nullable(), override_limit: z.boolean().optional(),
     order_id: z.number().int().optional().nullable(),
   })).min(1, "Add at least one drop").max(30),
@@ -513,22 +515,30 @@ wholesale.post("/wholesale/trips", requirePerm("wholesale.manage"), h((req) => {
   // price every drop first (same client twice counts both against the limit) so a bad drop saves nothing
   const added: Record<number, number> = {};
   const priced = b.drops.map((d) => {
-    const p = priceSupply(req, d.client_id, { ...d, product: b.product }, added[d.client_id] ?? 0);
+    const prod = d.product ?? b.product;
+    const p = priceSupply(req, d.client_id, { ...d, product: prod }, added[d.client_id] ?? 0);
     added[d.client_id] = (added[d.client_id] ?? 0) + p.amount;
-    return { ...d, ...p };
+    return { ...d, ...p, product: prod };
   });
-  const tank = pickTank(tid(req), b.station_id, b.product);
-  if (tank.current_l < total) throw new AppError(400, `Not enough stock in ${tank.name} (${Math.round(tank.current_l)} L available, trip needs ${total} L)`);
+  // each fuel comes out of its own tank
+  const products = [...new Set(priced.map((d) => d.product))];
+  const tanks = Object.fromEntries(products.map((p) => [p, pickTank(tid(req), b.station_id, p)]));
+  for (const p of products) {
+    const need = round2(priced.filter((d) => d.product === p).reduce((a, d) => a + d.litres, 0));
+    if (tanks[p].current_l < need) throw new AppError(400, `Not enough stock in ${tanks[p].name} (${Math.round(tanks[p].current_l)} L ${PRODUCTS[p] ?? p} available, trip needs ${need} L)`);
+  }
+  const mixed = products.length > 1;
   const ts = b.txn_date ? new Date(b.txn_date).toISOString() : now();
   return tx(() => {
-    run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", total, tank.id);
+    for (const p of products) run("UPDATE tanks SET current_l = current_l - ? WHERE id=?", round2(priced.filter((d) => d.product === p).reduce((a, d) => a + d.litres, 0)), tanks[p].id);
+    const tank = tanks[products[0]];
     const amount = round2(priced.reduce((a, d) => a + d.amount, 0));
     const { id } = run(`INSERT INTO wholesale_trips (tenant_id,station_id,tank_id,product,tanker_id,driver_id,vehicle_no,driver_name,litres,amount,drops,note,created_by,trip_date,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, tank.id, b.product, fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), b.station_id, mixed ? null : tank.id, products.join("+"), fl.tanker_id, fl.driver_id, fl.vehicle_no, fl.driver_name,
       total, amount, priced.length, b.note ?? null, req.user!.name, ts, now());
     linkPhotos(tid(req), b.photo_ids, `trip:${id}`);
     for (const d of priced) {
-      const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tank.id, product: b.product, litres: d.litres, rate: d.rate, amount: d.amount,
+      const t = insertTxn(req, d.c.id, { type: "supply", station_id: b.station_id, tank_id: tanks[d.product].id, product: d.product, litres: d.litres, rate: d.rate, amount: d.amount,
         ref: d.ref ?? `TRIP-${id}`, note: b.note ?? null, location: d.location ?? null, txn_date: b.txn_date, trip_id: id, ...fl });
       deliverOrder(tid(req), d.order_id, d.c.id, t.id);
       limitAlert(req, d.c, t.due_after);
@@ -541,7 +551,7 @@ export function tripSheet(t: number, id: number) {
     FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN tanks tk ON tk.id=tr.tank_id LEFT JOIN drivers d ON d.id=tr.driver_id
     WHERE tr.id=? AND tr.tenant_id=?`, id, t);
   if (!trip) throw new AppError(404, "Trip not found");
-  const drops = all(`SELECT w.id, ${proofCol("'wtx:'||w.id")}, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
+  const drops = all(`SELECT w.id, ${proofCol("'wtx:'||w.id")}, w.client_id, c.name client_name, c.business_name, c.phone, c.address, w.product, w.litres, w.rate, w.amount, w.location, w.ref, w.voided
     FROM wholesale_txns w JOIN wholesale_clients c ON c.id=w.client_id WHERE w.trip_id=? ORDER BY w.id`, id);
   const live = drops.filter((d) => !d.voided);
   return { ...trip, drops, delivered_l: round2(live.reduce((a, d) => a + d.litres, 0)), billed: round2(live.reduce((a, d) => a + d.amount, 0)) };
