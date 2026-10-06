@@ -61,8 +61,28 @@ function Claims() {
       <div className="card p-3 text-sm text-slate-600">Every tanker that arrives short by more than <b>{data.tolerance_pct}%</b> (allowed transit loss) becomes a claim of the extra litres × purchase rate. The allowed loss can be changed by the admin.</div>
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1fr_300px]">
         <div className="card overflow-x-auto">
-          <div className="flex gap-1 p-2 text-sm">{["", "open", "claimed", "partly", "recovered", "written_off"].map((x) => <button key={x} onClick={() => setStatus(x)} className={`rounded-full px-3 py-1 ${status === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x ? x.replace("_", " ") : "All"}</button>)}</div>
-          <table className="w-full min-w-[720px] text-sm">
+          <div className="flex gap-1 overflow-x-auto p-2 text-sm">{["", "open", "claimed", "partly", "recovered", "written_off"].map((x) => <button key={x} onClick={() => setStatus(x)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 ${status === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x ? x.replace("_", " ") : "All"}</button>)}</div>
+          {/* phone: one card per claim, the action button full size */}
+          <ul className="divide-y divide-slate-100 border-t border-slate-100 sm:hidden">
+            {data.claims.map((c: any) => (
+              <li key={c.id} className="px-3 py-2.5 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0"><b>{c.tanker_no ?? "—"}</b> <span className="text-slate-500">· {c.supplier_name ?? "—"}</span><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></span>
+                  <span className="shrink-0 text-right"><b className="tabular-nums">{pkr(c.amount)}</b><span className="block"><Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge></span></span>
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500">{num(c.invoice_l)} / {num(c.received_l)} L · <span className="text-red-600">{c.shortage_pct}% short</span> · {c.litres} L × {c.rate}{c.recovered ? ` · got ${pkr(c.recovered)}` : ""}{c.claim_ref ? ` · ${c.claim_ref}` : ""}</div>
+                <ProofThumbs ids={c.proof_ids} />
+                {(c.status === "open" || ["claimed", "partly"].includes(c.status)) && <div className="mt-2 flex flex-wrap gap-2">
+                  {c.status === "open" && <button className="btn-primary min-h-10 text-sm" disabled={busy} onClick={() => run(() => api(`/claims/${c.id}/claim`, { body: { claim_ref: prompt("Claim / letter number (optional)") || null } }), (r: any) => r.sent ? "Claim sent to the depot on WhatsApp" : "Marked as claimed").then(reload)}><Send size={14} /> Claim from depot</button>}
+                  {["claimed", "partly"].includes(c.status) && <>
+                    <button className="btn-secondary min-h-10 text-sm" disabled={busy} onClick={() => setSettle(c)}>Got credit</button>
+                    <button className="min-h-10 px-2 text-sm text-slate-500 underline" onClick={() => confirm("Write this claim off?") && run(() => api(`/claims/${c.id}/settle`, { body: { action: "written_off" } }), "Written off").then(reload)}>Write off</button>
+                  </>}
+                </div>}
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full min-w-[720px] text-sm sm:table">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Tanker</th><th>Depot</th><th className="text-right">Invoice / received</th><th className="text-right">Claim</th><th>Status</th><th /></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {data.claims.map((c: any) => (
@@ -124,7 +144,7 @@ function Compare() {
   const products = [...new Set<string>(data.rows.map((r: any) => r.product))];
   return (
     <>
-      <div className="flex gap-2 text-sm">{[30, 90, 180].map((x) => <button key={x} onClick={() => setDays(x)} className={`rounded-full px-3 py-1 ${days === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x} days</button>)}</div>
+      <div className="flex gap-2 text-sm">{[30, 90, 180].map((x) => <button key={x} onClick={() => setDays(x)} className={`min-h-9 rounded-full px-3 py-1 ${days === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x} days</button>)}</div>
       {products.map((p) => {
         const rows = data.rows.filter((r: any) => r.product === p).sort((a: any, b: any) => a.landed_per_l - b.landed_per_l);
         const best = data.best[p];
@@ -132,7 +152,13 @@ function Compare() {
           <div key={p} className="card overflow-x-auto p-4">
             <div className="mb-2 flex flex-wrap items-center gap-2"><h3 className="flex-1 font-semibold">{PRODUCTS[p] ?? p}</h3>
               {best && <Badge tone="green">Cheapest: {best.supplier} · saves Rs {best.saving_per_l}/L</Badge>}</div>
-            <table className="w-full min-w-[640px] text-sm">
+            {/* phone: one card per depot, landed cost first */}
+            <ul className="divide-y divide-slate-100 sm:hidden">{rows.map((r: any, i: number) => (
+              <li key={r.supplier_id} className={`py-2 text-sm ${i === 0 && rows.length > 1 ? "-mx-2 rounded-lg bg-emerald-50 px-2" : ""}`}>
+                <div className="flex items-baseline justify-between gap-2"><span className="min-w-0 font-medium">{r.supplier}</span><span className="shrink-0 text-right"><b className="tabular-nums">Rs {r.landed_per_l.toFixed(2)}</b><span className="block text-[11px] text-slate-500">landed / L</span></span></div>
+                <div className="text-xs text-slate-500">{r.tankers} tankers · {num(r.litres)} L · rate {r.avg_rate.toFixed(2)} · freight {r.freight_per_l.toFixed(2)} · short {r.shortage_pct}% (+{r.shortage_cost_per_l.toFixed(2)})</div>
+              </li>))}</ul>
+            <table className="hidden w-full min-w-[640px] text-sm sm:table">
               <thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-1">Depot</th><th className="text-right">Tankers</th><th className="text-right">Litres</th><th className="text-right">Rate /L</th><th className="text-right">Freight /L</th><th className="text-right">Shortage</th><th className="text-right">Landed cost /L</th></tr></thead>
               <tbody className="divide-y divide-slate-100">{rows.map((r: any, i: number) => (
                 <tr key={r.supplier_id} className={i === 0 && rows.length > 1 ? "bg-emerald-50" : ""}>
