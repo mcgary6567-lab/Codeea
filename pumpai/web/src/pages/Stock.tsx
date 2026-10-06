@@ -3,12 +3,16 @@ import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { PRODUCTS } from "../lib/format";
 import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
+import { SupplierForm } from "../components/QuickAdd";
+import { useAuth } from "../App";
 import { PRODUCT_COLORS, dt, num } from "../lib/format";
 
 export default function Stock() {
   const dash = useApi<any>("/dashboard");
   const stock = useApi<any>("/stock");
   const suppliers = useApi<any[]>("/suppliers");
+  const [addSup, setAddSup] = useState(false);
+  const { can } = useAuth();
   const { busy, run } = useAction();
   const [dip, setDip] = useState({ tank_id: "", measured_l: "", cm: "" });
   const [dipPhotos, setDipPhotos] = useState<number[]>([]);
@@ -96,10 +100,12 @@ export default function Stock() {
             <Field label="Invoice litres"><input className="input" type="number" min={1} required value={del.invoice_l} onChange={(e) => setDel({ ...del, invoice_l: e.target.value })} /></Field>
             <Field label="Received (dip difference)"><input className="input" type="number" min={1} required value={del.received_l} onChange={(e) => setDel({ ...del, received_l: e.target.value })} /></Field>
             <Field label="Tanker no."><input className="input" value={del.tanker_no} onChange={(e) => setDel({ ...del, tanker_no: e.target.value })} /></Field>
-            <Field label="Supplier"><select className="input" value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
-              <option value="">— not on account —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-            {del.supplier_id && <Field label="Purchase rate (Rs/L, from invoice)"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>}
-            <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} /></Field>
+            <Field label="Supplier (depot) · سپلائر"><select className="input" required value={del.supplier_id} onChange={(e) => setDel({ ...del, supplier_id: e.target.value })}>
+              <option value="">— choose supplier —</option>{(suppliers.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+              {can("suppliers.manage") && <button type="button" className="mt-1 min-h-9 text-xs font-medium text-brand-700 hover:underline" onClick={() => setAddSup(true)}>+ New supplier · نیا سپلائر</button>}</Field>
+            <Field label="Purchase rate (Rs/L, from invoice) · ریٹ"><input className="input" type="number" step="0.01" min={1} required value={del.purchase_rate} onChange={(e) => setDel({ ...del, purchase_rate: e.target.value })} /></Field>
+            <Field label="Freight paid (Rs, optional)"><input className="input" type="number" min={0} value={del.freight} onChange={(e) => setDel({ ...del, freight: e.target.value })} />
+              <span className="mt-0.5 block text-[11px] text-slate-500">For comparing depots only — pay it as an expense (Tanker freight) · <span lang="ur" dir="rtl" className="font-urdu">کرایہ خرچے میں لکھیں</span></span></Field>
             {del.supplier_id && Number(del.invoice_l) > 0 && Number(del.purchase_rate) > 0 && <div className="col-span-2 text-xs text-slate-600">Adds Rs {Math.round(Number(del.invoice_l) * Number(del.purchase_rate)).toLocaleString("en-IN")} to what we owe this supplier.</div>}
           </div>
           <button className="btn-primary" disabled={busy}>Save delivery</button>
@@ -112,6 +118,7 @@ export default function Stock() {
       </div>
       {order && <OrderModal s={order} suppliers={suppliers.data ?? []} onClose={() => setOrder(null)} onDone={() => { setOrder(null); orders.reload(); }} />}
       {chart && <ChartModal c={chart} onClose={() => setChart(null)} />}
+      {addSup && <SupplierForm onClose={() => setAddSup(false)} onSaved={(sp: any) => { setAddSup(false); suppliers.reload(); if (sp?.id) setDel((x: any) => ({ ...x, supplier_id: String(sp.id) })); }} />}
     </div>
   );
 }

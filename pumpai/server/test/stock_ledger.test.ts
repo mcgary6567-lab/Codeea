@@ -70,6 +70,16 @@ test("setup", async () => {
 });
 
 let claimId = 0, trip: any;
+test("a tanker cannot be received without its supplier and purchase rate (its cost would be missing from the books)", async () => {
+  const before = db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l;
+  const noSup = await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 1000, received_l: 1000, purchase_rate: rate });
+  assert.equal(noSup.status, 400); assert.match(noSup.data.error, /supplier/i);
+  const noRate = await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 1000, received_l: 1000, supplier_id: S.id });
+  assert.equal(noRate.status, 400); assert.match(noRate.data.error, /rate/i);
+  assert.equal((await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 1000, received_l: 1000, supplier_id: 999999, purchase_rate: rate })).status, 400, "unknown supplier");
+  assert.equal(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, before, "nothing went into the tank");
+});
+
 test("supplier's tanker 50 L short: stock by what came, bill by the invoice, a claim for the shortage", async () => {
   const d = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: invoice, received_l: received, supplier_id: S.id, purchase_rate: rate, tanker_no: "SL-1" }), "delivery");
   claimId = d.claim_id;

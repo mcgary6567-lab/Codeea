@@ -40,14 +40,14 @@ test("meter photos are saved as proof on the shift even without AI reading", asy
   const rep = ok(await call("manager", "GET", `/api/shifts/${shift.id}/report`), "report");
   assert.deepEqual(rep.photos.map((x: any) => x.ref), [`shift-open:${shift.id}`]);
   // a photo can only be linked once
-  const other = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: 1, invoice_l: 100, received_l: 100, photo_id: p.photo_id }), "delivery");
+  const other = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: 1, invoice_l: 100, received_l: 100, photo_id: p.photo_id, supplier_id: 1, purchase_rate: 250 }), "delivery");
   assert.equal(other.photo_id, null);
   assert.equal((await call("salesman", "POST", "/api/ai/read-photo", { kind: "meter", image: "data:text/plain;base64,aGk=" })).status, 400);
 });
 
 test("invoice and receipt photos attach to the delivery and the expense", async () => {
   const inv = ok(await call("manager", "POST", "/api/ai/read-photo", { kind: "invoice", image: PNG }), "invoice");
-  const d = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: 1, invoice_l: 50, received_l: 50, photo_id: inv.photo_id }), "delivery");
+  const d = ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: 1, invoice_l: 50, received_l: 50, photo_id: inv.photo_id, supplier_id: 1, purchase_rate: 250 }), "delivery");
   assert.equal(d.photo_id, inv.photo_id);
   const rc = ok(await call("manager", "POST", "/api/ai/read-photo", { kind: "receipt", image: PNG }), "receipt");
   const e = ok(await call("manager", "POST", "/api/expenses", { category: "Tea & food", amount: 1200, photo_id: rc.photo_id }), "expense");

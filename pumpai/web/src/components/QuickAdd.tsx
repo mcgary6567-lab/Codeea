@@ -159,7 +159,7 @@ export function AccountForm({ khata, onClose, onSaved }: { khata?: boolean; onCl
   );
 }
 
-function SupplierForm({ onClose, onSaved }: { onClose: () => void; onSaved: (s: any) => void }) {
+export function SupplierForm({ onClose, onSaved }: { onClose: () => void; onSaved: (s: any) => void }) {
   const [f, setF] = useState({ name: "", phone: "", opening_balance: "0", notes: "" });
   const { busy, run } = useAction();
   return (

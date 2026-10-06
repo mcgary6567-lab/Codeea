@@ -102,7 +102,8 @@ test("dip variance and short delivery create alerts", async () => {
   const tank = (await api("GET", "/api/stations")).data.flatMap((s: any) => s.tanks).find((t: any) => t.capacity_l - t.current_l * 0.98 > 6000);
   const dip = await api("POST", "/api/stock/dip", { tank_id: tank.id, measured_l: tank.current_l * 0.98 });
   assert.ok(dip.data.variance_pct < -1.9);
-  const del = await api("POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 5000, received_l: 4950, tanker_no: "TLR-TEST" });
+  const sup = (await api("GET", "/api/suppliers")).data[0];
+  const del = await api("POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: 5000, received_l: 4950, tanker_no: "TLR-TEST", supplier_id: sup.id, purchase_rate: 250 });
   assert.equal(del.status, 200);
   const alerts = (await api("GET", "/api/alerts")).data;
   assert.ok(alerts.some((a: any) => a.title.includes("TLR-TEST")));
