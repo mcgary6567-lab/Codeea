@@ -281,7 +281,7 @@ export function TripSheet({ id, initial, onClose }: { id: number; initial?: any;
             <li key={x.id} className={`space-y-0.5 p-3 ${x.voided ? "text-slate-400 line-through" : ""}`}>
               <div className="flex justify-between gap-2"><b className="min-w-0">{i + 1}. {x.client_name}</b><b className="shrink-0 tabular-nums">{pkr(x.amount)}</b></div>
               <div className="flex justify-between gap-2 text-xs text-slate-600"><span>{PRODUCTS[x.product]} · {num(x.litres, 2)} L × {x.rate}</span><span className="shrink-0">{x.ref} <ProofThumbs ids={x.proof_ids} /></span></div>
-              {!x.voided && <button className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-brand-700 underline" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id))}><Printer size={13} /> Challan</button>}
+              {!x.voided && <button className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-brand-700 underline" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}><Printer size={13} /> Challan</button>}
               {(x.location || x.phone) && <div className="text-xs text-slate-500">{x.location ? `📍 ${x.location}` : ""}{x.phone ? ` · ${phone(x.phone)}` : ""}</div>}
             </li>))}
             <li className="flex justify-between p-3 font-semibold"><span>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</span><span className="text-right tabular-nums">{num(data.delivered_l, 2)} L<span className="block">{pkr(data.billed)}</span></span></li>
@@ -290,7 +290,7 @@ export function TripSheet({ id, initial, onClose }: { id: number; initial?: any;
             <tbody>{data.drops.map((x: any, i: number) => (
               <tr key={x.id} className={x.voided ? "text-slate-400 line-through" : ""}><td className="td">{i + 1}</td><td className="td">{x.client_name}{x.phone ? <div className="text-xs text-slate-500">{phone(x.phone)}</div> : null}</td>
                 <td className="td">{x.location ?? "—"}</td>{data.product.includes("+") && <td className="td">{PRODUCTS[x.product]}</td>}<td className="td text-right tabular-nums">{num(x.litres, 2)}</td><td className="td text-right tabular-nums">{x.rate}</td>
-                <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref} <ProofThumbs ids={x.proof_ids} />{!x.voided && <button className="ml-1 text-brand-700 underline print:hidden" title="Print this client's challan" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id))}>challan</button>}</td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
+                <td className="td text-right tabular-nums">{pkr(x.amount)}</td><td className="td text-xs">{x.ref} <ProofThumbs ids={x.proof_ids} />{!x.voided && <button className="ml-1 text-brand-700 underline print:hidden" title="Print this client's challan" onClick={() => printPages(`Challan ${x.client_name}`, challanPages(data, x.id), data.business?.color)}>challan</button>}</td><td className="td w-28 border-b border-dashed border-slate-300" /></tr>
             ))}</tbody>
             <tfoot><tr className="font-semibold"><td className="td" colSpan={data.product.includes("+") ? 4 : 3}>Total ({data.drops.filter((x: any) => !x.voided).length} drops)</td><td className="td text-right tabular-nums">{num(data.delivered_l, 2)} L</td><td className="td" /><td className="td text-right tabular-nums">{pkr(data.billed)}</td><td className="td" colSpan={2} /></tr></tfoot>
           </table></div>
@@ -308,8 +308,8 @@ export function TripSheet({ id, initial, onClose }: { id: number; initial?: any;
           {data.proof_ids && <div className="flex items-center gap-2 text-slate-600">Photos: <ProofThumbs ids={data.proof_ids} /></div>}
           <p className="text-xs text-slate-500">Entered by {data.created_by}. To cancel one drop, void it in that client's statement — {data.depot ? "the supplier's bill stays (fix it in the supplier's account if the depot takes the fuel back)." : "stock goes back to the tank."}</p>
           <div className="flex flex-wrap justify-end gap-2 print:hidden">
-            <button className="btn-secondary" onClick={() => printPages(`Trip ${data.id} sheet`, tripSheetPage(data))}><Printer size={15} /> Trip sheet (driver)</button>
-            <button className="btn-primary" disabled={!data.drops.some((x: any) => !x.voided)} onClick={() => printPages(`Trip ${data.id} challans`, challanPages(data))}><Printer size={15} /> Print challans · چالان</button>
+            <button className="btn-secondary" onClick={() => printPages(`Trip ${data.id} sheet`, tripSheetPage(data), data.business?.color)}><Printer size={15} /> Trip sheet (driver)</button>
+            <button className="btn-primary" disabled={!data.drops.some((x: any) => !x.voided)} onClick={() => printPages(`Trip ${data.id} challans`, challanPages(data), data.business?.color)}><Printer size={15} /> Print challans · چالان</button>
           </div>
           <p className="text-xs text-slate-500 print:hidden">Challan: one page per client — the client keeps the top copy, the driver brings the bottom copy back signed. Our cost and profit are never printed.</p>
         </div>

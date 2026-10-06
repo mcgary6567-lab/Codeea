@@ -4,6 +4,7 @@
  *  - a monthly bill (khata) or statement (wholesale) as a private, printable link, sent on the 1st
  * Bill links are signed, so they open without a login but cannot be guessed.
  */
+import { BRAND_CSS, brandHead, brandFoot } from "./brandPrint.js";
 import jwt from "jsonwebtoken";
 import { logoTag } from "./routes/setup.js";
 import { shopSaleTax } from "./routes/tax.js";
@@ -146,16 +147,22 @@ h1{margin:0;font-size:22px}.muted{color:#64748b}.top{display:flex;justify-conten
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}th,td{padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-size:12px;text-transform:uppercase;color:#475569}
 .r{text-align:right;font-variant-numeric:tabular-nums}.void td{color:#94a3b8;text-decoration:line-through}.sum{margin-top:12px;display:grid;gap:4px}
 .big{font-size:20px;margin-top:8px}button{margin-top:16px;padding:10px 18px;border:0;border-radius:8px;background:#064e3b;color:#fff;font-size:15px;cursor:pointer}
-@media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none}button{display:none}}
-@media (max-width:600px){.page{margin:0;border-radius:0;padding:16px}}
+tbody tr:nth-child(even) td{background:#f8fafc}th{background:#0f172a;color:#fff}
+.acct{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}.box{border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px}.box b{font-size:15px}
+.box span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#64748b}.doc{font-size:16px;font-weight:800;letter-spacing:.02em;margin:2px 0 8px}
+@media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;padding:10mm}button{display:none}table{min-width:0}}
+@media (max-width:600px){.page{margin:0;border-radius:0;padding:16px}.acct{grid-template-columns:1fr}}
+${BRAND_CSS}
 </style></head><body><div class="page">
-<div class="top"><div>${logoTag(p.t)}<h1>${esc(tenant.name)}</h1><div class="muted">${esc(title)} · ${esc(monthName(p.m))}</div></div>
-<div><b>${esc(who.name)}</b>${who.business_name ? `<div class=muted>${esc(who.business_name)}</div>` : ""}${who.phone ? `<div class=muted>+${esc(who.phone)}</div>` : ""}${who.city ? `<div class=muted>${esc(who.city)}</div>` : ""}</div></div>
-<div class="muted">Opening balance (1 ${esc(monthName(p.m))}): <b>Rs ${n2(opening)}</b></div>
+${brandHead(p.t, title)}
+<div class="doc">${esc(title.toUpperCase())} · ${esc(monthName(p.m))}</div>
+<div class="acct"><div class="box"><span>Account of</span><b>${esc(who.name)}</b>${who.business_name ? `<div class=muted>${esc(who.business_name)}</div>` : ""}${who.phone ? `<div class=muted>+${esc(who.phone)}</div>` : ""}${who.city ? `<div class=muted>${esc(who.city)}</div>` : ""}</div>
+<div class="box"><span>Period</span><b>${esc(monthName(p.m))}</b><div class=muted>Opening balance: <b>Rs ${n2(opening)}</b></div><div class=muted>Closing balance: <b>Rs ${n2(closing)}</b></div></div></div>
 <div class="wrap"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Slip / ref</th><th>Entry</th><th class=r>Litres</th><th class=r>Rate</th><th class=r>Charged</th><th class=r>Paid</th><th class=r>Balance</th></tr></thead>
 <tbody>${rows || `<tr><td colspan=9 class=muted>No entries this month</td></tr>`}</tbody></table></div>
 <div class="sum">${totals}<div class="big">Balance due: <b>Rs ${n2(closing)}</b></div></div>
-<div class="muted" style="margin-top:8px">Generated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))} by PumpAI</div>
+<div class="muted" style="margin-top:8px">Generated ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))} · computer statement, no signature needed</div>
+${brandFoot(p.t)}
 <button onclick="print()">Print / Save as PDF</button></div></body></html>`;
 }
 
@@ -189,11 +196,12 @@ export function renderReceipt(token: string): string | null {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt — ${esc(tenant.name)}</title>
 <style>:root{color-scheme:light}body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.card{max-width:420px;margin:16px auto;background:#fff;border-radius:14px;padding:20px}
 h1{font-size:19px;margin:0}.muted{color:#64748b;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px}td{padding:8px 0;border-bottom:1px dashed #cbd5e1}.r{text-align:right;font-variant-numeric:tabular-nums}
-.total{font-size:22px;font-weight:700}.btn{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:10px;text-decoration:none;font-weight:600}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}</style></head>
-<body><div class=card>${logoTag(p.t)}<h1>${logoTag(p.t) ? "" : "⛽ "}${esc(tenant.name)}</h1><div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
+.total{font-size:22px;font-weight:700}.btn{display:block;text-align:center;margin-top:10px;padding:11px;border-radius:10px;text-decoration:none;font-weight:600}.g{background:#064e3b;color:#fff}.w{background:#dcfce7;color:#14532d}
+${BRAND_CSS}.lh{flex-direction:column;align-items:flex-start}.lh .ct{text-align:left}@media print{.btn{display:none}body{background:#fff}.card{margin:0}}</style></head>
+<body><div class=card>${brandHead(p.t, "Receipt")}<div class=muted>${esc(station)} · ${esc(new Date(when).toLocaleString("en-PK", { timeZone: "Asia/Karachi", dateStyle: "medium", timeStyle: "short" }))}</div>
 <table>${rows}${taxLine}<tr><td class=total>Total</td><td class="r total">Rs ${n2(total)}</td></tr></table>
 <div class=muted style="margin-top:6px">Paid: ${esc(pay)} · Receipt ${p.r === "f" ? "F" : "S"}-${p.id}</div>
 ${review ? `<a class="btn g" href="${esc(review)}">⭐ Rate us on Google</a>` : ""}
 ${tenant.owner_phone ? `<a class="btn w" href="https://wa.me/${esc(tenant.owner_phone)}">WhatsApp us</a>` : ""}
-<div class=muted style="text-align:center;margin-top:12px">${esc(getSetting(p.t, "receipt_footer", "") || "Shukriya! Phir tashreef layein 🙏")}</div></div></body></html>`;
+${getSetting(p.t, "receipt_footer", "") ? "" : `<div class=muted style="text-align:center;margin-top:12px">Shukriya! Phir tashreef layein 🙏</div>`}${brandFoot(p.t)}</div></body></html>`;
 }

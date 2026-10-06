@@ -99,7 +99,7 @@ test("midnight day close: owner gets the report link and the day is locked for n
   const msg = db.get("SELECT * FROM outbox WHERE kind='day_close' ORDER BY id DESC LIMIT 1");
   assert.match(msg.text, /Din band/); const link = msg.text.match(/\/day\/(\S+)/)[1];
   const html = await (await fetch(`${base}/day/${link}`)).text();
-  assert.match(html, /day report/); assert.match(html, /Office cash/);
+  assert.match(html, /day report/i); assert.match(html, /Office cash/);
   const r = await call("manager", "PATCH", `/api/expenses/${e.id}`, { amount: 900 });
   assert.equal(r.status, 400); assert.match(r.data.error, /closed/);
   assert.equal((await call("manager", "POST", "/api/expenses", { category: "Other", amount: 100, expense_date: yesterday })).status, 400);

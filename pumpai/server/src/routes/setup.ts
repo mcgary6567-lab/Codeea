@@ -25,13 +25,18 @@ const dataUrl = z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Logo m
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colour like #059669");
 
 /* ================= Branding ================= */
-const PROFILE_KEYS = ["biz_phone", "biz_email", "biz_address", "biz_city", "website", "ntn", "strn", "brand_color", "receipt_footer", "omc"] as const;
+const PROFILE_KEYS = ["biz_phone", "biz_email", "biz_address", "biz_city", "website", "ntn", "strn", "brand_color", "receipt_footer", "omc",
+  "facebook", "instagram", "whatsapp", "tiktok", "youtube", "twitter"] as const;
 export function profile(t: number) {
   const tenant = get("SELECT * FROM tenants WHERE id=?", t)!;
+  const first = get("SELECT address, city FROM stations WHERE tenant_id=? ORDER BY id LIMIT 1", t);
   return {
     name: tenant.name, owner_name: tenant.owner_name, owner_phone: getSetting(t, "owner_phone", tenant.owner_phone ?? ""),
     ...Object.fromEntries(PROFILE_KEYS.map((k) => [k, getSetting(t, k)])),
     logo_url: getSetting(t, "logo_photo_id") ? `/branding/logo?v=${getSetting(t, "logo_photo_id")}` : null,
+    // where the pump is, for letterheads: the business address, else the first station's
+    place: [getSetting(t, "biz_address"), getSetting(t, "biz_city")].filter(Boolean).join(", ")
+      || [first?.address, first?.city].filter(Boolean).join(", ") || null,
   } as Record<string, string | null>;
 }
 function saveLogo(t: number, image: string) {
@@ -72,6 +77,9 @@ const setupBody = z.object({
     biz_phone: z.string().max(20).optional(), biz_email: z.string().email().optional().or(z.literal("")), biz_address: z.string().max(200).optional(), biz_city: z.string().max(60).optional(),
     website: z.string().max(100).optional(), ntn: z.string().max(20).optional(), strn: z.string().max(20).optional(), omc: z.string().max(40).optional(),
     brand_color: hex.optional(), receipt_footer: z.string().max(160).optional(), logo: dataUrl.optional().nullable(),
+    // social pages printed at the bottom of statements, bills and receipts (a link or just the handle)
+    facebook: z.string().max(120).optional(), instagram: z.string().max(120).optional(), whatsapp: z.string().max(120).optional(),
+    tiktok: z.string().max(120).optional(), youtube: z.string().max(120).optional(), twitter: z.string().max(120).optional(),
   }),
   admin: z.object({ name: z.string().min(2).max(80), email: z.string().email(), password: z.string().min(8, "Password must be at least 8 characters"), pin: z.string().regex(/^\d{4}$/).optional().or(z.literal("")), phone: z.string().max(16).optional() }),
   stations: z.array(z.object({

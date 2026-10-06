@@ -378,7 +378,7 @@ function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
     <Modal open onClose={onClose} title={`${isIn ? "Receipt" : "Payment"} voucher ${v.no}`}>
       <div className="space-y-3 text-sm" id="voucher">
         <div className="text-center">
-          <div className="text-lg font-bold">{tenant?.name}</div>
+          <div className="text-lg font-bold print:hidden">{tenant?.name}</div>
           <div className="font-semibold">{isIn ? <>Receipt voucher · <Ur>رسید</Ur></> : <>Payment voucher · <Ur>ادائیگی واؤچر</Ur></>}</div>
           <div className="text-xs text-slate-500">{v.no} · {dt(v.created_at)}</div>
         </div>

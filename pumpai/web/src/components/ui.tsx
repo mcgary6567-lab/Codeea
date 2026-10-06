@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { PrintFooter, PrintHeader } from "./Letterhead";
 import { createPortal } from "react-dom";
 import { X, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
@@ -46,11 +47,13 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16" onMouseDown={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-lg"} p-5`} onMouseDown={(e) => e.stopPropagation()}>
+        <PrintHeader />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="-m-1.5 rounded-lg p-2.5 text-slate-400 hover:bg-slate-100" aria-label="Close"><X size={20} /></button>
+          <button onClick={onClose} className="-m-1.5 rounded-lg p-2.5 text-slate-400 hover:bg-slate-100 print:hidden" aria-label="Close"><X size={20} /></button>
         </div>
         {children}
+        <PrintFooter />
       </div>
     </div>,
     document.body,

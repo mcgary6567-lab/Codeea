@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { SocialFields } from "../components/BusinessSettings";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Building2, UserCog, Fuel, Tag, ClipboardCheck } from "lucide-react";
 import { api } from "../lib/api";
@@ -44,7 +45,8 @@ export default function Setup() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState("");
-  const [biz, setBiz] = useState({ name: "", owner_name: "", owner_phone: "", biz_phone: "", biz_email: "", biz_address: "", biz_city: "", omc: "PSO", ntn: "", strn: "", website: "", brand_color: "#059669", receipt_footer: "", logo: null as string | null });
+  const [biz, setBiz] = useState({ name: "", owner_name: "", owner_phone: "", biz_phone: "", biz_email: "", biz_address: "", biz_city: "", omc: "PSO", ntn: "", strn: "", website: "", brand_color: "#059669", receipt_footer: "", logo: null as string | null,
+    facebook: "", instagram: "", whatsapp: "", tiktok: "", youtube: "", twitter: "" });
   const [admin, setAdmin] = useState({ name: "", email: "", password: "", confirm: "", pin: "", phone: "" });
   const [stations, setStations] = useState<Station[]>([{ name: "", city: "", address: "", timings: "24 hours", tanks: [newTank("PMG", 1), newTank("HOBC", 2), newTank("HSD", 3)] }]);
   const [prices, setPrices] = useState<Record<string, string>>({ PMG: "", HOBC: "", HSD: "" });
@@ -139,11 +141,12 @@ export default function Setup() {
               <F label="Address"><input className="input" value={biz.biz_address} onChange={(e) => setBiz({ ...biz, biz_address: e.target.value })} /></F>
               <F label="City"><input className="input" value={biz.biz_city} onChange={(e) => setBiz({ ...biz, biz_city: e.target.value })} /></F>
               <F label="Oil company (OMC)"><select className="input" value={biz.omc} onChange={(e) => setBiz({ ...biz, omc: e.target.value })}>{OMCS.map((o) => <option key={o}>{o}</option>)}</select></F>
-              <F label="Website / Facebook"><input className="input" value={biz.website} onChange={(e) => setBiz({ ...biz, website: e.target.value })} /></F>
+              <F label="Website"><input className="input" value={biz.website} onChange={(e) => setBiz({ ...biz, website: e.target.value })} /></F>
               <F label="NTN"><input className="input" value={biz.ntn} onChange={(e) => setBiz({ ...biz, ntn: e.target.value })} /></F>
               <F label="STRN"><input className="input" value={biz.strn} onChange={(e) => setBiz({ ...biz, strn: e.target.value })} /></F>
             </Grid>
             <F label="Line printed at the bottom of receipts"><input className="input" placeholder="e.g. Shukriya! Phir tashreef layein" value={biz.receipt_footer} onChange={(e) => setBiz({ ...biz, receipt_footer: e.target.value })} /></F>
+            <div className="sm:col-span-2"><SocialFields value={biz} onChange={(k, v) => setBiz({ ...biz, [k]: v })} /></div>
           </>}
           {step === 1 && <>
             <p className="text-sm text-slate-600">This is the owner's (Admin / CEO) login with full access. Managers, salesmen and others are added later from Users & Roles.</p>

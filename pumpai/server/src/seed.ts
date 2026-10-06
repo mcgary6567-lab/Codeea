@@ -563,6 +563,9 @@ function seedMoney(tenantId: number) {
   }
   setSetting(tenantId, "ntn", "4217651-3");
   setSetting(tenantId, "strn", "3277876154321");
+  // contacts and social pages for the letterhead on statements, bills and challans
+  for (const [k, v] of Object.entries({ biz_email: "accounts@almadina.pk", website: "almadina.pk", facebook: "facebook.com/AlMadinaPetroleum",
+    instagram: "@almadina.petroleum", whatsapp: "0300 1234567", tiktok: "@almadinapetroleum", youtube: "@AlMadinaPetroleum" })) setSetting(tenantId, k, v);
 }
 
 /** A staff loan and training records (one overdue). */

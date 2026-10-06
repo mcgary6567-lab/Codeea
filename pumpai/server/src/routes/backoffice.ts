@@ -6,6 +6,7 @@
  *  - Dip charts: dip in cm → litres for every tank
  *  - Day close: at midnight the day is locked and the owner gets the day's report
  */
+import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router } from "express";
 import { logoTag } from "./setup.js";
 import { z } from "zod";
@@ -250,8 +251,9 @@ export function renderDay(token: string): string | null {
 h1{margin:0 0 4px;font-size:21px}h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #064e3b;padding-bottom:3px}.muted{color:#64748b}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}.tile{background:#f8fafc;border-radius:8px;padding:10px}.tile b{display:block;font-size:19px}
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:520px}td,th{padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:left}.r{text-align:right;font-variant-numeric:tabular-nums}
-button{margin-top:14px;padding:9px 16px;border:0;border-radius:8px;background:#064e3b;color:#fff;font-size:15px}@media print{button{display:none}body{background:#fff}.page{margin:0}}@media(max-width:600px){.page{margin:0;border-radius:0;padding:14px}}</style></head><body><div class=page>
-${logoTag(p.t)}<h1>${esc(tenant)} — day report</h1><div class=muted>${esc(new Date(`${p.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · closed ${esc(new Date(row.closed_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
+button{margin-top:14px;padding:9px 16px;border:0;border-radius:8px;background:#064e3b;color:#fff;font-size:15px}@media print{button{display:none}body{background:#fff}.page{margin:0}}@media(max-width:600px){.page{margin:0;border-radius:0;padding:14px}}
+${BRAND_CSS}tr:nth-child(even) td{background:#f8fafc}th{background:#0f172a;color:#fff}</style></head><body><div class=page>
+${brandHead(p.t, "Day report")}<h1>Day report · ${esc(p.day)}</h1><div class=muted>${esc(new Date(`${p.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · closed ${esc(new Date(row.closed_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
 <div class=grid style="margin-top:12px"><div class=tile>Sales<b>${rs(b.sales.revenue)}</b></div><div class=tile>Expenses<b>${rs(b.expenses.total)}</b></div><div class=tile>Supply received<b>${Number(b.supply.litres).toLocaleString()} L</b></div><div class=tile>Office cash<b>${rs(c.cash_in_hand)}</b></div></div>
 <h2>Sales</h2><table>${kv("Pump sales", `${rs(b.sales.retail)} · ${Math.round(b.sales.retail_litres).toLocaleString()} L · ${b.sales.txns} sales`)}${kv("Wholesale", rs(b.sales.wholesale))}${kv("Cash", rs(b.sales.cash))}${kv("Digital", rs(b.sales.digital))}${kv("Khata", rs(b.sales.khata))}${kv("Profit (est.)", rs(b.profit.net))}</table>
 <h2>Stock</h2><div class=wrap><table><tr><th>Fuel</th><th class=r>Opening</th><th class=r>Received</th><th class=r>Sold</th><th class=r>Closing</th><th class=r>Value (cost)</th></tr>
@@ -259,5 +261,6 @@ ${b.stock.products.map((x: any) => `<tr><td>${esc(x.name)}</td><td class=r>${x.o
 <h2>Expenses</h2><table>${b.expenses.by_category.map((e: any) => kv(e.category, rs(e.amount))).join("") || "<tr><td class=muted>None</td></tr>"}</table>
 <h2>Cash</h2><table>${kv("Shift cash handed over", rs(c.ins.shift_cash))}${kv("Khata / wholesale cash received", rs(c.ins.khata_cash + c.ins.wholesale_cash))}${kv("Deposited in bank", rs(c.outs.bank_deposits))}${kv("Cash expenses & payments", rs(c.outs.expenses + c.outs.supplier_payments + c.outs.staff_advances))}${kv("Shift cash short / over", rs(b.shifts.variance))}${kv("Office cash at day end", rs(c.cash_in_hand))}</table>
 <h2>Balances</h2><table>${kv("People owe us", rs(b.receivables))}${kv("We owe", rs(b.payables))}</table>
+${brandFoot(p.t)}
 <button onclick="print()">Print / Save as PDF</button></div></body></html>`;
 }

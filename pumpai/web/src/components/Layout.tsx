@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PrintFooter, PrintHeader } from "./Letterhead";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
@@ -205,7 +206,7 @@ export default function Layout() {
           <span className="flex-1 font-semibold">⛽ PumpAI</span>
           <NotificationBell />
         </header>
-        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><Outlet />
+        <main className="mx-auto max-w-7xl p-4 lg:p-6 print:max-w-none print:p-0"><PrintHeader /><Outlet /><PrintFooter />
           </main>
       </div>
     </div>

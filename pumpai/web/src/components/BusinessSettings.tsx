@@ -4,6 +4,8 @@ import { api, useApi } from "../lib/api";
 import { Field, Loading, useAction } from "./ui";
 import { squareLogo } from "../pages/Setup";
 import { applyBrand, loadBranding } from "../lib/brand";
+import { SOCIALS, SOCIAL_KEYS } from "../lib/social";
+import { refreshBusiness } from "./Letterhead";
 
 const COLORS = ["#059669", "#0f766e", "#2563eb", "#1d4ed8", "#7c3aed", "#db2777", "#dc2626", "#ea580c", "#ca8a04", "#334155"];
 const OMCS = ["PSO", "Shell", "TotalEnergies", "Attock (APL)", "GO", "Hascol", "Byco / Cnergyico", "Puma", "Other"];
@@ -17,11 +19,11 @@ export function BusinessProfile() {
   if (!f) return <Loading />;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   const save = async () => {
-    const body: any = Object.fromEntries(["name", "owner_name", "owner_phone", "biz_phone", "biz_email", "biz_address", "biz_city", "website", "ntn", "strn", "brand_color", "receipt_footer", "omc"]
+    const body: any = Object.fromEntries(["name", "owner_name", "owner_phone", "biz_phone", "biz_email", "biz_address", "biz_city", "website", "ntn", "strn", "brand_color", "receipt_footer", "omc", ...SOCIAL_KEYS]
       .filter((k) => f[k] != null && !(k === "biz_email" && !f[k])).map((k) => [k, f[k]]));
     if (f.logo) body.logo = f.logo;
     if (!/^#[0-9a-f]{6}$/i.test(body.brand_color ?? "")) delete body.brand_color;
-    if (await run(() => api("/business", { method: "PUT", body }), "Business profile saved")) { reload(); loadBranding(); }
+    if (await run(() => api("/business", { method: "PUT", body }), "Business profile saved")) { reload(); loadBranding(); refreshBusiness(); }
   };
   return (
     <div className="card space-y-3 p-4">
@@ -43,7 +45,7 @@ export function BusinessProfile() {
         <Field label="Owner WhatsApp (alerts, approvals, daily brief)"><input className="input" value={f.owner_phone ?? ""} onChange={set("owner_phone")} /></Field>
         <Field label="Office / pump phone"><input className="input" value={f.biz_phone ?? ""} onChange={set("biz_phone")} /></Field>
         <Field label="Email"><input className="input" type="email" value={f.biz_email ?? ""} onChange={set("biz_email")} /></Field>
-        <Field label="Website / Facebook"><input className="input" value={f.website ?? ""} onChange={set("website")} /></Field>
+        <Field label="Website"><input className="input" value={f.website ?? ""} onChange={set("website")} /></Field>
         <Field label="Address"><input className="input" value={f.biz_address ?? ""} onChange={set("biz_address")} /></Field>
         <Field label="City"><input className="input" value={f.biz_city ?? ""} onChange={set("biz_city")} /></Field>
         <Field label="Oil company"><select className="input" value={f.omc ?? ""} onChange={set("omc")}><option value="">—</option>{OMCS.map((o) => <option key={o}>{o}</option>)}</select></Field>
@@ -51,6 +53,8 @@ export function BusinessProfile() {
         <Field label="STRN"><input className="input" value={f.strn ?? ""} onChange={set("strn")} /></Field>
         <Field label="Receipt bottom line"><input className="input" value={f.receipt_footer ?? ""} onChange={set("receipt_footer")} /></Field>
       </div>
+      <SocialFields value={f} onChange={(k, v) => setF({ ...f, [k]: v })} />
+      <p className="text-xs text-slate-500">Logo, phone and place print at the top of every statement, bill, voucher and challan; address, email, website and these social pages at the bottom.</p>
       <button className="btn-primary" disabled={busy} onClick={save}>Save profile</button>
     </div>
   );
@@ -108,5 +112,20 @@ export function About() {
       <span className="flex-1">PumpAI version <b>{data.version}</b> · installed on your own server · your data stays with you</span>
       {vnd?.name && <span>Support: <b>{vnd.name}</b>{vnd.phone ? <> · <a className="text-brand-700 underline" href={`https://wa.me/${vnd.phone.replace(/\D/g, "")}`}>{vnd.phone}</a></> : null}{vnd.email ? ` · ${vnd.email}` : ""}</span>}
     </div>
+  );
+}
+
+/** Social pages (a link or just the handle) — printed with their icons at the foot of every paper. */
+export function SocialFields({ value, onChange }: { value: Record<string, any>; onChange: (k: string, v: string) => void }) {
+  return (
+    <fieldset>
+      <legend className="label">Social pages · سوشل میڈیا <span className="font-normal text-slate-400">(printed at the bottom of statements and bills)</span></legend>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{SOCIALS.map((x) => (
+        <label key={x.key} className="flex items-center gap-2 rounded-lg ring-1 ring-slate-300 focus-within:ring-2 focus-within:ring-brand-500">
+          <svg viewBox="0 0 24 24" className="ml-2.5 h-5 w-5 shrink-0 fill-brand-600" aria-hidden dangerouslySetInnerHTML={{ __html: x.svg }} />
+          <input className="min-w-0 flex-1 rounded-lg border-0 bg-transparent px-1 py-2 text-sm outline-none" aria-label={x.label} placeholder={`${x.label} · ${x.hint}`}
+            value={value[x.key] ?? ""} onChange={(e) => onChange(x.key, e.target.value)} />
+        </label>))}</div>
+    </fieldset>
   );
 }

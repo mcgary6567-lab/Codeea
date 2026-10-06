@@ -6,6 +6,7 @@
  * hosting where each copy has its own database). "New link + PIN" raises the version, so the old
  * link and PIN stop working; the page can be turned off. Five wrong PINs lock the page for 15 minutes.
  */
+import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router, type Request, type Response } from "express";
 import express from "express";
 import crypto from "node:crypto";
@@ -115,8 +116,8 @@ input[name=pin]{font-size:30px;letter-spacing:10px;text-align:center;width:100%;
 
 const page = (title: string, body: string, tenantId?: number, top = "") => `<!doctype html><html lang="ur"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
-<title>${esc(title)}</title><style>${CSS}</style></head>
-<body><div class=w>${top || (tenantId ? `<div class=c><div class=brand>${logoTag(tenantId, "height:34px;max-width:110px;object-fit:contain")}<span>${esc(get("SELECT name FROM tenants WHERE id=?", tenantId)?.name)}</span></div></div>` : "")}${body}</div></body></html>`;
+<title>${esc(title)}</title><style>${CSS}${BRAND_CSS}</style></head>
+<body><div class=w>${top || (tenantId ? `<div class=c><div class=brand>${logoTag(tenantId, "height:34px;max-width:110px;object-fit:contain")}<span>${esc(get("SELECT name FROM tenants WHERE id=?", tenantId)?.name)}</span></div></div>` : "")}${body}${tenantId ? brandFoot(tenantId) : ""}</div></body></html>`;
 
 function pinForm(c: any, error?: string) {
   return page(`${c.name} — khata`, `<div class=c style="text-align:center"><div style="font-size:44px">🔒</div><h1>${esc(c.name)}</h1>
@@ -173,7 +174,7 @@ function wholesaleBody(c: any, month: string | null, code: string): string {
       <div class=r><b class="${l.amount < 0 ? "g" : ""}">${l.amount < 0 ? "−" : "+"}${n2(Math.abs(l.amount))}</b>${bal}</div></div>`;
   }).join("");
   const chips = [`<a href="${esc(code)}" class="${month ? "" : "on"}">60 days · <span class=ur>۶۰ دن</span></a>`, ...monthsBack(6).map((m) => `<a href="${esc(code)}?m=${m}" class="${month === m ? "on" : ""}">${esc(monthName(m))}</a>`)].join("");
-  return `<div class=po><b>${esc(get("SELECT name FROM tenants WHERE id=?", t)?.name)}</b> — Account statement · <span class=ur>کھاتہ</span><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
+  return `<div class=po>${brandHead(t, "Statement")}<b>Account statement · <span class=ur>کھاتہ</span></b><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
 <div class=c><h1>${esc(c.name)}</h1><div class=m>${esc([c.business_name, c.city].filter(Boolean).join(" · "))}</div>
 <div class="hero ${due > 0 ? "owe" : "ok"}" style="margin-top:12px">
 ${due > 0 ? `<div class=lbl>You have to pay · <span class=ur>آپ کے ذمے</span></div><div class="amt red">${rs(due)}</div>`
@@ -224,7 +225,7 @@ function khataBody(c: any, month: string | null, code: string): string {
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
   }).join("");
   const chips = [`<a href="${esc(code)}" class="${month ? "" : "on"}">60 days · <span class=ur>۶۰ دن</span></a>`, ...monthsBack(6).map((m) => `<a href="${esc(code)}?m=${m}" class="${month === m ? "on" : ""}">${esc(monthName(m))}</a>`)].join("");
-  return `<div class=po><b>${esc(get("SELECT name FROM tenants WHERE id=?", t)?.name)}</b> — Khata statement · <span class=ur>کھاتہ</span><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
+  return `<div class=po>${brandHead(t, "Statement")}<b>Khata statement · <span class=ur>کھاتہ</span></b><br>${esc(c.name)} · ${esc(periodLabel)} · printed ${esc(new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
 <div class=c><h1>${esc(c.name)}</h1><div class=m>${esc([c.city, c.phone].filter(Boolean).join(" · "))}</div>
 <div class="hero ${due > 0 ? "owe" : "ok"}" style="margin-top:12px">
 ${due > 0 ? `<div class=lbl>You have to pay · <span class=ur>آپ کے ذمے</span></div><div class="amt red">${rs(due)}</div>`

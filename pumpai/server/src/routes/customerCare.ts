@@ -6,6 +6,7 @@
  *  - Payment notice (English + Urdu) ready to print
  *  - Car wash / oil change / tyre bookings, with reminders and "oil change due" follow-ups
  */
+import { BRAND_CSS, brandHead, brandFoot } from "../brandPrint.js";
 import { Router } from "express";
 import { logoTag } from "./setup.js";
 import { z } from "zod";
@@ -144,8 +145,9 @@ care.get("/customers/:id/notice", requirePerm("khata.manage"), (req, res, next) 
     const due = pkDate(Date.now() + 15 * DAY);
     res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><title>Payment notice — ${esc(c.name)}</title>
 <style>body{font:15px/1.6 Georgia,serif;max-width:720px;margin:30px auto;padding:0 20px;color:#111}h1{font-size:20px;text-align:center}.ur{direction:rtl;font-family:'Noto Nastaliq Urdu',serif;line-height:2.2;border-top:1px solid #999;margin-top:24px;padding-top:12px}
-button{padding:8px 14px}@media print{button{display:none}}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet"></head><body>
-<p style="text-align:right">${esc(pkDate())}</p><p><b>${esc(tenant.name)}</b></p>
+button{padding:8px 14px}@media print{button{display:none}}${BRAND_CSS}.lh,.lf{font-family:system-ui,sans-serif}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet"></head><body>
+${brandHead(tid(req), "Legal notice")}
+<p style="text-align:right">${esc(pkDate())}</p>
 <p>To:<br><b>${esc(c.name)}</b>${c.city ? `<br>${esc(c.city)}` : ""}<br>Phone: +${esc(c.phone)}</p>
 <h1>NOTICE FOR PAYMENT OF OUTSTANDING DUES</h1>
 <p>Dear Sir / Madam,</p>
@@ -155,6 +157,7 @@ button{padding:8px 14px}@media print{button{display:none}}</style><link href="ht
 <p>Yours sincerely,<br><br>__________________<br>${esc(tenant.owner_name ?? "")}<br>${esc(tenant.name)}</p>
 <div class="ur"><p><b>واجب الادا رقم کی ادائیگی کا نوٹس</b></p><p>محترم ${esc(c.name)}،</p>
 <p>ہمارے ریکارڈ کے مطابق آپ کے فیول کھاتے پر <b>${n2(c.balance)} روپے</b> واجب الادا ہیں۔ آپ سے گزارش ہے کہ یہ رقم <b>${esc(due)}</b> تک ادا کر دیں، ورنہ مزید ادھار بند کر کے قانون کے مطابق وصولی کی کارروائی کی جا سکتی ہے۔ اگر آپ ادائیگی کر چکے ہیں تو براہ کرم تفصیل بھیج دیں۔</p></div>
+${brandFoot(tid(req))}
 <button onclick="print()">Print</button></body></html>`);
   } catch (e) { next(e); }
 });

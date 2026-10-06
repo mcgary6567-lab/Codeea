@@ -5,6 +5,7 @@
  * Neither shows what the fuel cost us or the trip's profit.
  */
 import { PRODUCTS, dt, num, phone, pkr } from "../lib/format";
+import { SOCIALS, handle } from "../lib/social";
 
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -17,7 +18,12 @@ const CSS = `
   .copy { border: 1.5px solid #0f172a; border-radius: 6px; padding: 10px 12px; }
   .copy + .copy { margin-top: 10mm; }
   .cut { border-top: 1px dashed #64748b; margin: 6mm 0 0; text-align: center; font-size: 10px; color: #64748b; }
-  .head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }
+  .head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; border-bottom: 3px solid var(--brand, #059669); padding-bottom: 6px; }
+  .foot { margin-top: 8px; padding-top: 5px; border-top: 1px solid #cbd5e1; font-size: 10px; color: #475569; text-align: center; line-height: 1.6; }
+  .foot .soc { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; }
+  .foot .soc span { display: inline-flex; align-items: center; gap: 3px; }
+  .foot svg { width: 11px; height: 11px; fill: var(--brand, #059669); }
+  th { background: #0f172a !important; color: #fff; }
   .biz { font-size: 17px; font-weight: 700; }
   .muted { color: #475569; font-size: 11px; }
   .title { text-align: right; }
@@ -27,7 +33,7 @@ const CSS = `
   .grid div span { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
   table { width: 100%; border-collapse: collapse; margin-top: 4px; }
   th, td { border: 1px solid #94a3b8; padding: 5px 7px; text-align: left; }
-  th { background: #f1f5f9; font-size: 11px; }
+  th { font-size: 11px; }
   .r { text-align: right; font-variant-numeric: tabular-nums; }
   .total td { font-weight: 700; }
   .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
@@ -51,9 +57,17 @@ const CSS = `
   }
 `;
 
+/** Bottom of each paper: address, email, website, social pages, the pump's own line. */
+function foot(t: any) {
+  const b = t.business ?? {};
+  const line = [b.address, b.email, b.website].filter(Boolean).map(esc).join(" · ");
+  const soc = SOCIALS.filter((x) => b.social?.[x.key]).map((x) => `<span><svg viewBox="0 0 24 24">${x.svg}</svg>${esc(handle(b.social[x.key]))}</span>`).join("");
+  return line || soc || b.footer ? `<div class="foot">${line ? `<div>${line}</div>` : ""}${soc ? `<div class="soc">${soc}</div>` : ""}${b.footer ? `<div><b>${esc(b.footer)}</b></div>` : ""}</div>` : "";
+}
+
 function header(t: any, title: string, sub: string, tag?: string) {
   const b = t.business ?? {};
-  return `<div class="head"><div>${b.logo_url ? `<img class="logo" src="${esc(b.logo_url)}">` : ""}<div class="biz">${esc(b.name)}</div>
+  return `<div class="head"><div>${b.logo_url ? `<img class="logo" src="${esc(b.logo_url)}">` : ""}<div class="biz">${esc(b.name)}</div>${b.omc ? `<div class="muted">${esc(b.omc)} dealer</div>` : ""}
     <div class="muted">${esc([b.address, b.phone ? `☎ ${phone(b.phone)}` : ""].filter(Boolean).join(" · "))}</div>
     ${b.ntn || b.strn ? `<div class="muted">${b.ntn ? `NTN ${esc(b.ntn)}` : ""}${b.ntn && b.strn ? " · " : ""}${b.strn ? `STRN ${esc(b.strn)}` : ""}</div>` : ""}</div>
     <div class="title"><b>${esc(title)}</b><div class="muted">${esc(sub)}</div>${tag ? `<span class="tag">${esc(tag)}</span>` : ""}</div></div>`;
@@ -78,7 +92,7 @@ function challanCopy(t: any, d: any, i: number, copy: string) {
       <tr class="total"><td colspan="3">Total · کل رقم</td><td class="r">${pkr(d.amount)}</td></tr></tbody></table>
     <div class="note">Received the above fuel in full and in good condition. · اوپر لکھا تیل پورا وصول کیا۔</div>
     <div class="signs"><div>Driver · ڈرائیور</div><div>Received by (name &amp; sign) · وصول کنندہ</div><div>Stamp · مہر</div></div>
-    ${t.business?.footer ? `<div class="note" style="text-align:center">${esc(t.business.footer)}</div>` : ""}
+    ${foot(t)}
   </div>`;
 }
 
@@ -97,17 +111,19 @@ export function tripSheetPage(t: any) {
     ${live.map((d: any, i: number) => `<tr><td>${i + 1}</td><td><b>${esc(d.client_name)}</b>${d.phone ? ` · ${esc(phone(d.phone))}` : ""}<br><span class="muted">${esc(d.location || d.address || "")}</span></td>
       <td>${esc(PRODUCTS[d.product] ?? d.product)}</td><td class="r">${num(d.litres, 2)}</td><td class="r">${pkr(d.amount)}</td><td style="height:38px"></td></tr>`).join("")}
     <tr class="total"><td colspan="3">Total (${live.length} drops)</td><td class="r">${num(t.delivered_l, 2)}</td><td class="r">${pkr(t.billed)}</td><td></td></tr></tbody></table>
-    <div class="signs"><div>Driver · ڈرائیور</div><div>Loaded by · لوڈ کرنے والا</div><div>Checked by (office) · دفتر</div></div></div>`;
+    <div class="signs"><div>Driver · ڈرائیور</div><div>Loaded by · لوڈ کرنے والا</div><div>Checked by (office) · دفتر</div></div>${foot(t)}</div>`;
 }
 
 /** Print HTML on its own (no app around it) through a hidden frame. */
+let brandColor = "#059669";
 const doc = (title: string, body: string, bar = "") =>
-  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><base href="${location.origin}/"><style>${CSS}</style></head><body>${bar}${body}</body></html>`;
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><base href="${location.origin}/"><style>${CSS}</style></head><body style="--brand:${esc(brandColor)}">${bar}${body}</body></html>`;
 
 /** Phones print the page around a hidden frame, so there the papers open in their own tab with a Print / PDF button. */
 const onPhone = () => window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
 
-export function printPages(title: string, body: string) {
+export function printPages(title: string, body: string, color?: string | null) {
+  if (color) brandColor = color;
   if (onPhone()) {
     const w = window.open("", "_blank");
     if (w) {
