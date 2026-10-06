@@ -78,7 +78,7 @@
   </div>
   {% if has_perm(user, 'users.update') %}
   <div id="assign">
-  {% call ui.card("Assign users", "Give this role to one or more people. Their access changes on their next page.") %}
+  {% call ui.card("Assign users", "Give this role to one or more " ~ {'staff': 'staff members', 'family': 'family accounts', 'student': 'student accounts'}[audience] ~ ". Their access changes on their next page.") %}
     {% if assign_refusal and 'own role' not in assign_refusal %}
       {{ ui.alert(assign_refusal, 'warning', 'Cannot assign') }}
     {% else %}

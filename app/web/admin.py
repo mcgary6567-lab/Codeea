@@ -449,7 +449,9 @@ def role_detail(role_id: int, request: Request, db: Session = Depends(get_db),
         "user": user, "obj": obj, "checked": sys_svc.expand_permissions(obj.permissions or []),
         "user_count": counts.get(obj.id, 0), "portals": PORTALS,
         "members": db.query(User).filter(User.role_id == obj.id).order_by(User.full_name).limit(200).all(),
-        "candidates": [c for c in candidates if c.id != user.id],
+        # only accounts of the same audience (staff / family / student) are offered for this role
+        "candidates": [c for c in candidates if c.id != user.id and role_svc.same_audience(c, obj)],
+        "audience": role_svc.audience(obj.portal),
         "wildcard": role_svc.is_wildcard_role(obj), "assign_refusal": assign_refusal,
         "other_roles": [r for r in _roles(db) if r.id != obj.id]})
 

@@ -182,6 +182,20 @@ def test_a_limited_administrator_cannot_escalate(db, made):
     assert db.get(User, victim.id).role_id == within.id
 
 
+def test_a_family_account_is_never_offered_or_given_a_staff_role(admin, db, made):
+    staff_role = _role(db, made, ["students.view"])
+    parent = db.query(User).filter(User.email == "parent1@oqc.local").first()
+    before = parent.role_id
+    page = admin.get(f"/admin/roles/{staff_role.id}").text
+    assert "parent1@oqc.local" not in page.split('id="assign"')[1], "families are not listed for a staff role"
+    admin.post(f"/admin/roles/{staff_role.id}/assign", data={"user_ids": [str(parent.id)], "rationale": "x"}, follow_redirects=False)
+    db.expire_all()
+    assert db.get(User, parent.id).role_id == before, "a family login must never become a staff login"
+    staff = _user(db, made, staff_role)
+    client_role = db.query(Role).filter(Role.slug == "client").first()
+    assert role_svc.can_assign(db.query(User).filter(User.email == "admin@oqc.local").first(), staff, client_role)
+
+
 def test_full_access_role_keeps_its_wildcard(admin, db):
     sa = db.query(Role).filter(Role.slug == "super_admin").first()
     before_name = sa.name

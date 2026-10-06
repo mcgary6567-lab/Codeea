@@ -53,12 +53,32 @@ def escalation(actor: User, permissions: Iterable[str]) -> set[str]:
     return set(permissions) - held_permissions(actor)
 
 
+# Accounts fall into three audiences. A role may only move an account within its audience: a family's
+# portal login must never become a staff login by a mis-tick, and a staff account never a family one.
+AUDIENCES = {"admin": "staff", "teacher": "staff", "auditor": "staff", "client": "family", "student": "student"}
+AUDIENCE_LABEL = {"staff": "a staff account", "family": "a family (parent) account", "student": "a student account"}
+
+
+def audience(portal: Optional[str]) -> str:
+    return AUDIENCES.get(portal or "admin", "staff")
+
+
+def same_audience(target: User, role: Optional[Role]) -> bool:
+    """A user with no role yet can receive any role; otherwise the role must serve the same audience."""
+    if role is None or target.role is None:
+        return True
+    return audience(target.role.portal) == audience(role.portal)
+
+
 def can_assign(actor: User, target: User, role: Optional[Role]) -> Optional[str]:
     """None when the actor may give ``role`` to ``target``; otherwise the reason it is refused."""
     if target.id == actor.id:
         return "You cannot change your own role. Ask another administrator."
     if role is None:
         return None
+    if getattr(target, "role", None) is not None and not same_audience(target, role):
+        return (f"{target.full_name or target.email} is {AUDIENCE_LABEL[audience(target.role.portal)]}; the {role.name} "
+                f"role is for {AUDIENCE_LABEL[audience(role.portal)].replace('a ', '', 1).replace('an ', '', 1)}s.")
     if is_wildcard_role(role) and not actor.is_superuser:
         return f"Only a superuser can assign the {role.name} role."
     missing = escalation(actor, sys_svc.expand_permissions(role.permissions or []))
