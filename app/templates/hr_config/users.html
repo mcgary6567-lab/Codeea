@@ -30,7 +30,7 @@
     </div>
   </td>
   <td class="px-3 py-2 text-xs">{{ u.email }}</td>
-  <td class="px-3 py-2 text-xs">{{ u.role.name if u.role else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{% if has_perm(user, 'users.update') and u.id != user.id %}<a href="/admin/users/{{ u.id }}" class="text-brand-700 hover:underline" title="Change role">{{ u.role.name if u.role else 'No role' }}</a>{% else %}{{ u.role.name if u.role else '—' }}{% endif %}</td>
   <td class="px-3 py-2 text-xs">{% if emp %}<a class="text-brand-700 hover:underline" href="/hr/employees/{{ emp.id }}">{{ emp.employee_code }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
   <td class="px-3 py-2 text-xs">{{ u.department.name if u.department else '—' }}</td>
   <td class="px-3 py-2 text-xs">{{ u.last_login_at|datetime if u.last_login_at else 'Never' }}</td>

@@ -42,7 +42,11 @@ from app.models.people import (Bonus, Employee, HRAttendance, Leave, PayrollRun,
 
 TAG = f"pytest-{uuid4().hex[:8]}"
 PASSWORD = "EssPortal@123"
-TODAY = date.today()
+# The college's working day, not this machine's: punches are dated in the organisation's timezone
+# (Asia/Karachi), so after about 2 pm in the Americas date.today() is already a day behind and the
+# attendance assertions looked for yesterday's row.
+from app.services.hr import org_now  # noqa: E402
+TODAY = org_now().date()
 
 
 # --------------------------------------------------------------------------- fixtures

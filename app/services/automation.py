@@ -33,6 +33,12 @@ INACTIVE_STUDENT_DAYS = 14
 
 
 # ----------------------------------------------------------------------------- contacts
+def _org_today() -> date:
+    """The college's calendar day (Asia/Karachi), not the server's: due dates and {{date}} follow the college."""
+    from app.services.people import org_now
+    return org_now().date()
+
+
 def resolve_contact(db: Session, contact_type: str, contact_id: int):
     model = {"lead": Lead, "client": Client, "student": Student}.get(contact_type)
     return db.get(model, contact_id) if model else None
@@ -91,7 +97,7 @@ def render_context(db: Session, contact_type: str, contact, payload: Optional[di
     review_link = str(setting(db, "review_link", "") or "").strip()
     ctx = {"name": first, "student": student, "teacher": teacher, "course": course, "college": "Online Quran College",
            "link": settings.BASE_URL + "/portal", "review_link": review_link or REVIEW_LINK_FALLBACK,
-           "amount": payload.get("amount", ""), "date": payload.get("date", date.today().strftime("%d %b %Y"))}
+           "amount": payload.get("amount", ""), "date": payload.get("date", _org_today().strftime("%d %b %Y"))}
     ctx.update({k: v for k, v in payload.items() if isinstance(v, (str, int, float))})
     return ctx
 
@@ -432,7 +438,7 @@ def _create_task(db: Session, contact_type: str, contact, step: dict, ctx: dict,
     users = _staff_recipients(db, contact_type, contact, step.get("to", "assigned"))
     assignee = users[0] if users else None
     title = crm.render_template_body(step.get("title") or wf.name, ctx)
-    due = date.today() + timedelta(days=int(step.get("due_days") or 1))
+    due = _org_today() + timedelta(days=int(step.get("due_days") or 1))
     t = Task(title=f"{title}: {contact_label(contact_type, contact)}"[:200], description=step.get("body") or f"Created by workflow {wf.code} {wf.name}.",
              assignee_id=assignee.id if assignee else None, priority=step.get("priority") or "medium", status="todo", due_date=due,
              entity_type=contact_type, entity_id=contact.id)

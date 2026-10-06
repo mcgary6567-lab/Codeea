@@ -533,7 +533,8 @@ def test_create_task_step_creates_an_ops_task_linked_to_the_contact(s):
     assert task.assignee_id == lead.assigned_to_id
     assert task.title.startswith(f"Call {lead.full_name.split()[0]}: {lead.lead_code}")
     assert task.priority == "high" and task.status == "todo"
-    assert task.due_date == datetime.utcnow().date() + timedelta(days=3)
+    from app.services.people import org_now
+    assert task.due_date == org_now().date() + timedelta(days=3)  # the college's calendar, not the server's
     assert wf.code in (task.description or "")
     assert run.log[0]["result"] == f"task #{task.id} for {closer(s).full_name}"
 

@@ -31,6 +31,7 @@ from app.models.ops import MigrationJob
 from app.models.people import Client
 from app.services import migration as mig
 from app.services import system as sys_svc
+from app.services import roles as role_svc
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(csrf_protect)])
 
@@ -126,6 +127,11 @@ async def user_create(request: Request, db: Session = Depends(get_db), user: Use
     errs = password_strength_errors(raw)
     if errs:
         return redirect("/admin/users/new", "Password too weak: " + ", ".join(errs), "error")
+    chosen_role = db.get(Role, parse_int(form.get("role_id"))) if form.get("role_id") else None
+    if chosen_role is not None:
+        refused = role_svc.can_assign(user, User(id=-1, email=email, is_superuser=False), chosen_role)
+        if refused:
+            return redirect("/admin/users/new", refused, "error")
     obj = User(
         email=email, username=sys_svc.username_from_email(db, email), full_name=full_name,
         hashed_password=hash_password(raw), role_id=parse_int(form.get("role_id")),
@@ -190,7 +196,12 @@ async def user_edit(user_id: int, request: Request, db: Session = Depends(get_db
             return redirect(f"/admin/users/{obj.id}", "That email address is already in use.", "error")
         obj.email = new_email
         obj.username = sys_svc.username_from_email(db, new_email, exclude_id=obj.id)
-    obj.role_id = parse_int(form.get("role_id"), obj.role_id)
+    new_role_id = parse_int(form.get("role_id"), obj.role_id)
+    if new_role_id != old_role:
+        refused = role_svc.can_assign(user, obj, db.get(Role, new_role_id) if new_role_id else None)
+        if refused:
+            return redirect(f"/admin/users/{obj.id}", refused, "error")
+    obj.role_id = new_role_id
     obj.department_id = parse_int(form.get("department_id"))
     obj.branch_id = parse_int(form.get("branch_id"))
     obj.phone = (form.get("phone") or "").strip() or None
@@ -369,12 +380,19 @@ def role_new(request: Request, clone: int | None = None, db: Session = Depends(g
 async def role_create(request: Request, db: Session = Depends(get_db), user: User = Depends(require("roles.add"))):
     form = await request.form()
     name = (form.get("name") or "").strip()
-    slug = (form.get("slug") or "").strip().lower().replace(" ", "_")
+    slug = role_svc.normalise_slug(form.get("slug") or name)
     if not name or not slug:
-        return redirect("/admin/roles/new", "Name and slug are required.", "error")
+        return redirect("/admin/roles/new", "A role name is required.", "error")
     if db.query(Role).filter(Role.slug == slug).first():
         return redirect("/admin/roles/new", f"A role with the slug '{slug}' already exists.", "error")
     source = db.get(Role, parse_int(form.get("clone_from"))) if form.get("clone_from") else None
+    if source is not None:
+        if role_svc.is_wildcard_role(source) and not user.is_superuser:
+            return redirect("/admin/roles/new", f"Only a superuser can clone the {source.name} role.", "error")
+        missing = role_svc.escalation(user, sys_svc.expand_permissions(source.permissions or []))
+        if missing:
+            return redirect("/admin/roles/new", f"{source.name} carries {len(missing)} permission(s) you do not hold, "
+                            "so you cannot clone it.", "error")
     obj = Role(name=name, slug=slug, description=(form.get("description") or "").strip() or None,
                portal=form.get("portal") or "admin", is_system=False,
                permissions=list(source.permissions or []) if source else [])
@@ -424,10 +442,16 @@ def role_detail(role_id: int, request: Request, db: Session = Depends(get_db),
     if not obj:
         raise PermissionDenied("roles.view")
     counts = sys_svc.role_user_counts(db)
+    candidates = (db.query(User).filter(User.is_active.is_(True), or_(User.role_id.is_(None), User.role_id != obj.id))
+                  .order_by(User.full_name).all())
+    assign_refusal = role_svc.can_assign(user, User(id=-1, is_superuser=False), obj)
     return render(request, "admin/role_detail.html", {
         "user": user, "obj": obj, "checked": sys_svc.expand_permissions(obj.permissions or []),
         "user_count": counts.get(obj.id, 0), "portals": PORTALS,
-        "members": db.query(User).filter(User.role_id == obj.id).order_by(User.full_name).limit(50).all()})
+        "members": db.query(User).filter(User.role_id == obj.id).order_by(User.full_name).limit(200).all(),
+        "candidates": [c for c in candidates if c.id != user.id],
+        "wildcard": role_svc.is_wildcard_role(obj), "assign_refusal": assign_refusal,
+        "other_roles": [r for r in _roles(db) if r.id != obj.id]})
 
 
 @router.post("/roles/{role_id}", include_in_schema=False)
@@ -444,13 +468,62 @@ async def role_save(role_id: int, request: Request, db: Session = Depends(get_db
     obj.name = (form.get("name") or obj.name).strip()
     obj.description = (form.get("description") or "").strip() or None
     obj.portal = form.get("portal") or obj.portal
+    if role_svc.is_wildcard_role(obj):
+        # The matrix cannot express "*" (it would freeze today's modules), so only the details are saved.
+        log_action(db, user, "update", "roles", entity=obj, severity="warning", consequential=True, rationale=rationale,
+                   description=f"Updated details of role {obj.name} (full-access permissions unchanged)",
+                   before=before, after=snapshot(obj), request=request)
+        db.commit()
+        return redirect(f"/admin/roles/{obj.id}", "Role details saved. Its full-access permissions cannot be narrowed.")
     checked = sys_svc.matrix_from_form(form, "p")
+    previous = sys_svc.expand_permissions(obj.permissions or [])
+    missing = role_svc.escalation(user, checked - previous)
+    if missing:
+        return redirect(f"/admin/roles/{obj.id}", f"You cannot grant {len(missing)} permission(s) you do not hold "
+                        f"yourself (for example {sorted(missing)[0]}).", "error")
     obj.permissions = sys_svc.compress_permissions(checked)
     log_action(db, user, "permission_change", "roles", entity=obj, severity="critical", consequential=True,
                rationale=rationale, description=f"Updated permission matrix for role {obj.name} ({len(checked)} permissions)",
                before=before, after=snapshot(obj), request=request)
     db.commit()
     return redirect(f"/admin/roles/{obj.id}", f"Role saved with {len(checked)} permissions.")
+
+
+@router.post("/roles/{role_id}/assign", include_in_schema=False)
+async def role_assign(role_id: int, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(require("users.update"))):
+    """Give this role to the selected users (or, with move_to, move selected members to another role)."""
+    obj = db.get(Role, role_id)
+    if not obj:
+        raise PermissionDenied("users.update")
+    form = await request.form()
+    rationale = _need_rationale(form)
+    if not rationale:
+        return redirect(f"/admin/roles/{obj.id}#assign", "A rationale is required to change who holds a role.", "error")
+    ids = [i for i in (parse_int(v) for v in form.getlist("user_ids")) if i]
+    if not ids:
+        return redirect(f"/admin/roles/{obj.id}#assign", "Select at least one user.", "error")
+    target_role = obj
+    if form.get("move_to"):
+        target_role = db.get(Role, parse_int(form.get("move_to")))
+        if target_role is None:
+            return redirect(f"/admin/roles/{obj.id}#members", "Choose the role to move them to.", "error")
+    done, refused = 0, []
+    for uid in ids:
+        target = db.get(User, uid)
+        if target is None:
+            continue
+        reason = role_svc.assign_role(db, user, target, target_role, rationale, request=request)
+        if reason:
+            refused.append(f"{target.full_name}: {reason}")
+        else:
+            done += 1
+    db.commit()
+    verb = f"moved to {target_role.name}" if target_role is not obj else f"given the {obj.name} role"
+    msg = f"{done} user(s) {verb}."
+    if refused:
+        msg += " Not changed: " + "; ".join(refused[:5]) + (f" (+{len(refused) - 5} more)" if len(refused) > 5 else "")
+    return redirect(f"/admin/roles/{obj.id}#members", msg, "success" if done and not refused else ("warning" if done else "error"))
 
 
 @router.post("/roles/{role_id}/delete", include_in_schema=False)

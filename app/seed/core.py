@@ -5,9 +5,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.core.rbac import ROLE_DEFINITIONS
 from app.core.security import hash_password
-from app.models.core import Organization, Branch, Department, Role, User, Integration, NotificationTemplate, Setting
+from app.models.core import Organization, Branch, Department, User, Integration, NotificationTemplate, Setting
 from app.models.finance import Currency
 from app.services.integrations import PROVIDERS
 
@@ -114,17 +113,10 @@ def run(db: Session) -> None:
             db.flush()
         dept_by_code[code] = d
 
-    role_by_slug = {}
-    for slug, spec in ROLE_DEFINITIONS.items():
-        r = db.query(Role).filter(Role.slug == slug).first()
-        if not r:
-            r = Role(slug=slug, name=spec["name"], portal=spec["portal"], permissions=spec["permissions"], is_system=True)
-            db.add(r)
-        else:
-            r.permissions = spec["permissions"]
-            r.portal = spec["portal"]
-        db.flush()
-        role_by_slug[slug] = r
+    # The seed runs on every deploy. It used to reset each built-in role to the code defaults, which undid
+    # every permission an administrator had changed. sync_system_roles applies only what the code changed.
+    from app.services.roles import sync_system_roles
+    role_by_slug = sync_system_roles(db)
 
     branch = db.query(Branch).first()
     for email, pwd, name, role_slug, dept in USERS:

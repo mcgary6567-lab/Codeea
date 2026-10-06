@@ -2,9 +2,9 @@
 {% import "macros.html" as ui %}
 {% block title %}Roles{% endblock %}
 {% block content %}
-{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Read only — the role editor lives on Roles & Permissions.", back="/config") %}
-  {% if can_edit %}{{ ui.button("Edit roles", href="/admin/roles", icon="shield", variant="secondary") }}{% endif %}
-  {{ ui.button("Assign users", href="/admin/users", icon="user-cog", variant="secondary") }}
+{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Open a role to edit its permissions or assign users to it.", back="/config") %}
+  {{ ui.button("Compare roles", href="/admin/roles/compare", icon="git-compare", variant="secondary") }}
+  {% if can_create %}{{ ui.button("Create role", href="/admin/roles/new", icon="plus") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -35,16 +35,17 @@
   <td class="px-3 py-2">{{ ui.badge(row.status) }}</td>
   <td class="px-3 py-2 text-center text-xs font-semibold">{{ row.users }}</td>
   <td class="px-3 py-2 text-right whitespace-nowrap">
-    {{ ui.button('Permissions', href='/admin/roles', variant='ghost', size='sm', icon='shield') }}
-    {{ ui.button('Assign Users', href='/admin/users?role=' ~ row.r.slug, variant='ghost', size='sm', icon='user-plus') }}
+    {{ ui.button('Permissions', href='/admin/roles/' ~ row.r.id, variant='ghost', size='sm', icon='shield') }}
+    {% if can_assign %}{{ ui.button('Assign Users', href='/admin/roles/' ~ row.r.id ~ '#assign', variant='ghost', size='sm', icon='user-plus') }}{% endif %}
+    {% if row.users %}{{ ui.button('View users', href='/admin/users?role=' ~ row.r.slug, variant='ghost', size='sm', icon='users') }}{% endif %}
   </td>
 </tr>
 {% endfor %}
 {% else %}{{ ui.empty('No roles match these filters.', 6, 'shield') }}{% endfor %}
 {{ ui.table_end() }}
 <p class="mt-2 text-xs text-slate-500">
-  A role counts as active once it carries at least one permission. Permissions and portal assignment are edited on
-  <a href="/admin/roles" class="text-brand-700 hover:underline">Roles &amp; Permissions</a>; this page exists so the
-  Configuration area shows the same grouping the college's ERP does.
+  A role counts as active once it carries at least one permission. <b>Permissions</b> opens the role's permission
+  matrix; <b>Assign Users</b> opens the same page at the panel that gives the role to people. You can only grant
+  permissions you hold yourself, and nobody can change their own role.
 </p>
 {% endblock %}

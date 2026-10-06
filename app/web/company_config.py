@@ -1053,7 +1053,9 @@ def roles_page(request: Request, app: str = "", q: str = "", db: Session = Depen
                   "assigned": sum(counts.values()),
                   "system": db.query(func.count(Role.id)).filter(Role.is_system.is_(True)).scalar() or 0,
                   "apps": len(by_app)},
-        "can_edit": rbac.has_permission(user, "roles.update")})
+        "can_edit": rbac.has_permission(user, "roles.configure"),
+        "can_create": rbac.has_permission(user, "roles.add"),
+        "can_assign": rbac.has_permission(user, "users.update")})
 
 
 # =============================================================================== 10. Confido Agents

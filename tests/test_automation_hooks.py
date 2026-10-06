@@ -40,6 +40,7 @@ from app.models.people import Client, Student
 from app.models.scheduling import ClassSession, Trial
 from app.services import academic, billing, crm
 from app.services import automation as auto
+from app.services.people import org_now  # task due dates follow the college's calendar
 
 TAG = f"TEST-{uuid4().hex[:8]}"
 MADE: dict[str, set[int]] = {"lead": set(), "client": set(), "student": set()}
@@ -465,7 +466,7 @@ def test_freeze_resume_and_cancel_run_the_leave_and_freeze_pipeline(s):
     assert not auto.has_tag(s, "client", client.id, "status:enrolled")
     winback = (s.query(Task).filter(Task.entity_type == "client", Task.entity_id == client.id, Task.id > START["task"],
                                     Task.title.like("Win-back call%")).one())
-    assert winback.assignee_id == client.billing_rep_id and winback.due_date == today + timedelta(days=3)
+    assert winback.assignee_id == client.billing_rep_id and winback.due_date == org_now().date() + timedelta(days=3)
 
 
 # --------------------------------------------------------------------------- academics (app/services/academic.py)
