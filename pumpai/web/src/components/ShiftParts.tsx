@@ -181,9 +181,10 @@ function ReportBody({ r }: { r: any }) {
         <div><div className="text-lg font-bold">{sh.attendant}</div><div className="text-slate-600">{sh.station_name}</div></div>
         <div className="text-right text-slate-600"><div>{dt(sh.opened_at)} → {closed ? dt(sh.closed_at) : "still open"}</div><div>{Math.floor(hours)}h {Math.round((hours % 1) * 60)}m</div></div>
       </div>
+      {/* exact: green; a small short / over: amber; short by more than Rs 500: red */}
       {closed && (
-        <div className={`flex items-center gap-2 rounded-lg p-3 ${sh.variance < -500 ? "bg-red-50 text-red-800" : "bg-emerald-50 text-emerald-800"}`}>
-          {sh.variance < -500 ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+        <div className={`flex items-center gap-2 rounded-lg p-3 ${sh.variance < -500 ? "bg-red-50 text-red-800" : Math.abs(sh.variance ?? 0) >= 0.5 ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
+          {Math.abs(sh.variance ?? 0) >= 0.5 ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
           <span className="font-medium">{sh.variance < 0 ? `Cash short ${pkr(-sh.variance)}` : sh.variance > 0 ? `Cash over ${pkr(sh.variance)}` : "Cash matches exactly"}</span>
         </div>
       )}
@@ -224,7 +225,7 @@ function ReportBody({ r }: { r: any }) {
       {r.fuels?.length > 0 && (
         <div>
           <h3 className="mb-1 text-sm font-semibold">Each fuel: meter → khata → online → cash · <Ur>ہر فیول کا حساب</Ur></h3>
-          <div className="grid gap-2 sm:grid-cols-2">{r.fuels.map((f: any) => (
+          <div className="grid gap-2 sm:grid-cols-2">{r.fuels.filter((f: any) => f.meter_l > 0 || f.cash > 0 || f.khata_l > 0).map((f: any) => (
             <div key={f.product} className="rounded-lg bg-slate-50 p-2.5 text-sm">
               <div className="flex justify-between font-semibold"><span>{PRODUCTS[f.product]}</span><span className="tabular-nums">{num(f.meter_l, 2)} L</span></div>
               {f.test_l > 0 && <FuelLine k="− Put back in tank" l={f.test_l} />}
@@ -287,8 +288,8 @@ function ReportBody({ r }: { r: any }) {
         <div>
           <h3 className="mb-1 text-sm font-semibold">Khata accounts</h3>
           <table className="w-full"><tbody>{r.khata.map((k: any) => (
-            <tr key={k.id}><td className="td text-sm">{k.name}<div className="text-xs text-slate-500">{k.slips} slip{k.slips > 1 ? "s" : ""}{k.slip_nos.length ? `: ${k.slip_nos.join(", ")}` : ""}</div>{k.photo_ids?.length > 0 && <div className="mt-1"><ProofThumbs ids={k.photo_ids} /></div>}</td>
-              <td className="td text-right tabular-nums">{num(k.litres, 2)} L</td><td className="td text-right tabular-nums">{pkr(k.amount)}</td></tr>
+            <tr key={k.id}><td className="td min-w-0 text-sm">{k.name}<div className="text-xs text-slate-500">{k.slips} slip{k.slips > 1 ? "s" : ""}{k.slip_nos.length ? `: ${k.slip_nos.join(", ")}` : ""}</div>{k.photo_ids?.length > 0 && <div className="mt-1"><ProofThumbs ids={k.photo_ids} /></div>}</td>
+              <td className="td whitespace-nowrap text-right align-top tabular-nums"><b>{pkr(k.amount)}</b><div className="text-xs text-slate-500">{num(k.litres, 2)} L</div></td></tr>
           ))}</tbody></table>
         </div>
       )}
