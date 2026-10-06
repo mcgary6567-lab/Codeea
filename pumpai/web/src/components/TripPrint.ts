@@ -35,6 +35,20 @@ const CSS = `
   .note { margin-top: 6px; font-size: 11px; color: #334155; }
   img.logo { height: 40px; max-width: 140px; object-fit: contain; display: block; margin-bottom: 2px; }
   @page { size: A4; margin: 0; }
+  .bar { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0f172a; color: #fff; }
+  .bar button { font: 600 15px system-ui, sans-serif; border: 0; border-radius: 8px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
+  .bar .go { background: #059669; color: #fff; } .bar .x { background: #334155; color: #fff; }
+  .bar span { font-size: 12px; color: #cbd5e1; }
+  @media print { .bar { display: none; } }
+  /* reading it on a phone before printing or sharing as PDF */
+  @media screen and (max-width: 640px) {
+    .page { padding: 12px 10px; }
+    .copy { padding: 10px; }
+    .head { flex-direction: column; } .title { text-align: left; }
+    .grid { grid-template-columns: 1fr; }
+    .signs { gap: 8px; } .signs div { font-size: 10px; }
+    th, td { padding: 4px 5px; } table { font-size: 12px; }
+  }
 `;
 
 function header(t: any, title: string, sub: string, tag?: string) {
@@ -87,18 +101,34 @@ export function tripSheetPage(t: any) {
 }
 
 /** Print HTML on its own (no app around it) through a hidden frame. */
+const doc = (title: string, body: string, bar = "") =>
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><base href="${location.origin}/"><style>${CSS}</style></head><body>${bar}${body}</body></html>`;
+
+/** Phones print the page around a hidden frame, so there the papers open in their own tab with a Print / PDF button. */
+const onPhone = () => window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
+
 export function printPages(title: string, body: string) {
+  if (onPhone()) {
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.open();
+      w.document.write(doc(title, body, `<div class="bar"><button class="x" onclick="window.close()">✕ Close</button><span>${esc(title)}</span><button class="go" onclick="window.print()">🖨 Print / PDF</button></div>`));
+      w.document.close();
+      return;
+    }
+    // pop-up blocked: fall back to the frame
+  }
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   Object.assign(frame.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
   document.body.appendChild(frame);
-  const doc = frame.contentDocument!;
-  doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><base href="${location.origin}/"><style>${CSS}</style></head><body>${body}</body></html>`);
-  doc.close();
+  const d = frame.contentDocument!;
+  d.open();
+  d.write(doc(title, body));
+  d.close();
   const go = () => { frame.contentWindow!.focus(); frame.contentWindow!.print(); setTimeout(() => frame.remove(), 60_000); };
   // wait for the logo so it is on the paper
-  const imgs = [...doc.images].filter((i) => !i.complete);
+  const imgs = [...d.images].filter((i) => !i.complete);
   if (!imgs.length) setTimeout(go, 50);
   else Promise.all(imgs.map((i) => new Promise((r) => { i.onload = i.onerror = r; }))).then(go);
 }
