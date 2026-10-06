@@ -229,4 +229,6 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   near(ov.online.total, desk.online.total, "owner = cashier");
   assert.ok(ov.online.month_total >= ov.online.total - 0.05, "month includes today");
   assert.ok(ov.online.month.some((x: any) => x.method === "card"));
+  // and the manager's desk too
+  near(ok(await call("manager", "GET", "/api/dashboard/desk"), "manager desk").online.total, desk.online.total, "manager = cashier");
 });

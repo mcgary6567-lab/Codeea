@@ -10,6 +10,7 @@ import { PRODUCTS } from "../config.js";
 import { tankOutlook } from "../ai/analytics.js";
 import { shiftSummary } from "../shifts.js";
 import { meterSales } from "./reports.js";
+import { onlineToday } from "./cashier.js";
 
 export const managerDesk = Router();
 const DAY = 86_400_000;
@@ -119,6 +120,8 @@ managerDesk.get("/dashboard/desk", requirePerm("dashboard.view"), h((req) => {
   sug.sort((a, b) => order[a.level] - order[b.level]);
   return {
     shifts, staff, pending: pend,
+    // today's online money (card / JazzCash / Easypaisa / Raast): same figures as the owner's and the cashier's view
+    online: onlineToday(tid(req)),
     staff_summary: { on_duty: staff.filter((s) => s.status === "present" || s.status === "late").length, late: staff.filter((s) => s.status === "late").length, missing: missing.length, total: staff.length },
     cash_in_shifts: Math.round(shifts.reduce((a, s) => a + s.cash_expected, 0)),
     khata_overdue: Math.round(old.reduce((a, c) => a + c.balance, 0)),

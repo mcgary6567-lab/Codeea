@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AlertOctagon, AlertTriangle, CheckCircle2, Clock, Droplets, Info, Lightbulb, Receipt, BookOpen, Tag, BarChart3, Users } from "lucide-react";
 import { useApi } from "../lib/api";
 import { Loading } from "./ui";
 import { BankSummary } from "./BankParts";
+import { OnlineToday } from "./OnlineMoney";
 import { useAuth } from "../App";
 import { num, pkr, pkrShort } from "../lib/format";
 
@@ -39,6 +40,7 @@ const Kpi = ({ label, value, sub, accent, to }: { label: string; value: React.Re
 /** Top of the manager / owner dashboard: one-tap actions, today's numbers, suggestions, live shifts and staff. */
 export function ManagerDesk({ k }: { k: any }) {
   const { data } = useApi<any>("/dashboard/desk", 60_000);
+  const nav = useNavigate();
   const { can } = useAuth();
   const [all, setAll] = useState(false);
   const vs = k.today.vs_yesterday_pct;
@@ -64,6 +66,8 @@ export function ManagerDesk({ k }: { k: any }) {
         <Kpi label="Open alerts" value={k.open_alerts} accent={k.open_alerts ? "text-red-600" : undefined} sub={`${k.whatsapp.human} chats need a person`} to="/alerts" />
       </div>
 
+      {/* the owner overview above already has it for users who can see reports */}
+      {!can("reports.view") && data?.online && <OnlineToday o={data.online} onBank={can("bank.view") ? () => nav("/cash") : undefined} />}
       {can("bank.view") && !can("reports.view") && <BankSummary />}
 
       <div className="card overflow-hidden">
