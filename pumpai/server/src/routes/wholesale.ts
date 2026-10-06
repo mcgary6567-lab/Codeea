@@ -17,6 +17,7 @@ import { recordPurchase } from "./suppliers.js";
 import { createExpense } from "./expenses.js";
 import { claimForTrip } from "./claims.js";
 import { guardClosedDay } from "./backoffice.js";
+import { profile } from "./setup.js";
 import { deliverOrder, deskSuggestions, openOrders, promises, cheques } from "./wholesaleDesk.js";
 
 export const wholesale = Router();
@@ -621,7 +622,12 @@ export function tripSheet(t: number, id: number) {
     profit: round2(billed - (trip.cost ?? 0) - (trip.freight ?? 0)),
     claims: all("SELECT id, product, litres, amount, recovered, status FROM shortage_claims WHERE trip_id=? ORDER BY id", id),
   } : null;
-  return { ...trip, drops, delivered_l: delivered, billed, depot };
+  // the header of the printed challans: who is delivering
+  const biz = profile(t);
+  const st = get("SELECT name, address, city FROM stations WHERE id=?", trip.station_id)!;
+  const business = { name: biz.name, phone: biz.biz_phone || biz.owner_phone, address: biz.biz_address || [st.address, st.city].filter(Boolean).join(", "),
+    city: biz.biz_city || st.city, ntn: biz.ntn, strn: biz.strn, logo_url: biz.logo_url, footer: biz.receipt_footer, station: st.name };
+  return { ...trip, drops, delivered_l: delivered, billed, depot, business };
 }
 wholesale.get("/wholesale/trips", h((req) => all(`SELECT tr.*, s.name station_name, sp.name supplier_name FROM wholesale_trips tr JOIN stations s ON s.id=tr.station_id LEFT JOIN suppliers sp ON sp.id=tr.supplier_id
   WHERE tr.tenant_id=? ORDER BY tr.trip_date DESC, tr.id DESC LIMIT 100`, tid(req))));

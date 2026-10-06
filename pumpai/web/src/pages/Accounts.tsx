@@ -46,6 +46,7 @@ const STATUS_TONE: Record<string, string> = { open: "amber", claimed: "blue", pa
 function Claims() {
   const [status, setStatus] = useState("");
   const [settle, setSettle] = useState<any | null>(null);
+  const [more, setMore] = useState(false); // phone: the newest few first, the rest on a tap
   const { data, reload } = useApi<any>(`/claims${status ? `?status=${status}` : ""}`);
   const { busy, run } = useAction();
   if (!data) return <Loading />;
@@ -58,13 +59,13 @@ function Claims() {
         <Stat label="Recovered" value={pkr(s.recovered)} tone="green" hint="Credit notes from the depot" />
         <Stat label="Written off" value={pkr(s.written_off)} />
       </div>
-      <div className="card p-3 text-sm text-slate-600">Every tanker that arrives short by more than <b>{data.tolerance_pct}%</b> (allowed transit loss) becomes a claim of the extra litres × purchase rate. The allowed loss can be changed by the admin.</div>
+      <div className="card p-3 text-sm text-slate-600">Every tanker that arrives short by more than <b>{data.tolerance_pct}%</b> (allowed transit loss) becomes a claim of the extra litres × purchase rate — also a depot-direct trip when the depot billed more than the clients got. The allowed loss can be changed by the admin.</div>
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[1fr_300px]">
         <div className="card overflow-x-auto">
           <div className="flex gap-1 overflow-x-auto p-2 text-sm">{["", "open", "claimed", "partly", "recovered", "written_off"].map((x) => <button key={x} onClick={() => setStatus(x)} className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 py-1 ${status === x ? "bg-brand-600 text-white" : "bg-slate-100"}`}>{x ? x.replace("_", " ") : "All"}</button>)}</div>
           {/* phone: one card per claim, the action button full size */}
           <ul className="divide-y divide-slate-100 border-t border-slate-100 sm:hidden">
-            {data.claims.map((c: any) => (
+            {(more ? data.claims : data.claims.slice(0, 10)).map((c: any) => (
               <li key={c.id} className="px-3 py-2.5 text-sm">
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0"><b>{c.tanker_no ?? "—"}</b> <span className="text-slate-500">· {c.supplier_name ?? "—"}</span><span className="block text-xs text-slate-500">{day(c.delivered_at)} · {c.station} {c.tank}</span></span>
@@ -82,6 +83,7 @@ function Claims() {
               </li>
             ))}
           </ul>
+          {!more && data.claims.length > 10 && <button className="w-full border-t border-slate-100 py-3 text-sm font-medium text-brand-700 sm:hidden" onClick={() => setMore(true)}>Show {data.claims.length - 10} more</button>}
           <table className="hidden w-full min-w-[720px] text-sm sm:table">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Tanker</th><th>Depot</th><th className="text-right">Invoice / received</th><th className="text-right">Claim</th><th>Status</th><th /></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -109,7 +111,7 @@ function Claims() {
           <h3 className="mb-2 font-semibold">By depot</h3>
           <ul className="space-y-2 text-sm">{data.by_supplier.map((x: any) => (
             <li key={x.supplier}><div className="flex justify-between"><b>{x.supplier}</b><span className="tabular-nums">{pkr(x.amount)}</span></div>
-              <div className="text-xs text-slate-500">{x.n} tankers · {num(x.litres)} L short · recovered {pkr(x.recovered)}</div></li>))}</ul>
+              <div className="text-xs text-slate-500">{x.n} claims · {num(x.litres)} L short · recovered {pkr(x.recovered)}</div></li>))}</ul>
         </div>
       </div>
       {settle && <SettleClaim c={settle} onClose={() => setSettle(null)} onDone={() => { setSettle(null); reload(); }} />}

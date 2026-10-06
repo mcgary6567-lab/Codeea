@@ -34,7 +34,7 @@ function ClientList() {
   const action = params.get("do"); // add-client | trip | rate | tanker | driver (from the menu)
   const setTab = (t: string) => setParams(t === "dashboard" ? {} : { tab: t });
   const clearAction = () => { const p = new URLSearchParams(params); p.delete("do"); setParams(p, { replace: true }); };
-  const [sheet, setSheet] = useState<number | null>(null);
+  const [sheet, setSheet] = useState<any | null>(null); // the trip just saved
   const [tripsKey, setTripsKey] = useState(0);
   const s = summary.data;
 
@@ -60,9 +60,9 @@ function ClientList() {
           </div>
         )}
       </>}
-      {action === "trip" && <TripForm onClose={clearAction} onDone={(t) => { clearAction(); summary.reload(); setTripsKey((k) => k + 1); setSheet(t.id); }} />}
+      {action === "trip" && <TripForm onClose={clearAction} onDone={(t) => { clearAction(); summary.reload(); setTripsKey((k) => k + 1); setSheet(t); }} />}
       {action === "rate" && <ClientPicker title="Change rate — which client?" onClose={clearAction} onPick={(c) => nav(`/wholesale/${c.id}?do=rates`)} />}
-      {sheet && <TripSheet id={sheet} onClose={() => setSheet(null)} />}
+      {sheet && <TripSheet id={sheet.id} initial={sheet} onClose={() => setSheet(null)} />}
       {action === "add-client" && <ClientForm onClose={clearAction} onSaved={(c) => nav(`/wholesale/${c.id}`)} />}
     </div>
   );

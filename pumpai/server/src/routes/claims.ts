@@ -18,7 +18,7 @@ export const claims = Router();
 const tolerance = (t: number) => Number(getSetting(t, "shortage_tolerance_pct", "0.2"));
 
 /** One claim row with where it came from: a tanker into our tank, or a depot-direct trip straight to clients. */
-const CLAIM_COLS = `c.*, COALESCE(d.tanker_no, tr.vehicle_no, tr.depot_ref) tanker_no, COALESCE(d.invoice_l, c.invoice_l) invoice_l, COALESCE(d.received_l, c.received_l) received_l,
+const CLAIM_COLS = `c.*, COALESCE(d.tanker_no, tr.vehicle_no, tr.depot_ref, CASE WHEN tr.id IS NOT NULL THEN 'Trip #' || tr.id END) tanker_no, COALESCE(d.invoice_l, c.invoice_l) invoice_l, COALESCE(d.received_l, c.received_l) received_l,
   COALESCE(d.shortage_pct, ROUND((c.invoice_l - c.received_l) * 100.0 / c.invoice_l, 2)) shortage_pct, COALESCE(d.created_at, tr.trip_date) delivered_at,
   COALESCE(tk.product, c.product) product, COALESCE(tk.name, 'Depot direct · trip #' || tr.id) tank, st.name station, sp.name supplier_name, sp.phone supplier_phone, tr.depot_ref`;
 const CLAIM_FROM = `FROM shortage_claims c LEFT JOIN deliveries d ON d.id=c.delivery_id LEFT JOIN tanks tk ON tk.id=d.tank_id LEFT JOIN wholesale_trips tr ON tr.id=c.trip_id
