@@ -463,7 +463,11 @@ cashier.get("/cashier/desk", requirePerm("cashier.desk"), h((req) => {
   const banks = can(req.user, "bank.view") ? bankAccounts(t) : null;
   const promised = promises(t).filter((p) => p.state === "today" || p.state === "broken").map((p) => ({ client_id: p.client_id, name: p.client_name, amount: p.amount, promised_on: p.promised_on, state: p.state }));
   const book = cashierDayBook(t, today);
-  const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => ({ ...v, no: vno(v.direction, v.id) }));
+  // with the bank account's name, so a voucher printed again from the list says where the money went
+  const vouchers = all("SELECT * FROM cashier_vouchers WHERE tenant_id=? AND created_at >= ? ORDER BY id DESC LIMIT 8", t, pkDayStart()).map((v) => {
+    const acc = v.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", v.account_id) : null;
+    return { ...v, no: vno(v.direction, v.id), account: acc ? accountName(acc) : null };
+  });
   const counted = cash.last_count && cash.last_count.at >= pkDayStart();
   const online = onlineToday(t);
   const payables = all("SELECT id, name FROM suppliers WHERE tenant_id=?", t).map((s) => ({ id: s.id, name: s.name, owed: round2(supplierOwed(s.id)) })).filter((s) => s.owed > 0).sort((a, b) => b.owed - a.owed).slice(0, 5);

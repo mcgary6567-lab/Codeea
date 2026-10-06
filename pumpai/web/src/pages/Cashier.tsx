@@ -166,7 +166,7 @@ function Desk({ go, onSlip }: { go: (k: string, extra?: Record<string, string>) 
         <div className="card">
           <h2 className="p-4 pb-1 font-semibold">Today's vouchers · <Ur>آج کی رسیدیں</Ur></h2>
           <ul className="divide-y divide-slate-100">{data.vouchers.map((v: any) => (
-            <li key={v.id}><button onClick={() => onSlip({ voucher: v })} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
+            <li key={v.id}><button onClick={() => onSlip({ voucher: v, account: v.account })} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-slate-50">
               <span className={`w-16 shrink-0 font-mono text-xs ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.no}</span>
               <span className="min-w-0 flex-1 truncate">{v.party_name}<span className="block text-xs text-slate-500">{v.method} · {ago(v.created_at)}</span></span>
               <span className={`font-semibold tabular-nums ${v.direction === "in" ? "text-emerald-700" : "text-rose-700"}`}>{v.direction === "in" ? "+" : "−"}{pkr(v.amount)}</span>
