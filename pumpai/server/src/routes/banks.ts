@@ -24,6 +24,12 @@ export const accountName = (a: Row) =>
   `${a.bank}${a.branch ? ` ${a.branch}` : ""}${a.account_no ? ` ··${String(a.account_no).replace(/[^0-9A-Za-z]/g, "").slice(-4)}` : ""}`;
 
 const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
+/**
+ * A wholesale client paid our supplier (depot) straight: the client's due and what we owe the depot both go down,
+ * no money touches our cash or banks. Both entries carry this method.
+ */
+export const DEPOT_PAY = "Paid to depot";
+export const notDepot = (col: string) => `LOWER(COALESCE(${col},''))<>'paid to depot'`;
 
 /**
  * The account a payment names, checked to belong to this pump. Cash never goes to a bank account;
@@ -148,7 +154,7 @@ export function bankAccounts(t: number) {
 export function unlinkedMoney(t: number) {
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
   const one = (sql: string, ...a: unknown[]) => round2(get(sql, ...(a as []))!.v ?? 0);
-  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','')`;
+  const nonCash = (col: string) => `${col} IS NOT NULL AND LOWER(TRIM(${col})) NOT IN ('cash','wht','','paid to depot')`;
   const map = posMap(t);
   const unmapped = POS_DIGITAL.filter((m) => !map[m]);
   const pos = unmapped.length ? one(`SELECT COALESCE(SUM(s.amount),0) v FROM sales s JOIN stations st ON st.id=s.station_id

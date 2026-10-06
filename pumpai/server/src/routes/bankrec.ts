@@ -51,7 +51,7 @@ interface BookEntry { key: string; side: "in" | "out"; at: string; amount: numbe
 function bookEntries(t: number, from: string, to: string, bank?: string): BookEntry[] {
   const P = [t, from, to] as const;
   const like = bank ? `%${bank}%` : "%";
-  const notCash = "LOWER(COALESCE(method,'')) NOT IN ('cash','wht','')";
+  const notCash = "LOWER(COALESCE(method,'')) NOT IN ('cash','wht','','paid to depot')";
   return [
     ...all("SELECT id, amount, created_at, bank, slip_ref FROM bank_deposits WHERE tenant_id=? AND created_at >= ? AND created_at < ? AND bank LIKE ?", ...P, like)
       .map((r) => ({ key: `dep${r.id}`, side: "in" as const, at: r.created_at, amount: r.amount, what: `Cash deposited (${r.bank})`, ref: r.slip_ref ?? "" })),

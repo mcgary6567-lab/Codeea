@@ -42,7 +42,7 @@ before(async () => {
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 let d0: any, shiftSummary: any, shiftLitres: Record<string, number> = {}, khataAmt = 0;
-let delivered = 0, purchaseCost = 0, wsLitres = 0, wsAmount = 0;
+let delivered = 0, purchaseCost = 0, wsLitres = 0, wsAmount = 0, supId = 0, supOwed0 = 0;
 const EXPENSE = 450;
 
 test("before: today's book matches the tanks", async () => {
@@ -96,6 +96,7 @@ test("admin/manager: tanker from a supplier and a wholesale supply", async () =>
   delivered = Math.min(2000, Math.floor(tank.capacity_l - tank.current_l - 1));
   assert.ok(delivered > 100, "room in the tank");
   const sup = ok(await call("admin", "GET", "/api/suppliers"), "suppliers")[0];
+  supId = sup.id; supOwed0 = sup.owed;
   ok(await call("manager", "POST", "/api/stock/delivery", { tank_id: tank.id, invoice_l: delivered, received_l: delivered, supplier_id: sup.id, purchase_rate: 250, tanker_no: "TLR-1" }), "delivery");
   purchaseCost = delivered * 250;
 
@@ -137,7 +138,11 @@ test("admin dashboard: today's sales, expenses, supply, stock left and its value
   nearRs(d1.stock.value_at_cost, d1.stock.products.reduce((a: number, x: any) => a + x.value_at_cost, 0), "total stock value");
 
   // balances: we owe the supplier for the tanker; the khata customer and wholesale client owe us
-  nearRs(d1.payables - d0.payables, purchaseCost, "payables up by the tanker");
+  // the supplier's own balance goes up by the tanker. The payables total only counts suppliers we owe (a demo supplier can
+  // be in advance at some hours of the day), so it moves by the part of the tanker above zero
+  const owedNow = ok(await call("admin", "GET", "/api/suppliers"), "suppliers").find((x: any) => x.id === supId).owed;
+  nearRs(owedNow - supOwed0, purchaseCost, "supplier owed up by the tanker");
+  nearRs(d1.payables - d0.payables, Math.max(0, owedNow) - Math.max(0, supOwed0), "payables up by the tanker");
   nearRs(d1.receivables - d0.receivables, khataAmt + wsAmount, "receivables up by khata + wholesale");
   assert.ok(d1.shifts.closed - d0.shifts.closed === 1 && d1.shifts.variance - d0.shifts.variance < 0, "short cash shows on the dashboard");
 

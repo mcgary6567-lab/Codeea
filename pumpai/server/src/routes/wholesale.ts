@@ -11,7 +11,7 @@ import { AppError, createAlert, normalizePhone, round2, pkr, currentPrices } fro
 import { PRODUCTS } from "../config.js";
 import { announce } from "../notifications.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountIdField } from "./banks.js";
+import { bankAccountFor, accountIdField, DEPOT_PAY } from "./banks.js";
 import { wholesaleReceipt, wholesaleRateMessage, sendWholesaleStatement, billLink, prevMonth } from "../billing.js";
 import { recordPurchase } from "./suppliers.js";
 import { createExpense } from "./expenses.js";
@@ -729,6 +729,8 @@ wholesale.post("/wholesale/txns/:id/void", requirePerm("wholesale.void"), h((req
       if (t.type === "return") run("UPDATE tanks SET current_l = MAX(0, current_l - ?) WHERE id=?", t.litres, t.tank_id);
     }
     run("UPDATE wholesale_txns SET voided=1, void_reason=? WHERE id=?", `${b.reason} (by ${req.user!.name})`, t.id);
+    // a payment made straight to our depot: the depot's side goes too
+    if (t.type === "payment" && t.method === DEPOT_PAY) run("DELETE FROM supplier_txns WHERE tenant_id=? AND ref=? AND method=?", tid(req), `wtx:${t.id}`, DEPOT_PAY);
     const c = get("SELECT name FROM wholesale_clients WHERE id=?", t.client_id)!;
     createAlert(tid(req), { type: "wholesale_void", severity: "info", title: `Wholesale ${t.type} #${t.id} voided — ${c.name}`, body: `${pkr(t.amount)}. Reason: ${b.reason}. By ${req.user!.name}.` });
     return { ...get("SELECT * FROM wholesale_txns WHERE id=?", t.id)!, due_after: clientDue(t.client_id) };

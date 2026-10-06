@@ -195,6 +195,8 @@ const IN_TYPES = [["khata", "Khata customer", "کھاتہ گاہک"], ["wholesal
 const OUT_TYPES = [["supplier", "Supplier", "سپلائر"], ["expense", "Expense", "خرچہ"], ["staff", "Staff advance", "ملازم ایڈوانس"], ["other", "Other", "دیگر"]] as const;
 const METHODS = [["Cash", "نقد"], ["Bank transfer", "بینک"], ["Raast", "راست"], ["JazzCash", "جاز کیش"], ["Easypaisa", "ایزی پیسہ"], ["Cheque", "چیک"]] as const;
 const isCash = (m: string) => m === "Cash";
+/** A wholesale client paid our supplier (depot) straight — the bypass: no money here, both accounts go down. */
+const DEPOT_PAY = "Paid to depot";
 
 function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<string, string>; onDone: (r: any) => void }) {
   const types = dir === "in" ? IN_TYPES : OUT_TYPES;
@@ -202,12 +204,17 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
   const [party, setParty] = useState<any>(null);
   const [f, setF] = useState({ amount: preset.amount ?? "", method: preset.method ?? "Cash", party_name: "", category: "", note: "", ref: "", bank: "", cheque_no: "", cheque_date: today(), notify: true });
   const [account, setAccount] = useState<number | null>(null);
+  const [depotId, setDepotId] = useState<number | null>(null);
   const [photos, setPhotos] = useState<number[]>([]);
   const cats = useApi<any>(dir === "out" && type === "expense" ? "/expense-categories" : null);
   const picks = useApi<any>("/bank/accounts/pick");
   const { busy, run } = useAction();
   const set = (k: string, v: any) => setF((x) => ({ ...x, [k]: v }));
   const cheque = f.method === "Cheque";
+  const depot = f.method === DEPOT_PAY;
+  const canDepot = dir === "in" && type === "wholesale";
+  const depots = useApi<any>(canDepot ? "/cashier/parties?kind=supplier" : null);
+  const depotRow = depots.data?.supplier?.find((x: any) => x.id === depotId);
   const needsParty = type !== "other" && type !== "expense";
   const amount = Number(f.amount) || 0;
   const after = party?.balance != null && amount ? (dir === "in" ? party.balance - amount : type === "staff" ? party.balance + amount : party.balance - amount) : null;
@@ -224,7 +231,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
     e.preventDefault();
     const body = {
       party_type: type, party_id: party?.id ?? null, party_name: f.party_name || null, category: f.category || null, amount, method: f.method,
-      account_id: isCash(f.method) ? null : account, ref: f.ref || null, note: f.note || null, photo_ids: photos, notify: f.notify,
+      account_id: isCash(f.method) || depot ? null : account, ...(depot ? { supplier_id: depotId } : {}), ref: f.ref || null, note: f.note || null, photo_ids: photos, notify: f.notify,
       cheque: cheque ? { bank: ourBank ?? f.bank, cheque_no: f.cheque_no, cheque_date: f.cheque_date } : null,
     };
     const r = await run(() => api(`/cashier/${dir === "in" ? "receive" : "pay"}`, { body }), (x: any) => `${x.voucher.no} saved · محفوظ`);
@@ -236,7 +243,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
       <h2 className="text-lg font-semibold">{dir === "in" ? <>Money received · <Ur>رقم وصول</Ur></> : <>Payment · <Ur>ادائیگی</Ur></>}</h2>
       <div className={`grid gap-2 ${types.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
         {types.map(([k, en, ur]) => (
-          <button type="button" key={k} onClick={() => { setType(k); setParty(null); if (k === "staff" && cheque) set("method", "Cash"); }} aria-pressed={type === k}
+          <button type="button" key={k} onClick={() => { setType(k); setParty(null); if ((k === "staff" && cheque) || (k !== "wholesale" && depot)) set("method", "Cash"); }} aria-pressed={type === k}
             className={`rounded-xl px-2 py-2 text-sm leading-tight ${type === k ? "bg-brand-600 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>{en}<Ur className="block text-xs">{ur}</Ur></button>
         ))}
       </div>
@@ -263,9 +270,27 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
               className={`rounded-xl px-1 py-2 text-xs leading-tight ${f.method === m ? "bg-slate-800 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>{m}<Ur className="block">{ur}</Ur></button>
           ))}
         </div>
+        {canDepot && <button type="button" onClick={() => set("method", DEPOT_PAY)} aria-pressed={depot}
+          className={`mt-2 w-full rounded-xl px-3 py-2.5 text-left text-sm leading-tight ${depot ? "bg-slate-800 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>
+          🏭 Client paid our depot direct (bypass) · <Ur>کلائنٹ نے سیدھا ڈپو کو دیا</Ur></button>}
       </fieldset>
 
-      {!isCash(f.method) && !(dir === "in" && cheque) && (
+      {depot && (
+        <div className="space-y-2 rounded-xl bg-sky-50 p-3">
+          <p className="text-sm text-sky-900">No money comes to us: {party?.name ?? "the client"}'s due goes down, and so does what we owe the depot. Nothing in the cash book or the bank.
+            <Ur className="block">ہمارے پاس رقم نہیں آئی — کلائنٹ کا بقایا اور ڈپو کا بقایا دونوں کم ہوں گے</Ur></p>
+          <fieldset>
+            <legend className="label">Which depot did the client pay? · <Ur>کس ڈپو کو</Ur> *</legend>
+            <div className="grid gap-2 sm:grid-cols-2">{(depots.data?.supplier ?? []).map((x: any) => (
+              <button type="button" key={x.id} aria-pressed={depotId === x.id} onClick={() => setDepotId(x.id)}
+                className={`flex min-h-12 items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm ${depotId === x.id ? "ring-2 ring-brand-600" : "ring-1 ring-slate-200"}`}>
+                <span className="min-w-0 font-semibold">{x.name}</span><span className="shrink-0 text-xs text-slate-500">{x.balance < 0 ? <>advance with them <b className="tabular-nums">{pkr(-x.balance)}</b></> : <>we owe <b className="tabular-nums">{pkr(x.balance)}</b></>}</span></button>))}</div>
+          </fieldset>
+          {depotRow && amount > 0 && <p className="text-sm">We owe {depotRow.name}: <b>{pkr(depotRow.balance)}</b> → after · <Ur>بعد میں</Ur>: <b>{pkr(depotRow.balance - amount)}</b></p>}
+        </div>
+      )}
+
+      {!isCash(f.method) && !depot && !(dir === "in" && cheque) && (
         <AccountPicker method={cheque ? "bank" : f.method} value={account} onChange={setAccount} required={dir === "out" || type === "other"}
           label={dir === "in" ? undefined : cheque ? "Cheque from which of our accounts? · کس اکاؤنٹ کا چیک" : "Paid from which account? · کس اکاؤنٹ سے"} />
       )}
@@ -290,11 +315,11 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
         <Field label="Ref / slip no. · حوالہ"><input className="input" value={f.ref} onChange={(e) => set("ref", e.target.value)} /></Field>
         <Field label="Note · نوٹ"><input className="input" value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
       </div>
-      <ProofPhotos value={photos} onChange={setPhotos} required={cheque} hint={cheque ? "photo of the cheque" : "receipt / slip / screenshot"} />
+      <ProofPhotos value={photos} onChange={setPhotos} required={cheque} hint={cheque ? "photo of the cheque" : depot ? "depot's deposit slip / receipt" : "receipt / slip / screenshot"} />
       {dir === "in" && type === "khata" && <label className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" className="h-5 w-5 shrink-0" checked={f.notify} onChange={(e) => set("notify", e.target.checked)} /> Send the receipt on WhatsApp · <Ur>رسید واٹس ایپ پر</Ur></label>}
 
       <button className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-lg font-bold text-white shadow active:scale-[.98] disabled:bg-slate-300 ${dir === "in" ? "bg-emerald-600" : "bg-rose-600"}`}
-        disabled={busy || !amount || (needsParty && !party) || (cheque && !photos.length)}>
+        disabled={busy || !amount || (needsParty && !party) || (cheque && !photos.length) || (depot && !depotId)}>
         <Check size={22} /> {dir === "in" ? <>Save receipt · <Ur>محفوظ</Ur></> : <>Save payment · <Ur>محفوظ</Ur></>}
       </button>
     </form>

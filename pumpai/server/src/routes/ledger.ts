@@ -3,12 +3,12 @@
  * with a trial balance. Download as CSV (Excel / QuickBooks journal import) or Tally XML.
  */
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { all, pkDate, pkStart, pkEnd } from "../db.js";
+import { all, get, pkDate, pkStart, pkEnd } from "../db.js";
 import { h, tid, requirePerm } from "../auth.js";
 import { AppError, round2 } from "../services.js";
 import { taxSettings, splitTax } from "./tax.js";
 import { PRODUCTS } from "../config.js";
-import { posMap } from "./banks.js";
+import { posMap, DEPOT_PAY } from "./banks.js";
 
 export const ledger = Router();
 
@@ -82,13 +82,17 @@ export function journal(t: number, fromDay: string, toDay: string) {
     const d = day(r.created_at);
     if (r.type === "supply") add(d, "Sales", `Wholesale supply — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}`, [dr("Wholesale receivable", r.amount), cr("Wholesale sales", r.amount)]);
     if (r.type === "return") add(d, "Credit note", `Wholesale return — ${r.name} ${r.litres} L`, [dr("Wholesale sales", r.amount), cr("Wholesale receivable", r.amount)]);
-    if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
+    // paid straight to our depot: what we owe the depot goes down instead of money coming in
+    const depot = r.type === "payment" && r.method === DEPOT_PAY ? get("SELECT p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.ref=?", `wtx:${r.id}`)?.name : null;
+    if (depot) add(d, "Journal", `Wholesale payment — ${r.name} paid ${depot} direct${r.ref ? ` (${r.ref})` : ""}`, [dr(`Payable — ${depot}`, r.amount), cr("Wholesale receivable", r.amount)]);
+    else if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
   }
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {
     const d = day(r.created_at), pay = `Payable — ${r.name}`;
     if (r.type === "purchase") add(d, "Purchase", `Fuel purchase — ${r.name} ${r.litres} L ${PRODUCTS[r.product] ?? ""} @ ${r.rate}${r.ref ? ` (${r.ref})` : ""}`, [dr("Fuel purchases", r.amount), cr(pay, r.amount)]);
+    if (r.type === "payment" && r.method === DEPOT_PAY) continue; // booked with the client's payment above
     if (r.type === "payment") add(d, "Payment", `${r.method === "WHT" ? "Income tax withheld" : "Paid"} — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(pay, r.amount), cr(r.method === "WHT" ? "Withholding tax payable" : via(r.method, r.account_id), r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Supplier adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr(r.amount < 0 ? pay : "Supplier adjustments", Math.abs(r.amount)), cr(r.amount < 0 ? "Shortage claims recovered" : pay, Math.abs(r.amount))]);
   }

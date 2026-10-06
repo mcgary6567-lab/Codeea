@@ -7,6 +7,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, pkDayStart, METER } from "../db.js";
+import { notDepot } from "./banks.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
@@ -213,11 +214,11 @@ export function buildReport(t: number, from: string, to: string) {
     purchases_cost: r0(stock.purchases.reduce((a, p) => a + p.cost, 0)),
     money_in: {
       cash_sales: r0(sales.by_payment.find((m) => m.method === "cash")?.amount ?? 0), digital_sales: r0(digital),
-      khata_collected: r0(khata.collected), wholesale_received: r0(wholesale.received),
+      khata_collected: r0(khata.collected), wholesale_received: r0(wholesale.received - (get(`SELECT COALESCE(SUM(amount),0) v ${W} AND type='payment' AND NOT ${notDepot("method")}`, ...P)!.v as number)),
     },
     money_out: {
       expenses: r0(expenses.total),
-      supplier_payments: r0(get(`SELECT COALESCE(SUM(amount),0) s FROM supplier_txns WHERE tenant_id=? AND type='payment' AND COALESCE(method,'')<>'WHT' AND txn_date >= ? AND txn_date < ?`, ...P)!.s),
+      supplier_payments: r0(get(`SELECT COALESCE(SUM(amount),0) s FROM supplier_txns WHERE tenant_id=? AND type='payment' AND COALESCE(method,'')<>'WHT' AND ${notDepot("method")} AND txn_date >= ? AND txn_date < ?`, ...P)!.s),
     },
     cash_variance: r0(shifts.totals!.variance),
   };

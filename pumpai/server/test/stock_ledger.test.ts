@@ -256,3 +256,31 @@ test("a depot pays a claim in cash or into the bank: cash book / bank up, suppli
   assert.equal(list.find((x: any) => x.id === c1.id).recovered_by, "cash");
   assert.equal(list.find((x: any) => x.id === c2.id).status, "recovered");
 });
+
+test("a wholesale client pays our depot direct (bypass): client due and depot balance both down, no cash or bank", async () => {
+  const day = () => call("admin", "GET", `/api/cashier/daybook?date=${today()}`);
+  const B = await books();
+  const db0 = (await day()).data;
+  const noDepot = await call("admin", "POST", "/api/cashier/receive", { party_type: "wholesale", party_id: W1.id, amount: 50000, method: "Paid to depot" });
+  assert.equal(noDepot.status, 400); assert.match(noDepot.data.error, /depot/i);
+  const khata = await call("admin", "POST", "/api/cashier/receive", { party_type: "other", party_name: "x", amount: 50000, method: "Paid to depot", supplier_id: S.id });
+  assert.equal(khata.status, 400, "only for wholesale clients");
+  const r = ok(await call("admin", "POST", "/api/cashier/receive", { party_type: "wholesale", party_id: W1.id, amount: 50000, method: "Paid to depot", supplier_id: S.id, ref: "DEP-9" }), "depot pay");
+  assert.ok(r.depot && r.message, "says what happened");
+  const A = await books();
+  near(A.due1 - B.due1, -50000, "client owes less");
+  near(A.owed - B.owed, -50000, "we owe the depot less");
+  near(r.depot.owed_after, A.owed, "owed after = supplier balance");
+  near(A.tb("Wholesale receivable") - B.tb("Wholesale receivable"), -50000, "ledger receivable");
+  near(A.tb(`Payable — ${S.name}`) - B.tb(`Payable — ${S.name}`), 50000, "ledger payable down");
+  near(A.tb("Bank") - B.tb("Bank"), 0, "no bank"); near(A.tb("Cash in hand") - B.tb("Cash in hand"), 0, "no cash");
+  near(A.bank - B.bank, 0, "bank account balance unchanged");
+  near(A.l.totals.debit, A.l.totals.credit, "journal balances");
+  if (db0) { const d1 = (await day()).data; near(d1.totals.in_bank, db0.totals.in_bank, "day book: nothing in"); near(d1.totals.out_bank, db0.totals.out_bank, "day book: nothing out"); }
+  // void the client's payment: the depot's side comes off too
+  const wtx = db.get("SELECT id FROM wholesale_txns WHERE client_id=? AND method='Paid to depot' ORDER BY id DESC", W1.id).id;
+  ok(await call("admin", "POST", `/api/wholesale/txns/${wtx}/void`, { reason: "entered twice" }), "void");
+  const V = await books();
+  near(V.due1, B.due1, "client back"); near(V.owed, B.owed, "depot back");
+  near(V.tb(`Payable — ${S.name}`), B.tb(`Payable — ${S.name}`), "ledger back");
+});

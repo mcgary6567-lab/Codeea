@@ -14,7 +14,7 @@ import { h, parse, tid, requirePerm, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert, khataEntry } from "../services.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL } from "./banks.js";
+import { bankAccountFor, accountName, bankAccounts, accountIdField, posMap, POS_DIGITAL, DEPOT_PAY, notDepot } from "./banks.js";
 import { cashPosition, handoverMode } from "./backoffice.js";
 import { chargeShortage } from "./staff.js";
 import { clientDue, insertTxn } from "./wholesale.js";
@@ -120,6 +120,7 @@ const moneyBody = z.object({
   amount: z.number().positive().max(1_000_000_000), method: z.string().trim().min(2).max(30), account_id: accountIdField,
   ref: z.string().trim().max(60).optional().nullable(), note: z.string().trim().max(200).optional().nullable(), category: z.string().max(60).optional().nullable(),
   photo_ids: proofPhotos, notify: z.boolean().default(true), cheque: chequeFields.optional().nullable(),
+  supplier_id: z.number().int().optional().nullable(), // method "Paid to depot": the depot the client paid
 });
 
 cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
@@ -128,13 +129,26 @@ cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
   const p = party(t, b.party_type, b.party_id);
   const name = p?.name ?? b.party_name;
   if (!name) throw new AppError(400, "Write who gave the money");
+  const depot = b.method === DEPOT_PAY;
+  if (depot && b.party_type !== "wholesale") throw new AppError(400, "Paid to depot is for wholesale clients");
+  const supplier = depot ? get("SELECT * FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id ?? 0, t) : null;
+  if (depot && !supplier) throw new AppError(400, "Choose the depot (supplier) the client paid · ڈپو منتخب کریں");
   const cheque = isCheque(b.method);
-  const account = cheque ? null : bankAccountFor(t, b.account_id, b.method);
+  const account = cheque || depot ? null : bankAccountFor(t, b.account_id, b.method);
   if (!cheque && !isCash(b.method) && b.party_type === "other" && !account) throw new AppError(400, "Choose the bank account the money came into");
   let src: string | null = null;
   let message: string | null = null;
 
-  if (cheque) {
+  if (depot) {
+    // bypass: the client paid our depot. Their due and what we owe the depot both go down; no money in our cash or banks.
+    tx(() => {
+      const r = insertTxn(req, p!.id, { type: "payment", amount: b.amount, method: DEPOT_PAY, ref: b.ref, note: b.note || `Paid straight to ${supplier!.name}`, photo_ids: b.photo_ids, account_id: null });
+      run(`INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        t, supplier!.id, "payment", b.amount, DEPOT_PAY, `wtx:${r.id}`, `Paid by our client ${name}${b.ref ? ` (slip ${b.ref})` : ""}`, req.user!.name, now(), now());
+      src = `wtx:${r.id}`;
+    });
+    message = `${name} paid ${supplier!.name} ${pkr(b.amount)} — taken off ${name}'s due and off what we owe ${supplier!.name}.`;
+  } else if (cheque) {
     // a cheque is not money until it clears: it goes into the register
     if (!b.cheque) throw new AppError(400, "Enter the cheque's bank, number and date");
     requireProof(t, b.photo_ids, "cheque");
@@ -166,7 +180,8 @@ cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
   const v = voucher(req, { direction: "in", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
     account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
-  return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message };
+  return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message,
+    ...(supplier ? { depot: { id: supplier.id, name: supplier.name, owed_after: round2(supplierOwed(supplier.id)) } } : {}) };
 }));
 
 /* ---------------- pay ---------------- */
@@ -360,9 +375,9 @@ export function cashierDayBook(t: number, d: string) {
     ...all(`SELECT k.created_at at, 'in' dir, 'Khata payment' what, c.name party, COALESCE(k.ref,'') method, k.amount, k.account_id, NULL who
       FROM khata_ledger k JOIN customers c ON c.id=k.customer_id WHERE c.tenant_id=? AND k.type='credit' AND k.created_at >= ? AND k.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'in' dir, 'Wholesale payment' what, c.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
-      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND x.created_at >= ? AND x.created_at < ?`, ...P),
+      FROM wholesale_txns x JOIN wholesale_clients c ON c.id=x.client_id WHERE x.tenant_id=? AND x.type='payment' AND x.voided=0 AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT x.created_at at, 'out' dir, 'Supplier payment' what, s.name party, COALESCE(x.method,'') method, x.amount, x.account_id, x.created_by who
-      FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT' AND x.created_at >= ? AND x.created_at < ?`, ...P),
+      FROM supplier_txns x JOIN suppliers s ON s.id=x.supplier_id WHERE x.tenant_id=? AND x.type='payment' AND COALESCE(x.method,'')<>'WHT' AND ${notDepot("x.method")} AND x.created_at >= ? AND x.created_at < ?`, ...P),
     ...all(`SELECT created_at at, 'out' dir, 'Expense · ' || category what, COALESCE(paid_to,'') party, method, amount, account_id, created_by who
       FROM expenses WHERE tenant_id=? AND status='approved' AND shift_id IS NULL AND created_at >= ? AND created_at < ?`, ...P),
     ...all(`SELECT l.created_at at, CASE WHEN l.type='advance' OR l.type='bonus' THEN 'out' ELSE 'in' END dir,
