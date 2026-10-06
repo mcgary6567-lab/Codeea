@@ -163,11 +163,11 @@ function wholesaleBody(c: any, month: string | null, code: string): string {
     const d = `<div class=m>${esc(dateStr(l.txn_date))}</div>`;
     const bal = `<div class=m>Baqi · <span class=ur>باقی</span> ${n2(l.balance)}</div>`;
     if (l.type === "supply") return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
-      <div>${n2(l.litres)} L × Rs ${n2(l.rate)}</div><div class=m>${esc([l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref && `🧾 ${l.ref}`].filter(Boolean).join("  "))}</div></div>
+      <div>${n2(l.litres)} L × Rs ${n2(l.rate)}</div><div class=m>${esc([l.vehicle_no && `🚛 ${l.vehicle_no}`, l.driver_name && `👤 ${l.driver_name}`, l.location && `📍 ${l.location}`, l.ref && `🧾 ${l.ref}`].filter(Boolean).join("  "))}</div>${photoThumbs(code, l.proof_ids, "Delivery", "ڈیلیوری")}</div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
-    if (l.type === "payment") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.method, l.ref].filter(Boolean).join(" · "))}</div></div>
+    if (l.type === "payment") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.method, l.ref].filter(Boolean).join(" · "))}</div>${photoThumbs(code, l.proof_ids, "Receipt", "رسید")}</div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
-    if (l.type === "return") return `<div class="e ret"><div class=ic>↩️</div><div class=l>${d}<div class=et>Fuel returned · <span class=ur>تیل واپس</span></div><div>${n2(l.litres)} L ${esc(PRODUCTS[l.product] ?? "")}</div></div>
+    if (l.type === "return") return `<div class="e ret"><div class=ic>↩️</div><div class=l>${d}<div class=et>Fuel returned · <span class=ur>تیل واپس</span></div><div>${n2(l.litres)} L ${esc(PRODUCTS[l.product] ?? "")}</div>${photoThumbs(code, l.proof_ids, "Return", "واپسی")}</div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Adjustment · <span class=ur>ایڈجسٹمنٹ</span></div><div class=m>${esc(l.note ?? "")}</div></div>
       <div class=r><b class="${l.amount < 0 ? "g" : ""}">${l.amount < 0 ? "−" : "+"}${n2(Math.abs(l.amount))}</b>${bal}</div></div>`;
@@ -218,7 +218,7 @@ function khataBody(c: any, month: string | null, code: string): string {
     if (l.type === "credit") return `<div class="e pay"><div class=ic>💵</div><div class=l>${d}<div class="et g">Payment received · <span class=ur>رقم وصول</span></div><div class=m>${esc([l.ref, l.note !== "Payment received" ? l.note : null].filter(Boolean).join(" · "))}</div></div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
     if (l.product) return `<div class="e sup"><div class=ic>⛽</div><div class=l>${d}<div class=et>${esc(PRODUCTS[l.product] ?? l.product)} · <span class=ur>${FUEL_UR[l.product] ?? ""}</span></div>
-      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name)}`].filter(Boolean).join("  "))}</div>${slipThumbs(code, l.proof_ids)}</div>
+      <div>${n2(l.litres ?? 0)} L × Rs ${n2(l.rate ?? 0)}</div><div class=m>${esc([l.vehicle_no && `🚗 ${l.vehicle_no}`, l.slip_no && `🧾 slip ${l.slip_no}`, l.station_name && `📍 ${String(l.station_name)}`].filter(Boolean).join("  "))}</div>${photoThumbs(code, l.proof_ids, "Slip", "پرچی")}</div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Charge · <span class=ur>چارج</span></div><div class=m>${esc(l.note ?? l.ref ?? "")}</div></div>
       <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
@@ -247,11 +247,11 @@ ${rows || `<p class=m style="text-align:center;padding:16px">No entries in this 
 <div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
 }
 
-/** Photos of the customer's own fuel slips (parchi), shown under each fill; they open full size from this page only. */
-function slipThumbs(code: string, ids: unknown) {
+/** Photos kept with an entry (khata slip / parchi, delivery challan, cheque or receipt), shown under it; they open full size from this page only. */
+function photoThumbs(code: string, ids: unknown, en: string, ur: string) {
   const list = String(ids ?? "").split(",").map(Number).filter((n) => n > 0);
   if (!list.length) return "";
-  return `<div class="slips np">${list.map((id) => `<a href="${esc(code)}/slip/${id}" target="_blank" rel="noopener"><img src="${esc(code)}/slip/${id}" alt="Slip photo" loading="lazy">Slip · <span class=ur>پرچی</span></a>`).join("")}</div>`;
+  return `<div class="slips np">${list.map((id) => `<a href="${esc(code)}/slip/${id}" target="_blank" rel="noopener"><img src="${esc(code)}/slip/${id}" alt="${esc(en)} photo" loading="lazy">${esc(en)} · <span class=ur>${ur}</span></a>`).join("")}</div>`;
 }
 
 function khataPage(kind: Kind, c: any, code: string, month: string | null) {
@@ -299,12 +299,15 @@ for (const kind of ["w", "k"] as const) {
     res.setHeader("set-cookie", `${cookieName(kind, c.id)}=${encodeURIComponent(tok)}; Path=/${kind}/; ${keep ? `Max-Age=${30 * 86400}; ` : ""}HttpOnly; SameSite=Lax${config.publicUrl.startsWith("https") ? "; Secure" : ""}`);
     res.type("html").send(khataPage(kind, c, req.params.code, null));
   });
-  if (kind === "k") pinPortalPublic.get(`/${kind}/:code/slip/:photo`, (req, res) => {
+  pinPortalPublic.get(`/${kind}/:code/slip/:photo`, (req, res) => {
     const r = fromCode(kind, req.params.code);
-    // only after the PIN, and only a photo of one of this customer's own fuel entries
+    // only after the PIN, and only a photo of one of this customer's / client's own entries
     if (!r || !remembered(req, kind, r.c, r.v)) return res.status(404).end();
-    const p = get(`SELECT p.mime, p.data FROM photos p JOIN khata_ledger k ON p.ref = 'khata:' || k.id
-      WHERE p.id=? AND p.tenant_id=? AND k.customer_id=? AND k.type='debit'`, Number(req.params.photo), r.c.tenant_id, r.c.id);
+    const p = kind === "k"
+      ? get(`SELECT p.mime, p.data FROM photos p JOIN khata_ledger k ON p.ref = 'khata:' || k.id
+          WHERE p.id=? AND p.tenant_id=? AND k.customer_id=? AND k.type='debit'`, Number(req.params.photo), r.c.tenant_id, r.c.id)
+      : get(`SELECT p.mime, p.data FROM photos p JOIN wholesale_txns x ON p.ref = 'wtx:' || x.id
+          WHERE p.id=? AND p.tenant_id=? AND x.client_id=? AND x.voided=0`, Number(req.params.photo), r.c.tenant_id, r.c.id);
     if (!p) return res.status(404).end();
     res.setHeader("content-type", /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : "application/octet-stream");
     res.setHeader("x-content-type-options", "nosniff");

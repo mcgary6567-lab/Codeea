@@ -94,6 +94,30 @@ test("customer PIN page: the customer sees their own slip photos, nobody else do
   assert.equal((await fetch(base + `${theirs.path}/slip/${pic}`, { headers: { cookie: theirs.cookie } })).status, 404, "not another customer's slip");
 });
 
+test("wholesale client PIN page: their own delivery / payment photos, nobody else's, not voided ones", async () => {
+  const clients = ok(await call("wholesale", "GET", "/api/wholesale/clients"), "clients");
+  const [a, b] = clients;
+  const pic = await photo("wholesale");
+  const pay = ok(await call("wholesale", "POST", `/api/wholesale/clients/${a.id}/payment`, { amount: 1000, method: "Cash", ref: "R-9", photo_ids: [pic] }), "payment with photo");
+  const portal = async (id: number) => {
+    const p = ok(await call("wholesale", "GET", `/api/wholesale/clients/${id}/portal`), "portal link");
+    const path = new URL(p.url).pathname;
+    const res = await fetch(base + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `pin=${p.pin}` });
+    assert.equal(res.status, 200);
+    return { path, cookie: res.headers.get("set-cookie")!.split(";")[0], html: await res.text() };
+  };
+  const mine = await portal(a.id);
+  assert.ok(mine.html.includes(`/slip/${pic}`), "photo under the payment");
+  const img = await fetch(base + `${mine.path}/slip/${pic}`, { headers: { cookie: mine.cookie } });
+  assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/png");
+  assert.equal((await fetch(base + `${mine.path}/slip/${pic}`)).status, 404, "not without the PIN");
+  const theirs = await portal(b.id);
+  assert.equal((await fetch(base + `${theirs.path}/slip/${pic}`, { headers: { cookie: theirs.cookie } })).status, 404, "not another client's photo");
+  // a voided entry's photo is not shown any more
+  ok(await call("admin", "POST", `/api/wholesale/txns/${pay.id}/void`, { reason: "entered twice" }), "void");
+  assert.equal((await fetch(base + `${mine.path}/slip/${pic}`, { headers: { cookie: mine.cookie } })).status, 404, "voided");
+});
+
 test("preview: meters minus khata, online, test and late slips = cash; nothing is saved", async () => {
   const hsd = live.readings.filter((r: any) => r.product === "HSD");
   const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
