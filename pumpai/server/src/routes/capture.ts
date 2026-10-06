@@ -17,7 +17,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 
 capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stock.manage", "expenses.create", "shifts.expenses", "wholesale.manage", "khata.manage", "staff.manage", "suppliers.manage", "cash.receive", "cash.pay", "cheques.manage", "cash.book", "bank.manage"), h(async (req) => {
   const b = parse(z.object({
-    kind: z.enum(["meter", "invoice", "receipt", "bill", "selfie", "proof"]),
+    kind: z.enum(["meter", "invoice", "receipt", "bill", "slip", "selfie", "proof"]),
     image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Send a JPEG, PNG or WebP photo"),
     hint: z.string().max(300).optional(),
   }), req.body);
@@ -37,7 +37,10 @@ capture.post("/ai/read-photo", requireAny("sales.create", "shifts.manage", "stoc
     tid(req), b.kind, real, bytes, result ? JSON.stringify(result) : null, req.user!.id, now());
   return {
     photo_id: id, ai: Boolean(result), result,
-    message: result || ["selfie", "proof"].includes(b.kind) ? null : aiEnabled() ? "Could not read the photo clearly. Please type the numbers." : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
+    // a khata slip photo is first of all a record: without the AI key it is simply saved, no warning
+    message: result || ["selfie", "proof"].includes(b.kind) || (b.kind === "slip" && !aiEnabled()) ? null
+      : aiEnabled() ? (b.kind === "slip" ? "Photo saved. Could not read the slip — please type the slip number." : "Could not read the photo clearly. Please type the numbers.")
+      : "Photo saved as proof. Automatic reading needs the AI key — please type the numbers.",
   };
 }));
 

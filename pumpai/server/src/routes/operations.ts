@@ -201,6 +201,7 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     customer_id: z.number().nullable().optional(), nozzle_id: z.number().nullable().optional(), vehicle_no: z.string().max(40).nullable().optional(),
     override_limit: z.boolean().optional(),
     slip_no: z.string().max(40).nullable().optional(),
+    photo_id: z.number().int().positive().nullable().optional(),
     client_uid: z.string().min(8).max(64).nullable().optional(),
     /** when the sale was made on a tablet without internet; billed at the price in force then */
     offline_at: z.string().datetime({ offset: true }).nullable().optional(),
@@ -233,6 +234,22 @@ operations.post("/sales", requirePerm("sales.create"), h((req) => {
     askRating(tid(req), saved).catch((e) => console.error("[rating]", e.message));
   });
   return { ...saved, receipt_url: receiptUrl(tid(req), "f", saved.id) };
+}));
+
+/** Attach the khata slip photo afterwards (the salesman took it after the rush): to the sale and its khata entry. */
+operations.post("/sales/:id/slip-photo", requirePerm("sales.create"), h((req) => {
+  const b = parse(z.object({ photo_id: z.number().int().positive() }), req.body);
+  const sale = get(`SELECT s.*, sh.status shift_status FROM sales s JOIN stations st ON st.id=s.station_id LEFT JOIN shifts sh ON sh.id=s.shift_id
+    WHERE s.id=? AND st.tenant_id=?`, Number(req.params.id), tid(req));
+  if (!sale) throw new AppError(404, "Sale not found");
+  if (!get("SELECT id FROM photos WHERE id=? AND tenant_id=?", b.photo_id, tid(req))) throw new AppError(404, "Photo not found");
+  // a salesman only on their own sales of a shift that is still open; a manager any time
+  if (!can(req.user, "shifts.view_all") && (sale.created_by !== req.user!.id || sale.shift_status !== "open"))
+    throw new AppError(403, "Only your own sales of the open shift. Ask the manager to add the photo.");
+  run("UPDATE sales SET photo_id=? WHERE id=?", b.photo_id, sale.id);
+  const k = get("SELECT id FROM khata_ledger WHERE ref=? AND customer_id=?", `SALE-${sale.id}`, sale.customer_id);
+  if (k) run("UPDATE photos SET ref=? WHERE id=? AND ref IS NULL", `khata:${k.id}`, b.photo_id);
+  return { ok: true, photo_id: b.photo_id };
 }));
 
 /** Undo a sale entered by mistake: the salesman within 2 minutes, a manager any time while the shift is open. */
@@ -408,6 +425,7 @@ const closeBody = z.object({
   khata: z.array(z.object({
     customer_id: z.number().int(), product: z.string(), litres: z.number().positive().max(60000).optional(), amount: z.number().positive().max(100_000_000).optional(),
     vehicle_no: z.string().trim().min(2, "Vehicle no. is needed on every khata slip").max(40), slip_no: z.string().trim().min(1, "Slip no. is needed on every khata slip").max(40),
+    photo_id: z.number().int().positive().nullable().optional(),
   }).refine((k) => k.litres || k.amount, "Litres or amount on each khata slip")).max(200).optional(),
   cash_notes: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(100_000)).optional(),
 });
@@ -438,7 +456,7 @@ function closeShiftCore(req: Request, shift: Row, b: CloseInput, dryRun: boolean
     for (const k of b.khata ?? []) {
       if (!rows.some((r) => r.product === k.product)) throw new AppError(400, `This shift has no ${PRODUCTS[k.product] ?? k.product} nozzle`);
       recordSale(t, { station_id: shift.station_id, product: k.product, litres: k.litres, amount: k.litres ? undefined : k.amount, payment_method: "khata", customer_id: k.customer_id,
-        vehicle_no: k.vehicle_no, slip_no: k.slip_no, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
+        vehicle_no: k.vehicle_no, slip_no: k.slip_no, photo_id: k.photo_id ?? null, shift_id: shift.id, created_by: req.user!.id, created_at: stamp, source: "pos" });
     }
     // 2) online money: shared over the fuels by the value still not entered, each at its own rate
     const remaining = [...new Set(rows.map((r) => r.product))].map((product) => {

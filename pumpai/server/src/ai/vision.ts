@@ -31,7 +31,7 @@ async function record<T>(content: Anthropic.Beta.BetaContentBlockParam[], descri
   return (use?.input as T) ?? null;
 }
 
-export type PhotoKind = "meter" | "invoice" | "receipt" | "bill";
+export type PhotoKind = "meter" | "invoice" | "receipt" | "bill" | "slip";
 const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Record<string, unknown> }> = {
   meter: {
     text: "This is a photo of a fuel dispenser at a Pakistani petrol pump. Read the TOTALIZER (the cumulative litres counter, often labelled 'Total' or 'Totalizer', usually the longest number), not the sale amount or the price per litre. If more than one totalizer is visible (one per nozzle), return each one with its side or label. Copy every digit exactly, including decimals. If a digit is unclear, say so in the note and lower the confidence.",
@@ -64,6 +64,18 @@ const PROMPTS: Record<PhotoKind, { text: string; description: string; schema: Re
       properties: {
         units: { type: "number" }, amount: { type: "number" }, due_date: { type: "string" }, month: { type: "string", description: "YYYY-MM" },
         reference: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
+      },
+      required: ["confidence"],
+    },
+  },
+  slip: {
+    text: `This is a fuel slip (parchi / requisition) that a khata (credit) customer gives at a Pakistani petrol pump — often from a government office, police, school or company, sometimes handwritten in Urdu or English. Read the slip / serial number, the vehicle registration number (e.g. LEA-1234), the fuel (${Object.entries(PRODUCTS).map(([k, v]) => `${k} = ${v}`).join(", ")}), litres and amount in rupees if written, the date, and the office or person who signed. Leave a field out if it is not on the slip.`,
+    description: "Record the khata fuel slip details.",
+    schema: {
+      properties: {
+        slip_no: { type: "string" }, vehicle_no: { type: "string" }, product: { type: "string", enum: Object.keys(PRODUCTS) },
+        litres: { type: "number" }, amount: { type: "number" }, date: { type: "string" }, issued_by: { type: "string" },
+        confidence: { type: "string", enum: ["high", "medium", "low"] },
       },
       required: ["confidence"],
     },

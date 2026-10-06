@@ -259,6 +259,8 @@ export function migrate() {
     ai_result TEXT, created_by INTEGER, created_at TEXT NOT NULL)`); // meter / invoice / receipt photos kept as proof
   db.exec("CREATE INDEX IF NOT EXISTS idx_photos_ref ON photos(ref)");
   addColumn("expenses", "photo_id", "INTEGER");
+  // photo of the khata slip (parchi) the customer handed over; on the khata entry it is a proof photo (photos.ref = khata:<id>)
+  addColumn("sales", "photo_id", "INTEGER");
   addColumn("deliveries", "photo_id", "INTEGER");
   // messages to contacts that are not CRM customers (wholesale clients, staff, owner)
   db.exec(`CREATE TABLE IF NOT EXISTS outbox (

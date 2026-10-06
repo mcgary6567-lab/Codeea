@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Printer, Trash2 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
-import { PhotoButton, photoUrl } from "./Capture";
+import { PhotoButton, ProofThumbs, photoUrl } from "./Capture";
 import { PRODUCTS, ago, dt, num, pkr } from "../lib/format";
 
 const Ur = ({ children }: { children: ReactNode }) => <span lang="ur" dir="rtl" className="font-urdu">{children}</span>;
@@ -256,7 +256,7 @@ function ReportBody({ r }: { r: any }) {
         <div>
           <h3 className="mb-1 text-sm font-semibold">Khata accounts</h3>
           <table className="w-full"><tbody>{r.khata.map((k: any) => (
-            <tr key={k.id}><td className="td text-sm">{k.name}<div className="text-xs text-slate-500">{k.slips} slip{k.slips > 1 ? "s" : ""}{k.slip_nos.length ? `: ${k.slip_nos.join(", ")}` : ""}</div></td>
+            <tr key={k.id}><td className="td text-sm">{k.name}<div className="text-xs text-slate-500">{k.slips} slip{k.slips > 1 ? "s" : ""}{k.slip_nos.length ? `: ${k.slip_nos.join(", ")}` : ""}</div>{k.photo_ids?.length > 0 && <div className="mt-1"><ProofThumbs ids={k.photo_ids} /></div>}</td>
               <td className="td text-right tabular-nums">{num(k.litres, 2)} L</td><td className="td text-right tabular-nums">{pkr(k.amount)}</td></tr>
           ))}</tbody></table>
         </div>

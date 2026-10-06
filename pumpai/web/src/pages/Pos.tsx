@@ -9,7 +9,7 @@ import { num, pkr } from "../lib/format";
 import { useAuth } from "../App";
 import { useNotifications } from "../components/Notifications";
 import { ShiftExpenses, StartShiftSheet } from "../components/ShiftParts";
-import { VoiceButton } from "../components/Capture";
+import { PhotoButton, VoiceButton, photoUrl } from "../components/Capture";
 import { speak } from "../components/VoiceShell";
 import { CardScanner } from "../components/CardScanner";
 
@@ -63,7 +63,7 @@ export default function Pos() {
   const [mode, setMode] = useState<"amount" | "litres">("amount");
   const [entry, setEntry] = useState("");
   const [pay, setPay] = useState<string | null>(null);
-  const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string } | null>(null);
+  const [khata, setKhata] = useState<{ account: any; vehicle: string; slip: string; photo_id?: number | null } | null>(null);
   const [pickKhata, setPickKhata] = useState(false);
   const [scan, setScan] = useState(false);
   const [done, setDone] = useState<any>(null);
@@ -125,7 +125,7 @@ export default function Pos() {
   const save = async () => {
     if (!ready || !d || saving) return;
     const body: any = { station_id: d.station.id, product, payment_method: pay, [mode]: value, client_uid: newUid() };
-    if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null });
+    if (pay === "khata" && khata) Object.assign(body, { customer_id: khata.account.id, vehicle_no: khata.vehicle || null, slip_no: khata.slip || null, photo_id: khata.photo_id ?? null });
     if (pay === "loyalty" && pointsCust) body.customer_id = pointsCust.id;
     if (pay === "coupon" && coupon) body.coupon_code = coupon.code;
     if (pay === "wallet" && walletAcct) body.customer_id = walletAcct.id;
@@ -310,7 +310,7 @@ export default function Pos() {
               <button onClick={() => setPickKhata(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl bg-amber-50 p-3 text-left ring-1 ring-amber-300">
                 <span className="text-3xl">{TYPE_ICON[khata.account.type] ?? "📒"}</span>
                 <span className="flex-1"><span className="block text-lg font-semibold">{khata.account.name}</span>
-                  <span className="text-sm text-slate-600">{[khata.vehicle && `Vehicle ${khata.vehicle}`, khata.slip && `Slip ${khata.slip}`].filter(Boolean).join(" · ") || "No vehicle / slip"}</span></span>
+                  <span className="text-sm text-slate-600">{[khata.vehicle && `Vehicle ${khata.vehicle}`, khata.slip && `Slip ${khata.slip}`, khata.photo_id && "📷 photo"].filter(Boolean).join(" · ") || "No vehicle / slip"}</span></span>
                 <span className="text-sm text-amber-700 underline">Change</span>
               </button>
             )}
@@ -430,6 +430,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
   const skew = d.server_time ? Date.parse(d.server_time) - Date.now() : 0;
   const [, tick] = useState(0);
   const [confirm, setConfirm] = useState<number | null>(null);
+  const toast = useToast();
   const undoable = (r: any) => r.created_by === myId && Date.now() + skew - Date.parse(r.created_at) < (d.undo_seconds ?? 120) * 1000;
   useEffect(() => {
     if (!d.recent?.some(undoable)) return;
@@ -464,6 +465,11 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
               <span className={`h-3 w-3 shrink-0 rounded-full ${FUEL[r.product]?.bg}`} />
               <span className="flex-1"><b>{num(r.litres, 2)} L</b> {FUEL[r.product]?.en}<span className="block text-xs text-slate-500">{new Date(r.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })} · {r.payment_method === "khata" ? `📒 ${r.customer_name}${r.slip_no ? ` · ${r.slip_no}` : ""}` : r.payment_method}</span></span>
               <span className="font-semibold tabular-nums">{pkr(r.amount)}</span>
+              {r.payment_method === "khata" && (r.photo_id
+                ? <a href={photoUrl(r.photo_id)} target="_blank" rel="noreferrer" title="Slip photo"><img src={photoUrl(r.photo_id)} alt="Slip photo" className="h-8 w-8 rounded border border-slate-200 object-cover" /></a>
+                : r.created_by === myId && <PhotoButton kind="slip" label="Slip" className="!px-2 !py-1.5 !text-xs" onRead={async (_r, id) => {
+                    try { await api(`/sales/${r.id}/slip-photo`, { body: { photo_id: id } }); toast("ok", "Slip photo saved · پرچی کی تصویر محفوظ"); reload(); } catch (e: any) { toast("err", e.message); }
+                  }} />)}
               {undoable(r) && (confirm === r.id
                 ? <button onClick={() => { setConfirm(null); onUndo(r); }} className="rounded-lg bg-red-600 px-2 py-1.5 text-xs font-bold text-white">Sure? Undo</button>
                 : <button onClick={() => { setConfirm(r.id); setTimeout(() => setConfirm(null), 4000); }} aria-label="Undo this sale" className="rounded-lg bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200"><Undo2 size={16} /></button>)}
@@ -476,7 +482,7 @@ function ShiftPanel({ d, reload, onUndo, myId, expPreset }: { d: any; reload: ()
   );
 }
 
-function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string }) => void }) {
+function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () => void; onPick: (k: { account: any; vehicle: string; slip: string; photo_id?: number | null }) => void }) {
   const { data: live } = useApi<any[]>("/pos/khata-accounts");
   useEffect(() => { if (live) cacheSet("khata_accounts", live); }, [live]);
   const data = live ?? cacheGet<any[]>("khata_accounts");
@@ -485,6 +491,7 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
   const [account, setAccount] = useState<any>(initial?.account ?? null);
   const [vehicle, setVehicle] = useState(initial?.vehicle ?? "");
   const [slip, setSlip] = useState(initial?.slip ?? "");
+  const [photo, setPhoto] = useState<number | null>(initial?.photo_id ?? null);
   const list = useMemo(() => (data ?? []).filter((a) => (!type || (type === "institution" ? ["police", "school", "government", "hospital"].includes(a.type) : a.type === type)) && a.name.toLowerCase().includes(q.toLowerCase())), [data, q, type]);
   const institution = account && ["police", "school", "government", "hospital"].includes(account.type);
 
@@ -541,8 +548,29 @@ function KhataPicker({ initial, onClose, onPick }: { initial: any; onClose: () =
               <input className="input py-3 text-2xl" inputMode="numeric" placeholder="e.g. 4521" value={slip} onChange={(e) => setSlip(e.target.value)} />
               {institution && !slip && <p className="mt-1 text-sm text-amber-700">Government offices pay against the slip — please write the slip number.</p>}
             </div>
+            <div>
+              <div className="mb-2 text-lg font-semibold">Photo of the slip · <Ur>پرچی کی تصویر</Ur> <span className="text-sm font-normal text-slate-500">(kept for the record)</span></div>
+              {photo ? (
+                <div className="flex items-center gap-3">
+                  <a href={photoUrl(photo)} target="_blank" rel="noreferrer"><img src={photoUrl(photo)} alt="Slip photo" className="h-24 w-24 rounded-xl border border-slate-200 object-cover" /></a>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-emerald-700"><Check className="inline" size={16} /> Photo saved · <Ur>تصویر محفوظ</Ur></span>
+                    <button type="button" className="rounded-xl bg-slate-100 px-3 py-2 text-sm" onClick={() => setPhoto(null)}>Remove · <Ur>ہٹائیں</Ur></button>
+                  </div>
+                </div>
+              ) : (
+                <PhotoButton kind="slip" big label="Take photo of slip · پرچی کی تصویر" className="w-full"
+                  hint={`Khata account: ${account.name}. Its vehicles: ${account.vehicles.join(", ") || "none listed"}.`}
+                  onRead={(r, id) => {
+                    setPhoto(id);
+                    // fill what the photo shows, only where the salesman has not typed anything
+                    if (r?.slip_no && !slip.trim()) setSlip(String(r.slip_no));
+                    if (r?.vehicle_no && !vehicle.trim()) setVehicle(String(r.vehicle_no).toUpperCase());
+                  }} />
+              )}
+            </div>
             <p className="text-sm text-slate-500">Today's rate is saved with this entry, so the bill always shows the price on that day.</p>
-            <button className="w-full rounded-xl bg-emerald-600 py-4 text-2xl font-bold text-white active:scale-95" onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim() })}>
+            <button className="w-full rounded-xl bg-emerald-600 py-4 text-2xl font-bold text-white active:scale-95" onClick={() => onPick({ account, vehicle: vehicle.trim(), slip: slip.trim(), photo_id: photo })}>
               <Check className="inline" size={26} /> Done · <Ur>ٹھیک ہے</Ur>
             </button>
           </div>

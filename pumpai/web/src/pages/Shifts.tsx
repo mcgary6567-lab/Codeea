@@ -4,7 +4,7 @@ import { api, useApi } from "../lib/api";
 import { Badge, Field, Loading, Modal, PageHeader, statusTone, useAction } from "../components/ui";
 import { PRODUCTS, dt, num, pkr } from "../lib/format";
 import { useAuth } from "../App";
-import { PhotoButton } from "../components/Capture";
+import { PhotoButton, photoUrl } from "../components/Capture";
 import { ShiftExpenses, ShiftReport, StartShiftSheet } from "../components/ShiftParts";
 import { Ur } from "../components/VoiceShell";
 
@@ -249,12 +249,24 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
             </div>
             {slips.length > 0 && <ul className="divide-y divide-slate-100 border-t border-slate-100">{slips.map((k, i) => (
               <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+                {k.photo_id && <img src={photoUrl(k.photo_id)} alt="Slip photo" className="h-9 w-9 shrink-0 rounded border border-slate-200 object-cover" />}
                 <span className="min-w-0 flex-1"><b>{k.name}</b><span className="block text-xs text-slate-500">{PRODUCTS[k.product]} {num(k.litres, 2)} L · {k.vehicle_no} · slip {k.slip_no}</span></span>
                 <button type="button" className="min-h-9 px-2 text-red-600" onClick={() => setSlips(slips.filter((_, j) => j !== i))} aria-label="Remove slip">✕</button>
               </li>
             ))}</ul>}
             {slipForm && (
               <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-3">
+                <div className="col-span-2 flex items-center gap-2">
+                  {slipForm.photo_id && <img src={photoUrl(slipForm.photo_id)} alt="Slip photo" className="h-12 w-12 shrink-0 rounded-lg border border-slate-200 object-cover" />}
+                  <PhotoButton kind="slip" className="flex-1" label={slipForm.photo_id ? "Retake photo · دوبارہ" : "Photo of slip · پرچی کی تصویر"} onRead={(r, id) => setSlipForm((f: any) => ({
+                    ...f, photo_id: id,
+                    // fill in what the photo shows, only where nothing is typed yet
+                    slip_no: f.slip_no || (r?.slip_no ? String(r.slip_no) : ""),
+                    vehicle_no: f.vehicle_no || (r?.vehicle_no ? String(r.vehicle_no).toUpperCase() : ""),
+                    litres: f.litres || (Number(r?.litres) > 0 ? String(r.litres) : ""),
+                    product: r?.product && products.includes(r.product) && !f.litres ? r.product : f.product,
+                  }))} />
+                </div>
                 <select className="input col-span-2" value={slipForm.customer_id} onChange={(e) => setSlipForm({ ...slipForm, customer_id: e.target.value })} aria-label="Khata customer">
                   <option value="">— customer · گاہک —</option>{(accts.data ?? []).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
@@ -265,7 +277,7 @@ function CloseShift({ id, onClose, onClosed }: { id: number; onClose: () => void
                 <div className="col-span-2 flex justify-end gap-2">
                   <button type="button" className="btn-secondary min-h-9" onClick={() => setSlipForm(null)}>Cancel</button>
                   <button type="button" className="btn-primary min-h-9" disabled={!slipForm.customer_id || !(Number(slipForm.litres) > 0) || slipForm.vehicle_no.trim().length < 2 || !slipForm.slip_no.trim()}
-                    onClick={() => { const c = (accts.data ?? []).find((a: any) => String(a.id) === String(slipForm.customer_id)); setSlips([...slips, { customer_id: Number(slipForm.customer_id), name: c?.name, product: slipForm.product, litres: Number(slipForm.litres), vehicle_no: slipForm.vehicle_no.trim().toUpperCase(), slip_no: slipForm.slip_no.trim() }]); setSlipForm(null); }}>Add slip</button>
+                    onClick={() => { const c = (accts.data ?? []).find((a: any) => String(a.id) === String(slipForm.customer_id)); setSlips([...slips, { customer_id: Number(slipForm.customer_id), name: c?.name, product: slipForm.product, litres: Number(slipForm.litres), vehicle_no: slipForm.vehicle_no.trim().toUpperCase(), slip_no: slipForm.slip_no.trim(), photo_id: slipForm.photo_id ?? null }]); setSlipForm(null); }}>Add slip</button>
                 </div>
               </div>
             )}

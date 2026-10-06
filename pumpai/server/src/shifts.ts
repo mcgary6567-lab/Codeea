@@ -123,9 +123,9 @@ export function shiftReport(shiftId: number) {
     // litres and amount at each rate (two lines if the price changed during the shift)
     by_rate: all(`SELECT product, rate, ROUND(SUM(litres),2) litres, ROUND(SUM(amount),2) amount FROM sales WHERE shift_id=? GROUP BY product, rate ORDER BY product, rate`, shiftId),
     khata: all(`SELECT c.id, c.name, c.type, ROUND(SUM(s.litres),2) litres, ROUND(SUM(s.amount),2) amount, COUNT(*) slips,
-        GROUP_CONCAT(COALESCE(s.slip_no, ''), ', ') slip_nos FROM sales s JOIN customers c ON c.id=s.customer_id
+        GROUP_CONCAT(COALESCE(s.slip_no, ''), ', ') slip_nos, GROUP_CONCAT(s.photo_id) photo_ids FROM sales s JOIN customers c ON c.id=s.customer_id
       WHERE s.shift_id=? AND s.payment_method='khata' GROUP BY c.id ORDER BY amount DESC`, shiftId)
-      .map((k) => ({ ...k, slip_nos: String(k.slip_nos ?? "").split(", ").filter(Boolean) })),
+      .map((k) => ({ ...k, slip_nos: String(k.slip_nos ?? "").split(", ").filter(Boolean), photo_ids: String(k.photo_ids ?? "").split(",").filter(Boolean).map(Number) })),
     handover_gaps: readings.filter((r) => (r.handover_gap ?? 0) > 0.01).map((r) => ({ label: r.label, product: r.product, litres: r.handover_gap, previous: r.handover_prev, opening: r.opening })),
   };
 }

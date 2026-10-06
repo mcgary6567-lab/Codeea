@@ -47,8 +47,31 @@ test("setup: the salesman opens a shift and enters only one khata sale on the PO
   // room on the khata for the test fills
   db.run("UPDATE customers SET credit_limit = balance + 1000000, khata_blocked=0 WHERE id=?", khataCust.id);
   const hsd = live.readings.find((r: any) => r.product === "HSD");
-  ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "HSD", litres: 20, payment_method: "khata", customer_id: khataCust.id }), "khata on POS");
+  // the slip photo taken on the POS goes with the sale and shows on the khata statement
+  const pic = await photo("salesman");
+  const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "HSD", litres: 20, payment_method: "khata", customer_id: khataCust.id, slip_no: "P-1", photo_id: pic }), "khata on POS");
+  assert.equal(sale.photo_id, pic);
   assert.ok(hsd, "station has a diesel nozzle");
+});
+
+test("slip photo: on the khata statement, and can be added after the rush", async () => {
+  const st = ok(await call("manager", "GET", `/api/customers/${khataCust.id}/statement`), "statement");
+  const line = st.lines.find((l: any) => l.slip_no === "P-1");
+  assert.ok(String(line.proof_ids ?? "").split(",").length === 1 && line.proof_ids, "statement shows the slip photo");
+  // a second khata fill entered in the rush without a photo; the salesman adds it later
+  const sale = ok(await call("salesman", "POST", "/api/sales", { station_id: live.shift.station_id, product: "HSD", litres: 5, payment_method: "khata", customer_id: khataCust.id, slip_no: "P-2" }), "no photo yet");
+  assert.equal(sale.photo_id, null);
+  const pic = await photo("salesman");
+  ok(await call("salesman", "POST", `/api/sales/${sale.id}/slip-photo`, { photo_id: pic }), "add later");
+  assert.equal(db.get("SELECT photo_id FROM sales WHERE id=?", sale.id).photo_id, pic);
+  const st2 = ok(await call("manager", "GET", `/api/customers/${khataCust.id}/statement`), "statement");
+  assert.equal(String(st2.lines.find((l: any) => l.slip_no === "P-2").proof_ids), String(pic));
+  assert.equal((await call("salesman", "POST", `/api/sales/${sale.id}/slip-photo`, { photo_id: 999999 })).status, 404, "unknown photo");
+  // the shift report lists the slip photos with the khata account
+  const rep = ok(await call("salesman", "GET", `/api/shifts/${shiftId}/report`), "report");
+  assert.ok(rep.khata.find((k: any) => k.id === khataCust.id).photo_ids.includes(pic));
+  // keep the closing maths of the next tests as they were: undo this 5 L
+  ok(await call("manager", "POST", `/api/sales/${sale.id}/undo`, {}), "undo");
 });
 
 test("preview: meters minus khata, online, test and late slips = cash; nothing is saved", async () => {
@@ -79,9 +102,11 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   const hsd = live.readings.filter((r: any) => r.product === "HSD");
   const readings: Record<string, number> = Object.fromEntries(live.readings.map((r: any) => [r.nozzle_id, r.opening]));
   readings[hsd[0].nozzle_id] = hsd[0].opening + 200;
+  const latePic = await photo("salesman");
   const body = { readings, digital: { card: 5000, jazzcash: 2000 }, test: { [hsd[0].nozzle_id]: 3 },
-    khata: [{ customer_id: khataCust.id, product: "HSD", litres: 10, vehicle_no: "LES-1234", slip_no: "S-77" }] };
+    khata: [{ customer_id: khataCust.id, product: "HSD", litres: 10, vehicle_no: "LES-1234", slip_no: "S-77", photo_id: latePic }] };
   const p = ok(await call("salesman", "POST", `/api/shifts/${shiftId}/preview`, body), "preview");
+  assert.equal(db.get("SELECT ref FROM photos WHERE id=?", latePic).ref, null, "preview does not use up the photo");
   const tank = db.get("SELECT t.id, t.current_l FROM tanks t JOIN nozzles n ON n.tank_id=t.id WHERE n.id=?", hsd[0].nozzle_id);
   const kBefore = db.get("SELECT balance FROM customers WHERE id=?", khataCust.id).balance;
   const counted = Math.round(p.cash_expected) - 500;
@@ -90,7 +115,8 @@ test("close in one click: saved exactly as previewed; online money, khata and st
   near(c.variance, counted - p.cash_expected);
   near(db.get("SELECT current_l FROM tanks WHERE id=?", tank.id).current_l, tank.current_l - (200 - 3 - 20), "tank down by what was sold now (the 20 L POS sale was already taken; 3 L test went back)");
   assert.ok(db.get("SELECT balance FROM customers WHERE id=?", khataCust.id).balance > kBefore, "late slip on the khata");
-  assert.ok(db.get("SELECT id FROM sales WHERE shift_id=? AND slip_no='S-77' AND vehicle_no='LES-1234'", shiftId));
+  assert.equal(db.get("SELECT photo_id FROM sales WHERE shift_id=? AND slip_no='S-77' AND vehicle_no='LES-1234'", shiftId).photo_id, latePic, "late slip keeps its photo");
+  assert.match(String(db.get("SELECT ref FROM photos WHERE id=?", latePic).ref), /^khata:\d+$/, "on the khata statement");
   near(db.get("SELECT COALESCE(SUM(amount),0) v FROM sales WHERE shift_id=? AND payment_method='card'", shiftId).v, 5000, "card money recorded");
   assert.equal(db.get("SELECT test_l FROM meter_readings WHERE shift_id=? AND nozzle_id=?", shiftId, hsd[0].nozzle_id).test_l, 3);
   assert.equal(JSON.parse(db.get("SELECT cash_notes FROM shifts WHERE id=?", shiftId).cash_notes)["1000"], 3);

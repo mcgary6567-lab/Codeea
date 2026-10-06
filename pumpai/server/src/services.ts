@@ -84,6 +84,8 @@ export interface SaleInput {
   override_limit?: boolean;
   /** Prepaid coupon scanned at the POS (payment_method "coupon"). */
   coupon_code?: string | null;
+  /** Photo of the khata slip (parchi), taken with the POS camera. */
+  photo_id?: number | null;
   /** Internal only: bill at this rate (e.g. litres pumped before a price change). Never taken from user input. */
   rate?: number;
 }
@@ -133,16 +135,17 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
     if (used + litres > veh.daily_limit_l + 0.01)
       throw new AppError(400, `Daily limit for ${veh.plate_no} is ${veh.daily_limit_l} L; ${round2(used)} L already given today (${round2(Math.max(0, veh.daily_limit_l - used))} L left). Ask the manager.`);
   }
+  const photoId = s.photo_id && get("SELECT id FROM photos WHERE id=? AND tenant_id=?", s.photo_id, tenantId) ? s.photo_id : null;
   const tank = get("SELECT * FROM tanks WHERE station_id=? AND product=? ORDER BY current_l DESC LIMIT 1", s.station_id, s.product);
   if (!tank) throw new AppError(400, `No ${s.product} tank at this station`);
   if (tank.current_l < litres) throw new AppError(400, `Not enough stock in ${tank.name}`);
   const ts = s.created_at ?? now();
   return tx(() => {
     const { id } = run(
-      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO sales (station_id,shift_id,customer_id,nozzle_id,product,litres,rate,amount,payment_method,vehicle_no,slip_no,created_by,client_uid,source,coupon_id,photo_id,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       s.station_id, s.shift_id ?? null, customer?.id ?? null, s.nozzle_id ?? null, s.product,
-      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, ts,
+      round2(litres), rate, amount, s.payment_method, s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.created_by ?? null, s.client_uid ?? null, s.source ?? (s.created_by ? "pos" : null), coupon?.id ?? null, photoId, ts,
     );
     if (coupon && run("UPDATE fuel_coupons SET status='used', sale_id=?, used_at=?, used_by=? WHERE id=? AND status='active'", id, ts, String(s.created_by ?? ""), coupon.id).changes !== 1)
       throw new AppError(409, `Coupon ${coupon.code} was just used`);
@@ -158,10 +161,12 @@ export function recordSale(tenantId: number, s: SaleInput): Row {
         ts, points ? -points : Math.floor(amount / 100), customer.id);
       if (points) run("INSERT INTO loyalty_redemptions (tenant_id,customer_id,points,sale_id,created_at) VALUES (?,?,?,?,?)", tenantId, customer.id, points, id, ts);
       if (s.payment_method === "khata") {
-        run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
+        const k = run(`INSERT INTO khata_ledger (customer_id,type,amount,ref,note,product,litres,rate,vehicle_no,slip_no,station_id,created_at)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
           customer.id, "debit", amount, `SALE-${id}`, `${round2(litres)}L ${s.product} @ Rs ${rate}`, s.product, round2(litres), rate,
           s.vehicle_no?.toUpperCase() ?? null, s.slip_no ?? null, s.station_id, ts);
+        // the slip photo shows on the khata statement like any other proof photo
+        if (photoId) run("UPDATE photos SET ref=? WHERE id=? AND ref IS NULL", `khata:${k.id}`, photoId);
         run("UPDATE customers SET balance = balance + ? WHERE id=?", amount, customer.id);
       }
     }
