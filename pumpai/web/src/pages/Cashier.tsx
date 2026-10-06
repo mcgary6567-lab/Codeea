@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
+  ArrowDownCircle, ArrowUpCircle, Banknote, BookOpenText, Calculator, Check, ChevronLeft, ChevronRight, FileCheck2, HandCoins, Landmark, Printer, Search, Users, X,
 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
@@ -528,46 +528,92 @@ function Handover() {
 }
 
 /* ================= day book ================= */
+const DAYBOOK_FILTERS = [
+  { k: "all", en: "All", ur: "سب" }, { k: "cash_in", en: "Cash in", ur: "نقد آیا" }, { k: "cash_out", en: "Cash out", ur: "نقد گیا" },
+  { k: "bank", en: "Bank / digital", ur: "بینک" }, { k: "shift", en: "Shift cash", ur: "شفٹ" },
+] as const;
+const shiftDay = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
+
 function DayBook() {
   const [date, setDate] = useState(today());
+  const [filter, setFilter] = useState<string>("all");
+  const [q, setQ] = useState("");
+  const [shown, setShown] = useState(60);
   const { data, error } = useApi<any>(`/cashier/daybook?date=${date}`);
+  useEffect(() => setShown(60), [date, filter, q]);
+  const rows = useMemo(() => {
+    const all: any[] = data?.rows ?? [];
+    const term = q.trim().toLowerCase();
+    return all.filter((r) => {
+      if (filter === "cash_in" && !(r.dir === "in" && r.cash)) return false;
+      if (filter === "cash_out" && !(r.dir === "out" && r.cash)) return false;
+      if (filter === "bank" && (r.cash || r.dir === "contra") && r.what !== "Cash deposited in bank") return false;
+      if (filter === "shift" && !/^Shift cash/.test(r.what)) return false;
+      return !term || [r.what, r.party, r.method, r.account, r.who, String(Math.round(r.amount))].join(" ").toLowerCase().includes(term);
+    });
+  }, [data, filter, q]);
+  const isToday = date === today();
+  const Line = ({ k, ur, v, sign, tone = "" }: { k: string; ur: string; v: number; sign: string; tone?: string }) => (
+    <div className="flex items-baseline justify-between gap-3 py-1 text-sm"><span className="min-w-0">{sign} {k} · <Ur className="text-slate-500">{ur}</Ur></span><span className={`shrink-0 whitespace-nowrap font-semibold tabular-nums ${tone}`}>{pkr(v)}</span></div>
+  );
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <input type="date" className="input w-auto" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
-        <button className="btn-secondary" onClick={() => window.print()}><Printer size={15} /> Print · <Ur>پرنٹ</Ur></button>
+        <div className="flex items-center gap-1">
+          <button className="btn-secondary min-h-10 !px-2" aria-label="Previous day" onClick={() => setDate(shiftDay(date, -1))}><ChevronLeft size={18} /></button>
+          <input type="date" className="input min-h-10 w-[9.5rem] sm:w-auto" value={date} max={today()} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Day" />
+          <button className="btn-secondary min-h-10 !px-2" aria-label="Next day" disabled={isToday} onClick={() => setDate(shiftDay(date, 1))}><ChevronRight size={18} /></button>
+        </div>
+        {!isToday && <button className="btn-secondary min-h-10 !px-3 text-sm" onClick={() => setDate(today())}>Today<span className="hidden sm:inline"> · <Ur>آج</Ur></span></button>}
+        <button className="btn-secondary min-h-10 !px-3 sm:ml-auto" aria-label="Print" onClick={() => window.print()}><Printer size={15} /><span className="hidden sm:inline"> Print · <Ur>پرنٹ</Ur></span></button>
       </div>
       {error && <ErrorBox error={error} />}
       {!data ? <Loading /> : <>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <Box label="Opening cash" ur="شروع میں نقد" v={data.cash.opening} />
-          <Box label="Cash in" ur="نقد آیا" v={data.totals.in_cash} tone="text-emerald-700" />
-          <Box label="Cash out" ur="نقد گیا" v={data.totals.out_cash} tone="text-rose-700" />
-          <Box label="Put in bank" ur="بینک میں جمع" v={data.totals.deposited} tone="text-sky-700" />
-          <Box label={date === today() ? "Cash now" : "Closing cash"} ur="آخر میں نقد" v={data.cash.closing} tone="font-bold" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Box label="Bank / digital in" ur="بینک میں آیا" v={data.totals.in_bank} tone="text-emerald-700" />
-          <Box label="Bank / digital out" ur="بینک سے گیا" v={data.totals.out_bank} tone="text-rose-700" />
+        <div className="grid gap-3 md:grid-cols-2 [&>*]:min-w-0">
+          <div className="card p-4">
+            <h3 className="mb-1 font-semibold">Cash · <Ur>نقد</Ur></h3>
+            {data.cash.starts_today && <p className="mb-1 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800">The cash book starts with the cash count on this day; entries before it are listed but not added · <Ur>کیش بک اس دن کی گنتی سے شروع ہوئی</Ur></p>}
+            {data.cash.opening != null ? <Line sign="" k={data.cash.starts_today ? "Cash counted" : "Opening cash"} ur={data.cash.starts_today ? "گنا گیا" : "شروع میں"} v={data.cash.opening} />
+              : <p className="mb-1 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800">The cash was first counted later — no cash balance for this day · <Ur>اس دن کیش گنا نہیں گیا تھا</Ur></p>}
+            <Line sign="+" k="Cash in" ur="آیا" v={data.totals.in_cash} tone="text-emerald-700" />
+            <Line sign="−" k="Cash out" ur="گیا" v={data.totals.out_cash} tone="text-rose-700" />
+            {data.totals.deposited > 0 && <Line sign="−" k="Put in bank" ur="بینک میں جمع" v={data.totals.deposited} tone="text-sky-700" />}
+            {data.totals.withdrawn > 0 && <Line sign="+" k="Taken from bank" ur="بینک سے نکالا" v={data.totals.withdrawn} tone="text-sky-700" />}
+            {Math.abs(data.totals.counted ?? 0) >= 1 && <Line sign={data.totals.counted < 0 ? "−" : "+"} k={data.totals.counted < 0 ? "Short at cash count" : "Over at cash count"} ur="گنتی میں فرق" v={Math.abs(data.totals.counted)} tone="text-amber-700" />}
+            <div className="mt-1 flex items-baseline justify-between gap-3 border-t-2 border-slate-800 pt-1.5"><span className="min-w-0 font-semibold">= {isToday ? "Cash now" : "Closing cash"} · <Ur>آخر میں</Ur></span><span className="shrink-0 whitespace-nowrap text-lg font-bold tabular-nums">{data.cash.closing != null ? pkr(data.cash.closing) : "—"}</span></div>
+          </div>
+          <div className="card p-4">
+            <h3 className="mb-1 font-semibold">Bank / digital · <Ur>بینک</Ur></h3>
+            <Line sign="+" k="In" ur="آیا" v={data.totals.in_bank} tone="text-emerald-700" />
+            <Line sign="−" k="Out" ur="گیا" v={data.totals.out_bank} tone="text-rose-700" />
+            <p className="mt-1 text-xs text-slate-500">{data.rows.length} entries on this day · <Ur>اس دن کی اندراجات</Ur></p>
+          </div>
         </div>
         <div className="card">
+          <div className="space-y-2 border-b border-slate-100 p-3 print:hidden">
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">{DAYBOOK_FILTERS.map((f) => (
+              <button key={f.k} onClick={() => setFilter(f.k)} aria-pressed={filter === f.k}
+                className={`min-h-9 shrink-0 whitespace-nowrap rounded-full px-3 text-sm ring-1 ${filter === f.k ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-200"}`}>{f.en} · <Ur>{f.ur}</Ur></button>
+            ))}</div>
+            <label className="relative block"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className="input min-h-10 pl-9" placeholder="Search name, amount… · تلاش" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the day book" /></label>
+            {(filter !== "all" || q) && <p className="text-xs text-slate-500">{rows.length} of {data.rows.length} · in {pkr(rows.filter((r) => r.dir === "in").reduce((a, r) => a + r.amount, 0))} · out {pkr(rows.filter((r) => r.dir === "out").reduce((a, r) => a + r.amount, 0))}</p>}
+          </div>
           <ul className="divide-y divide-slate-100">
-            {data.rows.map((r: any, i: number) => (
-              <li key={i} className="flex items-center gap-3 px-4 py-2 text-sm">
-                <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}</span><span className="block break-words text-xs text-slate-500">{[new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
-                <span className={`shrink-0 self-start whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : "⇄"} {pkr(r.amount)}</span>
+            {rows.slice(0, shown).map((r: any, i: number) => (
+              <li key={i} className={`flex items-center gap-3 px-4 py-2 text-sm ${r.before_start ? "opacity-60" : ""}`}>
+                <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}{r.before_start && <span className="ml-1 text-xs font-normal text-amber-700">(before the count)</span>}</span><span className="block break-words text-xs text-slate-500">{[new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
+                <span className={`shrink-0 self-start whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : r.dir === "count" ? "text-amber-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : r.dir === "count" ? (r.start ? "=" : r.signed < 0 ? "−" : r.signed > 0 ? "+" : "✓") : "⇄"} {pkr(r.amount)}</span>
               </li>
             ))}
-            {!data.rows.length && <li><Empty>Nothing on this day · <Ur>اس دن کچھ نہیں</Ur></Empty></li>}
+            {!rows.length && <li><Empty>{data.rows.length ? "Nothing matches · کچھ نہیں ملا" : <>Nothing on this day · <Ur>اس دن کچھ نہیں</Ur></>}</Empty></li>}
           </ul>
+          {rows.length > shown && <button className="w-full border-t border-slate-100 py-2.5 text-sm font-medium text-brand-700 print:hidden" onClick={() => setShown(shown + 100)}>Show more ({rows.length - shown} left) · <Ur>مزید</Ur></button>}
         </div>
       </>}
     </div>
   );
 }
-const Box = ({ label, ur, v, tone = "" }: { label: string; ur: string; v: number; tone?: string }) => (
-  <div className="card min-w-0 p-3"><div className="text-xs text-slate-500">{label} · <Ur>{ur}</Ur></div><div className={`truncate text-lg tabular-nums ${tone}`}>{pkr(v)}</div></div>
-);
 
 /* ================= cash & bank ================= */
 const NOTES = [5000, 1000, 500, 100, 50, 20, 10];

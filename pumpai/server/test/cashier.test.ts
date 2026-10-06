@@ -135,5 +135,8 @@ test("handover: the cashier takes the salesman's cash; short cash is reported; d
   assert.ok(book.rows.length > 0);
   for (const k of ["in_cash", "in_bank", "out_cash", "out_bank"]) assert.equal(typeof book.totals[k], "number");
   const t = book.totals;
-  near(book.cash.opening + t.in_cash - t.out_cash - t.deposited + t.withdrawn, book.cash.closing, "day book adds up");
+  near(book.cash.opening + t.in_cash - t.out_cash - t.deposited + t.withdrawn + t.counted, book.cash.closing, "day book adds up");
+  // a difference only appears on a day the cash was counted, and it is shown as a line of its own
+  const countRows = book.rows.filter((x: any) => x.dir === "count");
+  if (!countRows.length) near(t.counted, 0, "no count, no difference"); else near(countRows.reduce((a: number, x: any) => a + x.signed, 0), t.counted, "count line");
 });

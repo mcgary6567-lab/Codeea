@@ -41,7 +41,22 @@ const trial = async () => ok(await call("admin", "GET", `/api/ledger?from=${toda
 const tb = (l: any, acc: string) => l.trial_balance.find((x: any) => x.account === acc)?.balance ?? 0;
 const dayBookAddsUp = async (msg: string) => {
   const b = ok(await call("cashier", "GET", "/api/cashier/daybook"), "daybook");
-  near(b.cash.opening + b.totals.in_cash - b.totals.out_cash - b.totals.deposited + b.totals.withdrawn, b.cash.closing, `day book adds up (${msg})`);
+  if (b.cash.opening == null) {
+    // the first cash count ever was today: the book starts at that line and adds up from there
+    const start = b.rows.find((x: any) => x.start);
+    assert.ok(start, `book start line (${msg})`);
+    const after = b.rows.filter((x: any) => x.at > start.at && x.cash && x.dir !== "count");
+    const move = after.reduce((a: number, x: any) => a + (x.dir === "in" ? x.amount : x.dir === "out" ? -x.amount : x.what === "Cash deposited in bank" ? -x.amount : 0), 0);
+    near(start.amount + move + b.totals.withdrawn, b.cash.closing, `day book adds up from the count (${msg})`);
+  } else {
+    near(b.cash.opening + b.totals.in_cash - b.totals.out_cash - b.totals.deposited + b.totals.withdrawn + b.totals.counted, b.cash.closing, `day book adds up (${msg})`);
+    near(b.rows.filter((x: any) => x.dir === "count").reduce((a: number, x: any) => a + x.signed, 0), b.totals.counted, `count line shown (${msg})`);
+    // the day's opening is the book at the end of yesterday (or the count, on the day the book starts)
+    if (!b.cash.starts_today) {
+    const y = new Date(Date.now() + 5 * 3600_000 - 86400_000).toISOString().slice(0, 10);
+    near(b.cash.opening, ok(await call("cashier", "GET", `/api/cashier/daybook?date=${y}`), "yesterday").cash.closing, `opening = yesterday's closing (${msg})`);
+    }
+  }
   near(b.cash.closing, await cash(), `day book closing = cash book (${msg})`);
 };
 let acc = 0;

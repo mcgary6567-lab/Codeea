@@ -331,7 +331,8 @@ cashier.post("/cashier/handovers/:id", requirePerm("shifts.handover"), h(async (
 /* ---------------- day book ---------------- */
 export function cashierDayBook(t: number, d: string) {
   const from = pkStart(d), to = pkEnd(d);
-  const P = [t, from, to] as const;
+  // today: only what has happened so far (same cut-off as the cash book)
+  const P = [t, from, to < now() ? to : now()] as const;
   const acc = new Map(all("SELECT * FROM bank_accounts WHERE tenant_id=?", t).map((a) => [a.id, accountName(a)]));
   const rows: Row[] = [
     ...(handoverMode(t)
@@ -367,17 +368,40 @@ export function cashierDayBook(t: number, d: string) {
       FROM cashier_vouchers WHERE tenant_id=? AND party_type='other' AND LOWER(method)='cash' AND voided=0 AND created_at >= ? AND created_at < ?`, ...P),
   ].map((r) => ({ ...r, amount: round2(r.amount), account: r.account_id ? acc.get(r.account_id) ?? null : null, cash: isCash(r.method) }))
     .sort((a, b) => (a.at < b.at ? -1 : 1));
-  const sum = (f: (r: Row) => boolean) => round2(rows.filter(f).reduce((a, r) => a + r.amount, 0));
+  // the day the cash book starts (first cash count): only what came after the count moves the book
+  const first = get("SELECT MIN(created_at) v FROM cash_counts WHERE tenant_id=?", t)!.v as string | null;
+  const startsToday = Boolean(first && first >= from && first < to);
+  if (startsToday) for (const r of rows) if (r.at < first!) r.before_start = true;
+  const sum = (f: (r: Row) => boolean, all = false) => round2(rows.filter((r) => (all || !r.before_start) && f(r)).reduce((a, r) => a + r.amount, 0));
   const totals = {
-    in_cash: sum((r) => r.dir === "in" && r.cash), in_bank: sum((r) => r.dir === "in" && !r.cash),
-    out_cash: sum((r) => r.dir === "out" && r.cash), out_bank: sum((r) => r.dir === "out" && !r.cash),
+    in_cash: sum((r) => r.dir === "in" && r.cash), in_bank: sum((r) => r.dir === "in" && !r.cash, true),
+    out_cash: sum((r) => r.dir === "out" && r.cash), out_bank: sum((r) => r.dir === "out" && !r.cash, true),
     deposited: sum((r) => r.dir === "contra" && r.what === "Cash deposited in bank"),
   };
-  const withdrawn = round2(-(get("SELECT COALESCE(SUM(amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at >= ? AND created_at < ?", ...P)!.v ?? 0));
-  // closing from the cash book; opening = closing less the day's own cash movement, so the page always adds up
-  const closing = cashPosition(t, to < now() ? to : now()).cash_in_hand;
-  const opening = round2(closing - totals.in_cash + totals.out_cash + totals.deposited - withdrawn);
-  return { date: d, rows, totals: { ...totals, withdrawn }, cash: { opening, closing } };
+  const withdrawn = round2(-(get("SELECT COALESCE(SUM(amount),0) v FROM bank_txns WHERE tenant_id=? AND kind='withdraw' AND created_at >= ? AND created_at < ?", t, startsToday ? first : from, P[2])!.v ?? 0));
+  // opening and closing both from the cash book. A cash count during the day resets the book to what was counted:
+  // that difference is its own line, so opening + in − out − bank + withdrawn ± counted difference = closing, always.
+  // Before the very first cash count the book has not started (cash on hand was never known), so there is no opening.
+  const end = to < now() ? new Date(Date.parse(to) - 1).toISOString() : now();
+  const counts = all("SELECT * FROM cash_counts WHERE tenant_id=? AND created_at >= ? AND created_at < ?", ...P);
+  const started = !first || first < from;
+  const opening = started ? cashPosition(t, new Date(Date.parse(from) - 1).toISOString()).cash_in_hand
+    : startsToday ? round2(get("SELECT amount FROM cash_counts WHERE tenant_id=? AND created_at=? ORDER BY id LIMIT 1", t, first)!.amount) : null;
+  const closing = !first || first <= end ? cashPosition(t, end).cash_in_hand : null;
+  let counted = 0;
+  if (opening != null && closing != null) counted = round2(closing - (opening + totals.in_cash - totals.out_cash - totals.deposited + withdrawn));
+  counts.forEach((c, i) => {
+    if (c.created_at === first) {
+      rows.push({ at: c.created_at, dir: "count", what: "Cash counted — the cash book starts here", party: `counted ${pkr(c.amount)} = opening`, method: "Cash", amount: round2(c.amount), signed: 0,
+        account_id: null, account: null, who: c.counted_by, cash: true, start: true });
+      return;
+    }
+    const diff = counts.length === 1 ? counted : round2(c.variance ?? 0);
+    rows.push({ at: c.created_at, dir: "count", what: diff === 0 ? "Cash counted — matches the book" : `Cash counted — ${diff < 0 ? "short" : "over"} against the book`,
+      party: `counted ${pkr(c.amount)}`, method: "Cash", amount: Math.abs(diff), signed: diff, account_id: null, account: null, who: c.counted_by, cash: true, n: i });
+  });
+  rows.sort((a, b) => (a.at < b.at ? -1 : 1));
+  return { date: d, rows, totals: { ...totals, withdrawn, counted }, cash: { opening, closing, book_starts: started ? null : first, starts_today: startsToday } };
 }
 
 cashier.get("/cashier/daybook", requirePerm("cashier.desk"), h((req) => cashierDayBook(tid(req), req.query.date ? parse(day, req.query.date) : pkDate())));

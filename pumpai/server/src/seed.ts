@@ -168,6 +168,8 @@ export function seed() {
     const meterAt = new Map(nozRows.map((n) => [n.id as number, n.totalizer as number]));
     const r2 = (x: number) => Math.round(x * 100) / 100;
     for (const sh of all("SELECT id, station_id, opened_at, closed_at FROM shifts WHERE status='closed' ORDER BY opened_at DESC")) {
+      // the pump's sales in a shift's hours belong to that shift (otherwise the cash book counts them twice: as counter sales and in the shift's cash)
+      run("UPDATE sales SET shift_id=? WHERE station_id=? AND shift_id IS NULL AND created_at >= ? AND created_at < ?", sh.id, sh.station_id, sh.opened_at, sh.closed_at);
       for (const sold of all("SELECT product, SUM(litres) l FROM sales WHERE station_id=? AND created_at >= ? AND created_at < ? GROUP BY product", sh.station_id, sh.opened_at, sh.closed_at)) {
         const noz = nozRows.filter((n) => n.station_id === sh.station_id && n.product === sold.product);
         const share = 0.35 + rnd() * 0.3;
@@ -373,14 +375,14 @@ function seedWholesaleAndExpenses(tenantId: number, st1: number, st2: number, T0
     const day = (n: number) => { const d = new Date(base); d.setUTCDate(n); return d.getTime() <= T0 ? d.toISOString().slice(0, 10) : null; };
     for (const [cat, amt, to, method] of monthly) {
       const date = day(cat === "Salaries & wages" ? 1 : 5 + Math.floor(rnd() * 5));
-      if (!date) continue;
+      if (!date || Date.parse(date + "T09:00:00.000Z") > Date.now()) continue;
       const amount = Math.round(amt * (cat === "Electricity (bijli)" && m === 0 ? 1.32 : 0.95 + rnd() * 0.1));
       run(`INSERT INTO expenses (tenant_id,station_id,category,amount,paid_to,method,status,created_by,approved_by,expense_date,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
         tenantId, null, cat, amount, to, method, "approved", "Haji Abdul Rehman (CEO)", "Haji Abdul Rehman (CEO)", date, date + "T09:00:00.000Z");
     }
     for (let i = 0; i < 14; i++) {
       const date = day(1 + Math.floor(rnd() * 28));
-      if (!date) continue;
+      if (!date || Date.parse(date + "T12:00:00.000Z") > Date.now()) continue; // nothing dated later than now
       const [cat, lo, hi, to] = pick([
         ["Generator fuel", 8000, 25000, "Own stock"], ["Maintenance & repairs", 3000, 40000, "Dispenser mechanic"], ["Tea & food", 800, 3000, "Hotel"],
         ["Office & stationery", 500, 4000, "Stationery shop"], ["Tanker freight & transport", 6000, 18000, "Tanker contractor"], ["Other", 500, 6000, "Misc"],
