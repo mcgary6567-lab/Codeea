@@ -587,6 +587,8 @@ function ReceiptQr({ url }: { url: string }) {
   return src ? (
     <div className="mx-auto mt-4 w-fit rounded-xl bg-white p-2 text-center text-xs font-medium text-slate-700" onClick={(e) => e.stopPropagation()}>
       <img src={src} alt="QR code for the digital receipt" className="h-32 w-32" />Scan for receipt · <Ur>رسید</Ur>
+      {/* the same receipt on this screen, to print or share as PDF */}
+      <a href={url} target="_blank" rel="noreferrer" className="mt-2 flex min-h-11 items-center justify-center gap-1 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white">🖨 Print receipt · <Ur>پرنٹ</Ur></a>
     </div>
   ) : null;
 }
