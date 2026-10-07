@@ -511,6 +511,15 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, direction TEXT NOT NULL, party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL,
     amount REAL NOT NULL, method TEXT NOT NULL, account_id INTEGER, category TEXT, ref TEXT, note TEXT, src TEXT, voided INTEGER NOT NULL DEFAULT 0,
     created_by TEXT, created_at TEXT NOT NULL)`);
+  // property & rent: units inside the pump (shop, hotel, service bay) rented out = income; and the pump's own rent = expense
+  db.exec(`CREATE TABLE IF NOT EXISTS rentals (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'shop',
+    tenant_name TEXT, phone TEXT, monthly_rent REAL NOT NULL DEFAULT 0, deposit REAL NOT NULL DEFAULT 0, start_day TEXT, active INTEGER NOT NULL DEFAULT 1,
+    note TEXT, created_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS rental_payments (
+    id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, rental_id INTEGER NOT NULL, for_month TEXT NOT NULL, amount REAL NOT NULL,
+    method TEXT NOT NULL DEFAULT 'cash', account_id INTEGER, ref TEXT, note TEXT, voucher_id INTEGER, received_by TEXT, created_at TEXT NOT NULL)`);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_rental_pay ON rental_payments(rental_id, for_month)");
   // the cashier takes the cash from the salesman after the shift closes
   for (const [c, t] of [["handed_amount", "REAL"], ["handed_to", "TEXT"], ["handed_at", "TEXT"], ["handover_note", "TEXT"]]) addColumn("shifts", c, t);
   addColumn("cash_counts", "notes_json", "TEXT");

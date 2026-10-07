@@ -21,6 +21,7 @@ import SettingsPage from "./pages/Settings";
 import Users from "./pages/Users";
 import Wholesale from "./pages/Wholesale";
 import Expenses from "./pages/Expenses";
+import Property from "./pages/Property";
 import Reports from "./pages/Reports";
 import Suppliers from "./pages/Suppliers";
 import Staff from "./pages/Staff";
@@ -137,6 +138,7 @@ export default function App() {
               <Route path="wholesale" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
               <Route path="wholesale/:id" element={<Need perm="wholesale.view"><Wholesale /></Need>} />
               <Route path="expenses" element={<Need perm="expenses.view"><Expenses /></Need>} />
+              <Route path="property" element={<Need perm="expenses.view"><Property /></Need>} />
               <Route path="reports" element={<Need perm="reports.view"><Reports /></Need>} />
               <Route path="suppliers" element={<Need perm="suppliers.manage"><Suppliers /></Need>} />
               <Route path="users" element={<Need perm="users.manage"><Users /></Need>} />

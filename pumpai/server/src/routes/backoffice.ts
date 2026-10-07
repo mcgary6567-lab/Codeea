@@ -12,6 +12,7 @@ import { logoTag } from "./setup.js";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, getSetting } from "../db.js";
+import { rentalIncome } from "./property.js";
 import { h, parse, tid, requirePerm, requireAny, can } from "../auth.js";
 import { AppError, round2, pkr, createAlert } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
@@ -270,6 +271,7 @@ ${BRAND_CSS}tr:nth-child(even) td{background:#f8fafc}th{background:#0f172a;color
 ${brandHead(p.t, "Day report")}<h1>Day report · ${esc(p.day)}</h1><div class=muted>${esc(new Date(`${p.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · closed ${esc(new Date(row.closed_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
 <div class=grid style="margin-top:12px"><div class=tile>Sales<b>${rs(b.sales.revenue)}</b></div><div class=tile>Expenses<b>${rs(b.expenses.total)}</b></div><div class=tile>Supply received<b>${Number(b.supply.litres).toLocaleString()} L</b></div><div class=tile>Office cash<b>${rs(c.cash_in_hand)}</b></div></div>
 <h2>Sales</h2><table>${kv("Pump sales", `${rs(b.sales.retail)} · ${Math.round(b.sales.retail_litres).toLocaleString()} L · ${b.sales.txns} sales`)}${kv("Wholesale", rs(b.sales.wholesale))}${kv("Cash", rs(b.sales.cash))}${kv("Digital", rs(b.sales.digital))}${kv("Khata", rs(b.sales.khata))}${kv("Profit (est.)", rs(b.profit.net))}</table>
+${(() => { const rent = rentalIncome(p.t, pkStart(p.day), pkEnd(p.day)); return rent > 0 ? `<h2>Other income</h2><table>${kv("Shop / hotel rent received", rs(rent))}</table>` : ""; })()}
 <h2>Stock</h2><table class=stock><tr><th>Fuel</th><th class=r>Opening</th><th class=r>Received</th><th class=r>Sold</th><th class=r>Closing</th><th class=r>Value (cost)</th></tr>
 ${b.stock.products.map((x: any) => `<tr><td>${esc(x.name)}</td><td class=r data-l="Opening">${x.opening_l.toLocaleString()}</td><td class=r data-l="Received">${x.received_l.toLocaleString()}</td><td class=r data-l="Sold">${x.sold_l.toLocaleString()}</td><td class=r data-l="Closing">${x.closing_l.toLocaleString()}</td><td class=r data-l="Value">${rs(x.value_at_cost)}</td></tr>`).join("")}</table>
 <h2>Expenses</h2><table>${b.expenses.by_category.map((e: any) => kv(e.category, rs(e.amount))).join("") || "<tr><td class=muted>None</td></tr>"}</table>

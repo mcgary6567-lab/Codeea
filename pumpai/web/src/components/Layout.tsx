@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, MessageCircle, Users, Fuel, Clock, Droplets, Tag, Truck, Megaphone, Bell, Bot, Settings, LogOut, Menu, X, MessageSquareWarning, BookOpen, UserCog, MapPin, Container, Receipt, FileBarChart, Factory, Wallet, Landmark, ShoppingBasket, ClipboardCheck, ShieldCheck, HeartPulse, CalendarClock, ScrollText, Ticket, Star, Calculator, History, Wrench, Route, UserPlus, ChevronDown,
   HandCoins, ClipboardList, Banknote, ArrowDownCircle, ArrowUpCircle, FileCheck2, BookOpenText,
+  Building2,
 } from "lucide-react";
 import { useAuth, ROLE_LABEL } from "../App";
 import { useApi, useLiveEvents } from "../lib/api";
@@ -42,7 +43,7 @@ const GROUPS: { key: string; label: string; icon: any; items: string[] }[] = [
   { key: "customers", label: "Customers & khata", icon: Users, items: ["/customers", "/khata", "/prepaid", "/inbox", "/orders", "/complaints", "/campaigns"] },
   { key: "wholesale", label: "Wholesale", icon: Container, items: ["/wholesale"] },
   { key: "stock", label: "Stock & prices", icon: Droplets, items: ["/stock", "/register", "/prices", "/shop"] },
-  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers"] },
+  { key: "money", label: "Money & accounts", icon: Landmark, items: ["/cashier", "/expenses", "/cash", "/accounts", "/suppliers", "/property"] },
   { key: "staff", label: "Staff", icon: Wallet, items: ["/staff", "/team", "/my-account"] },
   { key: "safety", label: "Safety", icon: ShieldCheck, items: ["/compliance", "/checklist", "/machines", "/alerts"] },
   { key: "system", label: "System", icon: Settings, items: ["/automations", "/users", "/audit", "/settings"] },
@@ -130,6 +131,7 @@ const NAV = [
   { to: "/cash", label: "Cash & bank", icon: Landmark, perm: "expenses.view" },
   { to: "/accounts", label: "Accounts & tax", icon: Calculator, perm: "reports.view" },
   { to: "/suppliers", label: "Suppliers", icon: Factory, perm: "suppliers.manage" },
+  { to: "/property", label: "Property & rent", icon: Building2, perm: "expenses.view" },
   { to: "/orders", label: "Orders", icon: Truck, badge: "orders", perm: "orders.manage" },
   { to: "/bookings", label: "Bookings", icon: CalendarClock, perm: "sales.create" },
   { to: "/complaints", label: "Complaints", icon: MessageSquareWarning, perm: "complaints.manage" },
