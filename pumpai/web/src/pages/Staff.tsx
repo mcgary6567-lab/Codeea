@@ -17,14 +17,14 @@ const TYPE: Record<string, { label: string; tone: string; sign: string }> = {
 
 /** Staff khata: advances, cash shortages from shifts, salary — no salary register on paper. */
 export default function Staff() {
-  const [tab, setTab] = useState<"accounts" | "attendance" | "training" | "coaching">("accounts");
-  const TABS = { accounts: "Accounts & salary", attendance: "Attendance & leave", training: "Training", coaching: "Daily coaching" } as const;
+  const [tab, setTab] = useState<"accounts" | "attendance" | "calendar" | "training" | "coaching">("accounts");
+  const TABS = { accounts: "Accounts & salary", attendance: "Attendance & leave", calendar: "Attendance calendar", training: "Training", coaching: "Daily coaching" } as const;
   return (
     <div className="space-y-5">
       <div className="flex gap-2 overflow-x-auto">
         {(Object.keys(TABS) as (keyof typeof TABS)[]).map((t) => <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ${tab === t ? "bg-slate-900 text-white" : "bg-white ring-1 ring-slate-200"}`}>{TABS[t]}</button>)}
       </div>
-      {tab === "accounts" ? <Accounts /> : tab === "attendance" ? <Attendance /> : tab === "training" ? <TrainingTab /> : <CoachingTab />}
+      {tab === "accounts" ? <Accounts /> : tab === "attendance" ? <Attendance /> : tab === "calendar" ? <StaffCalendar /> : tab === "training" ? <TrainingTab /> : <CoachingTab />}
     </div>
   );
 }
@@ -94,6 +94,71 @@ function Attendance() {
 }
 
 const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WD = ["S", "M", "T", "W", "T", "F", "S"];
+
+/** Monthly attendance calendar for hand-marked staff (night guard, cleaner, non-login staff): tap a day to mark present/absent. */
+function StaffCalendar() {
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [all, setAll] = useState(false);
+  const { data, reload } = useApi<any>(`/attendance/calendar?month=${month}${all ? "&all=1" : ""}`);
+  const { run, busy } = useAction();
+  const shift = (n: number) => { const [y, m] = month.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); setMonth(d.toISOString().slice(0, 7)); };
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const toggle = (uid: number, day: string, cur: string) => {
+    if (cur === "future" || cur === "before" || busy) return;
+    const present = !(cur === "present" || cur === "late");
+    run(() => api("/attendance/mark", { body: { user_id: uid, day, present } }), present ? "Marked present" : "Marked absent").then(reload);
+  };
+  return (
+    <div className="space-y-4">
+      <PageHeader title="Attendance calendar" subtitle="Day-wise present/absent for hand-marked staff — tap any day to mark" />
+      <div className="card flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary min-h-10 !px-3" onClick={() => shift(-1)} aria-label="Previous month">‹</button>
+          <input type="month" value={month} max={thisMonth} onChange={(e) => setMonth(e.target.value)} className="input !w-auto min-h-10" />
+          <button className="btn-secondary min-h-10 !px-3 disabled:opacity-40" disabled={month >= thisMonth} onClick={() => shift(1)} aria-label="Next month">›</button>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} className="h-4 w-4" /> Show all staff</label>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+        {([["present", "Present"], ["absent", "Absent"], ["off", "Weekly off"], ["leave_paid", "Leave"], ["leave_unpaid", "Unpaid"], ["late", "Late"]] as const).map(([k, l]) =>
+          <span key={k} className="flex items-center gap-1"><span className={`h-3 w-3 rounded-sm ${DAY_STATUS[k]?.cls}`} /> {l}</span>)}
+      </div>
+      {!data ? <Loading /> : !data.staff.length ? <Empty>{all ? "No staff to show. Add staff members in the Accounts tab." : "No non-login staff yet. Tick ‘Show all staff’, or add staff members in the Accounts tab."}</Empty>
+        : <div className="card overflow-x-auto">
+          <table className="min-w-full border-separate" style={{ borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-500">Staff</th>
+                {data.days.map((d: string) => { const dow = new Date(`${d}T12:00:00+05:00`).getUTCDay(); return (
+                  <th key={d} className={`px-0 pb-1 pt-2 text-center text-[10px] font-medium ${dow === 0 || dow === 5 ? "text-amber-600" : "text-slate-400"}`} style={{ minWidth: 26 }}>
+                    <span className="block leading-none">{WD[dow]}</span><span className="block leading-tight">{Number(d.slice(8))}</span></th>); })}
+                <th className="px-2 text-right text-xs font-semibold text-slate-500">P / A</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.staff.map((s: any) => (
+                <tr key={s.id}>
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-3 py-1.5 pr-4">
+                    <span className="block text-sm font-medium leading-tight">{s.name}</span>
+                    <span className="block text-[11px] text-slate-500">{s.job_title || s.role}{s.weekly_off != null ? ` · off ${WEEK[s.weekly_off]}` : ""}</span>
+                  </td>
+                  {data.days.map((d: string) => { const st = s.marks[d]; const cell = DAY_STATUS[st]; const tap = st !== "future" && st !== "before"; return (
+                    <td key={d} className="p-0 text-center">
+                      <button type="button" disabled={!tap} onClick={() => toggle(s.id, d, st)} title={`${d}: ${cell?.label ?? st}`}
+                        className={`m-px h-6 w-6 rounded-sm align-middle text-[10px] font-semibold text-white ${cell?.cls ?? "bg-slate-50"} ${tap ? "cursor-pointer hover:ring-2 hover:ring-slate-400" : "cursor-default"} ${st === "off" || st === "future" || st === "before" ? "!text-slate-400" : ""}`}>
+                        {st === "present" || st === "late" ? "✓" : st === "absent" ? "" : ""}</button>
+                    </td>); })}
+                  <td className="whitespace-nowrap px-2 text-right text-xs tabular-nums"><b className="text-emerald-600">{s.present}</b> / <b className={s.absent ? "text-red-600" : "text-slate-400"}>{s.absent}</b></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>}
+      <p className="text-xs text-slate-500">Tip: unmarked past days count as absent. Tap a day to switch present/absent. Use <b>Record leave</b> on the Attendance tab for leave days.</p>
+    </div>
+  );
+}
 
 function Accounts() {
   const { data, reload } = useApi<any[]>("/staff");

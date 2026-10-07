@@ -125,6 +125,32 @@ test("attendance: live selfie + live location are mandatory; lateness; leave; sa
   }
 });
 
+test("attendance calendar: a manager hand-marks a non-login staff member day by day", async () => {
+  const month = db.pkDate().slice(0, 7);
+  const today = db.pkDate();
+  // a non-login staff member (night guard) — no phone, no login
+  const guard = ok(await call("manager", "POST", "/api/staff/members", { name: "Night Guard Akbar", job_title: "Chowkidar (night)", salary: 25000 }), "add guard");
+  // the calendar lists non-login staff by default, with a full month of day cells
+  const cal = ok(await call("manager", "GET", `/api/attendance/calendar?month=${month}`), "calendar");
+  assert.equal(cal.month, month);
+  const row = cal.staff.find((s: any) => s.id === guard.id);
+  assert.ok(row, "guard is in the non-login calendar");
+  assert.equal(cal.days.length, new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate());
+  assert.equal(row.marks[today], "absent", "unmarked today reads absent");
+  // mark present, then it flips; the summary count follows
+  ok(await call("manager", "POST", "/api/attendance/mark", { user_id: guard.id, day: today, present: true }), "mark present");
+  const cal2 = ok(await call("manager", "GET", `/api/attendance/calendar?month=${month}`), "calendar 2");
+  const row2 = cal2.staff.find((s: any) => s.id === guard.id);
+  assert.equal(row2.marks[today], "present");
+  assert.equal(row2.present, 1);
+  // unmark → back to absent
+  ok(await call("manager", "POST", "/api/attendance/mark", { user_id: guard.id, day: today, present: false }), "unmark");
+  const row3 = ok(await call("manager", "GET", `/api/attendance/calendar?month=${month}`), "calendar 3").staff.find((s: any) => s.id === guard.id);
+  assert.equal(row3.marks[today], "absent");
+  // a salesman cannot see the calendar
+  assert.equal((await call("salesman", "GET", "/api/attendance/calendar")).status, 403);
+});
+
 /** Salary needs a photo of the signed salary sheet. */
 async function salaryProof() {
   const r = await call("manager", "POST", "/api/ai/read-photo", { kind: "proof", image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" });

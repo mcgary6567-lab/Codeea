@@ -268,6 +268,37 @@ compliance.get("/attendance", requirePerm("staff.manage"), h((req) => {
     leaves: all("SELECT l.*, u.name FROM leaves l JOIN users u ON u.id=l.user_id WHERE l.tenant_id=? ORDER BY CASE l.status WHEN 'pending' THEN 0 ELSE 1 END, l.id DESC LIMIT 40", tid(req)),
   };
 }));
+/** Full month grid for hand-marked staff (night guard, cleaner, non-login staff): one cell per day, tap to mark present/absent. */
+compliance.get("/attendance/calendar", requirePerm("staff.manage"), h((req) => {
+  const t = tid(req);
+  const month = String(req.query.month ?? pkDate().slice(0, 7));
+  const today = pkDate();
+  const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+  const dayList = Array.from({ length: last }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+  const onlyNonLogin = String(req.query.all ?? "") !== "1"; // default: only the hand-marked, non-login staff
+  const staff = all(`SELECT id, name, job_title, role, weekly_off, salary, created_at FROM users WHERE tenant_id=? AND active=1 AND role<>'admin'${onlyNonLogin ? " AND role='staff'" : ""} ORDER BY name`, t).map((u) => {
+    const rows = all("SELECT day, late_minutes FROM attendance WHERE user_id=? AND day LIKE ?", u.id, `${month}-%`);
+    const leaves = all("SELECT from_day, to_day, type FROM leaves WHERE user_id=? AND status='approved' AND from_day <= ? AND to_day >= ?", u.id, `${month}-31`, `${month}-01`);
+    const joined = u.created_at.slice(0, 10);
+    const marks: Record<string, string> = {};
+    for (const day of dayList) {
+      const a = rows.find((r) => r.day === day);
+      const lv = leaves.find((l) => l.from_day <= day && l.to_day >= day);
+      const dow = new Date(`${day}T12:00:00+05:00`).getUTCDay();
+      // a hand-entered present/leave always shows, even if backfilled before the row was created
+      marks[day] = a ? (a.late_minutes > 15 ? "late" : "present") : lv ? `leave_${lv.type}` : day > today ? "future" : day < joined ? "before" : u.weekly_off === dow ? "off" : "absent";
+    }
+    const count = (s: string) => Object.values(marks).filter((x) => x === s).length;
+    const unpaid = count("absent") + count("leave_unpaid");
+    return {
+      id: u.id, name: u.name, job_title: u.job_title ?? null, role: u.role, weekly_off: u.weekly_off,
+      present: count("present") + count("late"), late: count("late"), absent: count("absent"), off: count("off"),
+      paid_leave: count("leave_paid") + count("leave_sick"), unpaid_leave: count("leave_unpaid"),
+      salary_cut: u.salary ? round2((u.salary / 30) * unpaid) : 0, marks,
+    };
+  });
+  return { month, today, days: dayList, staff };
+}));
 compliance.patch("/staff/:id/duty", requirePerm("staff.manage"), h((req) => {
   const b = parse(z.object({ duty_start: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(), weekly_off: z.number().int().min(0).max(6).nullable().optional() }), req.body);
   const u = get("SELECT id FROM users WHERE id=? AND tenant_id=?", Number(req.params.id), tid(req));

@@ -13,6 +13,7 @@ export const DAY_STATUS: Record<string, { label: string; cls: string }> = {
   present: { label: "Present", cls: "bg-emerald-500" }, late: { label: "Late", cls: "bg-amber-500" }, absent: { label: "Absent", cls: "bg-red-500" },
   off: { label: "Weekly off", cls: "bg-slate-300" }, leave_paid: { label: "Leave", cls: "bg-blue-400" }, leave_sick: { label: "Sick leave", cls: "bg-blue-400" },
   leave_unpaid: { label: "Unpaid leave", cls: "bg-violet-400" }, not_yet: { label: "Today", cls: "bg-white ring-2 ring-slate-300" },
+  future: { label: "—", cls: "bg-slate-50" }, before: { label: "Before joining", cls: "bg-slate-50" },
 };
 
 /** A staff member's own page: attendance, leave, advances and salary. */
