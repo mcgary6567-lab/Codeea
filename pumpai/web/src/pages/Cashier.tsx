@@ -452,22 +452,47 @@ function Cheques({ go }: { go: (k: string, extra?: Record<string, string>) => vo
       : q.status === "issued" ? [["clear", "Paid by bank", "کیش ہوگیا"], ["bounce", "Bounced", "واپس آیا"], ["cancel", "Cancel", "منسوخ"]] : [];
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 print:hidden">
         <Mini label="In hand" ur="ہاتھ میں" n={t.in_hand.n} v={t.in_hand.amount} onClick={() => setFilter("in")} />
         <Mini label="Ready to deposit" ur="جمع کروانے ہیں" n={t.to_deposit.n} v={t.to_deposit.amount} tone="text-sky-700" onClick={() => setFilter("in")} />
         <Mini label="In bank, not cleared" ur="بینک میں" n={t.deposited.n} v={t.deposited.amount} tone="text-amber-700" onClick={() => setFilter("in")} />
         <Mini label="Our cheques out" ur="ہمارے چیک" n={t.issued.n} v={t.issued.amount} tone="text-violet-700" onClick={() => setFilter("out")} />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex gap-1 overflow-x-auto">
           {FILTERS.map(([k, en, ur]) => <button key={k} onClick={() => setFilter(k)} className={`min-h-9 whitespace-nowrap rounded-full px-3 py-1 text-sm ${filter === k ? "bg-slate-800 text-white" : "bg-slate-100"}`}>{en} · <Ur>{ur}</Ur></button>)}
         </div>
         <div className="flex flex-1 justify-end gap-2">
           {can("cash.receive") && <button className="btn-secondary !px-3 text-sm" onClick={() => go("receive", { method: "Cheque" })}>+ Received · <Ur>وصول</Ur></button>}
           {can("cash.pay") && <button className="btn-secondary !px-3 text-sm" onClick={() => go("pay", { method: "Cheque" })}>+ Issue · <Ur>جاری</Ur></button>}
+          <button className="btn-secondary min-h-10 !px-3" aria-label="Print" disabled={!list.length} onClick={() => window.print()}><Printer size={15} /><span className="hidden sm:inline"> Print · <Ur>پرنٹ</Ur></span></button>
         </div>
       </div>
-      <ul className="space-y-2">
+      {/* on paper: the chosen list as a register, e.g. the cheques to take to the bank */}
+      <div className="hidden print:block">
+        <h2 className="text-center text-base font-bold uppercase tracking-wide">Cheque register · {FILTERS.find(([k]) => k === filter)?.[1]}</h2>
+        <div className="mb-2 text-center text-xs text-slate-600">{list.length} cheque{list.length === 1 ? "" : "s"} · as on {dt(new Date().toISOString())}</div>
+        <table className="w-full">
+          <thead><tr><th className="th">#</th><th className="th">Cheque date</th><th className="th">Party</th><th className="th">Bank · cheque no.</th><th className="th">In / out</th><th className="th">Status</th><th className="th text-right">Amount</th></tr></thead>
+          <tbody>{list.map((q: any, i: number) => (
+            <tr key={`${q.src}-${q.id}`}>
+              <td className="td">{i + 1}</td><td className="td whitespace-nowrap">{q.cheque_date}</td>
+              <td className="td">{q.party_name}<div className="text-slate-500">{q.party_type}{q.reason ? ` · ${q.reason}` : ""}</div></td>
+              <td className="td">{q.bank}<div className="text-slate-500"># {q.cheque_no}{q.account_name ? ` · ${q.account_name}` : ""}</div></td>
+              <td className="td">{q.direction === "in" ? "Received" : "Issued"}</td><td className="td">{(STATUS[q.status] ?? STATUS.in_hand).en}</td>
+              <td className="td whitespace-nowrap text-right tabular-nums">{pkr(q.amount)}</td>
+            </tr>))}</tbody>
+          <tfoot>
+            {/* totals of cheques still to be paid only: bounced, cleared, returned or cancelled ones are listed but not added */}
+            {[["in", ["in_hand", "deposited"], "Received, not yet cleared (in hand + in bank)"], ["out", ["issued"], "Our cheques not yet paid by the bank"]].map(([dir, sts, label]) => {
+              const open = list.filter((q: any) => q.direction === dir && (sts as string[]).includes(q.status));
+              return open.length ? <tr key={dir as string}><td className="td" colSpan={6}>{label as string} · {open.length}</td><td className="td whitespace-nowrap text-right tabular-nums">{pkr(open.reduce((a: number, q: any) => a + q.amount, 0))}</td></tr> : null;
+            })}
+          </tfoot>
+        </table>
+        <div className="mt-10 grid grid-cols-2 gap-10 text-center text-xs text-slate-600"><div className="border-t border-slate-500 pt-1">Cashier · <Ur>کیشیئر</Ur></div><div className="border-t border-slate-500 pt-1">Checked by · <Ur>چیک کیا</Ur></div></div>
+      </div>
+      <ul className="space-y-2 print:hidden">
         {list.map((q: any) => {
           const s = STATUS[q.status] ?? STATUS.in_hand;
           const due = ["in_hand", "issued"].includes(q.status) && q.cheque_date <= now;
