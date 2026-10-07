@@ -11,7 +11,7 @@ import { notDepot } from "./banks.js";
 import { h, parse, tid, requirePerm } from "../auth.js";
 import { AppError, round2, currentPrices } from "../services.js";
 import { PRODUCTS } from "../config.js";
-import { clientDue } from "./wholesale.js";
+import { clientDue, carriageIncome } from "./wholesale.js";
 import { supplierOwed } from "./suppliers.js";
 import { tankOutlook } from "../ai/analytics.js";
 import { rentalIncome } from "./property.js";
@@ -208,14 +208,15 @@ export function buildReport(t: number, from: string, to: string) {
   const revenue = round2(retail.amount + wholesale.net_billed + shopS.sales);
   const digital = sales.by_payment.filter((m) => ["jazzcash", "easypaisa", "raast", "card"].includes(m.method)).reduce((a, m) => a + m.amount, 0);
   const rent_income = rentalIncome(t, from, to);
+  const carriage_income = carriageIncome(t, from, to); // bypass-on-our-ID kiraya — whole amount is profit
   const summary = {
     revenue, retail_sales: round2(retail.amount), retail_litres: r0(retail.litres), retail_txns: retail.txns,
     wholesale_net: wholesale.net_billed, wholesale_litres: r0(wholesale.supplied_l - wholesale.returned_l),
     expenses: expenses.total,
     fuel_cost_estimate: cogs == null ? null : r0(cogs),
     gross_profit_estimate: cogs == null ? null : r0(revenue - cogs - shopS.cost),
-    rent_income,
-    net_profit_estimate: cogs == null ? null : r0(revenue - cogs - shopS.cost - expenses.total + rent_income),
+    rent_income, carriage_income,
+    net_profit_estimate: cogs == null ? null : r0(revenue - cogs - shopS.cost - expenses.total + rent_income + carriage_income),
     shop_sales: shopS.sales, shop_profit: shopS.profit,
     purchases_cost: r0(stock.purchases.reduce((a, p) => a + p.cost, 0)),
     money_in: {

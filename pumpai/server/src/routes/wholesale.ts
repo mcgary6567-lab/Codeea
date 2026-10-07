@@ -43,6 +43,13 @@ export function clientDue(clientId: number, before?: string): number {
   return round2(c.opening_balance + r.d);
 }
 
+/** Carriage / kiraya income from bypass-on-our-ID supplies in a period (whole amount is profit — no fuel cost on our books). */
+export function carriageIncome(tenantId: number, fromIso: string, toIso?: string): number {
+  const r = get(`SELECT COALESCE(SUM(amount),0) v FROM wholesale_txns WHERE tenant_id=? AND voided=0 AND type='carriage' AND txn_date >= ?${toIso ? " AND txn_date < ?" : ""}`,
+    ...(toIso ? [tenantId, fromIso, toIso] : [tenantId, fromIso]))!;
+  return round2(r.v as number);
+}
+
 /** Rate input: a plain number (fixed rate) or { mode: "fixed", rate } or { mode: "discount", discount } (Rs/L below the pump price). */
 export const rateInput = z.union([
   z.number().positive(),
@@ -392,7 +399,7 @@ export function statement(tenantId: number, clientId: number, from?: string, to?
   );
   let bal = opening;
   const lines = rows.map((r) => {
-    const effect = r.voided ? 0 : r.type === "supply" || r.type === "adjustment" ? r.amount : -r.amount;
+    const effect = r.voided ? 0 : r.type === "payment" || r.type === "return" ? -r.amount : r.amount;
     bal = round2(bal + effect);
     return { ...r, debit: effect > 0 ? effect : 0, credit: effect < 0 ? -effect : 0, balance: bal };
   });

@@ -285,6 +285,30 @@ test("a wholesale client pays our depot direct (bypass): client due and depot ba
   near(V.tb(`Payable — ${S.name}`), B.tb(`Payable — ${S.name}`), "ledger back");
 });
 
+test("bypass on our depot ID (kiraya only): client billed carriage as income, no fuel/stock on our books", async () => {
+  const B = await books();
+  const r = ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/carriage`,
+    { supplier_id: S.id, invoice_ref: "DEP-9", mode: "per_l", rate: 2, lines: [{ product: "HSD", litres: 5000 }] }), "carriage");
+  assert.equal(r.kiraya, 10000);
+  const A = await books();
+  near(A.due1 - B.due1, 10000, "client due up by kiraya only");
+  near(A.tank - B.tank, 0, "no stock moved");
+  near(A.owed - B.owed, 0, "no payable to the depot (fuel not on our books)");
+  near(A.tb("Wholesale receivable") - B.tb("Wholesale receivable"), 10000, "ledger receivable up");
+  near(A.tb("Carriage income") - B.tb("Carriage income"), -10000, "whole kiraya booked as income (credit)");
+  near(A.tb("Wholesale sales") - B.tb("Wholesale sales"), 0, "not counted as a fuel sale");
+  near(A.tb("Fuel purchases") - B.tb("Fuel purchases"), 0, "no fuel purchase");
+  near(A.l.totals.debit, A.l.totals.credit, "journal balances");
+  // reports: carriage income shows in profit
+  const rep = ok(await call("admin", "GET", `/api/reports?from=${encodeURIComponent(dayStart())}&to=${encodeURIComponent(new Date().toISOString())}`), "report");
+  assert.ok(rep.summary.carriage_income >= 10000, "carriage income in reports profit");
+  // client pays the kiraya (cash) → due back to before, books still balance
+  ok(await call("admin", "POST", "/api/cashier/receive", { party_type: "wholesale", party_id: W1.id, amount: 10000, method: "Cash" }), "pay kiraya");
+  const C = await books();
+  near(C.due1 - B.due1, 0, "kiraya paid — due back to before");
+  near(C.l.totals.debit, C.l.totals.credit, "journal still balances after payment");
+});
+
 test("after all of the above: every book still tallies with the ledger", async () => {
   const { tallyBooks } = await import("./helpers/tally.js");
   await tallyBooks("stock_ledger");

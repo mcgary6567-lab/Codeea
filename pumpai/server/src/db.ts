@@ -498,6 +498,26 @@ export function migrate() {
     party TEXT, ref TEXT, note TEXT, txn_date TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL)`);
   db.exec("CREATE INDEX IF NOT EXISTS idx_bank_txns_acc ON bank_txns(account_id)");
   for (const tbl of ["bank_deposits", "wholesale_txns", "khata_ledger", "supplier_txns", "expenses", "wallet_ledger"]) addColumn(tbl, "account_id", "INTEGER");
+  // allow a 'carriage' txn (bypass supply on our depot ID: we only bill the client kiraya/commission, no fuel on our books)
+  {
+    const sql = (get("SELECT sql FROM sqlite_master WHERE type='table' AND name='wholesale_txns'")?.sql ?? "") as string;
+    if (sql && !sql.includes("'carriage'")) {
+      const cols = "id,tenant_id,client_id,type,station_id,tank_id,product,litres,rate,amount,method,vehicle_no,ref,note,voided,void_reason,created_by,txn_date,created_at,trip_id,tanker_id,driver_id,driver_name,location,account_id";
+      db.exec("PRAGMA foreign_keys=OFF");
+      db.exec(`CREATE TABLE wholesale_txns__new (
+        id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL REFERENCES wholesale_clients(id),
+        type TEXT NOT NULL CHECK (type IN ('supply','return','payment','adjustment','carriage')),
+        station_id INTEGER, tank_id INTEGER, product TEXT, litres REAL, rate REAL,
+        amount REAL NOT NULL, method TEXT, vehicle_no TEXT, ref TEXT, note TEXT,
+        voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT, created_by TEXT, txn_date TEXT NOT NULL, created_at TEXT NOT NULL,
+        trip_id INTEGER, tanker_id INTEGER, driver_id INTEGER, driver_name TEXT, location TEXT, account_id INTEGER)`);
+      db.exec(`INSERT INTO wholesale_txns__new (${cols}) SELECT ${cols} FROM wholesale_txns`);
+      db.exec("DROP TABLE wholesale_txns");
+      db.exec("ALTER TABLE wholesale_txns__new RENAME TO wholesale_txns");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_wtx_client ON wholesale_txns(client_id, txn_date)");
+      db.exec("PRAGMA foreign_keys=ON");
+    }
+  }
   // wholesale desk: order book, payment promises, cheque register
   db.exec(`CREATE TABLE IF NOT EXISTS wholesale_orders (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, client_id INTEGER NOT NULL, product TEXT NOT NULL, litres REAL NOT NULL, needed_on TEXT NOT NULL,

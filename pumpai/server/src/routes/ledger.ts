@@ -92,6 +92,8 @@ export function journal(t: number, fromDay: string, toDay: string) {
     if (depot) add(d, "Journal", `Wholesale payment — ${r.name} paid ${depot} direct${r.ref ? ` (${r.ref})` : ""}`, [dr(`Payable — ${depot}`, r.amount), cr("Wholesale receivable", r.amount)]);
     else if (r.type === "payment") add(d, "Receipt", `Wholesale payment — ${r.name}${r.ref ? ` (${r.ref})` : ""}`, [dr(via(r.method, r.account_id), r.amount), cr("Wholesale receivable", r.amount)]);
     if (r.type === "adjustment") add(d, "Journal", `Wholesale adjustment — ${r.name}${r.note ? ` (${r.note})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Other income", r.amount)]);
+    // bypass on our depot ID: only the kiraya is ours — the client owes us the carriage, booked as income (no fuel on our books)
+    if (r.type === "carriage") add(d, "Journal", `Carriage / kiraya — ${r.name}${r.litres ? ` ${r.litres} L ${PRODUCTS[r.product] ?? r.product ?? ""}` : ""}${r.ref ? ` (inv ${r.ref})` : ""}`, [dr("Wholesale receivable", r.amount), cr("Carriage income", r.amount)]);
   }
   // suppliers (purchase cost, payments, withholding, credit notes)
   for (const r of all(`SELECT s.*, p.name FROM supplier_txns s JOIN suppliers p ON p.id=s.supplier_id WHERE s.tenant_id=? AND s.created_at >= ? AND s.created_at < ?`, ...P)) {

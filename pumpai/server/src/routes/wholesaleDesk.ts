@@ -79,6 +79,37 @@ wholesaleDesk.patch("/wholesale/orders/:id", requirePerm("wholesale.manage"), h(
   return get("SELECT * FROM wholesale_orders WHERE id=?", o.id);
 }));
 
+/* ================= Carriage / kiraya supply (bypass on our depot ID) ================= */
+/**
+ * A bypass supply where the depot loads on OUR id and invoices us, but the fuel money is the client's — we only
+ * earn kiraya (carriage/commission). No stock, no fuel purchase/sale on our books: just the kiraya billed to the
+ * client (receivable) and booked as income. The client settles it by cash / online / cheque like any other due.
+ */
+wholesaleDesk.post("/wholesale/clients/:id/carriage", requirePerm("wholesale.manage"), h((req) => {
+  const t = tid(req);
+  const c = own(t, Number(req.params.id));
+  const b = parse(z.object({
+    supplier_id: z.number().int(), invoice_ref: z.string().max(60).optional().nullable(), vehicle_no: z.string().max(30).optional().nullable(),
+    lines: z.array(z.object({ product, litres: z.number().positive().max(200_000) })).min(1),
+    mode: z.enum(["per_l", "lump"]), rate: z.number().positive().max(10_000).optional(), amount: z.number().positive().max(1_000_000_000).optional(),
+    note: z.string().max(200).optional().nullable(), txn_date: day.optional(),
+  }), req.body);
+  const depot = get("SELECT name FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, t);
+  if (!depot) throw new AppError(400, "Choose the depot (our ID) the fuel was lifted on");
+  const litres = round2(b.lines.reduce((a, l) => a + l.litres, 0));
+  const kiraya = b.mode === "per_l"
+    ? (b.rate ? round2(litres * b.rate) : (() => { throw new AppError(400, "Enter the kiraya rate (Rs/L)"); })())
+    : (b.amount ? round2(b.amount) : (() => { throw new AppError(400, "Enter the kiraya amount"); })());
+  const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
+  const breakdown = b.lines.map((l) => `${round2(l.litres)} L ${PRODUCTS[l.product] ?? l.product}`).join(" + ");
+  const single = b.lines.length === 1 ? b.lines[0].product : null;
+  const note = [`Bypass on our ID · ${depot.name}`, breakdown, b.mode === "per_l" ? `kiraya @ Rs ${b.rate}/L` : "kiraya (lump)", b.note].filter(Boolean).join(" · ");
+  const { id } = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,product,litres,rate,amount,vehicle_no,ref,note,created_by,txn_date,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    t, c.id, "carriage", single, litres, b.mode === "per_l" ? b.rate : null, kiraya, b.vehicle_no ?? null, b.invoice_ref ?? null, note, req.user!.name, ts, now());
+  return { txn: get("SELECT * FROM wholesale_txns WHERE id=?", id), kiraya, litres, due: clientDue(c.id) };
+}));
+
 /* ================= Client supply requests (from the portal) ================= */
 /** Supply requests a client placed from their own link — pure communication, not tied to the ledger or the order book. */
 export function clientRequests(t: number, clientId?: number, includePast = false) {

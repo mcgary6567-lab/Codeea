@@ -209,6 +209,9 @@ function wholesaleBody(c: any, month: string | null, code: string, flash: string
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
     if (l.type === "return") return `<div class="e ret"><div class=ic>↩️</div><div class=l>${d}<div class=et>Fuel returned · <span class=ur>تیل واپس</span></div><div>${n2(l.litres)} L ${esc(PRODUCTS[l.product] ?? "")}</div>${photoThumbs(code, l.proof_ids, "Return", "واپسی")}</div>
       <div class=r><b class=g>−${n2(l.amount)}</b>${bal}</div></div>`;
+    if (l.type === "carriage") return `<div class="e sup"><div class=ic>🚚</div><div class=l>${d}<div class=et>Carriage / kiraya · <span class=ur>کرایہ</span></div>
+      <div class=m>${esc([l.litres ? `${n2(l.litres)} L ${PRODUCTS[l.product] ?? "fuel"}` : "", l.note].filter(Boolean).join(" · "))}</div></div>
+      <div class=r><b>+${n2(l.amount)}</b>${bal}</div></div>`;
     return `<div class="e adj"><div class=ic>✏️</div><div class=l>${d}<div class=et>Adjustment · <span class=ur>ایڈجسٹمنٹ</span></div><div class=m>${esc(l.note ?? "")}</div></div>
       <div class=r><b class="${l.amount < 0 ? "g" : ""}">${l.amount < 0 ? "−" : "+"}${n2(Math.abs(l.amount))}</b>${bal}</div></div>`;
   }).join("");

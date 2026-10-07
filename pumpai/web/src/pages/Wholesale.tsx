@@ -16,7 +16,7 @@ const Ur = ({ children, className = "" }: { children: React.ReactNode; className
 
 const TYPE: Record<string, { label: string; tone: string }> = {
   supply: { label: "Supply", tone: "blue" }, return: { label: "Return", tone: "amber" },
-  payment: { label: "Payment", tone: "green" }, adjustment: { label: "Adjustment", tone: "violet" },
+  payment: { label: "Payment", tone: "green" }, adjustment: { label: "Adjustment", tone: "violet" }, carriage: { label: "Carriage / kiraya", tone: "violet" },
 };
 
 export default function Wholesale() {
@@ -198,7 +198,7 @@ function ClientDetail({ id }: { id: string }) {
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const stmt = useApi<any>(`/wholesale/clients/${id}/statement${qs ? `?${qs}` : ""}`);
   const [params, setParams] = useSearchParams();
-  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque">(() => (params.get("do") as any) || null);
+  const [action, setAction] = useState<null | "supply" | "return" | "payment" | "adjustment" | "rates" | "edit" | "order" | "promise" | "cheque" | "carriage">(() => (params.get("do") as any) || null);
   // supplying a booked order (from the order book) fills the form and closes the order
   const [orderId, setOrderId] = useState<number | null>(() => Number(params.get("order")) || null);
   const [deskKey, setDeskKey] = useState(0);
@@ -223,6 +223,7 @@ function ClientDetail({ id }: { id: string }) {
             <button className="btn-primary" onClick={() => setAction("supply")} disabled={!c.active}><Truck size={15} /> New supply · <Ur>سپلائی</Ur></button>
             <button className="btn-secondary" onClick={() => setAction("payment")}><Wallet size={15} /> Receive payment · <Ur>رقم وصول</Ur></button>
             <button className="btn-secondary" onClick={() => setAction("return")}><Undo2 size={15} /> Fuel return · <Ur>واپسی</Ur></button>
+            {can("wholesale.manage") && <button className="btn-secondary" onClick={() => setAction("carriage")} disabled={!c.active}><Truck size={15} /> Bypass (our ID) · <Ur>کرایہ</Ur></button>}
           </>}
           {can("wholesale.rates") && <button className="btn-secondary" onClick={() => setAction("adjustment")}><SlidersHorizontal size={15} /> Adjustment · <Ur>ایڈجسٹمنٹ</Ur></button>}
           {can("wholesale.manage") && c.phone && <button className="btn-secondary" disabled={sending} onClick={async () => {
@@ -317,6 +318,7 @@ function ClientDetail({ id }: { id: string }) {
       {action === "cheque" && <ChequeForm client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "payment" && <PaymentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "adjustment" && <AdjustmentEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
+      {action === "carriage" && <CarriageEntry client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "rates" && <RatesEditor client={c} onClose={() => setAction(null)} onDone={() => { setAction(null); refresh(); }} />}
       {action === "edit" && <ClientForm initial={c} onClose={() => setAction(null)} onSaved={() => { setAction(null); refresh(); }} />}
     </div>
@@ -326,7 +328,7 @@ function ClientDetail({ id }: { id: string }) {
 function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; running?: boolean; showClient?: boolean; onVoid?: (row: any) => void }) {
   if (!rows.length) return <Empty>No entries</Empty>;
   const amounts = (r: any) => {
-    const debit = running ? r.debit : r.type === "supply" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
+    const debit = running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
     return { debit, credit: running ? r.credit : debit ? 0 : Math.abs(r.amount) };
   };
   const extra = (r: any) => [r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ");
@@ -341,7 +343,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge>{r.voided ? <Badge tone="red">VOID</Badge> : null}{dt(r.txn_date)}</div>
               {showClient && <Link to={`/wholesale/${r.client_id}`} className="flex min-h-9 items-center font-medium hover:underline">{r.client_name}</Link>}
-              <div className="text-sm">{r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
+              <div className="text-sm">{r.type === "carriage" ? `Kiraya${r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}` : r.product ? `${num(r.litres, 2)} L ${PRODUCTS[r.product]} @ Rs ${r.rate}` : r.method ?? ""}</div>
               {extra(r) && <div className="break-words text-xs text-slate-500">{extra(r)}</div>}
               <ProofThumbs ids={r.proof_ids} />
             </div>
@@ -363,7 +365,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
         </tr></thead>
         <tbody>
           {rows.map((r) => {
-            const debit = running ? r.debit : r.type === "supply" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
+            const debit = running ? r.debit : r.type === "supply" || r.type === "carriage" || (r.type === "adjustment" && r.amount > 0) ? Math.abs(r.amount) : 0;
             const credit = running ? r.credit : debit ? 0 : Math.abs(r.amount);
             return (
               <tr key={r.id} className={r.voided ? "text-slate-400 line-through" : ""}>
@@ -371,7 +373,8 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
                 {showClient && <td className="td text-sm"><Link to={`/wholesale/${r.client_id}`} className="hover:underline">{r.client_name}</Link></td>}
                 <td className="td"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge> {r.voided ? <Badge tone="red">VOID</Badge> : null}</td>
                 <td className="td text-xs">
-                  {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name}` : ""}</div>}
+                  {r.type === "carriage" ? <div>Kiraya{r.litres ? ` · ${num(r.litres, 2)} L ${r.product ? PRODUCTS[r.product] : "fuel"}` : ""}</div>
+                    : r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
                   <ProofThumbs ids={r.proof_ids} />
                   <div className="text-slate-500 print:text-[10px] print:leading-tight">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
@@ -485,6 +488,56 @@ function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: ()
         <Field label="Reason (required)"><input className="input" required minLength={3} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         <ProofPhotos value={photos} onChange={setPhotos} hint="freight bill, letter, agreement" />
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Bypass supply on OUR depot ID: the fuel is the client's (not our books), we only bill the kiraya/carriage as income. */
+function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
+  const depots = useApi<any[]>("/wholesale/depots");
+  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", mode: "per_l", rate: "", amount: "", note: "" });
+  const [lines, setLines] = useState<{ product: string; litres: string }[]>([{ product: "HSD", litres: "" }]);
+  const { busy, run } = useAction();
+  const totalL = lines.reduce((a, l) => a + (Number(l.litres) || 0), 0);
+  const kiraya = f.mode === "per_l" ? totalL * (Number(f.rate) || 0) : Number(f.amount) || 0;
+  const valid = f.supplier_id && totalL > 0 && (f.mode === "per_l" ? Number(f.rate) > 0 : Number(f.amount) > 0);
+  return (
+    <Modal open onClose={onClose} title={`Bypass supply (our ID) — ${client.name}`}>
+      <form className="space-y-3" onSubmit={async (e) => {
+        e.preventDefault();
+        const body = {
+          supplier_id: Number(f.supplier_id), invoice_ref: f.invoice_ref || null, vehicle_no: f.vehicle_no || null,
+          lines: lines.filter((l) => Number(l.litres) > 0).map((l) => ({ product: l.product, litres: Number(l.litres) })),
+          mode: f.mode, rate: f.mode === "per_l" ? Number(f.rate) : undefined, amount: f.mode === "lump" ? Number(f.amount) : undefined, note: f.note || null,
+        };
+        if (await run(() => api(`/wholesale/clients/${client.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Due now ${pkr(r.due)}`)) onDone();
+      }}>
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Depot humari ID par load karta hai aur hamein invoice deta hai — fuel ka paisa humari books mein nahi aata. Hum sirf <b>kiraya</b> client se charge karte hain, jo poora munafa hai. <Ur className="block">صرف کرایہ کلائنٹ کے ذمے — فیول ہمارے کھاتے میں نہیں</Ur></p>
+        <Field label="Depot (our ID) *"><select className="input" required value={f.supplier_id} onChange={(e) => setF({ ...f, supplier_id: e.target.value })}>
+          <option value="">— choose depot —</option>{(depots.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+        <div className="space-y-2">
+          <span className="label">Fuel lifted (for the record) · <Ur>کتنا تیل</Ur></span>
+          {lines.map((l, i) => (
+            <div key={i} className="flex gap-2">
+              <select className="input" value={l.product} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, product: e.target.value } : x))}>{Object.entries(PRODUCTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+              <input className="input" type="number" min={0} placeholder="litres" value={l.litres} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, litres: e.target.value } : x))} />
+              {lines.length > 1 && <button type="button" className="min-h-10 px-2 text-red-600" aria-label="Remove" onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>}
+            </div>
+          ))}
+          <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setLines([...lines, { product: "PMG", litres: "" }])}>+ Add fuel</button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Invoice no. (depot) · انوائس"><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
+          <Field label="Tanker / vehicle"><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
+        </div>
+        <Field label="Kiraya"><select className="input" value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}><option value="per_l">Per litre (Rs/L)</option><option value="lump">Lump sum (Rs)</option></select></Field>
+        {f.mode === "per_l"
+          ? <Field label="Kiraya rate (Rs/L) *"><input className="input" type="number" step="0.01" min={0} required value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>
+          : <Field label="Kiraya amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>}
+        <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">Total {num(totalL)} L · Kiraya billed: <b className="tabular-nums">{pkr(kiraya)}</b> <span className="text-slate-500">(client ke zimme, poora munafa)</span></div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Bill kiraya</button></div>
       </form>
     </Modal>
   );
