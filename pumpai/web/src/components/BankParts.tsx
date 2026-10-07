@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeftRight, Banknote, Building2, Landmark, Pencil, Plus, Printer, Trash2, AlertTriangle, CreditCard, Zap, Smartphone } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, useAction } from "./ui";
-import { dt, pkr } from "../lib/format";
+import { d, dt, pkr } from "../lib/format";
 import { PK_BANKS, ALL_PK_BANKS, bankInfo, logoUrl } from "../lib/banks";
 import { ProofPhotos, ProofThumbs } from "./Capture";
 import { useAuth } from "../App";
@@ -327,11 +327,33 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
         {!data ? <Loading /> : <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[["Opening", data.opening, ""], ["Money in", data.money_in, "text-emerald-700"], ["Money out", data.money_out, "text-red-600"], ["Closing", data.closing, "font-bold"]].map(([l, v, c]) => (
-              <div key={l as string} className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-500">{l}</div><div className={`text-lg tabular-nums ${c}`}>{pkr(v as number)}</div></div>
+              <div key={l as string} className="min-w-0 rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-500">{l}</div><div className={`whitespace-nowrap text-base tabular-nums sm:text-lg ${c}`}>{pkr(v as number)}</div></div>
             ))}
           </div>
+          {/* on paper: like a bank statement — the period, opening on top, oldest entry first, closing at the end */}
+          <div className="own-title hidden print:block">
+            <div className="mb-1 text-sm">Statement from <b>{d(range.from)}</b> to <b>{d(range.to)}</b></div>
+            <table className="w-full">
+              <thead><tr><th className="th">Date</th><th className="th">Details</th><th className="th text-right">In</th><th className="th text-right">Out</th><th className="th text-right">Balance</th></tr></thead>
+              <tbody>
+                <tr><td className="td whitespace-nowrap">{d(range.from)}</td><td className="td font-semibold">Opening balance</td><td className="td" /><td className="td" /><td className="td whitespace-nowrap text-right tabular-nums">{pkr(data.opening)}</td></tr>
+                {[...data.lines].reverse().map((l: any, i: number) => (
+                  <tr key={i}>
+                    <td className="td whitespace-nowrap">{new Date(l.at).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
+                    <td className="td"><b className="font-medium">{KIND_TAG[l.kind] ?? l.kind}</b> · {l.text}{l.who ? <span className="text-[10px] text-slate-500"> · {l.who}</span> : null}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{l.amount > 0 ? pkr(l.amount) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{l.amount < 0 ? pkr(-l.amount) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{pkr(l.balance)}</td>
+                  </tr>))}
+                <tr className="font-bold"><td className="td border-t-2 border-slate-800" colSpan={2}>Closing balance</td>
+                  <td className="td border-t-2 border-slate-800 whitespace-nowrap text-right tabular-nums">{pkr(data.money_in)}</td>
+                  <td className="td border-t-2 border-slate-800 whitespace-nowrap text-right tabular-nums">{pkr(data.money_out)}</td>
+                  <td className="td border-t-2 border-slate-800 whitespace-nowrap text-right tabular-nums">{pkr(data.closing)}</td></tr>
+              </tbody>
+            </table>
+          </div>
           {/* phone: one card per line */}
-          <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200 sm:hidden">
+          <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200 sm:hidden print:hidden">
             {data.lines.map((l: any, i: number) => (
               <li key={i} className="flex gap-3 px-3 py-2.5 text-sm">
                 <div className="min-w-0 flex-1">
@@ -346,7 +368,7 @@ function Statement({ acc, manage, onEdit, onClose, onChanged }: { acc: any; mana
             ))}
             {!data.lines.length && <li className="py-6 text-center text-slate-500">Nothing in this period</li>}
           </ul>
-          <div className="hidden max-h-[55vh] overflow-auto rounded-xl ring-1 ring-slate-200 sm:block">
+          <div className="hidden max-h-[55vh] overflow-auto rounded-xl ring-1 ring-slate-200 sm:block print:hidden">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white"><tr><th className="th">Date</th><th className="th">Details</th><th className="th text-right">In</th><th className="th text-right">Out</th><th className="th text-right">Balance</th></tr></thead>
               <tbody>
