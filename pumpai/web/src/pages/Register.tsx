@@ -58,14 +58,14 @@ export default function Register() {
             </ul>
             <table className="mt-4 hidden w-full text-sm sm:table print:table">
               <thead><tr className="border-b border-slate-800 text-left text-xs uppercase">
-                <th className="py-1.5">Product</th><th className="text-right">Opening (L)</th><th className="text-right">Received (L)</th><th className="text-right">Sold retail (L)</th>
-                <th className="text-right">Wholesale (L)</th><th className="text-right">Gain / loss (L)</th><th className="text-right">Closing (L)</th><th className="text-right">Variation</th>
+                <th className="py-1.5 pl-1.5">Product</th><th className="px-1.5 text-right">Opening (L)</th><th className="px-1.5 text-right">Received (L)</th><th className="px-1.5 text-right">Sold retail (L)</th>
+                <th className="px-1.5 text-right">Wholesale (L)</th><th className="px-1.5 text-right">Gain / loss (L)</th><th className="px-1.5 text-right">Closing (L)</th><th className="px-1.5 text-right">Variation</th>
               </tr></thead>
               <tbody>{d.products.map((p: any) => (
                 <tr key={p.product} className="border-b border-slate-200 tabular-nums">
-                  <td className="py-1.5 font-semibold">{p.name}</td><td className="text-right">{L(p.month.opening)}</td><td className="text-right">{L(p.month.receipts)}</td><td className="text-right">{L(p.month.sales)}</td>
-                  <td className="text-right">{L(p.month.wholesale)}</td><td className={`text-right ${p.month.gain_loss < 0 ? "text-red-700" : ""}`}>{L(p.month.gain_loss)}</td><td className="text-right font-semibold">{L(p.month.closing)}</td>
-                  <td className="text-right">{p.month.variation_pct}%</td>
+                  <td className="py-1.5 pl-1.5 font-semibold">{p.name}</td><td className="px-1.5 text-right">{L(p.month.opening)}</td><td className="px-1.5 text-right">{L(p.month.receipts)}</td><td className="px-1.5 text-right">{L(p.month.sales)}</td>
+                  <td className="px-1.5 text-right">{p.month.wholesale ? L(p.month.wholesale) : "—"}</td><td className={`px-1.5 text-right ${p.month.gain_loss < 0 ? "text-red-700" : ""}`}>{L(p.month.gain_loss)}</td><td className="px-1.5 text-right font-semibold">{L(p.month.closing)}</td>
+                  <td className="px-1.5 text-right">{p.month.variation_pct}%</td>
                 </tr>))}</tbody>
             </table>
           </>)}
@@ -94,7 +94,7 @@ export default function Register() {
                       <tr key={x.day}>
                         <td className="border border-slate-300 px-1.5 py-1 whitespace-nowrap">{x.day}</td>
                         <td className="border border-slate-300 px-1.5 text-right">{L(x.opening)}</td>
-                        <td className="border border-slate-300 px-1.5">{x.receipts ? <>{L(x.receipts)}<span className="block text-[10px] text-slate-500">{x.receipt_lines.map((rl: any) => `${rl.tanker_no ?? ""} inv ${L(rl.invoice_l)}`).join("; ")}</span></> : "—"}</td>
+                        <td className="border border-slate-300 px-1.5">{x.receipts ? <>{L(x.receipts)}<span className="block text-[10px] text-slate-500">{x.receipt_lines.map((rl: any) => <span key={rl.tanker_no + rl.invoice_l} className="block whitespace-nowrap">{`${rl.tanker_no ?? ""} inv ${L(rl.invoice_l)}`}</span>)}</span></> : "—"}</td>
                         <td className="border border-slate-300 px-1.5 text-right">{L(x.total)}</td>
                         <td className="border border-slate-300 px-1.5 text-right">{L(x.sales)}</td>
                         <td className="border border-slate-300 px-1.5 text-right">{x.wholesale ? L(x.wholesale) : "—"}</td>
