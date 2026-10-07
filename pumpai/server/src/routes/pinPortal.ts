@@ -16,7 +16,7 @@ import { h, tid, requirePerm } from "../auth.js";
 import { AppError, normalizePhone, currentPrices, paymentLink } from "../services.js";
 import { config, PRODUCTS } from "../config.js";
 import { statement, rateCard, clientDue } from "./wholesale.js";
-import { clientRequests, placeClientRequest } from "./wholesaleDesk.js";
+import { clientRequests, placeClientRequest, editClientRequest } from "./wholesaleDesk.js";
 import { khataStatement } from "./crm.js";
 import { billLink } from "../billing.js";
 import { sendDirect, sendWhatsApp } from "../whatsapp/cloud.js";
@@ -157,8 +157,17 @@ function orderCard(c: any, code: string, flash: string | null): string {
   const reqs = clientRequests(t, c.id, true).slice(0, 8);
   const BADGE: Record<string, string> = { pending: "background:#fef9c3;color:#854d0e", approved: "background:#dcfce7;color:#166534", rejected: "background:#fee2e2;color:#991b1b", cancelled: "background:#f1f5f9;color:#475569" };
   const LABEL: Record<string, string> = { pending: "Pending · انتظار", approved: "Approved · منظور", rejected: "Not done · نہیں ہو سکا", cancelled: "Cancelled · منسوخ" };
+  const editForm = (r: any) => `<details style="margin-top:6px"><summary style="cursor:pointer;color:#064e3b;font-weight:600;font-size:14px">✏️ Edit · <span class=ur>تبدیل کریں</span></summary>
+<form method=post action="${esc(code)}/order/${r.id}" style="margin-top:8px">
+<div class=grid style="margin-top:0">
+<label>Product · <span class=ur>مصنوعات</span><select name=product class=f required>${prods.map((p) => `<option value="${esc(p)}"${p === r.product ? " selected" : ""}>${esc(PRODUCTS[p] ?? p)}</option>`).join("")}</select></label>
+<label>Litres · <span class=ur>لیٹر</span><input name=litres class=f type=number min=1 max=200000 step=1 required value="${esc(r.litres)}"></label>
+<label>Date needed · <span class=ur>کس تاریخ</span><input name=want_date class=f type=date min="${today}" value="${esc(r.want_date)}" required></label>
+</div>
+<label style="display:block;margin-top:8px">Note · <span class=ur>نوٹ</span><input name=note class=f type=text maxlength=200 value="${esc(r.note ?? "")}"></label>
+<button class=b style="margin-top:8px">Save changes · <span class=ur>محفوظ کریں</span></button></form></details>`;
   const list = reqs.map((r: any) => `<div class=row><div class=l><div class=et>${n2(r.litres)} L ${esc(PRODUCTS[r.product] ?? r.product)}</div>
-    <div class=m>📅 ${esc(dateStr(r.want_date + "T00:00:00+05:00"))}${r.note ? ` · ${esc(r.note)}` : ""}</div>${r.reply ? `<div class=m>💬 ${esc(r.reply)}</div>` : ""}</div>
+    <div class=m>📅 ${esc(dateStr(r.want_date + "T00:00:00+05:00"))}${r.note ? ` · ${esc(r.note)}` : ""}</div>${r.reply ? `<div class=m>💬 ${esc(r.reply)}</div>` : ""}${r.status === "pending" ? editForm(r) : ""}</div>
     <div class=rr><span style="display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;${BADGE[r.status] ?? ""}">${esc(LABEL[r.status] ?? r.status)}</span></div></div>`).join("");
   return `<div class="c np"><b>🛒 Order fuel · <span class=ur>آرڈر بھیجیں</span></b>
 <div class=m style="margin:2px 0 10px">Tell us how much you need and when — we'll confirm on WhatsApp · <span class=ur>کتنا اور کب چاہیے، ہم واٹس ایپ پر تصدیق کریں گے</span></div>
@@ -370,5 +379,19 @@ pinPortalPublic.post("/w/:code/order", express.urlencoded({ extended: false, lim
   seen("w", r.c.id);
   try { await placeClientRequest(r.c.tenant_id, r.c.id, { product, litres, want_date, note }); } catch { return back("?ordererr=1"); }
   back("?ordered=1");
+});
+// the client edits their own still-pending request from the same link — changes the ask only, nothing in the system
+pinPortalPublic.post("/w/:code/order/:id", express.urlencoded({ extended: false, limit: "2kb" }), async (req, res) => {
+  const r = fromCode("w", req.params.code);
+  if (!r || !remembered(req, "w", r.c, r.v)) return gone(res);
+  const back = (q: string) => res.redirect(303, `/w/${req.params.code}${q}`);
+  const product = String(req.body?.product ?? "");
+  const litres = Number(req.body?.litres);
+  const want_date = String(req.body?.want_date ?? "");
+  const note = String(req.body?.note ?? "").trim().slice(0, 200) || null;
+  if (!PRODUCTS[product] || !(litres > 0) || litres > 200_000 || !/^\d{4}-\d{2}-\d{2}$/.test(want_date) || want_date < pkDate()) return back("?ordererr=1");
+  seen("w", r.c.id);
+  const done = await editClientRequest(r.c.tenant_id, r.c.id, Number(req.params.id), { product, litres, want_date, note }).catch(() => null);
+  back(done ? "?ordered=1" : "?ordererr=1");
 });
 void pkDate;

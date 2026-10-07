@@ -221,6 +221,10 @@ export const requirePerm = (perm: Permission): RequestHandler => (req, _res, nex
 export const requireAny = (...perms: Permission[]): RequestHandler => (req, _res, next) =>
   perms.some((p) => can(req.user, p)) ? next() : next(new AppError(403, "You don't have permission for this"));
 
+/** Allow only these roles (e.g. CEO / owner = "admin"). */
+export const requireRole = (...roles: Role[]): RequestHandler => (req, _res, next) =>
+  req.user && roles.includes(req.user.role) ? next() : next(new AppError(403, "Only the owner can do this"));
+
 /** Salesmen are locked to their assigned station; returns the station they may act on. */
 export function scopedStation(req: Request, requested?: number | null): number | null {
   const u = req.user!;

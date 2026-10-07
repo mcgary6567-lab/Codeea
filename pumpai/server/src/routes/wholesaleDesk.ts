@@ -9,7 +9,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { all, get, run, tx, now, pkDate, pkStart, pkEnd, type Row } from "../db.js";
-import { h, parse, tid, requirePerm, requireAny } from "../auth.js";
+import { h, parse, tid, requirePerm, requireAny, requireRole } from "../auth.js";
 import { AppError, createAlert, round2, pkr } from "../services.js";
 import { PRODUCTS } from "../config.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof } from "./capture.js";
@@ -87,13 +87,14 @@ export function clientRequests(t: number, clientId?: number, includePast = false
     ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.want_date, r.id DESC`,
     t, ...(clientId ? [clientId] : []), ...(includePast ? [] : [new Date(Date.now() - 30 * DAY).toISOString()]));
 }
-wholesaleDesk.get("/wholesale/requests", h((req) => {
+// only the CEO (owner / admin) sees and decides client order requests — it is just an owner-to-client channel
+wholesaleDesk.get("/wholesale/requests", requireRole("admin"), h((req) => {
   const t = tid(req);
   const list = clientRequests(t);
   return { pending: list.filter((r) => r.status === "pending"), recent: list.filter((r) => r.status !== "pending") };
 }));
-/** Approve or reject a client's supply request. Approval pings the client on WhatsApp. */
-wholesaleDesk.post("/wholesale/requests/:id/:decision(approve|reject)", requirePerm("wholesale.manage"), h(async (req) => {
+/** Approve or reject a client's supply request. Approval pings the client on WhatsApp. CEO only. */
+wholesaleDesk.post("/wholesale/requests/:id/:decision(approve|reject)", requireRole("admin"), h(async (req) => {
   const t = tid(req);
   const r = get("SELECT * FROM wholesale_requests WHERE id=? AND tenant_id=?", Number(req.params.id), t);
   if (!r) throw new AppError(404, "Request not found");
@@ -113,6 +114,17 @@ wholesaleDesk.post("/wholesale/requests/:id/:decision(approve|reject)", requireP
   }
   return get("SELECT * FROM wholesale_requests WHERE id=?", r.id);
 }));
+/** The client edits their own still-pending request from the portal. Changes only the ask — never supply, stock or the ledger. */
+export async function editClientRequest(t: number, clientId: number, reqId: number, b: { product: string; litres: number; want_date: string; note?: string | null }) {
+  const r = get("SELECT * FROM wholesale_requests WHERE id=? AND tenant_id=? AND client_id=?", reqId, t, clientId);
+  if (!r || r.status !== "pending") return null; // only a pending request the client owns can be edited
+  run("UPDATE wholesale_requests SET product=?, litres=?, want_date=?, note=? WHERE id=?", b.product, b.litres, b.want_date, b.note ?? null, r.id);
+  const c = get("SELECT name FROM wholesale_clients WHERE id=?", clientId);
+  const when = new Date(`${b.want_date}T00:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short" });
+  createAlert(t, { type: "wholesale_request", severity: "info", title: `Order changed: ${c?.name} — now ${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} for ${when}`, dedupe_key: `wreq:${r.id}` });
+  await notify(t, staff(t, ["admin"]), { type: "wholesale_request", title: `Order request changed — ${c?.name}`, body: `Now ${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} on ${when}. Review in Wholesale → Requests.` });
+  return get("SELECT * FROM wholesale_requests WHERE id=?", r.id);
+}
 /** Place a supply request on a client's behalf, and the notification helper the portal uses when the client places one. */
 export async function placeClientRequest(t: number, clientId: number, b: { product: string; litres: number; want_date: string; note?: string | null }) {
   const { id } = run("INSERT INTO wholesale_requests (tenant_id,client_id,product,litres,want_date,note,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -120,7 +132,7 @@ export async function placeClientRequest(t: number, clientId: number, b: { produ
   const c = get("SELECT name FROM wholesale_clients WHERE id=?", clientId);
   const when = new Date(`${b.want_date}T00:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short" });
   createAlert(t, { type: "wholesale_request", severity: "info", title: `Order request: ${c?.name} — ${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} for ${when}`, dedupe_key: `wreq:${id}` });
-  await notify(t, staff(t, ["wholesale", "manager", "admin"]), { type: "wholesale_request", title: `New order request — ${c?.name}`, body: `${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} wanted on ${when}. Approve in Wholesale → Requests.` });
+  await notify(t, staff(t, ["admin"]), { type: "wholesale_request", title: `New order request — ${c?.name}`, body: `${Math.round(b.litres).toLocaleString("en-PK")} L ${PRODUCTS[b.product] ?? b.product} wanted on ${when}. Approve in Wholesale → Requests.` });
   return get("SELECT * FROM wholesale_requests WHERE id=?", id);
 }
 

@@ -169,11 +169,12 @@ export function OrdersTab({ onTrip }: { onTrip: () => void }) {
 
 /** Supply requests clients placed from their own portal link — approve (pings them on WhatsApp) or decline. */
 function ClientRequests() {
-  const { can } = useAuth();
-  const { data, reload } = useApi<any>("/wholesale/requests");
+  const { user } = useAuth();
+  const isCeo = user?.role === "admin"; // only the owner / CEO sees and decides client order requests
+  const { data, reload } = useApi<any>(isCeo ? "/wholesale/requests" : null);
   const { busy, run } = useAction();
-  const manage = can("wholesale.manage");
-  if (!data || (!data.pending.length && !data.recent.length)) return null;
+  if (!isCeo || !data || (!data.pending.length && !data.recent.length)) return null;
+  const manage = true;
   const decide = async (id: number, decision: "approve" | "reject") => {
     const reply = decision === "reject" ? (prompt("Message to the client (optional — reason):") ?? "") : (prompt("Message to the client (optional):") ?? "");
     if (await run(() => api(`/wholesale/requests/${id}/${decision}`, { body: { reply: reply || null } }), decision === "approve" ? "Approved — client told on WhatsApp" : "Declined — client told")) reload();

@@ -169,21 +169,32 @@ test("wholesale client places a supply request from the portal; staff approve an
   assert.equal(r1.status, 303); assert.match(r1.headers.get("location")!, /\?ordered=1$/);
   // a request with no cookie (not behind the PIN) is refused
   assert.equal((await fetch(B + `${path}/order`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `product=HSD&litres=100&want_date=${want}` })).status, 404);
-  // it shows up for staff as pending
-  const pend = (await call("wholesale", "GET", "/api/wholesale/requests")).data;
+  // only the CEO (admin) sees the requests — the wholesale clerk cannot
+  assert.equal((await call("wholesale", "GET", "/api/wholesale/requests")).status, 403);
+  const pend = (await call("admin", "GET", "/api/wholesale/requests")).data;
   const mine = pend.pending.find((x: any) => x.client_id === client.id && x.litres === 5000);
-  assert.ok(mine, "request is pending for the desk");
-  // the client sees it as pending on their own link
-  assert.match(await (await fetch(B + path, { headers: { cookie } })).text(), /Pending/);
-  // approve → WhatsApp to the client
+  assert.ok(mine, "request is pending for the CEO");
+  // the client sees it as pending on their own link, with an edit option
+  const pg = await (await fetch(B + path, { headers: { cookie } })).text();
+  assert.match(pg, /Pending/); assert.match(pg, /Edit/);
+  // the client edits the still-pending request from the same link — litres change, it stays pending
+  const re = await fetch(B + `${path}/order/${mine.id}`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", cookie }, body: `product=HSD&litres=7000&want_date=${want}&note=changed` });
+  assert.equal(re.status, 303); assert.match(re.headers.get("location")!, /\?ordered=1$/);
+  const edited = db.get("SELECT litres, status, note FROM wholesale_requests WHERE id=?", mine.id);
+  assert.equal(edited.litres, 7000); assert.equal(edited.status, "pending"); assert.equal(edited.note, "changed");
+  // the clerk cannot approve; the CEO can → WhatsApp to the client
+  assert.equal((await call("wholesale", "POST", `/api/wholesale/requests/${mine.id}/approve`, {})).status, 403);
   const outBefore = db.get("SELECT COUNT(*) n FROM outbox").n;
-  const appr = (await call("wholesale", "POST", `/api/wholesale/requests/${mine.id}/approve`, { reply: "Tanker 9am" })).data;
+  const appr = (await call("admin", "POST", `/api/wholesale/requests/${mine.id}/approve`, { reply: "Tanker 9am" })).data;
   assert.equal(appr.status, "approved");
   assert.ok(db.get("SELECT id FROM outbox WHERE kind='order_approved' AND text LIKE '%approve%'"), "client told on WhatsApp");
   assert.ok(db.get("SELECT COUNT(*) n FROM outbox").n > outBefore);
-  // the client now sees it approved; a second approve is rejected
+  // the client now sees it approved; editing a decided request no longer works
   assert.match(await (await fetch(B + path, { headers: { cookie } })).text(), /Approved/);
-  assert.equal((await call("wholesale", "POST", `/api/wholesale/requests/${mine.id}/approve`, {})).status, 400);
+  assert.match((await fetch(B + `${path}/order/${mine.id}`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", cookie }, body: `product=HSD&litres=9000&want_date=${want}` })).headers.get("location")!, /\?ordererr=1$/);
+  assert.equal(db.get("SELECT litres FROM wholesale_requests WHERE id=?", mine.id).litres, 7000, "approved request is locked");
+  // a second approve is rejected
+  assert.equal((await call("admin", "POST", `/api/wholesale/requests/${mine.id}/approve`, {})).status, 400);
   // a bad request (past date) bounces back to the error flash, nothing saved
   const r2 = await fetch(B + `${path}/order`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", cookie }, body: `product=HSD&litres=5000&want_date=2000-01-01` });
   assert.match(r2.headers.get("location")!, /\?ordererr=1$/);
