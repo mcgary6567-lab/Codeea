@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Currency Rates{% endblock %}
+{% block content %}
+{% call ui.page_header("Currency Rates", "Families pay in their own currency; every report consolidates into " ~ (base.code if base else 'the base currency') ~ ". Each currency's rate to base, and when that rate was last set.", back="/home/accounts/setup") %}
+  {% if can_edit %}
+    {{ ui.button("Add Manual Currency Rate", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'manualRate\')"') }}
+    <form method="post" action="/finance/currency-rates/refresh" class="inline" onsubmit="return confirm('Run the simulated ERP rate feed? Rates set manually are left alone.')">
+      {{ ui.button('Refresh Rates', icon='refresh-cw', variant='secondary') }}
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat("Currencies", stats.total, color=palette(0)) }}
+  {{ ui.stat("Active", stats.active, color=palette(3)) }}
+  {{ ui.stat("Set Manually", stats.manual, color=palette(6), hint="the feed skips these") }}
+  {{ ui.stat("Rate History Rows", stats.history, color=palette(9)) }}
+</div>
+
+<div class="mb-4 space-y-3">
+  {{ ui.alert('The base currency is ' ~ (base.code if base else 'the base currency') ~ ' and always has a rate of 1. A rate reads "1 unit of this currency = X ' ~ (base.code if base else 'base') ~ '". Every change is recorded in the rate history below.', 'info', 'Base currency') }}
+  {{ ui.alert("The ERP Currency Rates feed on this screen is SIMULATED: rates are generated locally from the current value, never fetched from a rate provider. Use Add Manual Currency Rate or Set Rate for a figure you want to rely on.", "info", "Simulated feed") }}
+</div>
+
+{{ ui.table_start(['Currency', 'Name', 'Symbol', 'Rate To Base', 'Active Subs', 'Last Set', 'Source', 'Set By', 'Mode', 'Status', 'Set Rate', '']) }}
+{% for r in rows %}
+<tr>
+  <td class="px-3 py-2 font-mono text-xs font-semibold text-slate-900"><a href="/finance/currency-rates/{{ r.c.code }}" class="text-brand-700 hover:underline">{{ r.c.code }}</a>{% if r.c.is_base %} <span class="ml-1 rounded bg-brand-50 px-1 text-[10px] font-semibold text-brand-700">BASE</span>{% endif %}</td>
+  <td class="px-3 py-2">{{ r.c.name }}</td>
+  <td class="px-3 py-2 text-center">{{ r.c.symbol or '—' }}</td>
+  <td class="px-3 py-2 text-right font-mono text-xs">{{ '%.6f'|format(r.c.rate_to_base|float) }}</td>
+  <td class="px-3 py-2 text-center text-xs text-slate-500">{{ r.subs }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.last.effective_at|datetime if r.last else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ r.last.source|titleize if r.last else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ setters.get(r.last.set_by_id, 'System') if r.last else '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ 'Manual' if r.c.manual_override else 'Feed' }}</td>
+  <td class="px-3 py-2">{{ ui.badge('active' if r.c.is_active else 'inactive') }}</td>
+  <td class="px-3 py-2 text-right">
+    {% if r.c.is_base %}<span class="text-xs text-slate-400">fixed at 1.000000</span>
+    {% elif can_edit %}
+    <form method="post" action="/finance/currency-rates/{{ r.c.code }}/rate" class="flex items-center justify-end gap-1.5">
+      <input name="rate" type="number" step="0.000001" min="0" value="{{ '%.6f'|format(r.c.rate_to_base|float) }}" required aria-label="Rate for {{ r.c.code }}" class="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs">
+      <select name="source" aria-label="Source" class="rounded-lg border border-slate-300 px-1.5 py-1 text-xs">
+        {% for value, label in sources %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+      <button class="rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-700">Save</button>
+    </form>
+    {% else %}<span class="text-xs text-slate-400">—</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('History (' ~ r.history_count ~ ')', href='/finance/currency-rates/' ~ r.c.code, variant='ghost', size='sm', icon='history') }}
+    {% if can_edit and not r.c.is_base %}
+    <form method="post" action="/finance/currency-rates/{{ r.c.code }}/toggle" class="inline" {% if r.c.is_active %}onsubmit="return confirm('Deactivate {{ r.c.code }}? It drops out of the currency pickers on new records; existing records keep it.')"{% endif %}>{{ ui.button('Deactivate' if r.c.is_active else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}{{ ui.empty('No currencies configured.', 12, 'coins') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">Set Rate as a manual override locks the currency against the feed; set it as a rate-feed figure to hand the currency back to the feed.</p>
+
+<div class="mt-6 grid gap-5 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+  {% call ui.card('Recent rate changes', 'The 25 most recent rows of exchange rate history across all currencies') %}
+    {{ ui.table_start(['Effective', 'Currency', 'Rate To Base', 'Source', 'Set By']) }}
+    {% for h in history %}
+    <tr>
+      <td class="px-3 py-2 text-xs">{{ h.effective_at|datetime }}</td>
+      <td class="px-3 py-2 font-mono text-xs font-semibold"><a href="/finance/currency-rates/{{ h.currency_code }}" class="text-brand-700 hover:underline">{{ h.currency_code }}</a></td>
+      <td class="px-3 py-2 text-right font-mono text-xs">{{ '%.6f'|format(h.rate_to_base|float) }}</td>
+      <td class="px-3 py-2 text-xs">{{ h.source|titleize }}</td>
+      <td class="px-3 py-2 text-xs">{{ setters.get(h.set_by_id, 'System') }}</td>
+    </tr>
+    {% else %}{{ ui.empty('No rate history yet.', 5, 'history') }}{% endfor %}
+    {{ ui.table_end() }}
+  {% endcall %}
+  </div>
+  <div>
+  {% call ui.card("Country → default currency", "Used when a new family is created") %}
+    <div class="max-h-[28rem] overflow-y-auto">
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for country, code in country_map.items() %}
+        <li class="flex items-center justify-between py-1.5"><span class="text-slate-600">{{ country }}</span>
+          <span class="font-mono text-xs font-semibold text-brand-700">{{ code }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endcall %}
+  </div>
+</div>
+
+{% if can_edit %}
+{% call ui.modal('manualRate', 'Add Manual Currency Rate') %}
+<form method="post" action="/finance/currency-rates/manual" class="grid gap-3 sm:grid-cols-2">
+  {{ ui.select('code', 'Currency', rows|map(attribute='c')|map(attribute='code')|list, '', required=True) }}
+  {{ ui.input('rate_to_base', 'Rate To Base', '', type='number', step='0.000001', required=True, help='1 unit of this currency = X ' ~ (base.code if base else 'base')) }}
+  {{ ui.input('effective_at', 'Effective Date', today, type='date', required=True) }}
+  <div class="flex items-end">{{ ui.checkbox('manual_override', 'Lock against the feed', False, help='The simulated feed will leave this currency alone') }}</div>
+  <div class="sm:col-span-2">{{ ui.input('note', 'Note', '', placeholder='Why this rate? (recorded in the audit log)') }}</div>
+  <div class="sm:col-span-2 flex justify-end">{{ ui.button('Save rate', icon='save') }}</div>
+</form>
+{% endcall %}
+{% endif %}
+{% endblock %}

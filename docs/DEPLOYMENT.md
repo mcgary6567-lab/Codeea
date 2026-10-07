@@ -396,7 +396,7 @@ and applies one rule per top-level folder (the table lives at the top of that mo
 | `certificates/` | public, no login — the `/verify` page links them by design |
 | `attachments/`, `uploads/`, `downloads/`, `exports/`, `reports/`, `migration/` | any signed-in staff user (role portal `admin`); a family, student or employee only when an `Attachment` row marks the file as theirs |
 | `backups/` | `backups.view` only |
-| `agent_screenshots/` | always 404 here; `/config/agents/screenshots/{id}` is the only route |
+| `agent_screenshots/` | always 404 here; `/hr/confido-agents/screenshots/{id}/image` is the only route |
 | any other folder | `settings.view`; everyone else sees 404 |
 
 Anonymous requests to a protected folder are redirected to `/login` (browsers) or answered 401 (API clients); refused

@@ -108,8 +108,10 @@ ACADEMIC_GROUPS = [
         _i("AI Class Monitoring", "/ai-monitoring", "brain-circuit", "ai_monitoring.view"),
         _i("Class Recordings", "/recordings", "film", "recordings.view"),
     ]},
-    {"slug": "teacher-portal", "label": "Teacher Portal", "icon": "user-check", "blurb": "Today's classes and activity", "items": [
+    {"slug": "teacher-portal", "label": "Teacher Portal", "icon": "user-check", "blurb": "Teachers, today's classes and teacher development", "items": [
         _i("Class Schedule", "/teacher/online-class", "video", "classes.view"),
+        _i("Teachers", "/teachers", "user-check", "teachers.view"),
+        _i("Ustaadh Lab", "/hr/teacher-development", "sparkles", "teacher_dev.view"),
     ]},
     {"slug": "supervisor-portal", "label": "Supervisor Portal", "icon": "radio", "blurb": "Live monitoring", "items": [
         _i("Monitoring Dashboard", "/supervisor", "radio", "supervisor.view"),
@@ -150,12 +152,9 @@ HR_GROUPS = [
         _i("Staff Violations", "/hr/violations", "triangle-alert", "violations.view"),
         _i("Staff Bonuses", "/hr/bonuses", "gift", "payroll.view"),
         _i("Downloads", "/hr/downloads", "download", "portal_self.view"),
-        _i("Tasks", "/tasks", "list-checks", "tasks.view"),
         _i("Complaints", "/hr/complaints", "life-buoy", "employees.view"),
         _i("Advance Requests", "/hr/advances", "hand-coins", "payroll.view"),
-        _i("Teachers", "/teachers", "user-check", "teachers.view"),
         _i("Grievances (confidential)", "/hr/grievances", "lock", "grievances.view"),
-        _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view"),
     ]},
     {"slug": "attendance", "label": "Time and Attendance", "icon": "clock", "blurb": "Attendance, leaves, entitlements, progress", "items": [
         _i("Daily Attendance", "/hr/attendance", "clock", "hr_attendance.view"),
@@ -175,9 +174,8 @@ HR_GROUPS = [
         _i("Onboarding", "/hr/onboarding", "clipboard-check", "provisioning.view"),
         _i("Summary", "/hr/recruitment/summary", "bar-chart-3", "recruitment.view"),
     ]},
-    {"slug": "benefits", "label": "Benefits Management", "icon": "heart-handshake", "blurb": "Grades, allowances, development", "items": [
+    {"slug": "benefits", "label": "Benefits Management", "icon": "heart-handshake", "blurb": "Grades and allowances", "items": [
         _i("Grades & Allowances", "/hr/config/grades", "layers", "employees.update"),
-        _i("Ustaadh Lab", "/hr/teacher-development", "sparkles", "teacher_dev.view"),
     ]},
     {"slug": "financial", "label": "Financial Management", "icon": "banknote", "blurb": "Payroll", "items": [
         _i("Payroll", "/hr/payroll", "banknote", "payroll.view"),
@@ -189,15 +187,20 @@ HR_GROUPS = [
     {"slug": "attachments", "label": "Attachments", "icon": "paperclip", "blurb": "Documents held against any record", "items": [
         _i("Attachments", "/hr/attachments", "paperclip", "employees.view"),
     ]},
-    {"slug": "config", "label": "HR Configurations", "icon": "settings", "blurb": "Departments, shifts, holidays, types", "items": [
+    {"slug": "access", "label": "Users & Access", "icon": "user-cog", "blurb": "Staff sign-ins, roles and what each role can open", "items": [
+        _i("Users", "/hr/users", "user-cog", "users.view"),
+        _i("Roles", "/admin/roles", "shield-check", "roles.view"),
+        _i("Permissions", "/hr/permissions", "key-square", "roles.view"),
+        _i("Provisioning", "/hr/provisioning", "key-round", "provisioning.view"),
+    ]},
+    {"slug": "config", "label": "HR Configurations", "icon": "settings", "blurb": "Departments, shifts, holidays, types, agents", "items": [
         _i("Departments", "/hr/config/departments", "building-2", "employees.update"),
         _i("Shift", "/hr/config/shifts", "sun-moon", "employees.update"),
         _i("Holidays", "/hr/config/holidays", "calendar-x", "employees.update"),
-        _i("Users", "/hr/config/users", "user-cog", "users.view"),
         _i("Violation Types", "/hr/config/violation-types", "triangle-alert", "employees.update"),
         _i("Staff Bonus Types", "/hr/config/bonus-types", "gift", "employees.update"),
+        _i("Confido Agents", "/hr/confido-agents", "monitor-smartphone", "staff_monitoring.view"),
         _i("HR Configuration", "/hr/config", "settings", "employees.update"),
-        _i("Change Staff Sorting", "/academics/config/staff-sorting", "arrow-up-down", "academic_config.view"),
     ]},
 ]
 
@@ -206,6 +209,8 @@ ACCOUNT_GROUPS = [
         _i("Accounts Heads", "/finance/accounts/heads", "layers", "accounts.view"),
         _i("Chart of Accounts", "/finance/accounts", "landmark", "accounts.view"),
         _i("Accounts Tree View", "/finance/accounts/tree", "git-branch", "accounts.view"),
+        _i("Currency Rates", "/finance/currency-rates", "coins", "currencies.view"),
+        _i("Payment Gateways", "/finance/payment-gateways", "credit-card", "payments.view"),
     ]},
     {"slug": "transactions", "label": "Transactions", "icon": "arrow-left-right", "blurb": "Journal, payment and receipt vouchers", "items": [
         _i("All Vouchers", "/finance/accounts/vouchers", "receipt-text", "accounts.view"),
@@ -257,7 +262,6 @@ BILLING_GROUPS = [
         _i("Discounts & Scholarships", "/finance/discounts", "percent", "discounts.view"),
         _i("Discount Register", "/finance/discounts/register", "list-checks", "discounts.view"),
         _i("Scholarships", "/finance/discounts/scholarships", "graduation-cap", "discounts.view"),
-        _i("Currencies", "/finance/currencies", "coins", "currencies.view"),
         _i("Billing Dashboard", "/dashboards/billing", "gauge", "dashboards.view"),
         _i("Financial Summary", "/dashboards/financial-summary", "pie-chart", "dashboards.view"),
     ]},
@@ -327,19 +331,13 @@ ADMIN_NAV = [
         _i("Safeguarding", "/safeguarding", "shield-alert", "safeguarding.view"),
         _i("AI Governance", "/ai-governance", "scale", "ai_governance.view"),
     ]},
-    {"slug": "system", "label": "Configuration", "icon": "settings", "blurb": "Users, roles, integrations, security", "items": [
-        _i("Currency Rates", "/config/currency-rates", "coins", "currencies.view"),
-        _i("Roles", "/config/roles", "shield-check", "roles.view"),
+    {"slug": "system", "label": "Configuration", "icon": "settings", "blurb": "System-wide settings, integrations, security", "items": [
         _i("Lookups", "/config/lookups", "list", "settings.view"),
         _i("Setup", "/config/branch-properties", "sliders-horizontal", "settings.view"),
         _i("Notification Templates", "/admin/notifications", "mail", "notifications.view"),
         _i("Support Ticket", "/config/support-tickets", "life-buoy", "settings.view"),
         _i("WhatsApp Numbers", "/config/whatsapp-senders", "message-circle", "settings.view"),
         _i("OTP Configuration", "/config/otp", "shield-check", "security.view"),
-        _i("Payment Gateways", "/config/payment-gateways", "credit-card", "settings.view"),
-        _i("Confido Agents", "/config/agents", "monitor-smartphone", "settings.view"),
-        _i("Users", "/admin/users", "user-cog", "users.view"),
-        _i("Roles & Permissions", "/admin/roles", "shield", "roles.view"),
         _i("Settings", "/admin/settings", "settings", "settings.view"),
         _i("Integration Hub", "/admin/integrations", "plug", "integrations.view"),
         _i("API & Webhooks", "/admin/api", "code-2", "api_keys.view"),

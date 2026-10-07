@@ -10,6 +10,10 @@ Companion to `AUDIT_ACADEMICS.md`. Status legend: **Have** = exists in the new p
 
 ---
 
+> **Restructured on 7 October 2026** at the college's request — see `MODULE_STRUCTURE.md`. Users, roles and
+> permissions, and Confido Agents, are now in HR; Currency Rates and Payment Gateways in Accounts; Teachers
+> and the Ustaadh Lab in Online Academics; Tasks in Operations only. The menus below record the old ERP.
+
 ## Level 1 — Human Resource Dashboard
 
 Three counter panels, then eight cards.

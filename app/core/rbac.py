@@ -37,6 +37,7 @@ MODULES = {
     "marketing": "Marketing Analytics",
     "inbox": "WhatsApp Inbox",
     "sequences": "Automation Sequences",
+    "staff_monitoring": "Confido Agents (staff monitoring)",
     "automations": "CRM Automations (workflows)",
     "tags": "Contact Tags",
     "referrals": "Ambassador Program",
@@ -106,14 +107,14 @@ _VIEW_ALL = ["*.view"]
 _TECH = ["users.*", "roles.*", "settings.*", "audit.*", "integrations.*", "api_keys.*", "webhooks.*",
          "security.*", "backups.*", "migration.*", "ai_governance.*", "notifications.*", "reports.*", "dashboard.*"]
 _HR = ["employees.*", "hr_attendance.*", "leaves.*", "recruitment.*", "violations.*", "grievances.*",
-       "provisioning.*", "payroll.*", "teacher_dev.*", "teachers.*", "feedback.view", "kpis.*", "tasks.*",
+       "provisioning.*", "payroll.*", "users.*", "roles.*", "staff_monitoring.*", "teachers.view", "feedback.view", "kpis.*", "tasks.*",
        "decisions.*", "daily_reports.*", "transformation.*", "dashboard.view", "reports.*", "notifications.*"]
 _FINANCE = ["subscriptions.*", "discounts.*", "scholarships.*", "billing.*", "payments.*", "ledger.*", "accounts.*",
             "expenses.*", "currencies.*", "payroll.*", "clients.view", "students.view", "packages.*", "kpis.*",
             "reports.*", "tasks.*", "decisions.*", "daily_reports.*", "dashboard.view", "notifications.*", "cases.view",
             "dashboards.*", "academic_config.view", "academic_config.configure"]
 _ACADEMIC = ["courses.*", "packages.view", "curriculum.*", "lesson_plans.*", "evaluations.*", "monthly_tests.*",
-             "certificates.*", "arabic_view.*", "students.*", "clients.view", "teachers.view", "schedules.*",
+             "certificates.*", "arabic_view.*", "students.*", "clients.view", "teachers.*", "teacher_dev.*", "schedules.*",
              "classes.*", "attendance.*", "leaves.*", "qa.view", "ai_monitoring.view", "kpis.*", "tasks.*",
              "decisions.*", "daily_reports.*", "dashboard.*", "reports.*", "notifications.*", "cases.*", "supervisor.*",
              "requests.*", "dashboards.*", "academic_config.*", "subscriptions.*", "trials.*", "feedback.view"]
@@ -181,7 +182,8 @@ ROLE_DEFINITIONS: dict[str, dict] = {
     "hr_officer": {"name": "HR Officer", "portal": "admin", "permissions": [
         "dashboard.view", "employees.*", "hr_attendance.*", "leaves.*", "recruitment.*", "violations.*",
         "grievances.*", "provisioning.*", "payroll.view", "payroll.add", "teachers.view", "tasks.*",
-        "daily_reports.*", "notifications.*", "teacher_dev.view"]},
+        "daily_reports.*", "notifications.*", "teacher_dev.view", "users.view", "users.add", "users.update",
+        "roles.view", "staff_monitoring.view"]},
     "academic_coordinator": {"name": "Academic Coordinator", "portal": "admin", "permissions": [
         "dashboard.*", "courses.*", "curriculum.*", "packages.view", "lesson_plans.*", "evaluations.*",
         "monthly_tests.*", "certificates.*", "arabic_view.*", "students.view", "students.update", "clients.view",

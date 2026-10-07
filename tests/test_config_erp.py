@@ -37,6 +37,10 @@ from app.services import lookups as lookup_service  # noqa: E402
 from app.web.company_config import next_send_at, pick_sender, setting_value  # noqa: E402
 
 BASE = "/config"
+# Currency Rates and Payment Gateways moved to Accounts › Setup (docs/MODULE_STRUCTURE.md);
+# tests/test_module_moves.py covers the redirects from their old /config addresses.
+RATES = "/finance/currency-rates"
+GATEWAYS = "/finance/payment-gateways"
 
 TEST_LOOKUP_CODE = "test_cfg_lookup"
 TEST_GATEWAY = "Test Gateway (pytest)"
@@ -48,14 +52,12 @@ GET_PAGES = [
     "/branch-properties", "/branch-properties?tab=general", "/branch-properties?tab=hr",
     "/branch-properties?tab=academics", "/branch-properties?tab=accounts", "/branch-properties?tab=billing",
     "/branch-properties?tab=hr&q=attendance",
-    "/currency-rates", "/payment-gateways", "/payment-gateways?status=active",
-    "/payment-gateways?company=Stripe&sample=250",
     "/whatsapp-senders", "/whatsapp-senders?api_status=connected", "/whatsapp-senders?purpose=academics",
     "/support-tickets", "/support-tickets?status=pending", "/support-tickets?priority=urgent",
     "/support-tickets?module=Human+Resource", "/support-tickets?ticket_type=Bug", "/support-tickets?q=result",
     "/otp", "/otp?tab=setup", "/otp?tab=users", "/otp?tab=users&token=enabled", "/otp?tab=users&token=disabled",
-    "/roles", "/roles?app=Human+Resource", "/roles?q=officer",
 ]
+MOVED_PAGES = [RATES, GATEWAYS, f"{GATEWAYS}?status=active", f"{GATEWAYS}?company=Stripe&sample=250"]
 
 
 # --------------------------------------------------------------------------- fixtures
@@ -176,22 +178,30 @@ def test_every_page_renders(admin, path):
     assert r.status_code == 200, f"GET {BASE}{path} -> {r.status_code}\n{r.text[:600]}"
 
 
+@pytest.mark.parametrize("path", MOVED_PAGES)
+def test_moved_money_pages_render(admin, path):
+    r = admin.get(path)
+    assert r.status_code == 200, f"GET {path} -> {r.status_code}\n{r.text[:600]}"
+
+
 def test_lookup_detail_and_currency_history_render(admin, db):
     lookup = db.query(Lookup).filter(Lookup.code == "hr_designation").first()
     assert admin.get(f"{BASE}/lookups/{lookup.id}").status_code == 200
     assert admin.get(f"{BASE}/lookups/{lookup.id}?status=active&q=teacher").status_code == 200
     currency = db.query(Currency).first()
-    assert admin.get(f"{BASE}/currency-rates/{currency.code}").status_code == 200
+    assert admin.get(f"{RATES}/{currency.code}").status_code == 200
     ticket = db.query(SupportTicket).order_by(SupportTicket.id).first()
     assert admin.get(f"{BASE}/support-tickets/{ticket.id}").status_code == 200
 
 
 def test_index_lists_every_configuration_card(admin):
     body = admin.get(BASE).text
-    for fragment in ["/config/lookups", "/config/branch-properties", "/config/currency-rates",
-                     "/config/payment-gateways", "/config/whatsapp-senders", "/config/support-tickets",
-                     "/config/otp", "/config/roles"]:
+    for fragment in ["/config/lookups", "/config/branch-properties", "/config/whatsapp-senders",
+                     "/config/support-tickets", "/config/otp", "/admin/notifications"]:
         assert fragment in body, f"the Configuration index does not link to {fragment}"
+    main = body[body.index("<main"):body.index("</main>")]
+    for moved in ["/config/currency-rates", "/config/payment-gateways", "/config/roles", "/config/agents"]:
+        assert moved not in main, f"the Configuration index still links to {moved}"
 
 
 # =========================================================================== lookups
@@ -338,7 +348,7 @@ def test_adding_a_manual_rate_writes_history_and_updates_the_currency(admin, db)
     history_before = db.query(ExchangeRateHistory).filter(
         ExchangeRateHistory.currency_code == currency.code).count()
     new_rate = round(original * 1.05, 6)
-    _post(admin, f"{BASE}/currency-rates/manual",
+    _post(admin, f"{RATES}/manual",
           {"code": currency.code, "rate_to_base": str(new_rate), "effective_at": date.today().isoformat(),
            "note": "pytest manual rate"})
     db.expire_all()
@@ -349,7 +359,7 @@ def test_adding_a_manual_rate_writes_history_and_updates_the_currency(admin, db)
               .order_by(ExchangeRateHistory.id.desc()).first())
     assert latest.source == "manual"
     # put the rate back so the suite is re-runnable
-    _post(admin, f"{BASE}/currency-rates/manual",
+    _post(admin, f"{RATES}/manual",
           {"code": currency.code, "rate_to_base": str(original), "effective_at": date.today().isoformat(),
            "note": "pytest restore"})
     db.expire_all()
@@ -359,9 +369,9 @@ def test_adding_a_manual_rate_writes_history_and_updates_the_currency(admin, db)
 def test_a_bad_manual_rate_is_rejected(admin, db):
     currency = db.query(Currency).filter(Currency.is_base.is_(False)).first()
     before = float(currency.rate_to_base)
-    _post(admin, f"{BASE}/currency-rates/manual",
+    _post(admin, f"{RATES}/manual",
           {"code": currency.code, "rate_to_base": "0", "effective_at": date.today().isoformat()})
-    _post(admin, f"{BASE}/currency-rates/manual",
+    _post(admin, f"{RATES}/manual",
           {"code": "ZZZ", "rate_to_base": "1.5", "effective_at": date.today().isoformat()})
     db.expire_all()
     assert abs(float(db.get(Currency, currency.id).rate_to_base) - before) < 1e-6
@@ -371,7 +381,7 @@ def test_the_simulated_feed_updates_every_non_base_currency(admin, db):
     codes = [c.code for c in db.query(Currency).filter(Currency.is_base.is_(False),
                                                        Currency.manual_override.is_(False)).all()]
     before = {c: db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == c).count() for c in codes}
-    _post(admin, f"{BASE}/currency-rates/refresh")
+    _post(admin, f"{RATES}/refresh")
     db.expire_all()
     for code in codes:
         after = db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == code).count()
@@ -384,27 +394,27 @@ def test_the_simulated_feed_updates_every_non_base_currency(admin, db):
 
 # =========================================================================== payment gateways
 def test_create_edit_and_toggle_a_payment_gateway(admin, db):
-    _post(admin, f"{BASE}/payment-gateways/new",
+    _post(admin, f"{GATEWAYS}/new",
           {"name": TEST_GATEWAY, "gateway_company": "Wise", "default_transaction_fee_pct": "1.5",
            "fixed_fee": "0.25", "currency": "GBP", "status": "active"})
     g = db.query(PaymentGateway).filter(PaymentGateway.name == TEST_GATEWAY).first()
     assert g is not None
     assert abs(g.fee_on(100) - 1.75) < 1e-6, "fee_on() should be 1.5% of 100 plus the 0.25 fixed fee"
 
-    _post(admin, f"{BASE}/payment-gateways/{g.id}/edit",
+    _post(admin, f"{GATEWAYS}/{g.id}/edit",
           {"name": TEST_GATEWAY, "gateway_company": "Wise", "default_transaction_fee_pct": "2",
            "fixed_fee": "0.50", "currency": "USD", "status": "active", "live_mode": "1"})
     db.expire_all()
     g = db.get(PaymentGateway, g.id)
     assert g.live_mode and g.currency == "USD" and abs(g.fee_on(100) - 2.5) < 1e-6
 
-    _post(admin, f"{BASE}/payment-gateways/{g.id}/toggle")
+    _post(admin, f"{GATEWAYS}/{g.id}/toggle")
     db.expire_all()
     assert db.get(PaymentGateway, g.id).status == "inactive"
 
 
 def test_the_gateway_list_shows_the_fee_on_a_sample_amount(admin):
-    body = admin.get(f"{BASE}/payment-gateways?sample=1000").text
+    body = admin.get(f"{GATEWAYS}?sample=1000").text
     assert "Fee On 1000.00" in body
 
 
@@ -568,14 +578,6 @@ def test_enabling_two_factor_for_a_user_sets_the_flag(admin, db):
     _post(admin, f"{BASE}/otp/users/{uid}/toggle", {"rationale": "pytest restore"})
     db.expire_all()
     assert db.get(User, uid).two_factor_enabled is False
-
-
-# =========================================================================== roles
-def test_roles_page_groups_by_application_and_does_not_edit(admin):
-    body = admin.get(f"{BASE}/roles").text
-    for application in ["Human Resource", "Online Academics", "Configuration"]:
-        assert application in body
-    assert "/admin/roles" in body, "the read-only roles view should link to the real editor"
 
 
 # =========================================================================== audit

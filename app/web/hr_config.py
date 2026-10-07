@@ -1,6 +1,8 @@
 """HR Configurations — the catalogues behind the Human Resource area (audit docs/AUDIT_HUMAN_RESOURCE.md).
 
-Departments · Shift · Holidays · Users · Violation Types · Staff Bonus Types · Grades & Allowances.
+Departments · Shift · Holidays · Violation Types · Staff Bonus Types · Grades & Allowances, with a card for
+Confido Agents (app.web.hr_agents). The branch user list moved to HR › Users & Access (/hr/users);
+/hr/config/users redirects there.
 Shaped exactly like app/web/academic_config.py: an index of cards, then one simple list page per catalogue
 with status tiles, a filter bar, a bordered table using the ERP's column labels, Create in a modal, inline
 edit and a status toggle. Every mutation writes an audit event and redirects with a flash message.
@@ -14,6 +16,7 @@ from datetime import date, datetime, time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -23,7 +26,8 @@ from app.core.deps import csrf_protect, require
 from app.core.templating import render
 from app.core.utils import parse_bool, parse_date, parse_float, parse_int, redirect
 from app.database import get_db
-from app.models.core import Department, Role, User
+from app.models.config_erp import AgentLicense
+from app.models.core import Department, User
 from app.models.hr_erp import BonusType, Grade, Holiday, ViolationType
 from app.models.people import Bonus, Employee, Violation
 from app.models.scheduling import Shift
@@ -40,6 +44,8 @@ HOLIDAY_SHIFTS = [("all", "All Shifts"), ("morning", "Morning"), ("night", "Nigh
 # employees.configure with employees.update as the fallback (see the module docstring).
 config_guard = require("employees.configure", "employees.update", any_of=True)
 
+AGENTS_URL = "/hr/confido-agents"   # app.web.hr_agents; opened with staff_monitoring.view
+
 CARDS = [  # title, url, icon, blurb
     ("Departments", f"{BASE}/departments", "building-2", "Departments staff belong to"),
     ("Shift", f"{BASE}/shifts", "clock", "Morning and night shifts with their times"),
@@ -47,7 +53,7 @@ CARDS = [  # title, url, icon, blurb
     ("Violation Types", f"{BASE}/violation-types", "triangle-alert", "Offences and their standard penalty"),
     ("Staff Bonus Types", f"{BASE}/bonus-types", "gift", "Bonuses and their standard amount"),
     ("Grades & Allowances", f"{BASE}/grades", "layers", "Salary grades and the allowances they carry"),
-    ("Users", f"{BASE}/users", "users", "Branch user accounts, roles and last sign-in"),
+    ("Confido Agents", AGENTS_URL, "monitor-smartphone", "Recording agent licences, devices and screenshots"),
 ]
 
 
@@ -119,9 +125,10 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
         f"{BASE}/violation-types": db.query(func.count(ViolationType.id)).scalar() or 0,
         f"{BASE}/bonus-types": db.query(func.count(BonusType.id)).scalar() or 0,
         f"{BASE}/grades": db.query(func.count(Grade.id)).scalar() or 0,
-        f"{BASE}/users": db.query(func.count(User.id)).scalar() or 0,
+        AGENTS_URL: db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "active").scalar() or 0,
     }
-    cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u, 0)} for t, u, i, b in CARDS]
+    cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u, 0)} for t, u, i, b in CARDS
+             if u != AGENTS_URL or rbac.has_permission(user, "staff_monitoring.view")]
     return render(request, "hr_config/index.html", {"user": user, "cards": cards})
 
 
@@ -542,27 +549,9 @@ async def grade_assign(gid: int, request: Request, db: Session = Depends(get_db)
                                       f"{float(structure.basic or 0):,.0f} with {len(structure.allowances or {})} allowance(s).")
 
 
-# =============================================================================== 7. Users (branch user list)
+# =============================================================================== 7. Users (moved)
 @router.get("/users", include_in_schema=False)
-def users_page(request: Request, q: str = "", role: str = "", active: str = "", db: Session = Depends(get_db),
-               user: User = Depends(config_guard)):
-    query = db.query(User).join(Role, User.role_id == Role.id, isouter=True)
-    if q:
-        query = query.filter(User.full_name.ilike(f"%{q}%") | User.email.ilike(f"%{q}%"))
-    if role:
-        query = query.filter(Role.slug == role)
-    if active == "yes":
-        query = query.filter(User.is_active.is_(True))
-    elif active == "no":
-        query = query.filter(User.is_active.is_(False))
-    staff_portals = ["admin", "teacher"]
-    rows = [u for u in query.order_by(User.full_name).all() if (u.role.portal if u.role else "admin") in staff_portals]
-    employees = {e.user_id: e for e in db.query(Employee).filter(Employee.user_id.isnot(None))}
-    roles = [(r.slug, r.name) for r in db.query(Role).filter(Role.portal.in_(staff_portals)).order_by(Role.name)]
-    stats = {"total": len(rows), "active": sum(1 for u in rows if u.is_active),
-             "inactive": sum(1 for u in rows if not u.is_active),
-             "never": sum(1 for u in rows if not u.last_login_at)}
-    return render(request, "hr_config/users.html", {
-        "user": user, "rows": rows, "q": q, "role": role, "active": active, "roles": roles,
-        "employees": employees, "stats": stats,
-        "actives": [("yes", "Active"), ("no", "In-active")], **_perms(user)})
+def users_page(request: Request):
+    """The branch user list is now HR › Users & Access › Users; old links and bookmarks land there."""
+    url = "/hr/users" + (f"?{request.url.query}" if request.url.query else "")
+    return RedirectResponse(url, status_code=301)

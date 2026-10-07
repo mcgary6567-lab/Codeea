@@ -22,7 +22,7 @@ from app.main import app  # noqa: E402
 from app.models.academic import Package  # noqa: E402
 from app.models.finance import (Account, Currency, DiscountRequest, Expense, Invoice, JournalEntry, Payment,  # noqa: E402
                                 Scholarship, Subscription)
-from app.models.people import Client, Student  # noqa: E402
+from app.models.people import Client  # noqa: E402
 from app.services import billing  # noqa: E402
 
 import logging  # noqa: E402
@@ -96,8 +96,6 @@ def main() -> int:
     teacher = uk_student.teacher if uk_student else None
     pending_mgr = db.query(DiscountRequest).filter(DiscountRequest.status == "pending",
                                                    DiscountRequest.approver_tier == "manager").first()
-    pending_ceo = db.query(DiscountRequest).filter(DiscountRequest.status == "pending",
-                                                   DiscountRequest.approver_tier == "ceo").first()
     schol = db.query(Scholarship).first()
     # (pending discount requests are consumed by this test, so they are only asserted on a freshly seeded database)
     for name, obj in [("subscription", sub), ("open invoice", inv_open), ("payment", pay), ("uk student", uk_student),
@@ -136,7 +134,7 @@ def main() -> int:
         "/finance/accounts/budget", "/finance/accounts/forecast", "/finance/accounts/close",
         "/finance/accounts/consolidated",
         "/finance/expenses", "/finance/expenses?status=pending", "/finance/expenses/new",
-        "/finance/currencies", "/finance/currencies/GBP", "/finance/currencies/PKR",
+        "/finance/currency-rates", "/finance/currency-rates/GBP", "/finance/currency-rates/PKR",
     ]
     if inv_paid:
         pages.append(f"/finance/invoices/{inv_paid.id}")
@@ -403,7 +401,7 @@ def main() -> int:
     finance_user = login("finance@oqc.local", "Finance@123")
     for url in ["/finance/subscriptions", "/finance/discounts", "/finance/discounts/scholarships", "/finance/invoices",
                 "/finance/payments", "/finance/payments/reconciliation", "/finance/ledger", "/finance/accounts",
-                "/finance/accounts/pnl", "/finance/accounts/close", "/finance/expenses", "/finance/currencies"]:
+                "/finance/accounts/pnl", "/finance/accounts/close", "/finance/expenses", "/finance/currency-rates"]:
         check(finance_user, "GET", url, 200, label="hod_finance")
 
     billing_rep = login("billing@oqc.local", "Billing@123")
@@ -416,7 +414,7 @@ def main() -> int:
 
     accountant = login("accountant@oqc.local", "Account@123")
     for url in ["/finance/accounts", "/finance/accounts/journal", "/finance/accounts/aging", "/finance/expenses",
-                "/finance/currencies"]:
+                "/finance/currency-rates"]:
         check(accountant, "GET", url, 200, label="accountant")
 
     # ---------------------------------------------------------------- artefacts on disk

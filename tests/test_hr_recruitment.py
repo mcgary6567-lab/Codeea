@@ -161,7 +161,7 @@ def _free_period(db) -> str:
     "/hr/config", "/hr/config/departments", "/hr/config/departments?status=active", "/hr/config/shifts",
     "/hr/config/shifts?group=morning", "/hr/config/holidays", "/hr/config/holidays?status=active",
     "/hr/config/violation-types", "/hr/config/violation-types?severity=minor", "/hr/config/bonus-types",
-    "/hr/config/grades", "/hr/config/grades?status=active", "/hr/config/users", "/hr/config/users?active=yes",
+    "/hr/config/grades", "/hr/config/grades?status=active",
     "/hr/dashboards", "/hr/dashboards/employees", "/hr/dashboards/attendance", "/hr/dashboards/financial",
     "/hr/dashboards/financial?months=12",
 ])
@@ -180,7 +180,7 @@ def test_detail_pages(admin, db):
 
 
 def test_people_role_reaches_the_config_and_dashboards(hr):
-    for url in ["/hr/config", "/hr/config/grades", "/hr/config/holidays", "/hr/config/users",
+    for url in ["/hr/config", "/hr/config/grades", "/hr/config/holidays",
                 "/hr/dashboards", "/hr/dashboards/employees", "/hr/dashboards/financial",
                 "/hr/applications", "/hr/interview-panels"]:
         assert hr.get(url).status_code == 200, url

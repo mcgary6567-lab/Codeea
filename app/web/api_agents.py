@@ -8,7 +8,7 @@
 Both are authenticated by the licence key alone (the agent has no user session), so there is no CSRF dependency
 here: an unknown, revoked, expired or blocked key is refused with 403 and nothing is written. The agent program
 itself is the vendor's; this is the side of the conversation the platform holds. Staff manage licences, devices
-and captures on /config/agents (app.web.company_config).
+and captures on /hr/confido-agents (app.web.hr_agents).
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from app.core.deps import client_ip
 from app.database import get_db
 from app.models.config_erp import AgentDevice, AgentLicense, AgentScreenshot
 from app.models.people import Employee
-from app.web.company_config import AGENT_SCREENSHOT_DIR
+from app.web.hr_agents import AGENT_SCREENSHOT_DIR
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 

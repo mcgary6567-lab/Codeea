@@ -154,3 +154,8 @@ right after its audit/notify call (see `docs/CRM_AUTOMATION.md` for the event li
 (`app/models/automation.py`), seeded from `app/seed/automation.py` and edited on `/crm/automations`; never
 hard-code a follow-up message in a service when a workflow step can send it. Every send step must leave a log
 line, and a skipped send must say why.
+
+## Module ownership (added 7 Oct 2026)
+Every page lives in the business module whose staff do the work; Configuration holds only system-wide settings.
+See `docs/MODULE_STRUCTURE.md` for the map, what moved, the redirect table and the permissions. When a page
+moves, keep its old address as a permanent redirect (GET 301, POST 307) and rename its user-guide key.

@@ -2,18 +2,18 @@
 {% import "macros.html" as ui %}
 {% block title %}Payment Gateways{% endblock %}
 {% block content %}
-{% call ui.page_header("Payment Gateways", "The gateways the college collects through, each with the fee it charges.", back="/config") %}
+{% call ui.page_header("Payment Gateways", "The gateways the college collects through, each with the fee it charges.", back="/home/accounts/setup") %}
   {% if can_add %}{{ ui.button("Create", icon="plus", attrs='type="button" @click="$dispatch(\'open-modal\',\'newGateway\')"') }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  {{ ui.stat("All Gateways", stats.total, color=palette(0), href="/config/payment-gateways") }}
-  {{ ui.stat("Active", stats.active, color=palette(3), href="/config/payment-gateways?status=active") }}
+  {{ ui.stat("All Gateways", stats.total, color=palette(0), href="/finance/payment-gateways") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/finance/payment-gateways?status=active") }}
   {{ ui.stat("Live Mode", stats.live, color=palette(6)) }}
   {{ ui.stat("Test Mode", stats.test, color=palette(9)) }}
 </div>
 
-{% call ui.filter_bar('/config/payment-gateways') %}
+{% call ui.filter_bar('/finance/payment-gateways') %}
   <div class="w-48">{{ ui.select('company', 'Gateway Company', companies, company, placeholder='All') }}</div>
   <div class="w-40">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
   <div class="w-56">{{ ui.input('q', 'Search', q, placeholder='Gateway name') }}</div>
@@ -36,13 +36,13 @@
   <td class="px-3 py-2 text-right whitespace-nowrap">
     {% if can_edit %}
     <button type="button" @click="editRow = editRow === {{ loop.index }} ? null : {{ loop.index }}" class="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100" title="Edit"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-    <form method="post" action="/config/payment-gateways/{{ g.id }}/toggle" class="inline" {% if g.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
+    <form method="post" action="/finance/payment-gateways/{{ g.id }}/toggle" class="inline" {% if g.status == 'active' %}onsubmit="return confirm('Deactivate this record? It can be reactivated later.')"{% endif %}>{{ ui.button('Deactivate' if g.status == 'active' else 'Activate', icon='power', variant='ghost', size='sm') }}</form>
     {% endif %}
   </td>
 </tr>
 {% if can_edit %}
 <tr x-show="editRow === {{ loop.index }}" x-cloak><td colspan="11" class="bg-slate-50 px-4 py-4">
-  <form method="post" action="/config/payment-gateways/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 items-end">
+  <form method="post" action="/finance/payment-gateways/{{ g.id }}/edit" class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 items-end">
     {{ ui.input('name', 'Payment Gateway Name', g.name, required=True) }}
     {{ ui.select('gateway_company', 'Gateway Company', companies, g.gateway_company, placeholder=None) }}
     {{ ui.input('default_transaction_fee_pct', 'Default Transaction Fee %', g.default_transaction_fee_pct, type='number', step='0.01') }}
@@ -62,7 +62,7 @@
 
 {% if can_add %}
 {% call ui.modal('newGateway', 'Create Payment Gateway') %}
-<form method="post" action="/config/payment-gateways/new" class="grid gap-3 sm:grid-cols-2">
+<form method="post" action="/finance/payment-gateways/new" class="grid gap-3 sm:grid-cols-2">
   {{ ui.input('name', 'Payment Gateway Name', '', required=True, placeholder='Stripe UK') }}
   {{ ui.select('gateway_company', 'Gateway Company', companies, 'Stripe', placeholder=None, required=True) }}
   {{ ui.input('default_transaction_fee_pct', 'Default Transaction Fee %', '2.99', type='number', step='0.01') }}

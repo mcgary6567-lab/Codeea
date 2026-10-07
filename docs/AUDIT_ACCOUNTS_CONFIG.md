@@ -14,6 +14,10 @@ Third companion to `AUDIT_ACADEMICS.md` and `AUDIT_HUMAN_RESOURCE.md`.
 
 ---
 
+> **Restructured on 7 October 2026** at the college's request — see `MODULE_STRUCTURE.md`. Users, roles and
+> permissions, and Confido Agents, are now in HR; Currency Rates and Payment Gateways in Accounts; Teachers
+> and the Ustaadh Lab in Online Academics; Tasks in Operations only. The menus below record the old ERP.
+
 ## Accounts
 
 Three groups, thirteen pages. Their accounting is a conventional double-entry ledger.

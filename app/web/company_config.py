@@ -1,16 +1,20 @@
 """Configuration — the college ERP's "Configuration" area (docs/AUDIT_ACCOUNTS_CONFIG.md).
 
-An index of cards and, behind them, the screens their staff already know:
+Configuration holds only system-wide settings (docs/MODULE_STRUCTURE.md). An index of cards and, behind them,
+the screens their staff already know:
 
     /config/lookups            every configurable value list, grouped by App, with its values
     /config/branch-properties  their Setup screen: named settings with a description and their own Save
-    /config/currency-rates     Add Manual Currency Rate + a (simulated) ERP Currency Rates feed
-    /config/payment-gateways   the gateway catalogue with its default transaction fee
     /config/whatsapp-senders   connected WhatsApp numbers with their send throttle and QR reconnection
     /config/support-tickets    requests raised to whoever maintains the software
     /config/otp                one-time password Setup and the per-user token status
-    /config/roles              roles grouped by application area (read only; editing stays on /admin/roles)
-    /config/agents             Confido Agents: the desktop recording agent's licences, devices and screenshots
+
+Screens that belong to a business module moved there; their old addresses redirect (see the end of this file):
+
+    /config/currency-rates     -> /finance/currency-rates     (Accounts › Setup, app.web.finance_settings)
+    /config/payment-gateways   -> /finance/payment-gateways   (Accounts › Setup, app.web.finance_settings)
+    /config/agents             -> /hr/confido-agents          (HR › HR Configurations, app.web.hr_agents)
+    /config/roles              -> /admin/roles                (HR › Users & Access)
 
 Lookups and branch properties come first because the rest of the system reads them: the attendance grace
 periods decide when a late arrival attracts a fine and the advance invoice days decide how far ahead billing
@@ -24,28 +28,23 @@ from __future__ import annotations
 
 import json
 import secrets
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.config import BASE_DIR
 from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.deps import PermissionDenied, csrf_protect, get_current_user, require
 from app.core.templating import render
-from app.core.utils import next_code, paginate, parse_bool, parse_date, parse_float, parse_int, redirect
+from app.core.utils import next_code, paginate, parse_bool, parse_float, parse_int, redirect
 from app.database import get_db
-from app.models.config_erp import (AGENT_DEVICE_STATUSES, LOOKUP_APPS, TICKET_PRIORITIES, TICKET_STATUSES,
-                                   TICKET_TYPES, AgentDevice, AgentLicense, AgentScreenshot, Lookup, LookupValue,
-                                   OtpConfiguration, PaymentGateway, SupportTicket, WhatsAppSender)
+from app.models.config_erp import (LOOKUP_APPS, TICKET_PRIORITIES, TICKET_STATUSES, TICKET_TYPES, Lookup,
+                                   LookupValue, OtpConfiguration, SupportTicket, WhatsAppSender)
 from app.models.core import Department, Role, Setting, User
-from app.models.erp import BeneficiaryAccount
-from app.models.finance import Currency, ExchangeRateHistory
-from app.models.people import Employee
 from app.services import lookups as lookup_service
 
 router = APIRouter(prefix="/config", dependencies=[Depends(csrf_protect)])
@@ -63,45 +62,41 @@ PROPERTY_TABS = [("all", "Show All"), ("general", "General"), ("hr", "HR"), ("ac
 OTP_CHANNELS = [("email", "Email"), ("whatsapp", "WhatsApp"), ("sms", "SMS")]
 SENDER_PURPOSES = [("general", "General"), ("academics", "Academics"), ("billing", "Billing"),
                    ("marketing", "Marketing")]
-GATEWAY_COMPANIES = ["Stripe", "PayPal", "Wise", "Payoneer", "Bank Alfalah", "Other"]
 TICKET_MODULES = ["Online Academics", "Billing Management", "Human Resource", "Accounts", "Configuration",
                   "Client Portal", "Reports"]
 PRIORITY_LABELS = {"low": "Low", "normal": "Normal", "urgent": "Urgent", "very_urgent": "Very Urgent"}
 TICKET_STATUS_LABELS = {"pending": "Pending", "in_progress": "In Progress", "resolved": "Resolved",
                         "rejected": "Rejected", "closed": "Closed"}
-# Confido Agents: their Recording Agent page, three tabs. The licence count the branch may consume is the
-# branch property agent_licenses_allowed; a licence is consumed while it is active.
-AGENT_TABS = [("licenses", "User Licenses"), ("devices", "Devices list"), ("screenshots", "Agents Screen Shorts")]
-AGENT_LICENSES_SETTING = "agent_licenses_allowed"
-AGENT_LICENSES_DEFAULT = 5
-AGENT_SCREENSHOT_DIR = "agent_screenshots"   # under storage/; served only by agent_screenshot_image below
-AGENT_OFFLINE_AFTER_MINUTES = 10
-# Which application area a role belongs to, mirroring the ERP's Roles grouping.
-ROLE_APPS = {
-    "super_admin": "Configuration", "system_admin": "Configuration", "hod_technology": "Configuration",
-    "auditor": "Configuration",
-    "hod_finance": "Accounts", "accountant": "Accounts",
-    "billing_rep": "Billing Management", "hod_marketing": "Billing Management", "lead_generator": "Billing Management",
-    "lead_closer": "Billing Management",
-    "hod_people": "Human Resource", "hr_officer": "Human Resource",
-    "hod_academics": "Online Academics", "academic_coordinator": "Online Academics", "manager": "Online Academics",
-    "supervisor": "Online Academics", "teacher": "Online Academics", "hod_qa": "Online Academics",
-    "qa_officer": "Online Academics",
-    "client": "Client Portal", "student": "Client Portal",
-}
 
-CARDS = [  # title, url, icon, blurb
-    ("Currency Rates", f"{BASE}/currency-rates", "coins", "Rates to base, manual entry and the ERP feed"),
-    ("Roles", f"{BASE}/roles", "shield", "Roles by application with assigned users"),
-    ("Lookups", f"{BASE}/lookups", "list-tree", "Every configurable value list, grouped by App"),
-    ("Setup (Branch Properties)", f"{BASE}/branch-properties", "sliders-horizontal", "Named settings the college runs on"),
-    ("Notification Templates", "/admin/notifications", "send", "Message templates per event and channel"),
-    ("Support Ticket", f"{BASE}/support-tickets", "life-buoy", "Requests raised to whoever maintains the software"),
-    ("WhatsApp Numbers", f"{BASE}/whatsapp-senders", "message-circle", "Connected senders with their throttle"),
-    ("OTP Configuration", f"{BASE}/otp", "key-round", "One-time passwords: setup and per-user tokens"),
-    ("Payment Gateways", f"{BASE}/payment-gateways", "credit-card", "Gateways with their default transaction fee"),
-    ("Confido Agents", f"{BASE}/agents", "monitor-smartphone", "Recording agent licences, devices and screenshots"),
+# The Configuration home: the same pages, in the same order, as the Configuration section of the menu
+# (app.core.nav, slug "system"), each shown only to someone who may open it.
+CARDS = [  # title, url, icon, blurb, permission
+    ("Lookups", f"{BASE}/lookups", "list-tree", "Every configurable value list, grouped by App", "settings.view"),
+    ("Setup (Branch Properties)", f"{BASE}/branch-properties", "sliders-horizontal", "Named settings the college runs on",
+     "settings.view"),
+    ("Notification Templates", "/admin/notifications", "send", "Message templates per event and channel",
+     "notifications.view"),
+    ("Support Ticket", f"{BASE}/support-tickets", "life-buoy", "Requests raised to whoever maintains the software",
+     "settings.view"),
+    ("WhatsApp Numbers", f"{BASE}/whatsapp-senders", "message-circle", "Connected senders with their throttle",
+     "settings.view"),
+    ("OTP Configuration", f"{BASE}/otp", "key-round", "One-time passwords: setup and per-user tokens", "security.view"),
+    ("Settings", "/admin/settings", "settings", "Platform settings by group", "settings.view"),
+    ("Integration Hub", "/admin/integrations", "plug", "Connected services and their health", "integrations.view"),
+    ("API & Webhooks", "/admin/api", "code-2", "API keys and outgoing webhooks", "api_keys.view"),
+    ("Security Center", "/admin/security", "lock-keyhole", "Sign-in policy, sessions and security events",
+     "security.view"),
+    ("Backups & DR", "/admin/backups", "database-backup", "Database backups and restore drills", "backups.view"),
+    ("Data Migration", "/admin/migration", "database-zap", "Imports from the legacy system", "migration.view"),
+    ("Audit Log", "/admin/audit", "scroll-text", "Every consequential change, who made it and why", "audit.view"),
 ]
+
+# Old Configuration addresses of screens that now live in their business module (docs/MODULE_STRUCTURE.md).
+MOVED = {
+    "currency-rates": "/finance/currency-rates",
+    "payment-gateways": "/finance/payment-gateways",
+    "agents": "/hr/confido-agents",
+}
 
 
 # =============================================================================== helpers
@@ -130,10 +125,10 @@ def _status_field(form, default: str = "active") -> str:
     return v if v in ("active", "inactive") else default
 
 
-def _toggle(db: Session, user: User, request: Request, obj, label: str, back: str):
+def _toggle(db: Session, user: User, request: Request, obj, label: str, back: str, module: str = MODULE):
     before = snapshot(obj)
     obj.status = "inactive" if obj.status == "active" else "active"
-    log_action(db, user, "status_change", MODULE, entity=obj, description=f"{label} marked {obj.status}",
+    log_action(db, user, "status_change", module, entity=obj, description=f"{label} marked {obj.status}",
                before=before, after=snapshot(obj), request=request)
     db.commit()
     return redirect(back, f"{label} marked {obj.status}.")
@@ -247,17 +242,14 @@ def pick_sender(db: Session, purpose: str = "general", now: Optional[datetime] =
 @router.get("", include_in_schema=False)
 def index(request: Request, db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
     counts = {
-        f"{BASE}/currency-rates": db.query(func.count(Currency.id)).scalar() or 0,
-        f"{BASE}/roles": db.query(func.count(Role.id)).scalar() or 0,
         f"{BASE}/lookups": db.query(func.count(Lookup.id)).scalar() or 0,
         f"{BASE}/branch-properties": db.query(func.count(Setting.id)).scalar() or 0,
         f"{BASE}/support-tickets": db.query(func.count(SupportTicket.id)).scalar() or 0,
         f"{BASE}/whatsapp-senders": db.query(func.count(WhatsAppSender.id)).scalar() or 0,
         f"{BASE}/otp": db.query(func.count(User.id)).filter(User.two_factor_enabled.is_(True)).scalar() or 0,
-        f"{BASE}/payment-gateways": db.query(func.count(PaymentGateway.id)).scalar() or 0,
-        f"{BASE}/agents": db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "active").scalar() or 0,
     }
-    cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u)} for t, u, i, b in CARDS]
+    cards = [{"title": t, "url": u, "icon": i, "blurb": b, "count": counts.get(u)}
+             for t, u, i, b, perm in CARDS if rbac.has_permission(user, perm)]
     return render(request, "company_config/index.html", {"user": user, "cards": cards})
 
 
@@ -545,188 +537,6 @@ async def branch_property_reveal(sid: int, request: Request, db: Session = Depen
                description=f"Revealed the secret branch property {s.key}", request=request)
     db.commit()
     return redirect(f"{BASE}/branch-properties?tab={tab}&reveal={s.id}", f"'{s.label or s.key}' revealed — this is audited.")
-
-
-# =============================================================================== 4. currency rates
-def _rate_rows(db: Session) -> tuple[list[dict], Optional[Currency]]:
-    base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
-    rows = []
-    for c in db.query(Currency).order_by(Currency.is_base.desc(), Currency.code).all():
-        last = (db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == c.code)
-                .order_by(ExchangeRateHistory.effective_at.desc(), ExchangeRateHistory.id.desc()).first())
-        rows.append({"c": c, "last": last,
-                     "history_count": db.query(func.count(ExchangeRateHistory.id)).filter(
-                         ExchangeRateHistory.currency_code == c.code).scalar() or 0})
-    return rows, base
-
-
-@router.get("/currency-rates", include_in_schema=False)
-def currency_rates(request: Request, db: Session = Depends(get_db),
-                   user: User = Depends(require("currencies.view"))):
-    rows, base = _rate_rows(db)
-    history = (db.query(ExchangeRateHistory).order_by(ExchangeRateHistory.effective_at.desc(),
-                                                      ExchangeRateHistory.id.desc()).limit(25).all())
-    setters = {u.id: u.full_name for u in db.query(User).all()} if history else {}
-    return render(request, "company_config/currency_rates.html", {
-        "user": user, "rows": rows, "base": base, "history": history, "setters": setters,
-        "today": date.today().isoformat(),
-        "can_edit": rbac.has_permission(user, "currencies.update"),
-        "stats": {"total": len(rows), "active": sum(1 for r in rows if r["c"].is_active),
-                  "manual": sum(1 for r in rows if r["c"].manual_override),
-                  "history": db.query(func.count(ExchangeRateHistory.id)).scalar() or 0}})
-
-
-@router.post("/currency-rates/manual", include_in_schema=False)
-async def currency_rate_manual(request: Request, db: Session = Depends(get_db),
-                               user: User = Depends(require("currencies.update"))):
-    """Add Manual Currency Rate — writes a history row and moves the currency onto the new rate."""
-    form = await request.form()
-    code = (form.get("code") or "").strip().upper()[:3]
-    rate = parse_float(form.get("rate_to_base"), 0.0)
-    effective = parse_date(form.get("effective_at"), date.today())
-    note = (form.get("note") or "").strip()
-    currency = db.query(Currency).filter(Currency.code == code).first()
-    if not currency:
-        return redirect(f"{BASE}/currency-rates", f"Unknown currency '{code}'.", "error")
-    if rate <= 0:
-        return redirect(f"{BASE}/currency-rates", "The rate must be greater than zero.", "error")
-    if currency.is_base and abs(rate - 1) > 1e-9:
-        return redirect(f"{BASE}/currency-rates", f"{code} is the base currency; its rate is always 1.", "error")
-    before = snapshot(currency)
-    currency.rate_to_base = rate
-    if parse_bool(form.get("manual_override")):
-        currency.manual_override = True
-    db.add(ExchangeRateHistory(currency_code=code, rate_to_base=rate, source="manual", set_by_id=user.id,
-                               effective_at=datetime.combine(effective, datetime.min.time())))
-    log_action(db, user, "update", MODULE, entity=currency, severity="warning", consequential=True,
-               rationale=note or _rationale(form) or "Manual currency rate added",
-               description=f"Manual rate for {code} set to {rate} effective {effective.isoformat()}"
-                           + (f" — {note}" if note else ""),
-               before=before, after=snapshot(currency), request=request)
-    db.commit()
-    return redirect(f"{BASE}/currency-rates", f"Manual rate for {code} saved ({rate} to base, effective {effective.isoformat()}).")
-
-
-@router.post("/currency-rates/refresh", include_in_schema=False)
-async def currency_rates_refresh(request: Request, db: Session = Depends(get_db),
-                                 user: User = Depends(require("currencies.update"))):
-    """Refresh Rates — a SIMULATED feed. No external provider is called anywhere in this build."""
-    base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
-    now = datetime.utcnow()
-    updated, skipped = [], []
-    for c in db.query(Currency).filter(Currency.is_base.is_(False)).order_by(Currency.code).all():
-        if c.manual_override:
-            skipped.append(c.code)
-            continue
-        # Deterministic drift so the simulation is reproducible: +/- up to 1.2% keyed off the code and the day.
-        seed = sum(ord(ch) for ch in c.code) + now.timetuple().tm_yday
-        drift = ((seed % 25) - 12) / 1000.0
-        new_rate = round(max(0.000001, float(c.rate_to_base or 1) * (1 + drift)), 6)
-        c.rate_to_base = new_rate
-        db.add(ExchangeRateHistory(currency_code=c.code, rate_to_base=new_rate, source="simulated_feed",
-                                   set_by_id=user.id, effective_at=now))
-        updated.append(c.code)
-    log_action(db, user, "execute", MODULE, entity_type="Currency", severity="warning", consequential=True,
-               rationale="Simulated ERP Currency Rates feed run from the Configuration screen",
-               description=f"Simulated feed updated {len(updated)} currencies ({', '.join(updated) or 'none'})"
-                           + (f"; left alone (manual override): {', '.join(skipped)}" if skipped else ""),
-               after={"base": base.code if base else None, "updated": updated, "skipped": skipped}, request=request)
-    db.commit()
-    msg = (f"Simulated ERP feed: {len(updated)} currency rate(s) updated and recorded in history. "
-           "No external rate provider was contacted — these figures are generated locally.")
-    if skipped:
-        msg += f" Left alone because they are set manually: {', '.join(skipped)}."
-    return redirect(f"{BASE}/currency-rates", msg, "info")
-
-
-@router.get("/currency-rates/{code}", include_in_schema=False)
-def currency_rate_history(code: str, request: Request, db: Session = Depends(get_db),
-                          user: User = Depends(require("currencies.view"))):
-    currency = db.query(Currency).filter(Currency.code == code.upper()).first()
-    if not currency:
-        raise HTTPException(404, "Currency not found")
-    history = (db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == currency.code)
-               .order_by(ExchangeRateHistory.effective_at.desc(), ExchangeRateHistory.id.desc()).limit(200).all())
-    setters = {u.id: u.full_name for u in db.query(User).all()}
-    base = db.query(Currency).filter(Currency.is_base.is_(True)).first()
-    return render(request, "company_config/currency_history.html", {
-        "user": user, "currency": currency, "history": history, "setters": setters, "base": base,
-        "can_edit": rbac.has_permission(user, "currencies.update"), "today": date.today().isoformat()})
-
-
-# =============================================================================== 5. payment gateways
-@router.get("/payment-gateways", include_in_schema=False)
-def payment_gateways(request: Request, status: str = "", company: str = "", q: str = "", sample: float = 100.0,
-                     db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
-    query = db.query(PaymentGateway)
-    if status:
-        query = query.filter(PaymentGateway.status == status)
-    if company:
-        query = query.filter(PaymentGateway.gateway_company == company)
-    if q:
-        query = query.filter(func.lower(PaymentGateway.name).like(f"%{q.lower()}%"))
-    rows = query.order_by(PaymentGateway.id).all()
-    accounts = db.query(BeneficiaryAccount).filter(BeneficiaryAccount.status == "active").order_by(
-        BeneficiaryAccount.account_name).all()
-    currencies = [c.code for c in db.query(Currency).order_by(Currency.code).all()]
-    return render(request, "company_config/payment_gateways.html", {
-        "user": user, "rows": rows, "status": status, "company": company, "q": q, "sample": sample,
-        "statuses": STATUSES, "companies": GATEWAY_COMPANIES, "currencies": currencies,
-        "accounts": [(a.id, f"{a.account_name} ({a.category})") for a in accounts],
-        "stats": {"total": db.query(func.count(PaymentGateway.id)).scalar() or 0,
-                  "active": db.query(func.count(PaymentGateway.id)).filter(PaymentGateway.status == "active").scalar() or 0,
-                  "live": db.query(func.count(PaymentGateway.id)).filter(PaymentGateway.live_mode.is_(True)).scalar() or 0,
-                  "test": db.query(func.count(PaymentGateway.id)).filter(PaymentGateway.live_mode.is_(False)).scalar() or 0},
-        **_perms(user)})
-
-
-def _apply_gateway(g: PaymentGateway, form) -> None:
-    g.name = (form.get("name") or g.name or "").strip()
-    g.gateway_company = (form.get("gateway_company") or g.gateway_company or "Other").strip()
-    g.default_transaction_fee_pct = parse_float(form.get("default_transaction_fee_pct"), g.default_transaction_fee_pct or 0)
-    g.fixed_fee = parse_float(form.get("fixed_fee"), float(g.fixed_fee or 0))
-    g.currency = (form.get("currency") or "").strip().upper()[:3] or None
-    g.beneficiary_account_id = parse_int(form.get("beneficiary_account_id"))
-    g.live_mode = parse_bool(form.get("live_mode"))
-    g.status = _status_field(form, g.status or "active")
-    g.notes = (form.get("notes") or "").strip() or None
-
-
-@router.post("/payment-gateways/new", include_in_schema=False)
-async def gateway_create(request: Request, db: Session = Depends(get_db),
-                         user: User = Depends(require("settings.update"))):
-    form = await request.form()
-    name = (form.get("name") or "").strip()
-    if not name:
-        return redirect(f"{BASE}/payment-gateways", "A gateway name is required.", "error")
-    g = PaymentGateway(name=name, gateway_company="Other", status="active")
-    _apply_gateway(g, form)
-    db.add(g)
-    db.flush()
-    log_action(db, user, "create", MODULE, entity=g, description=f"Payment gateway {g.name} created",
-               after=snapshot(g), request=request)
-    db.commit()
-    return redirect(f"{BASE}/payment-gateways", f"Payment gateway '{g.name}' created.")
-
-
-@router.post("/payment-gateways/{gid}/edit", include_in_schema=False)
-async def gateway_edit(gid: int, request: Request, db: Session = Depends(get_db),
-                       user: User = Depends(require("settings.update"))):
-    g = _get(db, PaymentGateway, gid, "Payment gateway")
-    form = await request.form()
-    before = snapshot(g)
-    _apply_gateway(g, form)
-    log_action(db, user, "update", MODULE, entity=g, description=f"Payment gateway {g.name} updated",
-               before=before, after=snapshot(g), request=request)
-    db.commit()
-    return redirect(f"{BASE}/payment-gateways", f"Payment gateway '{g.name}' saved.")
-
-
-@router.post("/payment-gateways/{gid}/toggle", include_in_schema=False)
-async def gateway_toggle(gid: int, request: Request, db: Session = Depends(get_db),
-                         user: User = Depends(require("settings.update"))):
-    g = _get(db, PaymentGateway, gid, "Payment gateway")
-    return _toggle(db, user, request, g, f"Gateway '{g.name}'", f"{BASE}/payment-gateways")
 
 
 # =============================================================================== 6. WhatsApp senders
@@ -1022,234 +832,36 @@ async def otp_user_toggle(uid: int, request: Request, db: Session = Depends(get_
     return redirect(back, f"Two-factor {state} for {target.full_name}.")
 
 
-# =============================================================================== 9. roles (read only)
-@router.get("/roles", include_in_schema=False)
-def roles_page(request: Request, app: str = "", q: str = "", db: Session = Depends(get_db),
-               user: User = Depends(require("roles.view"))):
-    counts = dict(db.query(User.role_id, func.count(User.id)).filter(User.is_active.is_(True))
-                  .group_by(User.role_id).all())
-    rows = []
-    for r in db.query(Role).order_by(Role.name).all():
-        application = ROLE_APPS.get(r.slug, "Configuration")
-        if app and application != app:
-            continue
-        if q and q.lower() not in (r.name or "").lower() and q.lower() not in (r.slug or "").lower():
-            continue
-        rows.append({"r": r, "app": application, "users": counts.get(r.id, 0),
-                     "status": "active" if r.permissions else "inactive"})
-    rows.sort(key=lambda x: (x["app"], x["r"].name))
-    groups: list[dict] = []
-    for row in rows:
-        if not groups or groups[-1]["app"] != row["app"]:
-            groups.append({"app": row["app"], "rows": []})
-        groups[-1]["rows"].append(row)
-    by_app: dict[str, int] = {}
-    for r in db.query(Role).all():
-        key = ROLE_APPS.get(r.slug, "Configuration")
-        by_app[key] = by_app.get(key, 0) + 1
-    return render(request, "company_config/roles.html", {
-        "user": user, "groups": groups, "apps": LOOKUP_APPS, "app": app, "q": q, "by_app": by_app,
-        "stats": {"total": db.query(func.count(Role.id)).scalar() or 0,
-                  "assigned": sum(counts.values()),
-                  "system": db.query(func.count(Role.id)).filter(Role.is_system.is_(True)).scalar() or 0,
-                  "apps": len(by_app)},
-        "can_edit": rbac.has_permission(user, "roles.configure"),
-        "can_create": rbac.has_permission(user, "roles.add"),
-        "can_assign": rbac.has_permission(user, "users.update")})
+# =============================================================================== moved screens (redirects)
+# Bookmarks, old links, the user guide and outside integrations keep working: a GET is sent on permanently
+# (301) and a POST is re-sent to the new address with its method and body (307). The sub-path and the query
+# string travel with it. The new page checks the permission, so these need no guard of their own.
+def moved_to(request: Request, target: str, rest: str = "") -> RedirectResponse:
+    url = target + (f"/{rest.lstrip('/')}" if rest else "")
+    if request.url.query:
+        url += f"?{request.url.query}"
+    return RedirectResponse(url, status_code=301 if request.method in ("GET", "HEAD") else 307)
 
 
-# =============================================================================== 10. Confido Agents
-def agent_licenses_allowed(db: Session) -> int:
-    from app.services.system import get_setting_value
-    return parse_int(get_setting_value(db, AGENT_LICENSES_SETTING, AGENT_LICENSES_DEFAULT), AGENT_LICENSES_DEFAULT) or 0
+@router.api_route("/currency-rates", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+@router.api_route("/currency-rates/{rest:path}", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+def moved_currency_rates(request: Request, rest: str = ""):
+    return moved_to(request, MOVED["currency-rates"], rest)
 
 
-def agent_licenses_consumed(db: Session) -> int:
-    return db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "active").scalar() or 0
+@router.api_route("/payment-gateways", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+@router.api_route("/payment-gateways/{rest:path}", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+def moved_payment_gateways(request: Request, rest: str = ""):
+    return moved_to(request, MOVED["payment-gateways"], rest)
 
 
-def _employee_options(db: Session) -> list[tuple[int, str]]:
-    rows = db.query(Employee).filter(Employee.status.in_(("active", "probation", "on_leave"))).order_by(Employee.full_name).all()
-    return [(e.id, f"{e.employee_code} — {e.full_name}") for e in rows]
+@router.api_route("/agents", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+@router.api_route("/agents/{rest:path}", methods=["GET", "HEAD", "POST"], include_in_schema=False)
+def moved_agents(request: Request, rest: str = ""):
+    return moved_to(request, MOVED["agents"], rest)
 
 
-def _agents_back(tab: str = "licenses", **params) -> str:
-    qs = "&".join(f"{k}={v}" for k, v in params.items() if v not in (None, "", 0))
-    return f"{BASE}/agents?tab={tab}" + (f"&{qs}" if qs else "")
-
-
-@router.get("/agents", include_in_schema=False)
-def agents_page(request: Request, tab: str = "licenses", status: str = "", employee_id: Optional[int] = None, q: str = "",
-                date_from: str = "", date_to: str = "", reveal: int = 0, page: int = 1,
-                db: Session = Depends(get_db), user: User = Depends(require("settings.view"))):
-    tab = tab if tab in [k for k, _ in AGENT_TABS] else "licenses"
-    allowed, consumed = agent_licenses_allowed(db), agent_licenses_consumed(db)
-    device_counts = dict(db.query(AgentDevice.status, func.count(AgentDevice.id)).group_by(AgentDevice.status).all())
-    ctx: dict = {
-        "user": user, "tab": tab, "tabs": AGENT_TABS, "status": status, "employee_id": employee_id, "q": q,
-        "date_from": date_from, "date_to": date_to, "reveal": reveal,
-        "stats": {"allowed": allowed, "consumed": consumed, "available": max(0, allowed - consumed),
-                  "revoked": db.query(func.count(AgentLicense.id)).filter(AgentLicense.status == "revoked").scalar() or 0,
-                  "online": device_counts.get("online", 0), "offline": device_counts.get("offline", 0),
-                  "blocked": device_counts.get("blocked", 0),
-                  "screenshots": db.query(func.count(AgentScreenshot.id)).scalar() or 0},
-        "employee_options": _employee_options(db), "device_statuses": [(s, s.title()) for s in AGENT_DEVICE_STATUSES],
-        "offline_after": AGENT_OFFLINE_AFTER_MINUTES, "today": date.today().isoformat(), **_perms(user)}
-    if tab == "licenses":
-        rows = db.query(AgentLicense).order_by(AgentLicense.status, AgentLicense.issued_at.desc(), AgentLicense.id.desc()).all()
-        ctx["rows"] = rows
-        ctx["user_options"] = [(u.id, f"{u.full_name} ({u.email})") for u in
-                               db.query(User).join(Role, Role.id == User.role_id)
-                               .filter(User.is_active.is_(True), Role.portal.in_(("admin", "teacher"))).order_by(User.full_name).all()]
-    elif tab == "devices":
-        query = db.query(AgentDevice)
-        if status in AGENT_DEVICE_STATUSES:
-            query = query.filter(AgentDevice.status == status)
-        if employee_id:
-            query = query.filter(AgentDevice.employee_id == employee_id)
-        if q:
-            like = f"%{q.lower()}%"
-            query = query.filter(func.lower(AgentDevice.machine_name).like(like) | func.lower(AgentDevice.machine_id).like(like)
-                                 | func.lower(func.coalesce(AgentDevice.ip_address, "")).like(like))
-        ctx["rows"] = query.order_by(AgentDevice.status, AgentDevice.last_seen_at.desc().nullslast(), AgentDevice.id).all()
-        ctx["shot_counts"] = dict(db.query(AgentScreenshot.device_id, func.count(AgentScreenshot.id)).group_by(AgentScreenshot.device_id).all())
-    else:
-        query = db.query(AgentScreenshot)
-        if employee_id:
-            query = query.filter(AgentScreenshot.employee_id == employee_id)
-        df, dt = parse_date(date_from), parse_date(date_to)
-        if df:
-            query = query.filter(AgentScreenshot.captured_at >= datetime.combine(df, datetime.min.time()))
-        if dt:
-            query = query.filter(AgentScreenshot.captured_at <= datetime.combine(dt, datetime.max.time()))
-        ctx["page"] = paginate(query.order_by(AgentScreenshot.captured_at.desc(), AgentScreenshot.id.desc()), page, 24)
-        ctx["shown"] = ctx["page"].total
-    return render(request, "company_config/agents.html", ctx)
-
-
-def _license(db: Session, lid: int) -> AgentLicense:
-    return _get(db, AgentLicense, lid, "Agent licence")
-
-
-@router.post("/agents/licenses/generate", include_in_schema=False)
-async def agent_license_generate(request: Request, db: Session = Depends(get_db),
-                                 user: User = Depends(require("settings.configure"))):
-    form = await request.form()
-    allowed, consumed = agent_licenses_allowed(db), agent_licenses_consumed(db)
-    if consumed + 1 > allowed:
-        return redirect(_agents_back("licenses"),
-                        f"All {allowed} licences are consumed ({consumed} active). Revoke one or raise "
-                        f"'Agent Licenses Allowed' under Setup before generating another.", "error")
-    expires = parse_date(form.get("expires_at"))
-    issued_to = db.get(User, parse_int(form.get("issued_to_user_id")) or 0) if form.get("issued_to_user_id") else None
-    lic = AgentLicense(license_key=secrets.token_urlsafe(24), issued_to_user_id=issued_to.id if issued_to else None,
-                       issued_by_id=user.id, issued_at=datetime.utcnow(),
-                       expires_at=datetime.combine(expires, datetime.max.time().replace(microsecond=0)) if expires else None,
-                       status="active", notes=(form.get("notes") or "").strip() or None)
-    db.add(lic)
-    db.flush()
-    log_action(db, user, "create", MODULE, entity=lic, severity="warning", consequential=True,
-               rationale=_rationale(form) or "Recording agent licence generated",
-               description=f"Agent licence #{lic.id} generated for {issued_to.full_name if issued_to else 'unassigned'} "
-                           f"({consumed + 1} of {allowed} consumed)", request=request)
-    db.commit()
-    return redirect(_agents_back("licenses"), f"Licence #{lic.id} generated ({consumed + 1} of {allowed} consumed). "
-                                              "Reveal or download it to install the agent.")
-
-
-@router.post("/agents/licenses/{lid}/reveal", include_in_schema=False)
-async def agent_license_reveal(lid: int, request: Request, db: Session = Depends(get_db),
-                               user: User = Depends(require("settings.view"))):
-    """Show a licence key in the clear. Like a secret branch property, the reveal itself is audited."""
-    lic = _license(db, lid)
-    form = await request.form()
-    log_action(db, user, "view", MODULE, entity=lic, severity="warning", consequential=True,
-               rationale=_rationale(form) or "Agent licence key revealed on screen",
-               description=f"Revealed agent licence #{lic.id}", request=request)
-    db.commit()
-    return redirect(_agents_back("licenses", reveal=lic.id), f"Licence #{lic.id} revealed — this is audited.")
-
-
-@router.get("/agents/licenses/{lid}/download", include_in_schema=False)
-def agent_license_download(lid: int, request: Request, db: Session = Depends(get_db),
-                           user: User = Depends(require("settings.view"))):
-    """The key as a small .lic text file the agent installer reads. Downloading exposes the key, so it is audited."""
-    lic = _license(db, lid)
-    log_action(db, user, "export", MODULE, entity=lic, severity="warning", consequential=True,
-               rationale="Agent licence file downloaded", description=f"Downloaded agent licence #{lic.id} as a .lic file",
-               request=request)
-    db.commit()
-    return Response(content=lic.license_key, media_type="text/plain; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="oqc-agent-{lic.id}.lic"',
-                             "Cache-Control": "no-store"})
-
-
-@router.post("/agents/licenses/{lid}/revoke", include_in_schema=False)
-async def agent_license_revoke(lid: int, request: Request, db: Session = Depends(get_db),
-                               user: User = Depends(require("settings.configure"))):
-    lic = _license(db, lid)
-    form = await request.form()
-    if lic.status == "revoked":
-        return redirect(_agents_back("licenses"), f"Licence #{lic.id} is already revoked.", "warning")
-    before = snapshot(lic)
-    lic.status = "revoked"
-    blocked = 0
-    for device in lic.devices:
-        if device.status != "blocked":
-            device.status = "blocked"
-            blocked += 1
-    log_action(db, user, "status_change", MODULE, entity=lic, severity="warning", consequential=True,
-               rationale=_rationale(form) or "Recording agent licence revoked",
-               description=f"Agent licence #{lic.id} revoked; {blocked} device(s) blocked",
-               before=before, after=snapshot(lic), request=request)
-    db.commit()
-    return redirect(_agents_back("licenses"), f"Licence #{lic.id} revoked and {blocked} device(s) blocked.")
-
-
-@router.post("/agents/devices/{did}/block", include_in_schema=False)
-async def agent_device_block(did: int, request: Request, db: Session = Depends(get_db),
-                             user: User = Depends(require("settings.configure"))):
-    device = _get(db, AgentDevice, did, "Agent device")
-    form = await request.form()
-    before = snapshot(device)
-    device.status = "blocked"
-    log_action(db, user, "status_change", MODULE, entity=device, severity="warning", consequential=True,
-               rationale=_rationale(form) or "Recording agent device blocked",
-               description=f"Agent device {device.machine_name} ({device.machine_id}) blocked",
-               before=before, after=snapshot(device), request=request)
-    db.commit()
-    return redirect(_agents_back("devices"), f"{device.machine_name} blocked; its heartbeats and screenshots are refused.")
-
-
-@router.post("/agents/devices/{did}/unblock", include_in_schema=False)
-async def agent_device_unblock(did: int, request: Request, db: Session = Depends(get_db),
-                               user: User = Depends(require("settings.configure"))):
-    device = _get(db, AgentDevice, did, "Agent device")
-    form = await request.form()
-    if device.license and device.license.status != "active":
-        return redirect(_agents_back("devices"), f"{device.machine_name} is on a revoked licence; issue a new licence instead.", "error")
-    before = snapshot(device)
-    device.status = "offline"   # online again on its next heartbeat
-    log_action(db, user, "status_change", MODULE, entity=device, severity="warning", consequential=True,
-               rationale=_rationale(form) or "Recording agent device unblocked",
-               description=f"Agent device {device.machine_name} ({device.machine_id}) unblocked",
-               before=before, after=snapshot(device), request=request)
-    db.commit()
-    return redirect(_agents_back("devices"), f"{device.machine_name} unblocked; it shows online at its next heartbeat.")
-
-
-@router.get("/agents/screenshots/{sid}/image", include_in_schema=False)
-def agent_screenshot_image(sid: int, request: Request, db: Session = Depends(get_db),
-                           user: User = Depends(require("settings.view"))):
-    """The capture itself. Staff-screen captures are not served from the open static mount: this route
-    checks the permission and refuses any path that resolves outside the screenshots folder."""
-    from app.models.config_erp import AgentScreenshot
-    shot = db.get(AgentScreenshot, sid)
-    if shot is None:
-        raise HTTPException(status_code=404, detail="Screenshot not found.")
-    root = (BASE_DIR / "storage" / "agent_screenshots").resolve()
-    path = (BASE_DIR / "storage" / shot.image_path).resolve()
-    if root not in path.parents or not path.is_file():
-        raise HTTPException(status_code=404, detail="Screenshot file is missing.")
-    return FileResponse(str(path))
-
+@router.api_route("/roles", methods=["GET", "HEAD"], include_in_schema=False)
+def moved_roles(request: Request):
+    """The read-only roles list merged into the one Roles page (HR › Users & Access)."""
+    return moved_to(request, "/admin/roles")

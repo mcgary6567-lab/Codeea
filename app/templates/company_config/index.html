@@ -3,10 +3,7 @@
 {% block title %}Configuration{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-7xl">
-  {% call ui.page_header("Configuration", "Currency rates, roles, lookups, branch properties, notification templates, support tickets, WhatsApp numbers, OTP and payment gateways") %}
-    {{ ui.button("Users", href="/admin/users", icon="user-cog", variant="secondary") }}
-    {{ ui.button("Audit Log", href="/admin/audit", icon="scroll-text", variant="secondary") }}
-  {% endcall %}
+  {% call ui.page_header("Configuration", "System-wide settings: lookups, branch properties, notification templates, support tickets, WhatsApp numbers, OTP, integrations, security and backups") %}{% endcall %}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     {% for c in cards %}
       {{ ui.module_card(c.title, c.url, icon=c.icon, color=palette(loop.index0),

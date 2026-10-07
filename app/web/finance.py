@@ -7,7 +7,7 @@ import io
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
@@ -23,11 +23,12 @@ from app.models.core import User, AuditEvent, Department
 from app.models.crm import Referral
 from app.models.erp import (BeneficiaryAccount, InvoiceAdditionType, LedgerAddition,
                             LEDGER_ADDITION_TYPES)
-from app.models.finance import (Account, Budget, Currency, DiscountRequest, ExchangeRateHistory, Expense,
+from app.models.finance import (Account, Budget, Currency, DiscountRequest, Expense,
                                 FinancialPeriod, Invoice, JournalEntry, JournalLine, LedgerEntry,
                                 Payment, Scholarship, Subscription)
 from app.models.people import Client, Employee, Student, Teacher
 from app.services import accounting, billing
+from app.web.finance_settings import set_rate
 
 router = APIRouter(prefix="/finance", dependencies=[Depends(csrf_protect)])
 
@@ -2270,47 +2271,27 @@ async def expense_pay(id: int, request: Request, db: Session = Depends(get_db), 
     return redirect(f"/finance/expenses/{id}", f"{e.expense_number} marked paid.")
 
 
-# ============================================================================ currencies
+# ============================================================================ currencies (merged)
+# The Billing currency list duplicated Accounts › Setup › Currency Rates (app.web.finance_settings), which now
+# carries everything it did (active subscriptions per currency, a per-currency Set Rate with its source, the
+# country -> currency table, and per-currency exposure on the history page). The old addresses stay alive.
 @router.get("/currencies", include_in_schema=False)
-def currencies_list(request: Request, db: Session = Depends(get_db), user: User = Depends(require("currencies.view"))):
-    rows = db.query(Currency).order_by(Currency.is_base.desc(), Currency.code).all()
-    usage = dict(db.query(Subscription.currency, func.count(Subscription.id))
-                 .filter(Subscription.status == "active").group_by(Subscription.currency).all())
-    history = (db.query(ExchangeRateHistory).order_by(ExchangeRateHistory.effective_at.desc()).limit(25).all())
-    return render(request, "finance/currencies.html", {
-        "user": user, "rows": rows, "usage": usage, "history": history, "base": billing.base_currency(db),
-        "country_map": billing.country_currency_map(db),
-        "can_edit": rbac.has_permission(user, "currencies.update")})
+def currencies_list(request: Request):
+    url = "/finance/currency-rates" + (f"?{request.url.query}" if request.url.query else "")
+    return RedirectResponse(url, status_code=301)
 
 
 @router.post("/currencies/{code}/rate", include_in_schema=False)
 async def currency_set_rate(code: str, request: Request, db: Session = Depends(get_db),
                             user: User = Depends(require("currencies.update"))):
-    form = await request.form()
-    try:
-        billing.set_exchange_rate(db, code.upper(), parse_float(form.get("rate"), 0), user,
-                                  source=form.get("source") or "manual")
-    except ValueError as exc:
-        return _err("/finance/currencies", exc)
-    db.commit()
-    return redirect("/finance/currencies", f"{code.upper()} rate updated.")
+    ok, message = set_rate(db, user, code, await request.form())
+    return redirect("/finance/currency-rates", message, "success" if ok else "error")
 
 
 @router.get("/currencies/{code}", include_in_schema=False)
-def currency_detail(code: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require("currencies.view"))):
-    c = db.query(Currency).filter(Currency.code == code.upper()).first()
-    if not c:
-        raise HTTPException(404, "Currency not found")
-    history = (db.query(ExchangeRateHistory).filter(ExchangeRateHistory.currency_code == c.code)
-               .order_by(ExchangeRateHistory.effective_at).all())
-    subs = db.query(Subscription).filter(Subscription.currency == c.code, Subscription.status == "active").count()
-    invoiced = (db.query(func.coalesce(func.sum(Invoice.total), 0)).filter(Invoice.currency == c.code,
-                                                                          Invoice.status != "void").scalar() or 0)
-    return render(request, "finance/currency_detail.html", {
-        "user": user, "c": c, "history": history, "subs": subs, "invoiced": float(invoiced),
-        "base": billing.base_currency(db),
-        "labels": [h.effective_at.strftime("%d %b") for h in history], "values": [float(h.rate_to_base) for h in history],
-        "can_edit": rbac.has_permission(user, "currencies.update")})
+def currency_detail(code: str, request: Request):
+    url = f"/finance/currency-rates/{code.upper()}" + (f"?{request.url.query}" if request.url.query else "")
+    return RedirectResponse(url, status_code=301)
 
 
 # ============================================================================ Clients Financial Summary

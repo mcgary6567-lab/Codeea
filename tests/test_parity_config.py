@@ -39,12 +39,13 @@ from app.models.crm import Case, Feedback  # noqa: E402
 from app.models.erp import FeedbackQuestion  # noqa: E402
 from app.models.people import Client  # noqa: E402
 from app.services.jobs_system import agents_mark_offline  # noqa: E402
-from app.web.company_config import (AGENT_LICENSES_SETTING, AGENT_SCREENSHOT_DIR, agent_licenses_allowed,  # noqa: E402
-                                    agent_licenses_consumed)
+from app.web.hr_agents import (AGENT_LICENSES_SETTING, AGENT_SCREENSHOT_DIR, agent_licenses_allowed,  # noqa: E402
+                              agent_licenses_consumed)
 from app.web.feedback import active_questions  # noqa: E402
 
 ACAD = "/academics/config"
 CFG = "/config"
+AGENTS = "/hr/confido-agents"            # Confido Agents moved to HR › HR Configurations
 API = "/api/agents"
 
 TAG = "[pytest parity]"                       # every question / note / comment this module creates carries it
@@ -56,11 +57,11 @@ GET_PAGES = [
     f"{ACAD}/feedback-questions?status=inactive", f"{ACAD}/feedback-questions?applies_to=client",
     f"{ACAD}/feedback-questions?applies_to=student", f"{ACAD}/feedback-questions?applies_to=staff",
     f"{ACAD}/feedback-questions?answer_type=rating&q=teacher",
-    f"{CFG}", f"{CFG}/agents", f"{CFG}/agents?tab=licenses", f"{CFG}/agents?tab=devices",
-    f"{CFG}/agents?tab=devices&status=online", f"{CFG}/agents?tab=devices&status=offline",
-    f"{CFG}/agents?tab=devices&status=blocked", f"{CFG}/agents?tab=devices&q=SEED",
-    f"{CFG}/agents?tab=screenshots", f"{CFG}/agents?tab=screenshots&date_from=2020-01-01&date_to=2099-12-31",
-    f"{CFG}/agents?tab=nonsense", "/qa/feedbacks",
+    f"{CFG}", f"{AGENTS}", f"{AGENTS}?tab=licenses", f"{AGENTS}?tab=devices",
+    f"{AGENTS}?tab=devices&status=online", f"{AGENTS}?tab=devices&status=offline",
+    f"{AGENTS}?tab=devices&status=blocked", f"{AGENTS}?tab=devices&q=SEED",
+    f"{AGENTS}?tab=screenshots", f"{AGENTS}?tab=screenshots&date_from=2020-01-01&date_to=2099-12-31",
+    f"{AGENTS}?tab=nonsense", "/qa/feedbacks",
 ]
 
 
@@ -217,18 +218,18 @@ def test_every_page_renders_for_admin(admin, path):
 
 def test_index_cards_carry_the_new_entries(admin):
     assert f"{ACAD}/feedback-questions" in admin.get(ACAD).text
-    assert f"{CFG}/agents" in admin.get(CFG).text
+    assert f'href="{AGENTS}"' in admin.get("/hr/config").text
 
 
 def test_agents_tabs_show_their_own_content(admin, db):
-    licences = admin.get(f"{CFG}/agents?tab=licenses").text
+    licences = admin.get(f"{AGENTS}?tab=licenses").text
     assert "Allowed" in licences and "Consumed" in licences and "Generate License" in licences and "Download" in licences
-    devices = admin.get(f"{CFG}/agents?tab=devices").text
+    devices = admin.get(f"{AGENTS}?tab=devices").text
     seeded = db.query(AgentDevice).filter(AgentDevice.machine_id.like("SEED-%")).first()
     assert seeded is not None and seeded.machine_id in devices
-    shots = admin.get(f"{CFG}/agents?tab=screenshots").text
+    shots = admin.get(f"{AGENTS}?tab=screenshots").text
     # Captures of staff screens are served through the guarded route, never from the open static mount.
-    assert "/config/agents/screenshots/" in shots and "/storage/agent_screenshots/" not in shots
+    assert "/hr/confido-agents/screenshots/" in shots and "/storage/agent_screenshots/" not in shots
 
 
 # =========================================================================== feedback questions
@@ -345,8 +346,8 @@ def test_generate_up_to_the_limit_and_refused_past_it(admin, db):
     _set_allowed(db, limit)
     try:
         for i in range(2):
-            loc = _post(admin, f"{CFG}/agents/licenses/generate", {"notes": LICENSE_NOTE, "rationale": "pytest"})
-            assert loc.startswith(f"{CFG}/agents?tab=licenses")
+            loc = _post(admin, f"{AGENTS}/licenses/generate", {"notes": LICENSE_NOTE, "rationale": "pytest"})
+            assert loc.startswith(f"{AGENTS}?tab=licenses")
         db.expire_all()
         assert agent_licenses_consumed(db) == limit
         created = db.query(AgentLicense).filter(AgentLicense.notes == LICENSE_NOTE).all()
@@ -354,13 +355,13 @@ def test_generate_up_to_the_limit_and_refused_past_it(admin, db):
         assert len({l.license_key for l in created}) == 2
         assert created[0].issued_by_id == db.query(User).filter(User.email == "admin@oqc.local").first().id
 
-        loc = _post(admin, f"{CFG}/agents/licenses/generate", {"notes": LICENSE_NOTE})
+        loc = _post(admin, f"{AGENTS}/licenses/generate", {"notes": LICENSE_NOTE})
         text = _flash(admin, loc)
         assert "consumed" in text and "Revoke one" in text
         db.expire_all()
         assert db.query(AgentLicense).filter(AgentLicense.notes == LICENSE_NOTE).count() == 2, "nothing past the limit"
         assert agent_licenses_consumed(db) == limit
-        page = admin.get(f"{CFG}/agents?tab=licenses").text
+        page = admin.get(f"{AGENTS}?tab=licenses").text
         assert f">{limit}<" in page   # the Consumed tile
     finally:
         _set_allowed(db, allowed_before)
@@ -369,23 +370,23 @@ def test_generate_up_to_the_limit_and_refused_past_it(admin, db):
 def test_key_is_masked_reveal_is_audited_and_download_body_equals_the_key(admin, db):
     lic = db.query(AgentLicense).filter(AgentLicense.notes == LICENSE_NOTE).order_by(AgentLicense.id).first()
     assert lic is not None
-    page = admin.get(f"{CFG}/agents?tab=licenses").text
+    page = admin.get(f"{AGENTS}?tab=licenses").text
     assert lic.license_key not in page and lic.license_key[-4:] in page
 
-    before = db.query(AuditEvent).filter(AuditEvent.module == "configuration", AuditEvent.action == "view",
+    before = db.query(AuditEvent).filter(AuditEvent.module == "staff_monitoring", AuditEvent.action == "view",
                                          AuditEvent.entity_type == "AgentLicense", AuditEvent.entity_id == lic.id).count()
-    loc = _post(admin, f"{CFG}/agents/licenses/{lic.id}/reveal")
+    loc = _post(admin, f"{AGENTS}/licenses/{lic.id}/reveal")
     assert f"reveal={lic.id}" in loc
     assert lic.license_key in _flash(admin, loc)
-    after = db.query(AuditEvent).filter(AuditEvent.module == "configuration", AuditEvent.action == "view",
+    after = db.query(AuditEvent).filter(AuditEvent.module == "staff_monitoring", AuditEvent.action == "view",
                                         AuditEvent.entity_type == "AgentLicense", AuditEvent.entity_id == lic.id).count()
     assert after == before + 1, "revealing a licence key must be written to the audit log"
 
-    r = admin.get(f"{CFG}/agents/licenses/{lic.id}/download")
+    r = admin.get(f"{AGENTS}/licenses/{lic.id}/download")
     assert r.status_code == 200
     assert r.text == lic.license_key
     assert ".lic" in r.headers.get("content-disposition", "")
-    assert db.query(AuditEvent).filter(AuditEvent.module == "configuration", AuditEvent.action == "export",
+    assert db.query(AuditEvent).filter(AuditEvent.module == "staff_monitoring", AuditEvent.action == "export",
                                        AuditEvent.entity_type == "AgentLicense", AuditEvent.entity_id == lic.id).count() >= 1
 
 
@@ -438,8 +439,8 @@ def test_screenshot_upload_stores_a_row_and_the_file(anon, admin, db):
     # The static path is closed for staff-screen captures, even to someone who knows the address.
     assert anon.get(f"/storage/{shot.image_path}").status_code == 404
     # Anonymous callers are sent to sign in by the guarded route; a permitted user gets the bytes.
-    assert anon.get(f"/config/agents/screenshots/{shot.id}/image", follow_redirects=False).status_code in (302, 303, 401, 403)
-    served = admin.get(f"/config/agents/screenshots/{shot.id}/image")
+    assert anon.get(f"/hr/confido-agents/screenshots/{shot.id}/image", follow_redirects=False).status_code in (302, 303, 401, 403)
+    served = admin.get(f"/hr/confido-agents/screenshots/{shot.id}/image")
     assert served.status_code == 200 and served.content == _png()
 
     # a non-image is refused and writes nothing
@@ -456,7 +457,7 @@ def test_screenshot_upload_stores_a_row_and_the_file(anon, admin, db):
 def test_revoke_blocks_the_device_and_the_agent_gets_403(admin, anon, db):
     lic = db.query(AgentLicense).filter(AgentLicense.notes == LICENSE_NOTE, AgentLicense.status == "active").order_by(AgentLicense.id).first()
     machine = f"{MACHINE_PREFIX}01"
-    _post(admin, f"{CFG}/agents/licenses/{lic.id}/revoke", {"rationale": "pytest"})
+    _post(admin, f"{AGENTS}/licenses/{lic.id}/revoke", {"rationale": "pytest"})
     db.expire_all()
     lic = db.get(AgentLicense, lic.id)
     device = db.query(AgentDevice).filter(AgentDevice.machine_id == machine).first()
@@ -472,7 +473,7 @@ def test_revoke_blocks_the_device_and_the_agent_gets_403(admin, anon, db):
     assert device.status == "blocked" and device.last_seen_at == seen, "a refused call writes nothing"
     assert db.query(AgentScreenshot).filter(AgentScreenshot.device_id == device.id).count() == 1
     # revoking again is a no-op, and the seat is free again
-    _post(admin, f"{CFG}/agents/licenses/{lic.id}/revoke")
+    _post(admin, f"{AGENTS}/licenses/{lic.id}/revoke")
     assert agent_licenses_consumed(db) == db.query(AgentLicense).filter(AgentLicense.status == "active").count()
 
 
@@ -482,17 +483,17 @@ def test_block_and_unblock_a_device(admin, anon, db):
     machine = f"{MACHINE_PREFIX}02"
     assert anon.post(f"{API}/heartbeat", json={"license_key": lic.license_key, "machine_id": machine, "machine_name": "PYTEST-PC-2"}).status_code == 201
     device = db.query(AgentDevice).filter(AgentDevice.machine_id == machine).first()
-    _post(admin, f"{CFG}/agents/devices/{device.id}/block")
+    _post(admin, f"{AGENTS}/devices/{device.id}/block")
     db.expire_all()
     assert db.get(AgentDevice, device.id).status == "blocked"
     assert anon.post(f"{API}/heartbeat", json={"license_key": lic.license_key, "machine_id": machine}).status_code == 403
-    _post(admin, f"{CFG}/agents/devices/{device.id}/unblock")
+    _post(admin, f"{AGENTS}/devices/{device.id}/unblock")
     db.expire_all()
     assert db.get(AgentDevice, device.id).status == "offline"
     assert anon.post(f"{API}/heartbeat", json={"license_key": lic.license_key, "machine_id": machine}).status_code == 200
     db.expire_all()
     assert db.get(AgentDevice, device.id).status == "online"
-    page = admin.get(f"{CFG}/agents?tab=devices&q={machine}").text
+    page = admin.get(f"{AGENTS}?tab=devices&q={machine}").text
     assert machine in page and "PYTEST-PC-2" in page
 
 
@@ -523,20 +524,20 @@ def test_billing_rep_can_view_but_not_change(billing, db):
     assert billing.get(f"{ACAD}/feedback-questions").status_code == 200
     r = billing.post(f"{ACAD}/feedback-questions/new", data={"question": f"{TAG} billing"}, follow_redirects=False)
     assert r.status_code == 403
-    assert billing.get(f"{CFG}/agents").status_code == 403, "billing has no settings.view"
-    r = billing.post(f"{CFG}/agents/licenses/generate", data={"notes": LICENSE_NOTE}, follow_redirects=False)
+    assert billing.get(f"{AGENTS}").status_code == 403, "billing has no staff_monitoring.view"
+    r = billing.post(f"{AGENTS}/licenses/generate", data={"notes": LICENSE_NOTE}, follow_redirects=False)
     assert r.status_code == 403, f"billing must not generate a licence (got {r.status_code})"
 
 
 def test_teacher_is_refused_both_pages(teacher):
     assert teacher.get(f"{ACAD}/feedback-questions").status_code == 403
-    assert teacher.get(f"{CFG}/agents").status_code == 403
-    assert teacher.post(f"{CFG}/agents/licenses/generate", data={}, follow_redirects=False).status_code == 403
+    assert teacher.get(f"{AGENTS}").status_code == 403
+    assert teacher.post(f"{AGENTS}/licenses/generate", data={}, follow_redirects=False).status_code == 403
 
 
 def test_parent_is_refused_by_the_agent_api(parent, db):
     lic = db.query(AgentLicense).filter(AgentLicense.notes == LICENSE_NOTE).order_by(AgentLicense.id.desc()).first()
-    assert parent.get(f"{CFG}/agents").status_code == 403
+    assert parent.get(f"{AGENTS}").status_code == 403
     r = parent.post(f"{API}/heartbeat", json={"license_key": "guess", "machine_id": f"{MACHINE_PREFIX}parent"})
     assert r.status_code == 403
     r = parent.post(f"{API}/screenshot", data={"license_key": "guess", "machine_id": f"{MACHINE_PREFIX}parent"},

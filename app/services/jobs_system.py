@@ -71,7 +71,7 @@ def agents_mark_offline(db: Session) -> str:
     Blocked devices stay blocked; they only leave that state when a member of staff unblocks them.
     """
     from app.models.config_erp import AgentDevice
-    from app.web.company_config import AGENT_OFFLINE_AFTER_MINUTES
+    from app.web.hr_agents import AGENT_OFFLINE_AFTER_MINUTES
     cutoff = datetime.utcnow() - timedelta(minutes=AGENT_OFFLINE_AFTER_MINUTES)
     stale = (db.query(AgentDevice)
              .filter(AgentDevice.status == "online",

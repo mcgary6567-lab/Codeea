@@ -60,7 +60,7 @@
     ]
   },
   "admin:/home/finance/billing": {
-    "purpose": "The group page for invoices, receipts, ledgers, payments, subscription reports, discounts and currencies.",
+    "purpose": "The group page for invoices, receipts, ledgers, payments, subscription reports and discounts.",
     "steps": [
       "Press a card to open the page, for example **Invoices**, **Receipts**, **Client Ledger** or **Payments & Reconciliation**."
     ],
@@ -183,19 +183,6 @@
       "This page is an addition to the original ERP."
     ]
   },
-  "admin:/finance/currencies": {
-    "purpose": "Lists each currency families pay in, its rate to PKR and the active subscriptions using it. Accounts staff use it to set rates so every report consolidates correctly.",
-    "steps": [
-      "Type a new rate in **Set rate** on a currency row and press **Save**.",
-      "Check **Recent rate changes** for the history of who set what and when.",
-      "Use **Country → default currency** to see which currency a new family gets by country."
-    ],
-    "notes": [
-      "A rate means 1 unit of the currency equals X PKR. The base currency is fixed at 1.0000.",
-      "Saving a rate writes a history entry and marks the currency as set manually.",
-      "Changing rates needs the currencies update permission."
-    ]
-  },
   "admin:/home/finance/config": {
     "purpose": "The group page for the two billing catalogues: billing groups and lead closers.",
     "steps": [
@@ -227,9 +214,9 @@
     ]
   },
   "admin:/home/accounts/setup": {
-    "purpose": "The group page for building the chart of accounts.",
+    "purpose": "The group page for building the chart of accounts and the money settings it relies on.",
     "steps": [
-      "Press **Accounts Heads**, **Chart of Accounts** or **Accounts Tree View**."
+      "Press **Accounts Heads**, **Chart of Accounts**, **Accounts Tree View**, **Currency Rates** or **Payment Gateways**."
     ],
     "notes": []
   },
@@ -540,36 +527,31 @@
     ]
   },
   "admin:/home/system": {
-    "purpose": "The home page of the Configuration area: currencies, roles, lookups, settings, messaging, gateways, users, security and system tools.",
+    "purpose": "The home page of the Configuration area: system-wide settings only. Lookups, Setup (branch properties), notification templates, support tickets, WhatsApp numbers, OTP, platform settings, integrations, API keys, security, backups, data migration and the audit log.",
     "steps": [
-      "Press a card to open the page, for example **Lookups**, **Setup** or **Users**."
+      "Press a card to open the page, for example **Lookups**, **Setup** or **Support Ticket**."
     ],
     "notes": [
-      "The first ten cards match the original ERP. The cards from **Users** onward are additions of the new platform."
+      "The first six cards match the original ERP. The cards from **Settings** onward are additions of the new platform.",
+      "Settings that belong to one business area live in that area: Currency Rates and Payment Gateways under Accounts › Setup, Confido Agents under HR › HR Configurations, and Users and Roles under HR › Users & Access."
     ]
   },
-  "admin:/config/currency-rates": {
-    "purpose": "Every currency with its rate to PKR and when that rate was last set. Accounts staff use it to add a rate by hand or run the rate feed.",
+  "admin:/finance/currency-rates": {
+    "purpose": "Accounts › Setup. Every currency families pay in, with its rate to PKR, the active subscriptions using it and when the rate was last set. Accounts staff use it to set rates so every report consolidates correctly.",
     "steps": [
       "Press **Add Manual Currency Rate**, fill **Currency**, **Rate To Base**, **Effective Date** and a **Note**, then press **Save rate**.",
+      "For a quick change, type a rate in **Set Rate** on a currency row, choose **Manual override** or **Rate feed**, and press **Save**.",
       "Press **Refresh Rates** to run the ERP rate feed, then confirm the prompt.",
-      "Press **History** on a row to see every rate change for that currency."
+      "Press **Deactivate** on a row to take a currency out of the pickers on new records, or **Activate** to bring it back.",
+      "Press **History** on a row to see every rate change for that currency, its active subscriptions and the amount invoiced in it.",
+      "Use **Country → default currency** to see which currency a new family gets by country."
     ],
     "notes": [
+      "A rate means 1 unit of the currency equals X PKR. The base currency is fixed at 1 and cannot be deactivated.",
       "The rate feed is simulated: rates are generated locally, not fetched from a provider. Use a manual rate for a figure you rely on.",
-      "A currency set manually is locked, and the feed skips it.",
-      "Rate changes are written to the audit log with your note."
-    ]
-  },
-  "admin:/config/roles": {
-    "purpose": "Roles grouped by application area, with the users assigned to each. It is read only; the role editor lives on Roles & Permissions.",
-    "steps": [
-      "Filter by **Application** or **Search**, then press **Go**.",
-      "Press **Permissions** on a row to open the role editor, or **Assign Users** to see the users on that role.",
-      "**Edit roles** and **Assign users** at the top open Roles & Permissions and Users."
-    ],
-    "notes": [
-      "A role counts as active once it carries at least one permission."
+      "A currency set manually is locked, and the feed skips it. Saving a rate as **Rate feed** hands it back to the feed.",
+      "Rate changes are written to the rate history and the audit log. Changing rates needs the currencies update permission.",
+      "This page used to be Configuration › Currency Rates and Billing › Currencies; both old addresses open it."
     ]
   },
   "admin:/config/lookups": {
@@ -650,8 +632,8 @@
       "Saving the setup and toggling a user's token are written to the audit log."
     ]
   },
-  "admin:/config/payment-gateways": {
-    "purpose": "The gateways the college collects through, each with the fee it charges. Billing staff use it to know the cost of each payment route.",
+  "admin:/finance/payment-gateways": {
+    "purpose": "Accounts › Setup. The gateways the college collects through, each with the fee it charges. Accounts staff use it to know the cost of each payment route.",
     "steps": [
       "Press a tile, **All Gateways** or **Active**, or filter by **Gateway Company**, **Status** and **Search**, then press **Go**.",
       "Type a **Sample Amount** to see each gateway's fee in the **Fee On** column.",
@@ -660,11 +642,13 @@
     ],
     "notes": [
       "The fee is the percentage fee plus the fixed fee, rounded to two places.",
-      "**Live Mode** off means the gateway is in test mode."
+      "**Live Mode** off means the gateway is in test mode.",
+      "Opening it needs the payments view permission; creating, editing and deactivating need payments configure.",
+      "This page used to be under Configuration; the old address opens it."
     ]
   },
-  "admin:/config/agents": {
-    "purpose": "The Recording Agent: the licences the desktop agent installs with, the machines that check in, and the screenshots they capture. System administrators manage the seats.",
+  "admin:/hr/confido-agents": {
+    "purpose": "HR › HR Configurations. The Recording Agent: the licences the desktop agent installs with, the machines that check in, and the screenshots they capture. HR manages the seats.",
     "steps": [
       "On **User Licenses**, read **Allowed**, **Consumed**, **Available** and **Revoked**.",
       "Press **Generate License**, choose **Issued To**, set **Expires** and **Notes**, give a **Rationale**, then press **Generate**.",
@@ -672,9 +656,11 @@
       "Use **Devices list** to see machines and block one, and **Agents Screen Shorts** to browse captures."
     ],
     "notes": [
-      "**Generate License** refuses when all allowed seats are consumed. Raise the Agent Licenses Allowed property under Setup, or revoke a licence.",
+      "**Generate License** refuses when all allowed seats are consumed. Raise the Agent Licenses Allowed property under Configuration › Setup, or revoke a licence.",
       "Revealing or downloading a key is written to the audit log. Revoking blocks every device installed with it.",
-      "A device with no heartbeat for ten minutes shows offline. Screenshots are only visible to users with permission."
+      "A device with no heartbeat for ten minutes shows offline. Screenshots are only visible to users with permission.",
+      "Opening it needs the staff monitoring view permission; generating, revoking and blocking need staff monitoring configure.",
+      "This page used to be under Configuration; the old address opens it."
     ]
   },
   "admin:/admin/users": {
@@ -689,20 +675,6 @@
       "Leave the password blank when creating a user. A temporary password is shown once and must be changed at first sign-in.",
       "You cannot deactivate your own account. Deactivating revokes the user's sessions but keeps linked records.",
       "Administrators cannot sign in as another user. This page is an addition to the original ERP."
-    ]
-  },
-  "admin:/admin/roles": {
-    "purpose": "Every role with its portal, user count and how many permissions it grants. Administrators use it to edit the permission grid, clone roles and test access.",
-    "steps": [
-      "Press **Open** on a role to edit its grid: one row per module, one column per action. Tick the cells and give a rationale.",
-      "Press **Clone** to make a variant of an existing role, or **New role** to start empty.",
-      "Press **Permission test** to check whether a user holds a permission and see why.",
-      "Press **Compare roles** for a side-by-side diff of two roles."
-    ],
-    "notes": [
-      "A rationale is mandatory on every permission change. It is a critical audit event.",
-      "System roles can be edited but never deleted. Custom roles can be deleted once no user holds them.",
-      "A deny set on a user always wins over the role. This page is an addition to the original ERP."
     ]
   },
   "admin:/admin/settings": {
