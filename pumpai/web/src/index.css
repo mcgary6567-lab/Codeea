@@ -42,7 +42,7 @@
   table { border-collapse: collapse !important; width: 100% !important; min-width: 0 !important; font-size: 11px; }
   thead th, th.th { background: #0f172a !important; color: #fff !important; border: 0 !important; }
   tbody tr:nth-child(even) > td { background: #f8fafc !important; }
-  td, .td { border-bottom: 1px solid #e2e8f0 !important; padding-top: 4px !important; padding-bottom: 4px !important; }
+  td, .td { border-bottom: 1px solid #e2e8f0 !important; padding-top: 4px !important; padding-bottom: 4px !important; font-size: 11px !important; line-height: 1.35 !important; }
   tfoot td { border-top: 2px solid #0f172a !important; font-weight: 700; }
   .tabular-nums, td.text-right { font-variant-numeric: tabular-nums; }
   tr, .break-inside-avoid { break-inside: avoid; }

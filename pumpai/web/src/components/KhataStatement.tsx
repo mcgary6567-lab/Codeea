@@ -4,7 +4,7 @@ import { api, linkToken, useApi } from "../lib/api";
 import { ProofThumbs } from "./Capture";
 import { PortalCard } from "./PortalCard";
 import { Field, Loading, Modal, useAction } from "./ui";
-import { PRODUCTS, num, pkr } from "../lib/format";
+import { PRODUCTS, num, phone, pkr } from "../lib/format";
 
 const pkToday = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 const monthStart = () => pkToday().slice(0, 8) + "01";
@@ -15,6 +15,8 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const qs = new URLSearchParams(Object.entries(range).filter(([, v]) => v)).toString();
   const { data: s, reload } = useApi<any>(`/customers/${customerId}/statement?${qs}`);
+  // vehicle / slip columns only when some line has one, so the paper is not half dashes
+  const cols = { vehicle: Boolean(s?.lines?.some((l: any) => l.vehicle_no)), slip: Boolean(s?.lines?.some((l: any) => l.slip_no || l.type === "credit")) };
   const csv = `/api/customers/${customerId}/statement.csv?${qs}&token=${linkToken()}`;
   const { busy, run } = useAction();
   const month = (range.from || pkToday()).slice(0, 7);
@@ -45,6 +47,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
           <div className="flex flex-wrap justify-between gap-2 border-b border-slate-200 pb-3">
             <div>
               <div className="text-xl font-bold">{s.customer.name}</div>
+              {(s.customer.phone || s.customer.city) && <div className="text-sm text-slate-600">{[s.customer.phone ? phone(String(s.customer.phone)) : "", s.customer.city].filter(Boolean).join(" · ")}</div>}
               <div className="text-sm text-slate-600">Fuel account statement · {s.from ?? "start"} to {s.to ?? "today"}</div>
             </div>
             <div className="text-right text-sm">
@@ -65,7 +68,7 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
               <div key={p.product} className="rounded-lg bg-slate-50 px-3 py-2 text-sm"><b>{PRODUCTS[p.product] ?? p.product}</b>: {num(p.litres, 2)} L · {pkr(p.amount)} · {p.entries} slips</div>
             ))}
           </div>
-          {/* phone: one card per slip / payment; the table from sm up and on paper */}
+          {/* phone: one card per slip / payment; the table from sm up and on paper (no empty vehicle / slip columns) */}
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 sm:hidden print:hidden">
             {s.lines.map((l: any) => (
               <li key={l.id} className="space-y-0.5 px-3 py-2 text-sm">
@@ -85,14 +88,14 @@ export default function KhataStatement({ customerId, onClose }: { customerId: nu
           </ul>
           <div className="hidden max-h-[55vh] overflow-auto rounded-lg border border-slate-200 sm:block print:block print:max-h-none">
             <table className="w-full">
-              <thead className="sticky top-0"><tr>{["Date & time", "Vehicle", "Slip no.", "Fuel", "Litres", "Rate / L", "Charged", "Paid", "Balance"].map((h, i) => <th key={h} className={`th whitespace-nowrap ${i >= 4 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+              <thead className="sticky top-0"><tr>{["Date & time", ...(cols.vehicle ? ["Vehicle"] : []), ...(cols.slip ? ["Slip no."] : []), "Fuel", "Litres", "Rate / L", "Charged", "Paid", "Balance"].map((h) => <th key={h} className={`th whitespace-nowrap ${["Litres", "Rate / L", "Charged", "Paid", "Balance"].includes(h) ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
               <tbody>
                 {s.lines.map((l: any) => (
                   <tr key={l.id}>
                     <td className="td whitespace-nowrap text-xs">{new Date(l.created_at).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-                    <td className="td text-xs">{l.vehicle_no ?? "—"}</td>
-                    <td className="td text-xs font-medium">{l.slip_no ?? (l.type === "credit" ? l.ref ?? "Payment" : "—")}</td>
-                    <td className="td text-sm">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note} <span className="print:hidden"><ProofThumbs ids={l.proof_ids} /></span></td>
+                    {cols.vehicle && <td className="td text-xs">{l.vehicle_no ?? "—"}</td>}
+                    {cols.slip && <td className="td text-xs font-medium">{l.slip_no ?? (l.type === "credit" ? l.ref ?? "Payment" : "—")}</td>}
+                    <td className="td whitespace-nowrap text-sm">{l.product ? PRODUCTS[l.product] : l.type === "credit" ? <span className="text-emerald-700">Payment</span> : l.note} <span className="print:hidden"><ProofThumbs ids={l.proof_ids} /></span></td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.litres != null ? num(l.litres, 2) : ""}</td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.rate != null ? `Rs ${Number(l.rate).toFixed(2)}` : ""}</td>
                     <td className="td whitespace-nowrap text-right tabular-nums">{l.type === "debit" ? pkr(l.amount) : ""}</td>
