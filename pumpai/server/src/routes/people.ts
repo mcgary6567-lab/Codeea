@@ -103,56 +103,65 @@ export function slipPdf(token: string): Buffer | null {
   const tenant = get("SELECT name FROM tenants WHERE id=?", s.tenant_id)!.name;
   const money = (n: number) => `Rs ${Math.round(n).toLocaleString("en-PK")}`;
   const monthName = new Date(`${s.month}-15T00:00:00Z`).toLocaleString("en-GB", { month: "long", year: "numeric" });
-  const pdf = new Pdf();
-  const L = 50, R = Pdf.W - 50;
-  pdf.rect(0, 0, Pdf.W, 92, 0.16);
-  const logo = logoJpeg(s.tenant_id);
-  const lx = logo ? L + 72 : L;
-  if (logo) { pdf.rect(L - 4, 14, 68, 64, 1); pdf.image(logo, L, 18, 60, 56); }
-  pdf.text(lx, 42, tenant, 20, { bold: true, gray: 1 }).text(lx, 64, "Salary slip", 12, { gray: 0.85 }).text(R, 42, monthName, 14, { bold: true, align: "right", gray: 1 })
-    .text(R, 64, `Slip no. SS-${s.id}`, 10, { align: "right", gray: 0.85 });
-  // letterhead strip: phone, address, tax numbers — as on every other print
   const brand = brandLines(s.tenant_id);
-  if (brand.contact) { pdf.rect(0, 92, Pdf.W, 20, 0.93); pdf.text(Pdf.W / 2, 106, brand.contact, 8.5, { align: "center", gray: 0.25 }); }
-  let y = 140;
-  const kv = (k: string, v: string, x: number) => { pdf.text(x, y, k, 9, { gray: 0.4 }).text(x, y + 14, v, 11, { bold: true }); };
-  kv("Name", s.name, L); kv("Role", s.role === "salesman" ? "Salesman" : s.role[0].toUpperCase() + s.role.slice(1), L + 190); kv("Station", s.station ?? "All", L + 330);
-  y += 46;
-  if (d.attendance) {
-    pdf.rect(L, y - 14, R - L, 26, 0.95);
-    pdf.text(L + 8, y + 3, `Attendance: present ${d.attendance.present} · late ${d.attendance.late} · absent ${d.attendance.absent} · leave ${d.attendance.leave}`, 10);
-    y += 34;
-  }
-  const row = (k: string, v: number, opts: { bold?: boolean; minus?: boolean } = {}) => {
-    pdf.text(L, y, k, 11, { bold: opts.bold }).text(R, y, `${opts.minus && v ? "- " : ""}${money(v)}`, 11, { bold: opts.bold, align: "right" });
-    pdf.line(L, y + 7, R, y + 7, 0.4, 0.85);
+  const logo = logoJpeg(s.tenant_id);
+  const role = s.role === "salesman" ? "Salesman" : s.role[0].toUpperCase() + s.role.slice(1);
+  const paidOn = new Date(s.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "short", year: "numeric" });
+  const pdf = new Pdf();
+  const L = 40, R = Pdf.W - 40, HALF = Pdf.H / 2;
+  // two copies on one A4 — the staff member keeps the top, the office keeps the bottom
+  const copy = (oy: number, label: string) => {
+    pdf.rect(0, oy, Pdf.W, 54, 0.16);
+    const lx = logo ? L + 50 : L;
+    if (logo) { pdf.rect(L - 3, oy + 7, 44, 40, 1); pdf.image(logo, L, oy + 9, 38, 36); }
+    pdf.text(lx, oy + 25, tenant, 15, { bold: true, gray: 1 }).text(lx, oy + 41, `Salary slip · ${label}`, 9, { gray: 0.85 })
+      .text(R, oy + 25, monthName, 12, { bold: true, align: "right", gray: 1 }).text(R, oy + 41, `Slip no. SS-${s.id}`, 8.5, { align: "right", gray: 0.85 });
+    // letterhead strip: phone, address, tax numbers — as on every other print
+    if (brand.contact) { pdf.rect(0, oy + 54, Pdf.W, 15, 0.93); pdf.text(Pdf.W / 2, oy + 64.5, brand.contact, 7.5, { align: "center", gray: 0.25 }); }
+    let y = oy + 86;
+    const kv = (k: string, v: string, x: number) => { pdf.text(x, y, k, 7.5, { gray: 0.4 }).text(x, y + 12, v, 10, { bold: true }); };
+    kv("Name", s.name, L); kv("Role", role, L + 190); kv("Station", s.station ?? "All", L + 330);
     y += 24;
+    if (d.attendance) {
+      pdf.rect(L, y, R - L, 17, 0.95);
+      pdf.text(L + 6, y + 11.5, `Attendance: present ${d.attendance.present} · late ${d.attendance.late} · absent ${d.attendance.absent} · leave ${d.attendance.leave}`, 8.5);
+      y += 22;
+    }
+    y += 12;
+    const row = (k: string, v: number, opts: { bold?: boolean; minus?: boolean } = {}) => {
+      pdf.text(L, y, k, 9.5, { bold: opts.bold }).text(R, y, `${opts.minus && v ? "- " : ""}${money(v)}`, 9.5, { bold: opts.bold, align: "right" });
+      pdf.line(L, y + 5, R, y + 5, 0.4, 0.85);
+      y += 16;
+    };
+    pdf.text(L, y, "EARNINGS", 7.5, { bold: true, gray: 0.4 }); y += 13;
+    row("Monthly salary", d.salary);
+    if (d.bonus) row("Bonus", d.bonus);
+    if (d.commission) row("Commission (shop / fuel)", d.commission);
+    row("Gross earnings", d.salary + (d.bonus ?? 0) + (d.commission ?? 0), { bold: true });
+    y += 4;
+    pdf.text(L, y, "DEDUCTIONS", 7.5, { bold: true, gray: 0.4 }); y += 13;
+    if (d.absence_cut) row(`Unpaid absences${d.attendance?.unpaid_days ? ` (${d.attendance.unpaid_days} day${d.attendance.unpaid_days === 1 ? "" : "s"})` : ""}`, d.absence_cut, { minus: true });
+    if (d.loan) row("Loan instalment", d.loan, { minus: true });
+    if (d.deduct) row("Advance / cash shortage recovered", d.deduct, { minus: true });
+    if (!d.absence_cut && !d.loan && !d.deduct) row("None", 0);
+    y += 2;
+    pdf.rect(L, y, R - L, 24, 0.9);
+    pdf.text(L + 8, y + 16, "NET PAID", 11, { bold: true }).text(R - 8, y + 16.5, money(d.net), 13, { bold: true, align: "right" });
+    y += 38;
+    const notes = [`Still to adjust (advances / shortages / loans): ${money(d.balance_after ?? 0)}`, d.loans_left ? `Loan remaining: ${money(d.loans_left)}` : "", `Paid on ${paidOn} by ${s.created_by ?? ""}`].filter(Boolean);
+    for (const n of notes) { pdf.text(L, y, n, 8.5, { gray: 0.3 }); y += 11; }
+    const sy = oy + 366;
+    pdf.line(L, sy, L + 170, sy).text(L, sy + 11, "Received by (signature)", 8, { gray: 0.4 });
+    pdf.line(R - 170, sy, R, sy).text(R - 170, sy + 11, "Authorised by", 8, { gray: 0.4 });
+    let fy = oy + 392;
+    for (const [txt, size] of [[brand.foot, 7], [brand.social, 6.5], [brand.note, 6.5]] as const)
+      if (txt) { pdf.text(Pdf.W / 2, fy, txt, size, { align: "center", gray: 0.3 }); fy += 8.5; }
   };
-  pdf.text(L, y, "EARNINGS", 9, { bold: true, gray: 0.4 }); y += 20;
-  row("Monthly salary", d.salary);
-  if (d.bonus) row("Bonus", d.bonus);
-  if (d.commission) row("Commission (shop / fuel)", d.commission);
-  row("Gross earnings", d.salary + (d.bonus ?? 0) + (d.commission ?? 0), { bold: true });
-  y += 8;
-  pdf.text(L, y, "DEDUCTIONS", 9, { bold: true, gray: 0.4 }); y += 20;
-  if (d.absence_cut) row(`Unpaid absences${d.attendance?.unpaid_days ? ` (${d.attendance.unpaid_days} day${d.attendance.unpaid_days === 1 ? "" : "s"})` : ""}`, d.absence_cut, { minus: true });
-  if (d.loan) row("Loan instalment", d.loan, { minus: true });
-  if (d.deduct) row("Advance / cash shortage recovered", d.deduct, { minus: true });
-  if (!d.absence_cut && !d.loan && !d.deduct) row("None", 0);
-  y += 10;
-  pdf.rect(L, y - 18, R - L, 36, 0.9);
-  pdf.text(L + 10, y + 4, "NET PAID", 13, { bold: true }).text(R - 10, y + 4, money(d.net), 16, { bold: true, align: "right" });
-  y += 44;
-  pdf.text(L, y, `Still to adjust (advances / shortages / loans): ${money(d.balance_after ?? 0)}`, 10, { gray: 0.3 }); y += 16;
-  if (d.loans_left) { pdf.text(L, y, `Loan remaining: ${money(d.loans_left)}`, 10, { gray: 0.3 }); y += 16; }
-  pdf.text(L, y, `Paid on ${new Date(s.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "short", year: "numeric" })} by ${s.created_by ?? ""}`, 10, { gray: 0.3 });
-  pdf.line(L, 745, L + 180, 745).text(L, 760, "Received by (signature)", 9, { gray: 0.4 });
-  pdf.line(R - 180, 745, R, 745).text(R - 180, 760, "Authorised by", 9, { gray: 0.4 });
-  pdf.line(L, 784, R, 784, 0.5, 0.75);
-  let fy = 797;
-  for (const [txt, size, gray] of [[brand.foot, 8.5, 0.3], [brand.social, 7.5, 0.3], [brand.note, 8, 0.2]] as const)
-    if (txt) { pdf.text(Pdf.W / 2, fy, txt, size, { align: "center", gray }); fy += 10; }
-  pdf.text(Pdf.W / 2, fy + 2, "Generated by PumpAI", 7, { align: "center", gray: 0.6 });
+  copy(0, "Employee copy");
+  // dashed cut line between the copies
+  for (let x = 14; x < Pdf.W - 14; x += 10) pdf.line(x, HALF, x + 5, HALF, 0.5, 0.55);
+  pdf.text(Pdf.W - 16, HALF - 3, "cut here", 6.5, { align: "right", gray: 0.55 });
+  copy(HALF + 4, "Office copy");
   return pdf.build(`Salary slip ${s.name} ${s.month}`);
 }
 
