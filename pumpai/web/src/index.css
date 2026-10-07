@@ -30,6 +30,8 @@
   /* a voucher prints its own two copies, each with the letterhead: no page letterhead or window title around them */
   [role="dialog"]:has(.voucher-2up) > .card > .print-head, [role="dialog"]:has(.voucher-2up) > .card > .print-foot,
   [role="dialog"]:has(.voucher-2up) .modal-title { display: none !important; }
+  /* a window that prints its own heading (e.g. a supplier statement) drops the window title */
+  [role="dialog"]:has(.own-title) .modal-title { display: none !important; }
   /* a voucher opened on top of another window (e.g. a supplier's ledger) prints alone */
   body:has(> [role="dialog"] .voucher-2up) > [role="dialog"]:not(:has(.voucher-2up)) { display: none !important; }
   .voucher-2up .print-head .mb-3 { margin-bottom: 6px; }

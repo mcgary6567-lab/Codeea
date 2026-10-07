@@ -6,7 +6,7 @@ import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { Ur } from "../components/VoiceShell";
-import { PRODUCTS, ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
+import { PRODUCTS, ago, d, dt, num, phone, pkr, pkrShort } from "../lib/format";
 
 export default function Suppliers() {
   const { data, reload } = useApi<any[]>("/suppliers");
@@ -92,8 +92,36 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
       {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
       {!s ? <Loading /> : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
+          {/* on paper: the supplier's account, oldest entry first, like a bank statement */}
+          <div className="own-title hidden print:block">
+            <div className="flex items-end justify-between border-b border-slate-300 pb-2">
+              <div><div className="text-lg font-bold">{s.name}</div><div className="text-xs text-slate-600">{[s.phone ? phone(s.phone) : "", "Supplier account statement"].filter(Boolean).join(" · ")}</div></div>
+              <div className="text-right text-sm">We owe: <b className="tabular-nums">{pkr(s.owed)}</b><div className="text-xs text-slate-500">as on {dt(new Date().toISOString())}</div></div>
+            </div>
+            <table className="mt-2 w-full">
+              <thead><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Details</th><th className="th text-right">Purchased</th><th className="th text-right">Paid</th><th className="th text-right">We owe</th></tr></thead>
+              <tbody>
+                <tr><td className="td" colSpan={5}>Opening balance</td><td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.opening_balance ?? 0)}</td></tr>
+                {[...s.lines].reverse().map((t: any) => (
+                  <tr key={t.id}>
+                    <td className="td whitespace-nowrap">{d(t.txn_date)}</td><td className="td capitalize">{t.type}</td>
+                    <td className="td">{t.product ? `${num(t.litres)} L ${PRODUCTS[t.product]} @ Rs ${t.rate}` : t.method}<span className="text-[10px] text-slate-500">{[t.ref, t.note].filter(Boolean).map((x) => ` · ${x}`).join("")}</span></td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{t.debit ? pkr(t.debit) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{t.credit ? pkr(t.credit) : ""}</td>
+                    <td className="td whitespace-nowrap text-right tabular-nums">{pkr(t.balance)}</td>
+                  </tr>))}
+                {/* last row of the body, not a tfoot: a tfoot repeats on every printed page */}
+                <tr className="font-bold"><td className="td border-t-2 border-slate-800" colSpan={3}>Closing balance (we owe)</td>
+                <td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.lines.reduce((a: number, t: any) => a + t.debit, 0))}</td>
+                <td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.lines.reduce((a: number, t: any) => a + t.credit, 0))}</td>
+                <td className="td whitespace-nowrap text-right tabular-nums">{pkr(s.owed)}</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-8 grid break-inside-avoid grid-cols-2 gap-10 text-center text-xs text-slate-600"><div className="border-t border-slate-500 pt-1">Prepared by</div><div className="border-t border-slate-500 pt-1">Supplier (confirmed) · <Ur>سپلائر</Ur></div></div>
+          </div>
+          <div className="flex flex-wrap items-end gap-3 print:hidden">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
+            <button type="button" className="btn-secondary min-h-10" onClick={() => window.print()}><Printer size={15} /> Print statement · <Ur>پرنٹ</Ur></button>
             <form className="grid min-w-0 flex-1 grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" onSubmit={async (e) => {
               e.preventDefault();
               const res: any = await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`);
@@ -108,7 +136,7 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
               <div className="col-span-2 w-full"><ProofPhotos value={photos} onChange={setPhotos} required={pay.method === "Cheque"} hint="pay order, cheque, bank / 1LINK receipt" /></div>
             </form>
           </div>
-          <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">
+          <div className="max-h-96 overflow-auto rounded-lg border border-slate-200 print:hidden">
             <ul className="divide-y divide-slate-100 sm:hidden">
               {s.lines.map((t: any) => (
                 <li key={t.id} className="px-3 py-2">
