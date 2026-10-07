@@ -75,9 +75,12 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
   };
 }
 
+// a deposit with the full account (title, number, branch) for the paying-in slip
+const DEPOSIT_SQL = `SELECT d.*, s.name station_name, a.bank acc_bank, a.branch acc_branch, a.title acc_title, a.account_no acc_no
+  FROM bank_deposits d LEFT JOIN stations s ON s.id=d.station_id LEFT JOIN bank_accounts a ON a.id=d.account_id`;
 backoffice.get("/cash", requireAny("expenses.view", "cash.book"), h((req) => ({
   ...cashPosition(tid(req)),
-  deposits: all("SELECT d.*, s.name station_name FROM bank_deposits d LEFT JOIN stations s ON s.id=d.station_id WHERE d.tenant_id=? ORDER BY d.id DESC LIMIT 30", tid(req)),
+  deposits: all(`${DEPOSIT_SQL} WHERE d.tenant_id=? ORDER BY d.id DESC LIMIT 30`, tid(req)),
   counts: all(`SELECT c.*, ${proofCol("'cashcount:'||c.id")} FROM cash_counts c WHERE c.tenant_id=? ORDER BY c.id DESC LIMIT 15`, tid(req)),
 })));
 
@@ -92,7 +95,7 @@ backoffice.post("/cash/deposits", requireAny("expenses.create", "cash.book"), h(
   const { id } = run("INSERT INTO bank_deposits (tenant_id,station_id,amount,bank,slip_ref,photo_id,note,deposited_by,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
     tid(req), b.station_id ?? null, b.amount, bank, b.slip_ref ?? null, null, b.note ?? null, req.user!.name, now(), accountId);
   if (b.photo_id && linkPhotos(tid(req), [b.photo_id], `deposit:${id}`)) run("UPDATE bank_deposits SET photo_id=? WHERE id=?", b.photo_id, id);
-  return { deposit: get("SELECT * FROM bank_deposits WHERE id=?", id), ...cashPosition(tid(req)) };
+  return { deposit: get(`${DEPOSIT_SQL} WHERE d.id=?`, id), ...cashPosition(tid(req)) };
 }));
 
 /** Count the office cash: the difference from what the book says is reported. */

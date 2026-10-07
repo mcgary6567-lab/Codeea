@@ -7,10 +7,11 @@ import {
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
 import { ago, dt, phone, pkr, pkrShort } from "../lib/format";
+import { toWords } from "../lib/words";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker, BankSummary } from "../components/BankParts";
 import { Ur } from "../components/VoiceShell";
-import { CashForm } from "./Cash";
+import { CashForm, DepositSlip } from "./Cash";
 import { OnlineToday } from "../components/OnlineMoney";
 import { useAuth } from "../App";
 
@@ -355,21 +356,6 @@ function PartyPicker({ kind, value, onChange, dir }: { kind: string; value: any;
   );
 }
 
-/** Amount in words, Pakistani style (lakh / crore) — printed on the voucher. */
-function toWords(n: number): string {
-  const a = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  const two = (x: number) => (x < 20 ? a[x] : `${b[Math.floor(x / 10)]}${x % 10 ? " " + a[x % 10] : ""}`);
-  const three = (x: number) => `${x >= 100 ? a[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " : "") : ""}${x % 100 ? two(x % 100) : ""}`;
-  let x = Math.round(n);
-  if (!x) return "Zero rupees";
-  const parts: string[] = [];
-  for (const [v, w] of [[10_000_000, "Crore"], [100_000, "Lakh"], [1000, "Thousand"]] as const) {
-    if (x >= v) { parts.push(`${v === 10_000_000 && x >= 1_000_000_000 ? toWords(Math.floor(x / v)).replace(" rupees only", "") : three(Math.floor(x / v))} ${w}`); x %= v; }
-  }
-  if (x) parts.push(three(x));
-  return `${parts.join(" ")} rupees only`;
-}
 
 export function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
   const v = r.voucher;
@@ -697,6 +683,7 @@ function CashBank({ start }: { start: string | null }) {
   const { can } = useAuth();
   const [, setParams] = useSearchParams();
   const [form, setForm] = useState<string | null>(start);
+  const [depSlip, setDepSlip] = useState<any>(null);
   const close = () => { setForm(null); setParams({ tab: "bank" }, { replace: true }); };
   if (!data) return <Loading />;
   return (
@@ -719,7 +706,8 @@ function CashBank({ start }: { start: string | null }) {
         {can("expenses.view") && <Link to="/cash" className="mt-2 inline-block text-brand-700 underline">Full cash book →</Link>}
       </div>
       {form === "count" && <CountCash inHand={data.cash_in_hand} onClose={close} onDone={() => { close(); reload(); }} />}
-      {form === "deposit" && <CashForm kind="deposit" inHand={data.cash_in_hand} onClose={close} onDone={() => { close(); reload(); }} />}
+      {form === "deposit" && <CashForm kind="deposit" inHand={data.cash_in_hand} onClose={close} onDone={(r) => { close(); reload(); if (r?.deposit) setDepSlip(r.deposit); }} />}
+      {depSlip && <DepositSlip d={depSlip} onClose={() => setDepSlip(null)} />}
     </div>
   );
 }

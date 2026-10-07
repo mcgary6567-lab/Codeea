@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Landmark, Calculator, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { Landmark, Calculator, ArrowDownCircle, ArrowUpCircle, Printer } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Field, Loading, Modal, PageHeader, Stat, useAction } from "../components/ui";
 import { dt, pkr } from "../lib/format";
 import { PhotoButton, photoUrl, ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker } from "../components/BankParts";
 import { useAuth } from "../App";
+import { toWords } from "../lib/words";
+import { PrintFooter, PrintHeader } from "../components/Letterhead";
+import { Ur } from "../components/VoiceShell";
 
 const IN: Record<string, string> = { shift_cash: "Cash handed over from shifts", khata_cash: "Khata payments in cash", wholesale_cash: "Wholesale payments in cash", prepaid_cash: "Coupons sold & wallet deposits (cash)", staff_repaid: "Staff advances paid back", bank_withdrawals: "Cash taken out of bank", other_cash: "Other money in (cash counter)" };
 const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expenses: "Cash expenses (office)", supplier_payments: "Supplier paid in cash", staff_advances: "Staff advances / bonus", other_cash: "Other payments (cash counter)" };
@@ -14,6 +17,7 @@ const OUT: Record<string, string> = { bank_deposits: "Deposited in bank", expens
 export default function Cash() {
   const { data, reload } = useApi<any>("/cash");
   const [form, setForm] = useState<null | "count" | "deposit">(null);
+  const [slip, setSlip] = useState<any>(null);
   const { can } = useAuth();
   if (!data) return <Loading />;
   return (
@@ -46,6 +50,7 @@ export default function Cash() {
                 <span className="min-w-0 flex-1"><b>{d.bank}</b>{d.slip_ref ? ` · slip ${d.slip_ref}` : ""}<span className="block text-xs text-slate-500">{dt(d.created_at)} · {d.deposited_by}</span></span>
                 {d.photo_id && <a href={photoUrl(d.photo_id)} target="_blank" rel="noreferrer" className="text-sky-700" aria-label="Deposit slip photo">📷</a>}
                 <span className="font-semibold tabular-nums">{pkr(d.amount)}</span>
+                <button className="btn-secondary min-h-9 !px-2 !py-1" aria-label="Print deposit slip" title="Print deposit slip" onClick={() => setSlip(d)}><Printer size={14} /></button>
               </li>
             ))}
             {!data.deposits.length && <li className="py-4 text-center text-slate-500">No deposits yet</li>}
@@ -59,7 +64,8 @@ export default function Cash() {
           </ul>
         </div>
       </div>
-      {form && <CashForm kind={form} inHand={data.cash_in_hand} onClose={() => setForm(null)} onDone={() => { setForm(null); reload(); }} />}
+      {form && <CashForm kind={form} inHand={data.cash_in_hand} onClose={() => setForm(null)} onDone={(r) => { setForm(null); reload(); if (r?.deposit) setSlip(r.deposit); }} />}
+      {slip && <DepositSlip d={slip} onClose={() => setSlip(null)} />}
     </div>
   );
 }
@@ -68,7 +74,7 @@ const Line = ({ k, v, neg }: { k: string; v: number; neg?: boolean }) => (
   <div className="flex justify-between border-b border-slate-100 py-1.5 text-sm"><span className="text-slate-600">{k}</span><span className={`tabular-nums ${neg && v ? "text-red-600" : ""}`}>{pkr(v)}</span></div>
 );
 
-export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"; inHand: number; onClose: () => void; onDone: () => void }) {
+export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "deposit"; inHand: number; onClose: () => void; onDone: (r?: any) => void }) {
   const [photos, setPhotos] = useState<number[]>([]);
   const [f, setF] = useState({ amount: kind === "deposit" ? String(Math.max(0, Math.floor(inHand / 1000) * 1000)) : "", bank: "", slip_ref: "", note: "", photo_id: null as number | null });
   const [account, setAccount] = useState<number | null>(null);
@@ -82,7 +88,7 @@ export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "d
         const r = kind === "count"
           ? await run(() => api("/cash/count", { body: { amount: Number(f.amount), note: f.note || null, photo_ids: photos } }), (x: any) => x.variance ? `Counted. ${x.variance < 0 ? "Short" : "Over"} ${pkr(Math.abs(x.variance))} against the book` : "Counted — matches the book")
           : await run(() => api("/cash/deposits", { body: { amount: Number(f.amount), account_id: hasAccounts ? account : null, bank: hasAccounts ? null : f.bank, slip_ref: f.slip_ref || null, photo_id: f.photo_id, note: f.note || null } }), "Deposit saved");
-        if (r) onDone();
+        if (r) onDone(r);
       }}>
         {kind === "deposit" && <div className="flex items-center gap-2 rounded-lg bg-sky-50 p-2 text-sm">
           <PhotoButton kind="receipt" label="Photo of deposit slip" onRead={(r, id) => setF((x) => ({ ...x, photo_id: id, amount: r?.amount ? String(r.amount) : x.amount }))} />
@@ -99,6 +105,56 @@ export function CashForm({ kind, inHand, onClose, onDone }: { kind: "count" | "d
         {kind === "count" && <ProofPhotos value={photos} onChange={setPhotos} hint="counted notes / cash register" />}
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>Save</button></div>
       </form>
+    </Modal>
+  );
+}
+
+/** Paying-in slip for a cash deposit: two copies on one A4 (bank copy, our copy), notes table left blank to fill by hand. */
+export function DepositSlip({ d, onClose }: { d: any; onClose: () => void }) {
+  const { tenant } = useAuth();
+  const NOTES = [5000, 1000, 500, 100, 50, 20, 10];
+  const body = (copy: string) => (
+    <div className="space-y-3 text-sm print:space-y-1.5">
+      <div className="text-center">
+        <div className="font-semibold">Cash deposit slip · <Ur>بینک جمع پرچی</Ur></div>
+        <div className="text-xs text-slate-500">DS-{String(d.id).padStart(5, "0")} · {dt(d.created_at)}</div>
+        <span className="mt-1 hidden rounded border border-slate-800 px-2 text-[10px] font-bold uppercase tracking-wide print:inline-block">{copy}</span>
+      </div>
+      <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 print:gap-y-0.5">
+        <dt className="text-slate-500">Bank</dt><dd className="font-medium">{d.acc_bank ?? d.bank}{d.acc_branch ? ` · ${d.acc_branch}` : ""}</dd>
+        <dt className="text-slate-500">Account title</dt><dd className="font-medium">{d.acc_title || tenant?.name}</dd>
+        <dt className="text-slate-500">Account no.</dt><dd className="font-mono font-semibold tracking-wide">{d.acc_no || "________________________"}</dd>
+        <dt className="text-slate-500">Deposited by</dt><dd>{d.deposited_by}{d.station_name ? ` · ${d.station_name}` : ""}</dd>
+        {d.slip_ref && <><dt className="text-slate-500">Bank slip no.</dt><dd>{d.slip_ref}</dd></>}
+        {d.note && <><dt className="text-slate-500">Note</dt><dd>{d.note}</dd></>}
+      </dl>
+      <div className="rounded-xl bg-emerald-50 p-3 text-center print:px-2 print:py-1">
+        <div className="text-3xl font-bold tabular-nums print:text-xl">{pkr(d.amount)}</div>
+        <div className="text-xs text-slate-600">{toWords(d.amount)}</div>
+      </div>
+      {/* notes count, filled in by hand at the bank counter */}
+      <div className="grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4 print:grid-cols-4">
+        {[...NOTES.map((n) => `Rs ${n.toLocaleString()}`), "Coins"].map((n) => (
+          <div key={n} className="flex items-end gap-1 rounded border border-slate-300 px-2 py-1.5 print:py-1"><span className="shrink-0 text-slate-600">{n} ×</span><span className="flex-1 border-b border-dotted border-slate-400">&nbsp;</span></div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-6 pt-6 text-center text-xs text-slate-500 print:pt-4">
+        <div className="border-t border-slate-400 pt-1">Depositor · <Ur>جمع کنندہ</Ur></div>
+        <div className="border-t border-slate-400 pt-1">Bank cashier &amp; stamp · <Ur>بینک مہر</Ur></div>
+      </div>
+    </div>
+  );
+  return (
+    <Modal open onClose={onClose} title={`Deposit slip DS-${String(d.id).padStart(5, "0")}`}>
+      <div className="voucher-2up">
+        <div className="print:break-inside-avoid"><PrintHeader />{body("Bank copy · بینک کی کاپی")}<PrintFooter /></div>
+        <div className="my-3 hidden border-t-2 border-dashed border-slate-400 pt-1 text-center text-[10px] text-slate-500 print:block">✂ cut here · یہاں سے کاٹیں</div>
+        <div className="hidden print:block print:break-inside-avoid"><PrintHeader />{body("Our copy · ہماری کاپی")}<PrintFooter /></div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2 print:hidden">
+        <button className="btn-secondary" onClick={onClose}>Close · <Ur>بند</Ur></button>
+        <button className="btn-primary" onClick={() => window.print()}><Printer size={15} /> Print 2 copies · <Ur>پرنٹ</Ur></button>
+      </div>
     </Modal>
   );
 }
