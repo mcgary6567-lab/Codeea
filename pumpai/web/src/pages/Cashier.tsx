@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { api, useApi } from "../lib/api";
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, PageHeader, useAction } from "../components/ui";
-import { ago, dt, phone, pkr, pkrShort } from "../lib/format";
+import { ago, dt, num, phone, pkr, pkrShort } from "../lib/format";
 import { toWords } from "../lib/words";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker, BankAccounts, BankLogo, BankNamePicker, BankSummary } from "../components/BankParts";
@@ -208,6 +208,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
   const [account, setAccount] = useState<number | null>(null);
   const [depotId, setDepotId] = useState<number | null>(null);
   const [photos, setPhotos] = useState<number[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({}); // cash note breakdown
   const cats = useApi<any>(dir === "out" && type === "expense" ? "/expense-categories" : null);
   const picks = useApi<any>("/bank/accounts/pick");
   const { busy, run } = useAction();
@@ -235,6 +236,7 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
       party_type: type, party_id: party?.id ?? null, party_name: f.party_name || null, category: f.category || null, amount, method: f.method,
       account_id: isCash(f.method) || depot ? null : account, ...(depot ? { supplier_id: depotId } : {}), ref: f.ref || null, note: f.note || null, photo_ids: photos, notify: f.notify,
       cheque: cheque ? { bank: ourBank ?? f.bank, cheque_no: f.cheque_no, cheque_date: f.cheque_date } : null,
+      notes: isCash(f.method) ? Object.fromEntries(Object.entries(notes).filter(([, n]) => Number(n) > 0).map(([k, n]) => [k, Number(n)])) : undefined,
     };
     const r = await run(() => api(`/cashier/${dir === "in" ? "receive" : "pay"}`, { body }), (x: any) => `${x.voucher.no} saved · محفوظ`);
     if (r) onDone({ ...r, party_type: type, party, cheque: body.cheque, account: picks.data?.accounts?.find((a: any) => a.id === account)?.name ?? null });
@@ -276,6 +278,8 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
           className={`mt-2 w-full rounded-xl px-3 py-2.5 text-left text-sm leading-tight ${depot ? "bg-slate-800 font-semibold text-white" : "bg-slate-100 text-slate-700"}`}>
           🏭 Client paid our depot direct (bypass) · <Ur>کلائنٹ نے سیدھا ڈپو کو دیا</Ur></button>}
       </fieldset>
+
+      {isCash(f.method) && !depot && <NoteGrid notes={notes} onChange={setNotes} amount={amount} dir={dir} />}
 
       {depot && (
         <div className="space-y-2 rounded-xl bg-sky-50 p-3">
@@ -328,6 +332,42 @@ function MoneyForm({ dir, preset, onDone }: { dir: "in" | "out"; preset: Record<
   );
 }
 
+const DENOMS = [5000, 1000, 500, 100, 50, 20, 10];
+export const notesTotal = (notes: Record<string, number | string> | null | undefined) =>
+  DENOMS.reduce((a, d) => a + d * (Number(notes?.[d]) || 0), 0);
+
+/** Cash note breakdown: how many 5000s, 1000s, … — live total, matched against the amount. */
+function NoteGrid({ notes, onChange, amount, dir }: { notes: Record<string, string>; onChange: (n: Record<string, string>) => void; amount: number; dir: "in" | "out" }) {
+  const total = notesTotal(notes);
+  const diff = total - amount;
+  const any = total > 0;
+  return (
+    <fieldset className="rounded-xl bg-slate-50 p-3">
+      <legend className="label">Cash notes · <Ur>نوٹوں کی تفصیل</Ur> <span className="text-xs font-normal text-slate-400">(optional)</span></legend>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+        {DENOMS.map((dn) => {
+          const n = Number(notes[dn]) || 0;
+          return (
+            <div key={dn} className="flex items-center gap-2">
+              <span className="w-12 shrink-0 text-right text-sm tabular-nums text-slate-600">{dn}</span>
+              <span className="text-slate-400">×</span>
+              <input className="input !py-1.5 w-16 text-center" type="number" min={0} inputMode="numeric" value={notes[dn] ?? ""} aria-label={`Rs ${dn} notes`}
+                onChange={(e) => onChange({ ...notes, [dn]: e.target.value })} />
+              <span className="min-w-0 flex-1 text-right text-xs tabular-nums text-slate-500">{n > 0 ? pkr(dn * n) : ""}</span>
+            </div>
+          );
+        })}
+      </div>
+      {any && (
+        <div className={`mt-2 flex items-center justify-between rounded-lg px-3 py-1.5 text-sm ${diff === 0 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+          <span>Notes total · <Ur>کل</Ur> <b className="tabular-nums">{pkr(total)}</b></span>
+          <span>{diff === 0 ? <>Matches ✓ · <Ur>برابر</Ur></> : diff > 0 ? <>Rs {num(Math.abs(diff))} more than amount</> : <>Rs {num(Math.abs(diff))} short of amount</>}</span>
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
 function PartyPicker({ kind, value, onChange, dir }: { kind: string; value: any; onChange: (p: any) => void; dir: "in" | "out" }) {
   const [q, setQ] = useState("");
   const { data } = useApi<any>(value ? null : `/cashier/parties?kind=${kind}&q=${encodeURIComponent(q)}`);
@@ -376,6 +416,26 @@ export function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
   );
 }
 
+/** The cash note breakdown on the voucher (both copies) and in the day book. */
+function NotesBreakdown({ notes }: { notes: any }) {
+  let map: Record<string, number> | null = null;
+  try { map = typeof notes === "string" ? JSON.parse(notes) : notes; } catch { map = null; }
+  const rows = DENOMS.filter((d) => Number(map?.[d]) > 0);
+  if (!map || !rows.length) return null;
+  const total = notesTotal(map);
+  return (
+    <div className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs print:py-1">
+      <div className="mb-0.5 font-semibold text-slate-600">Cash notes · <Ur>نوٹ</Ur></div>
+      <table className="w-full tabular-nums">
+        <tbody>
+          {rows.map((d) => <tr key={d}><td className="text-slate-500">Rs {num(d)}</td><td className="text-center text-slate-400">×</td><td className="text-right">{map![d]}</td><td className="text-right font-medium">{pkr(d * Number(map![d]))}</td></tr>)}
+          <tr className="border-t border-slate-300 font-semibold"><td colSpan={3}>Total · <Ur>کل</Ur></td><td className="text-right">{pkr(total)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function VoucherBody({ r, copy }: { r: any; copy: string }) {
   const { tenant } = useAuth();
   const v = r.voucher;
@@ -391,6 +451,7 @@ function VoucherBody({ r, copy }: { r: any; copy: string }) {
         <div className={`rounded-xl p-3 text-center print:px-2 print:py-1 ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
           <div className="text-3xl font-bold tabular-nums print:text-xl">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
         </div>
+        <NotesBreakdown notes={v.notes_json} />
         <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 print:gap-y-0.5">
           <dt className="text-slate-500">{isIn ? "Received from" : "Paid to"}</dt><dd className="font-medium">{v.party_name}</dd>
           {v.category && <><dt className="text-slate-500">For</dt><dd>{v.category}</dd></>}

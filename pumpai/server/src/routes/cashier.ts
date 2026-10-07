@@ -32,10 +32,10 @@ const isCash = (m?: string | null) => !m || /^cash$/i.test(m.trim());
 const vno = (dir: string, id: number) => `${dir === "in" ? "RV" : "PV"}-${String(id).padStart(5, "0")}`;
 
 function voucher(req: Request, v: { direction: "in" | "out"; party_type: string; party_id?: number | null; party_name: string; amount: number; method: string;
-  account_id?: number | null; category?: string | null; ref?: string | null; note?: string | null; src?: string | null }) {
-  const { id } = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_id,party_name,amount,method,account_id,category,ref,note,src,created_by,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), v.direction, v.party_type, v.party_id ?? null, v.party_name, v.amount, v.method, v.account_id ?? null,
-    v.category ?? null, v.ref ?? null, v.note ?? null, v.src ?? null, req.user!.name, now());
+  account_id?: number | null; category?: string | null; ref?: string | null; note?: string | null; src?: string | null; notes_json?: string | null }) {
+  const { id } = run(`INSERT INTO cashier_vouchers (tenant_id,direction,party_type,party_id,party_name,amount,method,account_id,category,ref,note,src,notes_json,created_by,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, tid(req), v.direction, v.party_type, v.party_id ?? null, v.party_name, v.amount, v.method, v.account_id ?? null,
+    v.category ?? null, v.ref ?? null, v.note ?? null, v.src ?? null, v.notes_json ?? null, req.user!.name, now());
   return { ...get("SELECT * FROM cashier_vouchers WHERE id=?", id)!, no: vno(v.direction, id) };
 }
 
@@ -121,7 +121,16 @@ const moneyBody = z.object({
   ref: z.string().trim().max(60).optional().nullable(), note: z.string().trim().max(200).optional().nullable(), category: z.string().max(60).optional().nullable(),
   photo_ids: proofPhotos, notify: z.boolean().default(true), cheque: chequeFields.optional().nullable(),
   supplier_id: z.number().int().optional().nullable(), // method "Paid to depot": the depot the client paid
+  /** cash note breakdown counted at the counter: { "5000": 2, "1000": 10, ... } */
+  notes: z.record(z.enum(["5000", "1000", "500", "100", "50", "20", "10"]), z.number().int().min(0).max(100_000)).optional().nullable(),
 });
+
+/** Keep only non-zero counts; return a JSON string for a cash voucher, else null. */
+function notesJson(method: string, notes: Record<string, number> | null | undefined): string | null {
+  if (!isCash(method) || !notes) return null;
+  const kept = Object.fromEntries(Object.entries(notes).filter(([, n]) => Number(n) > 0));
+  return Object.keys(kept).length ? JSON.stringify(kept) : null;
+}
 
 cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
   const t = tid(req);
@@ -178,7 +187,7 @@ cashier.post("/cashier/receive", requirePerm("cash.receive"), h(async (req) => {
     src = `bank:${id}`;
   }
   const v = voucher(req, { direction: "in", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
-    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src });
+    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message,
     ...(supplier ? { depot: { id: supplier.id, name: supplier.name, owed_after: round2(supplierOwed(supplier.id)) } } : {}) };
@@ -233,7 +242,7 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
     src = `bank:${id}`;
   }
   const v = voucher(req, { direction: "out", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
-    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src });
+    account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src, notes_json: notesJson(b.method, b.notes) });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
   return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message, approval };
 }));

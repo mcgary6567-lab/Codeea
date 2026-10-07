@@ -71,6 +71,25 @@ test("receive: khata, wholesale and other money — with a voucher number; the c
   assert.ok(vs.length >= 3);
 });
 
+test("cash note breakdown is kept with the voucher and comes back for the slip", async () => {
+  // 20,000 = 15×1000 + 8×500 + 100×10 → stored as JSON, only cash
+  const r = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "other", party_name: "Rent tenant", category: "Shop rent", amount: 20000, method: "Cash",
+    notes: { "1000": 15, "500": 8, "100": 10, "50": 0 } }), "cash with notes");
+  const saved = JSON.parse(r.voucher.notes_json);
+  assert.deepEqual(saved, { "1000": 15, "500": 8, "100": 10 }, "zero counts dropped");
+  assert.equal(1000 * 15 + 500 * 8 + 100 * 10, 20000);
+  // it comes back in the voucher list for reprinting
+  const v = ok(await call("cashier", "GET", "/api/cashier/vouchers"), "vouchers").find((x: any) => x.id === r.voucher.id);
+  assert.ok(v && v.notes_json, "notes_json in the list");
+  // a pay voucher keeps its breakdown too
+  const p = ok(await call("cashier", "POST", "/api/cashier/pay", { party_type: "other", party_name: "Labour", category: "Daily wage", amount: 1500, method: "Cash", notes: { "1000": 1, "500": 1 } }), "pay with notes");
+  assert.deepEqual(JSON.parse(p.voucher.notes_json), { "1000": 1, "500": 1 });
+  // notes are ignored for non-cash methods
+  const acc = ok(await call("cashier", "GET", "/api/bank/accounts"), "acc").accounts[0];
+  const bank = ok(await call("cashier", "POST", "/api/cashier/receive", { party_type: "other", party_name: "Online payer", amount: 5000, method: "Bank transfer", account_id: acc.id, notes: { "1000": 5 } }), "bank");
+  assert.equal(bank.voucher.notes_json, null, "no note breakdown for bank transfer");
+});
+
 test("cheque received: in the register, deposited, cleared → khata credited; bounce raises an alert", async () => {
   const k = ok(await call("cashier", "GET", "/api/cashier/parties?kind=khata"), "p").khata.find((c: any) => c.balance > 20000);
   const acc = ok(await call("cashier", "GET", "/api/bank/accounts"), "acc").accounts[0];

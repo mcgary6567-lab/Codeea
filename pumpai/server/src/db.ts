@@ -527,6 +527,8 @@ export function migrate() {
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, direction TEXT NOT NULL, party_type TEXT NOT NULL, party_id INTEGER, party_name TEXT NOT NULL,
     amount REAL NOT NULL, method TEXT NOT NULL, account_id INTEGER, category TEXT, ref TEXT, note TEXT, src TEXT, voided INTEGER NOT NULL DEFAULT 0,
     created_by TEXT, created_at TEXT NOT NULL)`);
+  // cash note breakdown kept with a cash voucher: { "5000": 2, "1000": 10, ... } — for the slip and the record
+  addColumn("cashier_vouchers", "notes_json", "TEXT");
   // property & rent: units inside the pump (shop, hotel, service bay) rented out = income; and the pump's own rent = expense
   db.exec(`CREATE TABLE IF NOT EXISTS rentals (
     id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, station_id INTEGER, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'shop',
