@@ -1,38 +1,54 @@
 {% extends "base.html" %}
 {% import "macros.html" as ui %}
-{% block title %}Roles & permissions{% endblock %}
+{% block title %}Roles{% endblock %}
 {% block content %}
-{% call ui.page_header("Roles & permissions", "Module 22 — " ~ modules|length ~ " modules x " ~ actions|length ~ " actions = " ~ total_perms ~ " distinct permissions") %}
-  {{ ui.button("Permission test", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
+{% call ui.page_header("Roles", "Roles grouped by application area, with the users assigned to each. Open a role to see what it can open in plain words, change its access, or assign users to it.", back="/home/hr/access") %}
+  {{ ui.button("Check access", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
   {{ ui.button("Compare roles", href="/admin/roles/compare", icon="git-compare", variant="secondary") }}
-  {% if has_perm(user, 'roles.add') %}{{ ui.button("New role", href="/admin/roles/new", icon="plus") }}{% endif %}
+  {% if can_create %}{{ ui.button("Create role", href="/admin/roles/new", icon="plus") }}{% endif %}
 {% endcall %}
 
 <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  {{ ui.stat("Roles", rows|length, icon="shield", color="brand") }}
-  {{ ui.stat("System roles", rows|selectattr('role.is_system')|list|length, icon="lock", color="slate", hint="editable, never deletable") }}
-  {{ ui.stat("Custom roles", rows|rejectattr('role.is_system')|list|length, icon="sparkles", color="indigo") }}
-  {{ ui.stat("Permissions", total_perms, icon="key-round", color="emerald", hint=modules|length ~ " modules") }}
+  {{ ui.stat("Roles", stats.total, color=palette(0), href="/admin/roles") }}
+  {{ ui.stat("Applications", stats.apps, color=palette(3)) }}
+  {{ ui.stat("Assigned Users", stats.assigned, color=palette(6), href="/hr/users?status=active") }}
+  {{ ui.stat("System Roles", stats.system, color=palette(9)) }}
 </div>
 
-{{ ui.table_start(['Role','Slug','Portal','Users','Permissions','Coverage','Type','']) }}
-{% for row in rows %}
-<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-  <td class="px-4 py-2"><a href="/admin/roles/{{ row.role.id }}" class="font-medium text-slate-900 hover:text-brand-700 dark:text-white">{{ row.role.name }}</a>
-    {% if row.role.description %}<span class="block max-w-md truncate text-xs text-slate-500">{{ row.role.description }}</span>{% endif %}</td>
-  <td class="px-4 py-2 font-mono text-xs">{{ row.role.slug }}</td>
-  <td class="px-4 py-2">{{ ui.badge(row.role.portal) }}</td>
-  <td class="px-4 py-2 text-sm font-semibold">{{ row.users }}</td>
-  <td class="px-4 py-2 text-sm">{{ row.perms }}</td>
-  <td class="px-4 py-2 w-40">{{ ui.progress((100 * row.perms / total_perms)|round(0, 'floor')|int, 'brand') }}</td>
-  <td class="px-4 py-2">{{ ui.badge('active' if row.role.is_system else 'draft', 'System' if row.role.is_system else 'Custom') }}</td>
-  <td class="px-4 py-2 text-right whitespace-nowrap">
-    {{ ui.button('Open', href='/admin/roles/' ~ row.role.id, variant='ghost', size='sm') }}
-    {% if has_perm(user, 'roles.add') %}{{ ui.button('Clone', href='/admin/roles/new?clone=' ~ row.role.id, variant='ghost', size='sm', icon='copy') }}{% endif %}
+{% call ui.filter_bar('/admin/roles') %}
+  <div class="w-56">{{ ui.select('app', 'Application', apps, app, placeholder='All applications') }}</div>
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Role name') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['Role', 'Description', 'Portal', 'Status', 'Assigned Users', '']) }}
+{% for g in groups %}
+<tr class="bg-[#e8f1fb]"><td colspan="6" class="px-3 py-1.5 text-[12px] font-semibold text-slate-700">
+  {{ g.app }} <span class="font-normal text-slate-500">— {{ g.rows|length }} role{{ 's' if g.rows|length != 1 }}</span>
+</td></tr>
+{% for row in g.rows %}
+<tr>
+  <td class="px-3 py-2">
+    <a href="/admin/roles/{{ row.r.id }}" class="font-semibold text-slate-800 hover:text-brand-700">{{ row.r.name }}</a>
+    <div class="font-mono text-[11px] text-slate-500">{{ row.r.slug }}{% if row.r.is_system %} <span class="ml-1 rounded bg-slate-100 px-1 text-[10px] font-semibold text-slate-600">SYSTEM</span>{% endif %}</div>
+  </td>
+  <td class="px-3 py-2 text-xs text-slate-600">{{ row.r.description or '—' }}</td>
+  <td class="px-3 py-2 text-xs">{{ row.r.portal|titleize }}</td>
+  <td class="px-3 py-2">{{ ui.badge(row.status) }}</td>
+  <td class="px-3 py-2 text-center text-xs font-semibold">{{ row.users }}</td>
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {{ ui.button('Permissions', href='/admin/roles/' ~ row.r.id, variant='ghost', size='sm', icon='shield') }}
+    {% if can_assign %}{{ ui.button('Assign Users', href='/admin/roles/' ~ row.r.id ~ '#assign', variant='ghost', size='sm', icon='user-plus') }}{% endif %}
+    {% if row.users %}{{ ui.button('View users', href='/hr/users?role=' ~ row.r.slug, variant='ghost', size='sm', icon='users') }}{% endif %}
+    {% if can_create %}{{ ui.button('Clone', href='/admin/roles/new?clone=' ~ row.r.id, variant='ghost', size='sm', icon='copy') }}{% endif %}
   </td>
 </tr>
-{% else %}{{ ui.empty('No roles defined.', 8) }}{% endfor %}
+{% endfor %}
+{% else %}{{ ui.empty('No roles match these filters.', 6, 'shield') }}{% endfor %}
 {{ ui.table_end() }}
-
-<div class="mt-6">{{ ui.alert('System roles ship with the platform and can be edited, but they can never be deleted — the seed re-creates them and users would be orphaned. Create a custom role by cloning the closest system role, then trim its matrix.', 'info', 'System vs custom roles') }}</div>
+<p class="mt-2 text-xs text-slate-500">
+  A role counts as active once it carries at least one permission. <b>Permissions</b> opens the role page, where its
+  access is shown in plain words and set per module as <b>No access</b>, <b>View</b>, <b>Edit</b> or <b>Full</b>;
+  <b>Assign Users</b> opens the same page at the panel that gives the role to people. You can only grant access you hold
+  yourself, and nobody can change their own role. Family and student roles are listed under Client Portal.
+</p>
 {% endblock %}

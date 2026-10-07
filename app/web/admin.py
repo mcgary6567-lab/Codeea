@@ -11,7 +11,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,7 @@ from app.core import rbac
 from app.core.audit import log_action, snapshot
 from app.core.deps import PermissionDenied, csrf_protect, require
 from app.core.notify import dispatch, notify
-from app.core.security import (generate_api_key, generate_totp_secret, hash_password, password_strength_errors)
+from app.core.security import (generate_api_key, generate_totp_secret, hash_password)
 from app.core.templating import render
 from app.core.utils import paginate, parse_bool, parse_date, parse_int, redirect
 from app.database import get_db
@@ -67,47 +67,20 @@ def _branches(db: Session) -> list[Branch]:
 
 @router.get("", include_in_schema=False)
 def admin_home(user: User = Depends(require("users.view", "settings.view", any_of=True))):
-    return redirect("/admin/users")
+    return redirect("/hr/users")
 
 
 # ============================================================================= USERS
 @router.get("/users", include_in_schema=False)
-def users_list(request: Request, page: int = 1, q: str = "", role: str = "", department: str = "", branch: str = "",
-               status: str = "", twofa: str = "", db: Session = Depends(get_db),
-               user: User = Depends(require("users.view"))):
-    qry = db.query(User).outerjoin(Role, User.role_id == Role.id)
-    if q:
-        like = f"%{q.strip()}%"
-        qry = qry.filter(or_(User.full_name.ilike(like), User.email.ilike(like), User.username.ilike(like), User.phone.ilike(like)))
-    if role:
-        qry = qry.filter(Role.slug == role)
-    if department:
-        qry = qry.filter(User.department_id == parse_int(department))
-    if branch:
-        qry = qry.filter(User.branch_id == parse_int(branch))
-    if status == "active":
-        qry = qry.filter(User.is_active.is_(True))
-    elif status == "inactive":
-        qry = qry.filter(User.is_active.is_(False))
-    elif status == "locked":
-        qry = qry.filter(User.locked_until.isnot(None), User.locked_until > datetime.utcnow())
-    if twofa == "1":
-        qry = qry.filter(User.two_factor_enabled.is_(True))
-    elif twofa == "0":
-        qry = qry.filter(User.two_factor_enabled.is_(False))
-    pg = paginate(qry.order_by(User.full_name), page, 30)
-    base = f"/admin/users?q={q}&role={role}&department={department}&branch={branch}&status={status}&twofa={twofa}"
-    return render(request, "admin/users_list.html", {
-        "user": user, "page": pg, "q": q, "role": role, "department": department, "branch": branch,
-        "status": status, "twofa": twofa, "stats": sys_svc.user_stats(db), "base_url": base,
-        "roles": _roles(db), "departments": _departments(db), "branches": _branches(db)})
+def users_list(request: Request, user: User = Depends(require("users.view"))):
+    """User management lives in HR now (Human Resource > Users & Access > Users)."""
+    query = request.url.query
+    return RedirectResponse("/hr/users" + (f"?{query}" if query else ""), status_code=301)
 
 
 @router.get("/users/new", include_in_schema=False)
-def user_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require("users.add"))):
-    return render(request, "admin/user_form.html", {
-        "user": user, "obj": None, "roles": _roles(db), "departments": _departments(db), "branches": _branches(db),
-        "timezones": sys_svc.TIMEZONES, "languages": LANGUAGES})
+def user_new(user: User = Depends(require("users.add"))):
+    return RedirectResponse("/hr/users/new", status_code=301)
 
 
 @router.post("/users/new", include_in_schema=False)
@@ -119,12 +92,7 @@ async def user_create(request: Request, db: Session = Depends(get_db), user: Use
         return redirect("/admin/users/new", "A valid email address and full name are required.", "error")
     if db.query(User).filter(func.lower(User.email) == email).first():
         return redirect("/admin/users/new", f"A user with the email {email} already exists.", "error")
-    raw = (form.get("password") or "").strip()
-    generated = False
-    if not raw:
-        raw = sys_svc.generate_temp_password()
-        generated = True
-    errs = password_strength_errors(raw)
+    raw, generated, errs = sys_svc.choose_password(form.get("password"))
     if errs:
         return redirect("/admin/users/new", "Password too weak: " + ", ".join(errs), "error")
     chosen_role = db.get(Role, parse_int(form.get("role_id"))) if form.get("role_id") else None
@@ -248,20 +216,10 @@ async def user_status(user_id: int, request: Request, db: Session = Depends(get_
                       user: User = Depends(require("users.update"))):
     obj = _get_user(db, user_id)
     form = await request.form()
-    rationale = _need_rationale(form)
-    if not rationale:
-        return redirect(f"/admin/users/{obj.id}", "A rationale is required to change account status.", "error")
     activate = parse_bool(form.get("activate"))
-    if obj.id == user.id and not activate:
-        return redirect(f"/admin/users/{obj.id}", "You cannot deactivate your own account.", "error")
-    before = snapshot(obj, ["is_active"])
-    obj.is_active = activate
-    if not activate:
-        for s in db.query(UserSession).filter(UserSession.user_id == obj.id, UserSession.revoked.is_(False)):
-            s.revoked = True
-    log_action(db, user, "update" if activate else "revoke", "users", entity=obj, severity="warning", consequential=True,
-               rationale=rationale, description=("Reactivated" if activate else "Deactivated") + f" user {obj.email}",
-               before=before, after=snapshot(obj, ["is_active"]), request=request)
+    refused = sys_svc.set_user_active(db, user, obj, activate, _need_rationale(form), request=request)
+    if refused:
+        return redirect(f"/admin/users/{obj.id}", refused, "error")
     db.commit()
     return redirect(f"/admin/users/{obj.id}", "Account reactivated." if activate else "Account deactivated and sessions revoked.")
 
@@ -271,20 +229,9 @@ async def user_reset_password(user_id: int, request: Request, db: Session = Depe
                               user: User = Depends(require("users.update"))):
     obj = _get_user(db, user_id)
     form = await request.form()
-    raw = (form.get("password") or "").strip() or sys_svc.generate_temp_password()
-    errs = password_strength_errors(raw)
-    if errs:
-        return redirect(f"/admin/users/{obj.id}", "Password too weak: " + ", ".join(errs), "error")
-    obj.hashed_password = hash_password(raw)
-    obj.must_change_password = True
-    obj.failed_login_attempts = 0
-    obj.locked_until = None
-    log_action(db, user, "update", "users", entity=obj, severity="warning", consequential=True,
-               rationale=_need_rationale(form) or "Password reset requested by the user",
-               description=f"Password reset for {obj.email}", request=request)
-    notify(db, obj, "Your password was reset",
-           "A system administrator reset your password. You will be asked to choose a new one at next sign-in.",
-           event_type="security_password_reset", link="/login")
+    raw, refused = sys_svc.reset_user_password(db, user, obj, form.get("password"), _need_rationale(form), request=request)
+    if refused:
+        return redirect(f"/admin/users/{obj.id}", refused, "error")
     db.commit()
     return redirect(f"/admin/users/{obj.id}", f"Password reset. Temporary password (shown once): {raw}")
 
@@ -294,19 +241,7 @@ async def user_unlock(user_id: int, request: Request, db: Session = Depends(get_
                       user: User = Depends(require("users.update"))):
     obj = _get_user(db, user_id)
     form = await request.form()
-    before = snapshot(obj, ["locked_until", "failed_login_attempts"])
-    obj.locked_until = None
-    obj.failed_login_attempts = 0
-    for inc in db.query(SecurityIncident).filter(SecurityIncident.user_id == obj.id,
-                                                 SecurityIncident.incident_type.in_(["lockout", "brute_force"]),
-                                                 SecurityIncident.status == "open"):
-        inc.status = "resolved"
-        inc.resolved_by_id = user.id
-        inc.resolved_at = datetime.utcnow()
-    log_action(db, user, "update", "users", entity=obj, severity="warning", consequential=True,
-               rationale=_need_rationale(form) or "Account unlocked by administrator",
-               description=f"Unlocked {obj.email} (cleared lockout and failed attempts)",
-               before=before, after=snapshot(obj, ["locked_until", "failed_login_attempts"]), request=request)
+    sys_svc.unlock_user(db, user, obj, _need_rationale(form), request=request)
     db.commit()
     return redirect(f"/admin/users/{obj.id}", "Account unlocked.")
 
@@ -359,14 +294,16 @@ async def user_revoke_sessions(user_id: int, request: Request, db: Session = Dep
 
 # ============================================================================= ROLES
 @router.get("/roles", include_in_schema=False)
-def roles_list(request: Request, db: Session = Depends(get_db), user: User = Depends(require("roles.view"))):
-    roles = _roles(db)
-    counts = sys_svc.role_user_counts(db)
-    rows = [{"role": r, "users": counts.get(r.id, 0), "perms": len(sys_svc.expand_permissions(r.permissions or []))}
-            for r in roles]
+def roles_list(request: Request, app: str = "", q: str = "", db: Session = Depends(get_db),
+               user: User = Depends(require("roles.view"))):
+    """Roles grouped by application area, the way the college's previous ERP lists them."""
+    from app.models.config_erp import LOOKUP_APPS
+    data = role_svc.grouped_roles(db, app=app, q=q)
     return render(request, "admin/roles_list.html", {
-        "user": user, "rows": rows, "total_perms": len(sys_svc.all_permission_strings()),
-        "modules": rbac.MODULES, "actions": rbac.ACTIONS})
+        "user": user, **data, "apps": LOOKUP_APPS, "app": app, "q": q,
+        "can_edit": rbac.has_permission(user, "roles.configure"),
+        "can_create": rbac.has_permission(user, "roles.add"),
+        "can_assign": rbac.has_permission(user, "users.update")})
 
 
 @router.get("/roles/new", include_in_schema=False)
@@ -445,7 +382,12 @@ def role_detail(role_id: int, request: Request, db: Session = Depends(get_db),
     candidates = (db.query(User).filter(User.is_active.is_(True), or_(User.role_id.is_(None), User.role_id != obj.id))
                   .order_by(User.full_name).all())
     assign_refusal = role_svc.can_assign(user, User(id=-1, is_superuser=False), obj)
+    summary = role_svc.access_summary(obj.permissions or [], obj.portal or "admin")
+    areas = [a for a in role_svc.area_modules("admin") if a["label"] != role_svc.OTHER_AREA]
     return render(request, "admin/role_detail.html", {
+        "summary": summary, "summary_sentence": role_svc.summary_sentence(summary), "areas": areas,
+        "levels": role_svc.levels_for(obj.permissions or [], [m["module"] for a in areas for m in a["modules"]]),
+        "LEVELS": role_svc.LEVELS, "LEVEL_LABELS": role_svc.LEVEL_LABELS,
         "user": user, "obj": obj, "checked": sys_svc.expand_permissions(obj.permissions or []),
         "user_count": counts.get(obj.id, 0), "portals": PORTALS,
         "members": db.query(User).filter(User.role_id == obj.id).order_by(User.full_name).limit(200).all(),
@@ -468,7 +410,8 @@ async def role_save(role_id: int, request: Request, db: Session = Depends(get_db
         return redirect(f"/admin/roles/{obj.id}", "A rationale is required to change a role's permissions.", "error")
     before = snapshot(obj)
     obj.name = (form.get("name") or obj.name).strip()
-    obj.description = (form.get("description") or "").strip() or None
+    if "description" in form:
+        obj.description = (form.get("description") or "").strip() or None
     obj.portal = form.get("portal") or obj.portal
     if role_svc.is_wildcard_role(obj):
         # The matrix cannot express "*" (it would freeze today's modules), so only the details are saved.
@@ -477,8 +420,20 @@ async def role_save(role_id: int, request: Request, db: Session = Depends(get_db
                    before=before, after=snapshot(obj), request=request)
         db.commit()
         return redirect(f"/admin/roles/{obj.id}", "Role details saved. Its full-access permissions cannot be narrowed.")
-    checked = sys_svc.matrix_from_form(form, "p")
     previous = sys_svc.expand_permissions(obj.permissions or [])
+    if form.get("mode") == "levels":
+        # the simple editor: one level per module; only the modules whose level was changed are touched
+        modules = role_svc.nav_modules("admin")
+        changed = role_svc.changed_levels(role_svc.levels_for(previous, modules),
+                                          role_svc.levels_from_form(form, modules))
+        if not changed:
+            log_action(db, user, "update", "roles", entity=obj, description=f"Updated details of role {obj.name}",
+                       before=before, after=snapshot(obj), request=request)
+            db.commit()
+            return redirect(f"/admin/roles/{obj.id}", "Role details saved. No access level was changed.")
+        checked = role_svc.apply_levels(previous, changed)
+    else:
+        checked = sys_svc.matrix_from_form(form, "p")
     missing = role_svc.escalation(user, checked - previous)
     if missing:
         return redirect(f"/admin/roles/{obj.id}", f"You cannot grant {len(missing)} permission(s) you do not hold "

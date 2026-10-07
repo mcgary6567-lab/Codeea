@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% from "hr_users/_levels.html" import level_table %}
+{% block title %}{{ obj.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(obj.full_name, obj.email ~ " · " ~ (obj.role.name if obj.role else "no role"), back="/hr/users") %}
+  {{ ui.badge('active' if obj.is_active else 'inactive', 'Active' if obj.is_active else 'In-active') }}
+  {% if obj.locked_until and obj.locked_until > now %}{{ ui.badge('blocked', 'Locked') }}{% endif %}
+  {% if obj.must_change_password %}{{ ui.badge('pending', 'Must change password') }}{% endif %}
+  {{ ui.button('Advanced settings (sessions, two-factor, full permission matrix)', href='/admin/users/' ~ obj.id, icon='settings-2', variant='secondary', size='sm') }}
+{% endcall %}
+
+<div class="mb-5 grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+  <div><div class="text-xs font-semibold text-slate-500">Employee</div>
+    {% if employee %}<a class="text-brand-700 hover:underline" href="/hr/employees/{{ employee.id }}"><span class="font-mono">{{ employee.employee_code }}</span> · {{ employee.full_name }}</a>
+      <div class="text-xs text-slate-500">{{ employee.designation }}{% if employee.department %} · {{ employee.department.name }}{% endif %}</div>
+    {% else %}<span class="text-slate-500">Not linked to an employee</span>{% endif %}</div>
+  <div><div class="text-xs font-semibold text-slate-500">Role</div>{{ obj.role.name if obj.role else 'No role' }}</div>
+  <div><div class="text-xs font-semibold text-slate-500">Last sign-in</div>{{ obj.last_login_at|datetime if obj.last_login_at else 'Never' }}</div>
+  <div><div class="text-xs font-semibold text-slate-500">Username</div><span class="font-mono text-xs">{{ obj.username }}</span></div>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2">
+  {% call ui.card("Access", "What " ~ obj.full_name ~ " can open today") %}
+    {% if obj.is_superuser %}
+      <p class="text-sm">This is a superuser account: it can open every page.</p>
+    {% else %}
+      <p class="text-sm"><b>{{ obj.role.name if obj.role else 'No role' }}</b>{% if overrides.extra or overrides.removed %}, customised for this person{% endif %}.</p>
+      {% if not obj.is_active %}<p class="mt-1 text-xs text-amber-700">The account is deactivated, so nothing opens until it is activated again. The list shows what it would open.</p>{% endif %}
+      <ul class="mt-2 space-y-0.5 text-sm">
+        {% for a in areas_open %}<li>{{ a.label }} <span class="text-slate-500">({{ a.pages }} of {{ a.total }} pages, {{ a.level|lower }})</span></li>
+        {% else %}<li class="text-slate-500">No menu pages.</li>{% endfor %}
+      </ul>
+      {% if overrides.extra or overrides.removed %}
+      <div class="mt-3 border-t border-slate-100 pt-3 text-sm">
+        {% for line in overrides.extra %}<div><span class="font-semibold text-emerald-700">Extra:</span> {{ line }}</div>{% endfor %}
+        {% for line in overrides.removed %}<div><span class="font-semibold text-rose-700">Removed:</span> {{ line }}</div>{% endfor %}
+      </div>
+      {% else %}<p class="mt-3 text-xs text-slate-500">No customisations: access is exactly the role's.</p>{% endif %}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.card("Change role", "Access follows the new role from the next page they open") %}
+    {% if role_refusal %}
+      {{ ui.alert(role_refusal, 'info') }}
+    {% elif not can_update %}
+      {{ ui.alert('You can see this user but you do not have permission to change roles (users.update).', 'info') }}
+    {% elif not roles %}
+      {{ ui.alert('There is no other staff role you are allowed to give this person.', 'info') }}
+    {% else %}
+    <form method="post" action="/hr/users/{{ obj.id }}/role" class="space-y-3">
+      {% set role_options = [] %}{% for r in roles %}{% set _ = role_options.append((r.id, r.name)) %}{% endfor %}
+      {{ ui.select('role_id', 'New role', role_options, None, required=True, placeholder='— Select a role —') }}
+      {{ ui.input('rationale', 'Reason', '', required=True, help='Why the role is changing. Written to the audit log.') }}
+      {{ ui.button('Change role', icon='shield-check') }}
+      {% if overrides.extra or overrides.removed %}<p class="text-xs text-slate-500">This person's customisations stay in place on top of the new role. Use <b>Reset to the role's access</b> below to drop them.</p>{% endif %}
+    </form>
+    {% endif %}
+  {% endcall %}
+</div>
+
+<div id="access" class="mt-5">
+{% call ui.card("Customize access", "Set a level per module. Only the rows you change are saved as customisations; everything else keeps following the role.") %}
+  {% if access_refusal %}
+    {{ ui.alert(access_refusal, 'info') }}
+  {% elif not can_configure %}
+    {{ ui.alert('You can see this user but you do not have permission to customise access (users.configure).', 'info') }}
+  {% else %}
+  <form method="post" action="/hr/users/{{ obj.id }}/access" class="space-y-3">
+    {{ level_table(areas, levels, LEVELS, LEVEL_LABELS, baseline=role_levels) }}
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="sm:col-span-2">{{ ui.input('rationale', 'Reason', '', required=True, help='Why this person needs different access. Written to the audit log.') }}</div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      {{ ui.button('Save access', icon='save') }}
+      <a href="/admin/users/{{ obj.id }}?tab=permissions" class="ml-auto text-xs text-brand-700 hover:underline">Advanced: full permission matrix</a>
+    </div>
+  </form>
+  {% if overrides.extra or overrides.removed %}
+  <form method="post" action="/hr/users/{{ obj.id }}/access" class="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
+    <input type="hidden" name="reset" value="1">
+    <div class="w-80">{{ ui.input('rationale', 'Reason for resetting', '', required=True) }}</div>
+    {{ ui.button("Reset to the role's access", icon='rotate-ccw', variant='secondary') }}
+    <span class="text-xs text-slate-500">Removes every customisation; access becomes exactly the role's.</span>
+  </form>
+  {% endif %}
+  {% endif %}
+{% endcall %}
+</div>
+
+<div class="mt-5">
+{% call ui.card("Account", "Sign-in status and password") %}
+  {% if not can_update %}
+    {{ ui.alert('You do not have permission to change accounts (users.update).', 'info') }}
+  {% else %}
+  <div class="grid gap-5 lg:grid-cols-3">
+    <form method="post" action="/hr/users/{{ obj.id }}/status" class="space-y-2">
+      <input type="hidden" name="activate" value="{{ '0' if obj.is_active else '1' }}">
+      <div class="text-sm font-semibold text-slate-700">{{ 'Deactivate' if obj.is_active else 'Activate' }}</div>
+      {% if obj.id == user.id and obj.is_active %}
+        <p class="text-xs text-slate-500">You cannot deactivate your own account.</p>
+      {% else %}
+      {{ ui.input('rationale', 'Reason', '', required=True) }}
+      {{ ui.button('Deactivate account' if obj.is_active else 'Activate account', icon='power', variant='danger' if obj.is_active else 'success', size='sm') }}
+      <p class="text-xs text-slate-500">{{ 'Deactivating signs them out everywhere and keeps their records.' if obj.is_active else 'They can sign in again with their current password.' }}</p>
+      {% endif %}
+    </form>
+    <form method="post" action="/hr/users/{{ obj.id }}/reset-password" class="space-y-2" onsubmit="return confirm('Reset this password now?')">
+      <div class="text-sm font-semibold text-slate-700">Reset password</div>
+      {{ ui.input('rationale', 'Reason', '', placeholder='Forgot password') }}
+      {{ ui.button('Reset password', icon='key-round', variant='secondary', size='sm') }}
+      <p class="text-xs text-slate-500">A temporary password is shown to you once; they must change it at sign-in.</p>
+    </form>
+    <form method="post" action="/hr/users/{{ obj.id }}/unlock" class="space-y-2">
+      <div class="text-sm font-semibold text-slate-700">Unlock</div>
+      {% if obj.locked_until and obj.locked_until > now %}
+        <p class="text-xs text-slate-500">Locked after too many failed sign-ins (until {{ obj.locked_until|datetime }}).</p>
+      {% else %}
+        <p class="text-xs text-slate-500">Not locked. Unlocking also clears {{ obj.failed_login_attempts or 0 }} failed sign-in attempt(s).</p>
+      {% endif %}
+      {{ ui.button('Unlock account', icon='lock-open', variant='secondary', size='sm') }}
+    </form>
+  </div>
+  {% endif %}
+{% endcall %}
+</div>
+{% endblock %}

@@ -2,7 +2,8 @@
 {% import "macros.html" as ui %}
 {% block title %}{{ obj.full_name }}{% endblock %}
 {% block content %}
-{% call ui.page_header(obj.full_name, obj.email ~ " · " ~ (obj.role.name if obj.role else "no role"), back="/admin/users") %}
+{% call ui.page_header(obj.full_name, obj.email ~ " · " ~ (obj.role.name if obj.role else "no role"), back="/hr/users") %}
+  {% if not obj.role or obj.role.portal in ('admin', 'teacher', 'auditor') %}{{ ui.button('Simple view', href='/hr/users/' ~ obj.id, icon='layout-list', variant='secondary', size='sm') }}{% endif %}
   {% if not obj.is_active %}{{ ui.badge('inactive', 'Deactivated') }}{% endif %}
   {% if obj.locked_until and obj.locked_until > now %}{{ ui.badge('blocked', 'Locked') }}{% endif %}
   {{ ui.badge(obj.portal) }}

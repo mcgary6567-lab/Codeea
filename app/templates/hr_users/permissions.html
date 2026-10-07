@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Permissions{% endblock %}
+{% block content %}
+{% call ui.page_header("Permissions", "What each staff role can open in every area of the menu. Hover a cell to see how many pages that is.", back="/home/hr/access") %}
+  {{ ui.button("Roles", href="/admin/roles", icon="shield-check", variant="secondary") }}
+  {{ ui.button("Test one exact permission", href="/admin/roles/permission-test", icon="flask-conical", variant="secondary") }}
+{% endcall %}
+
+{% call ui.card("Check one person's access", "Pick a staff member to see the areas and pages they can open today, including any customisations.") %}
+  <form method="get" action="/hr/permissions" class="flex flex-wrap items-end gap-2">
+    <div class="w-96 max-w-full">{{ ui.select('user_id', 'Person', people, person.id if person else None, placeholder='— Select a person —') }}</div>
+    {{ ui.button('Check access', icon='search', size='sm') }}
+    {% if person %}<a href="/hr/users/{{ person.id }}" class="ml-2 text-xs text-brand-700 hover:underline">Open {{ person.full_name }}'s user page</a>{% endif %}
+  </form>
+  {% if person %}
+  <div class="mt-4 border-t border-slate-100 pt-3 text-sm">
+    <p><b>{{ person.full_name }}</b> · {{ person.role.name if person.role else 'No role' }}{% if not person.is_active %} · <span class="text-rose-700">deactivated: opens nothing</span>{% endif %}</p>
+    <p class="mt-1 text-slate-600">Can open: {{ person_sentence }}.</p>
+    {% if overrides and (overrides.extra or overrides.removed) %}
+    <div class="mt-2 text-xs">
+      {% for line in overrides.extra %}<div><span class="font-semibold text-emerald-700">Extra:</span> {{ line }}</div>{% endfor %}
+      {% for line in overrides.removed %}<div><span class="font-semibold text-rose-700">Removed:</span> {{ line }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {% for a in person_summary if a.pages %}
+      <details class="rounded border border-slate-200 bg-[#fafbfd] p-2.5">
+        <summary class="cursor-pointer text-[13px] font-semibold text-slate-700">{{ a.label }} <span class="font-normal text-slate-500">— {{ a.pages }} of {{ a.total }} pages</span></summary>
+        <ul class="mt-2 space-y-0.5 text-xs">
+          {% for p in a.page_list if p.opens %}<li class="flex justify-between gap-2"><a href="{{ p.url }}" class="text-brand-700 hover:underline">{{ p.label }}</a><span class="text-slate-500">{{ LEVEL_LABELS[p.level] }}</span></li>{% endfor %}
+        </ul>
+      </details>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endcall %}
+
+<div class="mt-5">
+{% set word = {'full': 'Full', 'edit': 'Edit', 'view': 'View', 'partial': 'Partial', 'none': '—'} %}
+{% set tone = {'full': 'bg-emerald-50 text-emerald-800', 'edit': 'bg-sky-50 text-sky-800', 'view': 'bg-slate-50 text-slate-700', 'partial': 'bg-amber-50 text-amber-800', 'none': 'text-slate-400'} %}
+{{ ui.table_start(['Role', 'Users'] + areas, compact=True) }}
+{% for row in rows %}
+<tr>
+  <td class="px-3 py-1.5 whitespace-nowrap"><a href="/admin/roles/{{ row.role.id }}" class="font-medium text-slate-800 hover:text-brand-700">{{ row.role.name }}</a></td>
+  <td class="px-3 py-1.5 text-center text-xs">{{ counts.get(row.role.id, 0) }}</td>
+  {% for c in row.cells %}
+  <td class="px-3 py-1.5 text-center text-xs font-medium {{ tone[c.level] }}"
+      title="{{ row.role.name }} opens {{ c.pages }} of {{ c.total }} {{ c.label }} pages{% if c.pages %} ({{ c.counts.full }} full, {{ c.counts.edit }} edit, {{ c.counts.view }} view){% endif %}">{{ word[c.level] }}</td>
+  {% endfor %}
+</tr>
+{% else %}{{ ui.empty('No staff roles yet.', areas|length + 2, 'shield') }}{% endfor %}
+{{ ui.table_end() }}
+<p class="mt-2 text-xs text-slate-500">
+  <b>Full</b>, <b>Edit</b> or <b>View</b> is the level most of the area's pages reach. <b>Partial</b> means fewer than
+  half of the area's pages open. <b>—</b> means none. Teachers sign in to the Teacher portal menu, so their row shows
+  the staff pages their role would open. Press a role to change its access.
+</p>
+</div>
+<div id="delegation" class="mt-6">
+{% call ui.card("Roles HR may assign", "People who manage users (users.assign) can give these roles to staff without holding every permission inside them. Super Admin and System Administrator are never on this list.") %}
+  {% if user.is_superuser %}
+  <form method="post" action="/hr/permissions/delegation" class="space-y-3">
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {% for r in delegable_roles %}
+      <label class="flex items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm">
+        <input type="checkbox" name="slugs" value="{{ r.slug }}" {% if r.slug in delegated %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-brand-600">
+        <span>{{ r.name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {{ ui.input('rationale', 'Rationale', '', required=True) }}
+    {{ ui.button('Save the list', icon='save') }}
+  </form>
+  {% else %}
+  <ul class="flex flex-wrap gap-2 text-sm">
+    {% for r in delegable_roles if r.slug in delegated %}<li class="rounded bg-slate-100 px-2 py-1">{{ r.name }}</li>{% else %}<li class="text-slate-500">None.</li>{% endfor %}
+  </ul>
+  <p class="mt-2 text-xs text-slate-500">Only a superuser can change this list.</p>
+  {% endif %}
+{% endcall %}
+</div>
+{% endblock %}

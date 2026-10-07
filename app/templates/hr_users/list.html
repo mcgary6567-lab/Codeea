@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Users{% endblock %}
+{% block content %}
+{% call ui.page_header("Users", "Staff sign-ins: who can sign in, with which role, linked to which employee. Family and student logins are managed from their client or student record.", back="/home/hr/access") %}
+  {% if has_perm(user, 'roles.view') %}{{ ui.button("Permissions", href="/hr/permissions", icon="key-square", variant="secondary") }}{% endif %}
+  {% if has_perm(user, 'users.add') %}{{ ui.button("Create User", href="/hr/users/new", icon="user-plus") }}{% endif %}
+{% endcall %}
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+  {{ ui.stat("Total", stats.total, color=palette(0), href="/hr/users") }}
+  {{ ui.stat("Active", stats.active, color=palette(3), href="/hr/users?status=active") }}
+  {{ ui.stat("In-active", stats.inactive, color=palette(7), href="/hr/users?status=inactive") }}
+  {{ ui.stat("Never Signed In", stats.never, color=palette(6), href="/hr/users?status=never") }}
+  {{ ui.stat("No Employee Linked", stats.unlinked, color=palette(10), href="/hr/users?status=unlinked") }}
+</div>
+
+{% call ui.filter_bar('/hr/users') %}
+  <div class="w-64">{{ ui.input('q', 'Search', q, placeholder='Name, email or employee code') }}</div>
+  <div class="w-56">{{ ui.select('role', 'Role', role_options, role, placeholder='All roles') }}</div>
+  <div class="w-52">{{ ui.select('department', 'Department', departments, department, placeholder='All departments') }}</div>
+  <div class="w-44">{{ ui.select('status', 'Status', statuses, status, placeholder='All') }}</div>
+{% endcall %}
+
+{{ ui.table_start(['User Name', 'Employee', 'Role', 'Department', 'Status', 'Last Sign-in', '']) }}
+{% for u in page.items %}
+{% set emp = employees.get(u.id) %}
+<tr>
+  <td class="px-3 py-2">
+    <div class="flex items-center gap-2">{{ ui.avatar(u.full_name, 'sm') }}
+      <div><a href="/hr/users/{{ u.id }}" class="font-medium text-slate-900 hover:text-brand-700">{{ u.full_name }}</a>
+        <div class="text-[11.5px] text-slate-500">{{ u.email }}</div></div>
+    </div>
+  </td>
+  <td class="px-3 py-2 text-xs">
+    {% if emp %}<a class="text-brand-700 hover:underline" href="/hr/employees/{{ emp.id }}"><span class="font-mono">{{ emp.employee_code }}</span> · {{ emp.full_name }}</a>
+    {% else %}<span class="text-slate-400">Not linked</span>{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs">{{ u.role.name if u.role else 'No role' }}</td>
+  <td class="px-3 py-2 text-xs">{{ (emp.department.name if emp and emp.department else (u.department.name if u.department else '—')) }}</td>
+  <td class="px-3 py-2">
+    {{ ui.badge('active' if u.is_active else 'inactive', 'Active' if u.is_active else 'In-active') }}
+    {% if u.locked_until and u.locked_until > now %}{{ ui.badge('blocked', 'Locked') }}{% endif %}
+  </td>
+  <td class="px-3 py-2 text-xs">{{ u.last_login_at|datetime if u.last_login_at else 'Never' }}</td>
+  <td class="px-3 py-2 text-right">{{ ui.button('View', href='/hr/users/' ~ u.id, variant='ghost', size='sm', icon='eye') }}</td>
+</tr>
+{% else %}{{ ui.empty('No users match these filters.', 7, 'users') }}{% endfor %}
+{{ ui.table_end() }}
+{{ ui.pagination(page, base_url) }}
+{% endblock %}

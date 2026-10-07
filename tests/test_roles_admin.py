@@ -80,7 +80,7 @@ def admin():
 
 # ----------------------------------------------------------------------------- the screens
 def test_configuration_roles_page_can_create_and_links_to_each_role(admin, db):
-    body = admin.get("/config/roles").text
+    body = admin.get("/admin/roles").text
     assert "Read only" not in body
     assert 'href="/admin/roles/new"' in body
     some = db.query(Role).filter(Role.slug == "accountant").first()
@@ -244,6 +244,33 @@ def test_deploys_keep_administrator_edits_and_apply_code_changes(db, monkeypatch
         db.commit()
 
 
+def test_a_first_run_without_a_record_still_grants_new_defaults(db):
+    """With no recorded defaults (a fresh or restored database), defaults the role lacks are granted."""
+    role = db.query(Role).filter(Role.slug == "hr_officer").first()
+    original_perms = list(role.permissions or [])
+    setting = db.query(Setting).filter(Setting.key == role_svc.DEFAULTS_KEY).first()
+    original_store = dict(setting.value) if setting and isinstance(setting.value, dict) else None
+    try:
+        if setting is not None:
+            db.delete(setting)
+            db.flush()
+        role.permissions = [p for p in original_perms if p != "users.view"]
+        db.flush()
+        role_svc.sync_system_roles(db)
+        assert "users.view" in role.permissions
+    finally:
+        db.rollback()
+        role = db.query(Role).filter(Role.slug == "hr_officer").first()
+        role.permissions = original_perms
+        setting = db.query(Setting).filter(Setting.key == role_svc.DEFAULTS_KEY).first()
+        if original_store is not None:
+            if setting is None:
+                db.add(Setting(key=role_svc.DEFAULTS_KEY, group="system", is_editable=False, value=original_store))
+            else:
+                setting.value = original_store
+        db.commit()
+
+
 def test_seed_twice_changes_nothing(db):
     before = {r.slug: (list(r.permissions or []), r.portal) for r in db.query(Role).filter(Role.is_system.is_(True))}
     role_svc.sync_system_roles(db)
@@ -256,3 +283,49 @@ def test_seed_twice_changes_nothing(db):
 def test_normalise_slug():
     assert role_svc.normalise_slug("Front Desk-Officer!") == "front_desk_officer"
     assert role_svc.normalise_slug("  __HOD  QA__ ") == "hod_qa"
+
+
+# ----------------------------------------------------------------------------- delegated administration
+def test_hr_can_assign_a_delegated_role_but_not_top_level_ones(db, made):
+    hr_head = db.query(User).filter(User.email == "hr@oqc.local").first()
+    teacher_role = db.query(Role).filter(Role.slug == "teacher").first()
+    sysadmin = db.query(Role).filter(Role.slug == "system_admin").first()
+    newcomer = _user(db, made, None)
+    assert "teacher" in role_svc.delegated_slugs(db)
+    assert role_svc.can_assign(hr_head, newcomer, teacher_role) is None, "HR creates teachers' sign-ins"
+    assert role_svc.can_assign(hr_head, newcomer, sysadmin) is not None, "System Administrator is never delegated"
+    c = _client("hr@oqc.local", "People@123")
+    c.post(f"/admin/roles/{teacher_role.id}/assign", data={"user_ids": [str(newcomer.id)], "rationale": "new teacher"}, follow_redirects=False)
+    db.expire_all()
+    assert db.get(User, newcomer.id).role_id == teacher_role.id
+
+
+def test_delegation_needs_users_assign(db, made):
+    # holds users.view/add/update but not users.assign: falls back to the no-escalation rule
+    clerk_role = _role(db, made, ["users.view", "users.add", "users.update", "dashboard.view"])
+    clerk = _user(db, made, clerk_role)
+    teacher_role = db.query(Role).filter(Role.slug == "teacher").first()
+    assert role_svc.can_assign(clerk, _user(db, made, None), teacher_role) is not None
+
+
+def test_only_a_superuser_changes_the_delegated_list(admin, db):
+    before = role_svc.delegated_slugs(db)
+    stored = db.query(Setting).filter(Setting.key == role_svc.DELEGATED_KEY).first()
+    stored_value = dict(stored.value) if stored is not None and isinstance(stored.value, dict) else None
+    try:
+        c = _client("hr@oqc.local", "People@123")
+        c.post("/hr/permissions/delegation", data={"slugs": ["teacher"], "rationale": "x"}, follow_redirects=False)
+        db.expire_all()
+        assert role_svc.delegated_slugs(db) == before, "the HR head cannot widen their own delegation"
+        admin.post("/hr/permissions/delegation", data={"slugs": ["teacher", "super_admin"], "rationale": "trim"}, follow_redirects=False)
+        db.expire_all()
+        assert role_svc.delegated_slugs(db) == ["teacher"], "Super Admin can never be put on the list"
+    finally:
+        db.rollback()
+        row = db.query(Setting).filter(Setting.key == role_svc.DELEGATED_KEY).first()
+        if stored_value is None:      # there was no stored list: put it back to "use the defaults"
+            if row is not None:
+                db.delete(row)
+        else:
+            row.value = stored_value
+        db.commit()

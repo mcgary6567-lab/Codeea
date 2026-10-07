@@ -158,6 +158,72 @@ def privileged_users_without_2fa(db: Session) -> list[User]:
             .order_by(Role.slug, User.full_name).all())
 
 
+# ============================================================================= account actions
+# Shared by the advanced user page (/admin/users/{id}) and the HR user page (/hr/users/{id}), so both apply
+# the same rules and leave the same audit trail. Each returns None on success or the refusal reason.
+def choose_password(raw: Optional[str]) -> tuple[str, bool, list[str]]:
+    """(password, generated, strength errors): a blank entry becomes a generated temporary password."""
+    from app.core.security import password_strength_errors
+    raw = (raw or "").strip()
+    generated = not raw
+    if generated:
+        raw = generate_temp_password()
+    return raw, generated, password_strength_errors(raw)
+
+
+def set_user_active(db: Session, actor: User, target: User, activate: bool, rationale: str, request=None) -> Optional[str]:
+    if not rationale:
+        return "A rationale is required to change account status."
+    if target.id == actor.id and not activate:
+        return "You cannot deactivate your own account."
+    before = snapshot(target, ["is_active"])
+    target.is_active = activate
+    if not activate:
+        for s in db.query(UserSession).filter(UserSession.user_id == target.id, UserSession.revoked.is_(False)):
+            s.revoked = True
+    log_action(db, actor, "update" if activate else "revoke", "users", entity=target, severity="warning", consequential=True,
+               rationale=rationale, description=("Reactivated" if activate else "Deactivated") + f" user {target.email}",
+               before=before, after=snapshot(target, ["is_active"]), request=request)
+    return None
+
+
+def reset_user_password(db: Session, actor: User, target: User, raw: Optional[str], rationale: str = "",
+                        request=None) -> tuple[Optional[str], Optional[str]]:
+    """(new password, refusal). A blank ``raw`` generates a temporary password; the user must change it."""
+    from app.core.notify import notify
+    from app.core.security import hash_password
+    raw, _generated, errs = choose_password(raw)
+    if errs:
+        return None, "Password too weak: " + ", ".join(errs)
+    target.hashed_password = hash_password(raw)
+    target.must_change_password = True
+    target.failed_login_attempts = 0
+    target.locked_until = None
+    log_action(db, actor, "update", "users", entity=target, severity="warning", consequential=True,
+               rationale=rationale or "Password reset requested by the user",
+               description=f"Password reset for {target.email}", request=request)
+    notify(db, target, "Your password was reset",
+           "A system administrator reset your password. You will be asked to choose a new one at next sign-in.",
+           event_type="security_password_reset", link="/login")
+    return raw, None
+
+
+def unlock_user(db: Session, actor: User, target: User, rationale: str = "", request=None) -> None:
+    before = snapshot(target, ["locked_until", "failed_login_attempts"])
+    target.locked_until = None
+    target.failed_login_attempts = 0
+    for inc in db.query(SecurityIncident).filter(SecurityIncident.user_id == target.id,
+                                                 SecurityIncident.incident_type.in_(["lockout", "brute_force"]),
+                                                 SecurityIncident.status == "open"):
+        inc.status = "resolved"
+        inc.resolved_by_id = actor.id
+        inc.resolved_at = datetime.utcnow()
+    log_action(db, actor, "update", "users", entity=target, severity="warning", consequential=True,
+               rationale=rationale or "Account unlocked by administrator",
+               description=f"Unlocked {target.email} (cleared lockout and failed attempts)",
+               before=before, after=snapshot(target, ["locked_until", "failed_login_attempts"]), request=request)
+
+
 # ============================================================================= permission matrix
 def all_permission_strings() -> list[str]:
     return [f"{m}.{a}" for m in rbac.MODULES for a in rbac.ACTIONS]

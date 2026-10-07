@@ -1,0 +1,49 @@
+{# The simple access editor: one row per module, a 4-option segmented control (No access / View / Edit / Full),
+   grouped by menu area. Used by the Create User page, the HR user page and the role page.
+   - levels: {module: level} the control is pre-set to (ignored when alpine=True: x-model drives it)
+   - baseline: {module: level} of the role, to mark the rows that differ from it (optional)
+   - alpine: bind each row to `levels[module]` in the surrounding x-data
+   - disabled: render read-only #}
+{% macro level_table(areas, levels, LEVELS, LEVEL_LABELS, baseline=None, alpine=False, disabled=False) %}
+<div class="overflow-x-auto rounded-md border border-slate-300 bg-white">
+<table class="min-w-full border-collapse text-[13px]">
+  <thead><tr class="bg-[#e8f1fb]">
+    <th class="border border-slate-300 px-3 py-1.5 text-left text-xs font-semibold text-slate-700">Module</th>
+    <th class="border border-slate-300 px-3 py-1.5 text-left text-xs font-semibold text-slate-700">Access</th>
+  </tr></thead>
+  <tbody class="[&_td]:border [&_td]:border-slate-200">
+  {% for area in areas %}
+    <tr class="bg-[#f3f7fc]"><td colspan="2" class="px-3 py-1 text-[12px] font-semibold text-slate-700">{{ area.label }}</td></tr>
+    {% for m in area.modules %}
+    {% set current = levels.get(m.module, 'none') if levels else 'none' %}
+    <tr class="hover:bg-[#f1f6fc]">
+      <td class="px-3 py-1.5">
+        <span class="text-slate-800">{{ m.label }}</span>
+        {% if baseline is not none and not alpine and baseline.get(m.module, 'none') != current %}
+          <span class="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800" title="The role gives {{ LEVEL_LABELS[baseline.get(m.module, 'none')] }}">CUSTOMISED</span>
+        {% endif %}
+        {% if alpine and baseline is not none %}
+          <span x-show="baseline['{{ m.module }}'] !== levels['{{ m.module }}']" class="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800">CHANGED</span>
+        {% endif %}
+      </td>
+      <td class="px-3 py-1">
+        <div class="inline-flex overflow-hidden rounded border border-slate-300" role="radiogroup" aria-label="{{ m.label }} access">
+        {% for lv in LEVELS %}
+          <label class="{{ 'cursor-not-allowed' if disabled else 'cursor-pointer' }}">
+            <input type="radio" class="peer sr-only" name="lvl__{{ m.module }}" value="{{ lv }}"
+                   {% if alpine %}x-model="levels['{{ m.module }}']"{% elif current == lv %}checked{% endif %}
+                   {% if disabled %}disabled{% endif %}>
+            <span class="block px-2.5 py-1 text-[11.5px] text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/40 {{ '' if loop.first else 'border-l border-slate-300' }}">{{ LEVEL_LABELS[lv] }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="mt-1.5 text-[11.5px] text-slate-500"><b>View</b> opens and exports. <b>Edit</b> also creates, edits and assigns.
+  <b>Full</b> also approves, deletes, runs and configures. <b>No access</b> hides the module's pages.</p>
+{% endmacro %}

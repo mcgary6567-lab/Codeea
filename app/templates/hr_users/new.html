@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% from "hr_users/_levels.html" import level_table %}
+{% block title %}Create User{% endblock %}
+{% block head %}
+<script>
+function hrNewUser() {
+  const ROLES = {{ roles_json|safe }};
+  return {
+    roles: ROLES, roleId: '', notEmployee: false, customise: '0',
+    fullName: '', email: '', phone: '', emp: null, levels: {}, baseline: {},
+    get role() { return this.roles[this.roleId] || null; },
+    pick(sel) {
+      const o = sel.selectedOptions[0];
+      if (!o || !o.value) { this.emp = null; return; }
+      this.emp = { code: o.dataset.code, dept: o.dataset.dept, desig: o.dataset.desig };
+      this.fullName = o.dataset.name; this.email = o.dataset.email || ''; this.phone = o.dataset.phone || '';
+    },
+    roleChanged() {
+      const r = this.role;
+      this.baseline = r ? Object.assign({}, r.levels) : {};
+      this.levels = Object.assign({}, this.baseline);
+    },
+  };
+}
+</script>
+{% endblock %}
+{% block content %}
+{% call ui.page_header("Create User", "Choose the employee, choose the role, and the role's access is applied. Customise it only if this person needs something different.", back="/hr/users") %}{% endcall %}
+
+<form method="post" action="/hr/users/new" x-data="hrNewUser()" x-init="$nextTick(() => { if ($refs.emp && $refs.emp.value) pick($refs.emp) })" class="space-y-5">
+
+{% call ui.card("1. Employee", "The person this sign-in is for. Their name, email and phone are filled in from the employee record.") %}
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="lg:col-span-3" x-show="!notEmployee">
+      <label for="f_employee_id" class="mb-1 block text-xs font-semibold text-slate-600">Employee <span class="text-rose-500">*</span></label>
+      <select id="f_employee_id" name="employee_id" x-ref="emp" @change="pick($event.target)" :required="!notEmployee"
+              class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+        <option value="">— Select an employee without a sign-in —</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}" data-code="{{ e.employee_code }}" data-name="{{ e.full_name }}" data-email="{{ e.email or '' }}"
+                data-phone="{{ e.phone or '' }}" data-dept="{{ e.department.name if e.department else '' }}" data-desig="{{ e.designation or '' }}"
+                {% if preselect == e.id %}selected{% endif %}>
+          {{ e.employee_code }} · {{ e.full_name }} · {{ e.department.name if e.department else 'No department' }} · {{ e.designation }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if not employees %}<p class="mt-1 text-xs text-amber-700">Every active employee already has a sign-in. Add the employee in Employee Record first, or tick <b>This person is not an employee</b>.</p>{% endif %}
+      <p class="mt-1 text-xs text-slate-500" x-show="emp" x-cloak>
+        <span class="font-mono" x-text="emp && emp.code"></span> · <span x-text="emp && emp.desig"></span> · <span x-text="emp && (emp.dept || 'No department')"></span>
+      </p>
+    </div>
+    <div>
+      <label for="f_full_name" class="mb-1 block text-xs font-semibold text-slate-600">Full name <span class="text-rose-500">*</span></label>
+      <input id="f_full_name" name="full_name" x-model="fullName" required class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+    </div>
+    <div>
+      <label for="f_email" class="mb-1 block text-xs font-semibold text-slate-600">Email (sign-in) <span class="text-rose-500">*</span></label>
+      <input id="f_email" name="email" type="email" x-model="email" required class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+      <p class="mt-1 text-xs text-slate-500">Taken from the employee record; you can change it.</p>
+    </div>
+    <div>
+      <label for="f_phone" class="mb-1 block text-xs font-semibold text-slate-600">Phone</label>
+      <input id="f_phone" name="phone" x-model="phone" class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+    </div>
+    <div x-show="notEmployee" x-cloak>{{ ui.select('department_id', 'Department', departments, None, placeholder='No department') }}</div>
+    <label class="flex items-start gap-2.5 text-sm lg:col-span-3">
+      <input type="checkbox" name="not_employee" value="1" x-model="notEmployee" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600">
+      <span><span class="font-medium text-slate-700">This person is not an employee</span>
+        <span class="block text-xs text-slate-500">For example an external auditor. Type their name and email yourself.</span></span>
+    </label>
+  </div>
+{% endcall %}
+
+{% call ui.card("2. Role", "The role decides which pages this person can open. Only roles you are allowed to give are listed.") %}
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div>
+      <label for="f_role_id" class="mb-1 block text-xs font-semibold text-slate-600">Role <span class="text-rose-500">*</span></label>
+      <select id="f_role_id" name="role_id" x-model="roleId" @change="roleChanged()" required
+              class="w-full rounded border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+        <option value="">— Select a role —</option>
+        {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      </select>
+      {% if not roles %}<p class="mt-1 text-xs text-amber-700">There is no staff role you are allowed to give. Ask an administrator.</p>{% endif %}
+    </div>
+    <div class="lg:col-span-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900" aria-live="polite">
+      <template x-if="!role"><p>Choose a role to see what it can open.</p></template>
+      <template x-if="role">
+        <div>
+          <p class="font-semibold">This role can open:</p>
+          <ul class="mt-1.5 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
+            <template x-for="a in role.areas" :key="a.label">
+              <li><span x-text="a.label"></span> <span class="text-sky-700">(<span x-text="a.pages"></span> of <span x-text="a.total"></span> pages, <span x-text="a.level.toLowerCase()"></span>)</span></li>
+            </template>
+          </ul>
+          <p class="mt-1.5 text-xs text-sky-700" x-show="role.areas.length === 0">This role opens no menu pages.</p>
+        </div>
+      </template>
+    </div>
+  </div>
+{% endcall %}
+
+{% call ui.card("3. Customize access (optional)", "Most people need exactly their role's access. Change a module only when this person needs more or less than the role gives.") %}
+  <div class="flex flex-wrap gap-5 text-sm">
+    <label class="flex items-center gap-2"><input type="radio" name="customise" value="0" x-model="customise" class="h-4 w-4 text-brand-600"> <span class="font-medium">Use the role's access</span></label>
+    <label class="flex items-center gap-2"><input type="radio" name="customise" value="1" x-model="customise" class="h-4 w-4 text-brand-600"> <span class="font-medium">Customize for this person</span></label>
+  </div>
+  <div x-show="customise === '1'" x-cloak class="mt-4">
+    <p x-show="!role" class="text-sm text-amber-700">Choose a role first; the table starts from the role's access.</p>
+    <div x-show="role">
+      {{ level_table(areas, {}, LEVELS, LEVEL_LABELS, baseline={}, alpine=True) }}
+      <p class="mt-2 text-xs text-slate-500">You can only give access you hold yourself. After saving, the
+        <b>Advanced: full permission matrix</b> on the user's advanced page sets single actions if you ever need that.</p>
+    </div>
+  </div>
+{% endcall %}
+
+{% call ui.card("4. Sign-in", "Leave the password blank and a temporary one is generated and shown to you once after saving.") %}
+  <div class="grid gap-4 lg:grid-cols-3">
+    {{ ui.input('password', 'Password', '', type='password', placeholder='Leave blank to generate', help='If you type one: at least 8 characters, with letters and at least one digit.', attrs='autocomplete="new-password"') }}
+    {{ ui.input('rationale', 'Note for the audit log', '', placeholder='Created from HR Users') }}
+    <div class="pt-5">{{ ui.checkbox('must_change_password', 'Must change the password at first sign-in', checked=True) }}</div>
+  </div>
+{% endcall %}
+
+<div class="flex items-center gap-3">
+  {{ ui.button('Save', icon='save') }}
+  {{ ui.button('Cancel', href='/hr/users', variant='secondary') }}
+</div>
+</form>
+{% endblock %}

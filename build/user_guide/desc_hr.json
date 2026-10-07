@@ -563,7 +563,7 @@
     ]
   },
   "admin:/home/hr/config": {
-    "purpose": "Group page for the HR catalogues: Departments, Shift, Holidays, Users, Violation Types, Staff Bonus Types, HR Configuration and Change Staff Sorting.",
+    "purpose": "Group page for the HR catalogues: Departments, Shift, Holidays, Violation Types, Staff Bonus Types, Confido Agents, HR Configuration and Change Staff Sorting.",
     "steps": [
       "Press a card to open that catalogue."
     ],
@@ -616,6 +616,52 @@
     "notes": [
       "This page is read-only. Accounts are created and edited in Administration.",
       "Only staff logins (admin and teacher portals) are listed; client and student logins are not."
+    ]
+  },
+  "admin:/hr/users": {
+    "purpose": "Every staff sign-in: who can sign in, with which role, and which employee it belongs to. HR uses it to create sign-ins for new staff and to change a person's role or access.",
+    "steps": [
+      "Read the tiles: **Total**, **Active**, **In-active**, **Never Signed In** and **No Employee Linked**. Press one to filter the list.",
+      "Filter with **Search** (name, email or employee code), **Role**, **Department** and **Status**, then press **Go**.",
+      "Press **Create User**. Under **1. Employee**, choose the employee; their name, email and phone fill in. Tick **This person is not an employee** only for someone like an external auditor.",
+      "Under **2. Role**, choose the role. The blue box shows the areas and pages that role can open.",
+      "Leave **3. Customize access (optional)** on **Use the role's access**, or choose **Customize for this person** and set a module to **No access**, **View**, **Edit** or **Full**.",
+      "Under **4. Sign-in**, leave the password blank to generate one, keep **Must change the password at first sign-in** ticked, and press **Save**. Copy the temporary password from the green message; it is shown once.",
+      "Press **View** on a row to open the user page. Use **Change role**, **Customize access** (with **Reset to the role's access**) and the **Account** card to deactivate, reset the password or unlock."
+    ],
+    "notes": [
+      "Family and student logins are not listed here; they are managed from the client or student record.",
+      "You can only give a role or access level you hold yourself, and nobody can change their own role or access.",
+      "A reason is required to change a role, customise access or deactivate an account. It is written to the audit log.",
+      "**Advanced settings** on the user page opens sessions, two-factor and the full permission matrix."
+    ]
+  },
+  "admin:/admin/roles": {
+    "purpose": "The roles grouped by application area, with the number of people on each. HR uses it to create roles, see and change what a role can open, and give a role to people.",
+    "steps": [
+      "Filter by **Application** or **Search**, then press **Go**.",
+      "Press **Create role** to add a role. Give it a name, choose the portal, and optionally copy an existing role.",
+      "Press **Permissions** on a row. The **Access** card lists what the role can open in plain words. Set each module to **No access**, **View**, **Edit** or **Full**, give a **Reason (required)** and press **Save role**.",
+      "Press **Assign Users** to give the role to several people at once, or **View users** to see who holds it.",
+      "Press **Compare roles** for a side-by-side view of two roles, or **Check access** to test one exact permission for one person."
+    ],
+    "notes": [
+      "**View** opens and exports. **Edit** also creates, edits and assigns. **Full** also approves, deletes, runs and configures.",
+      "**Advanced: permission matrix** on the role page sets single actions when a level is not precise enough.",
+      "The full-access role keeps full access and cannot be narrowed. System roles can be edited but never deleted."
+    ]
+  },
+  "admin:/hr/permissions": {
+    "purpose": "One table of what every staff role can open in each area of the menu, and a check of one person's real access.",
+    "steps": [
+      "Read the table: one row per staff role, one column per menu area. Each cell says **Full**, **Edit**, **View**, **Partial** or **—**. Point at a cell to see how many pages that is.",
+      "Press a role name to open the role and change its access.",
+      "Under **Check one person's access**, choose the **Person** and press **Check access**. Open an area to see each page they can open and at what level.",
+      "Press **Test one exact permission** to check a single permission for a person and see why it is allowed or refused."
+    ],
+    "notes": [
+      "A cell shows the level most of that area's pages reach. **Partial** means fewer than half of the area's pages open.",
+      "The person check includes their customisations, listed as **Extra** and **Removed**. A deactivated account opens nothing."
     ]
   },
   "admin:/hr/config/violation-types": {
