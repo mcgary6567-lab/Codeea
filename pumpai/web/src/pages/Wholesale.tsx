@@ -359,7 +359,7 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
       <table className="w-full">
         <thead><tr>
           <th className="th">Date</th>{showClient && <th className="th">Client</th>}<th className="th">Entry</th><th className="th">Details</th>
-          <th className="th text-right">Debit (billed)</th><th className="th text-right">Credit (paid / returned)</th>{running && <th className="th text-right">Balance</th>}<th className="th print:hidden" />
+          <th className="th text-right">Debit<span className="print:hidden"> (billed)</span></th><th className="th text-right">Credit<span className="print:hidden"> (paid / returned)</span></th>{running && <th className="th text-right">Balance</th>}<th className="th print:hidden" />
         </tr></thead>
         <tbody>
           {rows.map((r) => {
@@ -367,18 +367,18 @@ function LedgerTable({ rows, running, showClient, onVoid }: { rows: any[]; runni
             const credit = running ? r.credit : debit ? 0 : Math.abs(r.amount);
             return (
               <tr key={r.id} className={r.voided ? "text-slate-400 line-through" : ""}>
-                <td className="td text-xs">{dt(r.txn_date)}</td>
+                <td className="td text-xs"><span className="print:hidden">{dt(r.txn_date)}</span><span className="hidden whitespace-nowrap print:inline">{d(r.txn_date)}</span></td>
                 {showClient && <td className="td text-sm"><Link to={`/wholesale/${r.client_id}`} className="hover:underline">{r.client_name}</Link></td>}
                 <td className="td"><Badge tone={TYPE[r.type].tone}>{TYPE[r.type].label}</Badge> {r.voided ? <Badge tone="red">VOID</Badge> : null}</td>
                 <td className="td text-xs">
                   {r.product && <div>{num(r.litres, 2)} L {PRODUCTS[r.product]} @ Rs {r.rate}{r.station_name ? ` · ${r.station_name}` : ""}</div>}
                   {r.method && <div>{r.method}</div>}
                   <ProofThumbs ids={r.proof_ids} />
-                  <div className="text-slate-500">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
+                  <div className="text-slate-500 print:text-[10px] print:leading-tight">{[r.vehicle_no && `🚛 ${r.vehicle_no}`, r.driver_name && `👤 ${r.driver_name}`, r.location && `📍 ${r.location}`, r.trip_id && `trip #${r.trip_id}`, r.ref, r.note, r.voided && r.void_reason].filter(Boolean).join(" · ")}</div>
                 </td>
-                <td className="td text-right tabular-nums">{debit ? pkr(debit) : ""}</td>
-                <td className="td text-right tabular-nums text-emerald-700">{credit ? pkr(credit) : ""}</td>
-                {running && <td className="td text-right font-medium tabular-nums">{pkr(r.balance)}</td>}
+                <td className="td whitespace-nowrap text-right tabular-nums">{debit ? pkr(debit) : ""}</td>
+                <td className="td whitespace-nowrap text-right tabular-nums text-emerald-700">{credit ? pkr(credit) : ""}</td>
+                {running && <td className="td whitespace-nowrap text-right font-medium tabular-nums">{pkr(r.balance)}</td>}
                 <td className="td print:hidden">{onVoid && !r.voided && <button className="text-slate-400 hover:text-red-600" title="Void entry" onClick={() => onVoid(r)}><Ban size={14} /></button>}</td>
               </tr>
             );

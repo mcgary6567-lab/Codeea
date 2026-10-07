@@ -312,9 +312,9 @@ export function ClientDeskCard({ client, onAction, refreshKey, onChanged }: { cl
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="mr-auto font-semibold">Orders, promises & cheques</h2>
         {manage && <>
-          <button className="btn-secondary !py-1.5 text-sm" onClick={() => onAction("order")}><ClipboardList size={14} /> New order</button>
-          <button className="btn-secondary !py-1.5 text-sm" onClick={() => onAction("promise")}><CalendarClock size={14} /> Promise</button>
-          <button className="btn-secondary !py-1.5 text-sm" onClick={() => onAction("cheque")}><Banknote size={14} /> Cheque</button>
+          <button className="btn-secondary min-h-10 !py-1.5 text-sm" onClick={() => onAction("order")}><ClipboardList size={14} /> New order</button>
+          <button className="btn-secondary min-h-10 !py-1.5 text-sm" onClick={() => onAction("promise")}><CalendarClock size={14} /> Promise</button>
+          <button className="btn-secondary min-h-10 !py-1.5 text-sm" onClick={() => onAction("cheque")}><Banknote size={14} /> Cheque</button>
         </>}
       </div>
       <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
