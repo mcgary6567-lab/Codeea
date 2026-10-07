@@ -31,10 +31,8 @@ export const handoverMode = (t: number) => Boolean(
 /** SQL: this payment method is cash (no method means cash). */
 export const cashSql = (col: string) => `LOWER(TRIM(COALESCE(${col},''))) IN ('cash','')`;
 
-export function cashPosition(t: number, until = new Date().toISOString()) {
-  const last = get("SELECT * FROM cash_counts WHERE tenant_id=? AND created_at <= ? ORDER BY created_at DESC, id DESC LIMIT 1", t, until);
-  // before the first cash count the book runs from the very first entry
-  const since = last?.created_at ?? "1970-01-01T00:00:00.000Z";
+/** Cash that came into and went out of the office between two moments. */
+export function cashFlows(t: number, since: string, until: string) {
   const P = [t, since, until] as const;
   const one = (sql: string, ...args: unknown[]) => round2(get(sql, ...(args as []))!.v ?? 0);
   const ins = {
@@ -62,10 +60,18 @@ export function cashPosition(t: number, until = new Date().toISOString()) {
     staff_advances: one(`SELECT COALESCE(SUM(amount),0) v FROM staff_ledger WHERE tenant_id=? AND (type='advance' OR (type='bonus' AND month IS NULL)) AND ${cashSql("method")} AND created_at > ? AND created_at <= ?`, ...P),
   };
   const sum = (o: Record<string, number>) => round2(Object.values(o).reduce((a, b) => a + b, 0));
+  return { ins, outs, total_in: sum(ins), total_out: sum(outs) };
+}
+
+export function cashPosition(t: number, until = new Date().toISOString()) {
+  const last = get("SELECT * FROM cash_counts WHERE tenant_id=? AND created_at <= ? ORDER BY created_at DESC, id DESC LIMIT 1", t, until);
+  // before the first cash count the book runs from the very first entry
+  const since = last?.created_at ?? "1970-01-01T00:00:00.000Z";
+  const { ins, outs, total_in, total_out } = cashFlows(t, since, until);
   return {
     last_count: last ? { amount: last.amount, at: last.created_at, by: last.counted_by, variance: last.variance } : null,
-    since, ins, outs, total_in: sum(ins), total_out: sum(outs),
-    cash_in_hand: round2((last?.amount ?? 0) + sum(ins) - sum(outs)),
+    since, ins, outs, total_in, total_out,
+    cash_in_hand: round2((last?.amount ?? 0) + total_in - total_out),
   };
 }
 
@@ -215,7 +221,11 @@ export async function closeDay(t: number, day = pkDate(Date.now() - 86_400_000))
   if (get("SELECT id FROM day_closes WHERE tenant_id=? AND day=?", t, day)) return { day, already: true };
   const book = dayBook(t, pkStart(day), pkEnd(day));
   const cash = cashPosition(t, pkEnd(day));
-  run("INSERT INTO day_closes (tenant_id,day,data,closed_at) VALUES (?,?,?,?)", t, day, JSON.stringify({ book, cash }), now());
+  // the day's own ins and outs; cash.ins / cash.outs run from the last cash count, which may be days back or after the day's shifts
+  const flows = cashFlows(t, pkStart(day), pkEnd(day));
+  // shift cash the salesmen still hold: closed shifts not yet handed to the cashier
+  const unhanded = handoverMode(t) ? round2(get("SELECT COALESCE(SUM(sh.cash_actual),0) v FROM shifts sh JOIN stations s ON s.id=sh.station_id WHERE s.tenant_id=? AND sh.status='closed' AND sh.handed_at IS NULL AND sh.closed_at <= ?", t, pkEnd(day))!.v) : 0;
+  run("INSERT INTO day_closes (tenant_id,day,data,closed_at) VALUES (?,?,?,?)", t, day, JSON.stringify({ book, cash, flows, unhanded }), now());
   const owner = getSetting(t, "owner_phone") || get("SELECT owner_phone FROM tenants WHERE id=?", t)?.owner_phone;
   const s = book.sales;
   const text = `📒 Din band — ${day}\n💰 Sale ${pkr(s.revenue)} (${Math.round(s.retail_litres).toLocaleString()} L pump${s.wholesale ? ` + ${pkr(s.wholesale)} wholesale` : ""})\n` +
@@ -243,23 +253,24 @@ export function renderDay(token: string): string | null {
   try { p = jwt.verify(token, config.jwtSecret) as typeof p; } catch { return null; }
   const row = get("SELECT * FROM day_closes WHERE tenant_id=? AND day=?", p.t, p.day);
   if (!row) return null;
-  const { book: b, cash: c } = JSON.parse(row.data);
+  const { book: b, cash: c, flows, unhanded } = JSON.parse(row.data);
+  const f = flows ?? c; // days closed before flows were kept
   const tenant = get("SELECT name FROM tenants WHERE id=?", p.t)!.name;
   const kv = (k: string, v: string) => `<tr><td>${esc(k)}</td><td class=r>${esc(v)}</td></tr>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Day report ${esc(p.day)} — ${esc(tenant)}</title>
 <style>:root{color-scheme:light}body{font:14px/1.45 system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a}.page{max-width:820px;margin:16px auto;background:#fff;padding:22px;border-radius:12px}
 h1{margin:0 0 4px;font-size:21px}h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #064e3b;padding-bottom:3px}.muted{color:#64748b}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}.tile{background:#f8fafc;border-radius:8px;padding:10px}.tile b{display:block;font-size:19px}
-.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:520px}td,th{padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:left}.r{text-align:right;font-variant-numeric:tabular-nums}
-button{margin-top:14px;padding:9px 16px;border:0;border-radius:8px;background:#064e3b;color:#fff;font-size:15px}@media print{button{display:none}body{background:#fff}.page{margin:0}}@media(max-width:600px){.page{margin:0;border-radius:0;padding:14px}}
+table{width:100%;border-collapse:collapse}td,th{padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:left}.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+button{margin-top:14px;padding:9px 16px;border:0;border-radius:8px;background:#064e3b;color:#fff;font-size:15px}@media print{button{display:none}body{background:#fff}.page{margin:0;padding:0}h2{margin:12px 0 4px}td,th{padding:3px 8px}.tile{padding:7px 10px}}@media(max-width:600px){.page{margin:0;border-radius:0;padding:14px}td{padding:6px 8px}.stock tr:first-child{display:none}.stock tr{display:grid;grid-template-columns:1fr 1fr;padding:6px 0;border-bottom:1px solid #e2e8f0}.stock td{border:0;background:none!important;padding:2px 8px}.stock td:first-child{grid-column:1/-1;font-weight:600}.stock td.r{text-align:left}.stock td[data-l]:before{content:attr(data-l)" ";color:#64748b}}
 ${BRAND_CSS}tr:nth-child(even) td{background:#f8fafc}th{background:#0f172a;color:#fff}</style></head><body><div class=page>
 ${brandHead(p.t, "Day report")}<h1>Day report · ${esc(p.day)}</h1><div class=muted>${esc(new Date(`${p.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))} · closed ${esc(new Date(row.closed_at).toLocaleString("en-PK", { timeZone: "Asia/Karachi" }))}</div>
 <div class=grid style="margin-top:12px"><div class=tile>Sales<b>${rs(b.sales.revenue)}</b></div><div class=tile>Expenses<b>${rs(b.expenses.total)}</b></div><div class=tile>Supply received<b>${Number(b.supply.litres).toLocaleString()} L</b></div><div class=tile>Office cash<b>${rs(c.cash_in_hand)}</b></div></div>
 <h2>Sales</h2><table>${kv("Pump sales", `${rs(b.sales.retail)} · ${Math.round(b.sales.retail_litres).toLocaleString()} L · ${b.sales.txns} sales`)}${kv("Wholesale", rs(b.sales.wholesale))}${kv("Cash", rs(b.sales.cash))}${kv("Digital", rs(b.sales.digital))}${kv("Khata", rs(b.sales.khata))}${kv("Profit (est.)", rs(b.profit.net))}</table>
-<h2>Stock</h2><div class=wrap><table><tr><th>Fuel</th><th class=r>Opening</th><th class=r>Received</th><th class=r>Sold</th><th class=r>Closing</th><th class=r>Value (cost)</th></tr>
-${b.stock.products.map((x: any) => `<tr><td>${esc(x.name)}</td><td class=r>${x.opening_l.toLocaleString()}</td><td class=r>${x.received_l.toLocaleString()}</td><td class=r>${x.sold_l.toLocaleString()}</td><td class=r>${x.closing_l.toLocaleString()}</td><td class=r>${rs(x.value_at_cost)}</td></tr>`).join("")}</table></div>
+<h2>Stock</h2><table class=stock><tr><th>Fuel</th><th class=r>Opening</th><th class=r>Received</th><th class=r>Sold</th><th class=r>Closing</th><th class=r>Value (cost)</th></tr>
+${b.stock.products.map((x: any) => `<tr><td>${esc(x.name)}</td><td class=r data-l="Opening">${x.opening_l.toLocaleString()}</td><td class=r data-l="Received">${x.received_l.toLocaleString()}</td><td class=r data-l="Sold">${x.sold_l.toLocaleString()}</td><td class=r data-l="Closing">${x.closing_l.toLocaleString()}</td><td class=r data-l="Value">${rs(x.value_at_cost)}</td></tr>`).join("")}</table>
 <h2>Expenses</h2><table>${b.expenses.by_category.map((e: any) => kv(e.category, rs(e.amount))).join("") || "<tr><td class=muted>None</td></tr>"}</table>
-<h2>Cash</h2><table>${kv("Shift cash handed over", rs(c.ins.shift_cash))}${kv("Khata / wholesale cash received", rs(c.ins.khata_cash + c.ins.wholesale_cash))}${kv("Deposited in bank", rs(c.outs.bank_deposits))}${kv("Cash expenses & payments", rs(c.outs.expenses + c.outs.supplier_payments + c.outs.staff_advances))}${kv("Shift cash short / over", rs(b.shifts.variance))}${kv("Office cash at day end", rs(c.cash_in_hand))}</table>
+<h2>Cash</h2><table>${kv("Shift cash handed over", rs(f.ins.shift_cash))}${unhanded ? kv("Shift cash not yet handed over", rs(unhanded)) : ""}${kv("Khata / wholesale cash received", rs(f.ins.khata_cash + f.ins.wholesale_cash))}${kv("Other cash received", rs(f.total_in - f.ins.shift_cash - f.ins.khata_cash - f.ins.wholesale_cash))}${kv("Deposited in bank", rs(f.outs.bank_deposits))}${kv("Cash expenses & payments", rs(f.total_out - f.outs.bank_deposits))}${kv("Shift cash short / over", rs(b.shifts.variance))}${kv("Office cash at day end", rs(c.cash_in_hand))}</table>
 <h2>Balances</h2><table>${kv("People owe us", rs(b.receivables))}${kv("We owe", rs(b.payables))}</table>
 ${brandFoot(p.t)}
 <button onclick="print()">Print / Save as PDF</button></div></body></html>`;

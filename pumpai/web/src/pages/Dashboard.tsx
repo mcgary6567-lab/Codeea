@@ -264,7 +264,7 @@ function ClosedDays({ onClose }: { onClose: () => void }) {
           {data.map((d) => (
             <li key={d.id} className="flex items-center justify-between py-2 text-sm">
               <span>{new Date(`${d.day}T12:00:00+05:00`).toLocaleDateString("en-PK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
-              <a className="text-brand-600 hover:underline" href={d.url} target="_blank" rel="noreferrer">Day report →</a>
+              <a className="inline-flex min-h-10 items-center px-2 text-brand-600 hover:underline" href={d.url} target="_blank" rel="noreferrer">Day report →</a>
             </li>
           ))}
         </ul>
