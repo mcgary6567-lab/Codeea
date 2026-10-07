@@ -660,8 +660,9 @@ function DayBook() {
             {(filter !== "all" || q) && <p className="text-xs text-slate-500">{rows.length} of {data.rows.length} · in {pkr(rows.filter((r) => r.dir === "in").reduce((a, r) => a + r.amount, 0))} · out {pkr(rows.filter((r) => r.dir === "out").reduce((a, r) => a + r.amount, 0))}</p>}
           </div>
           <ul className="divide-y divide-slate-100">
-            {rows.slice(0, shown).map((r: any, i: number) => (
-              <li key={i} className={`flex items-center gap-3 px-4 py-2 text-sm ${r.before_start ? "opacity-60" : ""}`}>
+            {/* screen shows up to `shown` with a "show more"; print always shows every row */}
+            {rows.map((r: any, i: number) => (
+              <li key={i} className={`items-center gap-3 px-4 py-2 text-sm print:flex print:py-1 ${i < shown ? "flex" : "hidden"} ${r.before_start ? "opacity-60" : ""}`}>
                 <span className="min-w-0 flex-1"><span className="block font-medium">{r.what}{r.before_start && <span className="ml-1 text-xs font-normal text-amber-700">(before the count)</span>}</span><span className="block break-words text-xs text-slate-500">{[new Date(r.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }), r.party, r.method, r.account, r.who].filter(Boolean).join(" · ")}</span></span>
                 <span className={`shrink-0 self-start whitespace-nowrap font-semibold tabular-nums ${r.dir === "in" ? "text-emerald-700" : r.dir === "out" ? "text-rose-700" : r.dir === "count" ? "text-amber-700" : "text-sky-700"}`}>{r.dir === "in" ? "+" : r.dir === "out" ? "−" : r.dir === "count" ? (r.start ? "=" : r.signed < 0 ? "−" : r.signed > 0 ? "+" : "✓") : "⇄"} {pkr(r.amount)}</span>
               </li>
