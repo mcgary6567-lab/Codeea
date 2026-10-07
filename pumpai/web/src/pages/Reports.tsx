@@ -353,7 +353,9 @@ function tablesFor(tab: Tab, r: any): TableDef[] {
         { title: "By product", rows: r.wholesale.by_product, cols: [prod(), l("Net litres", "net_l"), m("Amount", "amount")] },
       ];
     case "shifts":
-      return [{ title: "By attendant", rows: r.shifts.by_attendant, cols: [txt("Attendant", "attendant"), txt("Station", "station"), l("Shifts", "shifts"), l("Litres", "litres"), m("Expected", "expected"), m("Counted", "counted"),
-        { h: "Variance", v: (x) => <span className={x.variance < -500 ? "font-semibold text-red-600" : ""}>{pkr(x.variance)}</span>, csv: (x) => x.variance, right: true }, m("Worst shift", "worst")] }];
+      return [{ title: "By attendant", rows: r.shifts.by_attendant, cols: [
+        { h: "Attendant", v: (x) => <>{x.attendant}<span className="block text-[10px] text-slate-500">{x.station}</span></>, csv: (x) => `${x.attendant} (${x.station})` },
+        l("Shifts", "shifts"), l("Litres", "litres"), m("Expected", "expected"), m("Counted", "counted"),
+        { h: "Variance", v: (x) => <span className={x.variance < -500 ? "font-semibold text-red-600" : ""}>{pkr(x.variance)}</span>, csv: (x) => x.variance, right: true }, m("Worst", "worst")] }];
   }
 }
