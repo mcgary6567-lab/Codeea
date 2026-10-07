@@ -110,9 +110,9 @@ h1{font-size:22px;margin:0}.m{color:#64748b;font-size:13px}.g{color:#047857}.red
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}.t{background:#f8fafc;border-radius:10px;padding:10px}.big{font-size:24px;font-weight:700;white-space:nowrap}
 a.b,button.b{display:block;width:100%;text-align:center;background:#064e3b;color:#fff;border:0;padding:14px;border-radius:12px;font-size:17px;font-weight:600;text-decoration:none;margin-top:10px;cursor:pointer}
 input[name=pin]{font-size:30px;letter-spacing:10px;text-align:center;width:100%;padding:12px;border:2px solid #cbd5e1;border-radius:12px}
-.err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}.po{display:none}
+.err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px}ul{padding-left:18px;margin:6px 0}.po{display:none}.ent{display:flex;flex-direction:column}
 @media print{body{background:#fff;font-size:12px}.np,.top{display:none!important}.po{display:block}.c{box-shadow:none;border:1px solid #cbd5e1;break-inside:avoid;padding:10px;margin-bottom:8px}
-.e{break-inside:avoid;padding:6px 0}.rate{background:#fff!important;color:#000;border:1px solid #94a3b8}.tile{border:1px solid #e2e8f0}.e .ic{width:28px;height:28px;font-size:15px}.hero .amt{font-size:26px}.w{max-width:none;padding:0}a{color:inherit;text-decoration:none}}`;
+.e{break-inside:avoid;padding:6px 0}.ent{flex-direction:column-reverse}.rate{background:#fff!important;color:#000;border:1px solid #94a3b8}.tile{border:1px solid #e2e8f0}.e .ic{width:28px;height:28px;font-size:15px}.hero .amt{font-size:26px}.w{max-width:none;padding:0}a{color:inherit;text-decoration:none}}`;
 
 const page = (title: string, body: string, tenantId?: number, top = "") => `<!doctype html><html lang="ur"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
@@ -190,7 +190,7 @@ ${c.credit_limit > 0 ? `<div class=m style="margin-top:6px">Credit limit · <spa
 <b>Entries · <span class=ur>تفصیل</span> — ${esc(periodLabel)}</b>
 <div class=m>⛽ fuel taken (+) · 💵 payment (−) · <span class=ur>باقی</span> = balance after each entry</div>
 <div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:600"><span>Opening · <span class=ur>شروع کا باقی</span></span><span>${n2(s.opening_balance)}</span></div>
-${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}
+<div class=ent>${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}</div>
 <div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
 }
 
@@ -244,7 +244,7 @@ ${byVehicle.length > 1 ? `<div class=c><b>By vehicle · <span class=ur>گاڑی 
 <b>Entries · <span class=ur>تفصیل</span> — ${esc(periodLabel)}</b>
 <div class=m>⛽ fuel taken (+) · 💵 payment (−) · <span class=ur>باقی</span> = balance after each entry</div>
 <div class=sum style="border-top:0;border-bottom:1px solid #e2e8f0;font-weight:600"><span>Opening · <span class=ur>شروع کا باقی</span></span><span>${n2(s.opening_balance)}</span></div>
-${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}
+<div class=ent>${rows || `<p class=m style="text-align:center;padding:16px">No entries in this period · <span class=ur>اس دوران کوئی اندراج نہیں</span></p>`}</div>
 <div class=sum><span>Closing · <span class=ur>آخری باقی</span></span><span>${n2(s.closing_balance)}</span></div></div>`;
 }
 
