@@ -91,22 +91,20 @@ wholesaleDesk.post("/wholesale/clients/:id/carriage", requirePerm("wholesale.man
   const b = parse(z.object({
     supplier_id: z.number().int(), invoice_ref: z.string().max(60).optional().nullable(), vehicle_no: z.string().max(30).optional().nullable(),
     lines: z.array(z.object({ product, litres: z.number().positive().max(200_000) })).min(1),
-    mode: z.enum(["per_l", "lump"]), rate: z.number().positive().max(10_000).optional(), amount: z.number().positive().max(1_000_000_000).optional(),
-    note: z.string().max(200).optional().nullable(), txn_date: day.optional(),
+    // kiraya is a FIXED amount — whatever the depot invoice says (not per litre)
+    amount: z.number().positive().max(1_000_000_000), note: z.string().max(200).optional().nullable(), txn_date: day.optional(),
   }), req.body);
   const depot = get("SELECT name FROM suppliers WHERE id=? AND tenant_id=?", b.supplier_id, t);
   if (!depot) throw new AppError(400, "Choose the depot (our ID) the fuel was lifted on");
   const litres = round2(b.lines.reduce((a, l) => a + l.litres, 0));
-  const kiraya = b.mode === "per_l"
-    ? (b.rate ? round2(litres * b.rate) : (() => { throw new AppError(400, "Enter the kiraya rate (Rs/L)"); })())
-    : (b.amount ? round2(b.amount) : (() => { throw new AppError(400, "Enter the kiraya amount"); })());
+  const kiraya = round2(b.amount);
   const ts = b.txn_date ? new Date(`${b.txn_date}T12:00:00+05:00`).toISOString() : now();
   const breakdown = b.lines.map((l) => `${round2(l.litres)} L ${PRODUCTS[l.product] ?? l.product}`).join(" + ");
   const single = b.lines.length === 1 ? b.lines[0].product : null;
-  const note = [`Bypass on our ID · ${depot.name}`, breakdown, b.mode === "per_l" ? `kiraya @ Rs ${b.rate}/L` : "kiraya (lump)", b.note].filter(Boolean).join(" · ");
+  const note = [`Bypass on our ID · ${depot.name}`, breakdown, "fixed kiraya", b.note].filter(Boolean).join(" · ");
   const { id } = run(`INSERT INTO wholesale_txns (tenant_id,client_id,type,product,litres,rate,amount,vehicle_no,ref,note,created_by,txn_date,created_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    t, c.id, "carriage", single, litres, b.mode === "per_l" ? b.rate : null, kiraya, b.vehicle_no ?? null, b.invoice_ref ?? null, note, req.user!.name, ts, now());
+    t, c.id, "carriage", single, litres, null, kiraya, b.vehicle_no ?? null, b.invoice_ref ?? null, note, req.user!.name, ts, now());
   return { txn: get("SELECT * FROM wholesale_txns WHERE id=?", id), kiraya, litres, due: clientDue(c.id) };
 }));
 

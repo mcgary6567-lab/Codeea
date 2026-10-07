@@ -496,12 +496,12 @@ function AdjustmentEntry({ client, onClose, onDone }: { client: any; onClose: ()
 /** Bypass supply on OUR depot ID: the fuel is the client's (not our books), we only bill the kiraya/carriage as income. */
 function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () => void; onDone: () => void }) {
   const depots = useApi<any[]>("/wholesale/depots");
-  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", mode: "per_l", rate: "", amount: "", note: "" });
+  const [f, setF] = useState({ supplier_id: "", invoice_ref: "", vehicle_no: "", amount: "", note: "" });
   const [lines, setLines] = useState<{ product: string; litres: string }[]>([{ product: "HSD", litres: "" }]);
   const { busy, run } = useAction();
   const totalL = lines.reduce((a, l) => a + (Number(l.litres) || 0), 0);
-  const kiraya = f.mode === "per_l" ? totalL * (Number(f.rate) || 0) : Number(f.amount) || 0;
-  const valid = f.supplier_id && totalL > 0 && (f.mode === "per_l" ? Number(f.rate) > 0 : Number(f.amount) > 0);
+  const kiraya = Number(f.amount) || 0; // fixed kiraya written on the depot invoice
+  const valid = f.supplier_id && totalL > 0 && kiraya > 0;
   return (
     <Modal open onClose={onClose} title={`Bypass supply (our ID) — ${client.name}`}>
       <form className="space-y-3" onSubmit={async (e) => {
@@ -509,7 +509,7 @@ function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () =
         const body = {
           supplier_id: Number(f.supplier_id), invoice_ref: f.invoice_ref || null, vehicle_no: f.vehicle_no || null,
           lines: lines.filter((l) => Number(l.litres) > 0).map((l) => ({ product: l.product, litres: Number(l.litres) })),
-          mode: f.mode, rate: f.mode === "per_l" ? Number(f.rate) : undefined, amount: f.mode === "lump" ? Number(f.amount) : undefined, note: f.note || null,
+          mode: "lump", amount: Number(f.amount), note: f.note || null,
         };
         if (await run(() => api(`/wholesale/clients/${client.id}/carriage`, { body }), (r: any) => `Kiraya ${pkr(r.kiraya)} billed. Due now ${pkr(r.due)}`)) onDone();
       }}>
@@ -531,10 +531,7 @@ function CarriageEntry({ client, onClose, onDone }: { client: any; onClose: () =
           <Field label="Invoice no. (depot) · انوائس"><input className="input" value={f.invoice_ref} onChange={(e) => setF({ ...f, invoice_ref: e.target.value })} /></Field>
           <Field label="Tanker / vehicle"><input className="input" value={f.vehicle_no} onChange={(e) => setF({ ...f, vehicle_no: e.target.value })} /></Field>
         </div>
-        <Field label="Kiraya"><select className="input" value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}><option value="per_l">Per litre (Rs/L)</option><option value="lump">Lump sum (Rs)</option></select></Field>
-        {f.mode === "per_l"
-          ? <Field label="Kiraya rate (Rs/L) *"><input className="input" type="number" step="0.01" min={0} required value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} /></Field>
-          : <Field label="Kiraya amount (Rs) *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>}
+        <Field label="Kiraya (fixed — as written on the depot invoice) · کرایہ *"><input className="input" type="number" min={1} required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder="e.g. 8000" /></Field>
         <Field label="Note"><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
         <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">Total {num(totalL)} L · Kiraya billed: <b className="tabular-nums">{pkr(kiraya)}</b> <span className="text-slate-500">(client ke zimme, poora munafa)</span></div>
         <div className="flex justify-end gap-2"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !valid}>Bill kiraya</button></div>

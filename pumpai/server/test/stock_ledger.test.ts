@@ -288,7 +288,7 @@ test("a wholesale client pays our depot direct (bypass): client due and depot ba
 test("bypass on our depot ID (kiraya only): client billed carriage as income, no fuel/stock on our books", async () => {
   const B = await books();
   const r = ok(await call("wholesale", "POST", `/api/wholesale/clients/${W1.id}/carriage`,
-    { supplier_id: S.id, invoice_ref: "DEP-9", mode: "per_l", rate: 2, lines: [{ product: "HSD", litres: 5000 }] }), "carriage");
+    { supplier_id: S.id, invoice_ref: "DEP-9", amount: 10000, lines: [{ product: "HSD", litres: 5000 }] }), "carriage");
   assert.equal(r.kiraya, 10000);
   const A = await books();
   near(A.due1 - B.due1, 10000, "client due up by kiraya only");
