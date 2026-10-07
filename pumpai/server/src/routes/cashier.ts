@@ -201,6 +201,7 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
   }
   let src: string | null = null;
   let message: string | null = null;
+  let approval: string | null = null; // an expense above the limit waits for the owner
   if (cheque) {
     // a cheque leaves the bank only when it is paid: until then it waits in the register (an expense cheque too)
     if (!b.cheque) throw new AppError(400, "Enter the cheque's bank, number and date");
@@ -218,6 +219,7 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
     const e = await createExpense(req, { category: b.category, amount: b.amount, paid_to: b.party_name ?? null, method: ["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"].includes(method) ? method : "bank",
       note: b.note ?? null, receipt_ref: b.ref ?? b.cheque?.cheque_no ?? null, account_id: account, photo_id: b.photo_ids?.[0] ?? null });
     src = `expense:${e.id}`;
+    approval = e.status;
     if (e.status === "pending") message = "Above the approval limit — sent to the owner for approval.";
   } else if (b.party_type === "staff") {
     const lid = run("INSERT INTO staff_ledger (tenant_id,user_id,type,amount,note,created_by,created_at,method,account_id) VALUES (?,?,?,?,?,?,?,?,?)",
@@ -233,7 +235,7 @@ cashier.post("/cashier/pay", requirePerm("cash.pay"), h(async (req) => {
   const v = voucher(req, { direction: "out", party_type: b.party_type, party_id: p?.id, party_name: name, amount: b.amount, method: cheque ? "Cheque" : b.method,
     account_id: account, category: b.category, ref: b.cheque?.cheque_no ?? b.ref, note: b.note, src });
   if (!src) linkPhotos(t, b.photo_ids, `voucher:${v.id}`);
-  return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message };
+  return { voucher: v, balance_after: p ? balanceOf(b.party_type, p.id) : null, cheque_pending: cheque, message, approval };
 }));
 
 cashier.get("/cashier/vouchers", requirePerm("cashier.desk"), h((req) => {

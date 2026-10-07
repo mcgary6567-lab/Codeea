@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Download, Check, X, Trash2, Settings2, Repeat } from "lucide-react";
+import { Plus, Download, Check, X, Trash2, Settings2, Repeat, Printer } from "lucide-react";
 import { api, linkToken, useApi } from "../lib/api";
 import { Badge, Empty, Field, Loading, Modal, PageHeader, Stat, statusTone, useAction } from "../components/ui";
 import { FixedCosts } from "../components/FixedCosts";
@@ -7,6 +7,7 @@ import { d, pkr, pkrShort } from "../lib/format";
 import { useAuth } from "../App";
 import { PhotoButton, photoUrl } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
+import { VoucherSlip } from "./Cashier";
 
 const METHODS = ["cash", "bank", "jazzcash", "easypaisa", "raast", "cheque", "card"];
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -24,6 +25,7 @@ export default function Expenses() {
   const [adding, setAdding] = useState(false);
   const [setup, setSetup] = useState(false);
   const [fixed, setFixed] = useState(false);
+  const [slip, setSlip] = useState<any>(null);
   if (!data || !cats.data) return <Loading />;
   const s = data.summary;
   const change = s.previous_month ? Math.round(((s.total - s.previous_month) / s.previous_month) * 100) : null;
@@ -31,8 +33,15 @@ export default function Expenses() {
   const csvUrl = `/api/expenses.csv?${qs}&token=${linkToken()}`;
   const refresh = () => { reload(); cats.reload(); };
 
+  // the same two-copy payment voucher the cashier prints, for an expense entered here
+  const voucherOf = (e: any) => ({
+    from_expenses: true, approval: e.status, approved_by: e.status === "approved" ? e.approved_by : null,
+    voucher: { no: `EX-${String(e.id).padStart(5, "0")}`, direction: "out", amount: e.amount, party_name: e.paid_to ?? e.category, category: e.category,
+      method: e.method === "bank" ? "Bank transfer" : e.method.charAt(0).toUpperCase() + e.method.slice(1), ref: e.receipt_ref, note: e.note, created_by: e.created_by, created_at: e.created_at ?? e.expense_date },
+  });
   const actions = (e: any) => (
     <div className="flex justify-end gap-1">
+      <button className="btn-secondary min-h-9 !px-2 !py-1 sm:min-h-0" title="Print voucher" aria-label="Print voucher" onClick={() => setSlip(voucherOf(e))}><Printer size={14} /></button>
       {e.status === "pending" && can("expenses.approve") && <>
         <button className="btn-primary min-h-9 !px-2 !py-1 sm:min-h-0" title="Approve" aria-label="Approve" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/approve`, { body: {} }), "Approved").then(refresh)}><Check size={14} /></button>
         <button className="btn-secondary min-h-9 !px-2 !py-1 sm:min-h-0" title="Reject" aria-label="Reject" disabled={busy} onClick={() => run(() => api(`/expenses/${e.id}/reject`, { body: {} }), "Rejected").then(refresh)}><X size={14} /></button>
@@ -120,6 +129,7 @@ export default function Expenses() {
         </div>
       </div>
 
+      {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
       {adding && <ExpenseForm categories={cats.data.categories} stations={stations.data ?? []} limit={data.approval_limit} canApprove={can("expenses.approve")} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); refresh(); }} />}
       {fixed && <FixedCosts categories={cats.data.categories} stations={stations.data ?? []} onClose={() => { setFixed(false); refresh(); }} />}
       {setup && <CategorySetup data={cats.data} onClose={() => setSetup(false)} onChanged={refresh} />}

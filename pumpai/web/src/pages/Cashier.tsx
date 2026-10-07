@@ -371,7 +371,7 @@ function toWords(n: number): string {
   return `${parts.join(" ")} rupees only`;
 }
 
-function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
+export function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
   const v = r.voucher;
   const isIn = v.direction === "in";
   return (
@@ -379,7 +379,7 @@ function VoucherSlip({ r, onClose }: { r: any; onClose: () => void }) {
       {/* on paper: two copies on one page, each with the letterhead — the top one for the party, the bottom one stays in the office */}
       <div className="voucher-2up">
         <div className="print:break-inside-avoid"><PrintHeader /><VoucherBody r={r} copy={isIn ? "Party copy · گاہک کی کاپی" : "Payee copy · وصول کنندہ کی کاپی"} /><PrintFooter /></div>
-        <div className="my-5 hidden border-t-2 border-dashed border-slate-400 pt-1 text-center text-[10px] text-slate-500 print:block">✂ cut here · یہاں سے کاٹیں</div>
+        <div className="my-3 hidden border-t-2 border-dashed border-slate-400 pt-1 text-center text-[10px] text-slate-500 print:block">✂ cut here · یہاں سے کاٹیں</div>
         <div className="hidden print:block print:break-inside-avoid"><PrintHeader /><VoucherBody r={r} copy="Office copy · دفتر کی کاپی" /><PrintFooter /></div>
       </div>
       <div className="mt-4 flex justify-end gap-2 print:hidden">
@@ -395,15 +395,15 @@ function VoucherBody({ r, copy }: { r: any; copy: string }) {
   const v = r.voucher;
   const isIn = v.direction === "in";
   return (
-      <div className="space-y-3 text-sm print:space-y-2">
+      <div className="space-y-3 text-sm print:space-y-1.5">
         <div className="text-center">
           <div className="text-lg font-bold print:hidden">{tenant?.name}</div>
           <div className="font-semibold">{isIn ? <>Receipt voucher · <Ur>رسید</Ur></> : <>Payment voucher · <Ur>ادائیگی واؤچر</Ur></>}</div>
           <div className="text-xs text-slate-500">{v.no} · {dt(v.created_at)}</div>
           <span className="mt-1 hidden rounded border border-slate-800 px-2 text-[10px] font-bold uppercase tracking-wide print:inline-block">{copy}</span>
         </div>
-        <div className={`rounded-xl p-3 text-center print:p-2 ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
-          <div className="text-3xl font-bold tabular-nums print:text-2xl">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
+        <div className={`rounded-xl p-3 text-center print:px-2 print:py-1 ${isIn ? "bg-emerald-50" : "bg-rose-50"}`}>
+          <div className="text-3xl font-bold tabular-nums print:text-xl">{pkr(v.amount)}</div><div className="text-xs text-slate-600">{toWords(v.amount)}</div>
         </div>
         <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 print:gap-y-0.5">
           <dt className="text-slate-500">{isIn ? "Received from" : "Paid to"}</dt><dd className="font-medium">{v.party_name}</dd>
@@ -416,7 +416,13 @@ function VoucherBody({ r, copy }: { r: any; copy: string }) {
           <dt className="text-slate-500">By</dt><dd>{v.created_by}</dd>
         </dl>
         {r.message && <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900 print:hidden">{r.message}</p>}
-        <div className="grid grid-cols-2 gap-6 pt-8 text-center text-xs text-slate-500 print:pt-6"><div className="border-t border-slate-400 pt-1">Cashier · <Ur>کیشیئر</Ur></div><div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
+        {/* on paper too: an expense not yet approved, or turned down, must not pass as a settled payment */}
+        {(r.approval === "pending" || r.approval === "rejected") && <div className="rounded border-2 border-dashed border-amber-600 px-2 py-1 text-center print:py-0 text-xs font-bold uppercase tracking-wide text-amber-800">
+          {r.approval === "pending" ? <>Awaiting owner approval · <Ur>مالک کی منظوری باقی</Ur></> : <>Rejected · <Ur>نامنظور</Ur></>}</div>}
+        <div className={`grid ${v.category ? "grid-cols-3" : "grid-cols-2"} gap-6 pt-8 text-center text-xs text-slate-500 print:pt-5`}>
+          <div className="border-t border-slate-400 pt-1">{r.from_expenses ? <>Prepared by · <Ur>تیار کنندہ</Ur></> : <>Cashier · <Ur>کیشیئر</Ur></>}</div>
+          {v.category && <div className="border-t border-slate-400 pt-1">Approved by · <Ur>منظور</Ur>{r.approved_by ? <div className="text-slate-700">{r.approved_by}</div> : null}</div>}
+          <div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
       </div>
   );
 }
