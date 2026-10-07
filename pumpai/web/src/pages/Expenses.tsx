@@ -35,7 +35,7 @@ export default function Expenses() {
 
   // the same two-copy payment voucher the cashier prints, for an expense entered here
   const voucherOf = (e: any) => ({
-    from_expenses: true, approval: e.status, approved_by: e.status === "approved" ? e.approved_by : null,
+    prepared: true, approval: e.status, approved_by: e.status === "approved" ? e.approved_by : null,
     voucher: { no: `EX-${String(e.id).padStart(5, "0")}`, direction: "out", amount: e.amount, party_name: e.paid_to ?? e.category, category: e.category,
       method: e.method === "bank" ? "Bank transfer" : e.method.charAt(0).toUpperCase() + e.method.slice(1), ref: e.receipt_ref, note: e.note, created_by: e.created_by, created_at: e.created_at ?? e.expense_date },
   });

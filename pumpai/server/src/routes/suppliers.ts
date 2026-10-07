@@ -4,7 +4,7 @@ import { z } from "zod";
 import { recordWithholding, taxSettings } from "./tax.js";
 import { all, get, run, now, tx } from "../db.js";
 import { linkPhotos, proofPhotos, proofCol, requireProof, isCheque } from "./capture.js";
-import { bankAccountFor, accountIdField, chequeToRegister } from "./banks.js";
+import { bankAccountFor, accountIdField, chequeToRegister, accountName } from "./banks.js";
 import { h, parse, tid, can } from "../auth.js";
 import { AppError, normalizePhone, round2 } from "../services.js";
 import { announce } from "../notifications.js";
@@ -61,7 +61,8 @@ suppliers.get("/suppliers/:id", h((req) => {
   const lines = all(`SELECT x.*, ${proofCol("'stx:'||x.id")} FROM supplier_txns x WHERE x.supplier_id=? ORDER BY x.txn_date, x.id`, s.id).map((t) => {
     const effect = t.type === "payment" ? -t.amount : t.amount;
     bal = round2(bal + effect);
-    return { ...t, debit: effect > 0 ? effect : 0, credit: effect < 0 ? -effect : 0, balance: bal };
+    const acc = t.account_id ? get("SELECT * FROM bank_accounts WHERE id=?", t.account_id) : null;
+    return { ...t, debit: effect > 0 ? effect : 0, credit: effect < 0 ? -effect : 0, balance: bal, account_name: acc ? accountName(acc) : null };
   });
   return { ...s, owed: supplierOwed(s.id), lines: lines.reverse() };
 }));
@@ -84,8 +85,9 @@ suppliers.post("/suppliers/:id/payment", h((req) => {
     linkPhotos(t, b.photo_ids, `chq:${id}`);
     return { owed: supplierOwed(s.id), cheque_pending: true, message: "Cheque is in the register — mark it cleared when the bank pays it" };
   }
+  let pid = 0;
   tx(() => {
-    const pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+    pid = run("INSERT INTO supplier_txns (tenant_id,supplier_id,type,amount,method,ref,note,created_by,txn_date,created_at,account_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
       t, s.id, "payment", b.amount, b.method, b.ref ?? null, b.note ?? null, req.user!.name, ts, now(), accountId).id;
     linkPhotos(t, b.photo_ids, `stx:${pid}`);
     if (b.withholding) {
@@ -95,7 +97,9 @@ suppliers.post("/suppliers/:id/payment", h((req) => {
         rate: round2((b.withholding / (b.amount + b.withholding)) * 100), amount: b.withholding, note: b.ref ? `Payment ${b.ref}` : null, by: req.user!.name, date: ts });
     }
   });
-  return { owed: supplierOwed(s.id) };
+  // the payment as saved, for the voucher printed straight after
+  const acc = accountId ? get("SELECT * FROM bank_accounts WHERE id=?", accountId) : null;
+  return { owed: supplierOwed(s.id), payment: { ...get("SELECT * FROM supplier_txns WHERE id=?", pid), account_name: acc ? accountName(acc) : null, withholding: b.withholding ?? 0 } };
 }));
 
 suppliers.post("/suppliers/:id/adjustment", h((req) => {

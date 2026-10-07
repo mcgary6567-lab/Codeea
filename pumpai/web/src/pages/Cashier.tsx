@@ -406,7 +406,7 @@ function VoucherBody({ r, copy }: { r: any; copy: string }) {
         {(r.approval === "pending" || r.approval === "rejected") && <div className="rounded border-2 border-dashed border-amber-600 px-2 py-1 text-center print:py-0 text-xs font-bold uppercase tracking-wide text-amber-800">
           {r.approval === "pending" ? <>Awaiting owner approval · <Ur>مالک کی منظوری باقی</Ur></> : <>Rejected · <Ur>نامنظور</Ur></>}</div>}
         <div className={`grid ${v.category ? "grid-cols-3" : "grid-cols-2"} gap-6 pt-8 text-center text-xs text-slate-500 print:pt-5`}>
-          <div className="border-t border-slate-400 pt-1">{r.from_expenses ? <>Prepared by · <Ur>تیار کنندہ</Ur></> : <>Cashier · <Ur>کیشیئر</Ur></>}</div>
+          <div className="border-t border-slate-400 pt-1">{r.prepared ? <>Prepared by · <Ur>تیار کنندہ</Ur></> : <>Cashier · <Ur>کیشیئر</Ur></>}</div>
           {v.category && <div className="border-t border-slate-400 pt-1">Approved by · <Ur>منظور</Ur>{r.approved_by ? <div className="text-slate-700">{r.approved_by}</div> : null}</div>}
           <div className="border-t border-slate-400 pt-1">{isIn ? "Paid by" : "Received by"} · <Ur>دستخط</Ur></div></div>
       </div>

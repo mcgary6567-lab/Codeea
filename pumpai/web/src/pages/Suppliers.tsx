@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Wallet } from "lucide-react";
+import { Plus, Printer, Wallet } from "lucide-react";
+import { VoucherSlip } from "./Cashier";
 import { api, useApi } from "../lib/api";
 import { ProofPhotos, ProofThumbs } from "../components/Capture";
 import { AccountPicker } from "../components/BankParts";
@@ -77,16 +78,26 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
   const [pay, setPay] = useState({ amount: "", method: "Bank transfer", ref: "", wht: "" });
   const [photos, setPhotos] = useState<number[]>([]);
   const [account, setAccount] = useState<number | null>(null);
+  const [slip, setSlip] = useState<any>(null);
   const { busy, run } = useAction();
+  // the cashier's two-copy payment voucher, for a payment made from this page
+  const voucherOf = (t: any, owedAfter: number | null) => ({
+    prepared: true, party_type: "supplier", balance_after: owedAfter, account: t.account_name,
+    voucher: { no: `SP-${String(t.id).padStart(5, "0")}`, direction: "out", amount: t.amount, party_name: s.name, method: t.method, ref: t.ref,
+      note: [t.note, t.withholding ? `Income tax withheld ${pkr(t.withholding)} (paid to FBR)` : ""].filter(Boolean).join(" · ") || null, created_by: t.created_by, created_at: t.created_at },
+  });
+  const printable = (t: any) => t.type === "payment" && t.method !== "WHT";
   return (
     <Modal open onClose={onClose} title={s?.name ?? "Supplier"} wide>
+      {slip && <VoucherSlip r={slip} onClose={() => setSlip(null)} />}
       {!s ? <Loading /> : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
             <Stat label="We owe" value={pkr(s.owed)} tone="red" />
             <form className="grid min-w-0 flex-1 grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap" onSubmit={async (e) => {
               e.preventDefault();
-              if (await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`)) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); }
+              const res: any = await run(() => api(`/suppliers/${id}/payment`, { body: { amount: Number(pay.amount), method: pay.method, ref: pay.ref || null, withholding: Number(pay.wht) || 0, photo_ids: photos, account_id: account } }), (r: any) => `Payment saved. We now owe ${pkr(r.owed)}`);
+              if (res) { setPay({ ...pay, amount: "", ref: "", wht: "" }); setPhotos([]); reload(); onChanged(); if (res.payment) setSlip(voucherOf(res.payment, res.owed)); }
             }}>
               <Field label="Pay amount (Rs)"><input className="input sm:w-40" type="number" min={1} required value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></Field>
               <Field label="Method"><select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{["Bank transfer", "Pay order", "Online (1LINK)", "Cheque", "Cash"].map((m) => <option key={m}>{m}</option>)}</select></Field>
@@ -106,12 +117,13 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
                     <span className="shrink-0 text-right tabular-nums">{t.debit ? <span className="block font-semibold">{pkr(t.debit)}</span> : null}{t.credit ? <span className="block font-semibold text-emerald-700">−{pkr(t.credit)}</span> : null}<span className="text-[11px] text-slate-500">owe {pkr(t.balance)}</span></span>
                   </div>
                   <div className="break-words text-xs text-slate-600">{t.product ? `${num(t.litres)} L ${PRODUCTS[t.product]} @ Rs ${t.rate}` : t.method} <span className="text-slate-500">{[t.ref, t.note].filter(Boolean).join(" · ")}</span></div>
-                  <ProofThumbs ids={t.proof_ids} />
+                  <div className="flex items-center justify-between gap-2"><ProofThumbs ids={t.proof_ids} />
+                    {printable(t) && <button className="btn-secondary ml-auto min-h-9 !px-2 !py-1" aria-label="Print voucher" onClick={() => setSlip(voucherOf(t, t.balance))}><Printer size={14} /></button>}</div>
                 </li>
               ))}
             </ul>
             <table className="hidden w-full sm:table">
-              <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Details</th><th className="th text-right">Purchased</th><th className="th text-right">Paid</th><th className="th text-right">We owe</th></tr></thead>
+              <thead className="sticky top-0"><tr><th className="th">Date</th><th className="th">Entry</th><th className="th">Details</th><th className="th text-right">Purchased</th><th className="th text-right">Paid</th><th className="th text-right">We owe</th><th className="th" /></tr></thead>
               <tbody>{s.lines.map((t: any) => (
                 <tr key={t.id}>
                   <td className="td text-xs">{dt(t.txn_date)}</td>
@@ -120,6 +132,7 @@ function SupplierDetail({ id, onClose, onChanged }: { id: number; onClose: () =>
                   <td className="td text-right tabular-nums">{t.debit ? pkr(t.debit) : ""}</td>
                   <td className="td text-right tabular-nums text-emerald-700">{t.credit ? pkr(t.credit) : ""}</td>
                   <td className="td text-right font-medium tabular-nums">{pkr(t.balance)}</td>
+                  <td className="td">{printable(t) && <button className="btn-secondary !px-2 !py-1" aria-label="Print voucher" title="Print voucher" onClick={() => setSlip(voucherOf(t, t.balance))}><Printer size={14} /></button>}</td>
                 </tr>
               ))}</tbody>
             </table>
