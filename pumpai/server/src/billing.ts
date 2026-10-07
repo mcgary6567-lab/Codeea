@@ -189,9 +189,12 @@ export function renderReceipt(token: string): string | null {
   if (!tenant) return null;
   let rows: string, total: number, when: string, pay: string, station: string, taxLine = "";
   if (p.r === "f") {
-    const s = get("SELECT s.*, st.name station FROM sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND st.tenant_id=?", p.id, p.t);
+    const s = get(`SELECT s.*, st.name station, nz.label nozzle, sh.attendant FROM sales s JOIN stations st ON st.id=s.station_id
+      LEFT JOIN nozzles nz ON nz.id=s.nozzle_id LEFT JOIN shifts sh ON sh.id=s.shift_id WHERE s.id=? AND st.tenant_id=?`, p.id, p.t);
     if (!s) return null;
-    rows = `<tr><td>${esc(PRODUCTS[s.product])}<div class=muted>${n2(s.litres)} L × Rs ${n2(s.rate)}</div></td><td class=r>Rs ${n2(s.amount)}</td></tr>`;
+    // nozzle, vehicle and who filled it: what a customer checks when a fill is questioned
+    const fill = [s.nozzle ? `Nozzle ${s.nozzle}` : "", s.vehicle_no ? `Vehicle ${s.vehicle_no}` : "", s.attendant ? `Served by ${s.attendant}` : ""].filter(Boolean).map(esc).join(" · ");
+    rows = `<tr><td>${esc(PRODUCTS[s.product])}<div class=muted>${n2(s.litres)} L × Rs ${Number(s.rate).toFixed(2)}</div>${fill ? `<div class=muted>${fill}</div>` : ""}</td><td class=r>Rs ${n2(s.amount)}</td></tr>`;
     total = s.amount; when = s.created_at; pay = s.payment_method; station = s.station;
   } else {
     const s = get("SELECT s.*, st.name station FROM shop_sales s JOIN stations st ON st.id=s.station_id WHERE s.id=? AND s.tenant_id=?", p.id, p.t);
