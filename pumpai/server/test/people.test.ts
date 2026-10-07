@@ -72,6 +72,23 @@ test("loan: given from cash, instalments come off the salary by themselves; sala
   assert.equal(db.get("SELECT status FROM staff_loans WHERE id=?", small.id).status, "closed");
 });
 
+test("salary slip: a non-login staff member (night guard) is paid and gets a slip showing their designation", async () => {
+  const month = db.pkDate().slice(0, 7);
+  const guard = ok(await call("manager", "POST", "/api/staff/members", { name: "Watchman Akbar", job_title: "Chowkidar night", salary: 25000 }), "add guard");
+  // the non-login staff member shows up in the staff accounts list, with a salary to pay
+  const list = ok(await call("manager", "GET", "/api/staff"), "staff list");
+  assert.ok(list.find((u: any) => u.id === guard.id && u.salary === 25000), "guard is in staff accounts");
+  const paid = ok(await call("manager", "POST", `/api/staff/${guard.id}/pay-salary`, { photo_ids: await salaryProof(), month, absence_cut: 0, commission: 0 }), "pay guard");
+  assert.equal(paid.net, 25000);
+  assert.match(paid.slip_url, /\/slip\/.+\.pdf$/);
+  const res = await fetch(base + new URL(paid.slip_url).pathname);
+  assert.equal(res.headers.get("content-type"), "application/pdf");
+  const pdf = Buffer.from(await res.arrayBuffer()).toString("latin1");
+  assert.match(pdf, /\(Chowkidar night\)/, "slip shows the designation, not a generic 'Staff'");
+  assert.match(pdf, /\(Watchman Akbar\)/);
+  assert.match(pdf, /\(NET PAID\)/);
+});
+
 test("training: overdue fire safety shows, refreshed after training; weekly reminder", async () => {
   const m = ok(await call("manager", "GET", "/api/training"), "matrix");
   const row = m.staff.find((s: any) => s.id === imran);

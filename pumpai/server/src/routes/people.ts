@@ -97,7 +97,7 @@ export function slipPdf(token: string): Buffer | null {
   let p: { slip?: number; t: number };
   try { p = jwt.verify(token.replace(/\.pdf$/, ""), config.jwtSecret) as typeof p; } catch { return null; }
   if (typeof p.slip !== "number") return null;
-  const s = get("SELECT s.*, u.name, u.role, st.name station FROM salary_slips s JOIN users u ON u.id=s.user_id LEFT JOIN stations st ON st.id=u.station_id WHERE s.id=? AND s.tenant_id=?", p.slip, p.t);
+  const s = get("SELECT s.*, u.name, u.role, u.job_title, st.name station FROM salary_slips s JOIN users u ON u.id=s.user_id LEFT JOIN stations st ON st.id=u.station_id WHERE s.id=? AND s.tenant_id=?", p.slip, p.t);
   if (!s) return null;
   const d = JSON.parse(s.data);
   const tenant = get("SELECT name FROM tenants WHERE id=?", s.tenant_id)!.name;
@@ -105,7 +105,8 @@ export function slipPdf(token: string): Buffer | null {
   const monthName = new Date(`${s.month}-15T00:00:00Z`).toLocaleString("en-GB", { month: "long", year: "numeric" });
   const brand = brandLines(s.tenant_id);
   const logo = logoJpeg(s.tenant_id);
-  const role = s.role === "salesman" ? "Salesman" : s.role[0].toUpperCase() + s.role.slice(1);
+  // show the real designation (e.g. "Chowkidar (night)") for non-login staff; otherwise the capitalised role
+  const role = s.job_title || (s.role === "salesman" ? "Salesman" : s.role[0].toUpperCase() + s.role.slice(1));
   const paidOn = new Date(s.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "short", year: "numeric" });
   const pdf = new Pdf();
   const L = 40, R = Pdf.W - 40, HALF = Pdf.H / 2;
