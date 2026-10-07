@@ -174,6 +174,9 @@ BRANCH_PROPERTIES: list[tuple] = [
      "Days from the invoice date until payment is overdue.", 7, "number", "days", False, True, 10),
     ("billing_late_fee_pct", "billing", "Late Fee Percentage",
      "Charge added to an invoice left unpaid beyond the due date.", 2.5, "number", "percent", False, True, 20),
+    ("billing_late_fee_auto", "billing", "Charge Late Fees Automatically",
+     "When on, the overdue job adds the Late Fee Percentage to each overdue invoice once. Off by default: "
+     "turn it on only after the college has decided to charge late fees.", False, "boolean", None, False, True, 25),
     ("billing_send_reminders", "billing", "Send Payment Reminders",
      "Whether the billing reminder job messages families about unpaid invoices.", True, "boolean", None, False, True, 30),
     ("review_link", "general", "Google Review Link",

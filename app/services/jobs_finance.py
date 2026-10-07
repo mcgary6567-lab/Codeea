@@ -67,7 +67,8 @@ def overdue_and_reminders(db: Session) -> dict:
     today = date.today()
     marked, reminders, late_fees = 0, 0, 0
     send_reminders = billing.send_reminders_enabled(db)   # Branch Property "Send Payment Reminders"
-    fee_pct = billing.late_fee_pct(db)                    # Branch Property "Late Fee Percentage"; 0 posts nothing
+    # Branch Property "Late Fee Percentage", charged only when "Charge Late Fees Automatically" is on
+    fee_pct = billing.late_fee_pct(db) if billing.late_fees_automatic(db) else 0
     user = _system_user(db) if fee_pct > 0 else None
     open_invoices = db.query(Invoice).filter(Invoice.status.in_(["sent", "partial", "overdue"])).all()
     for inv in open_invoices:

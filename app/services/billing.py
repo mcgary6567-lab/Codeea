@@ -168,6 +168,7 @@ def _billing_reps(db: Session) -> list[User]:
 PROP_INVOICE_DUE_DAYS = "billing_invoice_due_days"
 PROP_LATE_FEE_PCT = "billing_late_fee_pct"
 PROP_SEND_REMINDERS = "billing_send_reminders"
+PROP_LATE_FEE_AUTO = "billing_late_fee_auto"   # explicit opt-in: the percentage alone never charges anyone
 PROP_ADVANCE_DAYS = "advance_invoice_generation_days"
 DEFAULT_ADVANCE_DAYS = 3
 
@@ -192,6 +193,15 @@ def invoice_due_days(db: Session) -> int:
 def late_fee_pct(db: Session) -> float:
     """Late fee percentage posted once per overdue invoice; 0 (the default) posts nothing."""
     return _prop_number(db, PROP_LATE_FEE_PCT, 0)
+
+
+def late_fees_automatic(db: Session) -> bool:
+    """Whether the overdue job charges the late fee by itself. Off unless someone turns it on: charging families
+    is a business decision, and the percentage was copied from the old ERP without one being made."""
+    raw = branch_property(db, PROP_LATE_FEE_AUTO, False)
+    if isinstance(raw, str):
+        return raw.strip().lower() in ("1", "true", "yes", "on")
+    return bool(raw)
 
 
 def send_reminders_enabled(db: Session) -> bool:

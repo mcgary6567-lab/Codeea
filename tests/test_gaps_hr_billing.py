@@ -121,14 +121,15 @@ def test_gateway_sync_allowed_outside_production(db, monkeypatch):
 
 # ============================================================================ finding 9: billing / accounts properties
 def test_billing_property_defaults_reproduce_previous_behaviour(db):
-    for key in (billing.PROP_INVOICE_DUE_DAYS, billing.PROP_LATE_FEE_PCT, billing.PROP_SEND_REMINDERS, billing.PROP_ADVANCE_DAYS,
-                accounting.PROP_POSTING_LOCK_DAYS, accounting.PROP_FY_START_MONTH):
+    for key in (billing.PROP_INVOICE_DUE_DAYS, billing.PROP_LATE_FEE_PCT, billing.PROP_LATE_FEE_AUTO, billing.PROP_SEND_REMINDERS,
+                billing.PROP_ADVANCE_DAYS, accounting.PROP_POSTING_LOCK_DAYS, accounting.PROP_FY_START_MONTH):
         _drop_setting(db, key)
     assert billing.invoice_due_days(db) == billing.INVOICE_TERMS_DAYS == 7
     assert billing.late_fee_pct(db) == 0
+    assert billing.late_fees_automatic(db) is False, "late fees are never charged unless someone turns them on"
     assert billing.send_reminders_enabled(db) is True
     assert billing.advance_invoice_days(db) == 3
-    assert accounting.posting_lock_days(db) == 0 and accounting.posting_lock_date(db) is None
+    assert accounting.posting_lock_days(db) == 0
     assert accounting.financial_year_start_month(db) == 1
     assert accounting.financial_year_start(db, date(2026, 10, 4)) == date(2026, 1, 1)
 
@@ -155,10 +156,20 @@ def test_invoice_due_date_uses_due_days(db):
     assert inv.due_date == date(2031, 1, 12)
 
 
+def _clear_late_fee_markers(db, invoice_ids=None):
+    """Inside the rolled-back test transaction, forget earlier late fees so the rule can be exercised again."""
+    q = db.query(ReminderLog).filter(ReminderLog.reminder_type == billing.LATE_FEE_MARKER)
+    if invoice_ids is not None:
+        q = q.filter(ReminderLog.entity_id.in_(invoice_ids))
+    q.delete(synchronize_session=False)
+    db.flush()
+
+
 def test_late_fee_posted_once_per_overdue_invoice(db):
-    inv = (db.query(Invoice).filter(Invoice.status == "overdue", Invoice.total > 0)
+    inv = (db.query(Invoice).filter(Invoice.status == "overdue", Invoice.total > Invoice.paid_amount)
            .order_by(Invoice.id).first())
     assert inv is not None
+    _clear_late_fee_markers(db, [inv.id])
     balance = round(float(inv.total) - float(inv.paid_amount), 2)
     assert balance > 0
     assert billing.post_late_fee(db, inv, None, pct=0) is None
@@ -177,27 +188,45 @@ def test_reminder_job_honours_send_reminders_switch(db):
     assert out["reminders"] == 0 and out["reminders_enabled"] is False and out["late_fees_posted"] == 0
 
 
+def test_reminder_job_charges_no_late_fee_until_switched_on(db):
+    _set_prop(db, billing.PROP_SEND_REMINDERS, False)
+    _set_prop(db, billing.PROP_LATE_FEE_PCT, 2.5)
+    _set_prop(db, billing.PROP_LATE_FEE_AUTO, False)
+    _clear_late_fee_markers(db)
+    assert jobs_finance.overdue_and_reminders(db)["late_fees_posted"] == 0
+
+
 def test_reminder_job_posts_late_fees_once(db):
     _set_prop(db, billing.PROP_SEND_REMINDERS, False)
     _set_prop(db, billing.PROP_LATE_FEE_PCT, 2.5)
+    _set_prop(db, billing.PROP_LATE_FEE_AUTO, True)
+    _clear_late_fee_markers(db)
     first = jobs_finance.overdue_and_reminders(db)
     assert first["late_fees_posted"] >= 1
     second = jobs_finance.overdue_and_reminders(db)
     assert second["late_fees_posted"] == 0
 
 
-def test_posting_lock_refuses_back_dated_entries(db):
+def test_posting_lock_allows_corrections_for_days_after_a_close(db):
+    """"Posting Lock After Close": a closed period still takes corrections for N days after it closed."""
+    from datetime import datetime as _dt
+    from app.models.finance import FinancialPeriod
     accounts = accounting.ensure_chart_of_accounts(db)
     codes = list(accounts.keys())[:2]
     lines = [(codes[0], 10, 0), (codes[1], 0, 10)]
+    recent, older = date(2031, 3, 15), date(2031, 2, 15)
+    db.add(FinancialPeriod(period="2031-03", status="closed", closed_at=_dt.utcnow() - timedelta(days=2)))
+    db.add(FinancialPeriod(period="2031-02", status="closed", closed_at=_dt.utcnow() - timedelta(days=10)))
+    db.flush()
     _set_prop(db, accounting.PROP_POSTING_LOCK_DAYS, 5, group="accounts")
-    with pytest.raises(ValueError, match="posting lock"):
-        accounting.post_journal(db, "back-dated", lines, entry_date=date.today() - timedelta(days=10), status="draft")
-    je = accounting.post_journal(db, "inside lock", lines, entry_date=date.today() - timedelta(days=2), status="draft")
-    assert je.id
+    assert accounting.post_journal(db, "correction 2 days after close", lines, entry_date=recent, status="draft").id
+    with pytest.raises(ValueError, match="closed"):
+        accounting.post_journal(db, "10 days after close", lines, entry_date=older, status="draft")
+    # an open period is never limited by the lock: payroll for last month, back-dated receipts
+    assert accounting.post_journal(db, "open period, old date", lines, entry_date=date.today() - timedelta(days=40), status="draft").id
     _set_prop(db, accounting.PROP_POSTING_LOCK_DAYS, 0, group="accounts")
-    je2 = accounting.post_journal(db, "no lock", lines, entry_date=date.today() - timedelta(days=400), status="draft")
-    assert je2.id
+    with pytest.raises(ValueError, match="closed"):
+        accounting.post_journal(db, "no grace", lines, entry_date=recent, status="draft")
 
 
 def test_financial_year_start_month(db):

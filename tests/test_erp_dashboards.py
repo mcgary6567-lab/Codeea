@@ -282,7 +282,8 @@ def test_erp_billing_seed_created_ledger_additions(db):
     assert len({r.addition_type for r in rows}) >= 4
     # the seed spreads additions over the 90 days before the day it ran; measure that spread, not the age
     # of the dev database, which only grows between re-seeds
-    oldest, newest = min(r.addition_date for r in rows), max(r.addition_date for r in rows)
+    seeded = [r for r in rows if r.addition_type != "Late Fee"]   # late fees are posted by the overdue job, not the seed
+    oldest, newest = min(r.addition_date for r in seeded), max(r.addition_date for r in seeded)
     assert (newest - oldest).days <= 95
     assert newest <= date.today()
     for r in rows:

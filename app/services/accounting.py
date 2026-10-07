@@ -92,6 +92,20 @@ def period_is_closed(db: Session, period: str) -> bool:
     return bool(fp and fp.status == "closed")
 
 
+def closed_period_refusal(db: Session, period: str, today: Optional[date] = None) -> Optional[str]:
+    """Why an entry cannot be dated in ``period``, or None. A closed period still accepts correcting entries for
+    the "Posting Lock After Close" days after it was closed; open periods are never limited by the lock."""
+    fp = db.query(FinancialPeriod).filter(FinancialPeriod.period == period).first()
+    if not fp or fp.status != "closed":
+        return None
+    grace = posting_lock_days(db)
+    closed_on = fp.closed_at.date() if fp.closed_at else None
+    if grace > 0 and closed_on and (today or date.today()) <= closed_on + timedelta(days=grace):
+        return None
+    return (f"Period {period} is closed; journal entries cannot be dated inside it"
+            + (f" (corrections were allowed for {grace} day(s) after it closed on {closed_on:%d %b %Y})" if grace and closed_on else ""))
+
+
 # ----------------------------------------------------------------------------- accounts Branch Properties
 # Configuration > Branch Properties (accounts group), read through the same helper as the attendance relaxations.
 # The fallbacks reproduce the behaviour before the properties were wired in: no back-dating lock, calendar year.
@@ -109,7 +123,7 @@ def _branch_int(db: Session, key: str, default: int, low: int, high: int) -> int
 
 
 def posting_lock_days(db: Session) -> int:
-    """Days back from today a journal entry may still be dated; 0 (the default) means no lock."""
+    """Days after a period is closed during which a correcting entry may still be dated inside it (0 = none)."""
     return _branch_int(db, PROP_POSTING_LOCK_DAYS, 0, 0, 3660)
 
 
@@ -169,12 +183,9 @@ def post_journal(db: Session, description: str, lines: list, reference_type: Opt
     if total_debit <= 0:
         raise ValueError("Journal entry total must be greater than zero")
     period = month_key(entry_date)
-    if period_is_closed(db, period):
-        raise ValueError(f"Period {period} is closed; journal entries cannot be dated inside it")
-    lock_from = posting_lock_date(db)
-    if lock_from and entry_date < lock_from:
-        raise ValueError(f"Journal entries cannot be dated before {lock_from:%d %b %Y}: the posting lock "
-                         f"(Branch Property \"Posting Lock After Close\") allows {posting_lock_days(db)} day(s) of back-dating")
+    refusal = closed_period_refusal(db, period)
+    if refusal:
+        raise ValueError(refusal)
     je = JournalEntry(entry_number=next_code(db, JournalEntry, "entry_number", "JE-", 6), entry_date=entry_date,
                       description=description[:250], reference_type=reference_type, reference_id=reference_id,
                       currency=currency or base_currency(db), total=total_debit, status=status,
