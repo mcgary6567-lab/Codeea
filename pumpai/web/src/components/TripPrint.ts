@@ -34,7 +34,8 @@ const CSS = `
   table { width: 100%; border-collapse: collapse; margin-top: 4px; }
   th, td { border: 1px solid #94a3b8; padding: 5px 7px; text-align: left; }
   th { font-size: 11px; }
-  .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .nw { white-space: nowrap; }
   .total td { font-weight: 700; }
   .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
   .signs div { border-top: 1px solid #0f172a; padding-top: 3px; font-size: 11px; text-align: center; }
@@ -54,8 +55,25 @@ const CSS = `
     .grid { grid-template-columns: 1fr; }
     .signs { gap: 8px; } .signs div { font-size: 10px; }
     th, td { padding: 4px 5px; } table { font-size: 12px; }
+    /* trip sheet on a phone: one card per drop instead of a squeezed six-column table */
+    table.drops thead { display: none; }
+    table.drops, table.drops tbody { display: block; }
+    table.drops tr { display: grid; grid-template-columns: 1.6em 1fr 1fr 1fr; border: 1px solid #94a3b8; border-radius: 6px; margin-top: 8px; overflow: hidden; }
+    table.drops td { border: 0; padding: 4px 6px; text-align: left; }
+    table.drops td.no { grid-row: 1; font-weight: 700; } table.drops td.who { grid-column: 2 / -1; }
+    table.drops td[data-l] { grid-row: 2; }
+    table.drops td:nth-child(3) { grid-column: 2; } table.drops td:nth-child(4) { grid-column: 3; } table.drops td:nth-child(5) { grid-column: 4; }
+    table.drops tr.total td:nth-child(2) { grid-column: 3; } table.drops tr.total td:nth-child(3) { grid-column: 4; }
+    table.drops td[data-l]::before { content: attr(data-l); display: block; font-size: 10px; color: #64748b; font-weight: 400; }
+    table.drops td.sign { grid-column: 1 / -1; height: 40px; border-top: 1px dashed #94a3b8; }
+    table.drops td.sign::before { content: "Received by (sign)"; font-size: 10px; color: #64748b; }
+    table.drops tr.total { background: #f1f5f9; } table.drops tr.total td:first-child { grid-column: 1 / -1; }
+    table.drops tr.total td.sign { display: none; }
   }
 `;
+
+/** A trip date is a day ("2026-10-07", kept as that day's midnight UTC): show it without a made-up midnight time. */
+const tripDay = (v?: string | null) => (v && /^\d{4}-\d{2}-\d{2}(T00:00:00(\.000)?Z)?$/.test(v) ? new Date(`${v.slice(0, 10)}T12:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" }) : dt(v));
 
 /** Bottom of each paper: address, email, website, social pages, the pump's own line. */
 function foot(t: any) {
@@ -80,7 +98,7 @@ const challanNo = (t: any, d: any, i: number) => (d.ref && d.ref !== `TRIP-${t.i
 
 function challanCopy(t: any, d: any, i: number, copy: string) {
   return `<div class="copy">
-    ${header(t, "Delivery challan · ڈیلیوری چالان", `No. ${challanNo(t, d, i)} · ${dt(t.trip_date)}`, copy)}
+    ${header(t, "Delivery challan · ڈیلیوری چالان", `No. ${challanNo(t, d, i)} · ${tripDay(t.trip_date)}`, copy)}
     <div class="grid">
       <div><span>Delivered to</span><b>${esc(d.client_name)}</b>${d.business_name && d.business_name !== d.client_name ? `<br>${esc(d.business_name)}` : ""}${d.phone ? `<br>☎ ${esc(phone(d.phone))}` : ""}</div>
       <div><span>Drop location</span>${esc(d.location || d.address || "—")}</div>
@@ -105,12 +123,12 @@ export function challanPages(t: any, only?: number) {
 /** The driver's trip sheet: every drop with a place to sign. */
 export function tripSheetPage(t: any) {
   const live = t.drops.filter((d: any) => !d.voided);
-  return `<div class="page">${header(t, "Trip sheet · ٹرپ شیٹ", `Trip #${t.id} · ${dt(t.trip_date)}`, "DRIVER COPY")}
+  return `<div class="page">${header(t, "Trip sheet · ٹرپ شیٹ", `Trip #${t.id} · ${tripDay(t.trip_date)}`, "DRIVER COPY")}
     <div class="grid"><div><span>Tanker / driver</span>${esc(vehicle(t))}</div><div><span>Loaded from</span>${esc(t.source === "depot" ? `${t.supplier_name ?? "Depot"}${t.depot_ref ? ` (${t.depot_ref})` : ""}` : t.business?.station ?? "")}</div></div>
-    <table><thead><tr><th>#</th><th>Client &amp; place</th><th>Fuel</th><th class="r">Litres</th><th class="r">Amount</th><th style="width:28%">Received by (sign)</th></tr></thead><tbody>
-    ${live.map((d: any, i: number) => `<tr><td>${i + 1}</td><td><b>${esc(d.client_name)}</b>${d.phone ? ` · ${esc(phone(d.phone))}` : ""}<br><span class="muted">${esc(d.location || d.address || "")}</span></td>
-      <td>${esc(PRODUCTS[d.product] ?? d.product)}</td><td class="r">${num(d.litres, 2)}</td><td class="r">${pkr(d.amount)}</td><td style="height:38px"></td></tr>`).join("")}
-    <tr class="total"><td colspan="3">Total (${live.length} drops)</td><td class="r">${num(t.delivered_l, 2)}</td><td class="r">${pkr(t.billed)}</td><td></td></tr></tbody></table>
+    <table class="drops"><thead><tr><th>#</th><th>Client &amp; place</th><th>Fuel</th><th class="r">Litres</th><th class="r">Amount</th><th style="width:28%">Received by (sign)</th></tr></thead><tbody>
+    ${live.map((d: any, i: number) => `<tr><td class="no">${i + 1}</td><td class="who"><b>${esc(d.client_name)}</b>${d.phone ? ` · <span class="nw">${esc(phone(d.phone))}</span>` : ""}<br><span class="muted">${esc(d.location || d.address || "")}</span></td>
+      <td data-l="Fuel">${esc(PRODUCTS[d.product] ?? d.product)}</td><td class="r" data-l="Litres">${num(d.litres, 2)}</td><td class="r" data-l="Amount">${pkr(d.amount)}</td><td class="sign" style="height:38px"></td></tr>`).join("")}
+    <tr class="total"><td colspan="3">Total (${live.length} drops)</td><td class="r" data-l="Litres">${num(t.delivered_l, 2)}</td><td class="r" data-l="Amount">${pkr(t.billed)}</td><td class="sign"></td></tr></tbody></table>
     <div class="signs"><div>Driver · ڈرائیور</div><div>Loaded by · لوڈ کرنے والا</div><div>Checked by (office) · دفتر</div></div>${foot(t)}</div>`;
 }
 
