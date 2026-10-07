@@ -143,20 +143,24 @@ care.get("/customers/:id/notice", requirePerm("khata.manage"), (req, res, next) 
     const tenant = get("SELECT * FROM tenants WHERE id=?", tid(req))!;
     const since = lastPaymentOrFirstDebit(c.id);
     const due = pkDate(Date.now() + 15 * DAY);
-    res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><title>Payment notice — ${esc(c.name)}</title>
+    const day = (d: string | number) => new Date(typeof d === "string" && d.length === 10 ? `${d}T12:00:00+05:00` : d).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "short", year: "numeric" });
+    // inside Urdu text a date or figure keeps its own left-to-right order
+    const ltr = (v: string) => `<bdi dir="ltr" style="white-space:nowrap">${esc(v)}</bdi>`;
+    res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment notice — ${esc(c.name)}</title>
 <style>body{font:15px/1.6 Georgia,serif;max-width:720px;margin:30px auto;padding:0 20px;color:#111}h1{font-size:20px;text-align:center}.ur{direction:rtl;font-family:'Noto Nastaliq Urdu',serif;line-height:2.2;border-top:1px solid #999;margin-top:24px;padding-top:12px}
-button{padding:8px 14px}@media print{button{display:none}}${BRAND_CSS}.lh,.lf{font-family:system-ui,sans-serif}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet"></head><body>
+button{margin:18px 0;padding:10px 18px;min-height:44px;border:0;border-radius:8px;background:#064e3b;color:#fff;font:15px system-ui,sans-serif}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:600px){body{margin:14px auto;padding:0 14px;font-size:15px}h1{font-size:17px}}@media print{button{display:none}body{margin:0 auto}}${BRAND_CSS}.lh,.lf{font-family:system-ui,sans-serif}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet"></head><body>
 ${brandHead(tid(req), "Legal notice")}
-<p style="text-align:right">${esc(pkDate())}</p>
+<p style="text-align:right">${esc(day(pkDate()))}</p>
 <p>To:<br><b>${esc(c.name)}</b>${c.city ? `<br>${esc(c.city)}` : ""}<br>Phone: +${esc(c.phone)}</p>
 <h1>NOTICE FOR PAYMENT OF OUTSTANDING DUES</h1>
 <p>Dear Sir / Madam,</p>
-<p>As per our records, an amount of <b>Rs ${n2(c.balance)}</b> is outstanding against your fuel credit (khata) account with us${since ? `; no payment has been received since <b>${esc(new Date(since).toLocaleDateString("en-PK"))}</b>` : ""}. The detailed statement with every fill, slip number and rate is attached / available on request.</p>
-<p>You are requested to clear the outstanding amount by <b>${esc(due)}</b>. If the amount is not paid by this date, we may stop further credit and take steps to recover the dues as per law.</p>
+<p>As per our records, an amount of <b>Rs ${n2(c.balance)}</b> is outstanding against your fuel credit (khata) account with us${since ? `; no payment has been received since <b>${esc(day(since))}</b>` : ""}. The detailed statement with every fill, slip number and rate is attached / available on request.</p>
+<p>You are requested to clear the outstanding amount by <b>${esc(day(due))}</b>. If the amount is not paid by this date, we may stop further credit and take steps to recover the dues as per law.</p>
 <p>If you have already paid, please share the payment details so that we can update your account.</p>
 <p>Yours sincerely,<br><br>__________________<br>${esc(tenant.owner_name ?? "")}<br>${esc(tenant.name)}</p>
 <div class="ur"><p><b>واجب الادا رقم کی ادائیگی کا نوٹس</b></p><p>محترم ${esc(c.name)}،</p>
-<p>ہمارے ریکارڈ کے مطابق آپ کے فیول کھاتے پر <b>${n2(c.balance)} روپے</b> واجب الادا ہیں۔ آپ سے گزارش ہے کہ یہ رقم <b>${esc(due)}</b> تک ادا کر دیں، ورنہ مزید ادھار بند کر کے قانون کے مطابق وصولی کی کارروائی کی جا سکتی ہے۔ اگر آپ ادائیگی کر چکے ہیں تو براہ کرم تفصیل بھیج دیں۔</p></div>
+<p>ہمارے ریکارڈ کے مطابق آپ کے فیول کھاتے پر <b>${ltr(n2(c.balance))} روپے</b> واجب الادا ہیں۔ آپ سے گزارش ہے کہ یہ رقم <b>${ltr(day(due))}</b> تک ادا کر دیں، ورنہ مزید ادھار بند کر کے قانون کے مطابق وصولی کی کارروائی کی جا سکتی ہے۔ اگر آپ ادائیگی کر چکے ہیں تو براہ کرم تفصیل بھیج دیں۔</p></div>
 ${brandFoot(tid(req))}
 <button onclick="print()">Print</button></body></html>`);
   } catch (e) { next(e); }

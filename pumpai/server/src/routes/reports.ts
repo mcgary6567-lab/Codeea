@@ -144,10 +144,13 @@ export function buildReport(t: number, from: string, to: string) {
   const stock = {
     products: products.map((p) => {
       const soldL = (inPeriod.retail_out[p] ?? 0) + (inPeriod.wholesale_out[p] ?? 0) - (inPeriod.returns_in[p] ?? 0);
+      const L = { opening: r0(opening[p]), received: r0(inPeriod.received[p]), returns: r0(inPeriod.returns_in[p]), retail: r0(inPeriod.retail_out[p]), wholesale: r0(inPeriod.wholesale_out[p]), closing: r0(closing[p]) };
       return {
-        product: p, name: PRODUCTS[p], opening_l: r0(opening[p]), received_l: r0(inPeriod.received[p]), returns_in_l: r0(inPeriod.returns_in[p]),
-        retail_sold_l: r0(inPeriod.retail_out[p]), wholesale_out_l: r0(inPeriod.wholesale_out[p]), dip_adjust_l: r0(inPeriod.dip_adjust[p]),
-        closing_l: r0(closing[p]), net_sold_l: r0(soldL), direct_l: r0(directL[p]), avg_cost: avgCost[p] ? round2(avgCost[p]!) : null,
+        product: p, name: PRODUCTS[p], opening_l: L.opening, received_l: L.received, returns_in_l: L.returns,
+        retail_sold_l: L.retail, wholesale_out_l: L.wholesale,
+        // the dip line takes the rounding of the others, so the printed movement adds up to the closing litre for litre
+        dip_adjust_l: L.closing - (L.opening + L.received + L.returns - L.retail - L.wholesale),
+        closing_l: L.closing, net_sold_l: r0(soldL), direct_l: r0(directL[p]), avg_cost: avgCost[p] ? round2(avgCost[p]!) : null,
         closing_value: avgCost[p] ? r0((closing[p] ?? 0) * avgCost[p]!) : null,
       };
     }),
